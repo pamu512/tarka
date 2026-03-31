@@ -17,6 +17,8 @@ jobs:
   analyze-java-kotlin:
     name: Analyze (java-kotlin)
     runs-on: ubuntu-latest
+    # Only run when the repository contains a top-level Java build project.
+    if: ${{ hashFiles('**/settings.gradle', '**/settings.gradle.kts', '**/pom.xml', '**/build.xml') != '' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -25,9 +27,22 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: java-kotlin
-          # Android/Kotlin SDK module in this repo has no full CI build harness.
-          # Buildless mode prevents autobuild failures while still scanning sources.
-          build-mode: none
+          build-mode: manual
+
+      - name: Build Java/Kotlin project (manual)
+        run: |
+          if [ -f "./gradlew" ]; then
+            ./gradlew build --no-daemon
+          elif [ -f "./mvnw" ]; then
+            ./mvnw -B -DskipTests package
+          elif [ -f "pom.xml" ]; then
+            mvn -B -DskipTests package
+          elif [ -f "build.xml" ]; then
+            ant -noinput
+          else
+            echo "No top-level Gradle/Maven/Ant project found."
+            exit 1
+          fi
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
