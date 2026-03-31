@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -91,7 +92,8 @@ _cache: dict[str, TenantSchema] = {}
 def _schema_path(tenant_id: str) -> Path:
     if not _SAFE_TENANT_ID.fullmatch(tenant_id):
         raise ValueError("invalid tenant_id")
-    path = (_SCHEMAS_DIR / f"{tenant_id}.json").resolve()
+    key = hashlib.sha256(tenant_id.encode("utf-8")).hexdigest()
+    path = (_SCHEMAS_DIR / f"{key}.json").resolve()
     try:
         path.relative_to(_SCHEMAS_DIR.resolve())
     except ValueError as exc:

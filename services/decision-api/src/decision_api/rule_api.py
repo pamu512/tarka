@@ -17,6 +17,7 @@ from decision_api.vertical_packs import get_vertical_pack, list_vertical_packs
 
 router = APIRouter(prefix="/v1/rules", tags=["rules"])
 _SAFE_FILENAME_RE = re.compile(r"^[a-zA-Z0-9_-]{1,120}\.json$")
+_SAFE_SLUG_RE = re.compile(r"[^a-z0-9_-]+")
 
 
 class Condition(BaseModel):
@@ -64,6 +65,29 @@ def _safe_path(filename: str) -> Path:
     except ValueError:
         raise HTTPException(400, "invalid filename")
     return target
+
+
+def _list_pack_paths() -> dict[str, Path]:
+    base = _rules_dir()
+    return {p.name: p for p in base.glob("*.json") if p.is_file()}
+
+
+def _existing_pack_path(filename: str) -> Path:
+    if not _SAFE_FILENAME_RE.fullmatch(filename):
+        raise HTTPException(400, "invalid filename")
+    path = _list_pack_paths().get(filename)
+    if not path:
+        raise HTTPException(404, "pack not found")
+    return path
+
+
+def _slugify_pack_name(name: str) -> str:
+    raw = name.strip().lower().replace(" ", "_")
+    slug = _SAFE_SLUG_RE.sub("", raw)
+    slug = slug.strip("._-")
+    if not slug:
+        raise HTTPException(400, "invalid pack name")
+    return slug[:80]
 
 
 def _read_all_packs() -> list[dict[str, Any]]:
@@ -118,7 +142,8 @@ async def install_vertical_pack(vertical_name: str, overwrite: bool = False):
     pack = get_vertical_pack(vertical_name)
     if not pack:
         raise HTTPException(404, f"unknown vertical pack '{vertical_name}'")
-    fname = f"vertical_{vertical_name.lower()}.json"
+    inferred_name = str(pack.get("name", vertical_name))
+    fname = f"vertical_{_slugify_pack_name(inferred_name)}.json"
     fpath = _safe_path(fname)
     if fpath.exists() and not overwrite:
         raise HTTPException(409, f"pack '{fname}' already exists; pass overwrite=true to replace")
@@ -132,17 +157,15 @@ async def install_vertical_pack(vertical_name: str, overwrite: bool = False):
 
 @router.get("/{filename}")
 async def get_rule_pack(filename: str):
-    fpath = _safe_path(filename)
-    if not fpath.exists():
-        raise HTTPException(404, "pack not found")
+    fpath = _existing_pack_path(filename)
     data = json.loads(fpath.read_text(encoding="utf-8"))
-    data["_file"] = filename
+    data["_file"] = fpath.name
     return data
 
 
 @router.post("", status_code=201)
 async def create_rule_pack(body: RulePackIn):
-    fname = body.name.replace(" ", "_").lower() + ".json"
+    fname = _slugify_pack_name(body.name) + ".json"
     fpath = _safe_path(fname)
     if fpath.exists():
         raise HTTPException(409, f"pack '{fname}' already exists")
@@ -162,9 +185,7 @@ async def create_rule_pack(body: RulePackIn):
 
 @router.put("/{filename}")
 async def update_rule_pack(filename: str, body: RulePackIn):
-    fpath = _safe_path(filename)
-    if not fpath.exists():
-        raise HTTPException(404, "pack not found")
+    fpath = _existing_pack_path(filename)
     pack = {
         "version": 1,
         "name": body.name,
@@ -181,9 +202,7 @@ async def update_rule_pack(filename: str, body: RulePackIn):
 
 @router.delete("/{filename}")
 async def delete_rule_pack(filename: str):
-    fpath = _safe_path(filename)
-    if not fpath.exists():
-        raise HTTPException(404, "pack not found")
+    fpath = _existing_pack_path(filename)
     fpath.unlink()
     load_rules()
     return {"deleted": filename}
@@ -191,9 +210,7 @@ async def delete_rule_pack(filename: str):
 
 @router.post("/{filename}/rules")
 async def add_rule(filename: str, body: RuleIn):
-    fpath = _safe_path(filename)
-    if not fpath.exists():
-        raise HTTPException(404, "pack not found")
+    fpath = _existing_pack_path(filename)
     pack = json.loads(fpath.read_text(encoding="utf-8"))
     if not body.id:
         body.id = f"rule_{uuid.uuid4().hex[:8]}"
@@ -210,9 +227,7 @@ class RulePackMode(BaseModel):
 @router.put("/{filename}/mode")
 async def set_pack_mode(filename: str, body: RulePackMode):
     """Set a rule pack to active, shadow, or disabled mode."""
-    fpath = _safe_path(filename)
-    if not fpath.exists():
-        raise HTTPException(404, "pack not found")
+    fpath = _existing_pack_path(filename)
     if body.mode not in ("active", "shadow", "disabled"):
         raise HTTPException(400, "mode must be 'active', 'shadow', or 'disabled'")
     pack = json.loads(fpath.read_text(encoding="utf-8"))
@@ -224,9 +239,7 @@ async def set_pack_mode(filename: str, body: RulePackMode):
 
 @router.delete("/{filename}/rules/{rule_id}")
 async def remove_rule(filename: str, rule_id: str):
-    fpath = _safe_path(filename)
-    if not fpath.exists():
-        raise HTTPException(404, "pack not found")
+    fpath = _existing_pack_path(filename)
     pack = json.loads(fpath.read_text(encoding="utf-8"))
     original = len(pack.get("rules", []))
     pack["rules"] = [r for r in pack.get("rules", []) if r.get("id") != rule_id]
