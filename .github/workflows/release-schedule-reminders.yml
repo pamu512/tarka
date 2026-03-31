@@ -1,0 +1,101 @@
+name: Release Schedule Reminders
+
+on:
+  schedule:
+    - cron: "0 8 * * *" # daily at 08:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or update release reminder issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const milestones = [
+              { version: "v1.1.0", date: "2026-04-30", title: "Prepare v1.1.0 release (2026-04-30)" },
+              { version: "v1.2.0", date: "2026-05-30", title: "Prepare v1.2.0 release (2026-05-30)" },
+              { version: "v1.3.0", date: "2026-06-29", title: "Prepare v1.3.0 release (2026-06-29)" },
+            ];
+
+            const reminderOffsets = [30, 14, 7, 1, 0];
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const today = new Date();
+            const todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+
+            function daysUntil(targetDate) {
+              const target = new Date(`${targetDate}T00:00:00Z`);
+              const targetUtc = Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), target.getUTCDate());
+              return Math.floor((targetUtc - todayUtc) / (1000 * 60 * 60 * 24));
+            }
+
+            for (const m of milestones) {
+              const d = daysUntil(m.date);
+              if (!reminderOffsets.includes(d)) {
+                core.info(`Skipping ${m.version}; ${d} days remaining.`);
+                continue;
+              }
+
+              const label = "release-reminder";
+              const marker = `<!-- release-reminder:${m.version}:${m.date} -->`;
+              const body = `${marker}
+            Release target: **${m.version}** on **${m.date}**.
+
+            Days remaining: **${d}**
+
+            ## Checklist
+            - [ ] Finalize milestone scope against \`docs/docs/guides/roadmap-30-60-90.md\`
+            - [ ] Confirm test/build/release gates are green
+            - [ ] Update release notes for ${m.version}
+            - [ ] Tag and publish GitHub release on schedule
+            `;
+
+              // Ensure label exists.
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name: label });
+              } catch {
+                await github.rest.issues.createLabel({
+                  owner,
+                  repo,
+                  name: label,
+                  color: "5319e7",
+                  description: "Automated reminders for scheduled releases",
+                });
+              }
+
+              // Find an existing open issue for this milestone.
+              const found = await github.paginate(github.rest.issues.listForRepo, {
+                owner,
+                repo,
+                state: "open",
+                labels: label,
+                per_page: 100,
+              });
+
+              const existing = found.find((i) => i.title === m.title);
+              if (existing) {
+                await github.rest.issues.update({
+                  owner,
+                  repo,
+                  issue_number: existing.number,
+                  body,
+                });
+                core.info(`Updated reminder issue #${existing.number} for ${m.version}.`);
+              } else {
+                const created = await github.rest.issues.create({
+                  owner,
+                  repo,
+                  title: m.title,
+                  body,
+                  labels: [label],
+                });
+                core.info(`Created reminder issue #${created.data.number} for ${m.version}.`);
+              }
+            }
