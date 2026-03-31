@@ -8,6 +8,7 @@ Implements data subject rights required by GDPR, CCPA, LGPD, and other regulatio
 """
 from __future__ import annotations
 
+import hmac
 import hashlib
 import json
 import logging
@@ -17,9 +18,10 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from decision_api.config import settings
 from decision_api.db import get_session
 from decision_api.models import AuditRecord
 
@@ -46,6 +48,41 @@ from privacy import (  # noqa: E402
 )
 
 
+def _canonical_json(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def _bundle_hash(payload: dict[str, Any]) -> str:
+    return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
+
+
+def _hash_chain(records: list[dict[str, Any]]) -> str:
+    current = ""
+    for item in records:
+        current = hashlib.sha256(f"{current}:{_canonical_json(item)}".encode("utf-8")).hexdigest()
+    return current
+
+
+def _bundle_signature(payload: dict[str, Any]) -> str:
+    key = (
+        settings.evidence_signing_secret
+        or settings.consortium_secret
+        or settings.attestation_hmac_secret
+        or "tarka-evidence-dev-secret"
+    ).encode("utf-8")
+    return hmac.new(key, _canonical_json(payload).encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _signing_key_id() -> str:
+    key = (
+        settings.evidence_signing_secret
+        or settings.consortium_secret
+        or settings.attestation_hmac_secret
+        or "tarka-evidence-dev-secret"
+    )
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
+
+
 # ---------------------------------------------------------------------------
 # Request schemas
 # ---------------------------------------------------------------------------
@@ -66,6 +103,10 @@ class DSARErasureRequest(BaseModel):
     entity_id: str
     region: str = "global"
     reason: str = ""
+
+
+class EvidenceVerifyRequest(BaseModel):
+    bundle: dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
@@ -306,4 +347,99 @@ async def certification_checklist():
             {"control": "A.8.24 - Cryptography", "status": "configurable", "detail": "AES-256 at rest when privacy profile requires it"},
             {"control": "A.5.34 - Privacy/PII Protection", "status": "implemented", "detail": "Region-aware privacy profiles (12 jurisdictions)"},
         ],
+    }
+
+
+@router.get("/evidence/controls")
+async def control_evidence_export(
+    tenant_id: str,
+    session: AsyncSession = Depends(get_session),
+    limit: int = 200,
+):
+    """Export control evidence bundle for audits and trust-center views."""
+    q = (
+        select(AuditRecord)
+        .where(AuditRecord.tenant_id == tenant_id)
+        .order_by(AuditRecord.created_at.desc())
+        .limit(max(1, min(limit, 2000)))
+    )
+    rows = (await session.execute(q)).scalars().all()
+
+    decision_counts_rows = await session.execute(
+        select(AuditRecord.decision, func.count())
+        .where(AuditRecord.tenant_id == tenant_id)
+        .group_by(AuditRecord.decision)
+    )
+    decision_counts = {str(r[0]): int(r[1]) for r in decision_counts_rows.all()}
+
+    evidence = [
+        {
+            "trace_id": str(r.trace_id),
+            "event_type": r.event_type,
+            "decision": r.decision,
+            "score": r.score,
+            "rule_hits": r.rule_hits,
+            "tags": r.tags,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in rows
+    ]
+
+    bundle = {
+        "tenant_id": tenant_id,
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "controls": [
+            {"id": "CC8.1", "name": "Change Management Auditability", "status": "implemented"},
+            {"id": "CC7.2", "name": "Continuous Monitoring", "status": "implemented"},
+            {"id": "PCI-10.1", "name": "Audit Trail Coverage", "status": "implemented"},
+        ],
+        "summary": {
+            "total_decisions_sampled": len(evidence),
+            "decision_distribution": decision_counts,
+        },
+        "evidence": evidence,
+    }
+    bundle["integrity"] = {
+        "algorithm": "sha256+hmac-sha256",
+        "key_id": _signing_key_id(),
+        "bundle_hash": _bundle_hash(bundle),
+        "hash_chain": _hash_chain(evidence),
+    }
+    bundle["signature"] = _bundle_signature(bundle)
+    return bundle
+
+
+@router.get("/evidence/keys")
+async def evidence_keys():
+    return {
+        "active_key_id": _signing_key_id(),
+        "algorithm": "hmac-sha256",
+        "rotation_supported": True,
+    }
+
+
+@router.post("/evidence/verify")
+async def verify_evidence(body: EvidenceVerifyRequest):
+    bundle = dict(body.bundle or {})
+    provided_sig = str(bundle.pop("signature", ""))
+    integrity = bundle.get("integrity")
+    provided_hash = ""
+    if isinstance(integrity, dict):
+        provided_hash = str(integrity.get("bundle_hash", ""))
+        integrity_copy = dict(integrity)
+        integrity_copy.pop("bundle_hash", None)
+        bundle["integrity"] = integrity_copy
+    expected_hash = _bundle_hash(bundle)
+    bundle["integrity"] = {
+        **(bundle.get("integrity") if isinstance(bundle.get("integrity"), dict) else {}),
+        "bundle_hash": expected_hash,
+    }
+    expected_sig = _bundle_signature(bundle)
+    return {
+        "valid": bool(provided_sig and hmac.compare_digest(provided_sig, expected_sig) and provided_hash == expected_hash),
+        "expected_signature": expected_sig,
+        "provided_signature": provided_sig,
+        "expected_hash": expected_hash,
+        "provided_hash": provided_hash,
+        "active_key_id": _signing_key_id(),
     }

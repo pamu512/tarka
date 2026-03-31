@@ -6,6 +6,18 @@ Open-source, modular fraud detection platform. Pick the components you need or r
 
 *Tarka* — from Sanskrit तर्क (tarka), the method of logical hypothesis testing in Nyaya Shastra (Indian analytical philosophy). Every signal is a hypothesis; every decision is proved.
 
+## Who Should Choose Tarka
+
+Choose Tarka if you need fraud controls that your team can own, audit, and evolve quickly.
+
+- **Fintech, payments, lending, crypto, and marketplaces** that need real-time decisions plus investigations.
+- **Risk and fraud teams** that want rules + ML + graph in one stack, with explainable decisions and evidence exports.
+- **Engineering teams** that prefer open, modular architecture over closed vendor lock-in.
+- **Compliance-heavy organizations** that need auditable controls, traceability, and regional privacy support.
+- **Teams with existing tools** that want to integrate KYC, sanctions, device, CRM, or dispute providers via one hub.
+
+Tarka may be less ideal if you only need a very basic, single-rule workflow and do not require integrations, investigations, or governance.
+
 ## Install
 
 ```bash
@@ -25,6 +37,36 @@ python tarka.py install --lite
 # Option 4: Specific modules only
 python tarka.py install --modules core,graph,ml,frontend
 ```
+
+## Sandbox (No Full Clone)
+
+Use this when you want a quick evaluator environment without cloning the full repository locally.
+
+### Option A: Prebuilt Docker Sandbox
+
+Run the published sandbox compose file directly:
+
+```bash
+docker compose -f https://raw.githubusercontent.com/tarka-fraud/tarka/main/deploy/docker-compose.sandbox.yml up -d
+```
+
+Then open:
+
+- `http://localhost:3000` (frontend)
+- `http://localhost:8000/v1/health` (decision-api)
+- `http://localhost:8003/v1/health` (integration-ingress)
+
+Stop it:
+
+```bash
+docker compose -f https://raw.githubusercontent.com/tarka-fraud/tarka/main/deploy/docker-compose.sandbox.yml down
+```
+
+### Option B: 1-click cloud dev sandbox
+
+Open directly in Codespaces (no local clone required):
+
+- [Open Tarka in Codespaces](https://github.com/codespaces/new?hide_repo_select=true&repo=tarka-fraud/tarka)
 
 ### Requirements
 

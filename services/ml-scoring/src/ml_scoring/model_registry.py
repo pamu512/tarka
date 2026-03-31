@@ -288,3 +288,17 @@ class ModelRegistry:
                 meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
             except OSError as exc:
                 log.warning("could not persist metadata for %s v%d: %s", model_name, mv.version, exc)
+
+    def lineage_signature(self, model_name: str, version: int) -> dict[str, Any] | None:
+        mv = self._versions.get(model_name, {}).get(version)
+        if not mv:
+            return None
+        payload = {
+            "model_name": mv.name,
+            "version": mv.version,
+            "metadata": mv.metadata,
+            "path": str(mv.path),
+        }
+        blob = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+        digest = hashlib.sha256(blob).hexdigest()
+        return {"sha256": digest, "signed_payload": payload}

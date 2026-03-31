@@ -1,6 +1,8 @@
 import { useEffect, useState, type KeyboardEvent } from "react";
 import {
   rules as rulesApi,
+  simulation,
+  ml,
   type RulePack,
   type RuleDetail,
   type DecisionRequest,
@@ -154,6 +156,7 @@ const DEFAULT_PAYLOAD = JSON.stringify(
   null,
   2,
 );
+const VERTICAL_HISTORY_KEY = "tarka_vertical_benchmark_history";
 
 let _ctr = 0;
 function uid(): string {
@@ -200,9 +203,42 @@ export default function Rules() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [tagInputs, setTagInputs] = useState<Record<number, string>>({});
   const [toast, setToast] = useState<string | null>(null);
+  const [verticalCatalog, setVerticalCatalog] = useState<Record<string, { name: string; rules: number; version: number }>>({});
+  const [verticalHistory, setVerticalHistory] = useState<Array<{
+    ts: string;
+    scenario: string;
+    vertical: string;
+    baseline_f1: number;
+    vertical_f1: number;
+    delta_f1: number;
+  }>>([]);
+  const [installingVertical, setInstallingVertical] = useState<string | null>(null);
+  const [benchmarkingVertical, setBenchmarkingVertical] = useState<string | null>(null);
+  const [benchmarkScenario, setBenchmarkScenario] = useState<string>("baseline");
+  const [lineageModelName, setLineageModelName] = useState("fraud");
+  const [lineageVersion, setLineageVersion] = useState<number>(1);
+  const [lineageHash, setLineageHash] = useState<string>("");
+  const [lineageBusy, setLineageBusy] = useState(false);
 
   useEffect(() => {
     fetchPacks();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const cat = await rulesApi.verticalPacks();
+        setVerticalCatalog(cat.vertical_packs ?? {});
+      } catch {
+        /* optional */
+      }
+      try {
+        const raw = localStorage.getItem(VERTICAL_HISTORY_KEY);
+        setVerticalHistory(raw ? JSON.parse(raw) : []);
+      } catch {
+        setVerticalHistory([]);
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -319,6 +355,76 @@ export default function Rules() {
       setError(e instanceof Error ? e.message : "Reload failed");
     } finally {
       setReloading(false);
+    }
+  }
+
+  async function handleInstallVerticalPack(vertical: string) {
+    setInstallingVertical(vertical);
+    try {
+      await rulesApi.installVerticalPack(vertical, true);
+      await rulesApi.reload();
+      await fetchPacks();
+      setToast(`Installed vertical pack: ${vertical}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Vertical install failed");
+    } finally {
+      setInstallingVertical(null);
+    }
+  }
+
+  async function handleRunVerticalBenchmark(vertical: string) {
+    setBenchmarkingVertical(vertical);
+    try {
+      const resp = await simulation.benchmarkVertical({
+        scenario: benchmarkScenario,
+        vertical,
+      });
+      const data = resp as {
+        scenario: string;
+        vertical: string;
+        delta?: Record<string, unknown>;
+        baseline?: Record<string, unknown>;
+        vertical_pack?: Record<string, unknown>;
+      };
+      const existingRaw = localStorage.getItem(VERTICAL_HISTORY_KEY);
+      const existing = existingRaw ? (JSON.parse(existingRaw) as Array<{
+        ts: string;
+        scenario: string;
+        vertical: string;
+        baseline_f1: number;
+        vertical_f1: number;
+        delta_f1: number;
+      }>) : [];
+      const entry = {
+        ts: new Date().toISOString(),
+        scenario: data.scenario,
+        vertical: data.vertical,
+        baseline_f1: Number(data.baseline?.f1_score ?? 0),
+        vertical_f1: Number(data.vertical_pack?.f1_score ?? 0),
+        delta_f1: Number(data.delta?.f1_score ?? 0),
+      };
+      const next = [entry, ...existing].slice(0, 20);
+      localStorage.setItem(VERTICAL_HISTORY_KEY, JSON.stringify(next));
+      setVerticalHistory(next);
+      setToast(`Benchmark completed: ${vertical} (${benchmarkScenario})`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Benchmark failed");
+    } finally {
+      setBenchmarkingVertical(null);
+    }
+  }
+
+  async function loadLineage() {
+    setLineageBusy(true);
+    try {
+      const res = await ml.modelLineage(lineageModelName.trim(), lineageVersion);
+      setLineageHash(res.lineage.sha256);
+      setError(null);
+    } catch (e) {
+      setLineageHash("");
+      setError(e instanceof Error ? e.message : "Lineage lookup failed");
+    } finally {
+      setLineageBusy(false);
     }
   }
 
@@ -516,6 +622,112 @@ export default function Rules() {
               </p>
             )}
           </nav>
+
+          <div className="px-3 pb-4 border-t border-surface-700">
+            <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mt-3 mb-2">
+              Vertical Packs
+            </h3>
+            <div className="mb-2">
+              <label className="text-[10px] text-gray-500 block mb-1">Benchmark Scenario</label>
+              <select
+                value={benchmarkScenario}
+                onChange={(e) => setBenchmarkScenario(e.target.value)}
+                className="w-full bg-surface-800 border border-surface-700 text-gray-300 text-xs rounded px-2 py-1"
+              >
+                <option value="baseline">baseline</option>
+                <option value="high_fraud">high_fraud</option>
+                <option value="bot_attack">bot_attack</option>
+                <option value="account_takeover">account_takeover</option>
+                <option value="money_mule">money_mule</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              {Object.entries(verticalCatalog).map(([key, v]) => {
+                const installed = packs.some((p) => packFile(p) === `vertical_${key}.json`);
+                return (
+                  <div key={key} className="bg-surface-800 border border-surface-700 rounded-lg p-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-xs text-gray-200 font-medium">{v.name}</div>
+                        <div className="text-[10px] text-gray-500">{v.rules} rules · v{v.version}</div>
+                      </div>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                        installed ? "bg-green-500/20 text-green-400" : "bg-amber-500/20 text-amber-400"
+                      }`}>
+                        {installed ? "Installed" : "Not Installed"}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => void handleInstallVerticalPack(key)}
+                      disabled={installingVertical === key}
+                      className="mt-2 w-full text-xs px-2 py-1 rounded bg-brand-700 hover:bg-brand-600 disabled:opacity-50 text-white"
+                    >
+                      {installingVertical === key ? "Installing..." : "Install / Update"}
+                    </button>
+                    <button
+                      onClick={() => void handleRunVerticalBenchmark(key)}
+                      disabled={benchmarkingVertical === key}
+                      className="mt-1 w-full text-xs px-2 py-1 rounded bg-amber-700 hover:bg-amber-600 disabled:opacity-50 text-white"
+                    >
+                      {benchmarkingVertical === key ? "Benchmarking..." : "Run benchmark now"}
+                    </button>
+                  </div>
+                );
+              })}
+              {Object.keys(verticalCatalog).length === 0 && (
+                <div className="text-[11px] text-gray-500">No vertical packs catalog loaded.</div>
+              )}
+            </div>
+
+            <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mt-4 mb-2">
+              Last Benchmark History
+            </h3>
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {verticalHistory.map((h, i) => (
+                <div key={`${h.ts}-${i}`} className="bg-surface-800 border border-surface-700 rounded p-2">
+                  <div className="text-[10px] text-gray-400">{new Date(h.ts).toLocaleString()}</div>
+                  <div className="text-xs text-gray-200">{h.vertical} · {h.scenario}</div>
+                  <div className={`text-[11px] font-mono ${h.delta_f1 >= 0 ? "text-green-400" : "text-red-400"}`}>
+                    ΔF1 {h.delta_f1 >= 0 ? "+" : ""}{h.delta_f1.toFixed(4)}
+                  </div>
+                </div>
+              ))}
+              {verticalHistory.length === 0 && (
+                <div className="text-[11px] text-gray-500">No benchmark runs yet.</div>
+              )}
+            </div>
+
+            <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mt-4 mb-2">
+              Model Lineage
+            </h3>
+            <div className="bg-surface-800 border border-surface-700 rounded p-2 space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  value={lineageModelName}
+                  onChange={(e) => setLineageModelName(e.target.value)}
+                  placeholder="model name"
+                  className="bg-surface-900 border border-surface-700 text-gray-300 text-xs rounded px-2 py-1"
+                />
+                <input
+                  value={lineageVersion}
+                  onChange={(e) => setLineageVersion(Number(e.target.value) || 1)}
+                  type="number"
+                  min={1}
+                  className="bg-surface-900 border border-surface-700 text-gray-300 text-xs rounded px-2 py-1"
+                />
+              </div>
+              <button
+                onClick={() => void loadLineage()}
+                disabled={lineageBusy}
+                className="w-full text-xs px-2 py-1 rounded bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white"
+              >
+                {lineageBusy ? "Loading..." : "Fetch lineage hash"}
+              </button>
+              <div className="text-[11px] text-gray-400 break-all">
+                {lineageHash ? lineageHash : "No lineage loaded yet."}
+              </div>
+            </div>
+          </div>
         </aside>
 
         {/* ── Main content ────────────────────────────────── */}

@@ -35,3 +35,13 @@ def test_set_traffic_split_requires_100(tmp_path: Path):
 
     assert reg.set_traffic_split("fraud", {1: 90, 2: 10}) is True
     assert reg.set_traffic_split("fraud", {1: 80, 2: 10}) is False
+
+
+def test_lineage_signature_present(tmp_path: Path):
+    _write_version(tmp_path, "fraud", 7, {"traffic_weight": 100, "active": True, "approved": True})
+    reg = ModelRegistry(tmp_path)
+    reg.scan()
+    lineage = reg.lineage_signature("fraud", 7)
+    assert lineage is not None
+    assert "sha256" in lineage
+    assert lineage["signed_payload"]["version"] == 7

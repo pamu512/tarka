@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { cases, type Case, type CaseCreateRequest } from "../api/client";
+import { cases, type Case, type CaseCreateRequest, type CaseOpsKpis } from "../api/client";
 import StatusBadge from "../components/StatusBadge";
 import PriorityBadge from "../components/PriorityBadge";
 
@@ -20,6 +20,7 @@ export default function Cases() {
   const [playbooks, setPlaybooks] = useState<Record<string, Record<string, unknown>>>({});
   const [savedViews, setSavedViews] = useState<Array<{ name: string; tenant_id: string; filters: Record<string, unknown> }>>([]);
   const [newViewName, setNewViewName] = useState("");
+  const [opsKpis, setOpsKpis] = useState<CaseOpsKpis | null>(null);
 
   const fetchCases = useCallback(async () => {
     setLoading(true);
@@ -43,6 +44,12 @@ export default function Cases() {
         data = data.filter((c) => c.priority === priorityFilter);
       }
       setCaseList(data);
+      try {
+        const kpis = await cases.opsKpis("demo");
+        setOpsKpis(kpis);
+      } catch {
+        setOpsKpis(null);
+      }
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load cases");
@@ -126,6 +133,17 @@ export default function Cases() {
           + New Case
         </button>
       </div>
+
+      {opsKpis && (
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          <KpiCard label="Total Cases" value={String(opsKpis.total_cases)} />
+          <KpiCard label="Queue Avg" value={opsKpis.queue_score_avg.toFixed(1)} />
+          <KpiCard label="Critical Open" value={String(opsKpis.critical_open)} />
+          <KpiCard label="Investigating" value={`${(opsKpis.investigating_rate * 100).toFixed(1)}%`} />
+          <KpiCard label="Resolved" value={`${(opsKpis.resolved_rate * 100).toFixed(1)}%`} />
+          <KpiCard label="Median Age" value={`${opsKpis.median_case_age_hours.toFixed(1)}h`} />
+        </div>
+      )}
 
       {/* Filter Bar */}
       <div className="flex flex-wrap gap-3">
@@ -358,6 +376,15 @@ export default function Cases() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+function KpiCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-surface-900 border border-surface-700 rounded-lg p-3">
+      <div className="text-[11px] text-gray-500">{label}</div>
+      <div className="text-sm font-semibold text-gray-200 mt-1">{value}</div>
     </div>
   );
 }

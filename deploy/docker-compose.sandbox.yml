@@ -1,0 +1,74 @@
+name: tarka-sandbox
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fraud
+      POSTGRES_PASSWORD: fraud
+      POSTGRES_DB: fraud
+    ports:
+      - "5432:5432"
+    volumes:
+      - sandbox_pg:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  decision-api:
+    image: ${TARKA_IMAGE_REGISTRY:-ghcr.io/tarka-fraud}/decision-api:${TARKA_IMAGE_TAG:-latest}
+    environment:
+      DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
+      REDIS_URL: redis://redis:6379/0
+      RULES_PATH: /app/rules
+      FEATURE_SERVICE_URL: ""
+      ML_SCORING_URL: http://ml-scoring:8005
+      GRAPH_SERVICE_URL: ""
+      OPA_URL: ""
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+
+  case-api:
+    image: ${TARKA_IMAGE_REGISTRY:-ghcr.io/tarka-fraud}/case-api:${TARKA_IMAGE_TAG:-latest}
+    environment:
+      DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
+      GRAPH_SERVICE_URL: ""
+    ports:
+      - "8002:8002"
+    depends_on:
+      - postgres
+
+  integration-ingress:
+    image: ${TARKA_IMAGE_REGISTRY:-ghcr.io/tarka-fraud}/integration-ingress:${TARKA_IMAGE_TAG:-latest}
+    environment:
+      DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
+      KMS_PROVIDER: local
+      KMS_ACTIVE_KEY_ID: sandbox-v1
+      INTEGRATION_VAULT_KEY: sandbox-dev-key
+    ports:
+      - "8003:8003"
+    depends_on:
+      - postgres
+
+  ml-scoring:
+    image: ${TARKA_IMAGE_REGISTRY:-ghcr.io/tarka-fraud}/ml-scoring:${TARKA_IMAGE_TAG:-latest}
+    ports:
+      - "8005:8005"
+
+  frontend:
+    image: ${TARKA_IMAGE_REGISTRY:-ghcr.io/tarka-fraud}/frontend:${TARKA_IMAGE_TAG:-latest}
+    ports:
+      - "3000:80"
+    depends_on:
+      - decision-api
+      - case-api
+      - integration-ingress
+      - ml-scoring
+
+volumes:
+  sandbox_pg:

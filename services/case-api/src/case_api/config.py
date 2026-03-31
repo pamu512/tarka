@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     cors_origins: str = ""
     decision_api_url: str = os.environ.get("DECISION_API_URL", "http://localhost:8000")
     ml_scoring_url: str = os.environ.get("ML_SCORING_URL", "")
+    evidence_signing_secret: str = os.environ.get("EVIDENCE_SIGNING_SECRET", "")
 
 
 settings = Settings()

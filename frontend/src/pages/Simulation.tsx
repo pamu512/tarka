@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
-import { simulation } from "../api/client";
+import { rules, simulation } from "../api/client";
 
-type Tab = "simulate" | "ab-test";
+type Tab = "simulate" | "ab-test" | "vertical-benchmark";
 
 interface Scenario {
   name: string;
@@ -39,6 +39,16 @@ interface ABResult {
   [key: string]: unknown;
 }
 
+interface VerticalBenchmarkResult {
+  scenario: string;
+  vertical: string;
+  baseline: SimResult;
+  vertical_pack: SimResult;
+  delta: Record<string, unknown>;
+}
+
+const VERTICAL_HISTORY_KEY = "tarka_vertical_benchmark_history";
+
 export default function Simulation() {
   const [tab, setTab] = useState<Tab>("simulate");
   const [scenarios, setScenarios] = useState<Record<string, Scenario>>({});
@@ -55,11 +65,18 @@ export default function Simulation() {
   const [ruleSetA, setRuleSetA] = useState("[\n  {\n    \"id\": \"rule-a-1\",\n    \"when\": [{\"field\": \"score\", \"op\": \"gte\", \"value\": 80}],\n    \"score_delta\": 30\n  }\n]");
   const [ruleSetB, setRuleSetB] = useState("[\n  {\n    \"id\": \"rule-b-1\",\n    \"when\": [{\"field\": \"score\", \"op\": \"gte\", \"value\": 70}],\n    \"score_delta\": 25\n  }\n]");
   const [abResult, setAbResult] = useState<ABResult | null>(null);
+  const [verticalCatalog, setVerticalCatalog] = useState<Record<string, { name: string; rules: number; version: number }>>({});
+  const [selectedVertical, setSelectedVertical] = useState<string>("fintech");
+  const [verticalResult, setVerticalResult] = useState<VerticalBenchmarkResult | null>(null);
 
   const fetchScenarios = useCallback(async () => {
     try {
-      const resp = await simulation.scenarios();
+      const [resp, packs] = await Promise.all([
+        simulation.scenarios(),
+        rules.verticalPacks(),
+      ]);
       setScenarios((resp.scenarios ?? resp) as Record<string, Scenario>);
+      setVerticalCatalog(packs.vertical_packs ?? {});
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load scenarios");
     } finally {
@@ -112,6 +129,54 @@ export default function Simulation() {
     }
   }
 
+  async function handleInstallVerticalPack(vertical: string) {
+    setLoading(true);
+    setError(null);
+    try {
+      await rules.installVerticalPack(vertical, true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Install failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRunVerticalBenchmark() {
+    const scenario = customMode ? "custom" : selectedScenario;
+    if (!scenario || !selectedVertical) return;
+    setLoading(true);
+    setError(null);
+    setVerticalResult(null);
+    try {
+      const resp = await simulation.benchmarkVertical({
+        scenario,
+        vertical: selectedVertical,
+      });
+      const data = resp as unknown as VerticalBenchmarkResult;
+      setVerticalResult(data);
+      try {
+        const existingRaw = localStorage.getItem(VERTICAL_HISTORY_KEY);
+        const existing = existingRaw ? (JSON.parse(existingRaw) as Array<Record<string, unknown>>) : [];
+        const entry = {
+          ts: new Date().toISOString(),
+          scenario: data.scenario,
+          vertical: data.vertical,
+          baseline_f1: Number((data.baseline as Record<string, unknown>)?.f1_score ?? 0),
+          vertical_f1: Number((data.vertical_pack as Record<string, unknown>)?.f1_score ?? 0),
+          delta_f1: Number((data.delta ?? {})["f1_score"] ?? 0),
+        };
+        const next = [entry, ...existing].slice(0, 20);
+        localStorage.setItem(VERTICAL_HISTORY_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore localStorage failures */
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Vertical benchmark failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   if (scenariosLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -146,6 +211,7 @@ export default function Simulation() {
       <div className="flex gap-1 bg-surface-900 border border-surface-700 rounded-lg p-1 w-fit">
         <TabButton label="Simulate" active={tab === "simulate"} onClick={() => setTab("simulate")} />
         <TabButton label="A/B Test" active={tab === "ab-test"} onClick={() => setTab("ab-test")} />
+        <TabButton label="Vertical Benchmark" active={tab === "vertical-benchmark"} onClick={() => setTab("vertical-benchmark")} />
       </div>
 
       {/* Scenario Selection */}
@@ -237,6 +303,63 @@ export default function Simulation() {
           </button>
 
           {abResult && <ABTestResults result={abResult} />}
+        </>
+      )}
+
+      {/* Vertical Benchmark Tab */}
+      {tab === "vertical-benchmark" && (
+        <>
+          <div className="bg-surface-900 border border-surface-700 rounded-xl p-5 space-y-4">
+            <h2 className="text-sm font-semibold text-gray-300">Vertical Starter Packs</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {Object.entries(verticalCatalog).map(([key, v]) => (
+                <div key={key} className={`border rounded-lg p-3 ${selectedVertical === key ? "border-brand-500 bg-brand-600/10" : "border-surface-700 bg-surface-800"}`}>
+                  <div className="text-sm text-gray-200 font-medium">{v.name}</div>
+                  <div className="text-xs text-gray-500 mt-1">{v.rules} rules · v{v.version}</div>
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={() => setSelectedVertical(key)}
+                      className="px-2 py-1 text-xs rounded bg-surface-700 hover:bg-surface-600 text-gray-200"
+                    >
+                      Select
+                    </button>
+                    <button
+                      disabled={loading}
+                      onClick={() => void handleInstallVerticalPack(key)}
+                      className="px-2 py-1 text-xs rounded bg-brand-700 hover:bg-brand-600 disabled:opacity-50 text-white"
+                    >
+                      Install/Update
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={handleRunVerticalBenchmark}
+              disabled={loading || (!selectedScenario && !customMode) || !selectedVertical}
+              className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+            >
+              {loading && <Spinner />}
+              Run Vertical Benchmark
+            </button>
+          </div>
+
+          {verticalResult && (
+            <div className="space-y-4">
+              <ABTestResults
+                result={{
+                  set_a: verticalResult.baseline,
+                  set_b: verticalResult.vertical_pack,
+                }}
+              />
+              <div className="bg-surface-900 border border-surface-700 rounded-xl p-5">
+                <h3 className="text-sm font-semibold text-gray-300 mb-3">Delta Summary</h3>
+                <pre className="text-xs text-gray-400 font-mono whitespace-pre-wrap">
+                  {JSON.stringify(verticalResult.delta, null, 2)}
+                </pre>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

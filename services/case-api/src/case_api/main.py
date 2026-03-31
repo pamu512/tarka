@@ -1,8 +1,12 @@
 import asyncio
+import hashlib
+import hmac
+import json
 import os
 import sys
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -68,6 +72,34 @@ _PLAYBOOKS: dict[str, dict[str, Any]] = {
 }
 
 
+def _canonical_json(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def _bundle_hash(payload: dict[str, Any]) -> str:
+    return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
+
+
+def _hash_chain(records: list[dict[str, Any]]) -> str:
+    current = ""
+    for item in records:
+        current = hashlib.sha256(f"{current}:{_canonical_json(item)}".encode("utf-8")).hexdigest()
+    return current
+
+
+def _bundle_signature(payload: dict[str, Any]) -> str:
+    key = (
+        settings.evidence_signing_secret
+        or "tarka-evidence-dev-secret"
+    ).encode("utf-8")
+    return hmac.new(key, _canonical_json(payload).encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _signing_key_id() -> str:
+    key = (settings.evidence_signing_secret or "tarka-evidence-dev-secret")
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
+
+
 def _queue_score(case: Case) -> float:
     p = _PRIORITY_WEIGHT.get((case.priority or "medium").lower(), 30)
     s = _STATUS_WEIGHT.get((case.status or "open").lower(), 0)
@@ -114,6 +146,10 @@ class SaveViewRequest(BaseModel):
     tenant_id: str
     name: str = Field(min_length=1, max_length=128)
     filters: dict[str, Any] = Field(default_factory=dict)
+
+
+class EvidenceVerifyRequest(BaseModel):
+    bundle: dict[str, Any]
 
 
 async def _broadcast(event: dict):
@@ -436,6 +472,44 @@ async def list_playbooks():
     return {"playbooks": _PLAYBOOKS}
 
 
+@app.get("/v1/cases/ops/kpis")
+async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_session)):
+    q = select(Case).where(Case.tenant_id == tenant_id).limit(5000)
+    rows = (await session.execute(q)).scalars().all()
+    total = len(rows)
+    if total == 0:
+        return {
+            "tenant_id": tenant_id,
+            "total_cases": 0,
+            "queue_score_avg": 0.0,
+            "critical_open": 0,
+            "investigating_rate": 0.0,
+            "resolved_rate": 0.0,
+            "median_case_age_hours": 0.0,
+        }
+    queue_scores = [_queue_score(r) for r in rows]
+    critical_open = sum(1 for r in rows if (r.priority or "").lower() == "critical" and (r.status or "").lower() in {"open", "investigating"})
+    investigating = sum(1 for r in rows if (r.status or "").lower() == "investigating")
+    resolved = sum(1 for r in rows if (r.status or "").lower() in {"resolved", "closed"})
+    now = datetime.now(timezone.utc)
+    ages = []
+    for r in rows:
+        if r.created_at:
+            delta = now - r.created_at
+            ages.append(max(0.0, delta.total_seconds() / 3600.0))
+    ages.sort()
+    median_age = ages[len(ages) // 2] if ages else 0.0
+    return {
+        "tenant_id": tenant_id,
+        "total_cases": total,
+        "queue_score_avg": round(sum(queue_scores) / total, 2),
+        "critical_open": critical_open,
+        "investigating_rate": round(investigating / total, 4),
+        "resolved_rate": round(resolved / total, 4),
+        "median_case_age_hours": round(median_age, 2),
+    }
+
+
 @app.get("/v1/case-views")
 async def list_case_views(tenant_id: str):
     return {"items": list((_SAVED_VIEWS.get(tenant_id) or {}).values())}
@@ -476,6 +550,91 @@ async def case_graph(case_id: uuid.UUID, request: Request, session: AsyncSession
 @app.get("/v1/cases/{case_id}/audit")
 async def case_audit(case_id: uuid.UUID, session: AsyncSession = Depends(get_session), limit: int = 50):
     return {"history": await _trail.get_history(session, "case", str(case_id), limit)}
+
+
+@app.get("/v1/compliance/evidence")
+async def case_control_evidence(tenant_id: str, session: AsyncSession = Depends(get_session), limit: int = 200):
+    """Export case/workflow/audit evidence bundle for trust-center audits."""
+    q = (
+        select(AuditRecord)
+        .where(AuditRecord.tenant_id == tenant_id)
+        .order_by(AuditRecord.created_at.desc())
+        .limit(max(1, min(limit, 2000)))
+    )
+    recs = (await session.execute(q)).scalars().all()
+    filtered = [
+        {
+            "id": str(r.id),
+            "actor": r.actor,
+            "action": r.action,
+            "resource_type": r.resource_type,
+            "resource_id": r.resource_id,
+            "changes": r.changes,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in recs
+    ]
+    by_action: dict[str, int] = {}
+    for r in filtered:
+        action = str(r.get("action", "unknown"))
+        by_action[action] = by_action.get(action, 0) + 1
+    bundle = {
+        "tenant_id": tenant_id,
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "controls": [
+            {"id": "SOC2-CC8.1", "name": "Case Change Audit Trail", "status": "implemented"},
+            {"id": "SOC2-CC7.3", "name": "Workflow-driven Response", "status": "implemented"},
+        ],
+        "summary": {
+            "events_sampled": len(filtered),
+            "action_distribution": by_action,
+        },
+        "evidence": filtered,
+    }
+    bundle["integrity"] = {
+        "algorithm": "sha256+hmac-sha256",
+        "key_id": _signing_key_id(),
+        "bundle_hash": _bundle_hash(bundle),
+        "hash_chain": _hash_chain(filtered),
+    }
+    bundle["signature"] = _bundle_signature(bundle)
+    return bundle
+
+
+@app.get("/v1/compliance/evidence/keys")
+async def case_evidence_keys():
+    return {
+        "active_key_id": _signing_key_id(),
+        "algorithm": "hmac-sha256",
+        "rotation_supported": True,
+    }
+
+
+@app.post("/v1/compliance/evidence/verify")
+async def verify_case_evidence(body: EvidenceVerifyRequest):
+    bundle = dict(body.bundle or {})
+    provided_sig = str(bundle.pop("signature", ""))
+    integrity = bundle.get("integrity")
+    provided_hash = ""
+    if isinstance(integrity, dict):
+        provided_hash = str(integrity.get("bundle_hash", ""))
+        integrity_copy = dict(integrity)
+        integrity_copy.pop("bundle_hash", None)
+        bundle["integrity"] = integrity_copy
+    expected_hash = _bundle_hash(bundle)
+    bundle["integrity"] = {
+        **(bundle.get("integrity") if isinstance(bundle.get("integrity"), dict) else {}),
+        "bundle_hash": expected_hash,
+    }
+    expected_sig = _bundle_signature(bundle)
+    return {
+        "valid": bool(provided_sig and hmac.compare_digest(provided_sig, expected_sig) and provided_hash == expected_hash),
+        "expected_signature": expected_sig,
+        "provided_signature": provided_sig,
+        "expected_hash": expected_hash,
+        "provided_hash": provided_hash,
+        "active_key_id": _signing_key_id(),
+    }
 
 
 # ---------- workflows ----------

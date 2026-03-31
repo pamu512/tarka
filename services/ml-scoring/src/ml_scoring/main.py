@@ -423,3 +423,11 @@ async def rollback_model(name: str):
     if target is None:
         raise HTTPException(409, f"no previous version available for model '{name}'")
     return {"ok": True, "model": name, "rolled_back_to": target}
+
+
+@app.get("/v1/models/{name}/{version}/lineage")
+async def model_lineage(name: str, version: int):
+    lineage = registry.lineage_signature(name, version)
+    if not lineage:
+        raise HTTPException(404, f"model '{name}' version {version} not found")
+    return {"ok": True, "model": name, "version": version, "lineage": lineage}

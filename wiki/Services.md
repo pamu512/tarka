@@ -28,6 +28,16 @@
 
 - Third-party KYC and enrichment adapters
 - OSINT enrichment sources
+- Integration Hub catalog and one-click enable/disable
+- Connectivity testing (`api_key` OR `username` + `password`)
+- Vault-backed masked credential config
+- KMS endpoints:
+  - `GET /v1/vault/kms`
+  - `GET /v1/vault/kms/self-check`
+  - `GET /v1/vault/metrics`
+  - `GET /v1/vault/rotation-jobs`
+  - `POST /v1/vault/rotate`
+  - `POST /v1/vault/rotate/resume`
 
 ## Analytics Sink
 

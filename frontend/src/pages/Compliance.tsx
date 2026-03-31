@@ -80,6 +80,16 @@ function frameworkProgress(controls: CertControl[]) {
   };
 }
 
+function integritySummary(bundle: Record<string, unknown> | null): string {
+  if (!bundle) return "Not loaded";
+  const integrity = bundle.integrity as Record<string, unknown> | undefined;
+  const sig = bundle.signature as string | undefined;
+  if (!integrity || !sig) return "Unsigned";
+  const alg = String(integrity.algorithm ?? "n/a");
+  const hash = String(integrity.bundle_hash ?? "");
+  return `${alg} | hash ${hash.slice(0, 12)}... | sig ${sig.slice(0, 12)}...`;
+}
+
 // ── Component ────────────────────────────────────────────────────────
 
 export default function Compliance() {
@@ -93,6 +103,13 @@ export default function Compliance() {
   const [dsarType, setDsarType] = useState<"access" | "erasure" | "portability">("access");
   const [dsarResult, setDsarResult] = useState<unknown>(null);
   const [dsarLoading, setDsarLoading] = useState(false);
+  const [decisionEvidence, setDecisionEvidence] = useState<Record<string, unknown> | null>(null);
+  const [caseEvidence, setCaseEvidence] = useState<Record<string, unknown> | null>(null);
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
+  const [decisionVerify, setDecisionVerify] = useState<string>("");
+  const [caseVerify, setCaseVerify] = useState<string>("");
+  const [decisionKeyId, setDecisionKeyId] = useState<string>("");
+  const [caseKeyId, setCaseKeyId] = useState<string>("");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -167,6 +184,55 @@ export default function Compliance() {
       setDsarResult({ error: e instanceof Error ? e.message : "DSAR request failed" });
     } finally {
       setDsarLoading(false);
+    }
+  }
+
+  async function loadEvidence() {
+    setEvidenceLoading(true);
+    try {
+      const [d, c] = await Promise.all([
+        compliance.decisionEvidence(tenantId, 200),
+        compliance.caseEvidence(tenantId, 200),
+      ]);
+      setDecisionEvidence(d as unknown as Record<string, unknown>);
+      setCaseEvidence(c as unknown as Record<string, unknown>);
+      const [dk, ck] = await Promise.all([compliance.decisionEvidenceKeys(), compliance.caseEvidenceKeys()]);
+      setDecisionKeyId(dk.active_key_id);
+      setCaseKeyId(ck.active_key_id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Evidence export failed");
+    } finally {
+      setEvidenceLoading(false);
+    }
+  }
+
+  function downloadJson(filename: string, data: unknown) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function verifyDecisionBundle() {
+    if (!decisionEvidence) return;
+    try {
+      const res = await compliance.verifyDecisionEvidence(decisionEvidence);
+      setDecisionVerify(res.valid ? `Verified (key ${res.active_key_id})` : "Verification failed");
+    } catch (e) {
+      setDecisionVerify(e instanceof Error ? e.message : "Verification failed");
+    }
+  }
+
+  async function verifyCaseBundle() {
+    if (!caseEvidence) return;
+    try {
+      const res = await compliance.verifyCaseEvidence(caseEvidence);
+      setCaseVerify(res.valid ? `Verified (key ${res.active_key_id})` : "Verification failed");
+    } catch (e) {
+      setCaseVerify(e instanceof Error ? e.message : "Verification failed");
     }
   }
 
@@ -458,6 +524,88 @@ export default function Compliance() {
           </div>
         </section>
       )}
+
+      {/* Trust Center Evidence */}
+      <section className="bg-surface-800 border border-surface-700 rounded-xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-100 flex items-center gap-2">
+            <span className="text-brand-400">🧾</span> Trust Center Evidence Exports
+          </h2>
+          <button
+            onClick={loadEvidence}
+            disabled={evidenceLoading}
+            className="px-4 py-2 text-sm rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-40 text-white transition-colors"
+          >
+            {evidenceLoading ? "Loading..." : "Load Evidence"}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-surface-900 border border-surface-700 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-gray-200">Decision Controls Evidence</h3>
+              {decisionEvidence && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={verifyDecisionBundle}
+                    className="text-xs px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 text-white"
+                  >
+                    Verify
+                  </button>
+                  <button
+                    onClick={() => downloadJson(`decision-evidence-${tenantId}.json`, decisionEvidence)}
+                    className="text-xs px-2 py-1 rounded bg-surface-700 hover:bg-surface-600 text-gray-200"
+                  >
+                    Download JSON
+                  </button>
+                </div>
+              )}
+            </div>
+            <p className="text-[11px] text-gray-500 mb-1">Active Key ID: {decisionKeyId || "unknown"}</p>
+            <p className="text-[11px] text-gray-500 mb-2">{integritySummary(decisionEvidence)}</p>
+            {decisionVerify && <p className="text-[11px] text-emerald-400 mb-2">{decisionVerify}</p>}
+            {decisionEvidence ? (
+              <pre className="text-xs text-gray-400 max-h-64 overflow-y-auto whitespace-pre-wrap">
+                {JSON.stringify(decisionEvidence, null, 2)}
+              </pre>
+            ) : (
+              <p className="text-xs text-gray-500">No decision evidence loaded.</p>
+            )}
+          </div>
+
+          <div className="bg-surface-900 border border-surface-700 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-gray-200">Case Controls Evidence</h3>
+              {caseEvidence && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={verifyCaseBundle}
+                    className="text-xs px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 text-white"
+                  >
+                    Verify
+                  </button>
+                <button
+                  onClick={() => downloadJson(`case-evidence-${tenantId}.json`, caseEvidence)}
+                  className="text-xs px-2 py-1 rounded bg-surface-700 hover:bg-surface-600 text-gray-200"
+                >
+                  Download JSON
+                </button>
+                </div>
+              )}
+            </div>
+            <p className="text-[11px] text-gray-500 mb-1">Active Key ID: {caseKeyId || "unknown"}</p>
+            <p className="text-[11px] text-gray-500 mb-2">{integritySummary(caseEvidence)}</p>
+            {caseVerify && <p className="text-[11px] text-emerald-400 mb-2">{caseVerify}</p>}
+            {caseEvidence ? (
+              <pre className="text-xs text-gray-400 max-h-64 overflow-y-auto whitespace-pre-wrap">
+                {JSON.stringify(caseEvidence, null, 2)}
+              </pre>
+            ) : (
+              <p className="text-xs text-gray-500">No case evidence loaded.</p>
+            )}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
