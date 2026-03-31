@@ -13,8 +13,10 @@ from pydantic import BaseModel, Field
 from decision_api.config import settings
 from decision_api.json_rules import load_rules
 from decision_api.shadow import get_observation_stats, get_observations, load_shadow_rules
+from decision_api.vertical_packs import get_vertical_pack, list_vertical_packs
 
 router = APIRouter(prefix="/v1/rules", tags=["rules"])
+_SAFE_FILENAME_RE = re.compile(r"^[a-zA-Z0-9_-]{1,120}\.json$")
 
 
 class Condition(BaseModel):
@@ -53,12 +55,14 @@ def _rules_dir() -> Path:
 
 def _safe_path(filename: str) -> Path:
     """Resolve filename within rules dir, rejecting path traversal."""
+    if not _SAFE_FILENAME_RE.fullmatch(filename):
+        raise HTTPException(400, "invalid filename")
     base = _rules_dir().resolve()
     target = (base / filename).resolve()
-    if not str(target).startswith(str(base)):
+    try:
+        target.relative_to(base)
+    except ValueError:
         raise HTTPException(400, "invalid filename")
-    if not target.suffix == ".json":
-        raise HTTPException(400, "filename must end with .json")
     return target
 
 
@@ -90,10 +94,9 @@ def _validate_rule_pack(pack: dict) -> list[str]:
             if not c.get("field"):
                 errors.append(f"Rule {rid}, condition {j}: missing 'field'")
             if c.get("op") == "regex":
-                try:
-                    re.compile(str(c.get("value", "")))
-                except re.error as e:
-                    errors.append(f"Rule {rid}, condition {j}: invalid regex: {e}")
+                pattern = str(c.get("value", ""))
+                if len(pattern) > 256:
+                    errors.append(f"Rule {rid}, condition {j}: regex pattern too long")
         sd = rule.get("score_delta", 0)
         if abs(float(sd)) > 100:
             errors.append(f"Rule {rid}: score_delta {sd} exceeds bounds (-100, 100)")
@@ -103,6 +106,28 @@ def _validate_rule_pack(pack: dict) -> list[str]:
 @router.get("")
 async def list_rule_packs():
     return {"packs": _read_all_packs()}
+
+
+@router.get("/vertical-packs")
+async def list_vertical_pack_catalog():
+    return {"vertical_packs": list_vertical_packs()}
+
+
+@router.post("/vertical-packs/{vertical_name}/install", status_code=201)
+async def install_vertical_pack(vertical_name: str, overwrite: bool = False):
+    pack = get_vertical_pack(vertical_name)
+    if not pack:
+        raise HTTPException(404, f"unknown vertical pack '{vertical_name}'")
+    fname = f"vertical_{vertical_name.lower()}.json"
+    fpath = _safe_path(fname)
+    if fpath.exists() and not overwrite:
+        raise HTTPException(409, f"pack '{fname}' already exists; pass overwrite=true to replace")
+    errors = _validate_rule_pack(pack)
+    if errors:
+        raise HTTPException(422, detail={"validation_errors": errors})
+    fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
+    load_rules()
+    return {"installed": fname, "vertical": vertical_name.lower(), "rules": len(pack.get("rules", []))}
 
 
 @router.get("/{filename}")

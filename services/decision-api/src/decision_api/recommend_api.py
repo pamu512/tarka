@@ -5,6 +5,8 @@ import json
 import logging
 
 from typing import Any
+from pathlib import Path
+import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -20,6 +22,7 @@ from decision_api.rule_recommender import (
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/recommendations", tags=["recommendations"])
+_SAFE_PACK_RE = re.compile(r"^[a-zA-Z0-9_-]{1,120}\.json$")
 
 
 class RecommendRequest(BaseModel):
@@ -84,13 +87,18 @@ class ApplyRecommendationRequest(BaseModel):
 @router.post("/apply")
 async def apply_recommendation(body: ApplyRecommendationRequest):
     """Apply a recommended rule directly to a rule pack file."""
-    from pathlib import Path
     from decision_api.config import settings
     from decision_api.json_rules import load_rules
 
+    if not _SAFE_PACK_RE.fullmatch(body.target_pack):
+        raise HTTPException(400, "invalid target_pack")
     rules_dir = Path(settings.rules_path)
     pack_path = (rules_dir / body.target_pack).resolve()
-    if not str(pack_path).startswith(str(rules_dir.resolve())) or not pack_path.exists():
+    try:
+        pack_path.relative_to(rules_dir.resolve())
+    except ValueError:
+        raise HTTPException(400, "invalid target_pack")
+    if not pack_path.exists():
         raise HTTPException(404, f"Pack '{body.target_pack}' not found")
 
     pack = json.loads(pack_path.read_text(encoding="utf-8"))
