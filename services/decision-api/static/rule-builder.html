@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tarka — Rule Builder</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--accent:#3b82f6;--accent2:#8b5cf6;
+--danger:#ef4444;--success:#22c55e;--warn:#f59e0b;--text:#e2e8f0;--muted:#94a3b8;--radius:8px}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+.container{max-width:1400px;margin:0 auto;padding:24px}
+h1{font-size:1.5rem;font-weight:700;margin-bottom:4px}
+.subtitle{color:var(--muted);font-size:.875rem;margin-bottom:24px}
+.grid{display:grid;grid-template-columns:320px 1fr;gap:24px}
+.sidebar{display:flex;flex-direction:column;gap:12px}
+.pack-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+padding:16px;cursor:pointer;transition:all .15s}
+.pack-card:hover,.pack-card.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.pack-card h3{font-size:.95rem;font-weight:600}
+.pack-card .meta{color:var(--muted);font-size:.75rem;margin-top:4px}
+.main{display:flex;flex-direction:column;gap:16px}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.panel h2{font-size:1.1rem;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.rule-list{display:flex;flex-direction:column;gap:10px}
+.rule-item{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:14px;
+position:relative;cursor:grab;transition:border-color .15s}
+.rule-item:hover{border-color:var(--accent)}
+.rule-item.dragging{opacity:.5;border-color:var(--accent2)}
+.rule-item .rule-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.rule-item .rule-id{font-weight:600;font-size:.85rem;color:var(--accent)}
+.rule-item .rule-desc{color:var(--muted);font-size:.8rem}
+.conditions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.cond-pill{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:2px 10px;
+font-size:.75rem;color:var(--text)}
+.tags-row{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.tag{background:var(--accent);color:#fff;border-radius:4px;padding:1px 8px;font-size:.7rem;font-weight:600}
+.tag.score{background:var(--warn)}
+.btn{border:none;border-radius:6px;padding:8px 16px;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{filter:brightness(1.15)}
+.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{filter:brightness(1.15)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent)}
+.btn-success{background:var(--success);color:#fff}.btn-success:hover{filter:brightness(1.15)}
+.btn-sm{padding:4px 10px;font-size:.75rem}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:none;
+align-items:center;justify-content:center;z-index:100}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;
+width:560px;max-width:90vw;max-height:90vh;overflow-y:auto}
+.modal h2{margin-bottom:16px}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:4px;font-weight:600}
+.form-group input,.form-group select,.form-group textarea{width:100%;background:var(--bg);border:1px solid var(--border);
+border-radius:6px;padding:8px 12px;color:var(--text);font-size:.85rem}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--accent)}
+.form-row{display:grid;grid-template-columns:1fr 120px 1fr;gap:8px;margin-bottom:8px;align-items:end}
+.sim-panel{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:16px}
+.sim-panel h3{font-size:.9rem;margin-bottom:12px;color:var(--accent)}
+.sim-result{padding:12px;border-radius:6px;margin-top:8px;font-size:.85rem}
+.sim-result.allow{border:1px solid var(--success);color:var(--success)}
+.sim-result.deny{border:1px solid var(--danger);color:var(--danger)}
+.sim-result.review{border:1px solid var(--warn);color:var(--warn)}
+.drop-zone{border:2px dashed var(--accent);border-radius:8px;padding:20px;text-align:center;
+color:var(--muted);margin-top:8px;display:none}
+.drop-zone.visible{display:block}
+.empty-state{text-align:center;padding:40px;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px;text-align:center}
+.stat .val{font-size:1.5rem;font-weight:700;color:var(--accent)}
+.stat .lbl{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Rule Builder</h1>
+  <p class="subtitle">Create, edit, and simulate fraud detection rules with drag-and-drop</p>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="grid">
+    <div class="sidebar">
+      <button class="btn btn-primary" onclick="showCreatePack()">+ New Rule Pack</button>
+      <div id="pack-list"></div>
+    </div>
+    <div class="main">
+      <div class="panel" id="rules-panel">
+        <h2><span id="pack-title">Select a rule pack</span></h2>
+        <div class="toolbar" id="toolbar" style="display:none">
+          <button class="btn btn-primary btn-sm" onclick="showAddRule()">+ Add Rule</button>
+          <button class="btn btn-outline btn-sm" onclick="showAddTagRule()">+ Tag Rule</button>
+          <button class="btn btn-success btn-sm" onclick="showSimulator()">Simulate</button>
+          <button class="btn btn-danger btn-sm" onclick="deletePack()">Delete Pack</button>
+        </div>
+        <div class="rule-list" id="rule-list">
+          <div class="empty-state">Select a pack from the sidebar to view rules</div>
+        </div>
+      </div>
+
+      <div class="sim-panel" id="sim-panel" style="display:none">
+        <h3>Rule Simulator</h3>
+        <p style="color:var(--muted);font-size:.8rem;margin-bottom:12px">Test your rules against sample data to preview decisions</p>
+        <div class="form-group">
+          <label>Test Features (JSON)</label>
+          <textarea id="sim-input" rows="4" placeholder='{"amount": 15000, "is_vpn": true, "country": "US"}'></textarea>
+        </div>
+        <div class="form-group">
+          <label>Existing Tags (comma-separated)</label>
+          <input id="sim-tags" placeholder="sdk:vpn, sdk:bot">
+        </div>
+        <button class="btn btn-success btn-sm" onclick="runSimulation()">Run Simulation</button>
+        <div id="sim-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Rule Modal -->
+<div class="modal-overlay" id="rule-modal">
+  <div class="modal">
+    <h2 id="modal-title">Add Rule</h2>
+    <form id="rule-form" onsubmit="saveRule(event)">
+      <input type="hidden" id="r-mode" value="rule">
+      <div class="form-group">
+        <label>Rule ID</label>
+        <input id="r-id" placeholder="auto-generated if empty">
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <input id="r-desc" placeholder="High-value transaction from VPN">
+      </div>
+      <div id="conditions-area">
+        <label style="font-size:.8rem;color:var(--muted);font-weight:600;margin-bottom:8px;display:block">Conditions (all must match)</label>
+        <div id="cond-rows"></div>
+        <button type="button" class="btn btn-outline btn-sm" onclick="addCondRow()" style="margin-top:8px">+ Condition</button>
+      </div>
+      <div id="tag-match-area" style="display:none">
+        <div class="form-group">
+          <label>Match Any Tag (comma-separated)</label>
+          <input id="r-any-tag" placeholder="sdk:vpn, sdk:bot">
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:14px">
+        <label>Tags to Apply (comma-separated)</label>
+        <input id="r-tags" placeholder="high_risk, vpn_user">
+      </div>
+      <div class="form-group">
+        <label>Score Delta</label>
+        <input type="number" id="r-score" value="0" step="5">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Pack Modal -->
+<div class="modal-overlay" id="pack-modal">
+  <div class="modal">
+    <h2>Create Rule Pack</h2>
+    <form onsubmit="createPack(event)">
+      <div class="form-group">
+        <label>Pack Name</label>
+        <input id="p-name" required placeholder="velocity_rules">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('pack-modal').classList.remove('show')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const API = '';
+let packs = [], activePack = null;
+
+async function api(path, opts = {}) {
+  const r = await fetch(API + path, {headers: {'Content-Type': 'application/json'}, ...opts});
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function loadPacks() {
+  const d = await api('/v1/rules');
+  packs = d.packs || [];
+  renderPacks();
+  renderStats();
+}
+
+function renderStats() {
+  let totalRules = 0, totalTagRules = 0, totalPacks = packs.length;
+  packs.forEach(p => { totalRules += (p.rules||[]).length; totalTagRules += (p.tag_rules||[]).length; });
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="val">${totalPacks}</div><div class="lbl">Rule Packs</div></div>
+    <div class="stat"><div class="val">${totalRules}</div><div class="lbl">Rules</div></div>
+    <div class="stat"><div class="val">${totalTagRules}</div><div class="lbl">Tag Rules</div></div>
+    <div class="stat"><div class="val">${totalRules + totalTagRules}</div><div class="lbl">Total</div></div>`;
+}
+
+function renderPacks() {
+  const el = document.getElementById('pack-list');
+  el.innerHTML = packs.map(p => `
+    <div class="pack-card ${activePack && activePack._file === p._file ? 'active' : ''}" onclick="selectPack('${p._file}')">
+      <h3>${esc(p.name || p._file)}</h3>
+      <div class="meta">${(p.rules||[]).length} rules, ${(p.tag_rules||[]).length} tag rules</div>
+    </div>`).join('');
+}
+
+function selectPack(file) {
+  activePack = packs.find(p => p._file === file);
+  renderPacks();
+  renderRules();
+}
+
+function renderRules() {
+  const el = document.getElementById('rule-list');
+  document.getElementById('toolbar').style.display = activePack ? 'flex' : 'none';
+  document.getElementById('pack-title').textContent = activePack ? (activePack.name || activePack._file) : 'Select a rule pack';
+  if (!activePack) { el.innerHTML = '<div class="empty-state">Select a pack</div>'; return; }
+  const rules = activePack.rules || [];
+  const tagRules = activePack.tag_rules || [];
+  if (!rules.length && !tagRules.length) { el.innerHTML = '<div class="empty-state">No rules yet — add one above</div>'; return; }
+  let html = '';
+  rules.forEach(r => {
+    html += `<div class="rule-item" draggable="true" ondragstart="dragStart(event,'rule','${r.id}')" ondragover="dragOver(event)" ondrop="dropRule(event,'rule','${r.id}')">
+      <div class="rule-header">
+        <span class="rule-id">${esc(r.id)}</span>
+        <button class="btn btn-danger btn-sm" onclick="deleteRule('${r.id}')">Remove</button>
+      </div>
+      ${r.description ? `<div class="rule-desc">${esc(r.description)}</div>` : ''}
+      <div class="conditions">${(r.when||[]).map(c=>`<span class="cond-pill">${esc(c.field)} ${esc(c.op)} ${JSON.stringify(c.value)}</span>`).join('')}</div>
+      <div class="tags-row">${(r.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}
+        ${r.score_delta ? `<span class="tag score">+${r.score_delta}</span>` : ''}</div>
+    </div>`;
+  });
+  tagRules.forEach(r => {
+    html += `<div class="rule-item" style="border-left:3px solid var(--accent2)">
+      <div class="rule-header">
+        <span class="rule-id" style="color:var(--accent2)">${esc(r.id)} (tag rule)</span>
+        <button class="btn btn-danger btn-sm" onclick="deleteTagRule('${r.id}')">Remove</button>
+      </div>
+      ${r.description ? `<div class="rule-desc">${esc(r.description)}</div>` : ''}
+      <div class="conditions">${(r.any_tag||[]).map(t=>`<span class="cond-pill">any: ${esc(t)}</span>`).join('')}</div>
+      <div class="tags-row">${(r.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}
+        ${r.score_delta ? `<span class="tag score">+${r.score_delta}</span>` : ''}</div>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+let dragType='', dragId='';
+function dragStart(e,type,id){dragType=type;dragId=id;e.target.classList.add('dragging')}
+function dragOver(e){e.preventDefault()}
+function dropRule(e,type,targetId){
+  e.preventDefault();
+  document.querySelectorAll('.dragging').forEach(el=>el.classList.remove('dragging'));
+}
+
+function showCreatePack(){document.getElementById('pack-modal').classList.add('show');document.getElementById('p-name').value=''}
+async function createPack(e){
+  e.preventDefault();
+  const name=document.getElementById('p-name').value.trim();
+  if(!name)return;
+  await api('/v1/rules',{method:'POST',body:JSON.stringify({name,rules:[],tag_rules:[]})});
+  document.getElementById('pack-modal').classList.remove('show');
+  await loadPacks();
+}
+
+function showAddRule(){
+  document.getElementById('r-mode').value='rule';
+  document.getElementById('modal-title').textContent='Add Rule';
+  document.getElementById('conditions-area').style.display='block';
+  document.getElementById('tag-match-area').style.display='none';
+  clearRuleForm();
+  addCondRow();
+  document.getElementById('rule-modal').classList.add('show');
+}
+function showAddTagRule(){
+  document.getElementById('r-mode').value='tag_rule';
+  document.getElementById('modal-title').textContent='Add Tag Rule';
+  document.getElementById('conditions-area').style.display='none';
+  document.getElementById('tag-match-area').style.display='block';
+  clearRuleForm();
+  document.getElementById('rule-modal').classList.add('show');
+}
+function closeModal(){document.getElementById('rule-modal').classList.remove('show')}
+function clearRuleForm(){
+  ['r-id','r-desc','r-tags','r-any-tag'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('r-score').value='0';
+  document.getElementById('cond-rows').innerHTML='';
+}
+function addCondRow(){
+  const div=document.createElement('div');div.className='form-row';
+  div.innerHTML=`<input placeholder="field (e.g. amount)"><select><option value="eq">eq</option><option value="gte">gte</option><option value="lte">lte</option><option value="in">in</option><option value="contains">contains</option><option value="is_true">is_true</option><option value="is_false">is_false</option></select><input placeholder="value">`;
+  document.getElementById('cond-rows').appendChild(div);
+}
+
+async function saveRule(e){
+  e.preventDefault();
+  if(!activePack)return;
+  const mode=document.getElementById('r-mode').value;
+  const id=document.getElementById('r-id').value.trim();
+  const desc=document.getElementById('r-desc').value.trim();
+  const tags=document.getElementById('r-tags').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const scoreDelta=parseFloat(document.getElementById('r-score').value)||0;
+  const file=activePack._file;
+  if(mode==='rule'){
+    const whens=[];
+    document.querySelectorAll('#cond-rows .form-row').forEach(row=>{
+      const inputs=row.querySelectorAll('input');
+      const sel=row.querySelector('select');
+      const field=inputs[0].value.trim();
+      if(!field)return;
+      let val=inputs[1].value.trim();
+      try{val=JSON.parse(val)}catch{}
+      whens.push({field,op:sel.value,value:val});
+    });
+    await api(`/v1/rules/${file}/rules`,{method:'POST',body:JSON.stringify({id,when:whens,tags,score_delta:scoreDelta,description:desc})});
+  } else {
+    const anyTag=document.getElementById('r-any-tag').value.split(',').map(s=>s.trim()).filter(Boolean);
+    const pack=await api(`/v1/rules/${file}`);
+    const tagRules=[...(pack.tag_rules||[]),{id:id||`tagrule_${Date.now().toString(36)}`,any_tag:anyTag,tags,score_delta:scoreDelta,description:desc}];
+    await api(`/v1/rules/${file}`,{method:'PUT',body:JSON.stringify({name:pack.name,rules:pack.rules||[],tag_rules:tagRules})});
+  }
+  closeModal();
+  await loadPacks();
+  selectPack(file);
+}
+
+async function deleteRule(ruleId){
+  if(!activePack||!confirm('Delete rule '+ruleId+'?'))return;
+  await api(`/v1/rules/${activePack._file}/rules/${ruleId}`,{method:'DELETE'});
+  await loadPacks();selectPack(activePack._file);
+}
+async function deleteTagRule(ruleId){
+  if(!activePack)return;
+  const pack=await api(`/v1/rules/${activePack._file}`);
+  const tagRules=(pack.tag_rules||[]).filter(r=>r.id!==ruleId);
+  await api(`/v1/rules/${activePack._file}`,{method:'PUT',body:JSON.stringify({name:pack.name,rules:pack.rules||[],tag_rules:tagRules})});
+  await loadPacks();selectPack(activePack._file);
+}
+async function deletePack(){
+  if(!activePack||!confirm('Delete pack '+activePack._file+'?'))return;
+  await api(`/v1/rules/${activePack._file}`,{method:'DELETE'});
+  activePack=null;await loadPacks();renderRules();
+}
+
+function showSimulator(){document.getElementById('sim-panel').style.display=document.getElementById('sim-panel').style.display==='none'?'block':'none'}
+function runSimulation(){
+  if(!activePack)return;
+  let features;
+  try{features=JSON.parse(document.getElementById('sim-input').value||'{}')}catch{alert('Invalid JSON');return}
+  const tags=document.getElementById('sim-tags').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const rules=activePack.rules||[];
+  const tagRules=activePack.tag_rules||[];
+  let hits=[],newTags=[],delta=0;
+  rules.forEach(r=>{
+    if(!(r.when||[]).length)return;
+    if((r.when||[]).every(c=>matchCond(features,c))){
+      hits.push(r.id);newTags.push(...(r.tags||[]));delta+=(r.score_delta||0);
+    }
+  });
+  tagRules.forEach(r=>{
+    const need=new Set(r.any_tag||[]);
+    if([...need].some(t=>tags.includes(t))){
+      hits.push(r.id);newTags.push(...(r.tags||[]));delta+=(r.score_delta||0);
+    }
+  });
+  const score=Math.max(0,Math.min(100,10+delta));
+  const decision=score>=80?'deny':score>=50?'review':'allow';
+  document.getElementById('sim-result').innerHTML=`
+    <div class="sim-result ${decision}">
+      <strong>Decision: ${decision.toUpperCase()}</strong> | Score: ${score.toFixed(1)}<br>
+      Hits: ${hits.length?hits.join(', '):'none'}<br>
+      New tags: ${newTags.length?newTags.join(', '):'none'}
+    </div>`;
+}
+function matchCond(f,c){
+  const v=f[c.field],op=c.op||'eq',exp=c.value;
+  if(op==='eq')return v===exp;
+  if(op==='gte')return v!=null&&Number(v)>=Number(exp);
+  if(op==='lte')return v!=null&&Number(v)<=Number(exp);
+  if(op==='in')return(exp||[]).includes(v);
+  if(op==='contains')return String(v||'').includes(String(exp));
+  if(op==='is_true')return v===true;
+  if(op==='is_false')return v===false;
+  return false;
+}
+function esc(s){const d=document.createElement('div');d.textContent=String(s||'');return d.innerHTML}
+
+loadPacks();
+</script>
+</body>
+</html>

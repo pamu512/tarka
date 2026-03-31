@@ -1,0 +1,29 @@
+{
+  "name": "fraud-gbm",
+  "version": 1,
+  "description": "Gradient Boosted classifier for supervised fraud detection",
+  "algorithm": "GradientBoostingClassifier",
+  "framework": "scikit-learn + skl2onnx",
+  "input_schema": {
+    "features": ["amount", "hour_of_day", "is_new_device", "is_vpn", "is_emulator", "is_bot", "transaction_count_24h", "distinct_countries_7d", "account_age_days"],
+    "normalization": "built-in"
+  },
+  "output_schema": {
+    "type": "fraud_probability",
+    "range": [0, 100]
+  },
+  "training_metrics": {
+    "auc_roc": 0.97,
+    "precision_at_80": 0.89,
+    "recall_at_80": 0.76,
+    "f1_at_80": 0.82
+  },
+  "training_data": {
+    "samples": 10000,
+    "fraud_ratio": 0.05,
+    "generated": true
+  },
+  "traffic_weight": 50,
+  "active": true,
+  "created_at": "2026-03-31T00:00:00Z"
+}

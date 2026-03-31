@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@theme {
+  --color-surface-950: #0a0c10;
+  --color-surface-900: #0f1117;
+  --color-surface-800: #161923;
+  --color-surface-700: #1e2233;
+  --color-surface-600: #2a2f44;
+  --color-surface-500: #3d4463;
+
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+
+  --color-risk-critical: #ef4444;
+  --color-risk-high: #f97316;
+  --color-risk-medium: #f59e0b;
+  --color-risk-low: #22c55e;
+  --color-risk-safe: #06b6d4;
+
+  --color-status-open: #3b82f6;
+  --color-status-investigating: #f59e0b;
+  --color-status-resolved: #22c55e;
+  --color-status-closed: #6b7280;
+
+  --color-decision-allow: #22c55e;
+  --color-decision-review: #f59e0b;
+  --color-decision-deny: #ef4444;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a2f44 transparent;
+}
+
+body {
+  background-color: #0a0c10;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}

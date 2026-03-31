@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "high_amount_payment",
+      "when": [{ "op": "gte", "field": "amount", "value": 10000 }],
+      "tags": ["high_value"],
+      "score_delta": 25
+    }
+  ],
+  "tag_rules": []
+}

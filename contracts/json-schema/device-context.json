@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tarka.local/schemas/device-context.json",
+  "title": "DeviceContext",
+  "type": "object",
+  "required": ["device_id", "platform", "signals"],
+  "properties": {
+    "device_id": { "type": "string", "description": "Stable fingerprint hash for the device" },
+    "platform": { "type": "string", "enum": ["web", "android", "ios", "server"] },
+    "signals": {
+      "type": "object",
+      "properties": {
+        "is_emulator": { "type": "boolean" },
+        "is_vpn": { "type": "boolean" },
+        "is_spoofed_location": { "type": "boolean" },
+        "is_bot": { "type": "boolean" },
+        "is_repackaged": { "type": "boolean" },
+        "webdriver_detected": { "type": "boolean" },
+        "headless_detected": { "type": "boolean" },
+        "automation_detected": { "type": "boolean" },
+        "vpn_interface_detected": { "type": "boolean" },
+        "mock_location_detected": { "type": "boolean" },
+        "timezone_geo_mismatch": { "type": "boolean" },
+        "canvas_fp_hash": { "type": ["string", "null"] },
+        "webgl_renderer": { "type": ["string", "null"] },
+        "screen_res": { "type": ["string", "null"] },
+        "touch_support": { "type": ["boolean", "null"] },
+        "battery_api_present": { "type": ["boolean", "null"] },
+        "language": { "type": ["string", "null"] },
+        "platform_version": { "type": ["string", "null"] },
+        "ip_address": { "type": ["string", "null"] },
+        "ip_geo_country": { "type": ["string", "null"] },
+        "ip_asn": { "type": ["string", "null"] },
+        "ip_is_proxy": { "type": ["boolean", "null"] },
+        "ip_is_datacenter": { "type": ["boolean", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "attestation": {
+      "type": ["object", "null"],
+      "properties": {
+        "nonce": { "type": "string" },
+        "token": { "type": "string" },
+        "provider": { "type": "string", "enum": ["play_integrity", "app_attest", "browser_challenge"] }
+      },
+      "required": ["nonce", "token", "provider"]
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,40 @@
+{{- if .Values.caseApi.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-case-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-case-api
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-case-api
+    spec:
+      containers:
+        - name: case-api
+          image: "{{ .Values.caseApi.image }}:{{ .Values.caseApi.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: 8002
+          env:
+            - name: DATABASE_URL
+              value: "postgresql+asyncpg://{{ .Values.postgres.auth.username }}:{{ .Values.postgres.auth.password }}@{{ include "tarka.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}"
+            {{- if .Values.graphService.enabled }}
+            - name: GRAPH_SERVICE_URL
+              value: "http://{{ include "tarka.fullname" . }}-graph-service:8001"
+            {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-case-api
+spec:
+  selector:
+    app: {{ include "tarka.fullname" . }}-case-api
+  ports:
+    - port: 8002
+      targetPort: 8002
+{{- end }}

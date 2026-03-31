@@ -1,0 +1,9 @@
+{
+  "name": "Webhook notification on review decisions",
+  "enabled": false,
+  "triggers": ["decision_review", "decision_deny"],
+  "conditions": [],
+  "actions": [
+    {"type": "send_webhook", "url": "https://hooks.example.com/fraud-alerts"}
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "Route bot-flagged cases to bot-review team",
+  "enabled": true,
+  "triggers": ["case_created"],
+  "conditions": [
+    {"field": "tags", "op": "contains", "value": "sdk:bot"}
+  ],
+  "actions": [
+    {"type": "assign_team", "team": "bot-review"},
+    {"type": "add_label", "labels": ["bot-flagged"]},
+    {"type": "add_comment", "message": "Routed to bot-review team: sdk:bot tag detected"}
+  ]
+}

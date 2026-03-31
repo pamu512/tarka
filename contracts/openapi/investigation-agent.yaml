@@ -1,0 +1,50 @@
+openapi: 3.1.0
+info:
+  title: Tarka Investigation Agent API
+  version: 1.0.0
+  description: Analyst copilot; tools call Case and Graph services with RBAC.
+servers:
+  - url: http://localhost:8006
+paths:
+  /v1/health:
+    get:
+      operationId: agentHealth
+      responses:
+        "200":
+          description: OK
+  /v1/chat:
+    post:
+      operationId: chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_id, analyst_id, messages]
+              properties:
+                tenant_id: { type: string }
+                analyst_id: { type: string }
+                case_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    required: [role, content]
+                    properties:
+                      role: { type: string, enum: [user, assistant, system] }
+                      content: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply: { type: string }
+                  tool_calls:
+                    type: array
+                    items: { type: object }

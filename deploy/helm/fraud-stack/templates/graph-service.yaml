@@ -1,0 +1,40 @@
+{{- if .Values.graphService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-graph-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-graph-service
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-graph-service
+    spec:
+      containers:
+        - name: graph-service
+          image: "{{ .Values.graphService.image }}:{{ .Values.graphService.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: 8001
+          env:
+            - name: NEO4J_URI
+              value: "bolt://{{ include "tarka.fullname" . }}-neo4j:7687"
+            - name: NEO4J_USER
+              value: "neo4j"
+            - name: NEO4J_PASSWORD
+              value: "fraud_neo4j"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-graph-service
+spec:
+  selector:
+    app: {{ include "tarka.fullname" . }}-graph-service
+  ports:
+    - port: 8001
+      targetPort: 8001
+{{- end }}

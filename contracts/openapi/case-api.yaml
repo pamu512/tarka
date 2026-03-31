@@ -1,0 +1,135 @@
+openapi: 3.1.0
+info:
+  title: Tarka Case & Label API
+  version: 1.0.0
+  description: Investigations, cases, labels, and analyst workflow.
+servers:
+  - url: http://localhost:8002
+paths:
+  /v1/health:
+    get:
+      operationId: caseHealth
+      responses:
+        "200":
+          description: OK
+  /v1/cases:
+    get:
+      operationId: listCases
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, in_review, closed]
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Case"
+    post:
+      operationId: createCase
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCaseRequest"
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Case"
+  /v1/cases/{case_id}:
+    get:
+      operationId: getCase
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Case"
+  /v1/cases/{case_id}/comments:
+    post:
+      operationId: addComment
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [author, body]
+              properties:
+                author: { type: string }
+                body: { type: string }
+      responses:
+        "201":
+          description: Created
+  /v1/cases/{case_id}/labels:
+    post:
+      operationId: applyLabels
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [labels]
+              properties:
+                labels:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200":
+          description: OK
+components:
+  schemas:
+    CreateCaseRequest:
+      type: object
+      required: [tenant_id, title, entity_id, trace_id]
+      properties:
+        tenant_id: { type: string }
+        title: { type: string }
+        entity_id: { type: string }
+        trace_id: { type: string }
+        priority: { type: string, enum: [low, medium, high] }
+    Case:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string }
+        title: { type: string }
+        status: { type: string }
+        entity_id: { type: string }
+        trace_id: { type: string }
+        labels:
+          type: array
+          items: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }

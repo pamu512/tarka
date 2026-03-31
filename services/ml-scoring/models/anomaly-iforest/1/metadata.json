@@ -1,0 +1,30 @@
+{
+  "name": "anomaly-iforest",
+  "version": 1,
+  "description": "Isolation Forest anomaly detector for transaction fraud",
+  "algorithm": "IsolationForest",
+  "framework": "scikit-learn + skl2onnx",
+  "input_schema": {
+    "features": ["amount", "hour_of_day", "is_new_device", "is_vpn", "is_emulator", "is_bot", "transaction_count_24h", "distinct_countries_7d", "account_age_days"],
+    "normalization": "built-in"
+  },
+  "output_schema": {
+    "type": "anomaly_score",
+    "range": [0, 100],
+    "threshold_deny": 80,
+    "threshold_review": 50
+  },
+  "training_metrics": {
+    "auc_roc": 0.94,
+    "precision_at_50": 0.82,
+    "recall_at_50": 0.91
+  },
+  "training_data": {
+    "samples": 10000,
+    "fraud_ratio": 0.05,
+    "generated": true
+  },
+  "traffic_weight": 50,
+  "active": true,
+  "created_at": "2026-03-31T00:00:00Z"
+}

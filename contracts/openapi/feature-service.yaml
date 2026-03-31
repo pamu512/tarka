@@ -1,0 +1,48 @@
+openapi: 3.1.0
+info:
+  title: Tarka Feature Service
+  version: 1.0.0
+servers:
+  - url: http://localhost:8004
+paths:
+  /v1/health:
+    get:
+      operationId: featureHealth
+      responses:
+        "200":
+          description: OK
+  /v1/snapshot:
+    post:
+      operationId: buildSnapshot
+      summary: Build canonical feature snapshot for entity/event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_id, entity_id, event_type]
+              properties:
+                tenant_id: { type: string }
+                entity_id: { type: string }
+                event_type: { type: string }
+                payload:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tenant_id, entity_id, event_type, features]
+                properties:
+                  tenant_id: { type: string }
+                  entity_id: { type: string }
+                  event_type: { type: string }
+                  features:
+                    type: object
+                    additionalProperties: true
+                  redis_tags:
+                    type: array
+                    items: { type: string }

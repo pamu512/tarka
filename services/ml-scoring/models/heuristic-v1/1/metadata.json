@@ -1,0 +1,20 @@
+{
+  "model_name": "heuristic-v1",
+  "version": 1,
+  "description": "Baseline heuristic scoring model for fraud detection",
+  "framework": "heuristic",
+  "created_at": "2026-01-15T00:00:00Z",
+  "author": "tarka-team",
+  "traffic_weight": 100,
+  "active": true,
+  "input_schema": {
+    "features": ["amount", "new_device", "is_emulator", "is_bot", "is_vpn"]
+  },
+  "metrics": {
+    "precision": null,
+    "recall": null,
+    "f1": null,
+    "auc_roc": null
+  },
+  "tags": ["baseline", "production"]
+}

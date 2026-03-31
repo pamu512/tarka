@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tarka.local/schemas/feature-snapshot.json",
+  "title": "FeatureSnapshot",
+  "type": "object",
+  "description": "Canonical input for rule engine and ML",
+  "required": ["tenant_id", "entity_id", "event_type", "features"],
+  "properties": {
+    "tenant_id": { "type": "string" },
+    "entity_id": { "type": "string" },
+    "event_type": { "type": "string" },
+    "features": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["string", "number", "boolean", "null"]
+      }
+    },
+    "redis_tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}

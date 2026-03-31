@@ -1,0 +1,229 @@
+# Tarka — modular profiles (combine as needed):
+#   docker compose --profile core up -d
+#   docker compose --profile core --profile graph --profile ml --profile cases up -d
+# Full stack:
+#   docker compose --profile full up -d
+
+name: tarka
+
+services:
+  # ---------- Infrastructure ----------
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fraud
+      POSTGRES_PASSWORD: fraud
+      POSTGRES_DB: fraud
+    ports:
+      - "5432:5432"
+    volumes:
+      - fraud_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fraud -d fraud"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    profiles: [core, full]
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    profiles: [core, full]
+
+  neo4j:
+    image: neo4j:5-community
+    environment:
+      NEO4J_AUTH: neo4j/tarka
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - fraud_neo4j:/data
+    profiles: [graph, full]
+
+  nats:
+    image: nats:2-alpine
+    command: ["-js", "-sd", "/data"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - fraud_nats:/data
+    profiles: [streaming, full]
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - fraud_ch:/var/lib/clickhouse
+    profiles: [analytics, full]
+
+  opa:
+    image: openpolicyagent/opa:0.70.0
+    command: ["run", "--server", "/policies/policy.rego"]
+    volumes:
+      - ./opa:/policies:ro
+    ports:
+      - "8181:8181"
+    profiles: [opa, full]
+
+  # ---------- Core Services ----------
+  decision-api:
+    build:
+      context: ..
+      dockerfile: services/decision-api/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
+      REDIS_URL: redis://redis:6379/0
+      RULES_PATH: /app/rules
+      FEATURE_SERVICE_URL: ${FEATURE_SERVICE_URL:-}
+      ML_SCORING_URL: ${ML_SCORING_URL:-}
+      GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-}
+      OPA_URL: ${OPA_URL:-}
+      NATS_URL: nats://nats:4222
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    profiles: [core, full]
+
+  graph-service:
+    build:
+      context: ..
+      dockerfile: services/graph-service/Dockerfile
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: tarka
+    ports:
+      - "8001:8001"
+    depends_on:
+      - neo4j
+    profiles: [graph, full]
+
+  case-api:
+    build:
+      context: ..
+      dockerfile: services/case-api/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
+      GRAPH_SERVICE_URL: http://graph-service:8001
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: [cases, full]
+
+  integration-ingress:
+    build:
+      context: ..
+      dockerfile: services/integration-ingress/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: [integration, full]
+
+  feature-service:
+    build:
+      context: ..
+      dockerfile: services/feature-service/Dockerfile
+    ports:
+      - "8004:8004"
+    profiles: [ml, full]
+
+  ml-scoring:
+    build:
+      context: ..
+      dockerfile: services/ml-scoring/Dockerfile
+    environment:
+      DISABLE_ML: ${DISABLE_ML:-false}
+    ports:
+      - "8005:8005"
+    profiles: [ml, full]
+
+  investigation-agent:
+    build:
+      context: ..
+      dockerfile: services/investigation-agent/Dockerfile
+    environment:
+      CASE_API_URL: http://case-api:8002
+      GRAPH_SERVICE_URL: http://graph-service:8001
+      ALLOWED_ANALYSTS: ${ALLOWED_ANALYSTS:-*}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    ports:
+      - "8006:8006"
+    depends_on:
+      - case-api
+    profiles: [agent, full]
+
+  # ---------- New Services ----------
+  event-ingest:
+    build:
+      context: ..
+      dockerfile: services/event-ingest/Dockerfile
+    environment:
+      NATS_URL: nats://nats:4222
+      DECISION_API_URL: http://decision-api:8000
+    ports:
+      - "8007:8007"
+    depends_on:
+      - nats
+      - decision-api
+    profiles: [streaming, full]
+
+  analytics-sink:
+    build:
+      context: ..
+      dockerfile: services/analytics-sink/Dockerfile
+    environment:
+      CLICKHOUSE_HOST: clickhouse
+      NATS_URL: nats://nats:4222
+    ports:
+      - "8008:8008"
+    depends_on:
+      - clickhouse
+      - nats
+    profiles: [analytics, full]
+
+  graphql-gateway:
+    build:
+      context: ..
+      dockerfile: services/graphql-gateway/Dockerfile
+    environment:
+      DECISION_API_URL: http://decision-api:8000
+      CASE_API_URL: http://case-api:8002
+      GRAPH_SERVICE_URL: http://graph-service:8001
+    ports:
+      - "8010:8010"
+    depends_on:
+      - decision-api
+      - case-api
+    profiles: [gateway, full]
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - decision-api
+      - case-api
+    profiles: [ui, full]
+
+volumes:
+  fraud_pg:
+  fraud_neo4j:
+  fraud_nats:
+  fraud_ch:

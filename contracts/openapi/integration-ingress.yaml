@@ -1,0 +1,95 @@
+openapi: 3.1.0
+info:
+  title: Tarka Integration Ingress
+  version: 1.0.0
+  description: Webhooks and adapter callbacks for KYC and third-party identity providers.
+servers:
+  - url: http://localhost:8003
+paths:
+  /v1/health:
+    get:
+      operationId: ingressHealth
+      responses:
+        "200":
+          description: OK
+  /v1/webhooks/kyc/{provider}:
+    post:
+      operationId: kycWebhook
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "202":
+          description: Accepted for processing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  event_id: { type: string }
+  /v1/kyc/verify:
+    post:
+      operationId: verifyIdentity
+      summary: Invoke normalized verify (routes to configured adapter)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KycVerifyRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KycNormalizedResult"
+components:
+  schemas:
+    KycVerifyRequest:
+      type: object
+      required: [tenant_id, subject_id, adapter]
+      properties:
+        tenant_id: { type: string }
+        subject_id: { type: string }
+        adapter: { type: string }
+        document:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [passport, drivers_license, national_id, other]
+            country: { type: string }
+        raw:
+          type: object
+          additionalProperties: true
+    KycNormalizedResult:
+      type: object
+      required: [status, adapter, subject_id]
+      properties:
+        status:
+          type: string
+          enum: [pending, verified, rejected, manual_review, error]
+        adapter: { type: string }
+        subject_id: { type: string }
+        document_type:
+          type: string
+          nullable: true
+          enum: [passport, drivers_license, national_id, other]
+        liveness:
+          type: string
+          nullable: true
+          enum: [passed, failed, skipped]
+        pep_sanctions_match: { type: boolean, nullable: true }
+        confidence: { type: number, minimum: 0, maximum: 1, nullable: true }
+        raw_reference: { type: string, nullable: true }
+        details:
+          type: object
+          additionalProperties: true

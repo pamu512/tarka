@@ -1,0 +1,31 @@
+{
+  "tenant_id": "default",
+  "entity_types": [
+    "Person",
+    "Account",
+    "Device",
+    "Payment",
+    "Document",
+    "Custom",
+    "Merchant",
+    "Address",
+    "Email",
+    "Phone"
+  ],
+  "relationship_types": [
+    "USED",
+    "SHARED_WITH",
+    "REFERRED",
+    "KYC_VERIFIED_BY",
+    "OWNS",
+    "CUSTOM",
+    "RELATED",
+    "SENT_TO",
+    "RECEIVED_FROM",
+    "LOCATED_AT",
+    "CONTACTED"
+  ],
+  "extra": {
+    "description": "Default schema with common fraud-detection entity and relationship types"
+  }
+}

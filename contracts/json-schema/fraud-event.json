@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tarka.local/schemas/fraud-event.json",
+  "title": "FraudEvent",
+  "type": "object",
+  "required": ["tenant_id", "event_type", "entity_id", "payload"],
+  "properties": {
+    "tenant_id": { "type": "string" },
+    "event_type": {
+      "type": "string",
+      "enum": ["login", "payment", "signup", "device", "session", "custom"]
+    },
+    "entity_id": { "type": "string" },
+    "session_id": { "type": ["string", "null"] },
+    "payload": { "type": "object", "additionalProperties": true },
+    "metadata": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}

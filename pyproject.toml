@@ -1,0 +1,115 @@
+[project]
+name = "tarka"
+version = "1.0.0"
+description = "Open-source modular fraud detection platform — prove every signal."
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.11"
+keywords = ["fraud", "detection", "osint", "ml", "graph", "rules-engine", "aml"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Office/Business :: Financial",
+]
+
+# Core: just the CLI installer + shared utilities
+dependencies = [
+    "httpx>=0.28.0",
+]
+
+[project.optional-dependencies]
+# Individual modules — install only what you need
+core = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "redis[hiredis]>=5.2.0",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30.0",
+    "httpx>=0.28.0",
+    "pydantic-settings>=2.6.0",
+    "pydantic>=2.10.0",
+]
+graph = [
+    "neo4j>=5.25.0",
+]
+ml = [
+    "numpy>=1.26.0",
+    "onnxruntime>=1.19.0",
+    "scikit-learn>=1.5.0",
+]
+cases = [
+    "fastapi>=0.115.0",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30.0",
+]
+streaming = [
+    "nats-py>=2.9.0",
+]
+analytics = [
+    "clickhouse-connect>=0.7.0",
+    "nats-py>=2.9.0",
+]
+agent = [
+    "openai>=1.50.0",
+]
+osint = [
+    "httpx>=0.28.0",
+]
+gateway = [
+    "strawberry-graphql[fastapi]>=0.243.0",
+]
+sdk = [
+    "httpx>=0.28.0",
+]
+
+# Bundles — common combinations
+lite = [
+    "tarka[core,cases]",
+]
+standard = [
+    "tarka[core,graph,ml,cases,osint]",
+]
+full = [
+    "tarka[core,graph,ml,cases,streaming,analytics,agent,osint,gateway]",
+]
+
+# Development
+dev = [
+    "ruff>=0.8.0",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24.0",
+    "httpx>=0.28.0",
+    "mypy>=1.0",
+]
+
+[project.scripts]
+tarka = "tarka:main"
+
+[project.urls]
+Homepage = "https://github.com/tarka-fraud/tarka"
+Documentation = "https://tarka-fraud.github.io/tarka"
+Repository = "https://github.com/tarka-fraud/tarka"
+Issues = "https://github.com/tarka-fraud/tarka/issues"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["tarka"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

@@ -1,0 +1,87 @@
+site_name: "Tarka Documentation"
+site_description: "Modular, open-source fraud detection platform with real-time scoring, graph analytics, ML inference, and case management."
+site_url: https://tarka.dev
+
+repo_name: tarka/tarka
+repo_url: https://github.com/tarka/tarka
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - toc.follow
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - tables
+  - attr_list
+  - md_in_html
+  - def_list
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - Architecture: architecture.md
+  - Services:
+      - Decision API: services/decision-api.md
+      - Graph Service: services/graph-service.md
+      - Case API: services/case-api.md
+      - ML Scoring: services/ml-scoring.md
+  - Guides:
+      - Rule Authoring: guides/rules.md
+      - Graph Analysis: guides/graph-analysis.md
+      - Deployment: guides/deployment.md
+  - SDKs:
+      - Python: sdks/python.md
+      - TypeScript: sdks/typescript.md
+  - API Reference: api-reference.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/tarka/tarka
+  generator: false

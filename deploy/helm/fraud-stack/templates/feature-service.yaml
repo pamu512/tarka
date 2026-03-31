@@ -1,0 +1,33 @@
+{{- if .Values.featureService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-feature-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-feature-service
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-feature-service
+    spec:
+      containers:
+        - name: feature-service
+          image: "{{ .Values.featureService.image }}:{{ .Values.featureService.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: 8004
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-feature-service
+spec:
+  selector:
+    app: {{ include "tarka.fullname" . }}-feature-service
+  ports:
+    - port: 8004
+      targetPort: 8004
+{{- end }}

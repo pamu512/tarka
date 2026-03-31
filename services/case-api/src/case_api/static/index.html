@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tarka — Investigations</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; background: #0f1419; color: #e7e9ea; }
+    body { margin: 0; padding: 1.5rem; max-width: 960px; margin-inline: auto; }
+    h1 { font-size: 1.25rem; font-weight: 600; }
+    label { display: block; margin-top: 0.75rem; font-size: 0.85rem; color: #8b98a5; }
+    input, button, select { margin-top: 0.25rem; padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid #38444d; background: #15202b; color: inherit; }
+    button { cursor: pointer; background: #1d9bf0; border-color: #1d9bf0; color: #fff; }
+    button.secondary { background: transparent; color: #1d9bf0; }
+    .row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 1rem; }
+    .card { border: 1px solid #38444d; border-radius: 8px; padding: 1rem; margin-top: 1rem; background: #15202b; }
+    ul { padding-left: 1.2rem; }
+    pre { overflow: auto; font-size: 0.75rem; background: #0f1419; padding: 0.75rem; border-radius: 6px; border: 1px solid #38444d; }
+    .tag { display: inline-block; background: #38444d; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin: 0.15rem; }
+  </style>
+</head>
+<body>
+  <h1>Investigations &amp; labeling</h1>
+  <p style="color:#8b98a5;font-size:0.9rem;">Minimal UI — calls Case API on same origin. Set tenant and open cases from the queue.</p>
+
+  <div class="row">
+    <div>
+      <label>Tenant ID</label>
+      <input id="tenant" value="demo" />
+    </div>
+    <button type="button" id="loadCases">Load cases</button>
+  </div>
+
+  <div class="row">
+    <div>
+      <label>New case title</label>
+      <input id="title" placeholder="Suspicious payment" />
+    </div>
+    <div>
+      <label>Entity ID</label>
+      <input id="entity" placeholder="user-123" />
+    </div>
+    <div>
+      <label>Trace ID</label>
+      <input id="trace" placeholder="uuid from decision API" />
+    </div>
+    <button type="button" id="createCase">Create case</button>
+  </div>
+
+  <div class="card">
+    <strong>Queue</strong>
+    <ul id="queue"></ul>
+  </div>
+
+  <div class="card" id="detail" hidden>
+    <strong id="detailTitle"></strong>
+    <p>Labels: <span id="labels"></span></p>
+    <div class="row">
+      <input id="newLabel" placeholder="fraud_typology / false_positive / mule" />
+      <button type="button" id="addLabel">Add label</button>
+      <button type="button" class="secondary" id="loadGraph">Load graph</button>
+    </div>
+    <pre id="graphOut"></pre>
+  </div>
+
+  <script>
+    const api = (path, opts = {}) => fetch(path, { ...opts, headers: { 'Content-Type': 'application/json', ...opts.headers } }).then(async r => {
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    });
+    let selectedId = null;
+
+    document.getElementById('loadCases').onclick = async () => {
+      const tenant = document.getElementById('tenant').value;
+      const data = await api('/v1/cases?tenant_id=' + encodeURIComponent(tenant));
+      const ul = document.getElementById('queue');
+      ul.innerHTML = '';
+      (data.items || []).forEach(c => {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = '#';
+        a.textContent = c.title + ' — ' + c.status;
+        a.onclick = (e) => { e.preventDefault(); openCase(c); };
+        li.appendChild(a);
+        ul.appendChild(li);
+      });
+    };
+
+    function openCase(c) {
+      selectedId = c.id;
+      document.getElementById('detail').hidden = false;
+      document.getElementById('detailTitle').textContent = c.title;
+      const labelsEl = document.getElementById('labels');
+      labelsEl.innerHTML = '';
+      const labels = c.labels || [];
+      if (labels.length === 0) {
+        const em = document.createElement('em');
+        em.textContent = 'none';
+        labelsEl.appendChild(em);
+      } else {
+        labels.forEach(l => {
+          const span = document.createElement('span');
+          span.className = 'tag';
+          span.textContent = l;
+          labelsEl.appendChild(span);
+          labelsEl.appendChild(document.createTextNode(' '));
+        });
+      }
+      document.getElementById('graphOut').textContent = '';
+    }
+
+    document.getElementById('createCase').onclick = async () => {
+      const tenant_id = document.getElementById('tenant').value;
+      const body = {
+        tenant_id,
+        title: document.getElementById('title').value || 'Untitled',
+        entity_id: document.getElementById('entity').value || 'unknown',
+        trace_id: document.getElementById('trace').value || 'n/a',
+      };
+      await api('/v1/cases', { method: 'POST', body: JSON.stringify(body) });
+      document.getElementById('loadCases').click();
+    };
+
+    document.getElementById('addLabel').onclick = async () => {
+      if (!selectedId) return;
+      const label = document.getElementById('newLabel').value.trim();
+      if (!label) return;
+      await api('/v1/cases/' + selectedId + '/labels', { method: 'POST', body: JSON.stringify({ labels: [label] }) });
+      const c = await api('/v1/cases/' + selectedId);
+      openCase(c);
+    };
+
+    document.getElementById('loadGraph').onclick = async () => {
+      if (!selectedId) return;
+      const g = await api('/v1/cases/' + selectedId + '/graph?depth=2');
+      document.getElementById('graphOut').textContent = JSON.stringify(g, null, 2);
+    };
+  </script>
+</body>
+</html>

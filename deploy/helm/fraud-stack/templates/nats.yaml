@@ -1,0 +1,47 @@
+{{- if .Values.nats.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-nats
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-nats
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-nats
+    spec:
+      containers:
+        - name: nats
+          image: {{ .Values.nats.image }}
+          args:
+            - "--jetstream"
+            - "--store_dir=/data"
+            - "--max_file_store=1Gi"
+          ports:
+            - containerPort: 4222
+            - containerPort: 8222
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-nats
+spec:
+  selector:
+    app: {{ include "tarka.fullname" . }}-nats
+  ports:
+    - name: client
+      port: 4222
+      targetPort: 4222
+    - name: monitoring
+      port: 8222
+      targetPort: 8222
+{{- end }}

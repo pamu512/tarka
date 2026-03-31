@@ -1,0 +1,36 @@
+{{- if .Values.integrationIngress.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-integration-ingress
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-integration-ingress
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-integration-ingress
+    spec:
+      containers:
+        - name: integration-ingress
+          image: "{{ .Values.integrationIngress.image }}:{{ .Values.integrationIngress.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: 8003
+          env:
+            - name: DATABASE_URL
+              value: "postgresql+asyncpg://{{ .Values.postgres.auth.username }}:{{ .Values.postgres.auth.password }}@{{ include "tarka.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-integration-ingress
+spec:
+  selector:
+    app: {{ include "tarka.fullname" . }}-integration-ingress
+  ports:
+    - port: 8003
+      targetPort: 8003
+{{- end }}

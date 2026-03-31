@@ -1,0 +1,14 @@
+{
+  "name": "Auto-escalate denied transactions",
+  "enabled": true,
+  "triggers": ["decision_deny"],
+  "conditions": [
+    {"field": "score", "op": "gte", "value": 90}
+  ],
+  "actions": [
+    {"type": "set_priority", "priority": "critical"},
+    {"type": "escalate"},
+    {"type": "add_label", "labels": ["auto-escalated", "high-risk"]},
+    {"type": "add_comment", "message": "Auto-escalated: score >= 90 with deny decision"}
+  ]
+}

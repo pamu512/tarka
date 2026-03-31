@@ -1,0 +1,45 @@
+{{- if .Values.graphqlGateway.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-graphql-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-graphql-gateway
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-graphql-gateway
+    spec:
+      containers:
+        - name: graphql-gateway
+          image: "{{ .Values.graphqlGateway.image }}:{{ .Values.graphqlGateway.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.graphqlGateway.port }}
+          env:
+            - name: DECISION_API_URL
+              value: "http://{{ include "tarka.fullname" . }}-decision-api:8000"
+            - name: CASE_API_URL
+              value: "http://{{ include "tarka.fullname" . }}-case-api:8002"
+            - name: GRAPH_SERVICE_URL
+              value: "http://{{ include "tarka.fullname" . }}-graph-service:8001"
+          readinessProbe:
+            tcpSocket:
+              port: {{ .Values.graphqlGateway.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-graphql-gateway
+spec:
+  selector:
+    app: {{ include "tarka.fullname" . }}-graphql-gateway
+  ports:
+    - port: {{ .Values.graphqlGateway.port }}
+      targetPort: {{ .Values.graphqlGateway.port }}
+{{- end }}

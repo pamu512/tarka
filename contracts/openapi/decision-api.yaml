@@ -1,0 +1,180 @@
+openapi: 3.1.0
+info:
+  title: Tarka Decision API
+  version: 1.0.0
+  description: Synchronous fraud scoring and event ingestion. SDK clients call this service only.
+servers:
+  - url: http://localhost:8000
+    description: Local
+paths:
+  /v1/health:
+    get:
+      operationId: healthCheck
+      summary: Liveness probe
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /v1/decisions/evaluate:
+    post:
+      operationId: evaluateDecision
+      summary: Evaluate fraud decision for an event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvaluateRequest"
+      responses:
+        "200":
+          description: Decision result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvaluateResponse"
+        "422":
+          description: Validation error
+  /v1/attestation/challenge:
+    post:
+      operationId: attestationChallenge
+      summary: Issue a nonce for SDK attestation handshake
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_id]
+              properties:
+                tenant_id: { type: string }
+      responses:
+        "200":
+          description: Nonce issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nonce: { type: string }
+                  expires_in: { type: integer, description: TTL in seconds }
+  /v1/attestation/verify:
+    post:
+      operationId: attestationVerify
+      summary: Verify an attestation token from the SDK
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nonce, token, provider]
+              properties:
+                nonce: { type: string }
+                token: { type: string }
+                provider: { type: string, enum: [play_integrity, app_attest, browser_challenge] }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid: { type: boolean }
+                  device_integrity: { type: string, nullable: true }
+        "400":
+          description: Invalid or expired nonce
+  /v1/audit/{trace_id}:
+    get:
+      operationId: getAuditByTraceId
+      summary: Fetch audit record by trace id (internal / admin use)
+      parameters:
+        - name: trace_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Audit row
+          content:
+            application/json:
+              schema:
+                type: object
+        "404":
+          description: Not found
+components:
+  schemas:
+    EvaluateRequest:
+      type: object
+      required: [tenant_id, event_type, entity_id, payload]
+      properties:
+        tenant_id:
+          type: string
+        event_type:
+          type: string
+          description: e.g. login, payment, signup, device, session
+          enum: [login, payment, signup, device, session, custom]
+        entity_id:
+          type: string
+        session_id:
+          type: string
+          nullable: true
+        payload:
+          type: object
+          additionalProperties: true
+        device_context:
+          type: object
+          nullable: true
+          description: Device signals and attestation from SDK
+          properties:
+            device_id: { type: string }
+            platform: { type: string, enum: [web, android, ios, server] }
+            signals: { type: object, additionalProperties: true }
+            attestation:
+              type: object
+              nullable: true
+              properties:
+                nonce: { type: string }
+                token: { type: string }
+                provider: { type: string }
+        metadata:
+          type: object
+          additionalProperties: true
+    EvaluateResponse:
+      type: object
+      required: [trace_id, decision, score, tags]
+      properties:
+        trace_id:
+          type: string
+          format: uuid
+        decision:
+          type: string
+          enum: [allow, review, deny]
+        score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+        tags:
+          type: array
+          items:
+            type: string
+        rule_hits:
+          type: array
+          items:
+            type: string
+        reasons:
+          type: array
+          items:
+            type: string
+        ml_score:
+          type: number
+          format: float
+          nullable: true

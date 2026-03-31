@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tarka.local/schemas/kyc-normalized-result.json",
+  "title": "KycNormalizedResult",
+  "type": "object",
+  "required": ["status", "adapter", "subject_id"],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["pending", "verified", "rejected", "manual_review", "error"]
+    },
+    "adapter": { "type": "string" },
+    "subject_id": { "type": "string" },
+    "document_type": {
+      "type": ["string", "null"],
+      "enum": ["passport", "drivers_license", "national_id", "other", null]
+    },
+    "liveness": { "type": ["string", "null"], "enum": ["passed", "failed", "skipped", null] },
+    "pep_sanctions_match": { "type": ["boolean", "null"] },
+    "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+    "raw_reference": { "type": ["string", "null"] },
+    "details": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}

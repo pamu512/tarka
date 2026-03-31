@@ -1,0 +1,42 @@
+{{- if .Values.investigationAgent.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-investigation-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-investigation-agent
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-investigation-agent
+    spec:
+      containers:
+        - name: investigation-agent
+          image: "{{ .Values.investigationAgent.image }}:{{ .Values.investigationAgent.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: 8006
+          env:
+            {{- if .Values.caseApi.enabled }}
+            - name: CASE_API_URL
+              value: "http://{{ include "tarka.fullname" . }}-case-api:8002"
+            {{- end }}
+            {{- if .Values.graphService.enabled }}
+            - name: GRAPH_SERVICE_URL
+              value: "http://{{ include "tarka.fullname" . }}-graph-service:8001"
+            {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-investigation-agent
+spec:
+  selector:
+    app: {{ include "tarka.fullname" . }}-investigation-agent
+  ports:
+    - port: 8006
+      targetPort: 8006
+{{- end }}

@@ -1,0 +1,91 @@
+# Enable only the components you need.
+global:
+  imageRegistry: ""
+  imagePullPolicy: IfNotPresent
+
+postgres:
+  enabled: true
+  auth:
+    username: fraud
+    password: fraud
+    database: fraud
+
+redis:
+  enabled: true
+
+decisionApi:
+  enabled: true
+  image: tarka-decision-api
+  tag: latest
+  replicaCount: 2
+
+graphService:
+  enabled: false
+  image: tarka-graph-service
+  tag: latest
+
+neo4j:
+  enabled: false
+
+caseApi:
+  enabled: false
+  image: tarka-case-api
+  tag: latest
+
+featureService:
+  enabled: false
+  image: tarka-feature-service
+  tag: latest
+
+mlScoring:
+  enabled: false
+  image: tarka-ml-scoring
+  tag: latest
+
+investigationAgent:
+  enabled: false
+  image: tarka-investigation-agent
+  tag: latest
+
+integrationIngress:
+  enabled: false
+  image: tarka-integration-ingress
+  tag: latest
+
+nats:
+  enabled: true
+  image: nats:2-alpine
+
+clickhouse:
+  enabled: true
+  image: clickhouse/clickhouse-server:24-alpine
+  user: default
+  password: ""
+  database: fraud
+
+eventIngest:
+  enabled: true
+  image: tarka-event-ingest
+  tag: latest
+  port: 8007
+  apiKeys: "test-key-1"
+
+analyticsSink:
+  enabled: true
+  image: tarka-analytics-sink
+  tag: latest
+  port: 8008
+  apiKeys: "test-key-1"
+
+graphqlGateway:
+  enabled: true
+  image: tarka-graphql-gateway
+  tag: latest
+  port: 8010
+
+frontend:
+  enabled: true
+  image: tarka-frontend
+  tag: latest
+  port: 80
+  serviceType: ClusterIP

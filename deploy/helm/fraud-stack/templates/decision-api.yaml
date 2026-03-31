@@ -1,0 +1,40 @@
+{{- if .Values.decisionApi.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-decision-api
+spec:
+  replicas: {{ .Values.decisionApi.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-decision-api
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-decision-api
+    spec:
+      containers:
+        - name: decision-api
+          image: "{{ .Values.decisionApi.image }}:{{ .Values.decisionApi.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DATABASE_URL
+              value: "postgresql+asyncpg://{{ .Values.postgres.auth.username }}:{{ .Values.postgres.auth.password }}@{{ include "tarka.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}"
+            - name: REDIS_URL
+              value: "redis://{{ include "tarka.fullname" . }}-redis:6379/0"
+            - name: RULES_PATH
+              value: "/app/rules"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-decision-api
+spec:
+  selector:
+    app: {{ include "tarka.fullname" . }}-decision-api
+  ports:
+    - port: 8000
+      targetPort: 8000
+{{- end }}

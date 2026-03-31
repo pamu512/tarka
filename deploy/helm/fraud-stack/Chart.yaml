@@ -1,0 +1,6 @@
+apiVersion: v2
+name: tarka
+description: Tarka — modular fraud detection platform (optional components via values)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

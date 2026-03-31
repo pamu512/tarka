@@ -1,0 +1,54 @@
+{{- if .Values.analyticsSink.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-analytics-sink
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-analytics-sink
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-analytics-sink
+    spec:
+      containers:
+        - name: analytics-sink
+          image: "{{ .Values.analyticsSink.image }}:{{ .Values.analyticsSink.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.analyticsSink.port }}
+          env:
+            - name: NATS_URL
+              value: "nats://{{ include "tarka.fullname" . }}-nats:4222"
+            - name: CLICKHOUSE_HOST
+              value: "{{ include "tarka.fullname" . }}-clickhouse"
+            - name: CLICKHOUSE_PORT
+              value: "8123"
+            - name: CLICKHOUSE_USER
+              value: {{ .Values.clickhouse.user | quote }}
+            - name: CLICKHOUSE_PASSWORD
+              value: {{ .Values.clickhouse.password | quote }}
+            - name: CLICKHOUSE_DATABASE
+              value: {{ .Values.clickhouse.database | quote }}
+            - name: API_KEYS
+              value: {{ .Values.analyticsSink.apiKeys | default "test-key-1" | quote }}
+          readinessProbe:
+            httpGet:
+              path: /v1/health
+              port: {{ .Values.analyticsSink.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-analytics-sink
+spec:
+  selector:
+    app: {{ include "tarka.fullname" . }}-analytics-sink
+  ports:
+    - port: {{ .Values.analyticsSink.port }}
+      targetPort: {{ .Values.analyticsSink.port }}
+{{- end }}

@@ -1,0 +1,23 @@
+[project]
+name = "tarka-event-ingest"
+version = "1.0.0"
+description = "High-throughput async event ingestion via NATS"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.32.0",
+  "nats-py>=2.9.0",
+  "httpx>=0.28.0",
+  "pydantic-settings>=2.6.0",
+  "pydantic>=2.10.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.24.0"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

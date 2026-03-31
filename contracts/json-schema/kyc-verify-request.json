@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tarka.local/schemas/kyc-verify-request.json",
+  "title": "KycVerifyRequest",
+  "type": "object",
+  "required": ["tenant_id", "subject_id", "adapter"],
+  "properties": {
+    "tenant_id": { "type": "string" },
+    "subject_id": { "type": "string", "description": "Internal person/account id" },
+    "adapter": { "type": "string", "description": "Adapter name e.g. mock, custom" },
+    "document": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["passport", "drivers_license", "national_id", "other"] },
+        "country": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "raw": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}

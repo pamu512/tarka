@@ -1,0 +1,130 @@
+openapi: 3.1.0
+info:
+  title: Tarka Graph Service
+  version: 1.0.0
+  description: Entity graph boundary (Neo4j or alternate backend via same API).
+servers:
+  - url: http://localhost:8001
+paths:
+  /v1/health:
+    get:
+      operationId: graphHealth
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+  /v1/entities:
+    post:
+      operationId: upsertEntity
+      summary: Create or update a graph node
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertEntityRequest"
+      responses:
+        "200":
+          description: Node id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntityResponse"
+  /v1/links:
+    post:
+      operationId: createLink
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinkRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+  /v1/subgraph:
+    get:
+      operationId: querySubgraph
+      parameters:
+        - name: entity_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: depth
+          in: query
+          schema: { type: integer, default: 2, maximum: 5 }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Nodes and edges
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubgraphResponse"
+components:
+  schemas:
+    UpsertEntityRequest:
+      type: object
+      required: [tenant_id, entity_type, external_id, properties]
+      properties:
+        tenant_id: { type: string }
+        entity_type:
+          type: string
+          enum: [Person, Account, Device, Payment, Document, Custom]
+        external_id: { type: string }
+        properties:
+          type: object
+          additionalProperties: true
+    EntityResponse:
+      type: object
+      properties:
+        graph_id: { type: string }
+        entity_type: { type: string }
+        external_id: { type: string }
+    LinkRequest:
+      type: object
+      required: [tenant_id, from_external_id, to_external_id, relationship]
+      properties:
+        tenant_id: { type: string }
+        from_external_id: { type: string }
+        to_external_id: { type: string }
+        relationship:
+          type: string
+          enum: [USED, SHARED_WITH, REFERRED, KYC_VERIFIED_BY, OWNS, CUSTOM]
+        properties:
+          type: object
+          additionalProperties: true
+    SubgraphResponse:
+      type: object
+      properties:
+        nodes:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              labels: { type: array, items: { type: string } }
+              properties: { type: object, additionalProperties: true }
+        edges:
+          type: array
+          items:
+            type: object
+            properties:
+              from_id: { type: string }
+              to_id: { type: string }
+              type: { type: string }
+              properties: { type: object, additionalProperties: true }
