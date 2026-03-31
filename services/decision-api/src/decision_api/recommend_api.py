@@ -25,6 +25,16 @@ router = APIRouter(prefix="/v1/recommendations", tags=["recommendations"])
 _SAFE_PACK_RE = re.compile(r"^[a-zA-Z0-9_-]{1,120}\.json$")
 
 
+def _resolve_existing_pack(rules_dir: Path, pack_name: str) -> Path:
+    if not _SAFE_PACK_RE.fullmatch(pack_name):
+        raise HTTPException(400, "invalid target_pack")
+    candidates = {p.name: p for p in rules_dir.glob("*.json") if p.is_file()}
+    path = candidates.get(pack_name)
+    if not path:
+        raise HTTPException(404, f"Pack '{pack_name}' not found")
+    return path
+
+
 class RecommendRequest(BaseModel):
     tenant_id: str
     limit: int = Field(default=1000, ge=100, le=10000)
@@ -90,16 +100,8 @@ async def apply_recommendation(body: ApplyRecommendationRequest):
     from decision_api.config import settings
     from decision_api.json_rules import load_rules
 
-    if not _SAFE_PACK_RE.fullmatch(body.target_pack):
-        raise HTTPException(400, "invalid target_pack")
     rules_dir = Path(settings.rules_path)
-    pack_path = (rules_dir / body.target_pack).resolve()
-    try:
-        pack_path.relative_to(rules_dir.resolve())
-    except ValueError:
-        raise HTTPException(400, "invalid target_pack")
-    if not pack_path.exists():
-        raise HTTPException(404, f"Pack '{body.target_pack}' not found")
+    pack_path = _resolve_existing_pack(rules_dir, body.target_pack)
 
     pack = json.loads(pack_path.read_text(encoding="utf-8"))
     pack.setdefault("rules", []).append(body.rule)
