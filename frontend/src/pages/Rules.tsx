@@ -171,7 +171,7 @@ function parseValue(raw: string): unknown {
 }
 
 function packFile(p: RulePack): string {
-  return p._file ?? (p as Record<string, unknown>).file as string ?? p.name;
+  return p._file ?? ((p as unknown as Record<string, unknown>).file as string | undefined) ?? p.name;
 }
 
 // ── Main Component ───────────────────────────────────────────────────

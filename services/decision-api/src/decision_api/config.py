@@ -35,5 +35,10 @@ class Settings(BaseSettings):
     list_store_api_key: str = os.environ.get("LIST_STORE_API_KEY", "")
     list_store_file_dir: str = os.environ.get("LIST_STORE_FILE_DIR", "./lists")
 
+    consortium_enabled: bool = os.environ.get("CONSORTIUM_ENABLED", "true").lower() == "true"
+    consortium_secret: str = os.environ.get("CONSORTIUM_SECRET", "")
+    consortium_id: str = os.environ.get("CONSORTIUM_ID", "default")
+    consortium_min_tenants: int = int(os.environ.get("CONSORTIUM_MIN_TENANTS", "2"))
+
 
 settings = Settings()

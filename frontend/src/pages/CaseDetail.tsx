@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { cases, graph, type Case, type SubgraphResponse } from "../api/client";
+import { cases, decisions, graph, type Case, type EntityRiskResult, type SubgraphResponse } from "../api/client";
 import StatusBadge from "../components/StatusBadge";
 import PriorityBadge from "../components/PriorityBadge";
 import { Network, type Options } from "vis-network";
@@ -19,6 +19,8 @@ export default function CaseDetail() {
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [labelInput, setLabelInput] = useState("");
+  const [decisionExplain, setDecisionExplain] = useState<{ score: number; decision: string; reasons: string[]; tags: string[]; rule_hits: string[] } | null>(null);
+  const [graphRisk, setGraphRisk] = useState<EntityRiskResult | null>(null);
 
   const fetchCase = useCallback(async () => {
     if (!caseId) return;
@@ -36,6 +38,32 @@ export default function CaseDetail() {
   useEffect(() => {
     fetchCase();
   }, [fetchCase]);
+
+  useEffect(() => {
+    if (!caseData) return;
+    (async () => {
+      try {
+        if (caseData.trace_id) {
+          const audit = await decisions.getAudit(caseData.trace_id);
+          setDecisionExplain({
+            score: audit.score,
+            decision: audit.decision,
+            reasons: [],
+            tags: audit.tags || [],
+            rule_hits: audit.rule_hits || [],
+          });
+        }
+      } catch {
+        setDecisionExplain(null);
+      }
+      try {
+        const risk = await graph.entityRisk(caseData.entity_id, caseData.tenant_id);
+        setGraphRisk(risk);
+      } catch {
+        setGraphRisk(null);
+      }
+    })();
+  }, [caseData]);
 
   const handleStatusChange = async (newStatus: string) => {
     if (!caseId || statusUpdating) return;
@@ -65,8 +93,8 @@ export default function CaseDetail() {
     if (!caseId || !commentText.trim()) return;
     setCommentSubmitting(true);
     try {
-      const updated = await cases.addComment(caseId, "analyst", commentText.trim());
-      setCaseData(updated);
+      await cases.addComment(caseId, "analyst", commentText.trim());
+      await fetchCase();
       setCommentText("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add comment");
@@ -78,8 +106,8 @@ export default function CaseDetail() {
   const handleAddLabel = async () => {
     if (!caseId || !labelInput.trim()) return;
     try {
-      const updated = await cases.addLabels(caseId, [labelInput.trim()]);
-      setCaseData(updated);
+      await cases.addLabels(caseId, [labelInput.trim()]);
+      await fetchCase();
       setLabelInput("");
     } catch {
       /* silent */
@@ -112,7 +140,7 @@ export default function CaseDetail() {
 
   if (!caseData) return null;
 
-  const slaDeadline = new Date(caseData.sla_deadline);
+  const slaDeadline = new Date(caseData.sla_deadline ?? caseData.created_at);
   const slaPassed = slaDeadline < new Date();
 
   return (
@@ -152,6 +180,43 @@ export default function CaseDetail() {
         <InfoCard label="Entity ID" value={caseData.entity_id} mono />
         <InfoCard label="Trace ID" value={caseData.trace_id ?? "—"} mono />
         <InfoCard label="Assigned Team" value={caseData.assigned_team || "Unassigned"} />
+      </div>
+
+      {/* Explainability */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-surface-900 border border-surface-700 rounded-xl p-4 space-y-2">
+          <h3 className="text-sm font-semibold text-gray-300">Decision Explainability</h3>
+          {decisionExplain ? (
+            <>
+              <div className="text-xs text-gray-400">Decision: <span className="text-gray-200">{decisionExplain.decision}</span></div>
+              <div className="text-xs text-gray-400">Score: <span className="text-gray-200">{decisionExplain.score.toFixed(2)}</span></div>
+              <div className="flex flex-wrap gap-2">
+                {decisionExplain.rule_hits.map((h) => (
+                  <span key={h} className="px-2 py-0.5 bg-brand-500/20 text-brand-300 text-xs rounded-full">{h}</span>
+                ))}
+                {decisionExplain.rule_hits.length === 0 && <span className="text-xs text-gray-500">No rule hits</span>}
+              </div>
+            </>
+          ) : (
+            <span className="text-xs text-gray-500">No decision audit available</span>
+          )}
+        </div>
+        <div className="bg-surface-900 border border-surface-700 rounded-xl p-4 space-y-2">
+          <h3 className="text-sm font-semibold text-gray-300">Graph Risk Context</h3>
+          {graphRisk ? (
+            <>
+              <div className="text-xs text-gray-400">Risk Score: <span className="text-gray-200">{graphRisk.risk_score}</span></div>
+              <div className="text-xs text-gray-400">Community Size: <span className="text-gray-200">{graphRisk.community_size}</span></div>
+              <div className="flex flex-wrap gap-2">
+                {graphRisk.risk_factors.map((f) => (
+                  <span key={f} className="px-2 py-0.5 bg-surface-700 text-gray-300 text-xs rounded-full">{f}</span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <span className="text-xs text-gray-500">No graph risk data available</span>
+          )}
+        </div>
       </div>
 
       {/* Labels */}
@@ -245,7 +310,7 @@ export default function CaseDetail() {
       {/* Tab Content */}
       {activeTab === "timeline" && (
         <TimelineTab
-          comments={caseData.comments}
+          comments={caseData.comments ?? []}
           commentText={commentText}
           onTextChange={setCommentText}
           onSubmit={handleAddComment}
@@ -288,7 +353,7 @@ function TimelineTab({
   onSubmit,
   submitting,
 }: {
-  comments: Case["comments"];
+  comments: NonNullable<Case["comments"]>;
   commentText: string;
   onTextChange: (v: string) => void;
   onSubmit: (e: React.FormEvent) => void;
@@ -356,7 +421,7 @@ function AuditTab({ caseData }: { caseData: Case }) {
             detail={caseData.assigned_team}
           />
         )}
-        {caseData.comments.map((c, i) => (
+        {(caseData.comments ?? []).map((c, i) => (
           <AuditRow
             key={i}
             time={c.timestamp}
@@ -419,7 +484,7 @@ const GRAPH_OPTIONS: Options = {
     color: { color: "#3d4463", highlight: "#60a5fa" },
     font: { color: "#9ca3af", size: 10, face: "system-ui", align: "middle" },
     arrows: { to: { enabled: true, scaleFactor: 0.5 } },
-    smooth: { type: "continuous", enabled: true },
+    smooth: { type: "continuous", enabled: true, roundness: 0.5 },
   },
   physics: {
     forceAtlas2Based: {
@@ -472,10 +537,10 @@ function GraphTab({
       graphData.nodes.map((n) => ({
         id: n.id,
         label: n.id.length > 20 ? n.id.slice(0, 20) + "\u2026" : n.id,
-        title: `${n.type}: ${n.id}`,
+        title: `${n.labels?.[0] ?? "Node"}: ${n.id}`,
         color: {
-          background: NODE_COLORS[n.type] ?? "#6b7280",
-          border: NODE_COLORS[n.type] ?? "#6b7280",
+          background: NODE_COLORS[n.labels?.[0] ?? ""] ?? "#6b7280",
+          border: NODE_COLORS[n.labels?.[0] ?? ""] ?? "#6b7280",
           highlight: {
             background: "#60a5fa",
             border: "#3b82f6",
@@ -487,9 +552,9 @@ function GraphTab({
     const edges = new DataSet(
       graphData.edges.map((e, i) => ({
         id: i,
-        from: e.source,
-        to: e.target,
-        label: e.relationship,
+        from: e.from_id,
+        to: e.to_id,
+        label: e.type,
       })),
     );
 
@@ -546,7 +611,7 @@ function GraphTab({
           </div>
           <div>
             <span className="text-xs text-gray-500">Type</span>
-            <p className="text-sm text-gray-200">{selectedNodeData.type}</p>
+            <p className="text-sm text-gray-200">{selectedNodeData.labels?.join(", ") || "Unknown"}</p>
           </div>
           {Object.entries(selectedNodeData.properties).map(([k, v]) => (
             <div key={k}>

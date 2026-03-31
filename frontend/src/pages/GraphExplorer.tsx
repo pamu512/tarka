@@ -32,7 +32,7 @@ const GRAPH_OPTIONS: Options = {
     color: { color: "#3d4463", highlight: "#60a5fa", hover: "#60a5fa" },
     font: { color: "#9ca3af", size: 10, face: "system-ui", align: "middle" },
     arrows: { to: { enabled: true, scaleFactor: 0.5 } },
-    smooth: { type: "continuous", enabled: true },
+    smooth: { type: "continuous", enabled: true, roundness: 0.5 },
     width: 1.5,
   },
   physics: {

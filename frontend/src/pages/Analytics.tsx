@@ -10,7 +10,7 @@ import {
   AreaChart,
   Area,
 } from "recharts";
-import { analytics, type HourlyStat, type TopEntity } from "../api/client";
+import { analytics, ml, type HourlyStat, type ModelInfo, type TopEntity } from "../api/client";
 
 const HOURS_OPTIONS = [6, 12, 24, 48, 72];
 
@@ -20,6 +20,9 @@ export default function Analytics() {
   const [topEntities, setTopEntities] = useState<TopEntity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [models, setModels] = useState<ModelInfo[]>([]);
+  const [governanceBusy, setGovernanceBusy] = useState(false);
+  const [governanceMessage, setGovernanceMessage] = useState<string>("");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -30,6 +33,8 @@ export default function Analytics() {
       ]);
       setHourlyData(h.rows);
       setTopEntities(t.entities);
+      const m = await ml.models();
+      setModels(m.models);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load analytics");
@@ -59,6 +64,33 @@ export default function Analytics() {
   }, [hourlyData]);
 
   const totalVolume = aggregatedHourly.reduce((s, h) => s + h.total, 0);
+
+  const groupedModels = useMemo(() => {
+    const map = new Map<string, ModelInfo[]>();
+    for (const m of models) {
+      const arr = map.get(m.model_name) || [];
+      arr.push(m);
+      map.set(m.model_name, arr);
+    }
+    for (const [, arr] of map) {
+      arr.sort((a, b) => a.version - b.version);
+    }
+    return Array.from(map.entries());
+  }, [models]);
+
+  const runGovernance = async (fn: () => Promise<unknown>, success: string) => {
+    setGovernanceBusy(true);
+    setGovernanceMessage("");
+    try {
+      await fn();
+      setGovernanceMessage(success);
+      await fetchData();
+    } catch (e) {
+      setGovernanceMessage(e instanceof Error ? e.message : "Governance action failed");
+    } finally {
+      setGovernanceBusy(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -282,6 +314,83 @@ export default function Analytics() {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Model Governance */}
+          <div className="bg-surface-900 border border-surface-700 rounded-xl p-5 space-y-4">
+            <h2 className="text-sm font-semibold text-gray-300">Model Governance</h2>
+            {governanceMessage && (
+              <div className="text-xs text-gray-400">{governanceMessage}</div>
+            )}
+            {groupedModels.map(([modelName, versions]) => (
+              <div key={modelName} className="border border-surface-700 rounded-lg p-3 space-y-3">
+                <div className="text-sm text-gray-200 font-medium">{modelName}</div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-gray-500 border-b border-surface-700">
+                        <th className="text-left py-2">Version</th>
+                        <th className="text-left py-2">Weight</th>
+                        <th className="text-left py-2">Approved</th>
+                        <th className="text-left py-2">Active</th>
+                        <th className="text-left py-2">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {versions.map((v) => (
+                        <tr key={`${modelName}-${v.version}`} className="border-b border-surface-800">
+                          <td className="py-2 text-gray-300">v{v.version}</td>
+                          <td className="py-2 text-gray-400">{v.traffic_weight}%</td>
+                          <td className="py-2 text-gray-400">{v.metadata?.approved ? "yes" : "no"}</td>
+                          <td className="py-2 text-gray-400">{v.active ? "yes" : "no"}</td>
+                          <td className="py-2">
+                            <div className="flex gap-2">
+                              <button
+                                disabled={governanceBusy}
+                                onClick={() => runGovernance(() => ml.approve(modelName, v.version, "analyst-ui", "approved"), `Approved ${modelName} v${v.version}`)}
+                                className="px-2 py-1 rounded bg-surface-700 text-gray-200 hover:bg-surface-600 disabled:opacity-50"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                disabled={governanceBusy}
+                                onClick={() => runGovernance(() => ml.activate(modelName, v.version), `Activated ${modelName} v${v.version}`)}
+                                className="px-2 py-1 rounded bg-brand-700 text-white hover:bg-brand-600 disabled:opacity-50"
+                              >
+                                Activate
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    disabled={governanceBusy || versions.length < 2}
+                    onClick={() => {
+                      const latest = versions[versions.length - 1];
+                      const previous = versions[versions.length - 2];
+                      void runGovernance(
+                        () => ml.setTrafficSplit(modelName, { [previous.version]: 20, [latest.version]: 80 }),
+                        `Set canary split for ${modelName}`,
+                      );
+                    }}
+                    className="px-3 py-1.5 text-xs rounded bg-amber-700 text-white hover:bg-amber-600 disabled:opacity-50"
+                  >
+                    Set Canary 80/20
+                  </button>
+                  <button
+                    disabled={governanceBusy}
+                    onClick={() => runGovernance(() => ml.rollback(modelName), `Rolled back ${modelName}`)}
+                    className="px-3 py-1.5 text-xs rounded bg-red-700 text-white hover:bg-red-600 disabled:opacity-50"
+                  >
+                    Rollback
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </>
       )}

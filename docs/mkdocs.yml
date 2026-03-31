@@ -75,6 +75,13 @@ nav:
       - Rule Authoring: guides/rules.md
       - Graph Analysis: guides/graph-analysis.md
       - Deployment: guides/deployment.md
+      - Enterprise Readiness: guides/enterprise-readiness.md
+      - Incident Response: guides/incident-response.md
+      - 30/60/90 Roadmap: guides/roadmap-30-60-90.md
+  - Releases:
+      - v1.1.0 (Planned): releases/v1.1.0-2026-04-30.md
+      - v1.2.0 (Planned): releases/v1.2.0-2026-05-30.md
+      - v1.3.0 (Planned): releases/v1.3.0-2026-06-29.md
   - SDKs:
       - Python: sdks/python.md
       - TypeScript: sdks/typescript.md
