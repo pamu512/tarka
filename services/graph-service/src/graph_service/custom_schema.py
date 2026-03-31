@@ -15,6 +15,7 @@ from typing import Any
 log = logging.getLogger(__name__)
 
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
+_SAFE_TENANT_ID = re.compile(r"^[A-Za-z0-9_-]{1,120}$")
 
 _SCHEMAS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "schemas"
 
@@ -88,8 +89,14 @@ _cache: dict[str, TenantSchema] = {}
 
 
 def _schema_path(tenant_id: str) -> Path:
-    safe_name = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in tenant_id)
-    return _SCHEMAS_DIR / f"{safe_name}.json"
+    if not _SAFE_TENANT_ID.fullmatch(tenant_id):
+        raise ValueError("invalid tenant_id")
+    path = (_SCHEMAS_DIR / f"{tenant_id}.json").resolve()
+    try:
+        path.relative_to(_SCHEMAS_DIR.resolve())
+    except ValueError as exc:
+        raise ValueError("invalid tenant_id") from exc
+    return path
 
 
 def load_tenant_schema(tenant_id: str) -> TenantSchema:
@@ -101,7 +108,12 @@ def load_tenant_schema(tenant_id: str) -> TenantSchema:
     if tenant_id in _cache:
         return _cache[tenant_id]
 
-    path = _schema_path(tenant_id)
+    try:
+        path = _schema_path(tenant_id)
+    except ValueError:
+        schema = TenantSchema(tenant_id=tenant_id)
+        _cache[tenant_id] = schema
+        return schema
     if not path.exists():
         path = _SCHEMAS_DIR / "default.json"
 

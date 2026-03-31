@@ -495,7 +495,8 @@ def _email_local_analysis(email: str) -> dict[str, Any]:
         flags.append("very_short_local")
         risk += 10
 
-    if re.search(r"\+.+$", local):
+    plus_pos = local.find("+")
+    if plus_pos != -1 and plus_pos < len(local) - 1:
         flags.append("plus_addressing")
         risk += 5
 
@@ -767,7 +768,9 @@ async def enrich_identity(
     if not email or "@" not in email:
         return result
     username = email.split("@")[0].lower()
-    username = re.sub(r"[+.].*$", "", username)
+    cut_positions = [p for p in (username.find("+"), username.find(".")) if p != -1]
+    if cut_positions:
+        username = username[:min(cut_positions)]
     if len(username) < 3:
         return result
 

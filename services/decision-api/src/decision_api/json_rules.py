@@ -14,6 +14,7 @@ _MAX_VALUE_LEN = 1024
 _MAX_RULES_PER_PACK = 200
 _MAX_CONDITIONS_PER_RULE = 20
 _MAX_EVAL_TIME_MS = 50
+_MAX_REGEX_PATTERN_LEN = 256
 
 _cached_packs: list[dict[str, Any]] = []
 _shadow_mode_packs: list[dict[str, Any]] = []
@@ -90,10 +91,13 @@ def _match_condition(features: dict[str, Any], condition: dict[str, Any]) -> boo
         if op == "regex":
             if not expected:
                 return False
-            try:
-                return bool(re.match(str(expected), str(actual or ""), re.IGNORECASE))
-            except re.error:
+            # Treat user-provided regex as a restricted wildcard pattern to avoid regex injection.
+            pattern = str(expected)
+            if len(pattern) > _MAX_REGEX_PATTERN_LEN:
                 return False
+            escaped = re.escape(pattern)
+            safe_re = "^" + escaped.replace(r"\*", ".*").replace(r"\?", ".") + "$"
+            return bool(re.match(safe_re, str(actual or ""), re.IGNORECASE))
         if op == "is_true":
             return actual is True
         if op == "is_false":
