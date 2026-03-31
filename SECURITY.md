@@ -14,7 +14,7 @@ Tarka uses semantic versioning. Security fixes are applied to the latest stable 
 
 Please do **not** open public GitHub issues for security vulnerabilities.
 
-- Report privately by emailing: **security@tarka.dev**
+- Report privately by emailing: **anoop.pamu@gmail.com**
 - Include:
   - affected component/service (for example `decision-api`, `case-api`, SDK name)
   - version/tag/commit hash
