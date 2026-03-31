@@ -187,6 +187,68 @@ class ModelRegistry:
         self._persist_metadata(model_name)
         return True
 
+    def approve_version(
+        self,
+        model_name: str,
+        version: int,
+        approver: str,
+        stage: str = "approved",
+    ) -> bool:
+        versions = self._versions.get(model_name)
+        if not versions or version not in versions:
+            return False
+        mv = versions[version]
+        mv.metadata["approved"] = True
+        mv.metadata["approved_by"] = approver
+        mv.metadata["stage"] = stage
+        mv.metadata["approved_at"] = int(time.time())
+        self._persist_metadata(model_name)
+        return True
+
+    def is_approved(self, model_name: str, version: int) -> bool:
+        mv = self._versions.get(model_name, {}).get(version)
+        if not mv:
+            return False
+        return bool(mv.metadata.get("approved", False))
+
+    def set_traffic_split(self, model_name: str, weights: dict[int, int]) -> bool:
+        versions = self._versions.get(model_name)
+        if not versions:
+            return False
+        if not weights:
+            return False
+        for v in weights:
+            if v not in versions:
+                return False
+        total = sum(int(w) for w in weights.values())
+        if total != 100:
+            return False
+        for v, mv in versions.items():
+            mv.traffic_weight = int(weights.get(v, 0))
+            mv.active = mv.traffic_weight > 0
+        self._active_model = model_name
+        self._persist_metadata(model_name)
+        return True
+
+    def rollback_to_previous(self, model_name: str) -> int | None:
+        versions = self._versions.get(model_name)
+        if not versions:
+            return None
+        active = [v.version for v in versions.values() if v.active]
+        if not active:
+            return None
+        current = max(active)
+        previous = [v for v in versions.keys() if v < current]
+        if not previous:
+            return None
+        target = max(previous)
+        if not self.activate_version(model_name, target):
+            return None
+        versions[target].metadata["rollback_at"] = int(time.time())
+        versions[target].metadata["rolled_back_from"] = current
+        self._persist_metadata(model_name)
+        return target
+
     def get_model_stats(self, model_name: str) -> list[dict[str, Any]]:
         versions = self._versions.get(model_name, {})
         return [

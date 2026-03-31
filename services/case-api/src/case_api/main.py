@@ -4,12 +4,14 @@ import sys
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,6 +40,80 @@ _trail = AuditTrail(AuditRecord)
 
 # ---------- websocket connections for live feed ----------
 _ws_clients: set[WebSocket] = set()
+_PRIORITY_WEIGHT = {"critical": 100, "high": 70, "medium": 40, "low": 15}
+_STATUS_WEIGHT = {"open": 25, "investigating": 20, "resolved": -10, "closed": -30}
+_SAVED_VIEWS: dict[str, dict[str, dict[str, Any]]] = {}
+_PLAYBOOKS: dict[str, dict[str, Any]] = {
+    "escalate_fraud": {
+        "status": "investigating",
+        "priority": "critical",
+        "labels": ["escalated", "fraud_watch"],
+        "assigned_team": "fraud-l2",
+        "comment": "Playbook applied: escalate_fraud",
+    },
+    "expedite_chargeback": {
+        "status": "investigating",
+        "priority": "high",
+        "labels": ["chargeback", "expedited"],
+        "assigned_team": "chargeback-ops",
+        "comment": "Playbook applied: expedite_chargeback",
+    },
+    "close_false_positive": {
+        "status": "closed",
+        "priority": "low",
+        "labels": ["false_positive", "closed_clean"],
+        "assigned_team": "qa-review",
+        "comment": "Playbook applied: close_false_positive",
+    },
+}
+
+
+def _queue_score(case: Case) -> float:
+    p = _PRIORITY_WEIGHT.get((case.priority or "medium").lower(), 30)
+    s = _STATUS_WEIGHT.get((case.status or "open").lower(), 0)
+    label_boost = 0
+    labels = set(case.labels or [])
+    if "confirmed_fraud" in labels:
+        label_boost += 25
+    if "chargeback" in labels or "dispute:chargeback" in labels:
+        label_boost += 15
+    return float(p + s + label_boost)
+
+
+def _recommended_action(case: Case, score: float) -> str:
+    if (case.priority or "").lower() == "critical" or score >= 120:
+        return "immediate_triage"
+    if score >= 85:
+        return "investigate_now"
+    if score >= 55:
+        return "queue_review"
+    return "monitor"
+
+
+def _apply_case_mutations(case: Case, payload: dict[str, Any]) -> None:
+    if "status" in payload and payload["status"]:
+        case.status = str(payload["status"])
+    if "priority" in payload and payload["priority"]:
+        case.priority = str(payload["priority"])
+    if "assigned_team" in payload:
+        case.assigned_team = payload["assigned_team"]
+    if "labels" in payload and isinstance(payload["labels"], list):
+        existing = set(case.labels or [])
+        case.labels = sorted(existing | {str(x) for x in payload["labels"] if str(x).strip()})
+
+
+class BulkCaseUpdateRequest(BaseModel):
+    case_ids: list[uuid.UUID] = Field(default_factory=list)
+    status: str | None = None
+    priority: str | None = None
+    assigned_team: str | None = None
+    add_labels: list[str] = Field(default_factory=list)
+
+
+class SaveViewRequest(BaseModel):
+    tenant_id: str
+    name: str = Field(min_length=1, max_length=128)
+    filters: dict[str, Any] = Field(default_factory=dict)
 
 
 async def _broadcast(event: dict):
@@ -98,14 +174,31 @@ async def list_cases(
     session: AsyncSession = Depends(get_session),
     status: str | None = None,
     limit: int = 50,
+    sort_by: str = "queue",
 ):
     q = select(Case).where(Case.tenant_id == tenant_id)
     if status:
         q = q.where(Case.status == status)
-    q = q.order_by(Case.updated_at.desc()).limit(limit)
+    if sort_by == "updated":
+        q = q.order_by(Case.updated_at.desc())
+    elif sort_by == "priority":
+        q = q.order_by(Case.priority.asc(), Case.updated_at.desc())
+    else:
+        q = q.order_by(Case.updated_at.desc())
+    q = q.limit(limit)
     result = await session.execute(q)
     rows = result.scalars().all()
-    return {"items": [CaseOut.model_validate(r).model_dump() for r in rows]}
+    items = [CaseOut.model_validate(r).model_dump() for r in rows]
+    if sort_by == "queue":
+        enriched: list[dict[str, Any]] = []
+        for row, item in zip(rows, items):
+            score = _queue_score(row)
+            item["queue_score"] = score
+            item["recommended_action"] = _recommended_action(row, score)
+            enriched.append(item)
+        enriched.sort(key=lambda x: float(x.get("queue_score", 0.0)), reverse=True)
+        return {"items": enriched}
+    return {"items": items}
 
 
 @app.post("/v1/cases", response_model=CaseOut, status_code=201)
@@ -258,6 +351,109 @@ async def apply_labels(
     )
     await session.commit()
     return {"ok": True, "labels": case.labels}
+
+
+@app.post("/v1/cases/bulk-update")
+async def bulk_update_cases(
+    body: BulkCaseUpdateRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    if not body.case_ids:
+        return {"updated": 0, "items": []}
+    user = get_current_user(request)
+    q = select(Case).where(Case.id.in_(body.case_ids))
+    result = await session.execute(q)
+    rows = result.scalars().all()
+    updated: list[dict[str, Any]] = []
+    for case in rows:
+        old_state = CaseOut.model_validate(case).model_dump(mode="json")
+        payload = {
+            "status": body.status,
+            "priority": body.priority,
+            "assigned_team": body.assigned_team,
+            "labels": body.add_labels,
+        }
+        _apply_case_mutations(case, payload)
+        new_state = CaseOut.model_validate(case).model_dump(mode="json")
+        diff = _trail.diff(old_state, new_state)
+        if diff:
+            await _trail.record(
+                session,
+                actor=user.user_id,
+                action="bulk_update_case",
+                resource_type="case",
+                resource_id=str(case.id),
+                changes=diff,
+                tenant_id=case.tenant_id,
+            )
+        updated.append(new_state)
+    await session.commit()
+    await _broadcast({"event": "cases_bulk_updated", "count": len(updated)})
+    return {"updated": len(updated), "items": updated}
+
+
+@app.post("/v1/cases/{case_id}/playbooks/{playbook_id}")
+async def apply_playbook(
+    case_id: uuid.UUID,
+    playbook_id: str,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    if playbook_id not in _PLAYBOOKS:
+        raise HTTPException(404, "playbook not found")
+    result = await session.execute(select(Case).where(Case.id == case_id))
+    case = result.scalar_one_or_none()
+    if not case:
+        raise HTTPException(404, "not found")
+    old_state = CaseOut.model_validate(case).model_dump(mode="json")
+    pb = _PLAYBOOKS[playbook_id]
+    _apply_case_mutations(case, pb)
+    if pb.get("comment"):
+        session.add(CaseComment(case_id=case.id, author="playbook", body=str(pb["comment"])))
+    await session.commit()
+    await session.refresh(case)
+    new_state = CaseOut.model_validate(case).model_dump(mode="json")
+    user = get_current_user(request)
+    diff = _trail.diff(old_state, new_state)
+    if diff:
+        await _trail.record(
+            session,
+            actor=user.user_id,
+            action="apply_playbook",
+            resource_type="case",
+            resource_id=str(case.id),
+            changes={"playbook": playbook_id, **diff},
+            tenant_id=case.tenant_id,
+        )
+        await session.commit()
+    await _broadcast({"event": "case_updated", "case": new_state})
+    return {"ok": True, "playbook": playbook_id, "case": new_state}
+
+
+@app.get("/v1/cases/playbooks")
+async def list_playbooks():
+    return {"playbooks": _PLAYBOOKS}
+
+
+@app.get("/v1/case-views")
+async def list_case_views(tenant_id: str):
+    return {"items": list((_SAVED_VIEWS.get(tenant_id) or {}).values())}
+
+
+@app.post("/v1/case-views")
+async def save_case_view(body: SaveViewRequest):
+    store = _SAVED_VIEWS.setdefault(body.tenant_id, {})
+    store[body.name] = {"name": body.name, "tenant_id": body.tenant_id, "filters": body.filters}
+    return {"ok": True, "view": store[body.name]}
+
+
+@app.delete("/v1/case-views/{name}")
+async def delete_case_view(name: str, tenant_id: str):
+    store = _SAVED_VIEWS.get(tenant_id, {})
+    existed = name in store
+    store.pop(name, None)
+    return {"removed": existed}
 
 
 @app.get("/v1/cases/{case_id}/graph")

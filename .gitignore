@@ -15,6 +15,7 @@ venv/
 node_modules/
 dist/
 .tsbuildinfo
+*.tsbuildinfo
 
 .DS_Store
 Thumbs.db

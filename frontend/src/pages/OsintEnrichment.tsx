@@ -200,7 +200,7 @@ function EmailSection({ data }: { data: Record<string, unknown> }) {
         <DetailCard label="Free Provider" value={data.is_free_provider} />
         <DetailCard label="Gravatar" value={data.gravatar_exists} />
       </div>
-      {data.social_profiles && (
+      {data.social_profiles != null && (
         <div>
           <div className="text-xs text-gray-400 mb-1">Social Profiles</div>
           <div className="flex flex-wrap gap-1">
@@ -214,7 +214,7 @@ function EmailSection({ data }: { data: Record<string, unknown> }) {
           </div>
         </div>
       )}
-      {data.sources &&
+      {data.sources != null &&
         (data.sources as Record<string, unknown>[]).map((s, i) => (
           <SourceCard key={i} name={`Source ${i + 1}`} data={s as Record<string, unknown>} />
         ))}
@@ -241,7 +241,7 @@ function PhoneSection({ data }: { data: Record<string, unknown> }) {
         <DetailCard label="Country Code" value={data.country_code} />
         <DetailCard label="Valid" value={data.valid} />
       </div>
-      {data.sources &&
+      {data.sources != null &&
         (data.sources as Record<string, unknown>[]).map((s, i) => (
           <SourceCard key={i} name={`Source ${i + 1}`} data={s as Record<string, unknown>} />
         ))}
@@ -266,7 +266,7 @@ function DomainSection({ data }: { data: Record<string, unknown> }) {
         <DetailCard label="Registrar" value={data.registrar} />
         <DetailCard label="Expiry" value={data.expiry_date} />
       </div>
-      {data.nameservers && (
+      {data.nameservers != null && (
         <div>
           <div className="text-xs text-gray-400 mb-1">Nameservers</div>
           <div className="flex flex-wrap gap-1">
@@ -278,7 +278,7 @@ function DomainSection({ data }: { data: Record<string, unknown> }) {
           </div>
         </div>
       )}
-      {data.sources &&
+      {data.sources != null &&
         (data.sources as Record<string, unknown>[]).map((s, i) => (
           <SourceCard key={i} name={`Source ${i + 1}`} data={s as Record<string, unknown>} />
         ))}
@@ -297,7 +297,7 @@ function IdentitySection({ data }: { data: Record<string, unknown> }) {
           </span>
         </div>
       )}
-      {data.social_profiles && (
+      {data.social_profiles != null && (
         <div>
           <div className="text-xs text-gray-400 mb-1">Discovered Social Profiles</div>
           <div className="flex flex-wrap gap-1">
@@ -316,7 +316,7 @@ function IdentitySection({ data }: { data: Record<string, unknown> }) {
         .map(([k, v]) => (
           <DetailCard key={k} label={k} value={v} />
         ))}
-      {data.sources &&
+      {data.sources != null &&
         (data.sources as Record<string, unknown>[]).map((s, i) => (
           <SourceCard key={i} name={`Source ${i + 1}`} data={s as Record<string, unknown>} />
         ))}

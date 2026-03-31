@@ -36,6 +36,8 @@ from decision_api.schemas import EvaluateRequest, EvaluateResponse
 from decision_api.shadow import evaluate_shadow, load_shadow_rules, record_observation
 from decision_api.aggregates import agg_store
 from decision_api.lists_api import router as lists_router, set_store, get_store as _get_list_store
+from decision_api.consortium import consortium_score_delta, hash_entity_id
+from decision_api.graph_intel import graph_score_delta, graph_tags_from_risk
 
 # ---------- observability ----------
 _shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
@@ -154,6 +156,7 @@ from decision_api.simulation_api import router as simulation_router  # noqa: E40
 from decision_api.recommend_api import router as recommend_router  # noqa: E402
 from decision_api.compliance_api import router as compliance_router  # noqa: E402
 from decision_api.captcha import router as captcha_router  # noqa: E402
+from decision_api.consortium_api import router as consortium_router  # noqa: E402
 app.include_router(rule_router)
 app.include_router(replay_router)
 app.include_router(simulation_router)
@@ -161,6 +164,7 @@ app.include_router(recommend_router)
 app.include_router(compliance_router)
 app.include_router(captcha_router)
 app.include_router(lists_router)
+app.include_router(consortium_router)
 
 
 def _http(request: Request) -> httpx.AsyncClient:
@@ -465,6 +469,28 @@ async def _graph_upsert(
         )
 
 
+async def _fetch_graph_risk(
+    http: httpx.AsyncClient,
+    tenant_id: str,
+    entity_id: str,
+) -> dict[str, Any] | None:
+    if not settings.graph_service_url:
+        return None
+    url = settings.graph_service_url.rstrip("/") + "/v1/analytics/entity-risk"
+    try:
+        r = await http.get(
+            url,
+            params={"tenant_id": tenant_id, "entity_id": entity_id},
+            timeout=2.0,
+        )
+        if r.status_code != 200:
+            return None
+        data = r.json()
+        return data if isinstance(data, dict) else None
+    except httpx.HTTPError:
+        return None
+
+
 def _blend_scores(rule_score: float, ml_score: float | None) -> float:
     strategy = settings.score_blend_strategy
     if ml_score is None or strategy == "rules_only":
@@ -549,6 +575,8 @@ async def evaluate_decision(
     signal_tags = extract_signal_tags(dc_dump)
     signal_tags.extend(extract_behavior_tags(dc_dump))
     signal_tags.extend(extract_captcha_tags(dc_dump))
+    consortium_delta = 0.0
+    graph_delta = 0.0
 
     # Record fingerprint & detect shared devices
     if body.device_context and fingerprint_store._client:
@@ -619,6 +647,24 @@ async def evaluate_decision(
 
     existing_tags = await redis_tags.get_tags(body.tenant_id, body.entity_id)
 
+    if settings.consortium_enabled:
+        try:
+            signal_hash = hash_entity_id(settings.consortium_secret, body.tenant_id, body.entity_id)
+            consortium_data = await redis_tags.check_consortium_signal(settings.consortium_id, signal_hash)
+            consortium_delta = consortium_score_delta(
+                consortium_data,
+                min_tenants=settings.consortium_min_tenants,
+            )
+            if consortium_delta > 0:
+                signal_tags.append("consortium:cross_tenant_hit")
+        except Exception:
+            consortium_delta = 0.0
+
+    graph_risk = await _fetch_graph_risk(http, body.tenant_id, body.entity_id)
+    if graph_risk:
+        graph_delta = graph_score_delta(graph_risk.get("risk_score"))
+        signal_tags.extend(graph_tags_from_risk(graph_risk))
+
     # Feature snapshot (needed before OPA)
     snapshot = await _fetch_feature_snapshot(http, body, existing_tags)
     features: dict[str, Any] = dict(snapshot.get("features") or {})
@@ -663,7 +709,11 @@ async def evaluate_decision(
         score_delta += float(opa_result.get("score_delta", 0))
 
     all_new_tags = rule_tags + signal_tags
-    base_score = 10.0 + score_delta
+    if consortium_delta > 0:
+        rule_hits.append("consortium_shared_signal")
+    if graph_delta > 0:
+        rule_hits.append("graph_network_risk")
+    base_score = 10.0 + score_delta + consortium_delta + graph_delta
     final_score = _blend_scores(base_score, ml_score if isinstance(ml_score, float) else None)
 
     merged_tags = await redis_tags.merge_tags(body.tenant_id, body.entity_id, all_new_tags)

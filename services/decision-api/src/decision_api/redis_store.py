@@ -9,6 +9,7 @@ from decision_api.config import settings
 TAG_PREFIX = "fraud:tags:"
 SCORE_PREFIX = "fraud:score:"
 NONCE_PREFIX = "fraud:nonce:"
+CONSORTIUM_PREFIX = "fraud:consortium:"
 TTL_SECONDS = 86400 * 7
 
 SCORE_TTL_SECONDS = int(os.environ.get("REDIS_SCORE_TTL_SECONDS", str(86400 * 7)))
@@ -113,6 +114,67 @@ class RedisTags:
         key = f"{NONCE_PREFIX}{nonce}"
         val = await self._client.getdel(key)
         return val is not None
+
+    # --- Consortium intelligence ---
+
+    def _key_consortium(self, consortium_id: str, signal_hash: str) -> str:
+        return f"{CONSORTIUM_PREFIX}{consortium_id}:{signal_hash}"
+
+    async def record_consortium_signal(
+        self,
+        consortium_id: str,
+        signal_hash: str,
+        signal_type: str,
+        reporter_tenant: str,
+        severity: float,
+        ttl_days: int = 30,
+    ) -> dict[str, Any]:
+        await self.connect()
+        assert self._client
+        key = self._key_consortium(consortium_id, signal_hash)
+        raw = await self._client.get(key)
+        current: dict[str, Any] = json.loads(raw) if raw else {}
+        tenants = set(current.get("tenants", []))
+        tenants.add(reporter_tenant)
+        signal_counts = dict(current.get("signal_counts", {}))
+        signal_counts[signal_type] = int(signal_counts.get(signal_type, 0)) + 1
+        report_count = int(current.get("report_count", 0)) + 1
+        max_severity = max(float(current.get("max_severity", 0.0)), float(severity))
+        updated = {
+            "consortium_id": consortium_id,
+            "tenant_count": len(tenants),
+            "tenants": sorted(tenants),
+            "signal_counts": signal_counts,
+            "report_count": report_count,
+            "max_severity": max_severity,
+        }
+        ttl = max(1, int(ttl_days)) * 86400
+        await self._client.setex(key, ttl, json.dumps(updated))
+        return updated
+
+    async def check_consortium_signal(self, consortium_id: str, signal_hash: str) -> dict[str, Any]:
+        await self.connect()
+        assert self._client
+        raw = await self._client.get(self._key_consortium(consortium_id, signal_hash))
+        if not raw:
+            return {
+                "consortium_id": consortium_id,
+                "tenant_count": 0,
+                "signal_counts": {},
+                "report_count": 0,
+                "max_severity": 0.0,
+            }
+        data = json.loads(raw)
+        if not isinstance(data, dict):
+            return {
+                "consortium_id": consortium_id,
+                "tenant_count": 0,
+                "signal_counts": {},
+                "report_count": 0,
+                "max_severity": 0.0,
+            }
+        data.pop("tenants", None)
+        return data
 
 
 redis_tags = RedisTags(settings.redis_url)

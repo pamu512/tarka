@@ -369,6 +369,8 @@ class ActivateRequest(BaseModel):
 
 @app.post("/v1/models/{name}/activate")
 async def activate_model(name: str, body: ActivateRequest):
+    if not registry.is_approved(name, body.version):
+        raise HTTPException(409, f"model '{name}' version {body.version} is not approved")
     ok = registry.activate_version(name, body.version)
     if not ok:
         raise HTTPException(404, f"model '{name}' version {body.version} not found")
@@ -381,3 +383,43 @@ async def model_stats(name: str):
     if not stats:
         raise HTTPException(404, f"model '{name}' not found")
     return {"model": name, "versions": stats}
+
+
+class ApproveRequest(BaseModel):
+    version: int
+    approved_by: str = Field(min_length=1, max_length=128)
+    stage: str = Field(default="approved", min_length=1, max_length=64)
+
+
+@app.post("/v1/models/{name}/approve")
+async def approve_model(name: str, body: ApproveRequest):
+    ok = registry.approve_version(name, body.version, body.approved_by, body.stage)
+    if not ok:
+        raise HTTPException(404, f"model '{name}' version {body.version} not found")
+    return {
+        "ok": True,
+        "model": name,
+        "version": body.version,
+        "approved_by": body.approved_by,
+        "stage": body.stage,
+    }
+
+
+class TrafficSplitRequest(BaseModel):
+    weights: dict[int, int] = Field(default_factory=dict)
+
+
+@app.post("/v1/models/{name}/traffic-split")
+async def set_model_traffic_split(name: str, body: TrafficSplitRequest):
+    ok = registry.set_traffic_split(name, body.weights)
+    if not ok:
+        raise HTTPException(400, "invalid model name, versions, or weights (must sum to 100)")
+    return {"ok": True, "model": name, "weights": body.weights}
+
+
+@app.post("/v1/models/{name}/rollback")
+async def rollback_model(name: str):
+    target = registry.rollback_to_previous(name)
+    if target is None:
+        raise HTTPException(409, f"no previous version available for model '{name}'")
+    return {"ok": True, "model": name, "rolled_back_to": target}

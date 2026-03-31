@@ -266,7 +266,7 @@ export default function Compliance() {
                 {Object.entries(profile.retention_periods ?? {}).map(([k, v]) => (
                   <div key={k} className="flex justify-between text-sm">
                     <span className="text-gray-400">{k.replace(/_/g, " ")}</span>
-                    <span className="text-gray-200 font-mono">{v}</span>
+                    <span className="text-gray-200 font-mono">{String(v)}</span>
                   </div>
                 ))}
               </div>
@@ -351,7 +351,7 @@ export default function Compliance() {
             >
               {dsarLoading ? "Processing…" : "Submit Request"}
             </button>
-            {dsarResult && (
+            {dsarResult !== null && (
               <div className="mt-3 bg-surface-900 border border-surface-600 rounded-lg p-4 max-h-64 overflow-y-auto">
                 <pre className="text-xs text-gray-300 whitespace-pre-wrap break-words font-mono">
                   {JSON.stringify(dsarResult, null, 2)}

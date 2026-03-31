@@ -1,17 +1,19 @@
+import { Suspense, lazy } from "react";
 import { Routes, Route, NavLink, Navigate } from "react-router-dom";
-import Dashboard from "./pages/Dashboard";
-import Cases from "./pages/Cases";
-import CaseDetail from "./pages/CaseDetail";
-import Disputes from "./pages/Disputes";
-import Rules from "./pages/Rules";
-import GraphExplorer from "./pages/GraphExplorer";
-import Analytics from "./pages/Analytics";
-import Investigation from "./pages/Investigation";
-import OsintEnrichment from "./pages/OsintEnrichment";
-import ShadowMode from "./pages/ShadowMode";
-import Simulation from "./pages/Simulation";
-import Compliance from "./pages/Compliance";
-import EntityLists from "./pages/EntityLists";
+
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Cases = lazy(() => import("./pages/Cases"));
+const CaseDetail = lazy(() => import("./pages/CaseDetail"));
+const Disputes = lazy(() => import("./pages/Disputes"));
+const Rules = lazy(() => import("./pages/Rules"));
+const GraphExplorer = lazy(() => import("./pages/GraphExplorer"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const Investigation = lazy(() => import("./pages/Investigation"));
+const OsintEnrichment = lazy(() => import("./pages/OsintEnrichment"));
+const ShadowMode = lazy(() => import("./pages/ShadowMode"));
+const Simulation = lazy(() => import("./pages/Simulation"));
+const Compliance = lazy(() => import("./pages/Compliance"));
+const EntityLists = lazy(() => import("./pages/EntityLists"));
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: "\u25A6" },
@@ -69,22 +71,30 @@ export default function App() {
       </aside>
 
       <main className="flex-1 overflow-y-auto bg-surface-950">
-        <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/cases" element={<Cases />} />
-          <Route path="/cases/:caseId" element={<CaseDetail />} />
-          <Route path="/disputes" element={<Disputes />} />
-          <Route path="/rules" element={<Rules />} />
-          <Route path="/entity-lists" element={<EntityLists />} />
-          <Route path="/shadow" element={<ShadowMode />} />
-          <Route path="/simulation" element={<Simulation />} />
-          <Route path="/graph" element={<GraphExplorer />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/investigation" element={<Investigation />} />
-          <Route path="/osint" element={<OsintEnrichment />} />
-          <Route path="/compliance" element={<Compliance />} />
-        </Routes>
+        <Suspense
+          fallback={
+            <div className="h-full w-full flex items-center justify-center">
+              <div className="w-8 h-8 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
+            </div>
+          }
+        >
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/cases" element={<Cases />} />
+            <Route path="/cases/:caseId" element={<CaseDetail />} />
+            <Route path="/disputes" element={<Disputes />} />
+            <Route path="/rules" element={<Rules />} />
+            <Route path="/entity-lists" element={<EntityLists />} />
+            <Route path="/shadow" element={<ShadowMode />} />
+            <Route path="/simulation" element={<Simulation />} />
+            <Route path="/graph" element={<GraphExplorer />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/investigation" element={<Investigation />} />
+            <Route path="/osint" element={<OsintEnrichment />} />
+            <Route path="/compliance" element={<Compliance />} />
+          </Routes>
+        </Suspense>
       </main>
     </div>
   );

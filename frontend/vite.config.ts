@@ -4,6 +4,23 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    chunkSizeWarningLimit: 700,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (id.includes("recharts") || id.includes("d3-")) {
+            return "vendor-charts";
+          }
+          if (id.includes("vis-network") || id.includes("vis-data")) {
+            return "vendor-graph";
+          }
+          return;
+        },
+      },
+    },
+  },
   server: {
     port: 3000,
     proxy: {

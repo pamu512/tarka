@@ -42,6 +42,10 @@ export interface Case {
   trace_id: string;
   assigned_team: string | null;
   labels: string[];
+  queue_score?: number;
+  recommended_action?: string;
+  comments?: Array<{ author: string; text: string; timestamp: string }>;
+  sla_deadline?: string;
   created_at: string;
   updated_at: string;
 }
@@ -58,6 +62,8 @@ export interface CaseCreateRequest {
   tenant_id: string;
   trace_id: string;
   priority?: string;
+  description?: string;
+  assigned_team?: string;
 }
 
 export interface GraphNode {
@@ -134,8 +140,14 @@ export interface TopEntity {
 }
 
 export interface ModelInfo {
-  name: string;
-  versions: Record<string, unknown>[];
+  model_name: string;
+  version: number;
+  traffic_weight: number;
+  active: boolean;
+  has_onnx: boolean;
+  total_inferences: number;
+  avg_latency_ms: number;
+  metadata: Record<string, unknown>;
 }
 
 export interface RulePack {
@@ -212,10 +224,11 @@ export const decisions = {
 // ── Cases (case-api :8002) ──────────────────────────────────────────
 
 export const cases = {
-  list(params: { tenant_id: string; status?: string; limit?: number }) {
+  list(params: { tenant_id: string; status?: string; limit?: number; sort_by?: "queue" | "updated" | "priority" }) {
     const q = new URLSearchParams({ tenant_id: params.tenant_id });
     if (params.status) q.set("status", params.status);
     if (params.limit) q.set("limit", String(params.limit));
+    if (params.sort_by) q.set("sort_by", params.sort_by);
     return request<{ items: Case[] }>(`/api/cases/v1/cases?${q}`);
   },
 
@@ -270,6 +283,50 @@ export const cases = {
       method: "POST",
       body: JSON.stringify({ format }),
     });
+  },
+
+  bulkUpdate(data: {
+    case_ids: string[];
+    status?: string;
+    priority?: string;
+    assigned_team?: string;
+    add_labels?: string[];
+  }) {
+    return request<{ updated: number; items: Case[] }>("/api/cases/v1/cases/bulk-update", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  playbooks() {
+    return request<{ playbooks: Record<string, Record<string, unknown>> }>("/api/cases/v1/cases/playbooks");
+  },
+
+  applyPlaybook(caseId: string, playbookId: string) {
+    return request<{ ok: boolean; playbook: string; case: Case }>(
+      `/api/cases/v1/cases/${caseId}/playbooks/${playbookId}`,
+      { method: "POST" },
+    );
+  },
+
+  listViews(tenantId: string) {
+    return request<{ items: Array<{ name: string; tenant_id: string; filters: Record<string, unknown> }> }>(
+      `/api/cases/v1/case-views?tenant_id=${tenantId}`,
+    );
+  },
+
+  saveView(data: { tenant_id: string; name: string; filters: Record<string, unknown> }) {
+    return request<{ ok: boolean; view: { name: string } }>(
+      "/api/cases/v1/case-views",
+      { method: "POST", body: JSON.stringify(data) },
+    );
+  },
+
+  deleteView(name: string, tenantId: string) {
+    return request<{ removed: boolean }>(
+      `/api/cases/v1/case-views/${encodeURIComponent(name)}?tenant_id=${tenantId}`,
+      { method: "DELETE" },
+    );
   },
 };
 
@@ -357,6 +414,34 @@ export const ml = {
     return request<{ model: string; versions: unknown }>(
       `/api/ml/v1/models/${modelName}/stats`,
     );
+  },
+
+  approve(modelName: string, version: number, approvedBy: string, stage: string = "approved") {
+    return request<{ ok: boolean }>(`/api/ml/v1/models/${modelName}/approve`, {
+      method: "POST",
+      body: JSON.stringify({ version, approved_by: approvedBy, stage }),
+    });
+  },
+
+  activate(modelName: string, version: number) {
+    return request<{ ok: boolean }>(`/api/ml/v1/models/${modelName}/activate`, {
+      method: "POST",
+      body: JSON.stringify({ version }),
+    });
+  },
+
+  setTrafficSplit(modelName: string, weights: Record<number, number>) {
+    return request<{ ok: boolean }>(`/api/ml/v1/models/${modelName}/traffic-split`, {
+      method: "POST",
+      body: JSON.stringify({ weights }),
+    });
+  },
+
+  rollback(modelName: string) {
+    return request<{ ok: boolean }>(`/api/ml/v1/models/${modelName}/rollback`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
   },
 };
 
