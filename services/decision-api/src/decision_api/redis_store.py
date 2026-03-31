@@ -120,6 +120,34 @@ class RedisTags:
     def _key_consortium(self, consortium_id: str, signal_hash: str) -> str:
         return f"{CONSORTIUM_PREFIX}{consortium_id}:{signal_hash}"
 
+    def _key_consortium_tenant_trust(self, consortium_id: str) -> str:
+        return f"{CONSORTIUM_PREFIX}{consortium_id}:tenant_trust"
+
+    async def set_consortium_tenant_trust(
+        self,
+        consortium_id: str,
+        tenant_id: str,
+        trust_score: float,
+    ) -> dict[str, Any]:
+        await self.connect()
+        assert self._client
+        key = self._key_consortium_tenant_trust(consortium_id)
+        score = max(0.1, min(2.0, float(trust_score)))
+        await self._client.hset(key, tenant_id, str(score))
+        return {"consortium_id": consortium_id, "tenant_id": tenant_id, "trust_score": score}
+
+    async def get_consortium_tenant_trust(self, consortium_id: str, tenant_id: str) -> float:
+        await self.connect()
+        assert self._client
+        key = self._key_consortium_tenant_trust(consortium_id)
+        raw = await self._client.hget(key, tenant_id)
+        if raw is None:
+            return 1.0
+        try:
+            return max(0.1, min(2.0, float(raw)))
+        except ValueError:
+            return 1.0
+
     async def record_consortium_signal(
         self,
         consortium_id: str,
@@ -140,13 +168,33 @@ class RedisTags:
         signal_counts[signal_type] = int(signal_counts.get(signal_type, 0)) + 1
         report_count = int(current.get("report_count", 0)) + 1
         max_severity = max(float(current.get("max_severity", 0.0)), float(severity))
+        trust_map = dict(current.get("tenant_trust", {}))
+        if reporter_tenant not in trust_map:
+            trust_map[reporter_tenant] = await self.get_consortium_tenant_trust(consortium_id, reporter_tenant)
+        weighted_tenant_score = sum(float(v) for v in trust_map.values())
+        weighted_report_score = float(current.get("weighted_report_score", 0.0)) + float(trust_map[reporter_tenant])
+        false_positive_count = int(current.get("false_positive_count", 0))
+        confirmed_fraud_count = int(current.get("confirmed_fraud_count", 0))
+        denom = max(1, false_positive_count + confirmed_fraud_count)
+        false_positive_rate = false_positive_count / denom
+        # quality score: trust-weighted coverage penalized by false positive rate.
+        coverage = min(1.0, len(tenants) / 10.0)
+        trust_norm = min(1.5, weighted_tenant_score / max(1.0, len(tenants)))
+        quality_score = max(0.2, (coverage * trust_norm) * max(0.2, 1.0 - false_positive_rate))
         updated = {
             "consortium_id": consortium_id,
             "tenant_count": len(tenants),
             "tenants": sorted(tenants),
+            "tenant_trust": trust_map,
             "signal_counts": signal_counts,
             "report_count": report_count,
             "max_severity": max_severity,
+            "weighted_tenant_score": weighted_tenant_score,
+            "weighted_report_score": weighted_report_score,
+            "false_positive_count": false_positive_count,
+            "confirmed_fraud_count": confirmed_fraud_count,
+            "false_positive_rate": false_positive_rate,
+            "quality_score": quality_score,
         }
         ttl = max(1, int(ttl_days)) * 86400
         await self._client.setex(key, ttl, json.dumps(updated))
@@ -174,7 +222,36 @@ class RedisTags:
                 "max_severity": 0.0,
             }
         data.pop("tenants", None)
+        data.pop("tenant_trust", None)
         return data
+
+    async def add_consortium_feedback(
+        self,
+        consortium_id: str,
+        signal_hash: str,
+        outcome: str,
+        ttl_days: int = 30,
+    ) -> dict[str, Any]:
+        await self.connect()
+        assert self._client
+        key = self._key_consortium(consortium_id, signal_hash)
+        raw = await self._client.get(key)
+        current: dict[str, Any] = json.loads(raw) if raw else {}
+        fp = int(current.get("false_positive_count", 0))
+        cf = int(current.get("confirmed_fraud_count", 0))
+        if outcome == "false_positive":
+            fp += 1
+        elif outcome == "confirmed_fraud":
+            cf += 1
+        current["false_positive_count"] = fp
+        current["confirmed_fraud_count"] = cf
+        denom = max(1, fp + cf)
+        current["false_positive_rate"] = fp / denom
+        ttl = max(1, int(ttl_days)) * 86400
+        await self._client.setex(key, ttl, json.dumps(current))
+        current.pop("tenants", None)
+        current.pop("tenant_trust", None)
+        return current
 
 
 redis_tags = RedisTags(settings.redis_url)

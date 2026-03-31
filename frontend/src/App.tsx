@@ -14,6 +14,7 @@ const ShadowMode = lazy(() => import("./pages/ShadowMode"));
 const Simulation = lazy(() => import("./pages/Simulation"));
 const Compliance = lazy(() => import("./pages/Compliance"));
 const EntityLists = lazy(() => import("./pages/EntityLists"));
+const Integrations = lazy(() => import("./pages/Integrations"));
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: "\u25A6" },
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { to: "/osint", label: "OSINT", icon: "\uD83D\uDD0D" },
   { to: "/analytics", label: "Analytics", icon: "\u2587" },
   { to: "/compliance", label: "Compliance", icon: "\uD83D\uDEE1" },
+  { to: "/integrations", label: "Integrations", icon: "\uD83E\uDDE9" },
 ] as const;
 
 export default function App() {
@@ -93,6 +95,7 @@ export default function App() {
             <Route path="/investigation" element={<Investigation />} />
             <Route path="/osint" element={<OsintEnrichment />} />
             <Route path="/compliance" element={<Compliance />} />
+            <Route path="/integrations" element={<Integrations />} />
           </Routes>
         </Suspense>
       </main>

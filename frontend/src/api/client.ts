@@ -150,6 +150,16 @@ export interface ModelInfo {
   metadata: Record<string, unknown>;
 }
 
+export interface CaseOpsKpis {
+  tenant_id: string;
+  total_cases: number;
+  queue_score_avg: number;
+  critical_open: number;
+  investigating_rate: number;
+  resolved_rate: number;
+  median_case_age_hours: number;
+}
+
 export interface RulePack {
   _file: string;
   name: string;
@@ -328,6 +338,10 @@ export const cases = {
       { method: "DELETE" },
     );
   },
+
+  opsKpis(tenantId: string) {
+    return request<CaseOpsKpis>(`/api/cases/v1/cases/ops/kpis?tenant_id=${tenantId}`);
+  },
 };
 
 // ── Graph (graph-service :8001) ─────────────────────────────────────
@@ -443,6 +457,18 @@ export const ml = {
       body: JSON.stringify({}),
     });
   },
+
+  modelLineage(modelName: string, version: number) {
+    return request<{
+      ok: boolean;
+      model: string;
+      version: number;
+      lineage: {
+        sha256: string;
+        signed_payload: Record<string, unknown>;
+      };
+    }>(`/api/ml/v1/models/${modelName}/${version}/lineage`);
+  },
 };
 
 // ── Rules (decision-api :8000, /v1/rules router) ────────────────────
@@ -493,6 +519,19 @@ export const rules = {
 
   simulate(payload: DecisionRequest) {
     return decisions.evaluate(payload);
+  },
+
+  verticalPacks() {
+    return request<{ vertical_packs: Record<string, { name: string; rules: number; version: number }> }>(
+      "/api/decisions/v1/rules/vertical-packs",
+    );
+  },
+
+  installVerticalPack(verticalName: string, overwrite: boolean = false) {
+    return request<{ installed: string; vertical: string; rules: number }>(
+      `/api/decisions/v1/rules/vertical-packs/${verticalName}/install?overwrite=${overwrite ? "true" : "false"}`,
+      { method: "POST" },
+    );
   },
 };
 
@@ -621,6 +660,19 @@ export const simulation = {
       body: JSON.stringify(body),
     });
   },
+
+  benchmarkVertical(body: { scenario: string; vertical: string }) {
+    return request<{
+      scenario: string;
+      vertical: string;
+      baseline: Record<string, unknown>;
+      vertical_pack: Record<string, unknown>;
+      delta: Record<string, unknown>;
+    }>("/api/decisions/v1/simulation/benchmark/vertical", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
 };
 
 // ── Investigation (investigation-agent :8006) ───────────────────────
@@ -690,6 +742,52 @@ export const compliance = {
   certifications() {
     return request<unknown>("/api/decisions/v1/compliance/certifications");
   },
+  decisionEvidence(tenantId: string, limit: number = 200) {
+    return request<{
+      tenant_id: string;
+      exported_at: string;
+      controls: Array<{ id: string; name: string; status: string }>;
+      summary: Record<string, unknown>;
+      evidence: Array<Record<string, unknown>>;
+    }>(`/api/decisions/v1/compliance/evidence/controls?tenant_id=${tenantId}&limit=${limit}`);
+  },
+  caseEvidence(tenantId: string, limit: number = 200) {
+    return request<{
+      tenant_id: string;
+      exported_at: string;
+      controls: Array<{ id: string; name: string; status: string }>;
+      summary: Record<string, unknown>;
+      evidence: Array<Record<string, unknown>>;
+    }>(`/api/cases/v1/compliance/evidence?tenant_id=${tenantId}&limit=${limit}`);
+  },
+  decisionEvidenceKeys() {
+    return request<{ active_key_id: string; algorithm: string; rotation_supported: boolean }>(
+      "/api/decisions/v1/compliance/evidence/keys",
+    );
+  },
+  caseEvidenceKeys() {
+    return request<{ active_key_id: string; algorithm: string; rotation_supported: boolean }>(
+      "/api/cases/v1/compliance/evidence/keys",
+    );
+  },
+  verifyDecisionEvidence(bundle: Record<string, unknown>) {
+    return request<{ valid: boolean; active_key_id: string }>(
+      "/api/decisions/v1/compliance/evidence/verify",
+      {
+        method: "POST",
+        body: JSON.stringify({ bundle }),
+      },
+    );
+  },
+  verifyCaseEvidence(bundle: Record<string, unknown>) {
+    return request<{ valid: boolean; active_key_id: string }>(
+      "/api/cases/v1/compliance/evidence/verify",
+      {
+        method: "POST",
+        body: JSON.stringify({ bundle }),
+      },
+    );
+  },
 };
 
 // ── OSINT (integration-ingress :8000, /v1/osint) ────────────────────
@@ -709,6 +807,133 @@ export const osint = {
   },
   sources() {
     return request<{ sources: Record<string, unknown[]>; total_sources: number }>("/api/ingress/v1/osint/sources");
+  },
+};
+
+export const integrations = {
+  catalog() {
+    return request<{
+      total_providers: number;
+      categories: string[];
+      providers: Array<{
+        id: string;
+        name: string;
+        category: string;
+        type: string;
+        required_config_fields?: string[];
+        doc_url: string;
+      }>;
+    }>("/api/ingress/v1/integrations/catalog");
+  },
+  installed(tenantId: string) {
+    return request<{
+      tenant_id: string;
+      installed: Array<Record<string, unknown>>;
+      count: number;
+    }>(`/api/ingress/v1/integrations/installed?tenant_id=${tenantId}`);
+  },
+  readiness(tenantId: string) {
+    return request<{
+      tenant_id: string;
+      readiness_score: number;
+      covered_categories: number;
+      total_categories: number;
+      coverage: Record<string, { installed: boolean; count: number }>;
+    }>(`/api/ingress/v1/integrations/readiness?tenant_id=${tenantId}`);
+  },
+  install(tenantId: string, providerId: string, config?: Record<string, unknown>) {
+    return request<{ ok: boolean; integration: Record<string, unknown> }>("/api/ingress/v1/integrations/install", {
+      method: "POST",
+      body: JSON.stringify({ tenant_id: tenantId, provider_id: providerId, config: config ?? {} }),
+    });
+  },
+  uninstall(tenantId: string, providerId: string) {
+    return request<{ ok: boolean }>("/api/ingress/v1/integrations/uninstall", {
+      method: "POST",
+      body: JSON.stringify({ tenant_id: tenantId, provider_id: providerId }),
+    });
+  },
+  testConnectivity(tenantId: string, providerId: string, config?: Record<string, unknown>) {
+    return request<{
+      provider_id: string;
+      status: "pass" | "fail";
+      latency_ms: number;
+      missing_fields: string[];
+      required_config_fields: string[];
+    }>("/api/ingress/v1/integrations/test-connectivity", {
+      method: "POST",
+      body: JSON.stringify({ tenant_id: tenantId, provider_id: providerId, config: config ?? undefined }),
+    });
+  },
+  getConfig(tenantId: string, providerId: string) {
+    return request<{
+      tenant_id: string;
+      provider_id: string;
+      required_config_fields: string[];
+      masked_config: Record<string, string>;
+    }>(`/api/ingress/v1/integrations/config/${providerId}?tenant_id=${tenantId}`);
+  },
+  configure(tenantId: string, providerId: string, config: Record<string, unknown>) {
+    return request<{ ok: boolean; masked_config: Record<string, string> }>("/api/ingress/v1/integrations/configure", {
+      method: "POST",
+      body: JSON.stringify({ tenant_id: tenantId, provider_id: providerId, config }),
+    });
+  },
+  healthMatrix(tenantId: string) {
+    return request<{
+      tenant_id: string;
+      score: number;
+      rows: Array<{ provider_id: string; status: string; latency_ms: number; missing_fields: string[] }>;
+    }>(`/api/ingress/v1/integrations/health-matrix?tenant_id=${tenantId}`);
+  },
+  requestNew(body: {
+    tenant_id: string;
+    requested_name: string;
+    category: string;
+    use_case: string;
+    contact?: string;
+    github_username?: string;
+  }) {
+    return request<{ ok: boolean; github_issue_url: string }>("/api/ingress/v1/integrations/request", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+  vaultKmsStatus() {
+    return request<{
+      provider: string;
+      active_key_id: string;
+      rotation_enabled: boolean;
+      rotation_interval_seconds: number;
+      config_valid: boolean;
+      config_issues: string[];
+    }>("/api/ingress/v1/vault/kms");
+  },
+  vaultRotationJobs() {
+    return request<{
+      jobs: Array<{
+        id: string;
+        status: string;
+        old_key_id: string;
+        new_key_id: string;
+        processed: number;
+        rotated: number;
+        failed: number;
+      }>;
+    }>("/api/ingress/v1/vault/rotation-jobs");
+  },
+  slo() {
+    return request<{
+      service: string;
+      availability_target: number;
+      latency_target_ms_p95: number;
+      error_budget_window_days: number;
+      current: {
+        kms_provider: string;
+        rotation_jobs: number;
+        rotation_failures: number;
+      };
+    }>("/api/ingress/v1/slo");
   },
 };
 

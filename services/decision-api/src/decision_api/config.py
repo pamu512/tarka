@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     consortium_secret: str = os.environ.get("CONSORTIUM_SECRET", "")
     consortium_id: str = os.environ.get("CONSORTIUM_ID", "default")
     consortium_min_tenants: int = int(os.environ.get("CONSORTIUM_MIN_TENANTS", "2"))
+    evidence_signing_secret: str = os.environ.get("EVIDENCE_SIGNING_SECRET", "")
 
 
 settings = Settings()

@@ -17,6 +17,7 @@ from decision_api.simulator import (
     analyze_simulation,
     generate_scenario,
 )
+from decision_api.vertical_packs import get_vertical_pack
 
 log = logging.getLogger(__name__)
 
@@ -102,6 +103,34 @@ class ABTestRequest(BaseModel):
     rule_set_b: list[dict] = Field(default_factory=list, description="Override rules for set B")
 
 
+def _eval_with_override_rules(event: dict[str, Any], override_rules: list[dict[str, Any]]) -> dict[str, Any]:
+    features = dict(event.get("payload", {}))
+    if override_rules:
+        from decision_api.json_rules import _match_condition
+
+        hits: list[str] = []
+        tags: list[str] = []
+        delta = 0.0
+        for rule in override_rules:
+            conditions = rule.get("when", [])
+            if conditions and all(_match_condition(features, c) for c in conditions):
+                hits.append(rule.get("id", "override"))
+                tags.extend(rule.get("tags", []))
+                delta += float(rule.get("score_delta", 0))
+        score = max(0.0, min(100.0, 10.0 + delta))
+    else:
+        hits, tags, delta = evaluate_json_rules(features, [])
+        score = max(0.0, min(100.0, 10.0 + delta))
+
+    if score >= settings.deny_threshold:
+        decision = "deny"
+    elif score >= settings.review_threshold:
+        decision = "review"
+    else:
+        decision = "allow"
+    return {"decision": decision, "score": score, "rule_hits": hits}
+
+
 @router.post("/ab-test")
 async def ab_test(body: ABTestRequest):
     """Run the same synthetic data through two different rule sets and compare."""
@@ -114,34 +143,8 @@ async def ab_test(body: ABTestRequest):
 
     events = generate_scenario(profile)
 
-    def _eval_with_rules(event: dict, override_rules: list[dict]) -> dict:
-        features = dict(event.get("payload", {}))
-        if override_rules:
-            from decision_api.json_rules import _match_condition
-            hits: list[str] = []
-            tags: list[str] = []
-            delta = 0.0
-            for rule in override_rules:
-                conditions = rule.get("when", [])
-                if conditions and all(_match_condition(features, c) for c in conditions):
-                    hits.append(rule.get("id", "override"))
-                    tags.extend(rule.get("tags", []))
-                    delta += float(rule.get("score_delta", 0))
-            score = max(0.0, min(100.0, 10.0 + delta))
-        else:
-            hits, tags, delta = evaluate_json_rules(features, [])
-            score = max(0.0, min(100.0, 10.0 + delta))
-
-        if score >= settings.deny_threshold:
-            decision = "deny"
-        elif score >= settings.review_threshold:
-            decision = "review"
-        else:
-            decision = "allow"
-        return {"decision": decision, "score": score, "rule_hits": hits}
-
-    decisions_a = [_eval_with_rules(e, body.rule_set_a) for e in events]
-    decisions_b = [_eval_with_rules(e, body.rule_set_b) for e in events]
+    decisions_a = [_eval_with_override_rules(e, body.rule_set_a) for e in events]
+    decisions_b = [_eval_with_override_rules(e, body.rule_set_b) for e in events]
 
     result_a = analyze_simulation(events, decisions_a)
     result_b = analyze_simulation(events, decisions_b)
@@ -157,5 +160,46 @@ async def ab_test(body: ABTestRequest):
             "f1_delta": round(result_b.f1_score - result_a.f1_score, 4),
             "fp_delta": result_b.false_positives - result_a.false_positives,
             "fn_delta": result_b.false_negatives - result_a.false_negatives,
+        },
+    }
+
+
+class VerticalBenchmarkRequest(BaseModel):
+    scenario: str = "baseline"
+    vertical: str = "fintech"
+    custom_profile: SyntheticProfile | None = None
+
+
+@router.post("/benchmark/vertical")
+async def benchmark_vertical_pack(body: VerticalBenchmarkRequest):
+    if body.custom_profile:
+        profile = body.custom_profile
+    elif body.scenario in SCENARIO_TEMPLATES:
+        profile = SCENARIO_TEMPLATES[body.scenario]
+    else:
+        raise HTTPException(400, f"Unknown scenario: {body.scenario}")
+
+    vertical_pack = get_vertical_pack(body.vertical)
+    if not vertical_pack:
+        raise HTTPException(404, f"Unknown vertical pack: {body.vertical}")
+
+    events = generate_scenario(profile)
+    baseline = [_eval_with_override_rules(e, []) for e in events]
+    vertical = [_eval_with_override_rules(e, vertical_pack.get("rules", [])) for e in events]
+    result_base = analyze_simulation(events, baseline)
+    result_vertical = analyze_simulation(events, vertical)
+
+    return {
+        "scenario": profile.name,
+        "vertical": body.vertical.lower(),
+        "baseline": result_base.model_dump(),
+        "vertical_pack": result_vertical.model_dump(),
+        "delta": {
+            "precision": round(result_vertical.precision - result_base.precision, 4),
+            "recall": round(result_vertical.recall - result_base.recall, 4),
+            "f1_score": round(result_vertical.f1_score - result_base.f1_score, 4),
+            "score_separation": round(result_vertical.score_separation - result_base.score_separation, 2),
+            "false_positives": result_vertical.false_positives - result_base.false_positives,
+            "false_negatives": result_vertical.false_negatives - result_base.false_negatives,
         },
     }
