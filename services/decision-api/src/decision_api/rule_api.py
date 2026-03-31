@@ -54,19 +54,6 @@ def _rules_dir() -> Path:
     return p
 
 
-def _safe_path(filename: str) -> Path:
-    """Resolve filename within rules dir, rejecting path traversal."""
-    if not _SAFE_FILENAME_RE.fullmatch(filename):
-        raise HTTPException(400, "invalid filename")
-    base = _rules_dir().resolve()
-    target = (base / filename).resolve()
-    try:
-        target.relative_to(base)
-    except ValueError:
-        raise HTTPException(400, "invalid filename")
-    return target
-
-
 def _list_pack_paths() -> dict[str, Path]:
     base = _rules_dir()
     return {p.name: p for p in base.glob("*.json") if p.is_file()}
@@ -88,6 +75,11 @@ def _slugify_pack_name(name: str) -> str:
     if not slug:
         raise HTTPException(400, "invalid pack name")
     return slug[:80]
+
+
+def _new_pack_path(prefix: str = "pack") -> Path:
+    # Avoid any user-controlled filesystem path fragments.
+    return _rules_dir() / f"{prefix}_{uuid.uuid4().hex[:12]}.json"
 
 
 def _read_all_packs() -> list[dict[str, Any]]:
@@ -142,17 +134,29 @@ async def install_vertical_pack(vertical_name: str, overwrite: bool = False):
     pack = get_vertical_pack(vertical_name)
     if not pack:
         raise HTTPException(404, f"unknown vertical pack '{vertical_name}'")
-    inferred_name = str(pack.get("name", vertical_name))
-    fname = f"vertical_{_slugify_pack_name(inferred_name)}.json"
-    fpath = _safe_path(fname)
-    if fpath.exists() and not overwrite:
-        raise HTTPException(409, f"pack '{fname}' already exists; pass overwrite=true to replace")
+    vertical_id = _slugify_pack_name(vertical_name)
+    existing_path: Path | None = None
+    existing_file = ""
+    for name, path in _list_pack_paths().items():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        if str(data.get("__vertical_id", "")) == vertical_id:
+            existing_path = path
+            existing_file = name
+            break
+    if existing_path and not overwrite:
+        raise HTTPException(409, f"pack '{existing_file}' already exists; pass overwrite=true to replace")
     errors = _validate_rule_pack(pack)
     if errors:
         raise HTTPException(422, detail={"validation_errors": errors})
-    fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
+    payload = dict(pack)
+    payload["__vertical_id"] = vertical_id
+    fpath = existing_path or _new_pack_path("vertical")
+    fpath.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     load_rules()
-    return {"installed": fname, "vertical": vertical_name.lower(), "rules": len(pack.get("rules", []))}
+    return {"installed": fpath.name, "vertical": vertical_name.lower(), "rules": len(pack.get("rules", []))}
 
 
 @router.get("/{filename}")
@@ -165,10 +169,15 @@ async def get_rule_pack(filename: str):
 
 @router.post("", status_code=201)
 async def create_rule_pack(body: RulePackIn):
-    fname = _slugify_pack_name(body.name) + ".json"
-    fpath = _safe_path(fname)
-    if fpath.exists():
-        raise HTTPException(409, f"pack '{fname}' already exists")
+    slug = _slugify_pack_name(body.name)
+    for path in _list_pack_paths().values():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        existing_name = str(data.get("name", "")).strip().lower().replace(" ", "_")
+        if existing_name == slug:
+            raise HTTPException(409, f"pack name '{body.name}' already exists")
     pack = {
         "version": 1,
         "name": body.name,
@@ -178,9 +187,10 @@ async def create_rule_pack(body: RulePackIn):
     errors = _validate_rule_pack(pack)
     if errors:
         raise HTTPException(422, detail={"validation_errors": errors})
+    fpath = _new_pack_path("pack")
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()
-    return {"file": fname, "pack": pack}
+    return {"file": fpath.name, "pack": pack}
 
 
 @router.put("/{filename}")
