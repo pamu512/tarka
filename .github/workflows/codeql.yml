@@ -79,8 +79,15 @@ jobs:
           languages: swift
           build-mode: manual
 
-      - name: Build Swift package
-        run: swift build --package-path packages/fraud-sdk-ios
+      - name: Build Swift package for iOS simulator (manual)
+        working-directory: packages/fraud-sdk-ios
+        run: |
+          xcodebuild \
+            -scheme FraudStackSDK \
+            -destination "generic/platform=iOS Simulator" \
+            -sdk iphonesimulator \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            build
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
