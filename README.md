@@ -6,6 +6,29 @@ Open-source, modular fraud detection platform. Pick the components you need or r
 
 *Tarka* — from Sanskrit तर्क (tarka), the method of logical hypothesis testing in Nyaya Shastra (Indian analytical philosophy). Every signal is a hypothesis; every decision is proved.
 
+**Canonical repo:** [github.com/pamu512/tarka](https://github.com/pamu512/tarka)
+
+## What’s on trunk (shipping now)
+
+These capabilities are in the codebase today and roll forward on `master`:
+
+- **Decision API:** normalized **`inference_context`** on evaluate responses (integrity, tamper, network trust, replay, geo-consistency, top signals) plus OpenAPI contract alignment.
+- **Ingress hardening:** **replay-style payload detection** (short-lived Redis signatures) folded into scoring and audit context.
+- **SDKs:** **Python** and **TypeScript** clients typed for `inference_context` on evaluate responses.
+- **Frontend:** case explainability surfaces **inference metrics**; API client can **fall back to mock data** when backends are down (demo-friendly).
+- **Ops / planning:** module **project roadmaps** under `docs/docs/projects/`, **30/60/90** plan, competitive notes, and **OSS adoption backlog** (issues + dependency order in docs).
+
+## Shipping cadence & releases
+
+| Artifact | Where |
+|----------|--------|
+| Version targets (`v1.1.0` … `v1.3.0`) | [RELEASE_SCHEDULE.md](RELEASE_SCHEDULE.md) |
+| May 2026 Friday train (weekly commits / themes) | [docs/docs/guides/release-calendar-2026-05.md](docs/docs/guides/release-calendar-2026-05.md) — queue: `scripts/release/release-queue-2026-05.json` |
+| OSS-pattern execution order (`#31`–`#54` + graph) | [docs/docs/guides/oss-ship-order-dependencies.md](docs/docs/guides/oss-ship-order-dependencies.md) |
+| Product milestones (Epics A–F) | [docs/docs/guides/roadmap-30-60-90.md](docs/docs/guides/roadmap-30-60-90.md) |
+
+**June 2026** milestones on GitHub group the **borrowed-from-OSS** workstream (policy DAG, typologies, parity gates, deployment profiles, scorecards, etc.) — see issues labeled `borrowed-from-OSS` and the [module swimlanes project](https://github.com/users/pamu512/projects/3).
+
 ## Who Should Choose Tarka
 
 Choose Tarka if you need fraud controls that your team can own, audit, and evolve quickly.
@@ -22,7 +45,7 @@ Tarka may be less ideal if you only need a very basic, single-rule workflow and 
 
 ```bash
 # Clone the repository
-git clone https://github.com/tarka-fraud/tarka.git
+git clone https://github.com/pamu512/tarka.git
 cd tarka
 
 # Option 1: Interactive installer (pick modules)
@@ -47,7 +70,7 @@ Use this when you want a quick evaluator environment without cloning the full re
 Run the published sandbox compose file directly:
 
 ```bash
-docker compose -f https://raw.githubusercontent.com/tarka-fraud/tarka/main/deploy/docker-compose.sandbox.yml up -d
+docker compose -f https://raw.githubusercontent.com/pamu512/tarka/master/deploy/docker-compose.sandbox.yml up -d
 ```
 
 Then open:
@@ -59,14 +82,14 @@ Then open:
 Stop it:
 
 ```bash
-docker compose -f https://raw.githubusercontent.com/tarka-fraud/tarka/main/deploy/docker-compose.sandbox.yml down
+docker compose -f https://raw.githubusercontent.com/pamu512/tarka/master/deploy/docker-compose.sandbox.yml down
 ```
 
 ### Option B: 1-click cloud dev sandbox
 
 Open directly in Codespaces (no local clone required):
 
-- [Open Tarka in Codespaces](https://github.com/codespaces/new?hide_repo_select=true&repo=tarka-fraud/tarka)
+- [Open Tarka in Codespaces](https://github.com/codespaces/new?hide_repo_select=true&repo=pamu512/tarka)
 
 ### Requirements
 
@@ -188,7 +211,7 @@ Event Ingest --> NATS JetStream --> Analytics Sink --> ClickHouse
 | OSINT | **12-source enrichment** for email/phone/IP/domain with composite risk scoring |
 | Analytics | ClickHouse-powered historical analytics |
 | Investigation | AI agent chat with tool-use for case research |
-| Case Detail | Full case view with timeline, evidence, comments |
+| Case Detail | Full case view with timeline, evidence, comments; **decision explainability** includes `inference_context` when present |
 
 ## OSINT Enrichment
 
