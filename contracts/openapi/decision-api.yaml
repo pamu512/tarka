@@ -149,7 +149,7 @@ components:
           additionalProperties: true
     EvaluateResponse:
       type: object
-      required: [trace_id, decision, score, tags]
+      required: [trace_id, decision, score, tags, inference_context]
       properties:
         trace_id:
           type: string
@@ -178,3 +178,44 @@ components:
           type: number
           format: float
           nullable: true
+        inference_context:
+          $ref: "#/components/schemas/InferenceContext"
+    InferenceContext:
+      type: object
+      required:
+        - integrity_confidence
+        - tamper_risk
+        - network_trust
+        - replay_risk
+        - geo_consistency_risk
+        - top_signals
+      properties:
+        integrity_confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        tamper_risk:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        network_trust:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        replay_risk:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        geo_consistency_risk:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        top_signals:
+          type: array
+          items:
+            type: string
