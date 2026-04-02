@@ -1,11 +1,31 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypedDict
 from uuid import UUID
 
 import httpx
 
 from fraud_stack_sdk.signals import ServerSignalCollector
+
+
+class InferenceContext(TypedDict):
+    integrity_confidence: float
+    tamper_risk: float
+    network_trust: float
+    replay_risk: float
+    geo_consistency_risk: float
+    top_signals: list[str]
+
+
+class EvaluateResponse(TypedDict, total=False):
+    trace_id: str
+    decision: str
+    score: float
+    tags: list[str]
+    rule_hits: list[str]
+    reasons: list[str]
+    ml_score: float | None
+    inference_context: InferenceContext
 
 
 class DecisionClient:
@@ -40,7 +60,7 @@ class DecisionClient:
         device_context: dict[str, Any] | None = None,
         client_ip: str | None = None,
         request_headers: dict[str, str] | None = None,
-    ) -> dict[str, Any]:
+    ) -> EvaluateResponse:
         if self._collector and client_ip:
             device_context = self._collector.build_device_context(
                 ip=client_ip,
@@ -81,7 +101,7 @@ class DecisionClient:
         device_context: dict[str, Any] | None = None,
         client_ip: str | None = None,
         request_headers: dict[str, str] | None = None,
-    ) -> dict[str, Any]:
+    ) -> EvaluateResponse:
         if self._collector and client_ip:
             device_context = self._collector.build_device_context(
                 ip=client_ip,

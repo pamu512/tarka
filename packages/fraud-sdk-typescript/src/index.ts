@@ -101,6 +101,16 @@ export interface EvaluateResponse {
   rule_hits?: string[];
   reasons?: string[];
   ml_score?: number | null;
+  inference_context: InferenceContext;
+}
+
+export interface InferenceContext {
+  integrity_confidence: number;
+  tamper_risk: number;
+  network_trust: number;
+  replay_risk: number;
+  geo_consistency_risk: number;
+  top_signals: string[];
 }
 
 // --------------- Device Signal Collector ---------------
