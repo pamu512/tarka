@@ -115,7 +115,7 @@ MODULES: dict[str, dict[str, Any]] = {
         "requires": ["streaming"],
     },
     "gateway": {
-        "codename": "Dvara",
+        "codename": "Riti",
         "name": "GraphQL Gateway",
         "description": "Unified GraphQL API over all REST services",
         "services": ["graphql-gateway"],

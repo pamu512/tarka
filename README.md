@@ -110,7 +110,7 @@ CLI slugs stay stable; **codenames** are the product story (see [Module codename
 | `agent` | **Saarthi** | AI investigation copilot (LLM tool-use) | — |
 | `streaming` | **Srotas** | High-throughput event ingestion via NATS JetStream | NATS |
 | `analytics` | **Kala** | ClickHouse OLAP, historical decision analytics | ClickHouse, NATS |
-| `gateway` | **Dvara** | Unified GraphQL API over all REST services | — |
+| `gateway` | **Riti** | Unified GraphQL API over all REST services | — |
 | `frontend` | **Dwar** | React dashboard (10 pages) | — |
 
 ### pip Install (Library Use)
