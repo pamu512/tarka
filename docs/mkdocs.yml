@@ -78,6 +78,22 @@ nav:
       - Enterprise Readiness: guides/enterprise-readiness.md
       - Incident Response: guides/incident-response.md
       - 30/60/90 Roadmap: guides/roadmap-30-60-90.md
+      - Release Calendar (May 2026): guides/release-calendar-2026-05.md
+      - OSS ship order (dependencies): guides/oss-ship-order-dependencies.md
+  - Projects:
+      - Module Projects Overview: projects/README.md
+      - Decision API Project: projects/decision-api-project.md
+      - Case API Project: projects/case-api-project.md
+      - Graph Service Project: projects/graph-service-project.md
+      - ML Scoring Project: projects/ml-scoring-project.md
+      - Feature Service Project: projects/feature-service-project.md
+      - Integration Ingress Project: projects/integration-ingress-project.md
+      - Frontend Project: projects/frontend-project.md
+      - Python SDK Project: projects/sdk-python-project.md
+      - TypeScript SDK Project: projects/sdk-typescript-project.md
+      - Mobile SDKs Project: projects/sdk-mobile-project.md
+      - Analytics Sink Project: projects/analytics-sink-project.md
+      - Investigation Agent Project: projects/investigation-agent-project.md
   - Releases:
       - v1.1.0 (Planned): releases/v1.1.0-2026-04-30.md
       - v1.2.0 (Planned): releases/v1.2.0-2026-05-30.md
