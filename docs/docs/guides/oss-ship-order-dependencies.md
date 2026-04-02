@@ -39,6 +39,7 @@ flowchart TD
     I46["#46 Typology DSL registry"]
     I35["#35 Case investigation workflows"]
     I36["#36 Frontend mode UX"]
+    I51["#51 Frontend readiness banner"]
     I37["#37 Model promotion gates"]
     I50["#50 Evidence bundle schema v1"]
   end
@@ -60,6 +61,8 @@ flowchart TD
   I44 --> I31
   I45 --> I31
   I38 --> I36
+  I38 --> I51
+  I36 --> I51
   I32 --> I31
   I31 --> I47
   I31 --> I37
@@ -85,6 +88,8 @@ flowchart TD
 |------|----|-----|
 | #43–#45 | #31 | Client traffic must send **envelope / integrity / attestation** fields before canary/shadow/CC paths are meaningful in production-like tests. |
 | #38 | #36 | **Detection vs compliance** UI needs documented **backend profile** and env semantics to avoid lying to analysts. |
+| #38 | #51 | **Readiness/degraded** panel needs the same **profile** semantics as mode UX. |
+| #36 | #51 | **Banner/panel** UX should align with **mode** surfaces (shared patterns, copy, and API contracts). |
 | #32 | #31 | **DAG** should orchestrate **typed steps** with timeouts, retries, and `onFailure` — not ad-hoc calls. |
 | #31 | #47 | **Canary cohort** metadata in audit assumes **routing** exists. |
 | #31 | #37 | **Promotion gates** assume **champion/challenger** (or shadow) signals exist. |
@@ -111,7 +116,7 @@ Within a tier, issues can ship in **any order** unless an edge crosses tiers.
 2. **Tier 1:** #32  
 3. **Tier 2:** #31 and #33 (parallel)  
 4. **Tier 3:** #47, #34, #48, #49 (parallel after their parents)  
-5. **Tier 4:** #46, #35, #36, #37, #50 (parallel where parents done)  
+5. **Tier 4:** #46, #35, #36, #51, #37, #50 (parallel where parents done; **#51** after **#36** if you want one mode UX pass first)  
 6. **Tier 5:** #39, #40, #41, #42, #52, #54  
 7. **Tier 6:** #53  
 
