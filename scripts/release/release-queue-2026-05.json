@@ -1,0 +1,9 @@
+{
+  "updates": [
+    { "date": "2026-05-01", "commit": "61afd59", "label": "may-week-1" },
+    { "date": "2026-05-08", "commit": "4ba1467", "label": "may-week-2" },
+    { "date": "2026-05-15", "commit": "dab2d03", "label": "may-week-3" },
+    { "date": "2026-05-22", "commit": "e33b34c", "label": "may-week-4" },
+    { "date": "2026-05-29", "commit": "a26d1cc", "label": "may-week-5" }
+  ]
+}
