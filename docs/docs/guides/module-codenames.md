@@ -8,7 +8,7 @@ Tarka uses a **two-layer name** so scripts stay stable while product language st
 2. **Codename (human story)** — one word, Title Case, easy to say in demos and release notes. Chosen to echo **Nyāya**-style reasoning (like the word *Tarka* itself): proof, links, inference, records.
 3. **Service directory names** — stay kebab-case (`decision-api`, `graph-service`); codenames are **not** folder names.
 4. **SDK slugs** — keep `sdk-python`, `sdk-typescript`, … for package paths; codenames label them in the installer only.
-5. **Dwar vs Dvara** — both evoke “door” (द्वार): **`Dwar`** is the operator **UI** (`frontend`); **`Dvara`** is the **API gateway** (`gateway`). Different modules, related metaphor.
+5. **`Dwar` vs `Riti`** — **`Dwar`** is the operator **UI** (`frontend`). **`Riti`** is the **GraphQL gateway** (`gateway`): one aggregated API surface (metaphor: a **rusted** / hardened gate, not the Rust language unless you rewrite the service).
 
 ## Stack modules
 
@@ -22,7 +22,7 @@ Tarka uses a **two-layer name** so scripts stay stable while product language st
 | `agent` | **Saarthi** | सारथि — charioteer, one who steers | Investigation copilot |
 | `streaming` | **Srotas** | स्रोतस् — current, stream | NATS / event ingest |
 | `analytics` | **Kala** | काल — time | ClickHouse / historical analytics |
-| `gateway` | **Dvara** | द्वार — gate | GraphQL façade |
+| `gateway` | **Riti** | रीति — convention, pattern; brand gloss **rust** (durable, weathered gate) for the GraphQL façade | GraphQL façade |
 | `frontend` | **Dwar** | द्वार — door, portal | Operator UI |
 
 ## SDK modules
