@@ -1,0 +1,8 @@
+{
+  "updates": [
+    { "date": "2026-04-03", "commit": "ee59f77", "label": "week-1" },
+    { "date": "2026-04-10", "commit": "4c42bff", "label": "week-2" },
+    { "date": "2026-04-17", "commit": "7691571", "label": "week-3" },
+    { "date": "2026-04-24", "commit": "weekly-4", "label": "week-4" }
+  ]
+}
