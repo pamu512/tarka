@@ -18,76 +18,82 @@ This plan now explicitly addresses the highest competitive gaps identified again
 - Analyst copilot workflows for evidence summarization and next-best actions.
 - Enterprise proof kit for procurement (controls evidence, DR tests, uptime/error-budget reporting).
 
-## Day 30 (v1.1.0): Consortium v2 Foundation
+## Epic Alignment
+
+- **Epic A (P0)**: Inference schema normalization.
+- **Epic B (P0)**: Replay/tamper hardening.
+- **Epic C (P0)**: Counter and velocity features.
+- **Epic D (P1)**: Challenge orchestration and UX safety.
+- **Epic E (P1)**: Cross-surface location coherence.
+- **Epic F (P1)**: Analyst productivity and benchmarking.
+
+## Day 30 (v1.1.0): Core Inference and Integrity Foundation
 
 ### Scope
 
-- Add consortium confidence scoring with tenant trust weighting.
-- Add false-positive suppression feedback loop for consortium hits.
-- Add per-tenant controls for consortium participation and data-sharing policy.
-- Add operational dashboard metrics for consortium hit quality.
+- Ship Epic A core (`inference_context` contract + derived risk fields + audit explainability drivers).
+- Ship Epic B core (request envelope signing, replay checks, tamper reason codes).
 - Add baseline benchmark harness skeleton and fixed seed datasets.
 - Add integration quality gate framework (contract tests + probe semantics).
 
 ### Deliverables
 
-- `decision-api`: weighted consortium scoring endpoint and runtime integration.
-- `case-api`: analyst feedback endpoint to mark consortium hit quality.
-- `frontend`: consortium controls and performance panel.
-- `docs`: consortium governance and privacy model documentation.
+- `decision-api`: inference field derivation and replay/tamper ingress enforcement.
+- `contracts/openapi`: `inference_context` schema and response contract updates.
+- `sdk` packages: envelope signing payload fields for client submissions.
+- `docs`: inference and integrity signal contract documentation.
 - `ci`: benchmark runner scaffold and nightly baseline metric capture.
 - `integration-ingress`: connector test contract spec and quality rubric.
 
 ### Acceptance Tests
 
-- Weighted score changes with tenant trust and report quality.
-- False-positive feedback reduces repeat score impact for matched entities.
-- Disabling consortium for a tenant produces no consortium score delta.
-- API + UI tests for consortium settings and quality metrics pass.
+- All SDKs and APIs validate against the same `inference_context` contract.
+- Replay detection flags duplicate payloads within configured windows.
+- Tamper mismatches emit structured reason codes and audit records.
+- Audit responses include top inference drivers for analyst review.
 - Baseline benchmark run is deterministic for fixed seed and data snapshot.
 - Connector quality checks fail builds on missing contract assertions.
 
-## Day 60 (v1.2.0): Vertical Intelligence Packs
+## Day 60 (v1.2.0): Velocity, Challenge, and Location Coherence
 
 ### Scope
 
-- Ship vertical starter packs (fintech, e-commerce, gaming).
-- Include tuned rule packs, model presets, workflows, and reason code maps.
+- Ship Epic C (5m/1h/24h counters, normalized feature keys, replay utility).
+- Ship Epic D (risk-tier challenge orchestration with low-friction-first templates).
+- Ship Epic E core (co-location risk feature, impossible-travel checks, location confidence fields).
 - Add benchmark harness for precision/recall/lift comparisons.
-- Add business KPI readout per pack (review-rate, deny-rate, false-positive rate, analyst load).
 - Add connector reliability scorecards and runbook-backed failure handling.
 
 ### Deliverables
 
-- `rules`: three curated production-ready pack sets.
-- `ml-scoring`: vertical model profile selection and metadata.
-- `simulation`: benchmark runner with baseline vs pack comparisons.
-- `docs`: deployment and tuning guides per vertical.
-- `frontend`: value-pack KPI page with baseline vs projected lift narrative.
+- `feature-service`: multi-window counter and velocity aggregation interfaces.
+- `decision-api`: challenge orchestration policy templates and escalation behavior.
+- `rules`: normalized velocity and location coherence keys available to rule authors.
+- `simulation`: benchmark runner with baseline vs profile comparisons.
+- `frontend`: challenge policy and reliability panels.
 - `integration-ingress`: provider reliability dashboard and SLA status fields.
 
 ### Acceptance Tests
 
-- Each vertical pack can be installed and activated via API/UI.
+- Counter features are queryable and deterministic for 5m/1h/24h windows.
+- Challenge orchestration escalates correctly by risk tier and supports escape hatches.
+- Co-location and impossible-travel features are emitted with confidence fields.
 - Benchmark harness outputs reproducible metrics with fixed seed.
-- Vertical packs outperform generic baseline on provided sample datasets.
-- Smoke tests pass for all vertical profiles.
-- KPI dashboard reflects benchmark outputs and confidence intervals.
 - Integration reliability panel flags degraded connectors with actionable remediation.
 
-## Day 90 (v1.3.0): Enterprise Trust Center
+## Day 90 (v1.3.0): Analyst Copilot and Enterprise Operationalization
 
 ### Scope
 
+- Ship Epic F (evidence-grounded case summaries, KPI overlays, auto-label ingestion).
 - Expose audit evidence endpoints for key controls and policy changes.
 - Add support/SLA views and incident readiness status page in frontend.
 - Add release governance checklist and signed release artifact process.
-- Add analyst copilot workflows for case/graph evidence summary and recommended actions.
 - Publish enterprise proof kit mapped to procurement and audit expectations.
 
 ### Deliverables
 
-- `decision-api` + `case-api`: evidence export APIs.
+- `decision-api` + `case-api`: evidence export APIs and model-label feedback ingestion endpoints.
 - `frontend`: Trust Center page (controls, readiness, runbook links).
 - `docs`: operational attestations, support model, and control mappings.
 - `ops`: release readiness checklist integrated in CI.
@@ -102,3 +108,10 @@ This plan now explicitly addresses the highest competitive gaps identified again
 - Release notes and artifacts are generated from tagged builds.
 - Copilot summaries are traceable to underlying evidence and include confidence labels.
 - Procurement package is fully reproducible from tagged build artifacts.
+
+## Global Quality Gates
+
+- Contract tests pass for all new request/response fields.
+- Rule simulation snapshots cover newly introduced inference features.
+- Replay/tamper paths pass integration tests.
+- Lint, type checks, and smoke tests are green before each release.
