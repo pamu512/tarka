@@ -103,6 +103,9 @@ class TestEvaluateDecision:
                     assert data["decision"] == "allow"
                     assert data["score"] <= 50
                     assert "trace_id" in data
+                    assert "inference_context" in data
+                    assert "integrity_confidence" in data["inference_context"]
+                    assert 0 <= data["inference_context"]["integrity_confidence"] <= 1
 
     @pytest.mark.asyncio
     async def test_with_device_context(self, client):
@@ -130,6 +133,8 @@ class TestEvaluateDecision:
                     assert r.status_code == 200
                     data = r.json()
                     assert "sdk_bot" in data["rule_hits"]
+                    assert "inference_context" in data
+                    assert "top_signals" in data["inference_context"]
 
     @pytest.mark.asyncio
     async def test_validation_error(self, client):

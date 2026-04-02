@@ -343,6 +343,55 @@ def extract_behavior_tags(device_context: dict[str, Any] | None) -> list[str]:
     return tags
 
 
+def _clamp01(value: float) -> float:
+    return max(0.0, min(1.0, value))
+
+
+def build_inference_context(
+    signal_tags: list[str],
+    rule_hits: list[str],
+    ml_score: float | None,
+    final_score: float,
+) -> dict[str, Any]:
+    """Normalize heterogeneous risk signals into a consistent inference contract."""
+    signal_set = set(signal_tags)
+
+    tamper_markers = ("sdk:repackaged", "sdk:automation", "sdk:emulator", "sdk:shared_device")
+    network_markers = ("sdk:vpn", "sdk:proxy", "sdk:datacenter", "sdk:vpn_iface")
+    geo_markers = ("sdk:spoofed_location", "sdk:tz_geo_mismatch", "sdk:mock_location")
+
+    tamper_hits = sum(1 for m in tamper_markers if m in signal_set)
+    network_hits = sum(1 for m in network_markers if m in signal_set)
+    geo_hits = sum(1 for m in geo_markers if m in signal_set)
+    replay_hits = sum(1 for h in rule_hits if "replay" in h.lower())
+    if "ingress:replay_payload" in signal_set:
+        replay_hits += 1
+
+    tamper_risk = _clamp01(tamper_hits / max(1, len(tamper_markers)))
+    network_risk = _clamp01(network_hits / max(1, len(network_markers)))
+    geo_consistency_risk = _clamp01(geo_hits / max(1, len(geo_markers)))
+    replay_risk = _clamp01(replay_hits / 2.0)
+
+    # Higher value means more trusted network path.
+    network_trust = _clamp01(1.0 - network_risk)
+    score_factor = _clamp01(final_score / 100.0)
+    model_factor = _clamp01((ml_score or 0.0) / 100.0)
+    integrity_confidence = _clamp01(
+        1.0 - (0.35 * tamper_risk + 0.2 * network_risk + 0.15 * replay_risk + 0.15 * geo_consistency_risk)
+        - (0.15 * max(score_factor, model_factor))
+    )
+
+    ordered_top = sorted(signal_set)[:5]
+    return {
+        "integrity_confidence": round(integrity_confidence, 4),
+        "tamper_risk": round(tamper_risk, 4),
+        "network_trust": round(network_trust, 4),
+        "replay_risk": round(replay_risk, 4),
+        "geo_consistency_risk": round(geo_consistency_risk, 4),
+        "top_signals": ordered_top,
+    }
+
+
 # ---------- downstream helpers ----------
 
 async def _fetch_feature_snapshot(
@@ -569,6 +618,7 @@ async def evaluate_decision(
 ):
     http = _http(request)
     trace_id = uuid.uuid4()
+    replay_ttl_seconds = int(os.environ.get("REPLAY_PAYLOAD_TTL_SECONDS", "300"))
 
     # Extract SDK signal tags
     dc_dump = body.device_context.model_dump() if body.device_context else None
@@ -577,6 +627,29 @@ async def evaluate_decision(
     signal_tags.extend(extract_captcha_tags(dc_dump))
     consortium_delta = 0.0
     graph_delta = 0.0
+    replay_rule_hits: list[str] = []
+
+    # Detect payload replay at ingress using a short-lived signature cache.
+    replay_signature = hashlib.sha256(
+        _json.dumps(
+            {
+                "tenant_id": body.tenant_id,
+                "event_type": body.event_type.value,
+                "entity_id": body.entity_id,
+                "session_id": body.session_id,
+                "payload": body.payload,
+                "device_id": body.device_context.device_id if body.device_context else None,
+            },
+            sort_keys=True,
+            default=str,
+        ).encode()
+    ).hexdigest()
+    is_replayed = await redis_tags.check_and_store_replay_signature(
+        body.tenant_id, replay_signature, ttl_seconds=replay_ttl_seconds
+    )
+    if is_replayed:
+        signal_tags.append("ingress:replay_payload")
+        replay_rule_hits.append("ingress_replay_detected")
 
     # Record fingerprint & detect shared devices
     if body.device_context and fingerprint_store._client:
@@ -619,6 +692,7 @@ async def evaluate_decision(
                 rule_hits=["whitelist_bypass"],
                 reasons=[f"whitelist:{list_check.reason}"],
                 ml_score=None,
+                inference_context=build_inference_context([], ["whitelist_bypass"], None, 0.0),
             )
 
         if list_check.action == "deny":
@@ -643,6 +717,7 @@ async def evaluate_decision(
                 rule_hits=["blacklist_block"],
                 reasons=[f"blacklist:{list_check.reason}"],
                 ml_score=None,
+                inference_context=build_inference_context(["list:blacklist"], ["blacklist_block"], None, 100.0),
             )
 
     existing_tags = await redis_tags.get_tags(body.tenant_id, body.entity_id)
@@ -713,11 +788,14 @@ async def evaluate_decision(
         rule_hits.append("consortium_shared_signal")
     if graph_delta > 0:
         rule_hits.append("graph_network_risk")
-    base_score = 10.0 + score_delta + consortium_delta + graph_delta
+    replay_delta = 20.0 if is_replayed else 0.0
+    base_score = 10.0 + score_delta + consortium_delta + graph_delta + replay_delta
     final_score = _blend_scores(base_score, ml_score if isinstance(ml_score, float) else None)
 
     merged_tags = await redis_tags.merge_tags(body.tenant_id, body.entity_id, all_new_tags)
     await redis_tags.set_cached_score(body.tenant_id, body.entity_id, final_score)
+
+    combined_rule_hits = rule_hits + replay_rule_hits
 
     if final_score >= settings.deny_threshold:
         decision = "deny"
@@ -727,8 +805,8 @@ async def evaluate_decision(
         decision = "allow"
 
     reasons: list[str] = []
-    if rule_hits:
-        reasons.append(f"rules:{','.join(rule_hits)}")
+    if combined_rule_hits:
+        reasons.append(f"rules:{','.join(combined_rule_hits)}")
     if signal_tags:
         reasons.append(f"signals:{','.join(signal_tags)}")
     if ml_score is not None and isinstance(ml_score, float):
@@ -751,8 +829,16 @@ async def evaluate_decision(
         decision=decision,
         score=final_score,
         tags=merged_tags,
-        rule_hits=rule_hits,
-        payload_snapshot=stored_snapshot,
+        rule_hits=combined_rule_hits,
+        payload_snapshot={
+            **stored_snapshot,
+            "inference_context": build_inference_context(
+                signal_tags,
+                combined_rule_hits,
+                ml_score if isinstance(ml_score, float) else None,
+                final_score,
+            ),
+        },
     )
     session.add(audit)
     await session.commit()
@@ -774,9 +860,15 @@ async def evaluate_decision(
         decision=decision,
         score=final_score,
         tags=merged_tags,
-        rule_hits=rule_hits,
+        rule_hits=combined_rule_hits,
         reasons=reasons,
         ml_score=ml_score if isinstance(ml_score, float) else None,
+        inference_context=build_inference_context(
+            signal_tags,
+            combined_rule_hits,
+            ml_score if isinstance(ml_score, float) else None,
+            final_score,
+        ),
     )
 
     bg.add_task(_broadcast_decision, {
@@ -793,7 +885,7 @@ async def evaluate_decision(
         "decision": decision,
         "score": final_score,
         "tags": merged_tags,
-        "rule_hits": rule_hits,
+        "rule_hits": combined_rule_hits,
         "signal_tags": signal_tags,
         "ml_score": ml_score if isinstance(ml_score, float) else None,
         "payload": body.payload,
@@ -818,9 +910,15 @@ async def evaluate_decision(
             decision="allow",
             score=final_score,
             tags=merged_tags + ["list:test_bypass"],
-            rule_hits=rule_hits,
+            rule_hits=combined_rule_hits,
             reasons=reasons + [f"test_bypass:{list_check.reason}"],
             ml_score=ml_score if isinstance(ml_score, float) else None,
+            inference_context=build_inference_context(
+                signal_tags,
+                combined_rule_hits + ["test_bypass"],
+                ml_score if isinstance(ml_score, float) else None,
+                final_score,
+            ),
         )
 
     return response
@@ -873,5 +971,6 @@ async def get_audit(trace_id: UUID, session: AsyncSession = Depends(get_session)
         "score": row.score,
         "tags": row.tags,
         "rule_hits": row.rule_hits,
+        "inference_context": (row.payload_snapshot or {}).get("inference_context"),
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }

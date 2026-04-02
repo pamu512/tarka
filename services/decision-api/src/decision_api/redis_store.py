@@ -10,6 +10,7 @@ TAG_PREFIX = "fraud:tags:"
 SCORE_PREFIX = "fraud:score:"
 NONCE_PREFIX = "fraud:nonce:"
 CONSORTIUM_PREFIX = "fraud:consortium:"
+REPLAY_PREFIX = "fraud:replay:"
 TTL_SECONDS = 86400 * 7
 
 SCORE_TTL_SECONDS = int(os.environ.get("REDIS_SCORE_TTL_SECONDS", str(86400 * 7)))
@@ -114,6 +115,20 @@ class RedisTags:
         key = f"{NONCE_PREFIX}{nonce}"
         val = await self._client.getdel(key)
         return val is not None
+
+    # --- Ingress replay detection ---
+    async def check_and_store_replay_signature(
+        self,
+        tenant_id: str,
+        signature: str,
+        ttl_seconds: int = 300,
+    ) -> bool:
+        """Returns True if signature already exists, otherwise stores and returns False."""
+        await self.connect()
+        assert self._client
+        key = f"{REPLAY_PREFIX}{tenant_id}:{signature}"
+        created = await self._client.set(key, "1", ex=max(1, int(ttl_seconds)), nx=True)
+        return created is None
 
     # --- Consortium intelligence ---
 
