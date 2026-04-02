@@ -1,3 +1,5 @@
+import { getMockResponse } from "./mockData";
+
 // ── Types ────────────────────────────────────────────────────────────
 
 export interface DecisionRequest {
@@ -18,6 +20,16 @@ export interface DecisionResponse {
   rule_hits: string[];
   reasons: string[];
   ml_score: number | null;
+  inference_context: InferenceContext;
+}
+
+export interface InferenceContext {
+  integrity_confidence: number;
+  tamper_risk: number;
+  network_trust: number;
+  replay_risk: number;
+  geo_consistency_risk: number;
+  top_signals: string[];
 }
 
 export interface AuditEntry {
@@ -29,6 +41,7 @@ export interface AuditEntry {
   score: number;
   tags: string[];
   rule_hits: string[];
+  inference_context?: InferenceContext | null;
   created_at: string;
 }
 
@@ -193,15 +206,23 @@ export interface RuleSimulationResult {
 // ── Fetcher ──────────────────────────────────────────────────────────
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    headers: { "Content-Type": "application/json", ...init?.headers },
-    ...init,
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    throw new Error(`${res.status} ${text}`);
+  try {
+    const res = await fetch(url, {
+      headers: { "Content-Type": "application/json", ...init?.headers },
+      ...init,
+    });
+    if (!res.ok) {
+      const mock = getMockResponse(url, init);
+      if (mock !== null) return mock as T;
+      const text = await res.text().catch(() => res.statusText);
+      throw new Error(`${res.status} ${text}`);
+    }
+    return res.json();
+  } catch (err) {
+    const mock = getMockResponse(url, init);
+    if (mock !== null) return mock as T;
+    throw err;
   }
-  return res.json();
 }
 
 // ── Decisions (decision-api :8000) ──────────────────────────────────
