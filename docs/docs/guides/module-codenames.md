@@ -15,14 +15,14 @@ Tarka uses a **two-layer name** so scripts stay stable while product language st
 |------|----------|----------------|------|
 | `core` | **Hetu** | हेतु — ground, reason, “because” | Real-time decisioning, rules, OPA, Redis |
 | `graph` | **Jaala** | जाल — net | Entity graph, rings, link risk |
-| `cases` | **Lekha** | लेख — written record | Cases, workflow, SAR/labeling |
+| `cases` | **Nirnaya** | निर्णय — determination, resolved judgment | Cases, workflow, SAR/labeling |
 | `integration` | **Setu** | सेतु — bridge | Ingress, adapters, OSINT |
 | `ml` | **Anumana** | अनुमान — inference | ML scoring, features, drift |
-| `agent` | **Mantri** | मन्त्रि — advisor | Investigation copilot |
+| `agent` | **Saarthi** | सारथि — charioteer, one who steers | Investigation copilot |
 | `streaming` | **Srotas** | स्रोतस् — current, stream | NATS / event ingest |
-| `analytics` | **Ganana** | गणना — reckoning, count | ClickHouse / historical analytics |
+| `analytics` | **Itihasa** | इतिहास — “thus it was”; chronicle | ClickHouse / historical analytics |
 | `gateway` | **Dvara** | द्वार — gate | GraphQL façade |
-| `frontend` | **Darshana** | दर्शन — sight, view | Operator UI |
+| `frontend` | **Sakshi** | साक्षी — witness | Operator UI |
 
 ## SDK modules
 

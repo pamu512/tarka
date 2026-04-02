@@ -105,13 +105,13 @@ CLI slugs stay stable; **codenames** are the product story (see [Module codename
 | `core` | **Hetu** | Decision API, rules engine, Redis tags/scores, OPA | Postgres, Redis |
 | `graph` | **Jaala** | Neo4j entity graph, community detection, fraud rings | Neo4j |
 | `ml` | **Anumana** | ONNX inference, adaptive autoencoder, feature engineering | — |
-| `cases` | **Lekha** | Case management, workflow automation, SAR generation | Postgres |
+| `cases` | **Nirnaya** | Case management, workflow automation, SAR generation | Postgres |
 | `integration` | **Setu** | KYC adapters, **12-source OSINT enrichment** | Postgres |
-| `agent` | **Mantri** | AI investigation copilot (LLM tool-use) | — |
+| `agent` | **Saarthi** | AI investigation copilot (LLM tool-use) | — |
 | `streaming` | **Srotas** | High-throughput event ingestion via NATS JetStream | NATS |
-| `analytics` | **Ganana** | ClickHouse OLAP, historical decision analytics | ClickHouse, NATS |
+| `analytics` | **Itihasa** | ClickHouse OLAP, historical decision analytics | ClickHouse, NATS |
 | `gateway` | **Dvara** | Unified GraphQL API over all REST services | — |
-| `frontend` | **Darshana** | React dashboard (10 pages) | — |
+| `frontend` | **Sakshi** | React dashboard (10 pages) | — |
 
 ### pip Install (Library Use)
 

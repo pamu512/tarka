@@ -57,7 +57,7 @@ MODULES: dict[str, dict[str, Any]] = {
         "port": 8001,
     },
     "cases": {
-        "codename": "Lekha",
+        "codename": "Nirnaya",
         "name": "Case Management",
         "description": "Investigation cases, workflow automation, SAR generation, labeling",
         "services": ["case-api"],
@@ -84,7 +84,7 @@ MODULES: dict[str, dict[str, Any]] = {
         "port": "8004-8005",
     },
     "agent": {
-        "codename": "Mantri",
+        "codename": "Saarthi",
         "name": "Investigation Agent (AI)",
         "description": "LLM-powered investigation copilot with tool-use loop",
         "services": ["investigation-agent"],
@@ -105,7 +105,7 @@ MODULES: dict[str, dict[str, Any]] = {
         "requires": ["core"],
     },
     "analytics": {
-        "codename": "Ganana",
+        "codename": "Itihasa",
         "name": "Analytics (ClickHouse)",
         "description": "Historical analytics, decision stats, ClickHouse OLAP storage",
         "services": ["analytics-sink"],
@@ -125,7 +125,7 @@ MODULES: dict[str, dict[str, Any]] = {
         "requires": ["core"],
     },
     "frontend": {
-        "codename": "Darshana",
+        "codename": "Sakshi",
         "name": "React Frontend",
         "description": "Dashboard, Rules Builder, Cases, OSINT, Shadow Mode, Simulation, Analytics, Graph Explorer",
         "services": ["frontend"],
