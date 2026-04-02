@@ -7,6 +7,21 @@ import { Network, type Options } from "vis-network";
 import { DataSet } from "vis-data";
 
 type Tab = "timeline" | "audit" | "graph";
+type DecisionExplain = {
+  score: number;
+  decision: string;
+  reasons: string[];
+  tags: string[];
+  rule_hits: string[];
+  inference_context?: {
+    integrity_confidence: number;
+    tamper_risk: number;
+    network_trust: number;
+    replay_risk: number;
+    geo_consistency_risk: number;
+    top_signals: string[];
+  } | null;
+};
 
 export default function CaseDetail() {
   const { caseId } = useParams<{ caseId: string }>();
@@ -19,7 +34,7 @@ export default function CaseDetail() {
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [labelInput, setLabelInput] = useState("");
-  const [decisionExplain, setDecisionExplain] = useState<{ score: number; decision: string; reasons: string[]; tags: string[]; rule_hits: string[] } | null>(null);
+  const [decisionExplain, setDecisionExplain] = useState<DecisionExplain | null>(null);
   const [graphRisk, setGraphRisk] = useState<EntityRiskResult | null>(null);
 
   const fetchCase = useCallback(async () => {
@@ -51,6 +66,7 @@ export default function CaseDetail() {
             reasons: [],
             tags: audit.tags || [],
             rule_hits: audit.rule_hits || [],
+            inference_context: audit.inference_context ?? null,
           });
         }
       } catch {
@@ -190,12 +206,32 @@ export default function CaseDetail() {
             <>
               <div className="text-xs text-gray-400">Decision: <span className="text-gray-200">{decisionExplain.decision}</span></div>
               <div className="text-xs text-gray-400">Score: <span className="text-gray-200">{decisionExplain.score.toFixed(2)}</span></div>
+              {decisionExplain.inference_context && (
+                <>
+                  <div className="text-xs text-gray-400">
+                    Integrity Confidence: <span className="text-gray-200">{(decisionExplain.inference_context.integrity_confidence * 100).toFixed(1)}%</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-400">
+                    <span>Tamper Risk: <span className="text-gray-200">{decisionExplain.inference_context.tamper_risk.toFixed(2)}</span></span>
+                    <span>Replay Risk: <span className="text-gray-200">{decisionExplain.inference_context.replay_risk.toFixed(2)}</span></span>
+                    <span>Network Trust: <span className="text-gray-200">{decisionExplain.inference_context.network_trust.toFixed(2)}</span></span>
+                    <span>Geo Risk: <span className="text-gray-200">{decisionExplain.inference_context.geo_consistency_risk.toFixed(2)}</span></span>
+                  </div>
+                </>
+              )}
               <div className="flex flex-wrap gap-2">
                 {decisionExplain.rule_hits.map((h) => (
                   <span key={h} className="px-2 py-0.5 bg-brand-500/20 text-brand-300 text-xs rounded-full">{h}</span>
                 ))}
                 {decisionExplain.rule_hits.length === 0 && <span className="text-xs text-gray-500">No rule hits</span>}
               </div>
+              {decisionExplain.inference_context && decisionExplain.inference_context.top_signals.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {decisionExplain.inference_context.top_signals.map((s) => (
+                    <span key={s} className="px-2 py-0.5 bg-surface-700 text-gray-300 text-xs rounded-full">{s}</span>
+                  ))}
+                </div>
+              )}
             </>
           ) : (
             <span className="text-xs text-gray-500">No decision audit available</span>
