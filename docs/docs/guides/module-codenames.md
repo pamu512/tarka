@@ -8,6 +8,7 @@ Tarka uses a **two-layer name** so scripts stay stable while product language st
 2. **Codename (human story)** — one word, Title Case, easy to say in demos and release notes. Chosen to echo **Nyāya**-style reasoning (like the word *Tarka* itself): proof, links, inference, records.
 3. **Service directory names** — stay kebab-case (`decision-api`, `graph-service`); codenames are **not** folder names.
 4. **SDK slugs** — keep `sdk-python`, `sdk-typescript`, … for package paths; codenames label them in the installer only.
+5. **Dwar vs Dvara** — both evoke “door” (द्वार): **`Dwar`** is the operator **UI** (`frontend`); **`Dvara`** is the **API gateway** (`gateway`). Different modules, related metaphor.
 
 ## Stack modules
 
@@ -15,14 +16,14 @@ Tarka uses a **two-layer name** so scripts stay stable while product language st
 |------|----------|----------------|------|
 | `core` | **Hetu** | हेतु — ground, reason, “because” | Real-time decisioning, rules, OPA, Redis |
 | `graph` | **Jaala** | जाल — net | Entity graph, rings, link risk |
-| `cases` | **Nirnaya** | निर्णय — determination, resolved judgment | Cases, workflow, SAR/labeling |
+| `cases` | **Lekh** | लेख — writing, record | Cases, workflow, SAR/labeling |
 | `integration` | **Setu** | सेतु — bridge | Ingress, adapters, OSINT |
 | `ml` | **Anumana** | अनुमान — inference | ML scoring, features, drift |
 | `agent` | **Saarthi** | सारथि — charioteer, one who steers | Investigation copilot |
 | `streaming` | **Srotas** | स्रोतस् — current, stream | NATS / event ingest |
-| `analytics` | **Itihasa** | इतिहास — “thus it was”; chronicle | ClickHouse / historical analytics |
+| `analytics` | **Kala** | काल — time | ClickHouse / historical analytics |
 | `gateway` | **Dvara** | द्वार — gate | GraphQL façade |
-| `frontend` | **Sakshi** | साक्षी — witness | Operator UI |
+| `frontend` | **Dwar** | द्वार — door, portal | Operator UI |
 
 ## SDK modules
 

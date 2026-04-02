@@ -57,7 +57,7 @@ MODULES: dict[str, dict[str, Any]] = {
         "port": 8001,
     },
     "cases": {
-        "codename": "Nirnaya",
+        "codename": "Lekh",
         "name": "Case Management",
         "description": "Investigation cases, workflow automation, SAR generation, labeling",
         "services": ["case-api"],
@@ -105,7 +105,7 @@ MODULES: dict[str, dict[str, Any]] = {
         "requires": ["core"],
     },
     "analytics": {
-        "codename": "Itihasa",
+        "codename": "Kala",
         "name": "Analytics (ClickHouse)",
         "description": "Historical analytics, decision stats, ClickHouse OLAP storage",
         "services": ["analytics-sink"],
@@ -125,7 +125,7 @@ MODULES: dict[str, dict[str, Any]] = {
         "requires": ["core"],
     },
     "frontend": {
-        "codename": "Sakshi",
+        "codename": "Dwar",
         "name": "React Frontend",
         "description": "Dashboard, Rules Builder, Cases, OSINT, Shadow Mode, Simulation, Analytics, Graph Explorer",
         "services": ["frontend"],
