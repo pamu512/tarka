@@ -98,7 +98,7 @@ Open directly in Codespaces (no local clone required):
 
 ### What Each Module Includes
 
-CLI slugs stay stable; **codenames** are the product story (see [Module codenames](docs/docs/guides/module-codenames.md)).
+CLI slugs stay stable; **codenames** are the product story (see [Module codenames](docs/docs/guides/module-codenames.md)). **Riti** (`gateway`) draws on **rīti** (रीति) in the technical Sanskrit lexicon—often read in sources such as the *Viṣṇudharmottarapurāṇa* as **iron rust**, an ingredient of **Vajralepa** (a hard cement)—as a metaphor for the GraphQL layer that **binds** services into one API surface.
 
 | Slug | Codename | What You Get | Infrastructure |
 |------|----------|-------------|----------------|

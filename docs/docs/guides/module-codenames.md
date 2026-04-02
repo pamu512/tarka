@@ -8,7 +8,7 @@ Tarka uses a **two-layer name** so scripts stay stable while product language st
 2. **Codename (human story)** — one word, Title Case, easy to say in demos and release notes. Chosen to echo **Nyāya**-style reasoning (like the word *Tarka* itself): proof, links, inference, records.
 3. **Service directory names** — stay kebab-case (`decision-api`, `graph-service`); codenames are **not** folder names.
 4. **SDK slugs** — keep `sdk-python`, `sdk-typescript`, … for package paths; codenames label them in the installer only.
-5. **`Dwar` vs `Riti`** — **`Dwar`** is the operator **UI** (`frontend`). **`Riti`** is the **GraphQL gateway** (`gateway`): one aggregated API surface (metaphor: a **rusted** / hardened gate, not the Rust language unless you rewrite the service).
+5. **`Dwar` vs `Riti`** — **`Dwar`** is the operator **UI** (`frontend`). **`Riti`** is the **GraphQL gateway** (`gateway`). See [Etymology: Riti](#etymology-riti-gateway) for the technical Sanskrit sense (iron rust, Vajralepa).
 
 ## Stack modules
 
@@ -22,8 +22,14 @@ Tarka uses a **two-layer name** so scripts stay stable while product language st
 | `agent` | **Saarthi** | सारथि — charioteer, one who steers | Investigation copilot |
 | `streaming` | **Srotas** | स्रोतस् — current, stream | NATS / event ingest |
 | `analytics` | **Kala** | काल — time | ClickHouse / historical analytics |
-| `gateway` | **Riti** | रीति — convention, pattern; brand gloss **rust** (durable, weathered gate) for the GraphQL façade | GraphQL façade |
+| `gateway` | **Riti** | रीति — iron rust (technical lexicon); *Vajralepa* ingredient → binding join layer | GraphQL façade |
 | `frontend` | **Dwar** | द्वार — door, portal | Operator UI |
+
+### Etymology: Riti (`gateway`)
+
+**Rīti** (रीति) is attested in ancient Sanskrit technical discourse. In texts such as the *Viṣṇudharmottarapurāṇa*, **rīti** is interpreted as the **rust of iron** and was used as a material component in the preparation of **Vajralepa**—a specialized, very **hard cement**.
+
+Tarka uses **Riti** as the codename for the **GraphQL gateway** because that service acts as a **cementing layer**: it aggregates many REST backends into one coherent, durable API surface—joining services the way Vajralepa binds its constituents into a single hardened mass. This is **not** a reference to the Rust programming language unless the gateway implementation is later rewritten in Rust.
 
 ## SDK modules
 
