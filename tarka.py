@@ -38,6 +38,7 @@ COMPOSE_LITE = DEPLOY / "docker-compose.lite.yml"
 
 MODULES: dict[str, dict[str, Any]] = {
     "core": {
+        "codename": "Hetu",
         "name": "Core (Decision API + Rules Engine)",
         "description": "Real-time fraud scoring, JSON rule engine, OPA integration, Redis tags/scores",
         "services": ["decision-api"],
@@ -47,6 +48,7 @@ MODULES: dict[str, dict[str, Any]] = {
         "required": True,
     },
     "graph": {
+        "codename": "Jaala",
         "name": "Graph Service (Neo4j)",
         "description": "Entity resolution, link analysis, community detection, fraud ring discovery",
         "services": ["graph-service"],
@@ -55,6 +57,7 @@ MODULES: dict[str, dict[str, Any]] = {
         "port": 8001,
     },
     "cases": {
+        "codename": "Lekha",
         "name": "Case Management",
         "description": "Investigation cases, workflow automation, SAR generation, labeling",
         "services": ["case-api"],
@@ -63,6 +66,7 @@ MODULES: dict[str, dict[str, Any]] = {
         "port": 8002,
     },
     "integration": {
+        "codename": "Setu",
         "name": "Integration Ingress + OSINT",
         "description": "KYC webhooks, adapter registry, 12-source OSINT enrichment",
         "services": ["integration-ingress"],
@@ -71,6 +75,7 @@ MODULES: dict[str, dict[str, Any]] = {
         "port": 8003,
     },
     "ml": {
+        "codename": "Anumana",
         "name": "ML Scoring + Feature Service",
         "description": "ONNX inference, adaptive autoencoder, drift detection, feature engineering",
         "services": ["feature-service", "ml-scoring"],
@@ -79,6 +84,7 @@ MODULES: dict[str, dict[str, Any]] = {
         "port": "8004-8005",
     },
     "agent": {
+        "codename": "Mantri",
         "name": "Investigation Agent (AI)",
         "description": "LLM-powered investigation copilot with tool-use loop",
         "services": ["investigation-agent"],
@@ -89,6 +95,7 @@ MODULES: dict[str, dict[str, Any]] = {
         "env_keys": ["OPENAI_API_KEY"],
     },
     "streaming": {
+        "codename": "Srotas",
         "name": "Event Streaming (NATS)",
         "description": "High-throughput async event ingestion via NATS JetStream",
         "services": ["event-ingest"],
@@ -98,6 +105,7 @@ MODULES: dict[str, dict[str, Any]] = {
         "requires": ["core"],
     },
     "analytics": {
+        "codename": "Ganana",
         "name": "Analytics (ClickHouse)",
         "description": "Historical analytics, decision stats, ClickHouse OLAP storage",
         "services": ["analytics-sink"],
@@ -107,6 +115,7 @@ MODULES: dict[str, dict[str, Any]] = {
         "requires": ["streaming"],
     },
     "gateway": {
+        "codename": "Dvara",
         "name": "GraphQL Gateway",
         "description": "Unified GraphQL API over all REST services",
         "services": ["graphql-gateway"],
@@ -116,6 +125,7 @@ MODULES: dict[str, dict[str, Any]] = {
         "requires": ["core"],
     },
     "frontend": {
+        "codename": "Darshana",
         "name": "React Frontend",
         "description": "Dashboard, Rules Builder, Cases, OSINT, Shadow Mode, Simulation, Analytics, Graph Explorer",
         "services": ["frontend"],
@@ -129,24 +139,28 @@ MODULES: dict[str, dict[str, Any]] = {
 # SDK modules (pip/npm installable, not Docker services)
 SDK_MODULES: dict[str, dict[str, Any]] = {
     "sdk-python": {
+        "codename": "Duta",
         "name": "Python SDK",
         "description": "Server-side Python SDK with device signal collection",
         "path": "packages/fraud-sdk-python",
         "install_cmd": "pip install -e {path}",
     },
     "sdk-typescript": {
+        "codename": "Darpana",
         "name": "TypeScript SDK",
         "description": "Browser SDK with behavioral biometrics and attestation",
         "path": "packages/fraud-sdk-typescript",
         "install_cmd": "npm install {path}",
     },
     "sdk-android": {
+        "codename": "Kavacha",
         "name": "Android SDK (Kotlin)",
         "description": "Android SDK with Play Integrity attestation",
         "path": "packages/fraud-sdk-android",
         "install_cmd": None,
     },
     "sdk-ios": {
+        "codename": "Mudra",
         "name": "iOS SDK (Swift)",
         "description": "iOS SDK with App Attest",
         "path": "packages/fraud-sdk-ios",
@@ -179,6 +193,29 @@ class Colors:
 C = Colors if Colors.supports_color() else type("NoColor", (), {k: "" for k in dir(Colors) if k.isupper()})()
 
 
+def _module_line(key: str, mod: dict[str, Any]) -> str:
+    """Single-line label: codename + technical name + slug."""
+    saga = mod.get("codename")
+    if saga:
+        return f"{saga} — {mod['name']} ({key})"
+    return f"{mod['name']} ({key})"
+
+
+def _module_saga_title(mod: dict[str, Any]) -> str:
+    """Codename + technical name (no slug), for tables that already show the key."""
+    saga = mod.get("codename")
+    if saga:
+        return f"{saga} — {mod['name']}"
+    return mod["name"]
+
+
+def _sdk_line(key: str, sdk: dict[str, Any]) -> str:
+    saga = sdk.get("codename")
+    if saga:
+        return f"{saga} — {sdk['name']} ({key})"
+    return f"{sdk['name']} ({key})"
+
+
 def _print_banner():
     print(f"""
 {C.CYAN}{C.BOLD}  ╔════════════════════════════════════════╗
@@ -196,7 +233,9 @@ def _print_module(key: str, mod: dict, selected: bool = False, index: int | None
     if mod.get("requires"):
         deps = f" {C.DIM}(needs: {', '.join(mod['requires'])}){C.RESET}"
     port = f" {C.DIM}:{mod['port']}{C.RESET}" if mod.get("port") else ""
-    print(f"  {idx}{marker} {C.BOLD}{mod['name']}{C.RESET}{port}{req}{deps}")
+    saga = mod.get("codename")
+    title = f"{C.BOLD}{saga}{C.RESET} — {mod['name']}" if saga else f"{C.BOLD}{mod['name']}{C.RESET}"
+    print(f"  {idx}{marker} {title}{C.DIM} ({key}){C.RESET}{port}{req}{deps}")
     print(f"       {C.DIM}{mod['description']}{C.RESET}")
 
 
@@ -301,14 +340,14 @@ def cmd_install(args):
     print(f"\n{C.BOLD}Selected modules:{C.RESET}")
     for m in resolved:
         mod = MODULES[m]
-        print(f"  {C.GREEN}✓{C.RESET} {mod['name']}")
+        print(f"  {C.GREEN}✓{C.RESET} {_module_line(m, mod)}")
 
     # SDK selection
     selected_sdks: list[str] = []
     if not args.all and not args.lite and not args.modules and not args.skip_sdks:
         print(f"\n{C.BOLD}SDK Packages (optional):{C.RESET}")
         for i, (key, sdk) in enumerate(SDK_MODULES.items(), 1):
-            print(f"  {C.DIM}{i}.{C.RESET} {C.BOLD}{sdk['name']}{C.RESET} — {C.DIM}{sdk['description']}{C.RESET}")
+            print(f"  {C.DIM}{i}.{C.RESET} {C.BOLD}{_sdk_line(key, sdk)}{C.RESET} — {C.DIM}{sdk['description']}{C.RESET}")
         sdk_input = input(f"\n  Enter SDK numbers (comma-separated, or Enter to skip): ").strip()
         if sdk_input:
             sdk_keys = list(SDK_MODULES.keys())
@@ -351,7 +390,7 @@ def cmd_install(args):
         if sdk.get("install_cmd"):
             sdk_path = ROOT / sdk["path"]
             cmd = sdk["install_cmd"].format(path=str(sdk_path))
-            print(f"\n{C.BOLD}Installing {sdk['name']}...{C.RESET}")
+            print(f"\n{C.BOLD}Installing {_sdk_line(sdk_key, sdk)}...{C.RESET}")
             print(f"  {C.DIM}{cmd}{C.RESET}")
             subprocess.run(cmd.split(), cwd=str(ROOT))
 
@@ -491,7 +530,7 @@ def cmd_start(args):
 
     print(f"{C.BOLD}Starting Tarka ({len(modules)} modules)...{C.RESET}")
     for m in modules:
-        print(f"  {C.GREEN}✓{C.RESET} {MODULES[m]['name']}")
+        print(f"  {C.GREEN}✓{C.RESET} {_module_line(m, MODULES[m])}")
     print()
 
     cmd = ["docker", "compose", "-f", str(COMPOSE_FILE)] + compose_args + ["up", "-d"]
@@ -654,7 +693,7 @@ def cmd_info(args):
     key = args.module
     if key in MODULES:
         mod = MODULES[key]
-        print(f"\n{C.BOLD}{mod['name']}{C.RESET}")
+        print(f"\n{C.BOLD}{_module_line(key, mod)}{C.RESET}")
         print(f"  {mod['description']}\n")
         print(f"  {C.DIM}Services:{C.RESET}  {', '.join(mod['services'])}")
         print(f"  {C.DIM}Infra:{C.RESET}     {', '.join(mod.get('infra', [])) or 'none'}")
@@ -665,7 +704,7 @@ def cmd_info(args):
             print(f"  {C.DIM}Env vars:{C.RESET}  {', '.join(mod['env_keys'])}")
     elif key in SDK_MODULES:
         sdk = SDK_MODULES[key]
-        print(f"\n{C.BOLD}{sdk['name']}{C.RESET}")
+        print(f"\n{C.BOLD}{_sdk_line(key, sdk)}{C.RESET}")
         print(f"  {sdk['description']}\n")
         print(f"  {C.DIM}Path:{C.RESET}    {sdk['path']}")
         if sdk.get("install_cmd"):
@@ -687,14 +726,16 @@ def cmd_list(args):
         marker = f"{C.GREEN}●{C.RESET}" if key in installed else f"{C.DIM}○{C.RESET}"
         req = f" {C.RED}(required){C.RESET}" if mod.get("required") else ""
         port = f" {C.DIM}:{mod['port']}{C.RESET}" if mod.get("port") else ""
-        print(f"  {marker} {C.BOLD}{key:<15}{C.RESET} {mod['name']}{port}{req}")
+        print(f"  {marker} {C.BOLD}{key:<15}{C.RESET} {_module_saga_title(mod)}{port}{req}")
         print(f"    {C.DIM}{mod['description']}{C.RESET}")
 
     print(f"\n{C.BOLD}SDK Packages:{C.RESET}\n")
     for key, sdk in SDK_MODULES.items():
         installed_sdks = set(state.get("sdks", []))
         marker = f"{C.GREEN}●{C.RESET}" if key in installed_sdks else f"{C.DIM}○{C.RESET}"
-        print(f"  {marker} {C.BOLD}{key:<15}{C.RESET} {sdk['name']}")
+        saga = sdk.get("codename")
+        sdk_title = f"{saga} — {sdk['name']}" if saga else sdk["name"]
+        print(f"  {marker} {C.BOLD}{key:<15}{C.RESET} {sdk_title}")
         print(f"    {C.DIM}{sdk['description']}{C.RESET}")
 
     if installed:
@@ -722,7 +763,7 @@ def cmd_add(args):
 
     print(f"{C.BOLD}Adding modules:{C.RESET}")
     for m in sorted(added):
-        print(f"  {C.GREEN}+{C.RESET} {MODULES[m]['name']}")
+        print(f"  {C.GREEN}+{C.RESET} {_module_line(m, MODULES[m])}")
 
     _save_state(resolved, state.get("sdks", []))
     _generate_env(resolved)
@@ -753,7 +794,7 @@ def cmd_remove(args):
             print(f"{C.RED}Unknown module: {m}{C.RESET}")
             sys.exit(1)
         if MODULES[m].get("required"):
-            print(f"{C.RED}Cannot remove required module: {MODULES[m]['name']}{C.RESET}")
+            print(f"{C.RED}Cannot remove required module: {_module_line(m, MODULES[m])}{C.RESET}")
             sys.exit(1)
 
     remaining = current - set(to_remove)
@@ -762,7 +803,7 @@ def cmd_remove(args):
     removed = current - set(resolved)
     print(f"{C.BOLD}Removing modules:{C.RESET}")
     for m in sorted(removed):
-        print(f"  {C.RED}−{C.RESET} {MODULES[m]['name']}")
+        print(f"  {C.RED}−{C.RESET} {_module_line(m, MODULES[m])}")
 
     _save_state(resolved, state.get("sdks", []))
     print(f"\n{C.GREEN}Module(s) removed. Restart with {C.CYAN}python tarka.py start{C.GREEN}.{C.RESET}")

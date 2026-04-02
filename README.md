@@ -98,18 +98,20 @@ Open directly in Codespaces (no local clone required):
 
 ### What Each Module Includes
 
-| Module | What You Get | Infrastructure |
-|--------|-------------|----------------|
-| `core` | Decision API, rules engine, Redis tags/scores, OPA | Postgres, Redis |
-| `graph` | Neo4j entity graph, community detection, fraud rings | Neo4j |
-| `ml` | ONNX inference, adaptive autoencoder, feature engineering | — |
-| `cases` | Case management, workflow automation, SAR generation | Postgres |
-| `integration` | KYC adapters, **12-source OSINT enrichment** | Postgres |
-| `agent` | AI investigation copilot (LLM tool-use) | — |
-| `streaming` | High-throughput event ingestion via NATS JetStream | NATS |
-| `analytics` | ClickHouse OLAP, historical decision analytics | ClickHouse, NATS |
-| `gateway` | Unified GraphQL API over all REST services | — |
-| `frontend` | React dashboard (10 pages) | — |
+CLI slugs stay stable; **codenames** are the product story (see [Module codenames](docs/docs/guides/module-codenames.md)).
+
+| Slug | Codename | What You Get | Infrastructure |
+|------|----------|-------------|----------------|
+| `core` | **Hetu** | Decision API, rules engine, Redis tags/scores, OPA | Postgres, Redis |
+| `graph` | **Jaala** | Neo4j entity graph, community detection, fraud rings | Neo4j |
+| `ml` | **Anumana** | ONNX inference, adaptive autoencoder, feature engineering | — |
+| `cases` | **Lekha** | Case management, workflow automation, SAR generation | Postgres |
+| `integration` | **Setu** | KYC adapters, **12-source OSINT enrichment** | Postgres |
+| `agent` | **Mantri** | AI investigation copilot (LLM tool-use) | — |
+| `streaming` | **Srotas** | High-throughput event ingestion via NATS JetStream | NATS |
+| `analytics` | **Ganana** | ClickHouse OLAP, historical decision analytics | ClickHouse, NATS |
+| `gateway` | **Dvara** | Unified GraphQL API over all REST services | — |
+| `frontend` | **Darshana** | React dashboard (10 pages) | — |
 
 ### pip Install (Library Use)
 
