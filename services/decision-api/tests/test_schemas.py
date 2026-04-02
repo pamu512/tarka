@@ -50,6 +50,14 @@ class TestEvaluateResponse:
             decision="allow",
             score=15.0,
             tags=["test"],
+            inference_context={
+                "integrity_confidence": 0.9,
+                "tamper_risk": 0.0,
+                "network_trust": 1.0,
+                "replay_risk": 0.0,
+                "geo_consistency_risk": 0.0,
+                "top_signals": [],
+            },
         )
         assert r.decision == "allow"
         assert r.ml_score is None
@@ -63,9 +71,18 @@ class TestEvaluateResponse:
             rule_hits=["r1"],
             reasons=["rules:r1"],
             ml_score=88.0,
+            inference_context={
+                "integrity_confidence": 0.2,
+                "tamper_risk": 0.7,
+                "network_trust": 0.4,
+                "replay_risk": 0.1,
+                "geo_consistency_risk": 0.3,
+                "top_signals": ["sdk:bot"],
+            },
         )
         assert r.ml_score == 88.0
         assert len(r.tags) == 2
+        assert r.inference_context.integrity_confidence == 0.2
 
 
 class TestDeviceContextIn:

@@ -33,6 +33,15 @@ class EvaluateRequest(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class InferenceContext(BaseModel):
+    integrity_confidence: float = 0.0
+    tamper_risk: float = 0.0
+    network_trust: float = 0.0
+    replay_risk: float = 0.0
+    geo_consistency_risk: float = 0.0
+    top_signals: list[str] = Field(default_factory=list)
+
+
 class EvaluateResponse(BaseModel):
     trace_id: UUID
     decision: str
@@ -41,3 +50,4 @@ class EvaluateResponse(BaseModel):
     rule_hits: list[str] = Field(default_factory=list)
     reasons: list[str] = Field(default_factory=list)
     ml_score: float | None = None
+    inference_context: InferenceContext
