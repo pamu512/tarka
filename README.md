@@ -1,4 +1,12 @@
+<div align="center">
+<img src="docs/docs/assets/tarka-logo-lockup.png" alt="Tarka — Prove every signal." width="380" />
+</div>
+
 # Tarka
+
+[![CI](https://github.com/pamu512/tarka/actions/workflows/ci.yml/badge.svg)](https://github.com/pamu512/tarka/actions/workflows/ci.yml)
+[![Security scan](https://github.com/pamu512/tarka/actions/workflows/security-scan.yml/badge.svg)](https://github.com/pamu512/tarka/actions/workflows/security-scan.yml)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?hide_repo_select=true&ref=master&repo=pamu512%2Ftarka)
 
 > **Prove every signal.**
 
@@ -17,6 +25,41 @@ These capabilities are in the codebase today and roll forward on `master`:
 - **SDKs:** **Python** and **TypeScript** clients typed for `inference_context` on evaluate responses.
 - **Frontend:** case explainability surfaces **inference metrics**; API client can **fall back to mock data** when backends are down (demo-friendly).
 - **Ops / planning:** module **project roadmaps** under `docs/docs/projects/`, **30/60/90** plan, competitive notes, and **OSS adoption backlog** (issues + dependency order in docs).
+
+### v1.1.0 train — tests, CI/CD, security, onboarding
+
+Mirrors [docs/docs/releases/v1.1.0-2026-04-30.md](docs/docs/releases/v1.1.0-2026-04-30.md) and [RELEASE_SCHEDULE.md](RELEASE_SCHEDULE.md).
+
+**Tests and validation**
+
+- Unit coverage for **`inference_build`** (tiering, velocity, travel/colocation, **`derive_recommended_action`**).
+- **`pytest`** for **`/v1/replay`** paired **`trace_ids`** mode (order, **`missing_trace_ids`**, empty-window 404).
+
+**CI/CD, security hygiene, and first-run polish**
+
+- **GitHub Actions CI** (`main` / `master`): Ruff; **decision-api** tests with coverage gate (**≥45%**, path to 60%+); **case-api**, **Python SDK**; **graph-service**; **integration-ingress**; **investigation-agent**; **graphql-gateway**, **event-ingest**, **analytics-sink**, **feature-service**, **ml-scoring**; **frontend** + **TypeScript SDK** **`npm run build`**; **Alembic** migrations for decision/case APIs on PostgreSQL startup; **GraphQL** **`/metrics`** via shared observability; coverage XML artifacts; **Docker builds** gated on all jobs.
+- **Security scanning workflow**: **Trivy** filesystem + **decision-api** image → **SARIF** upload (where code scanning is enabled); weekly schedule.
+- **Dependabot**: grouped updates for **GitHub Actions**, **pip** (core services), **npm** (frontend).
+- **Docs:** **`SECURITY.md`** (responsible disclosure), **`LICENSE-DEPENDENCIES.md`** (Neo4j AGPL / lite and alternates), **`CODE_OF_CONDUCT.md`**, **`docs/docs/guides/security-scanning.md`**, **`docs/docs/guides/sandbox-five-minute.md`** (copy-paste evaluate + OSINT + UI path).
+- **Onboarding:** **`.devcontainer/devcontainer.json`** (Codespaces / Docker-outside-Docker); **README** badges (CI, security scan, Codespaces); **walkthrough video** placeholder for maintainer Loom link.
+- **`deploy/docker-compose.lite.yml`**: adds **integration-ingress** (**8003**) so lite stack matches the five-minute OSINT demo without full Neo4j.
+
+**Planned validation (release gate)**
+
+- **`pytest`** (decision-api), frontend **`npm run build`**, and **TypeScript SDK** **`npm run build`** green before tag.
+- **CI workflow green** on default branch: lint, all Python service test jobs, Node builds, Docker build matrix.
+- **Trivy** security workflow completes (SARIF upload may depend on org plan); **Dependabot** enabled for the repository.
+- **Lite compose** smoke: `docker compose -f deploy/docker-compose.lite.yml up -d --build` → **8000** evaluate, **8003** OSINT health, **3000** frontend reachable.
+
+## Examples, benchmarks, and ops
+
+| What | Where |
+|------|--------|
+| **Three walkthroughs** (payments + ML, bot defense, IOC + graph) | [docs/docs/guides/examples/README.md](docs/docs/guides/examples/README.md) |
+| **Evaluate latency** (stdlib script) | [scripts/benchmarks/README.md](scripts/benchmarks/README.md) |
+| **Simulation / A-B rules** | [docs/docs/guides/shadow-and-ab-testing.md](docs/docs/guides/shadow-and-ab-testing.md) |
+| **Prometheus + Grafana** (compose add-on) | [deploy/observability/README.md](deploy/observability/README.md) |
+| **Apache-friendly graph options** (vs Neo4j AGPL) | [docs/docs/guides/graph-backend-alternatives.md](docs/docs/guides/graph-backend-alternatives.md) |
 
 ## Shipping cadence & releases
 
@@ -54,42 +97,45 @@ python tarka.py install
 # Option 2: Install everything
 python tarka.py install --all
 
-# Option 3: Minimal setup (5-minute quickstart)
+# Option 3: Minimal setup (5-minute quickstart — Decision + Case + OSINT ingress + UI; no Neo4j)
 python tarka.py install --lite
 
 # Option 4: Specific modules only
 python tarka.py install --modules core,graph,ml,frontend
 ```
 
-## Sandbox (No Full Clone)
+## Try in five minutes (Decision API + inference + OSINT + UI)
 
-Use this when you want a quick evaluator environment without cloning the full repository locally.
+**Full copy-paste path:** [docs/docs/guides/sandbox-five-minute.md](docs/docs/guides/sandbox-five-minute.md) — `docker compose -f deploy/docker-compose.lite.yml up -d --build`, then `curl` the Decision API for live **`inference_context`**, Integration Ingress for **parallel OSINT**, and open the **frontend** (mock fallbacks for graph-heavy views when Neo4j is not running).
 
-### Option A: Prebuilt Docker Sandbox
-
-Run the published sandbox compose file directly:
+### Prebuilt images (optional)
 
 ```bash
 docker compose -f https://raw.githubusercontent.com/pamu512/tarka/master/deploy/docker-compose.sandbox.yml up -d
 ```
 
-Then open:
+- `http://localhost:3000` — frontend  
+- `http://localhost:8000/v1/health` — decision-api  
+- `http://localhost:8003/v1/health` — integration-ingress  
 
-- `http://localhost:3000` (frontend)
-- `http://localhost:8000/v1/health` (decision-api)
-- `http://localhost:8003/v1/health` (integration-ingress)
+### GitHub Codespaces
 
-Stop it:
+Use the badge at the top of this README, then in the terminal:  
+`docker compose -f deploy/docker-compose.lite.yml up -d --build`  
+(Ports **3000**, **8000**, **8002**, **8003** are forwarded from `.devcontainer/devcontainer.json`.)
 
-```bash
-docker compose -f https://raw.githubusercontent.com/pamu512/tarka/master/deploy/docker-compose.sandbox.yml down
-```
+## Walkthrough video (3 minutes)
 
-### Option B: 1-click cloud dev sandbox
+Record a short Loom (Decision API → rule / inference → OSINT → graph or mock UI → Investigation copilot) and **embed the link here**:
 
-Open directly in Codespaces (no local clone required):
+- **Placeholder:** _Add your Loom URL after recording._
 
-- [Open Tarka in Codespaces](https://github.com/codespaces/new?hide_repo_select=true&repo=pamu512/tarka)
+## Security & compliance (table stakes)
+
+- **[SECURITY.md](SECURITY.md)** — responsible disclosure  
+- **[LICENSE-DEPENDENCIES.md](LICENSE-DEPENDENCIES.md)** — Neo4j AGPL and Apache-friendly **lite** option  
+- **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)**  
+- **Dependabot** + **Trivy** workflows — see [docs/docs/guides/security-scanning.md](docs/docs/guides/security-scanning.md)
 
 ### Requirements
 
@@ -193,6 +239,8 @@ Event Ingest --> NATS JetStream --> Analytics Sink --> ClickHouse
 | `graphql-gateway` | 8010 | Unified GraphQL API |
 | `frontend` | 3000 | React dashboard (10 pages) |
 
+**Cross-service env alignment:** `case-api` uses `DECISION_API_URL` for downstream decision calls; `investigation-agent` uses `CASE_API_URL`, `DECISION_API_URL`, and optional `GRAPH_SERVICE_URL` / `UPSTREAM_API_KEY`. See [docs/docs/guides/deployment.md](docs/docs/guides/deployment.md) for defaults, [docs/docs/guides/service-ports.md](docs/docs/guides/service-ports.md) for ports and OpenAPI mapping, and `deploy/.env.example` for compose-oriented URLs.
+
 | SDK | Platform |
 |-----|----------|
 | `packages/fraud-sdk-typescript` | Web (browser) — device signals + behavioral biometrics |
@@ -270,6 +318,6 @@ Set `API_KEYS=key1,key2` on any service to require `X-API-Key` header. Leave emp
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE).
+Application code in this repository is **Apache-2.0** unless otherwise noted. See [LICENSE](LICENSE).
 
-Note: Neo4j Community Edition is GPLv3. The graph service abstraction supports alternative backends (JanusGraph/Gremlin).
+**Third-party and copyleft components:** Neo4j (when used) is **AGPL-3.0** for the database in typical networked deployments. Use **`docker-compose.lite`** or review [LICENSE-DEPENDENCIES.md](LICENSE-DEPENDENCIES.md) before production architecture sign-off.
