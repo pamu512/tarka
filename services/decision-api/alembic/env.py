@@ -21,6 +21,9 @@ from decision_api.db import Base  # noqa: E402
 
 target_metadata = Base.metadata
 
+# Shared Postgres DB with case-api: each service must keep its own version table.
+_ALEMBIC_VERSION_TABLE = "alembic_version_decision_api"
+
 
 def _to_sync_url(url: str) -> str:
     if not url:
@@ -43,6 +46,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        version_table=_ALEMBIC_VERSION_TABLE,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -51,7 +55,11 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     connectable = create_engine(get_url(), poolclass=pool.NullPool)
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            version_table=_ALEMBIC_VERSION_TABLE,
+        )
         with context.begin_transaction():
             context.run_migrations()
 
