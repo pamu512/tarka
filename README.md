@@ -131,11 +131,9 @@ Use the badge at the top of this README, then in the terminal:
 `docker compose -f deploy/docker-compose.lite.yml up -d --build`  
 (Ports **3000**, **8000**, **8002**, **8003** are forwarded from `.devcontainer/devcontainer.json`.)
 
-## Walkthrough video (3 minutes)
+## Walkthrough video 
 
-Record a short Loom (Decision API → rule / inference → OSINT → graph or mock UI → Investigation copilot) and **embed the link here**:
-
-- **Placeholder:** _Add your Loom URL after recording._
+Experience Tarka -**[Click Here](https://www.loom.com/share/2bc3dce78042444fb3216ca076a16fbc).**
 
 ## Security & compliance (table stakes)
 
