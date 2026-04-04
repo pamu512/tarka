@@ -1,11 +1,10 @@
 """Simulation API router — synthetic data generation and replay analysis."""
+
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any
 
-import httpx
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
@@ -81,12 +80,14 @@ async def run_simulation(body: RunSimulationRequest, request: Request):
         else:
             decision = "allow"
 
-        decisions.append({
-            "decision": decision,
-            "score": score,
-            "rule_hits": rule_hits,
-            "tags": rule_tags,
-        })
+        decisions.append(
+            {
+                "decision": decision,
+                "score": score,
+                "rule_hits": rule_hits,
+                "tags": rule_tags,
+            }
+        )
 
     result = analyze_simulation(events, decisions)
     return {

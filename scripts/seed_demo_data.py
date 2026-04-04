@@ -82,6 +82,7 @@ ACCOUNTS = [
 # Transaction templates
 # ---------------------------------------------------------------------------
 
+
 def _ts(hours_ago: float) -> str:
     return (datetime.now(timezone.utc) - timedelta(hours=hours_ago)).isoformat()
 
@@ -98,28 +99,38 @@ def _legit_transactions() -> list[dict]:
         )
         count = random.randint(4, 7)
         for i in range(count):
-            txns.append({
-                "tenant_id": TENANT_ID,
-                "event_type": "payment",
-                "entity_id": user["id"],
-                "session_id": f"sess_{user['id']}_{i}",
-                "payload": {
-                    "amount": round(random.uniform(5, 150), 2),
-                    "currency": "USD",
-                    "merchant": random.choice([
-                        "Amazon", "Target", "Starbucks", "Uber", "Netflix",
-                        "Spotify", "Walmart", "DoorDash",
-                    ]),
-                    "ip_address": f"73.{random.randint(1,254)}.{random.randint(1,254)}.{random.randint(1,254)}",
-                    "timestamp": _ts(random.uniform(1, 720)),
-                },
-                "device_context": {
-                    "device_id": device["id"],
-                    "platform": device["platform"],
-                    "signals": device.get("signals", {}),
-                },
-                "metadata": {"source": "demo_seed", "category": "legit"},
-            })
+            txns.append(
+                {
+                    "tenant_id": TENANT_ID,
+                    "event_type": "payment",
+                    "entity_id": user["id"],
+                    "session_id": f"sess_{user['id']}_{i}",
+                    "payload": {
+                        "amount": round(random.uniform(5, 150), 2),
+                        "currency": "USD",
+                        "merchant": random.choice(
+                            [
+                                "Amazon",
+                                "Target",
+                                "Starbucks",
+                                "Uber",
+                                "Netflix",
+                                "Spotify",
+                                "Walmart",
+                                "DoorDash",
+                            ]
+                        ),
+                        "ip_address": f"73.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}",
+                        "timestamp": _ts(random.uniform(1, 720)),
+                    },
+                    "device_context": {
+                        "device_id": device["id"],
+                        "platform": device["platform"],
+                        "signals": device.get("signals", {}),
+                    },
+                    "metadata": {"source": "demo_seed", "category": "legit"},
+                }
+            )
     return txns
 
 
@@ -137,28 +148,35 @@ def _fraudster_transactions() -> list[dict]:
         dev_id = device_map[fraudster["id"]]
         device = next(d for d in DEVICES if d["id"] == dev_id)
         for i in range(5):
-            txns.append({
-                "tenant_id": TENANT_ID,
-                "event_type": "payment",
-                "entity_id": fraudster["id"],
-                "session_id": f"sess_{fraudster['id']}_{i}",
-                "payload": {
-                    "amount": round(random.uniform(500, 5000), 2),
-                    "currency": "USD",
-                    "merchant": random.choice([
-                        "CryptoExchange", "WireTransfer", "GiftCardMall",
-                        "ElectronicsWholesale", "PreciousMetals",
-                    ]),
-                    "ip_address": f"185.{random.randint(1,254)}.{random.randint(1,254)}.{random.randint(1,254)}",
-                    "timestamp": _ts(random.uniform(0.5, 48)),
-                },
-                "device_context": {
-                    "device_id": device["id"],
-                    "platform": device["platform"],
-                    "signals": device.get("signals", {}),
-                },
-                "metadata": {"source": "demo_seed", "category": "fraud"},
-            })
+            txns.append(
+                {
+                    "tenant_id": TENANT_ID,
+                    "event_type": "payment",
+                    "entity_id": fraudster["id"],
+                    "session_id": f"sess_{fraudster['id']}_{i}",
+                    "payload": {
+                        "amount": round(random.uniform(500, 5000), 2),
+                        "currency": "USD",
+                        "merchant": random.choice(
+                            [
+                                "CryptoExchange",
+                                "WireTransfer",
+                                "GiftCardMall",
+                                "ElectronicsWholesale",
+                                "PreciousMetals",
+                            ]
+                        ),
+                        "ip_address": f"185.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}",
+                        "timestamp": _ts(random.uniform(0.5, 48)),
+                    },
+                    "device_context": {
+                        "device_id": device["id"],
+                        "platform": device["platform"],
+                        "signals": device.get("signals", {}),
+                    },
+                    "metadata": {"source": "demo_seed", "category": "fraud"},
+                }
+            )
     return txns
 
 
@@ -170,25 +188,27 @@ def _velocity_spike_transactions() -> list[dict]:
 
     for i in range(8):
         ts = base_time + timedelta(seconds=i * 15)
-        txns.append({
-            "tenant_id": TENANT_ID,
-            "event_type": "payment",
-            "entity_id": "fraud_frank",
-            "session_id": f"sess_velocity_{i}",
-            "payload": {
-                "amount": round(random.uniform(200, 800), 2),
-                "currency": "USD",
-                "merchant": "CryptoExchange",
-                "ip_address": "185.220.101.42",
-                "timestamp": ts.isoformat(),
-            },
-            "device_context": {
-                "device_id": device["id"],
-                "platform": device["platform"],
-                "signals": device.get("signals", {}),
-            },
-            "metadata": {"source": "demo_seed", "category": "velocity_spike"},
-        })
+        txns.append(
+            {
+                "tenant_id": TENANT_ID,
+                "event_type": "payment",
+                "entity_id": "fraud_frank",
+                "session_id": f"sess_velocity_{i}",
+                "payload": {
+                    "amount": round(random.uniform(200, 800), 2),
+                    "currency": "USD",
+                    "merchant": "CryptoExchange",
+                    "ip_address": "185.220.101.42",
+                    "timestamp": ts.isoformat(),
+                },
+                "device_context": {
+                    "device_id": device["id"],
+                    "platform": device["platform"],
+                    "signals": device.get("signals", {}),
+                },
+                "metadata": {"source": "demo_seed", "category": "velocity_spike"},
+            }
+        )
     return txns
 
 
@@ -197,25 +217,27 @@ def _mule_transactions() -> list[dict]:
     txns: list[dict] = []
     for mule in MULES:
         for i in range(3):
-            txns.append({
-                "tenant_id": TENANT_ID,
-                "event_type": "payment",
-                "entity_id": mule["id"],
-                "session_id": f"sess_{mule['id']}_{i}",
-                "payload": {
-                    "amount": round(random.uniform(1000, 3000), 2),
-                    "currency": "USD",
-                    "merchant": "WireTransfer",
-                    "recipient": mule["id"],
-                    "ip_address": f"45.{random.randint(1,254)}.{random.randint(1,254)}.{random.randint(1,254)}",
-                    "timestamp": _ts(random.uniform(1, 24)),
-                },
-                "metadata": {
-                    "source": "demo_seed",
-                    "category": "mule_transfer",
-                    "referred_by": mule["referred_by"],
-                },
-            })
+            txns.append(
+                {
+                    "tenant_id": TENANT_ID,
+                    "event_type": "payment",
+                    "entity_id": mule["id"],
+                    "session_id": f"sess_{mule['id']}_{i}",
+                    "payload": {
+                        "amount": round(random.uniform(1000, 3000), 2),
+                        "currency": "USD",
+                        "merchant": "WireTransfer",
+                        "recipient": mule["id"],
+                        "ip_address": f"45.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}",
+                        "timestamp": _ts(random.uniform(1, 24)),
+                    },
+                    "metadata": {
+                        "source": "demo_seed",
+                        "category": "mule_transfer",
+                        "referred_by": mule["referred_by"],
+                    },
+                }
+            )
     return txns
 
 
@@ -227,40 +249,44 @@ def _login_transactions() -> list[dict]:
             (d for d in DEVICES if d.get("owner") == user["id"]),
             DEVICES[0],
         )
-        txns.append({
-            "tenant_id": TENANT_ID,
-            "event_type": "login",
-            "entity_id": user["id"],
-            "payload": {
-                "ip_address": f"73.{random.randint(1,254)}.{random.randint(1,254)}.{random.randint(1,254)}",
-                "timestamp": _ts(random.uniform(0.1, 12)),
-            },
-            "device_context": {
-                "device_id": device["id"],
-                "platform": device["platform"],
-                "signals": device.get("signals", {}),
-            },
-            "metadata": {"source": "demo_seed"},
-        })
+        txns.append(
+            {
+                "tenant_id": TENANT_ID,
+                "event_type": "login",
+                "entity_id": user["id"],
+                "payload": {
+                    "ip_address": f"73.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}",
+                    "timestamp": _ts(random.uniform(0.1, 12)),
+                },
+                "device_context": {
+                    "device_id": device["id"],
+                    "platform": device["platform"],
+                    "signals": device.get("signals", {}),
+                },
+                "metadata": {"source": "demo_seed"},
+            }
+        )
 
     for fraudster in FRAUDSTERS:
         dev_id = "dev_emulator_003" if fraudster["id"] != "fraud_henry" else "dev_vpn_004"
         device = next(d for d in DEVICES if d["id"] == dev_id)
-        txns.append({
-            "tenant_id": TENANT_ID,
-            "event_type": "login",
-            "entity_id": fraudster["id"],
-            "payload": {
-                "ip_address": f"185.{random.randint(1,254)}.{random.randint(1,254)}.{random.randint(1,254)}",
-                "timestamp": _ts(random.uniform(0.1, 6)),
-            },
-            "device_context": {
-                "device_id": device["id"],
-                "platform": device["platform"],
-                "signals": device.get("signals", {}),
-            },
-            "metadata": {"source": "demo_seed"},
-        })
+        txns.append(
+            {
+                "tenant_id": TENANT_ID,
+                "event_type": "login",
+                "entity_id": fraudster["id"],
+                "payload": {
+                    "ip_address": f"185.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}",
+                    "timestamp": _ts(random.uniform(0.1, 6)),
+                },
+                "device_context": {
+                    "device_id": device["id"],
+                    "platform": device["platform"],
+                    "signals": device.get("signals", {}),
+                },
+                "metadata": {"source": "demo_seed"},
+            }
+        )
     return txns
 
 
@@ -268,36 +294,43 @@ def _login_transactions() -> list[dict]:
 # Graph seeding
 # ---------------------------------------------------------------------------
 
+
 def _graph_entities() -> list[dict]:
     """All entity upserts for the graph service."""
     entities: list[dict] = []
 
     for user in LEGIT_USERS:
-        entities.append({
-            "tenant_id": TENANT_ID,
-            "entity_type": "User",
-            "external_id": user["id"],
-            "properties": {"name": user["name"], "email": user["email"], "risk": "low"},
-            "tags": ["legit"],
-        })
+        entities.append(
+            {
+                "tenant_id": TENANT_ID,
+                "entity_type": "User",
+                "external_id": user["id"],
+                "properties": {"name": user["name"], "email": user["email"], "risk": "low"},
+                "tags": ["legit"],
+            }
+        )
 
     for f in FRAUDSTERS:
-        entities.append({
-            "tenant_id": TENANT_ID,
-            "entity_type": "User",
-            "external_id": f["id"],
-            "properties": {"name": f["name"], "role": f["role"], "risk": "high"},
-            "tags": ["suspicious", "fraud_ring"],
-        })
+        entities.append(
+            {
+                "tenant_id": TENANT_ID,
+                "entity_type": "User",
+                "external_id": f["id"],
+                "properties": {"name": f["name"], "role": f["role"], "risk": "high"},
+                "tags": ["suspicious", "fraud_ring"],
+            }
+        )
 
     for m in MULES:
-        entities.append({
-            "tenant_id": TENANT_ID,
-            "entity_type": "User",
-            "external_id": m["id"],
-            "properties": {"name": m["name"], "risk": "medium"},
-            "tags": ["mule"],
-        })
+        entities.append(
+            {
+                "tenant_id": TENANT_ID,
+                "entity_type": "User",
+                "external_id": m["id"],
+                "properties": {"name": m["name"], "risk": "medium"},
+                "tags": ["mule"],
+            }
+        )
 
     for d in DEVICES:
         tags = []
@@ -305,22 +338,26 @@ def _graph_entities() -> list[dict]:
             tags.append("emulator")
         if d.get("signals", {}).get("is_vpn"):
             tags.append("vpn")
-        entities.append({
-            "tenant_id": TENANT_ID,
-            "entity_type": "Device",
-            "external_id": d["id"],
-            "properties": {"platform": d["platform"], **d.get("signals", {})},
-            "tags": tags,
-        })
+        entities.append(
+            {
+                "tenant_id": TENANT_ID,
+                "entity_type": "Device",
+                "external_id": d["id"],
+                "properties": {"platform": d["platform"], **d.get("signals", {})},
+                "tags": tags,
+            }
+        )
 
     for a in ACCOUNTS:
-        entities.append({
-            "tenant_id": TENANT_ID,
-            "entity_type": "Account",
-            "external_id": a["id"],
-            "properties": {"type": a["type"], "owner": a["owner"]},
-            "tags": [],
-        })
+        entities.append(
+            {
+                "tenant_id": TENANT_ID,
+                "entity_type": "Account",
+                "external_id": a["id"],
+                "properties": {"type": a["type"], "owner": a["owner"]},
+                "tags": [],
+            }
+        )
 
     return entities
 
@@ -331,84 +368,102 @@ def _graph_links() -> list[dict]:
 
     # Users OWN accounts
     for acc in ACCOUNTS:
-        links.append({
-            "tenant_id": TENANT_ID,
-            "from_external_id": acc["owner"],
-            "to_external_id": acc["id"],
-            "relationship": "OWNS",
-            "properties": {"account_type": acc["type"]},
-        })
+        links.append(
+            {
+                "tenant_id": TENANT_ID,
+                "from_external_id": acc["owner"],
+                "to_external_id": acc["id"],
+                "relationship": "OWNS",
+                "properties": {"account_type": acc["type"]},
+            }
+        )
 
     # Device ownership / usage
     for dev in DEVICES:
         owner = dev.get("owner")
         if owner:
-            links.append({
-                "tenant_id": TENANT_ID,
-                "from_external_id": owner,
-                "to_external_id": dev["id"],
-                "relationship": "USED",
-                "properties": {"primary": True},
-            })
+            links.append(
+                {
+                    "tenant_id": TENANT_ID,
+                    "from_external_id": owner,
+                    "to_external_id": dev["id"],
+                    "relationship": "USED",
+                    "properties": {"primary": True},
+                }
+            )
         for shared_user in dev.get("shared_with", []):
-            links.append({
-                "tenant_id": TENANT_ID,
-                "from_external_id": shared_user,
-                "to_external_id": dev["id"],
-                "relationship": "USED",
-                "properties": {"primary": False, "shared": True},
-            })
+            links.append(
+                {
+                    "tenant_id": TENANT_ID,
+                    "from_external_id": shared_user,
+                    "to_external_id": dev["id"],
+                    "relationship": "USED",
+                    "properties": {"primary": False, "shared": True},
+                }
+            )
 
     # Mule REFERRED_BY fraudster
     for mule in MULES:
-        links.append({
-            "tenant_id": TENANT_ID,
-            "from_external_id": mule["referred_by"],
-            "to_external_id": mule["id"],
-            "relationship": "REFERRED",
-            "properties": {"suspicious": True},
-        })
+        links.append(
+            {
+                "tenant_id": TENANT_ID,
+                "from_external_id": mule["referred_by"],
+                "to_external_id": mule["id"],
+                "relationship": "REFERRED",
+                "properties": {"suspicious": True},
+            }
+        )
 
     # Payment links between mules and fraudsters
-    links.append({
-        "tenant_id": TENANT_ID,
-        "from_external_id": "fraud_frank",
-        "to_external_id": "mule_ivan",
-        "relationship": "PAID",
-        "properties": {"total_amount": 8500.00, "count": 3},
-    })
-    links.append({
-        "tenant_id": TENANT_ID,
-        "from_external_id": "fraud_gina",
-        "to_external_id": "mule_jane",
-        "relationship": "PAID",
-        "properties": {"total_amount": 6200.00, "count": 3},
-    })
+    links.append(
+        {
+            "tenant_id": TENANT_ID,
+            "from_external_id": "fraud_frank",
+            "to_external_id": "mule_ivan",
+            "relationship": "PAID",
+            "properties": {"total_amount": 8500.00, "count": 3},
+        }
+    )
+    links.append(
+        {
+            "tenant_id": TENANT_ID,
+            "from_external_id": "fraud_gina",
+            "to_external_id": "mule_jane",
+            "relationship": "PAID",
+            "properties": {"total_amount": 6200.00, "count": 3},
+        }
+    )
 
     # Cross-links: mules forward funds to external accounts
-    links.append({
-        "tenant_id": TENANT_ID,
-        "from_external_id": "mule_ivan",
-        "to_external_id": "acc_mule_ivan_recv",
-        "relationship": "FORWARDED_TO",
-        "properties": {"total_amount": 7000.00},
-    })
+    links.append(
+        {
+            "tenant_id": TENANT_ID,
+            "from_external_id": "mule_ivan",
+            "to_external_id": "acc_mule_ivan_recv",
+            "relationship": "FORWARDED_TO",
+            "properties": {"total_amount": 7000.00},
+        }
+    )
 
     # Fraud ring internal links
-    links.append({
-        "tenant_id": TENANT_ID,
-        "from_external_id": "fraud_frank",
-        "to_external_id": "fraud_gina",
-        "relationship": "COLLABORATES_WITH",
-        "properties": {"ring": "alpha"},
-    })
-    links.append({
-        "tenant_id": TENANT_ID,
-        "from_external_id": "fraud_frank",
-        "to_external_id": "fraud_henry",
-        "relationship": "COLLABORATES_WITH",
-        "properties": {"ring": "alpha"},
-    })
+    links.append(
+        {
+            "tenant_id": TENANT_ID,
+            "from_external_id": "fraud_frank",
+            "to_external_id": "fraud_gina",
+            "relationship": "COLLABORATES_WITH",
+            "properties": {"ring": "alpha"},
+        }
+    )
+    links.append(
+        {
+            "tenant_id": TENANT_ID,
+            "from_external_id": "fraud_frank",
+            "to_external_id": "fraud_henry",
+            "relationship": "COLLABORATES_WITH",
+            "properties": {"ring": "alpha"},
+        }
+    )
 
     return links
 
@@ -497,6 +552,7 @@ CASES = [
 # Idempotency check
 # ---------------------------------------------------------------------------
 
+
 async def _already_seeded(client: httpx.AsyncClient, case_url: str) -> bool:
     try:
         r = await client.get(
@@ -515,17 +571,10 @@ async def _already_seeded(client: httpx.AsyncClient, case_url: str) -> bool:
 # Seeders
 # ---------------------------------------------------------------------------
 
-async def seed_decisions(
-    client: httpx.AsyncClient, decision_url: str
-) -> list[str]:
+
+async def seed_decisions(client: httpx.AsyncClient, decision_url: str) -> list[str]:
     """Send evaluate requests and collect trace_ids."""
-    all_txns = (
-        _legit_transactions()
-        + _fraudster_transactions()
-        + _velocity_spike_transactions()
-        + _mule_transactions()
-        + _login_transactions()
-    )
+    all_txns = _legit_transactions() + _fraudster_transactions() + _velocity_spike_transactions() + _mule_transactions() + _login_transactions()
     print(f"  Sending {len(all_txns)} decision evaluations ...")
     trace_ids: list[str] = []
     ok = 0
@@ -568,9 +617,7 @@ async def seed_graph(client: httpx.AsyncClient, graph_url: str) -> None:
             pass
 
 
-async def seed_cases(
-    client: httpx.AsyncClient, case_url: str, trace_ids: list[str]
-) -> None:
+async def seed_cases(client: httpx.AsyncClient, case_url: str, trace_ids: list[str]) -> None:
     """Create cases with comments, labels, and status transitions."""
     print(f"  Creating {len(CASES)} investigation cases ...")
 
@@ -633,15 +680,45 @@ async def seed_cases(
         print(f"    Case '{case_def['title'][:50]}...' → {target}")
 
 
-async def seed_disputes(
-    client: httpx.AsyncClient, case_url: str, trace_ids: list[str]
-) -> None:
+async def seed_disputes(client: httpx.AsyncClient, case_url: str, trace_ids: list[str]) -> None:
     """Create synthetic dispute records for dispute workflows."""
     dispute_templates = [
-        {"entity_id": "fraud_frank", "dispute_type": "chargeback", "reason_code": "fraudulent", "amount": 1499.99, "currency": "USD", "merchant_id": "CryptoExchange", "card_network": "visa"},
-        {"entity_id": "user_bob", "dispute_type": "retrieval", "reason_code": "unauthorized", "amount": 289.50, "currency": "USD", "merchant_id": "ElectronicsStore", "card_network": "mastercard"},
-        {"entity_id": "mule_ivan", "dispute_type": "chargeback", "reason_code": "card_not_present", "amount": 899.00, "currency": "USD", "merchant_id": "WireTransfer", "card_network": "amex"},
-        {"entity_id": "user_carol", "dispute_type": "chargeback", "reason_code": "service_not_received", "amount": 119.99, "currency": "USD", "merchant_id": "StreamingBundle", "card_network": "visa"},
+        {
+            "entity_id": "fraud_frank",
+            "dispute_type": "chargeback",
+            "reason_code": "fraudulent",
+            "amount": 1499.99,
+            "currency": "USD",
+            "merchant_id": "CryptoExchange",
+            "card_network": "visa",
+        },
+        {
+            "entity_id": "user_bob",
+            "dispute_type": "retrieval",
+            "reason_code": "unauthorized",
+            "amount": 289.50,
+            "currency": "USD",
+            "merchant_id": "ElectronicsStore",
+            "card_network": "mastercard",
+        },
+        {
+            "entity_id": "mule_ivan",
+            "dispute_type": "chargeback",
+            "reason_code": "card_not_present",
+            "amount": 899.00,
+            "currency": "USD",
+            "merchant_id": "WireTransfer",
+            "card_network": "amex",
+        },
+        {
+            "entity_id": "user_carol",
+            "dispute_type": "chargeback",
+            "reason_code": "service_not_received",
+            "amount": 119.99,
+            "currency": "USD",
+            "merchant_id": "StreamingBundle",
+            "card_network": "visa",
+        },
     ]
     print(f"  Creating {len(dispute_templates)} disputes ...")
     created = 0
@@ -734,6 +811,7 @@ async def seed_integrations(client: httpx.AsyncClient, ingress_url: str) -> None
 # Main
 # ---------------------------------------------------------------------------
 
+
 async def main(
     decision_url: str,
     case_url: str,
@@ -761,11 +839,11 @@ async def main(
             r = await client.get(f"{graph_url}/v1/health")
             if r.status_code == 200:
                 graph_available = True
-                print(f"  ✓ graph-service is up")
+                print("  ✓ graph-service is up")
         except httpx.HTTPError:
             pass
         if not graph_available:
-            print(f"  – graph-service not available (skipping graph seed)")
+            print("  – graph-service not available (skipping graph seed)")
 
         ingress_available = False
         try:
@@ -781,10 +859,7 @@ async def main(
         # ── Idempotency ──────────────────────────────────────────────
         if not force:
             if await _already_seeded(client, case_url):
-                print(
-                    "\nDemo data already exists for tenant 'demo'. "
-                    "Use --force to re-seed (additive)."
-                )
+                print("\nDemo data already exists for tenant 'demo'. Use --force to re-seed (additive).")
                 return
 
         print()

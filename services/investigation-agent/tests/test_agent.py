@@ -1,4 +1,5 @@
 """Unit tests for the investigation agent — RBAC, tool dispatch, offline mode."""
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -294,9 +295,7 @@ class TestReplayAbComparison:
             mock_settings.allowed_analysts = "*"
             mock_settings.decision_api_url = "http://decision:8000"
             mock_settings.upstream_api_key = ""
-            out = await tool_run_replay_ab_comparison(
-                http, "t1", "a1", rules_a, rules_b, limit=50, trace_ids=[tid]
-            )
+            out = await tool_run_replay_ab_comparison(http, "t1", "a1", rules_a, rules_b, limit=50, trace_ids=[tid])
 
         body = http.post.call_args_list[0].kwargs["json"]
         assert body["trace_ids"] == [tid]
@@ -312,9 +311,7 @@ class TestOfflineMode:
         http = AsyncMock()
         with patch("investigation_agent.main.settings") as mock_settings:
             mock_settings.openai_api_key = ""
-            reply, tool_calls = await _llm_tool_loop(
-                http, "system prompt", [{"role": "user", "content": "hello"}], "t1", "analyst1"
-            )
+            reply, tool_calls = await _llm_tool_loop(http, "system prompt", [{"role": "user", "content": "hello"}], "t1", "analyst1")
 
         assert "offline" in reply.lower()
         assert tool_calls == []

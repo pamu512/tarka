@@ -4,12 +4,13 @@ Each tenant may define additional entity types (node labels) and relationship
 types beyond the built-in defaults.  Schemas are stored as JSON files in a
 ``schemas/`` directory adjacent to the service package root.
 """
+
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import re
-import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -54,12 +55,8 @@ class TenantSchema:
         extra: dict[str, Any] | None = None,
     ) -> None:
         self.tenant_id = tenant_id
-        self.entity_types: list[str] = list(
-            dict.fromkeys(_DEFAULT_ENTITY_TYPES + (entity_types or []))
-        )
-        self.relationship_types: list[str] = list(
-            dict.fromkeys(_DEFAULT_RELATIONSHIP_TYPES + (relationship_types or []))
-        )
+        self.entity_types: list[str] = list(dict.fromkeys(_DEFAULT_ENTITY_TYPES + (entity_types or [])))
+        self.relationship_types: list[str] = list(dict.fromkeys(_DEFAULT_RELATIONSHIP_TYPES + (relationship_types or [])))
         self.extra: dict[str, Any] = extra or {}
 
     def allows_label(self, label: str) -> bool:
@@ -139,10 +136,7 @@ def save_tenant_schema(schema: TenantSchema) -> None:
     Rejects any entity type or relationship type that isn't a safe Cypher
     identifier (alphanumeric + underscore, starts with a letter, max 64 chars).
     """
-    bad = [
-        t for t in schema.entity_types + schema.relationship_types
-        if not _SAFE_IDENTIFIER.match(t)
-    ]
+    bad = [t for t in schema.entity_types + schema.relationship_types if not _SAFE_IDENTIFIER.match(t)]
     if bad:
         raise ValueError(f"unsafe identifiers rejected: {bad}")
 

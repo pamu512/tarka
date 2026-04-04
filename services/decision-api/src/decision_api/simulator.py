@@ -6,17 +6,16 @@ Supports:
 - A/B comparison of rule sets
 - Statistical analysis of results
 """
-import math
+
 import random
-import uuid
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class SyntheticProfile(BaseModel):
     """Configuration for synthetic data generation."""
+
     name: str = "default"
     total_events: int = 1000
     fraud_rate: float = 0.05  # 5% fraud by default
@@ -50,21 +49,32 @@ class SyntheticProfile(BaseModel):
 SCENARIO_TEMPLATES: dict[str, SyntheticProfile] = {
     "baseline": SyntheticProfile(name="baseline"),
     "high_fraud": SyntheticProfile(
-        name="high_fraud", fraud_rate=0.15, total_events=2000,
+        name="high_fraud",
+        fraud_rate=0.15,
+        total_events=2000,
     ),
     "bot_attack": SyntheticProfile(
-        name="bot_attack", fraud_rate=0.3, fraud_bot_rate=0.9,
-        fraud_emulator_rate=0.7, total_events=5000,
+        name="bot_attack",
+        fraud_rate=0.3,
+        fraud_bot_rate=0.9,
+        fraud_emulator_rate=0.7,
+        total_events=5000,
     ),
     "account_takeover": SyntheticProfile(
-        name="account_takeover", fraud_rate=0.08,
-        fraud_vpn_rate=0.6, fraud_new_account_rate=0.1,
-        fraud_high_velocity_rate=0.8, total_events=1500,
+        name="account_takeover",
+        fraud_rate=0.08,
+        fraud_vpn_rate=0.6,
+        fraud_new_account_rate=0.1,
+        fraud_high_velocity_rate=0.8,
+        total_events=1500,
     ),
     "money_mule": SyntheticProfile(
-        name="money_mule", fraud_rate=0.04,
-        fraud_amount_multiplier=10.0, amount_mean=100.0,
-        fraud_new_account_rate=0.7, total_events=2000,
+        name="money_mule",
+        fraud_rate=0.04,
+        fraud_amount_multiplier=10.0,
+        amount_mean=100.0,
+        fraud_new_account_rate=0.7,
+        total_events=2000,
     ),
 }
 
@@ -78,10 +88,12 @@ def generate_synthetic_event(
     entity_id = f"synth-user-{random.randint(1, max(int(profile.total_events * 0.3), 10))}"
 
     if is_fraud:
-        amount = abs(random.gauss(
-            profile.amount_mean * profile.fraud_amount_multiplier,
-            profile.amount_std * 2,
-        ))
+        amount = abs(
+            random.gauss(
+                profile.amount_mean * profile.fraud_amount_multiplier,
+                profile.amount_std * 2,
+            )
+        )
     else:
         amount = abs(random.gauss(profile.amount_mean, profile.amount_std))
     amount = round(max(1.0, amount), 2)

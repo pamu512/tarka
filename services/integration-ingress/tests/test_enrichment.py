@@ -1,16 +1,13 @@
 """Unit tests for integration-ingress enrichment — email, phone, IP analysis."""
-import pytest
+
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from integration_ingress.enrichment import (
     enrich_email,
-    enrich_phone,
     enrich_ip,
-    DISPOSABLE_DOMAINS,
-    FREE_PROVIDERS,
-    VOIP_PREFIXES,
+    enrich_phone,
 )
-
 
 # ---------- enrich_email ----------
 

@@ -1,8 +1,8 @@
 """Tests for unified OSINT path: parallel asyncio.gather and aggregation in full_osint_enrichment."""
+
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from integration_ingress.osint import OsintConfig, full_osint_enrichment
 
 

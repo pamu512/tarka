@@ -6,6 +6,7 @@ Used by GitHub Actions; runnable locally from repo root:
   python scripts/ci/full_stack_smoke.py
   python scripts/ci/full_stack_smoke.py --skip-up   # stack already running (no compose down)
 """
+
 from __future__ import annotations
 
 import argparse

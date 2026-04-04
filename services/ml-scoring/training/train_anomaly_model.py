@@ -7,6 +7,7 @@ Outputs:
     ../models/anomaly-iforest/1/model.onnx  + metadata.json
     ../models/fraud-gbm/1/model.onnx        + metadata.json
 """
+
 from __future__ import annotations
 
 import json
@@ -47,6 +48,7 @@ MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
 # Synthetic data generation
 # ---------------------------------------------------------------------------
 
+
 def _generate_data(n: int = N_SAMPLES, seed: int = RANDOM_SEED) -> tuple[np.ndarray, np.ndarray]:
     """Return (X, y) where X has shape (n, 9) and y is 0/1."""
     rng = np.random.RandomState(seed)
@@ -63,10 +65,19 @@ def _generate_data(n: int = N_SAMPLES, seed: int = RANDOM_SEED) -> tuple[np.ndar
         tx_count_24h = rng.poisson(lam=3, size=size).clip(0, 100).astype(float)
         countries_7d = rng.choice([1, 1, 1, 1, 2], size=size).astype(float)
         account_age = rng.exponential(scale=400, size=size).clip(1, 3650)
-        return np.column_stack([
-            amount, hour, is_new_device, is_vpn, is_emulator, is_bot,
-            tx_count_24h, countries_7d, account_age,
-        ])
+        return np.column_stack(
+            [
+                amount,
+                hour,
+                is_new_device,
+                is_vpn,
+                is_emulator,
+                is_bot,
+                tx_count_24h,
+                countries_7d,
+                account_age,
+            ]
+        )
 
     def _fraud_block(size: int) -> np.ndarray:
         amount = rng.lognormal(mean=7.5, sigma=1.2, size=size).clip(500, 100_000)
@@ -78,10 +89,19 @@ def _generate_data(n: int = N_SAMPLES, seed: int = RANDOM_SEED) -> tuple[np.ndar
         tx_count_24h = rng.poisson(lam=15, size=size).clip(0, 100).astype(float)
         countries_7d = rng.choice([2, 3, 4, 5, 6], size=size).astype(float)
         account_age = rng.exponential(scale=30, size=size).clip(0, 365)
-        return np.column_stack([
-            amount, hour, is_new_device, is_vpn, is_emulator, is_bot,
-            tx_count_24h, countries_7d, account_age,
-        ])
+        return np.column_stack(
+            [
+                amount,
+                hour,
+                is_new_device,
+                is_vpn,
+                is_emulator,
+                is_bot,
+                tx_count_24h,
+                countries_7d,
+                account_age,
+            ]
+        )
 
     X = np.vstack([_legit_block(n_legit), _fraud_block(n_fraud)]).astype(np.float32)
     y = np.concatenate([np.zeros(n_legit), np.ones(n_fraud)]).astype(np.int64)
@@ -94,9 +114,7 @@ def _generate_data(n: int = N_SAMPLES, seed: int = RANDOM_SEED) -> tuple[np.ndar
 # Normalisation (matches what the scoring service applies)
 # ---------------------------------------------------------------------------
 
-_NORM_DIVISORS = np.array(
-    [10_000, 24, 1, 1, 1, 1, 100, 10, 365], dtype=np.float32
-)
+_NORM_DIVISORS = np.array([10_000, 24, 1, 1, 1, 1, 100, 10, 365], dtype=np.float32)
 
 
 def normalize(X: np.ndarray) -> np.ndarray:
@@ -106,6 +124,7 @@ def normalize(X: np.ndarray) -> np.ndarray:
 # ---------------------------------------------------------------------------
 # Metrics helpers
 # ---------------------------------------------------------------------------
+
 
 def _print_metrics(name: str, y_true: np.ndarray, scores: np.ndarray) -> dict:
     """Print and return metrics dict for a given score array (higher = more fraud)."""
@@ -139,6 +158,7 @@ def _print_metrics(name: str, y_true: np.ndarray, scores: np.ndarray) -> dict:
 # ONNX export
 # ---------------------------------------------------------------------------
 
+
 def _export_onnx(pipeline: Pipeline, name: str, n_features: int, output_dir: Path) -> Path:
     from skl2onnx import convert_sklearn
     from skl2onnx.common.data_types import FloatTensorType
@@ -165,6 +185,7 @@ def _verify_onnx(onnx_path: Path, X_sample: np.ndarray) -> None:
 # Model 1: Isolation Forest anomaly detector
 # ---------------------------------------------------------------------------
 
+
 def train_isolation_forest(X_norm: np.ndarray, y: np.ndarray) -> dict:
     print("\n>>> Training Isolation Forest (unsupervised) ...")
     t0 = time.time()
@@ -190,10 +211,12 @@ def train_isolation_forest(X_norm: np.ndarray, y: np.ndarray) -> dict:
 
     metrics = _print_metrics("Isolation Forest", y, anomaly_scores)
 
-    pipe = Pipeline([
-        ("normalize", FunctionTransformer(normalize, validate=False)),
-        ("iforest", iforest),
-    ])
+    pipe = Pipeline(
+        [
+            ("normalize", FunctionTransformer(normalize, validate=False)),
+            ("iforest", iforest),
+        ]
+    )
 
     output_dir = MODELS_DIR / "anomaly-iforest" / "1"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -238,12 +261,17 @@ def train_isolation_forest(X_norm: np.ndarray, y: np.ndarray) -> dict:
 # Model 2: Gradient Boosted classifier (supervised)
 # ---------------------------------------------------------------------------
 
+
 def train_gbm(X_norm: np.ndarray, y: np.ndarray) -> dict:
     print("\n>>> Training Gradient Boosted Classifier (supervised) ...")
     t0 = time.time()
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X_norm, y, test_size=0.2, stratify=y, random_state=RANDOM_SEED,
+        X_norm,
+        y,
+        test_size=0.2,
+        stratify=y,
+        random_state=RANDOM_SEED,
     )
 
     gbm = GradientBoostingClassifier(
@@ -263,10 +291,12 @@ def train_gbm(X_norm: np.ndarray, y: np.ndarray) -> dict:
     proba_all = gbm.predict_proba(X_norm)[:, 1]
     _print_metrics("Gradient Boosted Classifier (full set)", y, proba_all)
 
-    pipe = Pipeline([
-        ("normalize", FunctionTransformer(normalize, validate=False)),
-        ("gbm", gbm),
-    ])
+    pipe = Pipeline(
+        [
+            ("normalize", FunctionTransformer(normalize, validate=False)),
+            ("gbm", gbm),
+        ]
+    )
 
     output_dir = MODELS_DIR / "fraud-gbm" / "1"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -308,6 +338,7 @@ def train_gbm(X_norm: np.ndarray, y: np.ndarray) -> dict:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     print("Generating synthetic transaction data ...")

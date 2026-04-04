@@ -1,4 +1,5 @@
 """REST API for rule CRUD — serves the visual rule builder."""
+
 from __future__ import annotations
 
 import json

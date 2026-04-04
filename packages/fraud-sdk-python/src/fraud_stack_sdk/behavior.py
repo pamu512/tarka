@@ -3,6 +3,7 @@
 Takes raw behavior data collected by the TypeScript SDK's BehaviorCollector
 and computes risk indicators for fraud detection.
 """
+
 from __future__ import annotations
 
 import math

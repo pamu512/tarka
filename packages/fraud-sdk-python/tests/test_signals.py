@@ -1,4 +1,5 @@
 """Unit tests for ServerSignalCollector."""
+
 from fraud_stack_sdk.signals import ServerSignalCollector, _is_private_ip
 
 

@@ -1,13 +1,13 @@
 """Unit tests for graph-service algorithm functions."""
-import pytest
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from graph_service.algorithms import (
     _clamp_depth,
     compute_entity_risk,
     detect_fraud_rings,
 )
-
 
 # ---------- _clamp_depth ----------
 
@@ -65,13 +65,15 @@ class TestComputeEntityRisk:
 
     @pytest.mark.asyncio
     async def test_entity_with_high_risk_tags(self):
-        record = _mock_record({
-            "tags": ["fraud", "suspicious"],
-            "conn_count": 2,
-            "flagged_neighbors": 0,
-            "community_size": 1,
-            "shared_device_count": 0,
-        })
+        record = _mock_record(
+            {
+                "tags": ["fraud", "suspicious"],
+                "conn_count": 2,
+                "flagged_neighbors": 0,
+                "community_size": 1,
+                "shared_device_count": 0,
+            }
+        )
         mock_result = AsyncMock()
         mock_result.single = AsyncMock(return_value=record)
 
@@ -90,13 +92,15 @@ class TestComputeEntityRisk:
 
     @pytest.mark.asyncio
     async def test_entity_with_flagged_neighbors(self):
-        record = _mock_record({
-            "tags": [],
-            "conn_count": 8,
-            "flagged_neighbors": 3,
-            "community_size": 6,
-            "shared_device_count": 1,
-        })
+        record = _mock_record(
+            {
+                "tags": [],
+                "conn_count": 8,
+                "flagged_neighbors": 3,
+                "community_size": 6,
+                "shared_device_count": 1,
+            }
+        )
         mock_result = AsyncMock()
         mock_result.single = AsyncMock(return_value=record)
 
@@ -119,13 +123,15 @@ class TestComputeEntityRisk:
 
     @pytest.mark.asyncio
     async def test_entity_clean_low_risk(self):
-        record = _mock_record({
-            "tags": ["verified"],
-            "conn_count": 1,
-            "flagged_neighbors": 0,
-            "community_size": 1,
-            "shared_device_count": 0,
-        })
+        record = _mock_record(
+            {
+                "tags": ["verified"],
+                "conn_count": 1,
+                "flagged_neighbors": 0,
+                "community_size": 1,
+                "shared_device_count": 0,
+            }
+        )
         mock_result = AsyncMock()
         mock_result.single = AsyncMock(return_value=record)
 
@@ -144,13 +150,15 @@ class TestComputeEntityRisk:
 
     @pytest.mark.asyncio
     async def test_risk_score_capped_at_100(self):
-        record = _mock_record({
-            "tags": ["fraud", "blocked", "chargedback"],
-            "conn_count": 15,
-            "flagged_neighbors": 10,
-            "community_size": 10,
-            "shared_device_count": 5,
-        })
+        record = _mock_record(
+            {
+                "tags": ["fraud", "blocked", "chargedback"],
+                "conn_count": 15,
+                "flagged_neighbors": 10,
+                "community_size": 10,
+                "shared_device_count": 5,
+            }
+        )
         mock_result = AsyncMock()
         mock_result.single = AsyncMock(return_value=record)
 
@@ -187,18 +195,22 @@ class TestDetectFraudRings:
     async def test_detect_fraud_rings_returns_rings(self):
         """Verify ring deduplication and filtering logic."""
         mock_records = [
-            _mock_record({
-                "node_ids": ["a", "b", "c", "a"],
-                "rel_types": ["PAYS", "SHARES_DEVICE", "LINKED"],
-                "ring_len": 3,
-                "all_tags": ["suspicious"],
-            }),
-            _mock_record({
-                "node_ids": ["a", "b", "c", "a"],
-                "rel_types": ["PAYS", "SHARES_DEVICE", "LINKED"],
-                "ring_len": 3,
-                "all_tags": ["suspicious"],
-            }),
+            _mock_record(
+                {
+                    "node_ids": ["a", "b", "c", "a"],
+                    "rel_types": ["PAYS", "SHARES_DEVICE", "LINKED"],
+                    "ring_len": 3,
+                    "all_tags": ["suspicious"],
+                }
+            ),
+            _mock_record(
+                {
+                    "node_ids": ["a", "b", "c", "a"],
+                    "rel_types": ["PAYS", "SHARES_DEVICE", "LINKED"],
+                    "ring_len": 3,
+                    "all_tags": ["suspicious"],
+                }
+            ),
         ]
 
         async def _mock_async_iter(records):

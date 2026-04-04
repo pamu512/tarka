@@ -32,12 +32,14 @@ _onnx_input_name: str = ""
 
 _valid_api_keys: frozenset[str] | None = None
 
+
 def _get_api_keys() -> frozenset[str]:
     global _valid_api_keys
     if _valid_api_keys is None:
         raw = os.environ.get("API_KEYS", "").strip()
         _valid_api_keys = frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
     return _valid_api_keys
+
 
 async def require_api_key(request: Request) -> None:
     keys = _get_api_keys()
@@ -61,6 +63,7 @@ async def lifespan(_: FastAPI):
     if ONNX_PATH and not DISABLE_ML:
         try:
             import onnxruntime as ort
+
             _onnx_session = ort.InferenceSession(ONNX_PATH, providers=["CPUExecutionProvider"])
             _onnx_input_name = _onnx_session.get_inputs()[0].name
         except Exception:
@@ -213,6 +216,7 @@ def _onnx_score(features: dict[str, Any]) -> float | None:
         return None
     try:
         import numpy as np
+
         vec = np.array([_extract_feature_vector(features)], dtype=np.float32)
         outputs = _onnx_session.run(None, {_onnx_input_name: vec})
         return _extract_onnx_score(outputs)
@@ -225,6 +229,7 @@ def _score_with_model_version(mv, features: dict[str, Any]) -> tuple[float | Non
     if mv and mv.onnx_session:
         try:
             import numpy as np
+
             vec = np.array([_extract_feature_vector(features)], dtype=np.float32)
             outputs = mv.onnx_session.run(None, {mv.onnx_input_name: vec})
             return _extract_onnx_score(outputs), f"{mv.name}/v{mv.version}+onnx"
@@ -301,13 +306,12 @@ async def score(body: ScoreRequest, bg: BackgroundTasks):
             base_score = _heuristic_score(body.features)
             model_label = MODEL_VERSION
 
-    blended = round(
-        (1 - ADAPTIVE_WEIGHT) * base_score + ADAPTIVE_WEIGHT * adaptive_score, 2
-    )
+    blended = round((1 - ADAPTIVE_WEIGHT) * base_score + ADAPTIVE_WEIGHT * adaptive_score, 2)
     blended = max(0.0, min(100.0, blended))
 
     explanations = explain_score(
-        blended, body.features,
+        blended,
+        body.features,
         model_type="onnx" if "onnx" in model_label else "heuristic",
         adaptive_contributions=contributions if contributions and contributions[0].get("feature") != "insufficient_data" else None,
     )
@@ -325,6 +329,7 @@ async def score(body: ScoreRequest, bg: BackgroundTasks):
 
 
 # ---------- adaptive endpoints ----------
+
 
 @app.get("/v1/adaptive/stats")
 async def adaptive_stats():
@@ -357,6 +362,7 @@ async def adaptive_reset():
 
 
 # ---------- registry endpoints ----------
+
 
 @app.get("/v1/models")
 async def list_models():

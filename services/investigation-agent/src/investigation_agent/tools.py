@@ -1,4 +1,5 @@
 """Tool definitions and execution for the investigation agent."""
+
 from __future__ import annotations
 
 import json
@@ -34,7 +35,8 @@ _VALID_REPLAY_OPS = frozenset(
 )
 
 _UUID_PATTERN = re.compile(
-    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE,
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
 )
 _SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9._@:/-]{1,256}$")
 
@@ -197,6 +199,7 @@ def _auth_headers() -> dict[str, str]:
 
 # ---------- RBAC ----------
 
+
 def _analyst_allowed(analyst_id: str) -> bool:
     raw = (settings.allowed_analysts or "*").strip()
     if raw == "*":
@@ -211,6 +214,7 @@ def is_analyst_allowed(analyst_id: str) -> bool:
 
 
 # ---------- Tool implementations ----------
+
 
 async def tool_get_case(http: httpx.AsyncClient, case_id: str, tenant_id: str, analyst_id: str) -> dict[str, Any]:
     if not _analyst_allowed(analyst_id):
@@ -287,9 +291,7 @@ async def tool_get_entity_tags(
     return _limit_result(r.json())
 
 
-async def tool_get_entity_velocity(
-    http: httpx.AsyncClient, entity_id: str, tenant_id: str, analyst_id: str
-) -> dict[str, Any]:
+async def tool_get_entity_velocity(http: httpx.AsyncClient, entity_id: str, tenant_id: str, analyst_id: str) -> dict[str, Any]:
     if not _analyst_allowed(analyst_id):
         return {"error": "forbidden"}
     try:
@@ -310,9 +312,7 @@ async def tool_get_entity_velocity(
     return _limit_result(r.json())
 
 
-async def tool_get_decision_audit(
-    http: httpx.AsyncClient, trace_id: str, tenant_id: str, analyst_id: str
-) -> dict[str, Any]:
+async def tool_get_decision_audit(http: httpx.AsyncClient, trace_id: str, tenant_id: str, analyst_id: str) -> dict[str, Any]:
     if not _analyst_allowed(analyst_id):
         return {"error": "forbidden"}
     try:
@@ -389,11 +389,13 @@ async def tool_subgraph_with_velocity(
                     )
                     if k in props
                 }
-                enriched.append({
-                    **n,
-                    "velocity_and_inference": vr.json(),
-                    "sdk_signals_on_node": sdk_hint if sdk_hint else None,
-                })
+                enriched.append(
+                    {
+                        **n,
+                        "velocity_and_inference": vr.json(),
+                        "sdk_signals_on_node": sdk_hint if sdk_hint else None,
+                    }
+                )
             else:
                 enriched.append(n)
         except Exception:
@@ -487,16 +489,18 @@ async def tool_export_outcome_labeled_dataset(
     for r in merged:
         y = r.get("y_label", "unknown")
         counts[y] = counts.get(y, 0) + 1
-    return _limit_result({
-        "tenant_id": tenant_id,
-        "items": merged,
-        "total": len(merged),
-        "counts_by_y_label": counts,
-        "caveat": (
-            "Labels are operational weak ground truth: case tags and dispute outcomes can be noisy, "
-            "delayed, or jurisdiction-specific. Prefer replay A/B on recent audits for causal rule comparison."
-        ),
-    })
+    return _limit_result(
+        {
+            "tenant_id": tenant_id,
+            "items": merged,
+            "total": len(merged),
+            "counts_by_y_label": counts,
+            "caveat": (
+                "Labels are operational weak ground truth: case tags and dispute outcomes can be noisy, "
+                "delayed, or jurisdiction-specific. Prefer replay A/B on recent audits for causal rule comparison."
+            ),
+        }
+    )
 
 
 async def tool_ingest_labeled_rows(
@@ -536,13 +540,15 @@ async def tool_ingest_labeled_rows(
             except ValueError:
                 continue
         notes = raw.get("notes")
-        api_rows.append({
-            "trace_id": tid or None,
-            "entity_id": eid or None,
-            "y_label": label,
-            "source": str(raw.get("source") or "analyst")[:128],
-            "notes": str(notes)[:4000] if notes is not None else None,
-        })
+        api_rows.append(
+            {
+                "trace_id": tid or None,
+                "entity_id": eid or None,
+                "y_label": label,
+                "source": str(raw.get("source") or "analyst")[:128],
+                "notes": str(notes)[:4000] if notes is not None else None,
+            }
+        )
     base = settings.case_api_url.rstrip("/")
     try:
         r = await http.post(
@@ -592,11 +598,13 @@ async def tool_get_stored_labeled_dataset(
             for x in items
             if isinstance(x, dict)
         ]
-        return _limit_result({
-            "items": normalized,
-            "total": len(normalized),
-            "storage": "case_api_investigation_label_drafts",
-        })
+        return _limit_result(
+            {
+                "items": normalized,
+                "total": len(normalized),
+                "storage": "case_api_investigation_label_drafts",
+            }
+        )
     except Exception as e:
         return {"error": "label_drafts_list_failed", "detail": str(e)[:500]}
 
@@ -610,11 +618,13 @@ def _paired_replay_comparison(va: dict[str, Any], vb: dict[str, Any]) -> dict[st
         a_changed = bool(ra[tid].get("decision_changed"))
         b_changed = bool(rb[tid].get("decision_changed"))
         if a_changed != b_changed:
-            disagree.append({
-                "trace_id": tid,
-                "variant_a_changed": a_changed,
-                "variant_b_changed": b_changed,
-            })
+            disagree.append(
+                {
+                    "trace_id": tid,
+                    "variant_a_changed": a_changed,
+                    "variant_b_changed": b_changed,
+                }
+            )
     return {
         "paired_traces": len(common),
         "traces_where_flip_differs_between_variants": len(disagree),
@@ -641,10 +651,7 @@ async def tool_run_replay_ab_comparison(
     rb = _sanitize_rules_override(rules_variant_b)
     if not ra or not rb:
         return {
-            "error": (
-                "both rules_variant_a and rules_variant_b must contain at least one valid rule "
-                "after sanitization"
-            ),
+            "error": ("both rules_variant_a and rules_variant_b must contain at least one valid rule after sanitization"),
         }
     lim = _validate_replay_limit(limit)
     tid_list, tid_err = _coerce_replay_trace_ids(trace_ids)
@@ -688,23 +695,25 @@ async def tool_run_replay_ab_comparison(
             "Two sequential replays over the same limit; newest-audit window may shift slightly between calls. "
             "Prefer passing trace_ids (from label drafts or audits) for paired comparison."
         )
-    return _limit_result({
-        "variant_a": sa,
-        "variant_b": sb,
-        "comparison": {
-            "events_evaluated": ev,
-            "decisions_changed_a": dca,
-            "decisions_changed_b": dcb,
-            "delta_decisions_changed": dcb - dca,
-            "missing_trace_ids_a": missing_a,
-            "missing_trace_ids_b": missing_b,
-            "caveat": caveat,
-            **paired_extra,
-        },
-        "rules_sent_a": ra,
-        "rules_sent_b": rb,
-        "trace_ids_mode": bool(tid_list),
-    })
+    return _limit_result(
+        {
+            "variant_a": sa,
+            "variant_b": sb,
+            "comparison": {
+                "events_evaluated": ev,
+                "decisions_changed_a": dca,
+                "decisions_changed_b": dcb,
+                "delta_decisions_changed": dcb - dca,
+                "missing_trace_ids_a": missing_a,
+                "missing_trace_ids_b": missing_b,
+                "caveat": caveat,
+                **paired_extra,
+            },
+            "rules_sent_a": ra,
+            "rules_sent_b": rb,
+            "trace_ids_mode": bool(tid_list),
+        }
+    )
 
 
 def _replay_summary(resp: dict[str, Any]) -> dict[str, Any]:

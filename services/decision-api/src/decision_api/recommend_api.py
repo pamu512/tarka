@@ -1,12 +1,12 @@
 """Rule recommendation API — AI-powered rule suggestion from historical data."""
+
 from __future__ import annotations
 
 import json
 import logging
-
-from typing import Any
-from pathlib import Path
 import re
+from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -48,12 +48,7 @@ async def analyze(
     session: AsyncSession = Depends(get_session),
 ):
     """Analyze historical decisions and return feature insights + rule recommendations."""
-    stmt = (
-        select(AuditRecord)
-        .where(AuditRecord.tenant_id == body.tenant_id)
-        .order_by(AuditRecord.created_at.desc())
-        .limit(body.limit)
-    )
+    stmt = select(AuditRecord).where(AuditRecord.tenant_id == body.tenant_id).order_by(AuditRecord.created_at.desc()).limit(body.limit)
     result = await session.execute(stmt)
     records_raw = list(result.scalars().all())
 
@@ -122,15 +117,12 @@ async def preview_recommendation(
         raise HTTPException(400, "tenant_id and rule are required")
 
     from datetime import datetime, timedelta, timezone
+
     from decision_api.json_rules import _evaluate_pack
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=30)
     stmt = (
-        select(AuditRecord)
-        .where(AuditRecord.tenant_id == tenant_id)
-        .where(AuditRecord.created_at >= cutoff)
-        .order_by(AuditRecord.created_at.desc())
-        .limit(500)
+        select(AuditRecord).where(AuditRecord.tenant_id == tenant_id).where(AuditRecord.created_at >= cutoff).order_by(AuditRecord.created_at.desc()).limit(500)
     )
     result = await session.execute(stmt)
     records = list(result.scalars().all())

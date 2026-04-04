@@ -1,12 +1,12 @@
 """Unit tests for workflow engine."""
+
 import json
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
-
 from case_api.workflow import (
     WorkflowContext,
     _evaluate_condition,
@@ -105,6 +105,7 @@ class TestEvaluateWorkflows:
             ],
         }
         import case_api.workflow as mod
+
         mod._workflows = [wf]
 
         ctx = await evaluate_workflows("case_created", {"priority": "high", "labels": []})
@@ -121,6 +122,7 @@ class TestEvaluateWorkflows:
             "actions": [{"type": "escalate"}],
         }
         import case_api.workflow as mod
+
         mod._workflows = [wf]
 
         ctx = await evaluate_workflows("case_created", {"priority": "low"})
@@ -136,6 +138,7 @@ class TestEvaluateWorkflows:
             "actions": [{"type": "escalate"}],
         }
         import case_api.workflow as mod
+
         mod._workflows = [wf]
 
         ctx = await evaluate_workflows("case_created", {})

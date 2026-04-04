@@ -1,6 +1,8 @@
 """Shared fixtures for graph-service tests."""
-import pytest
+
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 
 @pytest.fixture
@@ -16,9 +18,11 @@ def mock_neo4j_driver():
 @pytest.fixture
 def make_neo4j_record():
     """Factory for creating mock Neo4j records."""
+
     def _make(data: dict):
         record = MagicMock()
         record.__getitem__ = lambda self, key: data[key]
         record.get = lambda key, default=None: data.get(key, default)
         return record
+
     return _make

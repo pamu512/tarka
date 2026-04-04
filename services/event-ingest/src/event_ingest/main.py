@@ -3,6 +3,7 @@
 Accepts events via REST or WebSocket, publishes to NATS JetStream.
 A built-in consumer drains NATS and forwards to Decision API.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -42,7 +43,7 @@ def _idempotency_redis_key(tenant_id: str, idempotency_key: str) -> str:
 _shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
-from observability import setup_observability, get_metrics  # noqa: E402
+from observability import get_metrics, setup_observability  # noqa: E402
 
 log = logging.getLogger("event-ingest")
 
@@ -52,12 +53,14 @@ _js: JetStreamContext | None = None
 # ---------- auth ----------
 _valid_api_keys: frozenset[str] | None = None
 
+
 def _get_api_keys() -> frozenset[str]:
     global _valid_api_keys
     if _valid_api_keys is None:
         raw = settings.api_keys.strip()
         _valid_api_keys = frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
     return _valid_api_keys
+
 
 async def require_api_key(request: Request) -> None:
     keys = _get_api_keys()
@@ -351,9 +354,7 @@ async def ws_ingest(ws: WebSocket):
                 try:
                     ep = EventPayload.model_validate(parsed)
                 except ValidationError as e:
-                    await ws.send_json(
-                        {"error": "validation_error", "detail": e.errors(include_url=False)}
-                    )
+                    await ws.send_json({"error": "validation_error", "detail": e.errors(include_url=False)})
                     continue
                 data = ep.model_dump(mode="json")
                 data["_ingest_id"] = uuid.uuid4().hex

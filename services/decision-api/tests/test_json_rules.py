@@ -1,20 +1,18 @@
 """Unit tests for json_rules engine."""
+
 import json
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from decision_api.json_rules import (
     _match_condition,
     evaluate_json_rules,
     load_rules,
-    _cached_packs,
 )
 
-
 # ---- _match_condition ----
+
 
 class TestMatchCondition:
     def test_eq_match(self):
@@ -83,13 +81,12 @@ class TestMatchCondition:
 
 # ---- load_rules ----
 
+
 class TestLoadRules:
     def test_load_from_dir(self):
         pack = {
             "version": 1,
-            "rules": [
-                {"id": "r1", "when": [{"field": "amount", "op": "gte", "value": 9000}], "tags": ["high_amount"], "score_delta": 20}
-            ],
+            "rules": [{"id": "r1", "when": [{"field": "amount", "op": "gte", "value": 9000}], "tags": ["high_amount"], "score_delta": 20}],
             "tag_rules": [],
         }
         with tempfile.TemporaryDirectory() as d:
@@ -98,6 +95,7 @@ class TestLoadRules:
                 mock_settings.rules_path = d
                 load_rules()
                 from decision_api.json_rules import _cached_packs
+
                 assert len(_cached_packs) == 1
                 assert _cached_packs[0]["rules"][0]["id"] == "r1"
 
@@ -107,6 +105,7 @@ class TestLoadRules:
                 mock_settings.rules_path = d
                 load_rules()
                 from decision_api.json_rules import _cached_packs
+
                 assert len(_cached_packs) == 0
 
     def test_load_nonexistent_dir(self):
@@ -114,6 +113,7 @@ class TestLoadRules:
             mock_settings.rules_path = "/nonexistent/path/xyz"
             load_rules()
             from decision_api.json_rules import _cached_packs
+
             assert len(_cached_packs) == 0
 
     def test_skip_bad_json(self):
@@ -124,6 +124,7 @@ class TestLoadRules:
                 mock_settings.rules_path = d
                 load_rules()
                 from decision_api.json_rules import _cached_packs
+
                 assert len(_cached_packs) == 1
 
     def test_skip_wrong_version(self):
@@ -133,100 +134,133 @@ class TestLoadRules:
                 mock_settings.rules_path = d
                 load_rules()
                 from decision_api.json_rules import _cached_packs
+
                 assert len(_cached_packs) == 0
 
 
 # ---- evaluate_json_rules ----
 
+
 class TestEvaluateJsonRules:
     def _load_pack(self, pack):
         import decision_api.json_rules as mod
+
         mod._cached_packs = [pack]
 
     def test_single_rule_hit(self):
-        self._load_pack({
-            "version": 1,
-            "rules": [{"id": "big_tx", "when": [{"field": "amount", "op": "gte", "value": 5000}], "tags": ["high_amount"], "score_delta": 20}],
-            "tag_rules": [],
-        })
+        self._load_pack(
+            {
+                "version": 1,
+                "rules": [{"id": "big_tx", "when": [{"field": "amount", "op": "gte", "value": 5000}], "tags": ["high_amount"], "score_delta": 20}],
+                "tag_rules": [],
+            }
+        )
         hits, tags, delta = evaluate_json_rules({"amount": 10000}, [])
         assert hits == ["big_tx"]
         assert tags == ["high_amount"]
         assert delta == 20.0
 
     def test_no_hit(self):
-        self._load_pack({
-            "version": 1,
-            "rules": [{"id": "big_tx", "when": [{"field": "amount", "op": "gte", "value": 5000}], "tags": ["high_amount"], "score_delta": 20}],
-            "tag_rules": [],
-        })
+        self._load_pack(
+            {
+                "version": 1,
+                "rules": [{"id": "big_tx", "when": [{"field": "amount", "op": "gte", "value": 5000}], "tags": ["high_amount"], "score_delta": 20}],
+                "tag_rules": [],
+            }
+        )
         hits, tags, delta = evaluate_json_rules({"amount": 100}, [])
         assert hits == []
         assert tags == []
         assert delta == 0.0
 
     def test_multi_condition_all_match(self):
-        self._load_pack({
-            "version": 1,
-            "rules": [{"id": "combo", "when": [
-                {"field": "amount", "op": "gte", "value": 5000},
-                {"field": "is_vpn", "op": "is_true"},
-            ], "tags": ["suspicious"], "score_delta": 30}],
-            "tag_rules": [],
-        })
+        self._load_pack(
+            {
+                "version": 1,
+                "rules": [
+                    {
+                        "id": "combo",
+                        "when": [
+                            {"field": "amount", "op": "gte", "value": 5000},
+                            {"field": "is_vpn", "op": "is_true"},
+                        ],
+                        "tags": ["suspicious"],
+                        "score_delta": 30,
+                    }
+                ],
+                "tag_rules": [],
+            }
+        )
         hits, tags, delta = evaluate_json_rules({"amount": 6000, "is_vpn": True}, [])
         assert hits == ["combo"]
 
     def test_multi_condition_partial_match(self):
-        self._load_pack({
-            "version": 1,
-            "rules": [{"id": "combo", "when": [
-                {"field": "amount", "op": "gte", "value": 5000},
-                {"field": "is_vpn", "op": "is_true"},
-            ], "tags": ["suspicious"], "score_delta": 30}],
-            "tag_rules": [],
-        })
+        self._load_pack(
+            {
+                "version": 1,
+                "rules": [
+                    {
+                        "id": "combo",
+                        "when": [
+                            {"field": "amount", "op": "gte", "value": 5000},
+                            {"field": "is_vpn", "op": "is_true"},
+                        ],
+                        "tags": ["suspicious"],
+                        "score_delta": 30,
+                    }
+                ],
+                "tag_rules": [],
+            }
+        )
         hits, tags, delta = evaluate_json_rules({"amount": 6000, "is_vpn": False}, [])
         assert hits == []
 
     def test_tag_rules(self):
-        self._load_pack({
-            "version": 1,
-            "rules": [],
-            "tag_rules": [{"id": "escalate_vpn", "any_tag": ["sdk:vpn"], "tags": ["escalated"], "score_delta": 10}],
-        })
+        self._load_pack(
+            {
+                "version": 1,
+                "rules": [],
+                "tag_rules": [{"id": "escalate_vpn", "any_tag": ["sdk:vpn"], "tags": ["escalated"], "score_delta": 10}],
+            }
+        )
         hits, tags, delta = evaluate_json_rules({}, ["sdk:vpn", "sdk:emulator"])
         assert hits == ["escalate_vpn"]
         assert tags == ["escalated"]
         assert delta == 10.0
 
     def test_tag_rules_no_match(self):
-        self._load_pack({
-            "version": 1,
-            "rules": [],
-            "tag_rules": [{"id": "escalate_vpn", "any_tag": ["sdk:vpn"], "tags": ["escalated"], "score_delta": 10}],
-        })
+        self._load_pack(
+            {
+                "version": 1,
+                "rules": [],
+                "tag_rules": [{"id": "escalate_vpn", "any_tag": ["sdk:vpn"], "tags": ["escalated"], "score_delta": 10}],
+            }
+        )
         hits, tags, delta = evaluate_json_rules({}, ["sdk:emulator"])
         assert hits == []
 
     def test_empty_when_skipped(self):
-        self._load_pack({
-            "version": 1,
-            "rules": [{"id": "bad_rule", "when": [], "tags": ["x"], "score_delta": 5}],
-            "tag_rules": [],
-        })
+        self._load_pack(
+            {
+                "version": 1,
+                "rules": [{"id": "bad_rule", "when": [], "tags": ["x"], "score_delta": 5}],
+                "tag_rules": [],
+            }
+        )
         hits, tags, delta = evaluate_json_rules({"amount": 100}, [])
         assert hits == []
 
     def test_multiple_rules_accumulate(self):
-        self._load_pack({
-            "version": 1,
-            "rules": [
-                {"id": "r1", "when": [{"field": "is_bot", "op": "is_true"}], "tags": ["bot"], "score_delta": 40},
-                {"id": "r2", "when": [{"field": "is_vpn", "op": "is_true"}], "tags": ["vpn"], "score_delta": 15},
-            ],
-            "tag_rules": [],
-        })
+        self._load_pack(
+            {
+                "version": 1,
+                "rules": [
+                    {"id": "r1", "when": [{"field": "is_bot", "op": "is_true"}], "tags": ["bot"], "score_delta": 40},
+                    {"id": "r2", "when": [{"field": "is_vpn", "op": "is_true"}], "tags": ["vpn"], "score_delta": 15},
+                ],
+                "tag_rules": [],
+            }
+        )
         hits, tags, delta = evaluate_json_rules({"is_bot": True, "is_vpn": True}, [])
         assert hits == ["r1", "r2"]
         assert sorted(tags) == ["bot", "vpn"]
@@ -234,6 +268,7 @@ class TestEvaluateJsonRules:
 
     def test_empty_packs(self):
         import decision_api.json_rules as mod
+
         mod._cached_packs = []
         hits, tags, delta = evaluate_json_rules({"amount": 999999}, [])
         assert hits == []

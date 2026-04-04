@@ -12,6 +12,7 @@ Usage:
     python tarka.py dev <module>                # Run a single module locally (no Docker)
     python tarka.py env                         # Generate .env from template
 """
+
 from __future__ import annotations
 
 import argparse
@@ -21,7 +22,6 @@ import platform
 import shutil
 import subprocess
 import sys
-import textwrap
 from pathlib import Path
 from typing import Any
 
@@ -172,6 +172,7 @@ SDK_MODULES: dict[str, dict[str, Any]] = {
 # Helpers
 # ───────────────────────────────────────────────────────────────────
 
+
 class Colors:
     BOLD = "\033[1m"
     GREEN = "\033[92m"
@@ -241,11 +242,16 @@ def _print_module(key: str, mod: dict, selected: bool = False, index: int | None
 
 def _save_state(modules: list[str], sdks: list[str]):
     STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    STATE_FILE.write_text(json.dumps({
-        "modules": modules,
-        "sdks": sdks,
-        "version": "1.0.0",
-    }, indent=2))
+    STATE_FILE.write_text(
+        json.dumps(
+            {
+                "modules": modules,
+                "sdks": sdks,
+                "version": "1.0.0",
+            },
+            indent=2,
+        )
+    )
 
 
 def _load_state() -> dict[str, Any]:
@@ -299,12 +305,13 @@ def _get_profiles(modules: list[str]) -> list[str]:
 # Commands
 # ───────────────────────────────────────────────────────────────────
 
+
 def cmd_install(args):
     _print_banner()
 
     if not _check_docker():
         print(f"{C.RED}Docker is not running or not installed.{C.RESET}")
-        print(f"Install Docker: https://docs.docker.com/get-docker/")
+        print("Install Docker: https://docs.docker.com/get-docker/")
         sys.exit(1)
 
     if not _check_docker_compose():
@@ -348,7 +355,7 @@ def cmd_install(args):
         print(f"\n{C.BOLD}SDK Packages (optional):{C.RESET}")
         for i, (key, sdk) in enumerate(SDK_MODULES.items(), 1):
             print(f"  {C.DIM}{i}.{C.RESET} {C.BOLD}{_sdk_line(key, sdk)}{C.RESET} — {C.DIM}{sdk['description']}{C.RESET}")
-        sdk_input = input(f"\n  Enter SDK numbers (comma-separated, or Enter to skip): ").strip()
+        sdk_input = input("\n  Enter SDK numbers (comma-separated, or Enter to skip): ").strip()
         if sdk_input:
             sdk_keys = list(SDK_MODULES.keys())
             for num in sdk_input.split(","):
@@ -459,58 +466,70 @@ def _generate_env(modules: list[str]):
     ]
 
     if "ml" in modules:
-        lines.extend([
-            "# ML Scoring",
-            "DISABLE_ML=false",
-            "ML_SCORING_URL=http://ml-scoring:8005",
-            "FEATURE_SERVICE_URL=http://feature-service:8004",
-            "",
-        ])
+        lines.extend(
+            [
+                "# ML Scoring",
+                "DISABLE_ML=false",
+                "ML_SCORING_URL=http://ml-scoring:8005",
+                "FEATURE_SERVICE_URL=http://feature-service:8004",
+                "",
+            ]
+        )
 
     if "graph" in modules:
-        lines.extend([
-            "# Graph Service",
-            "GRAPH_SERVICE_URL=http://graph-service:8001",
-            "NEO4J_URI=bolt://neo4j:7687",
-            "NEO4J_USER=neo4j",
-            "NEO4J_PASSWORD=tarka2026",
-            "",
-        ])
+        lines.extend(
+            [
+                "# Graph Service",
+                "GRAPH_SERVICE_URL=http://graph-service:8001",
+                "NEO4J_URI=bolt://neo4j:7687",
+                "NEO4J_USER=neo4j",
+                "NEO4J_PASSWORD=tarka2026",
+                "",
+            ]
+        )
 
     if "agent" in modules:
-        lines.extend([
-            "# Investigation Agent",
-            "OPENAI_API_KEY=sk-your-key-here",
-            "ALLOWED_ANALYSTS=*",
-            "",
-        ])
+        lines.extend(
+            [
+                "# Investigation Agent",
+                "OPENAI_API_KEY=sk-your-key-here",
+                "ALLOWED_ANALYSTS=*",
+                "",
+            ]
+        )
 
     if "streaming" in modules or "analytics" in modules:
-        lines.extend([
-            "# Streaming / Analytics",
-            "NATS_URL=nats://nats:4222",
-            "",
-        ])
+        lines.extend(
+            [
+                "# Streaming / Analytics",
+                "NATS_URL=nats://nats:4222",
+                "",
+            ]
+        )
 
     if "integration" in modules:
-        lines.extend([
-            "# OSINT API Keys (all optional — sources work without keys at lower limits)",
-            "ABUSEIPDB_KEY=",
-            "GREYNOISE_KEY=",
-            "EMAILREP_KEY=",
-            "NUMVERIFY_KEY=",
-            "IPINFO_TOKEN=",
-            "",
-        ])
+        lines.extend(
+            [
+                "# OSINT API Keys (all optional — sources work without keys at lower limits)",
+                "ABUSEIPDB_KEY=",
+                "GREYNOISE_KEY=",
+                "EMAILREP_KEY=",
+                "NUMVERIFY_KEY=",
+                "IPINFO_TOKEN=",
+                "",
+            ]
+        )
 
-    lines.extend([
-        "# Rate limiting",
-        "RATE_LIMIT_RPM=1000",
-        "",
-        "# API keys (comma-separated, empty = no auth)",
-        "API_KEYS=",
-        "",
-    ])
+    lines.extend(
+        [
+            "# Rate limiting",
+            "RATE_LIMIT_RPM=1000",
+            "",
+            "# API keys (comma-separated, empty = no auth)",
+            "API_KEYS=",
+            "",
+        ]
+    )
 
     ENV_FILE.write_text("\n".join(lines))
     print(f"\n{C.GREEN}Generated {ENV_FILE}{C.RESET}")
@@ -624,7 +643,7 @@ def cmd_dev(args):
 
     # Install dependencies
     print(f"{C.DIM}Installing dependencies...{C.RESET}")
-    subprocess.run([sys.executable, "-m", "pip", "install", "-e", f".[dev]"], cwd=str(service_dir), capture_output=True)
+    subprocess.run([sys.executable, "-m", "pip", "install", "-e", ".[dev]"], cwd=str(service_dir), capture_output=True)
 
     # Determine the module name and port
     port_map = {
@@ -820,6 +839,7 @@ def _get_all_profile_args(modules: list[str]) -> list[str]:
 # ───────────────────────────────────────────────────────────────────
 # Main
 # ───────────────────────────────────────────────────────────────────
+
 
 def main():
     parser = argparse.ArgumentParser(

@@ -6,6 +6,7 @@ fuzzy name matching with optional country / date-of-birth filters.
 All I/O is async-safe — network downloads use httpx and file parsing is
 offloaded to a thread pool to avoid blocking the event loop.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -20,9 +21,7 @@ import httpx
 
 log = logging.getLogger(__name__)
 
-_DATASET_URL = (
-    "https://data.opensanctions.org/datasets/latest/default/entities.ftm.json"
-)
+_DATASET_URL = "https://data.opensanctions.org/datasets/latest/default/entities.ftm.json"
 _CACHE_DIR = Path(os.environ.get("SANCTIONS_CACHE_DIR", "/tmp/sanctions_cache"))
 _CACHE_FILE = _CACHE_DIR / "entities.ftm.json"
 _CACHE_TTL_SECONDS = int(os.environ.get("SANCTIONS_CACHE_TTL", str(24 * 3600)))
@@ -126,11 +125,7 @@ class SanctionsScreener:
                         "id": obj.get("id", ""),
                         "schema": schema,
                         "names": [n.lower().strip() for n in names],
-                        "countries": [
-                            c.lower()
-                            for c in props.get("country", [])
-                            + props.get("nationality", [])
-                        ],
+                        "countries": [c.lower() for c in props.get("country", []) + props.get("nationality", [])],
                         "dobs": props.get("birthDate", []),
                         "topics": obj.get("datasets", []),
                         "caption": obj.get("caption", names[0] if names else ""),

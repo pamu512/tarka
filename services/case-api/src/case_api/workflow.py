@@ -18,6 +18,7 @@ Action types:
   - escalate         — change status to "escalated"
   - add_comment      — auto-add a system comment
 """
+
 from __future__ import annotations
 
 import json
@@ -57,6 +58,7 @@ def get_workflows() -> list[dict[str, Any]]:
 
 class WorkflowContext:
     """Data available to workflow conditions and actions."""
+
     def __init__(
         self,
         trigger: str,
@@ -122,10 +124,12 @@ async def _execute_action(
         ctx.actions_executed.append({"type": "escalate"})
 
     elif action_type == "add_comment":
-        ctx.mutations.setdefault("_comments", []).append({
-            "author": "workflow-engine",
-            "body": action.get("message", "Auto-comment from workflow"),
-        })
+        ctx.mutations.setdefault("_comments", []).append(
+            {
+                "author": "workflow-engine",
+                "body": action.get("message", "Auto-comment from workflow"),
+            }
+        )
         ctx.actions_executed.append({"type": "add_comment", "message": action.get("message")})
 
     elif action_type == "send_webhook":

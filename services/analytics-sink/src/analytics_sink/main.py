@@ -4,6 +4,7 @@ Creates the following ClickHouse tables on startup:
   - fraud.decision_events (MergeTree, partitioned by month)
   - fraud.decision_events_mv (materialized view for hourly aggregates)
 """
+
 import asyncio
 import inspect
 import json
@@ -17,14 +18,13 @@ from typing import Any
 import clickhouse_connect
 import nats
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
-from pydantic import BaseModel, Field
 
 from analytics_sink.config import settings
 
 _shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
-from observability import setup_observability, get_metrics  # noqa: E402
+from observability import get_metrics, setup_observability  # noqa: E402
 
 log = logging.getLogger("analytics-sink")
 
@@ -71,12 +71,14 @@ GROUP BY tenant_id, decision, hour
 # ---------- auth ----------
 _valid_api_keys: frozenset[str] | None = None
 
+
 def _get_api_keys() -> frozenset[str]:
     global _valid_api_keys
     if _valid_api_keys is None:
         raw = settings.api_keys.strip()
         _valid_api_keys = frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
     return _valid_api_keys
+
 
 async def require_api_key(request: Request) -> None:
     keys = _get_api_keys()
@@ -161,28 +163,39 @@ def _flush_batch(db: str, batch: list[dict[str, Any]]) -> None:
         return
     rows = []
     for d in batch:
-        rows.append([
-            d.get("trace_id", ""),
-            d.get("tenant_id", ""),
-            d.get("entity_id", ""),
-            d.get("event_type", ""),
-            d.get("decision", "pending"),
-            float(d.get("score", 0)),
-            d.get("tags", []),
-            d.get("rule_hits", []),
-            d.get("signal_tags", []),
-            d.get("ml_score"),
-            json.dumps(d.get("payload", {})),
-            datetime.fromisoformat(d["created_at"]) if d.get("created_at") else datetime.now(timezone.utc),
-        ])
+        rows.append(
+            [
+                d.get("trace_id", ""),
+                d.get("tenant_id", ""),
+                d.get("entity_id", ""),
+                d.get("event_type", ""),
+                d.get("decision", "pending"),
+                float(d.get("score", 0)),
+                d.get("tags", []),
+                d.get("rule_hits", []),
+                d.get("signal_tags", []),
+                d.get("ml_score"),
+                json.dumps(d.get("payload", {})),
+                datetime.fromisoformat(d["created_at"]) if d.get("created_at") else datetime.now(timezone.utc),
+            ]
+        )
     try:
         _ch_client.insert(
             f"{db}.decision_events",
             rows,
             column_names=[
-                "trace_id", "tenant_id", "entity_id", "event_type",
-                "decision", "score", "tags", "rule_hits", "signal_tags",
-                "ml_score", "payload", "created_at",
+                "trace_id",
+                "tenant_id",
+                "entity_id",
+                "event_type",
+                "decision",
+                "score",
+                "tags",
+                "rule_hits",
+                "signal_tags",
+                "ml_score",
+                "payload",
+                "created_at",
             ],
         )
         try:

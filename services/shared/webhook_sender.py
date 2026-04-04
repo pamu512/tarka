@@ -5,12 +5,11 @@ Usage::
     sender = WebhookSender(max_retries=5)
     await sender.send("https://example.com/hook", payload={"event": "deny"})
 """
+
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
-import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -96,23 +95,33 @@ class WebhookSender:
             if headers:
                 h.update(headers)
             r = await http.post(record.url, json=record.payload, headers=h, timeout=self._timeout)
-            record.attempts.append(WebhookAttempt(
-                url=record.url, payload=record.payload, attempt=attempt_num,
-                status_code=r.status_code, error=None,
-                timestamp=datetime.now(timezone.utc).isoformat(),
-            ))
+            record.attempts.append(
+                WebhookAttempt(
+                    url=record.url,
+                    payload=record.payload,
+                    attempt=attempt_num,
+                    status_code=r.status_code,
+                    error=None,
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                )
+            )
             return 200 <= r.status_code < 300
         except Exception as e:
-            record.attempts.append(WebhookAttempt(
-                url=record.url, payload=record.payload, attempt=attempt_num,
-                status_code=None, error=str(e),
-                timestamp=datetime.now(timezone.utc).isoformat(),
-            ))
+            record.attempts.append(
+                WebhookAttempt(
+                    url=record.url,
+                    payload=record.payload,
+                    attempt=attempt_num,
+                    status_code=None,
+                    error=str(e),
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                )
+            )
             return False
 
     async def _retry_loop(self, record: WebhookRecord, headers: dict[str, str] | None = None) -> None:
         for i in range(1, self._max_retries):
-            delay = min(self._base_delay * (2 ** i), self._max_delay)
+            delay = min(self._base_delay * (2**i), self._max_delay)
             await asyncio.sleep(delay)
             success = await self._attempt(record, headers)
             if success:

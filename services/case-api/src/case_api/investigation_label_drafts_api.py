@@ -1,4 +1,5 @@
 """Durable analyst-scoped investigation label drafts (separate from case workflow labels)."""
+
 from __future__ import annotations
 
 import re
@@ -14,9 +15,7 @@ from case_api.schemas import LabelDraftBatchIn, LabelDraftOut, LabelDraftRowIn
 
 router = APIRouter(prefix="/v1/investigation-label-drafts", tags=["investigation-label-drafts"])
 
-_UUID = re.compile(
-    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE
-)
+_UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
 _SAFE_ENTITY = re.compile(r"^[a-zA-Z0-9._@:/-]{1,512}$")
 _VALID_Y = frozenset({"fraud", "legitimate", "unknown"})
 _MAX_PER_ANALYST = 500
@@ -35,7 +34,7 @@ def _validate_row(row: LabelDraftRowIn) -> tuple[str | None, str | None, str, st
     if not tid and not eid:
         raise HTTPException(400, "each row needs trace_id and/or entity_id")
     src = str(row.source or "analyst")[:128]
-    notes = (row.notes or None)
+    notes = row.notes or None
     if notes is not None:
         notes = str(notes)[:4000]
     return tid, eid, y, src, notes

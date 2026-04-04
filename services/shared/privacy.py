@@ -19,8 +19,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-from dataclasses import dataclass, field
-from datetime import timedelta
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
@@ -31,19 +30,20 @@ log = logging.getLogger("tarka.privacy")
 # Region enum & privacy profile
 # ---------------------------------------------------------------------------
 
+
 class Region(str, Enum):
-    EU = "eu"           # GDPR
-    US_CA = "us_ca"     # CCPA/CPRA
-    US = "us"           # General US (no federal privacy law)
-    BR = "br"           # LGPD
-    IN = "in"           # DPDP Act
-    ZA = "za"           # POPIA
-    SG = "sg"           # PDPA
-    JP = "jp"           # APPI
-    CA = "ca"           # PIPEDA
-    UK = "uk"           # UK GDPR
-    AU = "au"           # Privacy Act
-    GLOBAL = "global"   # Baseline
+    EU = "eu"  # GDPR
+    US_CA = "us_ca"  # CCPA/CPRA
+    US = "us"  # General US (no federal privacy law)
+    BR = "br"  # LGPD
+    IN = "in"  # DPDP Act
+    ZA = "za"  # POPIA
+    SG = "sg"  # PDPA
+    JP = "jp"  # APPI
+    CA = "ca"  # PIPEDA
+    UK = "uk"  # UK GDPR
+    AU = "au"  # Privacy Act
+    GLOBAL = "global"  # Baseline
 
 
 @dataclass
@@ -273,13 +273,14 @@ def get_profile(region: str | Region) -> PrivacyProfile:
 # PII field classification
 # ---------------------------------------------------------------------------
 
+
 class PIICategory(str, Enum):
-    DIRECT = "direct"           # Name, SSN, passport
-    QUASI = "quasi"             # DOB, zip, gender (can re-identify in combination)
-    SENSITIVE = "sensitive"     # Race, religion, health, biometric
-    CONTACT = "contact"         # Email, phone, address
-    FINANCIAL = "financial"     # Card number, bank account, income
-    DEVICE = "device"           # Device ID, IP, fingerprint
+    DIRECT = "direct"  # Name, SSN, passport
+    QUASI = "quasi"  # DOB, zip, gender (can re-identify in combination)
+    SENSITIVE = "sensitive"  # Race, religion, health, biometric
+    CONTACT = "contact"  # Email, phone, address
+    FINANCIAL = "financial"  # Card number, bank account, income
+    DEVICE = "device"  # Device ID, IP, fingerprint
     BEHAVIORAL = "behavioral"  # Browsing history, purchase patterns
 
 
@@ -345,6 +346,7 @@ PII_PATTERNS = {
 # ---------------------------------------------------------------------------
 # PII detection, masking, and anonymization helpers
 # ---------------------------------------------------------------------------
+
 
 def classify_field(field_name: str) -> PIICategory | None:
     """Return the PII category for a known field name, or ``None``."""
@@ -446,6 +448,7 @@ def anonymize_record(record: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Article 30 GDPR-style Record of Processing Activities
 # ---------------------------------------------------------------------------
+
 
 def get_data_processing_record(
     tenant_id: str,

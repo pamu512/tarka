@@ -1,4 +1,5 @@
 """Server-side signal collector for Python SDK."""
+
 from __future__ import annotations
 
 import hashlib
@@ -7,15 +8,17 @@ import os
 from typing import Any
 
 # Known datacenter/proxy ASN prefixes (lightweight list; extend or use MaxMind)
-_DATACENTER_ASNS = frozenset({
-    "AS14061",  # DigitalOcean
-    "AS16509",  # Amazon AWS
-    "AS15169",  # Google Cloud
-    "AS13335",  # Cloudflare
-    "AS8075",   # Microsoft Azure
-    "AS20473",  # Vultr
-    "AS63949",  # Linode
-})
+_DATACENTER_ASNS = frozenset(
+    {
+        "AS14061",  # DigitalOcean
+        "AS16509",  # Amazon AWS
+        "AS15169",  # Google Cloud
+        "AS13335",  # Cloudflare
+        "AS8075",  # Microsoft Azure
+        "AS20473",  # Vultr
+        "AS63949",  # Linode
+    }
+)
 
 _PROXY_HEADERS = (
     "x-forwarded-for",
