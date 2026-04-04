@@ -25,3 +25,13 @@ Thumbs.db
 .idea/
 .vscode/
 *.iml
+
+# Local AI-assisted editor metadata — keep the repo vendor-neutral; do not commit.
+.cursor/
+
+# Python coverage (local pytest)
+.coverage
+**/.coverage
+
+# Local SQLite files under services (dev/demo; not release artifacts)
+services/**/*.db

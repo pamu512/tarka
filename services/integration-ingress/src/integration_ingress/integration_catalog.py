@@ -15,6 +15,7 @@ PROVIDER_CATALOG: list[dict[str, Any]] = [
     {"id": "seon", "name": "SEON", "category": "social_media", "type": "api", "required_config_fields": ["api_key", "username", "password"], "doc_url": "https://docs.seon.io/"},
     {"id": "sociallinks", "name": "Social Links", "category": "social_media", "type": "api", "required_config_fields": ["api_key", "username", "password"], "doc_url": "https://sociallinks.io/"},
     {"id": "complyadvantage", "name": "ComplyAdvantage", "category": "sanctions", "type": "api", "required_config_fields": ["api_key", "username", "password"], "doc_url": "https://docs.complyadvantage.com/"},
+    {"id": "opensanctions", "name": "OpenSanctions", "category": "sanctions", "type": "api", "required_config_fields": ["api_key"], "doc_url": "https://www.opensanctions.org/docs/api/"},
     {"id": "dow_jones_riskcenter", "name": "Dow Jones RiskCenter", "category": "sanctions", "type": "api", "required_config_fields": ["api_key", "username", "password"], "doc_url": "https://www.dowjones.com/professional/risk/"},
     {"id": "stripe_radar", "name": "Stripe Radar", "category": "payments", "type": "api", "required_config_fields": ["api_key", "username", "password"], "doc_url": "https://stripe.com/docs/radar"},
     {"id": "adyen_protect", "name": "Adyen Protect", "category": "payments", "type": "api", "required_config_fields": ["api_key", "username", "password"], "doc_url": "https://docs.adyen.com/risk-management/"},

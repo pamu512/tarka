@@ -1,0 +1,65 @@
+# Dependency updates (opens PRs weekly). Review Trivy + CI before merging.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: pip
+    directory: /services/decision-api
+    schedule:
+      interval: weekly
+    groups:
+      pip-decision-api:
+        patterns:
+          - "*"
+
+  - package-ecosystem: pip
+    directory: /services/case-api
+    schedule:
+      interval: weekly
+    groups:
+      pip-case-api:
+        patterns:
+          - "*"
+
+  - package-ecosystem: pip
+    directory: /services/graph-service
+    schedule:
+      interval: weekly
+    groups:
+      pip-graph-service:
+        patterns:
+          - "*"
+
+  - package-ecosystem: pip
+    directory: /services/integration-ingress
+    schedule:
+      interval: weekly
+    groups:
+      pip-integration-ingress:
+        patterns:
+          - "*"
+
+  - package-ecosystem: pip
+    directory: /services/investigation-agent
+    schedule:
+      interval: weekly
+    groups:
+      pip-investigation-agent:
+        patterns:
+          - "*"
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    groups:
+      npm-frontend:
+        patterns:
+          - "*"

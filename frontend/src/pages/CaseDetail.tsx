@@ -1,8 +1,20 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { cases, decisions, graph, type Case, type EntityRiskResult, type SubgraphResponse } from "../api/client";
+import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  cases,
+  decisions,
+  graph,
+  type Case,
+  type EntityRiskResult,
+  type InferenceContext,
+  normalizeInferenceContext,
+  type SubgraphResponse,
+} from "../api/client";
 import StatusBadge from "../components/StatusBadge";
 import PriorityBadge from "../components/PriorityBadge";
+import { PageTitle } from "../components/PageTitle";
+import { FraudScoreTrack } from "../components/FraudScoreTrack";
+import { InferenceMetricTrack } from "../components/InferenceMetricTrack";
 import { Network, type Options } from "vis-network";
 import { DataSet } from "vis-data";
 
@@ -13,18 +25,14 @@ type DecisionExplain = {
   reasons: string[];
   tags: string[];
   rule_hits: string[];
-  inference_context?: {
-    integrity_confidence: number;
-    tamper_risk: number;
-    network_trust: number;
-    replay_risk: number;
-    geo_consistency_risk: number;
-    top_signals: string[];
-  } | null;
+  recommended_action?: string | null;
+  inference_context: InferenceContext | null;
 };
 
 export default function CaseDetail() {
   const { caseId } = useParams<{ caseId: string }>();
+  const [searchParams] = useSearchParams();
+  const tenantIdFromUrl = searchParams.get("tenant_id") ?? "demo";
   const navigate = useNavigate();
   const [caseData, setCaseData] = useState<Case | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,7 +48,7 @@ export default function CaseDetail() {
   const fetchCase = useCallback(async () => {
     if (!caseId) return;
     try {
-      const data = await cases.get(caseId);
+      const data = await cases.get(caseId, tenantIdFromUrl);
       setCaseData(data);
       setError(null);
     } catch (e) {
@@ -48,7 +56,7 @@ export default function CaseDetail() {
     } finally {
       setLoading(false);
     }
-  }, [caseId]);
+  }, [caseId, tenantIdFromUrl]);
 
   useEffect(() => {
     fetchCase();
@@ -59,15 +67,18 @@ export default function CaseDetail() {
     (async () => {
       try {
         if (caseData.trace_id) {
-          const audit = await decisions.getAudit(caseData.trace_id);
+          const audit = await decisions.getAudit(caseData.trace_id, caseData.tenant_id);
           setDecisionExplain({
             score: audit.score,
             decision: audit.decision,
             reasons: [],
             tags: audit.tags || [],
             rule_hits: audit.rule_hits || [],
-            inference_context: audit.inference_context ?? null,
+            recommended_action: audit.recommended_action ?? null,
+            inference_context: normalizeInferenceContext(audit.inference_context),
           });
+        } else {
+          setDecisionExplain(null);
         }
       } catch {
         setDecisionExplain(null);
@@ -82,10 +93,10 @@ export default function CaseDetail() {
   }, [caseData]);
 
   const handleStatusChange = async (newStatus: string) => {
-    if (!caseId || statusUpdating) return;
+    if (!caseId || !caseData || statusUpdating) return;
     setStatusUpdating(true);
     try {
-      const updated = await cases.update(caseId, { status: newStatus as Case["status"] });
+      const updated = await cases.update(caseId, caseData.tenant_id, { status: newStatus as Case["status"] });
       setCaseData(updated);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to update status");
@@ -95,9 +106,9 @@ export default function CaseDetail() {
   };
 
   const handlePriorityChange = async (newPriority: string) => {
-    if (!caseId) return;
+    if (!caseId || !caseData) return;
     try {
-      const updated = await cases.update(caseId, { priority: newPriority as Case["priority"] });
+      const updated = await cases.update(caseId, caseData.tenant_id, { priority: newPriority as Case["priority"] });
       setCaseData(updated);
     } catch {
       /* silent */
@@ -106,10 +117,10 @@ export default function CaseDetail() {
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!caseId || !commentText.trim()) return;
+    if (!caseId || !caseData || !commentText.trim()) return;
     setCommentSubmitting(true);
     try {
-      await cases.addComment(caseId, "analyst", commentText.trim());
+      await cases.addComment(caseId, caseData.tenant_id, "analyst", commentText.trim());
       await fetchCase();
       setCommentText("");
     } catch (err) {
@@ -120,9 +131,9 @@ export default function CaseDetail() {
   };
 
   const handleAddLabel = async () => {
-    if (!caseId || !labelInput.trim()) return;
+    if (!caseId || !caseData || !labelInput.trim()) return;
     try {
-      await cases.addLabels(caseId, [labelInput.trim()]);
+      await cases.addLabels(caseId, caseData.tenant_id, [labelInput.trim()]);
       await fetchCase();
       setLabelInput("");
     } catch {
@@ -170,13 +181,17 @@ export default function CaseDetail() {
       </button>
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-gray-100">
-            {caseData.title}
-          </h1>
+        <div className="space-y-1 min-w-0">
+          <PageTitle module="cases">{caseData.title}</PageTitle>
           <p className="text-sm text-gray-400 font-mono">{caseData.id}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            to={`/investigation?case_id=${encodeURIComponent(caseData.id)}&tenant_id=${encodeURIComponent(caseData.tenant_id)}`}
+            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-brand-600/20 text-brand-300 hover:bg-brand-600/30 transition-colors border border-brand-500/30"
+          >
+            Open in Investigation Copilot
+          </Link>
           <StatusBadge status={caseData.status} />
           <PriorityBadge priority={caseData.priority} />
           <span
@@ -205,33 +220,108 @@ export default function CaseDetail() {
           {decisionExplain ? (
             <>
               <div className="text-xs text-gray-400">Decision: <span className="text-gray-200">{decisionExplain.decision}</span></div>
-              <div className="text-xs text-gray-400">Score: <span className="text-gray-200">{decisionExplain.score.toFixed(2)}</span></div>
-              {decisionExplain.inference_context && (
-                <>
-                  <div className="text-xs text-gray-400">
-                    Integrity Confidence: <span className="text-gray-200">{(decisionExplain.inference_context.integrity_confidence * 100).toFixed(1)}%</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-400">
-                    <span>Tamper Risk: <span className="text-gray-200">{decisionExplain.inference_context.tamper_risk.toFixed(2)}</span></span>
-                    <span>Replay Risk: <span className="text-gray-200">{decisionExplain.inference_context.replay_risk.toFixed(2)}</span></span>
-                    <span>Network Trust: <span className="text-gray-200">{decisionExplain.inference_context.network_trust.toFixed(2)}</span></span>
-                    <span>Geo Risk: <span className="text-gray-200">{decisionExplain.inference_context.geo_consistency_risk.toFixed(2)}</span></span>
-                  </div>
-                </>
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-xs text-gray-400">Fraud score (0–100)</span>
+                  <span className="text-sm font-mono text-gray-100 tabular-nums">{decisionExplain.score.toFixed(1)}</span>
+                </div>
+                <FraudScoreTrack score={decisionExplain.score} />
+                <p className="text-[10px] text-gray-600 leading-snug">
+                  Band copy is indicative; your org sets review and block thresholds in policy.
+                </p>
+              </div>
+              {decisionExplain.recommended_action && (
+                <div className="text-xs text-amber-400/90">
+                  Recommended action: <span className="font-mono text-gray-200">{decisionExplain.recommended_action}</span>
+                </div>
               )}
+              {decisionExplain.inference_context ? (
+                <>
+                  <div className="text-xs text-gray-500 flex flex-wrap gap-x-3 gap-y-1 pt-1">
+                    <span>
+                      Tier:{" "}
+                      <span className="text-gray-300">{decisionExplain.inference_context.confidence_tier}</span>
+                    </span>
+                    <span>schema v{decisionExplain.inference_context.schema_version}</span>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2 pt-2">
+                    <InferenceMetricTrack
+                      label="Integrity confidence"
+                      value={decisionExplain.inference_context.integrity_confidence}
+                      variant="trust"
+                    />
+                    <InferenceMetricTrack
+                      label="Tamper risk"
+                      value={decisionExplain.inference_context.tamper_risk}
+                      variant="risk"
+                    />
+                    <InferenceMetricTrack
+                      label="Replay risk"
+                      value={decisionExplain.inference_context.replay_risk}
+                      variant="risk"
+                    />
+                    <InferenceMetricTrack
+                      label="Network trust"
+                      value={decisionExplain.inference_context.network_trust}
+                      variant="trust"
+                    />
+                    <InferenceMetricTrack
+                      label="Geo consistency risk"
+                      value={decisionExplain.inference_context.geo_consistency_risk}
+                      variant="risk"
+                    />
+                    {decisionExplain.inference_context.colocation_risk > 0 && (
+                      <InferenceMetricTrack
+                        label="Colocation risk"
+                        value={decisionExplain.inference_context.colocation_risk}
+                        variant="risk"
+                      />
+                    )}
+                    {decisionExplain.inference_context.impossible_travel_risk > 0 && (
+                      <InferenceMetricTrack
+                        label="Impossible travel (proxy)"
+                        value={decisionExplain.inference_context.impossible_travel_risk}
+                        variant="risk"
+                      />
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Velocity (5m / 1h / 24h):{" "}
+                    <span className="text-gray-300 font-mono tabular-nums">
+                      {decisionExplain.inference_context.velocity_events_5m} /{" "}
+                      {decisionExplain.inference_context.velocity_events_1h} /{" "}
+                      {decisionExplain.inference_context.velocity_events_24h}
+                    </span>
+                  </div>
+                  {decisionExplain.inference_context.driver_reasons.length > 0 && (
+                    <div className="pt-1">
+                      <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">Top drivers</div>
+                      <ul className="text-xs text-gray-400 list-disc list-inside space-y-0.5">
+                        {decisionExplain.inference_context.driver_reasons.map((d) => (
+                          <li key={d} className="font-mono text-[11px] text-gray-300">
+                            {d}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              ) : null}
               <div className="flex flex-wrap gap-2">
                 {decisionExplain.rule_hits.map((h) => (
                   <span key={h} className="px-2 py-0.5 bg-brand-500/20 text-brand-300 text-xs rounded-full">{h}</span>
                 ))}
                 {decisionExplain.rule_hits.length === 0 && <span className="text-xs text-gray-500">No rule hits</span>}
               </div>
-              {decisionExplain.inference_context && decisionExplain.inference_context.top_signals.length > 0 && (
+              {decisionExplain.inference_context && decisionExplain.inference_context.top_signals.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {decisionExplain.inference_context.top_signals.map((s) => (
-                    <span key={s} className="px-2 py-0.5 bg-surface-700 text-gray-300 text-xs rounded-full">{s}</span>
+                    <span key={s} className="px-2 py-0.5 bg-surface-700 text-gray-300 text-xs rounded-full">
+                      {s}
+                    </span>
                   ))}
                 </div>
-              )}
+              ) : null}
             </>
           ) : (
             <span className="text-xs text-gray-500">No decision audit available</span>
@@ -241,8 +331,14 @@ export default function CaseDetail() {
           <h3 className="text-sm font-semibold text-gray-300">Graph Risk Context</h3>
           {graphRisk ? (
             <>
-              <div className="text-xs text-gray-400">Risk Score: <span className="text-gray-200">{graphRisk.risk_score}</span></div>
-              <div className="text-xs text-gray-400">Community Size: <span className="text-gray-200">{graphRisk.community_size}</span></div>
+              <InferenceMetricTrack
+                label="Graph risk score (0–1)"
+                value={graphRisk.risk_score}
+                variant="risk"
+              />
+              <div className="text-xs text-gray-400 pt-1">
+                Community size: <span className="text-gray-200 font-mono tabular-nums">{graphRisk.community_size}</span>
+              </div>
               <div className="flex flex-wrap gap-2">
                 {graphRisk.risk_factors.map((f) => (
                   <span key={f} className="px-2 py-0.5 bg-surface-700 text-gray-300 text-xs rounded-full">{f}</span>

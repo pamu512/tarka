@@ -11,10 +11,11 @@ from typing import Any
 from uuid import UUID
 
 import json as _json
+import re as _re
 
 import httpx
 import nats
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +34,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..
 from privacy import get_profile, mask_dict  # noqa: E402
 from entity_lists import create_list_store  # noqa: E402
 from decision_api.schemas import EvaluateRequest, EvaluateResponse
+from decision_api.inference_build import build_inference_context, derive_recommended_action
 from decision_api.shadow import evaluate_shadow, load_shadow_rules, record_observation
 from decision_api.aggregates import agg_store
 from decision_api.lists_api import router as lists_router, set_store, get_store as _get_list_store
@@ -49,6 +51,32 @@ from rate_limiter import setup_rate_limiter  # noqa: E402
 from security_headers import setup_security_headers  # noqa: E402
 
 log = logging.getLogger("decision-api")
+
+_ANALYST_ENTITY_ID = _re.compile(r"^[a-zA-Z0-9._@:/-]{1,512}$")
+
+
+def _velocity_anomaly_flags(features: dict[str, Any]) -> dict[str, Any]:
+    """Heuristic flags for analyst / copilot tooling only (not a decision)."""
+    ev5 = int(features.get("event_count_5m") or 0)
+    ev1 = int(features.get("event_count_1h") or 0)
+    ev24 = int(features.get("event_count_24h") or 0)
+    flags: list[str] = []
+    if ev5 >= 5:
+        flags.append("burst_activity_5m")
+    if ev1 >= 15:
+        flags.append("high_volume_1h")
+    if ev24 > 0 and ev1 > 10 and (ev1 / max(ev24, 1)) > 0.4:
+        flags.append("concentrated_recent_activity_vs_24h")
+    dd = int(features.get("distinct_device_id_24h") or 0)
+    if dd >= 3:
+        flags.append("multiple_distinct_devices_24h")
+    sev = "low"
+    if len(flags) >= 2:
+        sev = "high"
+    elif flags:
+        sev = "medium"
+    return {"flags": flags, "severity_hint": sev}
+
 
 # ---------- websocket live feed ----------
 _ws_clients: set[WebSocket] = set()
@@ -343,55 +371,6 @@ def extract_behavior_tags(device_context: dict[str, Any] | None) -> list[str]:
     return tags
 
 
-def _clamp01(value: float) -> float:
-    return max(0.0, min(1.0, value))
-
-
-def build_inference_context(
-    signal_tags: list[str],
-    rule_hits: list[str],
-    ml_score: float | None,
-    final_score: float,
-) -> dict[str, Any]:
-    """Normalize heterogeneous risk signals into a consistent inference contract."""
-    signal_set = set(signal_tags)
-
-    tamper_markers = ("sdk:repackaged", "sdk:automation", "sdk:emulator", "sdk:shared_device")
-    network_markers = ("sdk:vpn", "sdk:proxy", "sdk:datacenter", "sdk:vpn_iface")
-    geo_markers = ("sdk:spoofed_location", "sdk:tz_geo_mismatch", "sdk:mock_location")
-
-    tamper_hits = sum(1 for m in tamper_markers if m in signal_set)
-    network_hits = sum(1 for m in network_markers if m in signal_set)
-    geo_hits = sum(1 for m in geo_markers if m in signal_set)
-    replay_hits = sum(1 for h in rule_hits if "replay" in h.lower())
-    if "ingress:replay_payload" in signal_set:
-        replay_hits += 1
-
-    tamper_risk = _clamp01(tamper_hits / max(1, len(tamper_markers)))
-    network_risk = _clamp01(network_hits / max(1, len(network_markers)))
-    geo_consistency_risk = _clamp01(geo_hits / max(1, len(geo_markers)))
-    replay_risk = _clamp01(replay_hits / 2.0)
-
-    # Higher value means more trusted network path.
-    network_trust = _clamp01(1.0 - network_risk)
-    score_factor = _clamp01(final_score / 100.0)
-    model_factor = _clamp01((ml_score or 0.0) / 100.0)
-    integrity_confidence = _clamp01(
-        1.0 - (0.35 * tamper_risk + 0.2 * network_risk + 0.15 * replay_risk + 0.15 * geo_consistency_risk)
-        - (0.15 * max(score_factor, model_factor))
-    )
-
-    ordered_top = sorted(signal_set)[:5]
-    return {
-        "integrity_confidence": round(integrity_confidence, 4),
-        "tamper_risk": round(tamper_risk, 4),
-        "network_trust": round(network_trust, 4),
-        "replay_risk": round(replay_risk, 4),
-        "geo_consistency_risk": round(geo_consistency_risk, 4),
-        "top_signals": ordered_top,
-    }
-
-
 # ---------- downstream helpers ----------
 
 async def _fetch_feature_snapshot(
@@ -671,6 +650,7 @@ async def evaluate_decision(
 
     if list_check and list_check.found:
         if list_check.action == "allow":
+            _wl_inf = build_inference_context([], ["whitelist_bypass"], None, 0.0, None)
             audit = AuditRecord(
                 trace_id=trace_id,
                 tenant_id=body.tenant_id,
@@ -680,7 +660,12 @@ async def evaluate_decision(
                 score=0.0,
                 tags=["list:whitelist"],
                 rule_hits=["whitelist_bypass"],
-                payload_snapshot={"whitelisted": True, "reason": list_check.reason},
+                payload_snapshot={
+                    "whitelisted": True,
+                    "reason": list_check.reason,
+                    "inference_context": _wl_inf,
+                    "recommended_action": None,
+                },
             )
             session.add(audit)
             await session.commit()
@@ -692,10 +677,13 @@ async def evaluate_decision(
                 rule_hits=["whitelist_bypass"],
                 reasons=[f"whitelist:{list_check.reason}"],
                 ml_score=None,
-                inference_context=build_inference_context([], ["whitelist_bypass"], None, 0.0),
+                inference_context=_wl_inf,
+                recommended_action=None,
             )
 
         if list_check.action == "deny":
+            _bl_inf = build_inference_context(["list:blacklist"], ["blacklist_block"], None, 100.0, None)
+            _bl_rec = derive_recommended_action("deny", ["list:blacklist"], _bl_inf)
             audit = AuditRecord(
                 trace_id=trace_id,
                 tenant_id=body.tenant_id,
@@ -705,7 +693,12 @@ async def evaluate_decision(
                 score=100.0,
                 tags=["list:blacklist"],
                 rule_hits=["blacklist_block"],
-                payload_snapshot={"blacklisted": True, "reason": list_check.reason},
+                payload_snapshot={
+                    "blacklisted": True,
+                    "reason": list_check.reason,
+                    "inference_context": _bl_inf,
+                    "recommended_action": _bl_rec,
+                },
             )
             session.add(audit)
             await session.commit()
@@ -717,7 +710,8 @@ async def evaluate_decision(
                 rule_hits=["blacklist_block"],
                 reasons=[f"blacklist:{list_check.reason}"],
                 ml_score=None,
-                inference_context=build_inference_context(["list:blacklist"], ["blacklist_block"], None, 100.0),
+                inference_context=_bl_inf,
+                recommended_action=_bl_rec,
             )
 
     existing_tags = await redis_tags.get_tags(body.tenant_id, body.entity_id)
@@ -812,6 +806,15 @@ async def evaluate_decision(
     if ml_score is not None and isinstance(ml_score, float):
         reasons.append(f"ml:{ml_score:.2f}")
 
+    inf_ctx = build_inference_context(
+        signal_tags,
+        combined_rule_hits,
+        ml_score if isinstance(ml_score, float) else None,
+        final_score,
+        features,
+    )
+    recommended_action = derive_recommended_action(decision, signal_tags, inf_ctx)
+
     # Apply region-aware PII masking before storage
     region = getattr(body, "region", settings.default_region) or settings.default_region
     privacy_profile = get_profile(region)
@@ -832,12 +835,8 @@ async def evaluate_decision(
         rule_hits=combined_rule_hits,
         payload_snapshot={
             **stored_snapshot,
-            "inference_context": build_inference_context(
-                signal_tags,
-                combined_rule_hits,
-                ml_score if isinstance(ml_score, float) else None,
-                final_score,
-            ),
+            "inference_context": inf_ctx,
+            "recommended_action": recommended_action,
         },
     )
     session.add(audit)
@@ -863,12 +862,8 @@ async def evaluate_decision(
         rule_hits=combined_rule_hits,
         reasons=reasons,
         ml_score=ml_score if isinstance(ml_score, float) else None,
-        inference_context=build_inference_context(
-            signal_tags,
-            combined_rule_hits,
-            ml_score if isinstance(ml_score, float) else None,
-            final_score,
-        ),
+        inference_context=inf_ctx,
+        recommended_action=recommended_action,
     )
 
     bg.add_task(_broadcast_decision, {
@@ -905,20 +900,24 @@ async def evaluate_decision(
 
     # Test bypass: run full evaluation but override decision to allow
     if list_check and list_check.found and list_check.list_type == "test_bypass":
+        _tb_hits = combined_rule_hits + ["test_bypass"]
+        _tb_inf = build_inference_context(
+            signal_tags,
+            _tb_hits,
+            ml_score if isinstance(ml_score, float) else None,
+            final_score,
+            features,
+        )
         response = EvaluateResponse(
             trace_id=trace_id,
             decision="allow",
             score=final_score,
             tags=merged_tags + ["list:test_bypass"],
-            rule_hits=combined_rule_hits,
+            rule_hits=_tb_hits,
             reasons=reasons + [f"test_bypass:{list_check.reason}"],
             ml_score=ml_score if isinstance(ml_score, float) else None,
-            inference_context=build_inference_context(
-                signal_tags,
-                combined_rule_hits + ["test_bypass"],
-                ml_score if isinstance(ml_score, float) else None,
-                final_score,
-            ),
+            inference_context=_tb_inf,
+            recommended_action=derive_recommended_action("allow", signal_tags, _tb_inf),
         )
 
     return response
@@ -957,11 +956,16 @@ if _STATIC_DIR.is_dir():
 
 
 @app.get("/v1/audit/{trace_id}")
-async def get_audit(trace_id: UUID, session: AsyncSession = Depends(get_session)):
+async def get_audit(
+    trace_id: UUID,
+    tenant_id: str = Query(..., description="Must match the audit row tenant_id"),
+    session: AsyncSession = Depends(get_session),
+):
     result = await session.execute(select(AuditRecord).where(AuditRecord.trace_id == trace_id))
     row = result.scalar_one_or_none()
-    if not row:
+    if not row or str(row.tenant_id) != tenant_id:
         raise HTTPException(status_code=404, detail="not found")
+    snap = row.payload_snapshot or {}
     return {
         "trace_id": str(row.trace_id),
         "tenant_id": row.tenant_id,
@@ -971,6 +975,57 @@ async def get_audit(trace_id: UUID, session: AsyncSession = Depends(get_session)
         "score": row.score,
         "tags": row.tags,
         "rule_hits": row.rule_hits,
-        "inference_context": (row.payload_snapshot or {}).get("inference_context"),
+        "inference_context": snap.get("inference_context"),
+        "recommended_action": snap.get("recommended_action"),
         "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+@app.get("/v1/analyst/entity-velocity")
+async def analyst_entity_velocity(
+    tenant_id: str = Query(..., min_length=1, max_length=128),
+    entity_id: str = Query(..., min_length=1, max_length=512),
+):
+    """Redis-backed event counts + velocity slice of inference_context for investigations (read-only)."""
+    eid = str(entity_id).strip()
+    tid = str(tenant_id).strip()
+    if not _ANALYST_ENTITY_ID.match(eid):
+        raise HTTPException(status_code=400, detail="invalid entity_id")
+    try:
+        raw_features = await agg_store.compute_features(tid, eid, {})
+    except Exception as exc:
+        log.warning("entity-velocity aggregates failed: %s", exc)
+        raw_features = {f"event_count_{w}": 0 for w in ("5m", "1h", "24h", "7d")}
+    inf = build_inference_context(
+        signal_tags=[],
+        rule_hits=[],
+        ml_score=None,
+        final_score=0.0,
+        features=raw_features,
+    )
+    vel_keys = ("event_count_5m", "event_count_1h", "event_count_24h", "event_count_7d")
+    agg_slice = {k: raw_features.get(k, 0) for k in vel_keys}
+    for k, v in sorted(raw_features.items()):
+        if k.startswith("distinct_"):
+            agg_slice[k] = v
+    return {
+        "entity_id": eid,
+        "tenant_id": tid,
+        "aggregate_features": agg_slice,
+        "inference_velocity": {
+            "velocity_events_5m": inf["velocity_events_5m"],
+            "velocity_events_1h": inf["velocity_events_1h"],
+            "velocity_events_24h": inf["velocity_events_24h"],
+            "impossible_travel_risk": inf["impossible_travel_risk"],
+            "colocation_risk": inf["colocation_risk"],
+            "driver_reasons": [
+                d
+                for d in inf["driver_reasons"]
+                if any(
+                    x in d
+                    for x in ("velocity", "travel", "device", "entity", "ml_score")
+                )
+            ],
+        },
+        "anomaly_flags": _velocity_anomaly_flags(raw_features),
     }

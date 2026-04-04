@@ -80,6 +80,8 @@ nav:
       - 30/60/90 Roadmap: guides/roadmap-30-60-90.md
       - Release Calendar (May 2026): guides/release-calendar-2026-05.md
       - OSS ship order (dependencies): guides/oss-ship-order-dependencies.md
+      - Ingest, idempotency & replay: guides/ingest-replay-onboarding.md
+      - GitHub Issues Batch (Reassessment Wave 2): guides/github-issues-batch-2026-04-reassessment-wave2.md
       - Module codenames: guides/module-codenames.md
   - Projects:
       - Module Projects Overview: projects/README.md

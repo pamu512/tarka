@@ -8,6 +8,7 @@ import {
   type DecisionRequest,
   type DecisionResponse,
 } from "../api/client";
+import { PageTitle } from "../components/PageTitle";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -524,9 +525,9 @@ export default function Rules() {
   return (
     <div className="h-full flex flex-col animate-fade-in">
       {/* ── Top bar ─────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-surface-700 shrink-0">
-        <h1 className="text-2xl font-bold text-gray-100">Rule Builder</h1>
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-surface-700 shrink-0 gap-4">
+        <PageTitle module="rules">Rule Builder</PageTitle>
+        <div className="flex items-center gap-2 shrink-0">
           {dirty && (
             <span className="text-xs text-amber-400 font-medium mr-1">
               ● Unsaved

@@ -1,42 +1,34 @@
-# Security Policy
+# Security policy
 
-## Supported Versions
+Tarka is a fraud-detection platform; we take security reports seriously.
 
-Tarka uses semantic versioning. Security fixes are applied to the latest stable release and, when feasible, the previous minor line.
+## Supported versions
 
-| Version | Supported |
-| ------- | --------- |
-| 1.0.x   | :white_check_mark: |
-| 0.9.x   | :white_check_mark: |
-| < 0.9   | :x: |
+Security fixes are applied on the default branch (`master` / `main`) and released per [RELEASE_SCHEDULE.md](RELEASE_SCHEDULE.md). Use tagged releases for production.
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-Please do **not** open public GitHub issues for security vulnerabilities.
+**Please do not** open a public GitHub issue for undisclosed security vulnerabilities.
 
-- Report privately by emailing: **anoop.pamu@gmail.com**
-- Include:
-  - affected component/service (for example `decision-api`, `case-api`, SDK name)
-  - version/tag/commit hash
-  - reproduction steps or proof of concept
-  - impact assessment (data exposure, auth bypass, RCE, etc.)
-  - any suggested mitigation
+1. Prefer **[GitHub private vulnerability reporting](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability)** (Security → Report a vulnerability) if enabled on the repository.
+2. Otherwise contact the **repository maintainers** via the email or security policy shown on the GitHub org or repo homepage.
+3. Include: description and impact, steps to reproduce (PoC if possible), affected components (e.g. decision-api, integration-ingress).
+4. Allow up to **5 business days** for an initial response; we will coordinate disclosure and credit (if you wish) after a fix is available.
 
-### Response Targets
+## Automated scanning
 
-- Initial acknowledgement: **within 24 hours**
-- Triage decision (valid / needs more info / out of scope): **within 3 business days**
-- Status updates: **at least every 7 days** until resolved
+- **Dependabot** opens dependency update PRs (see [.github/dependabot.yml](.github/dependabot.yml)).
+- **Trivy** filesystem and container scans run on push/PR and weekly; results are uploaded to the **Security** tab as SARIF where GitHub Advanced Security or equivalent is available (see [.github/workflows/security-scan.yml](.github/workflows/security-scan.yml)).
+- **CodeQL** may be enabled separately (see [.github/workflows/codeql.yml](.github/workflows/codeql.yml)).
 
-### Disclosure Process
+See [docs/docs/guides/security-scanning.md](docs/docs/guides/security-scanning.md) for maintainer notes.
 
-1. We validate and score severity (CVSS-style internal triage).
-2. We prepare and test a fix.
-3. We coordinate disclosure timing with the reporter.
-4. We publish a patch release and release notes.
+## Scope and out of scope
 
-Where possible, we credit reporters unless they request anonymity.
+**In scope:** RCE, authentication bypass, cross-tenant data access, insecure default credentials in shipped configs, dependency CVEs affecting default deployments.
 
-### Safe Harbor
+**Out of scope:** Social engineering, denial-of-service without reproducible minimal load, issues requiring a compromised operator account, third-party Neo4j/cloud misconfiguration (see [LICENSE-DEPENDENCIES.md](LICENSE-DEPENDENCIES.md)).
 
-We support good-faith security research. If you avoid privacy violations, data destruction, service disruption, and social engineering, we will not pursue legal action for responsible disclosure.
+## Code of conduct
+
+Community interaction is governed by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).

@@ -131,7 +131,7 @@ class TestGraphQLQueries:
         result = await schema.execute(
             """
             query {
-                case(id: "c1") {
+                case(id: "c1", tenantId: "t1") {
                     id
                     title
                     status

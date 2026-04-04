@@ -21,6 +21,7 @@ import {
   type TopEntity,
   type AuditEntry,
 } from "../api/client";
+import { PageTitle } from "../components/PageTitle";
 
 const DECISION_COLORS = {
   allow: "#22c55e",
@@ -97,9 +98,9 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-100">Dashboard</h1>
-        <span className="text-xs text-gray-500">Auto-refreshes every 30s</span>
+      <div className="flex items-center justify-between gap-4">
+        <PageTitle module="dashboard">Dashboard</PageTitle>
+        <span className="text-xs text-gray-500 shrink-0">Auto-refreshes every 30s</span>
       </div>
 
       {/* KPI Cards */}

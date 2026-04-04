@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS {db}.decision_events (
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(created_at)
 ORDER BY (tenant_id, entity_id, created_at)
-TTL created_at + INTERVAL 365 DAY
+TTL toDateTime(created_at) + toIntervalDay(365)
 """
 
 DDL_HOURLY_MV = """
@@ -116,7 +116,6 @@ async def _nats_consumer():
                 retention="limits",
                 max_msgs=10_000_000,
                 max_bytes=1024 * 1024 * 1024,
-                max_age=86400 * 7 * 1_000_000_000,
             )
         sub = await js.pull_subscribe(
             subject_pattern,

@@ -50,6 +50,32 @@ console.log(result.score);     // 0–100
 console.log(result.trace_id);  // UUID
 ```
 
+### Event ingest (async NATS path)
+
+Use **`EventIngestClient`** against the event-ingest service (e.g. port **8007** in full Docker Compose). Pass an optional second argument for **`Idempotency-Key`** when ingest has **`REDIS_URL`** configured.
+
+```typescript
+import { EventIngestClient } from "@tarka/sdk";
+
+const ingest = new EventIngestClient({
+  baseUrl: "http://localhost:8007",
+  apiKey: "your-api-key",
+});
+
+const ack = await ingest.sendEvent(
+  {
+    tenant_id: "acme",
+    event_type: "login",
+    entity_id: "user-42",
+    payload: { ip: "203.0.113.10" },
+  },
+  "optional-client-request-id"
+);
+console.log(ack.ingest_id);
+```
+
+See **[Ingest, idempotency & replay](../guides/ingest-replay-onboarding.md)**.
+
 When `autoCollectSignals` is `true` (the default), the SDK automatically:
 
 1. Collects device signals (emulator, VPN, bot, headless, automation detection)

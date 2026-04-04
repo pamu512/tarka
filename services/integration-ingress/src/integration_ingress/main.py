@@ -5,6 +5,7 @@ import sys
 import time
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import quote_plus
 
@@ -107,6 +108,7 @@ _PROVIDER_SANDBOX_PROBES: dict[str, dict[str, str]] = {
     "jira": {"path_hint": "jira", "host_hint": "atlassian.com"},
     "salesforce": {"path_hint": "salesforce", "host_hint": "salesforce.com"},
     "complyadvantage": {"path_hint": "comply", "host_hint": "complyadvantage.com"},
+    "opensanctions": {"path_hint": "sanction", "host_hint": "opensanctions.org"},
 }
 
 
@@ -221,6 +223,15 @@ class IntegrationRequestCreate(BaseModel):
     use_case: str
     contact: str | None = None
     github_username: str | None = None
+
+
+class IntegrationRequestApproveBody(BaseModel):
+    approver_id: str | None = None
+    approver_name: str | None = None
+
+
+class IntegrationRequestRejectBody(BaseModel):
+    reason: str | None = None
 
 
 class IntegrationTestRequest(BaseModel):
@@ -979,8 +990,23 @@ async def configure_integration(
     return snapshot
 
 
+def _build_github_issue_url(req: dict[str, Any]) -> str:
+    title = quote_plus(f"Integration request: {req['requested_name']}")
+    issue_body = quote_plus(
+        f"Tenant: {req['tenant_id']}\n"
+        f"Category: {req['category']}\n"
+        f"Use case: {req['use_case']}\n"
+        f"Contact: {req.get('contact') or ''}\n"
+        f"GitHub user: {req.get('github_username') or ''}\n"
+        f"Request ID: {req['id']}\n"
+        f"Approved by: {req.get('approved_by_name') or req.get('approved_by') or 'admin'}"
+    )
+    return f"https://github.com/pamu512/tarka/issues/new?title={title}&body={issue_body}"
+
+
 @app.post("/v1/integrations/request")
 async def request_integration(body: IntegrationRequestCreate):
+    """Queue a new integration request. GitHub issue URL is issued only after admin approval."""
     req = {
         "id": str(uuid.uuid4()),
         "tenant_id": body.tenant_id,
@@ -989,18 +1015,86 @@ async def request_integration(body: IntegrationRequestCreate):
         "use_case": body.use_case.strip(),
         "contact": (body.contact or "").strip(),
         "github_username": (body.github_username or "").strip(),
+        "status": "pending_approval",
+        "requested_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "github_issue_url": None,
+        "approved_at": None,
+        "approved_by": None,
+        "approved_by_name": None,
     }
     _integration_requests.append(req)
-    title = quote_plus(f"Integration request: {req['requested_name']}")
-    issue_body = quote_plus(
-        f"Tenant: {req['tenant_id']}\n"
-        f"Category: {req['category']}\n"
-        f"Use case: {req['use_case']}\n"
-        f"Contact: {req['contact']}\n"
-        f"GitHub user: {req['github_username']}"
-    )
     return {
         "ok": True,
         "request": req,
-        "github_issue_url": f"https://github.com/pamu512/tarka/issues/new?title={title}&body={issue_body}",
+        "status": "pending_approval",
+        "github_issue_url": None,
+        "message": (
+            "Request submitted for admin review. A prefilled GitHub issue for engineering will be available "
+            "after an administrator approves this request."
+        ),
     }
+
+
+@app.get("/v1/integrations/requests")
+async def list_integration_requests(
+    tenant_id: str | None = None,
+    status: str | None = None,
+    _admin=Depends(require_role("admin")),
+):
+    """List integration requests (admin). Pending items await approval before a dev ticket URL exists."""
+    out = list(reversed(_integration_requests))
+    if tenant_id:
+        out = [r for r in out if r["tenant_id"] == tenant_id]
+    if status:
+        out = [r for r in out if r.get("status") == status]
+    return {"items": out, "count": len(out)}
+
+
+@app.post("/v1/integrations/requests/{request_id}/approve")
+async def approve_integration_request(
+    request_id: str,
+    body: IntegrationRequestApproveBody,
+    request: Request,
+    _admin=Depends(require_role("admin")),
+):
+    """Approve a pending request and generate the GitHub new-issue URL for developers."""
+    req = next((r for r in _integration_requests if r["id"] == request_id), None)
+    if not req:
+        raise HTTPException(status_code=404, detail="request not found")
+    if req.get("status") == "approved" and req.get("github_issue_url"):
+        return {
+            "ok": True,
+            "request": req,
+            "github_issue_url": req["github_issue_url"],
+            "already_approved": True,
+        }
+    if req.get("status") != "pending_approval":
+        raise HTTPException(status_code=409, detail="request is not pending approval")
+    actor = get_current_user(request)
+    req["status"] = "approved"
+    req["approved_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    req["approved_by"] = (body.approver_id or "").strip() or str(actor.user_id)
+    req["approved_by_name"] = (body.approver_name or "").strip() or str(actor.user_id)
+    url = _build_github_issue_url(req)
+    req["github_issue_url"] = url
+    return {"ok": True, "request": req, "github_issue_url": url}
+
+
+@app.post("/v1/integrations/requests/{request_id}/reject")
+async def reject_integration_request(
+    request_id: str,
+    body: IntegrationRequestRejectBody,
+    request: Request,
+    _admin=Depends(require_role("admin")),
+):
+    req = next((r for r in _integration_requests if r["id"] == request_id), None)
+    if not req:
+        raise HTTPException(status_code=404, detail="request not found")
+    if req.get("status") != "pending_approval":
+        raise HTTPException(status_code=409, detail="request is not pending approval")
+    actor = get_current_user(request)
+    req["status"] = "rejected"
+    req["rejected_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    req["rejected_by"] = str(actor.user_id)
+    req["rejection_reason"] = (body.reason or "").strip()
+    return {"ok": True, "request": req}

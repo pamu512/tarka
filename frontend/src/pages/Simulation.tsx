@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { rules, simulation } from "../api/client";
+import { PageTitle } from "../components/PageTitle";
 
 type Tab = "simulate" | "ab-test" | "vertical-benchmark";
 
@@ -194,7 +195,7 @@ export default function Simulation() {
     <div className="p-6 space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-100">Simulation</h1>
+          <PageTitle module="simulation">Simulation</PageTitle>
           <p className="text-sm text-gray-500 mt-1">
             Test rule sets against synthetic fraud scenarios
           </p>

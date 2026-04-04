@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { compliance } from "../api/client";
+import { PageTitle } from "../components/PageTitle";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -271,7 +272,7 @@ export default function Compliance() {
       {/* Header + Region Selector */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-100">Compliance</h1>
+          <PageTitle module="compliance">Compliance</PageTitle>
           <p className="text-sm text-gray-400 mt-1">Privacy regulations, DSAR handling, and certification readiness</p>
         </div>
         <div className="flex items-center gap-3">

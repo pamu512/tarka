@@ -1,0 +1,27 @@
+# Scrape Tarka services that expose /metrics (shared observability middleware).
+# Merge compose file: see observability/README.md
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: tarka-http-metrics
+    metrics_path: /metrics
+    honor_labels: true
+    static_configs:
+      - targets:
+          - decision-api:8000
+          - case-api:8002
+          - graph-service:8001
+          - integration-ingress:8003
+          - ml-scoring:8005
+          - feature-service:8004
+          - event-ingest:8007
+          - analytics-sink:8008
+          - investigation-agent:8006
+          - graphql-gateway:8010
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: (.+)
+        target_label: instance
+        replacement: "${1}"

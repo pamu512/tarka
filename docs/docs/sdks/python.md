@@ -57,6 +57,26 @@ print(result["score"])     # 0–100
 print(result["trace_id"])  # UUID for audit trail
 ```
 
+### Event ingest (async NATS path)
+
+For high write volume, send events to **event-ingest**; a worker forwards them to the Decision API. Optional **`idempotency_key`** maps to the **`Idempotency-Key`** header when Redis is enabled on ingest.
+
+```python
+from fraud_stack_sdk import EventIngestClient
+
+ingest = EventIngestClient("http://localhost:8007", api_key="your-api-key")
+ack = ingest.send_event(
+    "acme",
+    "login",
+    "user-42",
+    payload={"ip": "203.0.113.10"},
+    idempotency_key="optional-client-request-id",
+)
+print(ack["ingest_id"])
+```
+
+See **[Ingest, idempotency & replay](../guides/ingest-replay-onboarding.md)** for ports, metrics, and the offline replay script.
+
 ### Asynchronous
 
 ```python

@@ -38,6 +38,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
       GRAPH_SERVICE_URL: ""
+      DECISION_API_URL: http://decision-api:8000
     ports:
       - "8002:8002"
     depends_on:

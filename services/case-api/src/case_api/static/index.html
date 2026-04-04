@@ -125,14 +125,16 @@
       if (!selectedId) return;
       const label = document.getElementById('newLabel').value.trim();
       if (!label) return;
-      await api('/v1/cases/' + selectedId + '/labels', { method: 'POST', body: JSON.stringify({ labels: [label] }) });
-      const c = await api('/v1/cases/' + selectedId);
+      const tenant = document.getElementById('tenant').value;
+      await api('/v1/cases/' + selectedId + '/labels?tenant_id=' + encodeURIComponent(tenant), { method: 'POST', body: JSON.stringify({ labels: [label] }) });
+      const c = await api('/v1/cases/' + selectedId + '?tenant_id=' + encodeURIComponent(tenant));
       openCase(c);
     };
 
     document.getElementById('loadGraph').onclick = async () => {
       if (!selectedId) return;
-      const g = await api('/v1/cases/' + selectedId + '/graph?depth=2');
+      const tenantG = document.getElementById('tenant').value;
+      const g = await api('/v1/cases/' + selectedId + '/graph?tenant_id=' + encodeURIComponent(tenantG) + '&depth=2');
       document.getElementById('graphOut').textContent = JSON.stringify(g, null, 2);
     };
   </script>

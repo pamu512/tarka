@@ -30,6 +30,7 @@ paths:
           schema: { type: integer, default: 50 }
       responses:
         "200":
+          description: Paginated case list
           content:
             application/json:
               schema:
@@ -49,6 +50,7 @@ paths:
               $ref: "#/components/schemas/CreateCaseRequest"
       responses:
         "201":
+          description: Case created
           content:
             application/json:
               schema:
@@ -61,12 +63,70 @@ paths:
           in: path
           required: true
           schema: { type: string, format: uuid }
+        - name: tenant_id
+          in: query
+          required: true
+          description: Must match the case tenant (prevents cross-tenant case access by ID)
+          schema: { type: string }
       responses:
         "200":
+          description: Case detail
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Case"
+    patch:
+      operationId: updateCase
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string }
+                priority: { type: string }
+                assigned_team: { type: string }
+                title: { type: string }
+      responses:
+        "200":
+          description: Updated case
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Case"
+  /v1/cases/bulk-update:
+    post:
+      operationId: bulkUpdateCases
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_id, case_ids]
+              properties:
+                tenant_id: { type: string }
+                case_ids:
+                  type: array
+                  items: { type: string, format: uuid }
+                status: { type: string }
+                priority: { type: string }
+                assigned_team: { type: string }
+                add_labels:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200":
+          description: OK
   /v1/cases/{case_id}/comments:
     post:
       operationId: addComment
@@ -75,6 +135,10 @@ paths:
           in: path
           required: true
           schema: { type: string, format: uuid }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
       requestBody:
         content:
           application/json:
@@ -95,6 +159,10 @@ paths:
           in: path
           required: true
           schema: { type: string, format: uuid }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
       requestBody:
         content:
           application/json:
@@ -108,6 +176,227 @@ paths:
       responses:
         "200":
           description: OK
+  /v1/cases/{case_id}/playbooks/{playbook_id}:
+    post:
+      operationId: applyPlaybook
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: playbook_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+  /v1/cases/{case_id}/graph:
+    get:
+      operationId: caseGraph
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: depth
+          in: query
+          schema: { type: integer, default: 2 }
+      responses:
+        "200":
+          description: OK
+  /v1/cases/{case_id}/audit:
+    get:
+      operationId: caseAudit
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          description: OK
+  /v1/cases/{case_id}/sla:
+    get:
+      operationId: caseSla
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+  /v1/cases/{case_id}/sar/generate:
+    post:
+      operationId: generateSar
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                format: { type: string }
+      responses:
+        "201":
+          description: Created
+  /v1/cases/{case_id}/sar:
+    get:
+      operationId: listSarFilings
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+  /v1/investigation-label-drafts/batch:
+    post:
+      operationId: investigationLabelDraftsBatch
+      summary: Append analyst investigation label drafts (tenant + analyst scoped; durable)
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [analyst_id, rows]
+              properties:
+                analyst_id: { type: string }
+                clear_existing: { type: boolean, default: false }
+                rows:
+                  type: array
+                  maxItems: 50
+                  items:
+                    type: object
+                    required: [y_label]
+                    properties:
+                      trace_id: { type: string, format: uuid, nullable: true }
+                      entity_id: { type: string, nullable: true }
+                      y_label:
+                        type: string
+                        enum: [fraud, legitimate, unknown]
+                      source: { type: string }
+                      notes: { type: string, nullable: true }
+      responses:
+        "200":
+          description: Batch result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  added: { type: integer }
+                  stored_total: { type: integer }
+                  max_per_analyst: { type: integer }
+  /v1/investigation-label-drafts:
+    get:
+      operationId: listInvestigationLabelDrafts
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: analyst_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 200 }
+      responses:
+        "200":
+          description: Draft list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+                  total: { type: integer }
+    delete:
+      operationId: clearInvestigationLabelDrafts
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: analyst_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Cleared
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  deleted: { type: integer }
+  /v1/investigation-label-drafts/{draft_id}:
+    delete:
+      operationId: deleteInvestigationLabelDraft
+      parameters:
+        - name: draft_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: analyst_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+        "404":
+          description: Not found
 components:
   schemas:
     CreateCaseRequest:

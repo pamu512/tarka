@@ -81,3 +81,32 @@ class DisputeOut(BaseModel):
     updated_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+class LabelDraftRowIn(BaseModel):
+    trace_id: str | None = None
+    entity_id: str | None = None
+    y_label: str
+    source: str = "analyst"
+    notes: str | None = None
+
+
+class LabelDraftBatchIn(BaseModel):
+    analyst_id: str
+    rows: list[LabelDraftRowIn] = Field(default_factory=list, max_length=50)
+    clear_existing: bool = False
+
+
+class LabelDraftOut(BaseModel):
+    id: UUID
+    tenant_id: str
+    analyst_id: str
+    trace_id: str | None
+    entity_id: str | None
+    y_label: str
+    source: str
+    notes: str | None
+    created_at: datetime | None
+    updated_at: datetime | None
+
+    model_config = {"from_attributes": True}

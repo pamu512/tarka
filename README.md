@@ -51,6 +51,13 @@ Mirrors [docs/docs/releases/v1.1.0-2026-04-30.md](docs/docs/releases/v1.1.0-2026
 - **Trivy** security workflow completes (SARIF upload may depend on org plan); **Dependabot** enabled for the repository.
 - **Lite compose** smoke: `docker compose -f deploy/docker-compose.lite.yml up -d --build` → **8000** evaluate, **8003** OSINT health, **3000** frontend reachable.
 
+## Client SDKs (evaluate vs ingest)
+
+- **Synchronous scoring:** call **Decision API** `POST /v1/decisions/evaluate` via **`DecisionClient`** (Python / TypeScript under `packages/`).
+- **Async high-volume path:** send events to **event-ingest** `POST /v1/events` (NATS → worker → evaluate) via **`EventIngestClient`**; optional **`Idempotency-Key`** when **`REDIS_URL`** is configured on ingest.
+
+Onboarding (ports, metrics, replay script): **[docs/docs/guides/ingest-replay-onboarding.md](docs/docs/guides/ingest-replay-onboarding.md)** — see also **[docs/docs/sdks/python.md](docs/docs/sdks/python.md)** and **[docs/docs/sdks/typescript.md](docs/docs/sdks/typescript.md)**.
+
 ## Examples, benchmarks, and ops
 
 | What | Where |

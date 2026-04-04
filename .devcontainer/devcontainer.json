@@ -1,0 +1,35 @@
+{
+  "name": "Tarka (Docker + Python)",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": true
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.12"
+    }
+  },
+  "postCreateCommand": "python3 -m pip install -U pip ruff pytest pytest-asyncio && echo 'Ready. Start stack: docker compose -f deploy/docker-compose.lite.yml up -d --build'",
+  "forwardPorts": [3000, 8000, 8002, 8003, 8005, 8006],
+  "portsAttributes": {
+    "3000": { "label": "Frontend", "onAutoForward": "notify" },
+    "8000": { "label": "Decision API" },
+    "8002": { "label": "Case API" },
+    "8003": { "label": "Integration / OSINT" },
+    "8005": { "label": "ML scoring (sandbox)" },
+    "8006": { "label": "Investigation agent (optional)" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python", "charliermarsh.ruff"],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/python/current/bin/python"
+      }
+    }
+  },
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb",
+    "storage": "32gb"
+  }
+}

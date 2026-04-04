@@ -24,6 +24,10 @@ spec:
               value: "nats://{{ include "tarka.fullname" . }}-nats:4222"
             - name: DECISION_API_URL
               value: "http://{{ include "tarka.fullname" . }}-decision-api:8000"
+            {{- if .Values.redis.enabled }}
+            - name: REDIS_URL
+              value: "redis://{{ include "tarka.fullname" . }}-redis:6379/0"
+            {{- end }}
             - name: API_KEYS
               value: {{ .Values.eventIngest.apiKeys | default "test-key-1" | quote }}
           readinessProbe:

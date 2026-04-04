@@ -93,6 +93,14 @@ async def run_simulation(body: RunSimulationRequest, request: Request):
         "result": result.model_dump(),
         "sample_events": events[:10],
         "sample_decisions": decisions[:10],
+        "experiment_guardrails": {
+            "events_evaluated": len(events),
+            "notes": [
+                "Use fixed scenario seeds and frozen rule packs when comparing runs.",
+                "Large metric swings with the same profile often mean insufficient sample size or non-deterministic rules.",
+                "Do not treat simulation precision/recall as production KPIs without labeled production holdouts.",
+            ],
+        },
     }
 
 

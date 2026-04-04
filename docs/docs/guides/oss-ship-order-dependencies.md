@@ -136,5 +136,6 @@ Milestone dates are a **calendar**. This doc is the **DAG**. When a week slips:
 
 ## Related
 
+- [Pending ships rebundled by user journey](./journey-ship-bundles.md) — **J1–J5** journeys (integrate, decide, investigate, govern, operate) mapped to the same issues and releases; use with this DAG for cohesive trains.
 - Issues: [label `borrowed-from-OSS`](https://github.com/pamu512/tarka/issues?q=is%3Aissue+label%3Aborrowed-from-OSS)
 - Project: [Tarka Module Swimlanes](https://github.com/users/pamu512/projects/3)

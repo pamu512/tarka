@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { cases, type Case, type CaseCreateRequest, type CaseOpsKpis } from "../api/client";
 import StatusBadge from "../components/StatusBadge";
 import PriorityBadge from "../components/PriorityBadge";
+import { PageTitle } from "../components/PageTitle";
 
 export default function Cases() {
   const navigate = useNavigate();
@@ -87,7 +88,7 @@ export default function Cases() {
     if (selectedIds.size === 0) return;
     setBulkBusy(true);
     try {
-      await cases.bulkUpdate({ case_ids: Array.from(selectedIds), ...payload });
+      await cases.bulkUpdate({ tenant_id: "demo", case_ids: Array.from(selectedIds), ...payload });
       setSelectedIds(new Set());
       setBulkLabel("");
       await fetchCases();
@@ -102,7 +103,9 @@ export default function Cases() {
     if (selectedIds.size === 0) return;
     setBulkBusy(true);
     try {
-      await Promise.all(Array.from(selectedIds).map((id) => cases.applyPlaybook(id, playbookId)));
+      await Promise.all(
+        Array.from(selectedIds).map((id) => cases.applyPlaybook(id, "demo", playbookId)),
+      );
       setSelectedIds(new Set());
       await fetchCases();
     } catch (e) {
@@ -124,8 +127,8 @@ export default function Cases() {
 
   return (
     <div className="p-6 space-y-5 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-100">Cases</h1>
+      <div className="flex items-center justify-between gap-4">
+        <PageTitle module="cases">Cases</PageTitle>
         <button
           onClick={() => setShowCreate(true)}
           className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg transition-colors"
@@ -303,7 +306,9 @@ export default function Cases() {
                 {caseList.map((c) => (
                   <tr
                     key={c.id}
-                    onClick={() => navigate(`/cases/${c.id}`)}
+                    onClick={() =>
+                      navigate(`/cases/${c.id}?tenant_id=${encodeURIComponent(c.tenant_id)}`)
+                    }
                     className="border-b border-surface-800 hover:bg-surface-800/50 cursor-pointer transition-colors"
                   >
                     <td className="py-3 px-2">

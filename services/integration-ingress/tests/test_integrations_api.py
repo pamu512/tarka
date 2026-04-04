@@ -84,6 +84,40 @@ async def test_test_connectivity_pass_with_user_credentials(client):
 
 
 @pytest.mark.asyncio
+async def test_integration_request_pending_until_admin_approves(client):
+    import integration_ingress.main as main_mod
+
+    main_mod._integration_requests.clear()
+    r = await client.post(
+        "/v1/integrations/request",
+        json={
+            "tenant_id": "t1",
+            "requested_name": "Acme KYB",
+            "category": "kyc",
+            "use_case": "Business verification for EU onboarding",
+            "github_username": "dev1",
+        },
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["status"] == "pending_approval"
+    assert data.get("github_issue_url") in (None, "")
+    assert "request" in data
+    rid = data["request"]["id"]
+
+    listed = await client.get("/v1/integrations/requests")
+    assert listed.status_code == 200
+    ids = [x["id"] for x in listed.json()["items"]]
+    assert rid in ids
+
+    appr = await client.post(f"/v1/integrations/requests/{rid}/approve", json={})
+    assert appr.status_code == 200
+    url = appr.json().get("github_issue_url", "")
+    assert "github.com" in url
+    assert "issues/new" in url
+
+
+@pytest.mark.asyncio
 async def test_configure_idempotent_returns_snapshot(client):
     session = client.test_session
     op = SimpleNamespace(response_snapshot={"ok": True, "cached": True})

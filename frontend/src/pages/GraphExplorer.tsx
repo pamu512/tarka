@@ -7,6 +7,7 @@ import {
   type GraphNode,
 } from "../api/client";
 import RiskScore from "../components/RiskScore";
+import { PageTitle } from "../components/PageTitle";
 import { Network, type Options } from "vis-network";
 import { DataSet } from "vis-data";
 
@@ -175,7 +176,7 @@ export default function GraphExplorer() {
   return (
     <div className="p-6 h-full flex flex-col gap-5 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-100">Graph Explorer</h1>
+        <PageTitle module="graph">Graph Explorer</PageTitle>
       </div>
 
       {/* Search Bar */}

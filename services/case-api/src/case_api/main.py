@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -24,6 +24,7 @@ from case_api.db import Base, get_session, init_db
 from case_api.models import Case, CaseComment, SARFiling
 from case_api.sar import SARGenerator
 from case_api.dispute_api import router as dispute_router
+from case_api.investigation_label_drafts_api import router as investigation_label_drafts_router
 from case_api.schemas import CaseOut, CommentIn, CreateCaseRequest, LabelsIn
 from case_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 from case_api.workflow import evaluate_workflows, get_workflows, is_sla_breached, load_workflows
@@ -135,6 +136,7 @@ def _apply_case_mutations(case: Case, payload: dict[str, Any]) -> None:
 
 
 class BulkCaseUpdateRequest(BaseModel):
+    tenant_id: str = Field(min_length=1, description="Only cases in this tenant may be updated")
     case_ids: list[uuid.UUID] = Field(default_factory=list)
     status: str | None = None
     priority: str | None = None
@@ -197,6 +199,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(dispute_router)
+app.include_router(investigation_label_drafts_router)
 
 
 @app.get("/v1/health")
@@ -293,13 +296,22 @@ async def create_case(body: CreateCaseRequest, request: Request, session: AsyncS
     return CaseOut.model_validate(c)
 
 
-@app.get("/v1/cases/{case_id}", response_model=CaseOut)
-async def get_case(case_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(select(Case).where(Case.id == case_id))
+async def _case_for_tenant(session: AsyncSession, case_id: uuid.UUID, tenant_id: str) -> Case:
+    result = await session.execute(select(Case).where(Case.id == case_id, Case.tenant_id == tenant_id))
     row = result.scalar_one_or_none()
     if not row:
         raise HTTPException(404, "not found")
-    return CaseOut.model_validate(row)
+    return row
+
+
+@app.get("/v1/cases/{case_id}", response_model=CaseOut)
+async def get_case(
+    case_id: uuid.UUID,
+    tenant_id: str = Query(..., description="Tenant scope; must match the case's tenant_id"),
+    session: AsyncSession = Depends(get_session),
+):
+    case = await _case_for_tenant(session, case_id, tenant_id)
+    return CaseOut.model_validate(case)
 
 
 @app.patch("/v1/cases/{case_id}")
@@ -307,12 +319,10 @@ async def update_case(
     case_id: uuid.UUID,
     request: Request,
     session: AsyncSession = Depends(get_session),
+    tenant_id: str = Query(..., description="Tenant scope; must match the case"),
 ):
     user = get_current_user(request)
-    result = await session.execute(select(Case).where(Case.id == case_id))
-    case = result.scalar_one_or_none()
-    if not case:
-        raise HTTPException(404, "not found")
+    case = await _case_for_tenant(session, case_id, tenant_id)
 
     body = await request.json()
     old_state = CaseOut.model_validate(case).model_dump(mode="json")
@@ -344,11 +354,9 @@ async def add_comment(
     body: CommentIn,
     request: Request,
     session: AsyncSession = Depends(get_session),
+    tenant_id: str = Query(..., description="Tenant scope; must match the case"),
 ):
-    result = await session.execute(select(Case).where(Case.id == case_id))
-    case = result.scalar_one_or_none()
-    if not case:
-        raise HTTPException(404, "not found")
+    case = await _case_for_tenant(session, case_id, tenant_id)
     session.add(CaseComment(case_id=case_id, author=body.author, body=body.body))
     await session.commit()
 
@@ -369,11 +377,9 @@ async def apply_labels(
     body: LabelsIn,
     request: Request,
     session: AsyncSession = Depends(get_session),
+    tenant_id: str = Query(..., description="Tenant scope; must match the case"),
 ):
-    result = await session.execute(select(Case).where(Case.id == case_id))
-    case = result.scalar_one_or_none()
-    if not case:
-        raise HTTPException(404, "not found")
+    case = await _case_for_tenant(session, case_id, tenant_id)
     old_labels = list(case.labels) if case.labels else []
     case.labels = sorted(set(old_labels) | set(body.labels))
     await session.commit()
@@ -398,7 +404,7 @@ async def bulk_update_cases(
     if not body.case_ids:
         return {"updated": 0, "items": []}
     user = get_current_user(request)
-    q = select(Case).where(Case.id.in_(body.case_ids))
+    q = select(Case).where(Case.id.in_(body.case_ids), Case.tenant_id == body.tenant_id)
     result = await session.execute(q)
     rows = result.scalars().all()
     updated: list[dict[str, Any]] = []
@@ -435,13 +441,11 @@ async def apply_playbook(
     playbook_id: str,
     request: Request,
     session: AsyncSession = Depends(get_session),
+    tenant_id: str = Query(..., description="Tenant scope; must match the case"),
 ):
     if playbook_id not in _PLAYBOOKS:
         raise HTTPException(404, "playbook not found")
-    result = await session.execute(select(Case).where(Case.id == case_id))
-    case = result.scalar_one_or_none()
-    if not case:
-        raise HTTPException(404, "not found")
+    case = await _case_for_tenant(session, case_id, tenant_id)
     old_state = CaseOut.model_validate(case).model_dump(mode="json")
     pb = _PLAYBOOKS[playbook_id]
     _apply_case_mutations(case, pb)
@@ -531,13 +535,16 @@ async def delete_case_view(name: str, tenant_id: str):
 
 
 @app.get("/v1/cases/{case_id}/graph")
-async def case_graph(case_id: uuid.UUID, request: Request, session: AsyncSession = Depends(get_session), depth: int = 2):
+async def case_graph(
+    case_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    depth: int = 2,
+):
     if not settings.graph_service_url:
         return {"nodes": [], "edges": [], "message": "GRAPH_SERVICE_URL not set"}
-    result = await session.execute(select(Case).where(Case.id == case_id))
-    case = result.scalar_one_or_none()
-    if not case:
-        raise HTTPException(404, "not found")
+    case = await _case_for_tenant(session, case_id, tenant_id)
     base = settings.graph_service_url.rstrip("/")
     http: httpx.AsyncClient = request.app.state.http
     r = await http.get(f"{base}/v1/subgraph", params={"entity_id": case.entity_id, "tenant_id": case.tenant_id, "depth": depth})
@@ -548,7 +555,13 @@ async def case_graph(case_id: uuid.UUID, request: Request, session: AsyncSession
 # ---------- audit trail ----------
 
 @app.get("/v1/cases/{case_id}/audit")
-async def case_audit(case_id: uuid.UUID, session: AsyncSession = Depends(get_session), limit: int = 50):
+async def case_audit(
+    case_id: uuid.UUID,
+    tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    session: AsyncSession = Depends(get_session),
+    limit: int = 50,
+):
+    await _case_for_tenant(session, case_id, tenant_id)
     return {"history": await _trail.get_history(session, "case", str(case_id), limit)}
 
 
@@ -696,11 +709,12 @@ async def trigger_workflow(request: Request, session: AsyncSession = Depends(get
 
 
 @app.get("/v1/cases/{case_id}/sla")
-async def case_sla(case_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(select(Case).where(Case.id == case_id))
-    case = result.scalar_one_or_none()
-    if not case:
-        raise HTTPException(404, "not found")
+async def case_sla(
+    case_id: uuid.UUID,
+    tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    session: AsyncSession = Depends(get_session),
+):
+    case = await _case_for_tenant(session, case_id, tenant_id)
     from case_api.workflow import compute_sla_deadline
     deadline = compute_sla_deadline(case.priority, case.created_at)
     breached = is_sla_breached(case.priority, case.created_at)
@@ -723,6 +737,7 @@ async def generate_sar(
     case_id: uuid.UUID,
     request: Request,
     session: AsyncSession = Depends(get_session),
+    tenant_id: str = Query(..., description="Tenant scope; must match the case"),
 ):
     """Generate a SAR/STR from case data.
 
@@ -732,10 +747,7 @@ async def generate_sar(
       - entity_data: subject/entity information
       - filing_institution: override for the filing institution block
     """
-    result = await session.execute(select(Case).where(Case.id == case_id))
-    case = result.scalar_one_or_none()
-    if not case:
-        raise HTTPException(404, "case not found")
+    case = await _case_for_tenant(session, case_id, tenant_id)
 
     body = await request.json() if await request.body() else {}
     sar_format = body.get("format", "fincen_xml")
@@ -796,12 +808,11 @@ async def generate_sar(
 @app.get("/v1/cases/{case_id}/sar")
 async def list_sar_filings(
     case_id: uuid.UUID,
+    tenant_id: str = Query(..., description="Tenant scope; must match the case"),
     session: AsyncSession = Depends(get_session),
 ):
     """Retrieve all generated SAR filings for a case."""
-    case_result = await session.execute(select(Case).where(Case.id == case_id))
-    if not case_result.scalar_one_or_none():
-        raise HTTPException(404, "case not found")
+    await _case_for_tenant(session, case_id, tenant_id)
 
     result = await session.execute(
         select(SARFiling)

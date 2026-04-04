@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { rules, shadow, type RulePack } from "../api/client";
+import { PageTitle } from "../components/PageTitle";
 
 type PackMode = "active" | "shadow" | "disabled";
 
@@ -84,9 +85,9 @@ export default function ShadowMode() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-100">Shadow / Observation Mode</h1>
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <PageTitle module="shadow">Shadow / Observation Mode</PageTitle>
           <p className="text-sm text-gray-500 mt-1">
             Compare shadow rule packs against production without affecting live decisions
           </p>

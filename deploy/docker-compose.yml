@@ -3,6 +3,7 @@
 #   docker compose --profile core --profile graph --profile ml --profile cases up -d
 # Full stack:
 #   docker compose --profile full up -d
+# CI: GitHub Actions job `stack-smoke` runs scripts/ci/full_stack_smoke.py (health + evaluate smoke).
 
 name: tarka
 
@@ -34,7 +35,7 @@ services:
   neo4j:
     image: neo4j:5-community
     environment:
-      NEO4J_AUTH: neo4j/tarka
+      NEO4J_AUTH: neo4j/tarka2026
     ports:
       - "7474:7474"
       - "7687:7687"
@@ -100,7 +101,7 @@ services:
     environment:
       NEO4J_URI: bolt://neo4j:7687
       NEO4J_USER: neo4j
-      NEO4J_PASSWORD: tarka
+      NEO4J_PASSWORD: tarka2026
     ports:
       - "8001:8001"
     depends_on:
@@ -114,6 +115,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
       GRAPH_SERVICE_URL: http://graph-service:8001
+      DECISION_API_URL: http://decision-api:8000
     ports:
       - "8002:8002"
     depends_on:
@@ -159,13 +161,14 @@ services:
     environment:
       CASE_API_URL: http://case-api:8002
       GRAPH_SERVICE_URL: http://graph-service:8001
+      DECISION_API_URL: http://decision-api:8000
       ALLOWED_ANALYSTS: ${ALLOWED_ANALYSTS:-*}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     ports:
       - "8006:8006"
     depends_on:
       - case-api
-    profiles: [agent, full]
+    profiles: [agent, full, ui]
 
   # ---------- New Services ----------
   event-ingest:
@@ -175,11 +178,13 @@ services:
     environment:
       NATS_URL: nats://nats:4222
       DECISION_API_URL: http://decision-api:8000
+      REDIS_URL: redis://redis:6379/0
     ports:
       - "8007:8007"
     depends_on:
       - nats
       - decision-api
+      - redis
     profiles: [streaming, full]
 
   analytics-sink:
@@ -220,6 +225,7 @@ services:
     depends_on:
       - decision-api
       - case-api
+      - investigation-agent
     profiles: [ui, full]
 
 volumes:

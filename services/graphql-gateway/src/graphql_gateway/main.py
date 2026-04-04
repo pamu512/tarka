@@ -4,11 +4,11 @@ from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
+from observability import setup_observability  # noqa: E402
 from strawberry.fastapi import GraphQLRouter
 
 from graphql_gateway.config import settings
 from graphql_gateway.schema import schema
-
 
 # ---------------------------------------------------------------------------
 # Auth
@@ -73,6 +73,7 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+setup_observability(app, "graphql-gateway")
 app.include_router(graphql_router, prefix="/graphql")
 
 
