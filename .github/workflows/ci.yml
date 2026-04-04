@@ -1,3 +1,5 @@
+# Optional: set repository secret CODECOV_TOKEN for https://codecov.io PR coverage comments.
+# Upload steps use continue-on-error so CI stays green without a token.
 name: CI
 
 on:
@@ -61,7 +63,7 @@ jobs:
           --cov=decision_api
           --cov-report=xml
           --cov-report=term-missing
-          --cov-fail-under=45
+          --cov-fail-under=48
           tests/
         working-directory: services/decision-api
         env:
@@ -74,6 +76,14 @@ jobs:
           name: coverage-decision-api
           path: services/decision-api/coverage.xml
           if-no-files-found: ignore
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        continue-on-error: true
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: services/decision-api/coverage.xml
+          flags: decision-api
+          fail_ci_if_error: false
 
   test-case-api:
     runs-on: ubuntu-latest
@@ -88,7 +98,7 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/case-api
       - name: Run tests
-        run: pytest --cov=case_api --cov-report=xml --cov-report=term-missing tests/
+        run: pytest --cov=case_api --cov-report=xml --cov-report=term-missing --cov-fail-under=40 tests/
         working-directory: services/case-api
         env:
           PYTHONPATH: src:../shared
@@ -98,6 +108,14 @@ jobs:
           name: coverage-case-api
           path: services/case-api/coverage.xml
           if-no-files-found: ignore
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        continue-on-error: true
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: services/case-api/coverage.xml
+          flags: case-api
+          fail_ci_if_error: false
 
   test-graph-service:
     runs-on: ubuntu-latest
@@ -112,7 +130,7 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/graph-service
       - name: Run tests (algorithms + Neo4j driver mocks)
-        run: pytest --cov=graph_service --cov-report=xml --cov-report=term-missing tests/
+        run: pytest --cov=graph_service --cov-report=xml --cov-report=term-missing --cov-fail-under=26 tests/
         working-directory: services/graph-service
         env:
           PYTHONPATH: src
@@ -122,6 +140,14 @@ jobs:
           name: coverage-graph-service
           path: services/graph-service/coverage.xml
           if-no-files-found: ignore
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        continue-on-error: true
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: services/graph-service/coverage.xml
+          flags: graph-service
+          fail_ci_if_error: false
 
   test-graph-neo4j-live:
     runs-on: ubuntu-latest
@@ -185,7 +211,7 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/integration-ingress
       - name: Run tests (OSINT parallel enrichment, KMS stubs)
-        run: pytest --cov=integration_ingress --cov-report=xml --cov-report=term-missing tests/
+        run: pytest --cov=integration_ingress --cov-report=xml --cov-report=term-missing --cov-fail-under=35 tests/
         working-directory: services/integration-ingress
         env:
           PYTHONPATH: src:../shared
@@ -195,6 +221,14 @@ jobs:
           name: coverage-integration-ingress
           path: services/integration-ingress/coverage.xml
           if-no-files-found: ignore
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        continue-on-error: true
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: services/integration-ingress/coverage.xml
+          flags: integration-ingress
+          fail_ci_if_error: false
 
   test-investigation-agent:
     runs-on: ubuntu-latest
@@ -209,7 +243,7 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/investigation-agent
       - name: Run tests
-        run: pytest --cov=investigation_agent --cov-report=xml --cov-report=term-missing tests/
+        run: pytest --cov=investigation_agent --cov-report=xml --cov-report=term-missing --cov-fail-under=52 tests/
         working-directory: services/investigation-agent
         env:
           PYTHONPATH: src:../shared
@@ -219,6 +253,14 @@ jobs:
           name: coverage-investigation-agent
           path: services/investigation-agent/coverage.xml
           if-no-files-found: ignore
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        continue-on-error: true
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: services/investigation-agent/coverage.xml
+          flags: investigation-agent
+          fail_ci_if_error: false
 
   test-sdk:
     runs-on: ubuntu-latest
@@ -233,10 +275,24 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: packages/fraud-sdk-python
       - name: Run tests
-        run: pytest --cov=fraud_stack_sdk --cov-report=xml --cov-report=term-missing tests/
+        run: pytest --cov=fraud_stack_sdk --cov-report=xml --cov-report=term-missing --cov-fail-under=48 tests/
         working-directory: packages/fraud-sdk-python
         env:
           PYTHONPATH: src
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-fraud-sdk-python
+          path: packages/fraud-sdk-python/coverage.xml
+          if-no-files-found: ignore
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        continue-on-error: true
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: packages/fraud-sdk-python/coverage.xml
+          flags: fraud-sdk-python
+          fail_ci_if_error: false
 
   build-frontend:
     runs-on: ubuntu-latest
@@ -284,10 +340,24 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/graphql-gateway
       - name: Run tests
-        run: pytest --cov=graphql_gateway --cov-report=xml --cov-report=term-missing tests/
+        run: pytest --cov=graphql_gateway --cov-report=xml --cov-report=term-missing --cov-fail-under=72 tests/
         working-directory: services/graphql-gateway
         env:
           PYTHONPATH: src:../shared
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-graphql-gateway
+          path: services/graphql-gateway/coverage.xml
+          if-no-files-found: ignore
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        continue-on-error: true
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: services/graphql-gateway/coverage.xml
+          flags: graphql-gateway
+          fail_ci_if_error: false
 
   test-event-ingest:
     runs-on: ubuntu-latest
@@ -302,10 +372,24 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/event-ingest
       - name: Run tests
-        run: pytest --cov=event_ingest --cov-report=xml --cov-report=term-missing tests/
+        run: pytest --cov=event_ingest --cov-report=xml --cov-report=term-missing --cov-fail-under=66 tests/
         working-directory: services/event-ingest
         env:
           PYTHONPATH: src:../shared
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-event-ingest
+          path: services/event-ingest/coverage.xml
+          if-no-files-found: ignore
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        continue-on-error: true
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: services/event-ingest/coverage.xml
+          flags: event-ingest
+          fail_ci_if_error: false
 
   test-analytics-sink:
     runs-on: ubuntu-latest
@@ -320,10 +404,24 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/analytics-sink
       - name: Run tests
-        run: pytest --cov=analytics_sink --cov-report=xml --cov-report=term-missing tests/
+        run: pytest --cov=analytics_sink --cov-report=xml --cov-report=term-missing --cov-fail-under=62 tests/
         working-directory: services/analytics-sink
         env:
           PYTHONPATH: src:../shared
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-analytics-sink
+          path: services/analytics-sink/coverage.xml
+          if-no-files-found: ignore
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        continue-on-error: true
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: services/analytics-sink/coverage.xml
+          flags: analytics-sink
+          fail_ci_if_error: false
 
   test-feature-service:
     runs-on: ubuntu-latest
@@ -338,10 +436,24 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/feature-service
       - name: Run tests
-        run: pytest --cov=feature_service --cov-report=xml --cov-report=term-missing tests/
+        run: pytest --cov=feature_service --cov-report=xml --cov-report=term-missing --cov-fail-under=49 tests/
         working-directory: services/feature-service
         env:
           PYTHONPATH: src:../shared
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-feature-service
+          path: services/feature-service/coverage.xml
+          if-no-files-found: ignore
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        continue-on-error: true
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: services/feature-service/coverage.xml
+          flags: feature-service
+          fail_ci_if_error: false
 
   test-ml-scoring:
     runs-on: ubuntu-latest
@@ -356,10 +468,24 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/ml-scoring
       - name: Run tests
-        run: pytest --cov=ml_scoring --cov-report=xml --cov-report=term-missing tests/
+        run: pytest --cov=ml_scoring --cov-report=xml --cov-report=term-missing --cov-fail-under=64 tests/
         working-directory: services/ml-scoring
         env:
           PYTHONPATH: src:../shared
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-ml-scoring
+          path: services/ml-scoring/coverage.xml
+          if-no-files-found: ignore
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        continue-on-error: true
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: services/ml-scoring/coverage.xml
+          flags: ml-scoring
+          fail_ci_if_error: false
 
   docker-build:
     runs-on: ubuntu-latest
