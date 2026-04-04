@@ -3,6 +3,7 @@
 Fetches live rates from a free API (exchangerate.host / frankfurter.app)
 and falls back to static rates when the network call fails.
 """
+
 from __future__ import annotations
 
 import logging

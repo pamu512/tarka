@@ -1,13 +1,13 @@
 """Unit tests for Pydantic schemas."""
-import pytest
-from pydantic import ValidationError
 
+import pytest
 from decision_api.schemas import (
     DeviceContextIn,
     EvaluateRequest,
     EvaluateResponse,
     EventType,
 )
+from pydantic import ValidationError
 
 
 class TestEvaluateRequest:

@@ -3,6 +3,7 @@ Optional: log a run to MLflow and export a trivial ONNX model for ONNX_MODEL_PAT
 
 Usage (with extras): pip install -e '.[onnx,mlflow]' && python scripts/train_example.py
 """
+
 from __future__ import annotations
 
 import os
@@ -14,7 +15,6 @@ def main() -> None:
     try:
         import mlflow
         import mlflow.onnx
-        import onnx
         from skl2onnx import convert_sklearn
         from skl2onnx.common.data_types import FloatTensorType
         from sklearn.linear_model import LogisticRegression

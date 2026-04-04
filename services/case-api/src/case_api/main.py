@@ -21,21 +21,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from case_api.config import settings
 from case_api.db import Base, get_session, init_db
-from case_api.models import Case, CaseComment, SARFiling
-from case_api.sar import SARGenerator
 from case_api.dispute_api import router as dispute_router
 from case_api.investigation_label_drafts_api import router as investigation_label_drafts_router
-from case_api.schemas import CaseOut, CommentIn, CreateCaseRequest, LabelsIn
+from case_api.models import Case, CaseComment, SARFiling
 from case_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
+from case_api.sar import SARGenerator
+from case_api.schemas import CaseOut, CommentIn, CreateCaseRequest, LabelsIn
 from case_api.workflow import evaluate_workflows, get_workflows, is_sla_breached, load_workflows
 
 _shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
-from observability import setup_observability  # noqa: E402
-from auth_rbac import setup_auth, require_role, get_current_user  # noqa: E402
-from rate_limiter import setup_rate_limiter  # noqa: E402
 from audit_trail import AuditTrail, create_audit_model  # noqa: E402
+from auth_rbac import get_current_user, setup_auth  # noqa: E402
+from observability import setup_observability  # noqa: E402
+from rate_limiter import setup_rate_limiter  # noqa: E402
 from webhook_sender import WebhookSender  # noqa: E402
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -89,15 +89,12 @@ def _hash_chain(records: list[dict[str, Any]]) -> str:
 
 
 def _bundle_signature(payload: dict[str, Any]) -> str:
-    key = (
-        settings.evidence_signing_secret
-        or "tarka-evidence-dev-secret"
-    ).encode("utf-8")
+    key = (settings.evidence_signing_secret or "tarka-evidence-dev-secret").encode("utf-8")
     return hmac.new(key, _canonical_json(payload).encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def _signing_key_id() -> str:
-    key = (settings.evidence_signing_secret or "tarka-evidence-dev-secret")
+    key = settings.evidence_signing_secret or "tarka-evidence-dev-secret"
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
 
 
@@ -156,6 +153,7 @@ class EvidenceVerifyRequest(BaseModel):
 
 async def _broadcast(event: dict):
     import json
+
     data = json.dumps(event, default=str)
     dead: list[WebSocket] = []
     for ws in _ws_clients:
@@ -189,9 +187,7 @@ app = FastAPI(title="Tarka Case API", version="4.0.0", lifespan=lifespan)
 setup_observability(app, "case-api")
 setup_auth(app)
 setup_rate_limiter(app, rpm=int(os.environ.get("RATE_LIMIT_RPM", "600")))
-_cors_origins = [
-    o.strip() for o in settings.cors_origins.split(",") if o.strip()
-] if settings.cors_origins else []
+_cors_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()] if settings.cors_origins else []
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins or ["http://localhost:3000"],
@@ -257,8 +253,11 @@ async def create_case(body: CreateCaseRequest, request: Request, session: AsyncS
     await session.refresh(c)
 
     await _trail.record(
-        session, actor=user.user_id, action="create_case",
-        resource_type="case", resource_id=str(c.id),
+        session,
+        actor=user.user_id,
+        action="create_case",
+        resource_type="case",
+        resource_id=str(c.id),
         changes={"status": {"old": None, "new": "open"}, "priority": {"old": None, "new": body.priority}},
         tenant_id=body.tenant_id,
     )
@@ -286,9 +285,13 @@ async def create_case(body: CreateCaseRequest, request: Request, session: AsyncS
         diff = _trail.diff(old_state, new_state)
         if diff:
             await _trail.record(
-                session, actor="workflow-engine", action="workflow_mutation",
-                resource_type="case", resource_id=str(c.id),
-                changes=diff, tenant_id=body.tenant_id,
+                session,
+                actor="workflow-engine",
+                action="workflow_mutation",
+                resource_type="case",
+                resource_id=str(c.id),
+                changes=diff,
+                tenant_id=body.tenant_id,
             )
             await session.commit()
 
@@ -338,9 +341,13 @@ async def update_case(
     diff = _trail.diff(old_state, new_state)
     if diff:
         await _trail.record(
-            session, actor=user.user_id, action="update_case",
-            resource_type="case", resource_id=str(case_id),
-            changes=diff, tenant_id=case.tenant_id,
+            session,
+            actor=user.user_id,
+            action="update_case",
+            resource_type="case",
+            resource_id=str(case_id),
+            changes=diff,
+            tenant_id=case.tenant_id,
         )
         await session.commit()
 
@@ -362,8 +369,11 @@ async def add_comment(
 
     user = get_current_user(request)
     await _trail.record(
-        session, actor=user.user_id, action="add_comment",
-        resource_type="case", resource_id=str(case_id),
+        session,
+        actor=user.user_id,
+        action="add_comment",
+        resource_type="case",
+        resource_id=str(case_id),
         changes={"comment": {"author": body.author, "body": body.body[:200]}},
         tenant_id=case.tenant_id,
     )
@@ -386,8 +396,11 @@ async def apply_labels(
 
     user = get_current_user(request)
     await _trail.record(
-        session, actor=user.user_id, action="update_labels",
-        resource_type="case", resource_id=str(case_id),
+        session,
+        actor=user.user_id,
+        action="update_labels",
+        resource_type="case",
+        resource_id=str(case_id),
         changes={"labels": {"old": old_labels, "new": case.labels}},
         tenant_id=case.tenant_id,
     )
@@ -554,6 +567,7 @@ async def case_graph(
 
 # ---------- audit trail ----------
 
+
 @app.get("/v1/cases/{case_id}/audit")
 async def case_audit(
     case_id: uuid.UUID,
@@ -568,12 +582,7 @@ async def case_audit(
 @app.get("/v1/compliance/evidence")
 async def case_control_evidence(tenant_id: str, session: AsyncSession = Depends(get_session), limit: int = 200):
     """Export case/workflow/audit evidence bundle for trust-center audits."""
-    q = (
-        select(AuditRecord)
-        .where(AuditRecord.tenant_id == tenant_id)
-        .order_by(AuditRecord.created_at.desc())
-        .limit(max(1, min(limit, 2000)))
-    )
+    q = select(AuditRecord).where(AuditRecord.tenant_id == tenant_id).order_by(AuditRecord.created_at.desc()).limit(max(1, min(limit, 2000)))
     recs = (await session.execute(q)).scalars().all()
     filtered = [
         {
@@ -652,6 +661,7 @@ async def verify_case_evidence(body: EvidenceVerifyRequest):
 
 # ---------- workflows ----------
 
+
 @app.get("/v1/workflows")
 async def list_workflows():
     return {"workflows": get_workflows()}
@@ -697,9 +707,13 @@ async def trigger_workflow(request: Request, session: AsyncSession = Depends(get
             diff = _trail.diff(old_state, new_state)
             if diff:
                 await _trail.record(
-                    session, actor="workflow-engine", action="workflow_trigger",
-                    resource_type="case", resource_id=str(case_id),
-                    changes=diff, tenant_id=case.tenant_id,
+                    session,
+                    actor="workflow-engine",
+                    action="workflow_trigger",
+                    resource_type="case",
+                    resource_id=str(case_id),
+                    changes=diff,
+                    tenant_id=case.tenant_id,
                 )
                 await session.commit()
 
@@ -716,6 +730,7 @@ async def case_sla(
 ):
     case = await _case_for_tenant(session, case_id, tenant_id)
     from case_api.workflow import compute_sla_deadline
+
     deadline = compute_sla_deadline(case.priority, case.created_at)
     breached = is_sla_breached(case.priority, case.created_at)
     return {
@@ -770,7 +785,8 @@ async def generate_sar(
         format=sar_format,
         status=report.status,
         narrative=report.narrative,
-        report_data=report.json_content or {
+        report_data=report.json_content
+        or {
             "report_id": report.report_id,
             "filing_date": report.filing_date,
             "subject": report.subject,
@@ -785,8 +801,11 @@ async def generate_sar(
 
     user = get_current_user(request)
     await _trail.record(
-        session, actor=user.user_id, action="generate_sar",
-        resource_type="case", resource_id=str(case_id),
+        session,
+        actor=user.user_id,
+        action="generate_sar",
+        resource_type="case",
+        resource_id=str(case_id),
         changes={"sar_id": str(filing.id), "format": sar_format},
         tenant_id=case.tenant_id,
     )
@@ -814,11 +833,7 @@ async def list_sar_filings(
     """Retrieve all generated SAR filings for a case."""
     await _case_for_tenant(session, case_id, tenant_id)
 
-    result = await session.execute(
-        select(SARFiling)
-        .where(SARFiling.case_id == case_id)
-        .order_by(SARFiling.created_at.desc())
-    )
+    result = await session.execute(select(SARFiling).where(SARFiling.case_id == case_id).order_by(SARFiling.created_at.desc()))
     rows = result.scalars().all()
     return {
         "case_id": str(case_id),
@@ -840,6 +855,7 @@ async def list_sar_filings(
 
 # ---------- webhook DLQ management ----------
 
+
 @app.get("/v1/webhooks/dlq")
 async def webhook_dlq(request: Request):
     sender: WebhookSender = request.app.state.webhook
@@ -854,6 +870,7 @@ async def retry_webhook(webhook_id: str, request: Request):
 
 
 # ---------- websocket live feed ----------
+
 
 @app.websocket("/v1/cases/ws")
 async def ws_feed(ws: WebSocket):

@@ -27,6 +27,7 @@ Domain Intelligence:
 Social/Identity:
   - GitHub profile       (free, username existence)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -44,6 +45,7 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Configuration — keys loaded from env via Settings, passed at init
 # ---------------------------------------------------------------------------
+
 
 class OsintConfig:
     def __init__(
@@ -65,40 +67,118 @@ class OsintConfig:
 # Disposable / free-provider domain lists (expanded)
 # ---------------------------------------------------------------------------
 
-DISPOSABLE_DOMAINS = frozenset({
-    "tempmail.com", "throwaway.email", "guerrillamail.com", "mailinator.com",
-    "yopmail.com", "tempail.com", "fakeinbox.com", "sharklasers.com",
-    "guerrillamailblock.com", "grr.la", "dispostable.com", "trashmail.com",
-    "temp-mail.org", "10minutemail.com", "minutemail.com", "getairmail.com",
-    "mohmal.com", "mailnesia.com", "maildrop.cc", "nada.email",
-    "discard.email", "tempr.email", "emailondeck.com", "mytemp.email",
-    "burnermail.io", "harakirimail.com", "33mail.com", "getnada.com",
-    "emailfake.com", "crazymailing.com", "tmail.ws", "tmpmail.net",
-    "mailsac.com", "guerrillamail.info", "guerrillamail.net", "guerrillamail.de",
-    "trashmail.me", "trashmail.net", "trash-mail.com", "byom.de",
-    "spamgourmet.com", "spamfree24.org", "jetable.org", "mailexpire.com",
-    "throwam.com", "mailcatch.com", "tempinbox.com", "incognitomail.org",
-    "mailnull.com", "tempsky.com", "binkmail.com", "spaml.com",
-    "armyspy.com", "cuvox.de", "dayrep.com", "einrot.com", "fleckens.hu",
-    "gustr.com", "jourrapide.com", "rhyta.com", "superrito.com",
-    "teleworm.us", "tempomail.fr", "tittbit.in", "tradelist.eu",
-})
+DISPOSABLE_DOMAINS = frozenset(
+    {
+        "tempmail.com",
+        "throwaway.email",
+        "guerrillamail.com",
+        "mailinator.com",
+        "yopmail.com",
+        "tempail.com",
+        "fakeinbox.com",
+        "sharklasers.com",
+        "guerrillamailblock.com",
+        "grr.la",
+        "dispostable.com",
+        "trashmail.com",
+        "temp-mail.org",
+        "10minutemail.com",
+        "minutemail.com",
+        "getairmail.com",
+        "mohmal.com",
+        "mailnesia.com",
+        "maildrop.cc",
+        "nada.email",
+        "discard.email",
+        "tempr.email",
+        "emailondeck.com",
+        "mytemp.email",
+        "burnermail.io",
+        "harakirimail.com",
+        "33mail.com",
+        "getnada.com",
+        "emailfake.com",
+        "crazymailing.com",
+        "tmail.ws",
+        "tmpmail.net",
+        "mailsac.com",
+        "guerrillamail.info",
+        "guerrillamail.net",
+        "guerrillamail.de",
+        "trashmail.me",
+        "trashmail.net",
+        "trash-mail.com",
+        "byom.de",
+        "spamgourmet.com",
+        "spamfree24.org",
+        "jetable.org",
+        "mailexpire.com",
+        "throwam.com",
+        "mailcatch.com",
+        "tempinbox.com",
+        "incognitomail.org",
+        "mailnull.com",
+        "tempsky.com",
+        "binkmail.com",
+        "spaml.com",
+        "armyspy.com",
+        "cuvox.de",
+        "dayrep.com",
+        "einrot.com",
+        "fleckens.hu",
+        "gustr.com",
+        "jourrapide.com",
+        "rhyta.com",
+        "superrito.com",
+        "teleworm.us",
+        "tempomail.fr",
+        "tittbit.in",
+        "tradelist.eu",
+    }
+)
 
-FREE_PROVIDERS = frozenset({
-    "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "aol.com",
-    "protonmail.com", "icloud.com", "mail.com", "zoho.com", "yandex.com",
-    "gmx.com", "gmx.net", "live.com", "msn.com", "me.com",
-    "fastmail.com", "tutanota.com", "pm.me", "cock.li",
-})
+FREE_PROVIDERS = frozenset(
+    {
+        "gmail.com",
+        "yahoo.com",
+        "outlook.com",
+        "hotmail.com",
+        "aol.com",
+        "protonmail.com",
+        "icloud.com",
+        "mail.com",
+        "zoho.com",
+        "yandex.com",
+        "gmx.com",
+        "gmx.net",
+        "live.com",
+        "msn.com",
+        "me.com",
+        "fastmail.com",
+        "tutanota.com",
+        "pm.me",
+        "cock.li",
+    }
+)
 
-VOIP_PREFIXES = frozenset({
-    "900", "855", "844", "833", "888", "877", "866", "800",
-})
+VOIP_PREFIXES = frozenset(
+    {
+        "900",
+        "855",
+        "844",
+        "833",
+        "888",
+        "877",
+        "866",
+        "800",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 async def _safe_get(
     http: httpx.AsyncClient,
@@ -130,6 +210,7 @@ def _safe_float(val: Any, default: float = 0.0) -> float:
 #  IP OSINT
 # ===================================================================
 
+
 async def osint_ip_shodan(ip: str, http: httpx.AsyncClient) -> dict[str, Any]:
     """Shodan InternetDB — open ports, CVEs, tags. No API key needed."""
     result: dict[str, Any] = {"source": "shodan_internetdb", "ip": ip}
@@ -158,7 +239,9 @@ async def osint_ip_shodan(ip: str, http: httpx.AsyncClient) -> dict[str, Any]:
 
 
 async def osint_ip_abuseipdb(
-    ip: str, http: httpx.AsyncClient, cfg: OsintConfig,
+    ip: str,
+    http: httpx.AsyncClient,
+    cfg: OsintConfig,
 ) -> dict[str, Any]:
     """AbuseIPDB — crowd-sourced abuse confidence score. Needs API key."""
     result: dict[str, Any] = {"source": "abuseipdb", "ip": ip}
@@ -185,7 +268,9 @@ async def osint_ip_abuseipdb(
 
 
 async def osint_ip_greynoise(
-    ip: str, http: httpx.AsyncClient, cfg: OsintConfig,
+    ip: str,
+    http: httpx.AsyncClient,
+    cfg: OsintConfig,
 ) -> dict[str, Any]:
     """GreyNoise Community — mass-scanner detection. Free 50/day."""
     result: dict[str, Any] = {"source": "greynoise", "ip": ip}
@@ -216,7 +301,9 @@ async def osint_ip_greynoise(
 
 
 async def osint_ip_ipinfo(
-    ip: str, http: httpx.AsyncClient, cfg: OsintConfig,
+    ip: str,
+    http: httpx.AsyncClient,
+    cfg: OsintConfig,
 ) -> dict[str, Any]:
     """IPinfo Lite — geolocation, ASN, company. Free unlimited."""
     result: dict[str, Any] = {"source": "ipinfo", "ip": ip}
@@ -288,7 +375,9 @@ async def osint_ip_ipapi(ip: str, http: httpx.AsyncClient) -> dict[str, Any]:
 
 
 async def enrich_ip_full(
-    ip: str, http: httpx.AsyncClient, cfg: OsintConfig,
+    ip: str,
+    http: httpx.AsyncClient,
+    cfg: OsintConfig,
 ) -> dict[str, Any]:
     """Run all IP OSINT sources in parallel and aggregate."""
     tasks = [
@@ -304,8 +393,12 @@ async def enrich_ip_full(
     risk_scores: list[float] = []
     geo: dict[str, Any] = {}
     flags: dict[str, bool] = {
-        "is_vpn": False, "is_proxy": False, "is_tor": False,
-        "is_hosting": False, "is_mobile": False, "is_scanner": False,
+        "is_vpn": False,
+        "is_proxy": False,
+        "is_tor": False,
+        "is_hosting": False,
+        "is_mobile": False,
+        "is_scanner": False,
     }
     vulns: list[str] = []
     open_ports: list[int] = []
@@ -350,8 +443,11 @@ async def enrich_ip_full(
 #  EMAIL OSINT
 # ===================================================================
 
+
 async def osint_email_emailrep(
-    email: str, http: httpx.AsyncClient, cfg: OsintConfig,
+    email: str,
+    http: httpx.AsyncClient,
+    cfg: OsintConfig,
 ) -> dict[str, Any]:
     """EmailRep.io — reputation, social profiles, breach info."""
     result: dict[str, Any] = {"source": "emailrep", "email": email}
@@ -359,7 +455,10 @@ async def osint_email_emailrep(
     if cfg.emailrep_key:
         headers["Key"] = cfg.emailrep_key
     data = await _safe_get(
-        http, f"https://emailrep.io/{email}", headers=headers, label="emailrep",
+        http,
+        f"https://emailrep.io/{email}",
+        headers=headers,
+        label="emailrep",
     )
     if data:
         result["reputation"] = data.get("reputation", "none")
@@ -453,7 +552,8 @@ async def osint_email_dns(email: str) -> dict[str, Any]:
     try:
         loop = asyncio.get_event_loop()
         mx_records = await loop.run_in_executor(
-            None, lambda: socket.getaddrinfo(domain, 25, proto=socket.IPPROTO_TCP),
+            None,
+            lambda: socket.getaddrinfo(domain, 25, proto=socket.IPPROTO_TCP),
         )
         result["has_mx"] = len(mx_records) > 0
         result["risk_score"] = 0 if result["has_mx"] else 20
@@ -511,7 +611,9 @@ def _email_local_analysis(email: str) -> dict[str, Any]:
 
 
 async def enrich_email_full(
-    email: str, http: httpx.AsyncClient, cfg: OsintConfig,
+    email: str,
+    http: httpx.AsyncClient,
+    cfg: OsintConfig,
 ) -> dict[str, Any]:
     """Run all email OSINT sources in parallel and aggregate."""
     local_analysis = _email_local_analysis(email)
@@ -559,8 +661,11 @@ async def enrich_email_full(
 #  PHONE OSINT
 # ===================================================================
 
+
 async def osint_phone_numverify(
-    phone: str, http: httpx.AsyncClient, cfg: OsintConfig,
+    phone: str,
+    http: httpx.AsyncClient,
+    cfg: OsintConfig,
 ) -> dict[str, Any]:
     """NumVerify API — carrier, line type, validity."""
     result: dict[str, Any] = {"source": "numverify", "phone": phone}
@@ -652,7 +757,9 @@ def _phone_local_analysis(phone: str) -> dict[str, Any]:
 
 
 async def enrich_phone_full(
-    phone: str, http: httpx.AsyncClient, cfg: OsintConfig,
+    phone: str,
+    http: httpx.AsyncClient,
+    cfg: OsintConfig,
 ) -> dict[str, Any]:
     """Run all phone OSINT sources and aggregate."""
     local = _phone_local_analysis(phone)
@@ -687,11 +794,15 @@ async def enrich_phone_full(
 #  DOMAIN OSINT
 # ===================================================================
 
+
 async def osint_domain_rdap(domain: str, http: httpx.AsyncClient) -> dict[str, Any]:
     """RDAP — domain registration info (successor to WHOIS). Free."""
     result: dict[str, Any] = {"source": "rdap", "domain": domain}
     data = await _safe_get(
-        http, f"https://rdap.org/domain/{domain}", label="rdap", timeout=5.0,
+        http,
+        f"https://rdap.org/domain/{domain}",
+        label="rdap",
+        timeout=5.0,
     )
     if data:
         events = data.get("events", [])
@@ -710,6 +821,7 @@ async def osint_domain_rdap(domain: str, http: httpx.AsyncClient) -> dict[str, A
         if result.get("registration_date"):
             try:
                 from datetime import datetime, timezone
+
                 reg = datetime.fromisoformat(result["registration_date"].replace("Z", "+00:00"))
                 age_days = (datetime.now(timezone.utc) - reg).days
                 result["age_days"] = age_days
@@ -725,7 +837,8 @@ async def osint_domain_rdap(domain: str, http: httpx.AsyncClient) -> dict[str, A
 
 
 async def enrich_domain_full(
-    domain: str, http: httpx.AsyncClient,
+    domain: str,
+    http: httpx.AsyncClient,
 ) -> dict[str, Any]:
     """Domain OSINT aggregation."""
     rdap = await osint_domain_rdap(domain, http)
@@ -743,11 +856,14 @@ async def enrich_domain_full(
 #  SOCIAL / IDENTITY OSINT
 # ===================================================================
 
+
 async def osint_github_profile(username: str, http: httpx.AsyncClient) -> dict[str, Any]:
     """Check if a GitHub profile exists for the username."""
     result: dict[str, Any] = {"source": "github", "username": username}
     data = await _safe_get(
-        http, f"https://api.github.com/users/{username}", label="github",
+        http,
+        f"https://api.github.com/users/{username}",
+        label="github",
     )
     if data and data.get("login"):
         result["exists"] = True
@@ -761,7 +877,8 @@ async def osint_github_profile(username: str, http: httpx.AsyncClient) -> dict[s
 
 
 async def enrich_identity(
-    email: str | None, http: httpx.AsyncClient,
+    email: str | None,
+    http: httpx.AsyncClient,
 ) -> dict[str, Any]:
     """Try to discover social identity from email username."""
     result: dict[str, Any] = {"social_profiles": []}
@@ -770,7 +887,7 @@ async def enrich_identity(
     username = email.split("@")[0].lower()
     cut_positions = [p for p in (username.find("+"), username.find(".")) if p != -1]
     if cut_positions:
-        username = username[:min(cut_positions)]
+        username = username[: min(cut_positions)]
     if len(username) < 3:
         return result
 
@@ -784,6 +901,7 @@ async def enrich_identity(
 # ===================================================================
 #  UNIFIED OSINT ENRICHMENT
 # ===================================================================
+
 
 async def full_osint_enrichment(
     *,

@@ -1,12 +1,12 @@
 """Unit tests for the event-ingest service endpoints."""
+
 import json
+import os
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-
 from event_ingest.main import _payload_for_decision_api
 
-import os
 os.environ.setdefault("NATS_URL", "nats://localhost:4222")
 
 
@@ -33,6 +33,7 @@ def client(mock_js):
         with patch("event_ingest.main.asyncio.create_task"):
             from event_ingest.main import app
             from fastapi.testclient import TestClient
+
             with TestClient(app) as c:
                 yield c
 
@@ -54,7 +55,6 @@ class TestHealthEndpoint:
 class TestIdempotency:
     def test_same_key_second_call_duplicate(self, client, mock_js):
         import fakeredis.aioredis as fake_aioredis
-
         from event_ingest.main import app
 
         app.state.redis = fake_aioredis.FakeRedis(decode_responses=True)
@@ -73,12 +73,15 @@ class TestIdempotency:
 
 class TestIngestEvent:
     def test_single_event(self, client, mock_js):
-        r = client.post("/v1/events", json={
-            "tenant_id": "t1",
-            "event_type": "login",
-            "entity_id": "user-1",
-            "payload": {"ip": "1.2.3.4"},
-        })
+        r = client.post(
+            "/v1/events",
+            json={
+                "tenant_id": "t1",
+                "event_type": "login",
+                "entity_id": "user-1",
+                "payload": {"ip": "1.2.3.4"},
+            },
+        )
         assert r.status_code == 200
         data = r.json()
         assert data["accepted"] is True
@@ -87,13 +90,16 @@ class TestIngestEvent:
         mock_js.publish.assert_called_once()
 
     def test_single_event_with_device_context(self, client, mock_js):
-        r = client.post("/v1/events", json={
-            "tenant_id": "t1",
-            "event_type": "payment",
-            "entity_id": "user-2",
-            "payload": {"amount": 500},
-            "device_context": {"device_id": "dev1", "platform": "ios"},
-        })
+        r = client.post(
+            "/v1/events",
+            json={
+                "tenant_id": "t1",
+                "event_type": "payment",
+                "entity_id": "user-2",
+                "payload": {"amount": 500},
+                "device_context": {"device_id": "dev1", "platform": "ios"},
+            },
+        )
         assert r.status_code == 200
         assert r.json()["accepted"] is True
 
@@ -105,7 +111,6 @@ class TestIngestEvent:
 class TestBatchIdempotency:
     def test_batch_duplicate_returns_cached(self, client, mock_js):
         import fakeredis.aioredis as fake_aioredis
-
         from event_ingest.main import app
 
         app.state.redis = fake_aioredis.FakeRedis(decode_responses=True)
@@ -129,7 +134,6 @@ class TestBatchIdempotency:
 
     def test_batch_idempotency_key_in_json_body(self, client, mock_js):
         import fakeredis.aioredis as fake_aioredis
-
         from event_ingest.main import app
 
         app.state.redis = fake_aioredis.FakeRedis(decode_responses=True)
@@ -146,13 +150,16 @@ class TestBatchIdempotency:
 
 class TestIngestBatch:
     def test_batch_events(self, client, mock_js):
-        r = client.post("/v1/events/batch", json={
-            "events": [
-                {"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}},
-                {"tenant_id": "t1", "event_type": "payment", "entity_id": "u2", "payload": {}},
-                {"tenant_id": "t1", "event_type": "signup", "entity_id": "u3", "payload": {}},
-            ]
-        })
+        r = client.post(
+            "/v1/events/batch",
+            json={
+                "events": [
+                    {"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}},
+                    {"tenant_id": "t1", "event_type": "payment", "entity_id": "u2", "payload": {}},
+                    {"tenant_id": "t1", "event_type": "signup", "entity_id": "u3", "payload": {}},
+                ]
+            },
+        )
         assert r.status_code == 200
         data = r.json()
         assert data["accepted"] == 3
@@ -229,12 +236,16 @@ class TestNatsNotConnected:
                 with patch("event_ingest.main.asyncio.create_task"):
                     from event_ingest.main import app
                     from fastapi.testclient import TestClient
+
                     with TestClient(app) as c:
                         with patch("event_ingest.main._js", None):
-                            r = c.post("/v1/events", json={
-                                "tenant_id": "t1",
-                                "event_type": "login",
-                                "entity_id": "u1",
-                                "payload": {},
-                            })
+                            r = c.post(
+                                "/v1/events",
+                                json={
+                                    "tenant_id": "t1",
+                                    "event_type": "login",
+                                    "entity_id": "u1",
+                                    "payload": {},
+                                },
+                            )
                             assert r.status_code == 503

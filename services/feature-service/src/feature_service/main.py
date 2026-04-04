@@ -10,11 +10,12 @@ import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from observability import setup_observability  # noqa: E402
 
 # ---------- auth ----------
 _valid_api_keys: frozenset[str] | None = None
+
 
 def _get_api_keys() -> frozenset[str]:
     global _valid_api_keys
@@ -22,6 +23,7 @@ def _get_api_keys() -> frozenset[str]:
         raw = os.environ.get("API_KEYS", "").strip()
         _valid_api_keys = frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
     return _valid_api_keys
+
 
 async def require_api_key(request: Request) -> None:
     keys = _get_api_keys()
@@ -137,7 +139,8 @@ def _compute_time_features() -> dict[str, Any]:
 
 
 async def _fetch_enrichment(
-    http: httpx.AsyncClient, payload: dict[str, Any],
+    http: httpx.AsyncClient,
+    payload: dict[str, Any],
 ) -> dict[str, Any]:
     """Call integration-ingress /v1/enrich and flatten results into features."""
     features: dict[str, Any] = {}
@@ -184,7 +187,8 @@ async def _fetch_enrichment(
 
 
 async def _fetch_osint(
-    http: httpx.AsyncClient, payload: dict[str, Any],
+    http: httpx.AsyncClient,
+    payload: dict[str, Any],
 ) -> dict[str, Any]:
     """Call integration-ingress /v1/osint and flatten key signals into features."""
     features: dict[str, Any] = {}
@@ -248,6 +252,7 @@ def _build_vector(features: dict[str, Any]) -> list[float]:
 
 
 # ---------- endpoints ----------
+
 
 @app.get("/v1/health")
 async def health():

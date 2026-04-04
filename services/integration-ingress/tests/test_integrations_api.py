@@ -1,6 +1,7 @@
 import os
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
+from urllib.parse import urlparse
 
 import httpx
 import pytest
@@ -113,8 +114,9 @@ async def test_integration_request_pending_until_admin_approves(client):
     appr = await client.post(f"/v1/integrations/requests/{rid}/approve", json={})
     assert appr.status_code == 200
     url = appr.json().get("github_issue_url", "")
-    assert "github.com" in url
-    assert "issues/new" in url
+    gh = urlparse(url)
+    assert gh.hostname == "github.com"
+    assert "/issues/new" in (gh.path or "")
 
 
 @pytest.mark.asyncio

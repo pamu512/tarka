@@ -3,9 +3,7 @@ from typing import Any
 import httpx
 
 
-async def evaluate_opa(
-    http: httpx.AsyncClient, opa_url: str, input_payload: dict[str, Any]
-) -> dict[str, Any] | None:
+async def evaluate_opa(http: httpx.AsyncClient, opa_url: str, input_payload: dict[str, Any]) -> dict[str, Any] | None:
     if not opa_url:
         return None
     url = opa_url.rstrip("/") + "/v1/data/fraud/result"

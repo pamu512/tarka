@@ -9,6 +9,7 @@ Expected JSONL shapes (one object per line):
   - Audit-like: {"tenant_id": "...", "entity_id": "...", "trace_id": "...", "payload": {...}}
     (payload dict is passed as aggregate fields when "fields" is absent)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -42,13 +43,7 @@ def row_to_record_args(row: dict[str, Any]) -> tuple[str, str, str, dict[str, An
     entity_id = row.get("entity_id")
     if not tenant_id or not entity_id:
         return None
-    event_id = (
-        row.get("event_id")
-        or row.get("trace_id")
-        or row.get("ingest_id")
-        or row.get("_ingest_id")
-        or uuid.uuid4().hex
-    )
+    event_id = row.get("event_id") or row.get("trace_id") or row.get("ingest_id") or row.get("_ingest_id") or uuid.uuid4().hex
     fields = row.get("fields")
     if fields is None:
         payload = row.get("payload") or row.get("request_body") or {}
@@ -74,7 +69,6 @@ async def replay_to_redis(
 ) -> int:
     _ensure_decision_api_path()
     import redis.asyncio as aioredis
-
     from decision_api.aggregates import AGG_PREFIX, AggregateStore
 
     count = 0
@@ -111,9 +105,7 @@ async def replay_to_redis(
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(
-        description="Replay JSONL rows into Redis-backed AggregateStore (offline parity / v1.2)."
-    )
+    p = argparse.ArgumentParser(description="Replay JSONL rows into Redis-backed AggregateStore (offline parity / v1.2).")
     p.add_argument("--input", type=Path, help="JSONL file (one JSON object per line)")
     p.add_argument(
         "--redis-url",

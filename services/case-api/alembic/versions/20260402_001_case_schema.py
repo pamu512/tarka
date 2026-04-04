@@ -5,6 +5,7 @@ Revises:
 Create Date: 2026-04-02
 
 """
+
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -76,18 +77,10 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
-        op.f("ix_investigation_label_drafts_analyst_id"), "investigation_label_drafts", ["analyst_id"], unique=False
-    )
-    op.create_index(
-        op.f("ix_investigation_label_drafts_entity_id"), "investigation_label_drafts", ["entity_id"], unique=False
-    )
-    op.create_index(
-        op.f("ix_investigation_label_drafts_tenant_id"), "investigation_label_drafts", ["tenant_id"], unique=False
-    )
-    op.create_index(
-        op.f("ix_investigation_label_drafts_trace_id"), "investigation_label_drafts", ["trace_id"], unique=False
-    )
+    op.create_index(op.f("ix_investigation_label_drafts_analyst_id"), "investigation_label_drafts", ["analyst_id"], unique=False)
+    op.create_index(op.f("ix_investigation_label_drafts_entity_id"), "investigation_label_drafts", ["entity_id"], unique=False)
+    op.create_index(op.f("ix_investigation_label_drafts_tenant_id"), "investigation_label_drafts", ["tenant_id"], unique=False)
+    op.create_index(op.f("ix_investigation_label_drafts_trace_id"), "investigation_label_drafts", ["trace_id"], unique=False)
 
     op.create_table(
         "disputes",

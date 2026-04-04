@@ -21,9 +21,7 @@ class WebhookInbox(Base):
 
 class IntegrationConnection(Base):
     __tablename__ = "integration_connections"
-    __table_args__ = (
-        UniqueConstraint("tenant_id", "provider_id", name="uq_integration_tenant_provider"),
-    )
+    __table_args__ = (UniqueConstraint("tenant_id", "provider_id", name="uq_integration_tenant_provider"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[str] = mapped_column(String(128), index=True)
@@ -39,9 +37,7 @@ class IntegrationConnection(Base):
 
 class IntegrationSecret(Base):
     __tablename__ = "integration_secrets"
-    __table_args__ = (
-        UniqueConstraint("tenant_id", "provider_id", name="uq_secret_tenant_provider"),
-    )
+    __table_args__ = (UniqueConstraint("tenant_id", "provider_id", name="uq_secret_tenant_provider"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[str] = mapped_column(String(128), index=True)
@@ -55,9 +51,7 @@ class IntegrationSecret(Base):
 
 class IntegrationOperation(Base):
     __tablename__ = "integration_operations"
-    __table_args__ = (
-        UniqueConstraint("tenant_id", "provider_id", "action", "idempotency_key", name="uq_integration_operation"),
-    )
+    __table_args__ = (UniqueConstraint("tenant_id", "provider_id", "action", "idempotency_key", name="uq_integration_operation"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[str] = mapped_column(String(128), index=True)

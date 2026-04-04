@@ -1,4 +1,5 @@
 """Validate checked-in OpenAPI specs and FastAPI app schema alignment."""
+
 import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch

@@ -18,9 +18,8 @@ Usage:
 import json
 import logging
 import os
-import time
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Literal
 
@@ -117,6 +116,7 @@ class ListStore(ABC):
 
 # ── Memory Backend ───────────────────────────────────────────────────
 
+
 class MemoryListStore(ListStore):
     def __init__(self):
         self._data: dict[str, ListEntry] = {}
@@ -161,6 +161,7 @@ class MemoryListStore(ListStore):
 
 # ── Redis Backend ────────────────────────────────────────────────────
 
+
 class RedisListStore(ListStore):
     def __init__(self, redis_url: str):
         self._url = redis_url
@@ -172,6 +173,7 @@ class RedisListStore(ListStore):
     async def connect(self) -> None:
         if self._client is None:
             import redis.asyncio as aioredis
+
             self._client = aioredis.from_url(self._url, decode_responses=True)
 
     async def close(self) -> None:
@@ -226,6 +228,7 @@ class RedisListStore(ListStore):
 
 
 # ── File Backend ─────────────────────────────────────────────────────
+
 
 class FileListStore(ListStore):
     def __init__(self, directory: str = "./lists"):
@@ -294,6 +297,7 @@ class FileListStore(ListStore):
 
 # ── API Backend ──────────────────────────────────────────────────────
 
+
 class APIListStore(ListStore):
     """Delegates to an external HTTP API for list management."""
 
@@ -310,6 +314,7 @@ class APIListStore(ListStore):
 
     async def connect(self) -> None:
         import httpx
+
         self._http = httpx.AsyncClient(timeout=5.0)
 
     async def close(self) -> None:
@@ -367,6 +372,7 @@ class APIListStore(ListStore):
 
 
 # ── Factory ──────────────────────────────────────────────────────────
+
 
 def create_list_store(
     backend: str = "memory",

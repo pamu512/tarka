@@ -1,14 +1,12 @@
 """Unit tests for ML scoring — adaptive detector and explainability."""
+
 import json
 import os
 import tempfile
 
-import pytest
-
 from ml_scoring.adaptive import OnlineAnomalyDetector
 from ml_scoring.explainability import explain_score
-from ml_scoring.main import _heuristic_score, _safe_float
-
+from ml_scoring.main import _heuristic_score
 
 # ---------- OnlineAnomalyDetector ----------
 
@@ -156,23 +154,27 @@ class TestHeuristicScore:
         assert score > 10
 
     def test_new_account_high_velocity(self):
-        score = _heuristic_score({
-            "account_age_days": 2,
-            "transaction_count_24h": 25,
-            "distinct_countries_7d": 5,
-        })
+        score = _heuristic_score(
+            {
+                "account_age_days": 2,
+                "transaction_count_24h": 25,
+                "distinct_countries_7d": 5,
+            }
+        )
         assert score >= 42
 
     def test_score_clamped_to_100(self):
-        score = _heuristic_score({
-            "amount": 100000,
-            "is_bot": True,
-            "is_emulator": True,
-            "is_vpn": True,
-            "is_new_device": True,
-            "hour_of_day": 3,
-            "transaction_count_24h": 50,
-            "distinct_countries_7d": 10,
-            "account_age_days": 1,
-        })
+        score = _heuristic_score(
+            {
+                "amount": 100000,
+                "is_bot": True,
+                "is_emulator": True,
+                "is_vpn": True,
+                "is_new_device": True,
+                "hour_of_day": 3,
+                "transaction_count_24h": 50,
+                "distinct_countries_7d": 10,
+                "account_age_days": 1,
+            }
+        )
         assert score <= 100.0

@@ -1,7 +1,7 @@
 """Server-side CAPTCHA token verification for reCAPTCHA, hCaptcha, and Turnstile."""
+
 import logging
 import os
-from typing import Any
 
 import httpx
 from fastapi import APIRouter, HTTPException

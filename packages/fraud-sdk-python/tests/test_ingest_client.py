@@ -1,4 +1,5 @@
 """Tests for EventIngestClient."""
+
 from unittest.mock import MagicMock, patch
 
 from fraud_stack_sdk.ingest_client import EventIngestClient
@@ -17,9 +18,7 @@ class TestEventIngestClient:
         with patch("httpx.Client") as MockClient:
             inst = MockClient.return_value.__enter__.return_value
             inst.post.return_value = mock_resp
-            out = ingest.send_event(
-                "t1", "login", "u1", payload={"x": 1}, idempotency_key="idem-xyz"
-            )
+            out = ingest.send_event("t1", "login", "u1", payload={"x": 1}, idempotency_key="idem-xyz")
             assert out["ingest_id"] == "id-1"
             assert out["stream_seq"] == 7
             inst.post.assert_called_once()

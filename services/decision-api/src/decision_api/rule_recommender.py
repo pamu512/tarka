@@ -6,6 +6,7 @@ Uses statistical analysis (no external ML dependencies needed):
 2. Threshold discovery via percentile analysis
 3. Pattern mining for multi-condition rules
 """
+
 import logging
 import math
 from collections import Counter, defaultdict
@@ -18,6 +19,7 @@ log = logging.getLogger(__name__)
 
 class RuleRecommendation(BaseModel):
     """A recommended rule with confidence metrics."""
+
     rule_id: str
     description: str
     conditions: list[dict[str, Any]]
@@ -32,6 +34,7 @@ class RuleRecommendation(BaseModel):
 
 class FeatureInsight(BaseModel):
     """Insight about a single feature's fraud correlation."""
+
     feature: str
     importance: float  # 0-1 importance score
     fraud_mean: float
@@ -69,8 +72,8 @@ def _information_gain(
     parent_counts: dict[str, int] = Counter(labels)
     parent_ent = _entropy(parent_counts)
 
-    above_labels = [l for v, l in zip(feature_vals, labels) if v >= threshold]
-    below_labels = [l for v, l in zip(feature_vals, labels) if v < threshold]
+    above_labels = [lbl for v, lbl in zip(feature_vals, labels) if v >= threshold]
+    below_labels = [lbl for v, lbl in zip(feature_vals, labels) if v < threshold]
 
     above_ent = _entropy(Counter(above_labels))
     below_ent = _entropy(Counter(below_labels))
@@ -117,8 +120,8 @@ def analyze_features(
 
         f_mean = sum(f_vals) / len(f_vals)
         l_mean = sum(l_vals) / len(l_vals)
-        f_std = math.sqrt(sum((v - f_mean)**2 for v in f_vals) / len(f_vals)) if len(f_vals) > 1 else 0
-        l_std = math.sqrt(sum((v - l_mean)**2 for v in l_vals) / len(l_vals)) if len(l_vals) > 1 else 0
+        f_std = math.sqrt(sum((v - f_mean) ** 2 for v in f_vals) / len(f_vals)) if len(f_vals) > 1 else 0
+        l_std = math.sqrt(sum((v - l_mean) ** 2 for v in l_vals) / len(l_vals)) if len(l_vals) > 1 else 0
 
         pooled_std = math.sqrt((f_std**2 + l_std**2) / 2) if (f_std + l_std) > 0 else 1
         effect_size = abs(f_mean - l_mean) / max(pooled_std, 1e-8)
@@ -131,11 +134,7 @@ def analyze_features(
         best_threshold = None
 
         percentiles = [10, 25, 50, 75, 90]
-        thresholds = list(set(
-            sorted(all_vals)[int(len(all_vals) * p / 100)]
-            for p in percentiles
-            if int(len(all_vals) * p / 100) < len(all_vals)
-        ))
+        thresholds = list(set(sorted(all_vals)[int(len(all_vals) * p / 100)] for p in percentiles if int(len(all_vals) * p / 100) < len(all_vals)))
 
         for t in thresholds:
             ig = _information_gain(all_vals, labels, t)
@@ -149,17 +148,19 @@ def analyze_features(
         if best_threshold is not None:
             desc += f" (threshold: {best_threshold:.2f})"
 
-        insights.append(FeatureInsight(
-            feature=feat,
-            importance=round(importance, 4),
-            fraud_mean=round(f_mean, 4),
-            legit_mean=round(l_mean, 4),
-            fraud_std=round(f_std, 4),
-            legit_std=round(l_std, 4),
-            suggested_threshold=round(best_threshold, 4) if best_threshold is not None else None,
-            suggested_op=op,
-            description=desc,
-        ))
+        insights.append(
+            FeatureInsight(
+                feature=feat,
+                importance=round(importance, 4),
+                fraud_mean=round(f_mean, 4),
+                legit_mean=round(l_mean, 4),
+                fraud_std=round(f_std, 4),
+                legit_std=round(l_std, 4),
+                suggested_threshold=round(best_threshold, 4) if best_threshold is not None else None,
+                suggested_op=op,
+                description=desc,
+            )
+        )
 
     insights.sort(key=lambda x: x.importance, reverse=True)
     return insights
@@ -224,22 +225,26 @@ def generate_recommendations(
 
         tag = f"ai:{insight.feature}_anomaly"
 
-        recommendations.append(RuleRecommendation(
-            rule_id=f"ai_rec_{i+1}_{insight.feature}",
-            description=f"Auto-detected: {insight.description}",
-            conditions=[{
-                "field": insight.feature,
-                "op": insight.suggested_op,
-                "value": insight.suggested_threshold,
-            }],
-            suggested_score_delta=score_delta,
-            suggested_tags=[tag],
-            confidence=round(confidence, 4),
-            support=matches,
-            precision=round(precision, 4),
-            recall=round(recall, 4),
-            lift=round(lift, 4),
-        ))
+        recommendations.append(
+            RuleRecommendation(
+                rule_id=f"ai_rec_{i + 1}_{insight.feature}",
+                description=f"Auto-detected: {insight.description}",
+                conditions=[
+                    {
+                        "field": insight.feature,
+                        "op": insight.suggested_op,
+                        "value": insight.suggested_threshold,
+                    }
+                ],
+                suggested_score_delta=score_delta,
+                suggested_tags=[tag],
+                confidence=round(confidence, 4),
+                support=matches,
+                precision=round(precision, 4),
+                recall=round(recall, 4),
+                lift=round(lift, 4),
+            )
+        )
 
     # Multi-condition rules from top-2 feature combinations
     top_features = insights[:5]
@@ -267,8 +272,8 @@ def generate_recommendations(
                 except (TypeError, ValueError):
                     continue
 
-                match1 = (fv1 >= f1.suggested_threshold if f1.suggested_op == "gte" else fv1 <= f1.suggested_threshold)
-                match2 = (fv2 >= f2.suggested_threshold if f2.suggested_op == "gte" else fv2 <= f2.suggested_threshold)
+                match1 = fv1 >= f1.suggested_threshold if f1.suggested_op == "gte" else fv1 <= f1.suggested_threshold
+                match2 = fv2 >= f2.suggested_threshold if f2.suggested_op == "gte" else fv2 <= f2.suggested_threshold
 
                 if match1 and match2:
                     matches += 1
@@ -288,21 +293,23 @@ def generate_recommendations(
 
             score_delta = round(max(10, min(50, precision * 60)), 0)
 
-            recommendations.append(RuleRecommendation(
-                rule_id=f"ai_rec_combo_{f1.feature}_{f2.feature}",
-                description=f"Auto-detected combination: {f1.feature} + {f2.feature}",
-                conditions=[
-                    {"field": f1.feature, "op": f1.suggested_op, "value": f1.suggested_threshold},
-                    {"field": f2.feature, "op": f2.suggested_op, "value": f2.suggested_threshold},
-                ],
-                suggested_score_delta=score_delta,
-                suggested_tags=[f"ai:{f1.feature}+{f2.feature}"],
-                confidence=round(confidence, 4),
-                support=matches,
-                precision=round(precision, 4),
-                recall=round(recall, 4),
-                lift=round(lift, 4),
-            ))
+            recommendations.append(
+                RuleRecommendation(
+                    rule_id=f"ai_rec_combo_{f1.feature}_{f2.feature}",
+                    description=f"Auto-detected combination: {f1.feature} + {f2.feature}",
+                    conditions=[
+                        {"field": f1.feature, "op": f1.suggested_op, "value": f1.suggested_threshold},
+                        {"field": f2.feature, "op": f2.suggested_op, "value": f2.suggested_threshold},
+                    ],
+                    suggested_score_delta=score_delta,
+                    suggested_tags=[f"ai:{f1.feature}+{f2.feature}"],
+                    confidence=round(confidence, 4),
+                    support=matches,
+                    precision=round(precision, 4),
+                    recall=round(recall, 4),
+                    lift=round(lift, 4),
+                )
+            )
 
     recommendations.sort(key=lambda x: x.confidence, reverse=True)
     return recommendations[:max_rules]
@@ -340,7 +347,7 @@ class RuleRecommender:
             for o in self._observations
         ]
 
-        insights = analyze_features(records)
+        analyze_features(records)
         recs = generate_recommendations(records, max_rules=20, min_confidence=0.2, min_support=min_support)
 
         results: list[dict[str, Any]] = []
@@ -349,22 +356,22 @@ class RuleRecommender:
             if precision < min_precision:
                 continue
             coverage = rec.recall
-            results.append({
-                "type": "ai_recommendation",
-                "rule": {
-                    "id": rec.rule_id,
-                    "when": rec.conditions,
-                    "score_delta": rec.suggested_score_delta,
-                    "tags": rec.suggested_tags,
-                    "description": rec.description,
-                },
-                "precision": round(precision, 3),
-                "coverage": round(coverage, 3),
-                "support": rec.support,
-                "quality_score": round(
-                    precision * coverage * math.log(max(rec.support, 2)), 3
-                ),
-            })
+            results.append(
+                {
+                    "type": "ai_recommendation",
+                    "rule": {
+                        "id": rec.rule_id,
+                        "when": rec.conditions,
+                        "score_delta": rec.suggested_score_delta,
+                        "tags": rec.suggested_tags,
+                        "description": rec.description,
+                    },
+                    "precision": round(precision, 3),
+                    "coverage": round(coverage, 3),
+                    "support": rec.support,
+                    "quality_score": round(precision * coverage * math.log(max(rec.support, 2)), 3),
+                }
+            )
 
         results.sort(key=lambda r: r["quality_score"], reverse=True)
         return results[:20]
