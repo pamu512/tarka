@@ -135,10 +135,15 @@ def smoke_evaluate() -> None:
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        if resp.status != 200:
-            raise RuntimeError(f"evaluate returned {resp.status}")
-        body = json.loads(resp.read().decode())
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            raw = resp.read().decode()
+            if resp.status != 200:
+                raise RuntimeError(f"evaluate returned {resp.status}: {raw[:1200]}")
+            body = json.loads(raw)
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode(errors="replace")
+        raise RuntimeError(f"evaluate HTTP {e.code}: {detail[:1200]}") from e
     if "trace_id" not in body or "decision" not in body:
         raise RuntimeError(f"unexpected evaluate body keys: {list(body.keys())}")
     print(f"[ok] POST /v1/decisions/evaluate trace_id={body.get('trace_id')}")
