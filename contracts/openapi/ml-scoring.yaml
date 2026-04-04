@@ -30,6 +30,7 @@ paths:
                   additionalProperties: true
       responses:
         "200":
+          description: Model score and version
           content:
             application/json:
               schema:

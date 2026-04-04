@@ -11,6 +11,7 @@ import {
   Area,
 } from "recharts";
 import { analytics, ml, type HourlyStat, type ModelInfo, type TopEntity } from "../api/client";
+import { PageTitle } from "../components/PageTitle";
 
 const HOURS_OPTIONS = [6, 12, 24, 48, 72];
 
@@ -94,9 +95,9 @@ export default function Analytics() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-100">Analytics</h1>
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-4">
+        <PageTitle module="analytics">Analytics</PageTitle>
+        <div className="flex items-center gap-2 shrink-0">
           <span className="text-xs text-gray-500">Time Range:</span>
           <div className="flex bg-surface-800 rounded-lg border border-surface-700 overflow-hidden">
             {HOURS_OPTIONS.map((h) => (

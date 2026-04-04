@@ -81,6 +81,7 @@ paths:
                 provider: { type: string, enum: [play_integrity, app_attest, browser_challenge] }
       responses:
         "200":
+          description: Attestation verification result
           content:
             application/json:
               schema:
@@ -93,11 +94,17 @@ paths:
   /v1/audit/{trace_id}:
     get:
       operationId: getAuditByTraceId
-      summary: Fetch audit record by trace id (internal / admin use)
+      summary: Fetch audit record by trace id (tenant-scoped)
       parameters:
         - name: trace_id
           in: path
           required: true
+          schema:
+            type: string
+        - name: tenant_id
+          in: query
+          required: true
+          description: Must match the audit row tenant_id
           schema:
             type: string
       responses:
@@ -109,6 +116,90 @@ paths:
                 type: object
         "404":
           description: Not found
+  /v1/analyst/entity-velocity:
+    get:
+      operationId: analystEntityVelocity
+      summary: Velocity aggregates and inference slice for investigations (read-only)
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: entity_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Velocity features, inference_velocity, anomaly_flags
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          description: Invalid entity_id
+  /v1/replay:
+    post:
+      operationId: replayEvents
+      summary: Re-evaluate audit snapshots with overridden rules (optional paired trace_ids)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_id, rules_override]
+              properties:
+                tenant_id: { type: string }
+                limit:
+                  type: integer
+                  default: 100
+                  description: Recent audits when trace_ids omitted
+                trace_ids:
+                  type: array
+                  maxItems: 200
+                  items: { type: string, format: uuid }
+                  description: When set, replay these traces in order; limit ignored for selection
+                rules_override:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      when:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            field: { type: string }
+                            op: { type: string }
+                            value: {}
+                      tags:
+                        type: array
+                        items: { type: string }
+                      score_delta: { type: number }
+                      description: { type: string }
+      responses:
+        "200":
+          description: Replay comparison per audit row
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tenant_id: { type: string }
+                  events_evaluated: { type: integer }
+                  decisions_changed: { type: integer }
+                  missing_trace_ids:
+                    type: array
+                    items: { type: string, format: uuid }
+                  results:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+        "400":
+          description: Invalid request
+        "404":
+          description: No audit rows matched
 components:
   schemas:
     EvaluateRequest:
@@ -180,16 +271,31 @@ components:
           nullable: true
         inference_context:
           $ref: "#/components/schemas/InferenceContext"
+        recommended_action:
+          type: string
+          nullable: true
+          description: Client hint for step-up (e.g. step_up_mfa, step_up_attestation, manual_review, block)
     InferenceContext:
       type: object
       required:
+        - schema_version
         - integrity_confidence
         - tamper_risk
         - network_trust
         - replay_risk
         - geo_consistency_risk
         - top_signals
+        - confidence_tier
+        - driver_reasons
+        - colocation_risk
+        - impossible_travel_risk
+        - velocity_events_5m
+        - velocity_events_1h
+        - velocity_events_24h
       properties:
+        schema_version:
+          type: string
+          example: "2"
         integrity_confidence:
           type: number
           format: float
@@ -219,3 +325,30 @@ components:
           type: array
           items:
             type: string
+        confidence_tier:
+          type: string
+          enum: [low, medium, high]
+        driver_reasons:
+          type: array
+          items:
+            type: string
+          description: Analyst-oriented codes for top decision drivers
+        colocation_risk:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        impossible_travel_risk:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        velocity_events_5m:
+          type: integer
+          minimum: 0
+        velocity_events_1h:
+          type: integer
+          minimum: 0
+        velocity_events_24h:
+          type: integer
+          minimum: 0

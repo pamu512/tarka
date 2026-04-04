@@ -12,8 +12,8 @@ Supported aggregate types:
 """
 from __future__ import annotations
 
-import json
 import time
+from collections.abc import Callable
 from typing import Any
 
 import redis.asyncio as redis
@@ -27,8 +27,14 @@ DISTINCT_FIELDS = frozenset({"ip_address", "device_id", "email", "phone", "card_
 
 
 class AggregateStore:
-    def __init__(self, redis_client: redis.Redis | None = None) -> None:
+    def __init__(
+        self,
+        redis_client: redis.Redis | None = None,
+        *,
+        clock: Callable[[], float] | None = None,
+    ) -> None:
         self._client = redis_client
+        self._clock: Callable[[], float] = clock or time.time
 
     def set_client(self, client: redis.Redis) -> None:
         self._client = client
@@ -48,7 +54,7 @@ class AggregateStore:
         ts: float | None = None,
     ) -> None:
         assert self._client
-        now = ts or time.time()
+        now = self._clock() if ts is None else ts
         pipe = self._client.pipeline()
 
         # Always record in the "events" sorted set for count
@@ -72,13 +78,13 @@ class AggregateStore:
     async def count(self, tenant_id: str, entity_id: str, window_seconds: int) -> int:
         assert self._client
         key = self._key(tenant_id, entity_id, "events")
-        cutoff = time.time() - min(window_seconds, MAX_WINDOW)
+        cutoff = self._clock() - min(window_seconds, MAX_WINDOW)
         return await self._client.zcount(key, cutoff, "+inf")
 
     async def sum_field(self, tenant_id: str, entity_id: str, field: str, window_seconds: int) -> float:
         assert self._client
         key = self._key(tenant_id, entity_id, f"field:{field}")
-        cutoff = time.time() - min(window_seconds, MAX_WINDOW)
+        cutoff = self._clock() - min(window_seconds, MAX_WINDOW)
         members = await self._client.zrangebyscore(key, cutoff, "+inf")
         total = 0.0
         for m in members:
@@ -92,7 +98,7 @@ class AggregateStore:
     async def avg_field(self, tenant_id: str, entity_id: str, field: str, window_seconds: int) -> float | None:
         assert self._client
         key = self._key(tenant_id, entity_id, f"field:{field}")
-        cutoff = time.time() - min(window_seconds, MAX_WINDOW)
+        cutoff = self._clock() - min(window_seconds, MAX_WINDOW)
         members = await self._client.zrangebyscore(key, cutoff, "+inf")
         if not members:
             return None
@@ -110,7 +116,7 @@ class AggregateStore:
     async def distinct_count(self, tenant_id: str, entity_id: str, field: str, window_seconds: int) -> int:
         assert self._client
         key = self._key(tenant_id, entity_id, f"distinct:{field}")
-        cutoff = time.time() - min(window_seconds, MAX_WINDOW)
+        cutoff = self._clock() - min(window_seconds, MAX_WINDOW)
         return await self._client.zcount(key, cutoff, "+inf")
 
     async def compute_features(
@@ -121,7 +127,7 @@ class AggregateStore:
     ) -> dict[str, Any]:
         """Compute standard aggregate features and return them as a dict."""
         features: dict[str, Any] = {}
-        for window_label, window_secs in [("1h", 3600), ("24h", 86400), ("7d", 604800)]:
+        for window_label, window_secs in [("5m", 300), ("1h", 3600), ("24h", 86400), ("7d", 604800)]:
             features[f"event_count_{window_label}"] = await self.count(tenant_id, entity_id, window_secs)
 
         for field in ("amount",):

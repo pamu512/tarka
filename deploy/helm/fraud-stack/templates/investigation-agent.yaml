@@ -28,6 +28,10 @@ spec:
             - name: GRAPH_SERVICE_URL
               value: "http://{{ include "tarka.fullname" . }}-graph-service:8001"
             {{- end }}
+            {{- if .Values.decisionApi.enabled }}
+            - name: DECISION_API_URL
+              value: "http://{{ include "tarka.fullname" . }}-decision-api:8000"
+            {{- end }}
 ---
 apiVersion: v1
 kind: Service

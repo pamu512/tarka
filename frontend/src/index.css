@@ -1,12 +1,24 @@
 @import "tailwindcss";
 
 @theme {
-  --color-surface-950: #0a0c10;
-  --color-surface-900: #0f1117;
-  --color-surface-800: #161923;
-  --color-surface-700: #1e2233;
-  --color-surface-600: #2a2f44;
-  --color-surface-500: #3d4463;
+  --color-surface-950: var(--s-950);
+  --color-surface-900: var(--s-900);
+  --color-surface-800: var(--s-800);
+  --color-surface-700: var(--s-700);
+  --color-surface-600: var(--s-600);
+  --color-surface-500: var(--s-500);
+
+  --color-gray-50: var(--g-50);
+  --color-gray-100: var(--g-100);
+  --color-gray-200: var(--g-200);
+  --color-gray-300: var(--g-300);
+  --color-gray-400: var(--g-400);
+  --color-gray-500: var(--g-500);
+  --color-gray-600: var(--g-600);
+  --color-gray-700: var(--g-700);
+  --color-gray-800: var(--g-800);
+  --color-gray-900: var(--g-900);
+  --color-gray-950: var(--g-950);
 
   --color-brand-400: #60a5fa;
   --color-brand-500: #3b82f6;
@@ -28,18 +40,67 @@
   --color-decision-deny: #ef4444;
 }
 
+/* Dark theme (default when <html class="dark">) */
+html {
+  --s-950: #0a0c10;
+  --s-900: #0f1117;
+  --s-800: #161923;
+  --s-700: #1e2233;
+  --s-600: #2a2f44;
+  --s-500: #3d4463;
+  --g-50: #f9fafb;
+  --g-100: #f3f4f6;
+  --g-200: #e5e7eb;
+  --g-300: #d1d5db;
+  --g-400: #9ca3af;
+  --g-500: #6b7280;
+  --g-600: #4b5563;
+  --g-700: #374151;
+  --g-800: #1f2937;
+  --g-900: #111827;
+  --g-950: #030712;
+  --scrollbar-thumb: #2a2f44;
+}
+
+/* Light theme */
+html:not(.dark) {
+  --s-950: #f1f5f9;
+  --s-900: #ffffff;
+  --s-800: #f8fafc;
+  --s-700: #e2e8f0;
+  --s-600: #cbd5e1;
+  --s-500: #94a3b8;
+  --g-50: #f8fafc;
+  --g-100: #0f172a;
+  --g-200: #1e293b;
+  --g-300: #334155;
+  --g-400: #475569;
+  --g-500: #64748b;
+  --g-600: #475569;
+  --g-700: #334155;
+  --g-800: #1e293b;
+  --g-900: #0f172a;
+  --g-950: #020617;
+  --scrollbar-thumb: #cbd5e1;
+}
+
 * {
   scrollbar-width: thin;
-  scrollbar-color: #2a2f44 transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 body {
-  background-color: #0a0c10;
+  background-color: var(--s-950);
 }
 
 @keyframes pulse-glow {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 .animate-pulse-glow {
@@ -47,8 +108,14 @@ body {
 }
 
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-fade-in {

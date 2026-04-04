@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { integrations } from "../api/client";
+import { PageTitle } from "../components/PageTitle";
 
 type Provider = {
   id: string;
@@ -143,8 +144,10 @@ export default function Integrations() {
         use_case: requestUseCase.trim(),
         github_username: requestGithubUser.trim(),
       });
-      window.open(res.github_issue_url, "_blank", "noopener,noreferrer");
-      setMessage("Request created. Opened GitHub issue form.");
+      setMessage(
+        res.message ??
+          "Request submitted. An administrator must approve it before a prefilled GitHub issue is created for engineering.",
+      );
       setRequestName("");
       setRequestUseCase("");
       setRequestGithubUser("");
@@ -205,7 +208,7 @@ export default function Integrations() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-100">Integrations</h1>
+        <PageTitle module="integrations">Integrations</PageTitle>
         <p className="text-sm text-gray-400 mt-1">
           One-click integrations for top enrichment providers, workflows, and CRMs.
         </p>
@@ -385,8 +388,12 @@ export default function Integrations() {
       )}
 
       <section className="bg-surface-900 border border-surface-700 rounded-xl p-5">
-        <h2 className="text-sm font-semibold text-gray-200">Request Other Integrations (via GitHub)</h2>
-        <p className="text-xs text-gray-400 mt-1">Submit a request and open a prefilled GitHub issue for tracking.</p>
+        <h2 className="text-sm font-semibold text-gray-200">Request other integrations</h2>
+        <p className="text-xs text-gray-400 mt-1">
+          Submit a request for review. A <strong className="text-gray-300">platform administrator</strong> must approve
+          it in <strong className="text-gray-300">Admin → Integration requests</strong> before a prefilled{" "}
+          <strong className="text-gray-300">GitHub</strong> new-issue link is generated for developers.
+        </p>
         <form onSubmit={submitRequest} className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
           <input
             value={requestName}

@@ -1,5 +1,5 @@
 # Tarka Lite — "try it in 5 minutes" deployment
-# Only the essential services: postgres, redis, decision-api, case-api, frontend.
+# postgres, redis, decision-api, case-api, integration-ingress (OSINT/KYC), frontend.
 # No Neo4j, NATS, ClickHouse, or OPA.
 #
 # Usage:
@@ -69,6 +69,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
       GRAPH_SERVICE_URL: ""
+      DECISION_API_URL: http://decision-api:8000
     ports:
       - "8002:8002"
     depends_on:
@@ -81,6 +82,27 @@ services:
       retries: 5
       start_period: 15s
 
+  integration-ingress:
+    build:
+      context: ..
+      dockerfile: services/integration-ingress/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
+      KMS_PROVIDER: local
+      KMS_ACTIVE_KEY_ID: lite-v1
+      INTEGRATION_VAULT_KEY: lite-dev-key
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   frontend:
     build:
       context: ..
@@ -90,6 +112,7 @@ services:
     depends_on:
       - decision-api
       - case-api
+      - integration-ingress
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/"]
       interval: 10s

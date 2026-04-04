@@ -473,7 +473,7 @@ def _generate_env(modules: list[str]):
             "GRAPH_SERVICE_URL=http://graph-service:8001",
             "NEO4J_URI=bolt://neo4j:7687",
             "NEO4J_USER=neo4j",
-            "NEO4J_PASSWORD=tarka",
+            "NEO4J_PASSWORD=tarka2026",
             "",
         ])
 

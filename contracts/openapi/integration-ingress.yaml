@@ -47,6 +47,7 @@ paths:
               $ref: "#/components/schemas/KycVerifyRequest"
       responses:
         "200":
+          description: Normalized KYC verification result
           content:
             application/json:
               schema:

@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     batch_flush_ms: int = 100
     max_batch_size: int = 256
     api_keys: str = ""
+    # Optional: enable single-event idempotency for POST /v1/events (header or metadata).
+    redis_url: str = ""
+    idempotency_ttl_seconds: int = 86400
+    idempotency_key_prefix: str = "ingest:idemp"
 
 
 settings = Settings()

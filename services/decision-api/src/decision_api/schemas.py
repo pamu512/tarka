@@ -34,12 +34,20 @@ class EvaluateRequest(BaseModel):
 
 
 class InferenceContext(BaseModel):
+    schema_version: str = "2"
     integrity_confidence: float = 0.0
     tamper_risk: float = 0.0
     network_trust: float = 0.0
     replay_risk: float = 0.0
     geo_consistency_risk: float = 0.0
     top_signals: list[str] = Field(default_factory=list)
+    confidence_tier: str = "medium"
+    driver_reasons: list[str] = Field(default_factory=list)
+    colocation_risk: float = 0.0
+    impossible_travel_risk: float = 0.0
+    velocity_events_5m: int = 0
+    velocity_events_1h: int = 0
+    velocity_events_24h: int = 0
 
 
 class EvaluateResponse(BaseModel):
@@ -51,3 +59,4 @@ class EvaluateResponse(BaseModel):
     reasons: list[str] = Field(default_factory=list)
     ml_score: float | None = None
     inference_context: InferenceContext
+    recommended_action: str | None = None

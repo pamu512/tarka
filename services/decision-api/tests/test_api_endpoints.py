@@ -28,6 +28,7 @@ async def client():
             mock_redis.set_cached_score = AsyncMock()
             mock_redis.store_nonce = AsyncMock()
             mock_redis.consume_nonce = AsyncMock(return_value=True)
+            mock_redis.check_and_store_replay_signature = AsyncMock(return_value=False)
 
             with patch("decision_api.main.load_rules"):
                 with patch("decision_api.main.agg_store") as mock_agg:
@@ -160,7 +161,10 @@ class TestAudit:
         from decision_api.main import get_session
 
         client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
-        r = await client.get("/v1/audit/00000000-0000-0000-0000-000000000001")
+        r = await client.get(
+            "/v1/audit/00000000-0000-0000-0000-000000000001",
+            params={"tenant_id": "t1"},
+        )
         client.tarka_app.dependency_overrides.pop(get_session, None)
         assert r.status_code == 404
 

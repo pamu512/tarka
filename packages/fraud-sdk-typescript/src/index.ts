@@ -7,9 +7,9 @@ export {
   type TouchSignals,
   type SessionSignals,
   type BotIndicators,
-} from "./behavior";
+} from "./behavior.js";
 
-import type { BehaviorCollector as BehaviorCollectorClass, BehaviorSignals } from "./behavior";
+import type { BehaviorCollector as BehaviorCollectorClass, BehaviorSignals } from "./behavior.js";
 
 export type EventType =
   | "login"
@@ -93,6 +93,27 @@ export interface EvaluateRequest {
   metadata?: Record<string, unknown>;
 }
 
+/** Body for `POST /v1/events` and batch items — same shape as evaluate without requiring a sync score. */
+export type IngestEventRequest = EvaluateRequest;
+
+export interface IngestEventResponse {
+  accepted: boolean;
+  stream_seq: number;
+  ingest_id: string;
+  duplicate?: boolean;
+}
+
+export interface IngestBatchResultItem {
+  ingest_id: string;
+  seq: number;
+}
+
+export interface IngestBatchResponse {
+  accepted: number;
+  results: IngestBatchResultItem[];
+  duplicate?: boolean;
+}
+
 export interface EvaluateResponse {
   trace_id: string;
   decision: string;
@@ -102,15 +123,27 @@ export interface EvaluateResponse {
   reasons?: string[];
   ml_score?: number | null;
   inference_context: InferenceContext;
+  recommended_action?: string | null;
 }
 
+/** Matches `InferenceContext` in `contracts/openapi/decision-api.yaml` (evaluate response). */
+export type ConfidenceTier = "low" | "medium" | "high";
+
 export interface InferenceContext {
+  schema_version: string;
   integrity_confidence: number;
   tamper_risk: number;
   network_trust: number;
   replay_risk: number;
   geo_consistency_risk: number;
   top_signals: string[];
+  confidence_tier: ConfidenceTier;
+  driver_reasons: string[];
+  colocation_risk: number;
+  impossible_travel_risk: number;
+  velocity_events_5m: number;
+  velocity_events_1h: number;
+  velocity_events_24h: number;
 }
 
 // --------------- Device Signal Collector ---------------
@@ -594,9 +627,10 @@ export class DecisionClient {
     return this.evaluate(body);
   }
 
-  async getAudit(traceId: string): Promise<Record<string, unknown>> {
+  async getAudit(traceId: string, tenantId: string): Promise<Record<string, unknown>> {
+    const q = new URLSearchParams({ tenant_id: tenantId });
     const r = await this.fetchWithTimeout(
-      this.url(`/v1/audit/${traceId}`),
+      this.url(`/v1/audit/${traceId}?${q}`),
       { headers: this.headers() }
     );
     return (await r.json()) as Record<string, unknown>;
@@ -604,5 +638,87 @@ export class DecisionClient {
 
   destroy(): void {
     this.collector?.destroy();
+  }
+}
+
+// --------------- Event Ingest Client (async NATS path) ---------------
+
+export interface EventIngestClientOptions {
+  /** Base URL of the event-ingest service (e.g. http://localhost:8001). */
+  baseUrl: string;
+  apiKey?: string;
+  timeoutMs?: number;
+}
+
+export class EventIngestClient {
+  private readonly baseUrl: string;
+  private readonly apiKey: string;
+  private readonly timeoutMs: number;
+
+  constructor(opts: EventIngestClientOptions) {
+    this.baseUrl = opts.baseUrl.replace(/\/$/, "");
+    this.apiKey = opts.apiKey || "";
+    this.timeoutMs = opts.timeoutMs ?? 10_000;
+  }
+
+  private url(path: string): string {
+    return `${this.baseUrl}${path}`;
+  }
+
+  private headers(): Record<string, string> {
+    const h: Record<string, string> = { "Content-Type": "application/json" };
+    if (this.apiKey) h["X-API-Key"] = this.apiKey;
+    return h;
+  }
+
+  private async fetchWithTimeout(
+    url: string,
+    init: RequestInit
+  ): Promise<Response> {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), this.timeoutMs);
+    try {
+      const r = await fetch(url, { ...init, signal: ctrl.signal });
+      if (!r.ok) throw new Error(await r.text());
+      return r;
+    } finally {
+      clearTimeout(t);
+    }
+  }
+
+  async sendEvent(
+    body: IngestEventRequest,
+    idempotencyKey?: string
+  ): Promise<IngestEventResponse> {
+    const h = this.headers();
+    if (idempotencyKey) h["Idempotency-Key"] = idempotencyKey;
+    const r = await this.fetchWithTimeout(this.url("/v1/events"), {
+      method: "POST",
+      headers: h,
+      body: JSON.stringify({
+        tenant_id: body.tenant_id,
+        event_type: body.event_type,
+        entity_id: body.entity_id,
+        session_id: body.session_id ?? undefined,
+        payload: body.payload ?? {},
+        device_context: body.device_context ?? undefined,
+        metadata: body.metadata ?? undefined,
+      }),
+    });
+    return (await r.json()) as IngestEventResponse;
+  }
+
+  async sendBatch(
+    events: IngestEventRequest[],
+    idempotencyKey?: string
+  ): Promise<IngestBatchResponse> {
+    const h = this.headers();
+    if (idempotencyKey) h["Idempotency-Key"] = idempotencyKey;
+    const r = await this.fetchWithTimeout(this.url("/v1/events/batch"), {
+      method: "POST",
+      headers: h,
+      body: JSON.stringify({ events }),
+    });
+    return (await r.json()) as IngestBatchResponse;
   }
 }

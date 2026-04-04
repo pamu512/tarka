@@ -5,11 +5,10 @@ package fraud
 
 default result := {"rule_hits": [], "tags": [], "score_delta": 0}
 
-result := r if {
+result := {
+    "rule_hits": ["opa_high_risk_country"],
+    "tags": ["geo_blocklist"],
+    "score_delta": 30,
+} if {
     input.snapshot.features.country == "XX"
-    r := {
-        "rule_hits": ["opa_high_risk_country"],
-        "tags": ["geo_blocklist"],
-        "score_delta": 30,
-    }
 }

@@ -172,10 +172,11 @@ class Query:
         self,
         info: strawberry.types.Info,
         id: strawberry.ID,
+        tenant_id: str,
     ) -> Case:
         client = _client_from_info(info)
         url = f"{settings.case_api_url}/v1/cases/{id}"
-        resp = await client.get(url)
+        resp = await client.get(url, params={"tenant_id": tenant_id})
         resp = await _raise_for_status(resp)
         return _parse_case(resp.json())
 

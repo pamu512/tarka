@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { disputes, type DisputeEntry, type DisputeStats } from "../api/client";
+import { PageTitle } from "../components/PageTitle";
 
 const TENANT = "demo";
 
@@ -48,8 +49,8 @@ export default function Disputes() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-100">Disputes & Chargebacks</h1>
+      <div className="flex items-center justify-between gap-4">
+        <PageTitle module="disputes">Disputes & Chargebacks</PageTitle>
         <button onClick={() => setShowCreate(true)} className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-sm font-medium transition-colors">
           + File Dispute
         </button>

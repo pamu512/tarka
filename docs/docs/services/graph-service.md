@@ -409,7 +409,7 @@ GET /v1/analytics/entity-risk?tenant_id=acme&entity_id=user-42
 |---|---|---|
 | `NEO4J_URI` | `bolt://localhost:7687` | Neo4j Bolt connection URI |
 | `NEO4J_USER` | `neo4j` | Neo4j username |
-| `NEO4J_PASSWORD` | `tarka` | Neo4j password |
+| `NEO4J_PASSWORD` | `tarka2026` | Neo4j password (same as compose `NEO4J_AUTH` user/password suffix) |
 | `API_KEYS` | _(empty)_ | Comma-separated API keys. Empty = no auth |
 
 ---

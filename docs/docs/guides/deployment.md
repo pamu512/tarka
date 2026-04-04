@@ -2,6 +2,8 @@
 
 This guide covers deploying Tarka from local development through production, including Docker Compose profiles, Kubernetes with Helm, environment variable reference, scaling, and security hardening.
 
+**See also:** [Service ports & OpenAPI index](./service-ports.md) — default ports, Compose DNS names, and contract file mapping.
+
 ---
 
 ## Docker Compose Profiles
@@ -182,15 +184,18 @@ helm install tarka deploy/helm/fraud-stack \
 |---|---|---|
 | `NEO4J_URI` | `bolt://localhost:7687` | Neo4j Bolt URI |
 | `NEO4J_USER` | `neo4j` | Neo4j username |
-| `NEO4J_PASSWORD` | `tarka` | Neo4j password |
+| `NEO4J_PASSWORD` | `tarka2026` | Neo4j password (matches `deploy/docker-compose.yml` `NEO4J_AUTH`) |
 | `API_KEYS` | _(empty)_ | Comma-separated API keys |
 
 ### Case API (port 8002)
 
 | Variable | Default | Description |
 |---|---|---|
-| `DATABASE_URL` | `postgresql+asyncpg://fraud:fraud@localhost:5432/fraud_cases` | Postgres connection |
+| `DATABASE_URL` | `postgresql+asyncpg://fraud:fraud@localhost:5432/fraud_cases` | Postgres connection (local default; **`deploy/docker-compose.yml` uses `…/fraud` shared with decision-api** for simplicity) |
 | `GRAPH_SERVICE_URL` | _(empty)_ | Graph Service URL for case graph lookups |
+| `DECISION_API_URL` | `http://localhost:8000` | Decision API base URL (dispute flows, audit fetch, etc.) |
+| `ML_SCORING_URL` | _(empty)_ | Optional ML scoring service URL |
+| `EVIDENCE_SIGNING_SECRET` | _(empty)_ | Optional HMAC secret for signed evidence payloads |
 | `CORS_ORIGINS` | _(empty)_ | Comma-separated CORS origins |
 | `WORKFLOWS_PATH` | `./workflows` | Path to workflow JSON files |
 | `RATE_LIMIT_RPM` | `600` | Rate limit (requests per minute) |
@@ -216,9 +221,14 @@ helm install tarka deploy/helm/fraud-stack \
 
 | Variable | Default | Description |
 |---|---|---|
-| `CASE_API_URL` | `http://localhost:8002` | Case API URL |
-| `GRAPH_SERVICE_URL` | `http://localhost:8001` | Graph Service URL |
+| `CASE_API_URL` | `http://localhost:8002` | Case API URL (cases, disputes, **investigation label drafts**) |
+| `DECISION_API_URL` | `http://localhost:8000` | Decision API URL (audit, entity-velocity, **replay** for A/B tools) |
+| `GRAPH_SERVICE_URL` | _(empty)_ | Graph Service URL (subgraph tools); empty disables graph tools |
+| `UPSTREAM_API_KEY` | _(empty)_ | If set, sent as `x-api-key` to case-api, graph, and decision-api |
+| `API_KEYS` | _(empty)_ | Comma-separated keys required on **`/v1/chat`** (empty = no auth on agent) |
 | `OPENAI_API_KEY` | _(empty)_ | OpenAI API key for LLM tool-use |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI-compatible API base |
+| `OPENAI_MODEL` | `gpt-4o-mini` | Chat model id |
 | `ALLOWED_ANALYSTS` | `*` | Comma-separated analyst IDs (or `*` for all) |
 
 ### Event Ingest (port 8007)
@@ -265,9 +275,14 @@ The Decision API is the most latency-sensitive service. Scale horizontally behin
 - Use Redis Cluster for > 100k tags or high aggregate throughput.
 - Sorted sets for aggregates grow linearly with event volume. The 30-day max window and TTL keep data bounded.
 
+### Observability (Prometheus / Grafana)
+
+- Optional **compose merge** stacks Prometheus + Grafana against Tarka **`/metrics`** endpoints: [deploy/observability/README.md](../../../deploy/observability/README.md).
+
 ### Postgres
 
 - Decision API and Case API can share a Postgres instance but use separate databases.
+- **Schema migrations:** both services ship **Alembic** (`services/decision-api/alembic/`, `services/case-api/alembic/`). On startup, **PostgreSQL** URLs run `alembic upgrade head` automatically; **SQLite** (tests / local quick runs) still uses `create_all`. For manual upgrades: `cd services/decision-api && DATABASE_URL=postgresql+psycopg://… alembic upgrade head` (and the same for `case-api` with its `DATABASE_URL`). If you already created tables with `create_all` and the schema matches the initial revision, run **`alembic stamp head`** once instead of `upgrade` to avoid “already exists” errors.
 - Audit records grow linearly with traffic. Implement a retention policy (e.g., archive records older than 90 days).
 - Add read replicas for Case API list queries under high load.
 
@@ -306,7 +321,7 @@ The Decision API is the most latency-sensitive service. Scale horizontally behin
 ### Database
 
 - [ ] Change default Postgres password (`fraud:fraud`) to a strong password
-- [ ] Change default Neo4j password (`tarka`) to a strong password
+- [ ] Change default Neo4j password (compose default `neo4j/tarka2026`) to a strong password
 - [ ] Enable Postgres SSL connections in production
 - [ ] Implement database backup and recovery procedures
 

@@ -1,4 +1,13 @@
+import type { AccessGroupId, AccessModuleId, ModuleCatalogEntry } from "../config/accessModuleCatalog";
+import {
+  type ConfidenceTier,
+  type InferenceContext,
+  normalizeInferenceContext,
+} from "./inferenceContext";
 import { getMockResponse } from "./mockData";
+
+export type { ConfidenceTier, InferenceContext };
+export { normalizeInferenceContext };
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -21,15 +30,7 @@ export interface DecisionResponse {
   reasons: string[];
   ml_score: number | null;
   inference_context: InferenceContext;
-}
-
-export interface InferenceContext {
-  integrity_confidence: number;
-  tamper_risk: number;
-  network_trust: number;
-  replay_risk: number;
-  geo_consistency_risk: number;
-  top_signals: string[];
+  recommended_action?: string | null;
 }
 
 export interface AuditEntry {
@@ -41,7 +42,9 @@ export interface AuditEntry {
   score: number;
   tags: string[];
   rule_hits: string[];
-  inference_context?: InferenceContext | null;
+  /** May be partial; UI should pass through `normalizeInferenceContext`. */
+  inference_context?: unknown;
+  recommended_action?: string | null;
   created_at: string;
 }
 
@@ -211,13 +214,29 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
       headers: { "Content-Type": "application/json", ...init?.headers },
       ...init,
     });
+    const text = await res.text();
+    const ct = res.headers.get("content-type") ?? "";
     if (!res.ok) {
       const mock = getMockResponse(url, init);
       if (mock !== null) return mock as T;
-      const text = await res.text().catch(() => res.statusText);
-      throw new Error(`${res.status} ${text}`);
+      throw new Error(`${res.status} ${text || res.statusText}`);
     }
-    return res.json();
+    if (!ct.includes("json") && !text.trimStart().startsWith("{") && !text.trimStart().startsWith("[")) {
+      const mock = getMockResponse(url, init);
+      if (mock !== null) return mock as T;
+      throw new Error(
+        `Expected JSON from ${url}, got ${ct || "unknown type"} (starts with: ${text.slice(0, 80).replace(/\s+/g, " ")}…)`,
+      );
+    }
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      const mock = getMockResponse(url, init);
+      if (mock !== null) return mock as T;
+      throw new Error(
+        `Expected JSON from ${url}, got non-JSON response (starts with: ${text.slice(0, 80).replace(/\s+/g, " ")}…)`,
+      );
+    }
   } catch (err) {
     const mock = getMockResponse(url, init);
     if (mock !== null) return mock as T;
@@ -235,8 +254,9 @@ export const decisions = {
     });
   },
 
-  getAudit(traceId: string) {
-    return request<AuditEntry>(`/api/decisions/v1/audit/${traceId}`);
+  getAudit(traceId: string, tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<AuditEntry>(`/api/decisions/v1/audit/${traceId}?${q}`);
   },
 
   replay(body: { tenant_id: string; rules_override: unknown[]; limit?: number }) {
@@ -263,8 +283,9 @@ export const cases = {
     return request<{ items: Case[] }>(`/api/cases/v1/cases?${q}`);
   },
 
-  get(caseId: string) {
-    return request<Case>(`/api/cases/v1/cases/${caseId}`);
+  get(caseId: string, tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<Case>(`/api/cases/v1/cases/${caseId}?${q}`);
   },
 
   create(data: CaseCreateRequest) {
@@ -274,49 +295,60 @@ export const cases = {
     });
   },
 
-  update(caseId: string, data: Partial<Pick<Case, "status" | "priority" | "assigned_team" | "title">>) {
-    return request<Case>(`/api/cases/v1/cases/${caseId}`, {
+  update(
+    caseId: string,
+    tenantId: string,
+    data: Partial<Pick<Case, "status" | "priority" | "assigned_team" | "title">>,
+  ) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<Case>(`/api/cases/v1/cases/${caseId}?${q}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     });
   },
 
-  addComment(caseId: string, author: string, body: string) {
-    return request<{ ok: boolean }>(`/api/cases/v1/cases/${caseId}/comments`, {
+  addComment(caseId: string, tenantId: string, author: string, body: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<{ ok: boolean }>(`/api/cases/v1/cases/${caseId}/comments?${q}`, {
       method: "POST",
       body: JSON.stringify({ author, body }),
     });
   },
 
-  addLabels(caseId: string, labels: string[]) {
+  addLabels(caseId: string, tenantId: string, labels: string[]) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
     return request<{ ok: boolean; labels: string[] }>(
-      `/api/cases/v1/cases/${caseId}/labels`,
+      `/api/cases/v1/cases/${caseId}/labels?${q}`,
       { method: "POST", body: JSON.stringify({ labels }) },
     );
   },
 
-  getSla(caseId: string) {
+  getSla(caseId: string, tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
     return request<{
       case_id: string;
       priority: string;
       sla_deadline: string;
       breached: boolean;
       status: string;
-    }>(`/api/cases/v1/cases/${caseId}/sla`);
+    }>(`/api/cases/v1/cases/${caseId}/sla?${q}`);
   },
 
-  getAudit(caseId: string) {
-    return request<{ history: unknown[] }>(`/api/cases/v1/cases/${caseId}/audit`);
+  getAudit(caseId: string, tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<{ history: unknown[] }>(`/api/cases/v1/cases/${caseId}/audit?${q}`);
   },
 
-  generateSar(caseId: string, format: string = "fincen_xml") {
-    return request<unknown>(`/api/cases/v1/cases/${caseId}/sar/generate`, {
+  generateSar(caseId: string, tenantId: string, format: string = "fincen_xml") {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<unknown>(`/api/cases/v1/cases/${caseId}/sar/generate?${q}`, {
       method: "POST",
       body: JSON.stringify({ format }),
     });
   },
 
   bulkUpdate(data: {
+    tenant_id: string;
     case_ids: string[];
     status?: string;
     priority?: string;
@@ -333,9 +365,10 @@ export const cases = {
     return request<{ playbooks: Record<string, Record<string, unknown>> }>("/api/cases/v1/cases/playbooks");
   },
 
-  applyPlaybook(caseId: string, playbookId: string) {
+  applyPlaybook(caseId: string, tenantId: string, playbookId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
     return request<{ ok: boolean; playbook: string; case: Case }>(
-      `/api/cases/v1/cases/${caseId}/playbooks/${playbookId}`,
+      `/api/cases/v1/cases/${caseId}/playbooks/${playbookId}?${q}`,
       { method: "POST" },
     );
   },
@@ -698,35 +731,69 @@ export const simulation = {
 
 // ── Investigation (investigation-agent :8006) ───────────────────────
 
+/** Mirrors investigation-agent; server enforces track_historical_actions (drops audit if false). */
+export interface InvestigationContextOptions {
+  track_historical_actions: boolean;
+  only_session: boolean;
+  skip_session_actions: boolean;
+  /** ISO-8601 — when only_session is true, used for logging / prompt notes. */
+  session_started_at?: string | null;
+}
+
+export interface InvestigationChatOpts {
+  platform_audit?: PlatformAuditEvent[];
+  context_options?: InvestigationContextOptions;
+}
+
 export const investigation = {
-  chat(message: string, tenantId: string = "demo", analystId: string = "analyst-1", caseId?: string) {
-    return request<{ reply: string; tool_calls?: unknown[] }>(
-      "/api/investigation/v1/chat",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          tenant_id: tenantId,
-          analyst_id: analystId,
-          case_id: caseId,
-          messages: [{ role: "user", content: message }],
-        }),
-      },
-    );
+  chat(
+    message: string,
+    tenantId: string = "demo",
+    analystId: string = "analyst-1",
+    caseId?: string,
+    opts?: InvestigationChatOpts,
+  ) {
+    const payload: Record<string, unknown> = {
+      tenant_id: tenantId,
+      analyst_id: analystId,
+      case_id: caseId,
+      messages: [{ role: "user", content: message }],
+    };
+    if (opts?.platform_audit?.length) {
+      payload.platform_audit = opts.platform_audit.slice(0, 40);
+    }
+    if (opts?.context_options) {
+      payload.context_options = opts.context_options;
+    }
+    return request<{ reply: string; tool_calls?: unknown[] }>("/api/investigation/v1/chat", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 
-  chatWithHistory(messages: { role: string; content: string }[], tenantId: string = "demo", analystId: string = "analyst-1", caseId?: string) {
-    return request<{ reply: string; tool_calls?: unknown[] }>(
-      "/api/investigation/v1/chat",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          tenant_id: tenantId,
-          analyst_id: analystId,
-          case_id: caseId,
-          messages,
-        }),
-      },
-    );
+  chatWithHistory(
+    messages: { role: string; content: string }[],
+    tenantId: string = "demo",
+    analystId: string = "analyst-1",
+    caseId?: string,
+    opts?: InvestigationChatOpts,
+  ) {
+    const payload: Record<string, unknown> = {
+      tenant_id: tenantId,
+      analyst_id: analystId,
+      case_id: caseId,
+      messages,
+    };
+    if (opts?.platform_audit?.length) {
+      payload.platform_audit = opts.platform_audit.slice(0, 40);
+    }
+    if (opts?.context_options) {
+      payload.context_options = opts.context_options;
+    }
+    return request<{ reply: string; tool_calls?: unknown[] }>("/api/investigation/v1/chat", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 };
 
@@ -831,6 +898,25 @@ export const osint = {
   },
 };
 
+export interface IntegrationRequestRecord {
+  id: string;
+  tenant_id: string;
+  requested_name: string;
+  category: string;
+  use_case: string;
+  contact?: string;
+  github_username?: string;
+  status: "pending_approval" | "approved" | "rejected";
+  requested_at?: string;
+  github_issue_url?: string | null;
+  approved_at?: string | null;
+  approved_by?: string | null;
+  approved_by_name?: string | null;
+  rejected_at?: string | null;
+  rejected_by?: string | null;
+  rejection_reason?: string | null;
+}
+
 export const integrations = {
   catalog() {
     return request<{
@@ -907,6 +993,34 @@ export const integrations = {
       rows: Array<{ provider_id: string; status: string; latency_ms: number; missing_fields: string[] }>;
     }>(`/api/ingress/v1/integrations/health-matrix?tenant_id=${tenantId}`);
   },
+  /** Submitted requests; `github_issue_url` is set only after admin approval. */
+  listRequests(params?: { tenant_id?: string; status?: string }) {
+    const q = new URLSearchParams();
+    if (params?.tenant_id) q.set("tenant_id", params.tenant_id);
+    if (params?.status) q.set("status", params.status);
+    const suffix = q.toString() ? `?${q}` : "";
+    return request<{ items: IntegrationRequestRecord[]; count: number }>(
+      `/api/ingress/v1/integrations/requests${suffix}`,
+    );
+  },
+  approveRequest(requestId: string, body?: { approver_id?: string; approver_name?: string }) {
+    return request<{
+      ok: boolean;
+      github_issue_url?: string;
+      already_approved?: boolean;
+      request?: IntegrationRequestRecord;
+      error?: string;
+    }>(`/api/ingress/v1/integrations/requests/${encodeURIComponent(requestId)}/approve`, {
+      method: "POST",
+      body: JSON.stringify(body ?? {}),
+    });
+  },
+  rejectRequest(requestId: string, body?: { reason?: string }) {
+    return request<{ ok: boolean; request?: IntegrationRequestRecord; error?: string }>(
+      `/api/ingress/v1/integrations/requests/${encodeURIComponent(requestId)}/reject`,
+      { method: "POST", body: JSON.stringify(body ?? {}) },
+    );
+  },
   requestNew(body: {
     tenant_id: string;
     requested_name: string;
@@ -915,7 +1029,13 @@ export const integrations = {
     contact?: string;
     github_username?: string;
   }) {
-    return request<{ ok: boolean; github_issue_url: string }>("/api/ingress/v1/integrations/request", {
+    return request<{
+      ok: boolean;
+      status: string;
+      message?: string;
+      request: IntegrationRequestRecord;
+      github_issue_url?: string | null;
+    }>("/api/ingress/v1/integrations/request", {
       method: "POST",
       body: JSON.stringify(body),
     });
@@ -1115,6 +1235,157 @@ export const entityLists = {
   stats(tenantId: string) {
     return request<{ tenant_id: string; stats: Record<string, number> }>(
       `/api/decisions/v1/lists/stats/${tenantId}`,
+    );
+  },
+};
+
+// ── Admin / RBAC / audit (prototype — mock or future admin-api) ─────
+
+export type AuditFlagType =
+  | "high_click_rate"
+  | "low_aht_anomaly"
+  | "high_entity_access"
+  | "high_risk_rule_change"
+  | "guardrail_bypass_attempt"
+  | "core_config_change";
+
+export interface PlatformAuditFlag {
+  type: AuditFlagType;
+  severity: "info" | "warning" | "high" | "critical";
+  note: string;
+}
+
+export interface PlatformAuditEvent {
+  id: string;
+  ts: string;
+  user_id: string;
+  user_name: string;
+  action: "query" | "view" | "change";
+  resource: string;
+  detail: string;
+  ip: string;
+  flags: PlatformAuditFlag[];
+}
+
+export interface AdminCatalogGroup {
+  id: AccessGroupId;
+  label: string;
+  modules: ModuleCatalogEntry[];
+}
+
+export interface AdminUserAccess {
+  user_id: string;
+  name: string;
+  email: string;
+  role: string;
+  allowed_modules: AccessModuleId[];
+  last_login?: string;
+  /** Optional hint from directory / IdP; UI also infers from modules via policy presets. */
+  access_policy_id?: string;
+  can_manage_access?: boolean;
+}
+
+export interface AdminActiveSession {
+  session_id: string;
+  user_id: string;
+  user_name: string;
+  email: string;
+  current_route: string;
+  last_activity: string;
+  ip: string;
+  clicks_last_5m: number;
+  entities_touched_1h: number;
+  case_actions_1h: number;
+  avg_dwell_seconds: number;
+}
+
+export interface AdminApprovalVote {
+  user_id: string;
+  user_name: string;
+  at: string;
+}
+
+export interface AdminPendingApproval {
+  id: string;
+  status: "pending" | "approved" | "rejected";
+  requested_at: string;
+  requested_by: string;
+  requested_by_name: string;
+  summary: string;
+  risk_tier: "standard" | "high" | "core";
+  required_approvals: number;
+  target_user_id: string;
+  target_user_name: string;
+  proposed_allowed_modules: string[];
+  previous_allowed_modules: string[];
+  votes: AdminApprovalVote[];
+  rejected_at?: string;
+  rejected_by?: string;
+}
+
+export const admin = {
+  catalog() {
+    return request<{ groups: AdminCatalogGroup[] }>("/api/admin/v1/catalog");
+  },
+
+  overview() {
+    return request<{
+      active_sessions: number;
+      audit_events_flagged: number;
+      pending_approvals: number;
+      users_configured: number;
+    }>("/api/admin/v1/overview");
+  },
+
+  listUsersAccess() {
+    return request<{ users: AdminUserAccess[] }>("/api/admin/v1/users/access");
+  },
+
+  updateUserAccess(
+    userId: string,
+    body: {
+      allowed_modules: AccessModuleId[];
+      requested_by?: string;
+      requested_by_name?: string;
+    },
+  ) {
+    return request<
+      | { applied: true; user: AdminUserAccess }
+      | { applied: false; pending_approval_id: string; message: string }
+      | { ok: false; error: string }
+    >(`/api/admin/v1/users/${userId}/access`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+  },
+
+  sessions() {
+    return request<{ items: AdminActiveSession[] }>("/api/admin/v1/sessions");
+  },
+
+  auditLog(params?: { flags_only?: boolean; user_id?: string }) {
+    const q = new URLSearchParams();
+    if (params?.flags_only) q.set("flags_only", "1");
+    if (params?.user_id) q.set("user_id", params.user_id);
+    const suffix = q.toString() ? `?${q}` : "";
+    return request<{ items: PlatformAuditEvent[] }>(`/api/admin/v1/audit${suffix}`);
+  },
+
+  listApprovals() {
+    return request<{ items: AdminPendingApproval[] }>("/api/admin/v1/approvals");
+  },
+
+  approveRequest(approvalId: string, body: { approver_id: string; approver_name: string }) {
+    return request<{ ok: boolean; approval?: AdminPendingApproval; applied?: boolean; error?: string }>(
+      `/api/admin/v1/approvals/${approvalId}/approve`,
+      { method: "POST", body: JSON.stringify(body) },
+    );
+  },
+
+  rejectRequest(approvalId: string, body?: { approver_id?: string; reason?: string }) {
+    return request<{ ok: boolean; approval?: AdminPendingApproval; error?: string }>(
+      `/api/admin/v1/approvals/${approvalId}/reject`,
+      { method: "POST", body: JSON.stringify(body) },
     );
   },
 };

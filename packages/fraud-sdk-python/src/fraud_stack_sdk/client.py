@@ -9,12 +9,20 @@ from fraud_stack_sdk.signals import ServerSignalCollector
 
 
 class InferenceContext(TypedDict):
+    schema_version: str
     integrity_confidence: float
     tamper_risk: float
     network_trust: float
     replay_risk: float
     geo_consistency_risk: float
     top_signals: list[str]
+    confidence_tier: str
+    driver_reasons: list[str]
+    colocation_risk: float
+    impossible_travel_risk: float
+    velocity_events_5m: int
+    velocity_events_1h: int
+    velocity_events_24h: int
 
 
 class EvaluateResponse(TypedDict, total=False):
@@ -26,6 +34,7 @@ class EvaluateResponse(TypedDict, total=False):
     reasons: list[str]
     ml_score: float | None
     inference_context: InferenceContext
+    recommended_action: str | None
 
 
 class DecisionClient:
@@ -141,9 +150,13 @@ class DecisionClient:
             r.raise_for_status()
             return r.json()
 
-    def get_audit(self, trace_id: UUID | str) -> dict[str, Any]:
+    def get_audit(self, trace_id: UUID | str, tenant_id: str) -> dict[str, Any]:
         tid = str(trace_id)
         with httpx.Client(timeout=self._timeout) as client:
-            r = client.get(f"{self._base}/v1/audit/{tid}", headers=self._headers())
+            r = client.get(
+                f"{self._base}/v1/audit/{tid}",
+                params={"tenant_id": tenant_id},
+                headers=self._headers(),
+            )
             r.raise_for_status()
             return r.json()

@@ -1,0 +1,33 @@
+# Optional Prometheus + Grafana for Tarka /metrics endpoints.
+#
+# From the deploy/ directory (same project as main compose):
+#   docker compose -f docker-compose.yml -f observability/docker-compose.addon.yml --profile core --profile observe up -d
+#
+# Use additional profiles (graph, ml, streaming, …) so target containers exist; unreachable targets show as DOWN in Prometheus.
+services:
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    profiles: [observe]
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_DEFAULT_THEME: dark
+      GF_SERVER_ROOT_URL: http://localhost:3001
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    profiles: [observe]

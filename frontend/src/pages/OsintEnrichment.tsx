@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { osint } from "../api/client";
+import { PageTitle } from "../components/PageTitle";
 
 interface OsintResult {
   composite_risk_score: number;
@@ -416,7 +417,7 @@ export default function OsintEnrichment() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-100">OSINT Enrichment</h1>
+        <PageTitle module="osint">OSINT Enrichment</PageTitle>
         <p className="text-sm text-gray-500 mt-1">
           Investigate entities with open-source intelligence signals
         </p>

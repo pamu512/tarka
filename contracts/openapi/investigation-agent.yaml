@@ -2,7 +2,9 @@ openapi: 3.1.0
 info:
   title: Tarka Investigation Agent API
   version: 1.0.0
-  description: Analyst copilot; tools call Case and Graph services with RBAC.
+  description: >
+    Analyst copilot; tools call Case, Graph, and Decision APIs with RBAC.
+    LLM tools include replay A/B comparisons and outcome-derived / analyst-ingested labeled datasets.
 servers:
   - url: http://localhost:8006
 paths:
@@ -39,6 +41,7 @@ paths:
                       content: { type: string }
       responses:
         "200":
+          description: Assistant reply and optional tool call trace
           content:
             application/json:
               schema:
@@ -47,4 +50,10 @@ paths:
                   reply: { type: string }
                   tool_calls:
                     type: array
-                    items: { type: object }
+                    description: Tool invocations (tool name, args, raw result) for audit/debug UI
+                    items:
+                      type: object
+                      properties:
+                        tool: { type: string }
+                        args: { type: object, additionalProperties: true }
+                        result: { type: object, additionalProperties: true }

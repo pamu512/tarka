@@ -6,6 +6,7 @@ with overridden rules, comparing the original decision to the new one.
 from __future__ import annotations
 
 import logging
+import uuid as uuid_lib
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -40,6 +41,11 @@ class ReplayRequest(BaseModel):
     tenant_id: str
     rules_override: list[ReplayRule] = Field(default_factory=list)
     limit: int = Field(default=100, ge=1, le=5000)
+    trace_ids: list[str] = Field(
+        default_factory=list,
+        max_length=200,
+        description="When non-empty, replay these audits (tenant-scoped) in order; limit is ignored.",
+    )
 
 
 class ReplayResultItem(BaseModel):
@@ -62,6 +68,8 @@ class ReplayResponse(BaseModel):
     events_evaluated: int
     decisions_changed: int
     results: list[ReplayResultItem]
+    missing_trace_ids: list[str] = Field(default_factory=list)
+    """UUID strings requested but not found for this tenant (paired replay diagnostics)."""
 
 
 def _evaluate_override_rules(
@@ -119,14 +127,38 @@ async def replay_events(
             detail="rules_override must contain at least one rule",
         )
 
-    stmt = (
-        select(AuditRecord)
-        .where(AuditRecord.tenant_id == body.tenant_id)
-        .order_by(AuditRecord.created_at.desc())
-        .limit(body.limit)
-    )
-    result = await session.execute(stmt)
-    records: list[AuditRecord] = list(result.scalars().all())
+    missing_trace_ids: list[str] = []
+    if body.trace_ids:
+        if len(body.trace_ids) > 200:
+            raise HTTPException(status_code=400, detail="trace_ids must contain at most 200 entries")
+        parsed: list[uuid_lib.UUID] = []
+        for raw in body.trace_ids:
+            try:
+                parsed.append(uuid_lib.UUID(str(raw).strip()))
+            except (ValueError, AttributeError, TypeError):
+                raise HTTPException(status_code=400, detail=f"invalid trace_id: {raw!r}")
+        stmt = select(AuditRecord).where(
+            AuditRecord.tenant_id == body.tenant_id,
+            AuditRecord.trace_id.in_(parsed),
+        )
+        result = await session.execute(stmt)
+        found_map = {row.trace_id: row for row in result.scalars().all()}
+        records = []
+        for u in parsed:
+            row = found_map.get(u)
+            if row:
+                records.append(row)
+            else:
+                missing_trace_ids.append(str(u))
+    else:
+        stmt = (
+            select(AuditRecord)
+            .where(AuditRecord.tenant_id == body.tenant_id)
+            .order_by(AuditRecord.created_at.desc())
+            .limit(body.limit)
+        )
+        result = await session.execute(stmt)
+        records = list(result.scalars().all())
 
     if not records:
         raise HTTPException(
@@ -176,4 +208,5 @@ async def replay_events(
         events_evaluated=len(results),
         decisions_changed=decisions_changed,
         results=results,
+        missing_trace_ids=missing_trace_ids,
     )

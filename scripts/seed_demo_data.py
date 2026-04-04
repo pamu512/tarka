@@ -21,6 +21,7 @@ import random
 import sys
 import uuid
 from datetime import datetime, timedelta, timezone
+from urllib.parse import quote_plus
 
 import httpx
 
@@ -594,11 +595,14 @@ async def seed_cases(
             print(f"    WARN: case create failed: {exc}")
             continue
 
+        tid = case_def["tenant_id"]
+        tid_q = quote_plus(tid)
+
         # Add comments
         for comment in case_def.get("comments", []):
             try:
                 await client.post(
-                    f"{case_url}/v1/cases/{case_id}/comments",
+                    f"{case_url}/v1/cases/{case_id}/comments?tenant_id={tid_q}",
                     json={"author": comment["author"], "body": comment["body"]},
                 )
             except httpx.HTTPError:
@@ -609,7 +613,7 @@ async def seed_cases(
         if labels:
             try:
                 await client.post(
-                    f"{case_url}/v1/cases/{case_id}/labels",
+                    f"{case_url}/v1/cases/{case_id}/labels?tenant_id={tid_q}",
                     json={"labels": labels},
                 )
             except httpx.HTTPError:
@@ -620,13 +624,110 @@ async def seed_cases(
         if target != "open":
             try:
                 await client.patch(
-                    f"{case_url}/v1/cases/{case_id}",
+                    f"{case_url}/v1/cases/{case_id}?tenant_id={tid_q}",
                     json={"status": target},
                 )
             except httpx.HTTPError:
                 pass
 
         print(f"    Case '{case_def['title'][:50]}...' → {target}")
+
+
+async def seed_disputes(
+    client: httpx.AsyncClient, case_url: str, trace_ids: list[str]
+) -> None:
+    """Create synthetic dispute records for dispute workflows."""
+    dispute_templates = [
+        {"entity_id": "fraud_frank", "dispute_type": "chargeback", "reason_code": "fraudulent", "amount": 1499.99, "currency": "USD", "merchant_id": "CryptoExchange", "card_network": "visa"},
+        {"entity_id": "user_bob", "dispute_type": "retrieval", "reason_code": "unauthorized", "amount": 289.50, "currency": "USD", "merchant_id": "ElectronicsStore", "card_network": "mastercard"},
+        {"entity_id": "mule_ivan", "dispute_type": "chargeback", "reason_code": "card_not_present", "amount": 899.00, "currency": "USD", "merchant_id": "WireTransfer", "card_network": "amex"},
+        {"entity_id": "user_carol", "dispute_type": "chargeback", "reason_code": "service_not_received", "amount": 119.99, "currency": "USD", "merchant_id": "StreamingBundle", "card_network": "visa"},
+    ]
+    print(f"  Creating {len(dispute_templates)} disputes ...")
+    created = 0
+    for idx, template in enumerate(dispute_templates):
+        trace = trace_ids[idx] if idx < len(trace_ids) else str(uuid.uuid4())
+        body = {"tenant_id": TENANT_ID, "trace_id": trace, **template}
+        try:
+            r = await client.post(f"{case_url}/v1/disputes", json=body)
+            if r.status_code in (200, 201):
+                created += 1
+        except httpx.HTTPError:
+            pass
+    print(f"    Disputes created: {created}")
+
+
+async def seed_entity_lists(client: httpx.AsyncClient, decision_url: str) -> None:
+    """Populate allow/block lists used in Entity Lists UI."""
+    entries = {
+        "blocklist": [
+            {"entity_id": "fraud_frank", "reason": "Known fraud ring leader"},
+            {"entity_id": "fraud_gina", "reason": "Shared emulator and mule links"},
+            {"entity_id": "dev_emulator_003", "reason": "Automated emulator fingerprint"},
+        ],
+        "allowlist": [
+            {"entity_id": "user_alice", "reason": "Trusted long-tenured customer"},
+            {"entity_id": "acc_alice_main", "reason": "Verified payroll account"},
+        ],
+        "watchlist": [
+            {"entity_id": "mule_ivan", "reason": "Potential mule behavior"},
+            {"entity_id": "fraud_henry", "reason": "Associated with prior fraud case"},
+        ],
+    }
+    total = sum(len(v) for v in entries.values())
+    print(f"  Creating {total} entity-list entries ...")
+    created = 0
+    for list_type, list_entries in entries.items():
+        for item in list_entries:
+            body = {
+                "tenant_id": TENANT_ID,
+                "entity_id": item["entity_id"],
+                "reason": item["reason"],
+                "created_by": "demo_seed",
+                "metadata": {"source": "demo_seed"},
+            }
+            try:
+                r = await client.post(f"{decision_url}/v1/lists/{list_type}", json=body)
+                if r.status_code in (200, 201):
+                    created += 1
+            except httpx.HTTPError:
+                pass
+    print(f"    Entity-list entries created: {created}")
+
+
+async def seed_integrations(client: httpx.AsyncClient, ingress_url: str) -> None:
+    """Install and configure a few integrations for Integration Hub screens."""
+    demo_integrations = [
+        ("ip_quality_score", {"api_key": "demo-ipqualityscore-key"}),
+        ("fingerprintjs", {"api_key": "demo-fingerprintjs-key"}),
+        ("sift", {"api_key": "demo-sift-key"}),
+        ("sendgrid", {"api_key": "demo-sendgrid-key"}),
+        ("opensanctions", {"api_key": "demo-opensanctions-key"}),
+        ("jira", {"username": "demo-user", "password": "demo-pass"}),
+    ]
+    print(f"  Installing {len(demo_integrations)} integrations ...")
+    installed = 0
+    configured = 0
+    for provider_id, config in demo_integrations:
+        try:
+            r1 = await client.post(
+                f"{ingress_url}/v1/integrations/install",
+                json={"tenant_id": TENANT_ID, "provider_id": provider_id, "config": config},
+            )
+            if r1.status_code in (200, 201):
+                installed += 1
+        except httpx.HTTPError:
+            pass
+        try:
+            r2 = await client.post(
+                f"{ingress_url}/v1/integrations/configure",
+                json={"tenant_id": TENANT_ID, "provider_id": provider_id, "config": config},
+            )
+            if r2.status_code in (200, 201):
+                configured += 1
+        except httpx.HTTPError:
+            pass
+    print(f"    Integrations installed: {installed}, configured: {configured}")
 
 
 # ---------------------------------------------------------------------------
@@ -637,6 +738,7 @@ async def main(
     decision_url: str,
     case_url: str,
     graph_url: str,
+    ingress_url: str,
     force: bool,
 ) -> None:
     async with httpx.AsyncClient(
@@ -665,6 +767,17 @@ async def main(
         if not graph_available:
             print(f"  – graph-service not available (skipping graph seed)")
 
+        ingress_available = False
+        try:
+            r = await client.get(f"{ingress_url}/v1/health")
+            if r.status_code == 200:
+                ingress_available = True
+                print("  ✓ integration-ingress is up")
+        except httpx.HTTPError:
+            pass
+        if not ingress_available:
+            print("  – integration-ingress not available (skipping integration seed)")
+
         # ── Idempotency ──────────────────────────────────────────────
         if not force:
             if await _already_seeded(client, case_url):
@@ -677,22 +790,40 @@ async def main(
         print()
 
         # ── Seed decisions ───────────────────────────────────────────
-        print("[1/3] Seeding decisions ...")
+        print("[1/6] Seeding decisions ...")
         trace_ids = await seed_decisions(client, decision_url)
         print(f"  Collected {len(trace_ids)} trace IDs\n")
 
         # ── Seed graph ───────────────────────────────────────────────
         if graph_available:
-            print("[2/3] Seeding graph entities & links ...")
+            print("[2/6] Seeding graph entities & links ...")
             await seed_graph(client, graph_url)
             print()
         else:
-            print("[2/3] Skipping graph seed (service unavailable)\n")
+            print("[2/6] Skipping graph seed (service unavailable)\n")
 
         # ── Seed cases ───────────────────────────────────────────────
-        print("[3/3] Seeding investigation cases ...")
+        print("[3/6] Seeding investigation cases ...")
         await seed_cases(client, case_url, trace_ids)
         print()
+
+        # ── Seed disputes ────────────────────────────────────────────
+        print("[4/6] Seeding disputes ...")
+        await seed_disputes(client, case_url, trace_ids)
+        print()
+
+        # ── Seed entity lists ────────────────────────────────────────
+        print("[5/6] Seeding entity lists ...")
+        await seed_entity_lists(client, decision_url)
+        print()
+
+        # ── Seed integrations ────────────────────────────────────────
+        if ingress_available:
+            print("[6/6] Seeding integrations ...")
+            await seed_integrations(client, ingress_url)
+            print()
+        else:
+            print("[6/6] Skipping integrations seed (service unavailable)\n")
 
         print("Done! Demo data seeded for tenant 'demo'.")
         print(f"  Decision API: {decision_url}/docs")
@@ -719,12 +850,17 @@ def cli() -> None:
         help="Graph Service base URL (default: http://localhost:8001)",
     )
     parser.add_argument(
+        "--ingress-url",
+        default="http://localhost:8003",
+        help="Integration Ingress base URL (default: http://localhost:8003)",
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         help="Re-seed even if demo data already exists (additive)",
     )
     args = parser.parse_args()
-    asyncio.run(main(args.decision_url, args.case_url, args.graph_url, args.force))
+    asyncio.run(main(args.decision_url, args.case_url, args.graph_url, args.ingress_url, args.force))
 
 
 if __name__ == "__main__":

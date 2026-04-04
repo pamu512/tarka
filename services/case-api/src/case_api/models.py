@@ -54,6 +54,25 @@ class SARFiling(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class InvestigationLabelDraft(Base):
+    """Analyst-scoped draft labels for investigation / replay workflows (not case workflow labels)."""
+
+    __tablename__ = "investigation_label_drafts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[str] = mapped_column(String(128), index=True)
+    analyst_id: Mapped[str] = mapped_column(String(256), index=True)
+    trace_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    entity_id: Mapped[str | None] = mapped_column(String(512), nullable=True, index=True)
+    y_label: Mapped[str] = mapped_column(String(32))
+    source: Mapped[str] = mapped_column(String(128), default="analyst")
+    notes: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class Dispute(Base):
     __tablename__ = "disputes"
 

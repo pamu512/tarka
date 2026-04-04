@@ -1,3 +1,18 @@
+# Tarka Helm values
+#
+# Enable flags below toggle Deployments/Services in templates/*.yaml. They do NOT set every
+# container env var here—templates wire dependencies, for example:
+#   - case-api gets DECISION_API_URL when decisionApi.enabled (disputes / audit callbacks).
+#   - investigation-agent gets CASE_API_URL, DECISION_API_URL, optional GRAPH_SERVICE_URL.
+#   - event-ingest gets DECISION_API_URL and NATS_URL when enabled.
+#
+# Optional app secrets (use Kubernetes Secrets in production; do not commit real values):
+#   OPENAI_API_KEY, UPSTREAM_API_KEY / API_KEYS, ATTESTATION_HMAC_SECRET, EVIDENCE_SIGNING_SECRET
+#
+# Port reference (host-facing defaults): docs/docs/guides/service-ports.md
+# Env semantics (localhost defaults): docs/docs/guides/deployment.md
+# Compose .env.example: deploy/.env.example
+#
 # Enable only the components you need.
 global:
   imageRegistry: ""

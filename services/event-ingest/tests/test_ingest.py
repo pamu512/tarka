@@ -4,6 +4,8 @@ import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from event_ingest.main import _payload_for_decision_api
+
 import os
 os.environ.setdefault("NATS_URL", "nats://localhost:4222")
 
@@ -41,6 +43,32 @@ class TestHealthEndpoint:
         assert r.status_code == 200
         data = r.json()
         assert data["status"] == "ok"
+        assert "nats_connected" in data
+        assert "redis_configured" in data
+        if not data["redis_configured"]:
+            assert data.get("redis_ok") is None
+        else:
+            assert data["redis_ok"] in (True, False)
+
+
+class TestIdempotency:
+    def test_same_key_second_call_duplicate(self, client, mock_js):
+        import fakeredis.aioredis as fake_aioredis
+
+        from event_ingest.main import app
+
+        app.state.redis = fake_aioredis.FakeRedis(decode_responses=True)
+        body = {"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}}
+        r1 = client.post("/v1/events", json=body, headers={"Idempotency-Key": "pay-1"})
+        assert r1.status_code == 200
+        d1 = r1.json()
+        assert d1.get("duplicate") is not True
+        r2 = client.post("/v1/events", json=body, headers={"Idempotency-Key": "pay-1"})
+        assert r2.status_code == 200
+        d2 = r2.json()
+        assert d2["duplicate"] is True
+        assert d2["ingest_id"] == d1["ingest_id"]
+        assert mock_js.publish.call_count == 1
 
 
 class TestIngestEvent:
@@ -74,6 +102,48 @@ class TestIngestEvent:
         assert r.status_code == 422
 
 
+class TestBatchIdempotency:
+    def test_batch_duplicate_returns_cached(self, client, mock_js):
+        import fakeredis.aioredis as fake_aioredis
+
+        from event_ingest.main import app
+
+        app.state.redis = fake_aioredis.FakeRedis(decode_responses=True)
+        batch = {
+            "events": [
+                {"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}},
+                {"tenant_id": "t1", "event_type": "payment", "entity_id": "u2", "payload": {}},
+            ]
+        }
+        r1 = client.post("/v1/events/batch", json=batch, headers={"Idempotency-Key": "batch-1"})
+        assert r1.status_code == 200
+        d1 = r1.json()
+        assert d1.get("duplicate") is not True
+        assert d1["accepted"] == 2
+        r2 = client.post("/v1/events/batch", json=batch, headers={"Idempotency-Key": "batch-1"})
+        assert r2.status_code == 200
+        d2 = r2.json()
+        assert d2["duplicate"] is True
+        assert d2["results"] == d1["results"]
+        assert mock_js.publish.call_count == 2
+
+    def test_batch_idempotency_key_in_json_body(self, client, mock_js):
+        import fakeredis.aioredis as fake_aioredis
+
+        from event_ingest.main import app
+
+        app.state.redis = fake_aioredis.FakeRedis(decode_responses=True)
+        batch = {
+            "events": [{"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}}],
+            "idempotency_key": "json-batch-key",
+        }
+        r1 = client.post("/v1/events/batch", json=batch)
+        r2 = client.post("/v1/events/batch", json=batch)
+        assert r1.json()["accepted"] == 1
+        assert r2.json()["duplicate"] is True
+        assert mock_js.publish.call_count == 1
+
+
 class TestIngestBatch:
     def test_batch_events(self, client, mock_js):
         r = client.post("/v1/events/batch", json={
@@ -93,6 +163,58 @@ class TestIngestBatch:
         r = client.post("/v1/events/batch", json={"events": []})
         assert r.status_code == 200
         assert r.json()["accepted"] == 0
+
+
+class TestPayloadForDecisionApi:
+    def test_strips_ingest_id(self):
+        raw = {
+            "tenant_id": "t1",
+            "event_type": "login",
+            "entity_id": "u1",
+            "payload": {},
+            "_ingest_id": "abc123",
+        }
+        out = _payload_for_decision_api(raw)
+        assert "_ingest_id" not in out
+        assert out == {
+            "tenant_id": "t1",
+            "event_type": "login",
+            "entity_id": "u1",
+            "payload": {},
+        }
+
+
+class TestWebSocketIngest:
+    def test_ws_valid_event(self, client, mock_js):
+        with client.websocket_connect("/v1/events/ws") as ws:
+            ws.send_text(
+                json.dumps(
+                    {
+                        "tenant_id": "t1",
+                        "event_type": "login",
+                        "entity_id": "u1",
+                        "payload": {},
+                    }
+                )
+            )
+            msg = ws.receive_json()
+            assert msg["accepted"] is True
+            assert "ingest_id" in msg
+            assert msg["seq"] == 42
+            mock_js.publish.assert_called()
+
+    def test_ws_validation_error(self, client, mock_js):
+        with client.websocket_connect("/v1/events/ws") as ws:
+            ws.send_text(json.dumps({"tenant_id": "t1"}))
+            msg = ws.receive_json()
+            assert msg.get("error") == "validation_error"
+            assert "detail" in msg
+
+    def test_ws_invalid_json(self, client, mock_js):
+        with client.websocket_connect("/v1/events/ws") as ws:
+            ws.send_text("not-json{")
+            msg = ws.receive_json()
+            assert msg.get("error") == "invalid JSON"
 
 
 class TestNatsNotConnected:

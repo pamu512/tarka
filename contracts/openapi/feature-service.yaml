@@ -31,6 +31,7 @@ paths:
                   additionalProperties: true
       responses:
         "200":
+          description: Feature snapshot for entity and event
           content:
             application/json:
               schema:

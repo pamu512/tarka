@@ -2,6 +2,12 @@
 
 Thank you for your interest in contributing to Tarka! This document covers everything you need to get started.
 
+## Vendor-neutral repository
+
+- **Do not** commit local editor or assistant metadata under the **`.cur` + `sor/`** directory name (that path is gitignored; it is the default config folder for one popular AI-assisted editor).
+- **Do not** name proprietary editors or coding assistants in **user-facing** docs (`README`, `docs/`, release notes, root policies). Use generic wording (“your editor”, “IDE”, “local LLM tooling”).
+- **CI** rejects two vendor-specific tokens in tracked files so releases stay tooling–vendor neutral: capital **C** followed by **ursor**, and capital **A** followed by **nysphere** (maintainer company for the same product family). Lowercase CSS such as Tailwind’s **`cursor`-pointer** / **`cursor`-not-allowed** is unaffected.
+
 ## Project Overview
 
 Tarka is an open-source, modular fraud detection platform. The system follows a microservices architecture where each service is independently deployable and communicates over HTTP/REST.
@@ -83,12 +89,17 @@ docker compose --profile full up -d
 
 ## Running Tests
 
+**CI:** GitHub Actions runs lint (Ruff); Python tests for decision-api, case-api, graph-service, integration-ingress, investigation-agent, graphql-gateway, event-ingest, analytics-sink, feature-service, ml-scoring, and the Python SDK; **`npm run build`** for the **frontend** and **`npm run build`** for **`packages/fraud-sdk-typescript`**; then Docker image builds (see `.github/workflows/ci.yml`). Security scanning (Trivy + SARIF upload) runs in `.github/workflows/security-scan.yml`.
+
 Each service has a `tests/` directory. Run tests from the service root:
 
 ```bash
-# Decision API
+# Decision API (set sqlite + redis env for unit/integration-style tests without Docker)
 cd services/decision-api
 pip install -e ".[dev]"
+set PYTHONPATH=src;../shared   # Windows: $env:PYTHONPATH="src;../shared"
+set DATABASE_URL=sqlite+aiosqlite:///
+set REDIS_URL=redis://localhost:6379/0
 pytest --cov=decision_api tests/
 
 # Case API
@@ -96,13 +107,92 @@ cd services/case-api
 pip install -e ".[dev]"
 pytest --cov=case_api tests/
 
+# Graph service (Neo4j mocked in unit tests)
+cd services/graph-service
+pip install -e ".[dev]"
+set PYTHONPATH=src
+pytest --cov=graph_service tests/
+
+# Integration ingress (OSINT parallel enrichment, KMS paths)
+cd services/integration-ingress
+pip install -e ".[dev]"
+set PYTHONPATH=src;../shared
+pytest tests/
+
+# Investigation agent
+cd services/investigation-agent
+pip install -e ".[dev]"
+set PYTHONPATH=src;../shared
+pytest tests/
+
 # Python SDK
 cd packages/fraud-sdk-python
 pip install -e ".[dev]"
 pytest --cov=fraud_stack_sdk tests/
+
+# GraphQL gateway
+cd services/graphql-gateway
+pip install -e ".[dev]"
+export PYTHONPATH=src:../shared   # Windows: set PYTHONPATH=src;../shared
+pytest tests/
+
+# Event ingest, analytics sink (shared observability on PYTHONPATH)
+cd services/event-ingest
+pip install -e ".[dev]"
+export PYTHONPATH=src:../shared
+pytest tests/
+
+cd services/analytics-sink
+pip install -e ".[dev]"
+export PYTHONPATH=src:../shared
+pytest tests/
+
+# Feature service, ML scoring
+cd services/feature-service
+pip install -e ".[dev]"
+export PYTHONPATH=src
+pytest tests/
+
+cd services/ml-scoring
+pip install -e ".[dev]"
+export PYTHONPATH=src:../shared
+pytest tests/
+
+# Frontend (TypeScript check + Vite production build)
+cd frontend
+npm ci
+npm run build
+
+# TypeScript fraud SDK
+cd packages/fraud-sdk-typescript
+npm install
+npm run build
 ```
 
-Set `PYTHONPATH=src` if your IDE or runner doesn't resolve imports automatically.
+On Linux/macOS, use `export PYTHONPATH=src:../shared` (decision-api, investigation-agent, **integration-ingress**, graphql-gateway, event-ingest, analytics-sink, ml-scoring) or `export PYTHONPATH=src` (graph service, feature-service only).
+
+### Database migrations (decision-api / case-api)
+
+With **PostgreSQL**, the app runs **Alembic** on startup. To run migrations manually (e.g. before first deploy):
+
+```bash
+cd services/decision-api
+export DATABASE_URL=postgresql+psycopg://user:pass@host:5432/fraud   # sync driver for Alembic CLI
+alembic upgrade head
+```
+
+Use the same pattern under `services/case-api` with the case database URL. For `postgresql+asyncpg` URLs, replace `+asyncpg` with `+psycopg` for the sync Alembic driver.
+
+## Extension guides
+
+| Topic | Guide |
+|--------|--------|
+| Add an OSINT provider | [docs/docs/guides/adding-osint-source.md](docs/docs/guides/adding-osint-source.md) |
+| Plug in an ONNX model | [docs/docs/guides/onnx-model-integration.md](docs/docs/guides/onnx-model-integration.md) |
+| Borrow OSS patterns safely | [docs/docs/guides/borrowed-oss-adoption.md](docs/docs/guides/borrowed-oss-adoption.md) |
+| Simulation / A-B / shadow | [docs/docs/guides/shadow-and-ab-testing.md](docs/docs/guides/shadow-and-ab-testing.md) |
+| Prometheus + Grafana | [deploy/observability/README.md](deploy/observability/README.md) |
+| Latency smoke benchmark | [scripts/benchmarks/README.md](scripts/benchmarks/README.md) |
 
 ## How to Add a New Service
 
