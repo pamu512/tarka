@@ -7,6 +7,7 @@ Example:
 
 For publishable benchmark posts, record hardware, compose profile, warm-up count, and seed payload.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -17,7 +18,6 @@ import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
 
 DEFAULT_BODY = {
     "tenant_id": "bench",
@@ -106,7 +106,11 @@ def main() -> int:
     print(f"URL: {target}")
     print(f"requests={args.requests} concurrency={args.concurrency} errors={errors}")
     if latencies:
-        print(f"latency_ms: min={latencies[0]:.2f} p50={percentile(latencies, 50):.2f} p95={percentile(latencies, 95):.2f} p99={percentile(latencies, 99):.2f} max={latencies[-1]:.2f}")
+        print(
+            f"latency_ms: min={latencies[0]:.2f} p50={percentile(latencies, 50):.2f} "
+            f"p95={percentile(latencies, 95):.2f} p99={percentile(latencies, 99):.2f} "
+            f"max={latencies[-1]:.2f}"
+        )
         print(f"mean_ms={statistics.mean(latencies):.2f} stdev_ms={statistics.pstdev(latencies):.2f}")
     if codes:
         from collections import Counter

@@ -105,7 +105,8 @@ build-backend = "setuptools.build_meta"
 py-modules = ["tarka"]
 
 [tool.ruff]
-line-length = 120
+# 160 accommodates long catalog URLs and benchmark output without per-line churn; keep new code readable.
+line-length = 160
 target-version = "py311"
 
 [tool.ruff.lint]

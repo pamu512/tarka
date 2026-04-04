@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from integration_ingress.adapters import ADAPTERS, register_adapter, verify
+from integration_ingress.adapters import ADAPTERS, verify
 from integration_ingress.config import settings
 from integration_ingress.db import get_session, init_db
 from integration_ingress.enrichment import enrich_email, enrich_ip, enrich_phone
@@ -32,14 +32,15 @@ from integration_ingress.osint import OsintConfig, full_osint_enrichment
 from integration_ingress.vault import InMemoryVault
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
-from observability import setup_observability  # noqa: E402
-from auth_rbac import get_current_user, require_role, setup_auth  # noqa: E402
 from audit_trail import AuditTrail, create_audit_model  # noqa: E402
+from auth_rbac import get_current_user, require_role, setup_auth  # noqa: E402
+from observability import setup_observability  # noqa: E402
 from privacy import get_profile  # noqa: E402
 
 # ---------- auth ----------
 
 _valid_api_keys: frozenset[str] | None = None
+
 
 def _get_api_keys() -> frozenset[str]:
     global _valid_api_keys
@@ -47,6 +48,7 @@ def _get_api_keys() -> frozenset[str]:
         raw = settings.api_keys.strip()
         _valid_api_keys = frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
     return _valid_api_keys
+
 
 async def require_api_key(request: Request) -> None:
     keys = _get_api_keys()
@@ -132,7 +134,9 @@ def _validate_kms_config() -> list[str]:
             issues.append("AZURE_KMS_KEY_NAME is required for azure provider")
     return issues
 
+
 from integration_ingress.db import Base  # noqa: E402
+
 AuditRecord = create_audit_model(Base)
 _trail = AuditTrail(AuditRecord)
 
@@ -265,12 +269,14 @@ def _integration_connectivity_result(provider: dict[str, Any], config: dict[str,
     passed = has_api_key or has_user_creds
     missing: list[str] = [] if passed else ["api_key", "username", "password"]
     status = "pass" if passed else "fail"
-    checks = [{
-        "check": "auth_material_present",
-        "passed": passed,
-        "accepted": ["api_key", "username+password"],
-        "missing_fields": missing,
-    }]
+    checks = [
+        {
+            "check": "auth_material_present",
+            "passed": passed,
+            "accepted": ["api_key", "username+password"],
+            "missing_fields": missing,
+        }
+    ]
     latency_ms = round((time.perf_counter() - t0) * 1000, 2)
     return {
         "provider_id": provider["id"],
@@ -759,11 +765,7 @@ async def test_integration_connectivity(
     probe_ok, probe_latency, probe_error = await _live_provider_probe(provider, request.app.state.http)
     result["live_probe"] = {"ok": probe_ok, "latency_ms": probe_latency, "error": probe_error}
     hard_probe_failures = {"host_hint_mismatch", "sandbox_semantic_check_failed"}
-    if not probe_ok and (
-        probe_error in hard_probe_failures
-        or str(probe_error).startswith("http_4")
-        or str(probe_error).startswith("http_5")
-    ):
+    if not probe_ok and (probe_error in hard_probe_failures or str(probe_error).startswith("http_4") or str(probe_error).startswith("http_5")):
         result["status"] = "fail"
     q = await session.execute(
         select(IntegrationConnection).where(
@@ -803,14 +805,16 @@ async def integration_health_matrix(tenant_id: str, session: AsyncSession = Depe
         if not isinstance(last, dict):
             cfg = await _vault.get_config(session, tenant_id, provider_id)
             last = _integration_connectivity_result(provider, cfg)
-        rows.append({
-            "provider_id": provider_id,
-            "name": provider.get("name"),
-            "category": provider.get("category"),
-            "status": last.get("status"),
-            "latency_ms": last.get("latency_ms"),
-            "missing_fields": last.get("missing_fields", []),
-        })
+        rows.append(
+            {
+                "provider_id": provider_id,
+                "name": provider.get("name"),
+                "category": provider.get("category"),
+                "status": last.get("status"),
+                "latency_ms": last.get("latency_ms"),
+                "missing_fields": last.get("missing_fields", []),
+            }
+        )
     pass_count = sum(1 for r in rows if r.get("status") == "pass")
     score = round((pass_count / max(len(rows), 1)) * 100, 1) if rows else 0.0
     return {"tenant_id": tenant_id, "score": score, "rows": rows}
@@ -827,9 +831,7 @@ async def install_integration(
     provider = get_provider(body.provider_id)
     if not provider:
         raise HTTPException(status_code=404, detail=f"provider '{body.provider_id}' not found")
-    snap = await _get_operation_snapshot(
-        session, tenant_id=body.tenant_id, provider_id=body.provider_id, action="install", idempotency_key=idempotency_key
-    )
+    snap = await _get_operation_snapshot(session, tenant_id=body.tenant_id, provider_id=body.provider_id, action="install", idempotency_key=idempotency_key)
     if snap:
         return snap
     _enforce_policy_for_install(provider, (body.config or {}).get("region"))
@@ -946,9 +948,7 @@ async def configure_integration(
     provider = get_provider(body.provider_id)
     if not provider:
         raise HTTPException(status_code=404, detail=f"provider '{body.provider_id}' not found")
-    snap = await _get_operation_snapshot(
-        session, tenant_id=body.tenant_id, provider_id=body.provider_id, action="configure", idempotency_key=idempotency_key
-    )
+    snap = await _get_operation_snapshot(session, tenant_id=body.tenant_id, provider_id=body.provider_id, action="configure", idempotency_key=idempotency_key)
     if snap:
         return snap
     await _vault.set_config(session, body.tenant_id, body.provider_id, body.config or {})
@@ -1029,8 +1029,7 @@ async def request_integration(body: IntegrationRequestCreate):
         "status": "pending_approval",
         "github_issue_url": None,
         "message": (
-            "Request submitted for admin review. A prefilled GitHub issue for engineering will be available "
-            "after an administrator approves this request."
+            "Request submitted for admin review. A prefilled GitHub issue for engineering will be available after an administrator approves this request."
         ),
     }
 

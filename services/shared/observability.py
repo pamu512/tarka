@@ -5,21 +5,22 @@ Usage in any FastAPI service::
     from observability import setup_observability
     setup_observability(app, service_name="decision-api")
 """
+
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
 import time
-import json
 import uuid
 from typing import Any
 
 from fastapi import FastAPI, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
-
 # ---- Structured JSON logging ----
+
 
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
@@ -51,6 +52,7 @@ def setup_logging(service_name: str, level: str = "") -> None:
 
 # ---- Prometheus metrics (lightweight, no external deps) ----
 
+
 class Metrics:
     """In-process counters and histograms exposed at /metrics in Prometheus text format."""
 
@@ -63,9 +65,9 @@ class Metrics:
         self._custom_counters: dict[str, int] = {}
 
     def record_request(self, method: str, path: str, status: int, duration: float) -> None:
-        key = f'{method}|{path}|{status}'
+        key = f"{method}|{path}|{status}"
         self._request_count[key] = self._request_count.get(key, 0) + 1
-        lat_key = f'{method}|{path}'
+        lat_key = f"{method}|{path}"
         self._latency_sum[lat_key] = self._latency_sum.get(lat_key, 0.0) + duration
         self._latency_count[lat_key] = self._latency_count.get(lat_key, 0) + 1
         if status >= 500:
@@ -76,36 +78,28 @@ class Metrics:
 
     def to_prometheus(self) -> str:
         lines: list[str] = []
-        lines.append(f"# HELP http_requests_total Total HTTP requests")
-        lines.append(f"# TYPE http_requests_total counter")
+        lines.append("# HELP http_requests_total Total HTTP requests")
+        lines.append("# TYPE http_requests_total counter")
         for key, count in sorted(self._request_count.items()):
             method, path, status = key.split("|")
-            lines.append(
-                f'http_requests_total{{service="{self.service}",method="{method}",path="{path}",status="{status}"}} {count}'
-            )
+            lines.append(f'http_requests_total{{service="{self.service}",method="{method}",path="{path}",status="{status}"}} {count}')
 
-        lines.append(f"# HELP http_request_duration_seconds_sum Sum of HTTP request durations")
-        lines.append(f"# TYPE http_request_duration_seconds_sum counter")
+        lines.append("# HELP http_request_duration_seconds_sum Sum of HTTP request durations")
+        lines.append("# TYPE http_request_duration_seconds_sum counter")
         for key, total in sorted(self._latency_sum.items()):
             method, path = key.split("|")
             count = self._latency_count[key]
-            lines.append(
-                f'http_request_duration_seconds_sum{{service="{self.service}",method="{method}",path="{path}"}} {total:.6f}'
-            )
-            lines.append(
-                f'http_request_duration_seconds_count{{service="{self.service}",method="{method}",path="{path}"}} {count}'
-            )
+            lines.append(f'http_request_duration_seconds_sum{{service="{self.service}",method="{method}",path="{path}"}} {total:.6f}')
+            lines.append(f'http_request_duration_seconds_count{{service="{self.service}",method="{method}",path="{path}"}} {count}')
 
-        lines.append(f"# HELP http_server_errors_total Total 5xx errors")
-        lines.append(f"# TYPE http_server_errors_total counter")
+        lines.append("# HELP http_server_errors_total Total 5xx errors")
+        lines.append("# TYPE http_server_errors_total counter")
         for key, count in sorted(self._request_errors.items()):
             method, path = key.split("|")
-            lines.append(
-                f'http_server_errors_total{{service="{self.service}",method="{method}",path="{path}"}} {count}'
-            )
+            lines.append(f'http_server_errors_total{{service="{self.service}",method="{method}",path="{path}"}} {count}')
 
         for name, val in sorted(self._custom_counters.items()):
-            lines.append(f'# TYPE {name} counter')
+            lines.append(f"# TYPE {name} counter")
             lines.append(f'{name}{{service="{self.service}"}} {val}')
 
         return "\n".join(lines) + "\n"
@@ -120,6 +114,7 @@ def get_metrics() -> Metrics:
 
 
 # ---- Middleware ----
+
 
 class ObservabilityMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: Any, metrics: Metrics, service: str) -> None:
@@ -172,6 +167,7 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
 
 # ---- Setup helper ----
 
+
 def setup_observability(app: FastAPI, service_name: str) -> Metrics:
     global _metrics
     setup_logging(service_name)
@@ -181,6 +177,7 @@ def setup_observability(app: FastAPI, service_name: str) -> Metrics:
     @app.get("/metrics", include_in_schema=False)
     async def prometheus_metrics():
         from starlette.responses import PlainTextResponse
+
         return PlainTextResponse(_metrics.to_prometheus(), media_type="text/plain; charset=utf-8")
 
     return _metrics

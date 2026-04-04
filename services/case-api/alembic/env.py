@@ -1,4 +1,5 @@
 """Alembic environment — sync migrations for PostgreSQL (SQLite tests use create_all)."""
+
 from __future__ import annotations
 
 import os

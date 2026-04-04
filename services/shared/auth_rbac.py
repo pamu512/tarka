@@ -14,17 +14,16 @@ Usage::
     @app.get("/admin-only", dependencies=[Depends(require_role("admin"))])
     async def admin_endpoint(): ...
 """
+
 from __future__ import annotations
 
-import json
 import logging
 import os
 import time
 from typing import Any
-from functools import lru_cache
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
 log = logging.getLogger("auth-rbac")
@@ -74,6 +73,7 @@ async def _verify_jwt(token: str) -> dict[str, Any]:
 
     try:
         from jwt import PyJWKClient
+
         jwk_client = PyJWKClient("")
         jwk_client.jwk_set = pyjwt.PyJWKSet.from_dict(jwks)
         header = pyjwt.get_unverified_header(token)
@@ -92,6 +92,7 @@ async def _verify_jwt(token: str) -> dict[str, Any]:
 
 class AuthUser:
     """Represents an authenticated user or service."""
+
     def __init__(self, user_id: str, roles: list[str], auth_type: str, claims: dict[str, Any] | None = None):
         self.user_id = user_id
         self.roles = roles
@@ -139,6 +140,7 @@ async def _authenticate(request: Request) -> AuthUser:
 
 class AuthMiddleware(BaseHTTPMiddleware):
     """Injects AuthUser into request.state.auth_user."""
+
     SKIP_PATHS = {"/v1/health", "/metrics", "/docs", "/openapi.json", "/redoc"}
 
     async def dispatch(self, request: Request, call_next):
@@ -156,6 +158,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
 def require_role(role: str):
     """FastAPI dependency that checks the user has the given role."""
+
     async def _check(request: Request) -> AuthUser:
         user: AuthUser = getattr(request.state, "auth_user", None)
         if not user:
@@ -163,6 +166,7 @@ def require_role(role: str):
         if not user.has_role(role):
             raise HTTPException(403, f"role '{role}' required, you have {user.roles}")
         return user
+
     return _check
 
 

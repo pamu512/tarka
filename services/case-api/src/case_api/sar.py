@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import uuid
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
@@ -80,18 +80,33 @@ class SARGenerator:
 
         if format == "fincen_xml":
             xml_content = self._build_fincen_sar(
-                report_id, filing_date, subject, institution, narrative,
-                case, transactions,
+                report_id,
+                filing_date,
+                subject,
+                institution,
+                narrative,
+                case,
+                transactions,
             )
         elif format == "nca_json":
             json_content = self._build_nca_sar(
-                report_id, filing_date, subject, institution, narrative,
-                case, transactions,
+                report_id,
+                filing_date,
+                subject,
+                institution,
+                narrative,
+                case,
+                transactions,
             )
         elif format == "generic_json":
             json_content = self._build_generic(
-                report_id, filing_date, subject, institution, narrative,
-                case, transactions,
+                report_id,
+                filing_date,
+                subject,
+                institution,
+                narrative,
+                case,
+                transactions,
             )
         else:
             raise ValueError(f"Unsupported SAR format: {format}")
@@ -148,7 +163,7 @@ class SARGenerator:
                 char = ET.SubElement(activity, "SuspiciousActivityClassification")
                 ET.SubElement(char, "SuspiciousActivityTypeID").text = activity_code
 
-        if not labels or not any(l in _FINCEN_ACTIVITY_TYPES for l in labels):
+        if not labels or not any(lbl in _FINCEN_ACTIVITY_TYPES for lbl in labels):
             char = ET.SubElement(activity, "SuspiciousActivityClassification")
             ET.SubElement(char, "SuspiciousActivityTypeID").text = "24"  # Other
 
@@ -221,9 +236,7 @@ class SARGenerator:
         transactions: list[dict[str, Any]],
     ) -> dict[str, Any]:
         labels = case.get("labels", [])
-        reason_codes = [
-            _NCA_REASON_CODES[l] for l in labels if l in _NCA_REASON_CODES
-        ] or ["OT"]
+        reason_codes = [_NCA_REASON_CODES[lbl] for lbl in labels if lbl in _NCA_REASON_CODES] or ["OT"]
 
         tx_dates = _transaction_date_range(transactions)
         total = float(sum(Decimal(str(tx.get("amount", 0))) for tx in transactions))
@@ -339,9 +352,7 @@ class SARGenerator:
     # Narrative generation
     # ------------------------------------------------------------------
 
-    def generate_narrative(
-        self, case: dict[str, Any], transactions: list[dict[str, Any]]
-    ) -> str:
+    def generate_narrative(self, case: dict[str, Any], transactions: list[dict[str, Any]]) -> str:
         """Auto-generate a SAR narrative following the who/what/when/where/why
         structure that regulators expect."""
 
@@ -355,16 +366,14 @@ class SARGenerator:
         total = sum(Decimal(str(tx.get("amount", 0))) for tx in transactions)
         currencies = set(tx.get("currency", "USD") for tx in transactions)
         currency_str = "/".join(sorted(currencies)) if currencies else "USD"
-        counterparties = set(
-            tx.get("counterparty", "") for tx in transactions if tx.get("counterparty")
-        )
+        counterparties = set(tx.get("counterparty", "") for tx in transactions if tx.get("counterparty"))
 
         sections: list[str] = []
 
         # WHO
         sections.append(
             f"This report concerns suspicious activity involving the subject "
-            f"identified as \"{subject_name}\" (internal case reference: {case_id}). "
+            f'identified as "{subject_name}" (internal case reference: {case_id}). '
             f"The activity was flagged as {priority}-priority."
         )
 
@@ -377,17 +386,12 @@ class SARGenerator:
         )
 
         # WHEN
-        sections.append(
-            f"The suspicious transactions occurred between {tx_dates['start']} "
-            f"and {tx_dates['end']}."
-        )
+        sections.append(f"The suspicious transactions occurred between {tx_dates['start']} and {tx_dates['end']}.")
 
         # WHERE / counterparties
         if counterparties:
             cp_list = ", ".join(sorted(counterparties)[:10])
-            sections.append(
-                f"Transactions involved the following counterparties: {cp_list}."
-            )
+            sections.append(f"Transactions involved the following counterparties: {cp_list}.")
 
         # Transaction pattern analysis
         patterns = _detect_patterns(transactions)
@@ -404,7 +408,7 @@ class SARGenerator:
             f"Based on the transaction patterns, risk indicators, and case "
             f"investigation findings, the institution believes this activity "
             f"is suspicious and warrants regulatory reporting as described in "
-            f"the case titled \"{case_title}\"."
+            f'the case titled "{case_title}".'
         )
 
         return "\n\n".join(sections)
@@ -476,7 +480,7 @@ def _should_request_consent(case: dict[str, Any]) -> bool:
 def _describe_labels(labels: list[str]) -> str:
     if not labels:
         return "unspecified suspicious activity"
-    readable = [l.replace("_", " ") for l in labels]
+    readable = [lbl.replace("_", " ") for lbl in labels]
     if len(readable) == 1:
         return readable[0]
     return ", ".join(readable[:-1]) + " and " + readable[-1]
@@ -515,30 +519,21 @@ def _detect_patterns(transactions: list[dict[str, Any]]) -> list[str]:
                 span_days = max((last - first).days, 1)
                 tx_per_day = len(transactions) / span_days
                 if tx_per_day > 5:
-                    patterns.append(
-                        f"High transaction velocity of {tx_per_day:.1f} "
-                        f"transactions per day over {span_days} days."
-                    )
+                    patterns.append(f"High transaction velocity of {tx_per_day:.1f} transactions per day over {span_days} days.")
             except (ValueError, TypeError):
                 pass
 
     # Round amounts
     round_count = sum(1 for a in amounts if a > 0 and a % 1000 == 0)
     if round_count >= 3:
-        patterns.append(
-            f"{round_count} transactions used round amounts (multiples of 1,000), "
-            f"which may indicate layering activity."
-        )
+        patterns.append(f"{round_count} transactions used round amounts (multiples of 1,000), which may indicate layering activity.")
 
     # Unusual direction split
     directions = [tx.get("direction") for tx in transactions]
     inbound = sum(1 for d in directions if d in ("credit", "inbound", "in"))
     outbound = sum(1 for d in directions if d in ("debit", "outbound", "out"))
     if inbound > 0 and outbound > 0 and len(transactions) >= 4:
-        patterns.append(
-            f"Funds were received ({inbound} inbound) and quickly moved "
-            f"({outbound} outbound), consistent with pass-through activity."
-        )
+        patterns.append(f"Funds were received ({inbound} inbound) and quickly moved ({outbound} outbound), consistent with pass-through activity.")
 
     return patterns
 
@@ -548,39 +543,22 @@ def _narrative_risk_notes(labels: list[str]) -> str:
     label_set = set(labels)
 
     if "structuring" in label_set:
-        notes.append(
-            "Transactions appear to be structured to avoid regulatory "
-            "reporting thresholds."
-        )
+        notes.append("Transactions appear to be structured to avoid regulatory reporting thresholds.")
     if "money_laundering" in label_set:
-        notes.append(
-            "Activity is consistent with money laundering typologies, "
-            "including layering through multiple accounts."
-        )
+        notes.append("Activity is consistent with money laundering typologies, including layering through multiple accounts.")
     if "terrorist_financing" in label_set:
-        notes.append(
-            "Activity patterns raise concerns about potential terrorist "
-            "financing, including transfers to high-risk jurisdictions."
-        )
+        notes.append("Activity patterns raise concerns about potential terrorist financing, including transfers to high-risk jurisdictions.")
     if "identity_theft" in label_set:
-        notes.append(
-            "Identity verification discrepancies suggest possible use of "
-            "stolen or synthetic identities."
-        )
+        notes.append("Identity verification discrepancies suggest possible use of stolen or synthetic identities.")
     if "account_takeover" in label_set:
-        notes.append(
-            "Behavioral anomalies and device signal changes indicate a "
-            "possible account takeover event."
-        )
+        notes.append("Behavioral anomalies and device signal changes indicate a possible account takeover event.")
 
     if not notes:
         return ""
     return "Risk assessment notes: " + " ".join(notes)
 
 
-def _aggregate_risk_indicators(
-    case: dict[str, Any], transactions: list[dict[str, Any]]
-) -> list[str]:
+def _aggregate_risk_indicators(case: dict[str, Any], transactions: list[dict[str, Any]]) -> list[str]:
     indicators: list[str] = []
 
     labels = case.get("labels", [])

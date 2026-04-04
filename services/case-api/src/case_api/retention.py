@@ -1,4 +1,5 @@
 """Data retention policies for closed investigation cases."""
+
 import asyncio
 import logging
 import os
@@ -19,9 +20,7 @@ async def cleanup_old_cases(retention_days: int = DEFAULT_RETENTION_DAYS) -> int
     from case_api.models import Case
 
     async with async_engine.begin() as conn:
-        result = await conn.execute(
-            delete(Case).where(Case.status == "closed", Case.updated_at < cutoff)
-        )
+        result = await conn.execute(delete(Case).where(Case.status == "closed", Case.updated_at < cutoff))
         count = result.rowcount
 
     if count > 0:

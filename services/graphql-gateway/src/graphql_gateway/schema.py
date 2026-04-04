@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime
 import inspect
+from datetime import datetime
 from typing import Any
-from uuid import UUID
 
 import httpx
 import strawberry
@@ -135,10 +134,7 @@ async def _raise_for_status(resp: httpx.Response) -> httpx.Response:
         resp = await resp
     if resp.status_code >= 400:
         body = resp.text
-        raise Exception(
-            f"Upstream {resp.request.method} {resp.request.url} "
-            f"returned {resp.status_code}: {body[:500]}"
-        )
+        raise Exception(f"Upstream {resp.request.method} {resp.request.url} returned {resp.status_code}: {body[:500]}")
     return resp
 
 

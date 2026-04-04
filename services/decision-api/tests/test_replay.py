@@ -1,11 +1,11 @@
 """Unit tests for /v1/replay trace_ids mode and response shape."""
+
 import uuid
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from decision_api.replay import ReplayCondition, ReplayRequest, ReplayRule, replay_events
 from fastapi import HTTPException
-
-from decision_api.replay import ReplayRequest, ReplayRule, ReplayCondition, replay_events
 
 
 def _audit_row(*, trace_id, tenant_id="t1", entity_id="e1", decision="allow", score=40.0, payload=None):
@@ -64,9 +64,7 @@ async def test_replay_limit_mode_empty_audits_404():
 
     body = ReplayRequest(
         tenant_id="t1",
-        rules_override=[
-            ReplayRule(when=[ReplayCondition(field="amount", op="gte", value=0)], score_delta=0)
-        ],
+        rules_override=[ReplayRule(when=[ReplayCondition(field="amount", op="gte", value=0)], score_delta=0)],
         limit=10,
         trace_ids=[],
     )

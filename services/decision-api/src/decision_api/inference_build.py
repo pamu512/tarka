@@ -1,4 +1,5 @@
 """Build inference_context (v2) and recommended customer actions (challenge orchestration hints)."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -39,9 +40,7 @@ def build_inference_context(
     score_factor = _clamp01(final_score / 100.0)
     model_factor = _clamp01((ml_score or 0.0) / 100.0)
     integrity_confidence = _clamp01(
-        1.0
-        - (0.35 * tamper_risk + 0.2 * network_risk + 0.15 * replay_risk + 0.15 * geo_consistency_risk)
-        - (0.15 * max(score_factor, model_factor))
+        1.0 - (0.35 * tamper_risk + 0.2 * network_risk + 0.15 * replay_risk + 0.15 * geo_consistency_risk) - (0.15 * max(score_factor, model_factor))
     )
 
     # --- Epic E: shared-device / velocity heuristics (co-location & impossible travel proxies) ---

@@ -3,6 +3,7 @@
 Shadow rules are evaluated in parallel with production rules. Results are logged
 for comparison but do NOT affect the actual decision returned to the caller.
 """
+
 import json
 import logging
 import os
@@ -99,15 +100,17 @@ def record_observation(
 ) -> None:
     """Record a shadow vs production observation for analysis."""
     with _obs_lock:
-        _observation_log.append({
-            "trace_id": trace_id,
-            "production_decision": production.get("decision"),
-            "production_score": production.get("score"),
-            "shadow_decision": shadow.get("shadow_decision"),
-            "shadow_score": shadow.get("shadow_score"),
-            "diverged": production.get("decision") != shadow.get("shadow_decision"),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        _observation_log.append(
+            {
+                "trace_id": trace_id,
+                "production_decision": production.get("decision"),
+                "production_score": production.get("score"),
+                "shadow_decision": shadow.get("shadow_decision"),
+                "shadow_score": shadow.get("shadow_score"),
+                "diverged": production.get("decision") != shadow.get("shadow_decision"),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
 
 
 def get_observations(limit: int = 100) -> list[dict[str, Any]]:

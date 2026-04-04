@@ -1,11 +1,8 @@
 """Golden aggregate expectations with a fixed wall clock (CI gate for counter parity)."""
 
 import pytest
-
-from decision_api.aggregates import AggregateStore
-
 from aggregate_fake_redis import FakeRedis
-
+from decision_api.aggregates import AggregateStore
 
 # Fixed epoch-like base so windows are deterministic relative to "now".
 T0 = 1_700_000_000.0

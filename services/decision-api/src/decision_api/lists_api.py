@@ -1,14 +1,15 @@
 """CRUD API for whitelist, blacklist, and test bypass management."""
+
+import logging
 import os
 import sys
-import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
-from entity_lists import ListStore, ListEntry, ALL_LIST_TYPES, ListType, create_list_store  # noqa: E402
+from entity_lists import ALL_LIST_TYPES, ListStore  # noqa: E402
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/lists", tags=["lists"])

@@ -10,6 +10,7 @@ Supported aggregate types:
   - avg(entity, field, window) — average of a numeric field in window
   - distinct(entity, field, window) — count of distinct values in window
 """
+
 from __future__ import annotations
 
 import time

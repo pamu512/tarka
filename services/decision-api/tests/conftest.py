@@ -1,4 +1,5 @@
 """Ensure tests/ is on sys.path for shared helpers (e.g. aggregate_fake_redis)."""
+
 import sys
 from pathlib import Path
 

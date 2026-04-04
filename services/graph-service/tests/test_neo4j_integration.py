@@ -1,4 +1,5 @@
 """Live Neo4j smoke test — enabled when NEO4J_INTEGRATION=1 (CI service container)."""
+
 import os
 
 import pytest

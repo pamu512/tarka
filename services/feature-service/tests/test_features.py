@@ -1,17 +1,15 @@
 """Unit tests for the feature-service — derived feature computation and snapshot."""
+
 import math
+from unittest.mock import patch
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-
 from feature_service.main import (
+    VECTOR_KEYS,
+    _build_vector,
     _compute_amount_features,
     _compute_time_features,
-    _build_vector,
-    AMOUNT_BUCKETS,
-    VECTOR_KEYS,
 )
-
 
 # ---------- _compute_amount_features ----------
 
@@ -127,20 +125,25 @@ class TestSnapshotEndpoint:
     @pytest.fixture
     def client(self):
         with patch.dict("os.environ", {"API_KEYS": "", "ENRICHMENT_URL": "", "REDIS_TAGS_HTTP": ""}):
-            from feature_service.main import app, _valid_api_keys
             import feature_service.main as mod
+            from feature_service.main import app
+
             mod._valid_api_keys = None
             from fastapi.testclient import TestClient
+
             with TestClient(app) as c:
                 yield c
 
     def test_snapshot_basic(self, client):
-        r = client.post("/v1/snapshot", json={
-            "tenant_id": "t1",
-            "entity_id": "e1",
-            "event_type": "payment",
-            "payload": {"amount": 250},
-        })
+        r = client.post(
+            "/v1/snapshot",
+            json={
+                "tenant_id": "t1",
+                "entity_id": "e1",
+                "event_type": "payment",
+                "payload": {"amount": 250},
+            },
+        )
         assert r.status_code == 200
         data = r.json()
         assert data["tenant_id"] == "t1"
@@ -150,12 +153,15 @@ class TestSnapshotEndpoint:
         assert data["features"]["amount_bucket"] == "medium"
 
     def test_snapshot_includes_time_features(self, client):
-        r = client.post("/v1/snapshot", json={
-            "tenant_id": "t1",
-            "entity_id": "e1",
-            "event_type": "login",
-            "payload": {},
-        })
+        r = client.post(
+            "/v1/snapshot",
+            json={
+                "tenant_id": "t1",
+                "entity_id": "e1",
+                "event_type": "login",
+                "payload": {},
+            },
+        )
         assert r.status_code == 200
         features = r.json()["features"]
         assert "hour_of_day" in features

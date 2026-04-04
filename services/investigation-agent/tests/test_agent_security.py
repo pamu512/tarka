@@ -1,4 +1,5 @@
 """Security guardrails: injection detection, tenant scoping on tools, output redaction."""
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -41,14 +42,16 @@ class TestPlatformAuditNormalization:
         assert _normalize_platform_audit_row(None) is None
 
     def test_normalize_truncates_strings(self):
-        row = _normalize_platform_audit_row({
-            "id": "a" * 100,
-            "ts": "2026-01-01T00:00:00Z",
-            "user_name": "u",
-            "resource": "r" * 400,
-            "detail": "d",
-            "flags": [{"type": "t", "severity": "high", "note": "n"}],
-        })
+        row = _normalize_platform_audit_row(
+            {
+                "id": "a" * 100,
+                "ts": "2026-01-01T00:00:00Z",
+                "user_name": "u",
+                "resource": "r" * 400,
+                "detail": "d",
+                "flags": [{"type": "t", "severity": "high", "note": "n"}],
+            }
+        )
         assert row is not None
         assert len(row["resource"]) <= 256
         assert len(row["id"]) <= 64

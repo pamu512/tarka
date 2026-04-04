@@ -8,12 +8,12 @@ Each model version carries a ``traffic_weight`` (0-100) used for A/B
 routing.  The registry selects a model probabilistically based on the
 normalised weights of all *active* versions.
 """
+
 from __future__ import annotations
 
 import hashlib
 import json
 import logging
-import os
 import random
 import time
 from dataclasses import dataclass, field
@@ -100,7 +100,10 @@ class ModelRegistry:
                 count += 1
                 log.info(
                     "registered model %s v%d  weight=%d active=%s onnx=%s",
-                    model_name, version, mv.traffic_weight, mv.active,
+                    model_name,
+                    version,
+                    mv.traffic_weight,
+                    mv.active,
                     mv.onnx_session is not None,
                 )
         return count
@@ -110,9 +113,7 @@ class ModelRegistry:
         try:
             import onnxruntime as ort
 
-            mv.onnx_session = ort.InferenceSession(
-                str(onnx_path), providers=["CPUExecutionProvider"]
-            )
+            mv.onnx_session = ort.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
             mv.onnx_input_name = mv.onnx_session.get_inputs()[0].name
         except Exception as exc:
             log.warning("could not load ONNX for %s v%d: %s", mv.name, mv.version, exc)
@@ -160,19 +161,18 @@ class ModelRegistry:
         result: list[dict[str, Any]] = []
         for model_name, versions in sorted(self._versions.items()):
             for ver, mv in sorted(versions.items()):
-                result.append({
-                    "model_name": mv.name,
-                    "version": mv.version,
-                    "traffic_weight": mv.traffic_weight,
-                    "active": mv.active,
-                    "has_onnx": mv.onnx_session is not None,
-                    "total_inferences": mv.total_inferences,
-                    "avg_latency_ms": (
-                        round(mv.total_latency_ms / mv.total_inferences, 2)
-                        if mv.total_inferences else 0
-                    ),
-                    "metadata": mv.metadata,
-                })
+                result.append(
+                    {
+                        "model_name": mv.name,
+                        "version": mv.version,
+                        "traffic_weight": mv.traffic_weight,
+                        "active": mv.active,
+                        "has_onnx": mv.onnx_session is not None,
+                        "total_inferences": mv.total_inferences,
+                        "avg_latency_ms": (round(mv.total_latency_ms / mv.total_inferences, 2) if mv.total_inferences else 0),
+                        "metadata": mv.metadata,
+                    }
+                )
         return result
 
     def activate_version(self, model_name: str, version: int) -> bool:
@@ -257,10 +257,7 @@ class ModelRegistry:
                 "active": mv.active,
                 "traffic_weight": mv.traffic_weight,
                 "total_inferences": mv.total_inferences,
-                "avg_latency_ms": (
-                    round(mv.total_latency_ms / mv.total_inferences, 2)
-                    if mv.total_inferences else 0
-                ),
+                "avg_latency_ms": (round(mv.total_latency_ms / mv.total_inferences, 2) if mv.total_inferences else 0),
                 "last_used": mv.last_used,
             }
             for mv in sorted(versions.values(), key=lambda x: x.version)

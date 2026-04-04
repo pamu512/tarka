@@ -7,11 +7,10 @@ Usage::
     # Or with Redis:
     setup_rate_limiter(app, rpm=600, burst=50, redis_url="redis://localhost:6379/1")
 """
+
 from __future__ import annotations
 
-import asyncio
 import time
-from collections import defaultdict
 from typing import Any
 
 from fastapi import FastAPI, Request, Response
@@ -22,6 +21,7 @@ SKIP_PATHS = {"/v1/health", "/metrics"}
 
 class TokenBucket:
     """In-memory per-key token bucket."""
+
     def __init__(self, rate: float, burst: int) -> None:
         self._rate = rate
         self._burst = burst
@@ -52,6 +52,7 @@ class TokenBucket:
 
 class RedisTokenBucket:
     """Redis-backed sliding window rate limiter."""
+
     def __init__(self, redis_url: str, rpm: int, burst: int) -> None:
         self._rpm = rpm
         self._burst = burst
@@ -61,6 +62,7 @@ class RedisTokenBucket:
     async def _get_client(self):
         if self._client is None:
             import redis.asyncio as redis
+
             self._client = redis.from_url(self._redis_url, decode_responses=True)
         return self._client
 
@@ -104,6 +106,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         if not allowed:
             from starlette.responses import JSONResponse
+
             return JSONResponse(
                 {"detail": "rate limit exceeded"},
                 status_code=429,
