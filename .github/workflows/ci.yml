@@ -88,7 +88,7 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/case-api
       - name: Run tests
-        run: pytest --cov=case_api --cov-report=xml --cov-report=term-missing tests/
+        run: pytest --cov=case_api --cov-report=xml --cov-report=term-missing --cov-fail-under=40 tests/
         working-directory: services/case-api
         env:
           PYTHONPATH: src:../shared
@@ -112,7 +112,7 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/graph-service
       - name: Run tests (algorithms + Neo4j driver mocks)
-        run: pytest --cov=graph_service --cov-report=xml --cov-report=term-missing tests/
+        run: pytest --cov=graph_service --cov-report=xml --cov-report=term-missing --cov-fail-under=26 tests/
         working-directory: services/graph-service
         env:
           PYTHONPATH: src
@@ -185,7 +185,7 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/integration-ingress
       - name: Run tests (OSINT parallel enrichment, KMS stubs)
-        run: pytest --cov=integration_ingress --cov-report=xml --cov-report=term-missing tests/
+        run: pytest --cov=integration_ingress --cov-report=xml --cov-report=term-missing --cov-fail-under=35 tests/
         working-directory: services/integration-ingress
         env:
           PYTHONPATH: src:../shared
@@ -209,7 +209,7 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/investigation-agent
       - name: Run tests
-        run: pytest --cov=investigation_agent --cov-report=xml --cov-report=term-missing tests/
+        run: pytest --cov=investigation_agent --cov-report=xml --cov-report=term-missing --cov-fail-under=52 tests/
         working-directory: services/investigation-agent
         env:
           PYTHONPATH: src:../shared
@@ -233,7 +233,7 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: packages/fraud-sdk-python
       - name: Run tests
-        run: pytest --cov=fraud_stack_sdk --cov-report=xml --cov-report=term-missing tests/
+        run: pytest --cov=fraud_stack_sdk --cov-report=xml --cov-report=term-missing --cov-fail-under=48 tests/
         working-directory: packages/fraud-sdk-python
         env:
           PYTHONPATH: src
@@ -284,7 +284,7 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/graphql-gateway
       - name: Run tests
-        run: pytest --cov=graphql_gateway --cov-report=xml --cov-report=term-missing tests/
+        run: pytest --cov=graphql_gateway --cov-report=xml --cov-report=term-missing --cov-fail-under=72 tests/
         working-directory: services/graphql-gateway
         env:
           PYTHONPATH: src:../shared
@@ -302,7 +302,7 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/event-ingest
       - name: Run tests
-        run: pytest --cov=event_ingest --cov-report=xml --cov-report=term-missing tests/
+        run: pytest --cov=event_ingest --cov-report=xml --cov-report=term-missing --cov-fail-under=66 tests/
         working-directory: services/event-ingest
         env:
           PYTHONPATH: src:../shared
@@ -320,7 +320,7 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/analytics-sink
       - name: Run tests
-        run: pytest --cov=analytics_sink --cov-report=xml --cov-report=term-missing tests/
+        run: pytest --cov=analytics_sink --cov-report=xml --cov-report=term-missing --cov-fail-under=62 tests/
         working-directory: services/analytics-sink
         env:
           PYTHONPATH: src:../shared
@@ -338,7 +338,7 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/feature-service
       - name: Run tests
-        run: pytest --cov=feature_service --cov-report=xml --cov-report=term-missing tests/
+        run: pytest --cov=feature_service --cov-report=xml --cov-report=term-missing --cov-fail-under=49 tests/
         working-directory: services/feature-service
         env:
           PYTHONPATH: src:../shared
@@ -356,7 +356,7 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/ml-scoring
       - name: Run tests
-        run: pytest --cov=ml_scoring --cov-report=xml --cov-report=term-missing tests/
+        run: pytest --cov=ml_scoring --cov-report=xml --cov-report=term-missing --cov-fail-under=64 tests/
         working-directory: services/ml-scoring
         env:
           PYTHONPATH: src:../shared
