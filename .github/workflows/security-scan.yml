@@ -18,10 +18,10 @@ jobs:
     name: Trivy filesystem
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Run Trivy (repo filesystem)
-        uses: aquasecurity/trivy-action@v0.34.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: fs
           scan-ref: .
@@ -31,14 +31,14 @@ jobs:
         continue-on-error: true
 
       - name: Upload SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always() && hashFiles('trivy-fs.sarif') != ''
         with:
           sarif_file: trivy-fs.sarif
           category: trivy-fs
 
       - name: Human-readable summary (table)
-        uses: aquasecurity/trivy-action@v0.34.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: fs
           scan-ref: .
@@ -50,7 +50,7 @@ jobs:
     name: Trivy decision-api image
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: docker/setup-buildx-action@v4.0.0
       - name: Build image (local)
         uses: docker/build-push-action@v7.0.0
@@ -62,7 +62,7 @@ jobs:
           push: false
 
       - name: Trivy image scan
-        uses: aquasecurity/trivy-action@v0.34.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: tarka/decision-api:scan
           format: sarif
@@ -71,7 +71,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always() && hashFiles('trivy-image.sarif') != ''
         with:
           sarif_file: trivy-image.sarif
