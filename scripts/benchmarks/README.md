@@ -36,3 +36,7 @@ For **labeled synthetic** scenarios, use Decision API **`POST /v1/simulation/run
 - **`load-hey-evaluate.sh`** — optional **[hey](https://github.com/rakyll/hey)** wrapper for `POST /v1/decisions/evaluate` (install `hey` via Go toolchain). Falls back to a single `curl` if `hey` is missing.
 
 For heavier HTTP loads, add **k6** in CI or a separate workflow; keep **`latency_evaluate.py`** **dependency-free** for quick sanity checks.
+
+## CI smoke (GitHub Actions)
+
+Workflow **[`.github/workflows/benchmark-smoke.yml`](../../.github/workflows/benchmark-smoke.yml)** runs weekly (and on `workflow_dispatch`): Redis service + Decision API (SQLite) + `latency_evaluate.py` with a small request count. It only proves the script and stack still work together, not publishable TPS.
