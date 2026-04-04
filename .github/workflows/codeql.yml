@@ -70,14 +70,23 @@ jobs:
             exit 0
           fi
           echo "swift build failed; trying xcodebuild..."
-          xcodebuild build \
-            -scheme FraudStackSDK \
-            -destination "generic/platform=iOS Simulator" \
-            -sdk iphonesimulator \
-            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGN_IDENTITY="-" \
-            COMPILER_INDEX_STORE_ENABLE=NO
+          xcodebuild -list
+          # SPM root scheme is the package name (TarkaSDK), not the library product (FraudStackSDK).
+          for SCHEME in TarkaSDK FraudStackSDK; do
+            echo "Trying scheme: $SCHEME"
+            if xcodebuild build \
+              -scheme "$SCHEME" \
+              -destination "generic/platform=iOS Simulator" \
+              -sdk iphonesimulator \
+              -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGN_IDENTITY="-" \
+              COMPILER_INDEX_STORE_ENABLE=NO; then
+              exit 0
+            fi
+          done
+          echo "No xcodebuild scheme succeeded."
+          exit 1
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
