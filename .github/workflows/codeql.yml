@@ -1,4 +1,6 @@
-name: CodeQL
+# CodeQL Advanced — matrix per language. Tarka: no root Java/Kotlin; Swift SPM is iOS-only (manual simulator build).
+# See https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/customizing-your-advanced-setup-for-code-scanning
+name: "CodeQL Advanced"
 
 on:
   push:
@@ -6,72 +8,32 @@ on:
   pull_request:
     branches: [main, master]
   schedule:
-    - cron: "30 2 * * 1"
-
-permissions:
-  actions: read
-  contents: read
-  security-events: write
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    - cron: "16 6 * * 1"
 
 jobs:
-  detect-java-build:
-    name: Detect Java/Kotlin Build Project
-    runs-on: ubuntu-latest
-    outputs:
-      has_top_level_build: ${{ steps.detect.outputs.has_top_level_build }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-      - name: Detect top-level Java build files
-        id: detect
-        run: |
-          if [ -f "./gradlew" ] || [ -f "./settings.gradle" ] || [ -f "./settings.gradle.kts" ] || [ -f "./pom.xml" ] || [ -f "./build.xml" ]; then
-            echo "has_top_level_build=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_top_level_build=false" >> "$GITHUB_OUTPUT"
-          fi
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
 
-  analyze-java-kotlin:
-    name: Analyze (java-kotlin)
-    runs-on: ubuntu-latest
-    needs: detect-java-build
-    if: ${{ needs.detect-java-build.outputs.has_top_level_build == 'true' }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+          - language: python
+            build-mode: none
+          - language: swift
+            build-mode: manual
+          # java-kotlin omitted: no Gradle/Maven/Ant at repo root; autobuild always failed.
 
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
-        with:
-          languages: java-kotlin
-          build-mode: manual
-
-      - name: Build Java/Kotlin project (manual)
-        run: |
-          if [ -f "./gradlew" ]; then
-            ./gradlew build --no-daemon
-          elif [ -f "./mvnw" ]; then
-            ./mvnw -B -DskipTests package
-          elif [ -f "pom.xml" ]; then
-            mvn -B -DskipTests package
-          elif [ -f "build.xml" ]; then
-            ant -noinput
-          else
-            echo "No top-level Gradle/Maven/Ant project found."
-            exit 1
-          fi
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
-        with:
-          category: "/language:java-kotlin"
-
-  analyze-swift:
-    name: Analyze (swift)
-    runs-on: macos-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -79,36 +41,34 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
-          languages: swift
-          build-mode: manual
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
 
-      - name: Build Swift package for iOS simulator (manual)
+      - name: Build Swift package (iOS Simulator)
+        if: matrix.language == 'swift' && matrix.build-mode == 'manual'
         working-directory: packages/fraud-sdk-ios
+        shell: bash
         run: |
-          set -e
-          if xcodebuild -scheme FraudStackSDK -destination "generic/platform=iOS Simulator" -sdk iphonesimulator -derivedDataPath "$RUNNER_TEMP/DerivedData" build; then
+          set -euo pipefail
+          xcodebuild -version
+          SIM_SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+          echo "iphonesimulator SDK: $SIM_SDK"
+          if swift build -v \
+            -Xswiftc "-sdk" -Xswiftc "$SIM_SDK" \
+            -Xswiftc "-target" -Xswiftc "arm64-apple-ios15.0-simulator"; then
             exit 0
           fi
-          xcodebuild -scheme TarkaSDK -destination "generic/platform=iOS Simulator" -sdk iphonesimulator -derivedDataPath "$RUNNER_TEMP/DerivedData" build
+          echo "swift build failed; trying xcodebuild..."
+          xcodebuild build \
+            -scheme FraudStackSDK \
+            -destination "generic/platform=iOS Simulator" \
+            -sdk iphonesimulator \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="-" \
+            COMPILER_INDEX_STORE_ENABLE=NO
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
         with:
-          category: "/language:swift"
-
-  analyze-python:
-    name: Analyze (python)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
-        with:
-          languages: python
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
-        with:
-          category: "/language:python"
+          category: "/language:${{ matrix.language }}"
