@@ -1,5 +1,7 @@
-# CodeQL Advanced — matrix per language. Tarka: no root Java/Kotlin; Swift SPM is iOS-only (manual simulator build).
-# See https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/customizing-your-advanced-setup-for-code-scanning
+# CodeQL Advanced (split jobs — avoids matrix + build-mode issues with Swift manual builds).
+# java-kotlin is intentionally omitted (no Gradle/Maven at repo root).
+# If you still see "Analyze (java-kotlin)" in Actions, disable or delete the duplicate
+# Code scanning workflow under Settings → Code security → Code scanning.
 name: "CodeQL Advanced"
 
 on:
@@ -10,30 +12,17 @@ on:
   schedule:
     - cron: "16 6 * * 1"
 
+permissions: {}
+
 jobs:
-  analyze:
-    name: Analyze (${{ matrix.language }})
-    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+  analyze-interpreted:
+    name: Analyze (python, javascript-typescript, actions)
+    runs-on: ubuntu-latest
     permissions:
       security-events: write
       packages: read
       actions: read
       contents: read
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - language: actions
-            build-mode: none
-          - language: javascript-typescript
-            build-mode: none
-          - language: python
-            build-mode: none
-          - language: swift
-            build-mode: manual
-          # java-kotlin omitted: no Gradle/Maven/Ant at repo root; autobuild always failed.
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -41,11 +30,33 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
-          languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
+          languages: "python,javascript-typescript,actions"
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:python-js-actions"
+
+  analyze-swift:
+    name: Analyze (swift)
+    runs-on: macos-latest
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      # build-mode must be literal `manual` here — matrix vars have been observed to fall back to autobuild.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: swift
+          build-mode: manual
 
       - name: Build Swift package (iOS Simulator)
-        if: matrix.language == 'swift' && matrix.build-mode == 'manual'
         working-directory: packages/fraud-sdk-ios
         shell: bash
         run: |
@@ -71,4 +82,4 @@ jobs:
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
         with:
-          category: "/language:${{ matrix.language }}"
+          category: "/language:swift"
