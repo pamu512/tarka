@@ -1,12 +1,9 @@
 """Unit tests for the GraphQL gateway — schema resolvers with mocked backends."""
+
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import strawberry
-from strawberry.test import BaseGraphQLTestClient
-
-from graphql_gateway.schema import schema, _parse_case, _parse_dt, Query, Mutation
-
+from graphql_gateway.schema import _parse_case, _parse_dt, schema
 
 # ---------- _parse_dt ----------
 
@@ -68,6 +65,7 @@ class TestParseCase:
 
 def _make_http_mock(responses: dict):
     """Create a mock httpx.AsyncClient that returns predefined responses by URL pattern."""
+
     async def _mock_request(method, url, **kwargs):
         resp = MagicMock()
         resp.status_code = 200
@@ -89,17 +87,26 @@ def _make_http_mock(responses: dict):
 class TestGraphQLQueries:
     @pytest.mark.asyncio
     async def test_cases_query(self):
-        http = _make_http_mock({
-            "/v1/cases": {
-                "items": [
-                    {
-                        "id": "c1", "tenant_id": "t1", "title": "Test case",
-                        "status": "open", "entity_id": "e1", "trace_id": "tr1",
-                        "priority": "high", "labels": [], "created_at": None, "updated_at": None,
-                    }
-                ]
+        http = _make_http_mock(
+            {
+                "/v1/cases": {
+                    "items": [
+                        {
+                            "id": "c1",
+                            "tenant_id": "t1",
+                            "title": "Test case",
+                            "status": "open",
+                            "entity_id": "e1",
+                            "trace_id": "tr1",
+                            "priority": "high",
+                            "labels": [],
+                            "created_at": None,
+                            "updated_at": None,
+                        }
+                    ]
+                }
             }
-        })
+        )
 
         result = await schema.execute(
             """
@@ -120,13 +127,22 @@ class TestGraphQLQueries:
 
     @pytest.mark.asyncio
     async def test_case_by_id_query(self):
-        http = _make_http_mock({
-            "/v1/cases/c1": {
-                "id": "c1", "tenant_id": "t1", "title": "Single case",
-                "status": "investigating", "entity_id": "e1", "trace_id": "tr1",
-                "priority": "medium", "labels": ["fraud"], "created_at": None, "updated_at": None,
+        http = _make_http_mock(
+            {
+                "/v1/cases/c1": {
+                    "id": "c1",
+                    "tenant_id": "t1",
+                    "title": "Single case",
+                    "status": "investigating",
+                    "entity_id": "e1",
+                    "trace_id": "tr1",
+                    "priority": "medium",
+                    "labels": ["fraud"],
+                    "created_at": None,
+                    "updated_at": None,
+                }
             }
-        })
+        )
 
         result = await schema.execute(
             """
@@ -148,16 +164,18 @@ class TestGraphQLQueries:
 
     @pytest.mark.asyncio
     async def test_subgraph_query(self):
-        http = _make_http_mock({
-            "/v1/subgraph": {
-                "nodes": [
-                    {"id": "n1", "labels": ["User"], "properties": {"name": "Alice"}},
-                ],
-                "edges": [
-                    {"from_id": "n1", "to_id": "n2", "type": "PAYS", "properties": {}},
-                ],
+        http = _make_http_mock(
+            {
+                "/v1/subgraph": {
+                    "nodes": [
+                        {"id": "n1", "labels": ["User"], "properties": {"name": "Alice"}},
+                    ],
+                    "edges": [
+                        {"from_id": "n1", "to_id": "n2", "type": "PAYS", "properties": {}},
+                    ],
+                }
             }
-        })
+        )
 
         result = await schema.execute(
             """
@@ -177,9 +195,7 @@ class TestGraphQLQueries:
 
     @pytest.mark.asyncio
     async def test_entity_tags_query(self):
-        http = _make_http_mock({
-            "/v1/entities/e1/tags": {"tags": ["suspicious", "vpn"]}
-        })
+        http = _make_http_mock({"/v1/entities/e1/tags": {"tags": ["suspicious", "vpn"]}})
 
         result = await schema.execute(
             """
@@ -197,17 +213,19 @@ class TestGraphQLQueries:
 class TestGraphQLMutations:
     @pytest.mark.asyncio
     async def test_evaluate_mutation(self):
-        http = _make_http_mock({
-            "/v1/decisions/evaluate": {
-                "trace_id": "tr-42",
-                "decision": "deny",
-                "score": 88.5,
-                "tags": ["high_risk"],
-                "rule_hits": ["r1"],
-                "reasons": ["high amount"],
-                "ml_score": 75.0,
+        http = _make_http_mock(
+            {
+                "/v1/decisions/evaluate": {
+                    "trace_id": "tr-42",
+                    "decision": "deny",
+                    "score": 88.5,
+                    "tags": ["high_risk"],
+                    "rule_hits": ["r1"],
+                    "reasons": ["high amount"],
+                    "ml_score": 75.0,
+                }
             }
-        })
+        )
 
         result = await schema.execute(
             """
@@ -229,13 +247,22 @@ class TestGraphQLMutations:
 
     @pytest.mark.asyncio
     async def test_create_case_mutation(self):
-        http = _make_http_mock({
-            "/v1/cases": {
-                "id": "new-case-1", "tenant_id": "t1", "title": "New case",
-                "status": "open", "entity_id": "e1", "trace_id": "tr1",
-                "priority": "high", "labels": [], "created_at": None, "updated_at": None,
+        http = _make_http_mock(
+            {
+                "/v1/cases": {
+                    "id": "new-case-1",
+                    "tenant_id": "t1",
+                    "title": "New case",
+                    "status": "open",
+                    "entity_id": "e1",
+                    "trace_id": "tr1",
+                    "priority": "high",
+                    "labels": [],
+                    "created_at": None,
+                    "updated_at": None,
+                }
             }
-        })
+        )
 
         result = await schema.execute(
             """

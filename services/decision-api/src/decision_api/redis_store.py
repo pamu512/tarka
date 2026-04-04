@@ -80,9 +80,7 @@ class RedisTags:
         await self.connect()
         assert self._client and self._merge_sha
         key = self._key_tags(tenant_id, entity_id)
-        result = await self._client.evalsha(
-            self._merge_sha, 1, key, str(TAGS_TTL_SECONDS), *new_tags
-        )
+        result = await self._client.evalsha(self._merge_sha, 1, key, str(TAGS_TTL_SECONDS), *new_tags)
         return json.loads(result) if result else sorted(new_tags)
 
     async def get_cached_score(self, tenant_id: str, entity_id: str) -> float | None:

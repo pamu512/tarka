@@ -16,14 +16,14 @@ Usage::
         changes={"status": {"old": "open", "new": "escalated"}},
     )
 """
+
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, String, Text, func
+from sqlalchemy import DateTime, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -31,6 +31,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 class AuditEntry:
     """Mixin: add this to your Base to create the audit_trail table."""
+
     __tablename__ = "audit_trail"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -46,8 +47,10 @@ class AuditEntry:
 
 def create_audit_model(Base: type[DeclarativeBase]):
     """Dynamically create an AuditEntry model bound to the given Base."""
+
     class AuditRecord(Base, AuditEntry):
         pass
+
     return AuditRecord
 
 
@@ -85,6 +88,7 @@ class AuditTrail:
         limit: int = 50,
     ) -> list[dict[str, Any]]:
         from sqlalchemy import select
+
         q = (
             select(self._model)
             .where(self._model.resource_type == resource_type, self._model.resource_id == resource_id)

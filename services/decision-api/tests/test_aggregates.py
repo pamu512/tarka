@@ -1,12 +1,10 @@
 """Unit tests for aggregate store (requires mock or real Redis)."""
+
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-from decision_api.aggregates import AggregateStore
-
 from aggregate_fake_redis import FakeRedis
+from decision_api.aggregates import AggregateStore
 
 
 @pytest.fixture

@@ -1,4 +1,5 @@
 """Dispute and chargeback automation with rules/ML feedback loop."""
+
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -24,7 +25,7 @@ VALID_OUTCOMES = {"fraud_confirmed", "false_positive", "inconclusive", "merchant
 
 async def _fetch_original_decision(http: httpx.AsyncClient, trace_id: str) -> dict[str, Any]:
     """Fetch the original decision audit record from the decision-api."""
-    decision_url = settings.decision_api_url if hasattr(settings, 'decision_api_url') and settings.decision_api_url else None
+    decision_url = settings.decision_api_url if hasattr(settings, "decision_api_url") and settings.decision_api_url else None
     if not decision_url:
         return {}
     try:
@@ -51,7 +52,7 @@ async def _tag_entity(http: httpx.AsyncClient, tenant_id: str, entity_id: str, t
 
 async def _send_ml_feedback(http: httpx.AsyncClient, dispute: Dispute) -> None:
     """Send dispute outcome as ML training label feedback."""
-    ml_url = settings.ml_scoring_url if hasattr(settings, 'ml_scoring_url') and settings.ml_scoring_url else None
+    ml_url = settings.ml_scoring_url if hasattr(settings, "ml_scoring_url") and settings.ml_scoring_url else None
     if not ml_url or not dispute.outcome:
         return
     is_fraud = dispute.outcome in ("fraud_confirmed", "merchant_fault")
@@ -120,11 +121,13 @@ async def create_dispute(
         session.add(case)
         await session.flush()
         case_id = case.id
-        session.add(CaseComment(
-            case_id=case.id,
-            author="system:dispute-engine",
-            body=f"Auto-created from {body.dispute_type} filing. Amount: {body.currency} {body.amount:.2f}. Trace: {body.trace_id}",
-        ))
+        session.add(
+            CaseComment(
+                case_id=case.id,
+                author="system:dispute-engine",
+                body=f"Auto-created from {body.dispute_type} filing. Amount: {body.currency} {body.amount:.2f}. Trace: {body.trace_id}",
+            )
+        )
 
     dispute = Dispute(
         tenant_id=body.tenant_id,
@@ -183,26 +186,18 @@ async def dispute_stats(tenant_id: str, session: AsyncSession = Depends(get_sess
     total = await session.execute(select(func.count()).select_from(base.subquery()))
     total_count = total.scalar() or 0
 
-    by_status = await session.execute(
-        select(Dispute.status, func.count()).where(Dispute.tenant_id == tenant_id).group_by(Dispute.status)
-    )
+    by_status = await session.execute(select(Dispute.status, func.count()).where(Dispute.tenant_id == tenant_id).group_by(Dispute.status))
     status_counts = {row[0]: row[1] for row in by_status.all()}
 
-    by_type = await session.execute(
-        select(Dispute.dispute_type, func.count()).where(Dispute.tenant_id == tenant_id).group_by(Dispute.dispute_type)
-    )
+    by_type = await session.execute(select(Dispute.dispute_type, func.count()).where(Dispute.tenant_id == tenant_id).group_by(Dispute.dispute_type))
     type_counts = {row[0]: row[1] for row in by_type.all()}
 
     by_outcome = await session.execute(
-        select(Dispute.outcome, func.count())
-        .where(Dispute.tenant_id == tenant_id, Dispute.outcome.isnot(None))
-        .group_by(Dispute.outcome)
+        select(Dispute.outcome, func.count()).where(Dispute.tenant_id == tenant_id, Dispute.outcome.isnot(None)).group_by(Dispute.outcome)
     )
     outcome_counts = {row[0]: row[1] for row in by_outcome.all()}
 
-    total_amount = await session.execute(
-        select(func.sum(Dispute.amount)).where(Dispute.tenant_id == tenant_id)
-    )
+    total_amount = await session.execute(select(func.sum(Dispute.amount)).where(Dispute.tenant_id == tenant_id))
     sum_amount = total_amount.scalar() or 0.0
 
     won = outcome_counts.get("fraud_confirmed", 0) + outcome_counts.get("merchant_fault", 0)
@@ -279,11 +274,13 @@ async def update_dispute(
                     case.labels = sorted(set(case.labels or []) | {"false_positive", "dispute_resolved"})
                 else:
                     case.labels = sorted(set(case.labels or []) | {"dispute_resolved"})
-                session.add(CaseComment(
-                    case_id=dispute.case_id,
-                    author="system:dispute-engine",
-                    body=f"Dispute resolved: {dispute.outcome}. {dispute.resolution_notes or ''}",
-                ))
+                session.add(
+                    CaseComment(
+                        case_id=dispute.case_id,
+                        author="system:dispute-engine",
+                        body=f"Dispute resolved: {dispute.outcome}. {dispute.resolution_notes or ''}",
+                    )
+                )
                 await session.commit()
 
     return DisputeOut.model_validate(dispute)
@@ -307,7 +304,9 @@ async def get_original_decision(
     return {
         "dispute_id": str(dispute.id),
         "trace_id": dispute.trace_id,
-        "original_decision": original if original else {
+        "original_decision": original
+        if original
+        else {
             "decision": dispute.original_decision,
             "score": dispute.original_score,
             "rule_hits": dispute.original_rule_hits,
@@ -322,11 +321,7 @@ async def entity_dispute_history(
     session: AsyncSession = Depends(get_session),
 ):
     """Get all disputes for an entity — feeds into risk assessment."""
-    result = await session.execute(
-        select(Dispute)
-        .where(Dispute.tenant_id == tenant_id, Dispute.entity_id == entity_id)
-        .order_by(Dispute.created_at.desc())
-    )
+    result = await session.execute(select(Dispute).where(Dispute.tenant_id == tenant_id, Dispute.entity_id == entity_id).order_by(Dispute.created_at.desc()))
     rows = result.scalars().all()
     fraud_count = sum(1 for r in rows if r.outcome == "fraud_confirmed")
     false_pos_count = sum(1 for r in rows if r.outcome == "false_positive")

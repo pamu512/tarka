@@ -7,6 +7,7 @@ Usage:
   python scripts/replay/diff_aggregate_redis.py \\
     --left-url redis://localhost:6379/0 --right-url redis://localhost:6379/15
 """
+
 from __future__ import annotations
 
 import argparse

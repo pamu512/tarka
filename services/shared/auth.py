@@ -1,4 +1,5 @@
 """Shared X-API-Key authentication dependency for all services."""
+
 from __future__ import annotations
 
 import os

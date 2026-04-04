@@ -1,6 +1,7 @@
+import re
 from typing import Any
 
-from neo4j import AsyncGraphDatabase, AsyncDriver
+from neo4j import AsyncDriver, AsyncGraphDatabase
 
 from graph_service.config import settings
 from graph_service.custom_schema import get_allowed_labels, get_allowed_rels
@@ -10,14 +11,15 @@ _driver: AsyncDriver | None = None
 ALLOWED_LABELS = frozenset({"Person", "Account", "Device", "Payment", "Document", "Custom"})
 ALLOWED_RELS = frozenset({"USED", "SHARED_WITH", "REFERRED", "KYC_VERIFIED_BY", "OWNS", "CUSTOM", "RELATED"})
 
-import re
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
+
 
 def _sanitize_label(label: str) -> str:
     """Reject labels that could contain Cypher injection."""
     if not _SAFE_IDENTIFIER.match(label):
         return "Custom"
     return label
+
 
 def _sanitize_rel(rel: str) -> str:
     if not _SAFE_IDENTIFIER.match(rel):
@@ -109,7 +111,9 @@ async def update_tags(
                 MATCH (n {tenant_id: $tenant_id, external_id: $external_id})
                 SET n.tags = $tags, n.tags_updated_at = datetime()
                 """,
-                tenant_id=tenant_id, external_id=external_id, tags=merged,
+                tenant_id=tenant_id,
+                external_id=external_id,
+                tags=merged,
             )
             return merged
     return tags
@@ -176,7 +180,8 @@ async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str
         async with driver.session() as session:
             result = await session.run(
                 "MATCH (n {tenant_id: $t, external_id: $e}) RETURN n LIMIT 1",
-                t=tenant_id, e=entity_id,
+                t=tenant_id,
+                e=entity_id,
             )
             nrec = await result.single()
             if nrec:

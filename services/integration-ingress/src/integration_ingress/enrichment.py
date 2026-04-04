@@ -2,26 +2,57 @@
 
 Provides email, phone, and IP enrichment using free/open APIs and heuristics.
 """
+
 import hashlib
 import re
 from typing import Any
 
 import httpx
 
-DISPOSABLE_DOMAINS = frozenset({
-    "tempmail.com", "throwaway.email", "guerrillamail.com", "mailinator.com",
-    "yopmail.com", "tempail.com", "fakeinbox.com", "sharklasers.com",
-    "guerrillamailblock.com", "grr.la", "dispostable.com", "trashmail.com",
-})
+DISPOSABLE_DOMAINS = frozenset(
+    {
+        "tempmail.com",
+        "throwaway.email",
+        "guerrillamail.com",
+        "mailinator.com",
+        "yopmail.com",
+        "tempail.com",
+        "fakeinbox.com",
+        "sharklasers.com",
+        "guerrillamailblock.com",
+        "grr.la",
+        "dispostable.com",
+        "trashmail.com",
+    }
+)
 
-FREE_PROVIDERS = frozenset({
-    "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "aol.com",
-    "protonmail.com", "icloud.com", "mail.com", "zoho.com", "yandex.com",
-})
+FREE_PROVIDERS = frozenset(
+    {
+        "gmail.com",
+        "yahoo.com",
+        "outlook.com",
+        "hotmail.com",
+        "aol.com",
+        "protonmail.com",
+        "icloud.com",
+        "mail.com",
+        "zoho.com",
+        "yandex.com",
+    }
+)
 
-VOIP_PREFIXES = frozenset({
-    "900", "855", "844", "833", "888", "877", "866", "800",
-})
+VOIP_PREFIXES = frozenset(
+    {
+        "900",
+        "855",
+        "844",
+        "833",
+        "888",
+        "877",
+        "866",
+        "800",
+    }
+)
 
 
 async def enrich_email(email: str, http: httpx.AsyncClient) -> dict[str, Any]:
@@ -55,7 +86,8 @@ async def enrich_email(email: str, http: httpx.AsyncClient) -> dict[str, Any]:
     try:
         email_hash = hashlib.md5(email.lower().strip().encode()).hexdigest()  # noqa: S324
         r = await http.get(
-            f"https://gravatar.com/avatar/{email_hash}?d=404", timeout=3.0,
+            f"https://gravatar.com/avatar/{email_hash}?d=404",
+            timeout=3.0,
         )
         result["gravatar_exists"] = r.status_code == 200
         if not result["gravatar_exists"]:

@@ -144,9 +144,7 @@ class InMemoryVault:
     ) -> tuple[int, int, int]:
         self.set_active_key(new_key_id, new_key_material)
         total = int((await session.execute(select(func.count()).select_from(IntegrationSecret))).scalar_one())
-        result = await session.execute(
-            select(IntegrationSecret).order_by(IntegrationSecret.created_at.asc()).offset(offset).limit(batch_size)
-        )
+        result = await session.execute(select(IntegrationSecret).order_by(IntegrationSecret.created_at.asc()).offset(offset).limit(batch_size))
         rows = result.scalars().all()
         processed = len(rows)
         rotated = 0

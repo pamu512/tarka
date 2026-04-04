@@ -1,17 +1,16 @@
 import asyncio
 import hashlib
 import hmac
+import json as _json
 import logging
 import os
+import re as _re
 import sys
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
-
-import json as _json
-import re as _re
 
 import httpx
 import nats
@@ -31,22 +30,25 @@ from decision_api.redis_store import redis_tags
 from decision_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
-from privacy import get_profile, mask_dict  # noqa: E402
 from entity_lists import create_list_store  # noqa: E402
-from decision_api.schemas import EvaluateRequest, EvaluateResponse
-from decision_api.inference_build import build_inference_context, derive_recommended_action
-from decision_api.shadow import evaluate_shadow, load_shadow_rules, record_observation
+from privacy import get_profile, mask_dict  # noqa: E402
+
 from decision_api.aggregates import agg_store
-from decision_api.lists_api import router as lists_router, set_store, get_store as _get_list_store
 from decision_api.consortium import consortium_score_delta, hash_entity_id
 from decision_api.graph_intel import graph_score_delta, graph_tags_from_risk
+from decision_api.inference_build import build_inference_context, derive_recommended_action
+from decision_api.lists_api import get_store as _get_list_store
+from decision_api.lists_api import router as lists_router
+from decision_api.lists_api import set_store
+from decision_api.schemas import EvaluateRequest, EvaluateResponse
+from decision_api.shadow import evaluate_shadow, load_shadow_rules, record_observation
 
 # ---------- observability ----------
 _shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
-from observability import setup_observability, get_metrics  # noqa: E402
 from auth_rbac import setup_auth  # noqa: E402
+from observability import get_metrics, setup_observability  # noqa: E402
 from rate_limiter import setup_rate_limiter  # noqa: E402
 from security_headers import setup_security_headers  # noqa: E402
 
@@ -81,6 +83,7 @@ def _velocity_anomaly_flags(features: dict[str, Any]) -> dict[str, Any]:
 # ---------- websocket live feed ----------
 _ws_clients: set[WebSocket] = set()
 
+
 async def _broadcast_decision(data: dict) -> None:
     if not _ws_clients:
         return
@@ -94,9 +97,11 @@ async def _broadcast_decision(data: dict) -> None:
     for ws in dead:
         _ws_clients.discard(ws)
 
+
 # ---------- auth ----------
 
 _valid_api_keys: frozenset[str] | None = None
+
 
 def _get_api_keys() -> frozenset[str]:
     global _valid_api_keys
@@ -104,6 +109,7 @@ def _get_api_keys() -> frozenset[str]:
         raw = settings.api_keys.strip()
         _valid_api_keys = frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
     return _valid_api_keys
+
 
 async def require_api_key(request: Request) -> None:
     keys = _get_api_keys()
@@ -115,6 +121,7 @@ async def require_api_key(request: Request) -> None:
 
 
 # ---------- lifespan ----------
+
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
@@ -158,7 +165,7 @@ async def lifespan(application: FastAPI):
 
     yield
 
-    if hasattr(application.state, 'list_store') and application.state.list_store:
+    if hasattr(application.state, "list_store") and application.state.list_store:
         await application.state.list_store.close()
     if retention_task:
         retention_task.cancel()
@@ -178,13 +185,14 @@ setup_security_headers(app)
 setup_auth(app)
 setup_rate_limiter(app, rpm=int(os.environ.get("RATE_LIMIT_RPM", "1000")))
 
-from decision_api.rule_api import router as rule_router  # noqa: E402
-from decision_api.replay import router as replay_router  # noqa: E402
-from decision_api.simulation_api import router as simulation_router  # noqa: E402
-from decision_api.recommend_api import router as recommend_router  # noqa: E402
-from decision_api.compliance_api import router as compliance_router  # noqa: E402
 from decision_api.captcha import router as captcha_router  # noqa: E402
+from decision_api.compliance_api import router as compliance_router  # noqa: E402
 from decision_api.consortium_api import router as consortium_router  # noqa: E402
+from decision_api.recommend_api import router as recommend_router  # noqa: E402
+from decision_api.replay import router as replay_router  # noqa: E402
+from decision_api.rule_api import router as rule_router  # noqa: E402
+from decision_api.simulation_api import router as simulation_router  # noqa: E402
+
 app.include_router(rule_router)
 app.include_router(replay_router)
 app.include_router(simulation_router)
@@ -201,12 +209,14 @@ def _http(request: Request) -> httpx.AsyncClient:
 
 # ---------- health ----------
 
+
 @app.get("/v1/health")
 async def health():
     return {"status": "ok"}
 
 
 # ---------- attestation ----------
+
 
 class ChallengeRequest(BaseModel):
     tenant_id: str
@@ -250,25 +260,22 @@ async def attestation_verify(body: VerifyRequest):
         # This requires GOOGLE_CLOUD_PROJECT and a service account.
         if not body.token or len(body.token) < 50:
             return {"valid": False, "device_integrity": None, "reason": "invalid_token_format"}
-        log.warning("Play Integrity token received but server-side verification not configured. "
-                    "Set PLAY_INTEGRITY_CREDENTIALS to enable full verification.")
-        return {"valid": True, "device_integrity": "play_integrity_unverified",
-                "warning": "Server-side verification pending configuration"}
+        log.warning("Play Integrity token received but server-side verification not configured. Set PLAY_INTEGRITY_CREDENTIALS to enable full verification.")
+        return {"valid": True, "device_integrity": "play_integrity_unverified", "warning": "Server-side verification pending configuration"}
 
     if body.provider == "app_attest":
         # Apple App Attest: token is a CBOR-encoded attestation object.
         # Requires server-side verification with Apple's attestation service.
         if not body.token or len(body.token) < 50:
             return {"valid": False, "device_integrity": None, "reason": "invalid_token_format"}
-        log.warning("App Attest token received but server-side verification not configured. "
-                    "Set APP_ATTEST_TEAM_ID to enable full verification.")
-        return {"valid": True, "device_integrity": "app_attest_unverified",
-                "warning": "Server-side verification pending configuration"}
+        log.warning("App Attest token received but server-side verification not configured. Set APP_ATTEST_TEAM_ID to enable full verification.")
+        return {"valid": True, "device_integrity": "app_attest_unverified", "warning": "Server-side verification pending configuration"}
 
     return {"valid": False, "device_integrity": None, "reason": "unknown_provider"}
 
 
 # ---------- admin ----------
+
 
 @app.post("/v1/admin/rules/reload")
 async def reload_rules():
@@ -373,9 +380,8 @@ def extract_behavior_tags(device_context: dict[str, Any] | None) -> list[str]:
 
 # ---------- downstream helpers ----------
 
-async def _fetch_feature_snapshot(
-    http: httpx.AsyncClient, body: EvaluateRequest, redis_tag_list: list[str]
-) -> dict[str, Any]:
+
+async def _fetch_feature_snapshot(http: httpx.AsyncClient, body: EvaluateRequest, redis_tag_list: list[str]) -> dict[str, Any]:
     if not settings.feature_service_url:
         return {
             "tenant_id": body.tenant_id,
@@ -398,9 +404,7 @@ async def _fetch_feature_snapshot(
     return r.json()
 
 
-async def _fetch_ml_score(
-    http: httpx.AsyncClient, tenant_id: str, entity_id: str, event_type: str, features: dict[str, Any]
-) -> float | None:
+async def _fetch_ml_score(http: httpx.AsyncClient, tenant_id: str, entity_id: str, event_type: str, features: dict[str, Any]) -> float | None:
     if not settings.ml_scoring_url:
         return None
     url = settings.ml_scoring_url.rstrip("/") + "/v1/score"
@@ -531,6 +535,7 @@ def _blend_scores(rule_score: float, ml_score: float | None) -> float:
 
 # ---------- NATS decision publishing ----------
 
+
 async def _publish_decision(app_state: Any, decision_data: dict) -> None:
     js = app_state.nats_js
     if not js:
@@ -545,6 +550,7 @@ async def _publish_decision(app_state: Any, decision_data: dict) -> None:
 
 
 # ---------- shadow evaluation ----------
+
 
 async def _run_shadow_evaluation(
     app_state: Any,
@@ -588,6 +594,7 @@ async def _run_shadow_evaluation(
 
 # ---------- main endpoint ----------
 
+
 @app.post("/v1/decisions/evaluate", response_model=EvaluateResponse)
 async def evaluate_decision(
     body: EvaluateRequest,
@@ -623,9 +630,7 @@ async def evaluate_decision(
             default=str,
         ).encode()
     ).hexdigest()
-    is_replayed = await redis_tags.check_and_store_replay_signature(
-        body.tenant_id, replay_signature, ttl_seconds=replay_ttl_seconds
-    )
+    is_replayed = await redis_tags.check_and_store_replay_signature(body.tenant_id, replay_signature, ttl_seconds=replay_ttl_seconds)
     if is_replayed:
         signal_tags.append("ingress:replay_payload")
         replay_rule_hits.append("ingress_replay_detected")
@@ -761,9 +766,7 @@ async def evaluate_decision(
         agg_features = await agg_store.compute_features(body.tenant_id, body.entity_id, features)
         features.update(agg_features)
         # Record this event for future aggregate computation (uses normalised amount)
-        await agg_store.record_event(
-            body.tenant_id, body.entity_id, str(trace_id), features
-        )
+        await agg_store.record_event(body.tenant_id, body.entity_id, str(trace_id), features)
 
     # Run rules + OPA + ML in parallel (OPA and ML don't need each other)
     rule_hits, rule_tags, score_delta = evaluate_json_rules(features, redis_tag_list)
@@ -866,26 +869,37 @@ async def evaluate_decision(
         recommended_action=recommended_action,
     )
 
-    bg.add_task(_broadcast_decision, {
-        "trace_id": str(trace_id), "tenant_id": body.tenant_id,
-        "entity_id": body.entity_id, "event_type": body.event_type.value,
-        "decision": decision, "score": final_score, "tags": merged_tags,
-    })
+    bg.add_task(
+        _broadcast_decision,
+        {
+            "trace_id": str(trace_id),
+            "tenant_id": body.tenant_id,
+            "entity_id": body.entity_id,
+            "event_type": body.event_type.value,
+            "decision": decision,
+            "score": final_score,
+            "tags": merged_tags,
+        },
+    )
 
-    bg.add_task(_publish_decision, request.app.state, {
-        "trace_id": str(trace_id),
-        "tenant_id": body.tenant_id,
-        "entity_id": body.entity_id,
-        "event_type": body.event_type.value,
-        "decision": decision,
-        "score": final_score,
-        "tags": merged_tags,
-        "rule_hits": combined_rule_hits,
-        "signal_tags": signal_tags,
-        "ml_score": ml_score if isinstance(ml_score, float) else None,
-        "payload": body.payload,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    })
+    bg.add_task(
+        _publish_decision,
+        request.app.state,
+        {
+            "trace_id": str(trace_id),
+            "tenant_id": body.tenant_id,
+            "entity_id": body.entity_id,
+            "event_type": body.event_type.value,
+            "decision": decision,
+            "score": final_score,
+            "tags": merged_tags,
+            "rule_hits": combined_rule_hits,
+            "signal_tags": signal_tags,
+            "ml_score": ml_score if isinstance(ml_score, float) else None,
+            "payload": body.payload,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
 
     bg.add_task(
         _run_shadow_evaluation,
@@ -925,6 +939,7 @@ async def evaluate_decision(
 
 # ---------- websocket ----------
 
+
 @app.websocket("/v1/decisions/ws")
 async def ws_decision_feed(ws: WebSocket):
     """Live stream of fraud decisions for dashboards."""
@@ -938,9 +953,10 @@ async def ws_decision_feed(ws: WebSocket):
 
 
 # ---------- rule builder UI ----------
-from pathlib import Path as _Path
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
+from pathlib import Path as _Path  # noqa: E402
+
+from fastapi.responses import FileResponse  # noqa: E402
+from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 _STATIC_DIR = _Path(__file__).resolve().parent.parent.parent / "static"
 if _STATIC_DIR.is_dir():
@@ -1018,14 +1034,7 @@ async def analyst_entity_velocity(
             "velocity_events_24h": inf["velocity_events_24h"],
             "impossible_travel_risk": inf["impossible_travel_risk"],
             "colocation_risk": inf["colocation_risk"],
-            "driver_reasons": [
-                d
-                for d in inf["driver_reasons"]
-                if any(
-                    x in d
-                    for x in ("velocity", "travel", "device", "entity", "ml_score")
-                )
-            ],
+            "driver_reasons": [d for d in inf["driver_reasons"] if any(x in d for x in ("velocity", "travel", "device", "entity", "ml_score"))],
         },
         "anomaly_flags": _velocity_anomaly_flags(raw_features),
     }

@@ -6,19 +6,21 @@ Implements data subject rights required by GDPR, CCPA, LGPD, and other regulatio
 - Right to Data Portability (Article 20 GDPR)
 - Right to Rectification (Article 16 GDPR)
 """
+
 from __future__ import annotations
 
-import hmac
 import hashlib
+import hmac
 import json
 import logging
-import uuid
+import os
+import sys
 from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
-from sqlalchemy import delete, func, select, update
+from pydantic import BaseModel
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decision_api.config import settings
@@ -32,11 +34,7 @@ router = APIRouter(prefix="/v1/compliance", tags=["compliance"])
 # ---------------------------------------------------------------------------
 # Shared privacy module import helper
 # ---------------------------------------------------------------------------
-import os, sys
-
-_shared_dir = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared")
-)
+_shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
 
@@ -64,28 +62,19 @@ def _hash_chain(records: list[dict[str, Any]]) -> str:
 
 
 def _bundle_signature(payload: dict[str, Any]) -> str:
-    key = (
-        settings.evidence_signing_secret
-        or settings.consortium_secret
-        or settings.attestation_hmac_secret
-        or "tarka-evidence-dev-secret"
-    ).encode("utf-8")
+    key = (settings.evidence_signing_secret or settings.consortium_secret or settings.attestation_hmac_secret or "tarka-evidence-dev-secret").encode("utf-8")
     return hmac.new(key, _canonical_json(payload).encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def _signing_key_id() -> str:
-    key = (
-        settings.evidence_signing_secret
-        or settings.consortium_secret
-        or settings.attestation_hmac_secret
-        or "tarka-evidence-dev-secret"
-    )
+    key = settings.evidence_signing_secret or settings.consortium_secret or settings.attestation_hmac_secret or "tarka-evidence-dev-secret"
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
 
 
 # ---------------------------------------------------------------------------
 # Request schemas
 # ---------------------------------------------------------------------------
+
 
 class PrivacyConfigRequest(BaseModel):
     tenant_id: str
@@ -112,6 +101,7 @@ class EvidenceVerifyRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Privacy profile
 # ---------------------------------------------------------------------------
+
 
 @router.post("/privacy-profile")
 async def get_privacy_profile(body: PrivacyConfigRequest):
@@ -146,6 +136,7 @@ async def get_privacy_profile(body: PrivacyConfigRequest):
 # DSAR — Right to Access
 # ---------------------------------------------------------------------------
 
+
 @router.post("/dsar/access")
 async def dsar_access(
     body: DSARAccessRequest,
@@ -168,15 +159,17 @@ async def dsar_access(
 
     exported = []
     for rec in records:
-        exported.append({
-            "trace_id": str(rec.trace_id),
-            "event_type": rec.event_type,
-            "decision": rec.decision,
-            "score": rec.score,
-            "tags": rec.tags,
-            "created_at": rec.created_at.isoformat() if rec.created_at else None,
-            "payload": rec.payload_snapshot,
-        })
+        exported.append(
+            {
+                "trace_id": str(rec.trace_id),
+                "event_type": rec.event_type,
+                "decision": rec.decision,
+                "score": rec.score,
+                "tags": rec.tags,
+                "created_at": rec.created_at.isoformat() if rec.created_at else None,
+                "payload": rec.payload_snapshot,
+            }
+        )
 
     return {
         "entity_id": body.entity_id,
@@ -193,6 +186,7 @@ async def dsar_access(
 # DSAR — Right to Erasure
 # ---------------------------------------------------------------------------
 
+
 @router.post("/dsar/erasure")
 async def dsar_erasure(
     body: DSARErasureRequest,
@@ -203,11 +197,7 @@ async def dsar_erasure(
     if not profile.right_to_erasure:
         raise HTTPException(400, f"Right to erasure not applicable under {profile.regulation_name}")
 
-    count_stmt = (
-        select(AuditRecord)
-        .where(AuditRecord.tenant_id == body.tenant_id)
-        .where(AuditRecord.entity_id == body.entity_id)
-    )
+    count_stmt = select(AuditRecord).where(AuditRecord.tenant_id == body.tenant_id).where(AuditRecord.entity_id == body.entity_id)
     result = await session.execute(count_stmt)
     records = list(result.scalars().all())
 
@@ -225,7 +215,10 @@ async def dsar_erasure(
 
     log.info(
         "DSAR erasure: tenant=%s entity=%s records=%d reason=%s",
-        body.tenant_id, body.entity_id[:8] + "...", anonymized_count, body.reason,
+        body.tenant_id,
+        body.entity_id[:8] + "...",
+        anonymized_count,
+        body.reason,
     )
 
     return {
@@ -241,6 +234,7 @@ async def dsar_erasure(
 # ---------------------------------------------------------------------------
 # DSAR — Right to Data Portability
 # ---------------------------------------------------------------------------
+
 
 @router.post("/dsar/portability")
 async def dsar_portability(
@@ -288,6 +282,7 @@ async def dsar_portability(
 # ---------------------------------------------------------------------------
 # Region listing & certification checklist
 # ---------------------------------------------------------------------------
+
 
 @router.get("/regions")
 async def list_regions():
@@ -342,7 +337,11 @@ async def certification_checklist():
             {"requirement": "11.3 - Vulnerability scanning", "status": "partial", "detail": "CI/CD includes linting; needs DAST/SAST tools"},
         ],
         "iso_27001": [
-            {"control": "A.8.2 - Information Classification", "status": "implemented", "detail": "PII categorization (direct/quasi/sensitive/contact/financial/device)"},
+            {
+                "control": "A.8.2 - Information Classification",
+                "status": "implemented",
+                "detail": "PII categorization (direct/quasi/sensitive/contact/financial/device)",
+            },
             {"control": "A.8.10 - Information Deletion", "status": "implemented", "detail": "DSAR erasure + retention cleanup"},
             {"control": "A.8.24 - Cryptography", "status": "configurable", "detail": "AES-256 at rest when privacy profile requires it"},
             {"control": "A.5.34 - Privacy/PII Protection", "status": "implemented", "detail": "Region-aware privacy profiles (12 jurisdictions)"},
@@ -357,18 +356,11 @@ async def control_evidence_export(
     limit: int = 200,
 ):
     """Export control evidence bundle for audits and trust-center views."""
-    q = (
-        select(AuditRecord)
-        .where(AuditRecord.tenant_id == tenant_id)
-        .order_by(AuditRecord.created_at.desc())
-        .limit(max(1, min(limit, 2000)))
-    )
+    q = select(AuditRecord).where(AuditRecord.tenant_id == tenant_id).order_by(AuditRecord.created_at.desc()).limit(max(1, min(limit, 2000)))
     rows = (await session.execute(q)).scalars().all()
 
     decision_counts_rows = await session.execute(
-        select(AuditRecord.decision, func.count())
-        .where(AuditRecord.tenant_id == tenant_id)
-        .group_by(AuditRecord.decision)
+        select(AuditRecord.decision, func.count()).where(AuditRecord.tenant_id == tenant_id).group_by(AuditRecord.decision)
     )
     decision_counts = {str(r[0]): int(r[1]) for r in decision_counts_rows.all()}
 

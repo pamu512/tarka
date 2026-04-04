@@ -1,12 +1,9 @@
 """Unit tests for the analytics-sink service — flush and query endpoints."""
-import json
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch, AsyncMock
+
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 from analytics_sink.main import _flush_batch
-
 
 # ---------- _flush_batch ----------
 
@@ -69,10 +66,7 @@ class TestFlushBatch:
     def test_flush_batch_multiple_rows(self):
         mock_client = MagicMock()
         with patch("analytics_sink.main._ch_client", mock_client):
-            batch = [
-                {"trace_id": f"tr{i}", "tenant_id": "t1", "score": float(i * 10)}
-                for i in range(5)
-            ]
+            batch = [{"trace_id": f"tr{i}", "tenant_id": "t1", "score": float(i * 10)} for i in range(5)]
             _flush_batch("fraud", batch)
 
         rows = mock_client.insert.call_args[0][1]
@@ -104,6 +98,7 @@ class TestQueryEndpoints:
                 with patch("analytics_sink.main.asyncio.create_task"):
                     from analytics_sink.main import app
                     from fastapi.testclient import TestClient
+
                     with TestClient(app) as c:
                         yield c
 
@@ -120,9 +115,7 @@ class TestQueryEndpoints:
         assert data["rows"][0]["trace_id"] == "tr1"
 
     def test_query_decisions_with_filters(self, client):
-        r = client.get("/v1/analytics/decisions", params={
-            "tenant_id": "t1", "decision": "deny", "entity_id": "e1", "days": 30
-        })
+        r = client.get("/v1/analytics/decisions", params={"tenant_id": "t1", "decision": "deny", "entity_id": "e1", "days": 30})
         assert r.status_code == 200
 
     def test_hourly_stats(self, client):

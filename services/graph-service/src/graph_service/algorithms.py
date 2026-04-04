@@ -27,6 +27,7 @@ async def _open_session(driver):
 # a) Community Detection  (connected-component labelling via Cypher)
 # ---------------------------------------------------------------------------
 
+
 async def detect_communities(
     tenant_id: str,
     min_community_size: int = 3,
@@ -36,23 +37,6 @@ async def detect_communities(
     Each component is returned as a "community" with member info.
     """
     driver = await get_driver()
-
-    q = """
-    MATCH (n {tenant_id: $tenant_id})
-    WITH collect(n) AS all_nodes
-    UNWIND all_nodes AS start
-    OPTIONAL MATCH path = (start)-[*]-(connected)
-    WHERE connected.tenant_id = $tenant_id
-    WITH start,
-         collect(DISTINCT connected) AS reachable
-    WITH start,
-         [start] + reachable AS component_nodes
-    WITH start,
-         apoc.coll.sort(
-           [m IN component_nodes | m.external_id]
-         ) AS sorted_ids
-    RETURN sorted_ids AS member_ids
-    """
 
     q_native = """
     MATCH (n {tenant_id: $tenant_id})
@@ -92,7 +76,7 @@ async def detect_communities(
     ORDER BY cnt DESC
     """
 
-    async with (await _open_session(driver)) as session:
+    async with await _open_session(driver) as session:
         result = await session.run(
             q_native,
             tenant_id=tenant_id,
@@ -110,24 +94,18 @@ async def detect_communities(
             continue
         seen_keys.add(key)
 
-        flat_labels = {
-            lbl
-            for label_list in rec["all_labels"]
-            for lbl in label_list
-        }
-        flat_tags = {
-            t
-            for tag_list in rec["all_tags_lists"]
-            for t in tag_list
-        }
+        flat_labels = {lbl for label_list in rec["all_labels"] for lbl in label_list}
+        flat_tags = {t for tag_list in rec["all_tags_lists"] for t in tag_list}
 
-        communities.append({
-            "community_id": idx,
-            "member_count": rec["cnt"],
-            "member_ids": rec["member_ids"],
-            "member_labels": sorted(flat_labels),
-            "shared_attributes": sorted(flat_tags),
-        })
+        communities.append(
+            {
+                "community_id": idx,
+                "member_count": rec["cnt"],
+                "member_ids": rec["member_ids"],
+                "member_labels": sorted(flat_labels),
+                "shared_attributes": sorted(flat_tags),
+            }
+        )
         idx += 1
 
     return communities
@@ -136,6 +114,7 @@ async def detect_communities(
 # ---------------------------------------------------------------------------
 # b) Risk Propagation  (decaying outward traversal)
 # ---------------------------------------------------------------------------
+
 
 async def propagate_risk(
     tenant_id: str,
@@ -169,7 +148,7 @@ async def propagate_risk(
     ORDER BY distance
     """
 
-    async with (await _open_session(driver)) as session:
+    async with await _open_session(driver) as session:
         result = await session.run(
             q,
             tenant_id=tenant_id,
@@ -187,19 +166,21 @@ async def propagate_risk(
         seen.add(eid)
 
         dist = rec["distance"]
-        score = round(100.0 * (decay ** dist), 2)
+        score = round(100.0 * (decay**dist), 2)
         path_desc = " -> ".join(
             f"({nid})" if i % 2 == 0 else f"-[{rec['rel_types'][i // 2] if i // 2 < len(rec['rel_types']) else '?'}]->"
             for i, nid in enumerate(rec["node_chain"])
         )
 
-        entities.append({
-            "entity_id": eid,
-            "entity_labels": rec["entity_labels"],
-            "propagated_risk_score": score,
-            "distance": dist,
-            "path_description": path_desc,
-        })
+        entities.append(
+            {
+                "entity_id": eid,
+                "entity_labels": rec["entity_labels"],
+                "propagated_risk_score": score,
+                "distance": dist,
+                "path_description": path_desc,
+            }
+        )
 
     return entities
 
@@ -207,6 +188,7 @@ async def propagate_risk(
 # ---------------------------------------------------------------------------
 # c) Shared Attribute Detection
 # ---------------------------------------------------------------------------
+
 
 async def find_shared_attributes(
     tenant_id: str,
@@ -218,6 +200,7 @@ async def find_shared_attributes(
     The attribute name is validated to prevent injection.
     """
     import re
+
     if not re.match(r"^[A-Za-z][A-Za-z0-9_]{0,63}$", attribute):
         raise ValueError(f"Invalid attribute name: {attribute!r}")
 
@@ -232,7 +215,7 @@ async def find_shared_attributes(
     ORDER BY group_size DESC
     """
 
-    async with (await _open_session(driver)) as session:
+    async with await _open_session(driver) as session:
         result = await session.run(
             q,
             tenant_id=tenant_id,
@@ -254,6 +237,7 @@ async def find_shared_attributes(
 # ---------------------------------------------------------------------------
 # d) Fraud Ring Detection  (cycles)
 # ---------------------------------------------------------------------------
+
 
 async def detect_fraud_rings(
     tenant_id: str,
@@ -286,7 +270,7 @@ async def detect_fraud_rings(
     LIMIT 50
     """
 
-    async with (await _open_session(driver)) as session:
+    async with await _open_session(driver) as session:
         result = await session.run(q, tenant_id=tenant_id)
         records = [r async for r in result]
 
@@ -304,12 +288,14 @@ async def detect_fraud_rings(
         if len(unique_ids) < min_ring_size:
             continue
 
-        rings.append({
-            "ring_members": unique_ids,
-            "ring_size": len(unique_ids),
-            "relationships": rec["rel_types"],
-            "aggregate_tags": sorted(set(rec["all_tags"])),
-        })
+        rings.append(
+            {
+                "ring_members": unique_ids,
+                "ring_size": len(unique_ids),
+                "relationships": rec["rel_types"],
+                "aggregate_tags": sorted(set(rec["all_tags"])),
+            }
+        )
 
     return rings
 
@@ -318,9 +304,15 @@ async def detect_fraud_rings(
 # e) Entity Risk Score
 # ---------------------------------------------------------------------------
 
-_HIGH_RISK_TAGS = frozenset({
-    "fraud", "suspicious", "flagged", "blocked", "chargedback",
-})
+_HIGH_RISK_TAGS = frozenset(
+    {
+        "fraud",
+        "suspicious",
+        "flagged",
+        "blocked",
+        "chargedback",
+    }
+)
 
 
 async def compute_entity_risk(
@@ -373,7 +365,7 @@ async def compute_entity_risk(
       shared_device_count
     """
 
-    async with (await _open_session(driver)) as session:
+    async with await _open_session(driver) as session:
         result = await session.run(
             q,
             tenant_id=tenant_id,

@@ -1,4 +1,5 @@
 """Tests for inference_context v2 and recommended_action hints."""
+
 from decision_api.inference_build import build_inference_context, derive_recommended_action
 
 

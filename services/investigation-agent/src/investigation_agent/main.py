@@ -1,4 +1,5 @@
 """Investigation agent with proper LLM tool-use loop."""
+
 import json
 import logging
 import os
@@ -25,12 +26,14 @@ MAX_TOOL_ITERATIONS = 10
 
 _valid_api_keys: frozenset[str] | None = None
 
+
 def _get_api_keys() -> frozenset[str]:
     global _valid_api_keys
     if _valid_api_keys is None:
         raw = os.environ.get("API_KEYS", "").strip()
         _valid_api_keys = frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
     return _valid_api_keys
+
 
 async def require_api_key(request: Request) -> None:
     keys = _get_api_keys()
@@ -199,11 +202,13 @@ async def _llm_tool_loop(
                     fn_args = {}
                 result = await _execute_tool(http, fn_name, fn_args, tenant_id, analyst_id)
                 all_tool_calls.append({"tool": fn_name, "args": fn_args, "result": result})
-                conversation.append({
-                    "role": "tool",
-                    "tool_call_id": tc["id"],
-                    "content": json.dumps(result, default=str)[:8000],
-                })
+                conversation.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc["id"],
+                        "content": json.dumps(result, default=str)[:8000],
+                    }
+                )
         else:
             return str(msg.get("content", "")), all_tool_calls
 
@@ -274,11 +279,13 @@ def _normalize_platform_audit_row(raw: Any) -> dict[str, Any] | None:
     if isinstance(flags_in, list):
         for f in flags_in[:12]:
             if isinstance(f, dict):
-                safe_flags.append({
-                    "type": str(f.get("type", ""))[:64],
-                    "severity": str(f.get("severity", ""))[:16],
-                    "note": str(f.get("note", ""))[:200],
-                })
+                safe_flags.append(
+                    {
+                        "type": str(f.get("type", ""))[:64],
+                        "severity": str(f.get("severity", ""))[:16],
+                        "note": str(f.get("note", ""))[:200],
+                    }
+                )
     return {
         "id": str(raw.get("id", ""))[:64],
         "ts": str(raw.get("ts", ""))[:40],
@@ -445,13 +452,10 @@ async def chat(body: ChatRequest, request: Request):
     ctx_notes: list[str] = []
     if opts.track_historical_actions and opts.only_session:
         ctx_notes.append(
-            "Analyst UI scoped platform audit to the current browser session window (since session start); "
-            "older tenant activity may be omitted from the slice."
+            "Analyst UI scoped platform audit to the current browser session window (since session start); older tenant activity may be omitted from the slice."
         )
     if opts.track_historical_actions and opts.skip_session_actions:
-        ctx_notes.append(
-            "Copilot/session-navigation noise rows were excluded from the audit slice where applicable."
-        )
+        ctx_notes.append("Copilot/session-navigation noise rows were excluded from the audit slice where applicable.")
     if ctx_notes:
         system += "\n\nCONTEXT OPTIONS (analyst preferences; audit slice may be filtered accordingly):\n"
         system += "\n".join(f"- {n}" for n in ctx_notes)
@@ -474,10 +478,7 @@ async def chat(body: ChatRequest, request: Request):
 
     if injection_detected:
         return {
-            "reply": (
-                "I detected a potential prompt injection attempt. I can only assist with fraud "
-                "investigations using my available tools."
-            ),
+            "reply": ("I detected a potential prompt injection attempt. I can only assist with fraud investigations using my available tools."),
             "tool_calls": [],
             "warning": "injection_detected",
         }
@@ -490,13 +491,7 @@ async def chat(body: ChatRequest, request: Request):
     reply = _validate_output(reply)
 
     tool_names = [t.get("tool") for t in tool_calls if isinstance(t, dict)]
-    tool_errors = sum(
-        1
-        for t in tool_calls
-        if isinstance(t, dict)
-        and isinstance(t.get("result"), dict)
-        and (t.get("result") or {}).get("error")
-    )
+    tool_errors = sum(1 for t in tool_calls if isinstance(t, dict) and isinstance(t.get("result"), dict) and (t.get("result") or {}).get("error"))
     try:
         m = get_metrics()
         m.inc("investigation_agent_chats_total")

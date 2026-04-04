@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import os
 import sys
 import time
@@ -7,7 +8,7 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlparse
 
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
@@ -15,7 +16,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from integration_ingress.adapters import ADAPTERS, register_adapter, verify
+from integration_ingress.adapters import ADAPTERS, verify
 from integration_ingress.config import settings
 from integration_ingress.db import get_session, init_db
 from integration_ingress.enrichment import enrich_email, enrich_ip, enrich_phone
@@ -32,14 +33,17 @@ from integration_ingress.osint import OsintConfig, full_osint_enrichment
 from integration_ingress.vault import InMemoryVault
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
-from observability import setup_observability  # noqa: E402
-from auth_rbac import get_current_user, require_role, setup_auth  # noqa: E402
 from audit_trail import AuditTrail, create_audit_model  # noqa: E402
+from auth_rbac import get_current_user, require_role, setup_auth  # noqa: E402
+from observability import setup_observability  # noqa: E402
 from privacy import get_profile  # noqa: E402
+
+logger = logging.getLogger(__name__)
 
 # ---------- auth ----------
 
 _valid_api_keys: frozenset[str] | None = None
+
 
 def _get_api_keys() -> frozenset[str]:
     global _valid_api_keys
@@ -47,6 +51,7 @@ def _get_api_keys() -> frozenset[str]:
         raw = settings.api_keys.strip()
         _valid_api_keys = frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
     return _valid_api_keys
+
 
 async def require_api_key(request: Request) -> None:
     keys = _get_api_keys()
@@ -132,7 +137,9 @@ def _validate_kms_config() -> list[str]:
             issues.append("AZURE_KMS_KEY_NAME is required for azure provider")
     return issues
 
+
 from integration_ingress.db import Base  # noqa: E402
+
 AuditRecord = create_audit_model(Base)
 _trail = AuditTrail(AuditRecord)
 
@@ -265,12 +272,14 @@ def _integration_connectivity_result(provider: dict[str, Any], config: dict[str,
     passed = has_api_key or has_user_creds
     missing: list[str] = [] if passed else ["api_key", "username", "password"]
     status = "pass" if passed else "fail"
-    checks = [{
-        "check": "auth_material_present",
-        "passed": passed,
-        "accepted": ["api_key", "username+password"],
-        "missing_fields": missing,
-    }]
+    checks = [
+        {
+            "check": "auth_material_present",
+            "passed": passed,
+            "accepted": ["api_key", "username+password"],
+            "missing_fields": missing,
+        }
+    ]
     latency_ms = round((time.perf_counter() - t0) * 1000, 2)
     return {
         "provider_id": provider["id"],
@@ -329,8 +338,14 @@ async def vault_kms_self_check(_user=Depends(require_role("admin"))):
         plain = _kms.decrypt(cipher, key_id=probe_key)
         elapsed = round((time.perf_counter() - t0) * 1000, 2)
         return {"ok": plain == probe, "latency_ms": elapsed, "provider": _vault.provider, "key_id": probe_key}
-    except Exception as exc:
-        return {"ok": False, "error": str(exc), "provider": _vault.provider, "key_id": probe_key}
+    except Exception:
+        logger.exception("KMS self-check encrypt/decrypt round-trip failed")
+        return {
+            "ok": False,
+            "error": "kms_round_trip_failed",
+            "provider": _vault.provider,
+            "key_id": probe_key,
+        }
 
 
 @app.get("/v1/vault/metrics")
@@ -669,6 +684,23 @@ def _enforce_policy_for_install(provider: dict[str, Any], region: str | None) ->
         )
 
 
+def _parsed_url_hostname(url: str) -> str:
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return ""
+    return (parsed.hostname or "").lower()
+
+
+def _host_matches_expected(hostname: str, expected: str) -> bool:
+    """True if hostname equals expected or is a subdomain of it (e.g. api.stripe.com vs stripe.com)."""
+    host = hostname.lower().rstrip(".")
+    exp = expected.lower().strip().rstrip(".")
+    if not host or not exp:
+        return False
+    return host == exp or host.endswith("." + exp)
+
+
 async def _live_provider_probe(provider: dict[str, Any], http: httpx.AsyncClient) -> tuple[bool, float, str]:
     t0 = time.perf_counter()
     url = str(provider.get("doc_url", "")).strip()
@@ -681,20 +713,23 @@ async def _live_provider_probe(provider: dict[str, Any], http: httpx.AsyncClient
             pid = str(provider.get("id", ""))
             expected = _PROVIDER_SANDBOX_PROBES.get(pid)
             if expected:
-                text = (resp.text or "").lower()
+                text = (getattr(resp, "text", None) or "").lower()
                 host_hint = expected.get("host_hint", "")
                 path_hint = expected.get("path_hint", "")
-                if "testserver" in url.lower() or "localhost" in url.lower():
+                host = _parsed_url_hostname(url)
+                if host in ("testserver", "localhost", "127.0.0.1"):
                     return True, latency_ms, ""
-                if host_hint and host_hint not in url.lower():
+                if host_hint and not _host_matches_expected(host, host_hint):
                     return False, latency_ms, "host_hint_mismatch"
-                if path_hint and path_hint not in text and path_hint not in url.lower():
+                url_path = (urlparse(url).path or "/").lower()
+                if path_hint and path_hint not in text and path_hint not in url_path:
                     return False, latency_ms, "sandbox_semantic_check_failed"
             return True, latency_ms, ""
         return False, latency_ms, f"http_{resp.status_code}"
-    except Exception as exc:
+    except Exception:
         latency_ms = round((time.perf_counter() - t0) * 1000, 2)
-        return False, latency_ms, str(exc)
+        logger.exception("live provider probe request failed")
+        return False, latency_ms, "live_probe_error"
 
 
 @app.get("/v1/integrations/installed")
@@ -758,12 +793,8 @@ async def test_integration_connectivity(
     result = _integration_connectivity_result(provider, effective_config)
     probe_ok, probe_latency, probe_error = await _live_provider_probe(provider, request.app.state.http)
     result["live_probe"] = {"ok": probe_ok, "latency_ms": probe_latency, "error": probe_error}
-    hard_probe_failures = {"host_hint_mismatch", "sandbox_semantic_check_failed"}
-    if not probe_ok and (
-        probe_error in hard_probe_failures
-        or str(probe_error).startswith("http_4")
-        or str(probe_error).startswith("http_5")
-    ):
+    hard_probe_failures = {"host_hint_mismatch", "sandbox_semantic_check_failed", "live_probe_error"}
+    if not probe_ok and (probe_error in hard_probe_failures or str(probe_error).startswith("http_4") or str(probe_error).startswith("http_5")):
         result["status"] = "fail"
     q = await session.execute(
         select(IntegrationConnection).where(
@@ -803,14 +834,16 @@ async def integration_health_matrix(tenant_id: str, session: AsyncSession = Depe
         if not isinstance(last, dict):
             cfg = await _vault.get_config(session, tenant_id, provider_id)
             last = _integration_connectivity_result(provider, cfg)
-        rows.append({
-            "provider_id": provider_id,
-            "name": provider.get("name"),
-            "category": provider.get("category"),
-            "status": last.get("status"),
-            "latency_ms": last.get("latency_ms"),
-            "missing_fields": last.get("missing_fields", []),
-        })
+        rows.append(
+            {
+                "provider_id": provider_id,
+                "name": provider.get("name"),
+                "category": provider.get("category"),
+                "status": last.get("status"),
+                "latency_ms": last.get("latency_ms"),
+                "missing_fields": last.get("missing_fields", []),
+            }
+        )
     pass_count = sum(1 for r in rows if r.get("status") == "pass")
     score = round((pass_count / max(len(rows), 1)) * 100, 1) if rows else 0.0
     return {"tenant_id": tenant_id, "score": score, "rows": rows}
@@ -827,9 +860,7 @@ async def install_integration(
     provider = get_provider(body.provider_id)
     if not provider:
         raise HTTPException(status_code=404, detail=f"provider '{body.provider_id}' not found")
-    snap = await _get_operation_snapshot(
-        session, tenant_id=body.tenant_id, provider_id=body.provider_id, action="install", idempotency_key=idempotency_key
-    )
+    snap = await _get_operation_snapshot(session, tenant_id=body.tenant_id, provider_id=body.provider_id, action="install", idempotency_key=idempotency_key)
     if snap:
         return snap
     _enforce_policy_for_install(provider, (body.config or {}).get("region"))
@@ -946,9 +977,7 @@ async def configure_integration(
     provider = get_provider(body.provider_id)
     if not provider:
         raise HTTPException(status_code=404, detail=f"provider '{body.provider_id}' not found")
-    snap = await _get_operation_snapshot(
-        session, tenant_id=body.tenant_id, provider_id=body.provider_id, action="configure", idempotency_key=idempotency_key
-    )
+    snap = await _get_operation_snapshot(session, tenant_id=body.tenant_id, provider_id=body.provider_id, action="configure", idempotency_key=idempotency_key)
     if snap:
         return snap
     await _vault.set_config(session, body.tenant_id, body.provider_id, body.config or {})
@@ -1029,8 +1058,7 @@ async def request_integration(body: IntegrationRequestCreate):
         "status": "pending_approval",
         "github_issue_url": None,
         "message": (
-            "Request submitted for admin review. A prefilled GitHub issue for engineering will be available "
-            "after an administrator approves this request."
+            "Request submitted for admin review. A prefilled GitHub issue for engineering will be available after an administrator approves this request."
         ),
     }
 
