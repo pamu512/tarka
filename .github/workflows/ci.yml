@@ -17,7 +17,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -46,7 +46,7 @@ jobs:
   test-decision-api:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -69,7 +69,7 @@ jobs:
           DATABASE_URL: sqlite+aiosqlite:///
           REDIS_URL: redis://localhost:6379/0
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-decision-api
           path: services/decision-api/coverage.xml
@@ -78,7 +78,7 @@ jobs:
   test-case-api:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -93,7 +93,7 @@ jobs:
         env:
           PYTHONPATH: src:../shared
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-case-api
           path: services/case-api/coverage.xml
@@ -102,7 +102,7 @@ jobs:
   test-graph-service:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -117,7 +117,7 @@ jobs:
         env:
           PYTHONPATH: src
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-graph-service
           path: services/graph-service/coverage.xml
@@ -133,7 +133,7 @@ jobs:
         env:
           NEO4J_AUTH: neo4j/graphcipass2026
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -175,7 +175,7 @@ jobs:
   test-integration-ingress:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -190,7 +190,7 @@ jobs:
         env:
           PYTHONPATH: src:../shared
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-integration-ingress
           path: services/integration-ingress/coverage.xml
@@ -199,7 +199,7 @@ jobs:
   test-investigation-agent:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -214,7 +214,7 @@ jobs:
         env:
           PYTHONPATH: src:../shared
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-investigation-agent
           path: services/investigation-agent/coverage.xml
@@ -223,7 +223,7 @@ jobs:
   test-sdk:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -244,8 +244,8 @@ jobs:
       # Deterministic Vite/tsc memory on CI runners (avoids flaky OOM on `vite build`).
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: npm
@@ -260,8 +260,8 @@ jobs:
     env:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: npm
@@ -274,7 +274,7 @@ jobs:
   test-graphql-gateway:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -292,7 +292,7 @@ jobs:
   test-event-ingest:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -310,7 +310,7 @@ jobs:
   test-analytics-sink:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -328,7 +328,7 @@ jobs:
   test-feature-service:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -346,7 +346,7 @@ jobs:
   test-ml-scoring:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -394,7 +394,7 @@ jobs:
           - analytics-sink
           - graphql-gateway
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: docker/setup-buildx-action@v4.0.0
       - uses: docker/build-push-action@v7.0.0
         with:
@@ -413,7 +413,7 @@ jobs:
       - docker-build
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: docker/setup-buildx-action@v4.0.0
       - name: Full stack smoke (Docker Compose profile full)
         env:
