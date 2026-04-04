@@ -17,7 +17,6 @@ jobs:
   analyze-swift:
     name: Analyze (swift)
     runs-on: macos-latest
-    if: hashFiles('packages/fraud-sdk-ios/Package.swift') != ''
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
