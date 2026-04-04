@@ -1,0 +1,85 @@
+# CodeQL Advanced (split jobs — avoids matrix + build-mode issues with Swift manual builds).
+# java-kotlin is intentionally omitted (no Gradle/Maven at repo root).
+# If you still see "Analyze (java-kotlin)" in Actions, disable or delete the duplicate
+# Code scanning workflow under Settings → Code security → Code scanning.
+name: "CodeQL Advanced"
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    - cron: "16 6 * * 1"
+
+permissions: {}
+
+jobs:
+  analyze-interpreted:
+    name: Analyze (python, javascript-typescript, actions)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: "python,javascript-typescript,actions"
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:python-js-actions"
+
+  analyze-swift:
+    name: Analyze (swift)
+    runs-on: macos-latest
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      # build-mode must be literal `manual` here — matrix vars have been observed to fall back to autobuild.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: swift
+          build-mode: manual
+
+      - name: Build Swift package (iOS Simulator)
+        working-directory: packages/fraud-sdk-ios
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          SIM_SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+          echo "iphonesimulator SDK: $SIM_SDK"
+          if swift build -v \
+            -Xswiftc "-sdk" -Xswiftc "$SIM_SDK" \
+            -Xswiftc "-target" -Xswiftc "arm64-apple-ios15.0-simulator"; then
+            exit 0
+          fi
+          echo "swift build failed; trying xcodebuild..."
+          xcodebuild build \
+            -scheme FraudStackSDK \
+            -destination "generic/platform=iOS Simulator" \
+            -sdk iphonesimulator \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="-" \
+            COMPILER_INDEX_STORE_ENABLE=NO
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:swift"
