@@ -70,3 +70,21 @@ jobs:
           if [ -f /tmp/decision-api.pid ]; then
             kill "$(cat /tmp/decision-api.pid)" 2>/dev/null || true
           fi
+
+  drift-score-smoke:
+    name: drift_score_smoke.py (heuristic separation)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Run drift score smoke (local heuristic)
+        working-directory: ${{ github.workspace }}
+        run: |
+          python scripts/benchmarks/drift_score_smoke.py --local \
+            --baseline scripts/benchmarks/fixtures/drift_baseline.json \
+            --shifted scripts/benchmarks/fixtures/drift_shifted.json \
+            --min-delta 8 \
+            --max-delta 95
