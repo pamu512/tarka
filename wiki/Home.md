@@ -43,4 +43,4 @@ Tarka is an open, modular fraud decisioning stack with:
 ## Repository
 
 - Source code: `pamu512/tarka`
-- Latest release: `v1.0.0`
+- Latest patch: **`v1.0.2`** (`docs/docs/releases/v1.0.2.md` on default branch): CodeQL + security scan **`workflow_dispatch`**, Swift SPM/CodeQL build fixes, Trivy SARIF upload v4, drift score smoke, Docker base refresh.

@@ -247,7 +247,7 @@ def _save_state(modules: list[str], sdks: list[str]):
             {
                 "modules": modules,
                 "sdks": sdks,
-                "version": "1.0.0",
+                "version": "1.0.2",
             },
             indent=2,
         )
