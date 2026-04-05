@@ -1,0 +1,13 @@
+# Shared CodeQL configuration (advanced workflow + optional default-setup use).
+#
+# Kotlin/Android sources live only under packages/fraud-sdk-android/ with a local
+# build.gradle.kts but no Gradle/Maven project at the repository root. GitHub
+# default CodeQL for "Java/Kotlin" expects a top-level Gradle/Maven/Ant build,
+# which triggers "No build command found" unless you disable that language or
+# add a root aggregator + wrapper.
+#
+# Excluding this path removes the only Kotlin/Java sources from extraction so
+# java-kotlin analysis can complete without a root build (when this file is used).
+name: Tarka CodeQL config
+paths-ignore:
+  - packages/fraud-sdk-android
