@@ -1,7 +1,34 @@
 # CodeQL Advanced (split jobs — avoids matrix + build-mode issues with Swift manual builds).
 # java-kotlin is intentionally omitted (no Gradle/Maven at repo root).
-# If you still see "Analyze (java-kotlin)" in Actions, disable or delete the duplicate
-# Code scanning workflow under Settings → Code security → Code scanning.
+#
+# --- Default setup vs this workflow (read if you see "autobuild" / swift build failures) ---
+# GitHub "Default" code scanning uses AUTOBUILD for Swift: `swift build --package-path ...`.
+# That fails for iOS-only SPM packages (this repo: packages/fraud-sdk-ios) because there is
+# no macOS host triple — you get "Detected build command failed" and no Swift DB upload.
+#
+# Fix (pick one):
+#   1) Settings → Code security → Code scanning → "..." → Disable default setup, and keep
+#      ONLY this advanced workflow; OR
+#   2) Default setup → Edit → Languages → uncheck Swift (Python/JS still scan via default
+#      or via the analyze-interpreted job here); OR
+#   3) Use Advanced setup only (this file) and remove any auto-generated CodeQL workflow.
+#
+# --- Java/Kotlin (default setup "language:java-kotlin" errors) ---
+# Default CodeQL looks for a TOP-LEVEL Gradle, Maven, or Ant project. This repo has Kotlin
+# only under packages/fraud-sdk-android/ (library build.gradle.kts, no root settings.gradle).
+# That yields: "No build command found" / "Supply a manual build command".
+#
+# Fix (pick one):
+#   A) Settings → Code security → Code scanning → Edit default setup → Languages →
+#      uncheck Java/Kotlin; OR
+#   B) Point default setup at this config if the UI allows it:
+#      .github/codeql/codeql-config.yml (paths-ignore removes the Android module from
+#      extraction so java-kotlin has nothing to build); OR
+#   C) Add a root Gradle composite build + wrapper (heavy; only if you want CodeQL on
+#      the Android SDK with autobuild).
+#
+# If you still see "Analyze (java-kotlin)" as a separate Actions job, disable the duplicate
+# workflow under Settings → Code security → Code scanning.
 name: "CodeQL Advanced"
 
 on:
@@ -11,6 +38,10 @@ on:
     branches: [main, master]
   schedule:
     - cron: "16 6 * * 1"
+
+# Keep PR file-coverage extraction enabled when GitHub defaults to skipping it (April 2026+).
+env:
+  CODEQL_ACTION_FILE_COVERAGE_ON_PRS: true
 
 permissions: {}
 
@@ -31,6 +62,7 @@ jobs:
         uses: github/codeql-action/init@v4
         with:
           languages: "python,javascript-typescript,actions"
+          config-file: ./.github/codeql/codeql-config.yml
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
@@ -55,37 +87,68 @@ jobs:
         with:
           languages: swift
           build-mode: manual
+          config-file: ./.github/codeql/codeql-config.yml
 
+      # Pure SPM (Package.swift only): swift build + iphonesimulator SDK is usually more
+      # reliable than xcodebuild (schemes vary by Xcode). CodeQL traces swiftc either way.
       - name: Build Swift package (iOS Simulator)
         working-directory: packages/fraud-sdk-ios
         shell: bash
+        env:
+          DERIVED_DATA: ${{ runner.temp }}/DerivedData-codeql-swift
         run: |
           set -euo pipefail
           xcodebuild -version
+          swift --version
+          swift package resolve
+
           SIM_SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"
           echo "iphonesimulator SDK: $SIM_SDK"
-          if swift build -v \
-            -Xswiftc "-sdk" -Xswiftc "$SIM_SDK" \
-            -Xswiftc "-target" -Xswiftc "arm64-apple-ios15.0-simulator"; then
+          TARGET="arm64-apple-ios15.0-simulator"
+
+          build_swiftpm() {
+            echo "=== swift build (SPM, simulator) ==="
+            if swift build -v \
+              -Xswiftc "-sdk" -Xswiftc "$SIM_SDK" \
+              -Xswiftc "-target" -Xswiftc "$TARGET"; then
+              return 0
+            fi
+            return 1
+          }
+
+          build_xcode() {
+            local scheme="$1"
+            echo "=== xcodebuild scheme: $scheme ==="
+            rm -rf "$DERIVED_DATA"
+            if xcodebuild build \
+              -scheme "$scheme" \
+              -destination "generic/platform=iOS Simulator" \
+              -derivedDataPath "$DERIVED_DATA" \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="-" \
+              COMPILER_INDEX_STORE_ENABLE=NO \
+              ONLY_ACTIVE_ARCH=NO; then
+              return 0
+            fi
+            return 1
+          }
+
+          if build_swiftpm; then
+            echo "Swift iOS package build completed (swift build)."
             exit 0
           fi
-          echo "swift build failed; trying xcodebuild..."
-          xcodebuild -list
-          # SPM root scheme is the package name (TarkaSDK), not the library product (FraudStackSDK).
-          for SCHEME in TarkaSDK FraudStackSDK; do
-            echo "Trying scheme: $SCHEME"
-            if xcodebuild build \
-              -scheme "$SCHEME" \
-              -destination "generic/platform=iOS Simulator" \
-              -sdk iphonesimulator \
-              -derivedDataPath "$RUNNER_TEMP/DerivedData" \
-              CODE_SIGNING_ALLOWED=NO \
-              CODE_SIGN_IDENTITY="-" \
-              COMPILER_INDEX_STORE_ENABLE=NO; then
+
+          echo "=== swift build failed; trying xcodebuild (FraudStackSDK then TarkaSDK) ==="
+          xcodebuild -list || true
+          for SCHEME in FraudStackSDK TarkaSDK; do
+            if build_xcode "$SCHEME"; then
+              echo "Swift iOS package build completed (xcodebuild $SCHEME)."
               exit 0
             fi
           done
-          echo "No xcodebuild scheme succeeded."
+
+          echo "All Swift iOS build strategies failed."
           exit 1
 
       - name: Perform CodeQL Analysis
