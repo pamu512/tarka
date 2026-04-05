@@ -1,0 +1,10 @@
+[
+  {"amount": 52000, "hour_of_day": 2, "is_new_device": 1, "is_vpn": 1, "is_emulator": 0, "is_bot": 0, "transaction_count_24h": 25, "distinct_countries_7d": 4, "account_age_days": 3},
+  {"amount": 18000, "hour_of_day": 3, "is_new_device": 1, "is_vpn": 1, "is_emulator": 1, "is_bot": 1, "transaction_count_24h": 40, "distinct_countries_7d": 5, "account_age_days": 1},
+  {"amount": 62000, "hour_of_day": 1, "is_new_device": 1, "is_vpn": 0, "is_emulator": 1, "is_bot": 1, "transaction_count_24h": 35, "distinct_countries_7d": 4, "account_age_days": 2},
+  {"amount": 7500, "hour_of_day": 23, "is_new_device": 1, "is_vpn": 1, "is_emulator": 0, "is_bot": 1, "transaction_count_24h": 22, "distinct_countries_7d": 3, "account_age_days": 5},
+  {"amount": 45000, "hour_of_day": 4, "is_new_device": 1, "is_vpn": 1, "is_emulator": 1, "is_bot": 0, "transaction_count_24h": 30, "distinct_countries_7d": 4, "account_age_days": 4},
+  {"amount": 30000, "hour_of_day": 22, "is_new_device": 1, "is_vpn": 0, "is_emulator": 0, "is_bot": 1, "transaction_count_24h": 28, "distinct_countries_7d": 3, "account_age_days": 6},
+  {"amount": 55000, "hour_of_day": 0, "is_new_device": 1, "is_vpn": 1, "is_emulator": 1, "is_bot": 1, "transaction_count_24h": 45, "distinct_countries_7d": 5, "account_age_days": 1},
+  {"amount": 40000, "hour_of_day": 2, "is_new_device": 1, "is_vpn": 1, "is_emulator": 0, "is_bot": 1, "transaction_count_24h": 32, "distinct_countries_7d": 4, "account_age_days": 2}
+]

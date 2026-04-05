@@ -37,6 +37,26 @@ For **labeled synthetic** scenarios, use Decision API **`POST /v1/simulation/run
 
 For heavier HTTP loads, add **k6** in CI or a separate workflow; keep **`latency_evaluate.py`** **dependency-free** for quick sanity checks.
 
+## Drift score smoke (`drift_score_smoke.py`)
+
+Compares **mean heuristic scores** on two **seeded JSON** feature batches (`fixtures/drift_baseline.json` vs `fixtures/drift_shifted.json`). Fails if separation is too small (dead signal) or absurdly large. **No server** required with `--local` (imports `ml-scoring` from the repo).
+
+```bash
+# From repo root
+python scripts/benchmarks/drift_score_smoke.py --local
+```
+
+Optional HTTP mode against running ml-scoring:
+
+```bash
+python scripts/benchmarks/drift_score_smoke.py --url http://127.0.0.1:8005
+```
+
 ## CI smoke (GitHub Actions)
 
-Workflow **[`.github/workflows/benchmark-smoke.yml`](../../.github/workflows/benchmark-smoke.yml)** runs weekly (and on `workflow_dispatch`): Redis service + Decision API (SQLite) + `latency_evaluate.py` with a small request count. It only proves the script and stack still work together, not publishable TPS.
+Workflow **[`.github/workflows/benchmark-smoke.yml`](../../.github/workflows/benchmark-smoke.yml)** runs weekly (and on `workflow_dispatch`):
+
+- Redis + Decision API + `latency_evaluate.py` (lite stack).
+- **`drift_score_smoke.py --local`** (heuristic drift separation gate).
+
+These jobs sanity-check scripts and scoring behavior; they are not publishable load or calibration proofs.
