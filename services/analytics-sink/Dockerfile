@@ -1,4 +1,10 @@
 FROM python:3.12-slim
+
+# Debian security updates — reduces Trivy HIGH/MEDIUM on base image.
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 RUN pip install --no-cache-dir pip -U
 COPY services/analytics-sink/pyproject.toml /app/

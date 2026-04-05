@@ -1,6 +1,6 @@
 [project]
 name = "tarka"
-version = "1.0.0"
+version = "1.0.2"
 description = "Open-source modular fraud detection platform — prove every signal."
 readme = "README.md"
 license = {text = "Apache-2.0"}
