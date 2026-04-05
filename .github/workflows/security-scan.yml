@@ -5,6 +5,7 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
   schedule:
     # Weekly full scan (UTC)
     - cron: "17 6 * * 1"
