@@ -5,6 +5,7 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  workflow_dispatch: {}
   schedule:
     # Weekly full scan (UTC)
     - cron: "17 6 * * 1"
@@ -28,10 +29,13 @@ jobs:
           format: sarif
           output: trivy-fs.sarif
           severity: CRITICAL,HIGH,MEDIUM
+          # Debian/Alpine often report unfixed distro CVEs; omitting them avoids flooding
+          # Security → Code scanning with issues that have no upstream fix yet.
+          ignore-unfixed: true
         continue-on-error: true
 
       - name: Upload SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always() && hashFiles('trivy-fs.sarif') != ''
         with:
           sarif_file: trivy-fs.sarif
@@ -44,6 +48,7 @@ jobs:
           scan-ref: .
           format: table
           severity: CRITICAL,HIGH,MEDIUM
+          ignore-unfixed: true
         continue-on-error: true
 
   trivy-decision-api-image:
@@ -68,10 +73,11 @@ jobs:
           format: sarif
           output: trivy-image.sarif
           severity: CRITICAL,HIGH,MEDIUM
+          ignore-unfixed: true
         continue-on-error: true
 
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always() && hashFiles('trivy-image.sarif') != ''
         with:
           sarif_file: trivy-image.sarif
