@@ -25,6 +25,8 @@ Tarka uses a **two-layer name** so scripts stay stable while product language st
 | `gateway` | **Riti** | रीति — iron rust (technical lexicon); *Vajralepa* ingredient → binding join layer | GraphQL façade |
 | `frontend` | **Dwar** | द्वार — door, portal | Operator UI |
 
+**Saarthi (`agent`):** open reference implementation in-repo at `services/investigation-agent`. **[Saarthi Pro](https://github.com/pamu512/Saarthi-pro)** is the **commercial** distribution (same agent lineage; vendor packaging, support, optional maintained adapters). Comparison for platform teams and procurement: [Saarthi Pro vs OSS](saarthi-pro-vs-oss.md). Standalone image build: [`distributions/saarthi-pro-agent`](../../../distributions/saarthi-pro-agent/README.md). Roadmap and parity: [Saarthi Pro roadmap](saarthi-pro-roadmap.md), [distribution & contract parity](saarthi-pro-distribution-and-contract-parity.md).
+
 ### Etymology: Riti (`gateway`)
 
 **Rīti** (रीति) is attested in ancient Sanskrit technical discourse. In texts such as the *Viṣṇudharmottarapurāṇa*, **rīti** is interpreted as the **rust of iron** and was used as a material component in the preparation of **Vajralepa**—a specialized, very **hard cement**.

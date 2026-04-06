@@ -1,0 +1,7 @@
+{
+  "adapter_slug": "customer_adapter",
+  "package_name": "customer_adapter",
+  "customer_display_name": "Customer Corp",
+  "integration_profile_id": "customer_v1",
+  "project_description": "HTTP adapter mapping customer fraud APIs to the Saarthi investigation-agent integration contract"
+}

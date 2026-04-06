@@ -164,6 +164,9 @@ services:
       DECISION_API_URL: http://decision-api:8000
       ALLOWED_ANALYSTS: ${ALLOWED_ANALYSTS:-*}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AI_GOVERNANCE_PROFILE: ${AI_GOVERNANCE_PROFILE:-global}
+      BATCH_TTL_SECONDS: ${BATCH_TTL_SECONDS:-7200}
+      COPILOT_INJECTION_POLICY: ${COPILOT_INJECTION_POLICY:-sanitize}
     ports:
       - "8006:8006"
     depends_on:
@@ -220,6 +223,8 @@ services:
     build:
       context: ..
       dockerfile: frontend/Dockerfile
+      args:
+        VITE_AI_GOVERNANCE_PROFILE: ${VITE_AI_GOVERNANCE_PROFILE:-global}
     ports:
       - "3000:80"
     depends_on:

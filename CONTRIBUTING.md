@@ -89,7 +89,7 @@ docker compose --profile full up -d
 
 ## Running Tests
 
-**CI:** GitHub Actions runs lint (Ruff); Python tests for decision-api, case-api, graph-service, integration-ingress, investigation-agent, graphql-gateway, event-ingest, analytics-sink, feature-service, ml-scoring, and the Python SDK; **`npm run build`** for the **frontend** and **`npm run build`** for **`packages/fraud-sdk-typescript`**; then Docker image builds (see `.github/workflows/ci.yml`). Security scanning (Trivy + SARIF upload) runs in `.github/workflows/security-scan.yml`.
+**CI:** GitHub Actions runs lint (Ruff); Python tests for decision-api, case-api, graph-service, integration-ingress, investigation-agent (including golden integration profiles), graphql-gateway, event-ingest, analytics-sink, feature-service, ml-scoring, and the Python SDK; **`npm run build`** for the **frontend** and **`npm run build`** for **`packages/fraud-sdk-typescript`**; then Docker image builds for each `services/*/Dockerfile` (see `.github/workflows/ci.yml`). **Additionally**, job **`docker-build-saarthi-pro-agent`** builds **`distributions/saarthi-pro-agent/Dockerfile`** (standalone investigation agent image); it does **not** gate `stack-smoke`. For **branch protection**, consider requiring both **`docker-build`** and **`docker-build-saarthi-pro-agent`** so standalone Pro-shaped images stay buildable. Security scanning (Trivy + SARIF upload) runs in `.github/workflows/security-scan.yml`.
 
 Each service has a `tests/` directory. Run tests from the service root:
 
@@ -191,6 +191,7 @@ Use the same pattern under `services/case-api` with the case database URL. For `
 | Plug in an ONNX model | [docs/docs/guides/onnx-model-integration.md](docs/docs/guides/onnx-model-integration.md) |
 | Borrow OSS patterns safely | [docs/docs/guides/borrowed-oss-adoption.md](docs/docs/guides/borrowed-oss-adoption.md) |
 | Simulation / A-B / shadow | [docs/docs/guides/shadow-and-ab-testing.md](docs/docs/guides/shadow-and-ab-testing.md) |
+| Regional AI governance (US / EU+UK / global builds) | [docs/docs/guides/ai-governance-regional-builds.md](docs/docs/guides/ai-governance-regional-builds.md) · [deploy/profiles/ai-governance/README.md](deploy/profiles/ai-governance/README.md) |
 | Prometheus + Grafana | [deploy/observability/README.md](deploy/observability/README.md) |
 | Latency smoke benchmark | [scripts/benchmarks/README.md](scripts/benchmarks/README.md) |
 

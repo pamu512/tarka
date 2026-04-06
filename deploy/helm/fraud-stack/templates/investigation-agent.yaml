@@ -32,6 +32,16 @@ spec:
             - name: DECISION_API_URL
               value: "http://{{ include "tarka.fullname" . }}-decision-api:8000"
             {{- end }}
+            - name: AI_GOVERNANCE_PROFILE
+              value: {{ .Values.investigationAgent.aiGovernanceProfile | default "global" | quote }}
+            {{- if .Values.investigationAgent.batchTtlSeconds }}
+            - name: BATCH_TTL_SECONDS
+              value: {{ .Values.investigationAgent.batchTtlSeconds | quote }}
+            {{- end }}
+            {{- range $k, $v := .Values.investigationAgent.extraEnv }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
 ---
 apiVersion: v1
 kind: Service

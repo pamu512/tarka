@@ -1,0 +1,14 @@
+# Production-oriented hardening for Investigation Copilot (closes common OSS foot-guns).
+# Use with base compose, e.g.:
+#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.production-hardening.yml --profile full up -d --build
+#
+# Before production: set API_KEYS and OPENAI_API_KEY via secrets manager — do not commit real keys.
+
+services:
+  investigation-agent:
+    environment:
+      COPILOT_REQUIRE_INVESTIGATION_API_KEY: "true"
+      COPILOT_INJECTION_POLICY: reject
+      COPILOT_INCLUDE_PLATFORM_AUDIT_IN_PROMPT: "false"
+      # Set in shell / .env (required when COPILOT_REQUIRE_INVESTIGATION_API_KEY=true):
+      # API_KEYS: "comma-separated-keys"

@@ -1,0 +1,8 @@
+# helm upgrade --install tarka ./deploy/helm/fraud-stack -f deploy/profiles/ai-governance/helm/values-eu-uk.yaml
+# Build the frontend image with: docker build --build-arg VITE_AI_GOVERNANCE_PROFILE=eu_uk ...
+investigationAgent:
+  enabled: true
+  aiGovernanceProfile: eu_uk
+  batchTtlSeconds: 3600
+  extraEnv:
+    COPILOT_INJECTION_POLICY: reject

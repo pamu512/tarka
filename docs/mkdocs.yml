@@ -83,6 +83,11 @@ nav:
       - Ingest, idempotency & replay: guides/ingest-replay-onboarding.md
       - GitHub Issues Batch (Reassessment Wave 2): guides/github-issues-batch-2026-04-reassessment-wave2.md
       - Module codenames: guides/module-codenames.md
+      - Saarthi Pro:
+          - vs open source (OSS): guides/saarthi-pro-vs-oss.md
+          - Roadmap: guides/saarthi-pro-roadmap.md
+          - Distribution & contract parity: guides/saarthi-pro-distribution-and-contract-parity.md
+          - Adapter catalog & certification: guides/saarthi-pro-adapter-catalog-and-certification.md
   - Projects:
       - Module Projects Overview: projects/README.md
       - Decision API Project: projects/decision-api-project.md

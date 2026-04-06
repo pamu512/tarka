@@ -22,4 +22,4 @@ This section tracks each major module as its own project with a focused roadmap.
 - [TypeScript SDK](sdk-typescript-project.md)
 - [Mobile SDKs (Android + iOS)](sdk-mobile-project.md)
 - [Analytics Sink](analytics-sink-project.md)
-- [Investigation Agent](investigation-agent-project.md)
+- [Investigation Agent](investigation-agent-project.md) — commercial packaging: [Saarthi Pro vs OSS](../guides/saarthi-pro-vs-oss.md)

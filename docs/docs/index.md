@@ -59,4 +59,8 @@ The platform is designed around composability. Run just the Decision API with Re
 
     Deploy to production with Docker Compose profiles or Helm on Kubernetes.
 
+- :material-robot: **[Investigation copilot (Saarthi) & Saarthi Pro](guides/saarthi-pro-vs-oss.md)**
+
+    LLM tool-use loop against case, graph, and decision APIs. Open reference ships in-repo; **Saarthi Pro** is the commercial packaging (support, adapters, procurement). Start with **vs OSS**.
+
 </div>

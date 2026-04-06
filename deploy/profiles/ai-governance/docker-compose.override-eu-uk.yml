@@ -1,0 +1,11 @@
+# EU / UK AI governance build — shorter batch TTL + reject-on-injection defaults
+services:
+  investigation-agent:
+    environment:
+      AI_GOVERNANCE_PROFILE: eu_uk
+      BATCH_TTL_SECONDS: "3600"
+      COPILOT_INJECTION_POLICY: reject
+  frontend:
+    build:
+      args:
+        VITE_AI_GOVERNANCE_PROFILE: eu_uk

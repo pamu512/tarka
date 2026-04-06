@@ -1,0 +1,9 @@
+# US AI governance build — use with: docker compose -f deploy/docker-compose.yml -f deploy/profiles/ai-governance/docker-compose.override-us.yml ...
+services:
+  investigation-agent:
+    environment:
+      AI_GOVERNANCE_PROFILE: us
+  frontend:
+    build:
+      args:
+        VITE_AI_GOVERNANCE_PROFILE: us
