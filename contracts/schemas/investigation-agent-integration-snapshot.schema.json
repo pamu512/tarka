@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tarka.dev/schemas/investigation-agent-integration-snapshot-v1.1.json",
+  "title": "Investigation agent integration snapshot",
+  "description": "Response shape for GET /v1/integration (contract_version 1.1.x)",
+  "type": "object",
+  "required": [
+    "contract_version",
+    "profile_id",
+    "upstream_configured",
+    "upstream_runtime_notes",
+    "tools",
+    "families_enabled",
+    "maker_checker"
+  ],
+  "properties": {
+    "contract_version": { "type": "string" },
+    "profile_id": { "type": "string" },
+    "upstream_configured": {
+      "type": "object",
+      "required": ["case_api", "decision_api", "graph_service"],
+      "properties": {
+        "case_api": { "type": "boolean" },
+        "decision_api": { "type": "boolean" },
+        "graph_service": { "type": "boolean" }
+      }
+    },
+    "upstream_runtime_notes": {
+      "type": "object",
+      "properties": {
+        "graph_tools_return_error_if_unconfigured": { "type": "boolean" },
+        "decision_tools_return_error_if_unconfigured": { "type": "boolean" },
+        "hide_tools_without_upstream": { "type": "boolean" }
+      }
+    },
+    "tools": {
+      "type": "object",
+      "required": ["registered_total", "enabled_count", "enabled"],
+      "properties": {
+        "registered_total": { "type": "integer", "minimum": 0 },
+        "enabled_count": { "type": "integer", "minimum": 0 },
+        "enabled": { "type": "array", "items": { "type": "string" } },
+        "disabled_effective": { "type": "array", "items": { "type": "string" } },
+        "upstream_suppressed": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "families_enabled": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "maker_checker": {
+      "type": "object",
+      "properties": {
+        "reviewer_secret_configured": { "type": "boolean" },
+        "sensitive_tool_names": { "type": "array", "items": { "type": "string" } },
+        "note": { "type": "string" }
+      }
+    }
+  }
+}

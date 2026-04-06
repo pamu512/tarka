@@ -1,0 +1,9 @@
+# Explicit global baseline (defaults match stock compose if unset)
+services:
+  investigation-agent:
+    environment:
+      AI_GOVERNANCE_PROFILE: global
+  frontend:
+    build:
+      args:
+        VITE_AI_GOVERNANCE_PROFILE: global

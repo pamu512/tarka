@@ -16,6 +16,14 @@ Open-source, modular fraud detection platform. Pick the components you need or r
 
 **Canonical repo:** [github.com/pamu512/tarka](https://github.com/pamu512/tarka)
 
+**Saarthi (Investigation Copilot)** — **OSS** ships in this repo as **`services/investigation-agent`**. **Standalone paid:** [Saarthi Pro](https://github.com/pamu512/Saarthi-pro). **Buyer / PMO summary:** [Saarthi Pro vs OSS](docs/docs/guides/saarthi-pro-vs-oss.md).
+
+| | **OSS (`investigation-agent`)** | **Saarthi Pro** |
+|--|--------------------------------|-----------------|
+| **Best for** | Full Tarka stack, self-hosted ops | Procurement, SLAs, governance roadmap, focused copilot SKU |
+| **You own** | Upgrades, uptime, compliance mapping | Commercial terms + vendor support (where purchased) |
+| **Code** | Here in `services/investigation-agent` | [github.com/pamu512/Saarthi-pro](https://github.com/pamu512/Saarthi-pro) |
+
 ## What’s on trunk (shipping now)
 
 These capabilities are in the codebase today and roll forward on `master`:
@@ -141,6 +149,7 @@ Experience Tarka -**[Click Here](https://www.loom.com/share/2bc3dce78042444fb321
 - **[LICENSE-DEPENDENCIES.md](LICENSE-DEPENDENCIES.md)** — Neo4j AGPL and Apache-friendly **lite** option  
 - **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)**  
 - **Dependabot** + **Trivy** workflows — see [docs/docs/guides/security-scanning.md](docs/docs/guides/security-scanning.md)
+- **Regional AI governance builds** (US / EU+UK / global Investigation Copilot profiles) — [docs/docs/guides/ai-governance-regional-builds.md](docs/docs/guides/ai-governance-regional-builds.md) · [deploy/profiles/ai-governance/README.md](deploy/profiles/ai-governance/README.md)
 
 ### Requirements
 

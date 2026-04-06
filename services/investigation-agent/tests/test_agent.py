@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from investigation_agent.tools import (
+    TOOL_DEFINITIONS,
     TOOL_DISPATCH,
     _analyst_allowed,
     tool_export_outcome_labeled_dataset,
@@ -52,6 +53,11 @@ class TestAnalystAllowed:
 class TestToolDispatch:
     def test_dispatch_table_has_all_tools(self):
         expected_tools = {
+            "search_knowledge",
+            "compare_entity_queue_snapshot",
+            "get_batch_profile",
+            "query_batch_rows",
+            "aggregate_batch_column",
             "get_case",
             "list_cases",
             "subgraph",
@@ -68,12 +74,18 @@ class TestToolDispatch:
 
     def test_dispatch_maps_to_correct_functions(self):
         from investigation_agent.tools import (
+            tool_aggregate_batch_column,
+            tool_get_batch_profile,
             tool_get_decision_audit,
             tool_get_entity_velocity,
             tool_get_stored_labeled_dataset,
+            tool_query_batch_rows,
             tool_subgraph_with_velocity,
         )
 
+        assert TOOL_DISPATCH["get_batch_profile"] is tool_get_batch_profile
+        assert TOOL_DISPATCH["query_batch_rows"] is tool_query_batch_rows
+        assert TOOL_DISPATCH["aggregate_batch_column"] is tool_aggregate_batch_column
         assert TOOL_DISPATCH["get_case"] is tool_get_case
         assert TOOL_DISPATCH["list_cases"] is tool_list_cases
         assert TOOL_DISPATCH["subgraph"] is tool_subgraph
@@ -311,7 +323,14 @@ class TestOfflineMode:
         http = AsyncMock()
         with patch("investigation_agent.main.settings") as mock_settings:
             mock_settings.openai_api_key = ""
-            reply, tool_calls = await _llm_tool_loop(http, "system prompt", [{"role": "user", "content": "hello"}], "t1", "analyst1")
+            reply, tool_calls = await _llm_tool_loop(
+                http,
+                "system prompt",
+                [{"role": "user", "content": "hello"}],
+                "t1",
+                "analyst1",
+                TOOL_DEFINITIONS,
+            )
 
         assert "offline" in reply.lower()
         assert tool_calls == []

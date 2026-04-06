@@ -743,6 +743,110 @@ export interface InvestigationContextOptions {
 export interface InvestigationChatOpts {
   platform_audit?: PlatformAuditEvent[];
   context_options?: InvestigationContextOptions;
+  /** From POST /v1/batch/ingest — enables tabular batch tools in the agent. */
+  batch_id?: string | null;
+  /** Built-in workflow template from GET /v1/playbooks. */
+  playbook_id?: string | null;
+}
+
+export interface InvestigationBatchIngestResponse {
+  batch_id: string;
+  filename: string;
+  format: string;
+  row_count: number;
+  columns: string[];
+  sample_rows: Record<string, unknown>[];
+  limits?: Record<string, unknown>;
+}
+
+export interface InvestigationGovernanceInfo {
+  profile: string;
+  label: string;
+  references: string[];
+  batch_ttl_seconds: number;
+  disclaimer: string;
+}
+
+/** Parsed from model trailer; server always returns at least one claim (fallback = unknown). */
+export interface InvestigationClaim {
+  text: string;
+  source: "tool" | "unknown";
+}
+
+/** One row per tool invocation — mirrors investigation-agent `build_source_reference_cards`. */
+export interface InvestigationSourceRefCard {
+  tool: string;
+  ok: boolean;
+  case_id?: string;
+  entity_id?: string;
+  trace_id?: string;
+  batch_id?: string;
+  error?: string;
+}
+
+export interface InvestigationPlaybookEntry {
+  id: string;
+  title: string;
+  vertical: string;
+}
+
+export interface InvestigationPlaybooksResponse {
+  playbooks: InvestigationPlaybookEntry[];
+}
+
+export interface InvestigationAnswerSections {
+  preamble?: string;
+  facts_from_tools?: string;
+  inferences?: string;
+  unknowns?: string;
+  next_steps?: string;
+  sections_found?: string[];
+}
+
+export interface InvestigationClaimSupportRow {
+  claim_index: number;
+  supported: boolean;
+  method: string;
+  hint?: string[] | null;
+}
+
+export interface InvestigationEvidenceBundleDraft {
+  schema_hint?: string;
+  generated_at?: string;
+  turn_id?: string;
+  prompt_version?: string;
+  playbook_id?: string | null;
+  narrative?: { reply?: string };
+  structured_sections?: Record<string, unknown>;
+  claims?: InvestigationClaim[];
+  claims_analysis?: InvestigationClaimSupportRow[];
+  source_refs?: InvestigationSourceRefCard[];
+  tool_invocation_count?: number;
+}
+
+export interface InvestigationChatResponse {
+  reply: string;
+  tool_calls?: unknown[];
+  claims: InvestigationClaim[];
+  /** Structured “what the copilot touched” for audit UI. */
+  source_refs?: InvestigationSourceRefCard[];
+  /** Present when a server playbook was applied this turn. */
+  playbook_id?: string;
+  turn_id?: string;
+  prompt_version?: string;
+  answer_sections?: InvestigationAnswerSections;
+  /** Server-side token overlap check per claim (not legal proof). */
+  claims_deterministic_support?: InvestigationClaimSupportRow[];
+  tool_acknowledgment_warnings?: string[];
+  judge_assessments?: unknown;
+  judge_error?: string;
+  evidence_bundle_draft?: InvestigationEvidenceBundleDraft;
+  claims_warning?: string;
+  /** Present when server downgraded ungrounded tool-sourced claims. */
+  claims_grounding_adjustments?: string[];
+  warning?: string;
+  /** True when injection heuristics matched under sanitize policy (request continued). */
+  injection_sanitized?: boolean;
 }
 
 export const investigation = {
@@ -765,7 +869,13 @@ export const investigation = {
     if (opts?.context_options) {
       payload.context_options = opts.context_options;
     }
-    return request<{ reply: string; tool_calls?: unknown[] }>("/api/investigation/v1/chat", {
+    if (opts?.batch_id) {
+      payload.batch_id = opts.batch_id;
+    }
+    if (opts?.playbook_id) {
+      payload.playbook_id = opts.playbook_id;
+    }
+    return request<InvestigationChatResponse>("/api/investigation/v1/chat", {
       method: "POST",
       body: JSON.stringify(payload),
     });
@@ -790,10 +900,189 @@ export const investigation = {
     if (opts?.context_options) {
       payload.context_options = opts.context_options;
     }
-    return request<{ reply: string; tool_calls?: unknown[] }>("/api/investigation/v1/chat", {
+    if (opts?.batch_id) {
+      payload.batch_id = opts.batch_id;
+    }
+    if (opts?.playbook_id) {
+      payload.playbook_id = opts.playbook_id;
+    }
+    return request<InvestigationChatResponse>("/api/investigation/v1/chat", {
       method: "POST",
       body: JSON.stringify(payload),
     });
+  },
+
+  listPlaybooks() {
+    return request<InvestigationPlaybooksResponse>("/api/investigation/v1/playbooks");
+  },
+
+  governance() {
+    return request<InvestigationGovernanceInfo>("/api/investigation/v1/governance");
+  },
+
+  async ingestKnowledgeMemo(
+    title: string,
+    body: string,
+    tenantId: string = "demo",
+    analystId: string = "analyst-1",
+  ): Promise<{
+    doc_id: string;
+    title: string;
+    ttl_hours: number;
+    docs_stored_for_scope: number;
+    embeddings_stored?: boolean;
+  }> {
+    return request("/api/investigation/v1/knowledge/ingest", {
+      method: "POST",
+      body: JSON.stringify({
+        tenant_id: tenantId,
+        analyst_id: analystId,
+        title: title || "untitled",
+        body,
+      }),
+    });
+  },
+
+  async submitFeedback(payload: {
+    turn_id: string;
+    rating: -1 | 0 | 1;
+    note?: string;
+    claim_indices?: number[];
+    tenant_id?: string;
+    analyst_id?: string;
+    tags?: Record<string, unknown>;
+  }): Promise<{ ok: boolean; stored?: boolean; feedback_id?: number }> {
+    return request("/api/investigation/v1/feedback", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  getFeedbackSummary(tenantId: string, days = 7) {
+    const q = new URLSearchParams({ tenant_id: tenantId, days: String(days) });
+    return request<{
+      tenant_id: string;
+      window_days: number;
+      total: number;
+      by_rating: Record<string, number>;
+      avg_rating: number | null;
+    }>(`/api/investigation/v1/feedback/summary?${q}`);
+  },
+
+  getFeedbackRecent(tenantId: string, limit = 50) {
+    const q = new URLSearchParams({ tenant_id: tenantId, limit: String(limit) });
+    return request<{
+      items: Array<{
+        id: number;
+        turn_id: string;
+        analyst_id: string;
+        rating: number;
+        note: string | null;
+        claim_indices: number[] | null;
+        created_at: number;
+        case_id: string | null;
+        playbook_id: string | null;
+      }>;
+    }>(`/api/investigation/v1/feedback/recent?${q}`);
+  },
+
+  /**
+   * SSE stream: meta + text deltas + final structured tail. Rebuild reply from delta events or use final payload.
+   */
+  async chatWithHistoryStream(
+    messages: { role: string; content: string }[],
+    tenantId: string = "demo",
+    analystId: string = "analyst-1",
+    caseId?: string,
+    opts?: InvestigationChatOpts,
+    onEvent?: (ev: { type: string; payload: unknown }) => void,
+  ): Promise<InvestigationChatResponse> {
+    const payload: Record<string, unknown> = {
+      tenant_id: tenantId,
+      analyst_id: analystId,
+      case_id: caseId,
+      messages,
+    };
+    if (opts?.platform_audit?.length) payload.platform_audit = opts.platform_audit.slice(0, 40);
+    if (opts?.context_options) payload.context_options = opts.context_options;
+    if (opts?.batch_id) payload.batch_id = opts.batch_id;
+    if (opts?.playbook_id) payload.playbook_id = opts.playbook_id;
+    const url = "/api/investigation/v1/chat/stream";
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`${res.status} ${text || res.statusText}`);
+    }
+    const reader = res.body?.getReader();
+    if (!reader) throw new Error("No response body");
+    const dec = new TextDecoder();
+    let buf = "";
+    let reply = "";
+    let merged: Partial<InvestigationChatResponse> = { claims: [], source_refs: [] };
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const parts = buf.split("\n\n");
+      buf = parts.pop() ?? "";
+      for (const block of parts) {
+        const line = block.trim();
+        if (!line.startsWith("data:")) continue;
+        const raw = line.slice(5).trim();
+        try {
+          const msg = JSON.parse(raw) as { type: string; payload: unknown };
+          onEvent?.(msg);
+          if (msg.type === "delta" && msg.payload && typeof msg.payload === "object") {
+            const p = msg.payload as { text?: string };
+            if (p.text) reply += p.text;
+          }
+          if (msg.type === "final" && msg.payload && typeof msg.payload === "object") {
+            const p = msg.payload as Partial<InvestigationChatResponse> & { tool_calls_count?: number };
+            merged = { ...merged, ...p };
+            if (!merged.tool_calls?.length && typeof p.tool_calls_count === "number") {
+              merged.tool_calls = [];
+            }
+          }
+        } catch {
+          /* ignore bad chunk */
+        }
+      }
+    }
+    return {
+      reply: reply || (merged.reply as string) || "",
+      ...merged,
+      claims: (merged.claims as InvestigationClaim[]) ?? [],
+    } as InvestigationChatResponse;
+  },
+
+  async ingestBatch(
+    file: File,
+    tenantId: string = "demo",
+    analystId: string = "analyst-1",
+  ): Promise<InvestigationBatchIngestResponse> {
+    const fd = new FormData();
+    fd.append("tenant_id", tenantId);
+    fd.append("analyst_id", analystId);
+    fd.append("file", file);
+    const url = "/api/investigation/v1/batch/ingest";
+    try {
+      const res = await fetch(url, { method: "POST", body: fd });
+      const text = await res.text();
+      if (res.ok) {
+        return JSON.parse(text) as InvestigationBatchIngestResponse;
+      }
+      const mock = getMockResponse(url, { method: "POST" });
+      if (mock !== null) return mock as InvestigationBatchIngestResponse;
+      throw new Error(`${res.status} ${text || res.statusText}`);
+    } catch (err) {
+      const mock = getMockResponse(url, { method: "POST" });
+      if (mock !== null) return mock as InvestigationBatchIngestResponse;
+      throw err instanceof Error ? err : new Error("Batch ingest failed");
+    }
   },
 };
 

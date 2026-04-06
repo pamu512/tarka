@@ -8,6 +8,7 @@ from typing import Any
 
 import httpx
 
+from investigation_agent import batch_store, knowledge_store
 from investigation_agent.config import settings
 
 _MAX_RULES_OVERRIDE = 15
@@ -716,6 +717,162 @@ async def tool_run_replay_ab_comparison(
     )
 
 
+async def tool_get_batch_profile(
+    http: httpx.AsyncClient,
+    tenant_id: str,
+    analyst_id: str,
+    batch_id: str,
+) -> dict[str, Any]:
+    if not _analyst_allowed(analyst_id):
+        return {"error": "forbidden"}
+    try:
+        bid = batch_store.validate_batch_id(batch_id)
+    except ValueError as e:
+        return {"error": str(e)}
+    rec = batch_store.get_batch(bid, tenant_id, analyst_id)
+    if not rec:
+        return {"error": "batch_not_found", "detail": "Upload via POST /v1/batch/ingest or check batch_id / tenant."}
+    prof = batch_store.batch_profile(rec)
+    return _limit_result(prof)
+
+
+async def tool_query_batch_rows(
+    http: httpx.AsyncClient,
+    tenant_id: str,
+    analyst_id: str,
+    batch_id: str,
+    offset: int = 0,
+    limit: int = 25,
+    columns: list[str] | None = None,
+) -> dict[str, Any]:
+    if not _analyst_allowed(analyst_id):
+        return {"error": "forbidden"}
+    try:
+        bid = batch_store.validate_batch_id(batch_id)
+    except ValueError as e:
+        return {"error": str(e)}
+    rec = batch_store.get_batch(bid, tenant_id, analyst_id)
+    if not rec:
+        return {"error": "batch_not_found"}
+    lim = max(1, min(int(limit), 100))
+    off = max(0, int(offset))
+    cols = columns if isinstance(columns, list) else None
+    return _limit_result(batch_store.batch_query_rows(rec, off, lim, cols))
+
+
+async def tool_aggregate_batch_column(
+    http: httpx.AsyncClient,
+    tenant_id: str,
+    analyst_id: str,
+    batch_id: str,
+    column: str,
+    mode: str = "value_counts",
+) -> dict[str, Any]:
+    if not _analyst_allowed(analyst_id):
+        return {"error": "forbidden"}
+    try:
+        bid = batch_store.validate_batch_id(batch_id)
+    except ValueError as e:
+        return {"error": str(e)}
+    rec = batch_store.get_batch(bid, tenant_id, analyst_id)
+    if not rec:
+        return {"error": "batch_not_found"}
+    col = str(column).strip()
+    if not col:
+        return {"error": "column required"}
+    m = str(mode or "value_counts").strip().lower()
+    if m not in ("value_counts", "numeric_summary"):
+        return {"error": "invalid_mode", "allowed": ["value_counts", "numeric_summary"]}
+    return _limit_result(batch_store.batch_aggregate_column(rec, col, m))
+
+
+async def tool_search_knowledge(
+    http: httpx.AsyncClient,
+    tenant_id: str,
+    analyst_id: str,
+    query: str,
+    limit: int = 5,
+) -> dict[str, Any]:
+    """Keyword search over analyst-ingested investigation memos (tenant scoped)."""
+    if not _analyst_allowed(analyst_id):
+        return {"error": "forbidden"}
+    q = str(query or "").strip()
+    if not q:
+        return {"error": "query required"}
+    lim = max(1, min(int(limit or 5), 15))
+    use_emb = settings.copilot_knowledge_embeddings and bool(settings.openai_api_key)
+    data = await knowledge_store.search_async(
+        http,
+        use_embeddings=use_emb,
+        api_key=settings.openai_api_key,
+        base_url=settings.openai_base_url,
+        embed_model=settings.copilot_embedding_model,
+        tenant_id=tenant_id,
+        analyst_id=analyst_id,
+        query=q,
+        limit=lim,
+        keyword_weight=settings.copilot_rag_keyword_weight,
+    )
+    return _limit_result(data)
+
+
+async def tool_compare_entity_queue_snapshot(
+    http: httpx.AsyncClient,
+    entity_id: str,
+    tenant_id: str,
+    analyst_id: str,
+    list_limit: int = 80,
+) -> dict[str, Any]:
+    """
+    Deterministic snapshot: entity velocity + count of queue cases mentioning this entity_id
+    (from list_cases payload; does not scan full case database).
+    """
+    if not _analyst_allowed(analyst_id):
+        return {"error": "forbidden"}
+    try:
+        eid = _validate_entity_id(str(entity_id))
+    except ValueError as e:
+        return {"error": str(e)}
+    lim = max(10, min(int(list_limit or 80), 100))
+    vel = await tool_get_entity_velocity(http, eid, tenant_id, analyst_id)
+    if isinstance(vel, dict) and vel.get("error"):
+        velocity_block = vel
+    else:
+        velocity_block = vel
+    qc = await tool_list_cases(http, tenant_id, analyst_id, lim)
+    if isinstance(qc, dict) and qc.get("error"):
+        return {"error": "list_cases_failed", "detail": qc.get("error"), "entity_id": eid, "velocity": velocity_block}
+    cases = qc.get("items") if isinstance(qc, dict) else None
+    if not isinstance(cases, list):
+        cases = qc.get("cases") if isinstance(qc, dict) else None
+    if not isinstance(cases, list):
+        cases = []
+    matching: list[dict[str, Any]] = []
+    for c in cases:
+        if not isinstance(c, dict):
+            continue
+        ce = str(c.get("entity_id") or c.get("entityId") or "")
+        if ce == eid:
+            matching.append(
+                {
+                    "case_id": c.get("id"),
+                    "status": c.get("status"),
+                    "priority": c.get("priority"),
+                    "trace_id": c.get("trace_id"),
+                },
+            )
+    return _limit_result(
+        {
+            "entity_id": eid,
+            "velocity": velocity_block,
+            "list_cases_limit": lim,
+            "matching_open_or_recent_cases": len(matching),
+            "matching_case_sample": matching[:15],
+            "note": "Only cases returned by list_cases(limit) are scanned; not exhaustive.",
+        },
+    )
+
+
 def _replay_summary(resp: dict[str, Any]) -> dict[str, Any]:
     changed = [x for x in (resp.get("results") or []) if x.get("decision_changed")]
     return {
@@ -917,6 +1074,105 @@ TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
+            "name": "get_batch_profile",
+            "description": (
+                "Summarize an uploaded tabular batch (from POST /v1/batch/ingest): columns, inferred types, row_count, sample rows. Use before deeper analysis."
+            ),
+            "parameters": {
+                "type": "object",
+                "required": ["batch_id"],
+                "properties": {
+                    "batch_id": {"type": "string", "description": "UUID returned by /v1/batch/ingest"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "query_batch_rows",
+            "description": ("Read a slice of rows from an ingested CSV/JSON/Excel batch. Max 100 rows per call; use offset paging for large files."),
+            "parameters": {
+                "type": "object",
+                "required": ["batch_id"],
+                "properties": {
+                    "batch_id": {"type": "string"},
+                    "offset": {"type": "integer", "default": 0},
+                    "limit": {"type": "integer", "default": 25, "description": "Max 100"},
+                    "columns": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional subset of columns; default all",
+                    },
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "aggregate_batch_column",
+            "description": ("Aggregate one column of an ingested batch: value_counts (top 25) or numeric_summary (min/max/mean when values parse as numbers)."),
+            "parameters": {
+                "type": "object",
+                "required": ["batch_id", "column"],
+                "properties": {
+                    "batch_id": {"type": "string"},
+                    "column": {"type": "string"},
+                    "mode": {
+                        "type": "string",
+                        "enum": ["value_counts", "numeric_summary"],
+                        "default": "value_counts",
+                    },
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_knowledge",
+            "description": (
+                "Search investigation memos the analyst uploaded via POST /v1/knowledge/ingest "
+                "(runbooks, policy excerpts, past writeups). Use for institutional context; "
+                "still verify facts with case/graph/audit tools."
+            ),
+            "parameters": {
+                "type": "object",
+                "required": ["query"],
+                "properties": {
+                    "query": {"type": "string", "description": "Search query (keywords)"},
+                    "limit": {"type": "integer", "default": 5, "description": "Max hits (cap 15)"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "compare_entity_queue_snapshot",
+            "description": (
+                "Deterministic compare: fetches entity velocity and scans the current list_cases(limit) "
+                "window for rows with the same entity_id. Use for 'how hot is this entity vs queue' "
+                "without asking the model to count manually."
+            ),
+            "parameters": {
+                "type": "object",
+                "required": ["entity_id"],
+                "properties": {
+                    "entity_id": {"type": "string"},
+                    "list_limit": {
+                        "type": "integer",
+                        "default": 80,
+                        "description": "list_cases limit (10-100)",
+                    },
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "run_replay_ab_comparison",
             "description": (
                 "A/B replay: POST /v1/replay twice. Pass trace_ids (UUIDs, max 150) for paired evaluation on the "
@@ -954,6 +1210,11 @@ TOOL_DEFINITIONS = [
 ]
 
 TOOL_DISPATCH = {
+    "search_knowledge": tool_search_knowledge,
+    "compare_entity_queue_snapshot": tool_compare_entity_queue_snapshot,
+    "get_batch_profile": tool_get_batch_profile,
+    "query_batch_rows": tool_query_batch_rows,
+    "aggregate_batch_column": tool_aggregate_batch_column,
     "get_case": tool_get_case,
     "list_cases": tool_list_cases,
     "subgraph": tool_subgraph,

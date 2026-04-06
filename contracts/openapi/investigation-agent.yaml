@@ -14,6 +14,352 @@ paths:
       responses:
         "200":
           description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  ai_governance_profile:
+                    type: string
+                    enum: [us, eu_uk, global]
+                  ai_governance_label: { type: string }
+                  copilot_prompt_version: { type: string }
+                  copilot_features:
+                    type: object
+                    additionalProperties: true
+                  integration:
+                    type: object
+                    description: Same shape as GET /v1/integration (contract_version, profile_id, tools, families).
+                    additionalProperties: true
+  /v1/integration:
+    get:
+      operationId: integrationContract
+      description: >
+        Machine-readable integration surface for adapter parity: contract version, profile_id,
+        upstream service flags (no raw URLs), enabled tool names grouped by logical family.
+      responses:
+        "200":
+          description: Integration snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/governance:
+    get:
+      operationId: agentGovernanceInfo
+      description: Regional AI governance profile and illustrative reference list (not legal advice).
+      responses:
+        "200":
+          description: Governance metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  profile: { type: string }
+                  label: { type: string }
+                  references:
+                    type: array
+                    items: { type: string }
+                  batch_ttl_seconds: { type: integer }
+                  disclaimer: { type: string }
+  /v1/batch/ingest:
+    post:
+      operationId: batchIngest
+      description: >
+        Upload CSV, JSON, NDJSON, or XLSX for tabular analysis. Returns batch_id for copilot tools
+        (get_batch_profile, query_batch_rows, aggregate_batch_column). Scoped to tenant_id + analyst_id; in-memory TTL.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [tenant_id, analyst_id, file]
+              properties:
+                tenant_id: { type: string }
+                analyst_id: { type: string }
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Parsed batch metadata and sample rows
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  batch_id: { type: string, format: uuid }
+                  filename: { type: string }
+                  format: { type: string }
+                  row_count: { type: integer }
+                  columns:
+                    type: array
+                    items: { type: string }
+                  sample_rows:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  limits:
+                    type: object
+                    additionalProperties: true
+        "400":
+          description: Parse error or unsupported format
+  /v1/knowledge/ingest:
+    post:
+      operationId: knowledgeIngest
+      description: Store tenant+analyst scoped text memos for search_knowledge tool.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_id, analyst_id, body]
+              properties:
+                tenant_id: { type: string }
+                analyst_id: { type: string }
+                title: { type: string }
+                body: { type: string }
+      responses:
+        "200":
+          description: Document stored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  doc_id: { type: string, format: uuid }
+                  title: { type: string }
+                  ttl_hours: { type: integer }
+                  docs_stored_for_scope: { type: integer }
+                  embeddings_stored:
+                    type: boolean
+                    description: True when chunks were embedded (requires OPENAI_API_KEY and copilot_knowledge_embeddings).
+  /v1/feedback:
+    post:
+      operationId: chatFeedback
+      description: >
+        Persist analyst rating for a chat turn_id (SQLite under INVESTIGATION_DATA_DIR).
+        tenant_id and analyst_id are optional if the server recorded the turn (POST /v1/chat); otherwise send them explicitly.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [turn_id, rating]
+              properties:
+                turn_id: { type: string }
+                rating: { type: integer, minimum: -1, maximum: 1 }
+                note: { type: string }
+                claim_indices:
+                  type: array
+                  items: { type: integer }
+                tenant_id: { type: string }
+                analyst_id: { type: string }
+                tags:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Ack
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  stored: { type: boolean }
+                  feedback_id: { type: integer }
+  /v1/feedback/summary:
+    get:
+      operationId: feedbackSummary
+      description: Aggregated feedback counts and average rating for a tenant over a time window.
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: days
+          in: query
+          required: false
+          schema: { type: number, default: 7, minimum: 0.5, maximum: 365 }
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tenant_id: { type: string }
+                  window_days: { type: number }
+                  total: { type: integer }
+                  by_rating:
+                    type: object
+                    properties:
+                      "-1": { type: integer }
+                      "0": { type: integer }
+                      "1": { type: integer }
+                  avg_rating: { type: number, nullable: true }
+  /v1/feedback/recent:
+    get:
+      operationId: feedbackRecent
+      description: Recent feedback rows for a tenant (joins turn metadata when available).
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+      responses:
+        "200":
+          description: List
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        turn_id: { type: string }
+                        analyst_id: { type: string }
+                        rating: { type: integer }
+                        note: { type: string, nullable: true }
+                        claim_indices:
+                          type: array
+                          items: { type: integer }
+                          nullable: true
+                        created_at: { type: number }
+                        case_id: { type: string, nullable: true }
+                        playbook_id: { type: string, nullable: true }
+  /v1/review/turn:
+    post:
+      operationId: turnReviewSave
+      description: Record human sign-off (approved/rejected) for a copilot turn_id; SQLite under INVESTIGATION_DATA_DIR.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [turn_id, tenant_id, analyst_id, status]
+              properties:
+                turn_id: { type: string }
+                tenant_id: { type: string }
+                analyst_id: { type: string }
+                status: { type: string, enum: [approved, rejected] }
+                note: { type: string }
+      responses:
+        "200":
+          description: Stored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  stored: { type: boolean }
+                  review_id: { type: integer }
+    get:
+      operationId: turnReviewGet
+      description: Latest review for a turn_id within tenant scope.
+      parameters:
+        - name: turn_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Review or not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  found: { type: boolean }
+                  review:
+                    type: object
+                    nullable: true
+                    properties:
+                      id: { type: integer }
+                      turn_id: { type: string }
+                      tenant_id: { type: string }
+                      analyst_id: { type: string }
+                      status: { type: string }
+                      note: { type: string, nullable: true }
+                      created_at: { type: number }
+  /v1/chat/stream:
+    post:
+      operationId: chatStream
+      description: >
+        Server-Sent Events stream (text/event-stream): meta, tool_calls count, reply deltas, final JSON tail.
+        Same request body as POST /v1/chat. Send x-reviewer-secret when sensitive tools are enabled.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_id, analyst_id, messages]
+              properties:
+                tenant_id: { type: string }
+                analyst_id: { type: string }
+                case_id: { type: string, nullable: true }
+                batch_id: { type: string, nullable: true }
+                playbook_id: { type: string, nullable: true }
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    required: [role, content]
+                    properties:
+                      role: { type: string }
+                      content: { type: string }
+      responses:
+        "200":
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /v1/playbooks:
+    get:
+      operationId: listPlaybooks
+      description: Built-in investigation playbooks (workflow hints appended to system prompt when playbook_id is set on chat).
+      responses:
+        "200":
+          description: Catalog of playbooks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  playbooks:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, title, vertical]
+                      properties:
+                        id: { type: string }
+                        title: { type: string }
+                        vertical: { type: string }
   /v1/chat:
     post:
       operationId: chat
@@ -29,8 +375,30 @@ paths:
                 analyst_id: { type: string }
                 case_id:
                   type: string
-                  format: uuid
                   nullable: true
+                batch_id:
+                  type: string
+                  nullable: true
+                  description: From POST /v1/batch/ingest; enables tabular batch tools in-session
+                playbook_id:
+                  type: string
+                  nullable: true
+                  description: Optional id from GET /v1/playbooks
+                platform_audit:
+                  type: array
+                  nullable: true
+                  description: Optional recent platform audit rows for analyst context
+                  items:
+                    type: object
+                    additionalProperties: true
+                context_options:
+                  type: object
+                  nullable: true
+                  properties:
+                    track_historical_actions: { type: boolean }
+                    only_session: { type: boolean }
+                    skip_session_actions: { type: boolean }
+                    session_started_at: { type: string, nullable: true }
                 messages:
                   type: array
                   items:
@@ -57,3 +425,76 @@ paths:
                         tool: { type: string }
                         args: { type: object, additionalProperties: true }
                         result: { type: object, additionalProperties: true }
+                  claims:
+                    type: array
+                    items:
+                      type: object
+                      required: [text, source]
+                      properties:
+                        text: { type: string }
+                        source: { type: string, enum: [tool, unknown] }
+                  source_refs:
+                    type: array
+                    description: Structured summary of tool touches (ids + ok/error) for transparency
+                    items:
+                      type: object
+                      additionalProperties: true
+                  playbook_id:
+                    type: string
+                    description: Echoed when a playbook was active for this turn
+                  claims_warning: { type: string }
+                  claims_grounding_adjustments:
+                    type: array
+                    items: { type: string }
+                  warning: { type: string }
+                  injection_sanitized: { type: boolean }
+                  turn_id: { type: string }
+                  prompt_version: { type: string }
+                  answer_sections:
+                    type: object
+                    additionalProperties: true
+                  claims_deterministic_support:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  tool_acknowledgment_warnings:
+                    type: array
+                    items: { type: string }
+                  judge_assessments:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+                  judge_error: { type: string }
+                  evidence_bundle_draft:
+                    type: object
+                    description: >
+                      Audit-oriented snapshot. Default format is dual: legacy schema_hint
+                      (tarka.evidence_bundle_draft/v0) plus v1 fields (schema_id tarka.evidence_bundle/v1,
+                      contract_version, tool_trace_redacted, content_sha256) when
+                      COPILOT_EVIDENCE_BUNDLE_FORMAT is dual or v1. JSON Schema (v1 subset):
+                      contracts/schemas/tarka-evidence-bundle-v1.schema.json
+                    additionalProperties: true
+                  derived_facts:
+                    type: array
+                    description: Server-extracted scalars from successful tools (when COPILOT_DERIVED_FACTS or strict assurance).
+                    items:
+                      type: object
+                      properties:
+                        tool: { type: string }
+                        field: { type: string }
+                        value: {}
+                  assurance_mode:
+                    type: string
+                    enum: [strict]
+                    description: Present when deployment uses strict assurance.
+                  assurance_refused:
+                    type: boolean
+                    description: True when strict mode withheld model prose due to policy violations.
+                  assurance_violations:
+                    type: array
+                    items: { type: string }
+                    description: Machine-readable reasons when assurance_refused is true.
+        "400":
+          description: Invalid batch_id, playbook_id, message limits, or scope id format
+        "403":
+          description: Analyst not permitted

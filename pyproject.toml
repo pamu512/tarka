@@ -108,6 +108,8 @@ py-modules = ["tarka"]
 # 160 accommodates long catalog URLs and benchmark output without per-line churn; keep new code readable.
 line-length = 160
 target-version = "py311"
+# Cookiecutter templates contain Jinja in .py files; exclude from Python lint.
+extend-exclude = ["templates/cookiecutter-investigation-integration-adapter"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
