@@ -1,0 +1,21 @@
+[project]
+name = "saarthi-pro-adapter-{{ cookiecutter.adapter_slug }}"
+version = "0.1.0"
+description = "{{ cookiecutter.project_description }}"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "httpx>=0.28.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

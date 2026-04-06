@@ -4,6 +4,9 @@ WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm install
 COPY frontend/ .
+# Baked into the UI for regional AI governance banners (us | eu_uk | global).
+ARG VITE_AI_GOVERNANCE_PROFILE=global
+ENV VITE_AI_GOVERNANCE_PROFILE=${VITE_AI_GOVERNANCE_PROFILE}
 RUN npm run build
 
 FROM nginx:alpine

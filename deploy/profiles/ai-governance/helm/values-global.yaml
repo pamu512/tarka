@@ -1,0 +1,4 @@
+# helm upgrade --install tarka ./deploy/helm/fraud-stack -f deploy/profiles/ai-governance/helm/values-global.yaml
+investigationAgent:
+  enabled: true
+  aiGovernanceProfile: global

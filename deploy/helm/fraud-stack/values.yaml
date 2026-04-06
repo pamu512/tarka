@@ -61,6 +61,11 @@ investigationAgent:
   enabled: false
   image: tarka-investigation-agent
   tag: latest
+  # Regional AI governance: us | eu_uk | global (see docs/docs/guides/ai-governance-regional-builds.md)
+  aiGovernanceProfile: global
+  # Optional in-memory batch TTL for copilot uploads (seconds); omit to use default
+  batchTtlSeconds: null
+  extraEnv: {}
 
 integrationIngress:
   enabled: false

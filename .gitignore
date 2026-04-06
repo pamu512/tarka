@@ -35,3 +35,6 @@ Thumbs.db
 
 # Local SQLite files under services (dev/demo; not release artifacts)
 services/**/*.db
+
+# Investigation agent local data dir (feedback, RAG, review DB paths in dev)
+services/investigation-agent/var/

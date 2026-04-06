@@ -1,0 +1,10 @@
+# Trust weights (optional, run before shares)
+{"op": "trust", "tenant_id": "demo-tenant-a", "trust_score": 1.0}
+{"op": "trust", "tenant_id": "demo-tenant-b", "trust_score": 1.2}
+# Share fraud signals (requires CONSORTIUM_ENABLED on decision-api)
+{"op": "share", "tenant_id": "demo-tenant-a", "entity_id": "user-12345", "signal_type": "account_takeover", "severity": 2.0}
+{"op": "share", "tenant_id": "demo-tenant-b", "entity_id": "user-12345", "signal_type": "mule_pattern", "severity": 1.5}
+# Look up aggregate for that entity (read-only)
+{"op": "check", "tenant_id": "demo-tenant-a", "entity_id": "user-12345"}
+# After review, record outcome
+{"op": "feedback", "tenant_id": "demo-tenant-a", "entity_id": "user-12345", "outcome": "confirmed_fraud"}

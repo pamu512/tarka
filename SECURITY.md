@@ -23,6 +23,10 @@ Security fixes are applied on the default branch (`master` / `main`) and release
 
 See [docs/docs/guides/security-scanning.md](docs/docs/guides/security-scanning.md) for maintainer notes.
 
+## Investigation Copilot (LLM)
+
+The **investigation-agent** forwards chat, system instructions, optional platform-audit context, and **tool results** (cases, graph, decision audits) to the configured LLM endpoint. Operators should read **[Investigation Copilot — LLM data flow](docs/docs/guides/investigation-agent-llm-data-flow.md)** for subprocessors, tenant scoping, and the **`claims` / `reply`** response split before enabling in regulated environments.
+
 ## Scope and out of scope
 
 **In scope:** RCE, authentication bypass, cross-tenant data access, insecure default credentials in shipped configs, dependency CVEs affecting default deployments.

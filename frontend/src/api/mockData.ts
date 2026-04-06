@@ -481,18 +481,114 @@ function applyInvestigationMockContextOptions(body: AnyObj, events: AnyObj[]): A
   return out;
 }
 
+function mockInvestigationClaims(toolCallsLen: number): { text: string; source: "tool" | "unknown" }[] {
+  const claims: { text: string; source: "tool" | "unknown" }[] = [
+    { text: "Offline demo mock: connect investigation-agent for live tool-backed claims.", source: "unknown" },
+  ];
+  if (toolCallsLen > 0) {
+    claims.push({
+      text: "Simulated tool steps above are for UI demo only, not production Case/Graph APIs.",
+      source: "unknown",
+    });
+  }
+  return claims;
+}
+
+/** Aligns demo tool rows with live `source_refs` cards (tool, ok, key ids). */
+function buildMockSourceReferenceCards(toolCalls: AnyObj[]): AnyObj[] {
+  return toolCalls.map((tc) => {
+    const name = String(tc.tool ?? tc.name ?? "");
+    let args: Record<string, unknown> = {};
+    try {
+      const raw =
+        typeof tc.arguments === "string"
+          ? tc.arguments
+          : tc.args != null
+            ? JSON.stringify(tc.args)
+            : "{}";
+      args = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      args = {};
+    }
+    let result: AnyObj = {};
+    try {
+      const r = tc.result;
+      if (typeof r === "string") {
+        result = JSON.parse(r) as AnyObj;
+      } else if (r && typeof r === "object") {
+        result = r as AnyObj;
+      }
+    } catch {
+      result = {};
+    }
+    const ok = result.error == null;
+    const card: AnyObj = { tool: name, ok };
+    for (const key of ["case_id", "entity_id", "trace_id", "batch_id"]) {
+      const v = args[key];
+      if (v != null && String(v).trim()) {
+        card[key] = String(v).trim();
+      }
+    }
+    if (result.error != null) {
+      card.error = String(result.error).slice(0, 120);
+    }
+    return card;
+  });
+}
+
 function finalizeInvestigationMockReply(
   reply: string,
   tool_calls: AnyObj[],
   body: AnyObj,
   opts: { includeAudit?: boolean } = {},
-): { reply: string; tool_calls: AnyObj[] } {
+): AnyObj {
+  const pbRaw = body.playbook_id;
+  const playbookEcho =
+    typeof pbRaw === "string" && pbRaw.trim() ? (pbRaw.trim() as string) : undefined;
+
+  const finish = (
+    r: string,
+    tools: AnyObj[],
+    claims: { text: string; source: "tool" | "unknown" }[],
+  ) => {
+    const turnId = `mock-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const det = claims.map((c, i) => ({
+      claim_index: i,
+      supported: c.source === "unknown" ? true : false,
+      method: "mock_demo",
+      hint: null as string[] | null,
+    }));
+    return {
+      reply: r,
+      tool_calls: tools,
+      claims,
+      source_refs: buildMockSourceReferenceCards(tools),
+      turn_id: turnId,
+      prompt_version: "3.2.0-mock",
+      answer_sections: {
+        sections_found: ["facts_from_tools", "inferences", "unknowns", "next_steps"],
+        facts_from_tools: "(Demo) See tool_calls and narrative.",
+        inferences: "(Demo) Hypotheses not verified against live APIs.",
+        unknowns: "None in mock.",
+        next_steps: "Connect investigation-agent for full structured output.",
+      },
+      claims_deterministic_support: det,
+      evidence_bundle_draft: {
+        schema_hint: "tarka.evidence_bundle_draft/v0",
+        turn_id: turnId,
+        prompt_version: "3.2.0-mock",
+        tool_invocation_count: tools.length,
+      },
+      ...(playbookEcho ? { playbook_id: playbookEcho } : {}),
+    };
+  };
+
   if (opts.includeAudit === false) {
-    return { reply, tool_calls };
+    return finish(reply, tool_calls, mockInvestigationClaims(tool_calls.length));
   }
   const co = body.context_options as Record<string, unknown> | undefined;
   if (co && co.track_historical_actions === false) {
-    return { reply, tool_calls };
+    return finish(reply, tool_calls, mockInvestigationClaims(tool_calls.length));
   }
   const fromBody = body.platform_audit as AnyObj[] | undefined;
   let rawAudit =
@@ -502,7 +598,7 @@ function finalizeInvestigationMockReply(
 
   rawAudit = applyInvestigationMockContextOptions(body, rawAudit).slice(0, 30);
   if (rawAudit.length === 0) {
-    return { reply, tool_calls };
+    return finish(reply, tool_calls, mockInvestigationClaims(tool_calls.length));
   }
 
   const toolAuditFeed = {
@@ -526,22 +622,22 @@ function finalizeInvestigationMockReply(
     }),
   };
 
-  return {
-    reply: `${reply}\n\n${buildAuditAnalysisParagraph(rawAudit)}`,
-    tool_calls: [...tool_calls, toolAuditFeed],
-  };
+  const mergedTools = [...tool_calls, toolAuditFeed];
+  return finish(
+    `${reply}\n\n${buildAuditAnalysisParagraph(rawAudit)}`,
+    mergedTools,
+    mockInvestigationClaims(mergedTools.length),
+  );
 }
 
 /** Rich demo responses for Investigation Copilot when backends are offline. */
-function mockInvestigationChatResponse(body: AnyObj): {
-  reply: string;
-  tool_calls: AnyObj[];
-} {
+function mockInvestigationChatResponse(body: AnyObj): AnyObj {
   const messages = (body.messages as AnyObj[]) ?? [];
   const userMsgs = messages.filter((m) => m.role === "user");
   const last = userMsgs.length ? String(userMsgs[userMsgs.length - 1].content ?? "") : "";
   const t = last.toLowerCase();
   const caseId = body.case_id != null ? String(body.case_id) : "";
+  const batchId = body.batch_id != null ? String(body.batch_id) : "";
   const tenantId = String(body.tenant_id ?? "demo");
 
   const toolCase = {
@@ -644,11 +740,16 @@ function mockInvestigationChatResponse(body: AnyObj): {
     );
   }
 
+  const batchHint = batchId
+    ? `_Active **batch_id** (\`${batchId.slice(0, 8)}…\`) — live agent would use **get_batch_profile**, **query_batch_rows**, **aggregate_batch_column** on this upload._`
+    : "_No batch file attached — use **Upload batch** (CSV / JSON / Excel) for tabular analysis._";
+
   return finalizeInvestigationMockReply(
     [
       "**Copilot (mock)** — I’m running in **demo mode** without the live investigation agent.",
       "Your message is in context; typical next steps: pull **case + audit**, then **graph neighborhood**, then compare **velocity vs peers**.",
       caseId ? `_Linked case: \`${caseId.slice(0, 12)}…\`_` : "_No case_id in URL — open from a case for tighter context._",
+      batchHint,
       "",
       "_Synthetic tool rows below illustrate cross-module pulls (Cases, Decisions, Graph, Platform audit)._",
     ].join("\n"),
@@ -657,10 +758,96 @@ function mockInvestigationChatResponse(body: AnyObj): {
   );
 }
 
+function safeParseRequestBody(init?: RequestInit): AnyObj {
+  if (!init?.body || typeof init.body !== "string") return {};
+  try {
+    return JSON.parse(init.body) as AnyObj;
+  } catch {
+    return {};
+  }
+}
+
 export function getMockResponse(url: string, init?: RequestInit): unknown | null {
   const method = (init?.method ?? "GET").toUpperCase();
   const path = parsePath(url);
-  const body = init?.body ? JSON.parse(String(init.body)) : {};
+  const body = safeParseRequestBody(init);
+
+  if (path.includes("/api/investigation/v1/governance") && method === "GET") {
+    return {
+      profile: "global",
+      label: "Global",
+      references: [
+        "ISO/IEC 42001 (AI management systems — optional certification path)",
+        "OECD AI Principles",
+        "Contractual and local statutory requirements (varies by country)",
+      ],
+      batch_ttl_seconds: 7200,
+      disclaimer:
+        "Reference list is illustrative. Validate deployment against your counsel, DPA, and sector rules.",
+    };
+  }
+
+  if (path.includes("/api/investigation/v1/knowledge/ingest") && method === "POST") {
+    return {
+      doc_id: "00000000-0000-4000-8000-0000000000aa",
+      title: String((body as AnyObj).title ?? "untitled").slice(0, 256),
+      ttl_hours: 2,
+      docs_stored_for_scope: 1,
+      embeddings_stored: false,
+    };
+  }
+
+  if (path.includes("/api/investigation/v1/feedback/summary") && method === "GET") {
+    const tid = new URL(url, "http://localhost").searchParams.get("tenant_id") ?? "demo";
+    return {
+      tenant_id: tid,
+      window_days: 7,
+      total: 0,
+      by_rating: { "-1": 0, "0": 0, "1": 0 },
+      avg_rating: null,
+    };
+  }
+
+  if (path.includes("/api/investigation/v1/feedback/recent") && method === "GET") {
+    return { items: [] };
+  }
+
+  if (path.includes("/api/investigation/v1/feedback") && method === "POST") {
+    return { ok: true, stored: true, feedback_id: 1 };
+  }
+
+  if (path.includes("/api/investigation/v1/playbooks") && method === "GET") {
+    return {
+      playbooks: [
+        { id: "account_takeover", title: "Account takeover (ATO)", vertical: "fintech" },
+        { id: "aml_escalation", title: "AML & fincrime escalation (facts vs suspicion)", vertical: "aml_fincrime" },
+        { id: "collusion_fake_accounts", title: "Collusion, fake & duplicate accounts", vertical: "platform_abuse" },
+        { id: "coupon_instrument_abuse", title: "Coupon, stacking & instrument-led promo abuse", vertical: "ecommerce_promo" },
+        { id: "disputes_chargebacks", title: "Disputes & chargebacks (lifecycle + evidence)", vertical: "payments_disputes" },
+        { id: "fulfillment_inrb_snad", title: "Fulfillment — INR, SNAD, damage, theft claims", vertical: "ecommerce_logistics" },
+        { id: "mule_layering", title: "Money mule & layering indicators", vertical: "payments_fincrime" },
+        { id: "payments_first_party", title: "Payments — first-party / friendly fraud", vertical: "payments" },
+        { id: "refund_promo_abuse", title: "Refund & promo abuse", vertical: "ecommerce_food_delivery" },
+        { id: "scheme_monitoring_merchant", title: "Scheme-style monitoring (fraud + disputes + testing)", vertical: "payments_acquiring" },
+      ],
+    };
+  }
+
+  if (path.includes("/api/investigation/v1/batch/ingest") && method === "POST") {
+    return {
+      batch_id: "00000000-0000-4000-8000-000000000099",
+      filename: "demo-upload.csv",
+      format: "csv",
+      row_count: 3,
+      columns: ["entity_id", "amount_cents", "risk_flag"],
+      sample_rows: [
+        { entity_id: "e1", amount_cents: "1200", risk_flag: "high" },
+        { entity_id: "e2", amount_cents: "99", risk_flag: "low" },
+        { entity_id: "e3", amount_cents: "5000", risk_flag: "high" },
+      ],
+      limits: { max_rows_stored: 8000, max_file_mib: 15, ttl_hours: 2 },
+    };
+  }
 
   if (path.includes("/api/decisions/v1/decisions/evaluate")) {
     return {
@@ -733,7 +920,8 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
     if (method === "DELETE") return { removed: true };
   }
   if (path.includes("/api/cases/v1/cases/bulk-update")) {
-    return { updated: (body.case_ids ?? []).length, items: mockCases };
+    const caseIds = Array.isArray((body as AnyObj).case_ids) ? ((body as AnyObj).case_ids as unknown[]) : [];
+    return { updated: caseIds.length, items: mockCases };
   }
   if (path.includes("/api/cases/v1/cases/") && path.includes("/playbooks/") && method === "POST") {
     return { ok: true, playbook: "demo", case: mockCases[0] };
@@ -920,7 +1108,18 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   }
   if (path.includes("/api/decisions/v1/lists/") && method === "POST") {
     if (path.endsWith("/bulk")) {
-      const added = (body.entries ?? []).map((e: AnyObj) => ({ list_type: path.split("/").slice(-2, -1)[0], tenant_id: "demo", entity_id: e.entity_id, reason: e.reason ?? "", created_by: "ui", expires_at: null, metadata: {}, created_at: nowIso() }));
+      const entriesRaw = (body as AnyObj).entries;
+      const entriesList = Array.isArray(entriesRaw) ? (entriesRaw as AnyObj[]) : [];
+      const added = entriesList.map((e) => ({
+        list_type: path.split("/").slice(-2, -1)[0],
+        tenant_id: "demo",
+        entity_id: e.entity_id,
+        reason: e.reason ?? "",
+        created_by: "ui",
+        expires_at: null,
+        metadata: {},
+        created_at: nowIso(),
+      }));
       mockListEntries = [...added, ...mockListEntries];
       return { added: added.length, entries: added };
     }

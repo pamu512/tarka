@@ -19,8 +19,8 @@ from graph_service.custom_schema import (
     load_tenant_schema,
     save_tenant_schema,
 )
-from graph_service.neo4j_client import (
-    close_driver,
+from graph_service.graph_runtime import (
+    close_graph_backend,
     create_link,
     get_tags,
     query_subgraph,
@@ -56,7 +56,7 @@ async def require_api_key(request: Request) -> None:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     yield
-    await close_driver()
+    await close_graph_backend()
 
 
 app = FastAPI(

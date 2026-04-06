@@ -7,6 +7,7 @@
 | **Trivy** (filesystem + decision-api image) | [.github/workflows/security-scan.yml](../../../.github/workflows/security-scan.yml) | SARIF uploaded to **GitHub → Security → Code scanning** (when available for the repo). Table output in job logs. |
 | **Dependabot** | [.github/dependabot.yml](../../../.github/dependabot.yml) | **Pull requests** grouped by ecosystem; review + CI before merge. |
 | **CodeQL** | [.github/workflows/codeql.yml](../../../.github/workflows/codeql.yml) | Static analysis alerts (if enabled). |
+| **Investigation Copilot LLM** | [investigation-agent-llm-data-flow.md](./investigation-agent-llm-data-flow.md) | What data may be sent to the configured LLM endpoint (`investigation-agent`). |
 
 Forks and some plan tiers may not show SARIF uploads; logs still contain Trivy tables.
 

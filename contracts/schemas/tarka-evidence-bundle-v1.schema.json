@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tarka.dev/schemas/tarka-evidence-bundle-v1.json",
+  "title": "Tarka evidence bundle draft (v1 fields)",
+  "description": "Optional fields on chat evidence_bundle_draft when schema_id is tarka.evidence_bundle/v1. v0-only payloads use schema_hint only.",
+  "type": "object",
+  "required": ["schema_id", "contract_version", "generated_at", "turn_id", "tool_invocation_count"],
+  "properties": {
+    "schema_hint": {
+      "type": "string",
+      "const": "tarka.evidence_bundle_draft/v0",
+      "description": "Present when format is dual or v0."
+    },
+    "schema_id": {
+      "type": "string",
+      "const": "tarka.evidence_bundle/v1"
+    },
+    "contract_version": { "type": "string" },
+    "agent_build": { "type": "string", "maxLength": 256 },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "turn_id": { "type": "string" },
+    "prompt_version": { "type": "string" },
+    "playbook_id": { "type": ["string", "null"] },
+    "redaction_level": {
+      "type": "string",
+      "enum": ["none", "analyst_view", "export_safe"]
+    },
+    "tool_trace_redacted": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["tool", "args_sha256"],
+        "properties": {
+          "tool": { "type": "string" },
+          "args_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "content_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "narrative": {
+      "type": "object",
+      "properties": {
+        "reply": { "type": "string" }
+      }
+    },
+    "tool_invocation_count": { "type": "integer", "minimum": 0 }
+  },
+  "additionalProperties": true
+}

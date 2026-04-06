@@ -61,6 +61,74 @@ export const QUICK_INSTANT_SKILLS: CopilotSkill[] = [
 
 export const COPILOT_SKILL_GROUPS: CopilotSkillGroup[] = [
   {
+    id: "typology-playbooks",
+    title: "Typology playbooks",
+    blurb:
+      "Use the **Playbook** dropdown in the Investigation header to send `playbook_id` with each message (same catalog as `GET /v1/playbooks`). That appends server-side workflow hints to the system prompt—including scheme-style monitoring, disputes, AML escalation, collusion, coupon abuse, and fulfillment claims. Prompts below are optional user-side framings if you prefer not to use the dropdown.",
+    skills: [
+      {
+        id: "pb-payments_first_party",
+        label: "Framing: payments / first-party",
+        prompt:
+          "Investigate as first-party / friendly fraud: pull case + decision audit, then graph with SDK/automation/VPN context, then dispute/chargeback angles only if tools expose them, then batch cohorts if a batch is attached. Separate tool-backed facts from hypotheses.",
+      },
+      {
+        id: "pb-account_takeover",
+        label: "Framing: account takeover",
+        prompt:
+          "Investigate as potential ATO: prioritize decision audit (tamper, replay, network, geo), graph + velocity for new/shared devices, then reconcile session narrative strictly from tool outputs. Advisory containment ideas only.",
+      },
+      {
+        id: "pb-refund_promo_abuse",
+        label: "Framing: refund / promo abuse",
+        prompt:
+          "Investigate refund or promo abuse: graph links and shared instruments/addresses/devices, velocity from audits, batch value_counts on refund/promo/SKU columns if a batch exists. No stereotype proxies—ground patterns in tools.",
+      },
+      {
+        id: "pb-mule_layering",
+        label: "Framing: mule / layering (indicators)",
+        prompt:
+          "Map mule/layering indicators only: deeper graph paths, velocity + tags, weak labels if available. Use SAR-style fact vs suspicion language; no assertions of criminality; human disposition required.",
+      },
+      {
+        id: "pb-scheme_monitoring_merchant",
+        label: "Framing: scheme-style exposure (fraud + disputes + testing)",
+        prompt:
+          "Investigate merchant/acquirer-style exposure: segment fraud vs non-fraud dispute populations if data allows; look for enumeration or card-testing proxies (auth/decline bursts, shared BIN/device); graph linked entities; list KPI questions for risk owners—not a network compliance ruling.",
+      },
+      {
+        id: "pb-disputes_chargebacks",
+        label: "Framing: disputes / chargebacks lifecycle",
+        prompt:
+          "Triage this dispute/chargeback: classify using only tool fields (fraud vs processing vs consumer dispute). Pull decision audit for auth and processing signals; check fulfillment or digital-delivery correlation only from data; note evidence gaps for representment as questions for ops.",
+      },
+      {
+        id: "pb-aml_escalation",
+        label: "Framing: AML / fincrime escalation",
+        prompt:
+          "Build an AML-escalation-style view: velocity and flow patterns, counterparties via graph, sanctions/PEP only if tools expose hits. Output facts vs suspicion bullets; recommend compliance handoff when appropriate—no filing or legal conclusions.",
+      },
+      {
+        id: "pb-collusion_fake_accounts",
+        label: "Framing: collusion / fake & duplicate accounts",
+        prompt:
+          "Investigate organized or multi-account abuse: shared devices, cards, addresses, referrals; new-account burst patterns; incentive abuse. Use graph + velocity; avoid demographic proxies; describe rings only with tool-backed links.",
+      },
+      {
+        id: "pb-coupon_instrument_abuse",
+        label: "Framing: coupon stacking / instrument farming",
+        prompt:
+          "Investigate coupon or promo abuse: batch aggregates on promo/campaign columns if present; concentration of one code or instrument across entities; graph links around redemption spikes; advisory control ideas tied to observed patterns.",
+      },
+      {
+        id: "pb-fulfillment_inrb_snad",
+        label: "Framing: INR / SNAD / damage / theft claims",
+        prompt:
+          "Reconcile item-not-received, not-as-described, damage, or theft claims with order, fulfillment, and audit data from tools only. Contrast geo/device history with the claim; consider friendly fraud vs organized reshipping only when data supports; list business outcome options without prescribing.",
+      },
+    ],
+  },
+  {
     id: "rules-cases",
     title: "Cases & rule base",
     blurb: "Review existing work and suggest improvements to policies, lists, and thresholds—always advisory.",
