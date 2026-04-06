@@ -89,7 +89,7 @@ docker compose --profile full up -d
 
 ## Running Tests
 
-**CI:** GitHub Actions runs lint (Ruff); Python tests for decision-api, case-api, graph-service, integration-ingress, investigation-agent (including golden integration profiles), graphql-gateway, event-ingest, analytics-sink, feature-service, ml-scoring, and the Python SDK; **`npm run build`** for the **frontend** and **`npm run build`** for **`packages/fraud-sdk-typescript`**; then Docker image builds for each `services/*/Dockerfile` (see `.github/workflows/ci.yml`). **Additionally**, job **`docker-build-saarthi-pro-agent`** builds **`distributions/saarthi-pro-agent/Dockerfile`** (standalone investigation agent image); it does **not** gate `stack-smoke`. For **branch protection**, consider requiring both **`docker-build`** and **`docker-build-saarthi-pro-agent`** so standalone Pro-shaped images stay buildable. Security scanning (Trivy + SARIF upload) runs in `.github/workflows/security-scan.yml`.
+**CI:** GitHub Actions runs lint (Ruff); Python tests for decision-api, case-api, graph-service, integration-ingress, investigation-agent (including golden integration profiles), graphql-gateway, event-ingest, analytics-sink, feature-service, ml-scoring, and the Python SDK; **`npm run build`** for the **frontend** and **`npm run build`** for **`packages/fraud-sdk-typescript`**; then Docker image builds for each `services/*/Dockerfile` (see `.github/workflows/ci.yml`), including **`investigation-agent`**. **Saarthi Pro** commercial images are **not** built here; they ship from the private **Saarthi-pro** repo. Security scanning (Trivy + SARIF upload) runs in `.github/workflows/security-scan.yml`.
 
 Each service has a `tests/` directory. Run tests from the service root:
 

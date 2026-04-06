@@ -1,5 +1,5 @@
 """
-Map customer Case / Graph / Decision HTTP APIs to shapes expected by Saarthi investigation-agent tools.
+Map customer Case / Graph / Decision HTTP APIs to shapes expected by investigation-agent tools.
 
 This module is a stub: implement real clients, auth, pagination, and field mapping here (or split into
 submodules). Keep `INTEGRATION_PROFILE_ID` in agent config aligned with profile `{{ cookiecutter.integration_profile_id }}`.

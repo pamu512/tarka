@@ -33,7 +33,7 @@ Use these **`INTEGRATION_PROFILE_ID`** values in config and in order forms. **Re
 
 | `integration_profile_id` | Stack / wiring (internal) | Golden profiles to certify | Adapter / image pointer |
 |----------------------------|---------------------------|----------------------------|-------------------------|
-| `tarka_reference_v1` | Default OSS profile: case + decision + graph URLs set (typical local Compose) | `full` | Monorepo `services/investigation-agent`; image: [`distributions/saarthi-pro-agent`](../../../distributions/saarthi-pro-agent/README.md) |
+| `tarka_reference_v1` | Default OSS profile: case + decision + graph URLs set (typical local Compose) | `full` | Monorepo `services/investigation-agent`; image: `services/investigation-agent/Dockerfile` |
 | `tarka_case_decision_no_graph_v1` | Case + decision APIs; **no** `GRAPH_SERVICE_URL` (hide tools without upstream **on**) | `no_graph` | Same agent binary; env-only profile |
 | `tarka_case_only_v1` | Only `CASE_API_URL`; graph + decision empty | `case_only` | Narrow integration / phased rollout |
 | `tarka_legacy_tool_visibility_v1` | Case only but `COPILOT_HIDE_TOOLS_WITHOUT_UPSTREAM=false` (tools visible, calls may error) | `legacy_visible` | Legacy parity; document risk in runbook |
@@ -47,4 +47,4 @@ Use these **`INTEGRATION_PROFILE_ID`** values in config and in order forms. **Re
 
 - [Investigation agent integration contract](investigation-agent-integration-contract.md)
 - [Saarthi Pro roadmap](saarthi-pro-roadmap.md) · [certification checklist](saarthi-pro-certification-checklist.md) · [adapter SOW template](saarthi-pro-adapter-sow-template.md)
-- Cookiecutter: `templates/cookiecutter-saarthi-pro-adapter/`
+- Cookiecutter: `templates/cookiecutter-investigation-integration-adapter/`

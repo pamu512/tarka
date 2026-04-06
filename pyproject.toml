@@ -109,7 +109,7 @@ py-modules = ["tarka"]
 line-length = 160
 target-version = "py311"
 # Cookiecutter templates contain Jinja in .py files; exclude from Python lint.
-extend-exclude = ["templates/cookiecutter-saarthi-pro-adapter"]
+extend-exclude = ["templates/cookiecutter-investigation-integration-adapter"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]

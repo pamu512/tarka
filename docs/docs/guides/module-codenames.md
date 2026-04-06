@@ -25,7 +25,7 @@ Tarka uses a **two-layer name** so scripts stay stable while product language st
 | `gateway` | **Riti** | रीति — iron rust (technical lexicon); *Vajralepa* ingredient → binding join layer | GraphQL façade |
 | `frontend` | **Dwar** | द्वार — door, portal | Operator UI |
 
-**Saarthi (`agent`):** open reference implementation in-repo at `services/investigation-agent`. **[Saarthi Pro](https://github.com/pamu512/Saarthi-pro)** is the **commercial** distribution (same agent lineage; vendor packaging, support, optional maintained adapters). Comparison for platform teams and procurement: [Saarthi Pro vs OSS](saarthi-pro-vs-oss.md). Standalone image build: [`distributions/saarthi-pro-agent`](../../../distributions/saarthi-pro-agent/README.md). Roadmap and parity: [Saarthi Pro roadmap](saarthi-pro-roadmap.md), [distribution & contract parity](saarthi-pro-distribution-and-contract-parity.md).
+**Saarthi (`agent`):** open reference at `services/investigation-agent`; **container:** `services/investigation-agent/Dockerfile`. **[Saarthi-pro](https://github.com/pamu512/Saarthi-pro)** is the **private commercial** repo (wraps the same agent via `saarthi_pro.asgi`, **`/v1/pro`**, optional license gate; clones Tarka at build time). Comparison: [Saarthi Pro vs OSS](saarthi-pro-vs-oss.md). Roadmap / parity: [Saarthi Pro roadmap](saarthi-pro-roadmap.md), [distribution & contract parity](saarthi-pro-distribution-and-contract-parity.md).
 
 ### Etymology: Riti (`gateway`)
 

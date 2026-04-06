@@ -100,9 +100,9 @@ If they maintain the adapter:
 | **Unit tests** | `services/investigation-agent/tests/test_integration_contract.py` |
 | **Live smoke** | `scripts/ci/check_integration_contract.py --base-url …` |
 | **Upstream mock (stdlib)** | `scripts/integration_adapter_mock/server.py` — stub Case/Graph/Decision paths for adapter dev |
-| **Standalone agent image** | [`distributions/saarthi-pro-agent/`](../../../distributions/saarthi-pro-agent/README.md) — Dockerfile + `RELEASE.md` + build scripts (Pro-branded publish path) |
+| **OSS agent image** | `services/investigation-agent/Dockerfile` (monorepo root build context); CI **`docker-build`** |
 
-**Shipped in OSS reference:** profile-scoped **golden tests** + CI matrix (`test-investigation-agent-golden-matrix`), adapter **cookiecutter** template (`templates/cookiecutter-saarthi-pro-adapter/`), and **[customer API change policy](saarthi-customer-api-change-policy.md)** (notice, joint certification, exceptions).
+**Shipped in OSS reference:** profile-scoped **golden tests** + CI matrix (`test-investigation-agent-golden-matrix`), adapter **cookiecutter** (`templates/cookiecutter-investigation-integration-adapter/`), and **[customer API change policy](saarthi-customer-api-change-policy.md)** (notice, joint certification, exceptions). **Pro-branded** images, `RELEASE.md`, and registry publish paths → **private** [Saarthi-pro](https://github.com/pamu512/Saarthi-pro).
 
 **Commercial playbooks (fraud-stack docs):** Phase 1–3 **templates and specs** — [roadmap index](saarthi-pro-roadmap.md#phase-13-artifact-index-quick-links) (upgrade path, release notes, support severity, certification, SSO/SCIM, DPA, VPC, runbooks, SOW, evidence v1 mapping, analytics, economics, legal exhibits).
 

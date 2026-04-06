@@ -1,6 +1,6 @@
-# Cookiecutter: Saarthi Pro customer adapter
+# Cookiecutter: investigation integration adapter
 
-Scaffolds a **private** Python package for a maintained Saarthi Pro adapter: HTTP client stubs, profile id placeholder, and smoke test. Replace stubs with real mapping logic against the customer’s Case / Graph / Decision APIs.
+Scaffolds a Python package for an HTTP adapter: client stubs, profile id placeholder, and smoke test. Replace stubs with real mapping logic against the customer’s Case / Graph / Decision APIs. **Vendor-maintained** adapter packaging and **Saarthi Pro** commercial details live in the private [Saarthi-pro](https://github.com/pamu512/Saarthi-pro) repository; this template is OSS reference only.
 
 ## Prerequisites
 
@@ -12,7 +12,7 @@ Scaffolds a **private** Python package for a maintained Saarthi Pro adapter: HTT
 From the repository root (or any machine with this template path):
 
 ```bash
-cookiecutter templates/cookiecutter-saarthi-pro-adapter --no-input \
+cookiecutter templates/cookiecutter-investigation-integration-adapter --no-input \
   adapter_slug=acme_fraud_adapter \
   package_name=acme_fraud_adapter \
   customer_display_name="Acme Bank" \

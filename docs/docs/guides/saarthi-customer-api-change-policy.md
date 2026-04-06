@@ -63,5 +63,5 @@ The requesting party provides written justification and the narrowest change set
 - [Investigation agent integration contract](investigation-agent-integration-contract.md)
 - [Adapter strategy & pricing (internal)](saarthi-pro-adapter-strategy-and-pricing.md)
 - [Saarthi Pro roadmap](saarthi-pro-roadmap.md) · [adapter catalog & certification](saarthi-pro-adapter-catalog-and-certification.md)
-- Adapter template: `templates/cookiecutter-saarthi-pro-adapter/` in the fraud-stack repo
+- Adapter template: `templates/cookiecutter-investigation-integration-adapter/` in the fraud-stack repo
 - CI: job `test-investigation-agent-golden-matrix` in `.github/workflows/ci.yml`

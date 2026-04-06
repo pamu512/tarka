@@ -1,6 +1,6 @@
 # Saarthi Pro — standalone distribution layout (reference)
 
-> **Internal.** Describes the **expected** shape of the [Saarthi-pro](https://github.com/pamu512/Saarthi-pro) repository or release bundle. Implement in Pro; fraud-stack remains the **upstream reference** for the agent source.
+> **Internal.** Describes the **expected** shape of the **private** [Saarthi-pro](https://github.com/pamu512/Saarthi-pro) repository or release bundle. Implement there; Tarka remains the **upstream reference** for agent source—**without** a Pro-named distribution directory in the OSS tree.
 
 ## Goals
 
@@ -8,9 +8,11 @@
 - **Pinned upstream:** `RELEASE.md` (or equivalent) lists fraud-stack **commit SHA** and **`contract_version`**.
 - **Upgrade path:** [Upgrade from OSS](saarthi-pro-upgrade-from-oss.md).
 
-## Shippable image in fraud-stack (today)
+## OSS agent image from Tarka (today)
 
-The monorepo includes a **first-party** build in **[`distributions/saarthi-pro-agent/`](../../../distributions/saarthi-pro-agent/README.md)** (`Dockerfile`, `RELEASE.md`, example Compose, `scripts/build_saarthi_pro_agent_image.*`). Build context remains the **repo root**; OCI labels record Pro version, git SHA, and contract version. Mirror or submodule this tree into [Saarthi-pro](https://github.com/pamu512/Saarthi-pro) for a standalone git remote if desired.
+Build **`services/investigation-agent/Dockerfile`** from the monorepo root for a **minimal investigation-agent** image (no `saarthi_pro` package). CI **`docker-build`** already builds this target for regression coverage.
+
+**[Saarthi-pro](https://github.com/pamu512/Saarthi-pro)** (**private**) uses its own Dockerfile: **clones Tarka** and layers **`src/saarthi_pro/`** (Pro routes, license middleware, optional registry labels / `RELEASE.md`). Use that repo for **commercial** product images and SKU documentation.
 
 ## Suggested repository layout (Saarthi-pro)
 

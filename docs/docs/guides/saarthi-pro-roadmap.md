@@ -1,6 +1,6 @@
 # Saarthi Pro — roadmap (internal)
 
-> **Maintainer detail:** Phases and dates are **not** contractual commitments. For a **buyer-facing** OSS vs commercial summary, use [Saarthi Pro vs OSS](saarthi-pro-vs-oss.md). This file tracks **engineering and GTM artifacts** tied to fraud-stack and the Saarthi-pro repo.
+> **Maintainer detail:** Phases and dates are **not** contractual commitments. For a **buyer-facing** OSS vs commercial summary, use [Saarthi Pro vs OSS](saarthi-pro-vs-oss.md). This file tracks **engineering and GTM artifacts** tied to fraud-stack and the **private** [Saarthi-pro](https://github.com/pamu512/Saarthi-pro) repo.
 
 This roadmap ties **commercial deliverables** (Saarthi Pro repo, packaging, procurement artifacts) to **shared engineering** that ships first in the OSS reference (`services/investigation-agent` in **fraud-stack**). OSS-only technical backlog stays on [Investigation Agent Project](../projects/investigation-agent-project.md).
 
@@ -16,17 +16,17 @@ This roadmap ties **commercial deliverables** (Saarthi Pro repo, packaging, proc
 |-------|---------|
 | Integration contract | `GET /v1/integration`, health block, `INTEGRATION_PROFILE_ID`, [investigation-agent-integration-contract.md](investigation-agent-integration-contract.md) |
 | Conformance | Golden profile tests + CI matrix `test-investigation-agent-golden-matrix`; [adapter catalog & certification](saarthi-pro-adapter-catalog-and-certification.md) vocabulary |
-| Adapter scaffolding | `templates/cookiecutter-saarthi-pro-adapter/` |
+| Adapter scaffolding | `templates/cookiecutter-investigation-integration-adapter/` (OSS); vendor SKUs → Saarthi-pro |
 | Change process | [saarthi-customer-api-change-policy.md](saarthi-customer-api-change-policy.md) (MSA-overridable defaults) |
 | Honest limits | [Assurance, warranties & liability positioning](saarthi-pro-assurance-liability-positioning.md) for sales/legal alignment |
 
 ## Phase 1 — Pro MVP (**playbooks delivered** in fraud-stack docs)
 
-**Status:** Operational templates and checklists exist below. **Standalone image:** [`distributions/saarthi-pro-agent`](../../../distributions/saarthi-pro-agent/README.md) + [RELEASE.md](../../../distributions/saarthi-pro-agent/RELEASE.md). **Remaining execution:** publish to your registry under Saarthi Pro branding, optional separate Saarthi-pro git remote (submodule/vendor), and customer-specific certification sign-offs.
+**Status:** Operational templates and checklists exist below. **Images:** **OSS** — `docker build -f services/investigation-agent/Dockerfile` (repo root); CI **`docker-build`** covers `investigation-agent`. **Commercial** — **private** [Saarthi-pro](https://github.com/pamu512/Saarthi-pro) Dockerfile (clones Tarka + `saarthi_pro` layer), registry, `RELEASE.md`. **Remaining execution:** publish under Saarthi Pro branding and customer-specific certification sign-offs.
 
 | Theme | Delivered artifact |
 |-------|-------------------|
-| Standalone distribution | [Standalone distribution layout](saarthi-pro-standalone-distribution-layout.md) (expected Saarthi-pro repo shape + build options) |
+| Standalone distribution | [Standalone distribution layout](saarthi-pro-standalone-distribution-layout.md) (OSS `investigation-agent` image vs private Saarthi-pro product image) |
 | Upgrade path | [Upgrade from OSS](saarthi-pro-upgrade-from-oss.md) |
 | Parity narrative | [Distribution & contract parity](saarthi-pro-distribution-and-contract-parity.md) |
 | Certification | [Certification checklist](saarthi-pro-certification-checklist.md) (Bronze / Silver / Sustained) |
