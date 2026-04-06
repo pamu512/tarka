@@ -38,7 +38,7 @@
 
 ### Artifacts
 
-- Container: `[registry]/saarthi-pro-agent:X.Y.Z@sha256:…`
+- Container: `[your-registry]/[saarthi-pro-image]:X.Y.Z@sha256:…` (image name and registry live in **private** [Saarthi-pro](https://github.com/pamu512/Saarthi-pro))
 - Helm chart: `[version]`
 
 ### Known issues

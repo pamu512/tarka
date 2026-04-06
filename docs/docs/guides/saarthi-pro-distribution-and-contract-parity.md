@@ -1,13 +1,13 @@
 # Saarthi Pro — distribution & contract parity (internal)
 
-> **Internal engineering + sales engineering reference.** Not a legal document. Aligns expectations across **fraud-stack** (OSS reference) and **[Saarthi-pro](https://github.com/pamu512/Saarthi-pro)** (commercial distribution).
+> **Internal engineering + sales engineering reference.** Not a legal document. Aligns expectations across **Tarka** (OSS reference) and the **private** **[Saarthi-pro](https://github.com/pamu512/Saarthi-pro)** commercial repository.
 
-## Two repositories, one contract lineage
+## Repositories and images
 
-| Repository | Role |
-|------------|------|
-| **fraud-stack** | Canonical **open reference**: `services/investigation-agent`, integration contract implementation, golden CI, docs under `docs/docs/guides/`. |
-| **Saarthi-pro** | **Commercial distribution**: packaging, optional proprietary overlays, release tags aimed at enterprises. |
+| Repository / artifact | Role |
+|----------------------|------|
+| **Tarka** (`pamu512/tarka`) | Canonical **open** `services/investigation-agent` + `services/shared`, integration contract, golden CI, `services/investigation-agent/Dockerfile` (built in CI **`docker-build`** matrix), maintainer docs. **No** Pro-branded distribution subtree or Pro-only CI jobs. |
+| **[Saarthi-pro](https://github.com/pamu512/Saarthi-pro)** (**private**) | **Commercial** repo: **`saarthi_pro.asgi`**, **`/v1/pro`**, edition + **optional license-key** middleware, **Dockerfile** `git clone`s Tarka (`TARKA_GIT_REF`), registry images, `RELEASE.md`, vendor build scripts. |
 
 **Integration contract** means the **behavior and JSON shape** described by `INTEGRATION_CONTRACT_VERSION`, [investigation-agent-integration-contract.md](investigation-agent-integration-contract.md), and [CHANGELOG_INTEGRATION.md](CHANGELOG_INTEGRATION.md)—including tool names, snapshot fields, and upstream-suppression rules.
 
@@ -24,9 +24,9 @@ For any **Saarthi Pro** release tag:
 - **Security or compliance hotfix** in Pro only: allowed for a **bounded** period if documented; merge back to OSS or bump contract with changelog as soon as practical.
 - **Packaging-only** differences (env defaults, bundled deps) MUST NOT change **`contract_version`** semantics without a changelog entry.
 
-## Standalone build in this repo
+## OSS agent image from this repo
 
-Use **[`distributions/saarthi-pro-agent`](../../../distributions/saarthi-pro-agent/README.md)** to produce a versioned OCI image from a pinned commit; record the result in [`RELEASE.md`](../../../distributions/saarthi-pro-agent/RELEASE.md) (or copy into Saarthi-pro).
+From the monorepo root: `docker build -f services/investigation-agent/Dockerfile -t investigation-agent:local .` — same artifact CI validates under **`docker-build`** (`investigation-agent`). Versioned **commercial** images and release records live in **Saarthi-pro** only.
 
 ## Customer-facing one-pager (draft bullets)
 

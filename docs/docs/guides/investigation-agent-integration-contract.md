@@ -64,7 +64,7 @@ Add `--api-key` if the deployment requires it.
 
 - [CHANGELOG_INTEGRATION](CHANGELOG_INTEGRATION.md)
 - [Saarthi customer API change policy](saarthi-customer-api-change-policy.md) (notice windows, joint certification, contract vs customer API versions)
-- Adapter cookiecutter template: [`templates/cookiecutter-saarthi-pro-adapter/`](../../../templates/cookiecutter-saarthi-pro-adapter/) (scaffold for Pro-maintained HTTP adapters)
+- Adapter cookiecutter template: [`templates/cookiecutter-investigation-integration-adapter/`](../../../templates/cookiecutter-investigation-integration-adapter/) (OSS scaffold for HTTP adapters; vendor-maintained packaging → private [Saarthi-pro](https://github.com/pamu512/Saarthi-pro))
 - [Saarthi Pro roadmap](saarthi-pro-roadmap.md) · [distribution & contract parity](saarthi-pro-distribution-and-contract-parity.md) · [adapter catalog & certification](saarthi-pro-adapter-catalog-and-certification.md)
 
 - [Saarthi Pro adapter strategy & pricing (internal draft)](saarthi-pro-adapter-strategy-and-pricing.md)
