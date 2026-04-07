@@ -248,6 +248,7 @@ Event Ingest --> NATS JetStream --> Analytics Sink --> ClickHouse
 | `feature-service` | 8004 | Feature engineering, enrichment, OSINT signal injection |
 | `ml-scoring` | 8005 | ONNX inference, adaptive autoencoder, drift detection, model registry |
 | `investigation-agent` | 8006 | AI copilot with LLM tool-use loop |
+| `collaboration-chat-bridge` | 8009 | Slack / Teams / Lark → investigation-agent (`collab` profile) |
 | `event-ingest` | 8007 | NATS-based high-throughput event ingestion |
 | `analytics-sink` | 8008 | ClickHouse analytics writer |
 | `graphql-gateway` | 8010 | Unified GraphQL API |

@@ -75,6 +75,8 @@ nav:
       - Rule Authoring: guides/rules.md
       - Graph Analysis: guides/graph-analysis.md
       - Deployment: guides/deployment.md
+      - "Deployment: AWS": guides/deployment-aws.md
+      - "Deployment: Azure": guides/deployment-azure.md
       - Enterprise Readiness: guides/enterprise-readiness.md
       - Incident Response: guides/incident-response.md
       - 30/60/90 Roadmap: guides/roadmap-30-60-90.md
@@ -83,6 +85,7 @@ nav:
       - Ingest, idempotency & replay: guides/ingest-replay-onboarding.md
       - GitHub Issues Batch (Reassessment Wave 2): guides/github-issues-batch-2026-04-reassessment-wave2.md
       - Module codenames: guides/module-codenames.md
+      - "Collaboration chat (Slack, Teams, Lark) & cloud": guides/investigation-collaboration-chat-aws-azure.md
       - Saarthi Pro:
           - vs open source (OSS): guides/saarthi-pro-vs-oss.md
           - Roadmap: guides/saarthi-pro-roadmap.md

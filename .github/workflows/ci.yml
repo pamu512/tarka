@@ -416,6 +416,38 @@ jobs:
           flags: event-ingest
           fail_ci_if_error: false
 
+  test-collaboration-chat-bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services/collaboration-chat-bridge/pyproject.toml
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+        working-directory: services/collaboration-chat-bridge
+      - name: Run tests
+        run: pytest --cov=collaboration_chat_bridge --cov-report=xml --cov-report=term-missing --cov-fail-under=50 tests/
+        working-directory: services/collaboration-chat-bridge
+        env:
+          PYTHONPATH: src:../shared
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-collaboration-chat-bridge
+          path: services/collaboration-chat-bridge/coverage.xml
+          if-no-files-found: ignore
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        continue-on-error: true
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: services/collaboration-chat-bridge/coverage.xml
+          flags: collaboration-chat-bridge
+          fail_ci_if_error: false
+
   test-analytics-sink:
     runs-on: ubuntu-latest
     steps:
@@ -528,6 +560,7 @@ jobs:
       - build-sdk-typescript
       - test-graphql-gateway
       - test-event-ingest
+      - test-collaboration-chat-bridge
       - test-analytics-sink
       - test-feature-service
       - test-ml-scoring
@@ -543,6 +576,7 @@ jobs:
           - investigation-agent
           - integration-ingress
           - event-ingest
+          - collaboration-chat-bridge
           - analytics-sink
           - graphql-gateway
     steps:

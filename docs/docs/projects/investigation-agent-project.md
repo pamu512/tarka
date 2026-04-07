@@ -8,6 +8,8 @@ Workflow assistant capabilities for case triage, evidence gathering, and analyst
 
 **Saarthi Pro (what buyers get):** Same copilot **behavior** and integration contract as the OSS reference; **vendor** packaging (SLAs where sold, signed DPA/subprocessor story, maintained **adapters** on supported tiers, release branding). Full comparison → **[Saarthi Pro vs OSS](../guides/saarthi-pro-vs-oss.md)**. Phased commercial plan and artifact index → **[Saarthi Pro roadmap](../guides/saarthi-pro-roadmap.md)**. Adapter-first economics (illustrative bands; **internal** until finance/legal sign quotes) → [adapter strategy & pricing](../guides/saarthi-pro-adapter-strategy-and-pricing.md).
 
+**Collaboration chat (Slack, Teams, Lark):** optional **`services/collaboration-chat-bridge`** forwards platform events to `POST /v1/chat`, maps thread context into `messages[]`, and surfaces **`answer_sections`** (e.g. **INFERENCES** / **NEXT STEPS**) in rich messages. Enable **`COPILOT_STRUCTURED_SECTIONS=true`** on the agent for reliable section parsing. Deploy stand-alone on AWS/Azure with the bridge + agent containers — see **[Collaboration chat & cloud](../guides/investigation-collaboration-chat-aws-azure.md)**.
+
 ## Current gaps (OSS reference)
 
 | Area | Limitation |
