@@ -5,6 +5,22 @@ type AnyObj = Record<string, unknown>;
 
 const nowIso = () => new Date().toISOString();
 
+/** Alphanumeric suffix for demo IDs — Web Crypto, not Math.random (CodeQL js/insecure-randomness). */
+function mockRandomAlpha(length: number): string {
+  const g = globalThis.crypto;
+  if (!g?.getRandomValues) {
+    throw new Error("Web Crypto API required for mock id generation");
+  }
+  const buf = new Uint8Array(length);
+  g.getRandomValues(buf);
+  const alphabet = "0123456789abcdefghijklmnopqrstuvwxyz";
+  let s = "";
+  for (let i = 0; i < length; i++) {
+    s += alphabet[buf[i]! % alphabet.length]!;
+  }
+  return s;
+}
+
 let mockCases: AnyObj[] = [
   { id: "c1", title: "Velocity spike - fraud_frank", status: "open", priority: "critical", entity_id: "fraud_frank", tenant_id: "demo", trace_id: "tr-1001", assigned_team: "fraud-ops", labels: ["velocity", "ring"], queue_score: 92, recommended_action: "manual_review", created_at: nowIso(), updated_at: nowIso() },
   { id: "c2", title: "ATO attempt - user_bob", status: "investigating", priority: "high", entity_id: "user_bob", tenant_id: "demo", trace_id: "tr-1002", assigned_team: "ato", labels: ["ato", "vpn"], queue_score: 78, recommended_action: "step_up_auth", created_at: nowIso(), updated_at: nowIso() },
@@ -407,7 +423,7 @@ let mockAdminApprovals: AnyObj[] = [
 ];
 
 function id(prefix: string) {
-  return `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
+  return `${prefix}-${mockRandomAlpha(6)}`;
 }
 
 function parsePath(url: string) {
@@ -551,7 +567,7 @@ function finalizeInvestigationMockReply(
     tools: AnyObj[],
     claims: { text: string; source: "tool" | "unknown" }[],
   ) => {
-    const turnId = `mock-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const turnId = `mock-${Date.now()}-${mockRandomAlpha(7)}`;
     const det = claims.map((c, i) => ({
       claim_index: i,
       supported: c.source === "unknown" ? true : false,

@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 from contextlib import asynccontextmanager
@@ -27,6 +28,8 @@ from graph_service.graph_runtime import (
     update_tags,
     upsert_entity,
 )
+
+log = logging.getLogger(__name__)
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
 from observability import setup_observability  # noqa: E402
@@ -138,8 +141,11 @@ async def links_endpoint(body: LinkRequest):
             body.relationship,
             body.properties,
         )
-    except Exception as e:
+    except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception:
+        log.exception("create_link failed")
+        raise HTTPException(status_code=502, detail="Unable to create graph link") from None
     return {"ok": True}
 
 
