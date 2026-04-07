@@ -7,8 +7,11 @@ Complements regex injection handling (see main._sanitize_message) and schema val
 from __future__ import annotations
 
 import json
+import logging
 import re
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 # UUID + common external ids (alphanumeric._-:@/)
 _UUID_RE = re.compile(
@@ -410,8 +413,9 @@ async def llm_judge_claim_support(
         if not isinstance(parsed, dict):
             return None, "judge_invalid_shape"
         return parsed, None
-    except Exception as e:
-        return None, str(e)[:200]
+    except Exception:
+        log.warning("llm_judge_claim_support failed", exc_info=True)
+        return None, "judge_request_failed"
 
 
 def filter_tool_definitions(
