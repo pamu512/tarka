@@ -39,6 +39,7 @@ Investigation UI --> Case API --> Graph Service
 | `services/feature-service` | 8004 | Feature snapshot computation |
 | `services/ml-scoring` | 8005 | ML inference (heuristic + ONNX) |
 | `services/investigation-agent` | 8006 | AI copilot with LLM tool-use loop |
+| `services/collaboration-chat-bridge` | 8009 | Slack / Teams / Lark webhooks → copilot |
 | `services/event-ingest` | 8007 | Event ingestion pipeline |
 | `services/analytics-sink` | 8008 | Analytics and reporting sink |
 | `services/graphql-gateway` | 8010 | GraphQL API aggregating all services |
@@ -89,7 +90,7 @@ docker compose --profile full up -d
 
 ## Running Tests
 
-**CI:** GitHub Actions runs lint (Ruff); Python tests for decision-api, case-api, graph-service, integration-ingress, investigation-agent (including golden integration profiles), graphql-gateway, event-ingest, analytics-sink, feature-service, ml-scoring, and the Python SDK; **`npm run build`** for the **frontend** and **`npm run build`** for **`packages/fraud-sdk-typescript`**; then Docker image builds for each `services/*/Dockerfile` (see `.github/workflows/ci.yml`), including **`investigation-agent`**. **Saarthi Pro** commercial images are **not** built here; they ship from the private **Saarthi-pro** repo. Security scanning (Trivy + SARIF upload) runs in `.github/workflows/security-scan.yml`.
+**CI:** GitHub Actions runs lint (Ruff); Python tests for decision-api, case-api, graph-service, integration-ingress, investigation-agent (including golden integration profiles), collaboration-chat-bridge, graphql-gateway, event-ingest, analytics-sink, feature-service, ml-scoring, and the Python SDK; **`npm run build`** for the **frontend** and **`npm run build`** for **`packages/fraud-sdk-typescript`**; then Docker image builds for each `services/*/Dockerfile` (see `.github/workflows/ci.yml`), including **`investigation-agent`**. **Saarthi Pro** commercial images are **not** built here; they ship from the private **Saarthi-pro** repo. Security scanning (Trivy + SARIF upload) runs in `.github/workflows/security-scan.yml`.
 
 Each service has a `tests/` directory. Run tests from the service root:
 

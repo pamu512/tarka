@@ -2,6 +2,8 @@
 
 This guide covers deploying Tarka from local development through production, including Docker Compose profiles, Kubernetes with Helm, environment variable reference, scaling, and security hardening.
 
+**Public cloud (Kubernetes):** For AWS and Azure–specific service mapping, ingress, managed Postgres/Redis, and secrets patterns, see **[Deploying on AWS](./deployment-aws.md)** and **[Deploying on Azure](./deployment-azure.md)**.
+
 **See also:** [Service ports & OpenAPI index](./service-ports.md) — default ports, Compose DNS names, and contract file mapping.
 
 ---

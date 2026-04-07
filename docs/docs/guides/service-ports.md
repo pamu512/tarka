@@ -13,6 +13,7 @@ Single reference for **default HTTP ports**, **Docker Compose service names** (i
 | Feature service | 8004 | `feature-service` | [feature-service.yaml](../../../contracts/openapi/feature-service.yaml) | `ml` profile |
 | ML scoring | 8005 | `ml-scoring` | [ml-scoring.yaml](../../../contracts/openapi/ml-scoring.yaml) | `ml` profile |
 | Investigation agent | 8006 | `investigation-agent` | [investigation-agent.yaml](../../../contracts/openapi/investigation-agent.yaml) | `agent` profile; calls case + decision + graph |
+| Collaboration chat bridge | 8009 | `collaboration-chat-bridge` | _(no contract in repo)_ | `collab` / `agent` / `full`; Slack / Teams / Lark → agent |
 | Event ingest | 8007 | `event-ingest` | _(no contract in repo)_ | `streaming` profile |
 | Analytics sink | 8008 | `analytics-sink` | _(no contract in repo)_ | `analytics` profile |
 | GraphQL gateway | 8010 | `graphql-gateway` | _(no contract in repo)_ | `gateway` profile |
@@ -26,6 +27,7 @@ From any container on the default Compose network, use **service name + containe
 - `http://case-api:8002`
 - `http://graph-service:8001`
 - `http://investigation-agent:8006`
+- `http://collaboration-chat-bridge:8009`
 - `http://graphql-gateway:8010`
 
 **Case API → Decision API:** set `DECISION_API_URL=http://decision-api:8000` (see `deploy/docker-compose.yml`, `docker-compose.lite.yml`, `docker-compose.sandbox.yml`).

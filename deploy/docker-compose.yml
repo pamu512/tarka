@@ -204,6 +204,26 @@ services:
       - nats
     profiles: [analytics, full]
 
+  collaboration-chat-bridge:
+    build:
+      context: ..
+      dockerfile: services/collaboration-chat-bridge/Dockerfile
+    environment:
+      INVESTIGATION_AGENT_URL: http://investigation-agent:8006
+      INVESTIGATION_AGENT_API_KEY: ${API_KEYS:-}
+      SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET:-}
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
+      TEAMS_BRIDGE_SECRET: ${TEAMS_BRIDGE_SECRET:-}
+      LARK_VERIFICATION_TOKEN: ${LARK_VERIFICATION_TOKEN:-}
+      LARK_TENANT_ACCESS_TOKEN: ${LARK_TENANT_ACCESS_TOKEN:-}
+      DEFAULT_TENANT_ID: ${COLLAB_DEFAULT_TENANT_ID:-collab_default}
+      DEFAULT_CASE_ID: ${COLLAB_DEFAULT_CASE_ID:-}
+    ports:
+      - "8009:8009"
+    depends_on:
+      - investigation-agent
+    profiles: [agent, full, collab]
+
   graphql-gateway:
     build:
       context: ..
