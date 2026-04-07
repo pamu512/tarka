@@ -25,3 +25,12 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# JanusGraph/Gremlin backends are optional; default CI only exercises Neo4j algorithm paths.
+# Omitting them keeps --cov-fail-under meaningful without requiring a live Janus in unit tests.
+[tool.coverage.run]
+omit = [
+  "*/graph_service/algorithms_janus.py",
+  "*/graph_service/janusgraph_store.py",
+  "*/graph_service/janusgraph_gremlin.py",
+]
