@@ -19,7 +19,7 @@ jobs:
     name: Trivy filesystem
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Run Trivy (repo filesystem)
         uses: aquasecurity/trivy-action@0.35.0
@@ -55,7 +55,7 @@ jobs:
     name: Trivy decision-api image
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: docker/setup-buildx-action@v4.0.0
       - name: Build image (local)
         uses: docker/build-push-action@v7.0.0
