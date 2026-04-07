@@ -13,11 +13,7 @@ from investigation_agent.copilot_hardening import filter_tool_definitions
 from investigation_agent.integration_contract import build_integration_snapshot, effective_disabled_tools
 from investigation_agent.tools import TOOL_DEFINITIONS
 
-_ALL_TOOLS = frozenset(
-    (d.get("function") or {}).get("name")
-    for d in TOOL_DEFINITIONS
-    if isinstance((d.get("function") or {}).get("name"), str)
-)
+_ALL_TOOLS = frozenset((d.get("function") or {}).get("name") for d in TOOL_DEFINITIONS if isinstance((d.get("function") or {}).get("name"), str))
 
 
 def _enabled_names(settings) -> frozenset[str]:
@@ -63,8 +59,7 @@ def _apply_upstream(
             True,
             False,
             True,
-            _ALL_TOOLS
-            - frozenset({"subgraph", "get_entity_tags", "subgraph_with_velocity"}),
+            _ALL_TOOLS - frozenset({"subgraph", "get_entity_tags", "subgraph_with_velocity"}),
         ),
         (
             "no_case",

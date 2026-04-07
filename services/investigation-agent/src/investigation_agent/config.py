@@ -16,10 +16,7 @@ class Settings(BaseSettings):
     )
     copilot_hide_tools_without_upstream: bool = Field(
         default=True,
-        description=(
-            "If true, omit tool definitions for upstreams that are not configured "
-            "(empty CASE_API_URL, DECISION_API_URL, or GRAPH_SERVICE_URL)."
-        ),
+        description=("If true, omit tool definitions for upstreams that are not configured (empty CASE_API_URL, DECISION_API_URL, or GRAPH_SERVICE_URL)."),
     )
     allowed_analysts: str = "*"
     openai_api_key: str = ""
