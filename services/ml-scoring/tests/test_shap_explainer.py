@@ -3,7 +3,6 @@
 import os
 
 import pytest
-
 from ml_scoring.shap_explainer import (
     lgbm_score_and_shap_factors,
     reset_shap_cache,
