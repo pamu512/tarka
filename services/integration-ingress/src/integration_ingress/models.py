@@ -1,11 +1,13 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import JSON, DateTime, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from integration_ingress.db import Base
+
+_JSON_COL = JSON().with_variant(JSONB(), "postgresql")
 
 
 class WebhookInbox(Base):
@@ -13,8 +15,8 @@ class WebhookInbox(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     provider: Mapped[str] = mapped_column(String(128), index=True)
-    raw_payload: Mapped[dict] = mapped_column(JSONB)
-    normalized: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    raw_payload: Mapped[dict] = mapped_column(_JSON_COL)
+    normalized: Mapped[dict | None] = mapped_column(_JSON_COL, nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="received")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -30,7 +32,7 @@ class IntegrationConnection(Base):
     status: Mapped[str] = mapped_column(String(32), default="enabled", index=True)
     configured: Mapped[bool] = mapped_column(default=False)
     version: Mapped[int] = mapped_column(Integer, default=1)
-    last_connectivity_test: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    last_connectivity_test: Mapped[dict | None] = mapped_column(_JSON_COL, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -58,7 +60,7 @@ class IntegrationOperation(Base):
     provider_id: Mapped[str] = mapped_column(String(128), index=True)
     action: Mapped[str] = mapped_column(String(64), index=True)
     idempotency_key: Mapped[str] = mapped_column(String(128), index=True)
-    response_snapshot: Mapped[dict] = mapped_column(JSONB, default=dict)
+    response_snapshot: Mapped[dict] = mapped_column(_JSON_COL, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

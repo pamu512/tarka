@@ -11,6 +11,7 @@ network rules and counsel.
 
 from __future__ import annotations
 
+import hashlib
 import re
 
 _PLAYBOOK_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$", re.IGNORECASE)
@@ -185,6 +186,16 @@ _PLAYBOOKS: dict[str, dict[str, str]] = {
 
 def list_playbooks() -> list[dict[str, str]]:
     return [{"id": k, "title": v["title"], "vertical": v["vertical"]} for k, v in sorted(_PLAYBOOKS.items(), key=lambda x: x[0])]
+
+
+def playbooks_catalog_fingerprint() -> str:
+    """Short stable id over built-in playbook ids + fragment text (adapter/cache hints when playbooks ship)."""
+    h = hashlib.sha256()
+    for k in sorted(_PLAYBOOKS.keys()):
+        h.update(k.encode())
+        h.update(b"\0")
+        h.update(_PLAYBOOKS[k]["fragment"].encode())
+    return h.hexdigest()[:16]
 
 
 def validate_playbook_id(raw: str | None) -> str | None:

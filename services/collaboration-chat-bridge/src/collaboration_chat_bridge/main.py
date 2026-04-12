@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Request, Response
@@ -48,6 +48,7 @@ async def health():
         "teams_bridge_secret_configured": bool((settings.teams_bridge_secret or "").strip()),
         "lark_verification_configured": bool((settings.lark_verification_token or "").strip()),
         "lark_reply_configured": bool((settings.lark_tenant_access_token or "").strip()),
+        "default_copilot_persona": settings.default_copilot_persona,
     }
 
 
@@ -91,6 +92,10 @@ class TeamsBridgeBody(BaseModel):
     tenant_id: str | None = Field(default=None, max_length=128)
     analyst_id: str | None = Field(default=None, max_length=128)
     case_id: str | None = Field(default=None, max_length=128)
+    persona: Literal["investigation", "orchestrator"] | None = Field(
+        default=None,
+        description="Optional copilot persona; overrides DEFAULT_COPILOT_PERSONA and !orch / !inv message prefixes.",
+    )
     thread_context: list[dict[str, str]] | None = Field(
         default=None,
         description='Prior turns, e.g. [{"role":"user","content":"..."}, ...]',
@@ -110,6 +115,7 @@ async def _teams_chat_result(
     analyst_id: str,
     case_id: str | None,
     messages: list[dict[str, str]],
+    persona: str | None = None,
 ) -> JSONResponse | dict[str, Any]:
     try:
         agent_out = await post_chat(
@@ -118,6 +124,7 @@ async def _teams_chat_result(
             analyst_id=analyst_id[:128],
             messages=messages,
             case_id=case_id,
+            persona=persona,
         )
     except AgentChatError as e:
         detail = str(e)
@@ -127,7 +134,9 @@ async def _teams_chat_result(
             status_code=200,
             content={
                 "ok": False,
-                "error": str(e),
+                # Stable code for API consumers; human text stays in adaptive_card only.
+                "error": "copilot_unavailable",
+                "agent_http_status": e.status_code or None,
                 "adaptive_card": format_teams_error_card("Copilot unavailable", detail),
             },
         )
@@ -152,6 +161,7 @@ async def teams_messages(
         analyst_id=body.analyst_id or "teams_user",
         case_id=body.case_id or settings.default_case_id,
         messages=messages,
+        persona=body.persona,
     )
     if isinstance(out, JSONResponse):
         return out

@@ -117,3 +117,39 @@ def explain_score(
         )
 
     return reasons
+
+
+_IMPACT_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
+
+def top_factors_from_explanations(explanations: list[dict[str, Any]], *, limit: int = 3) -> list[dict[str, Any]]:
+    """Pick top *limit* explanation rows for API consumers (FraudLens-style factor list, without SHAP)."""
+    if not explanations:
+        return []
+
+    def _rank(item: dict[str, Any]) -> tuple[int, str]:
+        imp = str(item.get("impact") or "low")
+        return (_IMPACT_RANK.get(imp, 9), item.get("code") or "")
+
+    ranked = sorted(explanations, key=_rank)
+    out: list[dict[str, Any]] = []
+    for e in ranked[:limit]:
+        out.append(
+            {
+                "code": str(e.get("code") or "UNKNOWN"),
+                "description": str(e.get("description") or "")[:500],
+                "impact": str(e.get("impact") or "low"),
+            }
+        )
+    return out
+
+
+def ml_summary_from_factors(score: float, top_factors: list[dict[str, Any]], model_label: str, *, max_len: int = 480) -> str:
+    """Single-line narrative for clients (regulatory-style readability; factors remain structured separately)."""
+    label = (model_label or "ml-scoring").strip() or "ml-scoring"
+    if not top_factors:
+        base = f"ML risk score {score:.1f}/100 ({label}). No ranked factor summaries returned."
+    else:
+        parts = [f"{x['code']}: {x['description']}" for x in top_factors[:3]]
+        base = f"ML risk score {score:.1f}/100 ({label}). Top signals: " + "; ".join(parts)
+    return base if len(base) <= max_len else base[: max_len - 1] + "…"

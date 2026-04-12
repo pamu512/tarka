@@ -12,8 +12,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..
 from observability import setup_observability  # noqa: E402
 
 from ml_scoring.adaptive import get_detector, init_detector, reset_detector, save_detector  # noqa: E402
-from ml_scoring.explainability import explain_score  # noqa: E402
+from ml_scoring.explainability import (  # noqa: E402
+    explain_score,
+    ml_summary_from_factors,
+    top_factors_from_explanations,
+)
+from ml_scoring.heuristic import extract_feature_vector as _extract_feature_vector  # noqa: E402
+from ml_scoring.heuristic import heuristic_score as _heuristic_score  # noqa: E402
+from ml_scoring.heuristic import safe_float as _safe_float  # noqa: E402
 from ml_scoring.model_registry import ModelRegistry  # noqa: E402
+from ml_scoring.shap_explainer import lgbm_score_and_shap_factors  # noqa: E402
 
 DISABLE_ML = os.environ.get("DISABLE_ML", "").lower() in ("1", "true", "yes")
 MODEL_VERSION = os.environ.get("ML_MODEL_VERSION", "heuristic-v1")
@@ -89,108 +97,6 @@ class ScoreRequest(BaseModel):
     features: dict[str, Any] = Field(default_factory=dict)
 
 
-_FEATURE_ORDER = [
-    "amount",
-    "hour_of_day",
-    "is_new_device",
-    "is_vpn",
-    "is_emulator",
-    "is_bot",
-    "transaction_count_24h",
-    "distinct_countries_7d",
-    "account_age_days",
-]
-
-_NORM_DIVISORS = [10_000, 24, 1, 1, 1, 1, 100, 10, 365]
-
-
-def _safe_float(val: Any, default: float = 0.0) -> float:
-    if val is None:
-        return default
-    if isinstance(val, bool):
-        return 1.0 if val else 0.0
-    try:
-        return float(val)
-    except (TypeError, ValueError):
-        return default
-
-
-def _extract_feature_vector(features: dict[str, Any]) -> list[float]:
-    """Build a normalised 9-element feature vector matching training order.
-
-    Feature mapping (with aliases for backward compatibility):
-        0  amount             / 10_000
-        1  hour_of_day        / 24
-        2  is_new_device      0/1  (also accepts ``new_device``)
-        3  is_vpn             0/1
-        4  is_emulator        0/1
-        5  is_bot             0/1
-        6  transaction_count_24h / 100
-        7  distinct_countries_7d / 10
-        8  account_age_days   / 365
-    """
-    new_device = features.get("is_new_device")
-    if new_device is None:
-        new_device = features.get("new_device")
-
-    raw = [
-        _safe_float(features.get("amount")),
-        _safe_float(features.get("hour_of_day")),
-        _safe_float(new_device),
-        _safe_float(features.get("is_vpn")),
-        _safe_float(features.get("is_emulator")),
-        _safe_float(features.get("is_bot")),
-        _safe_float(features.get("transaction_count_24h")),
-        _safe_float(features.get("distinct_countries_7d")),
-        _safe_float(features.get("account_age_days")),
-    ]
-    return [v / d for v, d in zip(raw, _NORM_DIVISORS)]
-
-
-def _heuristic_score(features: dict[str, Any]) -> float:
-    s = 10.0
-    amt = _safe_float(features.get("amount"))
-    if amt > 5_000:
-        s += 15
-    if amt > 15_000:
-        s += 20
-    if amt > 50_000:
-        s += 10
-
-    if _safe_float(features.get("is_new_device") or features.get("new_device")) > 0:
-        s += 10
-    if _safe_float(features.get("is_emulator")) > 0:
-        s += 15
-    if _safe_float(features.get("is_bot")) > 0:
-        s += 20
-    if _safe_float(features.get("is_vpn")) > 0:
-        s += 5
-
-    hour = _safe_float(features.get("hour_of_day"), default=-1)
-    if 0 <= hour <= 5 or hour >= 22:
-        s += 8
-
-    tx_count = _safe_float(features.get("transaction_count_24h"))
-    if tx_count > 20:
-        s += 10
-    elif tx_count > 10:
-        s += 5
-
-    countries = _safe_float(features.get("distinct_countries_7d"))
-    if countries >= 4:
-        s += 10
-    elif countries >= 2:
-        s += 3
-
-    age = _safe_float(features.get("account_age_days"), default=999)
-    if age < 7:
-        s += 12
-    elif age < 30:
-        s += 5
-
-    return max(0.0, min(100.0, s))
-
-
 def _extract_onnx_score(outputs: list) -> float:
     """Extract a continuous score from ONNX model outputs.
 
@@ -240,12 +146,15 @@ def _score_with_model_version(mv, features: dict[str, Any]) -> tuple[float | Non
 
 @app.get("/v1/health")
 async def health():
+    shap_on = os.environ.get("ML_SHAP_ENABLED", "").lower() in ("1", "true", "yes")
+    lgbm_path = bool((os.environ.get("ML_LGBM_MODEL_PATH") or "").strip())
     return {
         "status": "ok",
         "disable_ml": DISABLE_ML,
         "model_version": MODEL_VERSION,
         "onnx_loaded": _onnx_session is not None,
         "registry_models": len(registry.list_models()),
+        "shap_stretch_enabled": shap_on and lgbm_path,
     }
 
 
@@ -272,7 +181,12 @@ def _background_adaptive_update(numeric_features: dict[str, float]) -> None:
 @app.post("/v1/score")
 async def score(body: ScoreRequest, bg: BackgroundTasks):
     if DISABLE_ML:
-        return {"score": 0.0, "model_version": "disabled"}
+        return {
+            "score": 0.0,
+            "model_version": "disabled",
+            "ml_top_factors": [],
+            "ml_summary": None,
+        }
 
     mv, model_name, version = registry.get_model(body.tenant_id)
 
@@ -306,15 +220,31 @@ async def score(body: ScoreRequest, bg: BackgroundTasks):
             base_score = _heuristic_score(body.features)
             model_label = MODEL_VERSION
 
+    shap_s, shap_factors = lgbm_score_and_shap_factors(body.features, _extract_feature_vector)
+    if shap_s is not None and shap_factors:
+        base_score = shap_s
+        model_label = f"{model_label}+lgbm-shap" if model_label else "lgbm-shap"
+
     blended = round((1 - ADAPTIVE_WEIGHT) * base_score + ADAPTIVE_WEIGHT * adaptive_score, 2)
     blended = max(0.0, min(100.0, blended))
 
+    mt = (
+        "lgbm"
+        if "lgbm-shap" in model_label
+        else ("onnx" if "onnx" in model_label else "heuristic")
+    )
     explanations = explain_score(
         blended,
         body.features,
-        model_type="onnx" if "onnx" in model_label else "heuristic",
+        model_type=mt,
         adaptive_contributions=contributions if contributions and contributions[0].get("feature") != "insufficient_data" else None,
     )
+
+    if shap_factors:
+        ml_top_factors = shap_factors
+    else:
+        ml_top_factors = top_factors_from_explanations(explanations, limit=3)
+    ml_summary = ml_summary_from_factors(blended, ml_top_factors, model_label)
 
     bg.add_task(_background_adaptive_update, numeric_features)
 
@@ -325,6 +255,8 @@ async def score(body: ScoreRequest, bg: BackgroundTasks):
         "adaptive_score": adaptive_score,
         "explanations": explanations,
         "feature_contributions": contributions,
+        "ml_top_factors": ml_top_factors,
+        "ml_summary": ml_summary,
     }
 
 

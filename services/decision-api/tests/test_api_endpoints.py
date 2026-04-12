@@ -92,7 +92,7 @@ class TestEvaluateDecision:
 
         with patch("decision_api.main.evaluate_json_rules", return_value=([], [], 0.0)):
             with patch("decision_api.main.evaluate_opa", new_callable=AsyncMock, return_value=None):
-                with patch("decision_api.main._fetch_ml_score", new_callable=AsyncMock, return_value=None):
+                with patch("decision_api.main._fetch_ml_score", new_callable=AsyncMock, return_value=(None, {})):
                     client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
                     r = await client.post("/v1/decisions/evaluate", json={"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}})
                     client.tarka_app.dependency_overrides.pop(get_session, None)
@@ -114,7 +114,7 @@ class TestEvaluateDecision:
 
         with patch("decision_api.main.evaluate_json_rules", return_value=(["sdk_bot"], ["sdk:bot"], 40.0)):
             with patch("decision_api.main.evaluate_opa", new_callable=AsyncMock, return_value=None):
-                with patch("decision_api.main._fetch_ml_score", new_callable=AsyncMock, return_value=None):
+                with patch("decision_api.main._fetch_ml_score", new_callable=AsyncMock, return_value=(None, {})):
                     client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
                     r = await client.post(
                         "/v1/decisions/evaluate",

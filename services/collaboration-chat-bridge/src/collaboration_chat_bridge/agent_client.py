@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 
 from collaboration_chat_bridge.config import Settings
+from collaboration_chat_bridge.persona_bridge import resolve_copilot_persona_for_bridge
 
 log = logging.getLogger(__name__)
 
@@ -26,16 +27,23 @@ async def post_chat(
     analyst_id: str,
     messages: list[dict[str, str]],
     case_id: str | None = None,
+    persona: str | None = None,
 ) -> dict[str, Any]:
     url = f"{settings.investigation_agent_url.rstrip('/')}/v1/chat"
     headers: dict[str, str] = {}
     key = (settings.investigation_agent_api_key or "").strip()
     if key:
         headers["x-api-key"] = key
+    eff_persona, eff_messages = resolve_copilot_persona_for_bridge(
+        settings.default_copilot_persona,
+        messages,
+        explicit=persona,
+    )
     payload: dict[str, Any] = {
         "tenant_id": tenant_id[:128],
         "analyst_id": analyst_id[:128],
-        "messages": messages,
+        "messages": eff_messages,
+        "persona": eff_persona,
     }
     if case_id:
         payload["case_id"] = case_id[:128]
@@ -60,5 +68,6 @@ async def post_chat(
             body_snippet=snippet,
         ) from e
     except httpx.RequestError as e:
+        # Log full error server-side; keep exception message generic for clients (CodeQL py/stack-trace-exposure).
         log.warning("investigation-agent unreachable: %s", e)
-        raise AgentChatError(f"cannot reach investigation-agent: {e}", status_code=0) from e
+        raise AgentChatError("cannot reach investigation-agent", status_code=0) from e

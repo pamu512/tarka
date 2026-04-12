@@ -404,9 +404,13 @@ async def _fetch_feature_snapshot(http: httpx.AsyncClient, body: EvaluateRequest
     return r.json()
 
 
-async def _fetch_ml_score(http: httpx.AsyncClient, tenant_id: str, entity_id: str, event_type: str, features: dict[str, Any]) -> float | None:
+async def _fetch_ml_score(
+    http: httpx.AsyncClient, tenant_id: str, entity_id: str, event_type: str, features: dict[str, Any]
+) -> tuple[float | None, dict[str, Any]]:
+    """Return blended ML score plus optional explanation slice from ml-scoring (v1.2 inference_context)."""
+    empty: dict[str, Any] = {}
     if not settings.ml_scoring_url:
-        return None
+        return None, empty
     url = settings.ml_scoring_url.rstrip("/") + "/v1/score"
     try:
         r = await http.post(
@@ -420,10 +424,23 @@ async def _fetch_ml_score(http: httpx.AsyncClient, tenant_id: str, entity_id: st
             timeout=2.0,
         )
         if r.status_code != 200:
-            return None
-        return float(r.json().get("score", 0))
+            return None, empty
+        data = r.json()
+        score = float(data.get("score", 0))
+        factors = data.get("ml_top_factors")
+        if not isinstance(factors, list):
+            factors = []
+        summary = data.get("ml_summary")
+        if summary is not None and not isinstance(summary, str):
+            summary = str(summary)[:500]
+        model = data.get("model")
+        return score, {
+            "top_factors": factors,
+            "summary": summary,
+            "model": model if isinstance(model, str) else None,
+        }
     except httpx.HTTPError:
-        return None
+        return None, empty
 
 
 async def _graph_upsert(
@@ -773,7 +790,8 @@ async def evaluate_decision(
 
     opa_coro = evaluate_opa(http, settings.opa_url, {"snapshot": snapshot})
     ml_coro = _fetch_ml_score(http, body.tenant_id, body.entity_id, body.event_type.value, features)
-    opa_result, ml_score = await asyncio.gather(opa_coro, ml_coro, return_exceptions=False)
+    opa_result, ml_pack = await asyncio.gather(opa_coro, ml_coro, return_exceptions=False)
+    ml_score, ml_detail = ml_pack
 
     if opa_result and isinstance(opa_result, dict):
         rule_hits.extend(str(x) for x in opa_result.get("rule_hits", []))
@@ -815,6 +833,7 @@ async def evaluate_decision(
         ml_score if isinstance(ml_score, float) else None,
         final_score,
         features,
+        ml_detail=ml_detail if isinstance(ml_detail, dict) else None,
     )
     recommended_action = derive_recommended_action(decision, signal_tags, inf_ctx)
 
@@ -921,6 +940,7 @@ async def evaluate_decision(
             ml_score if isinstance(ml_score, float) else None,
             final_score,
             features,
+            ml_detail=ml_detail if isinstance(ml_detail, dict) else None,
         )
         response = EvaluateResponse(
             trace_id=trace_id,

@@ -13,6 +13,11 @@ dependencies = [
 dev = ["pytest>=8.0", "pytest-cov>=5.0"]
 onnx = ["onnxruntime>=1.20.0"]
 mlflow = ["mlflow>=2.18.0"]
+shap = [
+  "lightgbm>=4.0.0",
+  "shap>=0.45.0",
+  "joblib>=1.4.0",
+]
 
 [build-system]
 requires = ["setuptools>=61"]

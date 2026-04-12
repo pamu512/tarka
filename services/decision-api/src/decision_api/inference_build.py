@@ -15,6 +15,8 @@ def build_inference_context(
     ml_score: float | None,
     final_score: float,
     features: dict[str, Any] | None = None,
+    *,
+    ml_detail: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Normalize heterogeneous risk signals into a versioned inference contract (Epic A/E)."""
     features = features or {}
@@ -84,6 +86,23 @@ def build_inference_context(
     for rh in rule_hits[:5]:
         if rh and rh not in ("whitelist_bypass", "blacklist_block", "test_bypass"):
             driver_reasons.append(f"rule:{rh}")
+
+    ml_top_factors: list[dict[str, Any]] = []
+    ml_summary: str | None = None
+    ml_model: str | None = None
+    if ml_detail:
+        raw_factors = ml_detail.get("top_factors")
+        if isinstance(raw_factors, list):
+            ml_top_factors = [x for x in raw_factors if isinstance(x, dict)][:5]
+        ml_summary = ml_detail.get("summary") if isinstance(ml_detail.get("summary"), str) else None
+        m = ml_detail.get("model")
+        ml_model = str(m).strip()[:256] if m else None
+        for fac in ml_top_factors[:2]:
+            code = fac.get("code")
+            if code:
+                tag = f"ml_factor:{code}"
+                if tag not in driver_reasons:
+                    driver_reasons.append(tag)
     driver_reasons = driver_reasons[:8]
 
     ordered_top = sorted(signal_set)[:5]
@@ -103,6 +122,9 @@ def build_inference_context(
         "velocity_events_5m": int(features.get("event_count_5m") or 0),
         "velocity_events_1h": ev1h,
         "velocity_events_24h": ev24,
+        "ml_top_factors": ml_top_factors,
+        "ml_summary": ml_summary,
+        "ml_model": ml_model,
     }
 
 
