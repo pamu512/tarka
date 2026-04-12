@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import Any, NotRequired, TypedDict
 from uuid import UUID
 
 import httpx
@@ -23,6 +23,9 @@ class InferenceContext(TypedDict):
     velocity_events_5m: int
     velocity_events_1h: int
     velocity_events_24h: int
+    ml_top_factors: NotRequired[list[dict[str, Any]]]
+    ml_summary: NotRequired[str | None]
+    ml_model: NotRequired[str | None]
 
 
 class EvaluateResponse(TypedDict, total=False):

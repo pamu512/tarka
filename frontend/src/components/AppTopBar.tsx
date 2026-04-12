@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
+import { usePageMeta } from "../context/PageMetaContext";
+import { requestOpenCommandPalette } from "./CommandPalette";
 import { ModuleIcon } from "./ModuleIcon";
+import { WorkspaceBar } from "./WorkspaceBar";
 
 function IconUser({ className = "w-5 h-5" }: { className?: string }) {
   return (
@@ -116,9 +119,56 @@ function AccountMenu() {
   );
 }
 
+function IconSearch({ className = "w-[1.25rem] h-[1.25rem]" }: { className?: string }) {
+  return (
+    <svg
+      className={`shrink-0 ${className}`}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-3-3" />
+    </svg>
+  );
+}
+
+function PageContextTitle() {
+  const meta = usePageMeta();
+  if (!meta) return null;
+  return (
+    <div className="min-w-0 hidden md:block border-l border-surface-700 pl-3 ml-1">
+      <div className="text-sm font-medium text-gray-200 truncate max-w-[min(24rem,42vw)]">
+        {meta.title}
+      </div>
+      {meta.subtitle ? (
+        <div className="text-xs text-gray-500 truncate max-w-[min(24rem,42vw)]">{meta.subtitle}</div>
+      ) : null}
+    </div>
+  );
+}
+
 export function AppTopBar({ notificationActionableCount }: { notificationActionableCount: number }) {
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-end gap-0.5 border-b border-surface-700 bg-surface-900/95 px-3 backdrop-blur-sm sm:px-4">
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-2 border-b border-surface-700 bg-surface-900/95 px-2 sm:px-4 backdrop-blur-sm">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <WorkspaceBar />
+        <PageContextTitle />
+      </div>
+      <div className="flex items-center justify-end gap-0.5 shrink-0">
+      <button
+        type="button"
+        className={iconBtn}
+        aria-label="Open command palette"
+        title="Search & jump (⌘K or Ctrl+K)"
+        onClick={() => requestOpenCommandPalette()}
+      >
+        <IconSearch />
+      </button>
       <NavLink
         to="/help"
         className={({ isActive }) =>
@@ -141,6 +191,7 @@ export function AppTopBar({ notificationActionableCount }: { notificationActiona
         <ModuleIcon module="settings" className="w-[1.25rem] h-[1.25rem]" aria-hidden />
       </NavLink>
       <AccountMenu />
+      </div>
     </header>
   );
 }

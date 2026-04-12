@@ -37,6 +37,16 @@ For **labeled synthetic** scenarios, use Decision API **`POST /v1/simulation/run
 
 For heavier HTTP loads, add **k6** in CI or a separate workflow; keep **`latency_evaluate.py`** **dependency-free** for quick sanity checks.
 
+## ML batch scoring (`ml_batch_score.py`)
+
+Rows in CSV with **`tenant_id`**, **`entity_id`**, and feature columns are posted to **ml-scoring** **`POST /v1/score`** (v1.2 stretch). Requires **`httpx`** (`pip install -r scripts/requirements.txt`).
+
+```bash
+python scripts/ml_batch_score.py --url http://127.0.0.1:8005 --input features.csv --output scored.csv
+```
+
+Optional column **`features`**: JSON object merged over per-column feature fields. Reserved column names: `tenant_id`, `entity_id`, `event_type`, `features`, plus output columns `ml_score`, `ml_model`, `ml_summary`, `error`.
+
 ## Drift score smoke (`drift_score_smoke.py`)
 
 Compares **mean heuristic scores** on two **seeded JSON** feature batches (`fixtures/drift_baseline.json` vs `fixtures/drift_shifted.json`). Fails if separation is too small (dead signal) or absurdly large. **No server** required with `--local` (imports `ml-scoring` from the repo).

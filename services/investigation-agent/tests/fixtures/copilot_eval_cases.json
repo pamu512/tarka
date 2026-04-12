@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "description": "Golden structural checks for POST /v1/chat (offline mode OK). Extend with LLM-backed rubrics later.",
+  "cases": [
+    {
+      "id": "default_persona_investigation",
+      "request": {
+        "tenant_id": "eval_tenant",
+        "analyst_id": "eval_analyst",
+        "messages": [{ "role": "user", "content": "ping" }]
+      },
+      "expect": {
+        "status": 200,
+        "body": { "persona": "investigation", "has_keys": ["reply", "turn_id", "prompt_version", "claims"] }
+      }
+    },
+    {
+      "id": "explicit_orchestrator",
+      "request": {
+        "tenant_id": "eval_tenant",
+        "analyst_id": "eval_analyst",
+        "persona": "orchestrator",
+        "messages": [{ "role": "user", "content": "Outline a lean workflow for triage." }]
+      },
+      "expect": {
+        "status": 200,
+        "body": { "persona": "orchestrator" }
+      }
+    },
+    {
+      "id": "persona_ab_same_user_text",
+      "request_base": {
+        "tenant_id": "eval_tenant",
+        "analyst_id": "eval_analyst",
+        "messages": [{ "role": "user", "content": "Same prompt for A/B persona." }]
+      },
+      "expect": {
+        "status": 200,
+        "personas_differ": ["investigation", "orchestrator"]
+      }
+    }
+  ]
+}

@@ -324,6 +324,11 @@ paths:
                 case_id: { type: string, nullable: true }
                 batch_id: { type: string, nullable: true }
                 playbook_id: { type: string, nullable: true }
+                persona:
+                  type: string
+                  enum: [investigation, orchestrator]
+                  default: investigation
+                  description: Copilot persona (GET /v1/personas).
                 messages:
                   type: array
                   items:
@@ -339,6 +344,29 @@ paths:
             text/event-stream:
               schema:
                 type: string
+  /v1/personas:
+    get:
+      operationId: listCopilotPersonas
+      description: >
+        Copilot personas: investigation (evidence-first) and orchestrator (workflow efficiency, less rework).
+        Same tools and safety rules; different system-prompt emphasis. Select via persona on POST /v1/chat.
+      responses:
+        "200":
+          description: Persona catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  personas:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, title, description]
+                      properties:
+                        id: { type: string, enum: [investigation, orchestrator] }
+                        title: { type: string }
+                        description: { type: string }
   /v1/playbooks:
     get:
       operationId: listPlaybooks
@@ -384,6 +412,11 @@ paths:
                   type: string
                   nullable: true
                   description: Optional id from GET /v1/playbooks
+                persona:
+                  type: string
+                  enum: [investigation, orchestrator]
+                  default: investigation
+                  description: Copilot persona (GET /v1/personas). Orchestrator emphasizes lean sequencing and workload reduction.
                 platform_audit:
                   type: array
                   nullable: true
@@ -442,6 +475,10 @@ paths:
                   playbook_id:
                     type: string
                     description: Echoed when a playbook was active for this turn
+                  persona:
+                    type: string
+                    enum: [investigation, orchestrator]
+                    description: Copilot persona used for this turn.
                   claims_warning: { type: string }
                   claims_grounding_adjustments:
                     type: array

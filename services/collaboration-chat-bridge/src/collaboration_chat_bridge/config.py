@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -38,6 +40,13 @@ class Settings(BaseSettings):
 
     default_tenant_id: str = Field(default="collab_default", max_length=128)
     default_case_id: str | None = Field(default=None, max_length=128)
+    default_copilot_persona: Literal["investigation", "orchestrator"] = Field(
+        default="investigation",
+        description=(
+            "Default persona for POST /v1/chat. Override per message with leading "
+            "`!orch ` / `!orchestrator ` or `!inv ` / `!investigation ` on the last user line."
+        ),
+    )
 
     slack_skip_retry_background: bool = Field(
         default=True,

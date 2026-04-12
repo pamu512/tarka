@@ -352,3 +352,21 @@ components:
         velocity_events_24h:
           type: integer
           minimum: 0
+        ml_top_factors:
+          type: array
+          description: Ranked ML explanation factors from ml-scoring (v1.2+); optional TreeSHAP when enabled server-side
+          items:
+            type: object
+            required: [code, description, impact]
+            properties:
+              code: { type: string }
+              description: { type: string }
+              impact: { type: string }
+        ml_summary:
+          type: string
+          nullable: true
+          description: Plain-language ML line for analysts (paired with ml_top_factors)
+        ml_model:
+          type: string
+          nullable: true
+          description: ml-scoring model label (e.g. heuristic-v1+onnx)

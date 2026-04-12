@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, type ReactNode } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   admin,
   investigation,
@@ -702,69 +702,89 @@ export default function Investigation() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        {!contextCaseId && (
+          <div className="max-w-4xl mx-auto rounded-lg border border-amber-500/25 bg-amber-500/5 px-4 py-3 text-sm text-gray-300">
+            <p className="font-medium text-amber-200/90 mb-1">No case linked to this session</p>
+            <p className="text-gray-400 leading-relaxed">
+              For richer tool context, open Investigation from a case (or add{" "}
+              <code className="text-gray-500">case_id</code> and{" "}
+              <code className="text-gray-500">tenant_id</code> to the URL). Browse{" "}
+              <Link to={`/cases?tenant_id=${encodeURIComponent(contextTenantId)}`} className="text-brand-400 hover:underline">
+                Cases
+              </Link>{" "}
+              and use <span className="text-gray-300">Open in Investigation Copilot</span> from a case row or detail.
+            </p>
+          </div>
+        )}
+
         {messages.length === 0 && (
-          <div className="max-w-4xl mx-auto py-4 space-y-8">
-            <div className="flex flex-col sm:flex-row gap-4 sm:items-start">
-              <ModuleIcon module="investigation" className="w-14 h-14 text-gray-600 shrink-0 hidden sm:block" aria-hidden />
-              <div className="space-y-2 min-w-0">
-                <h2 className="text-lg font-semibold text-gray-300">Preset skills & workflows</h2>
-                <p className="text-sm text-gray-500 leading-relaxed">
-                  Skills bundle prompts the agent uses like playbooks: case + rule reviews, batch thinking, experiment
-                  readouts, monitoring reports, and analyst shortcuts. <span className="text-amber-400/90">⚡ Instant</span>{" "}
-                  sends in one click for fast answers; others fill the composer so you can tweak dates, segments, or
-                  tenant scope before sending. Use <code className="text-gray-400">/skill</code> for the full skill list
-                  in chat.
-                </p>
+          <details className="max-w-4xl mx-auto py-2 rounded-xl border border-surface-700/80 bg-surface-900/40 group">
+            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-gray-300 flex items-center gap-2">
+              <span className="text-brand-400/90 group-open:rotate-90 transition-transform inline-block">▸</span>
+              Preset skills &amp; workflows
+            </summary>
+            <div className="px-4 pb-4 pt-0 space-y-8 border-t border-surface-700/80">
+              <div className="flex flex-col sm:flex-row gap-4 sm:items-start pt-4">
+                <ModuleIcon module="investigation" className="w-14 h-14 text-gray-600 shrink-0 hidden sm:block" aria-hidden />
+                <div className="space-y-2 min-w-0">
+                  <p className="text-sm text-gray-500 leading-relaxed">
+                    Skills bundle prompts the agent uses like playbooks: case + rule reviews, batch thinking, experiment
+                    readouts, monitoring reports, and analyst shortcuts. <span className="text-amber-400/90">⚡ Instant</span>{" "}
+                    sends in one click for fast answers; others fill the composer so you can tweak dates, segments, or
+                    tenant scope before sending. Use <code className="text-gray-400">/skill</code> for the full skill list
+                    in chat.
+                  </p>
+                </div>
+              </div>
+
+              {QUICK_INSTANT_SKILLS.length > 0 && (
+                <section className="space-y-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-brand-400/90">Quick run — instant</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {QUICK_INSTANT_SKILLS.map((skill) => (
+                      <SkillChip
+                        key={skill.id}
+                        label={skill.label}
+                        instant
+                        disabled={sending}
+                        onTrigger={() => void sendMessage(skill.prompt)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              <div className="space-y-6">
+                {COPILOT_SKILL_GROUPS.map((group) => (
+                  <section key={group.id} className="rounded-xl border border-surface-700/60 bg-surface-900/30 p-4 space-y-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-200">{group.title}</h3>
+                      {group.blurb && <p className="text-xs text-gray-500 mt-1 leading-relaxed">{group.blurb}</p>}
+                    </div>
+                    <ul className="flex flex-col gap-2">
+                      {group.skills.map((skill) => (
+                        <li key={skill.id} className="flex flex-wrap items-center gap-2">
+                          <SkillChip
+                            label={skill.label}
+                            instant={skill.instant === true}
+                            disabled={sending}
+                            onTrigger={() =>
+                              skill.instant ? void sendMessage(skill.prompt) : setInput(skill.prompt)
+                            }
+                          />
+                          {skill.instant ? (
+                            <span className="text-xs text-gray-600">instant</span>
+                          ) : (
+                            <span className="text-xs text-gray-600">fills composer</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ))}
               </div>
             </div>
-
-            {QUICK_INSTANT_SKILLS.length > 0 && (
-              <section className="space-y-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-brand-400/90">Quick run — instant</h3>
-                <div className="flex flex-wrap gap-2">
-                  {QUICK_INSTANT_SKILLS.map((skill) => (
-                    <SkillChip
-                      key={skill.id}
-                      label={skill.label}
-                      instant
-                      disabled={sending}
-                      onTrigger={() => void sendMessage(skill.prompt)}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            <div className="space-y-6">
-              {COPILOT_SKILL_GROUPS.map((group) => (
-                <section key={group.id} className="rounded-xl border border-surface-700/80 bg-surface-900/40 p-4 space-y-3">
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-200">{group.title}</h3>
-                    {group.blurb && <p className="text-xs text-gray-500 mt-1 leading-relaxed">{group.blurb}</p>}
-                  </div>
-                  <ul className="flex flex-col gap-2">
-                    {group.skills.map((skill) => (
-                      <li key={skill.id} className="flex flex-wrap items-center gap-2">
-                        <SkillChip
-                          label={skill.label}
-                          instant={skill.instant === true}
-                          disabled={sending}
-                          onTrigger={() =>
-                            skill.instant ? void sendMessage(skill.prompt) : setInput(skill.prompt)
-                          }
-                        />
-                        {skill.instant ? (
-                          <span className="text-[10px] text-gray-600">instant</span>
-                        ) : (
-                          <span className="text-[10px] text-gray-600">fills composer</span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ))}
-            </div>
-          </div>
+          </details>
         )}
 
         {messages.map((msg) => (
@@ -1037,7 +1057,7 @@ function MessageBubble({
               ? "bg-amber-500/15 text-amber-400"
               : message.bubble === "system_help"
                 ? "bg-brand-600/25 text-brand-300"
-                : "bg-brand-600/20 text-brand-400"
+            : "bg-brand-600/20 text-brand-400"
         }`}
       >
         <span className="text-xs font-semibold">

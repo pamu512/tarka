@@ -1,12 +1,17 @@
-import { useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { cases, type Case, type CaseCreateRequest, type CaseOpsKpis } from "../api/client";
+import { useAnalystWorkspace } from "../context/AnalystWorkspaceContext";
+import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import StatusBadge from "../components/StatusBadge";
 import PriorityBadge from "../components/PriorityBadge";
 import { PageTitle } from "../components/PageTitle";
 
 export default function Cases() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { tenantId, setTenantId } = useTenantEnvironment();
+  const { pinCase } = useAnalystWorkspace();
   const [caseList, setCaseList] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,13 +26,23 @@ export default function Cases() {
   const [playbooks, setPlaybooks] = useState<Record<string, Record<string, unknown>>>({});
   const [savedViews, setSavedViews] = useState<Array<{ name: string; tenant_id: string; filters: Record<string, unknown> }>>([]);
   const [newViewName, setNewViewName] = useState("");
+  const [saveViewBusy, setSaveViewBusy] = useState(false);
   const [opsKpis, setOpsKpis] = useState<CaseOpsKpis | null>(null);
+  const [savedViewSelection, setSavedViewSelection] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(true);
+
+  useEffect(() => {
+    const t = searchParams.get("tenant_id")?.trim();
+    if (t) setTenantId(t);
+  }, [searchParams, setTenantId]);
+
+  const clearSavedViewSelection = useCallback(() => setSavedViewSelection(""), []);
 
   const fetchCases = useCallback(async () => {
     setLoading(true);
     try {
       const resp = await cases.list({
-        tenant_id: "demo",
+        tenant_id: tenantId,
         status: statusFilter || undefined,
         limit: 100,
         sort_by: sortBy,
@@ -46,7 +61,7 @@ export default function Cases() {
       }
       setCaseList(data);
       try {
-        const kpis = await cases.opsKpis("demo");
+        const kpis = await cases.opsKpis(tenantId);
         setOpsKpis(kpis);
       } catch {
         setOpsKpis(null);
@@ -57,7 +72,7 @@ export default function Cases() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, priorityFilter, search, sortBy]);
+  }, [tenantId, statusFilter, priorityFilter, search, sortBy]);
 
   useEffect(() => {
     fetchCases();
@@ -66,14 +81,14 @@ export default function Cases() {
   useEffect(() => {
     (async () => {
       try {
-        const [pb, views] = await Promise.all([cases.playbooks(), cases.listViews("demo")]);
+        const [pb, views] = await Promise.all([cases.playbooks(), cases.listViews(tenantId)]);
         setPlaybooks(pb.playbooks || {});
         setSavedViews(views.items || []);
       } catch {
         /* ignore optional UI data failures */
       }
     })();
-  }, []);
+  }, [tenantId]);
 
   const toggleSelected = (id: string) => {
     setSelectedIds((prev) => {
@@ -88,7 +103,7 @@ export default function Cases() {
     if (selectedIds.size === 0) return;
     setBulkBusy(true);
     try {
-      await cases.bulkUpdate({ tenant_id: "demo", case_ids: Array.from(selectedIds), ...payload });
+      await cases.bulkUpdate({ tenant_id: tenantId, case_ids: Array.from(selectedIds), ...payload });
       setSelectedIds(new Set());
       setBulkLabel("");
       await fetchCases();
@@ -104,7 +119,7 @@ export default function Cases() {
     setBulkBusy(true);
     try {
       await Promise.all(
-        Array.from(selectedIds).map((id) => cases.applyPlaybook(id, "demo", playbookId)),
+        Array.from(selectedIds).map((id) => cases.applyPlaybook(id, tenantId, playbookId)),
       );
       setSelectedIds(new Set());
       await fetchCases();
@@ -115,10 +130,11 @@ export default function Cases() {
     }
   };
 
-  const applySavedView = async (name: string) => {
+  const applySavedView = (name: string) => {
     const view = savedViews.find((v) => v.name === name);
     if (!view) return;
     const filters = view.filters || {};
+    setSavedViewSelection(name);
     setStatusFilter(String(filters.status || ""));
     setPriorityFilter(String(filters.priority || ""));
     setSearch(String(filters.search || ""));
@@ -130,7 +146,9 @@ export default function Cases() {
       <div className="flex items-center justify-between gap-4">
         <PageTitle module="cases">Cases</PageTitle>
         <button
+          type="button"
           onClick={() => setShowCreate(true)}
+          aria-haspopup="dialog"
           className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg transition-colors"
         >
           + New Case
@@ -148,11 +166,24 @@ export default function Cases() {
         </div>
       )}
 
-      {/* Filter Bar */}
-      <div className="flex flex-wrap gap-3">
+      {/* Filter bar — collapsible on small screens */}
+      <div className="rounded-xl border border-surface-700 bg-surface-900/50 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setFiltersOpen((o) => !o)}
+          aria-expanded={filtersOpen}
+          className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left text-sm font-medium text-gray-300 hover:bg-surface-800/40 md:hidden"
+        >
+          <span>Filters &amp; saved views</span>
+          <span className="text-gray-500">{filtersOpen ? "▾" : "▸"}</span>
+        </button>
+        <div className={`${filtersOpen ? "flex" : "hidden"} md:flex flex-wrap gap-3 p-4 pt-0 md:pt-4 border-t border-surface-800 md:border-0`}>
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => {
+            clearSavedViewSelection();
+            setStatusFilter(e.target.value);
+          }}
           className="bg-surface-800 border border-surface-600 text-gray-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-500"
         >
           <option value="">All Statuses</option>
@@ -164,7 +195,10 @@ export default function Cases() {
 
         <select
           value={priorityFilter}
-          onChange={(e) => setPriorityFilter(e.target.value)}
+          onChange={(e) => {
+            clearSavedViewSelection();
+            setPriorityFilter(e.target.value);
+          }}
           className="bg-surface-800 border border-surface-600 text-gray-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-500"
         >
           <option value="">All Priorities</option>
@@ -178,13 +212,19 @@ export default function Cases() {
           type="text"
           placeholder="Search cases..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            clearSavedViewSelection();
+            setSearch(e.target.value);
+          }}
           className="bg-surface-800 border border-surface-600 text-gray-300 text-sm rounded-lg px-3 py-2 flex-1 min-w-[200px] focus:outline-none focus:ring-1 focus:ring-brand-500"
         />
 
         <select
           value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as "queue" | "updated" | "priority")}
+          onChange={(e) => {
+            clearSavedViewSelection();
+            setSortBy(e.target.value as "queue" | "updated" | "priority");
+          }}
           className="bg-surface-800 border border-surface-600 text-gray-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-500"
         >
           <option value="queue">Queue Priority</option>
@@ -192,13 +232,15 @@ export default function Cases() {
           <option value="priority">Priority</option>
         </select>
         <select
+          value={savedViewSelection}
           onChange={(e) => {
-            if (e.target.value) void applySavedView(e.target.value);
+            const v = e.target.value;
+            if (v) applySavedView(v);
+            else setSavedViewSelection("");
           }}
-          defaultValue=""
           className="bg-surface-800 border border-surface-600 text-gray-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-500"
         >
-          <option value="">Saved Views</option>
+          <option value="">Saved views</option>
           {savedViews.map((v) => (
             <option key={v.name} value={v.name}>{v.name}</option>
           ))}
@@ -211,35 +253,49 @@ export default function Cases() {
           className="bg-surface-800 border border-surface-600 text-gray-300 text-sm rounded-lg px-3 py-2"
         />
         <button
+          type="button"
+          disabled={saveViewBusy}
           onClick={async () => {
             if (!newViewName.trim()) return;
-            await cases.saveView({
-              tenant_id: "demo",
-              name: newViewName.trim(),
-              filters: { status: statusFilter, priority: priorityFilter, search, sort_by: sortBy },
-            });
-            const views = await cases.listViews("demo");
-            setSavedViews(views.items || []);
-            setNewViewName("");
+            setSaveViewBusy(true);
+            try {
+              await cases.saveView({
+                tenant_id: tenantId,
+                name: newViewName.trim(),
+                filters: { status: statusFilter, priority: priorityFilter, search, sort_by: sortBy },
+              });
+              const views = await cases.listViews(tenantId);
+              setSavedViews(views.items || []);
+              const savedName = newViewName.trim();
+              setNewViewName("");
+              setSavedViewSelection(savedName);
+              setError(null);
+            } catch (e) {
+              setError(e instanceof Error ? e.message : "Could not save view");
+            } finally {
+              setSaveViewBusy(false);
+            }
           }}
-          className="px-3 py-2 bg-surface-700 hover:bg-surface-600 text-gray-200 text-sm rounded-lg"
+          className="px-3 py-2 bg-surface-700 hover:bg-surface-600 disabled:opacity-60 text-gray-200 text-sm rounded-lg"
         >
-          Save View
+          {saveViewBusy ? "Saving..." : "Save View"}
         </button>
+        </div>
       </div>
 
-      {/* Bulk Actions */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <span className="text-xs text-gray-500">Selected: {selectedIds.size}</span>
+      {/* Bulk actions — only when something is selected */}
+      {selectedIds.size > 0 && (
+      <div className="flex flex-wrap gap-2 items-center rounded-lg border border-brand-500/20 bg-brand-500/5 px-3 py-2">
+        <span className="text-xs text-gray-400">Selected: {selectedIds.size}</span>
         <button
-          disabled={bulkBusy || selectedIds.size === 0}
+          disabled={bulkBusy}
           onClick={() => void applyBulk({ status: "investigating" })}
           className="px-3 py-1.5 bg-brand-700 hover:bg-brand-600 disabled:opacity-50 text-white text-xs rounded"
         >
           Mark Investigating
         </button>
         <button
-          disabled={bulkBusy || selectedIds.size === 0}
+          disabled={bulkBusy}
           onClick={() => void applyBulk({ priority: "critical" })}
           className="px-3 py-1.5 bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white text-xs rounded"
         >
@@ -252,18 +308,17 @@ export default function Cases() {
           className="bg-surface-800 border border-surface-600 text-gray-300 text-xs rounded px-2 py-1"
         />
         <button
-          disabled={bulkBusy || selectedIds.size === 0 || !bulkLabel.trim()}
+          disabled={bulkBusy || !bulkLabel.trim()}
           onClick={() => void applyBulk({ add_labels: [bulkLabel.trim()] })}
           className="px-3 py-1.5 bg-surface-700 hover:bg-surface-600 disabled:opacity-50 text-gray-200 text-xs rounded"
         >
           Add Label
         </button>
         <select
-          disabled={bulkBusy || selectedIds.size === 0}
-          defaultValue=""
+          disabled={bulkBusy}
+          value=""
           onChange={(e) => {
             if (e.target.value) void applyPlaybook(e.target.value);
-            e.currentTarget.value = "";
           }}
           className="bg-surface-800 border border-surface-600 text-gray-300 text-xs rounded px-2 py-1"
         >
@@ -273,6 +328,7 @@ export default function Cases() {
           ))}
         </select>
       </div>
+      )}
 
       {/* Table */}
       {error && (
@@ -300,15 +356,23 @@ export default function Cases() {
                   <th className="text-left py-3 px-4 font-medium">Team</th>
                   <th className="text-left py-3 px-4 font-medium">Created</th>
                   <th className="text-left py-3 px-4 font-medium">Queue</th>
+                  <th className="text-left py-3 px-3 font-medium w-24">Open</th>
                 </tr>
               </thead>
               <tbody>
                 {caseList.map((c) => (
                   <tr
                     key={c.id}
-                    onClick={() =>
-                      navigate(`/cases/${c.id}?tenant_id=${encodeURIComponent(c.tenant_id)}`)
-                    }
+                    onClick={() => {
+                      pinCase({
+                        caseId: c.id,
+                        tenantId: c.tenant_id,
+                        title: c.title || "Case",
+                      });
+                      navigate(
+                        `/cases/${encodeURIComponent(c.id)}?tenant_id=${encodeURIComponent(c.tenant_id)}`,
+                      );
+                    }}
                     className="border-b border-surface-800 hover:bg-surface-800/50 cursor-pointer transition-colors"
                   >
                     <td className="py-3 px-2">
@@ -349,16 +413,32 @@ export default function Cases() {
                       <div className="text-xs text-gray-300">
                         {typeof c.queue_score === "number" ? c.queue_score.toFixed(0) : "—"}
                       </div>
-                      <div className="text-[10px] text-gray-500 uppercase">
+                      <div className="text-xs text-gray-500 uppercase">
                         {c.recommended_action || "n/a"}
                       </div>
+                    </td>
+                    <td className="py-3 px-3">
+                      <Link
+                        to={`/cases/${encodeURIComponent(c.id)}?tenant_id=${encodeURIComponent(c.tenant_id)}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          pinCase({
+                            caseId: c.id,
+                            tenantId: c.tenant_id,
+                            title: c.title || "Case",
+                          });
+                        }}
+                        className="text-xs font-medium text-brand-400 hover:text-brand-300"
+                      >
+                        Open
+                      </Link>
                     </td>
                   </tr>
                 ))}
                 {caseList.length === 0 && !loading && (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={10}
                       className="py-12 text-center text-gray-500"
                     >
                       No cases found
@@ -374,6 +454,7 @@ export default function Cases() {
       {/* Create Case Modal */}
       {showCreate && (
         <CreateCaseModal
+          defaultTenantId={tenantId}
           onClose={() => setShowCreate(false)}
           onCreated={() => {
             setShowCreate(false);
@@ -395,21 +476,65 @@ function KpiCard({ label, value }: { label: string; value: string }) {
 }
 
 function CreateCaseModal({
+  defaultTenantId,
   onClose,
   onCreated,
 }: {
+  defaultTenantId: string;
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const tenantEditedRef = useRef(false);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const [form, setForm] = useState<CaseCreateRequest>({
     title: "",
     entity_id: "",
-    tenant_id: "demo",
+    tenant_id: defaultTenantId,
     trace_id: crypto.randomUUID().slice(0, 16),
     priority: "medium",
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (tenantEditedRef.current) return;
+    setForm((f) => ({ ...f, tenant_id: defaultTenantId }));
+  }, [defaultTenantId]);
+
+  useEffect(() => {
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+    const el = panelRef.current?.querySelector<HTMLElement>(
+      "input:not([type=hidden]), textarea, select, button",
+    );
+    el?.focus();
+    return () => previouslyFocusedRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key !== "Tab") return;
+      const panel = panelRef.current;
+      if (!panel) return;
+      const focusables = panel.querySelectorAll<HTMLElement>(
+        "a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex='-1'])",
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -425,9 +550,20 @@ function CreateCaseModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-surface-900 border border-surface-700 rounded-xl p-6 w-full max-w-lg shadow-2xl animate-fade-in">
-        <h2 className="text-lg font-semibold text-gray-100 mb-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-case-title"
+        onClick={(e) => e.stopPropagation()}
+        className="bg-surface-900 border border-surface-700 rounded-xl p-6 w-full max-w-lg shadow-2xl animate-fade-in"
+      >
+        <h2 id="create-case-title" className="text-lg font-semibold text-gray-100 mb-4">
           New Case
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -453,7 +589,10 @@ function CreateCaseModal({
             <Field
               label="Tenant ID"
               value={form.tenant_id}
-              onChange={(v) => setForm({ ...form, tenant_id: v })}
+              onChange={(v) => {
+                tenantEditedRef.current = true;
+                setForm({ ...form, tenant_id: v });
+              }}
               required
             />
           </div>

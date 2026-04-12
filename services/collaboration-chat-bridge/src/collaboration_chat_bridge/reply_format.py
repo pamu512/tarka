@@ -80,13 +80,14 @@ def format_slack_blocks(
             }
         )
     turn_id = agent_json.get("turn_id")
+    persona = agent_json.get("persona")
+    ctx_bits: list[str] = []
+    if persona:
+        ctx_bits.append(f"`persona`: `{persona}`")
     if turn_id:
-        blocks.append(
-            {
-                "type": "context",
-                "elements": [{"type": "mrkdwn", "text": f"`turn_id`: `{turn_id}`"}],
-            }
-        )
+        ctx_bits.append(f"`turn_id`: `{turn_id}`")
+    if ctx_bits:
+        blocks.append({"type": "context", "elements": [{"type": "mrkdwn", "text": " · ".join(ctx_bits)}]})
     return blocks
 
 
@@ -135,14 +136,14 @@ def format_teams_adaptive_card(
         body.append({"type": "TextBlock", "text": "NEXT STEPS", "weight": "Bolder", "spacing": "Medium"})
         body.append({"type": "TextBlock", "text": _trim(str(ns), 2000), "wrap": True})
     turn_id = agent_json.get("turn_id")
+    persona = agent_json.get("persona")
+    facts: list[dict[str, str]] = []
+    if persona:
+        facts.append({"title": "persona", "value": str(persona)})
     if turn_id:
-        body.append(
-            {
-                "type": "FactSet",
-                "facts": [{"title": "turn_id", "value": str(turn_id)}],
-                "spacing": "Medium",
-            }
-        )
+        facts.append({"title": "turn_id", "value": str(turn_id)})
+    if facts:
+        body.append({"type": "FactSet", "facts": facts, "spacing": "Medium"})
     return {
         "type": "AdaptiveCard",
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
@@ -186,6 +187,9 @@ def format_lark_card_text(agent_json: dict[str, Any]) -> str:
         parts.extend(["", "**INFERENCES**", _trim(str(inf), 1500)])
     if ns:
         parts.extend(["", "**NEXT STEPS**", _trim(str(ns), 1500)])
+    per = agent_json.get("persona")
+    if per:
+        parts.append(f"\n`persona`: {per}")
     tid = agent_json.get("turn_id")
     if tid:
         parts.append(f"\n`turn_id`: {tid}")
@@ -196,16 +200,20 @@ def format_lark_error_text(message: str, detail: str = "") -> str:
     return "**Copilot error**\n" + _trim(message, 800) + ("\n\n" + _trim(detail, 600) if detail else "")
 
 
-# Strip Slack mention tokens and link noise for cleaner user prompts
-_SLACK_USER_MENTION = re.compile(r"<@[^>]+>\s*")
-_SLACK_SUBTEAM = re.compile(r"<!subteam\^[^>]+>\s*")
-_SLACK_LINK = re.compile(r"<(https?://[^|>]+)\|[^>]+>")
-_SLACK_BARE_URL = re.compile(r"<(https?://[^>]+)>")
+# Strip Slack mention tokens and link noise for cleaner user prompts.
+# Use bounded quantifiers (not unbounded +) to avoid polynomial ReDoS on hostile input (CodeQL py/polynomial-redos).
+_SLACK_USER_MENTION = re.compile(r"<@[^>\s]{1,256}>\s*")
+_SLACK_SUBTEAM = re.compile(r"<!subteam\^[^>\s]{1,256}>\s*")
+_SLACK_LINK = re.compile(r"<(https?://[^|>]{1,2048})\|[^>]{1,512}>")
+_SLACK_BARE_URL = re.compile(r"<(https?://[^>\s]{1,2048})>")
+_MAX_SLACK_NORMALIZE_CHARS = 100_000
 
 
 def normalize_slack_user_text(text: str) -> str:
     """Remove @bot mentions and normalize Slack <url|label> / <url> tokens for LLM context."""
     t = (text or "").strip()
+    if len(t) > _MAX_SLACK_NORMALIZE_CHARS:
+        t = t[:_MAX_SLACK_NORMALIZE_CHARS]
     t = _SLACK_USER_MENTION.sub("", t)
     t = _SLACK_SUBTEAM.sub("", t)
     t = _SLACK_LINK.sub(r"\1", t)
