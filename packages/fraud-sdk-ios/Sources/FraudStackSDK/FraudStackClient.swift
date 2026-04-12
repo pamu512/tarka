@@ -2,6 +2,7 @@ import Foundation
 import DeviceCheck
 import CryptoKit
 
+/// Subset of Decision API `POST /v1/decisions/evaluate` JSON. Extra keys (`inference_context`, `recommended_action`, …) are ignored by `JSONDecoder`.
 public struct EvaluateResponse: Codable {
     public let trace_id: String
     public let decision: String
@@ -15,7 +16,6 @@ public struct EvaluateResponse: Codable {
 public class FraudStackClient {
     private let baseURL: URL
     private let apiKey: String
-    private let collector = DeviceSignalCollector()
 
     public init(baseURL: String, apiKey: String = "") {
         self.baseURL = URL(string: baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/")))!
@@ -30,24 +30,38 @@ public class FraudStackClient {
         entityId: String,
         payload: [String: Any] = [:]
     ) async throws -> EvaluateResponse {
-        let signals = collector.collect()
-        let deviceId = collector.deviceId()
+        let collected = DeviceSignalCollector.collect()
+        guard let deviceId = collected["device_id"] as? String else {
+            throw NSError(domain: "Tarka", code: 4, userInfo: [NSLocalizedDescriptionKey: "Missing device_id from DeviceSignalCollector"])
+        }
+
+        let isSimulator = collected["is_simulator"] as? Bool ?? false
+        let isVpn = collected["is_vpn"] as? Bool ?? false
+        let isRepackaged = collected["is_repackaged"] as? Bool ?? false
+        let language = collected["language"] as? String ?? ""
+        let platformVersion = collected["os_version"] as? String ?? ""
+        let screenRes: String = {
+            let v = collected["screen_scale"]
+            if let n = v as? NSNumber { return n.stringValue }
+            if let d = v as? Double { return String(d) }
+            return ""
+        }()
 
         var deviceContext: [String: Any] = [
             "device_id": deviceId,
             "platform": "ios",
             "signals": [
-                "is_emulator": signals.isEmulator,
-                "is_vpn": signals.isVpn,
-                "is_spoofed_location": signals.isSpoofedLocation,
-                "is_bot": signals.isBot,
-                "is_repackaged": signals.isRepackaged,
-                "automation_detected": signals.automationDetected,
-                "vpn_interface_detected": signals.vpnInterfaceDetected,
-                "mock_location_detected": signals.mockLocationDetected,
-                "screen_res": signals.screenRes ?? "",
-                "language": signals.language ?? "",
-                "platform_version": signals.platformVersion ?? ""
+                "is_emulator": isSimulator,
+                "is_vpn": isVpn,
+                "is_spoofed_location": false,
+                "is_bot": false,
+                "is_repackaged": isRepackaged,
+                "automation_detected": (collected["is_debugger_attached"] as? Bool) ?? false,
+                "vpn_interface_detected": isVpn,
+                "mock_location_detected": false,
+                "screen_res": screenRes,
+                "language": language,
+                "platform_version": platformVersion
             ]
         ]
 
@@ -76,7 +90,8 @@ public class FraudStackClient {
         guard service.isSupported else { throw NSError(domain: "Tarka", code: 1) }
 
         let keyId = try await service.generateKey()
-        let clientDataHash = Data(SHA256.hash(data: Data((nonce + deviceId).utf8)))
+        let digest = SHA256.hash(data: Data((nonce + deviceId).utf8))
+        let clientDataHash = Data(digest)
         let attestation = try await service.attestKey(keyId, clientDataHash: clientDataHash)
         let token = attestation.base64EncodedString()
         return ["nonce": nonce, "token": token, "provider": "app_attest"]
