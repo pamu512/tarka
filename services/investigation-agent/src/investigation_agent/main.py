@@ -50,8 +50,8 @@ from investigation_agent.personas import (
 )
 from investigation_agent.playbooks import (
     list_playbooks,
-    playbooks_catalog_fingerprint,
     playbook_system_append,
+    playbooks_catalog_fingerprint,
     validate_playbook_id,
 )
 from investigation_agent.tool_validation import validate_tool_arguments

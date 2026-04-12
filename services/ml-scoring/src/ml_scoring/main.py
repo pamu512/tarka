@@ -19,7 +19,6 @@ from ml_scoring.explainability import (  # noqa: E402
 )
 from ml_scoring.heuristic import extract_feature_vector as _extract_feature_vector  # noqa: E402
 from ml_scoring.heuristic import heuristic_score as _heuristic_score  # noqa: E402
-from ml_scoring.heuristic import safe_float as _safe_float  # noqa: E402
 from ml_scoring.model_registry import ModelRegistry  # noqa: E402
 from ml_scoring.shap_explainer import lgbm_score_and_shap_factors  # noqa: E402
 
