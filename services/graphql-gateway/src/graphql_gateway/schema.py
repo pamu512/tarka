@@ -60,6 +60,8 @@ class EvaluateResult:
     rule_hits: list[str]
     reasons: list[str]
     ml_score: float | None
+    recommended_action: str | None = None
+    inference_context: JSON | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -273,6 +275,8 @@ class Mutation:
             rule_hits=data.get("rule_hits", []),
             reasons=data.get("reasons", []),
             ml_score=data.get("ml_score"),
+            recommended_action=data.get("recommended_action"),
+            inference_context=data.get("inference_context"),
         )
 
     @strawberry.mutation

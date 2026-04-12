@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   LineChart,
   Line,
@@ -15,12 +15,12 @@ import {
 } from "recharts";
 import {
   analytics,
-  decisions,
   type AnalyticsSummary,
   type HourlyStat,
   type TopEntity,
   type AuditEntry,
 } from "../api/client";
+import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { PageTitle } from "../components/PageTitle";
 
 const DECISION_COLORS = {
@@ -29,46 +29,132 @@ const DECISION_COLORS = {
   deny: "#ef4444",
 };
 
+function rowToAuditEntry(r: unknown): AuditEntry | null {
+  if (!r || typeof r !== "object") return null;
+  const o = r as Record<string, unknown>;
+  if (typeof o.entity_id !== "string" || typeof o.decision !== "string") return null;
+  return {
+    trace_id: String(o.trace_id ?? ""),
+    entity_id: o.entity_id,
+    tenant_id: String(o.tenant_id ?? ""),
+    event_type: String(o.event_type ?? ""),
+    decision: o.decision,
+    score: Number(o.score ?? 0),
+    tags: Array.isArray(o.tags) ? o.tags.map(String) : [],
+    rule_hits: Array.isArray(o.rule_hits) ? o.rule_hits.map(String) : [],
+    created_at: String(o.created_at ?? new Date().toISOString()),
+  };
+}
+
+function summarizeFromRows(rows: unknown[]): AnalyticsSummary {
+  const entries = rows.map(rowToAuditEntry).filter((e): e is AuditEntry => e != null);
+  const n = entries.length;
+  if (n === 0) {
+    return { total_decisions: 0, deny_rate: 0, review_rate: 0, avg_score: 0 };
+  }
+  let deny = 0;
+  let review = 0;
+  let scoreSum = 0;
+  for (const e of entries) {
+    if (e.decision === "deny") deny += 1;
+    else if (e.decision === "review") review += 1;
+    scoreSum += e.score;
+  }
+  return {
+    total_decisions: n,
+    deny_rate: deny / n,
+    review_rate: review / n,
+    avg_score: scoreSum / n,
+  };
+}
+
 export default function Dashboard() {
+  const { tenantId } = useTenantEnvironment();
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [hourly, setHourly] = useState<HourlyStat[]>([]);
   const [topEntities, setTopEntities] = useState<TopEntity[]>([]);
   const [recentDecisions, setRecentDecisions] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dataWarnings, setDataWarnings] = useState<string[]>([]);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const firstLoadRef = useRef(true);
 
   const fetchData = useCallback(async () => {
+    const isFirst = firstLoadRef.current;
+    if (isFirst) setLoading(true);
+    else setRefreshing(true);
     try {
       const [sResp, hResp, tResp] = await Promise.allSettled([
-        analytics.decisions({ limit: 1 }),
-        analytics.hourly({ days: 24 }),
-        analytics.topEntities({ limit: 10 }),
+        analytics.decisions({ tenant_id: tenantId, limit: 500 }),
+        analytics.hourly({ tenant_id: tenantId, days: 24 }),
+        analytics.topEntities({ tenant_id: tenantId, limit: 10 }),
       ]);
-      if (hResp.status === "fulfilled") setHourly(hResp.value.rows);
-      if (tResp.status === "fulfilled") setTopEntities(tResp.value.entities);
-      if (sResp.status === "fulfilled") {
-        const rows = sResp.value.rows;
-        const total = rows.length;
-        setSummary({
-          total_decisions: total,
-          deny_rate: 0,
-          review_rate: 0,
-          avg_score: 0,
-        });
+      const warnings: string[] = [];
+
+      if (hResp.status === "fulfilled") setHourly(hResp.value.rows ?? []);
+      else {
+        setHourly([]);
+        warnings.push("Hourly trend data unavailable");
       }
+
+      if (tResp.status === "fulfilled") setTopEntities(tResp.value.entities ?? []);
+      else {
+        setTopEntities([]);
+        warnings.push("Top entities data unavailable");
+      }
+
+      if (sResp.status === "fulfilled") {
+        const rows = sResp.value.rows ?? [];
+        setSummary(summarizeFromRows(rows));
+        const parsed = rows.map(rowToAuditEntry).filter((e): e is AuditEntry => e != null);
+        parsed.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        setRecentDecisions(parsed.slice(0, 20));
+      } else {
+        setSummary({ total_decisions: 0, deny_rate: 0, review_rate: 0, avg_score: 0 });
+        setRecentDecisions([]);
+        warnings.push("Decision audit rows unavailable");
+      }
+      setDataWarnings(warnings);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load dashboard");
     } finally {
       setLoading(false);
+      setRefreshing(false);
+      firstLoadRef.current = false;
     }
-  }, []);
+  }, [tenantId]);
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 30_000);
-    return () => clearInterval(interval);
+    setSummary(null);
+    setHourly([]);
+    setTopEntities([]);
+    setRecentDecisions([]);
+    setDataWarnings([]);
+    firstLoadRef.current = true;
+    setLoading(true);
+  }, [tenantId]);
+
+  useEffect(() => {
+    void fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    if (!autoRefresh) return undefined;
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") void fetchData();
+    }, 30_000);
+    const onVis = () => {
+      if (document.visibilityState === "visible") void fetchData();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [autoRefresh, fetchData]);
 
   const aggregatedHourly = useMemo(() => {
     const map = new Map<string, { hour: string; allow: number; review: number; deny: number }>();
@@ -90,23 +176,57 @@ export default function Dashboard() {
         { name: "Allow", value: aggregatedHourly.reduce((s, h) => s + h.allow, 0) },
         { name: "Review", value: aggregatedHourly.reduce((s, h) => s + h.review, 0) },
         { name: "Deny", value: aggregatedHourly.reduce((s, h) => s + h.deny, 0) },
-      ]
+      ].filter((d) => d.value > 0)
     : [];
 
-  if (loading) return <LoadingState />;
-  if (error) return <ErrorState message={error} onRetry={fetchData} />;
+  const hasChartData = aggregatedHourly.some((h) => h.allow + h.review + h.deny > 0);
+  const showEmptyHonest = summary && summary.total_decisions === 0 && !hasChartData;
+
+  if (loading && summary === null && hourly.length === 0) return <LoadingState />;
+  if (error) return <ErrorState message={error} onRetry={() => void fetchData()} />;
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <PageTitle module="dashboard">Dashboard</PageTitle>
-        <span className="text-xs text-gray-500 shrink-0">Auto-refreshes every 30s</span>
+        <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+          <span className="text-gray-600">Tenant: {tenantId}</span>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              className="rounded border-surface-600"
+              checked={autoRefresh}
+              onChange={(e) => setAutoRefresh(e.target.checked)}
+            />
+            Auto-refresh (30s, when tab visible)
+          </label>
+          <button
+            type="button"
+            disabled={refreshing}
+            onClick={() => void fetchData()}
+            className="px-3 py-1.5 rounded-lg bg-surface-700 hover:bg-surface-600 text-gray-200 disabled:opacity-50"
+          >
+            {refreshing ? "Refreshing…" : "Refresh now"}
+          </button>
+        </div>
       </div>
+
+      {showEmptyHonest && (
+        <p className="text-sm text-gray-500 border border-surface-700 rounded-lg px-4 py-3 bg-surface-900/60">
+          No decision rows returned for this tenant in the analytics window. KPIs below are zero until events are ingested.
+        </p>
+      )}
+      {dataWarnings.length > 0 && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200/90">
+          <p className="font-medium">Some dashboard panels are degraded.</p>
+          <p className="text-amber-100/80">{dataWarnings.join(" · ")}</p>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
-          title="Total Decisions (24h)"
+          title="Decisions (sample)"
           value={summary?.total_decisions?.toLocaleString() ?? "—"}
           accent="text-brand-400"
         />
@@ -190,36 +310,47 @@ export default function Dashboard() {
           <h2 className="text-sm font-semibold text-gray-300 mb-4">
             Decision Distribution
           </h2>
-          <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
-              <Pie
-                data={pieData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={100}
-                paddingAngle={3}
-                dataKey="value"
-              >
-                <Cell fill={DECISION_COLORS.allow} />
-                <Cell fill={DECISION_COLORS.review} />
-                <Cell fill={DECISION_COLORS.deny} />
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#161923",
-                  border: "1px solid #2a2f44",
-                  borderRadius: 8,
-                  color: "#e5e7eb",
-                }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="flex gap-4 mt-2 justify-center">
-            <Legend color={DECISION_COLORS.allow} label="Allow" />
-            <Legend color={DECISION_COLORS.review} label="Review" />
-            <Legend color={DECISION_COLORS.deny} label="Deny" />
-          </div>
+          {pieData.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {pieData.map((d) => (
+                      <Cell
+                        key={d.name}
+                        fill={DECISION_COLORS[d.name === "Allow" ? "allow" : d.name === "Review" ? "review" : "deny"]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#161923",
+                      border: "1px solid #2a2f44",
+                      borderRadius: 8,
+                      color: "#e5e7eb",
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex gap-4 mt-2 justify-center">
+                <Legend color={DECISION_COLORS.allow} label="Allow" />
+                <Legend color={DECISION_COLORS.review} label="Review" />
+                <Legend color={DECISION_COLORS.deny} label="Deny" />
+              </div>
+            </>
+          ) : (
+            <div className="h-[280px] flex items-center justify-center text-sm text-gray-500">
+              No hourly decision mix for this range
+            </div>
+          )}
         </div>
       </div>
 

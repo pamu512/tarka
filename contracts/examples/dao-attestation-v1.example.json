@@ -1,0 +1,20 @@
+{
+  "$comment": "Canonical example (v1) for mapping an off-chain DAO attestation into consortium API metadata — no chain dependency in core services. Version this file if the envelope changes.",
+  "attestation_version": "1.0",
+  "dao_slug": "example-fraud-dao",
+  "proposal_id": "prop-2026-04-001",
+  "outcome": "signal_share_approved",
+  "voted_at": "2026-04-15T18:00:00Z",
+  "eip191": {
+    "message": "DAO example-fraud-dao approves sharing signal_type=account_takeover for tenant acme-demo scope=hashed_entity_only",
+    "signer_address": "0x0000000000000000000000000000000000000000",
+    "signature_hex": "0x..."
+  },
+  "ipfs_cid": "bafybeiexampleoptionalsnapshot",
+  "consortium_mapping": {
+    "signal_type": "account_takeover",
+    "severity_hint": 1.5,
+    "tenant_trust_delta": 0.0,
+    "notes": "Adapter should call POST /v1/consortium/signal (or CLI share) with provenance attached; see scripts/consortium_adapter/ and docs/docs/guides/dao-to-consortium-integration.md"
+  }
+}

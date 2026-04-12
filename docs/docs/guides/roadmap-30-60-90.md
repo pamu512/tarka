@@ -77,6 +77,7 @@ This plan now explicitly addresses the highest competitive gaps identified again
 - `simulation`: benchmark runner with baseline vs profile comparisons (extends guardrails shipped in v1.1.0).
 - `frontend`: challenge policy and reliability panels.
 - `integration-ingress`: provider reliability dashboard and SLA status fields.
+- `ml-scoring` + `decision-api`: structured **ML top factors** and **plain-language summary** on evaluate/audit **`inference_context`** (see [`v1.2.0-2026-05-30.md`](../releases/v1.2.0-2026-05-30.md) § *ML explainability*).
 
 ### Acceptance Tests
 

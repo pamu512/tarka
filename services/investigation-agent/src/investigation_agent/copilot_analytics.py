@@ -78,8 +78,12 @@ def schedule_turn_completed(
     assurance_mode: str,
     had_tool_error: bool,
     assurance_refused: bool,
+    persona: str | None = None,
 ) -> None:
     payload = _base_payload(settings, tenant_id, analyst_id)
+    p = (persona or "investigation").strip().lower()
+    if p not in ("investigation", "orchestrator"):
+        p = "investigation"
     payload.update(
         {
             "turn_id": (turn_id or "").strip()[:128],
@@ -87,6 +91,7 @@ def schedule_turn_completed(
             "assurance_mode": (assurance_mode or "standard")[:32],
             "had_tool_error": bool(had_tool_error),
             "assurance_refused": bool(assurance_refused),
+            "persona": p[:32],
         },
     )
     schedule_emit(settings, "copilot.turn.completed", payload)

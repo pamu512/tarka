@@ -6,7 +6,7 @@ Seeded "baseline" vs "shifted" distributions — asserts the scorer responds wit
 minimum separation (guards against a dead or inverted signal path). Aligns with
 roadmap drift / parity gates (lightweight CI, not full calibration).
 
-Local mode (no server): imports ``_heuristic_score`` from ml-scoring with PYTHONPATH.
+Local mode (no server): imports ``heuristic_score`` from ``ml_scoring.heuristic`` (no FastAPI).
 
 HTTP mode: POST /v1/score per row (optional; for integration tests).
 """
@@ -45,9 +45,9 @@ def _scores_local(features_list: list[dict[str, Any]]) -> list[float]:
         s = str(p)
         if s not in sys.path:
             sys.path.insert(0, s)
-    from ml_scoring.main import _heuristic_score  # noqa: PLC0415
+    from ml_scoring.heuristic import heuristic_score  # noqa: PLC0415
 
-    return [_heuristic_score(f) for f in features_list]
+    return [heuristic_score(f) for f in features_list]
 
 
 def _scores_http(base_url: str, features_list: list[dict[str, Any]], timeout: float) -> list[float]:
@@ -83,7 +83,7 @@ def main() -> int:
     p.add_argument("--shifted", type=Path, default=Path("scripts/benchmarks/fixtures/drift_shifted.json"))
     p.add_argument("--min-delta", type=float, default=8.0, help="Minimum mean(shifted) - mean(baseline)")
     p.add_argument("--max-delta", type=float, default=95.0, help="Maximum allowed separation (sanity cap)")
-    p.add_argument("--local", action="store_true", help="Use in-process _heuristic_score (no HTTP)")
+    p.add_argument("--local", action="store_true", help="Use in-process heuristic_score (no HTTP)")
     p.add_argument("--url", default="", help="ml-scoring base URL (e.g. http://127.0.0.1:8005)")
     p.add_argument("--timeout", type=float, default=30.0)
     args = p.parse_args()

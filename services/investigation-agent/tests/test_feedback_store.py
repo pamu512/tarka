@@ -23,6 +23,7 @@ def test_turn_and_feedback_roundtrip():
     )
     meta = feedback_store.lookup_turn("turn-1")
     assert meta["tenant_id"] == "demo"
+    assert meta.get("persona") is None
     fid = feedback_store.save_feedback(
         turn_id="turn-1",
         tenant_id="demo",

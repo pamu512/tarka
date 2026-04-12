@@ -5,8 +5,12 @@ import os
 import tempfile
 
 from ml_scoring.adaptive import OnlineAnomalyDetector
-from ml_scoring.explainability import explain_score
-from ml_scoring.main import _heuristic_score
+from ml_scoring.explainability import (
+    explain_score,
+    ml_summary_from_factors,
+    top_factors_from_explanations,
+)
+from ml_scoring.heuristic import heuristic_score as _heuristic_score
 
 # ---------- OnlineAnomalyDetector ----------
 
@@ -131,6 +135,15 @@ class TestExplainScore:
         reasons = explain_score(40.0, {"txn_count_24h": 50})
         codes = [r["code"] for r in reasons]
         assert "HIGH_TXN_COUNT_24H" in codes
+
+    def test_top_factors_and_summary(self):
+        reasons = explain_score(70.0, {"amount": 12000})
+        tops = top_factors_from_explanations(reasons, limit=3)
+        assert len(tops) >= 1
+        assert all("code" in x and "description" in x for x in tops)
+        summary = ml_summary_from_factors(70.0, tops, "heuristic-v1")
+        assert "70.0" in summary
+        assert "heuristic-v1" in summary
 
 
 # ---------- _heuristic_score ----------

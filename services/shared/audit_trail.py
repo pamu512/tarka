@@ -23,10 +23,12 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, String, func
+from sqlalchemy import DateTime, JSON, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+_JSON_COL = JSON().with_variant(JSONB(), "postgresql")
 
 
 class AuditEntry:
@@ -40,8 +42,8 @@ class AuditEntry:
     action: Mapped[str] = mapped_column(String(64), index=True)
     resource_type: Mapped[str] = mapped_column(String(64), index=True)
     resource_id: Mapped[str] = mapped_column(String(256), index=True)
-    changes: Mapped[dict] = mapped_column(JSONB)
-    metadata_extra: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    changes: Mapped[dict] = mapped_column(_JSON_COL)
+    metadata_extra: Mapped[dict | None] = mapped_column(_JSON_COL, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

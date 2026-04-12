@@ -1,11 +1,17 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useAnalystWorkspace } from "../context/AnalystWorkspaceContext";
+import { useRegisterPageMeta } from "../context/PageMetaContext";
+import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
+import { useToast } from "../context/ToastContext";
 import {
   cases,
   decisions,
   graph,
   type Case,
   type EntityRiskResult,
+  type GraphEdge,
+  type GraphNode,
   type InferenceContext,
   normalizeInferenceContext,
   type SubgraphResponse,
@@ -18,7 +24,27 @@ import { InferenceMetricTrack } from "../components/InferenceMetricTrack";
 import { Network, type Options } from "vis-network";
 import { DataSet } from "vis-data";
 
-type Tab = "timeline" | "audit" | "graph";
+const CASE_DETAIL_TABS = ["timeline", "audit", "graph"] as const;
+type Tab = (typeof CASE_DETAIL_TABS)[number];
+
+function isCaseDetailTab(v: string | null): v is Tab {
+  return v != null && (CASE_DETAIL_TABS as readonly string[]).includes(v);
+}
+
+const RECOMMENDED_ACTION_LABELS: Record<string, string> = {
+  block: "Block this activity",
+  manual_review: "Manual review recommended",
+  step_up_mfa: "Step up authentication (MFA)",
+  step_up_attestation: "Request stronger device or session proof",
+  allow: "Allow — continue monitoring",
+  deny: "Deny — stop or escalate per policy",
+  review: "Review before proceeding",
+};
+
+function humanizeRecommendedAction(code: string): string {
+  const c = code.trim();
+  return RECOMMENDED_ACTION_LABELS[c] ?? c.replace(/_/g, " ");
+}
 type DecisionExplain = {
   score: number;
   decision: string;
@@ -31,13 +57,34 @@ type DecisionExplain = {
 
 export default function CaseDetail() {
   const { caseId } = useParams<{ caseId: string }>();
-  const [searchParams] = useSearchParams();
-  const tenantIdFromUrl = searchParams.get("tenant_id") ?? "demo";
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { tenantId: workspaceTenantId } = useTenantEnvironment();
+  const tenantEffective = (searchParams.get("tenant_id")?.trim() || workspaceTenantId || "demo").trim();
   const navigate = useNavigate();
+  const { pinCase } = useAnalystWorkspace();
+  const { toast } = useToast();
+  const [showTechnicalDecision, setShowTechnicalDecision] = useState(false);
   const [caseData, setCaseData] = useState<Case | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>("timeline");
+
+  const tabParam = searchParams.get("tab");
+  const activeTab: Tab = isCaseDetailTab(tabParam) ? tabParam : "timeline";
+
+  const setActiveTab = useCallback(
+    (tab: Tab) => {
+      setSearchParams(
+        (prev) => {
+          const n = new URLSearchParams(prev);
+          if (tab === "timeline") n.delete("tab");
+          else n.set("tab", tab);
+          return n;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
   const [commentText, setCommentText] = useState("");
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
@@ -48,7 +95,7 @@ export default function CaseDetail() {
   const fetchCase = useCallback(async () => {
     if (!caseId) return;
     try {
-      const data = await cases.get(caseId, tenantIdFromUrl);
+      const data = await cases.get(caseId, tenantEffective);
       setCaseData(data);
       setError(null);
     } catch (e) {
@@ -56,11 +103,29 @@ export default function CaseDetail() {
     } finally {
       setLoading(false);
     }
-  }, [caseId, tenantIdFromUrl]);
+  }, [caseId, tenantEffective]);
+
+  const pageMeta = useMemo(
+    () =>
+      caseData
+        ? { title: caseData.title, subtitle: `${caseData.tenant_id} · ${caseData.id.slice(0, 12)}…` }
+        : null,
+    [caseData],
+  );
+  useRegisterPageMeta(pageMeta);
 
   useEffect(() => {
     fetchCase();
   }, [fetchCase]);
+
+  useEffect(() => {
+    if (!caseData) return;
+    pinCase({
+      caseId: caseData.id,
+      tenantId: caseData.tenant_id,
+      title: caseData.title || "Case",
+    });
+  }, [caseData, pinCase]);
 
   useEffect(() => {
     if (!caseData) return;
@@ -110,8 +175,8 @@ export default function CaseDetail() {
     try {
       const updated = await cases.update(caseId, caseData.tenant_id, { priority: newPriority as Case["priority"] });
       setCaseData(updated);
-    } catch {
-      /* silent */
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Could not update priority", "error");
     }
   };
 
@@ -136,8 +201,8 @@ export default function CaseDetail() {
       await cases.addLabels(caseId, caseData.tenant_id, [labelInput.trim()]);
       await fetchCase();
       setLabelInput("");
-    } catch {
-      /* silent */
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Could not add label", "error");
     }
   };
 
@@ -170,15 +235,36 @@ export default function CaseDetail() {
   const slaDeadline = new Date(caseData.sla_deadline ?? caseData.created_at);
   const slaPassed = slaDeadline < new Date();
 
+  const casesListHref = `/cases?tenant_id=${encodeURIComponent(caseData.tenant_id)}`;
+
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      {/* Back + Header */}
-      <button
-        onClick={() => navigate("/cases")}
-        className="text-sm text-gray-400 hover:text-gray-200 transition-colors"
-      >
-        &larr; Back to Cases
-      </button>
+      <nav className="text-sm text-gray-500 flex flex-wrap items-center gap-2" aria-label="Breadcrumb">
+        <Link to={casesListHref} className="text-brand-400 hover:text-brand-300">
+          Cases
+        </Link>
+        <span aria-hidden>/</span>
+        <span className="text-gray-300 truncate min-w-0 max-w-[min(100%,32rem)]">{caseData.title}</span>
+      </nav>
+
+      {decisionExplain?.recommended_action ? (
+        <div className="sticky top-0 z-10 rounded-xl border border-amber-500/40 bg-amber-500/[0.12] backdrop-blur-sm px-4 py-3 shadow-lg shadow-black/20">
+          <div className="text-xs font-semibold uppercase tracking-wide text-amber-200/90">
+            Recommended next step
+          </div>
+          <p className="text-lg sm:text-xl font-semibold text-gray-50 mt-1 leading-snug">
+            {humanizeRecommendedAction(decisionExplain.recommended_action)}
+          </p>
+          <details className="mt-2 text-sm">
+            <summary className="cursor-pointer text-amber-200/80 hover:text-amber-100 select-none">
+              Policy code
+            </summary>
+            <code className="mt-1 block text-xs text-gray-400 font-mono bg-surface-950/50 rounded px-2 py-1">
+              {decisionExplain.recommended_action}
+            </code>
+          </details>
+        </div>
+      ) : null}
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
         <div className="space-y-1 min-w-0">
@@ -213,113 +299,170 @@ export default function CaseDetail() {
         <InfoCard label="Assigned Team" value={caseData.assigned_team || "Unassigned"} />
       </div>
 
-      {/* Explainability */}
+      {/* Explainability — summary first; full metrics behind toggle */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-surface-900 border border-surface-700 rounded-xl p-4 space-y-2">
-          <h3 className="text-sm font-semibold text-gray-300">Decision Explainability</h3>
+        <div className="bg-surface-900 border border-surface-700 rounded-xl p-4 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-gray-300">Decision explainability</h3>
+            {decisionExplain ? (
+              <button
+                type="button"
+                aria-expanded={showTechnicalDecision}
+                onClick={() => setShowTechnicalDecision((v) => !v)}
+                className="text-xs font-medium text-brand-400 hover:text-brand-300"
+              >
+                {showTechnicalDecision ? "Hide technical detail" : "Show technical detail"}
+              </button>
+            ) : null}
+          </div>
           {decisionExplain ? (
             <>
-              <div className="text-xs text-gray-400">Decision: <span className="text-gray-200">{decisionExplain.decision}</span></div>
-              <div className="space-y-1.5 pt-1">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-xs text-gray-400">Fraud score (0–100)</span>
-                  <span className="text-sm font-mono text-gray-100 tabular-nums">{decisionExplain.score.toFixed(1)}</span>
+              <div className="rounded-lg border border-surface-700/80 bg-surface-800/40 p-3 space-y-2">
+                <div className="text-sm text-gray-200">
+                  <span className="text-gray-500">Outcome </span>
+                  <span className="font-semibold capitalize">{decisionExplain.decision}</span>
+                  <span className="text-gray-500"> · Score </span>
+                  <span className="font-mono tabular-nums">{decisionExplain.score.toFixed(1)}</span>
+                  <span className="text-gray-500">/100</span>
                 </div>
                 <FraudScoreTrack score={decisionExplain.score} />
-                <p className="text-[10px] text-gray-600 leading-snug">
-                  Band copy is indicative; your org sets review and block thresholds in policy.
+                {decisionExplain.inference_context ? (
+                  <p className="text-xs text-gray-400">
+                    Confidence{" "}
+                    <span className="text-gray-200 font-medium">
+                      {decisionExplain.inference_context.confidence_tier}
+                    </span>
+                    {decisionExplain.inference_context.schema_version
+                      ? ` · Schema v${decisionExplain.inference_context.schema_version}`
+                      : ""}
+                  </p>
+                ) : null}
+                {decisionExplain.inference_context && decisionExplain.inference_context.driver_reasons.length > 0 ? (
+                  <div>
+                    <div className="text-xs font-medium text-gray-500 mb-1">Top drivers</div>
+                    <ul className="text-sm text-gray-200 list-disc list-inside space-y-0.5">
+                      {decisionExplain.inference_context.driver_reasons.slice(0, 3).map((d) => (
+                        <li key={d} className="font-mono text-xs">
+                          {d}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {decisionExplain.inference_context?.ml_summary ? (
+                  <p className="text-sm text-gray-300 leading-snug border-t border-surface-700 pt-2">
+                    {decisionExplain.inference_context.ml_summary}
+                  </p>
+                ) : null}
+                <p className="text-xs text-gray-500 leading-snug">
+                  Review and block thresholds are defined in your org policy. Expand technical detail for every signal.
                 </p>
               </div>
-              {decisionExplain.recommended_action && (
-                <div className="text-xs text-amber-400/90">
-                  Recommended action: <span className="font-mono text-gray-200">{decisionExplain.recommended_action}</span>
-                </div>
-              )}
-              {decisionExplain.inference_context ? (
-                <>
-                  <div className="text-xs text-gray-500 flex flex-wrap gap-x-3 gap-y-1 pt-1">
-                    <span>
-                      Tier:{" "}
-                      <span className="text-gray-300">{decisionExplain.inference_context.confidence_tier}</span>
-                    </span>
-                    <span>schema v{decisionExplain.inference_context.schema_version}</span>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2 pt-2">
-                    <InferenceMetricTrack
-                      label="Integrity confidence"
-                      value={decisionExplain.inference_context.integrity_confidence}
-                      variant="trust"
-                    />
-                    <InferenceMetricTrack
-                      label="Tamper risk"
-                      value={decisionExplain.inference_context.tamper_risk}
-                      variant="risk"
-                    />
-                    <InferenceMetricTrack
-                      label="Replay risk"
-                      value={decisionExplain.inference_context.replay_risk}
-                      variant="risk"
-                    />
-                    <InferenceMetricTrack
-                      label="Network trust"
-                      value={decisionExplain.inference_context.network_trust}
-                      variant="trust"
-                    />
-                    <InferenceMetricTrack
-                      label="Geo consistency risk"
-                      value={decisionExplain.inference_context.geo_consistency_risk}
-                      variant="risk"
-                    />
-                    {decisionExplain.inference_context.colocation_risk > 0 && (
-                      <InferenceMetricTrack
-                        label="Colocation risk"
-                        value={decisionExplain.inference_context.colocation_risk}
-                        variant="risk"
-                      />
+
+              {showTechnicalDecision ? (
+                <div className="space-y-3 border-t border-surface-700 pt-3">
+                  {decisionExplain.inference_context ? (
+                    <>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <InferenceMetricTrack
+                          label="Integrity confidence"
+                          value={decisionExplain.inference_context.integrity_confidence}
+                          variant="trust"
+                        />
+                        <InferenceMetricTrack
+                          label="Tamper risk"
+                          value={decisionExplain.inference_context.tamper_risk}
+                          variant="risk"
+                        />
+                        <InferenceMetricTrack
+                          label="Replay risk"
+                          value={decisionExplain.inference_context.replay_risk}
+                          variant="risk"
+                        />
+                        <InferenceMetricTrack
+                          label="Network trust"
+                          value={decisionExplain.inference_context.network_trust}
+                          variant="trust"
+                        />
+                        <InferenceMetricTrack
+                          label="Geo consistency risk"
+                          value={decisionExplain.inference_context.geo_consistency_risk}
+                          variant="risk"
+                        />
+                        {decisionExplain.inference_context.colocation_risk > 0 && (
+                          <InferenceMetricTrack
+                            label="Colocation risk"
+                            value={decisionExplain.inference_context.colocation_risk}
+                            variant="risk"
+                          />
+                        )}
+                        {decisionExplain.inference_context.impossible_travel_risk > 0 && (
+                          <InferenceMetricTrack
+                            label="Impossible travel (proxy)"
+                            value={decisionExplain.inference_context.impossible_travel_risk}
+                            variant="risk"
+                          />
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Velocity (5m / 1h / 24h):{" "}
+                        <span className="text-gray-300 font-mono tabular-nums">
+                          {decisionExplain.inference_context.velocity_events_5m} /{" "}
+                          {decisionExplain.inference_context.velocity_events_1h} /{" "}
+                          {decisionExplain.inference_context.velocity_events_24h}
+                        </span>
+                      </div>
+                      {decisionExplain.inference_context.driver_reasons.length > 3 && (
+                        <div>
+                          <div className="text-xs font-medium text-gray-500 mb-1">All drivers</div>
+                          <ul className="text-xs text-gray-300 list-disc list-inside space-y-0.5">
+                            {decisionExplain.inference_context.driver_reasons.map((d) => (
+                              <li key={d} className="font-mono">
+                                {d}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {(decisionExplain.inference_context.ml_top_factors?.length ?? 0) > 0 && (
+                        <div className="pt-2 border-t border-surface-700 space-y-1">
+                          <div className="text-xs font-medium text-gray-500">ML factors</div>
+                          {decisionExplain.inference_context.ml_model && (
+                            <div className="text-xs text-gray-500 font-mono">
+                              model: {decisionExplain.inference_context.ml_model}
+                            </div>
+                          )}
+                          <ul className="text-xs text-gray-300 list-disc list-inside space-y-0.5">
+                            {decisionExplain.inference_context.ml_top_factors!.map((f) => (
+                              <li key={f.code}>
+                                <span className="font-mono text-brand-300">{f.code}</span>
+                                <span className="text-gray-500"> ({f.impact})</span> — {f.description}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  ) : null}
+                  <div className="flex flex-wrap gap-2">
+                    {decisionExplain.rule_hits.map((h) => (
+                      <span key={h} className="px-2 py-0.5 bg-brand-500/20 text-brand-300 text-xs rounded-full">
+                        {h}
+                      </span>
+                    ))}
+                    {decisionExplain.rule_hits.length === 0 && (
+                      <span className="text-xs text-gray-500">No rule hits</span>
                     )}
-                    {decisionExplain.inference_context.impossible_travel_risk > 0 && (
-                      <InferenceMetricTrack
-                        label="Impossible travel (proxy)"
-                        value={decisionExplain.inference_context.impossible_travel_risk}
-                        variant="risk"
-                      />
-                    )}
                   </div>
-                  <div className="text-xs text-gray-500">
-                    Velocity (5m / 1h / 24h):{" "}
-                    <span className="text-gray-300 font-mono tabular-nums">
-                      {decisionExplain.inference_context.velocity_events_5m} /{" "}
-                      {decisionExplain.inference_context.velocity_events_1h} /{" "}
-                      {decisionExplain.inference_context.velocity_events_24h}
-                    </span>
-                  </div>
-                  {decisionExplain.inference_context.driver_reasons.length > 0 && (
-                    <div className="pt-1">
-                      <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">Top drivers</div>
-                      <ul className="text-xs text-gray-400 list-disc list-inside space-y-0.5">
-                        {decisionExplain.inference_context.driver_reasons.map((d) => (
-                          <li key={d} className="font-mono text-[11px] text-gray-300">
-                            {d}
-                          </li>
-                        ))}
-                      </ul>
+                  {decisionExplain.inference_context && decisionExplain.inference_context.top_signals.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {decisionExplain.inference_context.top_signals.map((s) => (
+                        <span key={s} className="px-2 py-0.5 bg-surface-700 text-gray-300 text-xs rounded-full">
+                          {s}
+                        </span>
+                      ))}
                     </div>
-                  )}
-                </>
-              ) : null}
-              <div className="flex flex-wrap gap-2">
-                {decisionExplain.rule_hits.map((h) => (
-                  <span key={h} className="px-2 py-0.5 bg-brand-500/20 text-brand-300 text-xs rounded-full">{h}</span>
-                ))}
-                {decisionExplain.rule_hits.length === 0 && <span className="text-xs text-gray-500">No rule hits</span>}
-              </div>
-              {decisionExplain.inference_context && decisionExplain.inference_context.top_signals.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {decisionExplain.inference_context.top_signals.map((s) => (
-                    <span key={s} className="px-2 py-0.5 bg-surface-700 text-gray-300 text-xs rounded-full">
-                      {s}
-                    </span>
-                  ))}
+                  ) : null}
                 </div>
               ) : null}
             </>
@@ -420,14 +563,18 @@ export default function CaseDetail() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-surface-700">
-        <div className="flex gap-6">
-          {(["timeline", "audit", "graph"] as Tab[]).map((tab) => (
+      {/* Tabs — URL ?tab=timeline|audit|graph for sharing & multi-case workflow */}
+      <div className="border-b border-surface-700" role="tablist" aria-label="Case views">
+        <div className="flex gap-1 sm:gap-6 flex-wrap">
+          {CASE_DETAIL_TABS.map((tab) => (
             <button
               key={tab}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab}
+              id={`case-tab-${tab}`}
               onClick={() => setActiveTab(tab)}
-              className={`pb-3 text-sm font-medium capitalize transition-colors border-b-2 ${
+              className={`pb-3 px-1 sm:px-0 text-sm font-medium capitalize transition-colors border-b-2 ${
                 activeTab === tab
                   ? "text-brand-400 border-brand-400"
                   : "text-gray-400 border-transparent hover:text-gray-200"
@@ -441,17 +588,29 @@ export default function CaseDetail() {
 
       {/* Tab Content */}
       {activeTab === "timeline" && (
-        <TimelineTab
-          comments={caseData.comments ?? []}
-          commentText={commentText}
-          onTextChange={setCommentText}
-          onSubmit={handleAddComment}
-          submitting={commentSubmitting}
-        />
+        <div
+          role="tabpanel"
+          id="case-panel-timeline"
+          aria-labelledby="case-tab-timeline"
+        >
+          <TimelineTab
+            comments={caseData.comments ?? []}
+            commentText={commentText}
+            onTextChange={setCommentText}
+            onSubmit={handleAddComment}
+            submitting={commentSubmitting}
+          />
+        </div>
       )}
-      {activeTab === "audit" && <AuditTab caseData={caseData} />}
+      {activeTab === "audit" && (
+        <div role="tabpanel" id="case-panel-audit" aria-labelledby="case-tab-audit">
+          <AuditTab caseData={caseData} />
+        </div>
+      )}
       {activeTab === "graph" && (
-        <GraphTab entityId={caseData.entity_id} tenantId={caseData.tenant_id} />
+        <div role="tabpanel" id="case-panel-graph" aria-labelledby="case-tab-graph">
+          <GraphTab entityId={caseData.entity_id} tenantId={caseData.tenant_id} />
+        </div>
       )}
     </div>
   );
@@ -664,6 +823,7 @@ function GraphTab({
 
   useEffect(() => {
     if (!graphData || !containerRef.current) return;
+    if (graphData.nodes.length === 0) return;
 
     const nodes = new DataSet(
       graphData.nodes.map((n) => ({
@@ -719,42 +879,139 @@ function GraphTab({
 
   if (error) {
     return (
-      <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm">
-        {error}
+      <div className="space-y-4">
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm">
+          {error}
+        </div>
+        {graphData ? <GraphDataTable nodes={graphData.nodes} edges={graphData.edges} /> : null}
       </div>
     );
   }
 
+  if (!graphData) {
+    return <p className="text-sm text-gray-500">No graph data loaded.</p>;
+  }
+
+  const emptyGraph = graphData.nodes.length === 0 && graphData.edges.length === 0;
+
   return (
-    <div className="flex gap-4">
-      <div
-        ref={containerRef}
-        className="flex-1 bg-surface-900 border border-surface-700 rounded-xl"
-        style={{ height: 420 }}
-      />
-      {selectedNodeData && (
-        <div className="w-64 bg-surface-900 border border-surface-700 rounded-xl p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-gray-200">Node Details</h3>
-          <div>
-            <span className="text-xs text-gray-500">ID</span>
-            <p className="text-sm text-gray-200 font-mono break-all">
-              {selectedNodeData.id}
-            </p>
-          </div>
-          <div>
-            <span className="text-xs text-gray-500">Type</span>
-            <p className="text-sm text-gray-200">{selectedNodeData.labels?.join(", ") || "Unknown"}</p>
-          </div>
-          {Object.entries(selectedNodeData.properties).map(([k, v]) => (
-            <div key={k}>
-              <span className="text-xs text-gray-500">{k}</span>
-              <p className="text-sm text-gray-300 break-all">
-                {String(v)}
+    <div className="space-y-4">
+      {emptyGraph ? (
+        <p className="text-sm text-gray-500 border border-surface-700 rounded-lg px-4 py-3 bg-surface-900/60">
+          No graph nodes returned for this entity. Use the table below if the API returned partial data, or widen subgraph
+          depth when supported.
+        </p>
+      ) : null}
+      <div className="flex flex-col lg:flex-row gap-4">
+        {!emptyGraph ? (
+          <div
+            ref={containerRef}
+            className="flex-1 bg-surface-900 border border-surface-700 rounded-xl min-h-[320px]"
+            style={{ height: 420 }}
+            aria-label="Entity relationship graph"
+          />
+        ) : null}
+        {selectedNodeData && (
+          <div className="w-full lg:w-64 bg-surface-900 border border-surface-700 rounded-xl p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-gray-200">Node Details</h3>
+            <div>
+              <span className="text-xs text-gray-500">ID</span>
+              <p className="text-sm text-gray-200 font-mono break-all">
+                {selectedNodeData.id}
               </p>
             </div>
-          ))}
+            <div>
+              <span className="text-xs text-gray-500">Type</span>
+              <p className="text-sm text-gray-200">{selectedNodeData.labels?.join(", ") || "Unknown"}</p>
+            </div>
+            {Object.entries(selectedNodeData.properties).map(([k, v]) => (
+              <div key={k}>
+                <span className="text-xs text-gray-500">{k}</span>
+                <p className="text-sm text-gray-300 break-all">
+                  {String(v)}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <details open className="rounded-xl border border-surface-700 bg-surface-900/40 p-4">
+        <summary className="cursor-pointer text-sm font-medium text-gray-300">
+          Table view (nodes &amp; edges)
+        </summary>
+        <div className="mt-3 pt-3 border-t border-surface-700">
+          <GraphDataTable nodes={graphData.nodes} edges={graphData.edges} />
         </div>
-      )}
+      </details>
+    </div>
+  );
+}
+
+function GraphDataTable({
+  nodes,
+  edges,
+}: {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}) {
+  return (
+    <div className="space-y-4 text-sm">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <caption className="text-xs text-gray-500 text-left mb-2">Nodes</caption>
+          <thead>
+            <tr className="text-gray-400 border-b border-surface-700">
+              <th className="py-2 pr-4 font-medium">ID</th>
+              <th className="py-2 pr-4 font-medium">Labels</th>
+            </tr>
+          </thead>
+          <tbody>
+            {nodes.length === 0 ? (
+              <tr>
+                <td colSpan={2} className="py-4 text-gray-500">
+                  No nodes
+                </td>
+              </tr>
+            ) : (
+              nodes.map((n) => (
+                <tr key={n.id} className="border-b border-surface-800">
+                  <td className="py-2 pr-4 font-mono text-xs text-gray-200 align-top">{n.id}</td>
+                  <td className="py-2 text-gray-400 text-xs">{n.labels?.join(", ") || "—"}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <caption className="text-xs text-gray-500 text-left mb-2">Edges</caption>
+          <thead>
+            <tr className="text-gray-400 border-b border-surface-700">
+              <th className="py-2 pr-4 font-medium">From</th>
+              <th className="py-2 pr-4 font-medium">To</th>
+              <th className="py-2 font-medium">Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            {edges.length === 0 ? (
+              <tr>
+                <td colSpan={3} className="py-4 text-gray-500">
+                  No edges
+                </td>
+              </tr>
+            ) : (
+              edges.map((e, i) => (
+                <tr key={`${e.from_id}-${e.to_id}-${i}`} className="border-b border-surface-800">
+                  <td className="py-2 pr-4 font-mono text-xs text-gray-200">{e.from_id}</td>
+                  <td className="py-2 pr-4 font-mono text-xs text-gray-200">{e.to_id}</td>
+                  <td className="py-2 text-gray-400 text-xs">{e.type}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -22,6 +22,25 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
     openai_model: str = "gpt-4o-mini"
+    copilot_chat_model: str = Field(
+        default="",
+        description=(
+            "If set, use this model id for POST /v1/chat completions instead of OPENAI_MODEL "
+            "(embeddings and judge defaults still use OPENAI_* / OPENAI_JUDGE_MODEL unless set)."
+        ),
+    )
+    copilot_max_chat_messages: int = Field(
+        default=20,
+        ge=2,
+        le=100,
+        description="Maximum user/assistant messages accepted in POST /v1/chat messages[].",
+    )
+    copilot_max_message_chars: int = Field(
+        default=4000,
+        ge=500,
+        le=32000,
+        description="Max characters per chat message after injection sanitization (history turns).",
+    )
     upstream_api_key: str = ""
 
     # --- Copilot hardening (env-tunable) ---
@@ -66,7 +85,7 @@ class Settings(BaseSettings):
     )
     openai_judge_model: str = Field(
         default="",
-        description="Model for judge pass; empty = same as openai_model.",
+        description="Model for judge pass; empty = same as chat completions (COPILOT_CHAT_MODEL or OPENAI_MODEL).",
     )
     copilot_judge_max_tokens: int = Field(default=900, ge=128, le=4096)
     copilot_reviewer_secret: str = Field(

@@ -129,6 +129,12 @@ export interface EvaluateResponse {
 /** Matches `InferenceContext` in `contracts/openapi/decision-api.yaml` (evaluate response). */
 export type ConfidenceTier = "low" | "medium" | "high";
 
+export interface MlTopFactor {
+  code: string;
+  description: string;
+  impact: string;
+}
+
 export interface InferenceContext {
   schema_version: string;
   integrity_confidence: number;
@@ -144,6 +150,10 @@ export interface InferenceContext {
   velocity_events_5m: number;
   velocity_events_1h: number;
   velocity_events_24h: number;
+  /** v1.2+ ranked factors from ml-scoring */
+  ml_top_factors?: MlTopFactor[];
+  ml_summary?: string | null;
+  ml_model?: string | null;
 }
 
 // --------------- Device Signal Collector ---------------

@@ -223,6 +223,11 @@ class TestGraphQLMutations:
                     "rule_hits": ["r1"],
                     "reasons": ["high amount"],
                     "ml_score": 75.0,
+                    "recommended_action": "manual_review",
+                    "inference_context": {
+                        "schema_version": "2",
+                        "confidence_tier": "high",
+                    },
                 }
             }
         )
@@ -235,6 +240,8 @@ class TestGraphQLMutations:
                     decision
                     score
                     tags
+                    recommendedAction
+                    inferenceContext
                 }
             }
             """,
@@ -244,6 +251,8 @@ class TestGraphQLMutations:
         assert result.errors is None
         assert result.data["evaluate"]["decision"] == "deny"
         assert result.data["evaluate"]["score"] == 88.5
+        assert result.data["evaluate"]["recommendedAction"] == "manual_review"
+        assert result.data["evaluate"]["inferenceContext"]["confidence_tier"] == "high"
 
     @pytest.mark.asyncio
     async def test_create_case_mutation(self):
