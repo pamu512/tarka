@@ -61,7 +61,7 @@ async def aggregate_eval_client():
                 with patch("decision_api.main.agg_store", store):
                     with patch("decision_api.main.evaluate_json_rules", side_effect=capture_rules):
                         with patch("decision_api.main.evaluate_opa", new_callable=AsyncMock, return_value=None):
-                            with patch("decision_api.main._fetch_ml_score", new_callable=AsyncMock, return_value=None):
+                            with patch("decision_api.main._fetch_ml_score", new_callable=AsyncMock, return_value=(None, {})):
                                 with patch("decision_api.main._fetch_graph_risk", new_callable=AsyncMock, return_value=None):
                                     with patch("decision_api.main._get_list_store", return_value=list_store):
                                         with patch("decision_api.main.fingerprint_store") as fp:

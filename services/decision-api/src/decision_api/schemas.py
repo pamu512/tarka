@@ -48,6 +48,9 @@ class InferenceContext(BaseModel):
     velocity_events_5m: int = 0
     velocity_events_1h: int = 0
     velocity_events_24h: int = 0
+    ml_top_factors: list[dict[str, Any]] = Field(default_factory=list)
+    ml_summary: str | None = None
+    ml_model: str | None = None
 
 
 class EvaluateResponse(BaseModel):

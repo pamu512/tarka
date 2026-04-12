@@ -1,6 +1,8 @@
 import { Suspense, lazy } from "react";
 import { Routes, Route, NavLink, Navigate } from "react-router-dom";
+import { AnalystCaseTabBar } from "./components/AnalystCaseTabBar";
 import { AppTopBar } from "./components/AppTopBar";
+import { CommandPalette } from "./components/CommandPalette";
 import { ModuleIcon, type ModuleId } from "./components/ModuleIcon";
 import { TarkaLogo } from "./components/TarkaLogo";
 
@@ -146,6 +148,8 @@ export default function App() {
 
       <div className="flex min-w-0 flex-1 flex-col bg-surface-950">
         <AppTopBar notificationActionableCount={NOTIFICATION_ACTIONABLE_COUNT} />
+        <AnalystCaseTabBar />
+        <CommandPalette />
         <main className="min-h-0 flex-1 overflow-y-auto">
         <Suspense
           fallback={

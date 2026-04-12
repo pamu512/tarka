@@ -1,11 +1,13 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from case_api.db import Base
+
+_JSON_COL = JSON().with_variant(JSONB(), "postgresql")
 
 
 class Case(Base):
@@ -19,7 +21,7 @@ class Case(Base):
     trace_id: Mapped[str] = mapped_column(String(64))
     priority: Mapped[str] = mapped_column(String(16), default="medium")
     assigned_team: Mapped[str | None] = mapped_column(String(128), nullable=True, default=None)
-    labels: Mapped[list] = mapped_column(JSONB, default=list)
+    labels: Mapped[list] = mapped_column(_JSON_COL, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -46,7 +48,7 @@ class SARFiling(Base):
     format: Mapped[str] = mapped_column(String(32))
     status: Mapped[str] = mapped_column(String(32), default="draft")
     narrative: Mapped[str] = mapped_column(Text())
-    report_data: Mapped[dict] = mapped_column(JSONB, default=dict)
+    report_data: Mapped[dict] = mapped_column(_JSON_COL, default=dict)
     xml_content: Mapped[str | None] = mapped_column(Text(), nullable=True)
     filed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -86,7 +88,7 @@ class Dispute(Base):
     card_network: Mapped[str | None] = mapped_column(String(32), nullable=True)  # visa, mastercard, amex
     original_decision: Mapped[str | None] = mapped_column(String(16), nullable=True)
     original_score: Mapped[float | None] = mapped_column(nullable=True)
-    original_rule_hits: Mapped[list] = mapped_column(JSONB, default=list)
+    original_rule_hits: Mapped[list] = mapped_column(_JSON_COL, default=list)
     original_ml_score: Mapped[float | None] = mapped_column(nullable=True)
     outcome: Mapped[str | None] = mapped_column(String(32), nullable=True)  # fraud_confirmed, false_positive, inconclusive
     resolution_notes: Mapped[str | None] = mapped_column(Text(), nullable=True)

@@ -4,6 +4,12 @@
  */
 export type ConfidenceTier = "low" | "medium" | "high";
 
+export interface MlTopFactor {
+  code: string;
+  description: string;
+  impact: string;
+}
+
 export interface InferenceContext {
   schema_version: string;
   integrity_confidence: number;
@@ -19,6 +25,9 @@ export interface InferenceContext {
   velocity_events_5m: number;
   velocity_events_1h: number;
   velocity_events_24h: number;
+  ml_top_factors: MlTopFactor[];
+  ml_summary: string | null;
+  ml_model: string | null;
 }
 
 /** Lenient audit / gateway payload before normalization. */
@@ -49,5 +58,17 @@ export function normalizeInferenceContext(raw: unknown): InferenceContext | null
     velocity_events_5m: typeof r.velocity_events_5m === "number" ? r.velocity_events_5m : 0,
     velocity_events_1h: typeof r.velocity_events_1h === "number" ? r.velocity_events_1h : 0,
     velocity_events_24h: typeof r.velocity_events_24h === "number" ? r.velocity_events_24h : 0,
+    ml_top_factors: Array.isArray(r.ml_top_factors)
+      ? r.ml_top_factors.filter(
+          (x): x is MlTopFactor =>
+            x != null &&
+            typeof x === "object" &&
+            typeof (x as MlTopFactor).code === "string" &&
+            typeof (x as MlTopFactor).description === "string" &&
+            typeof (x as MlTopFactor).impact === "string",
+        )
+      : [],
+    ml_summary: typeof r.ml_summary === "string" ? r.ml_summary : null,
+    ml_model: typeof r.ml_model === "string" ? r.ml_model : null,
   };
 }

@@ -2,11 +2,13 @@ import type { AccessGroupId, AccessModuleId, ModuleCatalogEntry } from "../confi
 import {
   type ConfidenceTier,
   type InferenceContext,
+  type MlTopFactor,
   normalizeInferenceContext,
 } from "./inferenceContext";
+import { reportDataOutcome } from "./dataSourceState";
 import { getMockResponse } from "./mockData";
 
-export type { ConfidenceTier, InferenceContext };
+export type { ConfidenceTier, InferenceContext, MlTopFactor };
 export { normalizeInferenceContext };
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -218,28 +220,46 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     const ct = res.headers.get("content-type") ?? "";
     if (!res.ok) {
       const mock = getMockResponse(url, init);
-      if (mock !== null) return mock as T;
+      if (mock !== null) {
+        reportDataOutcome("mock");
+        return mock as T;
+      }
+      reportDataOutcome("offline");
       throw new Error(`${res.status} ${text || res.statusText}`);
     }
     if (!ct.includes("json") && !text.trimStart().startsWith("{") && !text.trimStart().startsWith("[")) {
       const mock = getMockResponse(url, init);
-      if (mock !== null) return mock as T;
+      if (mock !== null) {
+        reportDataOutcome("mock");
+        return mock as T;
+      }
+      reportDataOutcome("offline");
       throw new Error(
         `Expected JSON from ${url}, got ${ct || "unknown type"} (starts with: ${text.slice(0, 80).replace(/\s+/g, " ")}…)`,
       );
     }
     try {
-      return JSON.parse(text) as T;
+      const parsed = JSON.parse(text) as T;
+      reportDataOutcome("live");
+      return parsed;
     } catch {
       const mock = getMockResponse(url, init);
-      if (mock !== null) return mock as T;
+      if (mock !== null) {
+        reportDataOutcome("mock");
+        return mock as T;
+      }
+      reportDataOutcome("offline");
       throw new Error(
         `Expected JSON from ${url}, got non-JSON response (starts with: ${text.slice(0, 80).replace(/\s+/g, " ")}…)`,
       );
     }
   } catch (err) {
     const mock = getMockResponse(url, init);
-    if (mock !== null) return mock as T;
+    if (mock !== null) {
+      reportDataOutcome("mock");
+      return mock as T;
+    }
+    reportDataOutcome("offline");
     throw err;
   }
 }

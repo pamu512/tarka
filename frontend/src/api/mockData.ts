@@ -890,6 +890,21 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
         velocity_events_5m: 2,
         velocity_events_1h: 12,
         velocity_events_24h: 48,
+        ml_model: "heuristic-v1",
+        ml_summary:
+          "ML risk score 71.0/100 (heuristic-v1). Top signals: ELEVATED_RISK: Overall risk score 71/100 — elevated risk, manual review recommended",
+        ml_top_factors: [
+          {
+            code: "ELEVATED_RISK",
+            description: "Overall risk score 71/100 — elevated risk, manual review recommended",
+            impact: "high",
+          },
+          {
+            code: "VPN_DETECTED",
+            description: "VPN or proxy connection detected",
+            impact: "high",
+          },
+        ],
       },
     };
   }
@@ -919,6 +934,21 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
         velocity_events_5m: 2,
         velocity_events_1h: 12,
         velocity_events_24h: 48,
+        ml_model: "heuristic-v1",
+        ml_summary:
+          "ML risk score 71.0/100 (heuristic-v1). Top signals: ELEVATED_RISK: Overall risk score 71/100 — elevated risk, manual review recommended",
+        ml_top_factors: [
+          {
+            code: "ELEVATED_RISK",
+            description: "Overall risk score 71/100 — elevated risk, manual review recommended",
+            impact: "high",
+          },
+          {
+            code: "VPN_DETECTED",
+            description: "VPN or proxy connection detected",
+            impact: "high",
+          },
+        ],
       },
       created_at: nowIso(),
     };

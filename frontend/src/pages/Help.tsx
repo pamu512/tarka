@@ -68,9 +68,28 @@ export default function Help() {
         <p>
           Tarka is a fraud operations console: decisions, cases, graph, rules, and governance tools in one shell. The
           left sidebar groups areas by how teams work—queue triage, deep investigation, policy experiments, and
-          platform admin. The <strong className="text-gray-400">top bar</strong> on the right has Help, Notifications
-          (with an amber count when something needs attention), Settings, and an Account menu for profile context and
-          quick access to appearance.
+          platform admin. The <strong className="text-gray-400">top bar</strong> on the right starts with{" "}
+          <strong className="text-gray-400">Search / jump</strong> (opens the command palette—also{" "}
+          <kbd className="px-1 rounded bg-surface-800 border border-surface-600 text-gray-400">⌘K</kbd> /{" "}
+          <kbd className="px-1 rounded bg-surface-800 border border-surface-600 text-gray-400">Ctrl+K</kbd>
+          ) to hop between modules or open cases; then Help, Notifications (amber count when something needs attention),
+          Settings, and Account for appearance.
+        </p>
+        <p>
+          <strong className="text-gray-400">Open cases:</strong> when you open cases from the queue, they appear as tabs
+          under the top bar so you can switch between several investigations without losing context. Tabs persist for this
+          browser session. Close a tab with ×, or use <strong className="text-gray-400">Clear all</strong> to empty the
+          strip and return to the queue if you were viewing a case. Case detail sub-views (Timeline / Audit / Graph) use
+          the URL <code className="text-gray-500">?tab=</code> so links are shareable.
+        </p>
+        <p>
+          In the command palette, type <code className="text-gray-500">tenant_id/case_id</code> to open a case in a
+          specific tenant; a bare case id uses the tenant from your most recently focused tab (default{" "}
+          <code className="text-gray-500">demo</code>). Use <kbd className="px-1 rounded bg-surface-800 border border-surface-600 text-gray-400">↑</kbd>{" "}
+          <kbd className="px-1 rounded bg-surface-800 border border-surface-600 text-gray-400">↓</kbd> and{" "}
+          <kbd className="px-1 rounded bg-surface-800 border border-surface-600 text-gray-400">Enter</kbd> to run a
+          highlighted result. On a case page, <strong className="text-gray-400">Investigation Copilot (this case)</strong>{" "}
+          jumps straight into the copilot with that case context.
         </p>
         <p>
           This UI is a <strong className="text-gray-400">prototype</strong>: many actions call real or mock APIs. When
@@ -88,7 +107,8 @@ export default function Help() {
         <Sub title="Cases">
           <p>
             Investigation queue from the case service: open a case to see entity, trace, timeline, and links to graph /
-            copilot. <strong className="text-gray-400">Basics:</strong> sort and open.{" "}
+            copilot. Opening a case adds it to the <strong className="text-gray-400">session tab strip</strong> for
+            multi-case triage. <strong className="text-gray-400">Basics:</strong> sort and open.{" "}
             <strong className="text-gray-400">Advanced:</strong> labels, comments, SLA hints when wired.
           </p>
         </Sub>

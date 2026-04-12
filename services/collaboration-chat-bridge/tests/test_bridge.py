@@ -56,6 +56,14 @@ def test_escape_slack_mrkdwn():
     assert "&lt;script&gt;" in escape_slack_mrkdwn("<script>")
 
 
+def test_format_slack_blocks_includes_persona_context():
+    agent = {"reply": "Hi", "turn_id": "t1", "persona": "orchestrator", "answer_sections": {}}
+    blocks = format_slack_blocks(agent)
+    joined = str(blocks)
+    assert "orchestrator" in joined
+    assert "t1" in joined
+
+
 def test_format_slack_blocks_inferences():
     agent = {
         "reply": "Summary here",
@@ -152,6 +160,8 @@ async def test_teams_agent_error_returns_card(monkeypatch):
     assert r.status_code == 200
     data = r.json()
     assert data.get("ok") is False
+    assert data.get("error") == "copilot_unavailable"
+    assert data.get("agent_http_status") == 503
     assert "adaptive_card" in data
 
 

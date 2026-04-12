@@ -22,6 +22,9 @@ def test_build_inference_context_schema_and_velocity():
     assert ctx["confidence_tier"] in ("low", "medium", "high")
     assert isinstance(ctx["driver_reasons"], list)
     assert isinstance(ctx["top_signals"], list)
+    assert ctx["ml_top_factors"] == []
+    assert ctx["ml_summary"] is None
+    assert ctx["ml_model"] is None
 
 
 def test_build_inference_context_colocation_and_travel():
@@ -45,6 +48,26 @@ def test_derive_recommended_action_deny_and_review():
     assert derive_recommended_action("deny", [], inf) == "block"
     assert derive_recommended_action("review", [], inf) == "manual_review"
     assert derive_recommended_action("review", [], {"confidence_tier": "low"}) == "step_up_mfa"
+
+
+def test_build_inference_context_ml_detail():
+    ctx = build_inference_context(
+        signal_tags=[],
+        rule_hits=[],
+        ml_score=72.0,
+        final_score=72.0,
+        features={"amount": 100},
+        ml_detail={
+            "top_factors": [{"code": "HIGH_AMOUNT", "description": "Big txn", "impact": "high"}],
+            "summary": "ML risk score 72.0/100 (test). Top signals: HIGH_AMOUNT: Big txn",
+            "model": "heuristic-v1",
+        },
+    )
+    assert len(ctx["ml_top_factors"]) == 1
+    assert ctx["ml_top_factors"][0]["code"] == "HIGH_AMOUNT"
+    assert "ml_factor:HIGH_AMOUNT" in ctx["driver_reasons"]
+    assert ctx["ml_summary"] is not None
+    assert ctx["ml_model"] == "heuristic-v1"
 
 
 def test_derive_recommended_action_allow_attestation():
