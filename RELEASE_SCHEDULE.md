@@ -29,7 +29,7 @@ Same bullets as [v1.1.0-2026-04-30.md](docs/docs/releases/v1.1.0-2026-04-30.md) 
 - **Security scanning workflow**: **Trivy** filesystem + **decision-api** image → **SARIF** upload (where code scanning is enabled); weekly schedule.
 - **Dependabot**: grouped updates for **GitHub Actions**, **pip** (core services), **npm** (frontend).
 - **Docs:** **`SECURITY.md`** (responsible disclosure), **`LICENSE-DEPENDENCIES.md`** (Neo4j AGPL / lite and alternates), **`CODE_OF_CONDUCT.md`**, **`docs/docs/guides/security-scanning.md`**, **`docs/docs/guides/sandbox-five-minute.md`** (copy-paste evaluate + OSINT + UI path).
-- **Onboarding:** **`.devcontainer/devcontainer.json`** (Codespaces / Docker-outside-Docker); **README** badges (CI, security scan, Codespaces); **walkthrough video** placeholder for maintainer Loom link on **[Tarka `README.md`](README.md)** ([github.com/pamu512/tarka](https://github.com/pamu512/tarka)), not Skuld or other repos.
+- **Onboarding:** **`.devcontainer/devcontainer.json`** (Codespaces / Docker-outside-Docker); **README** badges (CI, security scan, Codespaces); **maintainer Loom walkthrough** on **[Tarka `README.md`](README.md)** — [five-minute sandbox + Case Detail](https://www.loom.com/share/b46f1eccbc6b438381ee44c6978f2f5e) ([github.com/pamu512/tarka](https://github.com/pamu512/tarka)), not Skuld or other repos.
 - **`deploy/docker-compose.lite.yml`**: adds **integration-ingress** (**8003**) so lite stack matches the five-minute OSINT demo without full Neo4j.
 
 ### Planned validation (release gate)
