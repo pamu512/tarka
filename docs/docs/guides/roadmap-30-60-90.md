@@ -37,7 +37,7 @@ This plan now explicitly addresses the highest competitive gaps identified again
 - Ship Epic D **hint layer**: **`recommended_action`** on evaluate + audit (step-up / review / block hints).
 - Ship Epic E **proxies in inference**: colocation and impossible-travel risk fields.
 - Ship Epic F **first slice**: analyst-facing drivers in API + **Case Detail** explainability UI.
-- Consortium v2: weighted scoring, FP suppression, tenant policies, quality metrics (see release notes).
+- Consortium v2 (services): weighted scoring, FP feedback loop, trust APIs, env/config gating—**backend + tests**; **no** dedicated consortium analyst UI in v1.1 (see [v1.1.0 release note](../releases/v1.1.0-2026-04-30.md) § Consortium).
 - Baseline benchmark harness skeleton and integration quality gates (as capacity allows).
 
 ### Deliverables

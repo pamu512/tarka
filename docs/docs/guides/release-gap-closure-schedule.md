@@ -17,6 +17,8 @@ Maps [competitive-critical-review-2026-04.md](./competitive-critical-review-2026
 
 ## v1.2.0 (2026-05-30) — ship checklist (engineering)
 
+**Doc vs code:** rolling honesty table in [`releases/v1.2.0-2026-05-30.md`](../releases/v1.2.0-2026-05-30.md) § *Documentation vs code (rolling tracker)* — update when features land.
+
 | Gap | Closure |
 |-----|---------|
 | Counter / velocity maturity | **Feature-service** multi-window counters, normalized velocity keys per roadmap |
