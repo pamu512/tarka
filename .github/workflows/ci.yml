@@ -26,6 +26,8 @@ jobs:
       - run: pip install ruff
       - run: ruff check .
       - run: ruff format --check .
+      - name: Validate ML signal catalogs vs heuristic FEATURE_ORDER
+        run: python scripts/ml/validate_signal_catalogs.py
       - name: Block vendor IDE tokens in tracked sources
         run: |
           python << 'PY'
