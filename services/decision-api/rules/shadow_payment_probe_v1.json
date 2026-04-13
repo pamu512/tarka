@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "mode": "shadow",
+  "description": "Example shadow pack: tag-only evaluation for promotion experiments (does not add score_delta in shadow path — see json_rules shadow handling).",
+  "rules": [
+    {
+      "id": "shadow_probe_high_amount_only",
+      "when": [{ "op": "gte", "field": "amount", "value": 100000 }],
+      "tags": ["shadow:probe:very_high_amount"],
+      "score_delta": 0,
+      "description": "Shadow tag for calibration — wire shadow metrics to compare before activating score_delta"
+    }
+  ],
+  "tag_rules": []
+}
