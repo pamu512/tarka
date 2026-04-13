@@ -8,6 +8,7 @@ from typing import Literal
 
 CopilotPersonaId = Literal["investigation", "orchestrator"]
 
+
 def strip_persona_command(text: str) -> tuple[str, CopilotPersonaId | None]:
     """Strip leading `!orch` / `!orchestrator` / `!inv` / `!investigation` (optional body after whitespace)."""
     s = text.lstrip()
