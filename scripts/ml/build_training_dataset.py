@@ -130,7 +130,7 @@ def main() -> int:
     out_csv = args.out / "training_matrix.csv"
     if not rows:
         print(
-            f"No rows built (missing feature files: {missing}, skipped: {skipped}). " "See contracts/training/label_row_v1.example.json",
+            f"No rows built (missing feature files: {missing}, skipped: {skipped}). See contracts/training/label_row_v1.example.json",
         )
         return 1
 
