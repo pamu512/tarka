@@ -6,7 +6,7 @@ This guide satisfies the **v1.2 DAO slice** exit criterion: how **off-chain** go
 
 1. **DAO records an outcome** (vote, multisig, snapshot). Persist a **versioned** envelope; see [`contracts/examples/dao-attestation-v1.example.json`](../../../contracts/examples/dao-attestation-v1.example.json) for a canonical JSON shape (EIP-191 message + optional IPFS CID).
 2. **Operator or worker maps the outcome** to consortium HTTP calls against **your** decision-api:
-   - Share a signal: `POST /v1/consortium/signal` (or `python scripts/consortium_adapter/cli.py share ...`).
+   - Share a signal: `POST /v1/consortium/share` (or `python scripts/consortium_adapter/cli.py share ...`).
    - Optional feedback after review: `POST /v1/consortium/feedback`.
    - Tenant trust weight: `POST /v1/consortium/trust` (within documented bounds).
 3. **Evaluate behavior**: consortium aggregates are read during `POST /v1/decisions/evaluate` when **`CONSORTIUM_ENABLED`** and Redis are configured; tenant isolation remains enforced (hashed entity identifiers, tenant-scoped trust).
