@@ -1,0 +1,26 @@
+{
+  "catalog_id": "horizontal_session_v1",
+  "version": "1.0.0",
+  "description": "Cross-vertical session, velocity, and device/SDK signals. Pair with JSON rule packs: velocity_rules.json, device_signals.json, horizontal_burst_5m.json.",
+  "applies_to_event_types": ["*"],
+  "features": {
+    "event_count_5m": { "type": "number", "source": "decision-api aggregates / feature-service", "required_for_rules": ["horizontal_burst_5m"] },
+    "event_count_1h": { "type": "number", "source": "aggregates" },
+    "event_count_24h": { "type": "number", "source": "aggregates" },
+    "event_count_7d": { "type": "number", "source": "aggregates" },
+    "sum_amount_24h": { "type": "number", "source": "aggregates" },
+    "distinct_ip_address_24h": { "type": "number", "source": "aggregates" },
+    "distinct_device_id_24h": { "type": "number", "source": "aggregates" },
+    "is_emulator": { "type": "boolean", "source": "SDK / device_context" },
+    "is_vpn": { "type": "boolean", "source": "SDK / device_context" },
+    "is_bot": { "type": "boolean", "source": "SDK / device_context" },
+    "is_repackaged": { "type": "boolean", "source": "SDK / device_context" },
+    "is_spoofed_location": { "type": "boolean", "source": "SDK / device_context" },
+    "webdriver_detected": { "type": "boolean", "source": "SDK / device_context" },
+    "headless_detected": { "type": "boolean", "source": "SDK / device_context" },
+    "automation_detected": { "type": "boolean", "source": "SDK / device_context" },
+    "timezone_geo_mismatch": { "type": "boolean", "source": "SDK / device_context" },
+    "ip_is_proxy": { "type": "boolean", "source": "ingress / IP intel" },
+    "ip_is_datacenter": { "type": "boolean", "source": "ingress / IP intel" }
+  }
+}

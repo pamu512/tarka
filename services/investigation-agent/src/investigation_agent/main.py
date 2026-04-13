@@ -50,8 +50,8 @@ from investigation_agent.personas import (
 )
 from investigation_agent.playbooks import (
     list_playbooks,
-    playbooks_catalog_fingerprint,
     playbook_system_append,
+    playbooks_catalog_fingerprint,
     validate_playbook_id,
 )
 from investigation_agent.tool_validation import validate_tool_arguments
@@ -155,7 +155,7 @@ class ChatRequest(BaseModel):
     )
     persona: CopilotPersona = Field(
         default=DEFAULT_COPILOT_PERSONA,
-        description='Copilot persona: investigation (evidence-first) or orchestrator (workflow efficiency, less rework). See GET /v1/personas.',
+        description="Copilot persona: investigation (evidence-first) or orchestrator (workflow efficiency, less rework). See GET /v1/personas.",
     )
     messages: list[ChatMessage] = Field(default_factory=list)
     platform_audit: list[dict[str, Any]] | None = Field(

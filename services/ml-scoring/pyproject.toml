@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pytest-cov>=5.0"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "httpx>=0.28.0"]
 onnx = ["onnxruntime>=1.20.0"]
 mlflow = ["mlflow>=2.18.0"]
 shap = [

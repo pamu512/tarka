@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "description": "Payment vertical risk combos (CNP-style): high amount + weak device trust. Aligns with contracts/signal-catalog/payment_card_cnp_v1.json.",
+  "rules": [
+    {
+      "id": "pay_high_amount_untrusted_device",
+      "when": [
+        { "op": "gte", "field": "amount", "value": 15000 },
+        { "op": "is_true", "field": "is_vpn" }
+      ],
+      "tags": ["vertical:payment:high_amt_vpn"],
+      "score_delta": 25,
+      "description": "High amount with VPN — review"
+    },
+    {
+      "id": "pay_high_amount_emulator",
+      "when": [
+        { "op": "gte", "field": "amount", "value": 5000 },
+        { "op": "is_true", "field": "is_emulator" }
+      ],
+      "tags": ["vertical:payment:amt_emulator"],
+      "score_delta": 35,
+      "description": "Material amount on emulator"
+    },
+    {
+      "id": "pay_new_device_high_velocity",
+      "when": [
+        { "op": "is_true", "field": "is_new_device" },
+        { "op": "gte", "field": "transaction_count_24h", "value": 25 }
+      ],
+      "tags": ["vertical:payment:new_dev_high_txn_24h"],
+      "score_delta": 20,
+      "description": "New device with high 24h transaction count"
+    },
+    {
+      "id": "pay_bot_or_automation",
+      "when": [{ "op": "is_true", "field": "is_bot" }],
+      "tags": ["vertical:payment:bot"],
+      "score_delta": 25,
+      "description": "Bot signal on payment event"
+    }
+  ],
+  "tag_rules": []
+}

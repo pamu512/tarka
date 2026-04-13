@@ -1,0 +1,37 @@
+{
+  "catalog_id": "payment_card_cnp_v1",
+  "version": "1.0.0",
+  "description": "Card-not-present style payment vertical: aligns ml-scoring 9-feature head + payment aggregates. Extend with avs/cvc/3ds when ingress provides them.",
+  "applies_to_event_types": ["payment", "card_auth", "checkout"],
+  "ml_scoring_feature_vector": {
+    "order": [
+      "amount",
+      "hour_of_day",
+      "is_new_device",
+      "is_vpn",
+      "is_emulator",
+      "is_bot",
+      "transaction_count_24h",
+      "distinct_countries_7d",
+      "account_age_days"
+    ],
+    "aliases": { "new_device": "is_new_device" },
+    "notes": "Must match ml_scoring.heuristic.FEATURE_ORDER / extract_feature_vector for ONNX training parity."
+  },
+  "features": {
+    "amount": { "type": "number", "required_for_ml": true },
+    "hour_of_day": { "type": "number", "required_for_ml": false },
+    "is_new_device": { "type": "boolean", "required_for_ml": false },
+    "is_vpn": { "type": "boolean", "required_for_ml": false },
+    "is_emulator": { "type": "boolean", "required_for_ml": false },
+    "is_bot": { "type": "boolean", "required_for_ml": false },
+    "transaction_count_24h": { "type": "number", "required_for_ml": false },
+    "distinct_countries_7d": { "type": "number", "required_for_ml": false },
+    "account_age_days": { "type": "number", "required_for_ml": false },
+    "event_count_5m": { "type": "number", "source": "aggregates", "required_for_rules": ["vertical_payment_risk_v1"] },
+    "event_count_1h": { "type": "number", "source": "aggregates" },
+    "avs_result": { "type": "string", "status": "optional_future", "notes": "Populate from gateway when available; add rules in a new pack version." },
+    "cvc_result": { "type": "string", "status": "optional_future" },
+    "three_ds_result": { "type": "string", "status": "optional_future" }
+  }
+}
