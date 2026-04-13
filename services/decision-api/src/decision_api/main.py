@@ -188,6 +188,7 @@ setup_rate_limiter(app, rpm=int(os.environ.get("RATE_LIMIT_RPM", "1000")))
 from decision_api.captcha import router as captcha_router  # noqa: E402
 from decision_api.compliance_api import router as compliance_router  # noqa: E402
 from decision_api.consortium_api import router as consortium_router  # noqa: E402
+from decision_api.internal_counters_api import router as internal_counters_router  # noqa: E402
 from decision_api.recommend_api import router as recommend_router  # noqa: E402
 from decision_api.replay import router as replay_router  # noqa: E402
 from decision_api.rule_api import router as rule_router  # noqa: E402
@@ -201,6 +202,7 @@ app.include_router(compliance_router)
 app.include_router(captcha_router)
 app.include_router(lists_router)
 app.include_router(consortium_router)
+app.include_router(internal_counters_router)
 
 
 def _http(request: Request) -> httpx.AsyncClient:

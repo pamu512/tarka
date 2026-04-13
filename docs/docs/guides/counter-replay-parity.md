@@ -16,10 +16,14 @@
 
 ## Status
 
-**Design + roadmap** for **v1.2.0**; implementation tracks **`roadmap-30-60-90.md`** Day 60 scope. This document is the acceptance checklist for “counter maturity” in the competitive matrix.
+Implementation tracks **`roadmap-30-60-90.md`** Day 60 scope. This document is the acceptance checklist for “counter maturity” in the competitive matrix.
 
 **In repo today:**
 
-- [`scripts/replay/replay_aggregates.py`](../../../scripts/replay/replay_aggregates.py) — JSONL → **`AggregateStore`** on a scratch Redis DB.
+- **Counter manifest (v1)** — [`services/decision-api/src/decision_api/data/counter_manifest_v1.json`](../../../services/decision-api/src/decision_api/data/counter_manifest_v1.json) lists **`compute_features`** output names + windows; **`GET /v1/internal/counters/manifest`** exposes it; CI [`test_counter_manifest.py`](../../../services/decision-api/tests/test_counter_manifest.py) asserts keys match **`AggregateStore.compute_features`** when all branches apply.
+- **Ops replay API** — **`POST /v1/internal/counters/replay`** (requires env **`COUNTER_REPLAY_TOKEN`** and header **`X-Tarka-Counter-Replay-Token`**) replays a JSON event list into a **scratch** Redis URL. Disabled until the token is set.
+- [`scripts/replay/replay_aggregates.py`](../../../scripts/replay/replay_aggregates.py) — JSONL → **`AggregateStore`** on a scratch Redis DB; **`--manifest-info`** prints manifest version.
 - [`scripts/replay/diff_aggregate_redis.py`](../../../scripts/replay/diff_aggregate_redis.py) — compare **`fraud:agg*`** ZSETs between two Redis URLs (prod vs scratch).
-- **CI** — [`test_golden_counters.py`](../../../services/decision-api/tests/test_golden_counters.py) (decision-api pytest) locks **`event_count_1h`**, sums, and distinct counts under a **fixed injectable clock** on `AggregateStore`.
+- **CI** — [`test_golden_counters.py`](../../../services/decision-api/tests/test_golden_counters.py) locks **`event_count_1h`**, sums, and distinct counts under a **fixed injectable clock** on `AggregateStore`.
+
+**Still open (v1.2):** counter manifest YAML versioning in Redis key prefix, optional **`POST /v1/internal/counters/replay`** batch from audit export (today: JSON body only), scheduled parity job.

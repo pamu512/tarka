@@ -119,7 +119,23 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Validate and count rows only; no Redis writes",
     )
+    p.add_argument(
+        "--manifest-info",
+        action="store_true",
+        help="Print bundled counter-manifest version/path and exit (no Redis)",
+    )
     args = p.parse_args(argv)
+
+    if args.manifest_info:
+        mp = _REPO_ROOT / "services" / "decision-api" / "src" / "decision_api" / "data" / "counter_manifest_v1.json"
+        if not mp.is_file():
+            print(f"Manifest not found: {mp}", file=sys.stderr)
+            return 1
+        data = json.loads(mp.read_text(encoding="utf-8"))
+        print(f"counter_manifest_v1.json: {mp}")
+        print(f"manifest_version: {data.get('manifest_version', '?')}")
+        print(f"feature_outputs: {len(data.get('feature_outputs', []))}")
+        return 0
 
     if not args.input:
         p.print_help()
