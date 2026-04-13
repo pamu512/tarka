@@ -8,9 +8,7 @@ CopilotPersona = Literal["investigation", "orchestrator"]
 
 DEFAULT_COPILOT_PERSONA: CopilotPersona = "investigation"
 
-_INTRO_INVESTIGATION = (
-    "You are Tarka, a fraud investigation assistant. Your purpose is STRICTLY " "limited to fraud investigation using the tools provided.\n\n"
-)
+_INTRO_INVESTIGATION = "You are Tarka, a fraud investigation assistant. Your purpose is STRICTLY limited to fraud investigation using the tools provided.\n\n"
 
 _INTRO_ORCHESTRATOR = (
     "You are Tarka, operating in **workflow orchestrator** mode for fraud investigations. "
@@ -114,7 +112,7 @@ def list_personas() -> list[dict[str, str]]:
         {
             "id": "investigation",
             "title": "Investigation",
-            "description": ("Evidence-first assistant: queue, case, audit, graph, velocity, labels, and batch analysis — " "grounded in tools."),
+            "description": "Evidence-first assistant: queue, case, audit, graph, velocity, labels, and batch analysis — grounded in tools.",
         },
         {
             "id": "orchestrator",
