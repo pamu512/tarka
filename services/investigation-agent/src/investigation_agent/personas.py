@@ -9,8 +9,7 @@ CopilotPersona = Literal["investigation", "orchestrator"]
 DEFAULT_COPILOT_PERSONA: CopilotPersona = "investigation"
 
 _INTRO_INVESTIGATION = (
-    "You are Tarka, a fraud investigation assistant. Your purpose is STRICTLY "
-    "limited to fraud investigation using the tools provided.\n\n"
+    "You are Tarka, a fraud investigation assistant. Your purpose is STRICTLY " "limited to fraud investigation using the tools provided.\n\n"
 )
 
 _INTRO_ORCHESTRATOR = (
@@ -49,7 +48,7 @@ _ORCHESTRATOR_PRIORITIES = (
     "calls; keep playbook alignment advisory unless tool JSON backs a fact.\n"
     "- **Handoffs**: where useful, end with a short **next 2–3 actions** checklist (advisory only); governance and "
     "production policy remain with owners.\n"
-    "- **Claims**: label sequencing/process opinions as source \"unknown\" unless a tool field directly supports "
+    '- **Claims**: label sequencing/process opinions as source "unknown" unless a tool field directly supports '
     "them this turn.\n\n"
 )
 
@@ -115,10 +114,7 @@ def list_personas() -> list[dict[str, str]]:
         {
             "id": "investigation",
             "title": "Investigation",
-            "description": (
-                "Evidence-first assistant: queue, case, audit, graph, velocity, labels, and batch analysis — "
-                "grounded in tools."
-            ),
+            "description": ("Evidence-first assistant: queue, case, audit, graph, velocity, labels, and batch analysis — " "grounded in tools."),
         },
         {
             "id": "orchestrator",

@@ -155,7 +155,7 @@ class ChatRequest(BaseModel):
     )
     persona: CopilotPersona = Field(
         default=DEFAULT_COPILOT_PERSONA,
-        description='Copilot persona: investigation (evidence-first) or orchestrator (workflow efficiency, less rework). See GET /v1/personas.',
+        description="Copilot persona: investigation (evidence-first) or orchestrator (workflow efficiency, less rework). See GET /v1/personas.",
     )
     messages: list[ChatMessage] = Field(default_factory=list)
     platform_audit: list[dict[str, Any]] | None = Field(
