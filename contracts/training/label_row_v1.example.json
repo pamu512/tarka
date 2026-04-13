@@ -1,0 +1,16 @@
+{
+  "schema": "tarka.training.label_row_v1",
+  "tenant_id": "tenant-demo",
+  "trace_id": "550e8400-e29b-41d4-a716-446655440000",
+  "entity_id": "user-12345",
+  "decision_ts": "2026-04-08T12:00:00Z",
+  "label": "fraud",
+  "label_family": "payment",
+  "label_subtype": "card_testing",
+  "loss_mechanism": "stolen_funds",
+  "label_source": "chargeback",
+  "label_confidence": 1.0,
+  "catalog_ref": "payment_card_cnp_v1@1.0.0",
+  "features_snapshot_ref": "s3://bucket/features/550e8400.parquet",
+  "notes": "Join training rows to feature vectors at decision time only; use features_snapshot_ref or replay from audit."
+}
