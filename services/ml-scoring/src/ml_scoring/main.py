@@ -227,11 +227,7 @@ async def score(body: ScoreRequest, bg: BackgroundTasks):
     blended = round((1 - ADAPTIVE_WEIGHT) * base_score + ADAPTIVE_WEIGHT * adaptive_score, 2)
     blended = max(0.0, min(100.0, blended))
 
-    mt = (
-        "lgbm"
-        if "lgbm-shap" in model_label
-        else ("onnx" if "onnx" in model_label else "heuristic")
-    )
+    mt = "lgbm" if "lgbm-shap" in model_label else ("onnx" if "onnx" in model_label else "heuristic")
     explanations = explain_score(
         blended,
         body.features,
