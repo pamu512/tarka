@@ -41,5 +41,8 @@ class Settings(BaseSettings):
     consortium_min_tenants: int = int(os.environ.get("CONSORTIUM_MIN_TENANTS", "2"))
     evidence_signing_secret: str = os.environ.get("EVIDENCE_SIGNING_SECRET", "")
 
+    # Optional: enables POST /v1/internal/counters/replay (scratch Redis replay for parity ops)
+    counter_replay_token: str = os.environ.get("COUNTER_REPLAY_TOKEN", "")
+
 
 settings = Settings()

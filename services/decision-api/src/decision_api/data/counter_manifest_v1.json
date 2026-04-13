@@ -1,0 +1,19 @@
+{
+  "manifest_version": "1.0.0",
+  "aggregate_prefix": "fraud:agg:",
+  "aggregate_val_prefix": "fraud:aggval:",
+  "implementation": "decision_api.aggregates.AggregateStore.compute_features",
+  "notes": "Keys must stay aligned with AggregateStore.compute_features and NUMERIC_FIELDS / DISTINCT_FIELDS in aggregates.py.",
+  "feature_outputs": [
+    { "name": "event_count_5m", "kind": "event_count", "window_seconds": 300 },
+    { "name": "event_count_1h", "kind": "event_count", "window_seconds": 3600 },
+    { "name": "event_count_24h", "kind": "event_count", "window_seconds": 86400 },
+    { "name": "event_count_7d", "kind": "event_count", "window_seconds": 604800 },
+    { "name": "sum_amount_1h", "kind": "sum", "field": "amount", "window_seconds": 3600 },
+    { "name": "avg_amount_1h", "kind": "avg", "field": "amount", "window_seconds": 3600 },
+    { "name": "sum_amount_24h", "kind": "sum", "field": "amount", "window_seconds": 86400 },
+    { "name": "avg_amount_24h", "kind": "avg", "field": "amount", "window_seconds": 86400 },
+    { "name": "distinct_ip_address_24h", "kind": "distinct", "field": "ip_address", "window_seconds": 86400 },
+    { "name": "distinct_device_id_24h", "kind": "distinct", "field": "device_id", "window_seconds": 86400 }
+  ]
+}

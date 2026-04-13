@@ -74,7 +74,10 @@ Use a **dedicated Redis database** (e.g. `redis://localhost:6379/15`) so you do 
 ```bash
 python scripts/replay/replay_aggregates.py --input export.jsonl --redis-url redis://localhost:6379/15 --dry-run
 python scripts/replay/replay_aggregates.py --input export.jsonl --redis-url redis://localhost:6379/15
+python scripts/replay/replay_aggregates.py --manifest-info
 ```
+
+**Counter manifest:** `replay_aggregates.py --manifest-info` prints the bundled version; **Decision API** exposes the same JSON at **`GET /v1/internal/counters/manifest`**. For small JSON batches (no file), **`POST /v1/internal/counters/replay`** writes to a scratch Redis URL when **`COUNTER_REPLAY_TOKEN`** is set and you send header **`X-Tarka-Counter-Replay-Token`**.
 
 JSONL rows should include **`tenant_id`**, **`entity_id`**, and either **`fields`** (object) or **`payload`** / **`request_body`** for aggregate dimensions. Optional **`event_id`**, **`trace_id`**, or **`ts`** (unix) per line.
 

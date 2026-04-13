@@ -26,6 +26,10 @@ class FakeRedis:
             max_score = float("inf")
         return [k for k, v in d.items() if float(min_score) <= v <= float(max_score)]
 
+    async def aclose(self) -> None:
+        """Async close hook (redis.asyncio compatibility for tests)."""
+        return
+
 
 class FakePipeline:
     def __init__(self, redis: FakeRedis):
