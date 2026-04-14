@@ -55,6 +55,68 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChallengePoliciesResponse"
+  /v1/rules/vertical-packs:
+    get:
+      operationId: listVerticalPacks
+      summary: List built-in vertical pack templates
+      responses:
+        "200":
+          description: Vertical pack catalog
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerticalPackCatalogResponse"
+  /v1/rules/vertical-packs/{vertical_name}/install:
+    post:
+      operationId: installVerticalPack
+      summary: Install vertical pack into active rules directory
+      parameters:
+        - name: vertical_name
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [fintech, ecommerce, gaming]
+        - name: overwrite
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "201":
+          description: Vertical pack installed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerticalPackInstallResponse"
+        "404":
+          description: Unknown vertical pack
+        "409":
+          description: Existing installed vertical pack requires overwrite=true
+        "422":
+          description: Validation errors in target pack
+  /v1/simulation/benchmark/vertical:
+    post:
+      operationId: benchmarkVerticalPack
+      summary: Compare baseline simulation vs built-in vertical pack
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerticalBenchmarkRequest"
+      responses:
+        "200":
+          description: Baseline vs vertical benchmark results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerticalBenchmarkResponse"
+        "400":
+          description: Unknown scenario
+        "404":
+          description: Unknown vertical pack
   /v1/attestation/challenge:
     post:
       operationId: attestationChallenge
@@ -216,6 +278,105 @@ paths:
           description: No audit rows matched
 components:
   schemas:
+    VerticalPackSummary:
+      type: object
+      required: [name, rules, version]
+      properties:
+        name:
+          type: string
+        rules:
+          type: integer
+          minimum: 0
+        version:
+          type: integer
+          minimum: 1
+    VerticalPackCatalogResponse:
+      type: object
+      required: [vertical_packs]
+      properties:
+        vertical_packs:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/VerticalPackSummary"
+    VerticalPackInstallResponse:
+      type: object
+      required: [installed, vertical, rules]
+      properties:
+        installed:
+          type: string
+          description: Generated JSON file name under rules path
+        vertical:
+          type: string
+        rules:
+          type: integer
+          minimum: 0
+    VerticalBenchmarkRequest:
+      type: object
+      properties:
+        scenario:
+          type: string
+          default: baseline
+        vertical:
+          type: string
+          default: fintech
+          enum: [fintech, ecommerce, gaming]
+        custom_profile:
+          type: object
+          nullable: true
+          additionalProperties: true
+      additionalProperties: false
+    SimulationSummary:
+      type: object
+      required:
+        - total_events
+        - fraud_events
+        - predicted_fraud
+        - true_positives
+        - false_positives
+        - false_negatives
+        - true_negatives
+        - precision
+        - recall
+        - f1_score
+        - average_score
+        - score_separation
+      properties:
+        total_events: { type: integer, minimum: 0 }
+        fraud_events: { type: integer, minimum: 0 }
+        predicted_fraud: { type: integer, minimum: 0 }
+        true_positives: { type: integer, minimum: 0 }
+        false_positives: { type: integer, minimum: 0 }
+        false_negatives: { type: integer, minimum: 0 }
+        true_negatives: { type: integer, minimum: 0 }
+        precision: { type: number }
+        recall: { type: number }
+        f1_score: { type: number }
+        average_score: { type: number }
+        score_separation: { type: number }
+    VerticalBenchmarkDelta:
+      type: object
+      required: [precision, recall, f1_score, score_separation, false_positives, false_negatives]
+      properties:
+        precision: { type: number }
+        recall: { type: number }
+        f1_score: { type: number }
+        score_separation: { type: number }
+        false_positives: { type: integer }
+        false_negatives: { type: integer }
+    VerticalBenchmarkResponse:
+      type: object
+      required: [scenario, vertical, baseline, vertical_pack, delta]
+      properties:
+        scenario:
+          type: string
+        vertical:
+          type: string
+        baseline:
+          $ref: "#/components/schemas/SimulationSummary"
+        vertical_pack:
+          $ref: "#/components/schemas/SimulationSummary"
+        delta:
+          $ref: "#/components/schemas/VerticalBenchmarkDelta"
     ChallengePoliciesResponse:
       type: object
       required: [policies]

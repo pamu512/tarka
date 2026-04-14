@@ -291,6 +291,27 @@ def _integration_connectivity_result(provider: dict[str, Any], config: dict[str,
     }
 
 
+def _normalize_provider_status(connection_status: str, connectivity_status: str, missing_fields: list[str]) -> str:
+    conn = (connection_status or "").strip().lower()
+    check = (connectivity_status or "").strip().lower()
+    if conn == "disabled":
+        return "unknown"
+    if conn == "error":
+        return "down"
+    if check == "pass":
+        return "healthy" if not missing_fields else "degraded"
+    if check == "fail":
+        return "degraded"
+    return "unknown"
+
+
+def _config_completeness(required_count: int, missing_count: int) -> float:
+    if required_count <= 0:
+        return 100.0
+    present = max(0, required_count - max(0, missing_count))
+    return round((present / required_count) * 100, 1)
+
+
 @app.get("/v1/health")
 async def health():
     return {"status": "ok"}
@@ -847,6 +868,53 @@ async def integration_health_matrix(tenant_id: str, session: AsyncSession = Depe
     pass_count = sum(1 for r in rows if r.get("status") == "pass")
     score = round((pass_count / max(len(rows), 1)) * 100, 1) if rows else 0.0
     return {"tenant_id": tenant_id, "score": score, "rows": rows}
+
+
+@app.get("/v1/integrations/scorecards")
+async def integration_scorecards(tenant_id: str, session: AsyncSession = Depends(get_session)):
+    result = await session.execute(select(IntegrationConnection).where(IntegrationConnection.tenant_id == tenant_id))
+    connections = result.scalars().all()
+    providers: list[dict[str, Any]] = []
+    for item in connections:
+        provider = get_provider(item.provider_id) or {}
+        last = item.last_connectivity_test if isinstance(item.last_connectivity_test, dict) else {}
+        check_status = str(last.get("status", "unknown"))
+        latency_ms = float(last.get("latency_ms", 0.0) or 0.0)
+        missing_fields = last.get("missing_fields", [])
+        if not isinstance(missing_fields, list):
+            missing_fields = []
+        reasons: list[str] = []
+        live_probe = last.get("live_probe")
+        if isinstance(live_probe, dict) and live_probe.get("error"):
+            reasons.append(str(live_probe.get("error")))
+        reasons.extend(str(x) for x in missing_fields)
+        if str(item.status).lower() == "error":
+            reasons.append("connection_error_status")
+        required_fields = provider.get("required_config_fields", [])
+        required_count = len(required_fields) if isinstance(required_fields, list) else 0
+        status = _normalize_provider_status(str(item.status), check_status, missing_fields)
+        connectivity_score = 100.0 if check_status == "pass" else (35.0 if check_status == "fail" else 50.0)
+        config_completeness = _config_completeness(required_count, len(missing_fields))
+        provider_score = round((connectivity_score * 0.7) + (config_completeness * 0.3), 1)
+        providers.append(
+            {
+                "provider_id": item.provider_id,
+                "category": item.category,
+                "status": status,
+                "connectivity_score": connectivity_score,
+                "latency_ms": round(latency_ms, 2),
+                "config_completeness": config_completeness,
+                "last_checked_at": item.updated_at.isoformat() if item.updated_at else None,
+                "reasons": sorted(set(reasons)),
+                "provider_score": provider_score,
+            }
+        )
+    overall_score = round(sum(p["provider_score"] for p in providers) / max(len(providers), 1), 1) if providers else 0.0
+    return {
+        "tenant_id": tenant_id,
+        "overall_score": overall_score,
+        "providers": providers,
+    }
 
 
 @app.post("/v1/integrations/install")
