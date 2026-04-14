@@ -23,7 +23,7 @@ Maps [competitive-critical-review-2026-04.md](./competitive-critical-review-2026
 |-----|---------|
 | Counter / velocity maturity | **Feature-service** multi-window counters, normalized velocity keys per roadmap |
 | Online/offline parity | **[counter-replay-parity.md](./counter-replay-parity.md)** + `replay_aggregates.py` + `diff_aggregate_redis.py` + **CI** `test_golden_counters.py` |
-| Challenge / FP friction | **Policy templates** for challenge orchestration (extends `recommended_action`) |
+| Challenge / FP friction | **Policy templates** — JSON under `rules/challenge_policies/`, `challenge_policy_id` on evaluate, **`GET /v1/challenge-policies`**, extends `recommended_action` |
 | Connector seriousness | **Ingress reliability** scorecards + UI/API fields |
 | Benchmarks | **Vertical packs** + reproducible harness; publish **hey/k6** numbers using [`scripts/benchmarks/`](../../scripts/benchmarks/README.md) |
 | Load discipline | Optional **scheduled workflow** or documented **hey** SLO runbook |

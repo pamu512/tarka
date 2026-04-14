@@ -1,0 +1,19 @@
+{
+  "policy_id": "payments_high_value_v1",
+  "version": 1,
+  "description": "High-value payments: extra attestation on allow; manual review when already in review.",
+  "escalation_ladder": ["step_up_attestation", "manual_review", "block"],
+  "rules": [
+    {
+      "id": "high_value_review",
+      "when": { "decision": "review", "min_amount": 5000 },
+      "recommended_action": "manual_review"
+    },
+    {
+      "id": "high_value_allow",
+      "when": { "decision": "allow", "min_amount": 5000 },
+      "recommended_action": "step_up_attestation"
+    }
+  ],
+  "default": "use_base_engine"
+}

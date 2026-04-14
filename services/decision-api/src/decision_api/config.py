@@ -44,5 +44,8 @@ class Settings(BaseSettings):
     # Optional: enables POST /v1/internal/counters/replay (scratch Redis replay for parity ops)
     counter_replay_token: str = os.environ.get("COUNTER_REPLAY_TOKEN", "")
 
+    # Challenge policy templates (JSON under {rules_path}/challenge_policies/)
+    challenge_policy_default: str = os.environ.get("CHALLENGE_POLICY_DEFAULT", "default_v1")
+
 
 settings = Settings()

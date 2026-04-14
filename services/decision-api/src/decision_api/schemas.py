@@ -31,6 +31,10 @@ class EvaluateRequest(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
     device_context: DeviceContextIn | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+    challenge_policy_id: str | None = Field(
+        default=None,
+        description="Optional challenge/escalation template id (JSON in rules/challenge_policies/)",
+    )
 
 
 class InferenceContext(BaseModel):
@@ -63,3 +67,11 @@ class EvaluateResponse(BaseModel):
     ml_score: float | None = None
     inference_context: InferenceContext
     recommended_action: str | None = None
+    challenge_policy_id: str | None = Field(
+        default=None,
+        description="Resolved challenge template id (may differ from request if default applied)",
+    )
+    challenge_metadata: dict[str, Any] | None = Field(
+        default=None,
+        description="Matched rule id, escalation ladder, etc.",
+    )

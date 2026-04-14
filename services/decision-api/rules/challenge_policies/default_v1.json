@@ -1,0 +1,8 @@
+{
+  "policy_id": "default_v1",
+  "version": 1,
+  "description": "No overrides — use derive_recommended_action (base engine) for all cases.",
+  "escalation_ladder": ["step_up_mfa", "step_up_attestation", "manual_review", "block"],
+  "rules": [],
+  "default": "use_base_engine"
+}
