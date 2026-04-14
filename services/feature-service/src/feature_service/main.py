@@ -350,9 +350,7 @@ async def snapshot(body: SnapshotRequest, request: Request):
 
     vector = _build_vector(features)
 
-    velocity_counters = await _compute_velocity_counters(
-        request, body.tenant_id, body.entity_id, features
-    )
+    velocity_counters = await _compute_velocity_counters(request, body.tenant_id, body.entity_id, features)
 
     return {
         "tenant_id": body.tenant_id,

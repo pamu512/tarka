@@ -1,7 +1,6 @@
 """Challenge policy templates (Epic D)."""
 
 import pytest
-
 from decision_api.challenge_policy import (
     apply_challenge_policy,
     load_challenge_policies,
