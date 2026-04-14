@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from contextlib import asynccontextmanager
 from typing import Any, Literal
 
 import httpx
@@ -10,7 +11,9 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from collaboration_chat_bridge.agent_client import AgentChatError, post_chat
+from collaboration_chat_bridge.bridge_turn import merge_workflow_with_explicit, prepare_messages_for_agent
 from collaboration_chat_bridge.config import Settings
+from collaboration_chat_bridge.rate_limit import MinuteRateLimiter
 from collaboration_chat_bridge.reply_format import (
     format_lark_card_text,
     format_lark_error_text,
@@ -23,7 +26,17 @@ from collaboration_chat_bridge.slack_verify import verify_slack_signature
 
 log = logging.getLogger(__name__)
 settings = Settings()
-app = FastAPI(title="Tarka Collaboration Chat Bridge", version="1.0.0")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.rate_limiter = None
+    if settings.bridge_rate_limit_per_minute > 0:
+        app.state.rate_limiter = MinuteRateLimiter(settings.bridge_rate_limit_per_minute)
+    yield
+
+
+app = FastAPI(title="Tarka Collaboration Chat Bridge", version="1.0.0", lifespan=lifespan)
 
 
 @app.middleware("http")
@@ -49,6 +62,9 @@ async def health():
         "lark_verification_configured": bool((settings.lark_verification_token or "").strip()),
         "lark_reply_configured": bool((settings.lark_tenant_access_token or "").strip()),
         "default_copilot_persona": settings.default_copilot_persona,
+        "bridge_rate_limit_per_minute": settings.bridge_rate_limit_per_minute or None,
+        "bridge_web_fetch_enabled": settings.bridge_web_fetch_enabled,
+        "bridge_attachment_max_bytes": settings.bridge_attachment_max_bytes,
     }
 
 
@@ -67,6 +83,24 @@ async def slack_events(
     if not verify_slack_signature(secret, x_slack_request_timestamp or "", body, x_slack_signature or ""):
         raise HTTPException(status_code=401, detail="invalid slack signature")
 
+    try:
+        payload_early = json.loads(body.decode("utf-8"))
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="invalid json") from None
+
+    if payload_early.get("type") == "url_verification":
+        return Response(
+            content=json.dumps({"challenge": payload_early.get("challenge", "")}),
+            media_type="application/json",
+        )
+
+    if settings.bridge_rate_limit_per_minute > 0:
+        lim = getattr(request.app.state, "rate_limiter", None)
+        if lim:
+            tid = str(payload_early.get("team_id") or "unknown")[:80]
+            if not lim.allow(f"slack:{tid}"):
+                return JSONResponse(status_code=429, content={"detail": "rate limit exceeded"})
+
     if settings.slack_skip_retry_background and x_slack_retry_num:
         try:
             if int(x_slack_retry_num) > 0:
@@ -76,8 +110,6 @@ async def slack_events(
             pass
 
     pre = await process_slack_event_payload(settings, body)
-    if pre and "challenge" in pre:
-        return Response(content=json.dumps(pre), media_type="application/json")
     if pre and pre.get("error"):
         raise HTTPException(status_code=400, detail=pre["error"])
     if isinstance(pre, dict) and pre.get("_async_slack"):
@@ -100,6 +132,13 @@ class TeamsBridgeBody(BaseModel):
         default=None,
         description='Prior turns, e.g. [{"role":"user","content":"..."}, ...]',
     )
+    workflow_id: str | None = Field(default=None, max_length=80, description="Overrides !wf in message text.")
+    workflow_params: dict[str, Any] | None = Field(
+        default=None,
+        description="Merged with !wfp / !style-derived params; explicit keys win.",
+    )
+    playbook_id: str | None = Field(default=None, max_length=64)
+    batch_id: str | None = Field(default=None, max_length=128)
 
 
 def _teams_secret_ok(x_bridge_secret: str | None) -> bool:
@@ -116,15 +155,37 @@ async def _teams_chat_result(
     case_id: str | None,
     messages: list[dict[str, str]],
     persona: str | None = None,
+    workflow_id: str | None = None,
+    workflow_params: dict[str, Any] | None = None,
+    playbook_id: str | None = None,
+    batch_id: str | None = None,
 ) -> JSONResponse | dict[str, Any]:
     try:
+        msgs, wf_msg, p_msg, pers = await prepare_messages_for_agent(
+            settings,
+            messages,
+            slack_files=[],
+            slack_bot_token="",
+            explicit_persona=persona,
+        )
+        wf_id, wf_params = merge_workflow_with_explicit(
+            wf_msg,
+            p_msg,
+            explicit_workflow_id=workflow_id,
+            explicit_params=workflow_params,
+        )
         agent_out = await post_chat(
             settings,
             tenant_id=tenant_id[:128],
             analyst_id=analyst_id[:128],
-            messages=messages,
+            messages=msgs,
             case_id=case_id,
-            persona=persona,
+            persona=pers,
+            messages_preprocessed=True,
+            workflow_id=wf_id,
+            workflow_params=wf_params if wf_params else None,
+            playbook_id=playbook_id,
+            batch_id=batch_id,
         )
     except AgentChatError as e:
         detail = str(e)
@@ -149,11 +210,18 @@ async def _teams_chat_result(
 
 @app.post("/v1/teams/messages")
 async def teams_messages(
+    request: Request,
     body: TeamsBridgeBody,
     x_bridge_secret: str | None = Header(default=None, alias="X-Bridge-Secret"),
 ):
     if not _teams_secret_ok(x_bridge_secret):
         raise HTTPException(status_code=401, detail="invalid X-Bridge-Secret")
+    if settings.bridge_rate_limit_per_minute > 0:
+        lim = getattr(request.app.state, "rate_limiter", None)
+        if lim:
+            rip = request.client.host if request.client else "unknown"
+            if not lim.allow(f"teams:{rip}"):
+                raise HTTPException(status_code=429, detail="rate limit exceeded")
     messages = list(body.thread_context or [])
     messages.append({"role": "user", "content": body.text})
     out = await _teams_chat_result(
@@ -162,6 +230,10 @@ async def teams_messages(
         case_id=body.case_id or settings.default_case_id,
         messages=messages,
         persona=body.persona,
+        workflow_id=body.workflow_id,
+        workflow_params=body.workflow_params,
+        playbook_id=body.playbook_id,
+        batch_id=body.batch_id,
     )
     if isinstance(out, JSONResponse):
         return out
@@ -180,6 +252,7 @@ class TeamsActivityBody(BaseModel):
 
 @app.post("/v1/teams/activity")
 async def teams_activity(
+    request: Request,
     body: TeamsActivityBody,
     x_bridge_secret: str | None = Header(default=None, alias="X-Bridge-Secret"),
 ):
@@ -189,6 +262,12 @@ async def teams_activity(
     """
     if not _teams_secret_ok(x_bridge_secret):
         raise HTTPException(status_code=401, detail="invalid X-Bridge-Secret")
+    if settings.bridge_rate_limit_per_minute > 0:
+        lim = getattr(request.app.state, "rate_limiter", None)
+        if lim:
+            rip = request.client.host if request.client else "unknown"
+            if not lim.allow(f"teams:{rip}"):
+                raise HTTPException(status_code=429, detail="rate limit exceeded")
     if (body.type or "").lower() != "message":
         return {"ok": True, "ignored": True, "reason": "not a message activity"}
     text = (body.text or "").strip()
@@ -202,6 +281,11 @@ async def teams_activity(
         analyst_id=f"teams:{uid}",
         case_id=settings.default_case_id,
         messages=[{"role": "user", "content": text}],
+        persona=None,
+        workflow_id=None,
+        workflow_params=None,
+        playbook_id=None,
+        batch_id=None,
     )
 
 
@@ -234,6 +318,12 @@ async def lark_event(request: Request, background_tasks: BackgroundTasks):
         vtok = (settings.lark_verification_token or "").strip()
         if vtok and wrap.token != vtok:
             raise HTTPException(status_code=401, detail="invalid lark verification token")
+        if settings.bridge_rate_limit_per_minute > 0:
+            lim = getattr(request.app.state, "rate_limiter", None)
+            if lim:
+                rip = request.client.host if request.client else "unknown"
+                if not lim.allow(f"lark:{rip}"):
+                    raise HTTPException(status_code=429, detail="rate limit exceeded")
         ev = wrap.event or {}
         msg = ev.get("message") if isinstance(ev.get("message"), dict) else {}
         content_raw = msg.get("content") or "{}"
@@ -252,12 +342,29 @@ async def lark_event(request: Request, background_tasks: BackgroundTasks):
 async def _lark_reply_task(settings: Settings, analyst_id: str, text: str, event: dict[str, Any]) -> None:
     messages = [{"role": "user", "content": text}]
     try:
+        msgs, wf_msg, p_msg, pers = await prepare_messages_for_agent(
+            settings,
+            messages,
+            slack_files=[],
+            slack_bot_token="",
+            explicit_persona=None,
+        )
+        wf_id, wf_params = merge_workflow_with_explicit(
+            wf_msg,
+            p_msg,
+            explicit_workflow_id=None,
+            explicit_params=None,
+        )
         agent_out = await post_chat(
             settings,
             tenant_id=settings.default_tenant_id,
             analyst_id=f"lark:{analyst_id}"[:128],
-            messages=messages,
+            messages=msgs,
             case_id=settings.default_case_id,
+            persona=pers,
+            messages_preprocessed=True,
+            workflow_id=wf_id,
+            workflow_params=wf_params if wf_params else None,
         )
         out_text = format_lark_card_text(agent_out)
     except AgentChatError as e:

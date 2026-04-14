@@ -164,5 +164,55 @@ class Settings(BaseSettings):
         description="If set, include analyst_id_hash (HMAC-SHA256 truncated) on analytics payloads.",
     )
 
+    # --- Minimal-integration / reference deployments ---
+    copilot_embedding_base_url: str = Field(
+        default="",
+        description="Optional OpenAI-compatible /embeddings base URL; defaults to OPENAI_BASE_URL (e.g. local embed server).",
+    )
+    copilot_embedding_api_key: str = Field(
+        default="",
+        description="Optional API key for embeddings only; defaults to OPENAI_API_KEY.",
+    )
+    copilot_reference_mode: bool = Field(
+        default=False,
+        description="Append SOP/wiki reference disclaimer to system prompt; listed in GET /v1/setup.",
+    )
+    copilot_plain_chat: bool = Field(
+        default=False,
+        description="If true, do not expose tools to the LLM (single plain chat completion).",
+    )
+    copilot_plain_prefetch_rag: bool = Field(
+        default=False,
+        description="When using plain chat (or no tools), prefetch search_knowledge from last user message and inject into system prompt.",
+    )
+
+    # --- Production profile (fail-fast + abuse controls) ---
+    copilot_production_mode: bool = Field(
+        default=False,
+        description="If true, refuse to start unless API keys, explicit analyst allowlist, and LLM key are set.",
+    )
+    copilot_rate_limit_per_minute: int = Field(
+        default=0,
+        ge=0,
+        le=100_000,
+        description="In-process POST /v1/* rate limit per API key or client IP; 0 disables.",
+    )
+    copilot_max_request_body_bytes: int = Field(
+        default=2_000_000,
+        ge=4096,
+        le=100_000_000,
+        description="Reject requests with Content-Length larger than this (JSON/tabular uploads).",
+    )
+
 
 settings = Settings()
+
+
+def effective_embedding_base_url() -> str:
+    u = (settings.copilot_embedding_base_url or "").strip()
+    return u if u else settings.openai_base_url
+
+
+def effective_embedding_api_key() -> str:
+    u = (settings.copilot_embedding_api_key or "").strip()
+    return u if u else settings.openai_api_key

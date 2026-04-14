@@ -3,12 +3,18 @@
 #   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.production-hardening.yml --profile full up -d --build
 #
 # Before production: set API_KEYS and OPENAI_API_KEY via secrets manager — do not commit real keys.
+# COPILOT_PRODUCTION_MODE=true fails fast at startup if misconfigured (see GET /v1/health production block).
 
 services:
   investigation-agent:
     environment:
+      COPILOT_PRODUCTION_MODE: "true"
       COPILOT_REQUIRE_INVESTIGATION_API_KEY: "true"
       COPILOT_INJECTION_POLICY: reject
       COPILOT_INCLUDE_PLATFORM_AUDIT_IN_PROMPT: "false"
-      # Set in shell / .env (required when COPILOT_REQUIRE_INVESTIGATION_API_KEY=true):
+      # Analyst allowlist (comma-separated); never use * in production:
+      # ALLOWED_ANALYSTS: "analyst-a,analyst-b"
+      COPILOT_RATE_LIMIT_PER_MINUTE: "120"
+      COPILOT_MAX_REQUEST_BODY_BYTES: "8000000"
+      # Set in shell / .env (required when COPILOT_PRODUCTION_MODE=true):
       # API_KEYS: "comma-separated-keys"
