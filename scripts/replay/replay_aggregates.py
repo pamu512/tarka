@@ -127,15 +127,7 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     if args.manifest_info:
-        mp = (
-            _REPO_ROOT
-            / "services"
-            / "decision-api"
-            / "src"
-            / "decision_api"
-            / "data"
-            / "counter_manifest_v1.json"
-        )
+        mp = _REPO_ROOT / "services" / "decision-api" / "src" / "decision_api" / "data" / "counter_manifest_v1.json"
         if not mp.is_file():
             print(f"Manifest not found: {mp}", file=sys.stderr)
             return 1
