@@ -1,0 +1,34 @@
+# Use when default host ports are already taken (Postgres, Redis, APIs, UI).
+#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.host-ports.override.yml --profile core --profile cases --profile graph --profile agent --profile ui up -d
+#
+# UI: http://localhost:13000  (not 3000)
+# !override replaces the base `ports` list for each service.
+services:
+  redis:
+    ports: !override
+      - "16379:6379"
+  postgres:
+    ports: !override
+      - "15432:5432"
+  neo4j:
+    ports: !override
+      - "17474:7474"
+      - "17687:7687"
+  decision-api:
+    ports: !override
+      - "18000:8000"
+  graph-service:
+    ports: !override
+      - "18001:8001"
+  case-api:
+    ports: !override
+      - "18002:8002"
+  investigation-agent:
+    ports: !override
+      - "18006:8006"
+  collaboration-chat-bridge:
+    ports: !override
+      - "18009:8009"
+  frontend:
+    ports: !override
+      - "13000:80"

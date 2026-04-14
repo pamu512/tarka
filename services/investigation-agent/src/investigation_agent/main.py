@@ -11,12 +11,16 @@ from typing import Any, Literal
 
 import httpx
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from investigation_agent import batch_store, copilot_analytics, feedback_store, knowledge_store, review_store
 from investigation_agent.answer_structure import parse_structured_sections, structured_sections_prompt_block
-from investigation_agent.config import settings
+from investigation_agent.config import (
+    effective_embedding_api_key,
+    effective_embedding_base_url,
+    settings,
+)
 from investigation_agent.copilot_hardening import (
     build_source_reference_cards,
     deterministic_claim_support,
@@ -54,8 +58,22 @@ from investigation_agent.playbooks import (
     playbooks_catalog_fingerprint,
     validate_playbook_id,
 )
+from investigation_agent.production_config import (
+    production_config_errors,
+    raise_if_production_invalid,
+    runtime_readiness_errors,
+)
+from investigation_agent.rate_limit import MinuteRateLimiter
+from investigation_agent.reports.case_summary_pdf import render_case_summary_pdf
 from investigation_agent.tool_validation import validate_tool_arguments
 from investigation_agent.tools import TOOL_DEFINITIONS, TOOL_DISPATCH, is_analyst_allowed
+from investigation_agent.workflows.registry import (
+    format_workflow_system_append,
+    list_workflows,
+    normalize_workflow_params,
+    validate_workflow_id,
+    workflows_catalog_fingerprint,
+)
 
 log = logging.getLogger(__name__)
 
@@ -95,15 +113,22 @@ async def require_api_key(request: Request) -> None:
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    if not _get_api_keys():
+    raise_if_production_invalid(settings)
+    if not settings.copilot_production_mode and not _get_api_keys():
         log.warning(
             "investigation-agent: API_KEYS unset — /v1/chat is network-reachable without service auth "
             "(set API_KEYS and optionally COPILOT_REQUIRE_INVESTIGATION_API_KEY=true for production).",
         )
-    if (settings.allowed_analysts or "*").strip() == "*":
+    if not settings.copilot_production_mode and (settings.allowed_analysts or "*").strip() == "*":
         log.warning(
             "investigation-agent: ALLOWED_ANALYSTS=* — every caller who reaches the service may use copilot tools.",
         )
+    if settings.copilot_production_mode and settings.copilot_include_platform_audit_in_prompt:
+        log.warning(
+            "investigation-agent: COPILOT_INCLUDE_PLATFORM_AUDIT_IN_PROMPT=true in production — "
+            "client-supplied platform_audit is an injection/supply-chain surface; prefer false unless required.",
+        )
+    application.state.rate_limiter = MinuteRateLimiter(settings.copilot_rate_limit_per_minute) if settings.copilot_rate_limit_per_minute > 0 else None
     application.state.http = httpx.AsyncClient(
         timeout=httpx.Timeout(30.0, connect=5.0),
         limits=httpx.Limits(max_connections=50, max_keepalive_connections=10),
@@ -163,6 +188,102 @@ class ChatRequest(BaseModel):
         description="Optional recent platform audit events for analyst-context suggestions.",
     )
     context_options: CopilotContextOptions | None = None
+    workflow_id: str | None = Field(
+        default=None,
+        max_length=80,
+        description="Optional SOP workflow manifest id (GET /v1/workflows); appends system instructions.",
+    )
+    workflow_params: dict[str, Any] | None = Field(
+        default=None,
+        description="Key/value template params for the workflow (e.g. audience, report_label).",
+    )
+
+
+class CaseSummaryReportBody(BaseModel):
+    """Client sends the same fields returned by POST /v1/chat to render a PDF (no server-side chat replay)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    tenant_id: str = Field(..., max_length=128)
+    analyst_id: str = Field(..., max_length=128)
+    title: str = Field(default="Case summary", max_length=256)
+    turn_id: str | None = Field(default=None, max_length=80)
+    case_id: str | None = Field(default=None, max_length=128)
+    workflow_id: str | None = Field(default=None, max_length=80)
+    prompt_version: str | None = Field(default=None, max_length=32)
+    reply: str = Field(..., max_length=80_000)
+    answer_sections: dict[str, Any] = Field(default_factory=dict)
+    claims: list[dict[str, str]] | None = None
+
+
+class TurnBundleReportBody(BaseModel):
+    """Export a turn as Markdown + structured JSON for review tools (no server-side replay)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    tenant_id: str = Field(..., max_length=128)
+    analyst_id: str = Field(..., max_length=128)
+    title: str = Field(default="Investigation turn", max_length=256)
+    turn_id: str | None = Field(default=None, max_length=80)
+    case_id: str | None = Field(default=None, max_length=128)
+    workflow_id: str | None = Field(default=None, max_length=80)
+    prompt_version: str | None = Field(default=None, max_length=32)
+    reply: str = Field(..., max_length=80_000)
+    answer_sections: dict[str, Any] = Field(default_factory=dict)
+    claims: list[dict[str, str]] | None = None
+    tool_calls: list[dict[str, Any]] | None = None
+    source_refs: list[dict[str, Any]] | None = None
+
+
+REFERENCE_MODE_SYSTEM_APPEND = (
+    "REFERENCE MODE: Live case, graph, and decision APIs may be absent or unused for this turn. "
+    "Ground analysis in workflows, SOPs, and uploaded reference memos (knowledge/RAG) unless tool outputs state otherwise. "
+    "Do not assert live production case facts without tool or memo support."
+)
+
+
+def _build_turn_bundle_payload(rb: TurnBundleReportBody) -> dict[str, Any]:
+    title = (rb.title or "Investigation turn").strip() or "Investigation turn"
+    md_lines = [f"# {title}", ""]
+    if rb.turn_id:
+        md_lines.extend([f"**turn_id:** {rb.turn_id}", ""])
+    if rb.case_id:
+        md_lines.extend([f"**case_id:** {rb.case_id}", ""])
+    if rb.workflow_id:
+        md_lines.extend([f"**workflow_id:** {rb.workflow_id}", ""])
+    md_lines.extend(["## Analyst reply", "", (rb.reply or "").strip(), ""])
+    ans = rb.answer_sections if isinstance(rb.answer_sections, dict) else {}
+    if ans:
+        md_lines.extend(["## Structured sections", ""])
+        for k, v in ans.items():
+            md_lines.extend([f"### {k}", "", str(v), ""])
+    claims = rb.claims or []
+    if claims:
+        md_lines.extend(["## Claims", ""])
+        for c in claims:
+            if isinstance(c, dict):
+                md_lines.append(f"- ({c.get('source', '?')}) {c.get('text', '')}")
+        md_lines.append("")
+    tc = rb.tool_calls or []
+    if tc:
+        md_lines.extend(["## Tool calls (summary)", "", f"_(count: {len(tc)})_", ""])
+    return {
+        "format": "turn_bundle_v1",
+        "markdown": "\n".join(md_lines).strip(),
+        "structured": {
+            "tenant_id": rb.tenant_id,
+            "analyst_id": rb.analyst_id,
+            "turn_id": rb.turn_id,
+            "case_id": rb.case_id,
+            "workflow_id": rb.workflow_id,
+            "prompt_version": rb.prompt_version,
+            "reply": rb.reply,
+            "answer_sections": ans,
+            "claims": claims,
+            "tool_calls": rb.tool_calls,
+            "source_refs": rb.source_refs,
+        },
+    }
 
 
 class KnowledgeIngestBody(BaseModel):
@@ -297,6 +418,96 @@ def _effective_chat_model() -> str:
     return m if m else settings.openai_model
 
 
+def _merge_usage(usages: list[dict[str, Any]]) -> dict[str, Any]:
+    if not usages:
+        return {}
+    pt = sum(int(u.get("prompt_tokens") or 0) for u in usages)
+    ct = sum(int(u.get("completion_tokens") or 0) for u in usages)
+    tt = sum(int(u.get("total_tokens") or 0) for u in usages)
+    if tt == 0 and (pt or ct):
+        tt = pt + ct
+    return {"prompt_tokens": pt, "completion_tokens": ct, "total_tokens": tt}
+
+
+async def _llm_plain_completion(
+    http: httpx.AsyncClient,
+    system: str,
+    messages: list[dict[str, Any]],
+) -> tuple[str, dict[str, Any]]:
+    """Single chat/completions call without tools (reference deployments, empty tool surface)."""
+    if not settings.openai_api_key:
+        return "[offline mode] Configure OPENAI_API_KEY for LLM.", {}
+    headers = {
+        "Authorization": f"Bearer {settings.openai_api_key}",
+        "Content-Type": "application/json",
+    }
+    llm_url = f"{settings.openai_base_url.rstrip('/')}/chat/completions"
+    conversation = [{"role": "system", "content": system}] + messages
+    body: dict[str, Any] = {
+        "model": _effective_chat_model(),
+        "messages": conversation,
+        "max_tokens": settings.copilot_max_completion_tokens,
+    }
+    r = await http.post(llm_url, headers=headers, json=body, timeout=120.0)
+    r.raise_for_status()
+    data = r.json()
+    choice = data["choices"][0]
+    msg = choice["message"]
+    usage = data.get("usage")
+    return str(msg.get("content", "")), usage if isinstance(usage, dict) else {}
+
+
+async def _maybe_prefetch_rag_to_system(
+    http: httpx.AsyncClient,
+    system: str,
+    messages: list[dict[str, Any]],
+    tenant_id: str,
+    analyst_id: str,
+) -> str:
+    if not settings.copilot_plain_prefetch_rag:
+        return system
+    if not effective_embedding_api_key() or not settings.copilot_knowledge_embeddings:
+        return system
+    last = ""
+    for m in reversed(messages):
+        if m.get("role") == "user":
+            last = str(m.get("content", "") or "")
+            break
+    last = last.strip()
+    if not last:
+        return system
+    try:
+        data = await knowledge_store.search_async(
+            http,
+            use_embeddings=bool(effective_embedding_api_key()),
+            api_key=effective_embedding_api_key(),
+            base_url=effective_embedding_base_url(),
+            embed_model=settings.copilot_embedding_model,
+            tenant_id=tenant_id,
+            analyst_id=analyst_id,
+            query=last[:8000],
+            limit=5,
+            keyword_weight=settings.copilot_rag_keyword_weight,
+        )
+    except Exception:
+        log.warning("prefetch_rag_failed", exc_info=True)
+        return system
+    hits = data.get("hits") if isinstance(data, dict) else None
+    if not isinstance(hits, list) or not hits:
+        return system
+    lines = [
+        "",
+        "REFERENCE KNOWLEDGE (prefetched from investigation memos; verify critical facts):",
+    ]
+    for i, h in enumerate(hits[:5], 1):
+        if not isinstance(h, dict):
+            continue
+        title = str(h.get("title") or "untitled")[:200]
+        snip = str(h.get("snippet") or "")[:900]
+        lines.append(f"{i}. [{title}] {snip}")
+    return system + "\n" + "\n".join(lines)
+
+
 async def _llm_tool_loop(
     http: httpx.AsyncClient,
     system: str,
@@ -304,19 +515,18 @@ async def _llm_tool_loop(
     tenant_id: str,
     analyst_id: str,
     tool_defs: list[dict[str, Any]],
-) -> tuple[str, list[dict[str, Any]]]:
+) -> tuple[str, list[dict[str, Any]], dict[str, Any]]:
     """Run the tool-use loop: send to LLM, execute any tool calls, repeat."""
     all_tool_calls: list[dict[str, Any]] = []
+    usages: list[dict[str, Any]] = []
 
     if not settings.openai_api_key:
-        return "[offline mode] Configure OPENAI_API_KEY for LLM tool-use.", all_tool_calls
+        return "[offline mode] Configure OPENAI_API_KEY for LLM tool-use.", all_tool_calls, {}, 0
 
     if not tool_defs:
-        log.error("investigation-agent: no tools exposed to LLM (check COPILOT_DISABLED_TOOLS)")
-        return (
-            "[configuration error] No investigation tools are enabled for this deployment.",
-            all_tool_calls,
-        )
+        raw, u = await _llm_plain_completion(http, system, messages)
+        usages.append(u)
+        return raw, all_tool_calls, _merge_usage(usages), len(usages)
 
     headers = {
         "Authorization": f"Bearer {settings.openai_api_key}",
@@ -339,6 +549,9 @@ async def _llm_tool_loop(
         r = await http.post(llm_url, headers=headers, json=body, timeout=60.0)
         r.raise_for_status()
         data = r.json()
+        u = data.get("usage")
+        if isinstance(u, dict):
+            usages.append(u)
         choice = data["choices"][0]
         msg = choice["message"]
 
@@ -360,9 +573,9 @@ async def _llm_tool_loop(
                     }
                 )
         else:
-            return str(msg.get("content", "")), all_tool_calls
+            return str(msg.get("content", "")), all_tool_calls, _merge_usage(usages), len(usages)
 
-    return "Reached maximum tool iterations. Please refine your question.", all_tool_calls
+    return "Reached maximum tool iterations. Please refine your question.", all_tool_calls, _merge_usage(usages), len(usages)
 
 
 _INJECTION_PATTERNS = [
@@ -556,7 +769,33 @@ def _parse_tarka_claims_reply(raw_reply: str) -> tuple[str, list[dict[str, str]]
 
 
 @app.middleware("http")
-async def _security_headers(request: Request, call_next):
+async def _request_guards_and_security_headers(request: Request, call_next):
+    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        cl = request.headers.get("content-length")
+        if cl:
+            try:
+                n = int(cl)
+            except ValueError:
+                n = 0
+            else:
+                if n > settings.copilot_max_request_body_bytes:
+                    return JSONResponse(
+                        status_code=413,
+                        content={"detail": "request body too large"},
+                    )
+    lim = getattr(request.app.state, "rate_limiter", None)
+    if lim and request.method == "POST" and request.url.path.startswith("/v1/"):
+        key = (
+            request.headers.get("x-api-key")
+            or request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+            or (request.client.host if request.client else "unknown")
+        )
+        if not lim.allow(key):
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "rate limit exceeded; retry after a minute"},
+                headers={"Retry-After": "60"},
+            )
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -565,21 +804,50 @@ async def _security_headers(request: Request, call_next):
     return response
 
 
+@app.get("/v1/ready")
+async def ready():
+    """
+    Readiness probe: data directory writable (SQLite/RAG). Does not call the LLM.
+    Use with GET /v1/health for liveness vs readiness in orchestrators.
+    """
+    errs = runtime_readiness_errors()
+    if errs:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not_ready", "errors": errs},
+        )
+    return {"status": "ready"}
+
+
 @app.get("/v1/health")
 async def health():
     gov = normalize_governance_profile(settings.ai_governance_profile)
     eff = effective_disabled_tools(settings)
+    prod_cfg = production_config_errors(settings)
     return {
         "status": "ok",
         "ai_governance_profile": gov,
         "ai_governance_label": governance_profile_label(gov),
         "copilot_prompt_version": settings.copilot_prompt_version,
+        "production": {
+            "mode": settings.copilot_production_mode,
+            "config_ok": not bool(prod_cfg),
+            "config_errors": prod_cfg,
+            "rate_limit_per_minute": settings.copilot_rate_limit_per_minute or None,
+            "max_request_body_bytes": settings.copilot_max_request_body_bytes,
+        },
         "integration": build_integration_snapshot(settings, disabled_tools=eff),
         "copilot_features": {
             "structured_sections": settings.copilot_structured_sections,
             "judge_pass": settings.copilot_enable_judge_pass,
             "knowledge_ingest": True,
-            "knowledge_embeddings": bool(settings.copilot_knowledge_embeddings and settings.openai_api_key),
+            "knowledge_embeddings": bool(
+                settings.copilot_knowledge_embeddings and effective_embedding_api_key(),
+            ),
+            "reference_mode": settings.copilot_reference_mode,
+            "plain_chat": settings.copilot_plain_chat,
+            "plain_prefetch_rag": settings.copilot_plain_prefetch_rag,
+            "embedding_base_url_override": bool((settings.copilot_embedding_base_url or "").strip()),
             "feedback_persistence": True,
             "maker_checker": bool((settings.copilot_reviewer_secret or "").strip()),
             "assurance_mode": settings.copilot_assurance_mode,
@@ -594,6 +862,8 @@ async def health():
             "analytics_sink": settings.copilot_analytics_sink if settings.copilot_analytics_enabled else None,
             "playbooks_fingerprint": playbooks_catalog_fingerprint(),
             "copilot_personas": [p["id"] for p in list_personas()],
+            "workflows_fingerprint": workflows_catalog_fingerprint(),
+            "copilot_workflows": [w["id"] for w in list_workflows()],
         },
     }
 
@@ -607,6 +877,58 @@ async def integration_surface():
     return build_integration_snapshot(settings, disabled_tools=effective_disabled_tools(settings))
 
 
+@app.get("/v1/setup")
+async def setup_diagnostics():
+    """
+    First-run checklist for minimal-integration deployments: LLM keys, embedding/RAG, optional upstreams.
+    Does not call external networks (config-derived only).
+    """
+    eff = effective_embedding_api_key()
+    emb_url = effective_embedding_base_url()
+    chat_url = (settings.openai_base_url or "").strip()
+    checklist: list[dict[str, Any]] = [
+        {
+            "id": "llm_api_key",
+            "ok": bool(settings.openai_api_key),
+            "detail": "Set OPENAI_API_KEY (or compatible) for chat completions.",
+        },
+        {
+            "id": "embedding_key_for_rag",
+            "ok": bool(not settings.copilot_knowledge_embeddings) or bool(eff),
+            "detail": "Hybrid RAG needs an embedding-capable key (OPENAI_API_KEY or COPILOT_EMBEDDING_API_KEY).",
+        },
+        {
+            "id": "upstream_integrations",
+            "ok": bool(
+                (settings.case_api_url or "").strip() or (settings.decision_api_url or "").strip() or (settings.graph_service_url or "").strip(),
+            ),
+            "detail": "Optional: CASE_API_URL, DECISION_API_URL, GRAPH_SERVICE_URL for live investigation tools.",
+        },
+    ]
+    return {
+        "schema": "saarthi_setup_v1",
+        "reference_mode": settings.copilot_reference_mode,
+        "plain_chat": settings.copilot_plain_chat,
+        "plain_prefetch_rag": settings.copilot_plain_prefetch_rag,
+        "llm": {
+            "chat_base_url": settings.openai_base_url,
+            "chat_model": _effective_chat_model(),
+            "api_key_configured": bool(settings.openai_api_key),
+        },
+        "embeddings": {
+            "base_url": emb_url,
+            "model": settings.copilot_embedding_model,
+            "api_key_configured": bool(eff),
+            "separate_from_chat_url": emb_url.rstrip("/") != chat_url.rstrip("/"),
+        },
+        "knowledge": {
+            "hybrid_rag_configured": bool(settings.copilot_knowledge_embeddings and eff),
+        },
+        "checklist": checklist,
+        "integration": build_integration_snapshot(settings, disabled_tools=effective_disabled_tools(settings)),
+    }
+
+
 @app.get("/v1/personas")
 async def personas_list():
     """Copilot personas (investigation vs workflow orchestrator); same tools and safety, different system-prompt emphasis."""
@@ -617,6 +939,57 @@ async def personas_list():
 async def playbooks_list():
     """Built-in typology playbooks (system-prompt workflow hints; tools still explicit)."""
     return {"playbooks": list_playbooks()}
+
+
+@app.get("/v1/workflows")
+async def workflows_list():
+    """SOP-style workflow manifests (GET ids + POST /v1/chat workflow_id + workflow_params)."""
+    return {"workflows": list_workflows()}
+
+
+@app.post("/v1/reports/case-summary")
+async def case_summary_report(rb: CaseSummaryReportBody):
+    """
+    Render a case-summary PDF from client-supplied chat fields (same shape as POST /v1/chat response).
+    Does not replay or store the conversation server-side.
+    """
+    _validate_scope_id("tenant_id", rb.tenant_id)
+    _validate_scope_id("analyst_id", rb.analyst_id)
+    if rb.case_id:
+        _validate_scope_id("case_id", rb.case_id)
+    if not is_analyst_allowed(rb.analyst_id):
+        raise HTTPException(status_code=403, detail="Analyst not permitted for this deployment")
+    pdf = render_case_summary_pdf(
+        title=rb.title,
+        reply=rb.reply,
+        answer_sections=rb.answer_sections if isinstance(rb.answer_sections, dict) else {},
+        claims=rb.claims,
+        case_id=rb.case_id,
+        turn_id=rb.turn_id,
+        prompt_version=rb.prompt_version or settings.copilot_prompt_version,
+        workflow_id=rb.workflow_id,
+    )
+    safe = re.sub(r"[^\w.-]+", "_", (rb.turn_id or "export").strip())[:48] or "export"
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="case-summary-{safe}.pdf"'},
+    )
+
+
+@app.post("/v1/reports/turn-bundle")
+async def turn_bundle_report(rb: TurnBundleReportBody):
+    """
+    Export Markdown + structured JSON for a single turn (paste from POST /v1/chat response).
+    For review, Jira, or archival without relying on server-stored transcripts.
+    """
+    _validate_scope_id("tenant_id", rb.tenant_id)
+    _validate_scope_id("analyst_id", rb.analyst_id)
+    if rb.case_id:
+        _validate_scope_id("case_id", rb.case_id)
+    if not is_analyst_allowed(rb.analyst_id):
+        raise HTTPException(status_code=403, detail="Analyst not permitted for this deployment")
+    return _build_turn_bundle_payload(rb)
 
 
 @app.get("/v1/governance")
@@ -681,13 +1054,13 @@ async def knowledge_ingest(k: KnowledgeIngestBody, request: Request):
     if not is_analyst_allowed(k.analyst_id):
         raise HTTPException(status_code=403, detail="Analyst not permitted for this deployment")
     http = _http(request)
-    use_emb = settings.copilot_knowledge_embeddings and bool(settings.openai_api_key)
+    use_emb = settings.copilot_knowledge_embeddings and bool(effective_embedding_api_key())
     try:
         doc_id = await knowledge_store.ingest_document_async(
             http,
             use_embeddings=use_emb,
-            api_key=settings.openai_api_key,
-            base_url=settings.openai_base_url,
+            api_key=effective_embedding_api_key(),
+            base_url=effective_embedding_base_url(),
             embed_model=settings.copilot_embedding_model,
             tenant_id=k.tenant_id,
             analyst_id=k.analyst_id,
@@ -802,6 +1175,7 @@ async def chat_stream(body: ChatRequest, request: Request):
             "turn_id": out.get("turn_id"),
             "prompt_version": out.get("prompt_version"),
             "persona": out.get("persona"),
+            "workflow_id": out.get("workflow_id"),
             "warning": out.get("warning"),
         }
         yield f"data: {json.dumps({'type': 'meta', 'payload': meta})}\n\n"
@@ -816,6 +1190,8 @@ async def chat_stream(body: ChatRequest, request: Request):
                 "turn_id",
                 "prompt_version",
                 "persona",
+                "workflow_id",
+                "workflow_params",
                 "claims",
                 "source_refs",
                 "answer_sections",
@@ -832,6 +1208,7 @@ async def chat_stream(body: ChatRequest, request: Request):
                 "derived_facts",
                 "assurance_refused",
                 "assurance_violations",
+                "turn_metrics",
             )
             if k in out
         }
@@ -862,6 +1239,14 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         _validate_scope_id("playbook_id", body.playbook_id)
         try:
             active_playbook = validate_playbook_id(body.playbook_id.strip())
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    active_workflow: str | None = None
+    workflow_params_norm: dict[str, Any] = {}
+    if body.workflow_id:
+        try:
+            active_workflow = validate_workflow_id(body.workflow_id.strip())
+            workflow_params_norm = normalize_workflow_params(body.workflow_params)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
     if not is_analyst_allowed(body.analyst_id):
@@ -912,6 +1297,12 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         system += playbook_system_append(active_playbook)
         system += f"\nThe analyst selected playbook **{active_playbook}**. Follow it unless the user explicitly redirects; still ground answers in tools.\n"
 
+    if active_workflow:
+        system += format_workflow_system_append(active_workflow, workflow_params_norm)
+
+    if settings.copilot_reference_mode:
+        system += "\n\n" + REFERENCE_MODE_SYSTEM_APPEND
+
     if settings.copilot_structured_sections:
         system = system.replace(
             "CLAIMS TRAILER (REQUIRED for every assistant turn):",
@@ -949,6 +1340,7 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             reply_preview="[injection_reject]",
             tool_count=0,
             persona=body.persona,
+            workflow_id=active_workflow,
         )
         copilot_analytics.schedule_turn_completed(
             settings,
@@ -969,6 +1361,8 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             "warning": "injection_detected",
             "turn_id": tid,
             "persona": body.persona,
+            "workflow_id": active_workflow,
+            "workflow_params": workflow_params_norm if active_workflow else None,
             "prompt_version": settings.copilot_prompt_version,
             "answer_sections": {"sections_found": []},
             "claims_deterministic_support": deterministic_claim_support(blk_claims, []),
@@ -1001,8 +1395,18 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         if request.headers.get("x-reviewer-secret", "") != reviewer_secret:
             disabled = frozenset(disabled | sensitive)
     active_tool_defs = filter_tool_definitions(TOOL_DEFINITIONS, disabled)
+    if settings.copilot_plain_chat:
+        active_tool_defs = []
+    if not active_tool_defs:
+        system = await _maybe_prefetch_rag_to_system(
+            http,
+            system,
+            messages,
+            body.tenant_id,
+            body.analyst_id,
+        )
 
-    raw_reply, tool_calls = await _llm_tool_loop(
+    raw_reply, tool_calls, usage_merged, llm_rounds = await _llm_tool_loop(
         http,
         system,
         messages,
@@ -1096,6 +1500,7 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         if isinstance(ja, dict):
             judge_assessments = ja.get("assessments")
 
+    tool_surface = "plain" if not active_tool_defs else "tools"
     out: dict[str, Any] = {
         "reply": reply,
         "tool_calls": tool_calls,
@@ -1106,6 +1511,12 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         "prompt_version": settings.copilot_prompt_version,
         "answer_sections": answer_sections,
         "claims_deterministic_support": det_support,
+        "turn_metrics": {
+            "model": _effective_chat_model(),
+            "llm_completion_rounds": llm_rounds,
+            "tool_surface": tool_surface,
+            "usage": usage_merged,
+        },
         "evidence_bundle_draft": build_evidence_bundle_draft(
             reply=reply,
             claims=claims,
@@ -1124,6 +1535,9 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
     }
     if active_playbook:
         out["playbook_id"] = active_playbook
+    if active_workflow:
+        out["workflow_id"] = active_workflow
+        out["workflow_params"] = workflow_params_norm
     if claims_warn:
         out["claims_warning"] = claims_warn
     if grounding_adj:
@@ -1164,5 +1578,6 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         reply_preview=reply[:1800],
         tool_count=len(tool_calls),
         persona=body.persona,
+        workflow_id=active_workflow,
     )
     return out

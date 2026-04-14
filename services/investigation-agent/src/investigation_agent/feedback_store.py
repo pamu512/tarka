@@ -74,6 +74,7 @@ def _init_schema(c: sqlite3.Connection) -> None:
     c.execute("CREATE INDEX IF NOT EXISTS idx_turns_scope ON copilot_turns (tenant_id, analyst_id, created_at DESC)")
     c.commit()
     _ensure_persona_column(c)
+    _ensure_workflow_id_column(c)
 
 
 def _ensure_persona_column(c: sqlite3.Connection) -> None:
@@ -81,6 +82,14 @@ def _ensure_persona_column(c: sqlite3.Connection) -> None:
     cols = {str(row[1]) for row in rows}
     if "persona" not in cols:
         c.execute("ALTER TABLE copilot_turns ADD COLUMN persona TEXT")
+        c.commit()
+
+
+def _ensure_workflow_id_column(c: sqlite3.Connection) -> None:
+    rows = c.execute("PRAGMA table_info(copilot_turns)").fetchall()
+    cols = {str(row[1]) for row in rows}
+    if "workflow_id" not in cols:
+        c.execute("ALTER TABLE copilot_turns ADD COLUMN workflow_id TEXT")
         c.commit()
 
 
@@ -103,16 +112,18 @@ def record_turn(
     reply_preview: str,
     tool_count: int,
     persona: str | None = None,
+    workflow_id: str | None = None,
 ) -> None:
     c = _get_conn()
     now = time.time()
     ps = (persona or "").strip()[:32] or None
+    wf = (workflow_id or "").strip()[:80] or None
     with _lock:
         c.execute(
             """
             INSERT OR REPLACE INTO copilot_turns
-            (turn_id, tenant_id, analyst_id, case_id, playbook_id, prompt_version, reply_preview, tool_count, created_at, persona)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (turn_id, tenant_id, analyst_id, case_id, playbook_id, prompt_version, reply_preview, tool_count, created_at, persona, workflow_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 turn_id,
@@ -125,6 +136,7 @@ def record_turn(
                 int(tool_count),
                 now,
                 ps,
+                wf,
             ),
         )
         c.commit()
@@ -133,7 +145,7 @@ def record_turn(
 def lookup_turn(turn_id: str) -> dict[str, Any] | None:
     c = _get_conn()
     row = c.execute(
-        "SELECT turn_id, tenant_id, analyst_id, case_id, playbook_id, persona FROM copilot_turns WHERE turn_id = ?",
+        "SELECT turn_id, tenant_id, analyst_id, case_id, playbook_id, persona, workflow_id FROM copilot_turns WHERE turn_id = ?",
         (turn_id,),
     ).fetchone()
     if not row:
@@ -145,6 +157,7 @@ def lookup_turn(turn_id: str) -> dict[str, Any] | None:
         "case_id": row[3],
         "playbook_id": row[4],
         "persona": row[5],
+        "workflow_id": row[6],
     }
 
 
@@ -217,7 +230,7 @@ def list_recent_feedback(tenant_id: str, limit: int = 50) -> list[dict[str, Any]
     rows = c.execute(
         """
         SELECT f.id, f.turn_id, f.analyst_id, f.rating, f.note, f.claim_indices_json, f.created_at,
-               t.case_id, t.playbook_id, t.persona
+               t.case_id, t.playbook_id, t.persona, t.workflow_id
         FROM copilot_feedback f
         LEFT JOIN copilot_turns t ON t.turn_id = f.turn_id
         WHERE f.tenant_id = ?
@@ -245,6 +258,7 @@ def list_recent_feedback(tenant_id: str, limit: int = 50) -> list[dict[str, Any]
                 "case_id": row[7],
                 "playbook_id": row[8],
                 "persona": row[9],
+                "workflow_id": row[10],
             },
         )
     return out

@@ -6,13 +6,21 @@
 #   .\scripts\upload-to-ftp.ps1 -Credential $c
 #
 #   $env:FTP_PASS = "secret"; .\scripts\upload-to-ftp.ps1
+#
+# Default remote root: ftp://192.168.0.1/G/Pamu/Projects/<RemoteProjectName>/ (see -RemoteProjectName).
+# To put tracked files directly under Projects/ with no subfolder: -RemoteProjectName ""
+#
+# -IncludeCursorIdeFiles: also uploads .cursor/, root .cursorignore, and root AGENTS.md (often gitignored).
+# -SkipGitTracked: only uploads those Cursor-related paths (no git ls-files); use for non-repo folders (e.g. Documents\.cursor).
 
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
-    [string]$FtpPrefix = "ftp://192.168.0.1/G/Pamu/",
+    [string]$FtpPrefix = "ftp://192.168.0.1/G/Pamu/Projects/",
     [string]$RemoteProjectName = "fraud-stack",
     [string]$FtpUser = "suop",
+    [bool]$IncludeCursorIdeFiles = $true,
+    [switch]$SkipGitTracked,
     [switch]$RemoveLocalAfterUpload,
     [System.Management.Automation.PSCredential]$Credential
 )
@@ -118,26 +126,75 @@ try {
     $testResp = $testReq.GetResponse()
     Normalize-FtpResponse -Response $testResp
 } catch {
-    throw "FTP login or path failed for '$FtpPrefix'. Check user, password, and that G/Pamu exists. $($_.Exception.Message)"
+    throw "FTP login or path failed for '$FtpPrefix'. Check user, password, and that G/Pamu/Projects exists. $($_.Exception.Message)"
 }
 
-Push-Location $RepoRoot
-try {
-    $null = git rev-parse --git-dir 2>$null
-    if ($LASTEXITCODE -ne 0) {
-        throw "Not a git repository: $RepoRoot"
+$files = @()
+if (-not $SkipGitTracked) {
+    Push-Location $RepoRoot
+    try {
+        $null = git rev-parse --git-dir 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            throw "Not a git repository: $RepoRoot (use -SkipGitTracked for Cursor-only upload)"
+        }
+        $raw = git ls-files -z
+        if ($LASTEXITCODE -ne 0) {
+            throw "git ls-files failed."
+        }
+        $files = ($raw -split "`0") | Where-Object { $_ }
+    } finally {
+        Pop-Location
     }
-    $raw = git ls-files -z
-    if ($LASTEXITCODE -ne 0) {
-        throw "git ls-files failed."
+} else {
+    if (-not (Test-Path -LiteralPath $RepoRoot)) {
+        throw "RepoRoot not found: $RepoRoot"
     }
-    $files = ($raw -split "`0") | Where-Object { $_ }
-} finally {
-    Pop-Location
 }
 
-$remoteBase = "$FtpPrefix$RemoteProjectName".TrimEnd("/") + "/"
-Write-Host "Uploading $($files.Count) tracked files to $remoteBase"
+$cursorExtra = [System.Collections.Generic.List[string]]::new()
+if ($IncludeCursorIdeFiles) {
+    $dotCursor = Join-Path $RepoRoot ".cursor"
+    if (Test-Path -LiteralPath $dotCursor) {
+        Get-ChildItem -LiteralPath $dotCursor -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
+            $rel = $_.FullName.Substring($RepoRoot.Length).TrimStart([char[]]@('\', '/'))
+            [void]$cursorExtra.Add(($rel -replace '\\', '/'))
+        }
+    }
+    foreach ($name in @('.cursorignore', 'AGENTS.md')) {
+        $p = Join-Path $RepoRoot $name
+        if (Test-Path -LiteralPath $p -PathType Leaf) {
+            [void]$cursorExtra.Add($name)
+        }
+    }
+}
+
+$gitSet = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+foreach ($f in $files) { [void]$gitSet.Add($f) }
+foreach ($c in $cursorExtra) {
+    if (-not $gitSet.Contains($c)) {
+        [void]$gitSet.Add($c)
+        $files += $c
+    }
+}
+
+if ($files.Count -eq 0) {
+    throw "Nothing to upload: empty git tree and no Cursor IDE files found under $RepoRoot"
+}
+
+$remoteBase = if ($RemoteProjectName) {
+    "$FtpPrefix$RemoteProjectName".TrimEnd("/") + "/"
+} else {
+    $FtpPrefix
+}
+# Root-level files never triggered MKD for this segment; STOR then fails with 550 if the folder is missing.
+if ($RemoteProjectName) {
+    Ensure-FtpRemoteDirectory -BasePrefix $FtpPrefix -RelativePath $RemoteProjectName -NetCred $netCred
+}
+if ($SkipGitTracked) {
+    Write-Host "Uploading $($files.Count) Cursor IDE file(s) to $remoteBase"
+} else {
+    Write-Host "Uploading $($files.Count) file(s) (git + Cursor IDE extras) to $remoteBase"
+}
 
 $done = 0
 foreach ($rel in $files) {

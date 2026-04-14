@@ -9,7 +9,7 @@ from typing import Any
 import httpx
 
 from investigation_agent import batch_store, knowledge_store
-from investigation_agent.config import settings
+from investigation_agent.config import effective_embedding_api_key, effective_embedding_base_url, settings
 
 _MAX_RULES_OVERRIDE = 15
 _MAX_REPLAY_TRACE_IDS = 150
@@ -800,12 +800,12 @@ async def tool_search_knowledge(
     if not q:
         return {"error": "query required"}
     lim = max(1, min(int(limit or 5), 15))
-    use_emb = settings.copilot_knowledge_embeddings and bool(settings.openai_api_key)
+    use_emb = settings.copilot_knowledge_embeddings and bool(effective_embedding_api_key())
     data = await knowledge_store.search_async(
         http,
         use_embeddings=use_emb,
-        api_key=settings.openai_api_key,
-        base_url=settings.openai_base_url,
+        api_key=effective_embedding_api_key(),
+        base_url=effective_embedding_base_url(),
         embed_model=settings.copilot_embedding_model,
         tenant_id=tenant_id,
         analyst_id=analyst_id,
