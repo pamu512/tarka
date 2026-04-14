@@ -34,6 +34,13 @@ These capabilities are in the codebase today and roll forward on `master`:
 - **Frontend:** case explainability surfaces **inference metrics**; API client can **fall back to mock data** when backends are down (demo-friendly).
 - **Ops / planning:** module **project roadmaps** under `docs/docs/projects/`, **30/60/90** plan, competitive notes, and **OSS adoption backlog** (issues + dependency order in docs).
 
+### April 2026 — Investigation copilot, collaboration bridge, and ops
+
+- **Investigation agent (Saarthi):** **`GET /v1/ready`** (data-dir readiness), **`GET /v1/setup`** (first-run checklist), and a **`production`** object on **`GET /v1/health`** when production profiling is enabled; **`GET /v1/workflows`** with **`workflow_id` / `workflow_params`** (plus **`playbook_id` / `batch_id`** where applicable) on **`POST /v1/chat`**; **case-summary PDF** and **turn-bundle** report routes; optional **copilot rate limits** and **request body size cap**. Reference env: **`services/investigation-agent/.env.reference.example`**. Hardening compose: **`deploy/docker-compose.production-hardening.yml`**. Integration notes: **[CHANGELOG_INTEGRATION](docs/docs/guides/CHANGELOG_INTEGRATION.md)**.
+- **Collaboration chat bridge** (`services/collaboration-chat-bridge`): **Slack, Microsoft Teams, and Lark** with optional **per-source minute rate limits**; **Slack file** text extraction (plain text, CSV, PDF, **Excel .xlsx**); **SSRF-hardened** fetch of the first public **`https://`** URL in the user line; directives **`!wf`**, **`!wfp`**, **`!style`**; forwards workflow and batch fields to the agent. Details: **`services/collaboration-chat-bridge/README.md`**, **[Collaboration chat & cloud](docs/docs/guides/investigation-collaboration-chat-aws-azure.md)**.
+- **Frontend:** **Investigation** page updates for copilot setup and workflows (`frontend/src/pages/Investigation.tsx`).
+- **Observability & deploy:** Grafana dashboard JSON for copilot metrics under **`deploy/observability/`**; optional **`deploy/docker-compose.host-ports.override.yml`** for local port mapping; guide **[Investigation CMS & ITSM](docs/docs/guides/investigation-cms-and-itsm-integrations.md)**.
+
 ### v1.1.0 train — tests, CI/CD, security, onboarding
 
 Mirrors [docs/docs/releases/v1.1.0-2026-04-30.md](docs/docs/releases/v1.1.0-2026-04-30.md) and [RELEASE_SCHEDULE.md](RELEASE_SCHEDULE.md).
