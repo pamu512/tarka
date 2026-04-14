@@ -34,6 +34,7 @@ from entity_lists import create_list_store  # noqa: E402
 from privacy import get_profile, mask_dict  # noqa: E402
 
 from decision_api.aggregates import agg_store
+from decision_api.challenge_policy import apply_challenge_policy, load_challenge_policies
 from decision_api.consortium import consortium_score_delta, hash_entity_id
 from decision_api.graph_intel import graph_score_delta, graph_tags_from_risk
 from decision_api.inference_build import build_inference_context, derive_recommended_action
@@ -128,6 +129,7 @@ async def lifespan(application: FastAPI):
     await init_db()
     await redis_tags.connect()
     load_rules()
+    load_challenge_policies(force=True)
     load_shadow_rules()
     if redis_tags._client:
         agg_store.set_client(redis_tags._client)
@@ -282,7 +284,16 @@ async def attestation_verify(body: VerifyRequest):
 @app.post("/v1/admin/rules/reload")
 async def reload_rules():
     load_rules()
+    load_challenge_policies(force=True)
     return {"ok": True}
+
+
+@app.get("/v1/challenge-policies")
+async def list_challenge_policy_templates():
+    """List loaded challenge / escalation policy templates (JSON under rules/challenge_policies/)."""
+    from decision_api.challenge_policy import get_policy_summaries
+
+    return {"policies": get_policy_summaries()}
 
 
 @app.post("/v1/admin/shadow/reload")
@@ -675,6 +686,14 @@ async def evaluate_decision(
     if list_check and list_check.found:
         if list_check.action == "allow":
             _wl_inf = build_inference_context([], ["whitelist_bypass"], None, 0.0, None)
+            _wl_rec, _wl_meta = apply_challenge_policy(
+                body.challenge_policy_id,
+                None,
+                "allow",
+                _wl_inf,
+                ["list:whitelist"],
+                body.payload,
+            )
             audit = AuditRecord(
                 trace_id=trace_id,
                 tenant_id=body.tenant_id,
@@ -688,7 +707,8 @@ async def evaluate_decision(
                     "whitelisted": True,
                     "reason": list_check.reason,
                     "inference_context": _wl_inf,
-                    "recommended_action": None,
+                    "recommended_action": _wl_rec,
+                    "challenge_metadata": _wl_meta,
                 },
             )
             session.add(audit)
@@ -702,12 +722,22 @@ async def evaluate_decision(
                 reasons=[f"whitelist:{list_check.reason}"],
                 ml_score=None,
                 inference_context=_wl_inf,
-                recommended_action=None,
+                recommended_action=_wl_rec,
+                challenge_policy_id=_wl_meta.get("policy_id"),
+                challenge_metadata=_wl_meta,
             )
 
         if list_check.action == "deny":
             _bl_inf = build_inference_context(["list:blacklist"], ["blacklist_block"], None, 100.0, None)
-            _bl_rec = derive_recommended_action("deny", ["list:blacklist"], _bl_inf)
+            _bl_base = derive_recommended_action("deny", ["list:blacklist"], _bl_inf)
+            _bl_rec, _bl_meta = apply_challenge_policy(
+                body.challenge_policy_id,
+                _bl_base,
+                "deny",
+                _bl_inf,
+                ["list:blacklist"],
+                body.payload,
+            )
             audit = AuditRecord(
                 trace_id=trace_id,
                 tenant_id=body.tenant_id,
@@ -722,6 +752,7 @@ async def evaluate_decision(
                     "reason": list_check.reason,
                     "inference_context": _bl_inf,
                     "recommended_action": _bl_rec,
+                    "challenge_metadata": _bl_meta,
                 },
             )
             session.add(audit)
@@ -736,6 +767,8 @@ async def evaluate_decision(
                 ml_score=None,
                 inference_context=_bl_inf,
                 recommended_action=_bl_rec,
+                challenge_policy_id=_bl_meta.get("policy_id"),
+                challenge_metadata=_bl_meta,
             )
 
     existing_tags = await redis_tags.get_tags(body.tenant_id, body.entity_id)
@@ -838,6 +871,14 @@ async def evaluate_decision(
         ml_detail=ml_detail if isinstance(ml_detail, dict) else None,
     )
     recommended_action = derive_recommended_action(decision, signal_tags, inf_ctx)
+    recommended_action, ch_meta = apply_challenge_policy(
+        body.challenge_policy_id,
+        recommended_action,
+        decision,
+        inf_ctx,
+        merged_tags,
+        body.payload,
+    )
 
     # Apply region-aware PII masking before storage
     region = getattr(body, "region", settings.default_region) or settings.default_region
@@ -861,6 +902,7 @@ async def evaluate_decision(
             **stored_snapshot,
             "inference_context": inf_ctx,
             "recommended_action": recommended_action,
+            "challenge_metadata": ch_meta,
         },
     )
     session.add(audit)
@@ -888,6 +930,8 @@ async def evaluate_decision(
         ml_score=ml_score if isinstance(ml_score, float) else None,
         inference_context=inf_ctx,
         recommended_action=recommended_action,
+        challenge_policy_id=ch_meta.get("policy_id"),
+        challenge_metadata=ch_meta,
     )
 
     bg.add_task(
@@ -944,6 +988,15 @@ async def evaluate_decision(
             features,
             ml_detail=ml_detail if isinstance(ml_detail, dict) else None,
         )
+        _tb_base = derive_recommended_action("allow", signal_tags, _tb_inf)
+        _tb_rec, _tb_meta = apply_challenge_policy(
+            body.challenge_policy_id,
+            _tb_base,
+            "allow",
+            _tb_inf,
+            signal_tags,
+            body.payload,
+        )
         response = EvaluateResponse(
             trace_id=trace_id,
             decision="allow",
@@ -953,7 +1006,9 @@ async def evaluate_decision(
             reasons=reasons + [f"test_bypass:{list_check.reason}"],
             ml_score=ml_score if isinstance(ml_score, float) else None,
             inference_context=_tb_inf,
-            recommended_action=derive_recommended_action("allow", signal_tags, _tb_inf),
+            recommended_action=_tb_rec,
+            challenge_policy_id=_tb_meta.get("policy_id"),
+            challenge_metadata=_tb_meta,
         )
 
     return response

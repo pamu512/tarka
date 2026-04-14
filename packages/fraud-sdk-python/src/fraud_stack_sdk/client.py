@@ -38,6 +38,8 @@ class EvaluateResponse(TypedDict, total=False):
     ml_score: float | None
     inference_context: InferenceContext
     recommended_action: str | None
+    challenge_policy_id: NotRequired[str | None]
+    challenge_metadata: NotRequired[dict[str, Any] | None]
 
 
 class DecisionClient:

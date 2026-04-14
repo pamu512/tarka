@@ -238,6 +238,10 @@ components:
         metadata:
           type: object
           additionalProperties: true
+        challenge_policy_id:
+          type: string
+          nullable: true
+          description: Optional challenge/escalation template id (JSON files under rules/challenge_policies/)
     EvaluateResponse:
       type: object
       required: [trace_id, decision, score, tags, inference_context]
@@ -275,6 +279,15 @@ components:
           type: string
           nullable: true
           description: Client hint for step-up (e.g. step_up_mfa, step_up_attestation, manual_review, block)
+        challenge_policy_id:
+          type: string
+          nullable: true
+          description: Resolved challenge template id applied to this response
+        challenge_metadata:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Matched rule id, escalation ladder, rule index (audit-friendly)
     InferenceContext:
       type: object
       required:
