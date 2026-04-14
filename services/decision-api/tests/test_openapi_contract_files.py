@@ -61,5 +61,6 @@ def test_fastapi_openapi_contains_evaluate_and_inference():
                         schema = app.openapi()
                         paths = schema.get("paths", {})
                         assert "/v1/decisions/evaluate" in paths, "FastAPI schema should expose POST evaluate"
+                        assert "/v1/challenge-policies" in paths, "FastAPI schema should expose GET challenge-policies"
                         blob = json.dumps(schema)
                         assert "inference_context" in blob.lower()

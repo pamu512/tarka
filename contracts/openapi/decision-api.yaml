@@ -41,6 +41,20 @@ paths:
                 $ref: "#/components/schemas/EvaluateResponse"
         "422":
           description: Validation error
+  /v1/challenge-policies:
+    get:
+      operationId: listChallengePolicies
+      summary: List loaded challenge/escalation policy templates
+      description: >-
+        Returns summaries for JSON templates under rules/challenge_policies/ (policy_id, version, description).
+        Use optional challenge_policy_id on POST /v1/decisions/evaluate to apply a template.
+      responses:
+        "200":
+          description: Policy summaries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengePoliciesResponse"
   /v1/attestation/challenge:
     post:
       operationId: attestationChallenge
@@ -202,6 +216,26 @@ paths:
           description: No audit rows matched
 components:
   schemas:
+    ChallengePoliciesResponse:
+      type: object
+      required: [policies]
+      properties:
+        policies:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengePolicySummary"
+    ChallengePolicySummary:
+      type: object
+      required: [policy_id, version, description]
+      properties:
+        policy_id:
+          type: string
+          description: Matches filename stem and policy_id in JSON
+        version:
+          type: integer
+          minimum: 1
+        description:
+          type: string
     EvaluateRequest:
       type: object
       required: [tenant_id, event_type, entity_id, payload]
