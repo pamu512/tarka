@@ -151,6 +151,9 @@ class TestSnapshotEndpoint:
         assert "feature_vector" in data
         assert len(data["feature_vector"]) == len(VECTOR_KEYS)
         assert data["features"]["amount_bucket"] == "medium"
+        assert data.get("velocity_configured") is False
+        assert data.get("velocity_counters") is None
+        assert "velocity_key_order" in data
 
     def test_snapshot_includes_time_features(self, client):
         r = client.post(
@@ -170,3 +173,24 @@ class TestSnapshotEndpoint:
     def test_snapshot_validation_error(self, client):
         r = client.post("/v1/snapshot", json={"tenant_id": "t1"})
         assert r.status_code == 422
+
+
+class TestVelocityQueryEndpoint:
+    @pytest.fixture
+    def client(self):
+        with patch.dict("os.environ", {"API_KEYS": "", "ENRICHMENT_URL": "", "REDIS_TAGS_HTTP": ""}):
+            import feature_service.main as mod
+            from feature_service.main import app
+
+            mod._valid_api_keys = None
+            from fastapi.testclient import TestClient
+
+            with TestClient(app) as c:
+                yield c
+
+    def test_velocity_query_503_without_redis(self, client):
+        r = client.post(
+            "/v1/velocity/query",
+            json={"tenant_id": "t1", "entity_id": "e1", "payload": {"amount": 1}},
+        )
+        assert r.status_code == 503

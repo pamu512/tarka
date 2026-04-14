@@ -7,10 +7,12 @@ from datetime import datetime, timezone
 from typing import Any
 
 import httpx
+import redis.asyncio as aioredis
 from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
+from fraud_aggregates import AggregateStore, normalized_velocity_key_names  # noqa: E402
 from observability import setup_observability  # noqa: E402
 
 # ---------- auth ----------
@@ -73,7 +75,19 @@ VECTOR_KEYS = [
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     application.state.http = httpx.AsyncClient(timeout=httpx.Timeout(3.0, connect=1.0))
+    application.state.velocity_store = None
+    application.state.redis_client = None
+    redis_url = (os.environ.get("FEATURE_SERVICE_REDIS_URL") or os.environ.get("REDIS_URL") or "").strip()
+    if redis_url:
+        try:
+            rc = aioredis.from_url(redis_url, decode_responses=True)
+            application.state.redis_client = rc
+            application.state.velocity_store = AggregateStore(rc)
+        except Exception:
+            application.state.velocity_store = None
     yield
+    if getattr(application.state, "redis_client", None):
+        await application.state.redis_client.aclose()
     await application.state.http.aclose()
 
 
@@ -91,6 +105,17 @@ class SnapshotRequest(BaseModel):
     entity_id: str
     event_type: str
     payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class VelocityQueryRequest(BaseModel):
+    """Query Redis-backed velocity counters (same keys as decision-api aggregates)."""
+
+    tenant_id: str
+    entity_id: str
+    payload: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Fields used to select sum/avg/distinct branches (e.g. amount, ip_address, device_id)",
+    )
 
 
 # ---------- feature engineering helpers ----------
@@ -234,6 +259,18 @@ async def _fetch_osint(
     return features
 
 
+async def _compute_velocity_counters(
+    request: Request,
+    tenant_id: str,
+    entity_id: str,
+    fields: dict[str, Any],
+) -> dict[str, Any] | None:
+    store = getattr(request.app.state, "velocity_store", None)
+    if not store:
+        return None
+    return await store.compute_features(tenant_id, entity_id, fields)
+
+
 def _build_vector(features: dict[str, Any]) -> list[float]:
     """Build a normalized numeric vector from the feature dict."""
     vec: list[float] = []
@@ -257,6 +294,29 @@ def _build_vector(features: dict[str, Any]) -> list[float]:
 @app.get("/v1/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.post("/v1/velocity/query")
+async def velocity_query(body: VelocityQueryRequest, request: Request):
+    """
+    Read multi-window velocity from the shared Redis aggregate store (`fraud:agg:*`).
+
+    Requires **REDIS_URL** or **FEATURE_SERVICE_REDIS_URL** pointing at the same Redis as decision-api
+    so counters match evaluate-time aggregates. Does not write — use decision-api evaluate to record events.
+    """
+    store = getattr(request.app.state, "velocity_store", None)
+    if not store:
+        raise HTTPException(
+            status_code=503,
+            detail="Redis not configured — set REDIS_URL or FEATURE_SERVICE_REDIS_URL to enable velocity reads",
+        )
+    vel = await store.compute_features(body.tenant_id, body.entity_id, body.payload)
+    return {
+        "tenant_id": body.tenant_id,
+        "entity_id": body.entity_id,
+        "velocity_counters": vel,
+        "velocity_key_order": list(normalized_velocity_key_names()),
+    }
 
 
 @app.post("/v1/snapshot")
@@ -290,6 +350,10 @@ async def snapshot(body: SnapshotRequest, request: Request):
 
     vector = _build_vector(features)
 
+    velocity_counters = await _compute_velocity_counters(
+        request, body.tenant_id, body.entity_id, features
+    )
+
     return {
         "tenant_id": body.tenant_id,
         "entity_id": body.entity_id,
@@ -298,4 +362,7 @@ async def snapshot(body: SnapshotRequest, request: Request):
         "feature_vector": vector,
         "vector_keys": VECTOR_KEYS,
         "redis_tags": redis_tags,
+        "velocity_counters": velocity_counters,
+        "velocity_key_order": list(normalized_velocity_key_names()),
+        "velocity_configured": velocity_counters is not None,
     }

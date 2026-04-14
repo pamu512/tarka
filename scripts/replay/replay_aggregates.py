@@ -23,10 +23,10 @@ from typing import Any, Iterator
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def _ensure_decision_api_path() -> None:
-    src = _REPO_ROOT / "services" / "decision-api" / "src"
-    if str(src) not in sys.path:
-        sys.path.insert(0, str(src))
+def _ensure_import_paths() -> None:
+    shared = _REPO_ROOT / "services" / "shared"
+    if str(shared) not in sys.path:
+        sys.path.insert(0, str(shared))
 
 
 def iter_audit_rows(path: Path) -> Iterator[dict[str, Any]]:
@@ -67,9 +67,9 @@ async def replay_to_redis(
     limit: int | None = None,
     dry_run: bool,
 ) -> int:
-    _ensure_decision_api_path()
+    _ensure_import_paths()
     import redis.asyncio as aioredis
-    from decision_api.aggregates import AGG_PREFIX, AggregateStore
+    from fraud_aggregates import AGG_PREFIX, AggregateStore
 
     count = 0
     skipped = 0
@@ -127,7 +127,15 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     if args.manifest_info:
-        mp = _REPO_ROOT / "services" / "decision-api" / "src" / "decision_api" / "data" / "counter_manifest_v1.json"
+        mp = (
+            _REPO_ROOT
+            / "services"
+            / "decision-api"
+            / "src"
+            / "decision_api"
+            / "data"
+            / "counter_manifest_v1.json"
+        )
         if not mp.is_file():
             print(f"Manifest not found: {mp}", file=sys.stderr)
             return 1
