@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import urlparse
@@ -133,3 +134,78 @@ async def test_configure_idempotent_returns_snapshot(client):
     )
     assert r.status_code == 200
     assert r.json().get("cached") is True
+
+
+@pytest.mark.asyncio
+async def test_readiness_endpoint_returns_score(client):
+    session = client.test_session
+    result = MagicMock()
+    result.all.return_value = [("kyc",), ("payments",)]
+    session.execute.return_value = result
+    r = await client.get("/v1/integrations/readiness", params={"tenant_id": "t1"})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["tenant_id"] == "t1"
+    assert "readiness_score" in data
+    assert "coverage" in data
+
+
+@pytest.mark.asyncio
+async def test_health_matrix_endpoint_shape(client):
+    session = client.test_session
+    row = SimpleNamespace(
+        provider_id="stripe_radar",
+        category="payments",
+        status="enabled",
+        last_connectivity_test={"status": "pass", "latency_ms": 12.3, "missing_fields": []},
+    )
+    result = MagicMock()
+    result.scalars.return_value.all.return_value = [row]
+    session.execute.return_value = result
+    r = await client.get("/v1/integrations/health-matrix", params={"tenant_id": "t1"})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["tenant_id"] == "t1"
+    assert data["rows"][0]["provider_id"] == "stripe_radar"
+    assert data["rows"][0]["status"] == "pass"
+
+
+@pytest.mark.asyncio
+async def test_slo_endpoint(client):
+    r = await client.get("/v1/slo")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["service"] == "integration-ingress"
+    assert "availability_target" in data
+
+
+@pytest.mark.asyncio
+async def test_scorecards_endpoint_shape(client):
+    session = client.test_session
+    row = SimpleNamespace(
+        provider_id="stripe_radar",
+        category="payments",
+        status="enabled",
+        last_connectivity_test={
+            "status": "pass",
+            "latency_ms": 18.4,
+            "missing_fields": [],
+            "live_probe": {"ok": True, "latency_ms": 11.0, "error": ""},
+        },
+        updated_at=datetime.now(timezone.utc),
+    )
+    result = MagicMock()
+    result.scalars.return_value.all.return_value = [row]
+    session.execute.return_value = result
+
+    r = await client.get("/v1/integrations/scorecards", params={"tenant_id": "t1"})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["tenant_id"] == "t1"
+    assert "overall_score" in data
+    assert len(data["providers"]) == 1
+    p = data["providers"][0]
+    assert p["provider_id"] == "stripe_radar"
+    assert p["status"] in {"healthy", "degraded", "down", "unknown"}
+    assert "connectivity_score" in p
+    assert "config_completeness" in p

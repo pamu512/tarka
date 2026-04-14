@@ -6,6 +6,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from decision_api.json_rules import evaluate_json_rules, get_shadow_packs, load_rules
+from decision_api.simulation_api import _eval_with_override_rules
+from decision_api.vertical_packs import get_vertical_pack
 
 _RULES_DIR = Path(__file__).resolve().parent.parent / "rules"
 
@@ -61,3 +63,16 @@ class TestROIRuleEvaluation:
         assert delta > 0
         assert any("horizontal:burst_5m" in t for t in tags)
         assert any("vertical:payment" in t for t in tags)
+
+    def test_vertical_pack_events_trigger_expected_prefix_tags(self) -> None:
+        scenarios = {
+            "fintech": {"amount": 2500, "account_age_days": 3, "transaction_count_24h": 1},
+            "ecommerce": {"is_bot": True, "amount": 180, "distinct_countries_7d": 1, "transaction_count_24h": 1},
+            "gaming": {"is_emulator": True, "is_bot": True, "hour_of_day": 1, "transaction_count_24h": 2},
+        }
+        for vertical, payload in scenarios.items():
+            pack = get_vertical_pack(vertical)
+            assert pack is not None
+            out = _eval_with_override_rules({"payload": payload}, pack["rules"])
+            assert len(out["rule_hits"]) >= 1
+            assert any(hit.startswith(vertical[:3]) for hit in out["rule_hits"])

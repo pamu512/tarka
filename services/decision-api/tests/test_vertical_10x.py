@@ -1,3 +1,4 @@
+import pytest
 from decision_api.simulation_api import _eval_with_override_rules
 from decision_api.vertical_packs import get_vertical_pack, list_vertical_packs
 
@@ -9,16 +10,41 @@ def test_vertical_pack_catalog_contains_expected():
     assert "gaming" in catalog
 
 
-def test_vertical_pack_rules_apply():
-    pack = get_vertical_pack("fintech")
+@pytest.mark.parametrize(
+    ("vertical_name", "event_payload"),
+    [
+        (
+            "fintech",
+            {
+                "amount": 3000,
+                "account_age_days": 5,
+                "transaction_count_24h": 2,
+            },
+        ),
+        (
+            "ecommerce",
+            {
+                "is_bot": True,
+                "amount": 250,
+                "distinct_countries_7d": 1,
+                "transaction_count_24h": 2,
+            },
+        ),
+        (
+            "gaming",
+            {
+                "is_emulator": True,
+                "is_bot": True,
+                "hour_of_day": 2,
+                "transaction_count_24h": 3,
+            },
+        ),
+    ],
+)
+def test_vertical_pack_rules_apply(vertical_name: str, event_payload: dict):
+    pack = get_vertical_pack(vertical_name)
     assert pack is not None
-    event = {
-        "payload": {
-            "amount": 3000,
-            "account_age_days": 5,
-            "transaction_count_24h": 2,
-        }
-    }
+    event = {"payload": event_payload}
     out = _eval_with_override_rules(event, pack["rules"])
     assert out["decision"] in {"allow", "review", "deny"}
     assert len(out["rule_hits"]) >= 1
