@@ -38,6 +38,7 @@ from decision_api.challenge_policy import apply_challenge_policy, load_challenge
 from decision_api.trusted_zones import load_trusted_zones_for_tenant
 from decision_api.consortium import consortium_score_delta, hash_entity_id
 from decision_api.graph_intel import graph_score_delta, graph_tags_from_risk
+from decision_api.location_context import merge_session_geo_from_device_and_features
 from decision_api.inference_build import (
     SCHEMA_VERSION as INFERENCE_SCHEMA_VERSION,
     build_inference_context,
@@ -200,7 +201,7 @@ from decision_api.internal_counters_api import router as internal_counters_route
 from decision_api.recommend_api import router as recommend_router  # noqa: E402
 from decision_api.replay import router as replay_router  # noqa: E402
 from decision_api.rule_api import router as rule_router  # noqa: E402
-from decision_api.calibration_api import router as calibration_router  # noqa: E402
+from decision_api.calibration_api import compute_drift_for_tenant, router as calibration_router  # noqa: E402
 from decision_api.experiment_api import experiment_registry_line_count, router as experiment_router  # noqa: E402
 from decision_api.simulation_api import router as simulation_router  # noqa: E402
 
@@ -303,10 +304,12 @@ async def ops_governance():
     """Rollout posture: active rule packs (canary, effective_at), shadow count, inference contract version."""
     exp_ct = experiment_registry_line_count()
     g = rules_governance_summary()
+    cal_status = compute_drift_for_tenant("global", "default")
     return {
         "inference_schema_version": INFERENCE_SCHEMA_VERSION,
         "rule_packs": g,
         "experiment_registry_lines": exp_ct,
+        "calibration_status": cal_status,
         "drift_smoke": {
             "script": "scripts/benchmarks/drift_score_smoke.py",
             "note": "Run baseline vs shifted batches to guard scorer separation; not full calibration.",
@@ -323,6 +326,19 @@ async def ops_governance():
             "script": "scripts/contract/fuzz_decision_api.py",
             "note": "Health + OpenAPI reachability; use schemathesis CLI for property-based fuzz",
         },
+    }
+
+
+@app.get("/v1/ops/calibration-status")
+async def calibration_status(tenant_id: str, profile: str = "default"):
+    """Small ops view that combines drift hint with governance context."""
+    drift = compute_drift_for_tenant(tenant_id, profile)
+    return {
+        "tenant_id": tenant_id,
+        "profile": profile,
+        "inference_schema_version": INFERENCE_SCHEMA_VERSION,
+        "challenge_policy_default": settings.challenge_policy_default,
+        "calibration": drift,
     }
 
 
@@ -354,6 +370,8 @@ _SIGNAL_TAG_MAP = {
     "timezone_geo_mismatch": "sdk:tz_geo_mismatch",
     "vpn_interface_detected": "sdk:vpn_iface",
     "mock_location_detected": "sdk:mock_location",
+    "geo_ip_mismatch": "sdk:geo_ip_mismatch",
+    "geo_tz_mismatch": "sdk:geo_tz_mismatch",
     "ip_is_proxy": "sdk:proxy",
     "ip_is_datacenter": "sdk:datacenter",
 }
@@ -372,7 +390,7 @@ def extract_signal_tags(device_context: dict[str, Any] | None) -> list[str]:
     att = device_context.get("attestation")
     if isinstance(att, dict) and att.get("verified") is True:
         tags.append("sdk:attestation_verified")
-    return tags
+    return list(dict.fromkeys(tags))
 
 
 def extract_captcha_tags(dc: dict | None) -> list[str]:
@@ -543,11 +561,17 @@ async def _fetch_ml_score(
         return None, empty
 
 
+def _quantize_place_cell(lat: float, lon: float, precision: int = 3) -> str:
+    """Stable coarse place id for co-presence (no external API)."""
+    return f"cell:{precision}:{round(lat, precision)}:{round(lon, precision)}"
+
+
 async def _graph_upsert(
     http: httpx.AsyncClient,
     body: EvaluateRequest,
     trace_id: str,
     merged_tags: list[str],
+    geo_extra_tags: list[str] | None = None,
 ) -> None:
     if not settings.graph_service_url:
         return
@@ -616,6 +640,58 @@ async def _graph_upsert(
                 "properties": {"trace_id": trace_id},
             },
         )
+
+    # Place cell for co-location (quantized lat/lon from SDK or payload hints)
+    sig: dict[str, Any] = {}
+    if body.device_context:
+        sig = body.device_context.signals or {}
+    pay = body.payload if isinstance(body.payload, dict) else {}
+    la_raw = sig.get("geo_lat", pay.get("session_last_lat"))
+    lo_raw = sig.get("geo_lon", pay.get("session_last_lon"))
+    try:
+        la_f = float(la_raw) if la_raw is not None else None
+        lo_f = float(lo_raw) if lo_raw is not None else None
+    except (TypeError, ValueError):
+        la_f, lo_f = None, None
+    if la_f is not None and lo_f is not None and -90 <= la_f <= 90 and -180 <= lo_f <= 180:
+        cell = _quantize_place_cell(la_f, lo_f)
+        gtags = list(geo_extra_tags or [])
+        await http.post(
+            f"{base}/v1/entities",
+            json={
+                "tenant_id": body.tenant_id,
+                "entity_type": "Place",
+                "external_id": cell,
+                "properties": {
+                    "kind": "geohash_like_cell",
+                    "lat": round(la_f, 5),
+                    "lon": round(lo_f, 5),
+                    "trace_id": trace_id,
+                },
+                "tags": gtags,
+            },
+        )
+        await http.post(
+            f"{base}/v1/links",
+            json={
+                "tenant_id": body.tenant_id,
+                "from_external_id": body.entity_id,
+                "to_external_id": cell,
+                "relationship": "SEEN_AT",
+                "properties": {"trace_id": trace_id, "event_type": body.event_type.value},
+            },
+        )
+        if body.session_id:
+            await http.post(
+                f"{base}/v1/links",
+                json={
+                    "tenant_id": body.tenant_id,
+                    "from_external_id": body.session_id,
+                    "to_external_id": cell,
+                    "relationship": "SEEN_AT",
+                    "properties": {"trace_id": trace_id},
+                },
+            )
 
 
 async def _fetch_graph_risk(
@@ -909,6 +985,16 @@ async def evaluate_decision(
         # Record this event for future aggregate computation (uses normalised amount)
         await agg_store.record_event(body.tenant_id, body.entity_id, str(trace_id), features)
 
+    geo_extra_tags: list[str] = []
+    if body.device_context:
+        geo_extra_tags = merge_session_geo_from_device_and_features(features)
+        for t in geo_extra_tags:
+            if t == "sdk:geo_ip_mismatch":
+                features["geo_ip_mismatch"] = True
+            elif t == "sdk:geo_tz_mismatch":
+                features["geo_tz_mismatch"] = True
+        signal_tags.extend(geo_extra_tags)
+
     # Run rules + OPA + ML in parallel (OPA and ML don't need each other)
     rule_hits, rule_tags, score_delta = evaluate_json_rules(
         features,
@@ -1007,7 +1093,7 @@ async def evaluate_decision(
     session.add(audit)
     await session.commit()
 
-    bg.add_task(_graph_upsert, http, body, str(trace_id), merged_tags)
+    bg.add_task(_graph_upsert, http, body, str(trace_id), merged_tags, geo_extra_tags)
 
     try:
         m = get_metrics()

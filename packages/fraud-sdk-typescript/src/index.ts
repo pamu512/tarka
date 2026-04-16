@@ -19,6 +19,12 @@ export type EventType =
   | "session"
   | "custom";
 
+export type GeoSource =
+  | "browser_gps"
+  | "browser_ip_guess"
+  | "none"
+  | "unknown";
+
 export interface DeviceSignals {
   is_emulator: boolean;
   is_vpn: boolean;
@@ -57,6 +63,13 @@ export interface DeviceSignals {
   indexed_db_available: boolean | null;
   max_touch_points: number | null;
   pdf_viewer_enabled: boolean | null;
+
+  /** Optional browser GPS (opt-in via DecisionClientOptions.enableGeo). */
+  geo_lat: number | null;
+  geo_lon: number | null;
+  geo_accuracy_m: number | null;
+  geo_source: GeoSource;
+  geo_ts: string | null;
 }
 
 export interface CaptchaResult {
@@ -367,6 +380,41 @@ function getTimezone(): string | null {
   }
 }
 
+function collectBrowserGeo(
+  timeoutMs: number
+): Promise<{
+  lat: number;
+  lon: number;
+  accuracy_m: number | null;
+  ts: string;
+} | null> {
+  if (typeof navigator === "undefined" || !navigator.geolocation) {
+    return Promise.resolve(null);
+  }
+  return new Promise((resolve) => {
+    const t = setTimeout(() => resolve(null), timeoutMs);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        clearTimeout(t);
+        resolve({
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+          accuracy_m:
+            typeof pos.coords.accuracy === "number" && !Number.isNaN(pos.coords.accuracy)
+              ? pos.coords.accuracy
+              : null,
+          ts: new Date(pos.timestamp || Date.now()).toISOString(),
+        });
+      },
+      () => {
+        clearTimeout(t);
+        resolve(null);
+      },
+      { enableHighAccuracy: true, maximumAge: 60_000, timeout: timeoutMs }
+    );
+  });
+}
+
 function isStorageAvailable(type: "localStorage" | "sessionStorage" | "indexedDB"): boolean | null {
   try {
     if (type === "indexedDB") return typeof indexedDB !== "undefined";
@@ -384,11 +432,16 @@ export class DeviceSignalCollector {
   private behavior: SimpleBehaviorState;
   private canvasRaw: string | null = null;
   private behaviorCollector: BehaviorCollectorClass | null = null;
+  private readonly enableGeo: boolean;
 
-  constructor(behaviorCollector?: BehaviorCollectorClass) {
+  constructor(
+    behaviorCollector?: BehaviorCollectorClass,
+    opts?: { enableGeo?: boolean }
+  ) {
     this.behavior = createBehaviorCollector();
     this.canvasRaw = getCanvasFingerprint();
     this.behaviorCollector = behaviorCollector ?? null;
+    this.enableGeo = opts?.enableGeo === true;
   }
 
   async collect(): Promise<DeviceSignals> {
@@ -420,6 +473,24 @@ export class DeviceSignalCollector {
       typeof navigator !== "undefined" ? navigator.language || null : null;
     const pv =
       typeof navigator !== "undefined" ? navigator.userAgent || null : null;
+
+    let geo_lat: number | null = null;
+    let geo_lon: number | null = null;
+    let geo_accuracy_m: number | null = null;
+    let geo_source: GeoSource = "none";
+    let geo_ts: string | null = null;
+    if (this.enableGeo) {
+      const g = await collectBrowserGeo(2800);
+      if (g) {
+        geo_lat = g.lat;
+        geo_lon = g.lon;
+        geo_accuracy_m = g.accuracy_m;
+        geo_source = "browser_gps";
+        geo_ts = g.ts;
+      } else {
+        geo_source = "unknown";
+      }
+    }
 
     return {
       is_emulator: headless && webdriver,
@@ -455,6 +526,11 @@ export class DeviceSignalCollector {
       max_touch_points: typeof navigator !== "undefined" ? navigator.maxTouchPoints ?? null : null,
       pdf_viewer_enabled: typeof navigator !== "undefined" ? (navigator as any).pdfViewerEnabled ?? null : null,
       captcha: null,
+      geo_lat,
+      geo_lon,
+      geo_accuracy_m,
+      geo_source,
+      geo_ts,
     };
   }
 
@@ -510,6 +586,8 @@ export interface DecisionClientOptions {
   apiKey?: string;
   timeoutMs?: number;
   autoCollectSignals?: boolean;
+  /** When true, attempts a one-shot browser geolocation read (non-blocking timeout). Off by default. */
+  enableGeo?: boolean;
 }
 
 export class DecisionClient {
@@ -523,7 +601,9 @@ export class DecisionClient {
     this.apiKey = opts.apiKey || "";
     this.timeoutMs = opts.timeoutMs ?? 10_000;
     this.collector =
-      opts.autoCollectSignals !== false ? new DeviceSignalCollector() : null;
+      opts.autoCollectSignals !== false
+        ? new DeviceSignalCollector(undefined, { enableGeo: opts.enableGeo })
+        : null;
   }
 
   private url(path: string): string {
