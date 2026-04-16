@@ -38,7 +38,13 @@ def build_inference_context(
 
     tamper_markers = ("sdk:repackaged", "sdk:automation", "sdk:emulator", "sdk:shared_device")
     network_markers = ("sdk:vpn", "sdk:proxy", "sdk:datacenter", "sdk:vpn_iface")
-    geo_markers = ("sdk:spoofed_location", "sdk:tz_geo_mismatch", "sdk:mock_location")
+    geo_markers = (
+        "sdk:spoofed_location",
+        "sdk:tz_geo_mismatch",
+        "sdk:mock_location",
+        "sdk:geo_ip_mismatch",
+        "sdk:geo_tz_mismatch",
+    )
 
     tamper_hits = sum(1 for m in tamper_markers if m in signal_set)
     network_hits = sum(1 for m in network_markers if m in signal_set)
