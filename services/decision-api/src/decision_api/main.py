@@ -390,11 +390,7 @@ def extract_signal_tags(device_context: dict[str, Any] | None) -> list[str]:
     att = device_context.get("attestation")
     if isinstance(att, dict) and att.get("verified") is True:
         tags.append("sdk:attestation_verified")
-    if signals.get("geo_ip_mismatch") is True:
-        tags.append("sdk:geo_ip_mismatch")
-    if signals.get("geo_tz_mismatch") is True:
-        tags.append("sdk:geo_tz_mismatch")
-    return tags
+    return list(dict.fromkeys(tags))
 
 
 def extract_captcha_tags(dc: dict | None) -> list[str]:
