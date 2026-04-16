@@ -78,8 +78,11 @@ class ServerSignalCollector:
         )
     """
 
-    def __init__(self, geo_lookup_url: str = "") -> None:
+    def __init__(self, geo_lookup_url: str = "", *, enable_ip_geo: bool | None = None) -> None:
         self._geo_url = geo_lookup_url or os.environ.get("GEO_LOOKUP_URL", "")
+        env_flag = os.environ.get("ENABLE_IP_GEO_LOOKUP", "").strip().lower()
+        env_enabled = env_flag in {"1", "true", "yes", "on"}
+        self._enable_ip_geo = bool(enable_ip_geo) if enable_ip_geo is not None else env_enabled
 
     def collect(
         self,
@@ -107,13 +110,14 @@ class ServerSignalCollector:
             "is_bot": bot_ua,
             "user_agent": ua or None,
         }
-        gla, glo, gtz = _lookup_ip_geo_public(ip)
-        if gla is not None:
-            out["ip_geo_lat"] = gla
-        if glo is not None:
-            out["ip_geo_lon"] = glo
-        if gtz:
-            out["ip_geo_timezone"] = gtz
+        if self._enable_ip_geo:
+            gla, glo, gtz = _lookup_ip_geo_public(ip)
+            if gla is not None:
+                out["ip_geo_lat"] = gla
+            if glo is not None:
+                out["ip_geo_lon"] = glo
+            if gtz:
+                out["ip_geo_timezone"] = gtz
         return out
 
     def build_device_context(

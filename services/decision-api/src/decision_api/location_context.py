@@ -22,7 +22,7 @@ def _parse_iso_ts(raw: Any) -> float | None:
     try:
         if s.isdigit():
             v = int(s)
-            if v > 10_000_000_000_000:  # milliseconds
+            if v >= 1_000_000_000_000:  # milliseconds (13+ digits)
                 return v / 1000.0
             return float(v)
     except (TypeError, ValueError):

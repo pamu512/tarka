@@ -42,3 +42,17 @@ def test_fallback_ip_geo_when_no_gps():
     assert feats.get("session_last_lat") == 37.77
     assert feats.get("session_last_lon") == -122.42
     assert feats.get("geo_source_resolved") == "ip_geolocation"
+
+
+def test_parses_millisecond_epoch_geo_ts():
+    feats = {
+        "geo_lat": 40.71,
+        "geo_lon": -74.01,
+        "geo_source": "browser_gps",
+        "geo_ts": "1710000000000",
+    }
+    merge_session_geo_from_device_and_features(feats)
+    ts = feats.get("session_last_ts")
+    assert isinstance(ts, float)
+    # should normalize ms -> seconds, not keep raw milliseconds
+    assert 1_700_000_000 <= ts <= 1_720_000_000
