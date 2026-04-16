@@ -23,7 +23,8 @@ from decision_api.config import settings
 from decision_api.currency import normalize_amount
 from decision_api.db import get_session, init_db
 from decision_api.fingerprint_store import fingerprint_store
-from decision_api.json_rules import evaluate_json_rules, governance_summary as rules_governance_summary, load_rules
+from decision_api.json_rules import evaluate_json_rules, load_rules
+from decision_api.json_rules import governance_summary as rules_governance_summary
 from decision_api.models import AuditRecord
 from decision_api.opa_client import evaluate_opa
 from decision_api.redis_store import redis_tags
@@ -35,12 +36,12 @@ from privacy import get_profile, mask_dict  # noqa: E402
 
 from decision_api.aggregates import agg_store
 from decision_api.challenge_policy import apply_challenge_policy, load_challenge_policies
-from decision_api.trusted_zones import load_trusted_zones_for_tenant
 from decision_api.consortium import consortium_score_delta, hash_entity_id
 from decision_api.graph_intel import graph_score_delta, graph_tags_from_risk
-from decision_api.location_context import merge_session_geo_from_device_and_features
 from decision_api.inference_build import (
     SCHEMA_VERSION as INFERENCE_SCHEMA_VERSION,
+)
+from decision_api.inference_build import (
     build_inference_context,
     derive_recommended_action,
 )
@@ -48,8 +49,10 @@ from decision_api.integrity_policy import supplemental_tags_for_integrity
 from decision_api.lists_api import get_store as _get_list_store
 from decision_api.lists_api import router as lists_router
 from decision_api.lists_api import set_store
+from decision_api.location_context import merge_session_geo_from_device_and_features
 from decision_api.schemas import EvaluateRequest, EvaluateResponse
 from decision_api.shadow import evaluate_shadow, load_shadow_rules, record_observation
+from decision_api.trusted_zones import load_trusted_zones_for_tenant
 
 # ---------- observability ----------
 _shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
@@ -194,15 +197,17 @@ setup_security_headers(app)
 setup_auth(app)
 setup_rate_limiter(app, rpm=int(os.environ.get("RATE_LIMIT_RPM", "1000")))
 
+from decision_api.calibration_api import compute_drift_for_tenant  # noqa: E402
+from decision_api.calibration_api import router as calibration_router  # noqa: E402
 from decision_api.captcha import router as captcha_router  # noqa: E402
 from decision_api.compliance_api import router as compliance_router  # noqa: E402
 from decision_api.consortium_api import router as consortium_router  # noqa: E402
+from decision_api.experiment_api import experiment_registry_line_count  # noqa: E402
+from decision_api.experiment_api import router as experiment_router  # noqa: E402
 from decision_api.internal_counters_api import router as internal_counters_router  # noqa: E402
 from decision_api.recommend_api import router as recommend_router  # noqa: E402
 from decision_api.replay import router as replay_router  # noqa: E402
 from decision_api.rule_api import router as rule_router  # noqa: E402
-from decision_api.calibration_api import compute_drift_for_tenant, router as calibration_router  # noqa: E402
-from decision_api.experiment_api import experiment_registry_line_count, router as experiment_router  # noqa: E402
 from decision_api.simulation_api import router as simulation_router  # noqa: E402
 
 app.include_router(rule_router)

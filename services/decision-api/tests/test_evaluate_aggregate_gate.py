@@ -38,7 +38,7 @@ async def aggregate_eval_client():
     store = AggregateStore(redis_client=fake)
     captured: list[tuple[dict, list]] = []
 
-    def capture_rules(features: dict, tags: list) -> tuple:
+    def capture_rules(features: dict, tags: list, *args, **kwargs) -> tuple:
         captured.append((dict(features), list(tags)))
         return ([], [], 0.0)
 

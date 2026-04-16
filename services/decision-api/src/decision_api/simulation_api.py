@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from decision_api.config import settings
+from decision_api.experiment_api import append_experiment_record
 from decision_api.json_rules import evaluate_json_rules
 from decision_api.simulator import (
     SCENARIO_TEMPLATES,
@@ -16,7 +17,6 @@ from decision_api.simulator import (
     analyze_simulation,
     generate_scenario,
 )
-from decision_api.experiment_api import append_experiment_record
 from decision_api.vertical_packs import get_vertical_pack
 
 log = logging.getLogger(__name__)
