@@ -6,6 +6,7 @@
 
 [![CI](https://github.com/pamu512/tarka/actions/workflows/ci.yml/badge.svg)](https://github.com/pamu512/tarka/actions/workflows/ci.yml)
 [![Security scan](https://github.com/pamu512/tarka/actions/workflows/security-scan.yml/badge.svg)](https://github.com/pamu512/tarka/actions/workflows/security-scan.yml)
+[![Secret scan](https://github.com/pamu512/tarka/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/pamu512/tarka/actions/workflows/secret-scan.yml)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?hide_repo_select=true&ref=master&repo=pamu512%2Ftarka)
 
 > **Prove every signal.**

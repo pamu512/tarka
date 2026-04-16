@@ -151,6 +151,23 @@ class TestAdminReload:
             assert r.status_code == 200
 
 
+class TestOpsEndpoints:
+    @pytest.mark.asyncio
+    async def test_ops_governance_includes_calibration_status(self, client):
+        r = await client.get("/v1/ops/governance")
+        assert r.status_code == 200
+        data = r.json()
+        assert "calibration_status" in data
+
+    @pytest.mark.asyncio
+    async def test_ops_calibration_status(self, client):
+        r = await client.get("/v1/ops/calibration-status", params={"tenant_id": "t1"})
+        assert r.status_code == 200
+        data = r.json()
+        assert data["tenant_id"] == "t1"
+        assert "calibration" in data
+
+
 class TestAudit:
     @pytest.mark.asyncio
     async def test_audit_not_found(self, client):

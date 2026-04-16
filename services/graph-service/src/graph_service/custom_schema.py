@@ -25,12 +25,14 @@ _DEFAULT_ENTITY_TYPES = [
     "Person",
     "Account",
     "Device",
+    "Place",
     "Payment",
     "Document",
     "Custom",
 ]
 _DEFAULT_RELATIONSHIP_TYPES = [
     "USED",
+    "SEEN_AT",
     "SHARED_WITH",
     "REFERRED",
     "KYC_VERIFIED_BY",

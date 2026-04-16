@@ -211,6 +211,16 @@ async def _fetch_enrichment(
     return features
 
 
+def _normalize_location_features(features: dict[str, Any]) -> None:
+    """Alias OSINT IP geo into generic ip_geo_* keys for downstream decision-api."""
+    if features.get("osint_ip_geo_lat") is not None and features.get("ip_geo_lat") is None:
+        features["ip_geo_lat"] = features["osint_ip_geo_lat"]
+    if features.get("osint_ip_geo_lon") is not None and features.get("ip_geo_lon") is None:
+        features["ip_geo_lon"] = features["osint_ip_geo_lon"]
+    if features.get("osint_ip_geo_timezone") and not features.get("ip_geo_timezone"):
+        features["ip_geo_timezone"] = features["osint_ip_geo_timezone"]
+
+
 async def _fetch_osint(
     http: httpx.AsyncClient,
     payload: dict[str, Any],
@@ -245,6 +255,20 @@ async def _fetch_osint(
     features["osint_ip_hosting"] = ip_flags.get("hosting", False)
     vulns = ip_data.get("vulnerabilities", []) if isinstance(ip_data, dict) else []
     features["osint_ip_vuln_count"] = len(vulns) if isinstance(vulns, list) else 0
+    geo_block = ip_data.get("geo") if isinstance(ip_data, dict) else {}
+    if isinstance(geo_block, dict):
+        la = geo_block.get("lat")
+        lo = geo_block.get("lon")
+        try:
+            if la is not None:
+                features["osint_ip_geo_lat"] = float(la)
+            if lo is not None:
+                features["osint_ip_geo_lon"] = float(lo)
+        except (TypeError, ValueError):
+            pass
+        tzg = geo_block.get("timezone")
+        if isinstance(tzg, str) and tzg:
+            features["osint_ip_geo_timezone"] = tzg
 
     email_data = enrichments.get("email", {})
     if isinstance(email_data, dict):
@@ -335,6 +359,8 @@ async def snapshot(body: SnapshotRequest, request: Request):
         )
         features.update(enrichment_features)
         features.update(osint_features)
+
+    _normalize_location_features(features)
 
     redis_tags: list[str] = []
     if REDIS_TAGS_URL:
