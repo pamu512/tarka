@@ -1,7 +1,9 @@
+import hashlib
 import json
 import logging
 import re
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +37,7 @@ def load_rules() -> None:
             pack = json.loads(f.read_text(encoding="utf-8"))
             if pack.get("version", 1) != 1:
                 continue
+            pack["_source_file"] = f.name
             mode = pack.get("mode", "active")
             if mode == "disabled":
                 continue
@@ -52,6 +55,28 @@ def load_rules() -> None:
 def get_shadow_packs() -> list[dict[str, Any]]:
     """Return packs with mode == 'shadow'."""
     return list(_shadow_mode_packs)
+
+
+def governance_summary() -> dict[str, Any]:
+    """Operator view: active packs, rollout fields, shadow count (for Trust Center / ops)."""
+    active_rows: list[dict[str, Any]] = []
+    for pack in _cached_packs:
+        active_rows.append(
+            {
+                "file": pack.get("_source_file"),
+                "name": pack.get("name"),
+                "mode": pack.get("mode", "active"),
+                "canary_percent": pack.get("canary_percent"),
+                "effective_at": pack.get("effective_at"),
+                "approved_by": pack.get("approved_by"),
+                "rule_count": len(pack.get("rules") or []),
+            }
+        )
+    return {
+        "active_pack_count": len(_cached_packs),
+        "shadow_pack_count": len(_shadow_mode_packs),
+        "packs": active_rows,
+    }
 
 
 def _match_condition(features: dict[str, Any], condition: dict[str, Any]) -> bool:
@@ -111,6 +136,71 @@ def _match_condition(features: dict[str, Any], condition: dict[str, Any]) -> boo
     return False
 
 
+def _pack_experiment_bucket(tenant_id: str, entity_id: str, pack_key: str) -> int:
+    """Deterministic 0..99 bucket for canary rollout (same entity always same bucket per pack)."""
+    raw = f"{tenant_id}|{entity_id}|{pack_key}".encode("utf-8")
+    h = hashlib.sha256(raw).hexdigest()
+    return int(h[:8], 16) % 100
+
+
+def _parse_effective_at(raw: Any) -> datetime | None:
+    if raw is None or raw == "":
+        return None
+    if not isinstance(raw, str):
+        return None
+    s = raw.strip()
+    if not s:
+        return None
+    try:
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except ValueError:
+        return None
+
+
+def _pack_should_apply(
+    pack: dict[str, Any],
+    tenant_id: str,
+    entity_id: str,
+    *,
+    evaluation_mode: str,
+) -> tuple[bool, str | None]:
+    """
+    Rollout gating: effective_at (scheduled start) and canary_percent (deterministic %).
+    Simulation mode skips gating so offline runs see full rule effects.
+    """
+    if evaluation_mode == "simulation":
+        return True, None
+
+    eff = _parse_effective_at(pack.get("effective_at"))
+    if eff is not None:
+        now = datetime.now(timezone.utc)
+        if now < eff:
+            return False, "before_effective_at"
+
+    cp = pack.get("canary_percent")
+    if cp is None:
+        return True, None
+    try:
+        pct = float(cp)
+    except (TypeError, ValueError):
+        return True, None
+    if pct >= 100.0:
+        return True, None
+    if pct <= 0.0:
+        return False, "canary_zero"
+
+    key = str(pack.get("_source_file") or pack.get("name") or "pack")
+    bucket = _pack_experiment_bucket(tenant_id, entity_id, key)
+    if bucket >= pct:
+        return False, "canary_excluded"
+    return True, None
+
+
 def _evaluate_pack(
     pack: dict[str, Any],
     features: dict[str, Any],
@@ -161,12 +251,27 @@ def _evaluate_pack(
 def evaluate_json_rules(
     features: dict[str, Any],
     redis_tags: list[str],
+    tenant_id: str | None = None,
+    entity_id: str | None = None,
+    *,
+    evaluation_mode: str = "production",
 ) -> tuple[list[str], list[str], float]:
-    """Returns (rule_ids, tags_to_apply, score_delta)."""
+    """Returns (rule_ids, tags_to_apply, score_delta).
+
+    When *tenant_id* and *entity_id* are set, per-pack *canary_percent* and *effective_at* apply
+    (unless *evaluation_mode* is ``simulation``).
+    """
+    tid = (tenant_id or "").strip() or "default"
+    eid = (entity_id or "").strip() or "default"
+    mode = evaluation_mode if evaluation_mode in ("production", "simulation") else "production"
+
     hits: list[str] = []
     tags: list[str] = []
     delta = 0.0
     for pack in _cached_packs:
+        ok, _reason = _pack_should_apply(pack, tid, eid, evaluation_mode=mode)
+        if not ok:
+            continue
         pack_hits, pack_tags, pack_delta = _evaluate_pack(pack, features, redis_tags)
         hits.extend(pack_hits)
         tags.extend(pack_tags)

@@ -317,6 +317,37 @@ async def get_case(
     return CaseOut.model_validate(case)
 
 
+@app.get("/v1/cases/{case_id}/evidence-bundle")
+async def get_case_evidence_bundle(
+    case_id: uuid.UUID,
+    request: Request,
+    tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    session: AsyncSession = Depends(get_session),
+):
+    """Procurement / audit: case row + linked fraud decision audit (inference_context, recommended_action)."""
+    case = await _case_for_tenant(session, case_id, tenant_id)
+    http: httpx.AsyncClient = request.app.state.http
+    base = settings.decision_api_url.rstrip("/")
+    trace = str(case.trace_id).strip()
+    decision_block: dict[str, Any] = {}
+    if trace and base:
+        try:
+            r = await http.get(f"{base}/v1/audit/{trace}", timeout=8.0)
+            if r.status_code == 200:
+                decision_block = r.json()
+        except Exception:
+            decision_block = {"error": "decision_api_unreachable"}
+    bundle = {
+        "bundle_version": "1",
+        "tenant_id": tenant_id,
+        "case": CaseOut.model_validate(case).model_dump(mode="json"),
+        "decision_audit": decision_block,
+        "signing_key_id": _signing_key_id(),
+    }
+    bundle["bundle_signature"] = _bundle_signature(bundle)
+    return bundle
+
+
 @app.patch("/v1/cases/{case_id}")
 async def update_case(
     case_id: uuid.UUID,

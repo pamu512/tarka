@@ -1,8 +1,20 @@
-"""Build inference_context (v2) and recommended customer actions (challenge orchestration hints)."""
+"""Build inference_context (v3) and recommended customer actions (challenge orchestration hints).
+
+SCHEMA_VERSION is the public contract version for OpenAPI + golden parity.
+"""
 
 from __future__ import annotations
 
 from typing import Any
+
+from decision_api.integrity_policy import (
+    adjust_integrity_confidence,
+    haversine_km,
+    parse_session_geo,
+    trusted_zone_hit,
+)
+
+SCHEMA_VERSION = "3"
 
 
 def _clamp01(value: float) -> float:
@@ -17,6 +29,8 @@ def build_inference_context(
     features: dict[str, Any] | None = None,
     *,
     ml_detail: dict[str, Any] | None = None,
+    platform: str = "web",
+    tls_pinning_verified: bool | None = None,
 ) -> dict[str, Any]:
     """Normalize heterogeneous risk signals into a versioned inference contract (Epic A/E)."""
     features = features or {}
@@ -42,11 +56,42 @@ def build_inference_context(
     score_factor = _clamp01(final_score / 100.0)
     model_factor = _clamp01((ml_score or 0.0) / 100.0)
     integrity_confidence = _clamp01(
-        1.0 - (0.35 * tamper_risk + 0.2 * network_risk + 0.15 * replay_risk + 0.15 * geo_consistency_risk) - (0.15 * max(score_factor, model_factor))
+        1.0 - (0.35 * tamper_risk + 0.2 * network_risk + 0.15 * replay_risk + 0.15 * geo_consistency_risk)
+        - (0.15 * max(score_factor, model_factor))
     )
+
+    integrity_confidence = adjust_integrity_confidence(
+        integrity_confidence,
+        platform,
+        list(signal_set),
+        pinning_ok=tls_pinning_verified,
+    )
+
+    if "sdk:attestation_verified" in signal_set:
+        tamper_risk = _clamp01(tamper_risk * 0.82)
+        integrity_confidence = _clamp01(integrity_confidence + 0.06)
+
+    # Optional calibration bias from ops (-0.1 .. 0.1) — tenant-specific table via rules injecting feature
+    try:
+        bias = float(features.get("calibration_bias") or 0.0)
+    except (TypeError, ValueError):
+        bias = 0.0
+    bias = max(-0.1, min(0.1, bias))
+    integrity_confidence = _clamp01(integrity_confidence + bias)
+
+    cal_profile = features.get("calibration_profile")
+    cal_profile_s = str(cal_profile).strip()[:64] if cal_profile is not None else "default"
+    try:
+        exp_cal_ver = int(features.get("expected_calibration_version") or 1)
+    except (TypeError, ValueError):
+        exp_cal_ver = 1
+    exp_cal_ver = max(1, min(999999, exp_cal_ver))
 
     # --- Epic E: shared-device / velocity heuristics (co-location & impossible travel proxies) ---
     colocation_risk = _clamp01(0.75 if "sdk:shared_device" in signal_set else 0.0)
+    distinct_sess = int(features.get("distinct_session_id_24h") or 0)
+    if distinct_sess >= 2:
+        colocation_risk = max(colocation_risk, _clamp01(0.35 + 0.1 * min(distinct_sess, 5)))
 
     ev1h = int(features.get("event_count_1h") or 0)
     ev24 = int(features.get("event_count_24h") or 0)
@@ -58,6 +103,42 @@ def build_inference_context(
         travel_boost += 0.3
     if ev24 > 0 and ev1h / max(ev24, 1) > 0.5 and ev1h > 15:
         travel_boost += 0.2
+
+    # Session geo: compare last vs previous coordinates (km/h heuristic)
+    la, lo, ts = parse_session_geo(features)
+    pla, plo, pts = (
+        features.get("session_prev_lat"),
+        features.get("session_prev_lon"),
+        features.get("session_prev_ts"),
+    )
+    try:
+        pla_f = float(pla) if pla is not None else None
+        plo_f = float(plo) if plo is not None else None
+        pts_f = float(pts) if pts is not None else None
+    except (TypeError, ValueError):
+        pla_f, plo_f, pts_f = None, None, None
+    if (
+        la is not None
+        and lo is not None
+        and ts is not None
+        and pla_f is not None
+        and plo_f is not None
+        and pts_f is not None
+        and ts > pts_f
+    ):
+        dist_km = haversine_km(la, lo, pla_f, plo_f)
+        dt_h = max((ts - pts_f) / 3600.0, 1e-6)
+        speed = dist_km / dt_h
+        if speed > 800:
+            travel_boost += 0.45
+        elif speed > 120:
+            travel_boost += 0.25
+
+    zones = features.get("trusted_zones")
+    if isinstance(zones, list) and la is not None and lo is not None and trusted_zone_hit(la, lo, zones):
+        travel_boost = max(0.0, travel_boost - 0.35)
+        geo_consistency_risk = max(0.0, geo_consistency_risk - 0.2)
+
     impossible_travel_risk = _clamp01(travel_boost)
 
     # Epic A: tier + analyst-facing drivers
@@ -81,6 +162,8 @@ def build_inference_context(
         driver_reasons.append("ml_score_elevated")
     if colocation_risk >= 0.5:
         driver_reasons.append("device_seen_across_multiple_entities")
+    if distinct_sess >= 2:
+        driver_reasons.append("multi_session_velocity")
     if impossible_travel_risk >= 0.45:
         driver_reasons.append("velocity_and_geo_suggest_impossible_travel")
     for rh in rule_hits[:5]:
@@ -108,7 +191,9 @@ def build_inference_context(
     ordered_top = sorted(signal_set)[:5]
 
     return {
-        "schema_version": "2",
+        "schema_version": SCHEMA_VERSION,
+        "calibration_profile": cal_profile_s,
+        "expected_calibration_version": exp_cal_ver,
         "integrity_confidence": round(integrity_confidence, 4),
         "tamper_risk": round(tamper_risk, 4),
         "network_trust": round(network_trust, 4),
@@ -118,6 +203,7 @@ def build_inference_context(
         "confidence_tier": confidence_tier,
         "driver_reasons": driver_reasons,
         "colocation_risk": round(colocation_risk, 4),
+        "copresence_risk": round(colocation_risk, 4),
         "impossible_travel_risk": round(impossible_travel_risk, 4),
         "velocity_events_5m": int(features.get("event_count_5m") or 0),
         "velocity_events_1h": ev1h,

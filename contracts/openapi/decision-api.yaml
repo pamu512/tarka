@@ -214,8 +214,123 @@ paths:
           description: Invalid request
         "404":
           description: No audit rows matched
+  /v1/ops/governance:
+    get:
+      operationId: opsGovernance
+      summary: Rollout posture, experiment log size, stretch tooling pointers
+      responses:
+        "200":
+          description: Governance bundle
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/calibration/snapshots:
+    post:
+      operationId: calibrationAppendSnapshot
+      summary: Append integrity histogram snapshot for drift tracking (file-backed)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalibrationSnapshotBody"
+      responses:
+        "201":
+          description: Stored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  id: { type: string }
+  /v1/calibration/drift:
+    get:
+      operationId: calibrationDrift
+      summary: Compare latest snapshot to pinned reference (L1 drift score)
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: profile
+          in: query
+          schema: { type: string, default: default }
+      responses:
+        "200":
+          description: Drift hint
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/calibration/reference/{profile}:
+    post:
+      operationId: calibrationSetReference
+      summary: Pin reference histogram for drift comparison
+      parameters:
+        - name: profile
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalibrationSnapshotBody"
+      responses:
+        "200":
+          description: Reference written
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  path: { type: string }
+  /v1/calibration/summary:
+    get:
+      operationId: calibrationSummary
+      summary: Recent snapshots for tenant/profile
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: profile
+          in: query
+          schema: { type: string, default: default }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Snapshot list
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
 components:
   schemas:
+    CalibrationSnapshotBody:
+      type: object
+      required: [tenant_id, sample_count]
+      properties:
+        tenant_id: { type: string }
+        profile: { type: string, default: default }
+        schema_version: { type: string }
+        expected_calibration_version: { type: integer }
+        sample_count: { type: integer, minimum: 1 }
+        integrity_histogram:
+          type: object
+          additionalProperties: { type: integer }
+        mean_integrity: { type: number, nullable: true }
+        mean_final_score: { type: number, nullable: true }
+        notes: { type: string, nullable: true }
     ChallengePoliciesResponse:
       type: object
       required: [policies]
@@ -254,6 +369,10 @@ components:
         payload:
           type: object
           additionalProperties: true
+          description: >
+            Optional geo/session hints: trusted_zones [{lat,lon,radius_km}], session_last_lat, session_last_lon,
+            session_last_ts (unix), session_prev_lat, session_prev_lon, session_prev_ts for travel inference;
+            calibration_bias (-0.1..0.1) for ops tuning.
         device_context:
           type: object
           nullable: true
@@ -272,6 +391,7 @@ components:
         metadata:
           type: object
           additionalProperties: true
+          description: Optional tls_pinning_verified (bool) for MitM posture hints.
         challenge_policy_id:
           type: string
           nullable: true
@@ -326,6 +446,8 @@ components:
       type: object
       required:
         - schema_version
+        - calibration_profile
+        - expected_calibration_version
         - integrity_confidence
         - tamper_risk
         - network_trust
@@ -335,6 +457,7 @@ components:
         - confidence_tier
         - driver_reasons
         - colocation_risk
+        - copresence_risk
         - impossible_travel_risk
         - velocity_events_5m
         - velocity_events_1h
@@ -342,7 +465,15 @@ components:
       properties:
         schema_version:
           type: string
-          example: "2"
+          example: "3"
+        calibration_profile:
+          type: string
+          description: Named calibration / drift profile for ops (e.g. default, payments_strict_v1)
+          default: default
+        expected_calibration_version:
+          type: integer
+          minimum: 1
+          description: Bump when redeploying calibration tables; compare to ops drift pipeline version
         integrity_confidence:
           type: number
           format: float
@@ -385,6 +516,12 @@ components:
           format: float
           minimum: 0
           maximum: 1
+        copresence_risk:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Alias of colocation risk for multi-session / shared-device narratives
         impossible_travel_risk:
           type: number
           format: float

@@ -876,7 +876,9 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       ml_score: 0.71,
       recommended_action: "manual_review",
       inference_context: {
-        schema_version: "2",
+        schema_version: "3",
+        calibration_profile: "default",
+        expected_calibration_version: 1,
         integrity_confidence: 0.78,
         tamper_risk: 0.12,
         network_trust: 0.8,
@@ -886,6 +888,7 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
         confidence_tier: "medium",
         driver_reasons: ["hostile_or_anonymous_network_path", "rule:velocity_guard"],
         colocation_risk: 0,
+        copresence_risk: 0,
         impossible_travel_risk: 0.1,
         velocity_events_5m: 2,
         velocity_events_1h: 12,
@@ -908,6 +911,32 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       },
     };
   }
+  if (path.includes("/api/decisions/v1/challenge-policies")) {
+    return {
+      policies: [
+        { policy_id: "default_v1", version: 1, description: "Default escalation ladder" },
+        { policy_id: "strict_review_v1", version: 1, description: "Stricter review thresholds" },
+      ],
+    };
+  }
+  if (path.includes("/api/decisions/v1/ops/governance")) {
+    return {
+      inference_schema_version: "3",
+      rule_packs: { active_pack_count: 2, shadow_pack_count: 1, packs: [] },
+      experiment_registry_lines: 0,
+      drift_smoke: { script: "scripts/benchmarks/drift_score_smoke.py", note: "Baseline vs shifted separation guard." },
+    };
+  }
+  if (path.includes("/evidence-bundle")) {
+    return {
+      bundle_version: "1",
+      tenant_id: "demo",
+      case: { id: "case-demo", title: "Demo case", trace_id: "tr-demo" },
+      decision_audit: { trace_id: "tr-demo", decision: "review", score: 74 },
+      bundle_signature: "mock",
+      signing_key_id: "mock",
+    };
+  }
   if (path.includes("/api/decisions/v1/audit/")) {
     return {
       trace_id: path.split("/").pop(),
@@ -920,7 +949,9 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       rule_hits: ["velocity_guard"],
       recommended_action: "manual_review",
       inference_context: {
-        schema_version: "2",
+        schema_version: "3",
+        calibration_profile: "default",
+        expected_calibration_version: 1,
         integrity_confidence: 0.78,
         tamper_risk: 0.12,
         network_trust: 0.8,
@@ -930,6 +961,7 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
         confidence_tier: "medium",
         driver_reasons: ["hostile_or_anonymous_network_path", "rule:velocity_guard"],
         colocation_risk: 0,
+        copresence_risk: 0,
         impossible_travel_risk: 0.1,
         velocity_events_5m: 2,
         velocity_events_1h: 12,

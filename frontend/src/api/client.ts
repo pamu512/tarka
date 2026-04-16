@@ -290,6 +290,33 @@ export const decisions = {
       body: JSON.stringify(body),
     });
   },
+
+  challengePolicies() {
+    return request<{
+      policies: Array<{ policy_id: string; version: number; description: string }>;
+    }>("/api/decisions/v1/challenge-policies");
+  },
+
+  governance() {
+    return request<{
+      inference_schema_version: string;
+      rule_packs: {
+        active_pack_count: number;
+        shadow_pack_count: number;
+        packs: Array<{
+          file: string | undefined;
+          name: unknown;
+          mode: unknown;
+          canary_percent: unknown;
+          effective_at: unknown;
+          approved_by: unknown;
+          rule_count: number;
+        }>;
+      };
+      experiment_registry_lines: number;
+      drift_smoke: { script: string; note: string };
+    }>("/api/decisions/v1/ops/governance");
+  },
 };
 
 // ── Cases (case-api :8002) ──────────────────────────────────────────
@@ -357,6 +384,11 @@ export const cases = {
   getAudit(caseId: string, tenantId: string) {
     const q = new URLSearchParams({ tenant_id: tenantId });
     return request<{ history: unknown[] }>(`/api/cases/v1/cases/${caseId}/audit?${q}`);
+  },
+
+  evidenceBundle(caseId: string, tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<Record<string, unknown>>(`/api/cases/v1/cases/${caseId}/evidence-bundle?${q}`);
   },
 
   generateSar(caseId: string, tenantId: string, format: string = "fincen_xml") {

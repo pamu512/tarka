@@ -38,7 +38,9 @@ class EvaluateRequest(BaseModel):
 
 
 class InferenceContext(BaseModel):
-    schema_version: str = "2"
+    schema_version: str = "3"
+    calibration_profile: str = "default"
+    expected_calibration_version: int = 1
     integrity_confidence: float = 0.0
     tamper_risk: float = 0.0
     network_trust: float = 0.0
@@ -48,6 +50,7 @@ class InferenceContext(BaseModel):
     confidence_tier: str = "medium"
     driver_reasons: list[str] = Field(default_factory=list)
     colocation_risk: float = 0.0
+    copresence_risk: float = 0.0
     impossible_travel_risk: float = 0.0
     velocity_events_5m: int = 0
     velocity_events_1h: int = 0
