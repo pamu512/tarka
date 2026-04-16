@@ -56,6 +56,17 @@ def test_payments_high_value_allow():
     assert meta.get("matched_rule_id") == "high_value_allow"
 
 
+def test_unknown_policy_falls_back_to_default():
+    inf = {"confidence_tier": "medium"}
+    base = "manual_review"
+    out, meta = apply_challenge_policy("does_not_exist", base, "review", inf, [], {})
+    assert out == base
+    assert meta.get("effective_source") == "fallback_default"
+    assert meta.get("error") == "unknown_policy_fallback_default"
+    assert meta.get("requested_policy_id") == "does_not_exist"
+    assert meta.get("default_policy_id") == "default_v1"
+
+
 def test_matches_has_tag():
     from decision_api.challenge_policy import _matches_when
 
