@@ -137,6 +137,8 @@ export interface MlTopFactor {
 
 export interface InferenceContext {
   schema_version: string;
+  calibration_profile: string;
+  expected_calibration_version: number;
   integrity_confidence: number;
   tamper_risk: number;
   network_trust: number;
@@ -146,6 +148,7 @@ export interface InferenceContext {
   confidence_tier: ConfidenceTier;
   driver_reasons: string[];
   colocation_risk: number;
+  copresence_risk: number;
   impossible_travel_risk: number;
   velocity_events_5m: number;
   velocity_events_1h: number;

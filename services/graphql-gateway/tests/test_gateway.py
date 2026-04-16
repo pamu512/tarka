@@ -225,7 +225,7 @@ class TestGraphQLMutations:
                     "ml_score": 75.0,
                     "recommended_action": "manual_review",
                     "inference_context": {
-                        "schema_version": "2",
+                        "schema_version": "3",
                         "confidence_tier": "high",
                     },
                 }

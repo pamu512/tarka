@@ -23,7 +23,7 @@ from decision_api.config import settings
 from decision_api.currency import normalize_amount
 from decision_api.db import get_session, init_db
 from decision_api.fingerprint_store import fingerprint_store
-from decision_api.json_rules import evaluate_json_rules, load_rules
+from decision_api.json_rules import evaluate_json_rules, governance_summary as rules_governance_summary, load_rules
 from decision_api.models import AuditRecord
 from decision_api.opa_client import evaluate_opa
 from decision_api.redis_store import redis_tags
@@ -35,9 +35,15 @@ from privacy import get_profile, mask_dict  # noqa: E402
 
 from decision_api.aggregates import agg_store
 from decision_api.challenge_policy import apply_challenge_policy, load_challenge_policies
+from decision_api.trusted_zones import load_trusted_zones_for_tenant
 from decision_api.consortium import consortium_score_delta, hash_entity_id
 from decision_api.graph_intel import graph_score_delta, graph_tags_from_risk
-from decision_api.inference_build import build_inference_context, derive_recommended_action
+from decision_api.inference_build import (
+    SCHEMA_VERSION as INFERENCE_SCHEMA_VERSION,
+    build_inference_context,
+    derive_recommended_action,
+)
+from decision_api.integrity_policy import supplemental_tags_for_integrity
 from decision_api.lists_api import get_store as _get_list_store
 from decision_api.lists_api import router as lists_router
 from decision_api.lists_api import set_store
@@ -194,17 +200,21 @@ from decision_api.internal_counters_api import router as internal_counters_route
 from decision_api.recommend_api import router as recommend_router  # noqa: E402
 from decision_api.replay import router as replay_router  # noqa: E402
 from decision_api.rule_api import router as rule_router  # noqa: E402
+from decision_api.calibration_api import router as calibration_router  # noqa: E402
+from decision_api.experiment_api import experiment_registry_line_count, router as experiment_router  # noqa: E402
 from decision_api.simulation_api import router as simulation_router  # noqa: E402
 
 app.include_router(rule_router)
 app.include_router(replay_router)
 app.include_router(simulation_router)
+app.include_router(experiment_router)
 app.include_router(recommend_router)
 app.include_router(compliance_router)
 app.include_router(captcha_router)
 app.include_router(lists_router)
 app.include_router(consortium_router)
 app.include_router(internal_counters_router)
+app.include_router(calibration_router)
 
 
 def _http(request: Request) -> httpx.AsyncClient:
@@ -288,6 +298,34 @@ async def reload_rules():
     return {"ok": True}
 
 
+@app.get("/v1/ops/governance")
+async def ops_governance():
+    """Rollout posture: active rule packs (canary, effective_at), shadow count, inference contract version."""
+    exp_ct = experiment_registry_line_count()
+    g = rules_governance_summary()
+    return {
+        "inference_schema_version": INFERENCE_SCHEMA_VERSION,
+        "rule_packs": g,
+        "experiment_registry_lines": exp_ct,
+        "drift_smoke": {
+            "script": "scripts/benchmarks/drift_score_smoke.py",
+            "note": "Run baseline vs shifted batches to guard scorer separation; not full calibration.",
+        },
+        "calibration_api": {
+            "prefix": "/v1/calibration",
+            "note": "POST snapshots, pin reference, GET drift — file-backed under rules/calibration_data/ or CALIBRATION_DATA_DIR",
+        },
+        "nats_prometheus": {
+            "script": "scripts/observability/nats_jetstream_exporter.py",
+            "note": "Poll JetStream; pipe stdout to node_exporter textfile collector or cron + curl pushgateway",
+        },
+        "contract_fuzz": {
+            "script": "scripts/contract/fuzz_decision_api.py",
+            "note": "Health + OpenAPI reachability; use schemathesis CLI for property-based fuzz",
+        },
+    }
+
+
 @app.get("/v1/challenge-policies")
 async def list_challenge_policy_templates():
     """List loaded challenge / escalation policy templates (JSON under rules/challenge_policies/)."""
@@ -329,6 +367,11 @@ def extract_signal_tags(device_context: dict[str, Any] | None) -> list[str]:
     for key, tag in _SIGNAL_TAG_MAP.items():
         if signals.get(key) is True:
             tags.append(tag)
+    if signals.get("attestation_verified") is True:
+        tags.append("sdk:attestation_verified")
+    att = device_context.get("attestation")
+    if isinstance(att, dict) and att.get("verified") is True:
+        tags.append("sdk:attestation_verified")
     return tags
 
 
@@ -364,6 +407,50 @@ def extract_captcha_tags(dc: dict | None) -> list[str]:
         tags.append("captcha:has_errors")
 
     return tags
+
+
+def _infer_ctx_kwargs(body: EvaluateRequest, features: dict[str, Any]) -> dict[str, Any]:
+    """Platform + optional TLS pinning hint for inference / integrity policy."""
+    plat = "web"
+    if body.device_context:
+        plat = str(body.device_context.platform or "web").strip().lower() or "web"
+    pin: bool | None = None
+    if isinstance(body.metadata, dict):
+        raw = body.metadata.get("tls_pinning_verified")
+        if isinstance(raw, bool):
+            pin = raw
+        elif isinstance(raw, str):
+            pin = raw.strip().lower() in ("1", "true", "yes")
+    if isinstance(body.payload, dict):
+        tz = body.payload.get("trusted_zones")
+        if isinstance(tz, list):
+            features.setdefault("trusted_zones", tz)
+        disk_zones = load_trusted_zones_for_tenant(body.tenant_id)
+        if disk_zones:
+            merged: list = []
+            if isinstance(features.get("trusted_zones"), list):
+                merged = [x for x in features["trusted_zones"] if isinstance(x, dict)]
+            seen = {_json.dumps(x, sort_keys=True) for x in merged}
+            for z in disk_zones:
+                key = _json.dumps(z, sort_keys=True)
+                if key not in seen:
+                    merged.append(z)
+                    seen.add(key)
+            features["trusted_zones"] = merged
+        for key in (
+            "session_last_lat",
+            "session_last_lon",
+            "session_last_ts",
+            "session_prev_lat",
+            "session_prev_lon",
+            "session_prev_ts",
+            "calibration_bias",
+            "calibration_profile",
+            "expected_calibration_version",
+        ):
+            if key in body.payload and body.payload[key] is not None:
+                features.setdefault(key, body.payload[key])
+    return {"platform": plat, "tls_pinning_verified": pin}
 
 
 def extract_behavior_tags(device_context: dict[str, Any] | None) -> list[str]:
@@ -685,7 +772,7 @@ async def evaluate_decision(
 
     if list_check and list_check.found:
         if list_check.action == "allow":
-            _wl_inf = build_inference_context([], ["whitelist_bypass"], None, 0.0, None)
+            _wl_inf = build_inference_context([], ["whitelist_bypass"], None, 0.0, None, **_infer_ctx_kwargs(body, {}))
             _wl_rec, _wl_meta = apply_challenge_policy(
                 body.challenge_policy_id,
                 None,
@@ -728,7 +815,7 @@ async def evaluate_decision(
             )
 
         if list_check.action == "deny":
-            _bl_inf = build_inference_context(["list:blacklist"], ["blacklist_block"], None, 100.0, None)
+            _bl_inf = build_inference_context(["list:blacklist"], ["blacklist_block"], None, 100.0, None, **_infer_ctx_kwargs(body, {}))
             _bl_base = derive_recommended_action("deny", ["list:blacklist"], _bl_inf)
             _bl_rec, _bl_meta = apply_challenge_policy(
                 body.challenge_policy_id,
@@ -800,6 +887,8 @@ async def evaluate_decision(
     if body.device_context:
         for k, v in body.device_context.signals.items():
             features.setdefault(k, v)
+    if body.session_id:
+        features.setdefault("session_id", body.session_id)
 
     # Normalise amount to USD if a currency is specified
     payload_currency = body.payload.get("currency")
@@ -821,7 +910,13 @@ async def evaluate_decision(
         await agg_store.record_event(body.tenant_id, body.entity_id, str(trace_id), features)
 
     # Run rules + OPA + ML in parallel (OPA and ML don't need each other)
-    rule_hits, rule_tags, score_delta = evaluate_json_rules(features, redis_tag_list)
+    rule_hits, rule_tags, score_delta = evaluate_json_rules(
+        features,
+        redis_tag_list,
+        body.tenant_id,
+        body.entity_id,
+        evaluation_mode="production",
+    )
 
     opa_coro = evaluate_opa(http, settings.opa_url, {"snapshot": snapshot})
     ml_coro = _fetch_ml_score(http, body.tenant_id, body.entity_id, body.event_type.value, features)
@@ -862,15 +957,19 @@ async def evaluate_decision(
     if ml_score is not None and isinstance(ml_score, float):
         reasons.append(f"ml:{ml_score:.2f}")
 
+    _plat_kw = _infer_ctx_kwargs(body, features)
+    integ_extra = supplemental_tags_for_integrity(_plat_kw["platform"], signal_tags)
+    merged_signal_tags = list(dict.fromkeys(signal_tags + integ_extra))
     inf_ctx = build_inference_context(
-        signal_tags,
+        merged_signal_tags,
         combined_rule_hits,
         ml_score if isinstance(ml_score, float) else None,
         final_score,
         features,
         ml_detail=ml_detail if isinstance(ml_detail, dict) else None,
+        **_plat_kw,
     )
-    recommended_action = derive_recommended_action(decision, signal_tags, inf_ctx)
+    recommended_action = derive_recommended_action(decision, merged_signal_tags, inf_ctx)
     recommended_action, ch_meta = apply_challenge_policy(
         body.challenge_policy_id,
         recommended_action,
@@ -980,15 +1079,19 @@ async def evaluate_decision(
     # Test bypass: run full evaluation but override decision to allow
     if list_check and list_check.found and list_check.list_type == "test_bypass":
         _tb_hits = combined_rule_hits + ["test_bypass"]
+        _tb_plat = _infer_ctx_kwargs(body, features)
+        _tb_extra = supplemental_tags_for_integrity(_tb_plat["platform"], signal_tags)
+        _tb_merged = list(dict.fromkeys(signal_tags + _tb_extra))
         _tb_inf = build_inference_context(
-            signal_tags,
+            _tb_merged,
             _tb_hits,
             ml_score if isinstance(ml_score, float) else None,
             final_score,
             features,
             ml_detail=ml_detail if isinstance(ml_detail, dict) else None,
+            **_tb_plat,
         )
-        _tb_base = derive_recommended_action("allow", signal_tags, _tb_inf)
+        _tb_base = derive_recommended_action("allow", _tb_merged, _tb_inf)
         _tb_rec, _tb_meta = apply_challenge_policy(
             body.challenge_policy_id,
             _tb_base,
@@ -1095,6 +1198,7 @@ async def analyst_entity_velocity(
         ml_score=None,
         final_score=0.0,
         features=raw_features,
+        platform="web",
     )
     vel_keys = ("event_count_5m", "event_count_1h", "event_count_24h", "event_count_7d")
     agg_slice = {k: raw_features.get(k, 0) for k in vel_keys}

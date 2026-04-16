@@ -47,6 +47,9 @@ class RulePackIn(BaseModel):
     name: str
     rules: list[RuleIn] = Field(default_factory=list)
     tag_rules: list[TagRuleIn] = Field(default_factory=list)
+    canary_percent: float | None = Field(default=None, ge=0, le=100)
+    effective_at: str | None = Field(default=None, max_length=64)
+    approved_by: str | None = Field(default=None, max_length=256)
 
 
 def _rules_dir() -> Path:
@@ -99,6 +102,20 @@ def _read_all_packs() -> list[dict[str, Any]]:
 def _validate_rule_pack(pack: dict) -> list[str]:
     """Validate a rule pack and return list of errors."""
     errors = []
+    canary = pack.get("canary_percent")
+    if canary is not None:
+        try:
+            c = float(canary)
+            if c < 0 or c > 100:
+                errors.append("canary_percent must be between 0 and 100")
+        except (TypeError, ValueError):
+            errors.append("canary_percent must be a number")
+    eff = pack.get("effective_at")
+    if eff is not None and not isinstance(eff, str):
+        errors.append("effective_at must be an ISO-8601 string when set")
+    appr = pack.get("approved_by")
+    if appr is not None and (not isinstance(appr, str) or len(str(appr)) > 256):
+        errors.append("approved_by must be a short string when set")
     rules = pack.get("rules", [])
     if len(rules) > 200:
         errors.append(f"Too many rules: {len(rules)} (max 200)")
@@ -184,6 +201,9 @@ async def create_rule_pack(body: RulePackIn):
         "name": body.name,
         "rules": [_rule_to_dict(r) for r in body.rules],
         "tag_rules": [_tag_rule_to_dict(r) for r in body.tag_rules],
+        "canary_percent": body.canary_percent,
+        "effective_at": body.effective_at,
+        "approved_by": body.approved_by,
     }
     errors = _validate_rule_pack(pack)
     if errors:
@@ -202,6 +222,9 @@ async def update_rule_pack(filename: str, body: RulePackIn):
         "name": body.name,
         "rules": [_rule_to_dict(r) for r in body.rules],
         "tag_rules": [_tag_rule_to_dict(r) for r in body.tag_rules],
+        "canary_percent": body.canary_percent,
+        "effective_at": body.effective_at,
+        "approved_by": body.approved_by,
     }
     errors = _validate_rule_pack(pack)
     if errors:

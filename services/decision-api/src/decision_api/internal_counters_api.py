@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import uuid
 from typing import Any
 
@@ -56,7 +57,11 @@ async def apply_replay_events(store: AggregateStore, events: list[ReplayEventIn]
 @router.get("/manifest")
 async def get_counter_manifest() -> dict[str, Any]:
     """Public read: versioned list of aggregate feature outputs (parity contract)."""
-    return load_counter_manifest_v1()
+    m = dict(load_counter_manifest_v1())
+    ver = os.environ.get("AGG_KEY_VERSION", "").strip()
+    if ver and all(c.isalnum() or c in "._:-" for c in ver):
+        m["redis_key_version"] = ver
+    return m
 
 
 @router.post("/replay", dependencies=[Depends(require_counter_replay_token)])

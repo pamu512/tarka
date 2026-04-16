@@ -1,7 +1,9 @@
 {
   "manifest_version": "1.0.0",
+  "redis_key_version": "",
   "aggregate_prefix": "fraud:agg:",
   "aggregate_val_prefix": "fraud:aggval:",
+  "notes_versioning": "Set env AGG_KEY_VERSION (alphanumeric) to segment Redis keys; mirror here for offline parity.",
   "implementation": "fraud_aggregates.AggregateStore.compute_features",
   "notes": "Keys must stay aligned with AggregateStore.compute_features and NUMERIC_FIELDS / DISTINCT_FIELDS in aggregates.py.",
   "feature_outputs": [

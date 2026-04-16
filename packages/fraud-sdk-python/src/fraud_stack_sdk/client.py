@@ -10,6 +10,8 @@ from fraud_stack_sdk.signals import ServerSignalCollector
 
 class InferenceContext(TypedDict):
     schema_version: str
+    calibration_profile: str
+    expected_calibration_version: int
     integrity_confidence: float
     tamper_risk: float
     network_trust: float
@@ -19,6 +21,7 @@ class InferenceContext(TypedDict):
     confidence_tier: str
     driver_reasons: list[str]
     colocation_risk: float
+    copresence_risk: float
     impossible_travel_risk: float
     velocity_events_5m: int
     velocity_events_1h: int

@@ -12,6 +12,8 @@ export interface MlTopFactor {
 
 export interface InferenceContext {
   schema_version: string;
+  calibration_profile: string;
+  expected_calibration_version: number;
   integrity_confidence: number;
   tamper_risk: number;
   network_trust: number;
@@ -21,6 +23,7 @@ export interface InferenceContext {
   confidence_tier: ConfidenceTier;
   driver_reasons: string[];
   colocation_risk: number;
+  copresence_risk: number;
   impossible_travel_risk: number;
   velocity_events_5m: number;
   velocity_events_1h: number;
@@ -42,7 +45,9 @@ export function normalizeInferenceContext(raw: unknown): InferenceContext | null
   if (raw == null || typeof raw !== "object") return null;
   const r = raw as InferenceContextLike;
   return {
-    schema_version: typeof r.schema_version === "string" ? r.schema_version : "2",
+    schema_version: typeof r.schema_version === "string" ? r.schema_version : "3",
+    calibration_profile: typeof r.calibration_profile === "string" ? r.calibration_profile : "default",
+    expected_calibration_version: typeof r.expected_calibration_version === "number" ? r.expected_calibration_version : 1,
     integrity_confidence: typeof r.integrity_confidence === "number" ? r.integrity_confidence : 0,
     tamper_risk: typeof r.tamper_risk === "number" ? r.tamper_risk : 0,
     network_trust: typeof r.network_trust === "number" ? r.network_trust : 0,
@@ -54,6 +59,12 @@ export function normalizeInferenceContext(raw: unknown): InferenceContext | null
       ? r.driver_reasons.filter((s): s is string => typeof s === "string")
       : [],
     colocation_risk: typeof r.colocation_risk === "number" ? r.colocation_risk : 0,
+    copresence_risk:
+      typeof r.copresence_risk === "number"
+        ? r.copresence_risk
+        : typeof r.colocation_risk === "number"
+          ? r.colocation_risk
+          : 0,
     impossible_travel_risk: typeof r.impossible_travel_risk === "number" ? r.impossible_travel_risk : 0,
     velocity_events_5m: typeof r.velocity_events_5m === "number" ? r.velocity_events_5m : 0,
     velocity_events_1h: typeof r.velocity_events_1h === "number" ? r.velocity_events_1h : 0,

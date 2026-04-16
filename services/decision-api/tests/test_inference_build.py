@@ -1,4 +1,4 @@
-"""Tests for inference_context v2 and recommended_action hints."""
+"""Tests for inference_context v3 and recommended_action hints."""
 
 from decision_api.inference_build import build_inference_context, derive_recommended_action
 
@@ -15,7 +15,9 @@ def test_build_inference_context_schema_and_velocity():
             "event_count_24h": 100,
         },
     )
-    assert ctx["schema_version"] == "2"
+    assert ctx["schema_version"] == "3"
+    assert ctx["calibration_profile"] == "default"
+    assert ctx["expected_calibration_version"] == 1
     assert ctx["velocity_events_5m"] == 3
     assert ctx["velocity_events_1h"] == 10
     assert ctx["velocity_events_24h"] == 100
