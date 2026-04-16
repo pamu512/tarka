@@ -201,7 +201,7 @@ from decision_api.internal_counters_api import router as internal_counters_route
 from decision_api.recommend_api import router as recommend_router  # noqa: E402
 from decision_api.replay import router as replay_router  # noqa: E402
 from decision_api.rule_api import router as rule_router  # noqa: E402
-from decision_api.calibration_api import router as calibration_router  # noqa: E402
+from decision_api.calibration_api import compute_drift_for_tenant, router as calibration_router  # noqa: E402
 from decision_api.experiment_api import experiment_registry_line_count, router as experiment_router  # noqa: E402
 from decision_api.simulation_api import router as simulation_router  # noqa: E402
 
@@ -304,10 +304,12 @@ async def ops_governance():
     """Rollout posture: active rule packs (canary, effective_at), shadow count, inference contract version."""
     exp_ct = experiment_registry_line_count()
     g = rules_governance_summary()
+    cal_status = compute_drift_for_tenant("global", "default")
     return {
         "inference_schema_version": INFERENCE_SCHEMA_VERSION,
         "rule_packs": g,
         "experiment_registry_lines": exp_ct,
+        "calibration_status": cal_status,
         "drift_smoke": {
             "script": "scripts/benchmarks/drift_score_smoke.py",
             "note": "Run baseline vs shifted batches to guard scorer separation; not full calibration.",
@@ -324,6 +326,19 @@ async def ops_governance():
             "script": "scripts/contract/fuzz_decision_api.py",
             "note": "Health + OpenAPI reachability; use schemathesis CLI for property-based fuzz",
         },
+    }
+
+
+@app.get("/v1/ops/calibration-status")
+async def calibration_status(tenant_id: str, profile: str = "default"):
+    """Small ops view that combines drift hint with governance context."""
+    drift = compute_drift_for_tenant(tenant_id, profile)
+    return {
+        "tenant_id": tenant_id,
+        "profile": profile,
+        "inference_schema_version": INFERENCE_SCHEMA_VERSION,
+        "challenge_policy_default": settings.challenge_policy_default,
+        "calibration": drift,
     }
 
 
