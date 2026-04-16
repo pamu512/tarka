@@ -546,6 +546,50 @@ jobs:
           flags: ml-scoring
           fail_ci_if_error: false
 
+  benchmark-latency-evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: docker/setup-buildx-action@v4.0.0
+      - name: Start lite stack for benchmark
+        run: docker compose -f deploy/docker-compose.lite.yml up -d --build
+      - name: Wait for decision-api health
+        run: |
+          python3 - <<'PY'
+          import json, time, urllib.request
+          url = "http://127.0.0.1:8000/v1/health"
+          for _ in range(120):
+              try:
+                  with urllib.request.urlopen(url, timeout=3) as r:
+                      body = json.loads(r.read().decode())
+                      if r.status == 200 and body.get("status") == "ok":
+                          print("decision-api ready")
+                          raise SystemExit(0)
+              except Exception:
+                  pass
+              time.sleep(2)
+          raise SystemExit("decision-api did not become ready")
+          PY
+      - name: Run latency benchmark and capture output
+        run: |
+          python3 scripts/benchmarks/latency_evaluate.py \
+            --url http://127.0.0.1:8000 \
+            --requests 300 \
+            --concurrency 30 \
+            --warmup 20 | tee benchmark-latency-evaluate.txt
+      - name: Upload benchmark artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-latency-evaluate
+          path: benchmark-latency-evaluate.txt
+          if-no-files-found: error
+      - name: Tear down stack
+        if: always()
+        run: docker compose -f deploy/docker-compose.lite.yml down -v --remove-orphans
+
   docker-build:
     runs-on: ubuntu-latest
     needs:
@@ -566,6 +610,7 @@ jobs:
       - test-analytics-sink
       - test-feature-service
       - test-ml-scoring
+      - benchmark-latency-evaluate
     strategy:
       fail-fast: false
       matrix:
