@@ -380,7 +380,12 @@ components:
           properties:
             device_id: { type: string }
             platform: { type: string, enum: [web, android, ios, server] }
-            signals: { type: object, additionalProperties: true }
+            signals:
+              type: object
+              additionalProperties: true
+              description: >
+                May include geo_lat, geo_lon, geo_accuracy_m, geo_source (e.g. browser_gps), geo_ts (ISO8601);
+                optional ip_geo_lat, ip_geo_lon, ip_geo_timezone from server-side collectors.
             attestation:
               type: object
               nullable: true

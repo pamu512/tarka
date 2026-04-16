@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import ipaddress
+import json
 import os
+import urllib.error
+import urllib.request
 from typing import Any
 
 # Known datacenter/proxy ASN prefixes (lightweight list; extend or use MaxMind)
@@ -33,6 +36,34 @@ def _is_private_ip(ip: str) -> bool:
         return ipaddress.ip_address(ip).is_private
     except ValueError:
         return False
+
+
+def _lookup_ip_geo_public(ip: str) -> tuple[float | None, float | None, str | None]:
+    """Best-effort IP geolocation via ip-api.com (no key; rate-limited). Skips private IPs."""
+    if _is_private_ip(ip):
+        return None, None, None
+    try:
+        req = urllib.request.Request(
+            f"http://ip-api.com/json/{ip}?fields=status,lat,lon,timezone",
+            headers={"User-Agent": "tarka-fraud-sdk-python"},
+        )
+        with urllib.request.urlopen(req, timeout=2.0) as resp:
+            raw = resp.read().decode()
+        data = json.loads(raw)
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, ValueError):
+        return None, None, None
+    if not isinstance(data, dict) or data.get("status") != "success":
+        return None, None, None
+    la = data.get("lat")
+    lo = data.get("lon")
+    tz = data.get("timezone")
+    try:
+        gla = float(la) if la is not None else None
+        glo = float(lo) if lo is not None else None
+    except (TypeError, ValueError):
+        return None, None, None
+    tz_s = str(tz).strip() if isinstance(tz, str) and tz.strip() else None
+    return gla, glo, tz_s
 
 
 class ServerSignalCollector:
@@ -66,7 +97,7 @@ class ServerSignalCollector:
         ua = headers.get("user-agent", "")
         bot_ua = any(kw in ua.lower() for kw in ("bot", "crawler", "spider", "curl", "wget", "python-requests"))
 
-        return {
+        out: dict[str, Any] = {
             "ip_address": ip,
             "ip_forwarded_for": forwarded or None,
             "ip_geo_country": country,
@@ -76,6 +107,14 @@ class ServerSignalCollector:
             "is_bot": bot_ua,
             "user_agent": ua or None,
         }
+        gla, glo, gtz = _lookup_ip_geo_public(ip)
+        if gla is not None:
+            out["ip_geo_lat"] = gla
+        if glo is not None:
+            out["ip_geo_lon"] = glo
+        if gtz:
+            out["ip_geo_timezone"] = gtz
+        return out
 
     def build_device_context(
         self,
