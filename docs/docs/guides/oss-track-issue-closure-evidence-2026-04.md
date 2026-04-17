@@ -21,7 +21,7 @@ Use this as a **single checklist** when closing GitHub issues and duplicate PRs.
 
 | Issue | Title | Status | Evidence |
 |-------|--------|--------|----------|
-| **#32** | Pipeline step controls | **Branch `ide/github-32-eval-steps-7320`** — open PR to `ide/v1.2.5-7320` (use branch tip SHA when closing) | `eval_steps.py`, `config.py` `EVAL_STEP_*`, `main.py` list/graph_risk/feature/opa/ml steps + `step_trace` in audit, `_graph_upsert_stepped`, `opa_client.py` timeout param, `evaluation-step-controls.md`, `tests/test_eval_steps.py`, Prometheus counters `tarka_eval_step_*` |
+| **#32** | Pipeline step controls | **PR #94** → `ide/v1.2.5-7320` (branch `ide/github-32-eval-steps-7320`) | `eval_steps.py`, `config.py` `EVAL_STEP_*`, `main.py` list/graph_risk/feature/opa/ml steps + `step_trace` in audit, `_graph_upsert_stepped`, `opa_client.py` timeout param, `evaluation-step-controls.md`, `tests/test_eval_steps.py`, Prometheus counters `tarka_eval_step_*` |
 
 ---
 
@@ -74,7 +74,7 @@ Use this as a **single checklist** when closing GitHub issues and duplicate PRs.
 
 1. **Merge PR #92** (or #91 + #44 separately) then **close #43 and #44** with one comment pointing at the combined merge SHA.
 2. **Merge PR #93** then **close #38** with `3eb2c37` (or updated tip).
-3. **Merge PR for #32** (branch `ide/github-32-eval-steps-7320`) then **close #32** with the **merge commit SHA** on `ide/v1.2.5-7320` + link to `evaluation-step-controls.md`.
+3. **Merge PR #94** (#32) then **close #32** with the **merge commit SHA** on `ide/v1.2.5-7320` + link to `evaluation-step-controls.md`.
 4. **Close #45 and #54** if not already: **`3e12842`** (PR #90).
 5. **Supersede duplicate PRs**: if #92 contains #43, close **#91** as superseded.
 6. **Epics #1–#12**: close only when acceptance tests + merge SHAs documented (many items already landed on `ide/v1.2.5-7320` — use git log and issue AC).
