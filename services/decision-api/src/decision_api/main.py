@@ -34,6 +34,7 @@ from decision_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
 from entity_lists import create_list_store  # noqa: E402
+from event_time import event_time_unix_for_evaluate  # noqa: E402
 from privacy import get_profile, mask_dict  # noqa: E402
 
 from decision_api.aggregates import agg_store
@@ -1094,8 +1095,10 @@ async def evaluate_decision(
     if agg_store._client:
         agg_features = await agg_store.compute_features(body.tenant_id, body.entity_id, features)
         features.update(agg_features)
-        # Record this event for future aggregate computation (uses normalised amount)
-        await agg_store.record_event(body.tenant_id, body.entity_id, str(trace_id), features)
+        # Record this event for future aggregate computation (uses normalised amount).
+        # Optional metadata.event_time / payload.event_time sets Redis ZSET scores to business time (late arrival).
+        agg_ts = event_time_unix_for_evaluate(body.metadata, body.payload)
+        await agg_store.record_event(body.tenant_id, body.entity_id, str(trace_id), features, ts=agg_ts)
 
     geo_extra_tags: list[str] = []
     if body.device_context:

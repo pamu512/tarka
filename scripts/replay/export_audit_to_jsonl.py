@@ -11,7 +11,8 @@ Usage:
     --tenant-id acme --entity-id user-42 --out /tmp/audit.jsonl --limit 1000
 
 Each line matches the shape expected by replay_aggregates.py:
-  tenant_id, entity_id, event_id (trace_id), fields (from payload_snapshot), ts (created_at epoch).
+  tenant_id, entity_id, event_id (trace_id), fields (from payload_snapshot),
+  optional metadata.event_time (for late-arrival alignment), ts (prefer logical event time, else created_at).
 """
 
 from __future__ import annotations
@@ -24,6 +25,10 @@ from pathlib import Path
 from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
+_SHARED = _REPO_ROOT / "services" / "shared"
+if str(_SHARED) not in sys.path:
+    sys.path.insert(0, str(_SHARED))
+from event_time import event_time_unix_from_payload_snapshot  # noqa: E402
 
 
 def _sync_database_url() -> str:
@@ -73,11 +78,20 @@ def main(argv: list[str] | None = None) -> int:
             trace_id, tenant_id, entity_id, payload_snapshot, created_at = row
             trace_id = str(trace_id) if trace_id is not None else ""
             fields: dict[str, Any] = {}
+            meta_out: dict[str, Any] = {}
             if isinstance(payload_snapshot, dict):
                 inner = payload_snapshot.get("payload")
                 fields = dict(inner) if isinstance(inner, dict) else {}
-            ts: float | None = None
-            if created_at is not None:
+                inner_meta = payload_snapshot.get("metadata")
+                if isinstance(inner_meta, dict):
+                    meta_out = dict(inner_meta)
+            logical_ts: float | None = (
+                event_time_unix_from_payload_snapshot(payload_snapshot)
+                if isinstance(payload_snapshot, dict)
+                else None
+            )
+            ts: float | None = logical_ts
+            if ts is None and created_at is not None:
                 ts = created_at.timestamp()
             rec = {
                 "tenant_id": tenant_id,
@@ -85,6 +99,8 @@ def main(argv: list[str] | None = None) -> int:
                 "event_id": trace_id,
                 "fields": fields,
             }
+            if meta_out:
+                rec["metadata"] = meta_out
             if ts is not None:
                 rec["ts"] = ts
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
