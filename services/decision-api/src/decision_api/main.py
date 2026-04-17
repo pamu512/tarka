@@ -57,6 +57,7 @@ from decision_api.lists_api import set_store
 from decision_api.location_context import merge_session_geo_from_device_and_features
 from decision_api.schemas import EvaluateRequest, EvaluateResponse
 from decision_api.shadow import evaluate_shadow, load_shadow_rules, record_observation
+from decision_api.tenant_flags import tenant_flag_enabled
 from decision_api.trusted_zones import load_trusted_zones_for_tenant
 
 # ---------- observability ----------
@@ -106,7 +107,16 @@ def _circuit_metrics_inc(name: str) -> None:
         pass
 
 
-async def _list_check_with_circuit(tenant_id: str, entity_id: str, degrade_tags: list[str]) -> ListCheckResult:
+async def _list_check_with_circuit(
+    tenant_id: str,
+    entity_id: str,
+    degrade_tags: list[str],
+    tenant_flags: dict[str, Any],
+) -> ListCheckResult:
+    if tenant_flag_enabled(tenant_flags, "disable_entity_lists"):
+        degrade_tags.append("lists:disabled_by_tenant")
+        return ListCheckResult(found=False, action="evaluate", reason="tenant_flag_disable_entity_lists")
+
     _ls = _get_list_store()
 
     async def _call():
@@ -125,7 +135,11 @@ async def _fetch_graph_risk_wrapped(
     tenant_id: str,
     entity_id: str,
     degrade_tags: list[str],
+    tenant_flags: dict[str, Any],
 ) -> dict[str, Any] | None:
+    if tenant_flag_enabled(tenant_flags, "disable_graph"):
+        degrade_tags.append("graph:disabled_by_tenant")
+        return None
     try:
         return await _circuit_graph.call(lambda: _fetch_graph_risk(http, tenant_id, entity_id))
     except CircuitOpenError:
@@ -139,7 +153,11 @@ async def _fetch_feature_snapshot_wrapped(
     body: EvaluateRequest,
     redis_tag_list: list[str],
     degrade_tags: list[str],
+    tenant_flags: dict[str, Any],
 ) -> dict[str, Any]:
+    if tenant_flag_enabled(tenant_flags, "disable_feature_service"):
+        degrade_tags.append("enrichment:disabled_by_tenant")
+        return _feature_snapshot_fallback(body, redis_tag_list)
     try:
         return await _circuit_feature.call(lambda: _fetch_feature_snapshot(http, body, redis_tag_list))
     except CircuitOpenError:
@@ -155,7 +173,11 @@ async def _fetch_ml_score_wrapped(
     event_type: str,
     features: dict[str, Any],
     degrade_tags: list[str],
+    tenant_flags: dict[str, Any],
 ) -> tuple[float | None, dict[str, Any]]:
+    if tenant_flag_enabled(tenant_flags, "disable_ml"):
+        degrade_tags.append("ml:disabled_by_tenant")
+        return None, {}
     try:
         return await _circuit_ml.call(lambda: _fetch_ml_score(http, tenant_id, entity_id, event_type, features))
     except CircuitOpenError:
@@ -168,7 +190,11 @@ async def _evaluate_opa_wrapped(
     http: httpx.AsyncClient,
     snapshot: dict[str, Any],
     degrade_tags: list[str],
+    tenant_flags: dict[str, Any],
 ) -> dict[str, Any] | None:
+    if tenant_flag_enabled(tenant_flags, "disable_opa"):
+        degrade_tags.append("opa:disabled_by_tenant")
+        return None
     try:
         return await _circuit_opa.call(
             lambda: evaluate_opa_or_raise(
@@ -182,6 +208,39 @@ async def _evaluate_opa_wrapped(
         _circuit_metrics_inc("tarka_circuit_open_total_opa")
         degrade_tags.append("opa:unavailable")
         return None
+
+
+def _compute_fallback_reason(degrade_tags: list[str], step_trace: list[dict[str, Any]]) -> str | None:
+    """R2.4 — compact audit field when rules-only or degraded path was used."""
+    tag_map = {
+        "lists:unavailable": "circuit_list",
+        "graph:unavailable": "circuit_graph",
+        "enrichment:unavailable": "circuit_feature",
+        "ml:unavailable": "circuit_ml",
+        "opa:unavailable": "circuit_opa",
+        "lists:disabled_by_tenant": "tenant_disable_entity_lists",
+        "graph:disabled_by_tenant": "tenant_disable_graph",
+        "enrichment:disabled_by_tenant": "tenant_disable_feature_service",
+        "ml:disabled_by_tenant": "tenant_disable_ml",
+        "opa:disabled_by_tenant": "tenant_disable_opa",
+    }
+    parts: list[str] = []
+    seen: set[str] = set()
+    for t in degrade_tags:
+        code = tag_map.get(t)
+        if code and code not in seen:
+            seen.add(code)
+            parts.append(code)
+    for tr in step_trace:
+        if tr.get("status") == "skipped" and tr.get("reason"):
+            key = f"step_{tr.get('step', '?')}:{tr['reason']}"
+            if key not in seen:
+                seen.add(key)
+                parts.append(key)
+    if settings.score_blend_strategy == "rules_only" and "rules_only_blend" not in seen:
+        parts.append("rules_only_blend")
+        seen.add("rules_only_blend")
+    return "; ".join(parts) if parts else None
 
 
 def _velocity_anomaly_flags(features: dict[str, Any]) -> dict[str, Any]:
@@ -486,6 +545,19 @@ async def ops_governance():
             "attestation_schema_version": 1,
             "note": "Normalized on EvaluateRequest.device_context.attestation (Play Integrity + App Attest).",
         },
+        "tenant_flags": {
+            "redis_key": "fraud:tenant_flags:{tenant_id}",
+            "get": "GET /v1/admin/tenants/{tenant_id}/flags",
+            "patch": "PATCH /v1/admin/tenants/{tenant_id}/flags",
+            "keys": [
+                "disable_graph",
+                "disable_feature_service",
+                "disable_ml",
+                "disable_opa",
+                "disable_entity_lists",
+            ],
+            "evaluate_response": "fallback_reason when degraded (R2.4)",
+        },
     }
 
 
@@ -514,6 +586,33 @@ async def list_challenge_policy_templates():
 async def reload_shadow():
     load_shadow_rules()
     return {"ok": True}
+
+
+class TenantFlagsBody(BaseModel):
+    """Kill-switch flags stored in Redis JSON ``fraud:tenant_flags:{tenant_id}`` (R2.3)."""
+
+    disable_graph: bool | None = None
+    disable_feature_service: bool | None = None
+    disable_ml: bool | None = None
+    disable_opa: bool | None = None
+    disable_entity_lists: bool | None = None
+
+
+@app.get("/v1/admin/tenants/{tenant_id}/flags")
+async def get_tenant_flags_admin(tenant_id: str):
+    if not redis_tags._client:
+        raise HTTPException(503, detail="Redis not configured")
+    flags = await redis_tags.get_tenant_flags(tenant_id)
+    return {"tenant_id": tenant_id, "flags": flags}
+
+
+@app.patch("/v1/admin/tenants/{tenant_id}/flags")
+async def patch_tenant_flags_admin(tenant_id: str, body: TenantFlagsBody):
+    if not redis_tags._client:
+        raise HTTPException(503, detail="Redis not configured")
+    updates = body.model_dump(exclude_none=True)
+    merged = await redis_tags.patch_tenant_flags(tenant_id, updates)
+    return {"tenant_id": tenant_id, "flags": merged}
 
 
 # ---------- signal tag extraction ----------
@@ -862,8 +961,11 @@ async def _graph_upsert_stepped(
     trace_id: str,
     merged_tags: list[str],
     geo_extra_tags: list[str] | None,
+    tenant_flags: dict[str, Any],
 ) -> None:
     """Background graph writes with overall timeout (#32)."""
+    if tenant_flag_enabled(tenant_flags, "disable_graph"):
+        return
 
     async def _do():
         await _graph_upsert(http, body, trace_id, merged_tags, geo_extra_tags)
@@ -981,6 +1083,12 @@ async def evaluate_decision(
     trace_id = uuid.uuid4()
     replay_ttl_seconds = int(os.environ.get("REPLAY_PAYLOAD_TTL_SECONDS", "300"))
     degrade_tags: list[str] = []
+    tenant_flags: dict[str, Any] = {}
+    if redis_tags._client:
+        try:
+            tenant_flags = await redis_tags.get_tenant_flags(body.tenant_id)
+        except Exception:
+            tenant_flags = {}
 
     # Extract SDK signal tags
     dc_dump = body.device_context.model_dump() if body.device_context else None
@@ -1037,7 +1145,7 @@ async def evaluate_decision(
     step_trace: list[dict[str, Any]] = []
 
     async def _list_check_call():
-        return await _list_check_with_circuit(body.tenant_id, body.entity_id, degrade_tags)
+        return await _list_check_with_circuit(body.tenant_id, body.entity_id, degrade_tags, tenant_flags)
 
     list_check, list_trace = await run_evaluation_step(
         "list",
@@ -1156,7 +1264,7 @@ async def evaluate_decision(
 
     graph_risk, graph_trace = await run_evaluation_step(
         "graph_risk",
-        lambda: _fetch_graph_risk_wrapped(http, body.tenant_id, body.entity_id, degrade_tags),
+        lambda: _fetch_graph_risk_wrapped(http, body.tenant_id, body.entity_id, degrade_tags, tenant_flags),
         timeout_seconds=settings.eval_step_graph_risk_timeout_seconds,
         max_attempts=settings.eval_step_graph_risk_max_attempts,
         on_failure="SKIP",
@@ -1170,7 +1278,7 @@ async def evaluate_decision(
     # Feature snapshot (needed before OPA)
     snapshot, snap_trace = await run_evaluation_step(
         "feature_snapshot",
-        lambda: _fetch_feature_snapshot_wrapped(http, body, existing_tags, degrade_tags),
+        lambda: _fetch_feature_snapshot_wrapped(http, body, existing_tags, degrade_tags, tenant_flags),
         timeout_seconds=settings.eval_step_feature_snapshot_timeout_seconds,
         max_attempts=settings.eval_step_feature_snapshot_max_attempts,
         on_failure="SKIP",
@@ -1250,7 +1358,7 @@ async def evaluate_decision(
 
     opa_task = run_evaluation_step(
         "opa",
-        lambda: _evaluate_opa_wrapped(http, snapshot, degrade_tags),
+        lambda: _evaluate_opa_wrapped(http, snapshot, degrade_tags, tenant_flags),
         timeout_seconds=settings.eval_step_opa_timeout_seconds,
         max_attempts=settings.eval_step_opa_max_attempts,
         on_failure="SKIP",
@@ -1265,6 +1373,7 @@ async def evaluate_decision(
             body.event_type.value,
             features,
             degrade_tags,
+            tenant_flags,
         ),
         timeout_seconds=settings.eval_step_ml_timeout_seconds,
         max_attempts=settings.eval_step_ml_max_attempts,
@@ -1344,6 +1453,17 @@ async def evaluate_decision(
     else:
         stored_snapshot = raw_snapshot
 
+    fb_reason = _compute_fallback_reason(degrade_tags, step_trace)
+    snap_extra: dict[str, Any] = {
+        **stored_snapshot,
+        "inference_context": inf_ctx,
+        "recommended_action": recommended_action,
+        "challenge_metadata": ch_meta,
+        "step_trace": step_trace,
+    }
+    if fb_reason:
+        snap_extra["fallback_reason"] = fb_reason
+
     audit = AuditRecord(
         trace_id=trace_id,
         tenant_id=body.tenant_id,
@@ -1353,18 +1473,12 @@ async def evaluate_decision(
         score=final_score,
         tags=merged_tags,
         rule_hits=combined_rule_hits,
-        payload_snapshot={
-            **stored_snapshot,
-            "inference_context": inf_ctx,
-            "recommended_action": recommended_action,
-            "challenge_metadata": ch_meta,
-            "step_trace": step_trace,
-        },
+        payload_snapshot=snap_extra,
     )
     session.add(audit)
     await session.commit()
 
-    bg.add_task(_graph_upsert_stepped, http, body, str(trace_id), merged_tags, geo_extra_tags)
+    bg.add_task(_graph_upsert_stepped, http, body, str(trace_id), merged_tags, geo_extra_tags, tenant_flags)
 
     try:
         m = get_metrics()
@@ -1388,6 +1502,7 @@ async def evaluate_decision(
         recommended_action=recommended_action,
         challenge_policy_id=ch_meta.get("policy_id"),
         challenge_metadata=ch_meta,
+        fallback_reason=fb_reason,
     )
 
     bg.add_task(
@@ -1469,6 +1584,7 @@ async def evaluate_decision(
             recommended_action=_tb_rec,
             challenge_policy_id=_tb_meta.get("policy_id"),
             challenge_metadata=_tb_meta,
+            fallback_reason=fb_reason,
         )
 
     return response

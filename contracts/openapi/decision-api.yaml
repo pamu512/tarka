@@ -817,6 +817,12 @@ components:
           nullable: true
           additionalProperties: true
           description: Matched rule id, escalation ladder, rule index (audit-friendly)
+        fallback_reason:
+          type: string
+          nullable: true
+          description: >-
+            Present when evaluation used degraded dependencies (circuit open, tenant kill-switch) or rules-only blend;
+            mirrors audit payload_snapshot.fallback_reason.
     DriverExplainEntry:
       type: object
       required: [reason, category, label]
