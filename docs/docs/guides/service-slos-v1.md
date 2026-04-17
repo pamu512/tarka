@@ -31,6 +31,10 @@ Legacy standalone example: **[slo-burn-recording-rules.example.yml](../../deploy
 
 **decision-api** wraps list / graph / feature-service / ml-scoring / OPA outbound calls with **async circuit breakers** (env `CIRCUIT_*`). When open, evaluate **fail-opens** with fallbacks and adds signal tags: `lists:unavailable`, `graph:unavailable`, `enrichment:unavailable`, `ml:unavailable`, `opa:unavailable`. Prometheus: `tarka_circuit_open_total_*` counters on **decision-api** `/metrics`.
 
+**Per-tenant kill switches (R2.3):** Redis key `fraud:tenant_flags:{tenant_id}` (JSON). Flags: `disable_graph`, `disable_feature_service`, `disable_ml`, `disable_opa`, `disable_entity_lists`. **GET/PATCH** `/v1/admin/tenants/{tenant_id}/flags` (requires Redis). Evaluate adds tags like `ml:disabled_by_tenant` and **`fallback_reason`** on response + audit when degraded.
+
+**R2.4:** `fallback_reason` string summarizes circuit/tenant degradation and `rules_only_blend` when `SCORE_BLEND_STRATEGY=rules_only`.
+
 ## Related
 
 - [Deployment](deployment.md)

@@ -101,3 +101,7 @@ class EvaluateResponse(BaseModel):
         default=None,
         description="Matched rule id, escalation ladder, etc.",
     )
+    fallback_reason: str | None = Field(
+        default=None,
+        description="Set when evaluate used rules-only or degraded dependencies (circuit/tenant flags); mirrors audit payload_snapshot.fallback_reason",
+    )
