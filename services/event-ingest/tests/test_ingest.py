@@ -214,8 +214,8 @@ class TestWebSocketIngest:
         with client.websocket_connect("/v1/events/ws") as ws:
             ws.send_text(json.dumps({"tenant_id": "t1"}))
             msg = ws.receive_json()
-            assert msg.get("error") == "validation_error"
-            assert "detail" in msg
+            assert msg.get("error") == "ingest_contract_violation"
+            assert "reason_codes" in msg
 
     def test_ws_invalid_json(self, client, mock_js):
         with client.websocket_connect("/v1/events/ws") as ws:
