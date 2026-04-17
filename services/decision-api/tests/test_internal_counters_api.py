@@ -165,9 +165,9 @@ class TestReplayFromAudit:
             )
             out = await post_counter_replay_from_audit(body, mock_session)
 
-        assert out["recorded"] == 1
-        assert out["audit_rows"] == 1
-        assert out["tenant_id"] == "t_audit"
+        assert out.recorded == 1
+        assert out.audit_rows == 1
+        assert out.tenant_id == "t_audit"
 
     @pytest.mark.asyncio
     async def test_replay_from_audit_404(self, client, monkeypatch):

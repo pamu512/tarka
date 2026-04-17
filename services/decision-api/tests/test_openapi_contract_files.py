@@ -62,5 +62,13 @@ def test_fastapi_openapi_contains_evaluate_and_inference():
                         paths = schema.get("paths", {})
                         assert "/v1/decisions/evaluate" in paths, "FastAPI schema should expose POST evaluate"
                         assert "/v1/challenge-policies" in paths, "FastAPI schema should expose GET challenge-policies"
+                        assert "/v1/internal/counters/manifest" in paths
+                        assert "/v1/internal/counters/replay" in paths
+                        assert "/v1/internal/counters/replay/from-audit" in paths
+                        assert "/v1/ops/calibration-status" in paths
+                        schemes = schema.get("components", {}).get("securitySchemes", {})
+                        assert "TarkaCounterReplayToken" in schemes
+                        replay_post = paths["/v1/internal/counters/replay"].get("post", {})
+                        assert replay_post.get("security") == [{"TarkaCounterReplayToken": []}]
                         blob = json.dumps(schema)
                         assert "inference_context" in blob.lower()

@@ -7,7 +7,8 @@ import uuid
 from typing import Any
 
 import redis.asyncio as aioredis
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Security
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +20,13 @@ from decision_api.db import get_session
 from decision_api.models import AuditRecord
 
 router = APIRouter(prefix="/v1/internal/counters", tags=["internal-counters"])
+
+# OpenAPI + runtime: header-based token (same as env COUNTER_REPLAY_TOKEN)
+_counter_replay_api_key = APIKeyHeader(
+    name="X-Tarka-Counter-Replay-Token",
+    auto_error=False,
+    scheme_name="TarkaCounterReplayToken",
+)
 
 MAX_REPLAY_EVENTS = 2000
 MAX_REPLAY_FROM_AUDIT = 20_000
@@ -48,15 +56,40 @@ class CounterReplayFromAuditRequest(BaseModel):
     limit: int = Field(default=2000, ge=1, le=MAX_REPLAY_FROM_AUDIT)
 
 
-async def require_counter_replay_token(request: Request) -> None:
-    tok = settings.counter_replay_token.strip()
-    if not tok:
+class CounterReplayResponse(BaseModel):
+    """Result of replaying inline events into scratch Redis."""
+
+    manifest_version: str
+    recorded: int = Field(ge=0)
+    scratch_redis_url: str
+
+
+class CounterReplayFromAuditResponse(BaseModel):
+    """Result of replaying audit rows into scratch Redis."""
+
+    manifest_version: str
+    recorded: int = Field(ge=0)
+    audit_rows: int = Field(ge=0)
+    scratch_redis_url: str
+    tenant_id: str
+    entity_id: str
+
+
+async def require_counter_replay_token(
+    token: str | None = Security(_counter_replay_api_key),
+) -> None:
+    expected = settings.counter_replay_token.strip()
+    if not expected:
         raise HTTPException(
             status_code=503,
             detail="counter replay disabled — set COUNTER_REPLAY_TOKEN in the environment",
         )
-    if request.headers.get("x-tarka-counter-replay-token", "") != tok:
+    if not token or token.strip() != expected:
         raise HTTPException(status_code=401, detail="invalid or missing X-Tarka-Counter-Replay-Token")
+
+
+# Secured sub-router: token dependency applies to all routes here (merged into main router for OpenAPI)
+_secured = APIRouter(dependencies=[Security(require_counter_replay_token)])
 
 
 async def apply_replay_events(store: AggregateStore, events: list[ReplayEventIn]) -> int:
@@ -78,13 +111,21 @@ async def get_counter_manifest() -> dict[str, Any]:
     return m
 
 
-@router.post("/replay", dependencies=[Depends(require_counter_replay_token)])
-async def post_counter_replay(body: CounterReplayRequest) -> dict[str, Any]:
-    """
-    Replay JSON events into a scratch Redis using AggregateStore (offline parity).
-
-    Requires header ``X-Tarka-Counter-Replay-Token`` matching ``COUNTER_REPLAY_TOKEN``.
-    """
+@_secured.post(
+    "/replay",
+    response_model=CounterReplayResponse,
+    summary="Replay inline events into scratch Redis",
+    description=(
+        "Replay JSON events into a scratch Redis using AggregateStore (offline parity). "
+        "Requires header **X-Tarka-Counter-Replay-Token** matching **COUNTER_REPLAY_TOKEN**. "
+        "Aggregate keys honor **AGG_KEY_VERSION** when set on this process."
+    ),
+    responses={
+        401: {"description": "Invalid or missing replay token"},
+        503: {"description": "COUNTER_REPLAY_TOKEN not configured"},
+    },
+)
+async def post_counter_replay(body: CounterReplayRequest) -> CounterReplayResponse:
     client = aioredis.from_url(body.scratch_redis_url.strip(), decode_responses=True)
     try:
         store = AggregateStore(client)
@@ -92,22 +133,31 @@ async def post_counter_replay(body: CounterReplayRequest) -> dict[str, Any]:
     finally:
         await client.aclose()
 
-    return {
-        "manifest_version": manifest_version(),
-        "recorded": recorded,
-        "scratch_redis_url": body.scratch_redis_url.strip(),
-    }
+    return CounterReplayResponse(
+        manifest_version=manifest_version(),
+        recorded=recorded,
+        scratch_redis_url=body.scratch_redis_url.strip(),
+    )
 
 
-@router.post("/replay/from-audit", dependencies=[Depends(require_counter_replay_token)])
+@_secured.post(
+    "/replay/from-audit",
+    response_model=CounterReplayFromAuditResponse,
+    summary="Replay decision_audit rows into scratch Redis",
+    description=(
+        "Load recent **decision_audit** rows for (tenant_id, entity_id); map **payload_snapshot.payload** "
+        "to aggregate fields. Same authentication as **POST /replay**."
+    ),
+    responses={
+        401: {"description": "Invalid or missing replay token"},
+        404: {"description": "No audit rows for tenant_id and entity_id"},
+        503: {"description": "COUNTER_REPLAY_TOKEN not configured"},
+    },
+)
 async def post_counter_replay_from_audit(
     body: CounterReplayFromAuditRequest,
     session: AsyncSession = Depends(get_session),
-) -> dict[str, Any]:
-    """
-    Load recent ``decision_audit`` rows for (tenant_id, entity_id), map ``payload_snapshot.payload``
-    to aggregate ``fields``, and replay into scratch Redis (same as ``POST /replay`` but sourced from DB).
-    """
+) -> CounterReplayFromAuditResponse:
     stmt = (
         select(AuditRecord)
         .where(
@@ -153,11 +203,14 @@ async def post_counter_replay_from_audit(
     finally:
         await client.aclose()
 
-    return {
-        "manifest_version": manifest_version(),
-        "recorded": recorded,
-        "audit_rows": len(rows),
-        "scratch_redis_url": body.scratch_redis_url.strip(),
-        "tenant_id": body.tenant_id.strip(),
-        "entity_id": body.entity_id.strip(),
-    }
+    return CounterReplayFromAuditResponse(
+        manifest_version=manifest_version(),
+        recorded=recorded,
+        audit_rows=len(rows),
+        scratch_redis_url=body.scratch_redis_url.strip(),
+        tenant_id=body.tenant_id.strip(),
+        entity_id=body.entity_id.strip(),
+    )
+
+
+router.include_router(_secured)
