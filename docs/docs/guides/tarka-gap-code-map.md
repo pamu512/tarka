@@ -160,6 +160,7 @@ These gaps are **not** a missing folder—they are **business or data moats**:
 
 - [competitive-critical-review-2026-04.md](competitive-critical-review-2026-04.md)
 - [competitive-score-matrix-2026-04.md](competitive-score-matrix-2026-04.md)
+- [competitive-module-rescore-post-parity-2026-04.md](competitive-module-rescore-post-parity-2026-04.md) — module-level scores vs OSS / paid / device / location columns
 - [aspirational-gaps-execution-plan.md](./aspirational-gaps-execution-plan.md)
 - [roadmap-30-60-90.md](roadmap-30-60-90.md) (if present)
 - Module roadmaps: `docs/docs/projects/*-project.md`
