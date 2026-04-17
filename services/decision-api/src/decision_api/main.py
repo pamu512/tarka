@@ -28,12 +28,13 @@ from decision_api.fingerprint_store import fingerprint_store
 from decision_api.json_rules import evaluate_json_rules, load_rules
 from decision_api.json_rules import governance_summary as rules_governance_summary
 from decision_api.models import AuditRecord
-from decision_api.opa_client import evaluate_opa
+from decision_api.opa_client import evaluate_opa_or_raise
 from decision_api.redis_store import redis_tags
 from decision_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
-from entity_lists import create_list_store  # noqa: E402
+from circuit import AsyncCircuitBreaker, CircuitOpenError  # noqa: E402
+from entity_lists import ListCheckResult, create_list_store  # noqa: E402
 from event_time import event_time_unix_for_evaluate  # noqa: E402
 from privacy import get_profile, mask_dict  # noqa: E402
 
@@ -69,7 +70,118 @@ from security_headers import setup_security_headers  # noqa: E402
 
 log = logging.getLogger("decision-api")
 
+_circuit_graph = AsyncCircuitBreaker(
+    "graph",
+    failure_threshold=settings.circuit_graph_failure_threshold,
+    recovery_seconds=settings.circuit_graph_recovery_seconds,
+)
+_circuit_feature = AsyncCircuitBreaker(
+    "feature",
+    failure_threshold=settings.circuit_feature_failure_threshold,
+    recovery_seconds=settings.circuit_feature_recovery_seconds,
+)
+_circuit_ml = AsyncCircuitBreaker(
+    "ml",
+    failure_threshold=settings.circuit_ml_failure_threshold,
+    recovery_seconds=settings.circuit_ml_recovery_seconds,
+)
+_circuit_opa = AsyncCircuitBreaker(
+    "opa",
+    failure_threshold=settings.circuit_opa_failure_threshold,
+    recovery_seconds=settings.circuit_opa_recovery_seconds,
+)
+_circuit_list = AsyncCircuitBreaker(
+    "list",
+    failure_threshold=settings.circuit_list_failure_threshold,
+    recovery_seconds=settings.circuit_list_recovery_seconds,
+)
+
 _ANALYST_ENTITY_ID = _re.compile(r"^[a-zA-Z0-9._@:/-]{1,512}$")
+
+
+def _circuit_metrics_inc(name: str) -> None:
+    try:
+        get_metrics().inc(name)
+    except Exception:
+        pass
+
+
+async def _list_check_with_circuit(tenant_id: str, entity_id: str, degrade_tags: list[str]) -> ListCheckResult:
+    _ls = _get_list_store()
+
+    async def _call():
+        return await _ls.check(tenant_id, entity_id)
+
+    try:
+        return await _circuit_list.call(_call)
+    except CircuitOpenError:
+        _circuit_metrics_inc("tarka_circuit_open_total_list")
+        degrade_tags.append("lists:unavailable")
+        return ListCheckResult(found=False, action="evaluate", reason="circuit_open")
+
+
+async def _fetch_graph_risk_wrapped(
+    http: httpx.AsyncClient,
+    tenant_id: str,
+    entity_id: str,
+    degrade_tags: list[str],
+) -> dict[str, Any] | None:
+    try:
+        return await _circuit_graph.call(lambda: _fetch_graph_risk(http, tenant_id, entity_id))
+    except CircuitOpenError:
+        _circuit_metrics_inc("tarka_circuit_open_total_graph")
+        degrade_tags.append("graph:unavailable")
+        return None
+
+
+async def _fetch_feature_snapshot_wrapped(
+    http: httpx.AsyncClient,
+    body: EvaluateRequest,
+    redis_tag_list: list[str],
+    degrade_tags: list[str],
+) -> dict[str, Any]:
+    try:
+        return await _circuit_feature.call(lambda: _fetch_feature_snapshot(http, body, redis_tag_list))
+    except CircuitOpenError:
+        _circuit_metrics_inc("tarka_circuit_open_total_feature")
+        degrade_tags.append("enrichment:unavailable")
+        return _feature_snapshot_fallback(body, redis_tag_list)
+
+
+async def _fetch_ml_score_wrapped(
+    http: httpx.AsyncClient,
+    tenant_id: str,
+    entity_id: str,
+    event_type: str,
+    features: dict[str, Any],
+    degrade_tags: list[str],
+) -> tuple[float | None, dict[str, Any]]:
+    try:
+        return await _circuit_ml.call(lambda: _fetch_ml_score(http, tenant_id, entity_id, event_type, features))
+    except CircuitOpenError:
+        _circuit_metrics_inc("tarka_circuit_open_total_ml")
+        degrade_tags.append("ml:unavailable")
+        return None, {}
+
+
+async def _evaluate_opa_wrapped(
+    http: httpx.AsyncClient,
+    snapshot: dict[str, Any],
+    degrade_tags: list[str],
+) -> dict[str, Any] | None:
+    try:
+        return await _circuit_opa.call(
+            lambda: evaluate_opa_or_raise(
+                http,
+                settings.opa_url,
+                {"snapshot": snapshot},
+                timeout_seconds=settings.eval_step_opa_timeout_seconds,
+            )
+        )
+    except CircuitOpenError:
+        _circuit_metrics_inc("tarka_circuit_open_total_opa")
+        degrade_tags.append("opa:unavailable")
+        return None
 
 
 def _velocity_anomaly_flags(features: dict[str, Any]) -> dict[str, Any]:
@@ -594,8 +706,7 @@ async def _fetch_ml_score(
         },
         timeout=settings.eval_step_ml_timeout_seconds,
     )
-    if r.status_code != 200:
-        return None, empty
+    r.raise_for_status()
     data = r.json()
     score = float(data.get("score", 0))
     factors = data.get("ml_top_factors")
@@ -782,8 +893,7 @@ async def _fetch_graph_risk(
         params={"tenant_id": tenant_id, "entity_id": entity_id},
         timeout=settings.eval_step_graph_risk_timeout_seconds,
     )
-    if r.status_code != 200:
-        return None
+    r.raise_for_status()
     data = r.json()
     return data if isinstance(data, dict) else None
 
@@ -870,6 +980,7 @@ async def evaluate_decision(
     http = _http(request)
     trace_id = uuid.uuid4()
     replay_ttl_seconds = int(os.environ.get("REPLAY_PAYLOAD_TTL_SECONDS", "300"))
+    degrade_tags: list[str] = []
 
     # Extract SDK signal tags
     dc_dump = body.device_context.model_dump() if body.device_context else None
@@ -926,8 +1037,7 @@ async def evaluate_decision(
     step_trace: list[dict[str, Any]] = []
 
     async def _list_check_call():
-        _ls = _get_list_store()
-        return await _ls.check(body.tenant_id, body.entity_id)
+        return await _list_check_with_circuit(body.tenant_id, body.entity_id, degrade_tags)
 
     list_check, list_trace = await run_evaluation_step(
         "list",
@@ -1046,7 +1156,7 @@ async def evaluate_decision(
 
     graph_risk, graph_trace = await run_evaluation_step(
         "graph_risk",
-        lambda: _fetch_graph_risk(http, body.tenant_id, body.entity_id),
+        lambda: _fetch_graph_risk_wrapped(http, body.tenant_id, body.entity_id, degrade_tags),
         timeout_seconds=settings.eval_step_graph_risk_timeout_seconds,
         max_attempts=settings.eval_step_graph_risk_max_attempts,
         on_failure="SKIP",
@@ -1060,7 +1170,7 @@ async def evaluate_decision(
     # Feature snapshot (needed before OPA)
     snapshot, snap_trace = await run_evaluation_step(
         "feature_snapshot",
-        lambda: _fetch_feature_snapshot(http, body, existing_tags),
+        lambda: _fetch_feature_snapshot_wrapped(http, body, existing_tags, degrade_tags),
         timeout_seconds=settings.eval_step_feature_snapshot_timeout_seconds,
         max_attempts=settings.eval_step_feature_snapshot_max_attempts,
         on_failure="SKIP",
@@ -1140,12 +1250,7 @@ async def evaluate_decision(
 
     opa_task = run_evaluation_step(
         "opa",
-        lambda: evaluate_opa(
-            http,
-            settings.opa_url,
-            {"snapshot": snapshot},
-            timeout_seconds=settings.eval_step_opa_timeout_seconds,
-        ),
+        lambda: _evaluate_opa_wrapped(http, snapshot, degrade_tags),
         timeout_seconds=settings.eval_step_opa_timeout_seconds,
         max_attempts=settings.eval_step_opa_max_attempts,
         on_failure="SKIP",
@@ -1153,7 +1258,14 @@ async def evaluate_decision(
     )
     ml_task = run_evaluation_step(
         "ml_score",
-        lambda: _fetch_ml_score(http, body.tenant_id, body.entity_id, body.event_type.value, features),
+        lambda: _fetch_ml_score_wrapped(
+            http,
+            body.tenant_id,
+            body.entity_id,
+            body.event_type.value,
+            features,
+            degrade_tags,
+        ),
         timeout_seconds=settings.eval_step_ml_timeout_seconds,
         max_attempts=settings.eval_step_ml_max_attempts,
         on_failure="SKIP",
@@ -1162,6 +1274,10 @@ async def evaluate_decision(
     (opa_result, opa_trace), (ml_pack, ml_trace) = await asyncio.gather(opa_task, ml_task, return_exceptions=False)
     step_trace.extend([opa_trace, ml_trace])
     ml_score, ml_detail = ml_pack
+
+    for _dt in degrade_tags:
+        if _dt not in signal_tags:
+            signal_tags.append(_dt)
 
     if opa_result and isinstance(opa_result, dict):
         rule_hits.extend(str(x) for x in opa_result.get("rule_hits", []))
