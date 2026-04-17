@@ -23,6 +23,7 @@ from decision_api.config import settings
 from decision_api.currency import normalize_amount
 from decision_api.db import get_session, init_db
 from decision_api.entity_link_store import entity_link_store
+from decision_api.eval_steps import run_evaluation_step
 from decision_api.fingerprint_store import fingerprint_store
 from decision_api.json_rules import evaluate_json_rules, load_rules
 from decision_api.json_rules import governance_summary as rules_governance_summary
@@ -527,15 +528,19 @@ def extract_behavior_tags(device_context: dict[str, Any] | None) -> list[str]:
 # ---------- downstream helpers ----------
 
 
+def _feature_snapshot_fallback(body: EvaluateRequest, redis_tag_list: list[str]) -> dict[str, Any]:
+    return {
+        "tenant_id": body.tenant_id,
+        "entity_id": body.entity_id,
+        "event_type": body.event_type.value,
+        "features": dict(body.payload),
+        "redis_tags": redis_tag_list,
+    }
+
+
 async def _fetch_feature_snapshot(http: httpx.AsyncClient, body: EvaluateRequest, redis_tag_list: list[str]) -> dict[str, Any]:
     if not settings.feature_service_url:
-        return {
-            "tenant_id": body.tenant_id,
-            "entity_id": body.entity_id,
-            "event_type": body.event_type.value,
-            "features": dict(body.payload),
-            "redis_tags": redis_tag_list,
-        }
+        return _feature_snapshot_fallback(body, redis_tag_list)
     url = settings.feature_service_url.rstrip("/") + "/v1/snapshot"
     r = await http.post(
         url,
@@ -545,6 +550,7 @@ async def _fetch_feature_snapshot(http: httpx.AsyncClient, body: EvaluateRequest
             "event_type": body.event_type.value,
             "payload": body.payload,
         },
+        timeout=settings.eval_step_feature_snapshot_timeout_seconds,
     )
     r.raise_for_status()
     return r.json()
@@ -558,35 +564,32 @@ async def _fetch_ml_score(
     if not settings.ml_scoring_url:
         return None, empty
     url = settings.ml_scoring_url.rstrip("/") + "/v1/score"
-    try:
-        r = await http.post(
-            url,
-            json={
-                "tenant_id": tenant_id,
-                "entity_id": entity_id,
-                "event_type": event_type,
-                "features": features,
-            },
-            timeout=2.0,
-        )
-        if r.status_code != 200:
-            return None, empty
-        data = r.json()
-        score = float(data.get("score", 0))
-        factors = data.get("ml_top_factors")
-        if not isinstance(factors, list):
-            factors = []
-        summary = data.get("ml_summary")
-        if summary is not None and not isinstance(summary, str):
-            summary = str(summary)[:500]
-        model = data.get("model")
-        return score, {
-            "top_factors": factors,
-            "summary": summary,
-            "model": model if isinstance(model, str) else None,
-        }
-    except httpx.HTTPError:
+    r = await http.post(
+        url,
+        json={
+            "tenant_id": tenant_id,
+            "entity_id": entity_id,
+            "event_type": event_type,
+            "features": features,
+        },
+        timeout=settings.eval_step_ml_timeout_seconds,
+    )
+    if r.status_code != 200:
         return None, empty
+    data = r.json()
+    score = float(data.get("score", 0))
+    factors = data.get("ml_top_factors")
+    if not isinstance(factors, list):
+        factors = []
+    summary = data.get("ml_summary")
+    if summary is not None and not isinstance(summary, str):
+        summary = str(summary)[:500]
+    model = data.get("model")
+    return score, {
+        "top_factors": factors,
+        "summary": summary,
+        "model": model if isinstance(model, str) else None,
+    }
 
 
 def _quantize_place_cell(lat: float, lon: float, precision: int = 3) -> str:
@@ -722,6 +725,30 @@ async def _graph_upsert(
             )
 
 
+async def _graph_upsert_stepped(
+    http: httpx.AsyncClient,
+    body: EvaluateRequest,
+    trace_id: str,
+    merged_tags: list[str],
+    geo_extra_tags: list[str] | None,
+) -> None:
+    """Background graph writes with overall timeout (#32)."""
+
+    async def _do():
+        await _graph_upsert(http, body, trace_id, merged_tags, geo_extra_tags)
+
+    _, trace = await run_evaluation_step(
+        "graph_upsert",
+        _do,
+        timeout_seconds=settings.eval_step_graph_upsert_timeout_seconds,
+        max_attempts=settings.eval_step_graph_upsert_max_attempts,
+        on_failure="SKIP",
+        fallback=None,
+    )
+    if trace.get("status") != "ok":
+        log.warning("graph_upsert step did not complete: %s", trace)
+
+
 async def _fetch_graph_risk(
     http: httpx.AsyncClient,
     tenant_id: str,
@@ -730,18 +757,15 @@ async def _fetch_graph_risk(
     if not settings.graph_service_url:
         return None
     url = settings.graph_service_url.rstrip("/") + "/v1/analytics/entity-risk"
-    try:
-        r = await http.get(
-            url,
-            params={"tenant_id": tenant_id, "entity_id": entity_id},
-            timeout=2.0,
-        )
-        if r.status_code != 200:
-            return None
-        data = r.json()
-        return data if isinstance(data, dict) else None
-    except httpx.HTTPError:
+    r = await http.get(
+        url,
+        params={"tenant_id": tenant_id, "entity_id": entity_id},
+        timeout=settings.eval_step_graph_risk_timeout_seconds,
+    )
+    if r.status_code != 200:
         return None
+    data = r.json()
+    return data if isinstance(data, dict) else None
 
 
 def _blend_scores(rule_score: float, ml_score: float | None) -> float:
@@ -877,13 +901,23 @@ async def evaluate_decision(
         if isinstance(body.metadata, dict) and body.metadata:
             await entity_link_store.record_vendor_bridge(body.tenant_id, body.entity_id, body.metadata)
 
-    # Check whitelist/blacklist/test bypass BEFORE full evaluation
+    # Check whitelist/blacklist/test bypass BEFORE full evaluation (bounded list step #32)
     list_check = None
-    try:
+    step_trace: list[dict[str, Any]] = []
+
+    async def _list_check_call():
         _ls = _get_list_store()
-        list_check = await _ls.check(body.tenant_id, body.entity_id)
-    except Exception:
-        pass
+        return await _ls.check(body.tenant_id, body.entity_id)
+
+    list_check, list_trace = await run_evaluation_step(
+        "list",
+        _list_check_call,
+        timeout_seconds=settings.eval_step_list_timeout_seconds,
+        max_attempts=settings.eval_step_list_max_attempts,
+        on_failure="SKIP",
+        fallback=None,
+    )
+    step_trace.append(list_trace)
 
     if list_check and list_check.found:
         if list_check.action == "allow":
@@ -911,6 +945,7 @@ async def evaluate_decision(
                     "inference_context": _wl_inf,
                     "recommended_action": _wl_rec,
                     "challenge_metadata": _wl_meta,
+                    "step_trace": step_trace,
                 },
             )
             session.add(audit)
@@ -955,6 +990,7 @@ async def evaluate_decision(
                     "inference_context": _bl_inf,
                     "recommended_action": _bl_rec,
                     "challenge_metadata": _bl_meta,
+                    "step_trace": step_trace,
                 },
             )
             session.add(audit)
@@ -988,13 +1024,29 @@ async def evaluate_decision(
         except Exception:
             consortium_delta = 0.0
 
-    graph_risk = await _fetch_graph_risk(http, body.tenant_id, body.entity_id)
+    graph_risk, graph_trace = await run_evaluation_step(
+        "graph_risk",
+        lambda: _fetch_graph_risk(http, body.tenant_id, body.entity_id),
+        timeout_seconds=settings.eval_step_graph_risk_timeout_seconds,
+        max_attempts=settings.eval_step_graph_risk_max_attempts,
+        on_failure="SKIP",
+        fallback=None,
+    )
+    step_trace.append(graph_trace)
     if graph_risk:
         graph_delta = graph_score_delta(graph_risk.get("risk_score"))
         signal_tags.extend(graph_tags_from_risk(graph_risk))
 
     # Feature snapshot (needed before OPA)
-    snapshot = await _fetch_feature_snapshot(http, body, existing_tags)
+    snapshot, snap_trace = await run_evaluation_step(
+        "feature_snapshot",
+        lambda: _fetch_feature_snapshot(http, body, existing_tags),
+        timeout_seconds=settings.eval_step_feature_snapshot_timeout_seconds,
+        max_attempts=settings.eval_step_feature_snapshot_max_attempts,
+        on_failure="SKIP",
+        fallback=_feature_snapshot_fallback(body, existing_tags),
+    )
+    step_trace.append(snap_trace)
     features: dict[str, Any] = dict(snapshot.get("features") or {})
     redis_tag_list = list(snapshot.get("redis_tags") or existing_tags)
 
@@ -1064,9 +1116,29 @@ async def evaluate_decision(
         evaluation_mode="production",
     )
 
-    opa_coro = evaluate_opa(http, settings.opa_url, {"snapshot": snapshot})
-    ml_coro = _fetch_ml_score(http, body.tenant_id, body.entity_id, body.event_type.value, features)
-    opa_result, ml_pack = await asyncio.gather(opa_coro, ml_coro, return_exceptions=False)
+    opa_task = run_evaluation_step(
+        "opa",
+        lambda: evaluate_opa(
+            http,
+            settings.opa_url,
+            {"snapshot": snapshot},
+            timeout_seconds=settings.eval_step_opa_timeout_seconds,
+        ),
+        timeout_seconds=settings.eval_step_opa_timeout_seconds,
+        max_attempts=settings.eval_step_opa_max_attempts,
+        on_failure="SKIP",
+        fallback=None,
+    )
+    ml_task = run_evaluation_step(
+        "ml_score",
+        lambda: _fetch_ml_score(http, body.tenant_id, body.entity_id, body.event_type.value, features),
+        timeout_seconds=settings.eval_step_ml_timeout_seconds,
+        max_attempts=settings.eval_step_ml_max_attempts,
+        on_failure="SKIP",
+        fallback=(None, {}),
+    )
+    (opa_result, opa_trace), (ml_pack, ml_trace) = await asyncio.gather(opa_task, ml_task, return_exceptions=False)
+    step_trace.extend([opa_trace, ml_trace])
     ml_score, ml_detail = ml_pack
 
     if opa_result and isinstance(opa_result, dict):
@@ -1148,12 +1220,13 @@ async def evaluate_decision(
             "inference_context": inf_ctx,
             "recommended_action": recommended_action,
             "challenge_metadata": ch_meta,
+            "step_trace": step_trace,
         },
     )
     session.add(audit)
     await session.commit()
 
-    bg.add_task(_graph_upsert, http, body, str(trace_id), merged_tags, geo_extra_tags)
+    bg.add_task(_graph_upsert_stepped, http, body, str(trace_id), merged_tags, geo_extra_tags)
 
     try:
         m = get_metrics()

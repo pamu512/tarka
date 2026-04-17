@@ -66,7 +66,7 @@ The platform is designed around composability. Run just the Decision API with Re
 
 - :material-kubernetes: **[Deployment Guide](guides/deployment.md)**
 
-    Deploy to production with Docker Compose profiles or Helm on Kubernetes.
+    Deploy to production with Docker Compose profiles or Helm on Kubernetes. **[OSS track closure checklist](guides/oss-track-issue-closure-evidence-2026-04.md)** (#31–#54 merge evidence).
 
 - :material-robot: **[Investigation copilot (Saarthi) & Saarthi Pro](guides/saarthi-pro-vs-oss.md)**
 
