@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
+# Module swimlane label for GitHub project #3 (Integrations / platform); link is informational.
+_SWIMLANE_INTEGRATE = "J1 — Integrate"
+_GITHUB_PROJECT_VIEW = "https://github.com/users/pamu512/projects/3"
+
 
 def _p(
     pid: str,
@@ -10,6 +14,7 @@ def _p(
     *,
     fields: list[str] | None = None,
     doc_url: str,
+    swimlane_module: str = _SWIMLANE_INTEGRATE,
 ) -> dict[str, Any]:
     return {
         "id": pid,
@@ -18,6 +23,8 @@ def _p(
         "type": "api",
         "required_config_fields": fields or ["api_key", "username", "password"],
         "doc_url": doc_url,
+        "swimlane_module": swimlane_module,
+        "github_project_view_url": _GITHUB_PROJECT_VIEW,
     }
 
 
