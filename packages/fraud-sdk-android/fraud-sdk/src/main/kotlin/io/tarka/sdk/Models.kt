@@ -97,6 +97,43 @@ data class EvaluateResponse(
     val decision: String,
     val score: Double,
     val tags: List<String>,
-    val inferenceContext: Map<String, Any?>? = null,
+    val inferenceContext: InferenceContext? = null,
     val recommendedAction: String? = null,
+)
+
+data class DriverExplainEntry(
+    val reason: String,
+    val category: String,
+    val label: String,
+)
+
+data class MlTopFactor(
+    val code: String,
+    val description: String,
+    val impact: String,
+)
+
+data class InferenceContext(
+    val schemaVersion: String,
+    val calibrationProfile: String,
+    val expectedCalibrationVersion: Int,
+    val integrityConfidence: Double,
+    val tamperRisk: Double,
+    val networkTrust: Double,
+    val replayRisk: Double,
+    val geoConsistencyRisk: Double,
+    val topSignals: List<String>,
+    val confidenceTier: String,
+    val driverReasons: List<String>,
+    val colocationRisk: Double,
+    val copresenceRisk: Double,
+    val impossibleTravelRisk: Double,
+    val velocityEvents5m: Int,
+    val velocityEvents1h: Int,
+    val velocityEvents24h: Int,
+    val confidenceTierLabel: String? = null,
+    val driverExplain: List<DriverExplainEntry> = emptyList(),
+    val mlTopFactors: List<MlTopFactor> = emptyList(),
+    val mlSummary: String? = null,
+    val mlModel: String? = null,
 )
