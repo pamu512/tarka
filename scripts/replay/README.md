@@ -51,3 +51,7 @@ With **`COUNTER_REPLAY_TOKEN`** set and header **`X-Tarka-Counter-Replay-Token`*
 ## Fixture for CI
 
 [`fixtures/parity_smoke.jsonl`](fixtures/parity_smoke.jsonl) — used by [`.github/workflows/counter-parity-smoke.yml`](../../.github/workflows/counter-parity-smoke.yml).
+
+## Changing Redis key prefix (`AGG_KEY_VERSION`)
+
+See **[redis-agg-key-version-migration.md](../../docs/docs/guides/redis-agg-key-version-migration.md)** for production migration strategies and rollback.

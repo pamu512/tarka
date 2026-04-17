@@ -58,6 +58,7 @@ Until this section is satisfied, **`v1.2.0` stays in “building” mode** per [
 - **Purpose:** isolate a new key namespace when aggregate semantics change (migration) without deleting legacy keys immediately.
 - **Set on:** decision-api, workers that call **`AggregateStore`**, **`replay_aggregates.py`**, and any offline job that must match production keys.
 - **Manifest:** **`GET /v1/internal/counters/manifest`** echoes **`redis_key_version`** when the env var is valid.
+- **Full playbook:** **[redis-agg-key-version-migration.md](./redis-agg-key-version-migration.md)** — big-bang, blue/green Redis, replay backfill, rollback, verification checklist.
 
 ### Audit → JSONL → scratch Redis (batch)
 

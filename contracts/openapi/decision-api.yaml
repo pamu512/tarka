@@ -376,7 +376,101 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+  /v1/ops/calibration-status:
+    get:
+      operationId: opsCalibrationStatus
+      summary: Drift and governance hints for a tenant profile
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: profile
+          in: query
+          required: false
+          schema: { type: string, default: default }
+      responses:
+        "200":
+          description: Calibration drift bundle
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/internal/counters/manifest:
+    get:
+      operationId: getCounterManifest
+      summary: Counter manifest (velocity feature names and windows)
+      description: >-
+        Read-only parity contract for Redis-backed aggregates. When AGG_KEY_VERSION is set on the server,
+        response includes redis_key_version. Does not require COUNTER_REPLAY_TOKEN.
+      responses:
+        "200":
+          description: Manifest JSON (feature_outputs, manifest_version, optional redis_key_version)
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/internal/counters/replay:
+    post:
+      operationId: replayCountersToScratchRedis
+      summary: Replay inline events into a scratch Redis (offline parity)
+      description: >-
+        Requires env COUNTER_REPLAY_TOKEN and header X-Tarka-Counter-Replay-Token. Aggregate keys honor
+        AGG_KEY_VERSION on the API process when writing. Use an isolated Redis DB index for scratch_redis_url.
+      security:
+        - TarkaCounterReplayToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CounterReplayRequest"
+      responses:
+        "200":
+          description: Replay summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CounterReplayResponse"
+        "401":
+          description: Invalid or missing replay token
+        "503":
+          description: Counter replay disabled (COUNTER_REPLAY_TOKEN unset)
+  /v1/internal/counters/replay/from-audit:
+    post:
+      operationId: replayCountersFromAudit
+      summary: Replay decision_audit rows into scratch Redis
+      description: >-
+        Loads payload_snapshot.payload per row as aggregate fields. Same authentication as POST /v1/internal/counters/replay.
+      security:
+        - TarkaCounterReplayToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CounterReplayFromAuditRequest"
+      responses:
+        "200":
+          description: Replay summary including audit row count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CounterReplayFromAuditResponse"
+        "401":
+          description: Invalid or missing replay token
+        "404":
+          description: No audit rows for tenant_id and entity_id
+        "503":
+          description: Counter replay disabled (COUNTER_REPLAY_TOKEN unset)
 components:
+  securitySchemes:
+    TarkaCounterReplayToken:
+      type: apiKey
+      in: header
+      name: X-Tarka-Counter-Replay-Token
   schemas:
     CalibrationSnapshotBody:
       type: object
@@ -393,6 +487,69 @@ components:
         mean_integrity: { type: number, nullable: true }
         mean_final_score: { type: number, nullable: true }
         notes: { type: string, nullable: true }
+    CounterReplayEvent:
+      type: object
+      required: [tenant_id, entity_id]
+      properties:
+        tenant_id: { type: string, maxLength: 256 }
+        entity_id: { type: string, maxLength: 512 }
+        event_id: { type: string, nullable: true, maxLength: 256 }
+        fields:
+          type: object
+          additionalProperties: true
+          default: {}
+        ts: { type: number, nullable: true, description: Unix epoch seconds for aggregate windowing }
+    CounterReplayRequest:
+      type: object
+      required: [scratch_redis_url]
+      properties:
+        scratch_redis_url:
+          type: string
+          minLength: 8
+          description: e.g. redis://localhost:6379/15
+        events:
+          type: array
+          maxItems: 2000
+          items:
+            $ref: "#/components/schemas/CounterReplayEvent"
+          default: []
+    CounterReplayResponse:
+      type: object
+      required: [manifest_version, recorded, scratch_redis_url]
+      properties:
+        manifest_version: { type: string }
+        recorded: { type: integer, minimum: 0 }
+        scratch_redis_url: { type: string }
+    CounterReplayFromAuditRequest:
+      type: object
+      required: [scratch_redis_url, tenant_id, entity_id]
+      properties:
+        scratch_redis_url:
+          type: string
+          minLength: 8
+        tenant_id: { type: string, minLength: 1, maxLength: 128 }
+        entity_id: { type: string, minLength: 1, maxLength: 512 }
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 20000
+          default: 2000
+    CounterReplayFromAuditResponse:
+      type: object
+      required:
+        - manifest_version
+        - recorded
+        - audit_rows
+        - scratch_redis_url
+        - tenant_id
+        - entity_id
+      properties:
+        manifest_version: { type: string }
+        recorded: { type: integer, minimum: 0 }
+        audit_rows: { type: integer, minimum: 0 }
+        scratch_redis_url: { type: string }
+        tenant_id: { type: string }
+        entity_id: { type: string }
     VerticalPackSummary:
       type: object
       required: [name, rules, version]
