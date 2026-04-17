@@ -275,7 +275,7 @@ Event Ingest --> NATS JetStream --> Analytics Sink --> ClickHouse
 
 **SDK positioning (directional, mid-scale scores):** [docs/docs/guides/sdk-scorecard-2026-01.md](docs/docs/guides/sdk-scorecard-2026-01.md).
 
-**Highly regulated sectors (fintech, banking, crypto-adjacent):** optional **[regulated markets feature pack](docs/docs/guides/feature-pack-regulated-markets.md)** checklist — ingress integrity, attestation, audit, self-hosted boundaries.
+**Highly regulated sectors (fintech, banking, crypto-adjacent):** optional **[regulated markets feature pack](docs/docs/guides/feature-pack-regulated-markets.md)** checklist — ingress integrity, attestation, audit, self-hosted boundaries. **SOC 2 / PCI / ISO** orientation: [compliance readiness](docs/docs/guides/compliance-readiness-soc2-pci-iso.md).
 
 ## Frontend Pages
 
