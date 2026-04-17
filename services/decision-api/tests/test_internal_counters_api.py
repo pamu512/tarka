@@ -121,3 +121,77 @@ class TestInternalCountersReplay:
         body = r.json()
         assert body["recorded"] == 1
         assert "manifest_version" in body
+
+
+class TestReplayFromAudit:
+    @pytest.mark.asyncio
+    async def test_replay_from_audit_writes_redis(self, client, monkeypatch):
+        import uuid
+        from datetime import datetime, timezone
+        from unittest.mock import AsyncMock, MagicMock
+
+        from decision_api.internal_counters_api import CounterReplayFromAuditRequest, post_counter_replay_from_audit
+
+        monkeypatch.setenv("COUNTER_REPLAY_TOKEN", "tok")
+        from decision_api.config import settings
+
+        settings.counter_replay_token = "tok"
+
+        row = MagicMock()
+        row.tenant_id = "t_audit"
+        row.entity_id = "e_audit"
+        row.trace_id = uuid.uuid4()
+        row.payload_snapshot = {"payload": {"amount": 100.0, "ip_address": "10.0.0.1"}}
+        row.created_at = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+
+        exec_result = MagicMock()
+        exec_result.scalars.return_value.all.return_value = [row]
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(return_value=exec_result)
+
+        from aggregate_fake_redis import FakeRedis
+
+        fake = FakeRedis()
+
+        def _from_url(url: str, **kwargs):
+            return fake
+
+        with patch("decision_api.internal_counters_api.aioredis.from_url", new=_from_url):
+            body = CounterReplayFromAuditRequest(
+                scratch_redis_url="redis://localhost:6379/15",
+                tenant_id="t_audit",
+                entity_id="e_audit",
+                limit=10,
+            )
+            out = await post_counter_replay_from_audit(body, mock_session)
+
+        assert out["recorded"] == 1
+        assert out["audit_rows"] == 1
+        assert out["tenant_id"] == "t_audit"
+
+    @pytest.mark.asyncio
+    async def test_replay_from_audit_404(self, client, monkeypatch):
+        from unittest.mock import AsyncMock, MagicMock
+
+        from decision_api.internal_counters_api import CounterReplayFromAuditRequest, post_counter_replay_from_audit
+
+        monkeypatch.setenv("COUNTER_REPLAY_TOKEN", "tok")
+        from decision_api.config import settings
+
+        settings.counter_replay_token = "tok"
+
+        exec_result = MagicMock()
+        exec_result.scalars.return_value.all.return_value = []
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(return_value=exec_result)
+
+        body = CounterReplayFromAuditRequest(
+            scratch_redis_url="redis://localhost:6379/15",
+            tenant_id="t_x",
+            entity_id="e_x",
+        )
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as ei:
+            await post_counter_replay_from_audit(body, mock_session)
+        assert ei.value.status_code == 404

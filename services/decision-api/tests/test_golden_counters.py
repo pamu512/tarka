@@ -85,3 +85,35 @@ class TestGoldenEventCounts:
             {"session_id": "sess-z"},
         )
         assert feats["distinct_session_id_24h"] == 2
+
+
+class TestGoldenEventCounts10xStress:
+    """~10× default golden volume to catch ZSET / window drift (Epic C stretch)."""
+
+    @pytest.mark.asyncio
+    async def test_seventy_events_count_and_sum(self, golden_store):
+        s, _ = golden_store
+        for i in range(70):
+            await s.record_event(
+                "golden_tenant",
+                "golden_entity",
+                f"ev-stress-{i}",
+                {
+                    "amount": 1.0,
+                    "ip_address": f"10.0.0.{i % 200}",
+                    "device_id": f"d{i % 15}",
+                    "session_id": f"s{i % 20}",
+                },
+                ts=T0 + float(i),
+            )
+        assert await s.count("golden_tenant", "golden_entity", 3600) == 70
+        feats = await s.compute_features(
+            "golden_tenant",
+            "golden_entity",
+            {"amount": 1.0, "ip_address": "10.0.0.9", "device_id": "dz", "session_id": "sz"},
+        )
+        assert feats["event_count_1h"] == 70
+        assert abs(feats["sum_amount_1h"] - 70.0) < 1e-6
+        assert feats["distinct_ip_address_24h"] >= 1
+        assert feats["distinct_device_id_24h"] >= 1
+        assert feats["distinct_session_id_24h"] >= 1
