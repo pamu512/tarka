@@ -86,6 +86,32 @@ async def require_api_key(request: Request) -> None:
         raise HTTPException(status_code=401, detail="invalid or missing API key")
 
 
+async def _publish_evaluate_dlq(
+    js: JetStreamContext,
+    *,
+    nats_subject: str,
+    raw_event: dict[str, Any],
+    eval_body: dict[str, Any],
+    status_code: int,
+    response_text: str,
+) -> None:
+    """Publish a structured envelope to the DLQ subject (JetStream must cover the subject)."""
+    subj = settings.ingest_dlq_subject.strip()
+    if not subj:
+        return
+    preview = response_text[:8192] if response_text else ""
+    envelope: dict[str, Any] = {
+        "schema_version": "1",
+        "kind": "evaluate_4xx",
+        "status_code": status_code,
+        "nats_source_subject": nats_subject,
+        "event": raw_event,
+        "evaluate_request": eval_body,
+        "evaluate_response_preview": preview,
+    }
+    await js.publish(subj, json.dumps(envelope, default=str).encode())
+
+
 async def _connect_nats() -> tuple[NatsClient, JetStreamContext]:
     nc = await nats.connect(settings.nats_url)
     js = nc.jetstream()
@@ -130,6 +156,19 @@ async def _consumer_loop(js: JetStreamContext, http: httpx.AsyncClient) -> None:
                         m.inc("ingest_consumer_nats_ack_total")
                     elif r.status_code < 500:
                         m.inc("ingest_consumer_evaluate_4xx_total")
+                        if settings.ingest_dlq_publish_on_evaluate_4xx and settings.ingest_dlq_subject.strip():
+                            try:
+                                await _publish_evaluate_dlq(
+                                    js,
+                                    nats_subject=getattr(msg, "subject", "") or "",
+                                    raw_event=payload,
+                                    eval_body=eval_body,
+                                    status_code=r.status_code,
+                                    response_text=r.text,
+                                )
+                                m.inc("ingest_dlq_published_total")
+                            except Exception as e:
+                                log.warning("ingest DLQ publish failed: %s", e)
                         await msg.ack()
                         m.inc("ingest_consumer_nats_ack_total")
                     else:
