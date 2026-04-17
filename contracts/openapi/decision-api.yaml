@@ -2,7 +2,9 @@ openapi: 3.1.0
 info:
   title: Tarka Decision API
   version: 1.0.0
-  description: Synchronous fraud scoring and event ingestion. SDK clients call this service only.
+  description: >-
+    Synchronous fraud scoring and event ingestion. SDK clients call this service only.
+    For the live OpenAPI document (including internal counter routes and security schemes), use GET /openapi.json on a running instance.
 servers:
   - url: http://localhost:8000
     description: Local
