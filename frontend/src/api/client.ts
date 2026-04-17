@@ -923,6 +923,25 @@ export interface InvestigationEvidenceBundleDraft {
   tool_invocation_count?: number;
 }
 
+export interface InvestigationEvidenceSummaryResponse {
+  tenant_id: string;
+  analyst_id: string;
+  case_id?: string | null;
+  summary: string;
+  confidence_label: "high" | "medium" | "low";
+  citations: Array<{
+    type: "trace_id" | "case_id" | "entity_id" | "artifact";
+    value: string;
+    source_tool?: string;
+  }>;
+  based_on: {
+    source_ref_count: number;
+    claim_count: number;
+    supported_claim_count: number;
+    tool_error_count: number;
+  };
+}
+
 export interface InvestigationChatResponse {
   reply: string;
   tool_calls?: unknown[];
@@ -1083,6 +1102,21 @@ export const investigation = {
         playbook_id: string | null;
       }>;
     }>(`/api/investigation/v1/feedback/recent?${q}`);
+  },
+
+  evidenceSummary(payload: {
+    tenant_id: string;
+    analyst_id: string;
+    case_id?: string;
+    source_refs?: InvestigationSourceRefCard[];
+    claims?: InvestigationClaim[];
+    claims_deterministic_support?: InvestigationClaimSupportRow[];
+    reply?: string;
+  }) {
+    return request<InvestigationEvidenceSummaryResponse>("/api/investigation/v1/evidence/summary", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 
   /**

@@ -458,6 +458,64 @@ paths:
                         id: { type: string }
                         title: { type: string }
                         description: { type: string }
+  /v1/evidence/summary:
+    post:
+      operationId: evidenceSummary
+      description: >
+        Deterministic investigation evidence summary from provided artifacts (no LLM call). Produces a concise
+        narrative, confidence label, and citations for trace_id / case_id / source refs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_id, analyst_id]
+              properties:
+                tenant_id: { type: string }
+                analyst_id: { type: string }
+                case_id: { type: string, nullable: true }
+                trace_id: { type: string, nullable: true }
+                decision_audit:
+                  type: object
+                  nullable: true
+                  additionalProperties: true
+                source_refs:
+                  type: array
+                  nullable: true
+                  items:
+                    type: object
+                    additionalProperties: true
+                claims:
+                  type: array
+                  nullable: true
+                  items:
+                    type: object
+                    additionalProperties: true
+                max_citations:
+                  type: integer
+                  default: 12
+      responses:
+        "200":
+          description: Deterministic summary + confidence + citations
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [summary, confidence_label, citations]
+                properties:
+                  summary: { type: string }
+                  confidence_label: { type: string, enum: [low, medium, high] }
+                  citations:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  evidence_counts:
+                    type: object
+                    additionalProperties: true
+        "403":
+          description: Analyst not allowed
   /v1/reports/case-summary:
     post:
       operationId: caseSummaryPdf
