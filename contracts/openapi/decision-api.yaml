@@ -716,7 +716,11 @@ components:
         metadata:
           type: object
           additionalProperties: true
-          description: Optional tls_pinning_verified (bool) for MitM posture hints.
+          description: >
+            Optional client hints for identity and network posture. Recognized keys (all optional):
+            tls_pinning_verified (bool) for MitM posture hints;
+            vendor_visitor_id, vendor_device_id, vendor_install_id (strings) for server-side vendor→entity
+            bridge when consent and mapping contract exist — see docs/guides/device-id-semantics.md.
         challenge_policy_id:
           type: string
           nullable: true

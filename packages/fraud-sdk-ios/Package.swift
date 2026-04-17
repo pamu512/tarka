@@ -5,9 +5,18 @@ let package = Package(
     name: "TarkaSDK",
     platforms: [.iOS(.v15)],
     products: [
-        .library(name: "FraudStackSDK", targets: ["FraudStackSDK"])
+        .library(name: "TarkaSDK", targets: ["TarkaSDK"]),
     ],
     targets: [
-        .target(name: "FraudStackSDK", path: "Sources/FraudStackSDK")
+        .target(
+            name: "TarkaSDK",
+            dependencies: [],
+            path: "Sources/TarkaSDK"
+        ),
+        .testTarget(
+            name: "TarkaSDKTests",
+            dependencies: ["TarkaSDK"],
+            path: "Tests/TarkaSDKTests"
+        ),
     ]
 )

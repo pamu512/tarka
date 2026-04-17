@@ -270,8 +270,8 @@ Event Ingest --> NATS JetStream --> Analytics Sink --> ClickHouse
 |-----|----------|
 | `packages/fraud-sdk-typescript` | Web (browser) — device signals + behavioral biometrics |
 | `packages/fraud-sdk-python` | Server-side Python — IP/geo signal collection |
-| `packages/tarka-android` | **Android (Kotlin)** — Decision API client + `device_context` ([README](packages/tarka-android/README.md)) |
-| `packages/tarka-ios` | **iOS (Swift Package)** — Decision API client + `device_context` ([README](packages/tarka-ios/README.md)) |
+| `packages/fraud-sdk-android` | **Android (Kotlin)** — `io.tarka.sdk`, Play Integrity, `device_context` ([README](packages/fraud-sdk-android/README.md)) |
+| `packages/fraud-sdk-ios` | **iOS (Swift)** — App Attest, `device_context` ([README](packages/fraud-sdk-ios/README.md)) |
 
 **SDK positioning (directional, mid-scale scores):** [docs/docs/guides/sdk-scorecard-2026-01.md](docs/docs/guides/sdk-scorecard-2026-01.md).
 

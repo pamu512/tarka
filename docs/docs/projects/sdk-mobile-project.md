@@ -6,7 +6,7 @@ Mobile device signals, attestation collection, tamper detection, and secure requ
 
 ## Current Gaps
 
-- **Shipped:** first-party **`packages/tarka-android`** and **`packages/tarka-ios`** Decision API clients with `device_context` collection — see [Android SDK](../sdks/android.md) / [iOS SDK](../sdks/ios.md).
+- **Shipped:** first-party **`packages/fraud-sdk-android`** and **`packages/fraud-sdk-ios`** Decision API clients with `device_context` collection — see [Android SDK](../sdks/android.md) / [iOS SDK](../sdks/ios.md).
 - Attestation: apps integrate **Play Integrity** / **App Attest** and attach `Attestation` tokens; SDK provides types and challenge (`/v1/attestation/challenge`).
 - MitM/tamper/replay instrumentation still benefits from broader production scenarios and optional certificate pinning in high-threat deployments.
 

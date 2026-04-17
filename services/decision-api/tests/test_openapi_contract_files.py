@@ -38,6 +38,9 @@ def test_openapi_yaml_parses_and_validates_oas31(name: str):
 
 
 def test_fastapi_openapi_contains_evaluate_and_inference():
+    # Load submodule so patch("decision_api.main....") resolves (pkgutil.getattr).
+    import decision_api.main  # noqa: F401
+
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("DATABASE_URL", "sqlite+aiosqlite:///")
         mp.setenv("REDIS_URL", "redis://localhost:6379/0")
