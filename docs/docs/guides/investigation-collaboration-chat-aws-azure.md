@@ -43,6 +43,9 @@ docker compose --profile collab up -d collaboration-chat-bridge investigation-ag
 | `LARK_TENANT_ACCESS_TOKEN` | Tenant token to call `im/v1/messages` for replies |
 | `DEFAULT_TENANT_ID` / `DEFAULT_CASE_ID` | Default `tenant_id` / `case_id` for collab turns |
 | `SLACK_SKIP_RETRY_BACKGROUND` | Default `true` — ignore Slack timeout retries so the LLM is not invoked twice |
+| `BRIDGE_RATE_LIMIT_PER_MINUTE` | Optional cap on incoming POSTs (Slack per team, Teams per IP); `0` disables |
+| `BRIDGE_WEB_FETCH_ENABLED` | Default `true` — prepend fetched text for first `https://` URL in user message (blocked private IPs) |
+| `BRIDGE_ATTACHMENT_MAX_BYTES` / `BRIDGE_ATTACHMENT_MAX_TOTAL_CHARS` | Slack file download / inlined text caps |
 | `SLACK_THREAD_UNDER_MENTION` | Default `true` — `chat.postMessage` uses a **thread** under the triggering message (`thread_ts` = message `ts` when not already in a thread) |
 | `SLACK_MAX_THREAD_MESSAGES` | Default `20` — cap for `conversations.replies` (2–50) |
 

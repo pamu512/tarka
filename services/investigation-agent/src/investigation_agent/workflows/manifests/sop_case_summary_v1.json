@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "id": "sop_case_summary_v1",
+  "title": "Case summary (SOP)",
+  "description": "Structured narrative for case documentation and PDF export; emphasizes FACTS / INFERENCES / UNKNOWNS / NEXT STEPS.",
+  "default_params": {
+    "audience": "analyst",
+    "report_label": "Case summary"
+  },
+  "system_prompt_append": "This turn supports a **case summary** suitable for {{report_label}} (audience: **{{audience}}**).\n- Prioritize ## FACTS FROM TOOLS with explicit tool names and ids.\n- Keep ## INFERENCES clearly labeled as hypotheses.\n- List open questions under ## UNKNOWNS.\n- Under ## NEXT STEPS, list concrete actions (owner, tool, id) — advisory only.\n- If audience is **executive**, add a short opening paragraph (3–5 sentences) with impact and recommended decision **only** from tool-backed facts; mark gaps explicitly."
+}

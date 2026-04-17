@@ -8,6 +8,7 @@ import time
 import pytest
 from collaboration_chat_bridge.agent_client import AgentChatError
 from collaboration_chat_bridge.main import app
+from collaboration_chat_bridge.rate_limit import MinuteRateLimiter
 from collaboration_chat_bridge.reply_format import (
     escape_slack_mrkdwn,
     format_slack_blocks,
@@ -186,3 +187,33 @@ async def test_teams_activity_message(monkeypatch):
         )
     assert r.status_code == 200
     assert r.json().get("ok") is True
+
+
+@pytest.mark.asyncio
+async def test_lark_event_rate_limit(monkeypatch):
+    monkeypatch.setenv("LARK_VERIFICATION_TOKEN", "lvtok")
+    monkeypatch.setenv("BRIDGE_RATE_LIMIT_PER_MINUTE", "1")
+
+    import collaboration_chat_bridge.main as m
+
+    m.settings = m.Settings()
+    m.app.state.rate_limiter = MinuteRateLimiter(1)
+
+    payload = {
+        "token": "lvtok",
+        "header": {"event_type": "im.message.receive_v1"},
+        "event": {
+            "message": {
+                "chat_id": "oc_test",
+                "content": json.dumps({"text": "hello"}),
+            },
+            "sender": {"sender_id": {"open_id": "ou_1"}},
+        },
+    }
+
+    transport = ASGITransport(app=m.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        r1 = await client.post("/v1/lark/event", json=payload)
+        r2 = await client.post("/v1/lark/event", json=payload)
+    assert r1.status_code == 200
+    assert r2.status_code == 429

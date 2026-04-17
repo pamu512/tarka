@@ -31,6 +31,23 @@ TPS ≈ `requests / wall_clock_seconds` (use `/usr/bin/time` or PowerShell `Meas
 
 For **labeled synthetic** scenarios, use Decision API **`POST /v1/simulation/run`** and **`/v1/simulation/ab-test`** — see [shadow-and-ab-testing.md](../../docs/docs/guides/shadow-and-ab-testing.md). These are **not** substitutes for production holdouts unless you align distributions.
 
+### Vertical pack baseline-vs-pack smoke (`vertical_benchmark_smoke.py`)
+
+Validates deterministic response shape for:
+
+- `fintech`
+- `ecommerce`
+- `gaming`
+
+against **`POST /v1/simulation/benchmark/vertical`**.
+
+```bash
+python scripts/benchmarks/vertical_benchmark_smoke.py \
+  --url http://127.0.0.1:8000 \
+  --scenario baseline \
+  --verticals fintech,ecommerce,gaming
+```
+
 ## Throughput tools
 
 - **`load-hey-evaluate.sh`** — optional **[hey](https://github.com/rakyll/hey)** wrapper for `POST /v1/decisions/evaluate` (install `hey` via Go toolchain). Falls back to a single `curl` if `hey` is missing.
@@ -68,5 +85,6 @@ Workflow **[`.github/workflows/benchmark-smoke.yml`](../../.github/workflows/ben
 
 - Redis + Decision API + `latency_evaluate.py` (lite stack).
 - **`drift_score_smoke.py --local`** (heuristic drift separation gate).
+- Redis + Decision API + **`vertical_benchmark_smoke.py`** (baseline-vs-vertical pack shape gate).
 
 These jobs sanity-check scripts and scoring behavior; they are not publishable load or calibration proofs.

@@ -154,6 +154,8 @@ export default function Investigation() {
   >([]);
   const [feedbackAnalyticsLoading, setFeedbackAnalyticsLoading] = useState(false);
   const [feedbackAnalyticsError, setFeedbackAnalyticsError] = useState<string | null>(null);
+  /** Bottom composer: extra preset chips (same as empty-state catalog, collapsed by default). */
+  const [composerPresetsOpen, setComposerPresetsOpen] = useState(false);
 
   const viteGovProfile = import.meta.env.VITE_AI_GOVERNANCE_PROFILE as string | undefined;
   const viteGovLabels: Record<string, string> = {
@@ -427,32 +429,37 @@ export default function Investigation() {
   };
 
   return (
-    <div className="flex flex-col h-full animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-surface-700 gap-4">
-        <div className="min-w-0 space-y-1">
-          <PageTitle module="investigation">Investigation Copilot</PageTitle>
-          <p className="text-xs text-gray-500 max-w-2xl leading-relaxed">
-            AI assistant that reads <strong className="text-gray-400 font-medium">Cases</strong>,{" "}
-            <strong className="text-gray-400 font-medium">Graph</strong>,{" "}
-            <strong className="text-gray-400 font-medium">decision audits</strong>,{" "}
-            <strong className="text-gray-400 font-medium">platform audit</strong> (recent admin/user actions), lists,
-            velocity signals, and <strong className="text-gray-400 font-medium">uploaded batch files</strong> (CSV, JSON,
-            Excel) to summarize and suggest next steps—it does{" "}
-            <strong className="text-gray-400 font-medium">not</strong> change
-            production rules or decisions by itself. Use <strong className="text-gray-400 font-medium">preset skills</strong>{" "}
-            below for one-tap workflows (⚡ runs immediately) or to pre-fill longer prompts you can edit. Type{" "}
-            <code className="text-gray-400">/skill</code> in the box anytime for the full catalog (ids + labels) or{" "}
-            <code className="text-gray-400">/skill &lt;id&gt;</code> for one prompt.
-          </p>
-          <p className="text-[11px] text-gray-600">
-            {contextCaseId
-              ? `Case context: ${contextCaseId.slice(0, 8)}… · tenant ${contextTenantId}`
-              : conversationHistory.length > 0
-                ? `${conversationHistory.length} messages in this chat`
-                : "No case linked — open from a case to pre-load context"}
-          </p>
-          <div className="flex flex-wrap items-center gap-2 pt-1">
+    <div className="flex flex-col h-full animate-fade-in min-h-0">
+      {/* Header — title + context; tools in a calmer secondary strip */}
+      <div className="shrink-0 border-b border-surface-800/90 bg-surface-950/40">
+        <div className="flex items-start justify-between gap-4 px-5 py-3.5">
+          <div className="min-w-0 space-y-1">
+            <PageTitle module="investigation">Investigation Copilot</PageTitle>
+            <p className="text-xs text-gray-500 max-w-xl">
+              Read-only assistant over cases, graph, audits, and uploads.{" "}
+              <span className="text-gray-600">Presets:</span> type{" "}
+              <code className="text-gray-400 text-[11px]">/skill</code> ·{" "}
+              <span className="text-brand-400/80">⚡</span> sends in one tap.
+            </p>
+            <p className="text-[11px] text-gray-600 font-mono truncate">
+              {contextCaseId
+                ? `case ${contextCaseId.slice(0, 10)}… · ${contextTenantId}`
+                : conversationHistory.length > 0
+                  ? `${conversationHistory.length} turns · ${contextTenantId}`
+                  : `${contextTenantId} · no case linked`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleNewSession}
+            className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-surface-800 hover:bg-surface-700 text-gray-300 border border-surface-700/80 transition-colors"
+          >
+            Clear chat
+          </button>
+        </div>
+
+        <div className="px-5 pb-3 flex flex-col gap-2 border-t border-surface-800/60">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <input
               ref={batchFileRef}
               type="file"
@@ -464,43 +471,44 @@ export default function Investigation() {
               type="button"
               disabled={batchUploadBusy || sending}
               onClick={() => batchFileRef.current?.click()}
-              className="text-[11px] px-2.5 py-1 rounded-md bg-surface-700 hover:bg-surface-600 text-gray-300 disabled:opacity-50"
+              className="text-[11px] px-2.5 py-1 rounded-md bg-surface-800/90 hover:bg-surface-700 text-gray-300 border border-surface-700/70 disabled:opacity-50"
+              title="CSV, JSON, Excel — attaches batch_id to messages"
             >
-              {batchUploadBusy ? "Uploading…" : "Upload batch (CSV / JSON / Excel)"}
+              {batchUploadBusy ? "Uploading…" : "Batch file"}
             </button>
             {activeBatch && (
               <>
-                <span className="text-[11px] text-gray-500 truncate max-w-[220px]" title={activeBatch.batchId}>
-                  {activeBatch.filename} · {activeBatch.rowCount} rows · {activeBatch.columnCount} cols
+                <span className="text-[11px] text-gray-500 truncate max-w-[min(280px,45vw)]" title={activeBatch.batchId}>
+                  {activeBatch.filename} · {activeBatch.rowCount}×{activeBatch.columnCount}
                 </span>
                 <button
                   type="button"
                   onClick={() => setActiveBatch(null)}
-                  className="text-[11px] text-amber-400/90 hover:text-amber-300"
+                  className="text-[11px] text-amber-400/85 hover:text-amber-300"
                 >
-                  Clear batch
+                  Clear
                 </button>
               </>
             )}
-            <label className="flex items-center gap-2 text-[11px] text-gray-500">
+            <label className="flex items-center gap-1.5 text-[11px] text-gray-500 cursor-pointer">
               <input
                 type="checkbox"
                 className="rounded border-surface-600"
                 checked={useStreamReply}
                 onChange={(e) => setUseStreamReply(e.target.checked)}
               />
-              <span>Stream reply (SSE)</span>
+              <span title="Stream tokens via SSE">Stream</span>
             </label>
-            <label className="flex flex-wrap items-center gap-2 text-[11px] text-gray-500 min-w-0">
-              <span className="shrink-0 text-gray-600">Playbook</span>
+            <label className="flex items-center gap-1.5 text-[11px] text-gray-500 min-w-0">
+              <span className="text-gray-600 shrink-0">Playbook</span>
               <select
-                className="bg-surface-800 border border-surface-600 rounded-md px-2 py-1 text-gray-300 max-w-[min(240px,100%)]"
+                className="bg-surface-900 border border-surface-700 rounded-md px-2 py-0.5 text-gray-300 text-[11px] max-w-[200px]"
                 value={selectedPlaybookId}
                 onChange={(e) => setSelectedPlaybookId(e.target.value)}
                 disabled={sending}
-                title="Sends playbook_id with each message; server appends typology workflow hints (GET /v1/playbooks)."
+                title="Typology workflow hints (GET /v1/playbooks)"
               >
-                <option value="">None (generic)</option>
+                <option value="">None</option>
                 {playbooks.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.title}
@@ -508,283 +516,268 @@ export default function Investigation() {
                 ))}
               </select>
             </label>
-            <div className="flex flex-col gap-1 min-w-0 w-full max-w-md">
-              <span className="text-[10px] text-gray-600 uppercase tracking-wide">Investigation memo (search_knowledge)</span>
-              <div className="flex flex-wrap gap-1.5 items-center">
+          </div>
+
+          <details className="group/memo rounded-lg border border-surface-800/90 bg-surface-900/25">
+            <summary className="cursor-pointer select-none px-3 py-2 text-[11px] text-gray-500 hover:text-gray-400 list-none flex items-center gap-2">
+              <span className="text-gray-600 group-open/memo:text-brand-400/80 transition-colors">▸</span>
+              <span>Memo → search_knowledge</span>
+            </summary>
+            <div className="px-3 pb-3 pt-0 space-y-2 border-t border-surface-800/80">
+              <div className="flex flex-wrap gap-2 items-center pt-2">
                 <input
                   type="text"
                   placeholder="Title"
                   value={memoTitle}
                   onChange={(e) => setMemoTitle(e.target.value)}
                   disabled={memoBusy || sending}
-                  className="flex-1 min-w-[100px] bg-surface-800 border border-surface-600 rounded px-2 py-1 text-[11px] text-gray-300"
+                  className="flex-1 min-w-[120px] max-w-xs bg-surface-900 border border-surface-700 rounded px-2 py-1 text-[11px] text-gray-300"
                 />
                 <button
                   type="button"
                   disabled={memoBusy || sending || !memoBody.trim()}
                   onClick={() => void handleMemoSave()}
-                  className="text-[11px] px-2 py-1 rounded-md bg-surface-700 hover:bg-surface-600 text-gray-300 disabled:opacity-50"
+                  className="text-[11px] px-2.5 py-1 rounded-md bg-surface-800 hover:bg-surface-700 text-gray-300 disabled:opacity-50"
                 >
-                  {memoBusy ? "Saving…" : "Save memo"}
+                  {memoBusy ? "Saving…" : "Save"}
                 </button>
               </div>
               <textarea
                 value={memoBody}
                 onChange={(e) => setMemoBody(e.target.value)}
                 disabled={memoBusy || sending}
-                placeholder="Paste runbook excerpt, policy note, or investigation context…"
+                placeholder="Runbook, policy, or context to retrieve later…"
                 rows={2}
-                className="w-full bg-surface-800 border border-surface-600 rounded px-2 py-1 text-[11px] text-gray-300 resize-y min-h-[2.5rem]"
+                className="w-full bg-surface-900 border border-surface-700 rounded px-2 py-1.5 text-[11px] text-gray-300 resize-y min-h-[2.25rem]"
               />
             </div>
+          </details>
 
-            <details className="w-full max-w-2xl rounded-lg border border-surface-700/90 bg-surface-900/50 group/fban">
-              <summary className="cursor-pointer select-none px-2.5 py-2 text-[11px] text-gray-400 hover:text-gray-300 list-none flex flex-wrap items-center gap-2">
-                <span className="text-brand-400/90 group-open/fban:rotate-90 transition-transform inline-block">▸</span>
-                <span className="font-medium text-gray-300">Feedback analytics</span>
+          <details className="group/fban rounded-lg border border-surface-800/90 bg-surface-900/25">
+            <summary className="cursor-pointer select-none px-3 py-2 text-[11px] text-gray-500 hover:text-gray-400 list-none flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span className="text-gray-600 group-open/fban:text-brand-400/80 transition-colors">▸</span>
+              <span>Feedback</span>
+              <span className="font-mono text-[10px] text-gray-600">{contextTenantId}</span>
+              {feedbackSummary != null && feedbackSummary.total > 0 && (
                 <span className="text-gray-600">
-                  tenant <span className="font-mono text-gray-500">{contextTenantId}</span>
+                  {feedbackSummary.total} / {feedbackSummary.window_days}d
+                  {feedbackSummary.avg_rating != null && (
+                    <>
+                      {" "}
+                      · avg {feedbackSummary.avg_rating > 0 ? "+" : ""}
+                      {feedbackSummary.avg_rating}
+                    </>
+                  )}
                 </span>
-                {feedbackSummary != null && feedbackSummary.total > 0 && (
-                  <span className="text-gray-500">
-                    · {feedbackSummary.total} in last {feedbackSummary.window_days}d
-                    {feedbackSummary.avg_rating != null && (
-                      <> · avg {feedbackSummary.avg_rating > 0 ? "+" : ""}
-                      {feedbackSummary.avg_rating}</>
-                    )}
-                  </span>
-                )}
-              </summary>
-              <div className="px-2.5 pb-2.5 pt-0 space-y-2 border-t border-surface-700/70">
-                <div className="flex flex-wrap items-center gap-2 pt-2">
-                  <label className="flex items-center gap-1.5 text-[10px] text-gray-500">
-                    <span className="text-gray-600">Window</span>
-                    <select
-                      className="bg-surface-800 border border-surface-600 rounded px-1.5 py-0.5 text-gray-300"
-                      value={feedbackWindowDays}
-                      onChange={(e) => setFeedbackWindowDays(Number(e.target.value))}
-                      disabled={feedbackAnalyticsLoading}
-                    >
-                      <option value={7}>7 days</option>
-                      <option value={30}>30 days</option>
-                      <option value={90}>90 days</option>
-                    </select>
-                  </label>
-                  <button
-                    type="button"
+              )}
+            </summary>
+            <div className="px-3 pb-3 pt-0 space-y-2 border-t border-surface-800/80">
+              <div className="flex flex-wrap items-center gap-2 pt-2">
+                <label className="flex items-center gap-1.5 text-[10px] text-gray-500">
+                  <span className="text-gray-600">Window</span>
+                  <select
+                    className="bg-surface-900 border border-surface-700 rounded px-1.5 py-0.5 text-gray-300 text-[11px]"
+                    value={feedbackWindowDays}
+                    onChange={(e) => setFeedbackWindowDays(Number(e.target.value))}
                     disabled={feedbackAnalyticsLoading}
-                    onClick={() => void loadFeedbackAnalytics()}
-                    className="text-[10px] px-2 py-0.5 rounded-md bg-surface-700 hover:bg-surface-600 text-gray-300 disabled:opacity-50"
                   >
-                    {feedbackAnalyticsLoading ? "Loading…" : "Refresh"}
-                  </button>
-                </div>
-                {feedbackAnalyticsError && (
-                  <p className="text-[10px] text-rose-400/90">{feedbackAnalyticsError}</p>
-                )}
-                {feedbackSummary && !feedbackAnalyticsError && (
-                  <div className="space-y-1.5">
-                    {feedbackSummary.total === 0 ? (
-                      <p className="text-[10px] text-gray-600">
-                        No ratings in this window. Use <span className="text-gray-400">Helpful</span> /{" "}
-                        <span className="text-gray-400">Not helpful</span> on assistant turns.
-                      </p>
-                    ) : (
-                      <>
-                        <div className="flex h-2 rounded overflow-hidden bg-surface-800 border border-surface-700/80 max-w-md">
-                          {(() => {
-                            const down = feedbackSummary.by_rating["-1"] ?? 0;
-                            const neu = feedbackSummary.by_rating["0"] ?? 0;
-                            const up = feedbackSummary.by_rating["1"] ?? 0;
-                            const t = Math.max(1, down + neu + up);
-                            return (
-                              <>
-                                <div
-                                  className="bg-rose-500/70 h-full"
-                                  style={{ width: `${(down / t) * 100}%` }}
-                                  title={`Not helpful: ${down}`}
-                                />
-                                <div
-                                  className="bg-gray-500/50 h-full"
-                                  style={{ width: `${(neu / t) * 100}%` }}
-                                  title={`Neutral: ${neu}`}
-                                />
-                                <div
-                                  className="bg-emerald-500/70 h-full"
-                                  style={{ width: `${(up / t) * 100}%` }}
-                                  title={`Helpful: ${up}`}
-                                />
-                              </>
-                            );
-                          })()}
-                        </div>
-                        <div className="flex flex-wrap gap-3 text-[10px] text-gray-500">
-                          <span>
-                            <span className="text-rose-400/90">▼</span> {feedbackSummary.by_rating["-1"] ?? 0} not helpful
-                          </span>
-                          <span>
-                            <span className="text-gray-500">◆</span> {feedbackSummary.by_rating["0"] ?? 0} neutral
-                          </span>
-                          <span>
-                            <span className="text-emerald-400/90">▲</span> {feedbackSummary.by_rating["1"] ?? 0} helpful
-                          </span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-                {feedbackRecent.length > 0 && (
-                  <div className="rounded-md border border-surface-700/60 overflow-hidden max-h-40 overflow-y-auto">
-                    <table className="w-full text-[10px] text-left">
-                      <thead className="sticky top-0 bg-surface-900 text-gray-600 uppercase tracking-wide">
-                        <tr>
-                          <th className="px-2 py-1 font-medium">When</th>
-                          <th className="px-2 py-1 font-medium">Rating</th>
-                          <th className="px-2 py-1 font-medium">Analyst</th>
-                          <th className="px-2 py-1 font-medium">Turn</th>
-                        </tr>
-                      </thead>
-                      <tbody className="text-gray-400 divide-y divide-surface-700/50">
-                        {feedbackRecent.map((row) => (
-                          <tr key={row.id} className="bg-surface-900/40">
-                            <td className="px-2 py-1 whitespace-nowrap">
-                              {new Date(row.created_at * 1000).toLocaleString(undefined, {
-                                month: "short",
-                                day: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </td>
-                            <td className="px-2 py-1">
-                              {row.rating === 1 ? (
-                                <span className="text-emerald-400/90">+1</span>
-                              ) : row.rating === -1 ? (
-                                <span className="text-rose-400/90">−1</span>
-                              ) : (
-                                <span className="text-gray-500">0</span>
-                              )}
-                            </td>
-                            <td className="px-2 py-1 font-mono truncate max-w-[100px]" title={row.analyst_id}>
-                              {row.analyst_id}
-                            </td>
-                            <td className="px-2 py-1 font-mono truncate max-w-[120px]" title={row.turn_id}>
-                              {row.turn_id.length > 12 ? `${row.turn_id.slice(0, 10)}…` : row.turn_id}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                    <option value={7}>7d</option>
+                    <option value={30}>30d</option>
+                    <option value={90}>90d</option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  disabled={feedbackAnalyticsLoading}
+                  onClick={() => void loadFeedbackAnalytics()}
+                  className="text-[10px] px-2 py-0.5 rounded-md bg-surface-800 hover:bg-surface-700 text-gray-300 disabled:opacity-50"
+                >
+                  {feedbackAnalyticsLoading ? "…" : "Refresh"}
+                </button>
               </div>
-            </details>
-          </div>
+              {feedbackAnalyticsError && <p className="text-[10px] text-rose-400/90">{feedbackAnalyticsError}</p>}
+              {feedbackSummary && !feedbackAnalyticsError && (
+                <div className="space-y-1.5">
+                  {feedbackSummary.total === 0 ? (
+                    <p className="text-[10px] text-gray-600">
+                      No ratings yet — use Helpful / Not helpful on replies.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="flex h-1.5 rounded overflow-hidden bg-surface-900 border border-surface-800 max-w-md">
+                        {(() => {
+                          const down = feedbackSummary.by_rating["-1"] ?? 0;
+                          const neu = feedbackSummary.by_rating["0"] ?? 0;
+                          const up = feedbackSummary.by_rating["1"] ?? 0;
+                          const t = Math.max(1, down + neu + up);
+                          return (
+                            <>
+                              <div
+                                className="bg-rose-500/70 h-full"
+                                style={{ width: `${(down / t) * 100}%` }}
+                                title={`Not helpful: ${down}`}
+                              />
+                              <div
+                                className="bg-gray-500/50 h-full"
+                                style={{ width: `${(neu / t) * 100}%` }}
+                                title={`Neutral: ${neu}`}
+                              />
+                              <div
+                                className="bg-emerald-500/70 h-full"
+                                style={{ width: `${(up / t) * 100}%` }}
+                                title={`Helpful: ${up}`}
+                              />
+                            </>
+                          );
+                        })()}
+                      </div>
+                      <div className="flex flex-wrap gap-3 text-[10px] text-gray-500">
+                        <span>
+                          <span className="text-rose-400/90">▼</span> {feedbackSummary.by_rating["-1"] ?? 0}
+                        </span>
+                        <span>
+                          <span className="text-gray-500">◆</span> {feedbackSummary.by_rating["0"] ?? 0}
+                        </span>
+                        <span>
+                          <span className="text-emerald-400/90">▲</span> {feedbackSummary.by_rating["1"] ?? 0}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+              {feedbackRecent.length > 0 && (
+                <div className="rounded-md border border-surface-800/80 overflow-hidden max-h-36 overflow-y-auto">
+                  <table className="w-full text-[10px] text-left">
+                    <thead className="sticky top-0 bg-surface-950 text-gray-600 uppercase tracking-wide">
+                      <tr>
+                        <th className="px-2 py-1 font-medium">When</th>
+                        <th className="px-2 py-1 font-medium">±</th>
+                        <th className="px-2 py-1 font-medium">Analyst</th>
+                        <th className="px-2 py-1 font-medium">Turn</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-gray-400 divide-y divide-surface-800/60">
+                      {feedbackRecent.map((row) => (
+                        <tr key={row.id} className="bg-surface-900/30">
+                          <td className="px-2 py-1 whitespace-nowrap">
+                            {new Date(row.created_at * 1000).toLocaleString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </td>
+                          <td className="px-2 py-1">
+                            {row.rating === 1 ? (
+                              <span className="text-emerald-400/90">+1</span>
+                            ) : row.rating === -1 ? (
+                              <span className="text-rose-400/90">−1</span>
+                            ) : (
+                              <span className="text-gray-500">0</span>
+                            )}
+                          </td>
+                          <td className="px-2 py-1 font-mono truncate max-w-[100px]" title={row.analyst_id}>
+                            {row.analyst_id}
+                          </td>
+                          <td className="px-2 py-1 font-mono truncate max-w-[120px]" title={row.turn_id}>
+                            {row.turn_id.length > 12 ? `${row.turn_id.slice(0, 10)}…` : row.turn_id}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </details>
         </div>
-        <button
-          type="button"
-          onClick={handleNewSession}
-          className="shrink-0 px-4 py-2 bg-surface-700 hover:bg-surface-600 text-gray-300 text-sm font-medium rounded-lg transition-colors"
-        >
-          Clear chat
-        </button>
       </div>
 
       {(governanceInfo || (viteGovProfile && viteGovLabels[viteGovProfile])) && (
-        <div className="px-6 py-2 border-b border-surface-700/90 bg-surface-900/60 text-[11px] text-gray-500 leading-relaxed">
-          <span className="text-gray-400 font-medium">AI governance build:</span>{" "}
+        <div className="shrink-0 px-5 py-1.5 border-b border-surface-800/80 bg-surface-950/50 text-[10px] text-gray-600">
+          <span className="text-gray-500">Governance</span>{" "}
           {governanceInfo?.label ?? viteGovLabels[viteGovProfile ?? ""] ?? viteGovProfile}
           {governanceInfo?.batch_ttl_seconds != null && (
-            <span className="text-gray-600"> · batch upload TTL {Math.round(governanceInfo.batch_ttl_seconds / 60)} min</span>
+            <span className="text-gray-600"> · batch TTL {Math.round(governanceInfo.batch_ttl_seconds / 60)}m</span>
           )}
-          <span className="text-gray-600"> — copilot uses regional system rules; not legal advice.</span>
+          <span className="text-gray-600"> · not legal advice</span>
         </div>
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4">
         {!contextCaseId && (
-          <div className="max-w-4xl mx-auto rounded-lg border border-amber-500/25 bg-amber-500/5 px-4 py-3 text-sm text-gray-300">
-            <p className="font-medium text-amber-200/90 mb-1">No case linked to this session</p>
-            <p className="text-gray-400 leading-relaxed">
-              For richer tool context, open Investigation from a case (or add{" "}
-              <code className="text-gray-500">case_id</code> and{" "}
-              <code className="text-gray-500">tenant_id</code> to the URL). Browse{" "}
-              <Link to={`/cases?tenant_id=${encodeURIComponent(contextTenantId)}`} className="text-brand-400 hover:underline">
-                Cases
-              </Link>{" "}
-              and use <span className="text-gray-300">Open in Investigation Copilot</span> from a case row or detail.
-            </p>
+          <div className="max-w-3xl mx-auto border-l-2 border-amber-500/40 pl-3 py-1 text-[13px] text-gray-400">
+            <span className="text-amber-200/80 font-medium">No case</span> —{" "}
+            <Link to={`/cases?tenant_id=${encodeURIComponent(contextTenantId)}`} className="text-brand-400/90 hover:underline">
+              Open a case
+            </Link>{" "}
+            or pass <code className="text-gray-500 text-xs">case_id</code> for richer tools.
           </div>
         )}
 
         {messages.length === 0 && (
-          <details className="max-w-4xl mx-auto py-2 rounded-xl border border-surface-700/80 bg-surface-900/40 group">
-            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-gray-300 flex items-center gap-2">
-              <span className="text-brand-400/90 group-open:rotate-90 transition-transform inline-block">▸</span>
-              Preset skills &amp; workflows
-            </summary>
-            <div className="px-4 pb-4 pt-0 space-y-8 border-t border-surface-700/80">
-              <div className="flex flex-col sm:flex-row gap-4 sm:items-start pt-4">
-                <ModuleIcon module="investigation" className="w-14 h-14 text-gray-600 shrink-0 hidden sm:block" aria-hidden />
-                <div className="space-y-2 min-w-0">
-                  <p className="text-sm text-gray-500 leading-relaxed">
-                    Skills bundle prompts the agent uses like playbooks: case + rule reviews, batch thinking, experiment
-                    readouts, monitoring reports, and analyst shortcuts. <span className="text-amber-400/90">⚡ Instant</span>{" "}
-                    sends in one click for fast answers; others fill the composer so you can tweak dates, segments, or
-                    tenant scope before sending. Use <code className="text-gray-400">/skill</code> for the full skill list
-                    in chat.
-                  </p>
-                </div>
-              </div>
-
-              {QUICK_INSTANT_SKILLS.length > 0 && (
-                <section className="space-y-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-brand-400/90">Quick run — instant</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {QUICK_INSTANT_SKILLS.map((skill) => (
-                      <SkillChip
-                        key={skill.id}
-                        label={skill.label}
-                        instant
-                        disabled={sending}
-                        onTrigger={() => void sendMessage(skill.prompt)}
-                      />
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              <div className="space-y-6">
-                {COPILOT_SKILL_GROUPS.map((group) => (
-                  <section key={group.id} className="rounded-xl border border-surface-700/60 bg-surface-900/30 p-4 space-y-3">
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-200">{group.title}</h3>
-                      {group.blurb && <p className="text-xs text-gray-500 mt-1 leading-relaxed">{group.blurb}</p>}
-                    </div>
-                    <ul className="flex flex-col gap-2">
-                      {group.skills.map((skill) => (
-                        <li key={skill.id} className="flex flex-wrap items-center gap-2">
-                          <SkillChip
-                            label={skill.label}
-                            instant={skill.instant === true}
-                            disabled={sending}
-                            onTrigger={() =>
-                              skill.instant ? void sendMessage(skill.prompt) : setInput(skill.prompt)
-                            }
-                          />
-                          {skill.instant ? (
-                            <span className="text-xs text-gray-600">instant</span>
-                          ) : (
-                            <span className="text-xs text-gray-600">fills composer</span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
+          <div className="max-w-4xl mx-auto space-y-4">
+            {QUICK_INSTANT_SKILLS.length > 0 && (
+              <div className="flex flex-wrap gap-2 items-center">
+                <span className="text-[10px] uppercase tracking-wider text-gray-600 shrink-0">Quick</span>
+                {QUICK_INSTANT_SKILLS.map((skill) => (
+                  <SkillChip
+                    key={skill.id}
+                    label={skill.label}
+                    instant
+                    compact
+                    disabled={sending}
+                    onTrigger={() => void sendMessage(skill.prompt)}
+                  />
                 ))}
               </div>
-            </div>
-          </details>
+            )}
+            <details className="rounded-xl border border-surface-800/90 bg-surface-900/20 group/skills">
+              <summary className="cursor-pointer list-none px-3 py-2.5 text-xs text-gray-500 hover:text-gray-400 flex items-center gap-2">
+                <span className="text-brand-400/70 group-open/skills:rotate-90 transition-transform inline-block text-[10px]">
+                  ▸
+                </span>
+                All preset skills
+              </summary>
+              <div className="px-3 pb-4 pt-1 space-y-5 border-t border-surface-800/70">
+                <div className="flex gap-3 pt-2 items-start">
+                  <ModuleIcon module="investigation" className="w-10 h-10 text-gray-700 shrink-0 hidden sm:block" aria-hidden />
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    <span className="text-brand-400/80">⚡</span> runs immediately; others load the composer.{" "}
+                    <code className="text-gray-500">/skill</code> in chat for the full catalog.
+                  </p>
+                </div>
+                <div className="space-y-4">
+                  {COPILOT_SKILL_GROUPS.map((group) => (
+                    <section key={group.id} className="rounded-lg border border-surface-800/70 bg-surface-950/30 p-3 space-y-2">
+                      <div>
+                        <h3 className="text-xs font-medium text-gray-300">{group.title}</h3>
+                        {group.blurb && <p className="text-[11px] text-gray-600 mt-0.5 leading-snug">{group.blurb}</p>}
+                      </div>
+                      <ul className="flex flex-col gap-1.5">
+                        {group.skills.map((skill) => (
+                          <li key={skill.id} className="flex flex-wrap items-center gap-2">
+                            <SkillChip
+                              label={skill.label}
+                              instant={skill.instant === true}
+                              compact
+                              disabled={sending}
+                              onTrigger={() =>
+                                skill.instant ? void sendMessage(skill.prompt) : setInput(skill.prompt)
+                              }
+                            />
+                            <span className="text-[10px] text-gray-600">{skill.instant ? "⚡" : "edit"}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ))}
+                </div>
+              </div>
+            </details>
+          </div>
         )}
 
         {messages.map((msg) => (
@@ -821,124 +814,125 @@ export default function Investigation() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Bar */}
-      <div className="px-6 py-4 border-t border-surface-700 space-y-3">
-        <fieldset
-          disabled={sending}
-          className="rounded-lg border border-surface-700 bg-surface-900/40 px-3 py-2.5 space-y-2"
-        >
-          <legend className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 px-1">
-            Platform audit context
-          </legend>
-          <p className="text-[11px] text-gray-600 leading-snug -mt-0.5">
-            These options change what <span className="text-gray-500">admin audit</span> data is sent with each message.
-            Case/graph tools are unchanged. The server re-checks flags so tampered requests cannot re-enable audit when it
-            is turned off here.
-          </p>
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start">
-            <label className="flex gap-2 items-start cursor-pointer text-xs text-gray-400 max-w-md">
-              <input
-                type="checkbox"
-                className="mt-0.5 rounded border-surface-600"
-                checked={trackHistoricalActions}
-                onChange={(e) => setTrackHistoricalActions(e.target.checked)}
-              />
-              <span>
-                <span className="text-gray-300 font-medium">Track historical actions</span>
-                <span className="block text-[11px] text-gray-600 mt-0.5">
-                  Sends recent platform audit events (who viewed/changed what). Off = minimal privacy: no audit slice in
-                  the prompt; answers rely on case tools and your message only.
-                </span>
-              </span>
-            </label>
-            <label className="flex gap-2 items-start cursor-pointer text-xs text-gray-400 max-w-md">
-              <input
-                type="checkbox"
-                className="mt-0.5 rounded border-surface-600"
-                disabled={!trackHistoricalActions}
-                checked={onlySessionAudit}
-                onChange={(e) => setOnlySessionAudit(e.target.checked)}
-              />
-              <span>
-                <span className="text-gray-300 font-medium">Only this session</span>
-                <span className="block text-[11px] text-gray-600 mt-0.5">
-                  Audit rows are limited to activity since you opened this chat (or pressed Clear chat). Narrows context to
-                  current work; older tenant activity is omitted.
-                </span>
-              </span>
-            </label>
-            <label className="flex gap-2 items-start cursor-pointer text-xs text-gray-400 max-w-md">
-              <input
-                type="checkbox"
-                className="mt-0.5 rounded border-surface-600"
-                disabled={!trackHistoricalActions}
-                checked={skipSessionActions}
-                onChange={(e) => setSkipSessionActions(e.target.checked)}
-              />
-              <span>
-                <span className="text-gray-300 font-medium">Skip session / copilot noise</span>
-                <span className="block text-[11px] text-gray-600 mt-0.5">
-                  Removes Investigation Copilot usage rows and generic session/auth audit noise so the model focuses on
-                  substantive product actions (cases, rules, graph, admin changes).
-                </span>
-              </span>
-            </label>
-          </div>
-        </fieldset>
+      {/* Composer */}
+      <div className="shrink-0 px-5 py-3 border-t border-surface-800/90 bg-surface-950/40 space-y-2.5">
+        <details className="group/audit rounded-lg border border-surface-800/80 bg-surface-900/20">
+          <summary className="cursor-pointer select-none px-2.5 py-1.5 text-[11px] text-gray-500 hover:text-gray-400 list-none flex items-center gap-2">
+            <span className="text-[10px] text-gray-600 group-open/audit:text-brand-400/70 transition-colors">▸</span>
+            Audit in prompt
+            <span className="text-gray-600 font-mono text-[10px]">
+              {trackHistoricalActions ? (onlySessionAudit ? "session" : "history") : "off"}
+              {trackHistoricalActions && skipSessionActions ? " · filter" : ""}
+            </span>
+          </summary>
+          <fieldset disabled={sending} className="px-2.5 pb-2.5 pt-1 border-t border-surface-800/70 space-y-2">
+            <p className="text-[10px] text-gray-600 leading-snug">
+              Controls which <span className="text-gray-500">admin audit</span> rows are included with each send. Case/graph
+              tools unchanged.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <label
+                className="flex gap-2 items-start cursor-pointer text-[11px] text-gray-400 max-w-sm"
+                title="Recent platform audit events in the prompt"
+              >
+                <input
+                  type="checkbox"
+                  className="mt-0.5 rounded border-surface-600"
+                  checked={trackHistoricalActions}
+                  onChange={(e) => setTrackHistoricalActions(e.target.checked)}
+                />
+                <span className="text-gray-300">History</span>
+              </label>
+              <label
+                className="flex gap-2 items-start cursor-pointer text-[11px] text-gray-400 max-w-sm"
+                title="Only since this chat started (or Clear chat)"
+              >
+                <input
+                  type="checkbox"
+                  className="mt-0.5 rounded border-surface-600"
+                  disabled={!trackHistoricalActions}
+                  checked={onlySessionAudit}
+                  onChange={(e) => setOnlySessionAudit(e.target.checked)}
+                />
+                <span className="text-gray-300">This session</span>
+              </label>
+              <label
+                className="flex gap-2 items-start cursor-pointer text-[11px] text-gray-400 max-w-sm"
+                title="Drop copilot/session noise; keep substantive product actions"
+              >
+                <input
+                  type="checkbox"
+                  className="mt-0.5 rounded border-surface-600"
+                  disabled={!trackHistoricalActions}
+                  checked={skipSessionActions}
+                  onChange={(e) => setSkipSessionActions(e.target.checked)}
+                />
+                <span className="text-gray-300">Filter noise</span>
+              </label>
+            </div>
+          </fieldset>
+        </details>
+
         {messages.length > 0 && (
-          <details className="group rounded-lg border border-surface-700 bg-surface-900/50 text-sm">
-            <summary className="cursor-pointer select-none px-3 py-2 text-gray-400 hover:text-gray-300 list-none flex items-center gap-2">
-              <span className="text-brand-400/90 group-open:rotate-90 transition-transform inline-block">▸</span>
-              More preset skills — or type <code className="text-gray-500">/skill</code> in the box
-            </summary>
-            <div className="px-3 pb-3 pt-1 space-y-4 max-h-48 overflow-y-auto border-t border-surface-700/80">
-              <div className="flex flex-wrap gap-1.5">
-                {QUICK_INSTANT_SKILLS.map((skill) => (
-                  <SkillChip
-                    key={`q-${skill.id}`}
-                    label={skill.label}
-                    instant
-                    compact
-                    disabled={sending}
-                    onTrigger={() => void sendMessage(skill.prompt)}
-                  />
+          <div className="space-y-1.5">
+            <button
+              type="button"
+              onClick={() => setComposerPresetsOpen((o) => !o)}
+              className="text-[11px] text-gray-500 hover:text-gray-400"
+            >
+              {composerPresetsOpen ? "▼" : "▸"} Presets
+            </button>
+            {composerPresetsOpen && (
+              <div className="rounded-lg border border-surface-800/80 bg-surface-900/25 p-2 max-h-40 overflow-y-auto space-y-2">
+                <div className="flex flex-wrap gap-1.5">
+                  {QUICK_INSTANT_SKILLS.map((skill) => (
+                    <SkillChip
+                      key={`q-${skill.id}`}
+                      label={skill.label}
+                      instant
+                      compact
+                      disabled={sending}
+                      onTrigger={() => void sendMessage(skill.prompt)}
+                    />
+                  ))}
+                </div>
+                {COPILOT_SKILL_GROUPS.map((group) => (
+                  <div key={`chat-${group.id}`}>
+                    <div className="text-[10px] font-medium text-gray-600 mb-1">{group.title}</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {group.skills.map((skill) => (
+                        <SkillChip
+                          key={`chat-${skill.id}`}
+                          label={skill.label}
+                          instant={skill.instant === true}
+                          compact
+                          disabled={sending}
+                          onTrigger={() =>
+                            skill.instant ? void sendMessage(skill.prompt) : setInput(skill.prompt)
+                          }
+                        />
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
-              {COPILOT_SKILL_GROUPS.map((group) => (
-                <div key={`chat-${group.id}`}>
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-600 mb-1.5">{group.title}</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {group.skills.map((skill) => (
-                      <SkillChip
-                        key={`chat-${skill.id}`}
-                        label={skill.label}
-                        instant={skill.instant === true}
-                        compact
-                        disabled={sending}
-                        onTrigger={() =>
-                          skill.instant ? void sendMessage(skill.prompt) : setInput(skill.prompt)
-                        }
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </details>
+            )}
+          </div>
         )}
-        <form onSubmit={handleSend} className="flex gap-3">
+
+        <form onSubmit={handleSend} className="flex gap-2 items-stretch">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="/skill for catalog — or type a question; ⚡ presets send in one tap…"
+            placeholder="Message or /skill …"
             disabled={sending}
-            className="flex-1 bg-surface-800 border border-surface-600 text-gray-200 text-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-50 placeholder-gray-500"
+            className="flex-1 min-w-0 bg-surface-900 border border-surface-700 text-gray-200 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-brand-500/60 disabled:opacity-50 placeholder-gray-600"
           />
           <button
             type="submit"
             disabled={sending || !input.trim()}
-            className="px-6 py-3 bg-brand-600 hover:bg-brand-500 disabled:opacity-40 text-white text-sm font-medium rounded-xl transition-colors"
+            className="shrink-0 px-5 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors"
           >
             Send
           </button>
@@ -1013,10 +1007,10 @@ function SkillChip({
       disabled={disabled}
       onClick={onTrigger}
       title={instant ? "Runs immediately" : "Fills the message box — edit then Send"}
-      className={`text-left rounded-lg border transition-colors disabled:opacity-40 ${
+      className={`text-left rounded-md border transition-colors disabled:opacity-40 ${
         instant
-          ? "border-brand-500/35 bg-brand-600/10 text-brand-200/95 hover:bg-brand-600/18"
-          : "border-surface-600 bg-surface-800 text-gray-300 hover:bg-surface-700 hover:text-gray-200"
+          ? "border-brand-500/20 bg-brand-600/[0.06] text-brand-200/90 hover:bg-brand-600/12"
+          : "border-surface-700 bg-surface-900/80 text-gray-300 hover:bg-surface-800 hover:text-gray-200"
       } ${compact ? "px-2 py-1 text-[11px] max-w-[200px] truncate" : "px-3 py-2 text-xs max-w-full sm:max-w-xl"}`}
     >
       {label}

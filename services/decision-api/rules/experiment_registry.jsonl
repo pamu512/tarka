@@ -1,0 +1,1 @@
+{"id": "6a881e63-8f68-4f6c-b27f-5a142b2119b6", "ts": "2026-04-17T01:58:22.373062+00:00", "experiment_type": "vertical_benchmark", "scenario": "baseline", "vertical": "gaming", "population_id": null, "events_evaluated": 1000, "notes": "POST /v1/simulation/benchmark/vertical", "meta": {}}

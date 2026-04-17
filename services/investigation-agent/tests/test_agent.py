@@ -323,7 +323,7 @@ class TestOfflineMode:
         http = AsyncMock()
         with patch("investigation_agent.main.settings") as mock_settings:
             mock_settings.openai_api_key = ""
-            reply, tool_calls = await _llm_tool_loop(
+            reply, tool_calls, usage, rounds = await _llm_tool_loop(
                 http,
                 "system prompt",
                 [{"role": "user", "content": "hello"}],
@@ -334,3 +334,5 @@ class TestOfflineMode:
 
         assert "offline" in reply.lower()
         assert tool_calls == []
+        assert usage == {}
+        assert rounds == 0

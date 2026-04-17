@@ -8,15 +8,22 @@ From **`deploy/`**:
 
 ```bash
 docker compose -f docker-compose.yml -f observability/docker-compose.addon.yml \
-  --profile core --profile observe up -d
+  --profile core --profile agent --profile observe up -d
 ```
 
-Add **`--profile graph --profile ml`** (etc.) if you want those containers up so Prometheus scrapes them successfully.
+Add **`--profile graph --profile ml`** (etc.) if you want those containers up so Prometheus scrapes them successfully. **`--profile agent`** runs **investigation-agent** so the copilot dashboard has data.
 
 - **Prometheus:** http://localhost:9090  
 - **Grafana:** http://localhost:3001 (default login `admin` / `admin` — change in production)
 
-Provisioned dashboard: **Tarka / Tarka HTTP overview**.
+Provisioned dashboards (folder **Tarka**):
+
+- **Tarka HTTP overview** — HTTP request rate and 5xx counters across services.
+- **Investigation agent — copilot** — persona chat rates (`investigation` vs `orchestrator`), tool invocation rate, tool-error rate, orchestrator share, and tool-error ratio (all from `investigation-agent` `/metrics`).
+
+Ensure the **`agent`** profile is enabled so `investigation-agent` is running and scraped; otherwise panels show no data.
+
+**Deeper copilot KPIs** (`persona`, `tool_repeat_count`, `distinct_tool_names`) live in structured **logs** (`event` = `investigation_tool_quality`), not Prometheus — pipe container logs to Loki/ELK if you need those in Grafana.
 
 ## NATS / ClickHouse
 
