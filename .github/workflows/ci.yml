@@ -26,6 +26,8 @@ jobs:
       - run: pip install ruff
       - run: ruff check .
       - run: ruff format --check .
+      - name: Validate JSON rule packs (policy-as-code gate)
+        run: python scripts/policy/validate_rule_packs.py
       - name: Validate ML signal catalogs vs heuristic FEATURE_ORDER
         run: python scripts/ml/validate_signal_catalogs.py
       - name: Block vendor IDE tokens in tracked sources

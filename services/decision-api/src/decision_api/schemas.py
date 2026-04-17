@@ -37,10 +37,18 @@ class EvaluateRequest(BaseModel):
     )
 
 
+class DriverExplainEntry(BaseModel):
+    reason: str
+    category: str = "other"
+    label: str = ""
+
+
 class InferenceContext(BaseModel):
     schema_version: str = "3"
     calibration_profile: str = "default"
     expected_calibration_version: int = 1
+    confidence_tier_label: str = ""
+    driver_explain: list[DriverExplainEntry] = Field(default_factory=list)
     integrity_confidence: float = 0.0
     tamper_risk: float = 0.0
     network_trust: float = 0.0

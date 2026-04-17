@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import os
 import uuid
+from pathlib import Path
 from typing import Any
 
 import redis.asyncio as aioredis
@@ -92,6 +94,18 @@ async def require_counter_replay_token(
 _secured = APIRouter(dependencies=[Security(require_counter_replay_token)])
 
 
+def _counter_catalog_path() -> Path:
+    return Path(__file__).resolve().parent / "data" / "counter_catalog.json"
+
+
+def _read_counter_catalog_file() -> dict[str, Any]:
+    """Declarative counter catalog (titles, categories) alongside counter_manifest_v1."""
+    p = _counter_catalog_path()
+    if not p.is_file():
+        return {"catalog_version": "0", "counters": [], "note": f"missing {p}"}
+    return json.loads(p.read_text(encoding="utf-8"))
+
+
 async def apply_replay_events(store: AggregateStore, events: list[ReplayEventIn]) -> int:
     n = 0
     for ev in events:
@@ -109,6 +123,32 @@ async def get_counter_manifest() -> dict[str, Any]:
     if ver and all(c.isalnum() or c in "._:-" for c in ver):
         m["redis_key_version"] = ver
     return m
+
+
+@router.get("/catalog")
+async def get_counter_catalog_merged() -> dict[str, Any]:
+    """Human-readable counter catalog merged with manifest feature names (ops UI)."""
+    manifest = dict(load_counter_manifest_v1())
+    cat = _read_counter_catalog_file()
+    ver = os.environ.get("AGG_KEY_VERSION", "").strip()
+    if ver and all(c.isalnum() or c in "._:-" for c in ver):
+        manifest["redis_key_version"] = ver
+    by_name = {str(x.get("name", "")): x for x in (cat.get("counters") or []) if isinstance(x, dict)}
+    feats = manifest.get("feature_outputs") or []
+    merged: list[dict[str, Any]] = []
+    for f in feats:
+        if not isinstance(f, dict):
+            continue
+        name = str(f.get("name", "")).strip()
+        extra = dict(by_name.get(name, {}))
+        merged.append({**f, **{k: v for k, v in extra.items() if k != "name"}})
+    return {
+        "catalog_version": cat.get("catalog_version", "0"),
+        "description": cat.get("description", ""),
+        "manifest_version": manifest.get("manifest_version"),
+        "redis_key_version": manifest.get("redis_key_version") or ver or None,
+        "counters": merged,
+    }
 
 
 @_secured.post(

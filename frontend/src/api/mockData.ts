@@ -923,8 +923,22 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
     return {
       inference_schema_version: "3",
       rule_packs: { active_pack_count: 2, shadow_pack_count: 1, packs: [] },
+      counter_catalog: {
+        endpoint: "GET /v1/internal/counters/catalog",
+        note: "Merged manifest + titles",
+      },
       experiment_registry_lines: 0,
       drift_smoke: { script: "scripts/benchmarks/drift_score_smoke.py", note: "Baseline vs shifted separation guard." },
+    };
+  }
+  if (path.includes("/api/decisions/v1/internal/counters/catalog")) {
+    return {
+      catalog_version: "1",
+      manifest_version: "1.0.0",
+      redis_key_version: null,
+      counters: [
+        { name: "event_count_1h", title: "Events (1 hour)", category: "volume", kind: "event_count", window_seconds: 3600 },
+      ],
     };
   }
   if (path.includes("/evidence-bundle")) {
@@ -987,7 +1001,27 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   }
 
   if (path.includes("/api/cases/v1/cases/ops/kpis")) {
-    return { tenant_id: "demo", total_cases: mockCases.length, queue_score_avg: 85, critical_open: 1, investigating_rate: 0.4, resolved_rate: 0.2, median_case_age_hours: 6.5 };
+    return {
+      tenant_id: "demo",
+      total_cases: mockCases.length,
+      queue_score_avg: 85,
+      critical_open: 1,
+      investigating_rate: 0.4,
+      resolved_rate: 0.2,
+      median_case_age_hours: 6.5,
+      by_status: { open: 2, investigating: 1, closed: 1 } as Record<string, number>,
+      sla_breached_open_or_investigating: 0,
+    };
+  }
+  if (path.includes("/api/cases/v1/cases/analytics/cohort-compare")) {
+    return {
+      tenant_id: "demo",
+      period_days: 7,
+      cases_created_recent: 12,
+      cases_created_prior: 10,
+      delta: 2,
+      delta_percent_vs_prior: 20,
+    };
   }
   if (path.includes("/api/cases/v1/cases/playbooks")) {
     return { playbooks: { escalate: { label: "Escalate", target_status: "investigating" }, close_fp: { label: "Close False Positive", target_status: "closed" } } };
@@ -1046,6 +1080,15 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   }
   if (path.includes("/api/decisions/v1/rules/shadow/observations")) return { observations: [{ id: "obs1", production_decision: "allow", shadow_decision: "review" }] };
   if (path.includes("/api/decisions/v1/rules/shadow/stats")) return { total: 120, diverged: 11, divergence_rate: 0.091 };
+  if (path.includes("/api/decisions/v1/rules/change-log")) {
+    return {
+      items: [
+        { ts: new Date().toISOString(), action: "create", file: "pack_abc.json", actor: "mock", detail: {} },
+      ],
+      path: "rules/rule_change_log.jsonl",
+      count: 1,
+    };
+  }
   if (path.includes("/api/decisions/v1/rules") && method === "GET") return { packs: [{ _file: "default.json", name: "Default", version: 1, rules: [{ id: "velocity_guard", when: [{ field: "amount", op: "gt", value: 500 }], score_delta: 25 }], tag_rules: [] }] };
   if (path.includes("/api/decisions/v1/rules") && ["POST", "PUT", "DELETE"].includes(method)) return { ok: true };
 

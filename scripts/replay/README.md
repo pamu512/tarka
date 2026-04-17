@@ -32,6 +32,18 @@ python scripts/replay/diff_aggregate_redis.py \
 
 Exit code **0** if all matched ZSETs are identical; **1** if any key is missing on one side or member/score pairs differ.
 
+## One-shot parity report
+
+`run_offline_parity.py` runs replay into scratch Redis, optionally diffs against a reference Redis, and writes a JSON report:
+
+```bash
+python scripts/replay/run_offline_parity.py \
+  --input scripts/replay/fixtures/parity_smoke.jsonl \
+  --scratch-url redis://localhost:6379/15 \
+  --reference-url redis://localhost:6379/0 \
+  --report /tmp/parity_report.json
+```
+
 ## Export `decision_audit` to JSONL
 
 ```bash

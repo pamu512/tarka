@@ -1,0 +1,90 @@
+{
+  "catalog_version": "1",
+  "description": "Human-readable counter catalog (supplements counter_manifest_v1.json). Edit alongside manifest when adding aggregate outputs.",
+  "counters": [
+    {
+      "name": "event_count_5m",
+      "title": "Events (5 minutes)",
+      "category": "volume",
+      "window_seconds": 300,
+      "notes": "Sliding window event count for burst detection."
+    },
+    {
+      "name": "event_count_1h",
+      "title": "Events (1 hour)",
+      "category": "volume",
+      "window_seconds": 3600,
+      "notes": "Primary hourly velocity for rules and inference."
+    },
+    {
+      "name": "event_count_24h",
+      "title": "Events (24 hours)",
+      "category": "volume",
+      "window_seconds": 86400,
+      "notes": "Daily volume; used with hourly for concentration checks."
+    },
+    {
+      "name": "event_count_7d",
+      "title": "Events (7 days)",
+      "category": "volume",
+      "window_seconds": 604800,
+      "notes": "Weekly baseline for slower-moving fraud rings."
+    },
+    {
+      "name": "sum_amount_1h",
+      "title": "Sum amount (1 hour)",
+      "category": "payments",
+      "field": "amount",
+      "window_seconds": 3600,
+      "notes": "Requires normalized amount in features."
+    },
+    {
+      "name": "avg_amount_1h",
+      "title": "Average amount (1 hour)",
+      "category": "payments",
+      "field": "amount",
+      "window_seconds": 3600,
+      "notes": "Mean transaction size in window."
+    },
+    {
+      "name": "sum_amount_24h",
+      "title": "Sum amount (24 hours)",
+      "category": "payments",
+      "field": "amount",
+      "window_seconds": 86400,
+      "notes": "Daily payment velocity."
+    },
+    {
+      "name": "avg_amount_24h",
+      "title": "Average amount (24 hours)",
+      "category": "payments",
+      "field": "amount",
+      "window_seconds": 86400,
+      "notes": "Daily average ticket size."
+    },
+    {
+      "name": "distinct_ip_address_24h",
+      "title": "Distinct IPs (24 hours)",
+      "category": "identity",
+      "field": "ip_address",
+      "window_seconds": 86400,
+      "notes": "Requires ip_address in aggregate fields."
+    },
+    {
+      "name": "distinct_device_id_24h",
+      "title": "Distinct devices (24 hours)",
+      "category": "identity",
+      "field": "device_id",
+      "window_seconds": 86400,
+      "notes": "From device_context-derived device_id."
+    },
+    {
+      "name": "distinct_session_id_24h",
+      "title": "Distinct sessions (24 hours)",
+      "category": "identity",
+      "field": "session_id",
+      "window_seconds": 86400,
+      "notes": "Requires session_id on evaluate payload / features."
+    }
+  ]
+}

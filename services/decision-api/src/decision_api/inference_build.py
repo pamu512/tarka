@@ -21,6 +21,39 @@ def _clamp01(value: float) -> float:
     return max(0.0, min(1.0, value))
 
 
+def _driver_explain_entry(reason: str) -> dict[str, str]:
+    """Analyst-facing category + short label for a driver_reason code."""
+    r = reason.strip()
+    if r.startswith("rule:"):
+        rid = r[5:][:48]
+        return {"reason": r, "category": "rules", "label": f"Rule hit: {rid}"}
+    if r.startswith("ml_factor:"):
+        code = r[10:][:48]
+        return {"reason": r, "category": "ml", "label": f"ML factor: {code}"}
+    static = {
+        "device_tamper_or_emulator_signals": ("device_integrity", "Device tamper / emulator signals"),
+        "replay_or_duplicate_payload": ("replay", "Replay or duplicate payload"),
+        "hostile_or_anonymous_network_path": ("network", "VPN, proxy, or hostile network path"),
+        "geo_or_timezone_inconsistency": ("geo", "Geo or timezone inconsistency"),
+        "ml_score_elevated": ("ml", "ML score elevated"),
+        "device_seen_across_multiple_entities": ("velocity", "Shared device across entities"),
+        "multi_session_velocity": ("velocity", "Multi-session velocity"),
+        "velocity_and_geo_suggest_impossible_travel": ("velocity", "Velocity + geo suggest impossible travel"),
+    }
+    if r in static:
+        cat, lbl = static[r]
+        return {"reason": r, "category": cat, "label": lbl}
+    return {"reason": r, "category": "other", "label": r.replace("_", " ")}
+
+
+def _confidence_tier_label(tier: str) -> str:
+    return {
+        "high": "High — integrity signals support confident scoring",
+        "medium": "Medium — mixed signals; review edge cases",
+        "low": "Low — weak integrity or conflicting signals",
+    }.get(tier, "Medium — mixed signals; review edge cases")
+
+
 def build_inference_context(
     signal_tags: list[str],
     rule_hits: list[str],
@@ -194,12 +227,16 @@ def build_inference_context(
                     driver_reasons.append(tag)
     driver_reasons = driver_reasons[:8]
 
+    driver_explain = [_driver_explain_entry(d) for d in driver_reasons]
+
     ordered_top = sorted(signal_set)[:5]
 
     return {
         "schema_version": SCHEMA_VERSION,
         "calibration_profile": cal_profile_s,
         "expected_calibration_version": exp_cal_ver,
+        "confidence_tier_label": _confidence_tier_label(confidence_tier),
+        "driver_explain": driver_explain,
         "integrity_confidence": round(integrity_confidence, 4),
         "tamper_risk": round(tamper_risk, 4),
         "network_trust": round(network_trust, 4),

@@ -2,6 +2,14 @@
   "schema_version": "3",
   "calibration_profile": "default",
   "expected_calibration_version": 1,
+  "confidence_tier_label": "Medium — mixed signals; review edge cases",
+  "driver_explain": [
+    {
+      "reason": "hostile_or_anonymous_network_path",
+      "category": "network",
+      "label": "VPN, proxy, or hostile network path"
+    }
+  ],
   "integrity_confidence": 0.65,
   "tamper_risk": 0.25,
   "network_trust": 0.8,

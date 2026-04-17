@@ -220,10 +220,24 @@ export default function Rules() {
   const [lineageVersion, setLineageVersion] = useState<number>(1);
   const [lineageHash, setLineageHash] = useState<string>("");
   const [lineageBusy, setLineageBusy] = useState(false);
+  const [ruleActor, setRuleActor] = useState(() =>
+    typeof localStorage !== "undefined" ? localStorage.getItem("tarka.rule_actor") || "web-ui" : "web-ui",
+  );
+  const [ruleChangeLog, setRuleChangeLog] = useState<
+    Array<{ ts: string; action: string; file: string; actor: string }>
+  >([]);
 
   useEffect(() => {
     fetchPacks();
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("tarka.rule_actor", ruleActor.trim() || "web-ui");
+    } catch {
+      /* ignore */
+    }
+  }, [ruleActor]);
 
   useEffect(() => {
     (async () => {
@@ -257,6 +271,12 @@ export default function Rules() {
       const res = await rulesApi.list();
       setPacks(res.packs ?? []);
       setError(null);
+      try {
+        const cl = await rulesApi.changeLog(30);
+        setRuleChangeLog((cl.items ?? []).slice(0, 15));
+      } catch {
+        setRuleChangeLog([]);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load rules");
     } finally {
@@ -565,6 +585,32 @@ export default function Rules() {
           </button>
         </div>
       )}
+
+      <div className="mx-6 mt-3 flex flex-col lg:flex-row gap-3 text-xs text-gray-400">
+        <label className="flex items-center gap-2 shrink-0">
+          <span className="text-gray-500 whitespace-nowrap">Change actor (X-Actor)</span>
+          <input
+            value={ruleActor}
+            onChange={(e) => setRuleActor(e.target.value)}
+            className="bg-surface-800 border border-surface-600 rounded px-2 py-1 text-gray-200 font-mono max-w-[16rem]"
+            placeholder="web-ui"
+          />
+        </label>
+        {ruleChangeLog.length > 0 && (
+          <div className="flex-1 min-w-0 border border-surface-700 rounded-lg px-3 py-2 bg-surface-900/50">
+            <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">Recent pack changes</div>
+            <ul className="space-y-0.5 max-h-20 overflow-y-auto font-mono text-[11px]">
+              {ruleChangeLog.map((e, i) => (
+                <li key={`${e.ts}-${e.file}-${i}`} className="truncate">
+                  <span className="text-gray-500">{e.ts.slice(0, 19)}</span>{" "}
+                  <span className="text-brand-300">{e.action}</span> {e.file}{" "}
+                  <span className="text-gray-600">({e.actor})</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
 
       {/* ── Body ────────────────────────────────────────────── */}
       <div className="flex-1 flex overflow-hidden">
