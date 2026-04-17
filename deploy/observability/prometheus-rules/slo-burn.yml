@@ -1,0 +1,35 @@
+# Recording rules: HTTP 5xx ratio (5m vs 1h windows) by service label from shared observability middleware.
+# Load via prometheus.yml rule_files. Tune alert thresholds for your error budget.
+
+groups:
+  - name: tarka_slo_http_burn
+    interval: 30s
+    rules:
+      - record: tarka:http_5xx_ratio_5m
+        expr: |
+          sum by (service) (rate(http_requests_total{status=~"5.."}[5m]))
+          /
+          clamp_min(sum by (service) (rate(http_requests_total[5m])), 1e-9)
+      - record: tarka:http_5xx_ratio_1h
+        expr: |
+          sum by (service) (rate(http_requests_total{status=~"5.."}[1h]))
+          /
+          clamp_min(sum by (service) (rate(http_requests_total[1h])), 1e-9)
+
+  - name: tarka_slo_alerts
+    rules:
+      # Example: multi-window burn — both windows hot (adjust ratio to your SLO).
+      - alert: TarkaHighErrorRate5m
+        expr: tarka:http_5xx_ratio_5m > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Elevated 5xx ratio (5m) for {{ $labels.service }}"
+      - alert: TarkaHighErrorRate1h
+        expr: tarka:http_5xx_ratio_1h > 0.01
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sustained 5xx ratio (1h) for {{ $labels.service }}"

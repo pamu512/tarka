@@ -65,5 +65,17 @@ class Settings(BaseSettings):
     eval_step_graph_upsert_timeout_seconds: float = float(os.environ.get("EVAL_STEP_GRAPH_UPSERT_TIMEOUT_SECONDS", "8.0"))
     eval_step_graph_upsert_max_attempts: int = int(os.environ.get("EVAL_STEP_GRAPH_UPSERT_MAX_ATTEMPTS", "1"))
 
+    # R2: outbound circuit breakers (consecutive failures before open, seconds until retry)
+    circuit_graph_failure_threshold: int = int(os.environ.get("CIRCUIT_GRAPH_FAILURE_THRESHOLD", "5"))
+    circuit_graph_recovery_seconds: float = float(os.environ.get("CIRCUIT_GRAPH_RECOVERY_SECONDS", "30"))
+    circuit_feature_failure_threshold: int = int(os.environ.get("CIRCUIT_FEATURE_FAILURE_THRESHOLD", "5"))
+    circuit_feature_recovery_seconds: float = float(os.environ.get("CIRCUIT_FEATURE_RECOVERY_SECONDS", "30"))
+    circuit_ml_failure_threshold: int = int(os.environ.get("CIRCUIT_ML_FAILURE_THRESHOLD", "5"))
+    circuit_ml_recovery_seconds: float = float(os.environ.get("CIRCUIT_ML_RECOVERY_SECONDS", "30"))
+    circuit_opa_failure_threshold: int = int(os.environ.get("CIRCUIT_OPA_FAILURE_THRESHOLD", "5"))
+    circuit_opa_recovery_seconds: float = float(os.environ.get("CIRCUIT_OPA_RECOVERY_SECONDS", "30"))
+    circuit_list_failure_threshold: int = int(os.environ.get("CIRCUIT_LIST_FAILURE_THRESHOLD", "5"))
+    circuit_list_recovery_seconds: float = float(os.environ.get("CIRCUIT_LIST_RECOVERY_SECONDS", "30"))
+
 
 settings = Settings()

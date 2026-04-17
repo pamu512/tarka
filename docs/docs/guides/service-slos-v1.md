@@ -21,7 +21,15 @@
 
 ## Burn-rate alerts (operator pattern)
 
-Use **two windows** on error rate or latency: **5m** (fast burn) and **1h** (slow burn) vs budget. Example recording rules: **[slo-burn-recording-rules.example.yml](../../deploy/observability/slo-burn-recording-rules.example.yml)** (adapt `http_requests_total` labels to your deployment).
+Use **two windows** on error rate or latency: **5m** (fast burn) and **1h** (slow burn) vs budget.
+
+**Shipped:** Prometheus loads **[prometheus-rules/slo-burn.yml](../../deploy/observability/prometheus-rules/slo-burn.yml)** (recording rules `tarka:http_5xx_ratio_5m` / `tarka:http_5xx_ratio_1h` plus example alerts). Grafana folder **Tarka** includes **Tarka SLO burn (5m vs 1h)**.
+
+Legacy standalone example: **[slo-burn-recording-rules.example.yml](../../deploy/observability/slo-burn-recording-rules.example.yml)**.
+
+## Degradation (R2)
+
+**decision-api** wraps list / graph / feature-service / ml-scoring / OPA outbound calls with **async circuit breakers** (env `CIRCUIT_*`). When open, evaluate **fail-opens** with fallbacks and adds signal tags: `lists:unavailable`, `graph:unavailable`, `enrichment:unavailable`, `ml:unavailable`, `opa:unavailable`. Prometheus: `tarka_circuit_open_total_*` counters on **decision-api** `/metrics`.
 
 ## Related
 
