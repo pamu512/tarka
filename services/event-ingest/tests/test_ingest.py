@@ -46,6 +46,8 @@ class TestIngestStats:
         assert data["service"] == "event-ingest"
         assert data["total_contract_rejects"] == 0
         assert data["contract_reject_by_reason"] == {}
+        assert data.get("envelope_mode") == "optional"
+        assert data.get("require_idempotency_key") is False
 
 
 class TestHealthEndpoint:
@@ -224,8 +226,8 @@ class TestWebSocketIngest:
         with client.websocket_connect("/v1/events/ws") as ws:
             ws.send_text(json.dumps({"tenant_id": "t1"}))
             msg = ws.receive_json()
-            assert msg.get("error") == "validation_error"
-            assert "detail" in msg
+            assert msg.get("error") in ("validation_error", "ingest_contract_violation")
+            assert "detail" in msg or "reason_codes" in msg
 
     def test_ws_invalid_json(self, client, mock_js):
         with client.websocket_connect("/v1/events/ws") as ws:

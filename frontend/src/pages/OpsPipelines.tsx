@@ -7,6 +7,8 @@ export default function OpsPipelines() {
     contract_reject_by_reason: Record<string, number>;
     total_contract_rejects: number;
     since?: string;
+    envelope_mode?: string;
+    require_idempotency_key?: boolean;
     note?: string;
   } | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -64,6 +66,21 @@ export default function OpsPipelines() {
             the same <span className="font-mono">x-api-key</span> as producers when <span className="font-mono">API_KEYS</span>{" "}
             is set on event-ingest.
           </p>
+          {data && (data.envelope_mode != null || data.require_idempotency_key != null) ? (
+            <p className="mt-2 text-xs text-gray-500">
+              {data.envelope_mode != null ? (
+                <>
+                  Envelope: <span className="font-mono">{data.envelope_mode}</span>
+                  {data.require_idempotency_key != null ? " · " : ""}
+                </>
+              ) : null}
+              {data.require_idempotency_key != null ? (
+                <>
+                  Require idempotency key: <span className="font-mono">{String(data.require_idempotency_key)}</span>
+                </>
+              ) : null}
+            </p>
+          ) : null}
           {data?.note ? <p className="mt-2 text-xs text-gray-500">{data.note}</p> : null}
         </div>
       </div>
