@@ -209,6 +209,24 @@ def _batch_idempotency_redis_key(idempotency_key: str, events: list[EventPayload
     return f"{settings.idempotency_key_prefix}:batch:{digest}"
 
 
+@app.get("/v1/ingest/stats", dependencies=[Depends(require_api_key)])
+async def ingest_stats():
+    """
+    In-process ingest observability (v1.2.5 E4.2).
+
+    **contract_reject_by_reason** increments when contract-first validation rejects a body
+    (envelope mode, idempotency requirements, unknown event types). Until that path is active,
+    counts stay at zero — the field is still returned for UI wiring.
+    """
+    return {
+        "service": "event-ingest",
+        "since": "process_boot",
+        "contract_reject_by_reason": {},
+        "total_contract_rejects": 0,
+        "note": "Reject counters populate when contract validation is enabled on ingest paths.",
+    }
+
+
 @app.get("/v1/health")
 async def health(request: Request):
     r = getattr(request.app.state, "redis", None)
