@@ -21,5 +21,9 @@ class Settings(BaseSettings):
     # R3.1 — reject ingest when Idempotency-Key missing (high-volume safe retries)
     ingest_require_idempotency_key: bool = False
 
+    # E2 DLQ: publish poison / bad-evaluate payloads to JetStream (same stream wildcard fraud.events.>)
+    ingest_dlq_subject: str = "fraud.events.dlq"
+    ingest_dlq_publish_on_evaluate_4xx: bool = False
+
 
 settings = Settings()
