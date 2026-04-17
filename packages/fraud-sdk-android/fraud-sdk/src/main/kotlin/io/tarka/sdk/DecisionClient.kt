@@ -94,9 +94,26 @@ class DecisionClient(
         return try {
             val nonce = requestChallenge(tenantId)
             val token = requestPlayIntegrityToken(nonce, ctx)
-            dc.copy(attestation = Attestation(nonce = nonce, token = token, provider = "play_integrity"))
+            dc.copy(
+                attestation = Attestation(
+                    nonce = nonce,
+                    token = token,
+                    provider = "play_integrity",
+                    status = "obtained",
+                    confidenceTier = "medium",
+                ),
+            )
         } catch (_: Exception) {
-            dc
+            dc.copy(
+                attestation = Attestation(
+                    nonce = "",
+                    token = "",
+                    provider = "play_integrity",
+                    status = "failed",
+                    confidenceTier = "none",
+                    failureReason = "client_error",
+                ),
+            )
         }
     }
 }

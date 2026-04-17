@@ -132,6 +132,23 @@ paths:
                 $ref: "#/components/schemas/IntegrationConnectivityResult"
         "404":
           description: Unknown provider
+  /v1/integrations/preflight-probes:
+    post:
+      operationId: preflightIntegrationProbes
+      summary: Run public doc URL probes for catalog providers (no tenant credentials)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PreflightProbesRequest"
+      responses:
+        "200":
+          description: Per-provider probe results and connector_quality v1
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreflightProbesResponse"
   /v1/integrations/catalog:
     get:
       operationId: integrationsCatalog
@@ -143,6 +160,7 @@ paths:
               schema:
                 type: object
                 properties:
+                  connector_quality_version: { type: integer }
                   total_providers: { type: integer }
                   categories:
                     type: array
@@ -152,6 +170,9 @@ paths:
                     items:
                       type: object
                       additionalProperties: true
+                      properties:
+                        swimlane_module: { type: string }
+                        github_project_view_url: { type: string, format: uri }
   /v1/webhooks/kyc/{provider}:
     post:
       operationId: kycWebhook
@@ -270,10 +291,31 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/IntegrationHealthMatrixRow"
+    ConnectorQualityV1:
+      type: object
+      required: [version, score, components]
+      properties:
+        version: { type: integer }
+        score: { type: number }
+        components:
+          type: object
+          additionalProperties: { type: number }
+        probe_error: { type: string, nullable: true }
     IntegrationScorecardProvider:
       type: object
       required:
-        [provider_id, category, status, connectivity_score, latency_ms, config_completeness, last_checked_at, reasons, provider_score]
+        [
+          provider_id,
+          category,
+          status,
+          connectivity_score,
+          latency_ms,
+          config_completeness,
+          last_checked_at,
+          reasons,
+          provider_score,
+          connector_quality,
+        ]
       properties:
         provider_id: { type: string }
         category: { type: string }
@@ -286,16 +328,53 @@ components:
           type: array
           items: { type: string }
         provider_score: { type: number }
+        connector_quality:
+          $ref: "#/components/schemas/ConnectorQualityV1"
     IntegrationsScorecardsResponse:
       type: object
-      required: [tenant_id, overall_score, providers]
+      required: [tenant_id, overall_score, overall_connector_quality, providers, connector_quality_version]
       properties:
         tenant_id: { type: string }
+        connector_quality_version: { type: integer }
         overall_score: { type: number }
+        overall_connector_quality: { type: number }
         providers:
           type: array
           items:
             $ref: "#/components/schemas/IntegrationScorecardProvider"
+    PreflightProbesRequest:
+      type: object
+      properties:
+        provider_ids:
+          type: array
+          items: { type: string }
+          nullable: true
+    PreflightProbesResultRow:
+      type: object
+      required: [provider_id, live_probe, connector_quality]
+      properties:
+        provider_id: { type: string }
+        name: { type: string }
+        category: { type: string }
+        swimlane_module: { type: string }
+        github_project_view_url: { type: string, format: uri }
+        live_probe:
+          $ref: "#/components/schemas/IntegrationLiveProbe"
+        connector_quality:
+          $ref: "#/components/schemas/ConnectorQualityV1"
+    PreflightProbesResponse:
+      type: object
+      required:
+        [connector_quality_version, probed, probes_ok, average_connector_quality, results]
+      properties:
+        connector_quality_version: { type: integer }
+        probed: { type: integer }
+        probes_ok: { type: integer }
+        average_connector_quality: { type: number }
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/PreflightProbesResultRow"
     IntegrationTestRequest:
       type: object
       required: [tenant_id, provider_id]

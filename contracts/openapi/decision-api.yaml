@@ -724,10 +724,27 @@ components:
             attestation:
               type: object
               nullable: true
+              description: >
+                Mobile integrity attestation (Play Integrity / App Attest). Server normalizes provider aliases
+                and sets status/confidence_tier; see docs/docs/guides/mobile-attestation-taxonomy.md.
               properties:
                 nonce: { type: string }
                 token: { type: string }
-                provider: { type: string }
+                provider:
+                  type: string
+                  description: Canonical values play_integrity (Android) and app_attest (iOS).
+                status:
+                  type: string
+                  description: obtained | absent | failed | disabled | unsupported
+                confidence_tier:
+                  type: string
+                  description: none | low | medium | high (client hint)
+                failure_reason:
+                  type: string
+                  nullable: true
+                  description: Set when status is failed or unsupported
+                attestation_schema_version: { type: integer, minimum: 1 }
+                verified: { type: boolean, description: Set when server-side verify succeeded }
         metadata:
           type: object
           additionalProperties: true

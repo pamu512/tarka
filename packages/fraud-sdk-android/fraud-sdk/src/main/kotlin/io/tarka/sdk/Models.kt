@@ -50,11 +50,21 @@ data class Attestation(
     val nonce: String,
     val token: String,
     val provider: String,
+    /** Canonical: obtained | absent | failed | disabled | unsupported */
+    val status: String = "obtained",
+    /** none | low | medium | high — client hint; server may override after verify */
+    val confidenceTier: String = "medium",
+    val failureReason: String? = null,
+    val attestationSchemaVersion: Int = 1,
 ) {
     fun toJsonObject(): JSONObject = JSONObject().apply {
         put("nonce", nonce)
         put("token", token)
         put("provider", provider)
+        put("status", status)
+        put("confidence_tier", confidenceTier)
+        failureReason?.let { put("failure_reason", it) } ?: put("failure_reason", JSONObject.NULL)
+        put("attestation_schema_version", attestationSchemaVersion)
     }
 }
 

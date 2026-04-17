@@ -42,7 +42,26 @@ async def client():
 async def test_catalog_contains_20(client):
     r = await client.get("/v1/integrations/catalog")
     assert r.status_code == 200
-    assert r.json()["total_providers"] >= 20
+    data = r.json()
+    assert data["total_providers"] >= 20
+    assert data.get("connector_quality_version") == 1
+    prov = next(p for p in data["providers"] if p["id"] == "jira")
+    assert prov.get("swimlane_module")
+    assert "github.com" in (prov.get("github_project_view_url") or "")
+
+
+@pytest.mark.asyncio
+async def test_preflight_probes_returns_quality(client):
+    r = await client.post("/v1/integrations/preflight-probes", json={"provider_ids": ["stripe_radar"]})
+    assert r.status_code == 200
+    data = r.json()
+    assert data.get("connector_quality_version") == 1
+    assert data["probed"] >= 1
+    assert "average_connector_quality" in data
+    row = data["results"][0]
+    assert row["provider_id"] == "stripe_radar"
+    assert "connector_quality" in row
+    assert row["connector_quality"]["version"] == 1
 
 
 @pytest.mark.asyncio
@@ -209,3 +228,5 @@ async def test_scorecards_endpoint_shape(client):
     assert p["status"] in {"healthy", "degraded", "down", "unknown"}
     assert "connectivity_score" in p
     assert "config_completeness" in p
+    assert "connector_quality" in p
+    assert data.get("overall_connector_quality") is not None
