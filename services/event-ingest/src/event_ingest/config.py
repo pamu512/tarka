@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     ingest_envelope_mode: str = "optional"
     # When true, POST /v1/events requires Idempotency-Key (or metadata.idempotency_key).
     ingest_require_idempotency_key: bool = False
+    # E2: publish poison / rule-reject evaluate outcomes to a DLQ subject (same stream wildcard fraud.events.>).
+    ingest_dlq_subject: str = ""
+    ingest_dlq_publish_on_evaluate_4xx: bool = False
 
 
 settings = Settings()
