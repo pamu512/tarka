@@ -172,4 +172,5 @@ def normalized_velocity_key_names() -> tuple[str, ...]:
         "avg_amount_24h",
         "distinct_ip_address_24h",
         "distinct_device_id_24h",
+        "distinct_session_id_24h",
     )

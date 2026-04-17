@@ -27,3 +27,5 @@ Implementation tracks `**roadmap-30-60-90.md`** Day 60 scope. This document is t
 - **CI** — `[test_golden_counters.py](../../../services/decision-api/tests/test_golden_counters.py)` locks `**event_count_1h`**, sums, and distinct counts under a **fixed injectable clock** on `AggregateStore`.
 
 **Still open (v1.2):** counter manifest YAML versioning in Redis key prefix, optional `**POST /v1/internal/counters/replay`** batch from audit export (today: JSON body only), scheduled parity job.
+
+**Epic C increment (trunk):** `**distinct_session_id_24h**` is part of **`AggregateStore.compute_features`**, the v1 counter manifest, and **`normalized_velocity_key_names()`** — use payload / evaluate fields that include **`session_id`** so the distinct branch runs (same pattern as **`device_id`** / **`ip_address`**).
