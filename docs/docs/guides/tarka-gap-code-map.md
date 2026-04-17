@@ -1,6 +1,6 @@
 # Tarka: competitive gap → codebase map
 
-Maps the gaps described in [competitive-critical-review-2026-04.md](competitive-critical-review-2026-04.md) and [competitive-score-matrix-2026-04.md](competitive-score-matrix-2026-04.md) to **concrete services and files** in this repository. For **large “Missing” rows**, see the phased plan in [aspirational-gaps-execution-plan.md](./aspirational-gaps-execution-plan.md).
+Maps the gaps described in [competitive-critical-review-2026-04.md](competitive-critical-review-2026-04.md) and [competitive-score-matrix-2026-04.md](competitive-score-matrix-2026-04.md) to **concrete services and files** in this repository. For **large “Missing” rows**, see the phased plan in [aspirational-gaps-execution-plan.md](./aspirational-gaps-execution-plan.md). For **regulated-sector** deployment patterns, see [feature-pack-regulated-markets.md](./feature-pack-regulated-markets.md).
 
 Legend: **Today** = where behavior exists now; **Extend** = natural place to deepen; **Missing** = no first-class module yet.
 
