@@ -303,6 +303,29 @@ async def health(request: Request):
     }
 
 
+@app.get("/v1/slo")
+async def slo_status(request: Request):
+    m = get_metrics()
+    cur = m.request_count_summary()
+    r = getattr(request.app.state, "redis", None)
+    redis_configured = r is not None
+    by_reason = {k: v for k, v in sorted(_contract_reject_reason_counts.items())}
+    total_rejects = sum(by_reason.values())
+    return {
+        "service": "event-ingest",
+        "availability_target_pct": 99.9,
+        "latency_target_ms_p95": 200,
+        "error_budget_window_days": 30,
+        "targets_note": "See docs/docs/guides/service-slos-v1.md; queue lag uses Prometheus ingest_consumer_* metrics.",
+        "current": {
+            **cur,
+            "nats_connected": _nc is not None and getattr(_nc, "is_connected", False),
+            "redis_configured": redis_configured,
+            "total_contract_rejects": total_rejects,
+        },
+    }
+
+
 @app.post("/v1/events", dependencies=[Depends(require_api_key)])
 async def ingest_event(request: Request):
     """Publish a single event to NATS for async processing."""

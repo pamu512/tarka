@@ -24,6 +24,18 @@ paths:
                   status:
                     type: string
                     example: ok
+  /v1/slo:
+    get:
+      operationId: sloStatus
+      summary: SLO targets and in-process HTTP counters (v1.2.5)
+      responses:
+        "200":
+          description: SLO snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
   /v1/decisions/evaluate:
     post:
       operationId: evaluateDecision
@@ -753,6 +765,8 @@ components:
             tls_pinning_verified (bool) for MitM posture hints;
             vendor_visitor_id, vendor_device_id, vendor_install_id (strings) for server-side vendor→entity
             bridge when consent and mapping contract exist — see docs/guides/device-id-semantics.md.
+            Optional event_time (or event_ts, occurred_at) — ISO-8601 or unix seconds — sets Redis aggregate
+            timestamps to business time for velocity windows when present; see docs/guides/late-arrival-watermarks.md.
         challenge_policy_id:
           type: string
           nullable: true

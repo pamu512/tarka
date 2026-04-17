@@ -51,6 +51,12 @@ async def client():
 class TestHealthEndpoint:
     @pytest.mark.asyncio
     async def test_health(self, client):
+        r = await client.get("/v1/slo")
+        assert r.status_code == 200
+        slo = r.json()
+        assert slo.get("service") == "decision-api"
+        assert "current" in slo
+
         r = await client.get("/v1/health")
         assert r.status_code == 200
         assert r.json()["status"] == "ok"

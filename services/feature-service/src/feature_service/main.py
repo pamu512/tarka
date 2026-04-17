@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from fraud_aggregates import AggregateStore, normalized_velocity_key_names  # noqa: E402
-from observability import setup_observability  # noqa: E402
+from observability import get_metrics, setup_observability  # noqa: E402
 
 # ---------- auth ----------
 _valid_api_keys: frozenset[str] | None = None
@@ -318,6 +318,21 @@ def _build_vector(features: dict[str, Any]) -> list[float]:
 @app.get("/v1/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/v1/slo")
+async def slo_status(request: Request):
+    m = get_metrics()
+    cur = m.request_count_summary()
+    store = getattr(request.app.state, "velocity_store", None)
+    return {
+        "service": "feature-service",
+        "availability_target_pct": 99.9,
+        "latency_target_ms_p95": 150,
+        "error_budget_window_days": 30,
+        "targets_note": "See docs/docs/guides/service-slos-v1.md; current from in-process HTTP counters.",
+        "current": {**cur, "redis_velocity_configured": store is not None},
+    }
 
 
 @app.post("/v1/velocity/query")

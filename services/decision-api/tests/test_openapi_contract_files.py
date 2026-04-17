@@ -70,6 +70,7 @@ def test_fastapi_openapi_contains_evaluate_and_inference():
                         assert "/v1/internal/counters/replay" in paths
                         assert "/v1/internal/counters/replay/from-audit" in paths
                         assert "/v1/ops/calibration-status" in paths
+                        assert "/v1/slo" in paths
                         schemes = schema.get("components", {}).get("securitySchemes", {})
                         assert "TarkaCounterReplayToken" in schemes
                         replay_post = paths["/v1/internal/counters/replay"].get("post", {})
