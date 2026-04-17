@@ -8,6 +8,10 @@ This schedule is committed to git for planned milestone tracking.
 - `v1.2.0` - `2026-05-30` — strategic concentration: productized quality, device/session/integrity, location & co-presence, counters/velocity platform, analyst workflows, network/consortium, operations & lock-in inverse (see `docs/docs/releases/v1.2.0-2026-05-30.md`).
 - `v1.3.0` - `2026-06-29`
 
+### `v1.2.0` — ship hold until Epic C “10x” (active)
+
+**Do not** publish a **`v1.2.0`** Git tag or GitHub release, and do not treat the train as “shipped to users,” until **[Epic C completion (10x bar)](docs/docs/guides/counter-replay-parity.md#epic-c-completion-10x-bar)** is satisfied on the release candidate commit. Integration branches (e.g. `release/v1.2.0`) may continue to move for development; the hold is on **customer-facing release finalization** only.
+
 ## Publication Notes
 
 - Future release notes are tracked under `docs/docs/releases/`.

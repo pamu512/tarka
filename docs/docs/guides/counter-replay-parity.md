@@ -29,3 +29,26 @@ Implementation tracks `**roadmap-30-60-90.md`** Day 60 scope. This document is t
 **Still open (v1.2):** counter manifest YAML versioning in Redis key prefix, optional `**POST /v1/internal/counters/replay`** batch from audit export (today: JSON body only), scheduled parity job.
 
 **Epic C increment (trunk):** `**distinct_session_id_24h**` is part of **`AggregateStore.compute_features`**, the v1 counter manifest, and **`normalized_velocity_key_names()`** — use payload / evaluate fields that include **`session_id`** so the distinct branch runs (same pattern as **`device_id`** / **`ip_address`**).
+
+---
+
+## Epic C completion (“10x” bar)
+
+**“10x”** here means **full Epic C maturity**, not a partial increment: counters are **versioned**, **replayable**, **parity-checked**, and **operationally repeatable**—the same bar a serious vendor would use before calling the velocity platform “done.”
+
+**Required before `v1.2.0` is allowed to ship** (tag + GitHub release + “GA” messaging):
+
+| # | Criterion | Notes |
+|---|-----------|--------|
+| 1 | **Manifest + keys** | Counter manifest v1 lists every **`compute_features`** output; **`GET /v1/internal/counters/manifest`** reflects env (**`AGG_KEY_VERSION`**) when set. |
+| 2 | **Redis key versioning** | **`AGG_KEY_VERSION`** documented for operators; migration path from empty version → versioned keys (no silent split-brain). |
+| 3 | **Offline replay** | JSONL / **`replay_aggregates.py`** path exercised in docs; optional **audit-export → replay** batch documented or implemented. |
+| 4 | **Parity proof** | **`diff_aggregate_redis.py`** (or equivalent) used in a **documented** prod-vs-scratch check; CI golden tests stay green. |
+| 5 | **Ops API** | **`POST /v1/internal/counters/replay`** remains token-gated; behavior matches manifest for sampled workloads. |
+| 6 | **Scheduled or runbook parity** | Either a **scheduled** job/workflow for parity smoke **or** a short **runbook** (copy-paste) the team agrees is “weekly bar” enough. |
+| 7 | **Feature-service contract** | **`POST /v1/snapshot`** / **`POST /v1/velocity/query`** return **deterministic** multi-window counters when Redis is shared with decision-api (**[`roadmap-30-60-90.md`](./roadmap-30-60-90.md)** Day 60 acceptance). |
+| 8 | **Rule-facing keys** | Normalized velocity keys (including **`distinct_session_id_24h`** when **`session_id`** present) are usable from rule packs / docs without guesswork. |
+
+**Optional stretch (literal “10×” stress):** extend golden or replay fixtures to **~10×** the default event count (e.g. order of magnitude more ZSET members) to catch performance or correctness drift—only if you want an explicit load-ish gate on top of the checklist above.
+
+Until this section is satisfied, **`v1.2.0` stays in “building” mode** per [`RELEASE_SCHEDULE.md`](../../RELEASE_SCHEDULE.md).
