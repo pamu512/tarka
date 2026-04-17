@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     # Optional: enables POST /v1/internal/counters/replay (scratch Redis replay for parity ops)
     counter_replay_token: str = os.environ.get("COUNTER_REPLAY_TOKEN", "")
 
+    # Optional: require HMAC on raw POST body for selected paths (see tls-pinning-and-signed-requests.md)
+    request_signature_secret: str = os.environ.get("REQUEST_SIGNATURE_SECRET", "")
+    request_signature_max_skew_seconds: int = int(os.environ.get("REQUEST_SIGNATURE_MAX_SKEW_SECONDS", "300"))
+
     # Challenge policy templates (JSON under {rules_path}/challenge_policies/)
     challenge_policy_default: str = os.environ.get("CHALLENGE_POLICY_DEFAULT", "default_v1")
 

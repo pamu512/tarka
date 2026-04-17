@@ -199,6 +199,15 @@ setup_security_headers(app)
 setup_auth(app)
 setup_rate_limiter(app, rpm=int(os.environ.get("RATE_LIMIT_RPM", "1000")))
 
+if settings.request_signature_secret:
+    from decision_api.request_signature_middleware import RequestSignatureMiddleware
+
+    app.add_middleware(
+        RequestSignatureMiddleware,
+        secret=settings.request_signature_secret,
+        max_skew_seconds=settings.request_signature_max_skew_seconds,
+    )
+
 from decision_api.calibration_api import compute_drift_for_tenant  # noqa: E402
 from decision_api.calibration_api import router as calibration_router  # noqa: E402
 from decision_api.captcha import router as captcha_router  # noqa: E402

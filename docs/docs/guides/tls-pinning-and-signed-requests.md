@@ -32,10 +32,12 @@ Prefer **HTTPS** + **CORS**-correct API; pinning in browsers is limited. Use **S
 
 **Pattern:** `X-Tarka-Timestamp` + `X-Tarka-Signature` = HMAC-SHA256 over `timestamp + "\n" + raw_body` with a **shared secret** rotated per tenant.
 
-- **Server:** validate in middleware before JSON parse (not shipped in core decision-api by default — implement in API gateway or Envoy).
+Canonical helpers: **`services/shared/tarka_request_signature.py`** and **`packages/fraud-sdk-python`** (`fraud_stack_sdk.request_signing`).
+
+- **Server (decision-api):** set **`REQUEST_SIGNATURE_SECRET`** to enable optional verification on **`POST /v1/decisions/evaluate`** (same HMAC). When unset, evaluate is unchanged (many teams still terminate signing at **Envoy / Kong / Cloudflare**).
 - **Client:** compute HMAC in the app and add headers; **never** embed the secret in the client for public apps — use **per-install** keys from your backend or mTLS instead.
 
-For OSS Tarka, **document** this pattern; production teams often place signing at **Envoy / Kong / Cloudflare** with **mTLS** between gateway and decision-api.
+Edge gateways with **mTLS** to decision-api remain a common pattern for multi-hop setups.
 
 ## Related
 
