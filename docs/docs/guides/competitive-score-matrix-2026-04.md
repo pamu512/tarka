@@ -15,16 +15,18 @@ Competitor columns are **directional benchmarks** (product categories differ: de
 
 ## Git basis (for Tarka rows)
 
+**Last doc refresh:** `cursor/competitive-scores-v12-v13-realign-7320` @ **`5d9f435`** (update this row when you realign scores or evidence). Older commit SHAs below are **historical anchors** unless you re-verify.
 
 | Ref                         | Commit (short)           | Role                                                                                                                                                                                                                                                        |
 | --------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Baseline matrix**         | Editorial **April 2026** | Original Tarka scores before train realignment.                                                                                                                                                                                                             |
-| `**master`** (this repo)    | `df3224c`                | Trunk: counter manifest + replay, challenge policy templates, feature-service velocity wiring, vertical pack simulation benchmark, `inference_context` + ML factors path, OpenAPI for challenge policies.                                                   |
-| `**origin/release/v1.2.0`** | `a91b3e4`                | **3 commits ahead of `master`:** ingress `**GET /v1/integrations/scorecards`**, investigation-agent **production-hardening** (rate limits, workflows, case summary PDF, golden prompts), collaboration-chat-bridge workflow/attachments, docs “what’s new”. |
+| **`cursor/competitive-scores-v12-v13-realign-7320` (workspace)** | `5d9f435`                | **Doc sync pass:** optional GPS + IP-geo SDK paths, `location_context` + geo mismatch tags, graph **`Place` / `SEEN_AT`**, calibration ops endpoints, CI **48%** decision-api floor + **benchmark-latency-evaluate** + **secret-scan** workflows.          |
+| `**master`** (this repo)    | `df3224c`                | *Historical snapshot* — counter manifest + replay, challenge policy templates, feature-service velocity wiring, vertical pack simulation benchmark, `inference_context` + ML factors path, OpenAPI for challenge policies.                                  |
+| `**origin/release/v1.2.0`** | `a91b3e4`                | **3 commits ahead of historical `master` snapshot:** ingress `**GET /v1/integrations/scorecards`**, investigation-agent **production-hardening** (rate limits, workflows, case summary PDF, golden prompts), collaboration-chat-bridge workflow/attachments, docs “what’s new”. |
 | `**origin/release/v1.1.0`** | `ddba68d`                | Older release branch; **same numeric matrix file** as baseline (scores were not versioned per branch historically).                                                                                                                                         |
 
 
-**Merge-base:** `master` and `origin/release/v1.2.0` share `df3224c`; v1.2 adds integration reliability **scorecards** and **analyst/copilot** depth not yet on `master`.
+**Merge-base (historical):** `master` and `origin/release/v1.2.0` shared `df3224c` at matrix authoring time; v1.2 adds integration reliability **scorecards** and **analyst/copilot** depth beyond that snapshot.
 
 ---
 
@@ -38,12 +40,12 @@ Use these rows for **positioning and gap planning**. Competitors stay on the Apr
 | Inference normalization (cross-SDK + service) | 2.5                     | **3.0**                    | **3.25**                   | 4.5         | 4.0      | 4.0  | 4.5                       |
 | Replay/tamper/MitM hardening                  | 2.5                     | **2.75**                   | **2.75**                   | 4.5         | 3.5      | 3.5  | 4.0                       |
 | Counter/velocity platform maturity            | 2.0                     | **2.75**                   | **2.75**                   | 4.0         | 3.0      | 3.5  | 5.0                       |
-| Location/co-location coherence                | 1.5                     | **1.5**                    | **1.5**                    | 3.5         | 5.0      | 3.0  | 4.0                       |
+| Location/co-location coherence                | 1.5                     | **2.0**                    | **2.25**                   | 3.5         | 5.0      | 3.0  | 4.0                       |
 | Analyst decision acceleration                 | 2.0                     | **2.75**                   | **3.25**                   | 3.5         | 3.5      | 4.5  | 4.5                       |
 | Rule/risk operations safety                   | 3.0                     | **3.5**                    | **4.0**                    | 4.0         | 3.5      | 4.0  | 4.5                       |
 
 
-**Means (Tarka only, six capabilities):** baseline **2.25** · v1.2 **~2.72** · v1.3 **~2.92**.
+**Means (Tarka only, six capabilities):** baseline **2.25** · v1.2 **~2.79** (after location bump) · v1.3 **~3.04** (location **2.25** vs **2.0** on v1.2; other rows unchanged from matrix above).
 
 ---
 
@@ -55,7 +57,7 @@ Use these rows for **positioning and gap planning**. Competitors stay on the Apr
 | **Inference**         | +0.5              | `inference_context` + ML top factors / summary in decision + Case Detail; golden/contract path; not yet full **calibration** (reliability diagrams still post–v1.2 per [release-gap-closure-schedule](./release-gap-closure-schedule.md)). |
 | **Replay/tamper**     | +0.25             | Replay signatures + attestation path on trunk; challenge metadata + policies. **MitM / pinning matrix** still thin vs device vendors → cap below 3.0.                                                                                      |
 | **Counters/velocity** | +0.75             | Counter **manifest v1**, token-gated **replay**, `fraud_aggregates` in feature-service + velocity query; [v1.2 tracker](../releases/v1.2.0-2026-05-30.md) still lists **partial** (key-prefix versioning, audit-export batch).             |
-| **Location**          | —                 | No release-train commitment to co-presence / trusted location; geo remains **basic**.                                                                                                                                                      |
+| **Location**          | +0.5 (v1.2 row) | **Trunk / RC:** optional GPS + IP-geo SDK hooks, `location_context` merge + **`sdk:geo_*`** mismatch tags, graph **`Place` / `SEEN_AT`**, calibration ops — still **not** Incognia-class device network; scores stay **directional**.                                                                                                                                                      |
 | **Analyst**           | +0.75             | `**origin/release/v1.2.0` only:** copilot production config, workflows, case summary PDF, bridge hardening — faster **close-the-case** loop; still not Sift-class queue economics.                                                         |
 | **Rule/risk ops**     | +0.5              | Challenge policy templates + `GET /v1/challenge-policies`; simulation vertical benchmark; ingress **scorecards** improve **connector** governance (related to rollout safety).                                                             |
 
@@ -81,7 +83,7 @@ Source: [v1.3.0-2026-06-29.md](../releases/v1.3.0-2026-06-29.md) — Trust Cente
 
 ## Priority gaps (updated)
 
-1. **Location/co-presence** remains the largest **single-dimension** deficit vs Incognia-class (1.5 vs 5.0 benchmark) — not targeted by v1.2/v1.3 as written.
+1. **Location/co-presence** improved on trunk (SDK + decision + graph) but remains the largest gap vs Incognia-class (benchmark 5.0) until trusted-device and co-presence depth match vendor bar — see **`release-gap-closure-schedule.md`** and **`v1.2.0-2026-05-30.md`** for remaining Day 60 items.
 2. **Calibration pipeline** (reliability diagrams, drift monitors) — still post–v1.2 in [release-gap-closure-schedule](./release-gap-closure-schedule.md); caps inference below 3.5 until shipped.
 3. **Counter platform** — finish parity items in [counter-replay-parity](./counter-replay-parity.md) before claiming **3.5+** on velocity.
 4. Merge `**origin/release/v1.2.0` → `master`** or tag **v1.2.0** from that branch so marketing and scores refer to the same commit set.

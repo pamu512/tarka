@@ -32,6 +32,7 @@ Thumbs.db
 # Python coverage (local pytest)
 .coverage
 **/.coverage
+**/coverage.xml
 
 # Local SQLite files under services (dev/demo; not release artifacts)
 services/**/*.db

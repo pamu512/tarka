@@ -22,6 +22,7 @@ Maps [competitive-critical-review-2026-04.md](./competitive-critical-review-2026
 | Gap | Closure |
 |-----|---------|
 | Counter / velocity maturity | **Feature-service** multi-window counters, normalized velocity keys per roadmap |
+| Location / geo (SDK + decision + graph) | **Largely on trunk:** optional GPS + IP-geo collectors, **`location_context`**, geo mismatch signal tags, **`Place` / `SEEN_AT`** — v1.2 closes **docs, tests, and operator clarity**; Incognia-class co-presence remains **post–v1.2** per competitive review |
 | Online/offline parity | **[counter-replay-parity.md](./counter-replay-parity.md)** + `replay_aggregates.py` + `diff_aggregate_redis.py` + **CI** `test_golden_counters.py` |
 | Challenge / FP friction | **Policy templates** — JSON under `rules/challenge_policies/`, `challenge_policy_id` on evaluate, **`GET /v1/challenge-policies`**, extends `recommended_action` |
 | Connector seriousness | **Ingress reliability** scorecards + UI/API fields |
