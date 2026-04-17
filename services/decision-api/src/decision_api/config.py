@@ -51,5 +51,19 @@ class Settings(BaseSettings):
     # Challenge policy templates (JSON under {rules_path}/challenge_policies/)
     challenge_policy_default: str = os.environ.get("CHALLENGE_POLICY_DEFAULT", "default_v1")
 
+    # Evaluation step controls (#32): timeouts (seconds), max attempts (1–5), optional REJECT (strict mode)
+    eval_step_list_timeout_seconds: float = float(os.environ.get("EVAL_STEP_LIST_TIMEOUT_SECONDS", "0.8"))
+    eval_step_list_max_attempts: int = int(os.environ.get("EVAL_STEP_LIST_MAX_ATTEMPTS", "2"))
+    eval_step_feature_snapshot_timeout_seconds: float = float(os.environ.get("EVAL_STEP_FEATURE_SNAPSHOT_TIMEOUT_SECONDS", "2.5"))
+    eval_step_feature_snapshot_max_attempts: int = int(os.environ.get("EVAL_STEP_FEATURE_SNAPSHOT_MAX_ATTEMPTS", "2"))
+    eval_step_ml_timeout_seconds: float = float(os.environ.get("EVAL_STEP_ML_TIMEOUT_SECONDS", "2.5"))
+    eval_step_ml_max_attempts: int = int(os.environ.get("EVAL_STEP_ML_MAX_ATTEMPTS", "2"))
+    eval_step_graph_risk_timeout_seconds: float = float(os.environ.get("EVAL_STEP_GRAPH_RISK_TIMEOUT_SECONDS", "2.5"))
+    eval_step_graph_risk_max_attempts: int = int(os.environ.get("EVAL_STEP_GRAPH_RISK_MAX_ATTEMPTS", "2"))
+    eval_step_opa_timeout_seconds: float = float(os.environ.get("EVAL_STEP_OPA_TIMEOUT_SECONDS", "2.5"))
+    eval_step_opa_max_attempts: int = int(os.environ.get("EVAL_STEP_OPA_MAX_ATTEMPTS", "2"))
+    eval_step_graph_upsert_timeout_seconds: float = float(os.environ.get("EVAL_STEP_GRAPH_UPSERT_TIMEOUT_SECONDS", "8.0"))
+    eval_step_graph_upsert_max_attempts: int = int(os.environ.get("EVAL_STEP_GRAPH_UPSERT_MAX_ATTEMPTS", "1"))
+
 
 settings = Settings()
