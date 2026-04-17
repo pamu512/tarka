@@ -16,5 +16,10 @@ class Settings(BaseSettings):
     idempotency_ttl_seconds: int = 86400
     idempotency_key_prefix: str = "ingest:idemp"
 
+    # E1 contract-first: optional | required — required = only `{schema_version:"1", event:{...}}`
+    ingest_envelope_mode: str = "optional"
+    # R3.1 — reject ingest when Idempotency-Key missing (high-volume safe retries)
+    ingest_require_idempotency_key: bool = False
+
 
 settings = Settings()

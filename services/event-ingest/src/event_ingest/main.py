@@ -20,12 +20,13 @@ from typing import Any
 import httpx
 import nats
 import redis.asyncio as aioredis
-from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import Body, Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from nats.aio.client import Client as NatsClient
 from nats.js import JetStreamContext
 from pydantic import BaseModel, Field, ValidationError
 
 from event_ingest.config import settings
+from event_ingest.ingest_contract import parse_ingest_body
 
 # Keys added by ingest; must not be forwarded to Decision API evaluate.
 _INGEST_INTERNAL_KEYS = frozenset({"_ingest_id"})
@@ -46,6 +47,38 @@ if _shared_dir not in sys.path:
 from observability import get_metrics, setup_observability  # noqa: E402
 
 log = logging.getLogger("event-ingest")
+
+_INGEST_CONTRACT_REASON_MESSAGES: dict[str, str] = {
+    "ingest_body_not_object": "request body must be a JSON object",
+    "ingest_schema_required": "INGEST_ENVELOPE_MODE=require expects {schema_version:\"1\", event:{...}}",
+    "ingest_envelope_invalid": "envelope validation failed",
+    "ingest_schema_unknown": "unsupported schema_version (only \"1\" supported in envelope mode)",
+    "ingest_event_invalid": "event validation failed",
+    "ingest_event_type_invalid": "event_type must be one of login,payment,signup,device,session,custom",
+    "ingest_idempotency_key_required": "Idempotency-Key header is required for this deployment",
+}
+
+
+def _ingest_contract_reject(reason: str) -> None:
+    try:
+        m = get_metrics()
+        m.inc("ingest_contract_reject_total")
+        m.inc(f"ingest_contract_reject_total_{reason}")
+    except Exception:
+        pass
+
+
+def _ingest_contract_http_exception(reason: str) -> HTTPException:
+    _ingest_contract_reject(reason)
+    return HTTPException(
+        status_code=422,
+        detail={
+            "error": "ingest_contract_violation",
+            "reason_codes": [reason],
+            "message": _INGEST_CONTRACT_REASON_MESSAGES.get(reason, reason),
+        },
+    )
+
 
 _nc: NatsClient | None = None
 _js: JetStreamContext | None = None
@@ -193,18 +226,17 @@ class EventPayload(BaseModel):
 
 
 class BatchPayload(BaseModel):
-    events: list[EventPayload]
+    """Each item may be a legacy flat object or an envelope ``{schema_version, event}``."""
+
+    events: list[dict[str, Any]]
     idempotency_key: str | None = Field(
         default=None,
         description="Optional; same as Idempotency-Key header for whole-batch deduplication",
     )
 
 
-def _batch_idempotency_redis_key(idempotency_key: str, events: list[EventPayload]) -> str:
-    canon = json.dumps(
-        [e.model_dump(mode="json", exclude_none=True) for e in events],
-        sort_keys=True,
-    )
+def _batch_idempotency_redis_key(idempotency_key: str, events: list[dict[str, Any]]) -> str:
+    canon = json.dumps(events, sort_keys=True)
     digest = hashlib.sha256(f"{idempotency_key}\n{canon}".encode("utf-8")).hexdigest()
     return f"{settings.idempotency_key_prefix}:batch:{digest}"
 
@@ -229,17 +261,31 @@ async def health(request: Request):
 
 
 @app.post("/v1/events", dependencies=[Depends(require_api_key)])
-async def ingest_event(request: Request, body: EventPayload):
-    """Publish a single event to NATS for async processing."""
+async def ingest_event(request: Request, body: dict[str, Any] = Body(...)):
+    """Publish a single event to NATS for async processing.
+
+    Accepts **legacy** flat JSON or **v1 envelope** ``{"schema_version": "1", "event": {...}}``.
+    Set ``INGEST_ENVELOPE_MODE=require`` to allow only the envelope form.
+    """
     if not _js:
         raise HTTPException(503, "NATS not connected")
-    redis = getattr(request.app.state, "redis", None)
     idem_header = request.headers.get("idempotency-key") or request.headers.get("Idempotency-Key")
-    idem_meta = (body.metadata or {}).get("idempotency_key") if isinstance(body.metadata, dict) else None
+    if settings.ingest_require_idempotency_key and not (idem_header or "").strip():
+        raise _ingest_contract_http_exception("ingest_idempotency_key_required")
+
+    try:
+        inner = parse_ingest_body(body, envelope_mode=settings.ingest_envelope_mode)
+    except ValueError as e:
+        code = str(e.args[0]) if e.args else "ingest_event_invalid"
+        raise _ingest_contract_http_exception(code) from None
+
+    body_model = EventPayload.model_validate(inner.model_dump(mode="json"))
+    redis = getattr(request.app.state, "redis", None)
+    idem_meta = (body_model.metadata or {}).get("idempotency_key") if isinstance(body_model.metadata, dict) else None
     idem = (idem_header or idem_meta or "").strip() or None
 
     if redis is not None and idem:
-        rkey = _idempotency_redis_key(body.tenant_id, idem)
+        rkey = _idempotency_redis_key(body_model.tenant_id, idem)
         try:
             cached = await redis.get(rkey)
         except Exception as e:
@@ -258,8 +304,8 @@ async def ingest_event(request: Request, body: EventPayload):
                     pass
                 return out
 
-    subject = f"{settings.subject_prefix}.{body.tenant_id}.{body.event_type}"
-    data = body.model_dump(mode="json")
+    subject = f"{settings.subject_prefix}.{body_model.tenant_id}.{body_model.event_type}"
+    data = body_model.model_dump(mode="json")
     data["_ingest_id"] = uuid.uuid4().hex
     ack = await _js.publish(subject, json.dumps(data).encode())
     try:
@@ -268,7 +314,7 @@ async def ingest_event(request: Request, body: EventPayload):
         pass
     response = {"accepted": True, "stream_seq": ack.seq, "ingest_id": data["_ingest_id"]}
     if redis is not None and idem:
-        rkey = _idempotency_redis_key(body.tenant_id, idem)
+        rkey = _idempotency_redis_key(body_model.tenant_id, idem)
         try:
             await redis.set(
                 rkey,
@@ -311,7 +357,15 @@ async def ingest_batch(request: Request, body: BatchPayload):
                 return out
 
     results = []
-    for event in body.events:
+    for raw_ev in body.events:
+        if not isinstance(raw_ev, dict):
+            raise _ingest_contract_http_exception("ingest_body_not_object")
+        try:
+            inner = parse_ingest_body(raw_ev, envelope_mode=settings.ingest_envelope_mode)
+        except ValueError as e:
+            code = str(e.args[0]) if e.args else "ingest_event_invalid"
+            raise _ingest_contract_http_exception(code) from None
+        event = EventPayload.model_validate(inner.model_dump(mode="json"))
         subject = f"{settings.subject_prefix}.{event.tenant_id}.{event.event_type}"
         data = event.model_dump(mode="json")
         data["_ingest_id"] = uuid.uuid4().hex
@@ -352,7 +406,18 @@ async def ws_ingest(ws: WebSocket):
                     await ws.send_json({"error": "NATS not connected"})
                     continue
                 try:
-                    ep = EventPayload.model_validate(parsed)
+                    inner = parse_ingest_body(parsed, envelope_mode=settings.ingest_envelope_mode)
+                    ep = EventPayload.model_validate(inner.model_dump(mode="json"))
+                except ValueError as e:
+                    code = str(e.args[0]) if e.args else "ingest_event_invalid"
+                    await ws.send_json(
+                        {
+                            "error": "ingest_contract_violation",
+                            "reason_codes": [code],
+                            "message": _INGEST_CONTRACT_REASON_MESSAGES.get(code, code),
+                        }
+                    )
+                    continue
                 except ValidationError as e:
                     await ws.send_json({"error": "validation_error", "detail": e.errors(include_url=False)})
                     continue
