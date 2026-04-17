@@ -353,6 +353,8 @@ export const ingest = {
       since: string;
       contract_reject_by_reason: Record<string, number>;
       total_contract_rejects: number;
+      envelope_mode?: string;
+      require_idempotency_key?: boolean;
       note?: string;
     }>("/api/ingest/v1/ingest/stats", { headers });
   },

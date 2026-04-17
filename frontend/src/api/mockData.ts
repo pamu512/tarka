@@ -945,6 +945,8 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
     return {
       service: "event-ingest",
       since: "process_boot",
+      envelope_mode: "optional",
+      require_idempotency_key: false,
       contract_reject_by_reason: {
         ingest_event_type_invalid: 2,
         ingest_idempotency_key_required: 1,

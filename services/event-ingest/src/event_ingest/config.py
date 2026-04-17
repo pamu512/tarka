@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     redis_url: str = ""
     idempotency_ttl_seconds: int = 86400
     idempotency_key_prefix: str = "ingest:idemp"
+    # E1: optional | required envelope { schema_version: "1", event: { ... } }
+    ingest_envelope_mode: str = "optional"
+    # When true, POST /v1/events requires Idempotency-Key (or metadata.idempotency_key).
+    ingest_require_idempotency_key: bool = False
 
 
 settings = Settings()
