@@ -38,6 +38,16 @@ def client(mock_js):
                 yield c
 
 
+class TestIngestStats:
+    def test_ingest_stats(self, client):
+        r = client.get("/v1/ingest/stats")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["service"] == "event-ingest"
+        assert data["total_contract_rejects"] == 0
+        assert data["contract_reject_by_reason"] == {}
+
+
 class TestHealthEndpoint:
     def test_health(self, client):
         r = client.get("/v1/health")

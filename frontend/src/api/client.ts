@@ -338,6 +338,26 @@ export const decisions = {
   },
 };
 
+// ── Event ingest (event-ingest :8007) — proxied as /api/ingest ───────
+
+export const ingest = {
+  /** Contract reject tallies since process boot (send `VITE_EVENT_INGEST_API_KEY` when event-ingest uses `API_KEYS`). */
+  ingestStats() {
+    const key = import.meta.env.VITE_EVENT_INGEST_API_KEY as string | undefined;
+    const headers: Record<string, string> = {};
+    if (key?.trim()) {
+      headers["x-api-key"] = key.trim();
+    }
+    return request<{
+      service: string;
+      since: string;
+      contract_reject_by_reason: Record<string, number>;
+      total_contract_rejects: number;
+      note?: string;
+    }>("/api/ingest/v1/ingest/stats", { headers });
+  },
+};
+
 // ── Cases (case-api :8002) ──────────────────────────────────────────
 
 export const cases = {
