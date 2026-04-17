@@ -31,3 +31,4 @@ Replay (careful in non-prod): **`python scripts/etl/replay_dlq.py --max 10 --dry
 ## Related
 
 - [Ingest hardening & replay](./ingest-replay-onboarding.md)
+- [Late arrival & watermarks](./late-arrival-watermarks.md) (Epic **E3**)

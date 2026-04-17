@@ -50,6 +50,16 @@ class TestIngestStats:
         assert data.get("require_idempotency_key") is False
 
 
+class TestSlo:
+    def test_slo(self, client):
+        r = client.get("/v1/slo")
+        assert r.status_code == 200
+        d = r.json()
+        assert d["service"] == "event-ingest"
+        assert "current" in d
+        assert "http_requests_total_observed" in d["current"]
+
+
 class TestHealthEndpoint:
     def test_health(self, client):
         r = client.get("/v1/health")

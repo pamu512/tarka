@@ -34,7 +34,7 @@ if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
 from audit_trail import AuditTrail, create_audit_model  # noqa: E402
 from auth_rbac import get_current_user, setup_auth  # noqa: E402
-from observability import setup_observability  # noqa: E402
+from observability import get_metrics, setup_observability  # noqa: E402
 from rate_limiter import setup_rate_limiter  # noqa: E402
 from webhook_sender import WebhookSender  # noqa: E402
 
@@ -201,6 +201,20 @@ app.include_router(investigation_label_drafts_router)
 @app.get("/v1/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/v1/slo")
+async def slo_status():
+    m = get_metrics()
+    cur = m.request_count_summary()
+    return {
+        "service": "case-api",
+        "availability_target_pct": 99.9,
+        "latency_target_ms_p95": 200,
+        "error_budget_window_days": 30,
+        "targets_note": "See docs/docs/guides/service-slos-v1.md; current from in-process HTTP counters.",
+        "current": cur,
+    }
 
 
 @app.get("/v1/cases", response_model=dict)

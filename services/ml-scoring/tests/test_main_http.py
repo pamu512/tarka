@@ -15,6 +15,15 @@ def test_health() -> None:
     assert "model_version" in body
 
 
+def test_slo() -> None:
+    with TestClient(app) as client:
+        r = client.get("/v1/slo")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["service"] == "ml-scoring"
+    assert "current" in data
+
+
 def test_score_when_ml_disabled() -> None:
     with TestClient(app) as client:
         r = client.post(

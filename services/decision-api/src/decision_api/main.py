@@ -34,6 +34,7 @@ from decision_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
 from entity_lists import create_list_store  # noqa: E402
+from event_time import event_time_unix_for_evaluate  # noqa: E402
 from privacy import get_profile, mask_dict  # noqa: E402
 
 from decision_api.aggregates import agg_store
@@ -246,6 +247,25 @@ def _http(request: Request) -> httpx.AsyncClient:
 @app.get("/v1/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/v1/slo")
+async def slo_status():
+    """In-process SLO snapshot (v1.2.5 R1) — targets are aspirational; ``current`` from local HTTP metrics."""
+    m = get_metrics()
+    cur = m.request_count_summary()
+    return {
+        "service": "decision-api",
+        "availability_target_pct": 99.9,
+        "latency_target_ms_p95": 50,
+        "error_budget_window_days": 30,
+        "targets_note": "Latency/availability measured vs your SLO stack (Prometheus/Grafana); this endpoint exposes in-process counters only.",
+        "current": {
+            **cur,
+            "redis_connected": redis_tags._client is not None,
+            "nats_connected": getattr(app.state, "nats_nc", None) is not None,
+        },
+    }
 
 
 # ---------- attestation ----------
@@ -1094,8 +1114,10 @@ async def evaluate_decision(
     if agg_store._client:
         agg_features = await agg_store.compute_features(body.tenant_id, body.entity_id, features)
         features.update(agg_features)
-        # Record this event for future aggregate computation (uses normalised amount)
-        await agg_store.record_event(body.tenant_id, body.entity_id, str(trace_id), features)
+        # Record this event for future aggregate computation (uses normalised amount).
+        # Optional metadata.event_time / payload.event_time sets Redis scores to business time (late arrival).
+        agg_ts = event_time_unix_for_evaluate(body.metadata, body.payload)
+        await agg_store.record_event(body.tenant_id, body.entity_id, str(trace_id), features, ts=agg_ts)
 
     geo_extra_tags: list[str] = []
     if body.device_context:
