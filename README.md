@@ -270,8 +270,9 @@ Event Ingest --> NATS JetStream --> Analytics Sink --> ClickHouse
 |-----|----------|
 | `packages/fraud-sdk-typescript` | Web (browser) — device signals + behavioral biometrics |
 | `packages/fraud-sdk-python` | Server-side Python — IP/geo signal collection |
-| `packages/fraud-sdk-android` | Android (Kotlin) — Play Integrity attestation |
-| `packages/fraud-sdk-ios` | iOS (Swift) — App Attest |
+| Native Android / iOS | Roadmap — same `device_context` contract; see [docs/docs/guides/sdk-scorecard-2026-01.md](docs/docs/guides/sdk-scorecard-2026-01.md) |
+
+**SDK positioning (directional, mid-scale scores):** [docs/docs/guides/sdk-scorecard-2026-01.md](docs/docs/guides/sdk-scorecard-2026-01.md).
 
 ## Frontend Pages
 
