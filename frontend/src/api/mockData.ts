@@ -1011,6 +1011,25 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       median_case_age_hours: 6.5,
       by_status: { open: 2, investigating: 1, closed: 1 } as Record<string, number>,
       sla_breached_open_or_investigating: 0,
+      label_boost_cases: 1,
+    };
+  }
+  if (path.includes("/api/cases/v1/cases/ops/desk-activity")) {
+    return {
+      tenant_id: "demo",
+      period_days: 7,
+      since: new Date(Date.now() - 7 * 86400000).toISOString(),
+      touch_actions_total: 4,
+      by_action: { update_case: 2, add_comment: 1, update_labels: 1 },
+      recent: [
+        {
+          id: "a1",
+          action: "update_case",
+          actor: "analyst@demo",
+          resource_id: "c1",
+          created_at: nowIso(),
+        },
+      ],
     };
   }
   if (path.includes("/api/cases/v1/cases/analytics/cohort-compare")) {
@@ -1067,6 +1086,50 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   if (path.includes("/api/analytics/v1/analytics/hourly")) return { rows: [{ hour: nowIso(), decision: "deny", event_count: 12, avg_score: 83, deny_count: 6, review_count: 4, allow_count: 2 }] };
   if (path.includes("/api/analytics/v1/analytics/top-entities")) return { decision: "deny", entities: [{ entity_id: "fraud_frank", cnt: 11, avg_score: 91, sample_traces: ["tr-1001"] }] };
 
+  if (path.includes("/api/ml/v1/health")) {
+    return {
+      status: "ok",
+      disable_ml: false,
+      model_version: "heuristic-v1",
+      onnx_loaded: false,
+      registry_models: 1,
+      shap_stretch_enabled: false,
+    };
+  }
+  if (path.includes("/api/decisions/v1/ops/calibration-status")) {
+    return {
+      tenant_id: "demo",
+      profile: "default",
+      inference_schema_version: "3",
+      challenge_policy_default: "balanced",
+      calibration: {
+        tenant_id: "demo",
+        profile: "default",
+        drift_score: 0.08,
+        hint: "ok",
+        latest_ts: nowIso(),
+        reference_set_at: nowIso(),
+      },
+    };
+  }
+  if (path.includes("/api/decisions/v1/calibration/drift")) {
+    return { tenant_id: "demo", profile: "default", drift_score: 0.08, hint: "ok" };
+  }
+  if (path.includes("/api/decisions/v1/calibration/summary")) {
+    return {
+      tenant_id: "demo",
+      profile: "default",
+      snapshots: [
+        {
+          ts: nowIso(),
+          sample_count: 1200,
+          mean_integrity: 0.72,
+          mean_final_score: 64.2,
+          notes: "mock snapshot",
+        },
+      ],
+    };
+  }
   if (path.includes("/api/ml/v1/models")) {
     if (path.match(/\/v1\/models\/[^/]+\/stats/)) return { model: "fraud-gbm", versions: [{ version: 1, total_inferences: 450 }] };
     if (path.match(/\/v1\/models\/[^/]+\/[0-9]+\/lineage/)) return { ok: true, model: "fraud-gbm", version: 1, lineage: { sha256: "9c6d7e8f-demo-lineage", signed_payload: { model: "fraud-gbm", version: 1 } } };
