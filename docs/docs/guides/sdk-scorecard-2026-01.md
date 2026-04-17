@@ -1,6 +1,6 @@
 # SDK scorecard — calibrated to mid-scale (~3)
 
-**Purpose:** Single place to track **Tarka client SDKs** (web, server, future mobile) vs typical fraud/device SDKs, with **scores anchored near 3** so gaps read as “next increment,” not exaggerated highs/lows.
+**Purpose:** Single place to track **Tarka client SDKs** (web, server, **Android/iOS**) vs typical fraud/device SDKs, with **scores anchored near 3** so gaps read as “next increment,” not exaggerated highs/lows.
 
 **Scale (intentionally tight):**
 
@@ -20,9 +20,9 @@ Peers (Fingerprint-class web, Incognia-class mobile, Sift/SEON-class breadth) ar
 
 ## Dimension scores (target band: **2.8–3.2**)
 
-| Dimension | Tarka Web (TS) | Tarka Server (Python) | Tarka Mobile (planned) | Peer: Web device ID | Peer: Mobile location | Peer: Platform breadth |
-|-----------|----------------|------------------------|--------------------------|----------------------|-------------------------|---------------------------|
-| Browser / client signal breadth | **3.0** | **2.8** (server IP/headers/geo opt-in) | **2.8** (contract-ready; no package) | **3.2** | — | **3.0** |
+| Dimension | Tarka Web (TS) | Tarka Server (Python) | Tarka Mobile (Kotlin / Swift) | Peer: Web device ID | Peer: Mobile location | Peer: Platform breadth |
+|-----------|----------------|------------------------|--------------------------------|----------------------|-------------------------|---------------------------|
+| Browser / client signal breadth | **3.0** | **2.8** (server IP/headers/geo opt-in) | **2.8** (native SDKs + `device_context`) | **3.2** | — | **3.0** |
 | Device / session identity | **2.9** (synthetic `device_id`; server fusion expected) | **2.8** | **2.7** | **3.2** | **3.0** | **3.1** |
 | Integrity / attestation | **2.9** (challenge + types; app integrates OS APIs) | — | **2.8** | **3.0** | **3.0** | **3.0** |
 | Behavioral signals | **3.0** | — | **2.8** | **3.0** | **2.8** | **3.0** |

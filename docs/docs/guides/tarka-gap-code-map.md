@@ -1,6 +1,6 @@
 # Tarka: competitive gap → codebase map
 
-Maps the gaps described in [competitive-critical-review-2026-04.md](competitive-critical-review-2026-04.md) and [competitive-score-matrix-2026-04.md](competitive-score-matrix-2026-04.md) to **concrete services and files** in this repository. Use this for planning work; **not** committed automatically—review and commit when ready.
+Maps the gaps described in [competitive-critical-review-2026-04.md](competitive-critical-review-2026-04.md) and [competitive-score-matrix-2026-04.md](competitive-score-matrix-2026-04.md) to **concrete services and files** in this repository. For **large “Missing” rows**, see the phased plan in [aspirational-gaps-execution-plan.md](./aspirational-gaps-execution-plan.md).
 
 Legend: **Today** = where behavior exists now; **Extend** = natural place to deepen; **Missing** = no first-class module yet.
 
@@ -38,7 +38,7 @@ Legend: **Today** = where behavior exists now; **Extend** = natural place to dee
 | **Today — shared device fingerprint** | `services/decision-api/src/decision_api/fingerprint_store.py` |
 | **Today — TS SDK attestation** | `packages/fraud-sdk-typescript/src/index.ts` — challenge / browser_challenge flow |
 | **Tests** | `services/decision-api/tests/test_api_endpoints.py`, `test_signal_tags.py` |
-| **Extend** | MitM / **certificate pinning** policy hooks; **Play Integrity / App Attest** paths beyond stubs; richer **tamper** taxonomy |
+| **Extend** | MitM / **certificate pinning** (`metadata.tls_pinning_verified` + [`tls-pinning-and-signed-requests.md`](./tls-pinning-and-signed-requests.md)); optional **HMAC** on evaluate (`REQUEST_SIGNATURE_SECRET`); **Play Integrity / App Attest** token wiring in native SDKs (server verify depth still varies by provider); richer **tamper** taxonomy |
 | **Missing** | Central **integrity policy** doc + enforced matrix (what counts as “high confidence” per platform) |
 
 ---
@@ -130,7 +130,7 @@ Legend: **Today** = where behavior exists now; **Extend** = natural place to dee
 | **Today — simulation & A/B** | `services/decision-api/src/decision_api/simulation_api.py` |
 | **Today — UI** | `frontend/src/pages/ShadowMode.tsx`, `Simulation.tsx` |
 | **Extend** | **Sample size / power** hints, **holdout** enforcement, **data leakage** checks between train/sim |
-| **Missing** | **Experiment registry** (who ran what, when, on which population) |
+| **Extend (registry exists)** | **`POST /v1/simulation/experiments`** appends **`experiment_registry.jsonl`** — add **query/list**, RBAC, and population/holdout **enforcement** in simulation UI |
 
 ---
 
@@ -160,5 +160,6 @@ These gaps are **not** a missing folder—they are **business or data moats**:
 
 - [competitive-critical-review-2026-04.md](competitive-critical-review-2026-04.md)
 - [competitive-score-matrix-2026-04.md](competitive-score-matrix-2026-04.md)
+- [aspirational-gaps-execution-plan.md](./aspirational-gaps-execution-plan.md)
 - [roadmap-30-60-90.md](roadmap-30-60-90.md) (if present)
 - Module roadmaps: `docs/docs/projects/*-project.md`
