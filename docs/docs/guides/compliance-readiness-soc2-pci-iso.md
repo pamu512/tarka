@@ -15,6 +15,25 @@ Deploying OSS does not transfer compliance; **you** operate the controls on your
 
 ---
 
+## How Tarka helps you get closer to compliance
+
+Tarka does **not** replace auditors or certifications. It **helps** by giving you **product and architecture choices** that map cleanly to what SOC 2, ISO 27001, and (where applicable) PCI assessments ask for: **evidence**, **control stories**, and **reduced ambiguity**.
+
+| Audit theme | How Tarka supports it |
+|-------------|------------------------|
+| **Processing integrity & explainability** | Decisions return **`trace_id`**, structured **`inference_context`**, rule hits, and optional ML context — easier to show **what was decided and why** than a black-box score. |
+| **Audit trail** | Decision **audit** storage and case workflows support **traceability** from an outcome back to inputs and policy versions (pair with **your** retention and access policies). |
+| **Change & configuration management** | Rules and packs are **versionable** (JSON, Git-friendly); simulation, shadow mode, and **experiment registry** patterns support **controlled rollout** and **reproducibility** narratives. |
+| **Security of processing (ingress)** | TLS to your deployment; optional **request signing** (`REQUEST_SIGNATURE_SECRET`), **replay** controls, **rate limiting**, attestation routes — document how **your** gateway and env enforce them. |
+| **Data residency & vendor boundary** | **Self-hosted** deployment: you choose **region**, cloud account, and who operates it — clearer **subprocessor** and **data location** answers than default multi-tenant SaaS. |
+| **Vendor / AI risk** | Investigation agent can use **your** LLM or on-prem patterns; see [LLM data flows](./investigation-agent-llm-data-flow.md) so **subprocessor** and **data minimization** stories are explicit. |
+| **PCI scope (often)** | If Tarka evaluates **tokens and behavioral signals** and **never** stores or logs **PAN**, many teams **narrow PCI scope** to the payment stack — **confirm with a QSA**; Tarka does not remove PCI when card data is in scope. |
+| **Monitoring & operations** | Health and metrics hooks (e.g. **`/v1/health`**, Prometheus patterns in deploy docs) support **availability** and **detection** control evidence when you wire alerts and runbooks. |
+
+**Bottom line:** Tarka is a **fraud and risk** platform whose **design** (auditable decisions, policy-as-data, self-hosting) aligns with **common compliance control families**. **Implementing** IAM, encryption, logging, backup, IR, and vendor management on **your** infrastructure remains **your** program — Tarka makes the **application layer** easier to defend in review.
+
+---
+
 ## SOC 2 (AICPA Trust Services Criteria)
 
 - **Typical buyers want** SOC 2 **Type II** (controls operating effectively over months), sometimes preceded by **Type I** (point-in-time).
