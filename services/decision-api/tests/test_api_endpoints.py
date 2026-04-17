@@ -158,6 +158,8 @@ class TestOpsEndpoints:
         assert r.status_code == 200
         data = r.json()
         assert "calibration_status" in data
+        assert "mobile_attestation_taxonomy" in data
+        assert data["mobile_attestation_taxonomy"].get("attestation_schema_version") == 1
 
     @pytest.mark.asyncio
     async def test_ops_calibration_status(self, client):

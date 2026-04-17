@@ -36,6 +36,7 @@ from entity_lists import create_list_store  # noqa: E402
 from privacy import get_profile, mask_dict  # noqa: E402
 
 from decision_api.aggregates import agg_store
+from decision_api.attestation_taxonomy import attestation_signal_tags
 from decision_api.challenge_policy import apply_challenge_policy, load_challenge_policies
 from decision_api.consortium import consortium_score_delta, hash_entity_id
 from decision_api.graph_intel import graph_score_delta, graph_tags_from_risk
@@ -347,6 +348,11 @@ async def ops_governance():
             "script": "scripts/contract/fuzz_decision_api.py",
             "note": "Health + OpenAPI reachability; use schemathesis CLI for property-based fuzz",
         },
+        "mobile_attestation_taxonomy": {
+            "doc": "docs/docs/guides/mobile-attestation-taxonomy.md",
+            "attestation_schema_version": 1,
+            "note": "Normalized on EvaluateRequest.device_context.attestation (Play Integrity + App Attest).",
+        },
     }
 
 
@@ -411,6 +417,7 @@ def extract_signal_tags(device_context: dict[str, Any] | None) -> list[str]:
     att = device_context.get("attestation")
     if isinstance(att, dict) and att.get("verified") is True:
         tags.append("sdk:attestation_verified")
+    tags.extend(attestation_signal_tags(device_context))
     return list(dict.fromkeys(tags))
 
 

@@ -40,4 +40,6 @@ val res = client.evaluate(
 
 ## Semantics
 
-See [device-id semantics](../../docs/docs/guides/device-id-semantics.md) and [TLS pinning](../../docs/docs/guides/tls-pinning-and-signed-requests.md).
+See [device-id semantics](../../docs/docs/guides/device-id-semantics.md), [mobile attestation taxonomy](../../docs/docs/guides/mobile-attestation-taxonomy.md), and [TLS pinning](../../docs/docs/guides/tls-pinning-and-signed-requests.md).
+
+`device_context.attestation` includes **`status`**, **`confidence_tier`**, and **`attestation_schema_version`** (aligned with iOS and server normalization).
