@@ -29,9 +29,10 @@ Open-source, modular fraud detection platform. Pick the components you need or r
 
 These capabilities are in the codebase today and roll forward on `master`:
 
-- **Decision API:** normalized **`inference_context`** on evaluate responses (integrity, tamper, network trust, replay, geo-consistency, top signals) plus OpenAPI contract alignment.
+- **Decision API:** normalized **`inference_context`** on evaluate responses (integrity, tamper, network trust, replay, geo-consistency, top signals) plus OpenAPI contract alignment; **session geo** merges optional **browser GPS** and **server IP geo** hints; **`sdk:geo_ip_mismatch`** / **`sdk:geo_tz_mismatch`** signal tags when inconsistent; **`/v1/ops/calibration-status`** and **`calibration_status`** on **`/v1/ops/governance`** for drift posture.
 - **Ingress hardening:** **replay-style payload detection** (short-lived Redis signatures) folded into scoring and audit context.
-- **SDKs:** **Python** and **TypeScript** clients typed for `inference_context` on evaluate responses.
+- **SDKs:** **Python** and **TypeScript** clients typed for `inference_context` on evaluate responses; **TypeScript** optional **`enableGeo`** (browser GPS); **Python** server collector optional **`enable_ip_geo`** / **`ENABLE_IP_GEO_LOOKUP`** (public IP lookup is **off** by default).
+- **Graph (lite path):** default schema includes **`Place`** (quantized geo cells) and **`SEEN_AT`** edges for co-location–style graph context when enabled.
 - **Frontend:** case explainability surfaces **inference metrics**; API client can **fall back to mock data** when backends are down (demo-friendly).
 - **Ops / planning:** module **project roadmaps** under `docs/docs/projects/`, **30/60/90** plan, competitive notes, and **OSS adoption backlog** (issues + dependency order in docs).
 
@@ -46,8 +47,9 @@ Mirrors [docs/docs/releases/v1.1.0-2026-04-30.md](docs/docs/releases/v1.1.0-2026
 
 **CI/CD, security hygiene, and first-run polish**
 
-- **GitHub Actions CI** (`main` / `master`): Ruff; **decision-api** tests with coverage gate (**≥45%**, path to 60%+); **case-api**, **Python SDK**; **graph-service**; **integration-ingress**; **investigation-agent**; **graphql-gateway**, **event-ingest**, **analytics-sink**, **feature-service**, **ml-scoring**; **frontend** + **TypeScript SDK** **`npm run build`**; **Alembic** migrations for decision/case APIs on PostgreSQL startup; **GraphQL** **`/metrics`** via shared observability; coverage XML artifacts; **Docker builds** gated on all jobs.
+- **GitHub Actions CI** (`main` / `master`): Ruff; **decision-api** tests with coverage gate (**≥48%** as enforced in **`.github/workflows/ci.yml`**, path to 60%+); **case-api**, **Python SDK**; **graph-service**; **integration-ingress**; **investigation-agent**; **graphql-gateway**, **event-ingest**, **analytics-sink**, **feature-service**, **ml-scoring**; **frontend** + **TypeScript SDK** **`npm run build`**; **Alembic** migrations for decision/case APIs on PostgreSQL startup; **GraphQL** **`/metrics`** via shared observability; **`benchmark-latency-evaluate`** job (lite compose + **`scripts/benchmarks/latency_evaluate.py`** artifact); coverage XML artifacts; **Docker builds** gated on all jobs.
 - **Security scanning workflow**: **Trivy** filesystem + **decision-api** image → **SARIF** upload (where code scanning is enabled); weekly schedule.
+- **Secret scanning workflow**: **TruffleHog** on push/PR/schedule (**`.github/workflows/secret-scan.yml`**).
 - **Dependabot**: grouped updates for **GitHub Actions**, **pip** (core services), **npm** (frontend).
 - **Docs:** **`SECURITY.md`** (responsible disclosure), **`LICENSE-DEPENDENCIES.md`** (Neo4j AGPL / lite and alternates), **`CODE_OF_CONDUCT.md`**, **`docs/docs/guides/security-scanning.md`**, **`docs/docs/guides/sandbox-five-minute.md`** (copy-paste evaluate + OSINT + UI path).
 - **Onboarding:** **`.devcontainer/devcontainer.json`** (Codespaces / Docker-outside-Docker); **README** badges (CI, security scan, Codespaces); **Maintainer walkthrough (Loom, [Tarka](https://github.com/pamu512/tarka) / this repo only):** [five-minute sandbox + Case Detail explainability](https://www.loom.com/share/b46f1eccbc6b438381ee44c6978f2f5e). *(Not [Skuld](https://github.com/pamu512/Skuld) or other repos — those are separate products.)*

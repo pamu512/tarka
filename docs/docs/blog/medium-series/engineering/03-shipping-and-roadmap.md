@@ -10,7 +10,7 @@ This post is the engineering view of **how we ship** and **what’s next**.
 
 GitHub Actions isn’t glamorous. It is the first impression when a contributor opens a PR.
 
-Our CI matrix is intentionally wide: **Ruff** on Python, **pytest** per service where it exists, **npm run build** on the frontend and TypeScript SDK, **Docker builds** gated so a broken image doesn’t become the default onboarding path. Decision API carries a **coverage floor** (45% with room to climb) so “it works on my laptop” doesn’t regress silently.
+Our CI matrix is intentionally wide: **Ruff** on Python, **pytest** per service where it exists, **npm run build** on the frontend and TypeScript SDK, **Docker builds** gated so a broken image doesn’t become the default onboarding path. Decision API carries a **coverage floor** (48% in **`.github/workflows/ci.yml`**, with room to climb toward 60%+) so “it works on my laptop” doesn’t regress silently.
 
 Security side: **Trivy** on the filesystem and the decision-api image, **Dependabot** grouped so noise doesn’t train people to ignore alerts. None of that stops zero-days; it raises the baseline.
 
