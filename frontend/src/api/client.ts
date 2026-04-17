@@ -46,6 +46,14 @@ export interface AuditEntry {
   rule_hits: string[];
   /** May be partial; UI should pass through `normalizeInferenceContext`. */
   inference_context?: unknown;
+  /** Ordered explainability rows persisted with audit snapshots (v1.2+). */
+  explanation_drivers?: Array<{
+    reason: string;
+    category: string;
+    label: string;
+    rank: number;
+    source: "driver_explain" | "driver_reasons";
+  }>;
   recommended_action?: string | null;
   created_at: string;
 }

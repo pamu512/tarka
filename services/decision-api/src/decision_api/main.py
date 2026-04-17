@@ -1311,6 +1311,10 @@ async def get_audit(
         "tags": row.tags,
         "rule_hits": row.rule_hits,
         "inference_context": snap.get("inference_context"),
+        "decision_explain": {
+            "driver_reasons": (snap.get("inference_context") or {}).get("driver_reasons", []),
+            "driver_explain": (snap.get("inference_context") or {}).get("driver_explain", []),
+        },
         "recommended_action": snap.get("recommended_action"),
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }
