@@ -6,6 +6,8 @@ This guide covers deploying Tarka from local development through production, inc
 
 **See also:** [Service ports & OpenAPI index](./service-ports.md) — default ports, Compose DNS names, and contract file mapping.
 
+**Evaluate path hardening:** [Evaluation step controls](./evaluation-step-controls.md) — optional-service timeouts and retries (**#32**).
+
 ---
 
 ## Docker Compose Profiles
