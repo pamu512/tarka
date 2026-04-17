@@ -103,8 +103,25 @@ public final class DecisionClient {
             ],
         ]
 
-        if enableAppAttest, let attestation = try? await performAppAttest(tenantId: tenantId, deviceId: deviceId) {
-            deviceContext["attestation"] = attestation
+        if enableAppAttest {
+            if #available(iOS 14.0, *), DCAppAttestService.shared.isSupported {
+                do {
+                    deviceContext["attestation"] = try await performAppAttest(tenantId: tenantId, deviceId: deviceId)
+                } catch {
+                    deviceContext["attestation"] = Self.appAttestFailurePayload(reason: "client_error")
+                }
+            } else {
+                deviceContext["attestation"] = Self.appAttestFailurePayload(reason: "attest_not_supported")
+            }
+        } else {
+            deviceContext["attestation"] = [
+                "nonce": "",
+                "token": "",
+                "provider": "app_attest",
+                "status": "disabled",
+                "confidence_tier": "none",
+                "attestation_schema_version": 1,
+            ]
         }
 
         let body: [String: Any] = [
@@ -121,17 +138,38 @@ public final class DecisionClient {
 
     // MARK: - App Attest
 
-    private func performAppAttest(tenantId: String, deviceId: String) async throws -> [String: String] {
+    private static func appAttestFailurePayload(reason: String) -> [String: Any] {
+        [
+            "nonce": "",
+            "token": "",
+            "provider": "app_attest",
+            "status": "failed",
+            "confidence_tier": "none",
+            "failure_reason": reason,
+            "attestation_schema_version": 1,
+        ]
+    }
+
+    private func performAppAttest(tenantId: String, deviceId: String) async throws -> [String: Any] {
         let nonce = try await requestChallenge(tenantId: tenantId)
         let service = DCAppAttestService.shared
-        guard service.isSupported else { throw NSError(domain: "TarkaSDK", code: 1) }
+        guard service.isSupported else {
+            throw NSError(domain: "TarkaSDK", code: 1, userInfo: [NSLocalizedDescriptionKey: "attest_not_supported"])
+        }
 
         let keyId = try await service.generateKey()
         let digest = SHA256.hash(data: Data((nonce + deviceId).utf8))
         let clientDataHash = Data(digest)
         let attestation = try await service.attestKey(keyId, clientDataHash: clientDataHash)
         let token = attestation.base64EncodedString()
-        return ["nonce": nonce, "token": token, "provider": "app_attest"]
+        return [
+            "nonce": nonce,
+            "token": token,
+            "provider": "app_attest",
+            "status": "obtained",
+            "confidence_tier": "medium",
+            "attestation_schema_version": 1,
+        ]
     }
 
     private func requestChallenge(tenantId: String) async throws -> String {
