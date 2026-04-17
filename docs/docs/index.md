@@ -24,7 +24,7 @@ The platform is designed around composability. Run just the Decision API with Re
 - **Entity graph** — Neo4j-backed graph that automatically links accounts, devices, sessions, and payments. Built-in community detection, fraud ring identification, and risk propagation.
 - **ML model serving** — ONNX model registry with versioned deployments, A/B traffic splitting, and automatic heuristic fallback. Train models with the included pipeline or bring your own.
 - **Case management** — Full investigation workflow with SLA tracking, workflow automation, audit trails, labels, comments, and WebSocket live feeds.
-- **Device signal SDKs** — **TypeScript** (browser) and **Python** (server) ship in-repo; Android/iOS align with the same `device_context` contract on the roadmap — see [SDK scorecard](guides/sdk-scorecard-2026-01.md) and [Mobile SDK project](projects/sdk-mobile-project.md).
+- **Device signal SDKs** — **TypeScript** (browser), **Python** (server), **Kotlin** ([Android SDK](sdks/android.md)), and **Swift** ([iOS SDK](sdks/ios.md)) ship in-repo with the same `device_context` contract — see [SDK scorecard](guides/sdk-scorecard-2026-01.md) and [Mobile SDK project](projects/sdk-mobile-project.md).
 - **Streaming ingestion** — NATS JetStream-backed event pipeline for high-throughput async processing with at-least-once delivery.
 - **Workflow automation** — JSON-defined workflows that auto-escalate, route, label, and webhook based on triggers and conditions.
 - **Full audit trail** — Every decision, rule hit, score, and case mutation is recorded in Postgres with trace IDs for end-to-end observability.
