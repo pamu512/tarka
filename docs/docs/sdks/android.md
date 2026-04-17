@@ -1,15 +1,15 @@
 # Android SDK (Kotlin)
 
-**Package:** `packages/tarka-android` (Gradle library module `tarka-sdk`)
+**Package:** [`packages/fraud-sdk-android`](../../../packages/fraud-sdk-android) — module **`fraud-sdk`**, namespace **`io.tarka.sdk`**.
 
-The Kotlin SDK sends **`device_context`** with **`platform: "android"`** and signals aligned with the Decision API and [device-context JSON schema](../../contracts/json-schema/device-context.json).
+- **`DecisionClient`** — evaluate, attestation challenge, optional **Play Integrity** → `device_context.attestation`
+- **`DeviceSignalCollector`** — signals aligned with the Decision API contract
 
-**Full README:** [`packages/tarka-android/README.md`](../../../packages/tarka-android/README.md)
+**README:** [`packages/fraud-sdk-android/README.md`](../../../packages/fraud-sdk-android/README.md)
 
-## Highlights
+## Semantics and ops
 
-- **`DecisionClient`** — `POST /v1/decisions/evaluate`, `POST /v1/attestation/challenge`, `GET /v1/audit/{trace_id}`
-- **`DeviceSignalCollector`** — emulator heuristics, VPN interface, installer / repackage hint, mock-location developer setting, stable **`device_id`** (SHA-256 of install-scoped inputs)
-- **Play Integrity** — bring your own token; attach **`Attestation`** with provider **`play_integrity`**
+- [Device ID semantics](../guides/device-id-semantics.md) — server-side entity linking + optional vendor bridge  
+- [TLS pinning & signed requests](../guides/tls-pinning-and-signed-requests.md)
 
 See also: [SDK scorecard](../guides/sdk-scorecard-2026-01.md)

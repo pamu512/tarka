@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from decision_api.config import settings
 from decision_api.currency import normalize_amount
 from decision_api.db import get_session, init_db
+from decision_api.entity_link_store import entity_link_store
 from decision_api.fingerprint_store import fingerprint_store
 from decision_api.json_rules import evaluate_json_rules, load_rules
 from decision_api.json_rules import governance_summary as rules_governance_summary
@@ -144,6 +145,7 @@ async def lifespan(application: FastAPI):
     if redis_tags._client:
         agg_store.set_client(redis_tags._client)
         fingerprint_store.set_client(redis_tags._client)
+        entity_link_store.set_client(redis_tags._client)
     _list_store = create_list_store(
         backend=settings.list_store_backend,
         redis_url=settings.redis_url,
@@ -843,6 +845,17 @@ async def evaluate_decision(
         if len(fp_record.entity_ids) > 1:
             signal_tags.append("sdk:shared_device")
 
+    # Server-side entity ↔ device ↔ vendor ID linking (Redis)
+    if body.device_context and entity_link_store._client:
+        dc = body.device_context
+        await entity_link_store.record_device_entity_link(
+            body.tenant_id,
+            dc.device_id,
+            body.entity_id,
+        )
+        if isinstance(body.metadata, dict) and body.metadata:
+            await entity_link_store.record_vendor_bridge(body.tenant_id, body.entity_id, body.metadata)
+
     # Check whitelist/blacklist/test bypass BEFORE full evaluation
     list_check = None
     try:
@@ -963,6 +976,27 @@ async def evaluate_decision(
     snapshot = await _fetch_feature_snapshot(http, body, existing_tags)
     features: dict[str, Any] = dict(snapshot.get("features") or {})
     redis_tag_list = list(snapshot.get("redis_tags") or existing_tags)
+
+    # Entity linking hints for rules (device ↔ entities, optional vendor bridge)
+    if body.device_context and entity_link_store._client:
+        linked = await entity_link_store.get_entities_for_device(
+            body.tenant_id,
+            body.device_context.device_id,
+            limit=50,
+        )
+        others = [e for e in linked if e != body.entity_id]
+        if others:
+            features["linked_entity_ids"] = others[:20]
+            signal_tags.append("sdk:linked_entities")
+        if isinstance(body.metadata, dict):
+            for vtype, mkey in (("visitor", "vendor_visitor_id"), ("device", "vendor_device_id"), ("install", "vendor_install_id")):
+                vid = body.metadata.get(mkey)
+                if isinstance(vid, str) and vid.strip():
+                    bridged = await entity_link_store.get_entity_for_vendor(body.tenant_id, vtype, vid.strip())
+                    if bridged and bridged != body.entity_id:
+                        features["vendor_bridge_entity_id"] = bridged
+                        signal_tags.append("sdk:vendor_entity_bridge")
+                    break
 
     # Merge device signals into features so rules engine can see them
     if body.device_context:

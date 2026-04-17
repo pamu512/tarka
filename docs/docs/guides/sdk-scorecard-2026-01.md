@@ -14,7 +14,7 @@
 
 Peers (Fingerprint-class web, Incognia-class mobile, Sift/SEON-class breadth) are scored on the **same** mid-scale so comparisons stay **directional**, not marketing.
 
-**Repo reality (2026-01):** **`packages/fraud-sdk-typescript`** (web) and **`packages/fraud-sdk-python`** (server) ship; **native** **`packages/tarka-android`** and **`packages/tarka-ios`** ship first-party OSS clients (evaluate + `device_context`). See [`sdk-mobile-project.md`](../projects/sdk-mobile-project.md) for deeper attestation parity work.
+**Repo reality (2026-01):** **`packages/fraud-sdk-typescript`** (web) and **`packages/fraud-sdk-python`** (server) ship; **native** **`packages/fraud-sdk-android`** and **`packages/fraud-sdk-ios`** ship first-party OSS clients (evaluate + `device_context`). See [`sdk-mobile-project.md`](../projects/sdk-mobile-project.md) for deeper attestation parity work.
 
 ---
 

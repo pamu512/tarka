@@ -1,15 +1,15 @@
 # iOS SDK (Swift)
 
-**Package:** `packages/tarka-ios` (Swift Package Manager)
+**Package:** [`packages/fraud-sdk-ios`](../../../packages/fraud-sdk-ios) — SwiftPM **`TarkaSDK`**.
 
-The Swift SDK sends **`device_context`** with **`platform: "ios"`** and signals aligned with the Decision API and [device-context JSON schema](../../contracts/json-schema/device-context.json).
+- **`DecisionClient`** — async evaluate, optional **App Attest** attestation on `device_context`
+- **`DeviceSignalCollector`** — jailbreak / VPN / simulator / integrity heuristics
 
-**Full README:** [`packages/tarka-ios/README.md`](../../../packages/tarka-ios/README.md)
+**README:** [`packages/fraud-sdk-ios/README.md`](../../../packages/fraud-sdk-ios/README.md)
 
-## Highlights
+## Semantics and ops
 
-- **`DecisionClient`** — async `evaluate`, `requestChallenge`, `getAudit`
-- **`DeviceSignalCollector`** — simulator detection, VPN interface heuristics, **`identifierForVendor`**-based stable **`device_id`**
-- **App Attest** — bring your own assertion; attach **`Attestation`** with provider **`app_attest`**
+- [Device ID semantics](../guides/device-id-semantics.md)  
+- [TLS pinning & signed requests](../guides/tls-pinning-and-signed-requests.md)
 
 See also: [SDK scorecard](../guides/sdk-scorecard-2026-01.md)
