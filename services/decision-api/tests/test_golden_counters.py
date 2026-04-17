@@ -40,23 +40,48 @@ class TestGoldenEventCounts:
             "golden_tenant",
             "golden_entity",
             "e1",
-            {"amount": 10.0, "ip_address": "10.0.0.1"},
+            {"amount": 10.0, "ip_address": "10.0.0.1", "session_id": "sess-a"},
             ts=T0 + 1,
         )
         await s.record_event(
             "golden_tenant",
             "golden_entity",
             "e2",
-            {"amount": 25.5, "ip_address": "10.0.0.2"},
+            {"amount": 25.5, "ip_address": "10.0.0.2", "session_id": "sess-b"},
             ts=T0 + 2,
         )
         feats = await s.compute_features(
             "golden_tenant",
             "golden_entity",
-            {"amount": 1.0, "ip_address": "10.0.0.9"},
+            {"amount": 1.0, "ip_address": "10.0.0.9", "session_id": "sess-z"},
         )
         assert feats["event_count_1h"] == 2
         assert feats["event_count_5m"] == 2
         assert abs(feats["sum_amount_1h"] - 35.5) < 1e-9
         assert abs(feats["avg_amount_1h"] - 17.75) < 1e-9
         assert feats["distinct_ip_address_24h"] == 2
+        assert feats["distinct_session_id_24h"] == 2
+
+    @pytest.mark.asyncio
+    async def test_compute_features_distinct_sessions(self, golden_store):
+        s, _ = golden_store
+        await s.record_event(
+            "golden_tenant",
+            "golden_entity",
+            "s1",
+            {"session_id": "sess-a"},
+            ts=T0 + 1,
+        )
+        await s.record_event(
+            "golden_tenant",
+            "golden_entity",
+            "s2",
+            {"session_id": "sess-b"},
+            ts=T0 + 2,
+        )
+        feats = await s.compute_features(
+            "golden_tenant",
+            "golden_entity",
+            {"session_id": "sess-z"},
+        )
+        assert feats["distinct_session_id_24h"] == 2
