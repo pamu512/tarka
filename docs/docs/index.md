@@ -64,7 +64,7 @@ The platform is designed around composability. Run just the Decision API with Re
 
     Write your first fraud detection rule pack in JSON.
 
-- :material-kubernetes: **[Deployment Guide](guides/deployment.md)**
+- :material-kubernetes: **[Deployment Guide](guides/deployment.md)** — profiles, Helm, hardening; **[Community vs Pro profiles](guides/deployment-profiles-community-vs-pro.md)** (compose tiers, **#38**).
 
     Deploy to production with Docker Compose profiles or Helm on Kubernetes.
 
