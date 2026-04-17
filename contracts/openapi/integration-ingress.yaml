@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Tarka Integration Ingress
   version: 1.0.0
-  description: Webhooks and adapter callbacks for KYC and third-party identity providers.
+  description: Webhooks, adapter orchestration, and integration reliability surfaces.
 servers:
   - url: http://localhost:8003
 paths:
@@ -12,6 +12,146 @@ paths:
       responses:
         "200":
           description: OK
+  /v1/slo:
+    get:
+      operationId: ingressSlo
+      responses:
+        "200":
+          description: SLO and runtime posture
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SloStatusResponse"
+  /v1/vault/kms:
+    get:
+      operationId: vaultKmsStatus
+      responses:
+        "200":
+          description: KMS provider and configuration status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VaultKmsStatusResponse"
+  /v1/vault/kms/self-check:
+    get:
+      operationId: vaultKmsSelfCheck
+      responses:
+        "200":
+          description: KMS round-trip self-check
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VaultKmsSelfCheckResponse"
+  /v1/vault/metrics:
+    get:
+      operationId: vaultMetrics
+      responses:
+        "200":
+          description: Vault/KMS counters
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/vault/rotation-jobs:
+    get:
+      operationId: vaultRotationJobs
+      responses:
+        "200":
+          description: Recent KMS rotation jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobs:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+  /v1/integrations/readiness:
+    get:
+      operationId: integrationsReadiness
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Category coverage readiness score
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationsReadinessResponse"
+  /v1/integrations/health-matrix:
+    get:
+      operationId: integrationsHealthMatrix
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Point-in-time provider health rows
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationsHealthMatrixResponse"
+  /v1/integrations/scorecards:
+    get:
+      operationId: integrationsScorecards
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: API-first reliability scorecards for installed providers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationsScorecardsResponse"
+  /v1/integrations/test-connectivity:
+    post:
+      operationId: testIntegrationConnectivity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntegrationTestRequest"
+      responses:
+        "200":
+          description: Connectivity result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationConnectivityResult"
+        "404":
+          description: Unknown provider
+  /v1/integrations/catalog:
+    get:
+      operationId: integrationsCatalog
+      responses:
+        "200":
+          description: Provider catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_providers: { type: integer }
+                  categories:
+                    type: array
+                    items: { type: string }
+                  providers:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
   /v1/webhooks/kyc/{provider}:
     post:
       operationId: kycWebhook
@@ -27,14 +167,17 @@ paths:
               type: object
               additionalProperties: true
       responses:
-        "202":
-          description: Accepted for processing
+        "200":
+          description: Accepted and normalized when adapter available
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   event_id: { type: string }
+                  provider: { type: string }
+                  accepted: { type: boolean }
+                  normalized: { type: boolean }
   /v1/kyc/verify:
     post:
       operationId: verifyIdentity
@@ -54,6 +197,152 @@ paths:
                 $ref: "#/components/schemas/KycNormalizedResult"
 components:
   schemas:
+    SloStatusResponse:
+      type: object
+      properties:
+        service: { type: string }
+        availability_target: { type: number }
+        latency_target_ms_p95: { type: number }
+        error_budget_window_days: { type: integer }
+        current:
+          type: object
+          additionalProperties: true
+    VaultKmsStatusResponse:
+      type: object
+      properties:
+        provider: { type: string }
+        active_key_id: { type: string }
+        rotation_enabled: { type: boolean }
+        rotation_interval_seconds: { type: integer }
+        config_valid: { type: boolean }
+        config_issues:
+          type: array
+          items: { type: string }
+    VaultKmsSelfCheckResponse:
+      type: object
+      properties:
+        ok: { type: boolean }
+        latency_ms: { type: number, nullable: true }
+        provider: { type: string, nullable: true }
+        key_id: { type: string, nullable: true }
+        error: { type: string, nullable: true }
+        issues:
+          type: array
+          nullable: true
+          items: { type: string }
+    IntegrationsReadinessCoverageItem:
+      type: object
+      required: [installed, count]
+      properties:
+        installed: { type: boolean }
+        count: { type: integer, minimum: 0 }
+    IntegrationsReadinessResponse:
+      type: object
+      required: [tenant_id, readiness_score, covered_categories, total_categories, coverage]
+      properties:
+        tenant_id: { type: string }
+        readiness_score: { type: number }
+        covered_categories: { type: integer }
+        total_categories: { type: integer }
+        coverage:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/IntegrationsReadinessCoverageItem"
+    IntegrationHealthMatrixRow:
+      type: object
+      required: [provider_id, name, category, status, latency_ms, missing_fields]
+      properties:
+        provider_id: { type: string }
+        name: { type: string }
+        category: { type: string }
+        status: { type: string, enum: [pass, fail, unknown] }
+        latency_ms: { type: number }
+        missing_fields:
+          type: array
+          items: { type: string }
+    IntegrationsHealthMatrixResponse:
+      type: object
+      required: [tenant_id, score, rows]
+      properties:
+        tenant_id: { type: string }
+        score: { type: number }
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/IntegrationHealthMatrixRow"
+    IntegrationScorecardProvider:
+      type: object
+      required:
+        [provider_id, category, status, connectivity_score, latency_ms, config_completeness, last_checked_at, reasons, provider_score]
+      properties:
+        provider_id: { type: string }
+        category: { type: string }
+        status: { type: string, enum: [healthy, degraded, down, unknown] }
+        connectivity_score: { type: number }
+        latency_ms: { type: number }
+        config_completeness: { type: number }
+        last_checked_at: { type: string, nullable: true }
+        reasons:
+          type: array
+          items: { type: string }
+        provider_score: { type: number }
+    IntegrationsScorecardsResponse:
+      type: object
+      required: [tenant_id, overall_score, providers]
+      properties:
+        tenant_id: { type: string }
+        overall_score: { type: number }
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/IntegrationScorecardProvider"
+    IntegrationTestRequest:
+      type: object
+      required: [tenant_id, provider_id]
+      properties:
+        tenant_id: { type: string }
+        provider_id: { type: string }
+        config:
+          type: object
+          nullable: true
+          additionalProperties: true
+    IntegrationConnectivityCheck:
+      type: object
+      properties:
+        check: { type: string }
+        passed: { type: boolean }
+        accepted:
+          type: array
+          items: { type: string }
+        missing_fields:
+          type: array
+          items: { type: string }
+    IntegrationLiveProbe:
+      type: object
+      properties:
+        ok: { type: boolean }
+        latency_ms: { type: number }
+        error: { type: string }
+    IntegrationConnectivityResult:
+      type: object
+      required:
+        [provider_id, status, checks, latency_ms, required_config_fields, missing_fields, live_probe]
+      properties:
+        provider_id: { type: string }
+        status: { type: string, enum: [pass, fail] }
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/IntegrationConnectivityCheck"
+        latency_ms: { type: number }
+        required_config_fields:
+          type: array
+          items: { type: string }
+        missing_fields:
+          type: array
+          items: { type: string }
+        live_probe:
+          $ref: "#/components/schemas/IntegrationLiveProbe"
     KycVerifyRequest:
       type: object
       required: [tenant_id, subject_id, adapter]

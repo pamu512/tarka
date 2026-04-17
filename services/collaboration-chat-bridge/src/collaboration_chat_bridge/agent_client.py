@@ -28,17 +28,28 @@ async def post_chat(
     messages: list[dict[str, str]],
     case_id: str | None = None,
     persona: str | None = None,
+    workflow_id: str | None = None,
+    workflow_params: dict[str, Any] | None = None,
+    playbook_id: str | None = None,
+    batch_id: str | None = None,
+    messages_preprocessed: bool = False,
 ) -> dict[str, Any]:
     url = f"{settings.investigation_agent_url.rstrip('/')}/v1/chat"
     headers: dict[str, str] = {}
     key = (settings.investigation_agent_api_key or "").strip()
     if key:
         headers["x-api-key"] = key
-    eff_persona, eff_messages = resolve_copilot_persona_for_bridge(
-        settings.default_copilot_persona,
-        messages,
-        explicit=persona,
-    )
+    if messages_preprocessed:
+        eff_persona = (persona or "investigation").strip().lower()
+        if eff_persona not in ("investigation", "orchestrator"):
+            eff_persona = "investigation"
+        eff_messages = messages
+    else:
+        eff_persona, eff_messages = resolve_copilot_persona_for_bridge(
+            settings.default_copilot_persona,
+            messages,
+            explicit=persona,
+        )
     payload: dict[str, Any] = {
         "tenant_id": tenant_id[:128],
         "analyst_id": analyst_id[:128],
@@ -47,6 +58,14 @@ async def post_chat(
     }
     if case_id:
         payload["case_id"] = case_id[:128]
+    if workflow_id and str(workflow_id).strip():
+        payload["workflow_id"] = str(workflow_id).strip()[:80]
+    if workflow_params:
+        payload["workflow_params"] = workflow_params
+    if playbook_id and str(playbook_id).strip():
+        payload["playbook_id"] = str(playbook_id).strip()[:64]
+    if batch_id and str(batch_id).strip():
+        payload["batch_id"] = str(batch_id).strip()[:128]
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=15.0)) as client:
             r = await client.post(url, json=payload, headers=headers)

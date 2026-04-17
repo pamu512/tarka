@@ -168,6 +168,52 @@ class TestOpsEndpoints:
         assert "calibration" in data
 
 
+class TestVerticalPacks:
+    @pytest.mark.asyncio
+    async def test_list_vertical_packs(self, client):
+        r = await client.get("/v1/rules/vertical-packs")
+        assert r.status_code == 200
+        packs = r.json().get("vertical_packs", {})
+        assert "fintech" in packs
+        assert "ecommerce" in packs
+        assert "gaming" in packs
+
+    @pytest.mark.asyncio
+    async def test_install_vertical_pack_and_conflict(self, client, tmp_path, monkeypatch):
+        monkeypatch.setattr("decision_api.rule_api.settings.rules_path", str(tmp_path))
+        with patch("decision_api.rule_api.load_rules"):
+            first = await client.post("/v1/rules/vertical-packs/fintech/install")
+            assert first.status_code == 201
+            data = first.json()
+            assert data["vertical"] == "fintech"
+            assert data["rules"] >= 1
+
+            second = await client.post("/v1/rules/vertical-packs/fintech/install")
+            assert second.status_code == 409
+
+            overwrite = await client.post("/v1/rules/vertical-packs/fintech/install", params={"overwrite": "true"})
+            assert overwrite.status_code == 201
+
+    @pytest.mark.asyncio
+    async def test_install_unknown_vertical_pack(self, client):
+        r = await client.post("/v1/rules/vertical-packs/unknown/install")
+        assert r.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_benchmark_vertical_pack(self, client):
+        r = await client.post(
+            "/v1/simulation/benchmark/vertical",
+            json={"scenario": "baseline", "vertical": "gaming"},
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert data["vertical"] == "gaming"
+        assert "baseline" in data
+        assert "vertical_pack" in data
+        assert "delta" in data
+        assert {"precision", "recall", "f1_score", "score_separation"} <= set(data["delta"].keys())
+
+
 class TestAudit:
     @pytest.mark.asyncio
     async def test_audit_not_found(self, client):

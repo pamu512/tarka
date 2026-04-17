@@ -10,6 +10,14 @@ The platform is designed around composability. Run just the Decision API with Re
 
 ---
 
+## What’s new (April 2026)
+
+- **Investigation copilot (OSS):** **`GET /v1/ready`** and **`GET /v1/setup`**, production diagnostics on **`GET /v1/health`**, **workflow-aware** **`POST /v1/chat`**, case-summary **PDF** / turn-bundle exports, and production guardrails — see [Integration changelog](guides/CHANGELOG_INTEGRATION.md) and [Investigation Agent project](projects/investigation-agent-project.md).
+- **Collaboration chat bridge:** Slack, Teams, and Lark → agent with **attachments** (incl. **xlsx**), **SSRF-safe URL** enrichment, **workflow directives**, and **ingress rate limits** — [bridge README](../../services/collaboration-chat-bridge/README.md) and [Collaboration chat & cloud](guides/investigation-collaboration-chat-aws-azure.md).
+- **Tarka repo:** Default development branch is **`master`**; release cadence and tags are unchanged — [Release schedule](../../RELEASE_SCHEDULE.md) (repository root).
+
+---
+
 ## Key Features
 
 - **Real-time fraud scoring** — Sub-50ms decisions combining JSON rules, ML models, OPA policies, and device signals into a single score.
