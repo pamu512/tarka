@@ -2,7 +2,38 @@ import Foundation
 import DeviceCheck
 import CryptoKit
 
-/// Subset of Decision API evaluate response (extra keys ignored by decoder).
+public struct DriverExplainEntry: Codable {
+    public let reason: String
+    public let category: String
+    public let label: String
+}
+
+public struct InferenceContext: Codable {
+    public let schema_version: String
+    public let calibration_profile: String
+    public let expected_calibration_version: Int
+    public let confidence_tier_label: String?
+    public let driver_explain: [DriverExplainEntry]?
+    public let integrity_confidence: Double
+    public let tamper_risk: Double
+    public let network_trust: Double
+    public let replay_risk: Double
+    public let geo_consistency_risk: Double
+    public let top_signals: [String]
+    public let confidence_tier: String
+    public let driver_reasons: [String]
+    public let colocation_risk: Double
+    public let copresence_risk: Double
+    public let impossible_travel_risk: Double
+    public let velocity_events_5m: Int
+    public let velocity_events_1h: Int
+    public let velocity_events_24h: Int
+    public let ml_top_factors: [[String: String]]?
+    public let ml_summary: String?
+    public let ml_model: String?
+}
+
+/// Decision API evaluate response contract.
 public struct EvaluateResponse: Codable {
     public let trace_id: String
     public let decision: String
@@ -11,6 +42,8 @@ public struct EvaluateResponse: Codable {
     public let rule_hits: [String]?
     public let reasons: [String]?
     public let ml_score: Double?
+    public let inference_context: InferenceContext
+    public let recommended_action: String?
 }
 
 /// Tarka Decision API client with optional **App Attest** attestation on `device_context`.
