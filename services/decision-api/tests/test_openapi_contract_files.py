@@ -66,6 +66,7 @@ def test_fastapi_openapi_contains_evaluate_and_inference():
                         assert "/v1/decisions/evaluate" in paths, "FastAPI schema should expose POST evaluate"
                         assert "/v1/challenge-policies" in paths, "FastAPI schema should expose GET challenge-policies"
                         assert "/v1/internal/counters/manifest" in paths
+                        assert "/v1/internal/counters/catalog" in paths
                         assert "/v1/internal/counters/replay" in paths
                         assert "/v1/internal/counters/replay/from-audit" in paths
                         assert "/v1/ops/calibration-status" in paths

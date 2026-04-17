@@ -324,6 +324,11 @@ async def ops_governance():
     return {
         "inference_schema_version": INFERENCE_SCHEMA_VERSION,
         "rule_packs": g,
+        "counter_catalog": {
+            "endpoint": "GET /v1/internal/counters/catalog",
+            "manifest": "GET /v1/internal/counters/manifest",
+            "file": "decision_api/data/counter_catalog.json (merged with counter_manifest_v1.json)",
+        },
         "experiment_registry_lines": exp_ct,
         "calibration_status": cal_status,
         "drift_smoke": {

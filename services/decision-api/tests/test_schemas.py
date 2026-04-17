@@ -57,6 +57,7 @@ class TestEvaluateResponse:
                 "replay_risk": 0.0,
                 "geo_consistency_risk": 0.0,
                 "top_signals": [],
+                "confidence_tier": "high",
             },
         )
         assert r.decision == "allow"
@@ -78,6 +79,7 @@ class TestEvaluateResponse:
                 "replay_risk": 0.1,
                 "geo_consistency_risk": 0.3,
                 "top_signals": ["sdk:bot"],
+                "confidence_tier": "low",
             },
         )
         assert r.ml_score == 88.0

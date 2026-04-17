@@ -57,6 +57,15 @@ class TestInternalCountersManifest:
         assert "manifest_version" in data
         assert "feature_outputs" in data
 
+    @pytest.mark.asyncio
+    async def test_get_catalog_merged(self, client):
+        r = await client.get("/v1/internal/counters/catalog")
+        assert r.status_code == 200
+        data = r.json()
+        assert "counters" in data
+        assert isinstance(data["counters"], list)
+        assert len(data["counters"]) >= 1
+
 
 class TestInternalCountersReplay:
     @pytest.mark.asyncio

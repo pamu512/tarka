@@ -6,7 +6,7 @@ import os
 import sys
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from case_api.config import settings
@@ -534,6 +534,8 @@ async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_sess
             "investigating_rate": 0.0,
             "resolved_rate": 0.0,
             "median_case_age_hours": 0.0,
+            "by_status": {},
+            "sla_breached_open_or_investigating": 0,
         }
     queue_scores = [_queue_score(r) for r in rows]
     critical_open = sum(1 for r in rows if (r.priority or "").lower() == "critical" and (r.status or "").lower() in {"open", "investigating"})
@@ -547,6 +549,13 @@ async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_sess
             ages.append(max(0.0, delta.total_seconds() / 3600.0))
     ages.sort()
     median_age = ages[len(ages) // 2] if ages else 0.0
+    by_status: dict[str, int] = {}
+    sla_breached = 0
+    for r in rows:
+        st = (r.status or "unknown").lower()
+        by_status[st] = by_status.get(st, 0) + 1
+        if st in ("open", "investigating") and is_sla_breached(r.priority, r.created_at):
+            sla_breached += 1
     return {
         "tenant_id": tenant_id,
         "total_cases": total,
@@ -555,6 +564,41 @@ async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_sess
         "investigating_rate": round(investigating / total, 4),
         "resolved_rate": round(resolved / total, 4),
         "median_case_age_hours": round(median_age, 2),
+        "by_status": by_status,
+        "sla_breached_open_or_investigating": sla_breached,
+    }
+
+
+@app.get("/v1/cases/analytics/cohort-compare")
+async def cohort_compare_cases(
+    tenant_id: str,
+    session: AsyncSession = Depends(get_session),
+    period_days: int = 7,
+):
+    """Compare case volume: last *period_days* vs prior window of equal length."""
+    now = datetime.now(timezone.utc)
+    recent_start = now - timedelta(days=period_days)
+    prior_start = now - timedelta(days=2 * period_days)
+    q_recent = select(func.count()).select_from(Case).where(
+        Case.tenant_id == tenant_id,
+        Case.created_at >= recent_start,
+    )
+    q_prior = select(func.count()).select_from(Case).where(
+        Case.tenant_id == tenant_id,
+        Case.created_at >= prior_start,
+        Case.created_at < recent_start,
+    )
+    n_recent = (await session.execute(q_recent)).scalar_one()
+    n_prior = (await session.execute(q_prior)).scalar_one()
+    delta = float(n_recent - n_prior)
+    pct = (delta / n_prior * 100.0) if n_prior else None
+    return {
+        "tenant_id": tenant_id,
+        "period_days": period_days,
+        "cases_created_recent": int(n_recent),
+        "cases_created_prior": int(n_prior),
+        "delta": delta,
+        "delta_percent_vs_prior": pct,
     }
 
 

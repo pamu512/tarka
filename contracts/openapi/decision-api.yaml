@@ -414,6 +414,21 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+  /v1/internal/counters/catalog:
+    get:
+      operationId: getCounterCatalogMerged
+      summary: Declarative counter catalog (titles + manifest merge)
+      description: >-
+        Merges counter_manifest_v1.json with data/counter_catalog.json (human titles, categories).
+        Does not require COUNTER_REPLAY_TOKEN.
+      responses:
+        "200":
+          description: Merged catalog for ops UI
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
   /v1/internal/counters/replay:
     post:
       operationId: replayCountersToScratchRedis
@@ -771,6 +786,19 @@ components:
           nullable: true
           additionalProperties: true
           description: Matched rule id, escalation ladder, rule index (audit-friendly)
+    DriverExplainEntry:
+      type: object
+      required: [reason, category, label]
+      properties:
+        reason:
+          type: string
+          description: Same code as in driver_reasons (e.g. rule:..., ml_factor:...)
+        category:
+          type: string
+          description: Coarse bucket for UI grouping (rules, ml, network, geo, velocity, device_integrity, replay, other)
+        label:
+          type: string
+          description: Short human-readable label for analysts
     InferenceContext:
       type: object
       required:
@@ -803,6 +831,14 @@ components:
           type: integer
           minimum: 1
           description: Bump when redeploying calibration tables; compare to ops drift pipeline version
+        confidence_tier_label:
+          type: string
+          description: Plain-language summary for the confidence_tier (low / medium / high)
+        driver_explain:
+          type: array
+          items:
+            $ref: "#/components/schemas/DriverExplainEntry"
+          description: Structured drivers (category + label); complements driver_reasons codes
         integrity_confidence:
           type: number
           format: float

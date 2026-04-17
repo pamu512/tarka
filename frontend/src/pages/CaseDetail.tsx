@@ -91,6 +91,7 @@ export default function CaseDetail() {
   const [labelInput, setLabelInput] = useState("");
   const [decisionExplain, setDecisionExplain] = useState<DecisionExplain | null>(null);
   const [graphRisk, setGraphRisk] = useState<EntityRiskResult | null>(null);
+  const [bundleBusy, setBundleBusy] = useState(false);
 
   const fetchCase = useCallback(async () => {
     if (!caseId) return;
@@ -195,6 +196,26 @@ export default function CaseDetail() {
     }
   };
 
+  const handleDownloadEvidenceBundle = async () => {
+    if (!caseId || !caseData) return;
+    setBundleBusy(true);
+    try {
+      const bundle = await cases.evidenceBundle(caseId, caseData.tenant_id);
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `evidence-bundle-${caseId.slice(0, 8)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast("Evidence bundle downloaded", "success");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Bundle download failed", "error");
+    } finally {
+      setBundleBusy(false);
+    }
+  };
+
   const handleAddLabel = async () => {
     if (!caseId || !caseData || !labelInput.trim()) return;
     try {
@@ -272,6 +293,14 @@ export default function CaseDetail() {
           <p className="text-sm text-gray-400 font-mono">{caseData.id}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            disabled={bundleBusy}
+            onClick={() => void handleDownloadEvidenceBundle()}
+            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-surface-700 text-gray-200 hover:bg-surface-600 transition-colors border border-surface-600 disabled:opacity-50"
+          >
+            {bundleBusy ? "Preparing bundle…" : "Download evidence bundle (JSON)"}
+          </button>
           <Link
             to={`/investigation?case_id=${encodeURIComponent(caseData.id)}&tenant_id=${encodeURIComponent(caseData.tenant_id)}`}
             className="text-xs font-medium px-3 py-1.5 rounded-lg bg-brand-600/20 text-brand-300 hover:bg-brand-600/30 transition-colors border border-brand-500/30"
@@ -327,17 +356,37 @@ export default function CaseDetail() {
                 </div>
                 <FraudScoreTrack score={decisionExplain.score} />
                 {decisionExplain.inference_context ? (
-                  <p className="text-xs text-gray-400">
-                    Confidence{" "}
-                    <span className="text-gray-200 font-medium">
-                      {decisionExplain.inference_context.confidence_tier}
-                    </span>
-                    {decisionExplain.inference_context.schema_version
-                      ? ` · Schema v${decisionExplain.inference_context.schema_version}`
-                      : ""}
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-xs text-gray-400">
+                      Confidence{" "}
+                      <span className="text-gray-200 font-medium">
+                        {decisionExplain.inference_context.confidence_tier}
+                      </span>
+                      {decisionExplain.inference_context.schema_version
+                        ? ` · Schema v${decisionExplain.inference_context.schema_version}`
+                        : ""}
+                    </p>
+                    {decisionExplain.inference_context.confidence_tier_label ? (
+                      <p className="text-xs text-gray-300 leading-snug">{decisionExplain.inference_context.confidence_tier_label}</p>
+                    ) : null}
+                  </div>
                 ) : null}
-                {decisionExplain.inference_context && decisionExplain.inference_context.driver_reasons.length > 0 ? (
+                {decisionExplain.inference_context &&
+                (decisionExplain.inference_context.driver_explain?.length ?? 0) > 0 ? (
+                  <div>
+                    <div className="text-xs font-medium text-gray-500 mb-1">Top drivers</div>
+                    <ul className="text-sm text-gray-200 space-y-1">
+                      {decisionExplain.inference_context.driver_explain!.slice(0, 4).map((d) => (
+                        <li key={d.reason} className="flex flex-wrap gap-x-2 gap-y-0.5">
+                          <span className="text-[10px] uppercase tracking-wide text-gray-500 px-1.5 py-0.5 rounded bg-surface-700">
+                            {d.category}
+                          </span>
+                          <span>{d.label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : decisionExplain.inference_context && decisionExplain.inference_context.driver_reasons.length > 0 ? (
                   <div>
                     <div className="text-xs font-medium text-gray-500 mb-1">Top drivers</div>
                     <ul className="text-sm text-gray-200 list-disc list-inside space-y-0.5">

@@ -22,6 +22,8 @@ def test_build_inference_context_schema_and_velocity():
     assert ctx["velocity_events_1h"] == 10
     assert ctx["velocity_events_24h"] == 100
     assert ctx["confidence_tier"] in ("low", "medium", "high")
+    assert isinstance(ctx.get("confidence_tier_label"), str) and ctx["confidence_tier_label"]
+    assert isinstance(ctx.get("driver_explain"), list)
     assert isinstance(ctx["driver_reasons"], list)
     assert isinstance(ctx["top_signals"], list)
     assert ctx["ml_top_factors"] == []
