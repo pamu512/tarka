@@ -17,6 +17,23 @@ python scripts/replay/replay_aggregates.py --input audits.jsonl --redis-url redi
 python scripts/replay/replay_aggregates.py --input audits.jsonl --redis-url redis://localhost:6379/15 --limit 1000
 ```
 
+### Replay a specific date range
+
+Filter rows by event timestamp (`ts`/`timestamp`/`created_at`) before writing:
+
+```bash
+python scripts/replay/replay_aggregates.py \
+  --input audits.jsonl \
+  --redis-url redis://localhost:6379/15 \
+  --from 2026-04-01T00:00:00Z \
+  --to 2026-04-07T23:59:59Z
+```
+
+Accepted time formats:
+- Unix epoch seconds (`1712345678` or `1712345678.5`)
+- ISO-8601 strings (`2026-04-01T12:30:00Z`)
+- Naive ISO strings are interpreted as UTC.
+
 Compare key counts or field sums against production using the same tenant/entity keys (`fraud:agg:...` — see `decision_api.aggregates`).
 
 ## Prod vs scratch diff
