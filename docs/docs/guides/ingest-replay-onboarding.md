@@ -65,7 +65,11 @@ Malformed `event_type` (not in Decision API enum) returns **`422`** with `reason
 
 Prometheus: **`ingest_contract_reject_total`** and **`ingest_contract_reject_total_<reason>`**.
 
-See also: [v1.2.5 execution backlog](./v1.2.5-execution-backlog-resiliency-etl-rules.md) (Epic **E1**).
+**`GET /v1/ingest/stats`** (authenticated like other ingest routes): in-process totals of contract rejects by `reason_codes` since process start.
+
+**DLQ (optional):** set **`INGEST_DLQ_PUBLISH_ON_EVALUATE_4XX=true`** so the NATS→evaluate worker **acks** 4xx evaluates and publishes a JSON envelope to **`INGEST_DLQ_SUBJECT`** (default `fraud.events.dlq`, same stream `fraud.events.>`). Replay: **`scripts/etl/replay_dlq.py`**.
+
+See also: [v1.2.5 execution backlog](./v1.2.5-execution-backlog-resiliency-etl-rules.md) (Epic **E1**). [Bronze/Silver/Gold](./etl-bronze-silver-gold.md) (Epic **E2**).
 
 ### Idempotency (batch)
 

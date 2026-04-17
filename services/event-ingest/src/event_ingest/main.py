@@ -14,6 +14,7 @@ import logging
 import os
 import sys
 import uuid
+from collections import defaultdict
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -48,6 +49,9 @@ from observability import get_metrics, setup_observability  # noqa: E402
 
 log = logging.getLogger("event-ingest")
 
+_contract_reject_reason_counts: defaultdict[str, int] = defaultdict(int)
+
+
 _INGEST_CONTRACT_REASON_MESSAGES: dict[str, str] = {
     "ingest_body_not_object": "request body must be a JSON object",
     "ingest_schema_required": "INGEST_ENVELOPE_MODE=require expects {schema_version:\"1\", event:{...}}",
@@ -60,12 +64,24 @@ _INGEST_CONTRACT_REASON_MESSAGES: dict[str, str] = {
 
 
 def _ingest_contract_reject(reason: str) -> None:
+    _contract_reject_reason_counts[reason] += 1
     try:
         m = get_metrics()
         m.inc("ingest_contract_reject_total")
         m.inc(f"ingest_contract_reject_total_{reason}")
     except Exception:
         pass
+
+
+async def _publish_dlq(js: JetStreamContext, envelope: dict[str, Any]) -> None:
+    try:
+        await js.publish(settings.ingest_dlq_subject, json.dumps(envelope, default=str).encode())
+        try:
+            get_metrics().inc("ingest_dlq_publish_total")
+        except Exception:
+            pass
+    except Exception as e:
+        log.warning("dlq publish failed: %s", e)
 
 
 def _ingest_contract_http_exception(reason: str) -> HTTPException:
@@ -147,6 +163,17 @@ async def _consumer_loop(js: JetStreamContext, http: httpx.AsyncClient) -> None:
                         m.inc("ingest_consumer_nats_ack_total")
                     elif r.status_code < 500:
                         m.inc("ingest_consumer_evaluate_4xx_total")
+                        if settings.ingest_dlq_publish_on_evaluate_4xx:
+                            await _publish_dlq(
+                                js,
+                                {
+                                    "kind": "evaluate_4xx",
+                                    "reason": "decision_api_4xx",
+                                    "http_status": r.status_code,
+                                    "original": eval_body,
+                                    "response_excerpt": (r.text or "")[:2000],
+                                },
+                            )
                         await msg.ack()
                         m.inc("ingest_consumer_nats_ack_total")
                     else:
@@ -257,6 +284,17 @@ async def health(request: Request):
         "nats_connected": _nc is not None and _nc.is_connected,
         "redis_configured": redis_configured,
         "redis_ok": redis_ok,
+    }
+
+
+@app.get("/v1/ingest/stats", dependencies=[Depends(require_api_key)])
+async def ingest_stats():
+    """In-process contract reject counts since process start (Epic E4 stub / E2 observability)."""
+    return {
+        "contract_rejects_total": sum(_contract_reject_reason_counts.values()),
+        "contract_rejects_by_reason": dict(_contract_reject_reason_counts),
+        "dlq_subject": settings.ingest_dlq_subject,
+        "dlq_publish_on_evaluate_4xx": settings.ingest_dlq_publish_on_evaluate_4xx,
     }
 
 
