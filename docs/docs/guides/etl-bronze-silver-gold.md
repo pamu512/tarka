@@ -34,4 +34,5 @@
 ## Related
 
 - [Ingest hardening & replay](./ingest-replay-onboarding.md)
+- [Late arrival & watermarks](./late-arrival-watermarks.md) (Epic **E3**)
 - [v1.2.5 execution backlog](./v1.2.5-execution-backlog-resiliency-etl-rules.md)
