@@ -116,3 +116,9 @@ This document turns **“Missing”** and **large “Extend”** rows in [tarka-
 8. **Phase 8** (integrity matrix)
 
 Adjust order if product prioritizes **analyst evidence (4)** over **location (3)** for a given release train.
+
+---
+
+## Related
+
+- [Regulated markets feature pack](./feature-pack-regulated-markets.md) — optional checklist for fintech, banking, crypto-adjacent, and similar deployments (ingress, attestation, audit, data boundaries).
