@@ -64,7 +64,7 @@ Use this as a **single checklist** when closing GitHub issues and duplicate PRs.
 
 | Issue                              | Status     | Evidence                                                                                                                           |
 | ---------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **#39** Starter typology packs     | Open       |                                                                                                                                    |
+| **#39** Starter typology packs     | Partial    | Reference typologies (`velocity_abuse`, `new_payee_risk`, `amount_stress`) wired via `typology_definitions_v1.json` + DSL/registry; starter fixtures under `services/decision-api/tests/fixtures/typology_starter_events.json` with smoke test `test_starter_typology_fixtures_cover_reference_packs` exercising golden typology outcomes. |
 | **#40** Investigation summaries    | Partial    | `POST /v1/evidence/summary` + tests (investigation-agent) — cite PR/commits for Epic F                                             |
 | **#41** Automated scorecards       | Partial    | Integration scorecards + connector quality — not full “emitter framework”                                                          |
 | **#42** Graph selective routing    | Open       |                                                                                                                                    |
