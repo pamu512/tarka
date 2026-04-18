@@ -1,6 +1,5 @@
 """Tenant kill-switch flags (R2.3) and fallback_reason helper (R2.4)."""
 
-import pytest
 from decision_api.main import _compute_fallback_reason
 from decision_api.tenant_flags import tenant_flag_enabled
 
