@@ -92,13 +92,18 @@ class TestEvaluateDecision:
     @pytest.mark.asyncio
     async def test_basic_allow(self, client):
         mock_session = AsyncMock()
-        mock_session.add = MagicMock()
+        captured: list = []
+
+        def _capture_add(obj):
+            captured.append(obj)
+
+        mock_session.add = MagicMock(side_effect=_capture_add)
         mock_session.commit = AsyncMock()
         from decision_api.main import get_session
 
         with patch("decision_api.main.evaluate_json_rules", return_value=([], [], 0.0)):
             with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
-                with patch("decision_api.main._fetch_ml_score", new_callable=AsyncMock, return_value=(None, {})):
+                with patch("decision_api.main._fetch_ml_score_wrapped", new_callable=AsyncMock, return_value=(None, {})):
                     client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
                     r = await client.post("/v1/decisions/evaluate", json={"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}})
                     client.tarka_app.dependency_overrides.pop(get_session, None)
@@ -110,6 +115,9 @@ class TestEvaluateDecision:
                     assert "inference_context" in data
                     assert "integrity_confidence" in data["inference_context"]
                     assert 0 <= data["inference_context"]["integrity_confidence"] <= 1
+                    assert len(captured) == 1
+                    cc = captured[0].payload_snapshot.get("canary_cohort")
+                    assert cc and cc.get("cohort_sticky_id") and cc.get("salt_version")
 
     @pytest.mark.asyncio
     async def test_with_device_context(self, client):
@@ -120,7 +128,7 @@ class TestEvaluateDecision:
 
         with patch("decision_api.main.evaluate_json_rules", return_value=(["sdk_bot"], ["sdk:bot"], 40.0)):
             with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
-                with patch("decision_api.main._fetch_ml_score", new_callable=AsyncMock, return_value=(None, {})):
+                with patch("decision_api.main._fetch_ml_score_wrapped", new_callable=AsyncMock, return_value=(None, {})):
                     client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
                     r = await client.post(
                         "/v1/decisions/evaluate",
@@ -258,6 +266,8 @@ class TestChampionChallengerPolicyRouting:
         assert r.status_code == 200
         assert len(captured) == 1
         snap = captured[0].payload_snapshot
+        assert "canary_cohort" in snap
+        assert snap["canary_cohort"].get("cohort_sticky_id")
         assert "policy_routing" in snap
         pr = snap["policy_routing"]
         assert pr["champion_decision"] == "allow"

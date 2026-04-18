@@ -84,6 +84,8 @@ class Settings(BaseSettings):
         "yes",
     )
     policy_cohort_salt: str = os.environ.get("POLICY_COHORT_SALT", "policy_v1")
+    # OSS #47: optional experiment label for audit canary_cohort.experiment_id (dashboards)
+    policy_experiment_id: str = os.environ.get("POLICY_EXPERIMENT_ID", "").strip()
 
 
 settings = Settings()

@@ -22,6 +22,20 @@ Shadow rule packs (`mode: shadow` on disk, or `SHADOW_RULES_PATH`) are evaluated
 - **Implementation:** `services/decision-api/src/decision_api/shadow.py`, `_run_shadow_evaluation` in `main.py`.
 - **API:** `GET /v1/rules/shadow/observations`, `GET /v1/rules/shadow/stats`.
 
+## Canary cohort fields (OSS #47, audit / dashboards)
+
+Every evaluate path that writes `decision_audit` includes **`payload_snapshot.canary_cohort`**:
+
+| Field | Meaning |
+|--------|---------|
+| `schema_version` | Document shape (currently `1`) |
+| `cohort_sticky_id` | First 16 hex chars of `SHA256("{tenant}\|{entity}\|{salt_version}")` — stable join key for stickiness |
+| `cohort_bucket_0_99` | Same 0..99 bucket as canary routing when salt aligns |
+| `salt_version` | From **`POLICY_COHORT_SALT`** (default `policy_v1`) |
+| `experiment_id` | Optional; from **`POLICY_EXPERIMENT_ID`** |
+
+List bypass (whitelist/blacklist) audits include the same block for consistent dashboard queries.
+
 ## Champion–challenger (audit-only analysis)
 
 When **`POLICY_CHAMPION_CHALLENGER_ENABLED=true`**, the API runs a second JSON rule pass with **`evaluation_mode=challenger`**: all active packs that pass **`effective_at`** are evaluated **ignoring `canary_percent`**. That produces a **challenger** rule-score delta comparable to the **champion** (production canary) path.
