@@ -3,6 +3,7 @@
 ## #34 Typology layer (Decision API)
 
 - **Definitions:** `services/decision-api/rules/typology_definitions_v1.json` — reference typologies (`velocity_abuse`, `new_payee_risk`, `amount_stress`) with member JSON rule ids, optional feature predicate bonuses, and breach thresholds.
+- **OSS #46:** named **`predicate_ref`** + **`typology_predicate_registry_v1.json`** — see [oss-typology-dsl-46.md](./oss-typology-dsl-46.md).
 - **Evaluation:** After rule + OPA hits are merged, `evaluate_typologies()` scores each typology from **rule hit ids** + **feature snapshot** predicates (reuses `_match_condition` — no second rule engine pass).
 - **Audit:** `payload_snapshot.typologies` (per-typology score, breach level, contributing rules/features, disposition label) and `payload_snapshot.typology_summary` (worst breach + driver id).
 - **Reload:** typology JSON is loaded at startup and on `POST /v1/admin/rules/reload`.
