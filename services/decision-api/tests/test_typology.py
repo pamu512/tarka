@@ -3,6 +3,8 @@
 from pathlib import Path
 from unittest.mock import patch
 
+import json
+
 from decision_api.typology import evaluate_typologies, summarize_typologies
 
 
@@ -54,3 +56,21 @@ def test_typology_no_duplicate_rule_computation():
     feats = {"event_count_1h": 5, "distinct_device_id_24h": 4}
     res = evaluate_typologies(hits, feats)
     assert len(res) == 3
+
+
+def test_starter_typology_fixtures_cover_reference_packs():
+    """OSS #39 — smoke-test starter typology packs via JSON fixtures."""
+    fixture_path = Path(__file__).parent / "fixtures" / "typology_starter_events.json"
+    data = json.loads(fixture_path.read_text(encoding="utf-8"))
+    seen_ids: set[str] = set()
+    for row in data:
+        hits = list(row.get("hits") or [])
+        feats = dict(row.get("features") or {})
+        res = evaluate_typologies(hits, feats)
+        summ = summarize_typologies(res)
+        assert summ["highest_breach"] in ("warning", "alert")
+        tid = summ["driver_typology_id"]
+        assert tid in {"velocity_abuse", "amount_stress", "new_payee_risk"}
+        seen_ids.add(tid)
+    # Ensure we exercised at least two reference typologies.
+    assert {"velocity_abuse", "amount_stress"} <= seen_ids
