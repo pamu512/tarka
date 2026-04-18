@@ -140,9 +140,15 @@ services:
     build:
       context: ..
       dockerfile: services/feature-service/Dockerfile
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      FEATURE_SERVICE_REDIS_URL: redis://redis:6379/0
     ports:
       - "8004:8004"
-    profiles: [ml, full]
+    depends_on:
+      redis:
+        condition: service_started
+    profiles: [ml, full, ui]
 
   ml-scoring:
     build:
@@ -252,6 +258,7 @@ services:
       - decision-api
       - case-api
       - investigation-agent
+      - feature-service
     profiles: [ui, full]
 
 volumes:

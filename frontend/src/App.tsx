@@ -20,6 +20,7 @@ const Simulation = lazy(() => import("./pages/Simulation"));
 const Compliance = lazy(() => import("./pages/Compliance"));
 const OpsCounters = lazy(() => import("./pages/OpsCounters"));
 const OpsPipelines = lazy(() => import("./pages/OpsPipelines"));
+const FeatureTools = lazy(() => import("./pages/FeatureTools"));
 const EntityLists = lazy(() => import("./pages/EntityLists"));
 const Integrations = lazy(() => import("./pages/Integrations"));
 const Notifications = lazy(() => import("./pages/Notifications"));
@@ -69,6 +70,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { to: "/compliance", label: "Compliance", module: "compliance", badge: { count: 1, kind: "info" } },
       { to: "/ops/counters", label: "Counters catalog", module: "compliance" },
+      { to: "/ops/features", label: "Feature tools", module: "compliance" },
       { to: "/ops/pipelines", label: "ETL / pipelines", module: "compliance" },
       { to: "/integrations", label: "Integrations", module: "integrations" },
       { to: "/admin", label: "Admin Panel", module: "admin" },
@@ -179,6 +181,7 @@ export default function App() {
             <Route path="/compliance" element={<Compliance />} />
             <Route path="/ops/counters" element={<OpsCounters />} />
             <Route path="/ops/pipelines" element={<OpsPipelines />} />
+            <Route path="/ops/features" element={<FeatureTools />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/settings" element={<Settings />} />
