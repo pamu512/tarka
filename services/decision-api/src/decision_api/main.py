@@ -1347,6 +1347,10 @@ async def evaluate_decision(
                 features["geo_tz_mismatch"] = True
         signal_tags.extend(geo_extra_tags)
 
+    # Platform integrity supplements (must run before JSON tag_rules so policy can match integrity:*)
+    _plat_kw = _infer_ctx_kwargs(body, features)
+    signal_tags.extend(supplemental_tags_for_integrity(_plat_kw["platform"], signal_tags))
+
     # Run rules + OPA + ML in parallel (OPA and ML don't need each other)
     rule_hits, rule_tags, score_delta = evaluate_json_rules(
         features,
@@ -1354,6 +1358,7 @@ async def evaluate_decision(
         body.tenant_id,
         body.entity_id,
         evaluation_mode="production",
+        signal_tags=signal_tags,
     )
 
     opa_task = run_evaluation_step(
@@ -1422,9 +1427,7 @@ async def evaluate_decision(
     if ml_score is not None and isinstance(ml_score, float):
         reasons.append(f"ml:{ml_score:.2f}")
 
-    _plat_kw = _infer_ctx_kwargs(body, features)
-    integ_extra = supplemental_tags_for_integrity(_plat_kw["platform"], signal_tags)
-    merged_signal_tags = list(dict.fromkeys(signal_tags + integ_extra))
+    merged_signal_tags = list(dict.fromkeys(signal_tags))
     inf_ctx = build_inference_context(
         merged_signal_tags,
         combined_rule_hits,

@@ -228,6 +228,27 @@ class TestEvaluateJsonRules:
         assert tags == ["escalated"]
         assert delta == 10.0
 
+    def test_signal_tags_merge_for_tag_rules(self):
+        """Request-scoped tags (replay, geo) participate in tag_rules without Redis."""
+        self._load_pack(
+            {
+                "version": 1,
+                "rules": [],
+                "tag_rules": [
+                    {
+                        "id": "replay_escalation",
+                        "any_tag": ["ingress:replay_payload"],
+                        "tags": ["policy:replay"],
+                        "score_delta": 10,
+                    }
+                ],
+            }
+        )
+        hits, tags, delta = evaluate_json_rules({}, [], signal_tags=["ingress:replay_payload"])
+        assert hits == ["replay_escalation"]
+        assert "policy:replay" in tags
+        assert delta == 10.0
+
     def test_tag_rules_no_match(self):
         self._load_pack(
             {
