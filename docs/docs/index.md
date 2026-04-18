@@ -66,7 +66,7 @@ The platform is designed around composability. Run just the Decision API with Re
 
 - :material-kubernetes: **[Deployment Guide](guides/deployment.md)**
 
-    Deploy to production with Docker Compose profiles or Helm on Kubernetes. **[OSS track closure checklist](guides/oss-track-issue-closure-evidence-2026-04.md)** (#31–#54 merge evidence). **[v1.2.5 backlog status](./guides/v1.2.5-execution-backlog-status.md)** (shipped vs deferred). **[Close epics #4–#12 (paste-ready comments)](./guides/github-issue-closure-epics-4-12.md)**. **[ETL Bronze/Silver/Gold](./guides/etl-bronze-silver-gold.md)** (ingest DLQ, silver checks). **[Service SLOs (v1)](./guides/service-slos-v1.md)** · **[Late arrival & watermarks](./guides/late-arrival-watermarks.md)**.
+    Deploy to production with Docker Compose profiles or Helm on Kubernetes. **[OSS track closure checklist](guides/oss-track-issue-closure-evidence-2026-04.md)** (#31–#54 merge evidence). **[Policy DAG (OSS #31)](./guides/policy-dag-oss-31.md)** (canary, shadow, champion–challenger audit). **[v1.2.5 backlog status](./guides/v1.2.5-execution-backlog-status.md)** (shipped vs deferred). **[Close epics #4–#12 (paste-ready comments)](./guides/github-issue-closure-epics-4-12.md)**. **[ETL Bronze/Silver/Gold](./guides/etl-bronze-silver-gold.md)** (ingest DLQ, silver checks). **[Service SLOs (v1)](./guides/service-slos-v1.md)** · **[Late arrival & watermarks](./guides/late-arrival-watermarks.md)**.
 
 - :material-robot: **[Investigation copilot (Saarthi) & Saarthi Pro](guides/saarthi-pro-vs-oss.md)**
 
