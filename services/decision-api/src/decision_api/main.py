@@ -59,6 +59,7 @@ from decision_api.schemas import EvaluateRequest, EvaluateResponse
 from decision_api.shadow import evaluate_shadow, load_shadow_rules, record_observation
 from decision_api.tenant_flags import tenant_flag_enabled
 from decision_api.trusted_zones import load_trusted_zones_for_tenant
+from decision_api.typology import evaluate_typologies, load_typology_definitions, reload_typology_definitions, summarize_typologies
 
 # ---------- observability ----------
 _shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
@@ -136,12 +137,13 @@ async def _fetch_graph_risk_wrapped(
     entity_id: str,
     degrade_tags: list[str],
     tenant_flags: dict[str, Any],
+    graph_checkpoint: str | None = None,
 ) -> dict[str, Any] | None:
     if tenant_flag_enabled(tenant_flags, "disable_graph"):
         degrade_tags.append("graph:disabled_by_tenant")
         return None
     try:
-        return await _circuit_graph.call(lambda: _fetch_graph_risk(http, tenant_id, entity_id))
+        return await _circuit_graph.call(lambda: _fetch_graph_risk(http, tenant_id, entity_id, graph_checkpoint))
     except CircuitOpenError:
         _circuit_metrics_inc("tarka_circuit_open_total_graph")
         degrade_tags.append("graph:unavailable")
@@ -314,6 +316,7 @@ async def lifespan(application: FastAPI):
     await init_db()
     await redis_tags.connect()
     load_rules()
+    load_typology_definitions()
     load_challenge_policies(force=True)
     load_shadow_rules()
     if redis_tags._client:
@@ -504,6 +507,7 @@ async def attestation_verify(body: VerifyRequest):
 @app.post("/v1/admin/rules/reload")
 async def reload_rules():
     load_rules()
+    reload_typology_definitions()
     load_challenge_policies(force=True)
     return {"ok": True}
 
@@ -982,17 +986,34 @@ async def _graph_upsert_stepped(
         log.warning("graph_upsert step did not complete: %s", trace)
 
 
+def _graph_checkpoint_from_body(body: EvaluateRequest) -> str | None:
+    mk = settings.graph_checkpoint_metadata_key
+    if isinstance(body.metadata, dict):
+        v = body.metadata.get(mk) or body.metadata.get("graph_checkpoint")
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+    if isinstance(body.payload, dict):
+        v = body.payload.get("graph_checkpoint")
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+    return None
+
+
 async def _fetch_graph_risk(
     http: httpx.AsyncClient,
     tenant_id: str,
     entity_id: str,
+    graph_checkpoint: str | None = None,
 ) -> dict[str, Any] | None:
     if not settings.graph_service_url:
         return None
     url = settings.graph_service_url.rstrip("/") + "/v1/analytics/entity-risk"
+    params: dict[str, Any] = {"tenant_id": tenant_id, "entity_id": entity_id}
+    if graph_checkpoint:
+        params["checkpoint"] = graph_checkpoint
     r = await http.get(
         url,
-        params={"tenant_id": tenant_id, "entity_id": entity_id},
+        params=params,
         timeout=settings.eval_step_graph_risk_timeout_seconds,
     )
     r.raise_for_status()
@@ -1262,9 +1283,18 @@ async def evaluate_decision(
         except Exception:
             consortium_delta = 0.0
 
+    graph_checkpoint = _graph_checkpoint_from_body(body)
+
     graph_risk, graph_trace = await run_evaluation_step(
         "graph_risk",
-        lambda: _fetch_graph_risk_wrapped(http, body.tenant_id, body.entity_id, degrade_tags, tenant_flags),
+        lambda: _fetch_graph_risk_wrapped(
+            http,
+            body.tenant_id,
+            body.entity_id,
+            degrade_tags,
+            tenant_flags,
+            graph_checkpoint,
+        ),
         timeout_seconds=settings.eval_step_graph_risk_timeout_seconds,
         max_attempts=settings.eval_step_graph_risk_max_attempts,
         on_failure="SKIP",
@@ -1412,6 +1442,9 @@ async def evaluate_decision(
 
     combined_rule_hits = rule_hits + replay_rule_hits
 
+    typology_results = evaluate_typologies(combined_rule_hits, features)
+    typology_summary = summarize_typologies(typology_results)
+
     if final_score >= settings.deny_threshold:
         decision = "deny"
     elif final_score >= settings.review_threshold:
@@ -1463,7 +1496,11 @@ async def evaluate_decision(
         "recommended_action": recommended_action,
         "challenge_metadata": ch_meta,
         "step_trace": step_trace,
+        "typologies": typology_results,
+        "typology_summary": typology_summary,
     }
+    if graph_checkpoint:
+        snap_extra["graph_checkpoint"] = graph_checkpoint
     if fb_reason:
         snap_extra["fallback_reason"] = fb_reason
 
