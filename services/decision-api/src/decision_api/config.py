@@ -84,6 +84,10 @@ class Settings(BaseSettings):
         "yes",
     )
     policy_cohort_salt: str = os.environ.get("POLICY_COHORT_SALT", "policy_v1")
+    # OSS #47 / #49: cohort salt + experiment id + graph checkpoint metadata key
+    policy_experiment_id: str = os.environ.get("POLICY_EXPERIMENT_ID", "").strip()
+    # OSS #49: metadata key for graph checkpoint profile (graph-service entity-risk)
+    graph_checkpoint_metadata_key: str = os.environ.get("GRAPH_CHECKPOINT_METADATA_KEY", "graph_checkpoint")
 
 
 settings = Settings()
