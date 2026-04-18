@@ -66,6 +66,7 @@ from decision_api.shadow import evaluate_shadow, load_shadow_rules, record_obser
 from decision_api.tenant_flags import tenant_flag_enabled
 from decision_api.trusted_zones import load_trusted_zones_for_tenant
 from decision_api.typology import evaluate_typologies, load_typology_definitions, reload_typology_definitions, summarize_typologies
+from decision_api.typology_predicate_registry import registry_public_view, reload_predicate_registry
 
 # ---------- observability ----------
 _shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
@@ -514,8 +515,15 @@ async def attestation_verify(body: VerifyRequest):
 async def reload_rules():
     load_rules()
     reload_typology_definitions()
+    reload_predicate_registry()
     load_challenge_policies(force=True)
     return {"ok": True}
+
+
+@app.get("/v1/admin/typology/predicate-registry")
+async def get_typology_predicate_registry():
+    """OSS #46 — named predicate catalog (version pin must match typology_definitions ``predicate_registry_pin``)."""
+    return {"ok": True, **registry_public_view()}
 
 
 @app.get("/v1/ops/governance")
