@@ -29,7 +29,7 @@ Use this as a **single checklist** when closing GitHub issues and duplicate PRs.
 
 | Issue | Title | Status | Evidence |
 |-------|--------|--------|----------|
-| **#31** | Policy DAG shadow / CC routing | **Open** — not implemented as full DAG in this pass | Prior art: `shadow` rules, `experiment_api`, consortium — close only when explicit DAG lands |
+| **#31** | Policy DAG shadow / CC routing | **Partial — close when PR merges** | **Canary:** `json_rules` `canary_percent` + stable bucket (`_pack_experiment_bucket`). **Shadow:** `shadow.py` + NATS + `/v1/rules/shadow/*`. **CC (audit):** `POLICY_CHAMPION_CHALLENGER_ENABLED`, `payload_snapshot.policy_routing`, `evaluation_mode=challenger`. Doc: [policy-dag-oss-31.md](./policy-dag-oss-31.md). |
 | **#33** | Velocity counters + parity | **Largely shipped earlier** | Counter catalog, replay scripts, `AGG_KEY_VERSION`, internal counters API, parity docs — cite merge history on `ide/v1.2.5-7320` (`464a586` era) |
 
 ---

@@ -222,6 +222,50 @@ class TestVerticalPacks:
         assert {"precision", "recall", "f1_score", "score_separation"} <= set(data["delta"].keys())
 
 
+class TestChampionChallengerPolicyRouting:
+    """OSS #31: optional audit-only challenger rule path vs production canary."""
+
+    @pytest.mark.asyncio
+    async def test_policy_routing_in_audit_when_enabled(self, client, monkeypatch):
+        from decision_api.config import settings as cfg_settings
+
+        monkeypatch.setattr(cfg_settings, "policy_champion_challenger_enabled", True)
+
+        mock_session = AsyncMock()
+        captured: list = []
+
+        def _capture_add(obj):
+            captured.append(obj)
+
+        mock_session.add = MagicMock(side_effect=_capture_add)
+        mock_session.commit = AsyncMock()
+        from decision_api.main import get_session
+
+        def _fake_eval(features, redis_tags, tenant_id, entity_id, evaluation_mode="production", signal_tags=None):
+            if evaluation_mode == "challenger":
+                return ([], [], 50.0)
+            return ([], [], 0.0)
+
+        with patch("decision_api.main.evaluate_json_rules", side_effect=_fake_eval):
+            with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
+                with patch("decision_api.main._fetch_ml_score_wrapped", new_callable=AsyncMock, return_value=(None, {})):
+                    client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
+                    r = await client.post(
+                        "/v1/decisions/evaluate",
+                        json={"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}},
+                    )
+                    client.tarka_app.dependency_overrides.pop(get_session, None)
+        assert r.status_code == 200
+        assert len(captured) == 1
+        snap = captured[0].payload_snapshot
+        assert "policy_routing" in snap
+        pr = snap["policy_routing"]
+        assert pr["champion_decision"] == "allow"
+        assert pr["challenger_decision"] == "review"
+        assert pr["decisions_agree"] is False
+        assert "cohort_bucket_0_99" in pr
+
+
 class TestAudit:
     @pytest.mark.asyncio
     async def test_audit_not_found(self, client):

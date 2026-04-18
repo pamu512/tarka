@@ -55,6 +55,11 @@ from decision_api.lists_api import get_store as _get_list_store
 from decision_api.lists_api import router as lists_router
 from decision_api.lists_api import set_store
 from decision_api.location_context import merge_session_geo_from_device_and_features
+from decision_api.policy_routing import (
+    build_policy_routing_audit,
+    cohort_bucket_0_99,
+    decision_from_rule_score,
+)
 from decision_api.schemas import EvaluateRequest, EvaluateResponse
 from decision_api.shadow import evaluate_shadow, load_shadow_rules, record_observation
 from decision_api.tenant_flags import tenant_flag_enabled
@@ -1393,10 +1398,35 @@ async def evaluate_decision(
         if _dt not in signal_tags:
             signal_tags.append(_dt)
 
+    opa_delta = 0.0
     if opa_result and isinstance(opa_result, dict):
         rule_hits.extend(str(x) for x in opa_result.get("rule_hits", []))
         rule_tags.extend(str(t) for t in opa_result.get("tags", []))
-        score_delta += float(opa_result.get("score_delta", 0))
+        opa_delta = float(opa_result.get("score_delta", 0))
+        score_delta += opa_delta
+
+    policy_routing: dict[str, Any] | None = None
+    if settings.policy_champion_challenger_enabled:
+        _, _, ch_json_delta = evaluate_json_rules(
+            features,
+            redis_tag_list,
+            body.tenant_id,
+            body.entity_id,
+            evaluation_mode="challenger",
+            signal_tags=signal_tags,
+        )
+        replay_delta_cc = 20.0 if is_replayed else 0.0
+        champion_rule_score = 10.0 + score_delta + consortium_delta + graph_delta + replay_delta_cc
+        challenger_rule_score = 10.0 + ch_json_delta + opa_delta + consortium_delta + graph_delta + replay_delta_cc
+        policy_routing = build_policy_routing_audit(
+            cohort_bucket=cohort_bucket_0_99(body.tenant_id, body.entity_id, settings.policy_cohort_salt),
+            cohort_salt=settings.policy_cohort_salt,
+            champion_rule_score=champion_rule_score,
+            challenger_rule_score=challenger_rule_score,
+            champion_decision=decision_from_rule_score(champion_rule_score),
+            challenger_decision=decision_from_rule_score(challenger_rule_score),
+            ml_score=ml_score if isinstance(ml_score, float) else None,
+        )
 
     all_new_tags = rule_tags + signal_tags
     if consortium_delta > 0:
@@ -1466,6 +1496,8 @@ async def evaluate_decision(
     }
     if fb_reason:
         snap_extra["fallback_reason"] = fb_reason
+    if policy_routing is not None:
+        snap_extra["policy_routing"] = policy_routing
 
     audit = AuditRecord(
         trace_id=trace_id,

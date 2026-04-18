@@ -176,6 +176,15 @@ def _pack_should_apply(
     if evaluation_mode == "simulation":
         return True, None
 
+    # Champion–challenger (OSS #31): evaluate all packs that pass effective_at, ignoring canary_percent.
+    if evaluation_mode == "challenger":
+        eff = _parse_effective_at(pack.get("effective_at"))
+        if eff is not None:
+            now = datetime.now(timezone.utc)
+            if now < eff:
+                return False, "before_effective_at"
+        return True, None
+
     eff = _parse_effective_at(pack.get("effective_at"))
     if eff is not None:
         now = datetime.now(timezone.utc)
@@ -267,7 +276,7 @@ def evaluate_json_rules(
     """
     tid = (tenant_id or "").strip() or "default"
     eid = (entity_id or "").strip() or "default"
-    mode = evaluation_mode if evaluation_mode in ("production", "simulation") else "production"
+    mode = evaluation_mode if evaluation_mode in ("production", "simulation", "challenger") else "production"
 
     merged_tags = list(redis_tags)
     if signal_tags:

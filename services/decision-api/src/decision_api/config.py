@@ -77,5 +77,13 @@ class Settings(BaseSettings):
     circuit_list_failure_threshold: int = int(os.environ.get("CIRCUIT_LIST_FAILURE_THRESHOLD", "5"))
     circuit_list_recovery_seconds: float = float(os.environ.get("CIRCUIT_LIST_RECOVERY_SECONDS", "30"))
 
+    # OSS #31: optional champion–challenger JSON rule evaluation (audit-only; production decision unchanged)
+    policy_champion_challenger_enabled: bool = os.environ.get("POLICY_CHAMPION_CHALLENGER_ENABLED", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    policy_cohort_salt: str = os.environ.get("POLICY_COHORT_SALT", "policy_v1")
+
 
 settings = Settings()
