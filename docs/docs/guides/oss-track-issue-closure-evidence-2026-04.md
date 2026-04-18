@@ -55,7 +55,7 @@ Use this as a **single checklist** when closing GitHub issues and duplicate PRs.
 
 ## Tier 4 — Product slices
 
-| **#46–#51**, **#37**, **#50** | Open | Close when respective PRs merge; avoid duplicate “planning” issues without PR linkage |
+| **#46–#51**, **#37**, **#50** | Partial | Evidence bundle v1 schema + investigation-agent `evidence_bundle_draft` v1/dual shipped; Case API `/v1/cases/{case_id}/evidence-bundle` now emits `evidence_bundle_v1` block aligned with `tarka-evidence-bundle-v1.schema.json`. Close when remaining UI/reporting slices land and referenced PRs merge; avoid duplicate “planning” issues without PR linkage. |
 
 ---
 
