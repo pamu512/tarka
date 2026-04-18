@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "default_profile": "standard",
+  "description": "OSS #49 — checkpoint-to-graph-profile registry; safe minimal profile reduces graph risk influence.",
+  "profiles": {
+    "minimal": {
+      "label": "Minimal graph signal (cold start / low trust)",
+      "risk_score_multiplier": 0.35,
+      "max_neighbor_hops": 2
+    },
+    "standard": {
+      "label": "Default entity-risk depth and weighting",
+      "risk_score_multiplier": 1.0,
+      "max_neighbor_hops": 3
+    },
+    "deep": {
+      "label": "Full neighborhood and community signal",
+      "risk_score_multiplier": 1.0,
+      "max_neighbor_hops": 5
+    }
+  }
+}

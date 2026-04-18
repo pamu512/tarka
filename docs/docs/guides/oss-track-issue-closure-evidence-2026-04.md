@@ -39,9 +39,9 @@ Use this as a **single checklist** when closing GitHub issues and duplicate PRs.
 | Issue | Status | Notes |
 |-------|--------|--------|
 | **#47** Canary cohort audit fields | Open | Needs explicit audit payload fields + UI |
-| **#34** Typology layer | Open | Rule aggregation to typologies |
-| **#48** Parity verifier job | Partial | `scripts/replay/`, feature-service parity mentioned in issue — align wording to shipped scripts |
-| **#49** Graph checkpoint registry | Open | |
+| **#34** Typology layer | **Ship when PR merges** | `typology_definitions_v1.json`, `decision_api/typology.py`, audit `payload_snapshot.typologies` + `typology_summary`; [oss-typology-parity-graph-34-48-49.md](./oss-typology-parity-graph-34-48-49.md) |
+| **#48** Parity verifier job | **Ship when PR merges** | `POST /v1/internal/parity/verify` on feature-service; [oss-typology-parity-graph-34-48-49.md](./oss-typology-parity-graph-34-48-49.md) |
+| **#49** Graph checkpoint registry | **Ship when PR merges** | `graph-service/rules/checkpoint_profiles_v1.json`, `GET /v1/checkpoint-profiles`, `entity-risk?checkpoint=`, decision-api `metadata.graph_checkpoint`; [oss-typology-parity-graph-34-48-49.md](./oss-typology-parity-graph-34-48-49.md) |
 
 ---
 
