@@ -255,15 +255,27 @@ def evaluate_json_rules(
     entity_id: str | None = None,
     *,
     evaluation_mode: str = "production",
+    signal_tags: list[str] | None = None,
 ) -> tuple[list[str], list[str], float]:
     """Returns (rule_ids, tags_to_apply, score_delta).
 
     When *tenant_id* and *entity_id* are set, per-pack *canary_percent* and *effective_at* apply
     (unless *evaluation_mode* is ``simulation``).
+
+    *signal_tags* are merged with *redis_tags* for ``tag_rules`` matching (ingress replay,
+    geo mismatch, integrity supplements, etc.) without requiring those tags to be persisted in Redis.
     """
     tid = (tenant_id or "").strip() or "default"
     eid = (entity_id or "").strip() or "default"
     mode = evaluation_mode if evaluation_mode in ("production", "simulation") else "production"
+
+    merged_tags = list(redis_tags)
+    if signal_tags:
+        seen = set(merged_tags)
+        for t in signal_tags:
+            if t not in seen:
+                seen.add(t)
+                merged_tags.append(t)
 
     hits: list[str] = []
     tags: list[str] = []
@@ -272,7 +284,7 @@ def evaluate_json_rules(
         ok, _reason = _pack_should_apply(pack, tid, eid, evaluation_mode=mode)
         if not ok:
             continue
-        pack_hits, pack_tags, pack_delta = _evaluate_pack(pack, features, redis_tags)
+        pack_hits, pack_tags, pack_delta = _evaluate_pack(pack, features, merged_tags)
         hits.extend(pack_hits)
         tags.extend(pack_tags)
         delta += pack_delta
