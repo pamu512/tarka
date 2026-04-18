@@ -77,5 +77,8 @@ class Settings(BaseSettings):
     circuit_list_failure_threshold: int = int(os.environ.get("CIRCUIT_LIST_FAILURE_THRESHOLD", "5"))
     circuit_list_recovery_seconds: float = float(os.environ.get("CIRCUIT_LIST_RECOVERY_SECONDS", "30"))
 
+    # OSS #49: metadata key for graph checkpoint profile (graph-service entity-risk)
+    graph_checkpoint_metadata_key: str = os.environ.get("GRAPH_CHECKPOINT_METADATA_KEY", "graph_checkpoint")
+
 
 settings = Settings()
