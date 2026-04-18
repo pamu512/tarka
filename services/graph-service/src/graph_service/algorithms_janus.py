@@ -248,7 +248,12 @@ async def detect_fraud_rings(tenant_id: str, min_ring_size: int = 3) -> list[dic
     return await run_in_gremlin_thread(sync)
 
 
-async def compute_entity_risk(tenant_id: str, entity_id: str) -> dict:
+async def compute_entity_risk(tenant_id: str, entity_id: str, *, checkpoint: str | None = None) -> dict:
+    from graph_service.checkpoint_registry import resolve_profile
+
+    profile = resolve_profile(checkpoint)
+    mult = float(profile.get("risk_score_multiplier") or 1.0)
+
     def sync() -> dict:
         g = get_traversal_source()
         vl = g.V().has("tenant_id", tenant_id).has("external_id", entity_id).limit(1).toList()
@@ -259,6 +264,8 @@ async def compute_entity_risk(tenant_id: str, entity_id: str) -> dict:
                 "risk_factors": ["entity_not_found"],
                 "connected_flagged_count": 0,
                 "community_size": 0,
+                "graph_checkpoint": checkpoint,
+                "graph_profile": profile.get("_profile_name"),
             }
         v = vl[0]
         tags = _tags_list_from_vertex(g, v)
@@ -341,10 +348,13 @@ async def compute_entity_risk(tenant_id: str, entity_id: str) -> dict:
 
         return {
             "entity_id": entity_id,
-            "risk_score": min(round(score), 100),
+            "risk_score": min(round(score * mult), 100),
             "risk_factors": factors,
             "connected_flagged_count": flagged,
             "community_size": community_size,
+            "graph_checkpoint": checkpoint,
+            "graph_profile": profile.get("_profile_name"),
+            "graph_profile_multiplier": mult,
         }
 
     return await run_in_gremlin_thread(sync)
