@@ -4,7 +4,7 @@ Use these **as the closing comment** when you mark each issue closed (this envir
 
 **Integration branch:** `ide/v1.2.5-7320`  
 **Merge PR:** https://github.com/pamu512/tarka/pull/98  
-**Reference commits:** tip of `origin/ide/v1.2.5-7320` (includes integrity `tag_rules` / `signal_tags` work for **#6**).
+**Reference commits:** tip of `origin/ide/v1.2.5-7320` (example tip: `4800730` — includes integrity `tag_rules` / `signal_tags` for **#6**, CI lint fixes, and closure-comment doc).
 
 ---
 
