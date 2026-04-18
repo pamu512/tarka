@@ -16,7 +16,6 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Any
 
 _REPO = Path(__file__).resolve().parents[2]
 

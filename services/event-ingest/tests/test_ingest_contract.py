@@ -1,13 +1,11 @@
 """Contract-first envelope and event_type validation (E1)."""
 
-import json
 import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from event_ingest.config import settings
 from event_ingest.ingest_contract import IngestContractError, parse_ingest_event_body
-
 
 os.environ.setdefault("NATS_URL", "nats://localhost:4222")
 

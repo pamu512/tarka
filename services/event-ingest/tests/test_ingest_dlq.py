@@ -4,7 +4,6 @@ import json
 from unittest.mock import AsyncMock
 
 import pytest
-
 from event_ingest.main import _publish_evaluate_dlq
 
 
