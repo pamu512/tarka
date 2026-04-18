@@ -24,7 +24,7 @@ Use this as a **single checklist** when closing GitHub issues and duplicate PRs.
 
 | Issue   | Title                  | Status                                                                  | Evidence                                                                                                                                                                                                                                                                       |
 | ------- | ---------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **#32** | Pipeline step controls | **PR #94** → `ide/v1.2.5-7320` (branch `ide/github-32-eval-steps-7320`) | `eval_steps.py`, `config.py` `EVAL_STEP_`*, `main.py` list/graph_risk/feature/opa/ml steps + `step_trace` in audit, `_graph_upsert_stepped`, `opa_client.py` timeout param, `evaluation-step-controls.md`, `tests/test_eval_steps.py`, Prometheus counters `tarka_eval_step_*` |
+| **#32** | Pipeline step controls | **PR #94** → `ide/v1.2.5-7320` (branch `ide/github-32-eval-steps-7320`) | `eval_steps.py`, `config.py` `EVAL_STEP_*`, `main.py` list/graph_risk/feature/opa/ml steps + `step_trace` in audit, `_graph_upsert_stepped`, `opa_client.py` timeout param, `evaluation-step-controls.md`, `tests/test_eval_steps.py`, Prometheus counters `tarka_eval_step_*` |
 
 
 ---
@@ -55,7 +55,7 @@ Use this as a **single checklist** when closing GitHub issues and duplicate PRs.
 
 ## Tier 4 — Product slices
 
-| **#46–#51**, **#37**, **#50** | Open | Close when respective PRs merge; avoid duplicate “planning” issues without PR linkage |
+| **#46–#51**, **#37**, **#50** | Partial | Evidence bundle v1 schema + investigation-agent `evidence_bundle_draft` v1/dual shipped; Case API `/v1/cases/{case_id}/evidence-bundle` now emits `evidence_bundle_v1` block aligned with `tarka-evidence-bundle-v1.schema.json`. Close when remaining UI/reporting slices land and referenced PRs merge; avoid duplicate “planning” issues without PR linkage. |
 
 ---
 
@@ -66,8 +66,8 @@ Use this as a **single checklist** when closing GitHub issues and duplicate PRs.
 | ---------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | **#39** Starter typology packs     | Open       |                                                                                                                                    |
 | **#40** Investigation summaries    | Partial    | `POST /v1/evidence/summary` + tests (investigation-agent) — cite PR/commits for Epic F                                             |
-| **#41** Automated scorecards       | Partial    | Integration scorecards + connector quality — not full “emitter framework”                                                          |
-| **#42** Graph selective routing    | Partial    | `graph_routing_policy_v1.json` + `decide_graph_routing()` in decision-api (audit at `payload_snapshot.graph_routing`) — ship with PR for `ide/github-42-graph-routing-7320`                                                                                                                                    |
+| **#41** Automated scorecards       | Partial    | Integration scorecards + connector quality, plus analytics-sink `GET /v1/analytics/scorecard` (JSON decision scorecard with per-decision metrics and top rule hits) — not yet a full emitter/publisher framework. |
+| **#42** Graph selective routing    | Partial    | `graph_routing_policy_v1.json` + `decide_graph_routing()` in decision-api (audit at `payload_snapshot.graph_routing`); tests `test_graph_routing_policy.py` — merged into `ide/v1.2.5-7320` |
 | **#52** Promotion policy YAML + CI | Partial    | `validate_rule_packs.py` + workflow — extend for ML promotion YAML                                                                 |
 | **#54** Connector quality + probes | **Merged** | PR **#90** / `**3e12842`**: `preflight-probes`, `connector_quality` v1, catalog swimlane, `integration_catalog.py`, OpenAPI, tests |
 
@@ -76,7 +76,7 @@ Use this as a **single checklist** when closing GitHub issues and duplicate PRs.
 
 ## Tier 6 — Publishing
 
-| **#53** Scorecard → Discussions | Open | |
+| **#53** Scorecard → Discussions | Partial | Use analytics-sink `GET /v1/analytics/scorecard` as the machine-readable source of truth; remaining: wired weekly publisher to Discussions and UI surfaces. |
 
 ---
 
