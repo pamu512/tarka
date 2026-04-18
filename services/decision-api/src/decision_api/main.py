@@ -56,6 +56,7 @@ from decision_api.lists_api import router as lists_router
 from decision_api.lists_api import set_store
 from decision_api.location_context import merge_session_geo_from_device_and_features
 from decision_api.policy_routing import (
+    build_canary_cohort_audit,
     build_policy_routing_audit,
     cohort_bucket_0_99,
     decision_from_rule_score,
@@ -1189,6 +1190,12 @@ async def evaluate_decision(
                     "recommended_action": _wl_rec,
                     "challenge_metadata": _wl_meta,
                     "step_trace": step_trace,
+                    "canary_cohort": build_canary_cohort_audit(
+                        body.tenant_id,
+                        body.entity_id,
+                        salt_version=settings.policy_cohort_salt,
+                        experiment_id=settings.policy_experiment_id or None,
+                    ),
                 },
             )
             session.add(audit)
@@ -1234,6 +1241,12 @@ async def evaluate_decision(
                     "recommended_action": _bl_rec,
                     "challenge_metadata": _bl_meta,
                     "step_trace": step_trace,
+                    "canary_cohort": build_canary_cohort_audit(
+                        body.tenant_id,
+                        body.entity_id,
+                        salt_version=settings.policy_cohort_salt,
+                        experiment_id=settings.policy_experiment_id or None,
+                    ),
                 },
             )
             session.add(audit)
@@ -1493,6 +1506,13 @@ async def evaluate_decision(
         "recommended_action": recommended_action,
         "challenge_metadata": ch_meta,
         "step_trace": step_trace,
+        # OSS #47 — hash-stable cohort for dashboards (canary stickiness debugging)
+        "canary_cohort": build_canary_cohort_audit(
+            body.tenant_id,
+            body.entity_id,
+            salt_version=settings.policy_cohort_salt,
+            experiment_id=settings.policy_experiment_id or None,
+        ),
     }
     if fb_reason:
         snap_extra["fallback_reason"] = fb_reason

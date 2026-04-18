@@ -38,7 +38,7 @@ Use this as a **single checklist** when closing GitHub issues and duplicate PRs.
 
 | Issue | Status | Notes |
 |-------|--------|--------|
-| **#47** Canary cohort audit fields | Open | Needs explicit audit payload fields + UI |
+| **#47** Canary cohort audit fields | **Ship when PR merges** | `payload_snapshot.canary_cohort` (`cohort_sticky_id`, `cohort_bucket_0_99`, `salt_version`, optional `experiment_id`); [policy-dag-oss-31.md](./policy-dag-oss-31.md) § Canary cohort |
 | **#34** Typology layer | Open | Rule aggregation to typologies |
 | **#48** Parity verifier job | Partial | `scripts/replay/`, feature-service parity mentioned in issue — align wording to shipped scripts |
 | **#49** Graph checkpoint registry | Open | |
