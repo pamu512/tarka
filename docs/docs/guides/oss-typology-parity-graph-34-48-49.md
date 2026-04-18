@@ -15,6 +15,6 @@
 
 ## #49 Graph checkpoint profiles
 
-- **Registry:** `services/graph-service/rules/checkpoint_profiles_v1.json` — profiles `minimal` / `standard` / `deep` with `risk_score_multiplier` (and `max_neighbor_hops` reserved for future depth wiring).
+- **Registry:** `services/graph-service/rules/checkpoint_profiles_v1.json` — profiles `minimal` / `standard` / `deep` with `risk_score_multiplier` (and **`max_neighbor_hops`** (1–5) wiring **community traversal depth** in entity-risk: Neo4j path `*1..depth`, JanusGraph BFS).
 - **API:** `GET /v1/checkpoint-profiles`, `POST /v1/admin/checkpoint-profiles/reload`, `GET /v1/analytics/entity-risk?checkpoint=minimal`.
 - **Decision API:** Pass checkpoint via `metadata.graph_checkpoint` (or `GRAPH_CHECKPOINT_METADATA_KEY`) or `payload.graph_checkpoint`; forwarded to graph-service as `checkpoint` query param.

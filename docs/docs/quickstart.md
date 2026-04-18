@@ -32,6 +32,18 @@ cd deploy
 docker compose --profile core up -d
 ```
 
+### Optional: OSS integrations on the lite compose file (typologies, velocities, graph checkpoints)
+
+The same `docker-compose.lite.yml` supports **Neo4j**, **graph-service**, **feature-service**, and **ml-scoring** via profiles so cloned defaults match the OSS guides (no manual wiring):
+
+```bash
+cd deploy
+cp .env.lite-oss.example .env.lite-oss
+docker compose --env-file .env.lite-oss -f docker-compose.lite.yml --profile core --profile graph --profile ml up -d --build
+```
+
+This sets `FEATURE_SERVICE_URL`, `ML_SCORING_URL`, and `GRAPH_SERVICE_URL` for **decision-api** (see `deploy/.env.lite-oss.example`).
+
 Wait for Postgres to become healthy (roughly 10 seconds):
 
 ```bash
