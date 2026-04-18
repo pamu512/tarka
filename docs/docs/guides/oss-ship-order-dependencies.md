@@ -138,6 +138,7 @@ Milestone dates are a **calendar**. This doc is the **DAG**. When a week slips:
 
 - [Evaluation step controls](./evaluation-step-controls.md) — **#32** implementation in Decision API (timeouts, retries, metrics, audit `step_trace`).
 - [OSS track issue closure evidence (checklist)](./oss-track-issue-closure-evidence-2026-04.md) — merge SHAs and what to close to reduce sprawl.
+- CI gates: `scripts/policy/validate_typology_definitions.py` (**#34** member rules must exist in packs), `scripts/ml/validate_ml_promotion_policy.py` (**#37/#52** metadata for active models).
 - [Pending ships rebundled by user journey](./journey-ship-bundles.md) — **J1–J5** journeys (integrate, decide, investigate, govern, operate) mapped to the same issues and releases; use with this DAG for cohesive trains.
 - Issues: [label `borrowed-from-OSS`](https://github.com/pamu512/tarka/issues?q=is%3Aissue+label%3Aborrowed-from-OSS)
 - Project: [Tarka Module Swimlanes](https://github.com/users/pamu512/projects/3)
