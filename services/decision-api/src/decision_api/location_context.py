@@ -96,13 +96,7 @@ def merge_session_geo_from_device_and_features(features: dict[str, Any]) -> list
         features.setdefault("geo_source_resolved", "ip_geolocation")
 
     # Device vs IP distance (OSS / provider-agnostic)
-    if (
-        gla is not None
-        and glo is not None
-        and ipla is not None
-        and iplo is not None
-        and src_s in _GEO_SOURCES_TRUST_GPS
-    ):
+    if gla is not None and glo is not None and ipla is not None and iplo is not None and src_s in _GEO_SOURCES_TRUST_GPS:
         d_km = haversine_km(gla, glo, ipla, iplo)
         features["geo_device_ip_delta_km"] = round(d_km, 2)
         if d_km > 500.0:

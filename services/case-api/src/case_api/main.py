@@ -593,14 +593,22 @@ async def cohort_compare_cases(
     now = datetime.now(timezone.utc)
     recent_start = now - timedelta(days=period_days)
     prior_start = now - timedelta(days=2 * period_days)
-    q_recent = select(func.count()).select_from(Case).where(
-        Case.tenant_id == tenant_id,
-        Case.created_at >= recent_start,
+    q_recent = (
+        select(func.count())
+        .select_from(Case)
+        .where(
+            Case.tenant_id == tenant_id,
+            Case.created_at >= recent_start,
+        )
     )
-    q_prior = select(func.count()).select_from(Case).where(
-        Case.tenant_id == tenant_id,
-        Case.created_at >= prior_start,
-        Case.created_at < recent_start,
+    q_prior = (
+        select(func.count())
+        .select_from(Case)
+        .where(
+            Case.tenant_id == tenant_id,
+            Case.created_at >= prior_start,
+            Case.created_at < recent_start,
+        )
     )
     n_recent = (await session.execute(q_recent)).scalar_one()
     n_prior = (await session.execute(q_prior)).scalar_one()

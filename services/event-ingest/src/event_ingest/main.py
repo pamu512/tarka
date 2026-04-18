@@ -560,9 +560,7 @@ async def ws_ingest(ws: WebSocket):
                     continue
                 if not isinstance(parsed, dict):
                     _record_contract_reject(["ingest_body_not_object"])
-                    await ws.send_json(
-                        {"error": "ingest_contract_violation", "reason_codes": ["ingest_body_not_object"]}
-                    )
+                    await ws.send_json({"error": "ingest_contract_violation", "reason_codes": ["ingest_body_not_object"]})
                     continue
                 try:
                     flat = parse_ingest_event_body(parsed, envelope_mode=settings.ingest_envelope_mode)

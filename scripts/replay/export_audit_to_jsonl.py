@@ -85,11 +85,7 @@ def main(argv: list[str] | None = None) -> int:
                 im = payload_snapshot.get("metadata")
                 if isinstance(im, dict):
                     meta_out = dict(im)
-            logical_ts: float | None = (
-                event_time_unix_from_payload_snapshot(payload_snapshot)
-                if isinstance(payload_snapshot, dict)
-                else None
-            )
+            logical_ts: float | None = event_time_unix_from_payload_snapshot(payload_snapshot) if isinstance(payload_snapshot, dict) else None
             ts: float | None = logical_ts
             if ts is None and created_at is not None:
                 ts = created_at.timestamp()

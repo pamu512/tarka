@@ -186,11 +186,7 @@ def _connector_quality_v1_installed(
         sem = 45.0
 
     score = round(
-        (reach * 0.35)
-        + (probe_reach * 0.25)
-        + (lat * 0.15)
-        + (sem * 0.15)
-        + (config_pct * 0.1),
+        (reach * 0.35) + (probe_reach * 0.25) + (lat * 0.15) + (sem * 0.15) + (config_pct * 0.1),
         1,
     )
     return {
@@ -1058,9 +1054,7 @@ async def integration_scorecards(tenant_id: str, session: AsyncSession = Depends
             }
         )
     overall_score = round(sum(p["provider_score"] for p in providers) / max(len(providers), 1), 1) if providers else 0.0
-    overall_cq = (
-        round(sum(p["connector_quality"]["score"] for p in providers) / max(len(providers), 1), 1) if providers else 0.0
-    )
+    overall_cq = round(sum(p["connector_quality"]["score"] for p in providers) / max(len(providers), 1), 1) if providers else 0.0
     return {
         "tenant_id": tenant_id,
         "connector_quality_version": CONNECTOR_QUALITY_VERSION,

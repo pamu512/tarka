@@ -95,8 +95,7 @@ def build_inference_context(
     score_factor = _clamp01(final_score / 100.0)
     model_factor = _clamp01((ml_score or 0.0) / 100.0)
     integrity_confidence = _clamp01(
-        1.0 - (0.35 * tamper_risk + 0.2 * network_risk + 0.15 * replay_risk + 0.15 * geo_consistency_risk)
-        - (0.15 * max(score_factor, model_factor))
+        1.0 - (0.35 * tamper_risk + 0.2 * network_risk + 0.15 * replay_risk + 0.15 * geo_consistency_risk) - (0.15 * max(score_factor, model_factor))
     )
 
     integrity_confidence = adjust_integrity_confidence(
@@ -156,15 +155,7 @@ def build_inference_context(
         pts_f = float(pts) if pts is not None else None
     except (TypeError, ValueError):
         pla_f, plo_f, pts_f = None, None, None
-    if (
-        la is not None
-        and lo is not None
-        and ts is not None
-        and pla_f is not None
-        and plo_f is not None
-        and pts_f is not None
-        and ts > pts_f
-    ):
+    if la is not None and lo is not None and ts is not None and pla_f is not None and plo_f is not None and pts_f is not None and ts > pts_f:
         dist_km = haversine_km(la, lo, pla_f, plo_f)
         dt_h = max((ts - pts_f) / 3600.0, 1e-6)
         speed = dist_km / dt_h
