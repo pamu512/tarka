@@ -23,6 +23,9 @@ from ml_scoring.model_registry import ModelRegistry  # noqa: E402
 from ml_scoring.shap_explainer import lgbm_score_and_shap_factors  # noqa: E402
 
 DISABLE_ML = os.environ.get("DISABLE_ML", "").lower() in ("1", "true", "yes")
+# OSS #37: when true (default), activate/traffic-split require passing ml_promotion_policy_v1.json gates
+PROMOTION_GATE_ENFORCE = os.environ.get("PROMOTION_GATE_ENFORCE", "true").lower() in ("1", "true", "yes")
+ML_PROMOTION_OVERRIDE_SECRET = os.environ.get("ML_PROMOTION_OVERRIDE_SECRET", "").strip()
 MODEL_VERSION = os.environ.get("ML_MODEL_VERSION", "heuristic-v1")
 ONNX_PATH = os.environ.get("ONNX_MODEL_PATH", "")
 MODELS_DIR = os.environ.get(
@@ -31,6 +34,14 @@ MODELS_DIR = os.environ.get(
 )
 
 registry = ModelRegistry(MODELS_DIR)
+
+
+def _promotion_skip(request: Request) -> bool:
+    if not PROMOTION_GATE_ENFORCE:
+        return True
+    if ML_PROMOTION_OVERRIDE_SECRET and request.headers.get("x-ml-promotion-override", "") == ML_PROMOTION_OVERRIDE_SECRET:
+        return True
+    return False
 
 _onnx_session = None
 _onnx_input_name: str = ""
@@ -315,17 +326,36 @@ async def list_models():
     return {"models": registry.list_models()}
 
 
+@app.get("/v1/promotion-policy")
+async def get_promotion_policy():
+    """OSS #37 — versioned gate config (see ``rules/ml_promotion_policy_v1.json`` in image)."""
+    return {"ok": True, "policy": registry.promotion_policy()}
+
+
+@app.post("/v1/admin/promotion-policy/reload")
+async def reload_promotion_policy():
+    registry.reload_promotion_policy()
+    return {"ok": True, "policy": registry.promotion_policy()}
+
+
 class ActivateRequest(BaseModel):
     version: int
 
 
 @app.post("/v1/models/{name}/activate")
-async def activate_model(name: str, body: ActivateRequest):
+async def activate_model(name: str, body: ActivateRequest, request: Request):
     if not registry.is_approved(name, body.version):
         raise HTTPException(409, f"model '{name}' version {body.version} is not approved")
-    ok = registry.activate_version(name, body.version)
-    if not ok:
+    if not registry.has_version(name, body.version):
         raise HTTPException(404, f"model '{name}' version {body.version} not found")
+    skip = _promotion_skip(request)
+    ok = registry.activate_version(name, body.version, skip_promotion_gate=skip)
+    if not ok:
+        _, reasons, report = registry.check_promotion_gate(name, body.version)
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "promotion_gate_failed", "reasons": reasons, "report": report},
+        )
     return {"ok": True, "model": name, "active_version": body.version}
 
 
@@ -362,10 +392,14 @@ class TrafficSplitRequest(BaseModel):
 
 
 @app.post("/v1/models/{name}/traffic-split")
-async def set_model_traffic_split(name: str, body: TrafficSplitRequest):
-    ok = registry.set_traffic_split(name, body.weights)
+async def set_model_traffic_split(name: str, body: TrafficSplitRequest, request: Request):
+    skip = _promotion_skip(request)
+    ok = registry.set_traffic_split(name, body.weights, skip_promotion_gate=skip)
     if not ok:
-        raise HTTPException(400, "invalid model name, versions, or weights (must sum to 100)")
+        raise HTTPException(
+            status_code=400,
+            detail="invalid model name, versions, weights (must sum to 100), or promotion gate failed for a weighted version",
+        )
     return {"ok": True, "model": name, "weights": body.weights}
 
 
