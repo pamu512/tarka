@@ -30,7 +30,7 @@ Use this as a **single checklist** when closing GitHub issues and duplicate PRs.
 | Issue | Title | Status | Evidence |
 |-------|--------|--------|----------|
 | **#31** | Policy DAG shadow / CC routing | **Open** — not implemented as full DAG in this pass | Prior art: `shadow` rules, `experiment_api`, consortium — close only when explicit DAG lands |
-| **#33** | Velocity counters + parity | **Largely shipped earlier** | Counter catalog, replay scripts, `AGG_KEY_VERSION`, internal counters API, parity docs — cite merge history on `ide/v1.2.5-7320` (`464a586` era) |
+| **#33** | Velocity counters + parity | **Shippable** — close with merge SHA after PR lands | **Race / load:** `services/decision-api/tests/test_golden_counters.py` `TestConcurrentRecordEvents` (parallel `record_event`, assert count + `sum_amount_1h`). **Parity:** `scripts/replay/run_offline_parity.py`, `counter-parity-smoke.yml`, `test_golden_counters.py`. **Keys:** `counter_manifest_v1.json`, `normalized_velocity_key_names()` in `services/shared/fraud_aggregates.py`, `GET /v1/internal/counters/manifest`. **Docs:** [counter-replay-parity.md](./counter-replay-parity.md). |
 
 ---
 
