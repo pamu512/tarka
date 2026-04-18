@@ -107,6 +107,115 @@ _circuit_list = AsyncCircuitBreaker(
 
 _ANALYST_ENTITY_ID = _re.compile(r"^[a-zA-Z0-9._@:/-]{1,512}$")
 
+_graph_routing_policy: dict[str, Any] | None = None
+
+
+def _load_graph_routing_policy(force: bool = False) -> dict[str, Any] | None:
+    """
+    OSS #42 – load graph_routing_policy_v1.json from rules path.
+
+    The policy file is optional; if missing or invalid we treat it as disabled.
+    """
+    global _graph_routing_policy
+    if _graph_routing_policy is not None and not force:
+        return _graph_routing_policy
+    path = os.path.join(settings.rules_path, "graph_routing_policy_v1.json")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            import json as _json_mod
+
+            data = _json_mod.load(f)
+            if not isinstance(data, dict):
+                log.warning("graph routing policy not a JSON object: %s", path)
+                _graph_routing_policy = None
+            else:
+                _graph_routing_policy = data
+    except FileNotFoundError:
+        log.info("graph routing policy file missing (graph_routing_policy_v1.json)")
+        _graph_routing_policy = None
+    except Exception as exc:
+        log.warning("failed to load graph routing policy: %s", exc)
+        _graph_routing_policy = None
+    return _graph_routing_policy
+
+
+def _graph_routing_match_when(when: list[dict[str, Any]] | None, ctx: dict[str, Any]) -> bool:
+    if not when:
+        return True
+    for cond in when:
+        if not isinstance(cond, dict):
+            continue
+        op = str(cond.get("op") or "").lower()
+        field = cond.get("field")
+        if not field:
+            continue
+        lhs = ctx.get(field)
+        rhs = cond.get("value")
+        # Normalise numeric comparisons when possible.
+        if isinstance(lhs, (int, float)) or isinstance(rhs, (int, float)):
+            try:
+                lhs_v = float(lhs) if lhs is not None else 0.0
+                rhs_v = float(rhs) if rhs is not None else 0.0
+            except (TypeError, ValueError):
+                return False
+            if op == "lt" and not (lhs_v < rhs_v):
+                return False
+            if op == "lte" and not (lhs_v <= rhs_v):
+                return False
+            if op == "gt" and not (lhs_v > rhs_v):
+                return False
+            if op == "gte" and not (lhs_v >= rhs_v):
+                return False
+            if op == "eq" and not (lhs_v == rhs_v):
+                return False
+            continue
+        # Fallback to string equality.
+        lhs_s = "" if lhs is None else str(lhs)
+        rhs_s = "" if rhs is None else str(rhs)
+        if op in ("eq", "", None):
+            if lhs_s != rhs_s:
+                return False
+    return True
+
+
+def decide_graph_routing(
+    event_type: str,
+    base_score: float,
+    tags: list[str] | None = None,
+) -> dict[str, Any] | None:
+    """
+    OSS #42 – compute graph routing decision from policy.
+
+    Returns a dict with ``skip_graph`` (bool) and optional ``graph_checkpoint`` and
+    ``matched_rule_id`` fields, or ``None`` if no policy is configured.
+    """
+    policy = _load_graph_routing_policy()
+    if not isinstance(policy, dict):
+        return None
+    ctx: dict[str, Any] = {
+        "event_type": event_type,
+        "base_score": float(base_score),
+        "tags": tags or [],
+    }
+    default_cfg = policy.get("default") or {}
+    result: dict[str, Any] = {
+        "skip_graph": bool(default_cfg.get("skip_graph", False)),
+        "graph_checkpoint": default_cfg.get("graph_checkpoint"),
+        "matched_rule_id": None,
+    }
+    for rule in policy.get("rules") or []:
+        if not isinstance(rule, dict):
+            continue
+        when = rule.get("when")
+        if _graph_routing_match_when(when, ctx):
+            result["skip_graph"] = bool(rule.get("skip_graph", result["skip_graph"]))
+            if "graph_checkpoint" in rule:
+                gc = rule.get("graph_checkpoint")
+                result["graph_checkpoint"] = gc if isinstance(gc, str) or gc is None else result["graph_checkpoint"]
+            result["matched_rule_id"] = rule.get("id")
+            break
+    return result
+
 
 def _circuit_metrics_inc(name: str) -> None:
     try:
@@ -1309,27 +1418,39 @@ async def evaluate_decision(
         except Exception:
             consortium_delta = 0.0
 
+    # Graph routing (OSS #42): choose whether to call graph-service and which checkpoint to use.
     graph_checkpoint = _graph_checkpoint_from_body(body)
+    graph_routing: dict[str, Any] | None = None
+    if not graph_checkpoint:
+        # Only apply routing policy when the caller has not pinned a checkpoint explicitly.
+        # Base score here is pre-graph: JSON rules + consortium + replay, no graph_delta yet.
+        tentative_base = 10.0 + consortium_delta + (20.0 if is_replayed else 0.0)
+        graph_routing = decide_graph_routing(body.event_type.value, tentative_base, tags=signal_tags)
+        if graph_routing and graph_routing.get("graph_checkpoint"):
+            graph_checkpoint = str(graph_routing["graph_checkpoint"])
 
-    graph_risk, graph_trace = await run_evaluation_step(
-        "graph_risk",
-        lambda: _fetch_graph_risk_wrapped(
-            http,
-            body.tenant_id,
-            body.entity_id,
-            degrade_tags,
-            tenant_flags,
-            graph_checkpoint,
-        ),
-        timeout_seconds=settings.eval_step_graph_risk_timeout_seconds,
-        max_attempts=settings.eval_step_graph_risk_max_attempts,
-        on_failure="SKIP",
-        fallback=None,
-    )
+    graph_risk = None
+    graph_trace = {"step": "graph_risk", "status": "skipped", "reason": "graph_routing_skip"}
+    if not graph_routing or not graph_routing.get("skip_graph", False):
+        graph_risk, graph_trace = await run_evaluation_step(
+            "graph_risk",
+            lambda: _fetch_graph_risk_wrapped(
+                http,
+                body.tenant_id,
+                body.entity_id,
+                degrade_tags,
+                tenant_flags,
+                graph_checkpoint,
+            ),
+            timeout_seconds=settings.eval_step_graph_risk_timeout_seconds,
+            max_attempts=settings.eval_step_graph_risk_max_attempts,
+            on_failure="SKIP",
+            fallback=None,
+        )
+        if graph_risk:
+            graph_delta = graph_score_delta(graph_risk.get("risk_score"))
+            signal_tags.extend(graph_tags_from_risk(graph_risk))
     step_trace.append(graph_trace)
-    if graph_risk:
-        graph_delta = graph_score_delta(graph_risk.get("risk_score"))
-        signal_tags.extend(graph_tags_from_risk(graph_risk))
 
     # Feature snapshot (needed before OPA)
     snapshot, snap_trace = await run_evaluation_step(
@@ -1558,6 +1679,8 @@ async def evaluate_decision(
     }
     if graph_checkpoint:
         snap_extra["graph_checkpoint"] = graph_checkpoint
+    if graph_routing is not None:
+        snap_extra["graph_routing"] = graph_routing
     if fb_reason:
         snap_extra["fallback_reason"] = fb_reason
     if policy_routing is not None:

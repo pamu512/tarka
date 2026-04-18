@@ -18,4 +18,4 @@
 
 - **Registry:** `services/graph-service/rules/checkpoint_profiles_v1.json` — profiles `minimal` / `standard` / `deep` with `risk_score_multiplier` (and `max_neighbor_hops` reserved for future depth wiring).
 - **API:** `GET /v1/checkpoint-profiles`, `POST /v1/admin/checkpoint-profiles/reload`, `GET /v1/analytics/entity-risk?checkpoint=minimal`.
-- **Decision API:** Pass checkpoint via `metadata.graph_checkpoint` (or `GRAPH_CHECKPOINT_METADATA_KEY`) or `payload.graph_checkpoint`; forwarded to graph-service as `checkpoint` query param.
+- **Decision API:** Pass checkpoint via `metadata.graph_checkpoint` (or `GRAPH_CHECKPOINT_METADATA_KEY`) or `payload.graph_checkpoint`; forwarded to graph-service as `checkpoint` query param. When **OSS #42** graph selective routing is enabled, the Decision API can also choose a checkpoint from `graph_routing_policy_v1.json` based on pre-graph base score and event type, and records the decision under `audit.payload_snapshot.graph_routing`.
