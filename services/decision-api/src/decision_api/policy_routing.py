@@ -12,10 +12,38 @@ from typing import Any
 from decision_api.config import settings
 
 
+def _cohort_digest_hex(tenant_id: str, entity_id: str, salt: str) -> str:
+    raw = f"{tenant_id}|{entity_id}|{salt}".encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
 def cohort_bucket_0_99(tenant_id: str, entity_id: str, salt: str = "policy_v1") -> int:
     """Deterministic 0..99 bucket for an entity (same construction as canary_percent gating)."""
-    raw = f"{tenant_id}|{entity_id}|{salt}".encode("utf-8")
-    return int(hashlib.sha256(raw).hexdigest()[:8], 16) % 100
+    return int(_cohort_digest_hex(tenant_id, entity_id, salt)[:8], 16) % 100
+
+
+def build_canary_cohort_audit(
+    tenant_id: str,
+    entity_id: str,
+    *,
+    salt_version: str,
+    experiment_id: str | None = None,
+) -> dict[str, Any]:
+    """OSS #47 — stable cohort fields for audit / dashboards (hash-stable stickiness).
+
+    * ``cohort_sticky_id`` — first 16 hex chars of SHA256(tenant|entity|salt); stable join key.
+    * ``cohort_bucket_0_99`` — same bucket as JSON rule canary routing when salt matches pack key semantics.
+    """
+    digest = _cohort_digest_hex(tenant_id, entity_id, salt_version)
+    out: dict[str, Any] = {
+        "schema_version": 1,
+        "cohort_sticky_id": digest[:16],
+        "cohort_bucket_0_99": int(digest[:8], 16) % 100,
+        "salt_version": salt_version,
+    }
+    if experiment_id and str(experiment_id).strip():
+        out["experiment_id"] = str(experiment_id).strip()[:128]
+    return out
 
 
 def decision_from_rule_score(rule_score: float) -> str:
