@@ -35,7 +35,7 @@ from integration_ingress.vault import InMemoryVault
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from audit_trail import AuditTrail, create_audit_model  # noqa: E402
 from auth_rbac import get_current_user, require_role, setup_auth  # noqa: E402
-from observability import setup_observability  # noqa: E402
+from observability import get_metrics, setup_observability  # noqa: E402
 from privacy import get_profile  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -186,11 +186,7 @@ def _connector_quality_v1_installed(
         sem = 45.0
 
     score = round(
-        (reach * 0.35)
-        + (probe_reach * 0.25)
-        + (lat * 0.15)
-        + (sem * 0.15)
-        + (config_pct * 0.1),
+        (reach * 0.35) + (probe_reach * 0.25) + (lat * 0.15) + (sem * 0.15) + (config_pct * 0.1),
         1,
     )
     return {
@@ -410,12 +406,17 @@ async def health():
 @app.get("/v1/slo")
 async def slo_status():
     # Lightweight runtime SLO surface for local/prod dashboards.
+    m = get_metrics()
+    cur = m.request_count_summary()
     return {
         "service": "integration-ingress",
         "availability_target": 99.9,
+        "availability_target_pct": 99.9,
         "latency_target_ms_p95": 500,
         "error_budget_window_days": 30,
+        "targets_note": "See docs/docs/guides/service-slos-v1.md; HTTP counts from in-process middleware.",
         "current": {
+            **cur,
             "kms_provider": _vault.provider,
             "rotation_jobs": int(_kms_metrics.get("rotation_jobs", 0)),
             "rotation_failures": int(_kms_metrics.get("rotation_failures", 0)),
@@ -1053,9 +1054,7 @@ async def integration_scorecards(tenant_id: str, session: AsyncSession = Depends
             }
         )
     overall_score = round(sum(p["provider_score"] for p in providers) / max(len(providers), 1), 1) if providers else 0.0
-    overall_cq = (
-        round(sum(p["connector_quality"]["score"] for p in providers) / max(len(providers), 1), 1) if providers else 0.0
-    )
+    overall_cq = round(sum(p["connector_quality"]["score"] for p in providers) / max(len(providers), 1), 1) if providers else 0.0
     return {
         "tenant_id": tenant_id,
         "connector_quality_version": CONNECTOR_QUALITY_VERSION,

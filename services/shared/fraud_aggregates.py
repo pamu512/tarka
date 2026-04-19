@@ -34,10 +34,9 @@ def _agg_key_version_segment() -> str:
         return ""
     return raw + ":"
 
+
 NUMERIC_FIELDS = frozenset({"amount", "score", "price", "quantity", "original_amount"})
-DISTINCT_FIELDS = frozenset(
-    {"ip_address", "device_id", "session_id", "email", "phone", "card_hash", "country", "original_currency"}
-)
+DISTINCT_FIELDS = frozenset({"ip_address", "device_id", "session_id", "email", "phone", "card_hash", "country", "original_currency"})
 
 
 class AggregateStore:

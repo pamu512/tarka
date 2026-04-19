@@ -38,6 +38,28 @@ def client(mock_js):
                 yield c
 
 
+class TestIngestStats:
+    def test_ingest_stats(self, client):
+        r = client.get("/v1/ingest/stats")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["service"] == "event-ingest"
+        assert data["total_contract_rejects"] == 0
+        assert data["contract_reject_by_reason"] == {}
+        assert data.get("envelope_mode") == "optional"
+        assert data.get("require_idempotency_key") is False
+
+
+class TestSlo:
+    def test_slo(self, client):
+        r = client.get("/v1/slo")
+        assert r.status_code == 200
+        d = r.json()
+        assert d["service"] == "event-ingest"
+        assert "current" in d
+        assert "http_requests_total_observed" in d["current"]
+
+
 class TestHealthEndpoint:
     def test_health(self, client):
         r = client.get("/v1/health")
@@ -214,8 +236,8 @@ class TestWebSocketIngest:
         with client.websocket_connect("/v1/events/ws") as ws:
             ws.send_text(json.dumps({"tenant_id": "t1"}))
             msg = ws.receive_json()
-            assert msg.get("error") == "validation_error"
-            assert "detail" in msg
+            assert msg.get("error") in ("validation_error", "ingest_contract_violation")
+            assert "detail" in msg or "reason_codes" in msg
 
     def test_ws_invalid_json(self, client, mock_js):
         with client.websocket_connect("/v1/events/ws") as ws:

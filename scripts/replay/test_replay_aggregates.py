@@ -21,11 +21,7 @@ def test_iter_rows_within_time_range(tmp_path: Path):
             {"tenant_id": "t1", "entity_id": "e1", "event_id": "e3", "fields": {"x": 3}, "ts": 3000},
         ],
     )
-    rows = [
-        r
-        for r in replay_aggregates.iter_audit_rows(f)
-        if (ts := replay_aggregates.row_timestamp_seconds(r)) is not None and 1500 <= ts <= 2500
-    ]
+    rows = [r for r in replay_aggregates.iter_audit_rows(f) if (ts := replay_aggregates.row_timestamp_seconds(r)) is not None and 1500 <= ts <= 2500]
     assert len(rows) == 1
     assert rows[0]["event_id"] == "e2"
 
@@ -53,10 +49,5 @@ def test_iter_rows_accepts_iso_window(tmp_path: Path):
     )
     start = replay_aggregates.parse_time_bound("2026-01-01T12:00:00+00:00")
     end = replay_aggregates.parse_time_bound("2026-01-03T00:00:00+00:00")
-    rows = [
-        r
-        for r in replay_aggregates.iter_audit_rows(f)
-        if (ts := replay_aggregates.row_timestamp_seconds(r)) is not None and start <= ts <= end
-    ]
+    rows = [r for r in replay_aggregates.iter_audit_rows(f) if (ts := replay_aggregates.row_timestamp_seconds(r)) is not None and start <= ts <= end]
     assert [r["event_id"] for r in rows] == ["b"]
-

@@ -195,7 +195,10 @@ async def test_slo_endpoint(client):
     assert r.status_code == 200
     data = r.json()
     assert data["service"] == "integration-ingress"
-    assert "availability_target" in data
+    assert data.get("availability_target") == 99.9
+    assert data.get("availability_target_pct") == 99.9
+    assert "current" in data
+    assert "http_requests_total_observed" in data["current"]
 
 
 @pytest.mark.asyncio

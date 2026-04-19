@@ -9,7 +9,7 @@ from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
-from observability import setup_observability  # noqa: E402
+from observability import get_metrics, setup_observability  # noqa: E402
 
 from ml_scoring.adaptive import get_detector, init_detector, reset_detector, save_detector  # noqa: E402
 from ml_scoring.explainability import (  # noqa: E402
@@ -154,6 +154,25 @@ async def health():
         "onnx_loaded": _onnx_session is not None,
         "registry_models": len(registry.list_models()),
         "shap_stretch_enabled": shap_on and lgbm_path,
+    }
+
+
+@app.get("/v1/slo")
+async def slo_status():
+    m = get_metrics()
+    cur = m.request_count_summary()
+    return {
+        "service": "ml-scoring",
+        "availability_target_pct": 99.9,
+        "latency_target_ms_p95": 120,
+        "error_budget_window_days": 30,
+        "targets_note": "See docs/docs/guides/service-slos-v1.md; current from in-process HTTP counters.",
+        "current": {
+            **cur,
+            "disable_ml": DISABLE_ML,
+            "onnx_loaded": _onnx_session is not None,
+            "registry_models": len(registry.list_models()),
+        },
     }
 
 

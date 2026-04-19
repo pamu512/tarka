@@ -86,8 +86,11 @@ class TestComputeEntityRisk:
 
         with patch("graph_service.algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)):
             result = await compute_entity_risk("tenant1", "risky-user")
+            result_min = await compute_entity_risk("tenant1", "risky-user", checkpoint="minimal")
 
         assert result["risk_score"] >= 30
+        assert result_min["risk_score"] <= result["risk_score"]
+        assert result_min.get("graph_profile") == "minimal"
         assert any("own_tags" in f for f in result["risk_factors"])
 
     @pytest.mark.asyncio
