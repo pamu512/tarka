@@ -1,0 +1,8 @@
+{
+  "policy_id": "ml_promotion_v1",
+  "version": 1,
+  "description": "OSS #37 — block activating or splitting traffic to model versions that fail documented training/latency gates (champion vs challenger guardrails).",
+  "min_training_auc_roc": 0.0,
+  "max_training_latency_p99_ms": null,
+  "notes": "Set max_training_latency_p99_ms to a number to require metadata.training_metrics.latency_p99_ms when present. null disables that check."
+}

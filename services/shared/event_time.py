@@ -1,8 +1,7 @@
-"""Parse logical event time (business time) for aggregates and replay alignment.
+"""Logical event time (business time) for Redis aggregates and replay alignment.
 
-Redis velocity windows use the **event timestamp** passed to ``AggregateStore.record_event``
-when provided; otherwise they use **ingest time** (wall clock at evaluate). See
-``docs/docs/guides/late-arrival-watermarks.md``.
+Velocity windows use ``AggregateStore.record_event(..., ts=...)``. When set, **event time**
+replaces wall-clock ingest time for ZSET scores. See ``docs/docs/guides/late-arrival-watermarks.md``.
 """
 
 from __future__ import annotations
@@ -18,11 +17,9 @@ def parse_event_time_to_unix(raw: Any) -> float | None:
     if isinstance(raw, bool):
         return None
     if isinstance(raw, (int, float)):
-        # Reject bool (subclass of int) already; guard absurd magnitudes
         f = float(raw)
         if f <= 0:
             return None
-        # Heuristic: sub-second unix vs millis — millis for recent epochs
         if f > 1e12:
             f = f / 1000.0
         return f
@@ -51,7 +48,6 @@ _PAYLOAD_KEYS = ("event_time", "event_ts", "occurred_at")
 
 
 def event_time_unix_from_metadata(metadata: dict[str, Any] | None) -> float | None:
-    """Read logical event time from evaluate ``metadata`` (canonical keys)."""
     if not isinstance(metadata, dict):
         return None
     for key in _METADATA_KEYS:
@@ -77,10 +73,7 @@ def event_time_unix_for_evaluate(
 
 
 def event_time_unix_from_payload_snapshot(snap: dict[str, Any] | None) -> float | None:
-    """
-    Prefer **metadata** event_time-style keys, then **payload** (legacy / mis-placed).
-    Used by audit export for offline replay alignment with online counters.
-    """
+    """Prefer metadata event_time-style keys, then payload (audit export / replay)."""
     if not isinstance(snap, dict):
         return None
     meta = snap.get("metadata") if isinstance(snap.get("metadata"), dict) else None

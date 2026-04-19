@@ -12,7 +12,7 @@ Usage:
 
 Each line matches the shape expected by replay_aggregates.py:
   tenant_id, entity_id, event_id (trace_id), fields (from payload_snapshot),
-  optional metadata.event_time (for late-arrival alignment), ts (prefer logical event time, else created_at).
+  optional metadata echo, ts (prefer logical event_time from snapshot, else created_at).
 """
 
 from __future__ import annotations
@@ -82,14 +82,10 @@ def main(argv: list[str] | None = None) -> int:
             if isinstance(payload_snapshot, dict):
                 inner = payload_snapshot.get("payload")
                 fields = dict(inner) if isinstance(inner, dict) else {}
-                inner_meta = payload_snapshot.get("metadata")
-                if isinstance(inner_meta, dict):
-                    meta_out = dict(inner_meta)
-            logical_ts: float | None = (
-                event_time_unix_from_payload_snapshot(payload_snapshot)
-                if isinstance(payload_snapshot, dict)
-                else None
-            )
+                im = payload_snapshot.get("metadata")
+                if isinstance(im, dict):
+                    meta_out = dict(im)
+            logical_ts: float | None = event_time_unix_from_payload_snapshot(payload_snapshot) if isinstance(payload_snapshot, dict) else None
             ts: float | None = logical_ts
             if ts is None and created_at is not None:
                 ts = created_at.timestamp()

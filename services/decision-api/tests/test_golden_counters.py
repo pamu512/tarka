@@ -1,5 +1,7 @@
 """Golden aggregate expectations with a fixed wall clock (CI gate for counter parity)."""
 
+import asyncio
+
 import pytest
 from aggregate_fake_redis import FakeRedis
 from decision_api.aggregates import AggregateStore
@@ -85,6 +87,30 @@ class TestGoldenEventCounts:
             {"session_id": "sess-z"},
         )
         assert feats["distinct_session_id_24h"] == 2
+
+
+class TestConcurrentRecordEvents:
+    """OSS #33: concurrent increments must not drop counts (pipeline is atomic per call; stress interleaving)."""
+
+    @pytest.mark.asyncio
+    async def test_parallel_record_event_count_matches(self, golden_store):
+        s, _ = golden_store
+        n = 80
+
+        async def one(i: int):
+            await s.record_event(
+                "golden_tenant",
+                "golden_entity",
+                f"conc-{i}",
+                {"amount": 1.0},
+                ts=T0 + float(i % 60),
+            )
+
+        await asyncio.gather(*(one(i) for i in range(n)))
+        assert await s.count("golden_tenant", "golden_entity", 3600) == n
+        feats = await s.compute_features("golden_tenant", "golden_entity", {"amount": 0.0})
+        assert feats["event_count_1h"] == n
+        assert abs(feats["sum_amount_1h"] - float(n)) < 1e-6
 
 
 class TestGoldenEventCounts10xStress:

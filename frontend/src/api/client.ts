@@ -223,8 +223,8 @@ export interface RuleSimulationResult {
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   try {
     const res = await fetch(url, {
-      headers: { "Content-Type": "application/json", ...init?.headers },
       ...init,
+      headers: { "Content-Type": "application/json", ...(init?.headers as Record<string, string> | undefined) },
     });
     const text = await res.text();
     const ct = res.headers.get("content-type") ?? "";
@@ -335,6 +335,88 @@ export const decisions = {
       redis_key_version?: string | null;
       counters: Array<Record<string, unknown>>;
     }>("/api/decisions/v1/internal/counters/catalog");
+  },
+};
+
+// ── Feature service (velocity + parity verify) — proxied as /api/features ─
+
+const _featureHeaders = (): HeadersInit => {
+  const h: Record<string, string> = {};
+  const key = (import.meta.env.VITE_FEATURE_SERVICE_API_KEY as string | undefined)?.trim();
+  if (key) h["x-api-key"] = key;
+  return h;
+};
+
+export const features = {
+  health() {
+    return request<{ status?: string }>("/api/features/v1/health");
+  },
+
+  velocityQuery(body: { tenant_id: string; entity_id: string; payload?: Record<string, unknown> }) {
+    return request<{
+      tenant_id: string;
+      entity_id: string;
+      velocity_counters: Record<string, unknown>;
+      velocity_key_order: string[];
+    }>("/api/features/v1/velocity/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ..._featureHeaders() },
+      body: JSON.stringify({
+        tenant_id: body.tenant_id,
+        entity_id: body.entity_id,
+        payload: body.payload ?? {},
+      }),
+    });
+  },
+
+  parityVerify(body: {
+    tenant_id: string;
+    entity_id: string;
+    payload?: Record<string, unknown>;
+    expected: Record<string, number>;
+    epsilon?: number;
+  }) {
+    return request<{
+      ok: boolean;
+      tenant_id: string;
+      entity_id: string;
+      epsilon: number;
+      checked_keys: string[];
+      drift: Record<string, unknown>;
+      live_sample: Record<string, unknown>;
+    }>("/api/features/v1/internal/parity/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ..._featureHeaders() },
+      body: JSON.stringify({
+        tenant_id: body.tenant_id,
+        entity_id: body.entity_id,
+        payload: body.payload ?? {},
+        expected: body.expected,
+        epsilon: body.epsilon ?? 0.5,
+      }),
+    });
+  },
+};
+
+// ── Event ingest (event-ingest :8007) — proxied as /api/ingest ───────
+
+export const ingest = {
+  /** Contract reject tallies since process boot (send `VITE_EVENT_INGEST_API_KEY` when event-ingest uses `API_KEYS`). */
+  ingestStats() {
+    const key = import.meta.env.VITE_EVENT_INGEST_API_KEY as string | undefined;
+    const headers: Record<string, string> = {};
+    if (key?.trim()) {
+      headers["x-api-key"] = key.trim();
+    }
+    return request<{
+      service: string;
+      since: string;
+      contract_reject_by_reason: Record<string, number>;
+      total_contract_rejects: number;
+      envelope_mode?: string;
+      require_idempotency_key?: boolean;
+      note?: string;
+    }>("/api/ingest/v1/ingest/stats", { headers });
   },
 };
 
@@ -610,9 +692,17 @@ export const ml = {
 
 // ── Rules (decision-api :8000, /v1/rules router) ────────────────────
 
-const _ruleActorHeaders = (): HeadersInit => ({
-  "X-Actor": (typeof localStorage !== "undefined" && localStorage.getItem("tarka.rule_actor")) || "web-ui",
-});
+const _ruleActorHeaders = (): HeadersInit => {
+  const h: Record<string, string> = {
+    "X-Actor": (typeof localStorage !== "undefined" && localStorage.getItem("tarka.rule_actor")) || "web-ui",
+  };
+  const gov =
+    typeof localStorage !== "undefined" ? localStorage.getItem("tarka.rule_governance_secret")?.trim() : "";
+  if (gov) {
+    h["X-Rule-Governance-Secret"] = gov;
+  }
+  return h;
+};
 
 export const rules = {
   list() {
@@ -623,6 +713,15 @@ export const rules = {
     return request<{ items: Array<{ ts: string; action: string; file: string; actor: string; detail?: unknown }> }>(
       `/api/decisions/v1/rules/change-log?limit=${limit}`,
     );
+  },
+
+  telemetry() {
+    return request<{
+      since_unix: number;
+      total_hits: number;
+      unique_keys: number;
+      rows: Array<{ pack_file: string; rule_id: string; kind: string; hits: number }>;
+    }>("/api/decisions/v1/rules/telemetry");
   },
 
   create(data: { name: string; rules?: unknown[]; tag_rules?: unknown[] }) {

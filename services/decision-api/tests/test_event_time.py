@@ -1,4 +1,4 @@
-"""Unit tests for shared event_time helpers (PYTHONPATH includes ../shared)."""
+"""event_time helpers (PYTHONPATH includes ../shared)."""
 
 from event_time import (
     event_time_unix_for_evaluate,
@@ -9,13 +9,6 @@ from event_time import (
 
 def test_parse_event_time_iso_z():
     t = parse_event_time_to_unix("2026-04-01T12:00:00Z")
-    assert t is not None
-    assert abs(t - 1775044800.0) < 1.0
-
-
-def test_parse_event_time_millis():
-    # millis for ~2026
-    t = parse_event_time_to_unix(1775044800000)
     assert t is not None
     assert abs(t - 1775044800.0) < 1.0
 

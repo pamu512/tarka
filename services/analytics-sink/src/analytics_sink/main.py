@@ -313,3 +313,79 @@ async def top_entities(
     """
     result = _ch_client.query(q)
     return {"decision": decision, "entities": [dict(zip(result.column_names, row)) for row in result.result_rows]}
+
+
+@app.get("/v1/analytics/scorecard")
+async def decision_scorecard(
+    tenant_id: str,
+    days: int = Query(default=7, ge=1, le=90),
+):
+    """
+    OSS #41 / #53 — JSON scorecard over recent decision events.
+
+    Returns a compact, machine-readable summary suitable for publishing to Discussions
+    or Trust Center views (not a full report generator).
+    """
+    if not _ch_client:
+        raise HTTPException(503, "ClickHouse not available")
+    db = settings.clickhouse_database
+    window_clause = f"created_at >= now() - INTERVAL {days} DAY"
+
+    # Per-decision aggregates
+    q_decisions = f"""
+    SELECT
+        decision,
+        count() AS event_count,
+        avg(score) AS avg_score,
+        min(score) AS min_score,
+        max(score) AS max_score
+    FROM {db}.decision_events
+    WHERE tenant_id = '{tenant_id}' AND {window_clause}
+    GROUP BY decision
+    """
+    r_dec = _ch_client.query(q_decisions)
+    decision_rows = [dict(zip(r_dec.column_names, row)) for row in r_dec.result_rows]
+    total_events = sum(int(row.get("event_count", 0)) for row in decision_rows) or 1
+
+    decisions_summary = []
+    deny_count = 0
+    for row in decision_rows:
+        d = str(row.get("decision") or "")
+        cnt = int(row.get("event_count", 0))
+        if d == "deny":
+            deny_count += cnt
+        decisions_summary.append(
+            {
+                "decision": d,
+                "event_count": cnt,
+                "event_pct": round((cnt / total_events) * 100.0, 2),
+                "avg_score": float(row.get("avg_score") or 0.0),
+                "min_score": float(row.get("min_score") or 0.0),
+                "max_score": float(row.get("max_score") or 0.0),
+            }
+        )
+
+    # Simple rule-hit frequency slice (top 10).
+    q_rules = f"""
+    SELECT
+        arrayJoin(rule_hits) AS rule_id,
+        count() AS hit_count
+    FROM {db}.decision_events
+    WHERE tenant_id = '{tenant_id}' AND {window_clause}
+    GROUP BY rule_id
+    ORDER BY hit_count DESC
+    LIMIT 10
+    """
+    r_rules = _ch_client.query(q_rules)
+    rules_summary = [dict(zip(r_rules.column_names, row)) for row in r_rules.result_rows]
+
+    # Headline metrics.
+    deny_rate = round((deny_count / total_events) * 100.0, 2) if total_events else 0.0
+    return {
+        "tenant_id": tenant_id,
+        "window_days": days,
+        "total_events": total_events,
+        "deny_rate_pct": deny_rate,
+        "per_decision": decisions_summary,
+        "top_rule_hits": rules_summary,
+    }

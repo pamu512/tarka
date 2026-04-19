@@ -369,6 +369,22 @@ export default function CaseDetail() {
                     {decisionExplain.inference_context.confidence_tier_label ? (
                       <p className="text-xs text-gray-300 leading-snug">{decisionExplain.inference_context.confidence_tier_label}</p>
                     ) : null}
+                    <div className="text-xs text-gray-500">
+                      Confidence sources:{" "}
+                      <span className="text-gray-300">
+                        calibration {decisionExplain.inference_context.calibration_profile}@v
+                        {decisionExplain.inference_context.calibration_profile_version} · location{" "}
+                        {(decisionExplain.inference_context.location_confidence * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Source routing:{" "}
+                      <span className="text-gray-300 font-mono">
+                        cal={decisionExplain.inference_context.confidence_sources.calibration} ·
+                        counter={decisionExplain.inference_context.confidence_sources.counter} ·
+                        loc={decisionExplain.inference_context.confidence_sources.location}
+                      </span>
+                    </div>
                   </div>
                 ) : null}
                 {decisionExplain.inference_context &&

@@ -78,6 +78,11 @@ class InferenceContext(BaseModel):
     velocity_events_5m: int = 0
     velocity_events_1h: int = 0
     velocity_events_24h: int = 0
+    calibration_profile_version: int = 1
+    location_confidence: float = 0.0
+    confidence_sources: dict[str, str] = Field(
+        default_factory=lambda: {"calibration": "heuristic", "counter": "heuristic", "location": "heuristic"}
+    )
     ml_top_factors: list[dict[str, Any]] = Field(default_factory=list)
     ml_summary: str | None = None
     ml_model: str | None = None
@@ -100,4 +105,8 @@ class EvaluateResponse(BaseModel):
     challenge_metadata: dict[str, Any] | None = Field(
         default=None,
         description="Matched rule id, escalation ladder, etc.",
+    )
+    fallback_reason: str | None = Field(
+        default=None,
+        description="Set when evaluate used rules-only or degraded dependencies (circuit/tenant flags); mirrors audit payload_snapshot.fallback_reason",
     )

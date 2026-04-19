@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
-"""Pull messages from JetStream DLQ subject `fraud.events.dlq` (same stream as main ingest).
+"""
+Pull messages from the ingest DLQ JetStream subject and optionally re-post to evaluate.
 
-Requires: pip install nats-py httpx (or run from repo venv with event-ingest deps).
+Requires: nats-py, running NATS with a stream covering the DLQ subject (e.g. fraud.events.>).
 
-Examples:
-  NATS_URL=nats://localhost:4222 DECISION_API_URL=http://localhost:8000 \\
-    python scripts/etl/replay_dlq.py --max 10 --dry-run
-
-  # Actually POST evaluate bodies from dlq.envelope.original (dangerous — use non-prod only)
-  NATS_URL=nats://localhost:4222 DECISION_API_URL=http://localhost:8000 \\
-    python scripts/etl/replay_dlq.py --max 1
+  python scripts/etl/replay_dlq.py --nats-url nats://localhost:4222 --subject fraud.events.dlq --max 5 --dry-run
+  DECISION_API_URL=http://localhost:8000 python scripts/etl/replay_dlq.py --max 1
 """
 
 from __future__ import annotations
@@ -19,68 +15,105 @@ import asyncio
 import json
 import os
 import sys
+from pathlib import Path
 
-import httpx
-import nats
-
-
-STREAM = os.environ.get("INGEST_STREAM_NAME", "FRAUD_EVENTS")
-SUBJECT_DLQ = os.environ.get("INGEST_DLQ_SUBJECT", "fraud.events.dlq")
-DECISION_URL = os.environ.get("DECISION_API_URL", "http://localhost:8000").rstrip("/")
+_REPO = Path(__file__).resolve().parents[2]
 
 
-async def _run(max_msgs: int, dry_run: bool) -> None:
-    nc = await nats.connect(os.environ.get("NATS_URL", "nats://localhost:4222"))
+async def _run(
+    *,
+    nats_url: str,
+    subject: str,
+    stream_name: str,
+    durable: str,
+    max_msgs: int,
+    dry_run: bool,
+    decision_url: str,
+) -> int:
+    try:
+        import nats  # type: ignore[import-untyped]
+    except ImportError:
+        print("Install nats-py: pip install nats-py", file=sys.stderr)
+        return 2
+
+    nc = await nats.connect(nats_url)
     js = nc.jetstream()
-    sub = await js.pull_subscribe(
-        f"{SUBJECT_DLQ}.>",
-        durable="dlq-replay-cli",
-        stream=STREAM,
-    )
-    http = httpx.AsyncClient(timeout=30.0)
+    sub = await js.pull_subscribe(subject, durable=durable, stream=stream_name)
+
+    import httpx
+
     processed = 0
     try:
         while processed < max_msgs:
             try:
-                msgs = await sub.fetch(batch=1, timeout=2)
-            except nats.errors.TimeoutError:
+                msgs = await sub.fetch(batch=min(32, max_msgs - processed), timeout=2.0)
+            except Exception:
+                break
+            if not msgs:
                 break
             for msg in msgs:
                 processed += 1
                 try:
-                    env = json.loads(msg.data.decode())
+                    data = json.loads(msg.data.decode())
                 except json.JSONDecodeError:
-                    print("skip: invalid json", file=sys.stderr)
-                    await msg.term()
+                    print(f"skip: invalid JSON seq={getattr(msg.metadata, 'sequence', '?')}", file=sys.stderr)
+                    await msg.ack()
                     continue
-                original = env.get("original")
-                if not isinstance(original, dict):
-                    print("skip: missing original", file=sys.stderr)
-                    await msg.term()
+
+                inner = data.get("evaluate_request")
+                if not isinstance(inner, dict):
+                    inner = data.get("event")
+                if not isinstance(inner, dict):
+                    print("skip: no evaluate_request/event", file=sys.stderr)
+                    await msg.ack()
                     continue
+
+                # Strip ingest-only keys for evaluate
+                body = {k: v for k, v in inner.items() if k != "_ingest_id"}
+
                 if dry_run:
-                    print(json.dumps({"dry_run": True, "reason": env.get("reason"), "keys": list(original.keys())}))
-                    await msg.ack()
-                    continue
-                r = await http.post(f"{DECISION_URL}/v1/decisions/evaluate", json=original)
-                if r.status_code < 400:
-                    await msg.ack()
-                    print("acked", original.get("tenant_id"), r.status_code)
+                    print(json.dumps({"dry_run": True, "would_post": body}, default=str)[:2000])
                 else:
-                    print("evaluate failed", r.status_code, r.text[:200], file=sys.stderr)
-                    await msg.nak(delay=30)
+                    async with httpx.AsyncClient(timeout=30.0) as http:
+                        r = await http.post(f"{decision_url.rstrip('/')}/v1/decisions/evaluate", json=body)
+                    print(f"evaluate {r.status_code} seq={getattr(msg.metadata, 'sequence', '?')}")
+                await msg.ack()
+
+                if processed >= max_msgs:
+                    break
     finally:
-        await http.aclose()
         await nc.drain()
 
+    print(f"Processed {processed} message(s).")
+    return 0
 
-def main() -> None:
-    p = argparse.ArgumentParser()
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(description="Replay DLQ messages to Decision API evaluate.")
+    p.add_argument("--nats-url", default=os.environ.get("NATS_URL", "nats://localhost:4222"))
+    p.add_argument("--subject", default=os.environ.get("INGEST_DLQ_SUBJECT", "fraud.events.dlq"))
+    p.add_argument("--stream", default=os.environ.get("INGEST_STREAM_NAME", "FRAUD_EVENTS"))
+    p.add_argument("--durable", default="dlq-replay-cli")
     p.add_argument("--max", type=int, default=10)
     p.add_argument("--dry-run", action="store_true")
-    args = p.parse_args()
-    asyncio.run(_run(args.max, args.dry_run))
+    p.add_argument(
+        "--decision-api-url",
+        default=os.environ.get("DECISION_API_URL", "http://localhost:8000"),
+    )
+    args = p.parse_args(argv)
+
+    return asyncio.run(
+        _run(
+            nats_url=args.nats_url,
+            subject=args.subject,
+            stream_name=args.stream,
+            durable=args.durable,
+            max_msgs=max(1, args.max),
+            dry_run=args.dry_run,
+            decision_url=args.decision_api_url,
+        )
+    )
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

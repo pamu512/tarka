@@ -1,33 +1,30 @@
 # ETL tiers: Bronze, Silver, Gold (Tarka mapping)
 
-**Purpose:** Align the classic **Bronze / Silver / Gold** data-quality mental model with what ships **today** in-repo, and what is **roadmapped** (warehouse, materialized facts). Part of **v1.2.5 Epic E2**.
+**Purpose:** Map the **Bronze / Silver / Gold** mental model to what ships in-repo (v1.2.5 Epic **E2**).
 
 ---
 
 ## Physical mapping (current)
 
-| Tier | What it is in Tarka today | Storage / motion |
-|------|---------------------------|------------------|
-| **Bronze** | **Immutable raw event** as accepted by producers | NATS JetStream payload on `fraud.events.{tenant}.{event_type}` (see `event-ingest`); optional **DLQ** subject `fraud.events.dlq` for poison / non-retryable evaluate failures (see `INGEST_DLQ_*` env). |
-| **Silver** | **Canonical evaluate input** — same fields Decision API persists | Decision API `POST /v1/decisions/evaluate` body; **Postgres** `audit` rows (`payload_snapshot`, `inference_context`, tags, rule_hits). Treat audit as the **system-of-record “silver”** slice for fraud decisions until a separate warehouse exists. |
-| **Gold** | **Aggregates & reporting features** | Redis velocity / aggregates (`agg_store`), counter manifest + replay scripts, analytics sink path when enabled — **not** a single SQL table today. |
+| Tier | Meaning | Storage / motion |
+|------|---------|------------------|
+| **Bronze** | Immutable raw event as accepted | NATS JetStream on `fraud.events.{tenant}.{event_type}`; optional **DLQ** subject (see below). |
+| **Silver** | Canonical evaluate input / audit slice | Decision API evaluate body; Postgres **`decision_audit`** (`payload_snapshot`, tags, `inference_context`). |
+| **Gold** | Aggregates & reporting features | Redis velocity (`fraud:agg:*`), counter manifest + replay scripts. |
 
 ---
 
-## Promotion gates (conceptual)
+## DLQ (dead-letter queue)
 
-| Promotion | Checks |
-|-----------|--------|
-| Bronze → stream | JSON parseable; optional **contract** envelope (E1); reject/quarantine at HTTP edge with `reason_codes`. |
-| Silver (evaluate) | Pydantic + rules; optional OPA/ML/graph timeouts (see **#32** `step_trace`). |
-| Gold (features) | Null-safe keys, enum domains for `event_type`, numeric ranges for amounts — automated in **`scripts/etl/check_silver_features.py`** for batch files / exports. |
+When **`INGEST_DLQ_PUBLISH_ON_EVALUATE_4XX=true`** and **`INGEST_DLQ_SUBJECT`** is set (default in docs: **`fraud.events.dlq`**), the NATS→evaluate worker **acks** 4xx responses and publishes a JSON envelope to that subject. The stream must already cover **`fraud.events.>`** (same as primary ingest).
+
+Replay (careful in non-prod): **`python scripts/etl/replay_dlq.py --max 10 --dry-run`**.
 
 ---
 
-## DLQ & replay
+## Silver quality gate (batch)
 
-- **DLQ publish:** when `INGEST_DLQ_PUBLISH_ON_EVALUATE_4XX=true`, the NATS consumer **acks** the bad message and **republishes** a DLQ envelope to `fraud.events.dlq` (same stream wildcard `fraud.events.>`).
-- **Replay stub:** `python scripts/etl/replay_dlq.py --max 100 --dry-run` — pulls from DLQ and optionally POSTs back to evaluate (use with care in non-prod).
+**`scripts/etl/check_silver_features.py`** validates JSONL exports (tenant/entity/event_type/amount) for CI or manual QA.
 
 ---
 
@@ -35,4 +32,3 @@
 
 - [Ingest hardening & replay](./ingest-replay-onboarding.md)
 - [Late arrival & watermarks](./late-arrival-watermarks.md) (Epic **E3**)
-- [v1.2.5 execution backlog](./v1.2.5-execution-backlog-resiliency-etl-rules.md)
