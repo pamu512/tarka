@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     feature_service_url: str = ""
     ml_scoring_url: str = ""
     graph_service_url: str = ""
+    calibration_service_url: str = ""
+    counter_service_url: str = ""
+    location_service_url: str = ""
+    upstream_api_key: str = ""
     opa_url: str = ""
     rules_path: str = "./rules"
     api_keys: str = ""
@@ -76,6 +80,12 @@ class Settings(BaseSettings):
     circuit_opa_recovery_seconds: float = float(os.environ.get("CIRCUIT_OPA_RECOVERY_SECONDS", "30"))
     circuit_list_failure_threshold: int = int(os.environ.get("CIRCUIT_LIST_FAILURE_THRESHOLD", "5"))
     circuit_list_recovery_seconds: float = float(os.environ.get("CIRCUIT_LIST_RECOVERY_SECONDS", "30"))
+    circuit_calibration_failure_threshold: int = int(os.environ.get("CIRCUIT_CALIBRATION_FAILURE_THRESHOLD", "5"))
+    circuit_calibration_recovery_seconds: float = float(os.environ.get("CIRCUIT_CALIBRATION_RECOVERY_SECONDS", "30"))
+    circuit_counter_failure_threshold: int = int(os.environ.get("CIRCUIT_COUNTER_FAILURE_THRESHOLD", "5"))
+    circuit_counter_recovery_seconds: float = float(os.environ.get("CIRCUIT_COUNTER_RECOVERY_SECONDS", "30"))
+    circuit_location_failure_threshold: int = int(os.environ.get("CIRCUIT_LOCATION_FAILURE_THRESHOLD", "5"))
+    circuit_location_recovery_seconds: float = float(os.environ.get("CIRCUIT_LOCATION_RECOVERY_SECONDS", "30"))
 
     # OSS #31: optional champion–challenger JSON rule evaluation (audit-only; production decision unchanged)
     policy_champion_challenger_enabled: bool = os.environ.get("POLICY_CHAMPION_CHALLENGER_ENABLED", "false").lower() in (
