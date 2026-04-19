@@ -941,6 +941,20 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       ],
     };
   }
+  if (path.includes("/api/ingest/v1/ingest/stats") && method === "GET") {
+    return {
+      service: "event-ingest",
+      since: "process_boot",
+      envelope_mode: "optional",
+      require_idempotency_key: false,
+      contract_reject_by_reason: {
+        ingest_event_type_invalid: 2,
+        ingest_idempotency_key_required: 1,
+      },
+      total_contract_rejects: 3,
+      note: "Demo totals for offline UI; live service may return zeros until contract validation rejects traffic.",
+    };
+  }
   if (path.includes("/evidence-bundle")) {
     return {
       bundle_version: "1",

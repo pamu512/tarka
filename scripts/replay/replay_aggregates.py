@@ -22,6 +22,10 @@ from pathlib import Path
 from typing import Any, Iterator
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
+_SHARED = _REPO_ROOT / "services" / "shared"
+if str(_SHARED) not in sys.path:
+    sys.path.insert(0, str(_SHARED))
+from event_time import event_time_unix_for_evaluate  # noqa: E402
 
 
 def _ensure_import_paths() -> None:
@@ -96,8 +100,11 @@ def row_to_record_args(row: dict[str, Any]) -> tuple[str, str, str, dict[str, An
         fields = dict(payload) if isinstance(payload, dict) else {}
     elif not isinstance(fields, dict):
         fields = {}
+    meta = row.get("metadata") if isinstance(row.get("metadata"), dict) else None
     ts = row.get("ts")
-    ts_f = float(ts) if ts is not None else None
+    ts_f: float | None = float(ts) if ts is not None else None
+    if ts_f is None:
+        ts_f = event_time_unix_for_evaluate(meta, fields)
     return str(tenant_id), str(entity_id), str(event_id), fields, ts_f
 
 
