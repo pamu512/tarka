@@ -99,5 +99,9 @@ class Settings(BaseSettings):
     # OSS #49: metadata key for graph checkpoint profile (graph-service entity-risk)
     graph_checkpoint_metadata_key: str = os.environ.get("GRAPH_CHECKPOINT_METADATA_KEY", "graph_checkpoint")
 
+    # N2: optional maker–checker for rule pack mutations (POST/PUT/DELETE rules APIs).
+    # When set, clients must send matching X-Rule-Governance-Secret on mutating requests.
+    rule_governance_secret: str = os.environ.get("RULE_GOVERNANCE_SECRET", "").strip()
+
 
 settings = Settings()
