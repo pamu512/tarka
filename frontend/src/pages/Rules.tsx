@@ -12,24 +12,39 @@ import { PageTitle } from "../components/PageTitle";
 
 // ── Constants ────────────────────────────────────────────────────────
 
-const COMMON_FIELDS = [
-  "amount",
-  "is_vpn",
-  "is_emulator",
-  "is_bot",
-  "hour_of_day",
-  "account_age_days",
-  "transaction_count_24h",
-  "country",
-  "ip_is_proxy",
-  "distinct_countries_7d",
-  "currency",
-  "device_type",
-  "email_domain",
-  "is_rooted",
-  "session_duration",
-  "failed_attempts_24h",
+/** N1: expanded no-code field catalog (datalist + picker). */
+const FIELD_CATALOG: { category: string; fields: string[] }[] = [
+  {
+    category: "Payments & velocity",
+    fields: [
+      "amount",
+      "currency",
+      "transaction_count_24h",
+      "failed_attempts_24h",
+      "hour_of_day",
+      "account_age_days",
+    ],
+  },
+  {
+    category: "Device & automation",
+    fields: [
+      "device_type",
+      "is_bot",
+      "is_emulator",
+      "is_rooted",
+      "is_vpn",
+      "session_duration",
+    ],
+  },
+  {
+    category: "Network & geo",
+    fields: ["country", "ip_is_proxy", "distinct_countries_7d", "email_domain"],
+  },
 ];
+
+const COMMON_FIELDS: string[] = Array.from(
+  new Set(FIELD_CATALOG.flatMap((c) => c.fields)),
+);
 
 const OPERATORS: { value: string; label: string }[] = [
   { value: "eq", label: "= equals" },
@@ -220,10 +235,45 @@ export default function Rules() {
   const [lineageVersion, setLineageVersion] = useState<number>(1);
   const [lineageHash, setLineageHash] = useState<string>("");
   const [lineageBusy, setLineageBusy] = useState(false);
+  const [ruleActor, setRuleActor] = useState(() =>
+    typeof localStorage !== "undefined" ? localStorage.getItem("tarka.rule_actor") || "web-ui" : "web-ui",
+  );
+  const [ruleChangeLog, setRuleChangeLog] = useState<
+    Array<{ ts: string; action: string; file: string; actor: string }>
+  >([]);
+  const [ruleGovSecret, setRuleGovSecret] = useState(() =>
+    typeof localStorage !== "undefined" ? localStorage.getItem("tarka.rule_governance_secret") || "" : "",
+  );
+  const [showFieldCatalog, setShowFieldCatalog] = useState(false);
+  const [telemetryRows, setTelemetryRows] = useState<
+    Array<{ pack_file: string; rule_id: string; kind: string; hits: number }>
+  >([]);
+  const [telemetryMeta, setTelemetryMeta] = useState<{ total_hits: number; since_unix: number } | null>(null);
+  const [telemetryLoading, setTelemetryLoading] = useState(false);
 
   useEffect(() => {
     fetchPacks();
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("tarka.rule_actor", ruleActor.trim() || "web-ui");
+    } catch {
+      /* ignore */
+    }
+  }, [ruleActor]);
+
+  useEffect(() => {
+    try {
+      if (ruleGovSecret.trim()) {
+        localStorage.setItem("tarka.rule_governance_secret", ruleGovSecret.trim());
+      } else {
+        localStorage.removeItem("tarka.rule_governance_secret");
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [ruleGovSecret]);
 
   useEffect(() => {
     (async () => {
@@ -257,11 +307,50 @@ export default function Rules() {
       const res = await rulesApi.list();
       setPacks(res.packs ?? []);
       setError(null);
+      try {
+        const cl = await rulesApi.changeLog(30);
+        setRuleChangeLog((cl.items ?? []).slice(0, 15));
+      } catch {
+        setRuleChangeLog([]);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load rules");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function refreshTelemetry() {
+    setTelemetryLoading(true);
+    try {
+      const t = await rulesApi.telemetry();
+      setTelemetryRows((t.rows ?? []).slice(0, 40));
+      setTelemetryMeta({ total_hits: t.total_hits ?? 0, since_unix: t.since_unix ?? 0 });
+    } catch {
+      setTelemetryRows([]);
+      setTelemetryMeta(null);
+    } finally {
+      setTelemetryLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void refreshTelemetry();
+  }, []);
+
+  function handleExportPacks() {
+    const cleaned = packs.map((p) => {
+      const copy = structuredClone(p) as unknown as Record<string, unknown>;
+      delete copy._file;
+      return copy;
+    });
+    const blob = new Blob([JSON.stringify(cleaned, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `tarka-rule-packs-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    setToast("Exported rule packs JSON");
   }
 
   // ── Pack selection ─────────────────────────────────────────
@@ -565,6 +654,109 @@ export default function Rules() {
           </button>
         </div>
       )}
+
+      <div className="mx-6 mt-3 flex flex-col gap-3 text-xs text-gray-400">
+        <div className="flex flex-col lg:flex-row lg:flex-wrap gap-3 lg:items-center">
+          <label className="flex items-center gap-2 shrink-0">
+            <span className="text-gray-500 whitespace-nowrap">Change actor (X-Actor)</span>
+            <input
+              value={ruleActor}
+              onChange={(e) => setRuleActor(e.target.value)}
+              className="bg-surface-800 border border-surface-600 rounded px-2 py-1 text-gray-200 font-mono max-w-[16rem]"
+              placeholder="web-ui"
+            />
+          </label>
+          <label className="flex items-center gap-2 shrink-0 min-w-0 flex-1">
+            <span className="text-gray-500 whitespace-nowrap" title="When RULE_GOVERNANCE_SECRET is set on the API">
+              Governance secret
+            </span>
+            <input
+              type="password"
+              value={ruleGovSecret}
+              onChange={(e) => setRuleGovSecret(e.target.value)}
+              className="bg-surface-800 border border-surface-600 rounded px-2 py-1 text-gray-200 font-mono flex-1 min-w-[8rem] max-w-md"
+              placeholder="X-Rule-Governance-Secret (optional)"
+              autoComplete="off"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => setShowFieldCatalog((v) => !v)}
+            className="text-left px-2 py-1 rounded border border-surface-600 hover:bg-surface-800 text-gray-300 shrink-0"
+          >
+            {showFieldCatalog ? "Hide" : "Show"} field catalog (N1)
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleExportPacks()}
+            className="px-2 py-1 rounded border border-surface-600 hover:bg-surface-800 text-gray-300 shrink-0"
+          >
+            Export packs JSON
+          </button>
+          <button
+            type="button"
+            onClick={() => void refreshTelemetry()}
+            disabled={telemetryLoading}
+            className="px-2 py-1 rounded border border-brand-700 hover:bg-brand-900/40 text-brand-300 shrink-0 disabled:opacity-50"
+          >
+            {telemetryLoading ? "Refreshing…" : "Refresh rule telemetry"}
+          </button>
+        </div>
+        {showFieldCatalog && (
+          <div className="border border-surface-700 rounded-lg p-3 bg-surface-900/60 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {FIELD_CATALOG.map((cat) => (
+              <div key={cat.category}>
+                <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">{cat.category}</div>
+                <ul className="flex flex-wrap gap-1">
+                  {cat.fields.map((f) => (
+                    <li key={f}>
+                      <code className="text-[11px] px-1.5 py-0.5 bg-surface-800 rounded text-gray-300">{f}</code>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+        {(telemetryMeta || telemetryRows.length > 0) && (
+          <div className="border border-surface-700 rounded-lg px-3 py-2 bg-surface-900/50">
+            <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">
+              Rule hit telemetry (since API process start, N3–N4)
+            </div>
+            {telemetryMeta && (
+              <p className="text-[11px] text-gray-500 mb-2 font-mono">
+                Total hits: {telemetryMeta.total_hits} · Prometheus: tarka_json_rule_hits_total
+              </p>
+            )}
+            {telemetryRows.length === 0 ? (
+              <p className="text-[11px] text-gray-600">No rule hits recorded yet — run evaluations against this API.</p>
+            ) : (
+              <ul className="max-h-24 overflow-y-auto space-y-0.5 font-mono text-[11px]">
+                {telemetryRows.map((r, i) => (
+                  <li key={`${r.pack_file}-${r.rule_id}-${r.kind}-${i}`} className="truncate text-gray-400">
+                    <span className="text-brand-400">{r.hits}</span>× {r.pack_file} · {r.rule_id}{" "}
+                    <span className="text-gray-600">({r.kind})</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+        {ruleChangeLog.length > 0 && (
+          <div className="flex-1 min-w-0 border border-surface-700 rounded-lg px-3 py-2 bg-surface-900/50">
+            <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">Recent pack changes</div>
+            <ul className="space-y-0.5 max-h-20 overflow-y-auto font-mono text-[11px]">
+              {ruleChangeLog.map((e, i) => (
+                <li key={`${e.ts}-${e.file}-${i}`} className="truncate">
+                  <span className="text-gray-500">{e.ts.slice(0, 19)}</span>{" "}
+                  <span className="text-brand-300">{e.action}</span> {e.file}{" "}
+                  <span className="text-gray-600">({e.actor})</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
 
       {/* ── Body ────────────────────────────────────────────── */}
       <div className="flex-1 flex overflow-hidden">

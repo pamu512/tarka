@@ -20,6 +20,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ml_scoring.promotion_policy import evaluate_version_gate, read_promotion_policy
+
 log = logging.getLogger("ml-scoring.registry")
 
 
@@ -46,6 +48,7 @@ class ModelRegistry:
         self._models_dir = Path(models_dir)
         self._versions: dict[str, dict[int, ModelVersion]] = {}
         self._active_model: str | None = None
+        self._promotion_policy: dict[str, Any] = read_promotion_policy(self._models_dir)
 
     # ------------------------------------------------------------------
     # Discovery & loading
@@ -175,18 +178,6 @@ class ModelRegistry:
                 )
         return result
 
-    def activate_version(self, model_name: str, version: int) -> bool:
-        """Set *version* as the sole active version for *model_name*."""
-        versions = self._versions.get(model_name)
-        if not versions or version not in versions:
-            return False
-        for v, mv in versions.items():
-            mv.active = v == version
-            mv.traffic_weight = 100 if v == version else 0
-        self._active_model = model_name
-        self._persist_metadata(model_name)
-        return True
-
     def approve_version(
         self,
         model_name: str,
@@ -211,7 +202,48 @@ class ModelRegistry:
             return False
         return bool(mv.metadata.get("approved", False))
 
-    def set_traffic_split(self, model_name: str, weights: dict[int, int]) -> bool:
+    def has_version(self, model_name: str, version: int) -> bool:
+        return version in (self._versions.get(model_name) or {})
+
+    def promotion_policy(self) -> dict[str, Any]:
+        return dict(self._promotion_policy)
+
+    def reload_promotion_policy(self) -> None:
+        """Hot-reload policy file from disk (same path as at startup)."""
+        self._promotion_policy = read_promotion_policy(self._models_dir)
+
+    def check_promotion_gate(self, model_name: str, version: int) -> tuple[bool, list[str], dict[str, Any]]:
+        """Evaluate shipped policy against version metadata (OSS #37)."""
+        mv = self._versions.get(model_name, {}).get(version)
+        if not mv:
+            return False, [f"unknown model {model_name} v{version}"], {}
+        fw = str(mv.metadata.get("framework") or "")
+        return evaluate_version_gate(
+            self._promotion_policy,
+            model_name=model_name,
+            version=version,
+            metadata=mv.metadata,
+            framework=fw,
+        )
+
+    def activate_version(self, model_name: str, version: int, *, skip_promotion_gate: bool = False) -> bool:
+        """Set *version* as the sole active version for *model_name*."""
+        if not skip_promotion_gate:
+            ok, reasons, _ = self.check_promotion_gate(model_name, version)
+            if not ok:
+                log.warning("promotion gate blocked activate %s v%d: %s", model_name, version, reasons)
+                return False
+        versions = self._versions.get(model_name)
+        if not versions or version not in versions:
+            return False
+        for v, mv in versions.items():
+            mv.active = v == version
+            mv.traffic_weight = 100 if v == version else 0
+        self._active_model = model_name
+        self._persist_metadata(model_name)
+        return True
+
+    def set_traffic_split(self, model_name: str, weights: dict[int, int], *, skip_promotion_gate: bool = False) -> bool:
         versions = self._versions.get(model_name)
         if not versions:
             return False
@@ -223,6 +255,14 @@ class ModelRegistry:
         total = sum(int(w) for w in weights.values())
         if total != 100:
             return False
+        if not skip_promotion_gate:
+            for v, w in weights.items():
+                if int(w) <= 0:
+                    continue
+                ok, reasons, _ = self.check_promotion_gate(model_name, v)
+                if not ok:
+                    log.warning("promotion gate blocked traffic-split %s v%d: %s", model_name, v, reasons)
+                    return False
         for v, mv in versions.items():
             mv.traffic_weight = int(weights.get(v, 0))
             mv.active = mv.traffic_weight > 0
@@ -242,7 +282,7 @@ class ModelRegistry:
         if not previous:
             return None
         target = max(previous)
-        if not self.activate_version(model_name, target):
+        if not self.activate_version(model_name, target, skip_promotion_gate=True):
             return None
         versions[target].metadata["rollback_at"] = int(time.time())
         versions[target].metadata["rolled_back_from"] = current

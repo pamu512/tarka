@@ -102,6 +102,42 @@ result = asyncio.run(check_payment())
 
 ---
 
+## Resilient evaluate envelope (Issue #43)
+
+`evaluate` / `evaluate_async` send **canonical JSON** (`sort_keys=True`, compact separators) as the raw body so **retries and HMAC** see the same bytes. Optional knobs:
+
+| Mechanism | How |
+|-----------|-----|
+| **Idempotency** | `idempotency_key="..."` → `Idempotency-Key` header (safe client-side retries when your gateway supports it). |
+| **Replay hints** | `replay_safe_headers=True` adds `X-Tarka-Client-Nonce` (UUID) and `X-Tarka-Client-Timestamp` (unix seconds); override with `client_nonce` / `client_timestamp`. |
+| **HMAC signing** | `DecisionClient(..., request_signing_secret="shared-secret")` adds `X-Tarka-Timestamp` + `X-Tarka-Signature` per [TLS pinning & signed requests](../guides/tls-pinning-and-signed-requests.md). |
+| **Strict response** | `DecisionClient(..., strict_evaluate_response=True)` validates JSON against the evaluate contract and raises `EvaluateResponseValidationError` on drift. |
+
+Lower-level helpers (same module as `DecisionClient` exports):
+
+```python
+from fraud_stack_sdk import (
+    build_evaluate_envelope,
+    canonical_json_bytes,
+    build_evaluate_request_headers,
+    parse_evaluate_response,
+)
+
+body = build_evaluate_envelope(tenant_id="t", event_type="login", entity_id="e", payload={"x": 1})
+raw = canonical_json_bytes(body)
+headers = build_evaluate_request_headers(
+    api_key="key",
+    body_bytes=raw,
+    idempotency_key="pay-123",
+    client_nonce="custom-nonce",
+    client_timestamp=1700000000,
+)
+```
+
+**Module swimlane:** SDK Python (GitHub **#43**, `borrowed-from-OSS`).
+
+---
+
 ## Server-Side Signal Collection
 
 The Python SDK includes a `ServerSignalCollector` that extracts signals from the incoming HTTP request (IP address, proxy headers, datacenter detection, bot user-agent patterns).
@@ -309,6 +345,9 @@ DecisionClient(
     api_key: str = "",
     timeout: float = 10.0,
     server_signals: bool = False,
+    *,
+    request_signing_secret: str | None = None,
+    strict_evaluate_response: bool = False,
 )
 ```
 
@@ -318,6 +357,8 @@ DecisionClient(
 | `api_key` | str | `""` | API key for `X-API-Key` header |
 | `timeout` | float | `10.0` | Request timeout in seconds |
 | `server_signals` | bool | `False` | Enable automatic server-side signal collection |
+| `request_signing_secret` | str \| None | `None` | If set, sign evaluate POST body with HMAC headers |
+| `strict_evaluate_response` | bool | `False` | If `True`, validate evaluate JSON before returning |
 
 #### Methods
 
@@ -340,3 +381,9 @@ ServerSignalCollector(geo_lookup_url: str = "")
 |---|---|---|
 | `collect(ip, headers, asn, country)` | `dict` | Extract server-side signals |
 | `build_device_context(ip, headers, asn, country, client_device_context)` | `dict` | Build complete device_context with merged signals |
+
+---
+
+## Scorecard vs typical SDKs
+
+Directional comparison (scores anchored near **3**): **[SDK scorecard — calibrated mid-scale](../guides/sdk-scorecard-2026-01.md)**.

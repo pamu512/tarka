@@ -86,9 +86,39 @@ class TestComputeEntityRisk:
 
         with patch("graph_service.algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)):
             result = await compute_entity_risk("tenant1", "risky-user")
+            result_min = await compute_entity_risk("tenant1", "risky-user", checkpoint="minimal")
 
         assert result["risk_score"] >= 30
+        assert result_min["risk_score"] <= result["risk_score"]
+        assert result_min.get("graph_profile") == "minimal"
+        assert result_min.get("graph_profile_max_neighbor_hops") == 2
         assert any("own_tags" in f for f in result["risk_factors"])
+        # Neo4j query uses checkpoint depth for community path (minimal profile → 2 hops)
+        cypher = mock_session.run.call_args[0][0]
+        assert "[*1..2]" in cypher
+
+    @pytest.mark.asyncio
+    async def test_checkpoint_depth_in_query_standard(self):
+        record = _mock_record(
+            {
+                "tags": [],
+                "conn_count": 1,
+                "flagged_neighbors": 0,
+                "community_size": 1,
+                "shared_device_count": 0,
+            }
+        )
+        mock_result = AsyncMock()
+        mock_result.single = AsyncMock(return_value=record)
+        mock_session = AsyncMock()
+        mock_session.run = AsyncMock(return_value=mock_result)
+        mock_driver = AsyncMock()
+        mock_driver.session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_driver.session.return_value.__aexit__ = AsyncMock(return_value=False)
+        with patch("graph_service.algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)):
+            await compute_entity_risk("t", "e", checkpoint="standard")
+        q = mock_session.run.call_args[0][0]
+        assert "[*1..3]" in q
 
     @pytest.mark.asyncio
     async def test_entity_with_flagged_neighbors(self):

@@ -46,6 +46,14 @@ export interface AuditEntry {
   rule_hits: string[];
   /** May be partial; UI should pass through `normalizeInferenceContext`. */
   inference_context?: unknown;
+  /** Ordered explainability rows persisted with audit snapshots (v1.2+). */
+  explanation_drivers?: Array<{
+    reason: string;
+    category: string;
+    label: string;
+    rank: number;
+    source: "driver_explain" | "driver_reasons";
+  }>;
   recommended_action?: string | null;
   created_at: string;
 }
@@ -176,6 +184,8 @@ export interface CaseOpsKpis {
   investigating_rate: number;
   resolved_rate: number;
   median_case_age_hours: number;
+  by_status?: Record<string, number>;
+  sla_breached_open_or_investigating?: number;
 }
 
 export interface RulePack {
@@ -213,8 +223,8 @@ export interface RuleSimulationResult {
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   try {
     const res = await fetch(url, {
-      headers: { "Content-Type": "application/json", ...init?.headers },
       ...init,
+      headers: { "Content-Type": "application/json", ...(init?.headers as Record<string, string> | undefined) },
     });
     const text = await res.text();
     const ct = res.headers.get("content-type") ?? "";
@@ -316,6 +326,97 @@ export const decisions = {
       experiment_registry_lines: number;
       drift_smoke: { script: string; note: string };
     }>("/api/decisions/v1/ops/governance");
+  },
+
+  counterCatalog() {
+    return request<{
+      catalog_version: string;
+      manifest_version?: string;
+      redis_key_version?: string | null;
+      counters: Array<Record<string, unknown>>;
+    }>("/api/decisions/v1/internal/counters/catalog");
+  },
+};
+
+// ── Feature service (velocity + parity verify) — proxied as /api/features ─
+
+const _featureHeaders = (): HeadersInit => {
+  const h: Record<string, string> = {};
+  const key = (import.meta.env.VITE_FEATURE_SERVICE_API_KEY as string | undefined)?.trim();
+  if (key) h["x-api-key"] = key;
+  return h;
+};
+
+export const features = {
+  health() {
+    return request<{ status?: string }>("/api/features/v1/health");
+  },
+
+  velocityQuery(body: { tenant_id: string; entity_id: string; payload?: Record<string, unknown> }) {
+    return request<{
+      tenant_id: string;
+      entity_id: string;
+      velocity_counters: Record<string, unknown>;
+      velocity_key_order: string[];
+    }>("/api/features/v1/velocity/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ..._featureHeaders() },
+      body: JSON.stringify({
+        tenant_id: body.tenant_id,
+        entity_id: body.entity_id,
+        payload: body.payload ?? {},
+      }),
+    });
+  },
+
+  parityVerify(body: {
+    tenant_id: string;
+    entity_id: string;
+    payload?: Record<string, unknown>;
+    expected: Record<string, number>;
+    epsilon?: number;
+  }) {
+    return request<{
+      ok: boolean;
+      tenant_id: string;
+      entity_id: string;
+      epsilon: number;
+      checked_keys: string[];
+      drift: Record<string, unknown>;
+      live_sample: Record<string, unknown>;
+    }>("/api/features/v1/internal/parity/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ..._featureHeaders() },
+      body: JSON.stringify({
+        tenant_id: body.tenant_id,
+        entity_id: body.entity_id,
+        payload: body.payload ?? {},
+        expected: body.expected,
+        epsilon: body.epsilon ?? 0.5,
+      }),
+    });
+  },
+};
+
+// ── Event ingest (event-ingest :8007) — proxied as /api/ingest ───────
+
+export const ingest = {
+  /** Contract reject tallies since process boot (send `VITE_EVENT_INGEST_API_KEY` when event-ingest uses `API_KEYS`). */
+  ingestStats() {
+    const key = import.meta.env.VITE_EVENT_INGEST_API_KEY as string | undefined;
+    const headers: Record<string, string> = {};
+    if (key?.trim()) {
+      headers["x-api-key"] = key.trim();
+    }
+    return request<{
+      service: string;
+      since: string;
+      contract_reject_by_reason: Record<string, number>;
+      total_contract_rejects: number;
+      envelope_mode?: string;
+      require_idempotency_key?: boolean;
+      note?: string;
+    }>("/api/ingest/v1/ingest/stats", { headers });
   },
 };
 
@@ -448,6 +549,18 @@ export const cases = {
   opsKpis(tenantId: string) {
     return request<CaseOpsKpis>(`/api/cases/v1/cases/ops/kpis?tenant_id=${tenantId}`);
   },
+
+  cohortCompare(tenantId: string, periodDays: number = 7) {
+    const q = new URLSearchParams({ tenant_id: tenantId, period_days: String(periodDays) });
+    return request<{
+      tenant_id: string;
+      period_days: number;
+      cases_created_recent: number;
+      cases_created_prior: number;
+      delta: number;
+      delta_percent_vs_prior: number | null;
+    }>(`/api/cases/v1/cases/analytics/cohort-compare?${q}`);
+  },
 };
 
 // ── Graph (graph-service :8001) ─────────────────────────────────────
@@ -579,14 +692,42 @@ export const ml = {
 
 // ── Rules (decision-api :8000, /v1/rules router) ────────────────────
 
+const _ruleActorHeaders = (): HeadersInit => {
+  const h: Record<string, string> = {
+    "X-Actor": (typeof localStorage !== "undefined" && localStorage.getItem("tarka.rule_actor")) || "web-ui",
+  };
+  const gov =
+    typeof localStorage !== "undefined" ? localStorage.getItem("tarka.rule_governance_secret")?.trim() : "";
+  if (gov) {
+    h["X-Rule-Governance-Secret"] = gov;
+  }
+  return h;
+};
+
 export const rules = {
   list() {
     return request<{ packs: RulePack[] }>("/api/decisions/v1/rules");
   },
 
+  changeLog(limit: number = 50) {
+    return request<{ items: Array<{ ts: string; action: string; file: string; actor: string; detail?: unknown }> }>(
+      `/api/decisions/v1/rules/change-log?limit=${limit}`,
+    );
+  },
+
+  telemetry() {
+    return request<{
+      since_unix: number;
+      total_hits: number;
+      unique_keys: number;
+      rows: Array<{ pack_file: string; rule_id: string; kind: string; hits: number }>;
+    }>("/api/decisions/v1/rules/telemetry");
+  },
+
   create(data: { name: string; rules?: unknown[]; tag_rules?: unknown[] }) {
     return request<unknown>("/api/decisions/v1/rules", {
       method: "POST",
+      headers: _ruleActorHeaders(),
       body: JSON.stringify(data),
     });
   },
@@ -594,6 +735,7 @@ export const rules = {
   update(filename: string, data: { name: string; rules: unknown[]; tag_rules?: unknown[] }) {
     return request<unknown>(`/api/decisions/v1/rules/${filename}`, {
       method: "PUT",
+      headers: _ruleActorHeaders(),
       body: JSON.stringify(data),
     });
   },
@@ -601,12 +743,14 @@ export const rules = {
   deletePack(filename: string) {
     return request<unknown>(`/api/decisions/v1/rules/${filename}`, {
       method: "DELETE",
+      headers: _ruleActorHeaders(),
     });
   },
 
   addRule(filename: string, rule: unknown) {
     return request<unknown>(`/api/decisions/v1/rules/${filename}/rules`, {
       method: "POST",
+      headers: _ruleActorHeaders(),
       body: JSON.stringify(rule),
     });
   },
@@ -614,6 +758,7 @@ export const rules = {
   deleteRule(filename: string, ruleId: string) {
     return request<unknown>(`/api/decisions/v1/rules/${filename}/rules/${ruleId}`, {
       method: "DELETE",
+      headers: _ruleActorHeaders(),
     });
   },
 
@@ -636,7 +781,7 @@ export const rules = {
   installVerticalPack(verticalName: string, overwrite: boolean = false) {
     return request<{ installed: string; vertical: string; rules: number }>(
       `/api/decisions/v1/rules/vertical-packs/${verticalName}/install?overwrite=${overwrite ? "true" : "false"}`,
-      { method: "POST" },
+      { method: "POST", headers: _ruleActorHeaders() },
     );
   },
 };
@@ -668,6 +813,7 @@ export const shadow = {
       `/api/decisions/v1/rules/${filename}/mode`,
       {
         method: "PUT",
+        headers: _ruleActorHeaders(),
         body: JSON.stringify({ mode }),
       },
     );
@@ -876,6 +1022,25 @@ export interface InvestigationEvidenceBundleDraft {
   tool_invocation_count?: number;
 }
 
+export interface InvestigationEvidenceSummaryResponse {
+  tenant_id: string;
+  analyst_id: string;
+  case_id?: string | null;
+  summary: string;
+  confidence_label: "high" | "medium" | "low";
+  citations: Array<{
+    type: "trace_id" | "case_id" | "entity_id" | "artifact";
+    value: string;
+    source_tool?: string;
+  }>;
+  based_on: {
+    source_ref_count: number;
+    claim_count: number;
+    supported_claim_count: number;
+    tool_error_count: number;
+  };
+}
+
 export interface InvestigationChatResponse {
   reply: string;
   tool_calls?: unknown[];
@@ -1036,6 +1201,21 @@ export const investigation = {
         playbook_id: string | null;
       }>;
     }>(`/api/investigation/v1/feedback/recent?${q}`);
+  },
+
+  evidenceSummary(payload: {
+    tenant_id: string;
+    analyst_id: string;
+    case_id?: string;
+    source_refs?: InvestigationSourceRefCard[];
+    claims?: InvestigationClaim[];
+    claims_deterministic_support?: InvestigationClaimSupportRow[];
+    reply?: string;
+  }) {
+    return request<InvestigationEvidenceSummaryResponse>("/api/investigation/v1/evidence/summary", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 
   /**

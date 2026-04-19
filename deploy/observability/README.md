@@ -19,6 +19,7 @@ Add **`--profile graph --profile ml`** (etc.) if you want those containers up so
 Provisioned dashboards (folder **Tarka**):
 
 - **Tarka HTTP overview** — HTTP request rate and 5xx counters across services.
+- **Tarka SLO burn (5m vs 1h)** — `tarka:http_5xx_ratio_*` recording rules and decision-api circuit-open rates (requires **`prometheus-rules`** volume; see `prometheus.yml` `rule_files`).
 - **Investigation agent — copilot** — persona chat rates (`investigation` vs `orchestrator`), tool invocation rate, tool-error rate, orchestrator share, and tool-error ratio (all from `investigation-agent` `/metrics`).
 
 Ensure the **`agent`** profile is enabled so `investigation-agent` is running and scraped; otherwise panels show no data.

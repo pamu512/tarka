@@ -44,7 +44,7 @@ def main() -> int:
             return 1
     print("OK: health + OpenAPI reachable. For property-based fuzz, run:", file=sys.stderr)
     print(
-        f'  schemathesis run {base}/openapi.json --base-url {base} --hypothesis-max-examples=20',
+        f"  schemathesis run {base}/openapi.json --base-url {base} --hypothesis-max-examples=20",
         file=sys.stderr,
     )
     return 0

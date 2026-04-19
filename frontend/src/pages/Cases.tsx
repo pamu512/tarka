@@ -28,6 +28,11 @@ export default function Cases() {
   const [newViewName, setNewViewName] = useState("");
   const [saveViewBusy, setSaveViewBusy] = useState(false);
   const [opsKpis, setOpsKpis] = useState<CaseOpsKpis | null>(null);
+  const [cohort, setCohort] = useState<{
+    cases_created_recent: number;
+    cases_created_prior: number;
+    delta_percent_vs_prior: number | null;
+  } | null>(null);
   const [savedViewSelection, setSavedViewSelection] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(true);
 
@@ -61,10 +66,23 @@ export default function Cases() {
       }
       setCaseList(data);
       try {
-        const kpis = await cases.opsKpis(tenantId);
+        const [kpis, coh] = await Promise.all([
+          cases.opsKpis(tenantId),
+          cases.cohortCompare(tenantId, 7).catch(() => null),
+        ]);
         setOpsKpis(kpis);
+        setCohort(
+          coh
+            ? {
+                cases_created_recent: coh.cases_created_recent,
+                cases_created_prior: coh.cases_created_prior,
+                delta_percent_vs_prior: coh.delta_percent_vs_prior,
+              }
+            : null,
+        );
       } catch {
         setOpsKpis(null);
+        setCohort(null);
       }
       setError(null);
     } catch (e) {
@@ -163,6 +181,15 @@ export default function Cases() {
           <KpiCard label="Investigating" value={`${(opsKpis.investigating_rate * 100).toFixed(1)}%`} />
           <KpiCard label="Resolved" value={`${(opsKpis.resolved_rate * 100).toFixed(1)}%`} />
           <KpiCard label="Median Age" value={`${opsKpis.median_case_age_hours.toFixed(1)}h`} />
+          {typeof opsKpis.sla_breached_open_or_investigating === "number" ? (
+            <KpiCard label="SLA breached (open)" value={String(opsKpis.sla_breached_open_or_investigating)} />
+          ) : null}
+          {cohort && cohort.delta_percent_vs_prior != null ? (
+            <KpiCard
+              label="Cases vs prior 7d"
+              value={`${cohort.delta_percent_vs_prior >= 0 ? "+" : ""}${cohort.delta_percent_vs_prior.toFixed(0)}%`}
+            />
+          ) : null}
         </div>
       )}
 

@@ -1,0 +1,265 @@
+openapi: 3.1.0
+info:
+  title: Tarka Calibration Service
+  version: 1.0.0
+  description: First-class calibration profile and confidence adjustment service.
+servers:
+  - url: http://localhost:8011
+    description: Local
+paths:
+  /v1/health:
+    get:
+      operationId: calibrationHealth
+      summary: Liveness probe
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+  /v1/slo:
+    get:
+      operationId: calibrationSlo
+      summary: Service SLO posture and in-process counters
+      responses:
+        "200":
+          description: SLO summary
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/profiles:
+    post:
+      operationId: publishCalibrationProfile
+      summary: Publish a versioned calibration profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalibrationProfileIn"
+      responses:
+        "201":
+          description: Profile published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalibrationProfileOut"
+  /v1/profiles/{tenant_id}/{profile_id}:
+    get:
+      operationId: getCalibrationProfile
+      summary: Read active calibration profile for tenant
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: profile_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Active profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalibrationProfileOut"
+        "404":
+          description: Profile not found
+  /v1/profiles/{tenant_id}/{profile_id}/activate:
+    post:
+      operationId: activateCalibrationProfile
+      summary: Activate a profile version for a tenant
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: profile_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Activation accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  tenant_id: { type: string }
+                  profile_id: { type: string }
+                  version: { type: integer }
+  /v1/snapshots:
+    post:
+      operationId: appendCalibrationSnapshot
+      summary: Append calibration snapshot for drift/reliability tracking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalibrationSnapshotIn"
+      responses:
+        "201":
+          description: Snapshot appended
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  snapshot_id: { type: string }
+  /v1/drift:
+    get:
+      operationId: calibrationDrift
+      summary: Drift hint for tenant/profile
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: profile_id
+          in: query
+          required: false
+          schema: { type: string, default: default }
+      responses:
+        "200":
+          description: Drift hint
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/reliability/export:
+    get:
+      operationId: exportCalibrationReliability
+      summary: Export reliability slices for offline analysis
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: profile_id
+          in: query
+          required: false
+          schema: { type: string, default: default }
+      responses:
+        "200":
+          description: Reliability export
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/score:
+    post:
+      operationId: scoreCalibrationConfidence
+      summary: Adjust runtime confidence using active profile + drift state
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalibrationScoreRequest"
+      responses:
+        "200":
+          description: Calibrated confidence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalibrationScoreResponse"
+components:
+  schemas:
+    CalibrationBand:
+      type: object
+      required: [min, max, adjustment]
+      properties:
+        min: { type: number, minimum: 0, maximum: 1 }
+        max: { type: number, minimum: 0, maximum: 1 }
+        adjustment: { type: number, minimum: -1, maximum: 1 }
+    CalibrationProfileIn:
+      type: object
+      required: [tenant_id, profile_id, version, bands]
+      properties:
+        tenant_id: { type: string, minLength: 1, maxLength: 128 }
+        profile_id: { type: string, minLength: 1, maxLength: 64 }
+        version: { type: integer, minimum: 1 }
+        fallback: { type: boolean, default: false }
+        expected_calibration_version: { type: integer, minimum: 1, default: 1 }
+        bands:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/CalibrationBand"
+    CalibrationProfileOut:
+      type: object
+      required: [tenant_id, profile_id, version, expected_calibration_version, fallback, bands]
+      properties:
+        tenant_id: { type: string }
+        profile_id: { type: string }
+        version: { type: integer }
+        expected_calibration_version: { type: integer }
+        fallback: { type: boolean }
+        bands:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalibrationBand"
+    CalibrationSnapshotIn:
+      type: object
+      required: [tenant_id, sample_count]
+      properties:
+        tenant_id: { type: string, minLength: 1, maxLength: 128 }
+        profile_id: { type: string, default: default }
+        sample_count: { type: integer, minimum: 1 }
+        integrity_histogram:
+          type: object
+          additionalProperties: { type: integer }
+        mean_integrity: { type: number, nullable: true }
+        mean_final_score: { type: number, nullable: true }
+        notes: { type: string, nullable: true }
+    CalibrationScoreRequest:
+      type: object
+      required: [tenant_id, baseline_confidence]
+      properties:
+        tenant_id: { type: string, minLength: 1, maxLength: 128 }
+        profile_id: { type: string, default: default }
+        baseline_confidence: { type: number, minimum: 0, maximum: 1 }
+        features:
+          type: object
+          additionalProperties: true
+    CalibrationScoreResponse:
+      type: object
+      required:
+        - calibrated_confidence
+        - baseline_confidence
+        - delta
+        - profile_id
+        - profile_version
+        - expected_calibration_version
+        - drift
+      properties:
+        baseline_confidence: { type: number }
+        calibrated_confidence: { type: number }
+        delta: { type: number }
+        profile_id: { type: string }
+        profile_version: { type: integer }
+        expected_calibration_version: { type: integer }
+        drift:
+          type: object
+          additionalProperties: true
