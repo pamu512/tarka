@@ -340,3 +340,9 @@ ServerSignalCollector(geo_lookup_url: str = "")
 |---|---|---|
 | `collect(ip, headers, asn, country)` | `dict` | Extract server-side signals |
 | `build_device_context(ip, headers, asn, country, client_device_context)` | `dict` | Build complete device_context with merged signals |
+
+---
+
+## Scorecard vs typical SDKs
+
+Directional comparison (scores anchored near **3**): **[SDK scorecard — calibrated mid-scale](../guides/sdk-scorecard-2026-01.md)**.

@@ -1,0 +1,21 @@
+{
+  "schema": "saarthi_golden_prompts_v1",
+  "description": "Smoke prompts for regression and model comparison (reference or integrated deployments).",
+  "prompts": [
+    {
+      "id": "sections_smoke",
+      "user": "List unknowns and next steps for a generic account takeover review using our SOP headings.",
+      "expect": ["structured_sections_hint", "no_hallucinated_case_id"]
+    },
+    {
+      "id": "reference_mode_tone",
+      "user": "What should I verify before escalating when upstream case tools are unavailable?",
+      "expect": ["cites_memos_or_unknowns"]
+    },
+    {
+      "id": "claims_trailer",
+      "user": "Give one inference and one unknown about synthetic entity E-123; keep claims in trailer.",
+      "expect": ["tarka_claims_json"]
+    }
+  ]
+}

@@ -6,6 +6,8 @@ This guide covers deploying Tarka from local development through production, inc
 
 **See also:** [Service ports & OpenAPI index](./service-ports.md) — default ports, Compose DNS names, and contract file mapping.
 
+**Evaluate path hardening:** [Evaluation step controls](./evaluation-step-controls.md) — optional-service timeouts and retries (**#32**).
+
 ---
 
 ## Docker Compose Profiles
@@ -26,6 +28,7 @@ The `deploy/docker-compose.yml` file uses Compose profiles so you can pick exact
 | `agent` | Investigation Agent |
 | `gateway` | GraphQL Gateway |
 | `opa` | Open Policy Agent |
+| `risk` | Calibration, Counter, and Location first-class services |
 | `full` | All of the above |
 
 ### Usage Examples
@@ -64,6 +67,10 @@ When running multiple profiles, services need to know about each other. Copy `.e
 FEATURE_SERVICE_URL=http://feature-service:8004
 ML_SCORING_URL=http://ml-scoring:8005
 GRAPH_SERVICE_URL=http://graph-service:8001
+CALIBRATION_SERVICE_URL=http://calibration-service:8011
+COUNTER_SERVICE_URL=http://counter-service:8012
+LOCATION_SERVICE_URL=http://location-service:8013
+# UPSTREAM_API_KEY=<optional-shared-service-key>
 # OPA_URL=http://opa:8181
 # OPENAI_API_KEY=sk-...
 # ALLOWED_ANALYSTS=alice,bob
@@ -175,6 +182,10 @@ helm install tarka deploy/helm/fraud-stack \
 | `FEATURE_SERVICE_URL` | _(empty)_ | Feature Service URL |
 | `ML_SCORING_URL` | _(empty)_ | ML Scoring Service URL |
 | `GRAPH_SERVICE_URL` | _(empty)_ | Graph Service URL |
+| `CALIBRATION_SERVICE_URL` | _(empty)_ | Calibration Service URL (`/v1/score`, `/v1/drift`) |
+| `COUNTER_SERVICE_URL` | _(empty)_ | Counter Service URL (`/v1/record-and-query`) |
+| `LOCATION_SERVICE_URL` | _(empty)_ | Location Service URL (`/v1/evaluate`) |
+| `UPSTREAM_API_KEY` | _(empty)_ | API key forwarded by decision-api to downstream services when set |
 | `OPA_URL` | _(empty)_ | Open Policy Agent URL |
 | `ATTESTATION_NONCE_TTL` | `300` | Attestation nonce TTL in seconds |
 | `ATTESTATION_HMAC_SECRET` | _(empty)_ | HMAC secret for browser attestation |

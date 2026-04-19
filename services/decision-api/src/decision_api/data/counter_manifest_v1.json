@@ -1,7 +1,9 @@
 {
   "manifest_version": "1.0.0",
+  "redis_key_version": "",
   "aggregate_prefix": "fraud:agg:",
   "aggregate_val_prefix": "fraud:aggval:",
+  "notes_versioning": "Set env AGG_KEY_VERSION (alphanumeric) to segment Redis keys; mirror here for offline parity.",
   "implementation": "fraud_aggregates.AggregateStore.compute_features",
   "notes": "Keys must stay aligned with AggregateStore.compute_features and NUMERIC_FIELDS / DISTINCT_FIELDS in aggregates.py.",
   "feature_outputs": [
@@ -14,6 +16,7 @@
     { "name": "sum_amount_24h", "kind": "sum", "field": "amount", "window_seconds": 86400 },
     { "name": "avg_amount_24h", "kind": "avg", "field": "amount", "window_seconds": 86400 },
     { "name": "distinct_ip_address_24h", "kind": "distinct", "field": "ip_address", "window_seconds": 86400 },
-    { "name": "distinct_device_id_24h", "kind": "distinct", "field": "device_id", "window_seconds": 86400 }
+    { "name": "distinct_device_id_24h", "kind": "distinct", "field": "device_id", "window_seconds": 86400 },
+    { "name": "distinct_session_id_24h", "kind": "distinct", "field": "session_id", "window_seconds": 86400 }
   ]
 }

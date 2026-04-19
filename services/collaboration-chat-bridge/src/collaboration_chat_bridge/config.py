@@ -57,3 +57,26 @@ class Settings(BaseSettings):
         description="Reply in thread under the triggering message (uses message ts when not already in a thread).",
     )
     slack_max_thread_messages: int = Field(default=20, ge=2, le=50)
+
+    bridge_rate_limit_per_minute: int = Field(
+        default=0,
+        ge=0,
+        le=100_000,
+        description="Per-key POST rate limit (Slack team_id, Teams/Lark client IP); 0 disables.",
+    )
+    bridge_web_fetch_enabled: bool = Field(
+        default=True,
+        description="If true, first https URL in last user message triggers SSRF-hardened fetch prepended to prompt.",
+    )
+    bridge_web_fetch_max_bytes: int = Field(default=500_000, ge=10_000, le=5_000_000)
+    bridge_web_fetch_max_prefix_chars: int = Field(default=24_000, ge=2000, le=200_000)
+    bridge_attachment_max_bytes: int = Field(
+        default=4_000_000,
+        ge=10_000,
+        description="Per Slack file download cap.",
+    )
+    bridge_attachment_max_total_chars: int = Field(
+        default=80_000,
+        ge=2000,
+        description="Total extracted attachment text appended to last user message.",
+    )

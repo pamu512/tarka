@@ -876,7 +876,9 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       ml_score: 0.71,
       recommended_action: "manual_review",
       inference_context: {
-        schema_version: "2",
+        schema_version: "3",
+        calibration_profile: "default",
+        expected_calibration_version: 1,
         integrity_confidence: 0.78,
         tamper_risk: 0.12,
         network_trust: 0.8,
@@ -886,6 +888,7 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
         confidence_tier: "medium",
         driver_reasons: ["hostile_or_anonymous_network_path", "rule:velocity_guard"],
         colocation_risk: 0,
+        copresence_risk: 0,
         impossible_travel_risk: 0.1,
         velocity_events_5m: 2,
         velocity_events_1h: 12,
@@ -908,6 +911,60 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       },
     };
   }
+  if (path.includes("/api/decisions/v1/challenge-policies")) {
+    return {
+      policies: [
+        { policy_id: "default_v1", version: 1, description: "Default escalation ladder" },
+        { policy_id: "strict_review_v1", version: 1, description: "Stricter review thresholds" },
+      ],
+    };
+  }
+  if (path.includes("/api/decisions/v1/ops/governance")) {
+    return {
+      inference_schema_version: "3",
+      rule_packs: { active_pack_count: 2, shadow_pack_count: 1, packs: [] },
+      counter_catalog: {
+        endpoint: "GET /v1/internal/counters/catalog",
+        note: "Merged manifest + titles",
+      },
+      experiment_registry_lines: 0,
+      drift_smoke: { script: "scripts/benchmarks/drift_score_smoke.py", note: "Baseline vs shifted separation guard." },
+    };
+  }
+  if (path.includes("/api/decisions/v1/internal/counters/catalog")) {
+    return {
+      catalog_version: "1",
+      manifest_version: "1.0.0",
+      redis_key_version: null,
+      counters: [
+        { name: "event_count_1h", title: "Events (1 hour)", category: "volume", kind: "event_count", window_seconds: 3600 },
+      ],
+    };
+  }
+  if (path.includes("/api/ingest/v1/ingest/stats") && method === "GET") {
+    return {
+      service: "event-ingest",
+      since: "process_boot",
+      envelope_mode: "optional",
+      require_idempotency_key: false,
+      contract_reject_by_reason: {
+        ingest_event_type_invalid: 2,
+        ingest_idempotency_key_required: 1,
+      },
+      total_contract_rejects: 3,
+      note: "Demo totals for offline UI; live service may return zeros until contract validation rejects traffic.",
+    };
+  }
+  if (path.includes("/evidence-bundle")) {
+    return {
+      bundle_version: "1",
+      tenant_id: "demo",
+      case: { id: "case-demo", title: "Demo case", trace_id: "tr-demo" },
+      decision_audit: { trace_id: "tr-demo", decision: "review", score: 74 },
+      bundle_signature: "mock",
+      signing_key_id: "mock",
+    };
+  }
   if (path.includes("/api/decisions/v1/audit/")) {
     return {
       trace_id: path.split("/").pop(),
@@ -920,7 +977,9 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       rule_hits: ["velocity_guard"],
       recommended_action: "manual_review",
       inference_context: {
-        schema_version: "2",
+        schema_version: "3",
+        calibration_profile: "default",
+        expected_calibration_version: 1,
         integrity_confidence: 0.78,
         tamper_risk: 0.12,
         network_trust: 0.8,
@@ -930,6 +989,7 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
         confidence_tier: "medium",
         driver_reasons: ["hostile_or_anonymous_network_path", "rule:velocity_guard"],
         colocation_risk: 0,
+        copresence_risk: 0,
         impossible_travel_risk: 0.1,
         velocity_events_5m: 2,
         velocity_events_1h: 12,
@@ -955,7 +1015,27 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   }
 
   if (path.includes("/api/cases/v1/cases/ops/kpis")) {
-    return { tenant_id: "demo", total_cases: mockCases.length, queue_score_avg: 85, critical_open: 1, investigating_rate: 0.4, resolved_rate: 0.2, median_case_age_hours: 6.5 };
+    return {
+      tenant_id: "demo",
+      total_cases: mockCases.length,
+      queue_score_avg: 85,
+      critical_open: 1,
+      investigating_rate: 0.4,
+      resolved_rate: 0.2,
+      median_case_age_hours: 6.5,
+      by_status: { open: 2, investigating: 1, closed: 1 } as Record<string, number>,
+      sla_breached_open_or_investigating: 0,
+    };
+  }
+  if (path.includes("/api/cases/v1/cases/analytics/cohort-compare")) {
+    return {
+      tenant_id: "demo",
+      period_days: 7,
+      cases_created_recent: 12,
+      cases_created_prior: 10,
+      delta: 2,
+      delta_percent_vs_prior: 20,
+    };
   }
   if (path.includes("/api/cases/v1/cases/playbooks")) {
     return { playbooks: { escalate: { label: "Escalate", target_status: "investigating" }, close_fp: { label: "Close False Positive", target_status: "closed" } } };
@@ -1014,6 +1094,15 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   }
   if (path.includes("/api/decisions/v1/rules/shadow/observations")) return { observations: [{ id: "obs1", production_decision: "allow", shadow_decision: "review" }] };
   if (path.includes("/api/decisions/v1/rules/shadow/stats")) return { total: 120, diverged: 11, divergence_rate: 0.091 };
+  if (path.includes("/api/decisions/v1/rules/change-log")) {
+    return {
+      items: [
+        { ts: new Date().toISOString(), action: "create", file: "pack_abc.json", actor: "mock", detail: {} },
+      ],
+      path: "rules/rule_change_log.jsonl",
+      count: 1,
+    };
+  }
   if (path.includes("/api/decisions/v1/rules") && method === "GET") return { packs: [{ _file: "default.json", name: "Default", version: 1, rules: [{ id: "velocity_guard", when: [{ field: "amount", op: "gt", value: 500 }], score_delta: 25 }], tag_rules: [] }] };
   if (path.includes("/api/decisions/v1/rules") && ["POST", "PUT", "DELETE"].includes(method)) return { ok: true };
 

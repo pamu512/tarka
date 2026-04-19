@@ -51,6 +51,12 @@ async def client():
 class TestHealthEndpoint:
     @pytest.mark.asyncio
     async def test_health(self, client):
+        r = await client.get("/v1/slo")
+        assert r.status_code == 200
+        slo = r.json()
+        assert slo.get("service") == "decision-api"
+        assert "current" in slo
+
         r = await client.get("/v1/health")
         assert r.status_code == 200
         assert r.json()["status"] == "ok"
@@ -91,8 +97,8 @@ class TestEvaluateDecision:
         from decision_api.main import get_session
 
         with patch("decision_api.main.evaluate_json_rules", return_value=([], [], 0.0)):
-            with patch("decision_api.main.evaluate_opa", new_callable=AsyncMock, return_value=None):
-                with patch("decision_api.main._fetch_ml_score", new_callable=AsyncMock, return_value=(None, {})):
+            with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
+                with patch("decision_api.main._fetch_ml_score_wrapped", new_callable=AsyncMock, return_value=(None, {})):
                     client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
                     r = await client.post("/v1/decisions/evaluate", json={"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}})
                     client.tarka_app.dependency_overrides.pop(get_session, None)
@@ -104,6 +110,8 @@ class TestEvaluateDecision:
                     assert "inference_context" in data
                     assert "integrity_confidence" in data["inference_context"]
                     assert 0 <= data["inference_context"]["integrity_confidence"] <= 1
+                    audit = mock_session.add.call_args[0][0]
+                    assert "canary_cohort" in (audit.payload_snapshot or {})
 
     @pytest.mark.asyncio
     async def test_with_device_context(self, client):
@@ -113,8 +121,8 @@ class TestEvaluateDecision:
         from decision_api.main import get_session
 
         with patch("decision_api.main.evaluate_json_rules", return_value=(["sdk_bot"], ["sdk:bot"], 40.0)):
-            with patch("decision_api.main.evaluate_opa", new_callable=AsyncMock, return_value=None):
-                with patch("decision_api.main._fetch_ml_score", new_callable=AsyncMock, return_value=(None, {})):
+            with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
+                with patch("decision_api.main._fetch_ml_score_wrapped", new_callable=AsyncMock, return_value=(None, {})):
                     client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
                     r = await client.post(
                         "/v1/decisions/evaluate",
@@ -149,6 +157,115 @@ class TestAdminReload:
         with patch("decision_api.main.load_rules"):
             r = await client.post("/v1/admin/rules/reload")
             assert r.status_code == 200
+
+
+class TestOpsEndpoints:
+    @pytest.mark.asyncio
+    async def test_ops_governance_includes_calibration_status(self, client):
+        r = await client.get("/v1/ops/governance")
+        assert r.status_code == 200
+        data = r.json()
+        assert "calibration_status" in data
+        assert "mobile_attestation_taxonomy" in data
+        assert data["mobile_attestation_taxonomy"].get("attestation_schema_version") == 1
+
+    @pytest.mark.asyncio
+    async def test_ops_calibration_status(self, client):
+        r = await client.get("/v1/ops/calibration-status", params={"tenant_id": "t1"})
+        assert r.status_code == 200
+        data = r.json()
+        assert data["tenant_id"] == "t1"
+        assert "calibration" in data
+
+
+class TestVerticalPacks:
+    @pytest.mark.asyncio
+    async def test_list_vertical_packs(self, client):
+        r = await client.get("/v1/rules/vertical-packs")
+        assert r.status_code == 200
+        packs = r.json().get("vertical_packs", {})
+        assert "fintech" in packs
+        assert "ecommerce" in packs
+        assert "gaming" in packs
+
+    @pytest.mark.asyncio
+    async def test_install_vertical_pack_and_conflict(self, client, tmp_path, monkeypatch):
+        monkeypatch.setattr("decision_api.rule_api.settings.rules_path", str(tmp_path))
+        with patch("decision_api.rule_api.load_rules"):
+            first = await client.post("/v1/rules/vertical-packs/fintech/install")
+            assert first.status_code == 201
+            data = first.json()
+            assert data["vertical"] == "fintech"
+            assert data["rules"] >= 1
+
+            second = await client.post("/v1/rules/vertical-packs/fintech/install")
+            assert second.status_code == 409
+
+            overwrite = await client.post("/v1/rules/vertical-packs/fintech/install", params={"overwrite": "true"})
+            assert overwrite.status_code == 201
+
+    @pytest.mark.asyncio
+    async def test_install_unknown_vertical_pack(self, client):
+        r = await client.post("/v1/rules/vertical-packs/unknown/install")
+        assert r.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_benchmark_vertical_pack(self, client):
+        r = await client.post(
+            "/v1/simulation/benchmark/vertical",
+            json={"scenario": "baseline", "vertical": "gaming"},
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert data["vertical"] == "gaming"
+        assert "baseline" in data
+        assert "vertical_pack" in data
+        assert "delta" in data
+        assert {"precision", "recall", "f1_score", "score_separation"} <= set(data["delta"].keys())
+
+
+class TestChampionChallengerPolicyRouting:
+    """OSS #31: optional audit-only challenger rule path vs production canary."""
+
+    @pytest.mark.asyncio
+    async def test_policy_routing_in_audit_when_enabled(self, client, monkeypatch):
+        from decision_api.config import settings as cfg_settings
+
+        monkeypatch.setattr(cfg_settings, "policy_champion_challenger_enabled", True)
+
+        mock_session = AsyncMock()
+        captured: list = []
+
+        def _capture_add(obj):
+            captured.append(obj)
+
+        mock_session.add = MagicMock(side_effect=_capture_add)
+        mock_session.commit = AsyncMock()
+        from decision_api.main import get_session
+
+        def _fake_eval(features, redis_tags, tenant_id, entity_id, evaluation_mode="production", signal_tags=None):
+            if evaluation_mode == "challenger":
+                return ([], [], 50.0)
+            return ([], [], 0.0)
+
+        with patch("decision_api.main.evaluate_json_rules", side_effect=_fake_eval):
+            with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
+                with patch("decision_api.main._fetch_ml_score_wrapped", new_callable=AsyncMock, return_value=(None, {})):
+                    client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
+                    r = await client.post(
+                        "/v1/decisions/evaluate",
+                        json={"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}},
+                    )
+                    client.tarka_app.dependency_overrides.pop(get_session, None)
+        assert r.status_code == 200
+        assert len(captured) == 1
+        snap = captured[0].payload_snapshot
+        assert "policy_routing" in snap
+        pr = snap["policy_routing"]
+        assert pr["champion_decision"] == "allow"
+        assert pr["challenger_decision"] == "review"
+        assert pr["decisions_agree"] is False
+        assert "cohort_bucket_0_99" in pr
 
 
 class TestAudit:

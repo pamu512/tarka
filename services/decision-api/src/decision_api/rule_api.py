@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from decision_api.config import settings
 from decision_api.json_rules import load_rules
+from decision_api.rule_pack_validation import validate_rule_pack as _validate_rule_pack
 from decision_api.shadow import get_observation_stats, get_observations, load_shadow_rules
 from decision_api.vertical_packs import get_vertical_pack, list_vertical_packs
 
@@ -47,12 +50,39 @@ class RulePackIn(BaseModel):
     name: str
     rules: list[RuleIn] = Field(default_factory=list)
     tag_rules: list[TagRuleIn] = Field(default_factory=list)
+    canary_percent: float | None = Field(default=None, ge=0, le=100)
+    effective_at: str | None = Field(default=None, max_length=64)
+    approved_by: str | None = Field(default=None, max_length=256)
 
 
 def _rules_dir() -> Path:
     p = Path(settings.rules_path)
     p.mkdir(parents=True, exist_ok=True)
     return p
+
+
+def _change_log_path() -> Path:
+    return _rules_dir() / "rule_change_log.jsonl"
+
+
+def _append_rule_change(
+    action: str,
+    filename: str,
+    *,
+    actor: str = "api",
+    detail: dict[str, Any] | None = None,
+) -> None:
+    """Append-only audit for lightweight governance (not a full CMDB)."""
+    rec = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "action": action,
+        "file": filename,
+        "actor": actor,
+        "detail": detail or {},
+    }
+    p = _change_log_path()
+    with p.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, default=str) + "\n")
 
 
 def _list_pack_paths() -> dict[str, Path]:
@@ -96,28 +126,33 @@ def _read_all_packs() -> list[dict[str, Any]]:
     return packs
 
 
-def _validate_rule_pack(pack: dict) -> list[str]:
-    """Validate a rule pack and return list of errors."""
-    errors = []
-    rules = pack.get("rules", [])
-    if len(rules) > 200:
-        errors.append(f"Too many rules: {len(rules)} (max 200)")
-    for i, rule in enumerate(rules):
-        rid = rule.get("id", f"rule_{i}")
-        conditions = rule.get("when", [])
-        if len(conditions) > 20:
-            errors.append(f"Rule {rid}: too many conditions ({len(conditions)}, max 20)")
-        for j, c in enumerate(conditions):
-            if not c.get("field"):
-                errors.append(f"Rule {rid}, condition {j}: missing 'field'")
-            if c.get("op") == "regex":
-                pattern = str(c.get("value", ""))
-                if len(pattern) > 256:
-                    errors.append(f"Rule {rid}, condition {j}: regex pattern too long")
-        sd = rule.get("score_delta", 0)
-        if abs(float(sd)) > 100:
-            errors.append(f"Rule {rid}: score_delta {sd} exceeds bounds (-100, 100)")
-    return errors
+def _actor_from_headers(x_actor: str | None) -> str:
+    a = (x_actor or os.environ.get("RULE_CHANGE_ACTOR") or "api").strip()
+    return a[:256] if a else "api"
+
+
+@router.get("/change-log")
+async def get_rule_change_log(
+    limit: int = Query(default=100, ge=1, le=2000),
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+):
+    """Recent rule pack mutations (append-only JSONL under rules_path)."""
+    _ = _actor_from_headers(x_actor)
+    p = _change_log_path()
+    if not p.is_file():
+        return {"items": [], "path": str(p)}
+    lines = p.read_text(encoding="utf-8").splitlines()
+    tail = lines[-limit:] if len(lines) > limit else lines
+    items: list[dict[str, Any]] = []
+    for line in reversed(tail):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            items.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return {"items": items, "path": str(p), "count": len(items)}
 
 
 @router.get("")
@@ -131,7 +166,11 @@ async def list_vertical_pack_catalog():
 
 
 @router.post("/vertical-packs/{vertical_name}/install", status_code=201)
-async def install_vertical_pack(vertical_name: str, overwrite: bool = False):
+async def install_vertical_pack(
+    vertical_name: str,
+    overwrite: bool = False,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+):
     pack = get_vertical_pack(vertical_name)
     if not pack:
         raise HTTPException(404, f"unknown vertical pack '{vertical_name}'")
@@ -157,6 +196,12 @@ async def install_vertical_pack(vertical_name: str, overwrite: bool = False):
     fpath = existing_path or _new_pack_path("vertical")
     fpath.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     load_rules()
+    _append_rule_change(
+        "install_vertical",
+        fpath.name,
+        actor=_actor_from_headers(x_actor),
+        detail={"vertical": vertical_name.lower(), "overwrite": overwrite},
+    )
     return {"installed": fpath.name, "vertical": vertical_name.lower(), "rules": len(pack.get("rules", []))}
 
 
@@ -169,7 +214,7 @@ async def get_rule_pack(filename: str):
 
 
 @router.post("", status_code=201)
-async def create_rule_pack(body: RulePackIn):
+async def create_rule_pack(body: RulePackIn, x_actor: str | None = Header(default=None, alias="X-Actor")):
     slug = _slugify_pack_name(body.name)
     for path in _list_pack_paths().values():
         try:
@@ -184,6 +229,9 @@ async def create_rule_pack(body: RulePackIn):
         "name": body.name,
         "rules": [_rule_to_dict(r) for r in body.rules],
         "tag_rules": [_tag_rule_to_dict(r) for r in body.tag_rules],
+        "canary_percent": body.canary_percent,
+        "effective_at": body.effective_at,
+        "approved_by": body.approved_by,
     }
     errors = _validate_rule_pack(pack)
     if errors:
@@ -191,36 +239,47 @@ async def create_rule_pack(body: RulePackIn):
     fpath = _new_pack_path("pack")
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()
+    _append_rule_change("create", fpath.name, actor=_actor_from_headers(x_actor), detail={"name": body.name})
     return {"file": fpath.name, "pack": pack}
 
 
 @router.put("/{filename}")
-async def update_rule_pack(filename: str, body: RulePackIn):
+async def update_rule_pack(filename: str, body: RulePackIn, x_actor: str | None = Header(default=None, alias="X-Actor")):
     fpath = _existing_pack_path(filename)
     pack = {
         "version": 1,
         "name": body.name,
         "rules": [_rule_to_dict(r) for r in body.rules],
         "tag_rules": [_tag_rule_to_dict(r) for r in body.tag_rules],
+        "canary_percent": body.canary_percent,
+        "effective_at": body.effective_at,
+        "approved_by": body.approved_by,
     }
     errors = _validate_rule_pack(pack)
     if errors:
         raise HTTPException(422, detail={"validation_errors": errors})
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()
+    _append_rule_change(
+        "update",
+        filename,
+        actor=_actor_from_headers(x_actor),
+        detail={"name": body.name, "rule_count": len(pack.get("rules", []))},
+    )
     return {"file": filename, "pack": pack}
 
 
 @router.delete("/{filename}")
-async def delete_rule_pack(filename: str):
+async def delete_rule_pack(filename: str, x_actor: str | None = Header(default=None, alias="X-Actor")):
     fpath = _existing_pack_path(filename)
     fpath.unlink()
     load_rules()
+    _append_rule_change("delete", filename, actor=_actor_from_headers(x_actor))
     return {"deleted": filename}
 
 
 @router.post("/{filename}/rules")
-async def add_rule(filename: str, body: RuleIn):
+async def add_rule(filename: str, body: RuleIn, x_actor: str | None = Header(default=None, alias="X-Actor")):
     fpath = _existing_pack_path(filename)
     pack = json.loads(fpath.read_text(encoding="utf-8"))
     if not body.id:
@@ -228,6 +287,7 @@ async def add_rule(filename: str, body: RuleIn):
     pack.setdefault("rules", []).append(_rule_to_dict(body))
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()
+    _append_rule_change("add_rule", filename, actor=_actor_from_headers(x_actor), detail={"rule_id": body.id})
     return {"added": body.id}
 
 
@@ -236,7 +296,7 @@ class RulePackMode(BaseModel):
 
 
 @router.put("/{filename}/mode")
-async def set_pack_mode(filename: str, body: RulePackMode):
+async def set_pack_mode(filename: str, body: RulePackMode, x_actor: str | None = Header(default=None, alias="X-Actor")):
     """Set a rule pack to active, shadow, or disabled mode."""
     fpath = _existing_pack_path(filename)
     if body.mode not in ("active", "shadow", "disabled"):
@@ -245,11 +305,12 @@ async def set_pack_mode(filename: str, body: RulePackMode):
     pack["mode"] = body.mode
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()
+    _append_rule_change("set_mode", filename, actor=_actor_from_headers(x_actor), detail={"mode": body.mode})
     return {"file": filename, "mode": body.mode}
 
 
 @router.delete("/{filename}/rules/{rule_id}")
-async def remove_rule(filename: str, rule_id: str):
+async def remove_rule(filename: str, rule_id: str, x_actor: str | None = Header(default=None, alias="X-Actor")):
     fpath = _existing_pack_path(filename)
     pack = json.loads(fpath.read_text(encoding="utf-8"))
     original = len(pack.get("rules", []))
@@ -258,6 +319,7 @@ async def remove_rule(filename: str, rule_id: str):
         raise HTTPException(404, f"rule '{rule_id}' not found")
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()
+    _append_rule_change("remove_rule", filename, actor=_actor_from_headers(x_actor), detail={"rule_id": rule_id})
     return {"deleted": rule_id}
 
 

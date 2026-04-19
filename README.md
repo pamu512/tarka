@@ -6,6 +6,7 @@
 
 [![CI](https://github.com/pamu512/tarka/actions/workflows/ci.yml/badge.svg)](https://github.com/pamu512/tarka/actions/workflows/ci.yml)
 [![Security scan](https://github.com/pamu512/tarka/actions/workflows/security-scan.yml/badge.svg)](https://github.com/pamu512/tarka/actions/workflows/security-scan.yml)
+[![Secret scan](https://github.com/pamu512/tarka/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/pamu512/tarka/actions/workflows/secret-scan.yml)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?hide_repo_select=true&ref=master&repo=pamu512%2Ftarka)
 
 > **Prove every signal.**
@@ -28,11 +29,19 @@ Open-source, modular fraud detection platform. Pick the components you need or r
 
 These capabilities are in the codebase today and roll forward on `master`:
 
-- **Decision API:** normalized **`inference_context`** on evaluate responses (integrity, tamper, network trust, replay, geo-consistency, top signals) plus OpenAPI contract alignment.
-- **Ingress hardening:** **replay-style payload detection** (short-lived Redis signatures) folded into scoring and audit context.
-- **SDKs:** **Python** and **TypeScript** clients typed for `inference_context` on evaluate responses.
+- **Decision API:** normalized **`inference_context`** on evaluate responses (integrity, tamper, network trust, replay, geo-consistency, top signals) plus OpenAPI contract alignment; **session geo** merges optional **browser GPS** and **server IP geo** hints; **`sdk:geo_ip_mismatch`** / **`sdk:geo_tz_mismatch`** signal tags when inconsistent; **`/v1/ops/calibration-status`** and **`calibration_status`** on **`/v1/ops/governance`** for drift posture.
+- **Ingress hardening:** **replay-style payload detection** (short-lived Redis signatures) folded into scoring and audit context; optional **HMAC** on `POST /v1/decisions/evaluate` when **`REQUEST_SIGNATURE_SECRET`** is set (see [TLS pinning & signed requests](docs/docs/guides/tls-pinning-and-signed-requests.md)).
+- **SDKs:** **Python** and **TypeScript** clients typed for `inference_context` on evaluate responses; **TypeScript** optional **`enableGeo`** (browser GPS); **Python** server collector optional **`enable_ip_geo`** / **`ENABLE_IP_GEO_LOOKUP`** (public IP lookup is **off** by default).
+- **Graph (lite path):** default schema includes **`Place`** (quantized geo cells) and **`SEEN_AT`** edges for co-location–style graph context when enabled.
 - **Frontend:** case explainability surfaces **inference metrics**; API client can **fall back to mock data** when backends are down (demo-friendly).
 - **Ops / planning:** module **project roadmaps** under `docs/docs/projects/`, **30/60/90** plan, competitive notes, and **OSS adoption backlog** (issues + dependency order in docs).
+
+### April 2026 — Investigation copilot, collaboration bridge, and ops
+
+- **Investigation agent (Saarthi):** **`GET /v1/ready`** (data-dir readiness), **`GET /v1/setup`** (first-run checklist), and a **`production`** object on **`GET /v1/health`** when production profiling is enabled; **`GET /v1/workflows`** with **`workflow_id` / `workflow_params`** (plus **`playbook_id` / `batch_id`** where applicable) on **`POST /v1/chat`**; **case-summary PDF** and **turn-bundle** report routes; optional **copilot rate limits** and **request body size cap**. Reference env: **`services/investigation-agent/.env.reference.example`**. Hardening compose: **`deploy/docker-compose.production-hardening.yml`**. Integration notes: **[CHANGELOG_INTEGRATION](docs/docs/guides/CHANGELOG_INTEGRATION.md)**.
+- **Collaboration chat bridge** (`services/collaboration-chat-bridge`): **Slack, Microsoft Teams, and Lark** with optional **per-source minute rate limits**; **Slack file** text extraction (plain text, CSV, PDF, **Excel .xlsx**); **SSRF-hardened** fetch of the first public **`https://`** URL in the user line; directives **`!wf`**, **`!wfp`**, **`!style`**; forwards workflow and batch fields to the agent. Details: **`services/collaboration-chat-bridge/README.md`**, **[Collaboration chat & cloud](docs/docs/guides/investigation-collaboration-chat-aws-azure.md)**.
+- **Frontend:** **Investigation** page updates for copilot setup and workflows (`frontend/src/pages/Investigation.tsx`).
+- **Observability & deploy:** Grafana dashboard JSON for copilot metrics under **`deploy/observability/`**; optional **`deploy/docker-compose.host-ports.override.yml`** for local port mapping; guide **[Investigation CMS & ITSM](docs/docs/guides/investigation-cms-and-itsm-integrations.md)**.
 
 ### v1.1.0 train — tests, CI/CD, security, onboarding
 
@@ -45,8 +54,9 @@ Mirrors [docs/docs/releases/v1.1.0-2026-04-30.md](docs/docs/releases/v1.1.0-2026
 
 **CI/CD, security hygiene, and first-run polish**
 
-- **GitHub Actions CI** (`main` / `master`): Ruff; **decision-api** tests with coverage gate (**≥45%**, path to 60%+); **case-api**, **Python SDK**; **graph-service**; **integration-ingress**; **investigation-agent**; **graphql-gateway**, **event-ingest**, **analytics-sink**, **feature-service**, **ml-scoring**; **frontend** + **TypeScript SDK** **`npm run build`**; **Alembic** migrations for decision/case APIs on PostgreSQL startup; **GraphQL** **`/metrics`** via shared observability; coverage XML artifacts; **Docker builds** gated on all jobs.
+- **GitHub Actions CI** (`main` / `master`): Ruff; **decision-api** tests with coverage gate (**≥48%** as enforced in **`.github/workflows/ci.yml`**, path to 60%+); **case-api**, **Python SDK**; **graph-service**; **integration-ingress**; **investigation-agent**; **graphql-gateway**, **event-ingest**, **analytics-sink**, **feature-service**, **ml-scoring**; **frontend** + **TypeScript SDK** **`npm run build`**; **Alembic** migrations for decision/case APIs on PostgreSQL startup; **GraphQL** **`/metrics`** via shared observability; **`benchmark-latency-evaluate`** job (lite compose + **`scripts/benchmarks/latency_evaluate.py`** artifact); coverage XML artifacts; **Docker builds** gated on all jobs.
 - **Security scanning workflow**: **Trivy** filesystem + **decision-api** image → **SARIF** upload (where code scanning is enabled); weekly schedule.
+- **Secret scanning workflow**: **TruffleHog** on push/PR/schedule (**`.github/workflows/secret-scan.yml`**).
 - **Dependabot**: grouped updates for **GitHub Actions**, **pip** (core services), **npm** (frontend).
 - **Docs:** **`SECURITY.md`** (responsible disclosure), **`LICENSE-DEPENDENCIES.md`** (Neo4j AGPL / lite and alternates), **`CODE_OF_CONDUCT.md`**, **`docs/docs/guides/security-scanning.md`**, **`docs/docs/guides/sandbox-five-minute.md`** (copy-paste evaluate + OSINT + UI path).
 - **Onboarding:** **`.devcontainer/devcontainer.json`** (Codespaces / Docker-outside-Docker); **README** badges (CI, security scan, Codespaces); **Maintainer walkthrough (Loom, [Tarka](https://github.com/pamu512/tarka) / this repo only):** [five-minute sandbox + Case Detail explainability](https://www.loom.com/share/b46f1eccbc6b438381ee44c6978f2f5e). *(Not [Skuld](https://github.com/pamu512/Skuld) or other repos — those are separate products.)*
@@ -260,8 +270,12 @@ Event Ingest --> NATS JetStream --> Analytics Sink --> ClickHouse
 |-----|----------|
 | `packages/fraud-sdk-typescript` | Web (browser) — device signals + behavioral biometrics |
 | `packages/fraud-sdk-python` | Server-side Python — IP/geo signal collection |
-| `packages/fraud-sdk-android` | Android (Kotlin) — Play Integrity attestation |
-| `packages/fraud-sdk-ios` | iOS (Swift) — App Attest |
+| `packages/fraud-sdk-android` | **Android (Kotlin)** — `io.tarka.sdk`, Play Integrity, `device_context` ([README](packages/fraud-sdk-android/README.md)) |
+| `packages/fraud-sdk-ios` | **iOS (Swift)** — App Attest, `device_context` ([README](packages/fraud-sdk-ios/README.md)) |
+
+**SDK positioning (directional, mid-scale scores):** [docs/docs/guides/sdk-scorecard-2026-01.md](docs/docs/guides/sdk-scorecard-2026-01.md).
+
+**Highly regulated sectors (fintech, banking, crypto-adjacent):** optional **[regulated markets feature pack](docs/docs/guides/feature-pack-regulated-markets.md)** checklist — ingress integrity, attestation, audit, self-hosted boundaries. **SOC 2 / PCI / ISO** orientation: [compliance readiness](docs/docs/guides/compliance-readiness-soc2-pci-iso.md).
 
 ## Frontend Pages
 

@@ -119,12 +119,17 @@ def apply_challenge_policy(
     Returns (final_recommended_action, metadata for audit/UI).
     """
     load_challenge_policies()
-    pid = (policy_id or settings.challenge_policy_default or "default_v1").strip()
+    requested_pid = (policy_id or "").strip()
+    default_pid = (settings.challenge_policy_default or "default_v1").strip()
+    pid = requested_pid or default_pid
     meta: dict[str, Any] = {
         "policy_id": pid,
+        "requested_policy_id": requested_pid or None,
+        "default_policy_id": default_pid,
         "matched_rule_id": None,
         "rule_index": None,
         "escalation_ladder": [],
+        "effective_source": "requested" if requested_pid else "default",
     }
     if _policies is None or not _policies:
         meta["note"] = "no_policies_loaded"
@@ -133,8 +138,14 @@ def apply_challenge_policy(
     policy = _policies.get(pid)
     if not policy:
         log.warning("unknown challenge_policy_id=%r", pid)
-        meta["error"] = "unknown_policy"
-        return base_action, meta
+        fallback = _policies.get(default_pid)
+        if fallback:
+            policy = fallback
+            meta["error"] = "unknown_policy_fallback_default"
+            meta["effective_source"] = "fallback_default"
+        else:
+            meta["error"] = "unknown_policy"
+            return base_action, meta
 
     meta["policy_id"] = str(policy.get("policy_id", pid))
     meta["escalation_ladder"] = list(policy.get("escalation_ladder", []))

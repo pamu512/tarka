@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from fraud_aggregates import AggregateStore, normalized_velocity_key_names  # noqa: E402
-from observability import setup_observability  # noqa: E402
+from observability import get_metrics, setup_observability  # noqa: E402
 
 # ---------- auth ----------
 _valid_api_keys: frozenset[str] | None = None
@@ -118,6 +118,19 @@ class VelocityQueryRequest(BaseModel):
     )
 
 
+class ParityVerifyRequest(BaseModel):
+    """OSS #48 — compare live Redis velocity counters to golden fixture expectations."""
+
+    tenant_id: str
+    entity_id: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+    expected: dict[str, float] = Field(
+        ...,
+        description="Expected counter values (e.g. event_count_1h); float equality within epsilon",
+    )
+    epsilon: float = Field(default=0.5, ge=0.0, le=1_000_000.0)
+
+
 # ---------- feature engineering helpers ----------
 
 AMOUNT_BUCKETS = [
@@ -211,6 +224,16 @@ async def _fetch_enrichment(
     return features
 
 
+def _normalize_location_features(features: dict[str, Any]) -> None:
+    """Alias OSINT IP geo into generic ip_geo_* keys for downstream decision-api."""
+    if features.get("osint_ip_geo_lat") is not None and features.get("ip_geo_lat") is None:
+        features["ip_geo_lat"] = features["osint_ip_geo_lat"]
+    if features.get("osint_ip_geo_lon") is not None and features.get("ip_geo_lon") is None:
+        features["ip_geo_lon"] = features["osint_ip_geo_lon"]
+    if features.get("osint_ip_geo_timezone") and not features.get("ip_geo_timezone"):
+        features["ip_geo_timezone"] = features["osint_ip_geo_timezone"]
+
+
 async def _fetch_osint(
     http: httpx.AsyncClient,
     payload: dict[str, Any],
@@ -245,6 +268,20 @@ async def _fetch_osint(
     features["osint_ip_hosting"] = ip_flags.get("hosting", False)
     vulns = ip_data.get("vulnerabilities", []) if isinstance(ip_data, dict) else []
     features["osint_ip_vuln_count"] = len(vulns) if isinstance(vulns, list) else 0
+    geo_block = ip_data.get("geo") if isinstance(ip_data, dict) else {}
+    if isinstance(geo_block, dict):
+        la = geo_block.get("lat")
+        lo = geo_block.get("lon")
+        try:
+            if la is not None:
+                features["osint_ip_geo_lat"] = float(la)
+            if lo is not None:
+                features["osint_ip_geo_lon"] = float(lo)
+        except (TypeError, ValueError):
+            pass
+        tzg = geo_block.get("timezone")
+        if isinstance(tzg, str) and tzg:
+            features["osint_ip_geo_timezone"] = tzg
 
     email_data = enrichments.get("email", {})
     if isinstance(email_data, dict):
@@ -296,6 +333,21 @@ async def health():
     return {"status": "ok"}
 
 
+@app.get("/v1/slo")
+async def slo_status(request: Request):
+    m = get_metrics()
+    cur = m.request_count_summary()
+    store = getattr(request.app.state, "velocity_store", None)
+    return {
+        "service": "feature-service",
+        "availability_target_pct": 99.9,
+        "latency_target_ms_p95": 150,
+        "error_budget_window_days": 30,
+        "targets_note": "See docs/docs/guides/service-slos-v1.md; current from in-process HTTP counters.",
+        "current": {**cur, "redis_velocity_configured": store is not None},
+    }
+
+
 @app.post("/v1/velocity/query")
 async def velocity_query(body: VelocityQueryRequest, request: Request):
     """
@@ -319,6 +371,56 @@ async def velocity_query(body: VelocityQueryRequest, request: Request):
     }
 
 
+@app.post("/v1/internal/parity/verify")
+async def parity_verify(body: ParityVerifyRequest, request: Request):
+    """
+    Golden parity gate: read velocity from Redis and diff vs ``expected`` within ``epsilon``.
+    Returns 200 with ``ok: true`` when all keys match; 409 when drift exceeds epsilon.
+    """
+    store = getattr(request.app.state, "velocity_store", None)
+    if not store:
+        raise HTTPException(
+            status_code=503,
+            detail="Redis not configured — cannot verify parity",
+        )
+    live = await store.compute_features(body.tenant_id, body.entity_id, body.payload)
+    drift: dict[str, Any] = {}
+    ok = True
+    eps = float(body.epsilon)
+    for key, exp in body.expected.items():
+        try:
+            exp_f = float(exp)
+        except (TypeError, ValueError):
+            drift[key] = {"expected": exp, "live": live.get(key), "error": "non_numeric_expected"}
+            ok = False
+            continue
+        lv = live.get(key)
+        try:
+            lv_f = float(lv) if lv is not None else None
+        except (TypeError, ValueError):
+            lv_f = None
+        if lv_f is None:
+            drift[key] = {"expected": exp_f, "live": lv, "delta": None}
+            ok = False
+            continue
+        delta = abs(lv_f - exp_f)
+        if delta > eps:
+            drift[key] = {"expected": exp_f, "live": lv_f, "delta": delta}
+            ok = False
+    out = {
+        "ok": ok,
+        "tenant_id": body.tenant_id,
+        "entity_id": body.entity_id,
+        "epsilon": eps,
+        "checked_keys": list(body.expected.keys()),
+        "drift": drift,
+        "live_sample": {k: live.get(k) for k in body.expected.keys()},
+    }
+    if not ok:
+        raise HTTPException(status_code=409, detail=out)
+    return out
+
+
 @app.post("/v1/snapshot")
 async def snapshot(body: SnapshotRequest, request: Request):
     http: httpx.AsyncClient = request.app.state.http
@@ -335,6 +437,8 @@ async def snapshot(body: SnapshotRequest, request: Request):
         )
         features.update(enrichment_features)
         features.update(osint_features)
+
+    _normalize_location_features(features)
 
     redis_tags: list[str] = []
     if REDIS_TAGS_URL:

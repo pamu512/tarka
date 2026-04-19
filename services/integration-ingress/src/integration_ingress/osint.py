@@ -413,6 +413,18 @@ async def enrich_ip_full(
         if r.get("country") and not geo.get("country"):
             geo["country"] = r.get("country")
             geo["city"] = r.get("city")
+        if r.get("lat") is not None and geo.get("lat") is None:
+            try:
+                geo["lat"] = float(r["lat"])
+            except (TypeError, ValueError):
+                pass
+        if r.get("lon") is not None and geo.get("lon") is None:
+            try:
+                geo["lon"] = float(r["lon"])
+            except (TypeError, ValueError):
+                pass
+        if r.get("timezone") and not geo.get("timezone"):
+            geo["timezone"] = r.get("timezone")
         for flag in flags:
             if r.get(flag):
                 flags[flag] = True

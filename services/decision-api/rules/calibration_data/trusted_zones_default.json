@@ -1,0 +1,11 @@
+{
+  "zones": [
+    {
+      "lat": 40.7128,
+      "lon": -74.006,
+      "radius_km": 80,
+      "label": "example_home_region"
+    }
+  ],
+  "notes": "Override with trusted_zones_<tenant_id>.json or payload.trusted_zones per request."
+}

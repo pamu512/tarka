@@ -67,6 +67,14 @@ The NATS → Decision worker increments Prometheus counters (exposed on **`/metr
 
 **`GET /v1/health`** includes **`redis_configured`** and **`redis_ok`** (null when Redis is not configured).
 
+### DLQ (optional, Epic E2)
+
+Set **`INGEST_DLQ_SUBJECT`** (e.g. **`fraud.events.dlq`**) and **`INGEST_DLQ_PUBLISH_ON_EVALUATE_4XX=true`** so the NATS→Decision worker **acks** 4xx evaluates and publishes a structured envelope to the DLQ subject (must match the JetStream wildcard, typically **`fraud.events.>`**). Replay: **`scripts/etl/replay_dlq.py`** (`--dry-run` first).
+
+### Silver export checks
+
+**`scripts/etl/check_silver_features.py`** — validates JSONL rows for **`tenant_id`**, **`entity_id`**, **`event_type`** enum, numeric **`amount`**. See **[etl-bronze-silver-gold.md](./etl-bronze-silver-gold.md)**.
+
 ## Offline aggregate replay (v1.2)
 
 Use a **dedicated Redis database** (e.g. `redis://localhost:6379/15`) so you do not overwrite production keys.

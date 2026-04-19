@@ -1,0 +1,30 @@
+{
+  "schema_version": "3",
+  "calibration_profile": "default",
+  "expected_calibration_version": 1,
+  "confidence_tier_label": "Medium — mixed signals; review edge cases",
+  "driver_explain": [
+    {
+      "reason": "hostile_or_anonymous_network_path",
+      "category": "network",
+      "label": "VPN, proxy, or hostile network path"
+    }
+  ],
+  "integrity_confidence": 0.65,
+  "tamper_risk": 0.25,
+  "network_trust": 0.8,
+  "replay_risk": 0.5,
+  "geo_consistency_risk": 0.0,
+  "top_signals": ["sdk:vpn"],
+  "confidence_tier": "medium",
+  "driver_reasons": ["hostile_or_anonymous_network_path"],
+  "colocation_risk": 0.0,
+  "copresence_risk": 0.0,
+  "impossible_travel_risk": 0.35,
+  "velocity_events_5m": 0,
+  "velocity_events_1h": 10,
+  "velocity_events_24h": 100,
+  "ml_top_factors": [],
+  "ml_summary": null,
+  "ml_model": null
+}
