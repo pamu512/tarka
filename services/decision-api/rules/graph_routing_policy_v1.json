@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "description": "OSS #42 — graph selective routing policy keyed on event_type, base_score, and tags.",
+  "default": {
+    "skip_graph": false,
+    "graph_checkpoint": null
+  },
+  "rules": [
+    {
+      "id": "login_low_risk_skip_graph",
+      "when": [
+        { "op": "eq", "field": "event_type", "value": "login" },
+        { "op": "lt", "field": "base_score", "value": 25 }
+      ],
+      "skip_graph": true,
+      "graph_checkpoint": null,
+      "description": "Skip graph for low-risk login events to save capacity."
+    },
+    {
+      "id": "payment_medium_risk_minimal_graph",
+      "when": [
+        { "op": "eq", "field": "event_type", "value": "payment" },
+        { "op": "gte", "field": "base_score", "value": 25 },
+        { "op": "lt", "field": "base_score", "value": 60 }
+      ],
+      "skip_graph": false,
+      "graph_checkpoint": "minimal",
+      "description": "Use minimal checkpoint for medium-risk payments."
+    },
+    {
+      "id": "payment_high_risk_deep_graph",
+      "when": [
+        { "op": "eq", "field": "event_type", "value": "payment" },
+        { "op": "gte", "field": "base_score", "value": 60 }
+      ],
+      "skip_graph": false,
+      "graph_checkpoint": "deep",
+      "description": "Use deep checkpoint for high-risk payments."
+    }
+  ]
+}
