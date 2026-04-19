@@ -632,9 +632,17 @@ export const ml = {
 
 // ── Rules (decision-api :8000, /v1/rules router) ────────────────────
 
-const _ruleActorHeaders = (): HeadersInit => ({
-  "X-Actor": (typeof localStorage !== "undefined" && localStorage.getItem("tarka.rule_actor")) || "web-ui",
-});
+const _ruleActorHeaders = (): HeadersInit => {
+  const h: Record<string, string> = {
+    "X-Actor": (typeof localStorage !== "undefined" && localStorage.getItem("tarka.rule_actor")) || "web-ui",
+  };
+  const gov =
+    typeof localStorage !== "undefined" ? localStorage.getItem("tarka.rule_governance_secret")?.trim() : "";
+  if (gov) {
+    h["X-Rule-Governance-Secret"] = gov;
+  }
+  return h;
+};
 
 export const rules = {
   list() {
@@ -645,6 +653,15 @@ export const rules = {
     return request<{ items: Array<{ ts: string; action: string; file: string; actor: string; detail?: unknown }> }>(
       `/api/decisions/v1/rules/change-log?limit=${limit}`,
     );
+  },
+
+  telemetry() {
+    return request<{
+      since_unix: number;
+      total_hits: number;
+      unique_keys: number;
+      rows: Array<{ pack_file: string; rule_id: string; kind: string; hits: number }>;
+    }>("/api/decisions/v1/rules/telemetry");
   },
 
   create(data: { name: string; rules?: unknown[]; tag_rules?: unknown[] }) {
