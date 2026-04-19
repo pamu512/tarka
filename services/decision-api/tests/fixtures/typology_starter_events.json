@@ -1,0 +1,26 @@
+[
+  {
+    "name": "velocity_abuse_warning",
+    "hits": ["velocity_high_1h"],
+    "features": {
+      "event_count_1h": 30,
+      "event_count_24h": 40
+    }
+  },
+  {
+    "name": "amount_stress_alert",
+    "hits": ["high_sum_amount_24h"],
+    "features": {
+      "sum_amount_24h": 75000
+    }
+  },
+  {
+    "name": "new_payee_risk_warning",
+    "hits": ["many_devices_24h", "many_ips_24h"],
+    "features": {
+      "distinct_device_id_24h": 3,
+      "distinct_ip_address_24h": 6
+    }
+  }
+]
+
