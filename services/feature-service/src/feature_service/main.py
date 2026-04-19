@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from fraud_aggregates import AggregateStore, normalized_velocity_key_names  # noqa: E402
-from observability import setup_observability  # noqa: E402
+from observability import get_metrics, setup_observability  # noqa: E402
 
 # ---------- auth ----------
 _valid_api_keys: frozenset[str] | None = None
@@ -116,6 +116,19 @@ class VelocityQueryRequest(BaseModel):
         default_factory=dict,
         description="Fields used to select sum/avg/distinct branches (e.g. amount, ip_address, device_id)",
     )
+
+
+class ParityVerifyRequest(BaseModel):
+    """OSS #48 — compare live Redis velocity counters to golden fixture expectations."""
+
+    tenant_id: str
+    entity_id: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+    expected: dict[str, float] = Field(
+        ...,
+        description="Expected counter values (e.g. event_count_1h); float equality within epsilon",
+    )
+    epsilon: float = Field(default=0.5, ge=0.0, le=1_000_000.0)
 
 
 # ---------- feature engineering helpers ----------
@@ -320,6 +333,21 @@ async def health():
     return {"status": "ok"}
 
 
+@app.get("/v1/slo")
+async def slo_status(request: Request):
+    m = get_metrics()
+    cur = m.request_count_summary()
+    store = getattr(request.app.state, "velocity_store", None)
+    return {
+        "service": "feature-service",
+        "availability_target_pct": 99.9,
+        "latency_target_ms_p95": 150,
+        "error_budget_window_days": 30,
+        "targets_note": "See docs/docs/guides/service-slos-v1.md; current from in-process HTTP counters.",
+        "current": {**cur, "redis_velocity_configured": store is not None},
+    }
+
+
 @app.post("/v1/velocity/query")
 async def velocity_query(body: VelocityQueryRequest, request: Request):
     """
@@ -341,6 +369,56 @@ async def velocity_query(body: VelocityQueryRequest, request: Request):
         "velocity_counters": vel,
         "velocity_key_order": list(normalized_velocity_key_names()),
     }
+
+
+@app.post("/v1/internal/parity/verify")
+async def parity_verify(body: ParityVerifyRequest, request: Request):
+    """
+    Golden parity gate: read velocity from Redis and diff vs ``expected`` within ``epsilon``.
+    Returns 200 with ``ok: true`` when all keys match; 409 when drift exceeds epsilon.
+    """
+    store = getattr(request.app.state, "velocity_store", None)
+    if not store:
+        raise HTTPException(
+            status_code=503,
+            detail="Redis not configured — cannot verify parity",
+        )
+    live = await store.compute_features(body.tenant_id, body.entity_id, body.payload)
+    drift: dict[str, Any] = {}
+    ok = True
+    eps = float(body.epsilon)
+    for key, exp in body.expected.items():
+        try:
+            exp_f = float(exp)
+        except (TypeError, ValueError):
+            drift[key] = {"expected": exp, "live": live.get(key), "error": "non_numeric_expected"}
+            ok = False
+            continue
+        lv = live.get(key)
+        try:
+            lv_f = float(lv) if lv is not None else None
+        except (TypeError, ValueError):
+            lv_f = None
+        if lv_f is None:
+            drift[key] = {"expected": exp_f, "live": lv, "delta": None}
+            ok = False
+            continue
+        delta = abs(lv_f - exp_f)
+        if delta > eps:
+            drift[key] = {"expected": exp_f, "live": lv_f, "delta": delta}
+            ok = False
+    out = {
+        "ok": ok,
+        "tenant_id": body.tenant_id,
+        "entity_id": body.entity_id,
+        "epsilon": eps,
+        "checked_keys": list(body.expected.keys()),
+        "drift": drift,
+        "live_sample": {k: live.get(k) for k in body.expected.keys()},
+    }
+    if not ok:
+        raise HTTPException(status_code=409, detail=out)
+    return out
 
 
 @app.post("/v1/snapshot")

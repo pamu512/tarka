@@ -24,6 +24,18 @@ paths:
                   status:
                     type: string
                     example: ok
+  /v1/slo:
+    get:
+      operationId: sloStatus
+      summary: SLO targets and in-process HTTP counters (v1.2.5)
+      responses:
+        "200":
+          description: SLO snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
   /v1/decisions/evaluate:
     post:
       operationId: evaluateDecision
@@ -753,8 +765,8 @@ components:
             tls_pinning_verified (bool) for MitM posture hints;
             vendor_visitor_id, vendor_device_id, vendor_install_id (strings) for server-side vendor→entity
             bridge when consent and mapping contract exist — see docs/guides/device-id-semantics.md.
-            For velocity windows, optional event_time (or event_ts, occurred_at) — ISO-8601 or unix seconds —
-            sets Redis aggregate timestamps to business time when present; see docs/guides/late-arrival-watermarks.md.
+            Optional event_time (or event_ts, occurred_at) — ISO-8601 or unix seconds — sets Redis aggregate
+            timestamps to business time for velocity windows when present; see docs/guides/late-arrival-watermarks.md.
         challenge_policy_id:
           type: string
           nullable: true
@@ -805,6 +817,12 @@ components:
           nullable: true
           additionalProperties: true
           description: Matched rule id, escalation ladder, rule index (audit-friendly)
+        fallback_reason:
+          type: string
+          nullable: true
+          description: >-
+            Present when evaluation used degraded dependencies (circuit open, tenant kill-switch) or rules-only blend;
+            mirrors audit payload_snapshot.fallback_reason.
     DriverExplainEntry:
       type: object
       required: [reason, category, label]
@@ -838,6 +856,9 @@ components:
         - velocity_events_5m
         - velocity_events_1h
         - velocity_events_24h
+        - calibration_profile_version
+        - location_confidence
+        - confidence_sources
       properties:
         schema_version:
           type: string
@@ -920,6 +941,30 @@ components:
         velocity_events_24h:
           type: integer
           minimum: 0
+        calibration_profile_version:
+          type: integer
+          minimum: 1
+          description: Active calibration profile version returned by calibration service
+        location_confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Location confidence score returned by location service evaluation
+        confidence_sources:
+          type: object
+          description: Source provenance for calibration/counter/location enrichments.
+          required: [calibration, counter, location]
+          properties:
+            calibration:
+              type: string
+              description: calibration-service | calibration-heuristic
+            counter:
+              type: string
+              description: counter-service | counter-local-fallback | counter-heuristic
+            location:
+              type: string
+              description: location-service | location-heuristic
         ml_top_factors:
           type: array
           description: Ranked ML explanation factors from ml-scoring (v1.2+); optional TreeSHAP when enabled server-side

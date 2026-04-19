@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     feature_service_url: str = ""
     ml_scoring_url: str = ""
     graph_service_url: str = ""
+    calibration_service_url: str = ""
+    counter_service_url: str = ""
+    location_service_url: str = ""
+    upstream_api_key: str = ""
     opa_url: str = ""
     rules_path: str = "./rules"
     api_keys: str = ""
@@ -64,6 +68,40 @@ class Settings(BaseSettings):
     eval_step_opa_max_attempts: int = int(os.environ.get("EVAL_STEP_OPA_MAX_ATTEMPTS", "2"))
     eval_step_graph_upsert_timeout_seconds: float = float(os.environ.get("EVAL_STEP_GRAPH_UPSERT_TIMEOUT_SECONDS", "8.0"))
     eval_step_graph_upsert_max_attempts: int = int(os.environ.get("EVAL_STEP_GRAPH_UPSERT_MAX_ATTEMPTS", "1"))
+
+    # R2: outbound circuit breakers (consecutive failures before open, seconds until retry)
+    circuit_graph_failure_threshold: int = int(os.environ.get("CIRCUIT_GRAPH_FAILURE_THRESHOLD", "5"))
+    circuit_graph_recovery_seconds: float = float(os.environ.get("CIRCUIT_GRAPH_RECOVERY_SECONDS", "30"))
+    circuit_feature_failure_threshold: int = int(os.environ.get("CIRCUIT_FEATURE_FAILURE_THRESHOLD", "5"))
+    circuit_feature_recovery_seconds: float = float(os.environ.get("CIRCUIT_FEATURE_RECOVERY_SECONDS", "30"))
+    circuit_ml_failure_threshold: int = int(os.environ.get("CIRCUIT_ML_FAILURE_THRESHOLD", "5"))
+    circuit_ml_recovery_seconds: float = float(os.environ.get("CIRCUIT_ML_RECOVERY_SECONDS", "30"))
+    circuit_opa_failure_threshold: int = int(os.environ.get("CIRCUIT_OPA_FAILURE_THRESHOLD", "5"))
+    circuit_opa_recovery_seconds: float = float(os.environ.get("CIRCUIT_OPA_RECOVERY_SECONDS", "30"))
+    circuit_list_failure_threshold: int = int(os.environ.get("CIRCUIT_LIST_FAILURE_THRESHOLD", "5"))
+    circuit_list_recovery_seconds: float = float(os.environ.get("CIRCUIT_LIST_RECOVERY_SECONDS", "30"))
+    circuit_calibration_failure_threshold: int = int(os.environ.get("CIRCUIT_CALIBRATION_FAILURE_THRESHOLD", "5"))
+    circuit_calibration_recovery_seconds: float = float(os.environ.get("CIRCUIT_CALIBRATION_RECOVERY_SECONDS", "30"))
+    circuit_counter_failure_threshold: int = int(os.environ.get("CIRCUIT_COUNTER_FAILURE_THRESHOLD", "5"))
+    circuit_counter_recovery_seconds: float = float(os.environ.get("CIRCUIT_COUNTER_RECOVERY_SECONDS", "30"))
+    circuit_location_failure_threshold: int = int(os.environ.get("CIRCUIT_LOCATION_FAILURE_THRESHOLD", "5"))
+    circuit_location_recovery_seconds: float = float(os.environ.get("CIRCUIT_LOCATION_RECOVERY_SECONDS", "30"))
+
+    # OSS #31: optional champion–challenger JSON rule evaluation (audit-only; production decision unchanged)
+    policy_champion_challenger_enabled: bool = os.environ.get("POLICY_CHAMPION_CHALLENGER_ENABLED", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    policy_cohort_salt: str = os.environ.get("POLICY_COHORT_SALT", "policy_v1")
+    # OSS #47 / #49: cohort salt + experiment id + graph checkpoint metadata key
+    policy_experiment_id: str = os.environ.get("POLICY_EXPERIMENT_ID", "").strip()
+    # OSS #49: metadata key for graph checkpoint profile (graph-service entity-risk)
+    graph_checkpoint_metadata_key: str = os.environ.get("GRAPH_CHECKPOINT_METADATA_KEY", "graph_checkpoint")
+
+    # N2: optional maker–checker for rule pack mutations (POST/PUT/DELETE rules APIs).
+    # When set, clients must send matching X-Rule-Governance-Secret on mutating requests.
+    rule_governance_secret: str = os.environ.get("RULE_GOVERNANCE_SECRET", "").strip()
 
 
 settings = Settings()
