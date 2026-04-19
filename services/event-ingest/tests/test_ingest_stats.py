@@ -1,6 +1,5 @@
 """GET /v1/ingest/stats contract reject counters."""
 
-import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -34,5 +33,5 @@ def test_ingest_stats_after_contract_reject(client, mock_js):
     s = client.get("/v1/ingest/stats")
     assert s.status_code == 200
     data = s.json()
-    assert data["contract_rejects_total"] >= 1
-    assert "ingest_event_type_invalid" in data["contract_rejects_by_reason"]
+    assert data["total_contract_rejects"] >= 1
+    assert "ingest_event_type_invalid" in data["contract_reject_by_reason"]

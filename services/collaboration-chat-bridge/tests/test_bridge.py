@@ -3,10 +3,11 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 import time
 
 import pytest
-from collaboration_chat_bridge.agent_client import AgentChatError
+from collaboration_chat_bridge.agent_client import AgentChatError, AgentUpstreamError
 from collaboration_chat_bridge.main import app
 from collaboration_chat_bridge.rate_limit import MinuteRateLimiter
 from collaboration_chat_bridge.reply_format import (
@@ -108,10 +109,58 @@ async def test_slack_url_verification(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_slack_event_forwards_correlation_to_background_turn(monkeypatch):
+    monkeypatch.setenv("SLACK_SIGNING_SECRET", "shh")
+    seen: dict[str, object] = {}
+
+    async def fake_process(_settings, _raw_body):
+        return {
+            "_async_slack": True,
+            "channel": "C123",
+            "user": "U123",
+            "text": "hello",
+            "thread_ts": "1.1",
+            "ts": "1.1",
+            "files": [],
+            "team_id": "T1",
+        }
+
+    async def fake_run_slack_turn(_settings, meta):
+        seen.update(meta)
+
+    import collaboration_chat_bridge.main as m
+
+    m.settings = m.Settings()
+    monkeypatch.setattr(m, "process_slack_event_payload", fake_process)
+    monkeypatch.setattr(m, "run_slack_turn", fake_run_slack_turn)
+
+    ts = str(int(time.time()))
+    body = json.dumps({"type": "event_callback", "team_id": "T1", "event": {"type": "app_mention"}}).encode()
+    basestring = f"v0:{ts}:".encode() + body
+    sig = "v0=" + hmac.new(b"shh", basestring, hashlib.sha256).hexdigest()
+
+    transport = ASGITransport(app=m.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        r = await client.post(
+            "/v1/slack/events",
+            content=body,
+            headers={
+                "X-Slack-Request-Timestamp": ts,
+                "X-Slack-Signature": sig,
+                "X-Request-Id": "req-slack-1",
+            },
+        )
+    assert r.status_code == 200
+    assert seen.get("correlation_id") == "req-slack-1"
+
+
+@pytest.mark.asyncio
 async def test_teams_bridge_secret(monkeypatch):
     monkeypatch.setenv("TEAMS_BRIDGE_SECRET", "tsec")
+    seen: dict[str, object] = {}
 
     async def fake_post_chat(*_a, **_k):
+        seen.update(_k)
         return {
             "reply": "Synthetic reply",
             "turn_id": "turn-test",
@@ -130,13 +179,14 @@ async def test_teams_bridge_secret(monkeypatch):
         r_ok = await client.post(
             "/v1/teams/messages",
             json={"text": "hello", "analyst_id": "u1"},
-            headers={"X-Bridge-Secret": "tsec"},
+            headers={"X-Bridge-Secret": "tsec", "X-Request-Id": "req-teams-1"},
         )
     assert r_ok.status_code == 200
     data = r_ok.json()
     assert data.get("ok") is True
     assert "adaptive_card" in data
     assert data["raw"]["turn_id"] == "turn-test"
+    assert seen.get("correlation_id") == "req-teams-1"
 
 
 @pytest.mark.asyncio
@@ -167,10 +217,45 @@ async def test_teams_agent_error_returns_card(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_teams_activity_message(monkeypatch):
+async def test_teams_ingress_audit_logs_unavailable_has_upstream_status(monkeypatch, caplog):
     monkeypatch.setenv("TEAMS_BRIDGE_SECRET", "tsec")
 
+    async def boom(*_a, **_k):
+        raise AgentChatError("upstream down", status_code=503, body_snippet="detail")
+
+    import collaboration_chat_bridge.main as m
+
+    m.settings = m.Settings()
+    monkeypatch.setattr(m, "post_chat", boom)
+
+    caplog.set_level(logging.INFO, logger="collaboration_chat_bridge.main")
+    transport = ASGITransport(app=m.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post(
+            "/v1/teams/messages",
+            json={"text": "hello", "tenant_id": "demo", "analyst_id": "analyst-1"},
+            headers={"X-Bridge-Secret": "tsec", "X-Request-Id": "req-ing-fail-1"},
+        )
+    assert resp.status_code == 200
+    audit_payloads = []
+    for rec in caplog.records:
+        msg = rec.getMessage()
+        if msg.startswith("bridge_ingress_audit "):
+            audit_payloads.append(json.loads(msg.split(" ", 1)[1]))
+    hit = [p for p in audit_payloads if p.get("route") == "teams_messages" and p.get("outcome") == "unavailable"]
+    assert hit
+    assert hit[0]["correlation_id"] == "req-ing-fail-1"
+    assert hit[0]["status_code"] == 200
+    assert hit[0]["upstream_status"] == 503
+
+
+@pytest.mark.asyncio
+async def test_teams_activity_message(monkeypatch):
+    monkeypatch.setenv("TEAMS_BRIDGE_SECRET", "tsec")
+    seen: dict[str, object] = {}
+
     async def fake_post_chat(*_a, **_k):
+        seen.update(_k)
         return {"reply": "Hi", "turn_id": "1", "answer_sections": {}}
 
     import collaboration_chat_bridge.main as m
@@ -183,10 +268,470 @@ async def test_teams_activity_message(monkeypatch):
         r = await client.post(
             "/v1/teams/activity",
             json={"type": "message", "text": "ping", "from": {"id": "user-9"}},
-            headers={"X-Bridge-Secret": "tsec"},
+            headers={"X-Bridge-Secret": "tsec", "X-Request-Id": "req-teams-2"},
         )
     assert r.status_code == 200
     assert r.json().get("ok") is True
+    assert seen.get("correlation_id") == "req-teams-2"
+
+
+@pytest.mark.asyncio
+async def test_lark_event_forwards_correlation_to_background_turn(monkeypatch):
+    monkeypatch.setenv("LARK_VERIFICATION_TOKEN", "lvtok")
+    seen: dict[str, object] = {}
+
+    async def fake_lark_reply_task(_settings, _analyst_id, _text, _event, correlation_id=None):
+        seen["correlation_id"] = correlation_id
+
+    import collaboration_chat_bridge.main as m
+
+    m.settings = m.Settings()
+    monkeypatch.setattr(m, "_lark_reply_task", fake_lark_reply_task)
+
+    payload = {
+        "token": "lvtok",
+        "header": {"event_type": "im.message.receive_v1"},
+        "event": {
+            "message": {
+                "chat_id": "oc_test",
+                "content": json.dumps({"text": "hello"}),
+            },
+            "sender": {"sender_id": {"open_id": "ou_1"}},
+        },
+    }
+    transport = ASGITransport(app=m.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        r = await client.post("/v1/lark/event", json=payload, headers={"X-Request-Id": "req-lark-1"})
+    assert r.status_code == 200
+    assert seen.get("correlation_id") == "req-lark-1"
+
+
+@pytest.mark.asyncio
+async def test_teams_ingress_audit_logs(monkeypatch, caplog):
+    monkeypatch.setenv("TEAMS_BRIDGE_SECRET", "tsec")
+
+    async def fake_post_chat(*_a, **_k):
+        return {"reply": "Hi", "turn_id": "1", "answer_sections": {}}
+
+    import collaboration_chat_bridge.main as m
+
+    m.settings = m.Settings()
+    monkeypatch.setattr(m, "post_chat", fake_post_chat)
+
+    caplog.set_level(logging.INFO, logger="collaboration_chat_bridge.main")
+    transport = ASGITransport(app=m.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post(
+            "/v1/teams/messages",
+            json={"text": "hello", "tenant_id": "demo", "analyst_id": "analyst-1"},
+            headers={"X-Bridge-Secret": "tsec", "X-Request-Id": "req-ing-1"},
+        )
+    assert resp.status_code == 200
+    audit_payloads = []
+    for rec in caplog.records:
+        msg = rec.getMessage()
+        if msg.startswith("bridge_ingress_audit "):
+            audit_payloads.append(json.loads(msg.split(" ", 1)[1]))
+    hit = [p for p in audit_payloads if p.get("route") == "teams_messages" and p.get("outcome") == "success"]
+    assert hit
+    assert hit[0]["correlation_id"] == "req-ing-1"
+    assert hit[0]["tenant_id"] == "demo"
+    assert hit[0]["analyst_id"] == "analyst-1"
+
+
+@pytest.mark.asyncio
+async def test_slack_ingress_audit_logs(monkeypatch, caplog):
+    monkeypatch.setenv("SLACK_SIGNING_SECRET", "shh")
+
+    async def fake_process(_settings, _raw_body):
+        return {
+            "_async_slack": True,
+            "channel": "C123",
+            "user": "U123",
+            "text": "hello",
+            "thread_ts": "1.1",
+            "ts": "1.1",
+            "files": [],
+            "team_id": "T1",
+        }
+
+    async def fake_run_slack_turn(_settings, _meta):
+        return None
+
+    import collaboration_chat_bridge.main as m
+
+    m.settings = m.Settings()
+    monkeypatch.setattr(m, "process_slack_event_payload", fake_process)
+    monkeypatch.setattr(m, "run_slack_turn", fake_run_slack_turn)
+
+    caplog.set_level(logging.INFO, logger="collaboration_chat_bridge.main")
+    ts = str(int(time.time()))
+    body = json.dumps({"type": "event_callback", "team_id": "T1", "event": {"type": "app_mention"}}).encode()
+    basestring = f"v0:{ts}:".encode() + body
+    sig = "v0=" + hmac.new(b"shh", basestring, hashlib.sha256).hexdigest()
+
+    transport = ASGITransport(app=m.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post(
+            "/v1/slack/events",
+            content=body,
+            headers={
+                "X-Slack-Request-Timestamp": ts,
+                "X-Slack-Signature": sig,
+                "X-Request-Id": "req-slack-a1",
+            },
+        )
+    assert resp.status_code == 200
+    audit_payloads = []
+    for rec in caplog.records:
+        msg = rec.getMessage()
+        if msg.startswith("bridge_ingress_audit "):
+            audit_payloads.append(json.loads(msg.split(" ", 1)[1]))
+    hit = [p for p in audit_payloads if p.get("route") == "slack_events" and p.get("outcome") == "accepted"]
+    assert hit
+    assert hit[0]["correlation_id"] == "req-slack-a1"
+
+
+@pytest.mark.asyncio
+async def test_slack_async_completion_audit_logs_upstream_status(monkeypatch, caplog):
+    monkeypatch.setenv("SLACK_SIGNING_SECRET", "shh")
+
+    async def fake_process(_settings, _raw_body):
+        return {
+            "_async_slack": True,
+            "channel": "C123",
+            "user": "U123",
+            "text": "hello",
+            "thread_ts": "1.1",
+            "ts": "1.1",
+            "files": [],
+            "team_id": "T1",
+        }
+
+    async def fake_run_slack_turn(_settings, _meta):
+        return {
+            "outcome": "unavailable",
+            "upstream_status": 503,
+            "tenant_id": "demo",
+            "analyst_id": "slack:U123",
+            "reason": "agent_unavailable",
+        }
+
+    import collaboration_chat_bridge.main as m
+
+    m.settings = m.Settings()
+    monkeypatch.setattr(m, "process_slack_event_payload", fake_process)
+    monkeypatch.setattr(m, "run_slack_turn", fake_run_slack_turn)
+
+    caplog.set_level(logging.INFO, logger="collaboration_chat_bridge.main")
+    ts = str(int(time.time()))
+    body = json.dumps({"type": "event_callback", "team_id": "T1", "event": {"type": "app_mention"}}).encode()
+    basestring = f"v0:{ts}:".encode() + body
+    sig = "v0=" + hmac.new(b"shh", basestring, hashlib.sha256).hexdigest()
+
+    transport = ASGITransport(app=m.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post(
+            "/v1/slack/events",
+            content=body,
+            headers={
+                "X-Slack-Request-Timestamp": ts,
+                "X-Slack-Signature": sig,
+                "X-Request-Id": "req-slack-c1",
+            },
+        )
+    assert resp.status_code == 200
+    audit_payloads = []
+    for rec in caplog.records:
+        msg = rec.getMessage()
+        if msg.startswith("bridge_ingress_audit "):
+            audit_payloads.append(json.loads(msg.split(" ", 1)[1]))
+    hit = [p for p in audit_payloads if p.get("route") == "slack_events" and p.get("outcome") == "unavailable"]
+    assert hit
+    assert hit[0]["correlation_id"] == "req-slack-c1"
+    assert hit[0]["upstream_status"] == 503
+    assert hit[0]["analyst_id"] == "slack:U123"
+
+
+@pytest.mark.asyncio
+async def test_lark_async_completion_audit_logs_upstream_status(monkeypatch, caplog):
+    monkeypatch.setenv("LARK_VERIFICATION_TOKEN", "lvtok")
+
+    async def fake_lark_reply_task(_settings, _analyst_id, _text, _event, correlation_id=None):
+        return {
+            "outcome": "unavailable",
+            "upstream_status": 503,
+            "tenant_id": "demo",
+            "analyst_id": "lark:ou_1",
+            "reason": "agent_unavailable",
+        }
+
+    import collaboration_chat_bridge.main as m
+
+    m.settings = m.Settings()
+    monkeypatch.setattr(m, "_lark_reply_task", fake_lark_reply_task)
+
+    caplog.set_level(logging.INFO, logger="collaboration_chat_bridge.main")
+    payload = {
+        "token": "lvtok",
+        "header": {"event_type": "im.message.receive_v1"},
+        "event": {
+            "message": {
+                "chat_id": "oc_test",
+                "content": json.dumps({"text": "hello"}),
+            },
+            "sender": {"sender_id": {"open_id": "ou_1"}},
+        },
+    }
+    transport = ASGITransport(app=m.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post("/v1/lark/event", json=payload, headers={"X-Request-Id": "req-lark-c1"})
+    assert resp.status_code == 200
+    audit_payloads = []
+    for rec in caplog.records:
+        msg = rec.getMessage()
+        if msg.startswith("bridge_ingress_audit "):
+            audit_payloads.append(json.loads(msg.split(" ", 1)[1]))
+    hit = [p for p in audit_payloads if p.get("route") == "lark_event" and p.get("outcome") == "unavailable"]
+    assert hit
+    assert hit[0]["correlation_id"] == "req-lark-c1"
+    assert hit[0]["upstream_status"] == 503
+    assert hit[0]["analyst_id"] == "lark:ou_1"
+
+
+@pytest.mark.asyncio
+async def test_plugin_session_proxy(monkeypatch):
+    monkeypatch.setenv("BRIDGE_PLUGIN_SECRET", "psec")
+    seen: dict[str, object] = {}
+
+    async def fake_create_plugin_session(*_a, **_k):
+        seen.update(_k)
+        return {
+            "token": "tok-123",
+            "token_type": "plugin_session_v1",
+            "expires_at": 9999999999,
+            "context": {"tenant_id": "demo", "analyst_id": "analyst-1", "case_id": "case-1"},
+        }
+
+    import collaboration_chat_bridge.main as m
+
+    m.settings = m.Settings()
+    monkeypatch.setattr(m, "create_plugin_session", fake_create_plugin_session)
+
+    transport = ASGITransport(app=m.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        r_bad = await client.post(
+            "/v1/plugin/session",
+            json={"tenant_id": "demo", "analyst_id": "analyst-1"},
+        )
+        r_ok = await client.post(
+            "/v1/plugin/session",
+            json={"tenant_id": "demo", "analyst_id": "analyst-1", "case_id": "case-1"},
+            headers={"X-Bridge-Secret": "psec", "X-Request-Id": "req-up-1"},
+        )
+    assert r_bad.status_code == 401
+    assert isinstance(r_bad.headers.get("x-correlation-id"), str) and r_bad.headers.get("x-correlation-id")
+    assert r_ok.status_code == 200
+    data = r_ok.json()
+    assert data["ok"] is True
+    assert isinstance(data.get("correlation_id"), str) and data["correlation_id"]
+    assert data["correlation_id"] == "req-up-1"
+    assert r_ok.headers.get("x-correlation-id") == data["correlation_id"]
+    assert data["token"] == "tok-123"
+    assert data["context"]["case_id"] == "case-1"
+    assert seen.get("correlation_id") == "req-up-1"
+
+
+@pytest.mark.asyncio
+async def test_plugin_bootstrap_proxy(monkeypatch):
+    monkeypatch.setenv("BRIDGE_PLUGIN_SECRET", "psec")
+    seen: dict[str, object] = {}
+
+    async def fake_bootstrap_plugin_session(*_a, **_k):
+        seen.update(_k)
+        return {
+            "session": {"tenant_id": "demo", "analyst_id": "analyst-1", "case_id": "case-1"},
+            "governance": {"profile": "global"},
+            "integration": {"contract_version": "1.3.0"},
+        }
+
+    import collaboration_chat_bridge.main as m
+
+    m.settings = m.Settings()
+    monkeypatch.setattr(m, "bootstrap_plugin_session", fake_bootstrap_plugin_session)
+
+    transport = ASGITransport(app=m.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        r = await client.post(
+            "/v1/plugin/bootstrap",
+            json={"token": "tok-123"},
+            headers={"X-Bridge-Secret": "psec", "X-Request-Id": "req-up-2"},
+        )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["ok"] is True
+    assert isinstance(data.get("correlation_id"), str) and data["correlation_id"]
+    assert data["correlation_id"] == "req-up-2"
+    assert r.headers.get("x-correlation-id") == data["correlation_id"]
+    assert data["session"]["tenant_id"] == "demo"
+    assert data["integration"]["contract_version"] == "1.3.0"
+    assert seen.get("correlation_id") == "req-up-2"
+
+
+@pytest.mark.asyncio
+async def test_plugin_session_generated_correlation_forwarded(monkeypatch):
+    monkeypatch.setenv("BRIDGE_PLUGIN_SECRET", "psec")
+    seen: dict[str, object] = {}
+
+    async def fake_create_plugin_session(*_a, **_k):
+        seen.update(_k)
+        return {
+            "token": "tok-123",
+            "token_type": "plugin_session_v1",
+            "expires_at": 9999999999,
+            "context": {"tenant_id": "demo", "analyst_id": "analyst-1"},
+        }
+
+    import collaboration_chat_bridge.main as m
+
+    m.settings = m.Settings()
+    monkeypatch.setattr(m, "create_plugin_session", fake_create_plugin_session)
+
+    transport = ASGITransport(app=m.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        r = await client.post(
+            "/v1/plugin/session",
+            json={"tenant_id": "demo", "analyst_id": "analyst-1"},
+            headers={"X-Bridge-Secret": "psec"},
+        )
+    assert r.status_code == 200
+    cid = r.json().get("correlation_id")
+    assert isinstance(cid, str) and cid
+    assert r.headers.get("x-correlation-id") == cid
+    assert seen.get("correlation_id") == cid
+
+
+@pytest.mark.asyncio
+async def test_plugin_proxy_upstream_error(monkeypatch):
+    monkeypatch.setenv("BRIDGE_PLUGIN_SECRET", "psec")
+
+    async def boom(*_a, **_k):
+        raise AgentChatError("upstream down", status_code=503, body_snippet="detail")
+
+    import collaboration_chat_bridge.main as m
+
+    m.settings = m.Settings()
+    monkeypatch.setattr(m, "create_plugin_session", boom)
+
+    transport = ASGITransport(app=m.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        r = await client.post(
+            "/v1/plugin/session",
+            json={"tenant_id": "demo", "analyst_id": "analyst-1"},
+            headers={"X-Bridge-Secret": "psec"},
+        )
+    assert r.status_code == 502
+    assert r.json().get("detail") == "plugin session unavailable"
+    assert isinstance(r.headers.get("x-correlation-id"), str) and r.headers.get("x-correlation-id")
+
+
+@pytest.mark.asyncio
+async def test_plugin_proxy_preserves_client_status(monkeypatch):
+    monkeypatch.setenv("BRIDGE_PLUGIN_SECRET", "psec")
+
+    async def reject(*_a, **_k):
+        raise AgentUpstreamError("unauthorized", status_code=401, body_snippet="bad token")
+
+    import collaboration_chat_bridge.main as m
+
+    m.settings = m.Settings()
+    monkeypatch.setattr(m, "bootstrap_plugin_session", reject)
+
+    transport = ASGITransport(app=m.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        r = await client.post(
+            "/v1/plugin/bootstrap",
+            json={"token": "tok-123"},
+            headers={"X-Bridge-Secret": "psec"},
+        )
+    assert r.status_code == 401
+    assert r.json().get("detail") == "plugin bootstrap rejected"
+    assert isinstance(r.headers.get("x-correlation-id"), str) and r.headers.get("x-correlation-id")
+
+
+@pytest.mark.asyncio
+async def test_plugin_audit_logs(monkeypatch, caplog):
+    monkeypatch.setenv("BRIDGE_PLUGIN_SECRET", "psec")
+
+    async def fake_create_plugin_session(*_a, **_k):
+        return {
+            "token": "tok-123",
+            "token_type": "plugin_session_v1",
+            "expires_at": 9999999999,
+            "context": {"tenant_id": "demo", "analyst_id": "analyst-1", "case_id": "case-1"},
+        }
+
+    import collaboration_chat_bridge.main as m
+
+    m.settings = m.Settings()
+    monkeypatch.setattr(m, "create_plugin_session", fake_create_plugin_session)
+
+    caplog.set_level(logging.INFO, logger="collaboration_chat_bridge.main")
+    transport = ASGITransport(app=m.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post(
+            "/v1/plugin/session",
+            json={"tenant_id": "demo", "analyst_id": "analyst-1", "case_id": "case-1"},
+            headers={"X-Bridge-Secret": "psec", "X-Request-Id": "req-42"},
+        )
+    assert resp.status_code == 200
+    assert resp.headers.get("x-correlation-id") == "req-42"
+    assert resp.json().get("correlation_id") == "req-42"
+    audit_payloads = []
+    for rec in caplog.records:
+        msg = rec.getMessage()
+        if msg.startswith("bridge_plugin_audit "):
+            audit_payloads.append(json.loads(msg.split(" ", 1)[1]))
+    assert audit_payloads
+    success = [p for p in audit_payloads if p.get("action") == "plugin_session" and p.get("outcome") == "success"]
+    assert success
+    assert success[0]["correlation_id"] == "req-42"
+    assert success[0]["tenant_id"] == "demo"
+    assert success[0]["analyst_id"] == "analyst-1"
+
+
+@pytest.mark.asyncio
+async def test_plugin_audit_logs_rejected(monkeypatch, caplog):
+    monkeypatch.setenv("BRIDGE_PLUGIN_SECRET", "psec")
+
+    async def reject(*_a, **_k):
+        raise AgentUpstreamError("unauthorized", status_code=401, body_snippet="bad token")
+
+    import collaboration_chat_bridge.main as m
+
+    m.settings = m.Settings()
+    monkeypatch.setattr(m, "bootstrap_plugin_session", reject)
+
+    caplog.set_level(logging.INFO, logger="collaboration_chat_bridge.main")
+    transport = ASGITransport(app=m.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post(
+            "/v1/plugin/bootstrap",
+            json={"token": "tok-123"},
+            headers={"X-Bridge-Secret": "psec", "X-Request-Id": "req-rej-1"},
+        )
+    assert resp.status_code == 401
+    assert resp.headers.get("x-correlation-id") == "req-rej-1"
+    audit_payloads = []
+    for rec in caplog.records:
+        msg = rec.getMessage()
+        if msg.startswith("bridge_plugin_audit "):
+            audit_payloads.append(json.loads(msg.split(" ", 1)[1]))
+    rejected = [p for p in audit_payloads if p.get("action") == "plugin_bootstrap" and p.get("outcome") == "rejected"]
+    assert rejected
+    assert rejected[0]["status_code"] == 401
+    assert rejected[0]["upstream_status"] == 401
+    assert rejected[0]["correlation_id"] == "req-rej-1"
 
 
 @pytest.mark.asyncio

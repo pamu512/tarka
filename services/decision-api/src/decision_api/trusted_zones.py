@@ -30,8 +30,15 @@ def load_trusted_zones_for_tenant(tenant_id: str) -> list[dict[str, Any]]:
     """Load zones from ``trusted_zones_<tenant>.json`` or ``trusted_zones_default.json``."""
     base = _base_dir()
     safe_tenant = _safe_filename_segment(tenant_id)
-    for name in (f"trusted_zones_{safe_tenant}.json", "trusted_zones_default.json"):
-        path = base / name
+    tenant_path: Path | None = None
+    wanted_name = f"trusted_zones_{safe_tenant}.json"
+    for candidate in sorted(base.glob("trusted_zones_*.json")):
+        if candidate.is_file() and candidate.name == wanted_name:
+            tenant_path = candidate
+            break
+    for path in (tenant_path, base / "trusted_zones_default.json"):
+        if path is None:
+            continue
         if not path.is_file():
             continue
         try:

@@ -1,0 +1,332 @@
+openapi: 3.1.0
+info:
+  title: Tarka Collaboration Chat Bridge API
+  version: 1.0.0
+  description: >
+    Slack, Teams, and Lark bridge for investigation-agent, including
+    system-agnostic plugin/embed proxy endpoints.
+servers:
+  - url: http://localhost:8010
+paths:
+  /v1/health:
+    get:
+      operationId: bridgeHealth
+      responses:
+        "200":
+          description: Bridge health and feature flags
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /v1/teams/messages:
+    post:
+      operationId: teamsMessages
+      description: >
+        Teams/custom-connector ingress. Requires X-Bridge-Secret and forwards chat to investigation-agent.
+        Emits `bridge.ingress.audit` with route `teams_messages` and correlation_id.
+        Connector-safe failures return HTTP 200 with `ok: false` plus `agent_http_status`; audit includes
+        `outcome=unavailable` and `upstream_status`.
+      parameters:
+        - in: header
+          name: X-Bridge-Secret
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamsBridgeBody"
+      responses:
+        "200":
+          description: Success or connector-safe failure card payload
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Invalid bridge secret
+        "429":
+          description: Rate limit exceeded
+
+  /v1/teams/activity:
+    post:
+      operationId: teamsActivity
+      description: >
+        Bot Framework activity ingress (`type=message`). Requires X-Bridge-Secret and forwards to
+        investigation-agent. Emits `bridge.ingress.audit` with route `teams_activity` and correlation_id;
+        unavailable upstream responses are recorded with `upstream_status`.
+      parameters:
+        - in: header
+          name: X-Bridge-Secret
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamsActivityBody"
+      responses:
+        "200":
+          description: Message response or ignored reason
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Invalid bridge secret
+        "429":
+          description: Rate limit exceeded
+
+  /v1/plugin/session:
+    post:
+      operationId: pluginSessionProxy
+      description: >
+        Bridge-proxied plugin session issuance. Requires X-Bridge-Secret and
+        forwards to investigation-agent /v1/plugin/session.
+      parameters:
+        - in: header
+          name: X-Bridge-Secret
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PluginSessionBridgeBody"
+      responses:
+        "200":
+          description: Session token issued
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  correlation_id: { type: string }
+                  token: { type: string }
+                  token_type: { type: string }
+                  expires_at: { type: integer }
+                  context:
+                    type: object
+                    additionalProperties: true
+        "400":
+          description: Invalid plugin session request
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
+        "401":
+          description: Invalid bridge secret or upstream rejected request
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
+        "403":
+          description: Access denied
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
+        "429":
+          description: Rate limit exceeded
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
+        "502":
+          description: Upstream unavailable
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
+
+  /v1/plugin/bootstrap:
+    post:
+      operationId: pluginBootstrapProxy
+      description: >
+        Bridge-proxied plugin bootstrap validation. Requires X-Bridge-Secret and
+        forwards to investigation-agent /v1/plugin/bootstrap.
+      parameters:
+        - in: header
+          name: X-Bridge-Secret
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PluginBootstrapBridgeBody"
+      responses:
+        "200":
+          description: Bootstrap payload
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  correlation_id: { type: string }
+                additionalProperties: true
+        "400":
+          description: Invalid plugin token payload
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
+        "401":
+          description: Invalid bridge secret or plugin token
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
+        "403":
+          description: Access denied
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
+        "429":
+          description: Rate limit exceeded
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
+        "502":
+          description: Upstream unavailable
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
+
+  /v1/slack/events:
+    post:
+      operationId: slackEvents
+      description: >
+        Slack Events API receiver with signature verification.
+        Emits `bridge.ingress.audit` at ingress and, for async turn handling, a completion audit event
+        keyed by the same correlation_id (accepted + completion two-phase pattern).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Ack or challenge response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Invalid JSON or payload
+        "401":
+          description: Invalid Slack signature
+        "429":
+          description: Rate limit exceeded
+
+  /v1/lark/event:
+    post:
+      operationId: larkEvent
+      description: >
+        Lark/Feishu event callback receiver.
+        Emits `bridge.ingress.audit` at ingress and a completion audit event for async turn handling,
+        correlated by the same correlation_id (accepted + completion two-phase pattern).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Ack or challenge response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Invalid event payload
+        "401":
+          description: Invalid verification token
+        "429":
+          description: Rate limit exceeded
+
+components:
+  schemas:
+    TeamsBridgeBody:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, maxLength: 16000 }
+        tenant_id: { type: string, maxLength: 128, nullable: true }
+        analyst_id: { type: string, maxLength: 128, nullable: true }
+        case_id: { type: string, maxLength: 128, nullable: true }
+        persona:
+          type: string
+          enum: [investigation, orchestrator]
+          nullable: true
+        thread_context:
+          type: array
+          nullable: true
+          items:
+            type: object
+            additionalProperties: { type: string }
+        workflow_id: { type: string, maxLength: 80, nullable: true }
+        workflow_params:
+          type: object
+          nullable: true
+          additionalProperties: true
+        playbook_id: { type: string, maxLength: 64, nullable: true }
+        batch_id: { type: string, maxLength: 128, nullable: true }
+
+    TeamsActivityBody:
+      type: object
+      properties:
+        type: { type: string, nullable: true }
+        text: { type: string, maxLength: 16000, nullable: true }
+        from:
+          type: object
+          nullable: true
+          additionalProperties: true
+
+    PluginSessionBridgeBody:
+      type: object
+      required: [tenant_id, analyst_id]
+      properties:
+        tenant_id: { type: string, maxLength: 128 }
+        analyst_id: { type: string, maxLength: 128 }
+        case_id: { type: string, maxLength: 128, nullable: true }
+        external_case_id: { type: string, maxLength: 128, nullable: true }
+        origin: { type: string, maxLength: 255, nullable: true }
+        ttl_seconds:
+          type: integer
+          minimum: 60
+          maximum: 86400
+          nullable: true
+
+    PluginBootstrapBridgeBody:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string, maxLength: 4096 }

@@ -1,8 +1,8 @@
 """Ensure tests/ helpers (e.g. aggregate_fake_redis) are importable."""
 
+import os
 import sys
 from pathlib import Path
-import os
 
 _TESTS_DIR = Path(__file__).resolve().parent
 if str(_TESTS_DIR) not in sys.path:

@@ -1,5 +1,4 @@
 from fastapi.testclient import TestClient
-
 from graph_service.main import app
 
 

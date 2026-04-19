@@ -1,9 +1,8 @@
 """Typology layer (OSS #34 / #46)."""
 
+import json
 from pathlib import Path
 from unittest.mock import patch
-
-import json
 
 from decision_api.typology import evaluate_typologies, summarize_typologies
 

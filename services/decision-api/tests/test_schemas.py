@@ -42,6 +42,23 @@ class TestEvaluateRequest:
             r = EvaluateRequest(tenant_id="t", event_type=et, entity_id="e", payload={})
             assert r.event_type.value == et
 
+    def test_with_agent_context(self):
+        r = EvaluateRequest(
+            tenant_id="t1",
+            event_type="payment",
+            entity_id="u1",
+            payload={"amount": 1},
+            agent_context={
+                "agent_session_id": "sess-a",
+                "agent_client": {"oauth_client_id": "cid-1", "client_type": "mcp"},
+                "integrity": {"prompt_injection_heuristic_flag": False},
+            },
+        )
+        assert r.agent_context is not None
+        assert r.agent_context.agent_session_id == "sess-a"
+        assert r.agent_context.agent_client is not None
+        assert r.agent_context.agent_client.oauth_client_id == "cid-1"
+
 
 class TestEvaluateResponse:
     def test_minimal(self):

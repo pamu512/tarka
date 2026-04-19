@@ -1709,6 +1709,9 @@ async def evaluate_decision(
     if body.session_id:
         features.setdefault("session_id", body.session_id)
 
+    if body.agent_context is not None:
+        features["agent_context"] = body.agent_context.model_dump(mode="json", exclude_none=True)
+
     # Normalise amount to USD if a currency is specified
     payload_currency = body.payload.get("currency")
     if payload_currency and "amount" in body.payload:
@@ -1965,7 +1968,9 @@ async def evaluate_decision(
     # Apply region-aware PII masking before storage
     region = getattr(body, "region", settings.default_region) or settings.default_region
     privacy_profile = get_profile(region)
-    raw_snapshot = {"payload": body.payload, "metadata": body.metadata}
+    raw_snapshot: dict[str, Any] = {"payload": body.payload, "metadata": body.metadata}
+    if body.agent_context is not None:
+        raw_snapshot["agent_context"] = body.agent_context.model_dump(mode="json", exclude_none=True)
     if privacy_profile.mask_pii_in_logs or privacy_profile.pseudonymize_at_rest:
         stored_snapshot = mask_dict(raw_snapshot, privacy_profile)
     else:

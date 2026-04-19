@@ -92,9 +92,23 @@ class Settings(BaseSettings):
         default="",
         description="If set with copilot_sensitive_tools, x-reviewer-secret header must match to expose those tools.",
     )
+    copilot_maker_checker_required: bool = Field(
+        default=True,
+        description="If true, copilot turn reviews require a reviewer different from the original turn analyst.",
+    )
     copilot_sensitive_tools: str = Field(
         default="ingest_labeled_rows,run_replay_ab_comparison",
         description="Comma-separated tools hidden unless reviewer secret header matches.",
+    )
+    copilot_plugin_shared_secret: str = Field(
+        default="",
+        description="HMAC secret for signing plugin session tokens (required for /v1/plugin/session and /v1/plugin/bootstrap).",
+    )
+    copilot_plugin_token_ttl_seconds: int = Field(
+        default=900,
+        ge=60,
+        le=86_400,
+        description="Default TTL for plugin session tokens issued by /v1/plugin/session.",
     )
 
     # --- RAG (knowledge memos) ---

@@ -9,6 +9,8 @@ This guide ties together **high-volume ingestion**, **client SDKs**, **idempoten
 | **Synchronous** | You need `trace_id`, decision, and `inference_context` in the same HTTP round-trip | **Decision API** `POST /v1/decisions/evaluate` |
 | **Asynchronous** | High write volume; scoring can lag slightly behind accept | **Event ingest** `POST /v1/events` → NATS → worker → Decision API |
 
+The ingest worker forwards the same JSON fields as synchronous evaluate (except internal keys such as `_ingest_id`). Optional top-level **`agent_context`** and **`metadata.correlation_id`** for LLM/MCP-mediated events are described in [Agentic AI fraud detection: variables and layering](agentic-ai-fraud-detection-variables-and-layering.md).
+
 Default compose port for event-ingest (full/streaming profile) is **8007** (`deploy/docker-compose.yml`).
 
 ## Python SDK

@@ -86,6 +86,7 @@ nav:
       - GitHub Issues Batch (Reassessment Wave 2): guides/github-issues-batch-2026-04-reassessment-wave2.md
       - Module codenames: guides/module-codenames.md
       - "Collaboration chat (Slack, Teams, Lark) & cloud": guides/investigation-collaboration-chat-aws-azure.md
+      - "Agentic AI fraud detection (variables & layering)": guides/agentic-ai-fraud-detection-variables-and-layering.md
       - Saarthi Pro:
           - vs open source (OSS): guides/saarthi-pro-vs-oss.md
           - Roadmap: guides/saarthi-pro-roadmap.md

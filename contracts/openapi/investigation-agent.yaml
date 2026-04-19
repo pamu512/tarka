@@ -108,7 +108,127 @@ paths:
                     type: array
                     items: { type: string }
                   batch_ttl_seconds: { type: integer }
+                  assurance_defaults:
+                    type: object
+                    properties:
+                      mode: { type: string }
+                      maker_checker_required: { type: boolean }
+                      sensitive_tool_gate: { type: boolean }
                   disclaimer: { type: string }
+  /v1/plugin/session:
+    post:
+      operationId: pluginSession
+      description: >
+        Issue a signed plugin session token for external embedding adapters.
+        Returns both body correlation_id and X-Correlation-Id response header.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_id, analyst_id]
+              properties:
+                tenant_id: { type: string }
+                analyst_id: { type: string }
+                case_id: { type: string, nullable: true }
+                external_case_id: { type: string, nullable: true }
+                origin: { type: string, nullable: true }
+                ttl_seconds: { type: integer, minimum: 60, maximum: 86400 }
+      responses:
+        "200":
+          description: Signed plugin token issued
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  correlation_id: { type: string }
+                  token: { type: string }
+                  token_type: { type: string }
+                  expires_at: { type: integer }
+                  context:
+                    type: object
+                    additionalProperties: true
+        "400":
+          description: Invalid tenant/analyst/case scope id
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
+        "403":
+          description: Analyst not permitted
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
+        "503":
+          description: Plugin secret is not configured
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
+  /v1/plugin/bootstrap:
+    post:
+      operationId: pluginBootstrap
+      description: >
+        Validate a signed plugin token and return scoped session context plus governance/integration metadata.
+        Returns both body correlation_id and X-Correlation-Id response header.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        "200":
+          description: Plugin session bootstrap payload
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  correlation_id: { type: string }
+                  session:
+                    type: object
+                    additionalProperties: true
+                  governance:
+                    type: object
+                    additionalProperties: true
+                  integration:
+                    type: object
+                    additionalProperties: true
+        "401":
+          description: Invalid or expired plugin token
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
+        "403":
+          description: Analyst not permitted
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
+        "503":
+          description: Plugin secret is not configured
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
   /v1/batch/ingest:
     post:
       operationId: batchIngest
@@ -304,6 +424,7 @@ paths:
                 turn_id: { type: string }
                 tenant_id: { type: string }
                 analyst_id: { type: string }
+                reviewer_id: { type: string, nullable: true }
                 status: { type: string, enum: [approved, rejected] }
                 note: { type: string }
       responses:
@@ -317,6 +438,13 @@ paths:
                   ok: { type: boolean }
                   stored: { type: boolean }
                   review_id: { type: integer }
+                  maker_checker:
+                    type: object
+                    properties:
+                      required: { type: boolean }
+                      turn_author_id: { type: string, nullable: true }
+                      reviewer_id: { type: string }
+                      enforced: { type: boolean }
     get:
       operationId: turnReviewGet
       description: Latest review for a turn_id within tenant scope.
@@ -349,6 +477,37 @@ paths:
                       status: { type: string }
                       note: { type: string, nullable: true }
                       created_at: { type: number }
+  /v1/review/metrics:
+    get:
+      operationId: turnReviewMetrics
+      description: Aggregated review outcomes for a tenant over a time window.
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: days
+          in: query
+          required: false
+          schema: { type: number, default: 30, minimum: 0.5, maximum: 365 }
+      responses:
+        "200":
+          description: Review metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tenant_id: { type: string }
+                  window_days: { type: number }
+                  total_reviews: { type: integer }
+                  approved: { type: integer }
+                  rejected: { type: integer }
+                  approval_rate: { type: number, nullable: true }
+                  unique_reviewers: { type: integer }
+                  by_status:
+                    type: object
+                    additionalProperties: { type: integer }
   /v1/chat/stream:
     post:
       operationId: chatStream

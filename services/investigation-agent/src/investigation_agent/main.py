@@ -1,12 +1,17 @@
 """Investigation agent with proper LLM tool-use loop."""
 
+import hashlib
+import hmac
 import json
 import logging
 import os
 import re
 import sys
+import time
 import uuid
+from base64 import urlsafe_b64decode, urlsafe_b64encode
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, Literal
 
 import httpx
@@ -77,7 +82,16 @@ from investigation_agent.workflows.registry import (
 
 log = logging.getLogger(__name__)
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
+_shared_inserted = False
+for parent in Path(__file__).resolve().parents:
+    candidate = parent / "shared"
+    if candidate.is_dir() and (candidate / "observability.py").is_file():
+        sys.path.insert(0, str(candidate))
+        _shared_inserted = True
+        break
+if not _shared_inserted:
+    fallback = Path(__file__).resolve().parents[3] / "shared"
+    sys.path.insert(0, str(fallback))
 from observability import get_metrics, setup_observability  # noqa: E402
 
 _TARKA_CLAIMS_MARKER = "\nTARKA_CLAIMS_JSON="
@@ -341,8 +355,26 @@ class TurnReviewBody(BaseModel):
     turn_id: str = Field(..., max_length=80)
     tenant_id: str = Field(..., max_length=128)
     analyst_id: str = Field(..., max_length=128)
+    reviewer_id: str | None = Field(default=None, max_length=128)
     status: Literal["approved", "rejected"] = Field(...)
     note: str | None = Field(default=None, max_length=2000)
+
+
+class PluginSessionBody(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    tenant_id: str = Field(..., max_length=128)
+    analyst_id: str = Field(..., max_length=128)
+    case_id: str | None = Field(default=None, max_length=128)
+    external_case_id: str | None = Field(default=None, max_length=128)
+    origin: str | None = Field(default=None, max_length=255)
+    ttl_seconds: int | None = Field(default=None, ge=60, le=86_400)
+
+
+class PluginBootstrapBody(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    token: str = Field(..., max_length=4096)
 
 
 class ChatFeedbackBody(BaseModel):
@@ -673,6 +705,103 @@ def _validate_scope_id(label: str, value: str) -> None:
     v = (value or "").strip()
     if not v or len(v) > 128 or not _SCOPE_ID_RE.match(v):
         raise HTTPException(status_code=400, detail=f"Invalid {label}")
+
+
+def _request_correlation_id(request: Request) -> str:
+    rid = (request.headers.get("x-request-id") or request.headers.get("x-correlation-id") or "").strip()
+    if rid:
+        return rid[:128]
+    return f"agent-{uuid.uuid4().hex}"
+
+
+def _plugin_http_exc(status_code: int, detail: str, correlation_id: str) -> HTTPException:
+    return HTTPException(
+        status_code=status_code,
+        detail=detail,
+        headers={"X-Correlation-Id": correlation_id},
+    )
+
+
+def _plugin_token_key() -> bytes | None:
+    secret = (settings.copilot_plugin_shared_secret or "").strip()
+    if not secret:
+        return None
+    return secret.encode("utf-8")
+
+
+def _b64url_encode_bytes(raw: bytes) -> str:
+    return urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
+def _b64url_decode_bytes(raw: str) -> bytes:
+    pad = "=" * (-len(raw) % 4)
+    return urlsafe_b64decode((raw + pad).encode("ascii"))
+
+
+def _plugin_token_issue(
+    *,
+    tenant_id: str,
+    analyst_id: str,
+    case_id: str | None,
+    external_case_id: str | None,
+    origin: str | None,
+    ttl_seconds: int,
+) -> tuple[str, int]:
+    key = _plugin_token_key()
+    if key is None:
+        raise ValueError("plugin secret is not configured")
+    now = int(time.time())
+    exp = now + max(60, min(int(ttl_seconds), 86_400))
+    payload = {
+        "v": 1,
+        "typ": "plugin_session",
+        "tenant_id": tenant_id,
+        "analyst_id": analyst_id,
+        "case_id": case_id,
+        "external_case_id": external_case_id,
+        "origin": origin,
+        "iat": now,
+        "exp": exp,
+        "jti": uuid.uuid4().hex,
+    }
+    payload_json = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    payload_b64 = _b64url_encode_bytes(payload_json)
+    sig = hmac.new(key, payload_b64.encode("ascii"), hashlib.sha256).digest()
+    token = f"{payload_b64}.{_b64url_encode_bytes(sig)}"
+    return token, exp
+
+
+def _plugin_token_parse(token: str) -> dict[str, Any]:
+    key = _plugin_token_key()
+    if key is None:
+        raise ValueError("plugin secret is not configured")
+    raw = (token or "").strip()
+    if not raw or "." not in raw:
+        raise ValueError("invalid plugin token")
+    payload_b64, sig_b64 = raw.split(".", 1)
+    try:
+        actual_sig = _b64url_decode_bytes(sig_b64)
+    except Exception as e:
+        raise ValueError("invalid plugin token") from e
+    expected_sig = hmac.new(key, payload_b64.encode("ascii"), hashlib.sha256).digest()
+    if not hmac.compare_digest(actual_sig, expected_sig):
+        raise ValueError("invalid plugin token")
+    try:
+        payload = json.loads(_b64url_decode_bytes(payload_b64).decode("utf-8"))
+    except Exception as e:
+        raise ValueError("invalid plugin token") from e
+    if not isinstance(payload, dict):
+        raise ValueError("invalid plugin token")
+    if payload.get("typ") != "plugin_session":
+        raise ValueError("invalid plugin token")
+    exp = int(payload.get("exp", 0) or 0)
+    if exp <= int(time.time()):
+        raise ValueError("plugin token expired")
+    tenant_id = str(payload.get("tenant_id", "")).strip()
+    analyst_id = str(payload.get("analyst_id", "")).strip()
+    if not tenant_id or not analyst_id:
+        raise ValueError("invalid plugin token")
+    return payload
 
 
 def _confidence_label_from_support_rate(rate: float) -> str:
@@ -1146,7 +1275,98 @@ async def governance_info():
         "label": governance_profile_label(gov),
         "references": governance_profile_references(gov),
         "batch_ttl_seconds": batch_store.ttl_seconds(),
+        "assurance_defaults": {
+            "mode": settings.copilot_assurance_mode,
+            "maker_checker_required": bool(settings.copilot_maker_checker_required),
+            "sensitive_tool_gate": bool((settings.copilot_reviewer_secret or "").strip()),
+        },
         "disclaimer": ("Reference list is illustrative. Validate deployment against your counsel, DPA, and sector rules."),
+    }
+
+
+@app.post("/v1/plugin/session")
+async def plugin_session(request: Request, response: Response, body: PluginSessionBody):
+    correlation_id = _request_correlation_id(request)
+    try:
+        _validate_scope_id("tenant_id", body.tenant_id)
+        _validate_scope_id("analyst_id", body.analyst_id)
+        if body.case_id:
+            _validate_scope_id("case_id", body.case_id)
+        if body.external_case_id:
+            _validate_scope_id("external_case_id", body.external_case_id)
+    except HTTPException as e:
+        raise _plugin_http_exc(int(e.status_code), str(e.detail), correlation_id) from None
+
+    if not is_analyst_allowed(body.analyst_id):
+        raise _plugin_http_exc(403, "Analyst not permitted for this deployment", correlation_id)
+
+    ttl = int(body.ttl_seconds or settings.copilot_plugin_token_ttl_seconds)
+    try:
+        token, exp = _plugin_token_issue(
+            tenant_id=body.tenant_id.strip(),
+            analyst_id=body.analyst_id.strip(),
+            case_id=(body.case_id or "").strip() or None,
+            external_case_id=(body.external_case_id or "").strip() or None,
+            origin=(body.origin or "").strip() or None,
+            ttl_seconds=ttl,
+        )
+    except ValueError:
+        raise _plugin_http_exc(503, "plugin token secret not configured", correlation_id) from None
+
+    context = {
+        "tenant_id": body.tenant_id.strip(),
+        "analyst_id": body.analyst_id.strip(),
+        "case_id": (body.case_id or "").strip() or None,
+        "external_case_id": (body.external_case_id or "").strip() or None,
+        "origin": (body.origin or "").strip() or None,
+    }
+    response.headers["X-Correlation-Id"] = correlation_id
+    return {
+        "ok": True,
+        "correlation_id": correlation_id,
+        "token": token,
+        "token_type": "plugin_session_v1",
+        "expires_at": exp,
+        "context": context,
+    }
+
+
+@app.post("/v1/plugin/bootstrap")
+async def plugin_bootstrap(request: Request, response: Response, body: PluginBootstrapBody):
+    correlation_id = _request_correlation_id(request)
+    try:
+        payload = _plugin_token_parse(body.token)
+    except ValueError as e:
+        detail = str(e)
+        status = 401 if "expired" in detail or "invalid" in detail else 503
+        raise _plugin_http_exc(status, detail, correlation_id) from None
+
+    tenant_id = str(payload.get("tenant_id") or "").strip()
+    analyst_id = str(payload.get("analyst_id") or "").strip()
+    case_id = str(payload.get("case_id") or "").strip() or None
+    external_case_id = str(payload.get("external_case_id") or "").strip() or None
+    origin = str(payload.get("origin") or "").strip() or None
+    if not is_analyst_allowed(analyst_id):
+        raise _plugin_http_exc(403, "Analyst not permitted for this deployment", correlation_id)
+
+    gov = await governance_info()
+    integration = build_integration_snapshot(settings, disabled_tools=effective_disabled_tools(settings))
+    response.headers["X-Correlation-Id"] = correlation_id
+    return {
+        "ok": True,
+        "correlation_id": correlation_id,
+        "session": {
+            "tenant_id": tenant_id,
+            "analyst_id": analyst_id,
+            "case_id": case_id,
+            "external_case_id": external_case_id,
+            "origin": origin,
+            "expires_at": int(payload.get("exp", 0) or 0),
+            "issued_at": int(payload.get("iat", 0) or 0),
+            "token_type": "plugin_session_v1",
+        },
+        "governance": gov,
+        "integration": integration,
     }
 
 
@@ -1283,19 +1503,34 @@ async def turn_review_save(rv: TurnReviewBody):
         raise HTTPException(status_code=400, detail="turn_id required")
     _validate_scope_id("tenant_id", rv.tenant_id)
     _validate_scope_id("analyst_id", rv.analyst_id)
-    if not is_analyst_allowed(rv.analyst_id):
+    reviewer_id = (rv.reviewer_id or rv.analyst_id).strip()
+    _validate_scope_id("reviewer_id", reviewer_id)
+    if not is_analyst_allowed(reviewer_id):
         raise HTTPException(status_code=403, detail="Analyst not permitted for this deployment")
     meta = feedback_store.lookup_turn(tid)
     if meta and str(meta.get("tenant_id")) != rv.tenant_id.strip():
         raise HTTPException(status_code=400, detail="turn_id does not match tenant scope")
+    turn_author_id = (str(meta.get("analyst_id", "")) if meta else "").strip() or None
+    if settings.copilot_maker_checker_required and turn_author_id and reviewer_id == turn_author_id:
+        raise HTTPException(status_code=400, detail="maker-checker requires reviewer different from turn author")
     row_id = review_store.save_review(
         turn_id=tid,
         tenant_id=rv.tenant_id.strip(),
-        analyst_id=rv.analyst_id.strip(),
+        analyst_id=reviewer_id,
         status=rv.status,
         note=rv.note,
     )
-    return {"ok": True, "stored": True, "review_id": row_id}
+    return {
+        "ok": True,
+        "stored": True,
+        "review_id": row_id,
+        "maker_checker": {
+            "required": bool(settings.copilot_maker_checker_required),
+            "turn_author_id": turn_author_id,
+            "reviewer_id": reviewer_id,
+            "enforced": bool(settings.copilot_maker_checker_required and bool(turn_author_id)),
+        },
+    }
 
 
 @app.get("/v1/review/turn")
@@ -1308,6 +1543,12 @@ async def turn_review_get(turn_id: str, tenant_id: str):
     if not row:
         return {"found": False, "review": None}
     return {"found": True, "review": row}
+
+
+@app.get("/v1/review/metrics")
+async def turn_review_metrics(tenant_id: str, days: float = 30.0):
+    _validate_scope_id("tenant_id", tenant_id)
+    return review_store.review_metrics(tenant_id, days=max(0.5, min(days, 365.0)))
 
 
 @app.post("/v1/chat/stream")

@@ -22,6 +22,8 @@
 | `POST /v1/slack/events` | Slack Events API (URL verification + `event_callback`). Verifies `X-Slack-Signature`. Skips duplicate work when **`X-Slack-Retry-Num`** &gt; 0 if `SLACK_SKIP_RETRY_BACKGROUND=true` (default). |
 | `POST /v1/teams/messages` | JSON ingress for Teams (Power Automate, API Management). Requires `X-Bridge-Secret`. Returns **`ok: true`** plus Adaptive Card on success; **`ok: false`** + error card if the agent is down (HTTP 200 for connector friendliness). |
 | `POST /v1/teams/activity` | Bot Framework–shaped **`message`** activity (`type`, `text`, `from.id`). Same `X-Bridge-Secret`. |
+| `POST /v1/plugin/session` | Bridge-proxied plugin/embed session issuance for external case managers. Requires `X-Bridge-Secret`; forwards to agent `/v1/plugin/session`. |
+| `POST /v1/plugin/bootstrap` | Bridge-proxied plugin token bootstrap validation. Requires `X-Bridge-Secret`; forwards to agent `/v1/plugin/bootstrap`. |
 | `POST /v1/lark/event` | Lark/Feishu event subscription (URL challenge + `im.message.receive_v1`). |
 
 **Docker Compose** (profile **`collab`** or **`full`** / **`agent`**):
@@ -39,6 +41,7 @@ docker compose --profile collab up -d collaboration-chat-bridge investigation-ag
 | `SLACK_SIGNING_SECRET` | Slack app signing secret |
 | `SLACK_BOT_TOKEN` | `xoxb-…` for `chat.postMessage` and `conversations.replies` (thread context) |
 | `TEAMS_BRIDGE_SECRET` | Shared secret; callers send `X-Bridge-Secret` |
+| `BRIDGE_PLUGIN_SECRET` | Optional dedicated secret for `/v1/plugin/*` (falls back to `TEAMS_BRIDGE_SECRET` when unset) |
 | `LARK_VERIFICATION_TOKEN` | Matches Lark event `token` field |
 | `LARK_TENANT_ACCESS_TOKEN` | Tenant token to call `im/v1/messages` for replies |
 | `DEFAULT_TENANT_ID` / `DEFAULT_CASE_ID` | Default `tenant_id` / `case_id` for collab turns |
@@ -83,6 +86,17 @@ Response includes `adaptive_card` (structured sections + **FactSet** `turn_id` o
 
 - Register a Bot Channel + App Service / Container App that forwards **Activity** JSON to this endpoint (small adapter) or extend the bridge later with first-class Bot Framework JWT validation.
 
+### External plugin / case-manager embedding
+
+For system-agnostic embedding (external case manager UI + Tarka copilot backend):
+
+1. Backend calls `POST /v1/plugin/session` with `tenant_id`, `analyst_id`, optional `case_id`.
+2. Embed client receives token and calls `POST /v1/plugin/bootstrap`.
+3. Bootstrap response returns scoped session context + governance + integration metadata.
+4. Both endpoints return `correlation_id` and `X-Correlation-Id` for support/audit tracing.
+
+This lets external UIs consume the same plugin session contract without direct network access to `investigation-agent`.
+
 ### Lark / Feishu
 
 1. Create an app → enable **bot** + **IM** permissions → event subscription `im.message.receive_v1` (non-encrypted for simplest path).
@@ -120,9 +134,14 @@ Typical pattern: **one task/service per container**, private subnets, **ALB** HT
 - Lock **`API_KEYS`** and **`COPILOT_REQUIRE_INVESTIGATION_API_KEY=true`** on the agent in production.
 - Collab channels may contain **PII**; align with DPIA and **data residency** (LLM region, logging).
 - Slack/Lark thread text is sent to **`/v1/chat`** as `messages[]`; apply **retention** and **access controls** on logs.
+- Plugin/embed endpoints emit structured audit events (`bridge.plugin.audit`) with action/outcome/status and correlation id.
+- Non-plugin ingress (`/v1/slack/events`, `/v1/teams/messages`, `/v1/teams/activity`, `/v1/lark/event`) emits structured audit events (`bridge.ingress.audit`).
+- Async channels (Slack/Lark) use a two-phase audit pattern: `accepted` on ingress, then a completion event with final `outcome` and optional `upstream_status` for agent failures.
+- Correlate both phases using the same request `correlation_id` (`X-Request-Id`/`X-Correlation-Id` if supplied, otherwise bridge-generated).
 
 ## Related
 
+- OpenAPI contract: [`contracts/openapi/collaboration-chat-bridge.yaml`](../../../contracts/openapi/collaboration-chat-bridge.yaml)
 - [Investigation agent integration contract](investigation-agent-integration-contract.md)
 - [Investigation Agent Project](../projects/investigation-agent-project.md)
 - [Investigation Copilot — intended use & data flows](investigation-agent-intended-use-and-data-flows.md)

@@ -108,7 +108,7 @@ async def process_slack_event_payload(settings: Settings, raw_body: bytes) -> di
     }
 
 
-async def run_slack_turn(settings: Settings, meta: dict[str, Any]) -> None:
+async def run_slack_turn(settings: Settings, meta: dict[str, Any]) -> dict[str, Any]:
     channel = meta["channel"]
     user = meta["user"]
     text = meta["text"]
@@ -129,6 +129,7 @@ async def run_slack_turn(settings: Settings, meta: dict[str, Any]) -> None:
     files = meta.get("files") or []
     tenant = settings.default_tenant_id
     case_id = settings.default_case_id
+    correlation_id = str(meta.get("correlation_id") or "").strip() or None
 
     reply_thread: str | None = None
     if settings.slack_thread_under_mention:
@@ -137,6 +138,10 @@ async def run_slack_turn(settings: Settings, meta: dict[str, Any]) -> None:
         reply_thread = str(thread_ts) if thread_ts else None
     if reply_thread == "":
         reply_thread = None
+
+    outcome = "success"
+    reason: str | None = None
+    upstream_status: int | None = None
 
     try:
         msgs, wf_msg, p_msg, pers = await prepare_messages_for_agent(
@@ -162,13 +167,35 @@ async def run_slack_turn(settings: Settings, meta: dict[str, Any]) -> None:
             messages_preprocessed=True,
             workflow_id=wf_id,
             workflow_params=wf_params if wf_params else None,
+            correlation_id=correlation_id,
         )
         blocks = format_slack_blocks(agent_out)
     except AgentChatError as e:
         log.warning("slack turn agent error: %s", e)
         blocks = format_slack_error_blocks(str(e), detail=e.body_snippet)
+        outcome = "unavailable"
+        upstream_status = int(e.status_code or 0) or None
+        reason = "agent_unavailable"
 
     if token:
-        await slack_post_message(token, channel, reply_thread, blocks)
+        try:
+            await slack_post_message(token, channel, reply_thread, blocks)
+        except Exception as e:
+            log.warning("slack chat.postMessage request failed: %s", e)
+            if outcome == "success":
+                outcome = "delivery_failed"
+            reason = reason or "slack_post_failed"
     else:
         log.warning("SLACK_BOT_TOKEN unset — cannot post reply to Slack")
+        if outcome == "success":
+            outcome = "ignored"
+        reason = reason or "slack_bot_token_missing"
+
+    return {
+        "route": "slack_events",
+        "outcome": outcome,
+        "upstream_status": upstream_status,
+        "tenant_id": tenant,
+        "analyst_id": f"slack:{user}"[:128],
+        "reason": reason,
+    }

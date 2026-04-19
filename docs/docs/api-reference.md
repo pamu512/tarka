@@ -665,6 +665,28 @@ Complete endpoint reference for all Tarka services. All services use JSON reques
 
 ---
 
+## Collaboration Chat Bridge — `:8010`
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/v1/health` | Health and bridge feature flags |
+| `POST` | `/v1/slack/events` | Slack Events API ingress (signature-verified) |
+| `POST` | `/v1/teams/messages` | Teams/custom connector message ingress (`X-Bridge-Secret`) |
+| `POST` | `/v1/teams/activity` | Bot Framework activity ingress (`X-Bridge-Secret`) |
+| `POST` | `/v1/lark/event` | Lark/Feishu event ingress |
+| `POST` | `/v1/plugin/session` | Bridge-proxied plugin token issuance (`X-Bridge-Secret`) |
+| `POST` | `/v1/plugin/bootstrap` | Bridge-proxied plugin bootstrap (`X-Bridge-Secret`) |
+
+OpenAPI: `contracts/openapi/collaboration-chat-bridge.yaml`
+
+Plugin endpoints include `correlation_id` in the JSON body and `X-Correlation-Id` in response headers for end-to-end traceability.
+
+Ingress audit model:
+- `bridge.ingress.audit` is emitted for `slack/events`, `teams/messages`, `teams/activity`, and `lark/event`.
+- Slack/Lark async flows emit two events with the same `correlation_id`: an ingress `accepted` event and a completion event that may include `upstream_status`.
+
+---
+
 ## Error Responses
 
 All services return errors in a consistent format:

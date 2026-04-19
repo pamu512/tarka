@@ -1,8 +1,10 @@
 """Strict evaluate response parsing."""
 
 import pytest
-
-from fraud_stack_sdk.evaluate_response import EvaluateResponseValidationError, parse_evaluate_response
+from fraud_stack_sdk.evaluate_response import (
+    EvaluateResponseValidationError,
+    parse_evaluate_response,
+)
 
 
 def _minimal_evaluate_json() -> dict:

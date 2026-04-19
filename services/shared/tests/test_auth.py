@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import os
-
 import pytest
+from auth import require_api_key
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
-from auth import require_api_key
 
 
 @pytest.fixture(autouse=True)

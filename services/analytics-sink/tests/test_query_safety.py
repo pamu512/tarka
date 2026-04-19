@@ -1,8 +1,7 @@
 from unittest.mock import MagicMock, patch
 
-from fastapi.testclient import TestClient
-
 from analytics_sink.main import app
+from fastapi.testclient import TestClient
 
 
 class _FakeQueryResult:
