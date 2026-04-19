@@ -86,30 +86,36 @@ Tarka is a collection of loosely coupled microservices connected via HTTP and me
 
 ## Service Reference
 
-| Service | Port | Technology | Purpose | Dependencies |
-|---|---|---|---|---|
-| **Decision API** | 8000 | Python / FastAPI | Real-time fraud scoring, rule + ML orchestration, attestation | Postgres, Redis |
-| **Graph Service** | 8001 | Python / FastAPI | Entity graph, tag storage, community/ring detection | Neo4j |
-| **Case API** | 8002 | Python / FastAPI | Investigation cases, workflows, SLA, audit trail | Postgres, Graph Service (optional) |
-| **Integration Ingress** | 8003 | Python / FastAPI | KYC webhook adapters, sanctions screening | Postgres |
-| **Feature Service** | 8004 | Python / FastAPI | Feature snapshot computation for ML models | — |
-| **ML Scoring** | 8005 | Python / FastAPI | ONNX + heuristic model inference, A/B testing | — |
-| **Investigation Agent** | 8006 | Python / FastAPI | AI copilot with LLM tool-use loop | Case API, Graph Service, OpenAI |
-| **Event Ingest** | 8007 | Python / FastAPI | High-throughput async event ingestion | NATS, Decision API |
-| **Analytics Sink** | 8008 | Python / FastAPI | Streams events to ClickHouse for analytics | NATS, ClickHouse |
-| **GraphQL Gateway** | 8010 | Python / Strawberry | Unified GraphQL API across services | Decision API, Case API, Graph Service |
-| **Frontend** | 3000 | React / Vite | Investigation UI, dashboard, graph explorer | Case API, Decision API |
+
+| Service                 | Port | Technology          | Purpose                                                       | Dependencies                          |
+| ----------------------- | ---- | ------------------- | ------------------------------------------------------------- | ------------------------------------- |
+| **Decision API**        | 8000 | Python / FastAPI    | Real-time fraud scoring, rule + ML orchestration, attestation | Postgres, Redis                       |
+| **Graph Service**       | 8001 | Python / FastAPI    | Entity graph, tag storage, community/ring detection           | Neo4j                                 |
+| **Case API**            | 8002 | Python / FastAPI    | Investigation cases, workflows, SLA, audit trail              | Postgres, Graph Service (optional)    |
+| **Integration Ingress** | 8003 | Python / FastAPI    | KYC webhook adapters, sanctions screening                     | Postgres                              |
+| **Feature Service**     | 8004 | Python / FastAPI    | Feature snapshot computation for ML models                    | —                                     |
+| **ML Scoring**          | 8005 | Python / FastAPI    | ONNX + heuristic model inference, A/B testing                 | —                                     |
+| **Investigation Agent** | 8006 | Python / FastAPI    | AI copilot with LLM tool-use loop                             | Case API, Graph Service, OpenAI       |
+| **Event Ingest**        | 8007 | Python / FastAPI    | High-throughput async event ingestion                         | NATS, Decision API                    |
+| **Analytics Sink**      | 8008 | Python / FastAPI    | Streams events to ClickHouse for analytics                    | NATS, ClickHouse                      |
+| **GraphQL Gateway**     | 8010 | Python / Strawberry | Unified GraphQL API across services                           | Decision API, Case API, Graph Service |
+| **Frontend**            | 3000 | React / Vite        | Investigation UI, dashboard, graph explorer                   | Case API, Decision API                |
+
+
+The analyst UI uses a **single HTTP entry point** in the repo (`frontend/src/api/client.ts`): a barrel that re-exports shared types, `request()`, and per-service API objects from `frontend/src/api/modules/`. For the layout (what changed when the former monolithic `client.ts` was split), see [Frontend project](projects/frontend-project.md) (section **UI HTTP client**).
 
 ### Infrastructure
 
-| Component | Port | Purpose |
-|---|---|---|
-| **Postgres** | 5432 | Audit records, case data, integration state |
-| **Redis** | 6379 | Tags, cached scores, real-time aggregates, nonces |
-| **Neo4j** | 7687 (bolt) / 7474 (browser) | Entity graph storage |
-| **NATS JetStream** | 4222 / 8222 (monitoring) | Event streaming with at-least-once delivery |
-| **ClickHouse** | 8123 (HTTP) / 9000 (native) | Columnar analytics storage |
-| **OPA** | 8181 | Optional external policy engine |
+
+| Component          | Port                         | Purpose                                           |
+| ------------------ | ---------------------------- | ------------------------------------------------- |
+| **Postgres**       | 5432                         | Audit records, case data, integration state       |
+| **Redis**          | 6379                         | Tags, cached scores, real-time aggregates, nonces |
+| **Neo4j**          | 7687 (bolt) / 7474 (browser) | Entity graph storage                              |
+| **NATS JetStream** | 4222 / 8222 (monitoring)     | Event streaming with at-least-once delivery       |
+| **ClickHouse**     | 8123 (HTTP) / 9000 (native)  | Columnar analytics storage                        |
+| **OPA**            | 8181                         | Optional external policy engine                   |
+
 
 ---
 
@@ -166,17 +172,20 @@ Analytics Sink → ClickHouse
 
 ## Technology Choices
 
-| Area | Choice | Rationale |
-|---|---|---|
-| **Language** | Python 3.11+ | Async FastAPI for all services, broad ML ecosystem |
-| **API framework** | FastAPI + Pydantic | Auto-generated OpenAPI docs, async by default, request validation |
-| **Relational DB** | PostgreSQL 16 | Battle-tested, JSONB for flexible payloads, async driver (asyncpg) |
-| **Cache / state** | Redis 7 | Sub-millisecond tag lookups, sorted sets for real-time aggregates |
-| **Graph DB** | Neo4j 5 Community | Cypher query language, no GDS plugin required (pure Cypher analytics) |
-| **ML runtime** | ONNX Runtime | Vendor-neutral model format, CPU inference, easy model swap |
-| **Message broker** | NATS JetStream | Lightweight, built-in persistence, at-least-once delivery |
-| **Analytics** | ClickHouse | Columnar storage optimized for aggregate queries on event data |
-| **Policy engine** | Open Policy Agent | Optional, Rego language for complex compliance rules |
-| **Frontend** | React + Vite + TailwindCSS | Fast dev iteration, TypeScript, modern component architecture |
-| **Container** | Docker + Compose profiles | Profile-based composition lets you pick only what you need |
-| **Orchestration** | Helm charts for Kubernetes | Production-grade deployment with `values.yaml` toggles |
+
+| Area               | Choice                     | Rationale                                                             |
+| ------------------ | -------------------------- | --------------------------------------------------------------------- |
+| **Language**       | Python 3.11+               | Async FastAPI for all services, broad ML ecosystem                    |
+| **API framework**  | FastAPI + Pydantic         | Auto-generated OpenAPI docs, async by default, request validation     |
+| **Relational DB**  | PostgreSQL 16              | Battle-tested, JSONB for flexible payloads, async driver (asyncpg)    |
+| **Cache / state**  | Redis 7                    | Sub-millisecond tag lookups, sorted sets for real-time aggregates     |
+| **Graph DB**       | Neo4j 5 Community          | Cypher query language, no GDS plugin required (pure Cypher analytics) |
+| **ML runtime**     | ONNX Runtime               | Vendor-neutral model format, CPU inference, easy model swap           |
+| **Message broker** | NATS JetStream             | Lightweight, built-in persistence, at-least-once delivery             |
+| **Analytics**      | ClickHouse                 | Columnar storage optimized for aggregate queries on event data        |
+| **Policy engine**  | Open Policy Agent          | Optional, Rego language for complex compliance rules                  |
+| **Frontend**       | React + Vite + TailwindCSS | Fast dev iteration, TypeScript, modern component architecture         |
+| **Container**      | Docker + Compose profiles  | Profile-based composition lets you pick only what you need            |
+| **Orchestration**  | Helm charts for Kubernetes | Production-grade deployment with `values.yaml` toggles                |
+
+
