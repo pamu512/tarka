@@ -253,6 +253,7 @@ async def compute_entity_risk(tenant_id: str, entity_id: str, *, checkpoint: str
 
     profile = resolve_profile(checkpoint)
     mult = float(profile.get("risk_score_multiplier") or 1.0)
+    hop_cap = max(1, min(int(profile.get("max_neighbor_hops") or 3), 5))
 
     def sync() -> dict:
         g = get_traversal_source()
@@ -266,6 +267,7 @@ async def compute_entity_risk(tenant_id: str, entity_id: str, *, checkpoint: str
                 "community_size": 0,
                 "graph_checkpoint": checkpoint,
                 "graph_profile": profile.get("_profile_name"),
+                "graph_profile_max_neighbor_hops": hop_cap,
             }
         v = vl[0]
         tags = _tags_list_from_vertex(g, v)
@@ -302,10 +304,11 @@ async def compute_entity_risk(tenant_id: str, entity_id: str, *, checkpoint: str
                     oids.add(oid)
             shared_devices = len(oids)
 
-        # Bounded community size: BFS 3 hops count
+        # Bounded community size: BFS up to checkpoint max_neighbor_hops (1–5)
+        hop_depth = hop_cap
         seen_bfs: set[str] = {entity_id}
         frontier = [v]
-        for _ in range(3):
+        for _ in range(hop_depth):
             nxt: list[Any] = []
             for x in frontier:
                 for e in g.V(x).bothE().toList():
@@ -355,6 +358,7 @@ async def compute_entity_risk(tenant_id: str, entity_id: str, *, checkpoint: str
             "graph_checkpoint": checkpoint,
             "graph_profile": profile.get("_profile_name"),
             "graph_profile_multiplier": mult,
+            "graph_profile_max_neighbor_hops": hop_depth,
         }
 
     return await run_in_gremlin_thread(sync)

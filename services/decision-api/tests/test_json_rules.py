@@ -159,6 +159,11 @@ class TestEvaluateJsonRules:
         assert hits == ["big_tx"]
         assert tags == ["high_amount"]
         assert delta == 20.0
+        from decision_api.json_rules import get_rule_hit_telemetry
+
+        snap = get_rule_hit_telemetry()
+        assert snap["total_hits"] >= 1
+        assert any(r["rule_id"] == "big_tx" and r["hits"] >= 1 for r in snap["rows"])
 
     def test_no_hit(self):
         self._load_pack(

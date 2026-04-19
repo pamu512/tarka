@@ -79,6 +79,14 @@ from security_headers import setup_security_headers  # noqa: E402
 
 log = logging.getLogger("decision-api")
 
+
+def _upstream_headers() -> dict[str, str]:
+    """Shared auth headers for outbound service calls."""
+    key = settings.upstream_api_key.strip() if settings.upstream_api_key.strip() else ""
+    if not key:
+        key = settings.api_keys.split(",")[0].strip() if settings.api_keys.strip() else ""
+    return {"x-api-key": key} if key else {}
+
 _circuit_graph = AsyncCircuitBreaker(
     "graph",
     failure_threshold=settings.circuit_graph_failure_threshold,
@@ -103,6 +111,21 @@ _circuit_list = AsyncCircuitBreaker(
     "list",
     failure_threshold=settings.circuit_list_failure_threshold,
     recovery_seconds=settings.circuit_list_recovery_seconds,
+)
+_circuit_calibration = AsyncCircuitBreaker(
+    "calibration",
+    failure_threshold=settings.circuit_calibration_failure_threshold,
+    recovery_seconds=settings.circuit_calibration_recovery_seconds,
+)
+_circuit_counter = AsyncCircuitBreaker(
+    "counter",
+    failure_threshold=settings.circuit_counter_failure_threshold,
+    recovery_seconds=settings.circuit_counter_recovery_seconds,
+)
+_circuit_location = AsyncCircuitBreaker(
+    "location",
+    failure_threshold=settings.circuit_location_failure_threshold,
+    recovery_seconds=settings.circuit_location_recovery_seconds,
 )
 
 _ANALYST_ENTITY_ID = _re.compile(r"^[a-zA-Z0-9._@:/-]{1,512}$")
@@ -284,6 +307,152 @@ async def _fetch_feature_snapshot_wrapped(
         return _feature_snapshot_fallback(body, redis_tag_list)
 
 
+async def _fetch_counter_snapshot(
+    http: httpx.AsyncClient,
+    body: EvaluateRequest,
+    features: dict[str, Any],
+) -> dict[str, Any] | None:
+    if not settings.counter_service_url:
+        return None
+    url = settings.counter_service_url.rstrip("/") + "/v1/record-and-query"
+    payload = {
+        "tenant_id": body.tenant_id,
+        "entity_id": body.entity_id,
+        "event_id": str(uuid.uuid4()),
+        "payload": features,
+    }
+    r = await http.post(
+        url,
+        json=payload,
+        headers=_upstream_headers(),
+        timeout=settings.eval_step_feature_snapshot_timeout_seconds,
+    )
+    r.raise_for_status()
+    data = r.json()
+    return data if isinstance(data, dict) else None
+
+
+async def _fetch_counter_snapshot_wrapped(
+    http: httpx.AsyncClient,
+    body: EvaluateRequest,
+    features: dict[str, Any],
+    degrade_tags: list[str],
+) -> dict[str, Any] | None:
+    if not settings.counter_service_url:
+        return None
+    try:
+        return await _circuit_counter.call(lambda: _fetch_counter_snapshot(http, body, features))
+    except CircuitOpenError:
+        _circuit_metrics_inc("tarka_circuit_open_total_counter")
+        degrade_tags.append("counter:unavailable")
+        return None
+
+
+async def _fetch_location_evaluation(
+    http: httpx.AsyncClient,
+    body: EvaluateRequest,
+    features: dict[str, Any],
+) -> dict[str, Any] | None:
+    if not settings.location_service_url:
+        return None
+    url = settings.location_service_url.rstrip("/") + "/v1/evaluate"
+    current = None
+    previous = None
+    try:
+        la = float(features.get("session_last_lat")) if features.get("session_last_lat") is not None else None
+        lo = float(features.get("session_last_lon")) if features.get("session_last_lon") is not None else None
+        lts = float(features.get("session_last_ts")) if features.get("session_last_ts") is not None else None
+        if la is not None and lo is not None:
+            current = {"lat": la, "lon": lo, "ts": lts, "source": str(features.get("geo_source_resolved") or "derived")}
+    except (TypeError, ValueError):
+        current = None
+    try:
+        pla = float(features.get("session_prev_lat")) if features.get("session_prev_lat") is not None else None
+        plo = float(features.get("session_prev_lon")) if features.get("session_prev_lon") is not None else None
+        pts = float(features.get("session_prev_ts")) if features.get("session_prev_ts") is not None else None
+        if pla is not None and plo is not None:
+            previous = {"lat": pla, "lon": plo, "ts": pts, "source": "previous"}
+    except (TypeError, ValueError):
+        previous = None
+    payload = {
+        "tenant_id": body.tenant_id,
+        "entity_id": body.entity_id,
+        "session_id": body.session_id,
+        "current": current,
+        "previous": previous,
+        "trusted_places": load_trusted_zones_for_tenant(body.tenant_id),
+        "features": features,
+    }
+    r = await http.post(
+        url,
+        json=payload,
+        headers=_upstream_headers(),
+        timeout=settings.eval_step_feature_snapshot_timeout_seconds,
+    )
+    r.raise_for_status()
+    data = r.json()
+    return data if isinstance(data, dict) else None
+
+
+async def _fetch_location_evaluation_wrapped(
+    http: httpx.AsyncClient,
+    body: EvaluateRequest,
+    features: dict[str, Any],
+    degrade_tags: list[str],
+) -> dict[str, Any] | None:
+    if not settings.location_service_url:
+        return None
+    try:
+        return await _circuit_location.call(lambda: _fetch_location_evaluation(http, body, features))
+    except CircuitOpenError:
+        _circuit_metrics_inc("tarka_circuit_open_total_location")
+        degrade_tags.append("location:unavailable")
+        return None
+
+
+async def _fetch_calibration_adjustment(
+    http: httpx.AsyncClient,
+    body: EvaluateRequest,
+    baseline_confidence: float,
+    features: dict[str, Any],
+) -> dict[str, Any] | None:
+    if not settings.calibration_service_url:
+        return None
+    url = settings.calibration_service_url.rstrip("/") + "/v1/score"
+    profile = str(features.get("calibration_profile") or body.payload.get("calibration_profile") or "default")
+    r = await http.post(
+        url,
+        json={
+            "tenant_id": body.tenant_id,
+            "profile_id": profile,
+            "baseline_confidence": baseline_confidence,
+            "features": features,
+        },
+        headers=_upstream_headers(),
+        timeout=settings.eval_step_feature_snapshot_timeout_seconds,
+    )
+    r.raise_for_status()
+    data = r.json()
+    return data if isinstance(data, dict) else None
+
+
+async def _fetch_calibration_adjustment_wrapped(
+    http: httpx.AsyncClient,
+    body: EvaluateRequest,
+    baseline_confidence: float,
+    features: dict[str, Any],
+    degrade_tags: list[str],
+) -> dict[str, Any] | None:
+    if not settings.calibration_service_url:
+        return None
+    try:
+        return await _circuit_calibration.call(lambda: _fetch_calibration_adjustment(http, body, baseline_confidence, features))
+    except CircuitOpenError:
+        _circuit_metrics_inc("tarka_circuit_open_total_calibration")
+        degrade_tags.append("calibration:unavailable")
+        return None
+
+
 async def _fetch_ml_score_wrapped(
     http: httpx.AsyncClient,
     tenant_id: str,
@@ -336,6 +505,9 @@ def _compute_fallback_reason(degrade_tags: list[str], step_trace: list[dict[str,
         "enrichment:unavailable": "circuit_feature",
         "ml:unavailable": "circuit_ml",
         "opa:unavailable": "circuit_opa",
+        "calibration:unavailable": "circuit_calibration",
+        "counter:unavailable": "circuit_counter",
+        "location:unavailable": "circuit_location",
         "lists:disabled_by_tenant": "tenant_disable_entity_lists",
         "graph:disabled_by_tenant": "tenant_disable_graph",
         "enrichment:disabled_by_tenant": "tenant_disable_feature_service",
@@ -507,7 +679,6 @@ if settings.request_signature_secret:
         max_skew_seconds=settings.request_signature_max_skew_seconds,
     )
 
-from decision_api.calibration_api import compute_drift_for_tenant  # noqa: E402
 from decision_api.calibration_api import router as calibration_router  # noqa: E402
 from decision_api.captcha import router as captcha_router  # noqa: E402
 from decision_api.compliance_api import router as compliance_router  # noqa: E402
@@ -633,6 +804,7 @@ async def reload_rules(_=Depends(require_role("admin"))):
     reload_predicate_registry()
     _load_graph_routing_policy(force=True)
     load_challenge_policies(force=True)
+    _load_graph_routing_policy(force=True)
     return {"ok": True}
 
 
@@ -647,7 +819,21 @@ async def ops_governance():
     """Rollout posture: active rule packs (canary, effective_at), shadow count, inference contract version."""
     exp_ct = experiment_registry_line_count()
     g = rules_governance_summary()
-    cal_status = compute_drift_for_tenant("global", "default")
+    cal_status: dict[str, Any]
+    if settings.calibration_service_url:
+        try:
+            r = await app.state.http.get(
+                settings.calibration_service_url.rstrip("/") + "/v1/drift",
+                params={"tenant_id": "global", "profile_id": "default"},
+                timeout=settings.eval_step_feature_snapshot_timeout_seconds,
+            )
+            r.raise_for_status()
+            data = r.json()
+            cal_status = data if isinstance(data, dict) else {"hint": "invalid_calibration_response"}
+        except Exception:
+            cal_status = {"hint": "calibration_service_unavailable"}
+    else:
+        cal_status = {"hint": "calibration_service_not_configured"}
     return {
         "inference_schema_version": INFERENCE_SCHEMA_VERSION,
         "rule_packs": g,
@@ -698,7 +884,20 @@ async def ops_governance():
 @app.get("/v1/ops/calibration-status")
 async def calibration_status(tenant_id: str, profile: str = "default"):
     """Small ops view that combines drift hint with governance context."""
-    drift = compute_drift_for_tenant(tenant_id, profile)
+    if settings.calibration_service_url:
+        try:
+            r = await app.state.http.get(
+                settings.calibration_service_url.rstrip("/") + "/v1/drift",
+                params={"tenant_id": tenant_id, "profile_id": profile},
+                timeout=settings.eval_step_feature_snapshot_timeout_seconds,
+            )
+            r.raise_for_status()
+            data = r.json()
+            drift = data if isinstance(data, dict) else {"hint": "invalid_calibration_response"}
+        except Exception:
+            drift = {"hint": "calibration_service_unavailable"}
+    else:
+        drift = {"hint": "calibration_service_not_configured"}
     return {
         "tenant_id": tenant_id,
         "profile": profile,
@@ -915,6 +1114,7 @@ async def _fetch_feature_snapshot(http: httpx.AsyncClient, body: EvaluateRequest
             "event_type": body.event_type.value,
             "payload": body.payload,
         },
+        headers=_upstream_headers(),
         timeout=settings.eval_step_feature_snapshot_timeout_seconds,
     )
     r.raise_for_status()
@@ -937,6 +1137,7 @@ async def _fetch_ml_score(
             "event_type": event_type,
             "features": features,
         },
+        headers=_upstream_headers(),
         timeout=settings.eval_step_ml_timeout_seconds,
     )
     r.raise_for_status()
@@ -982,6 +1183,7 @@ async def _graph_upsert(
             "properties": {"last_event": body.event_type.value, "trace_id": trace_id},
             "tags": merged_tags,
         },
+        headers=_upstream_headers(),
     )
 
     # Upsert Device node if device_context present
@@ -1000,6 +1202,7 @@ async def _graph_upsert(
                 },
                 "tags": device_tags,
             },
+            headers=_upstream_headers(),
         )
         # Link Account -> Device
         await http.post(
@@ -1011,6 +1214,7 @@ async def _graph_upsert(
                 "relationship": "USED",
                 "properties": {"trace_id": trace_id, "event_type": body.event_type.value},
             },
+            headers=_upstream_headers(),
         )
 
     # Upsert Session node if session_id present
@@ -1024,6 +1228,7 @@ async def _graph_upsert(
                 "properties": {"type": "session", "trace_id": trace_id},
                 "tags": [],
             },
+            headers=_upstream_headers(),
         )
         await http.post(
             f"{base}/v1/links",
@@ -1034,6 +1239,7 @@ async def _graph_upsert(
                 "relationship": "USED",
                 "properties": {"trace_id": trace_id},
             },
+            headers=_upstream_headers(),
         )
 
     # Place cell for co-location (quantized lat/lon from SDK or payload hints)
@@ -1065,6 +1271,7 @@ async def _graph_upsert(
                 },
                 "tags": gtags,
             },
+            headers=_upstream_headers(),
         )
         await http.post(
             f"{base}/v1/links",
@@ -1075,6 +1282,7 @@ async def _graph_upsert(
                 "relationship": "SEEN_AT",
                 "properties": {"trace_id": trace_id, "event_type": body.event_type.value},
             },
+            headers=_upstream_headers(),
         )
         if body.session_id:
             await http.post(
@@ -1086,6 +1294,7 @@ async def _graph_upsert(
                     "relationship": "SEEN_AT",
                     "properties": {"trace_id": trace_id},
                 },
+                headers=_upstream_headers(),
             )
 
 
@@ -1512,8 +1721,34 @@ async def evaluate_decision(
         except (TypeError, ValueError):
             pass
 
-    # Compute real-time aggregates and inject into features
-    if agg_store._client:
+    # Counter ownership: prefer counter-service as source of truth; keep local aggregates as fallback.
+    counter_meta: dict[str, Any] | None = None
+    if settings.counter_service_url:
+        counter_meta, counter_trace = await run_evaluation_step(
+            "counter_snapshot",
+            lambda: _fetch_counter_snapshot_wrapped(http, body, features, degrade_tags),
+            timeout_seconds=settings.eval_step_feature_snapshot_timeout_seconds,
+            max_attempts=settings.eval_step_feature_snapshot_max_attempts,
+            on_failure="SKIP",
+            fallback=None,
+        )
+        step_trace.append(counter_trace)
+        if isinstance(counter_meta, dict):
+            counters = counter_meta.get("counters")
+            if isinstance(counters, dict):
+                features.update(counters)
+            if counter_meta.get("definition_id"):
+                features["counter_definition_id"] = counter_meta.get("definition_id")
+            if counter_meta.get("definition_version") is not None:
+                features["counter_definition_version"] = counter_meta.get("definition_version")
+        elif agg_store._client:
+            # Adapter shim while services roll out; keeps evaluate path functional during outages.
+            degrade_tags.append("counter:fallback_local_agg")
+            agg_features = await agg_store.compute_features(body.tenant_id, body.entity_id, features)
+            features.update(agg_features)
+            agg_ts = event_time_unix_for_evaluate(body.metadata, body.payload)
+            await agg_store.record_event(body.tenant_id, body.entity_id, str(trace_id), features, ts=agg_ts)
+    elif agg_store._client:
         agg_features = await agg_store.compute_features(body.tenant_id, body.entity_id, features)
         features.update(agg_features)
         # Record this event for future aggregate computation (uses normalised amount).
@@ -1530,6 +1765,34 @@ async def evaluate_decision(
             elif t == "sdk:geo_tz_mismatch":
                 features["geo_tz_mismatch"] = True
         signal_tags.extend(geo_extra_tags)
+
+    location_meta: dict[str, Any] | None = None
+    if settings.location_service_url:
+        location_meta, location_trace = await run_evaluation_step(
+            "location_eval",
+            lambda: _fetch_location_evaluation_wrapped(http, body, features, degrade_tags),
+            timeout_seconds=settings.eval_step_feature_snapshot_timeout_seconds,
+            max_attempts=settings.eval_step_feature_snapshot_max_attempts,
+            on_failure="SKIP",
+            fallback=None,
+        )
+        step_trace.append(location_trace)
+        if isinstance(location_meta, dict):
+            try:
+                features["geo_consistency_risk"] = float(location_meta.get("geo_consistency_risk"))
+            except (TypeError, ValueError):
+                pass
+            try:
+                features["copresence_risk"] = float(location_meta.get("copresence_risk"))
+            except (TypeError, ValueError):
+                pass
+            try:
+                features["impossible_travel_risk"] = float(location_meta.get("impossible_travel_risk"))
+            except (TypeError, ValueError):
+                pass
+            ltags = location_meta.get("tags")
+            if isinstance(ltags, list):
+                signal_tags.extend(str(t) for t in ltags if isinstance(t, str))
 
     # Platform integrity supplements (must run before JSON tag_rules so policy can match integrity:*)
     _plat_kw = _infer_ctx_kwargs(body, features)
@@ -1616,6 +1879,43 @@ async def evaluate_decision(
     base_score = 10.0 + score_delta + consortium_delta + graph_delta + replay_delta
     final_score = _blend_scores(base_score, ml_score if isinstance(ml_score, float) else None)
 
+    calibration_meta: dict[str, Any] | None = None
+    if settings.calibration_service_url:
+        baseline_inf = build_inference_context(
+            list(dict.fromkeys(signal_tags)),
+            rule_hits + replay_rule_hits,
+            ml_score if isinstance(ml_score, float) else None,
+            final_score,
+            features,
+            ml_detail=ml_detail if isinstance(ml_detail, dict) else None,
+            location_meta=location_meta,
+            counter_meta=counter_meta,
+            **_plat_kw,
+        )
+        baseline_conf = float(baseline_inf.get("integrity_confidence") or 0.0)
+        calibration_meta, calibration_trace = await run_evaluation_step(
+            "calibration_adjustment",
+            lambda: _fetch_calibration_adjustment_wrapped(http, body, baseline_conf, features, degrade_tags),
+            timeout_seconds=settings.eval_step_feature_snapshot_timeout_seconds,
+            max_attempts=settings.eval_step_feature_snapshot_max_attempts,
+            on_failure="SKIP",
+            fallback=None,
+        )
+        step_trace.append(calibration_trace)
+        if isinstance(calibration_meta, dict):
+            cal_conf = calibration_meta.get("calibrated_confidence")
+            if isinstance(cal_conf, (float, int)):
+                features["calibrated_integrity_confidence"] = float(cal_conf)
+            profile_id = calibration_meta.get("profile_id")
+            if isinstance(profile_id, str) and profile_id.strip():
+                features["calibration_profile"] = profile_id.strip()
+            expected_ver = calibration_meta.get("expected_calibration_version")
+            try:
+                if expected_ver is not None:
+                    features["expected_calibration_version"] = int(expected_ver)
+            except (TypeError, ValueError):
+                pass
+
     merged_tags = await redis_tags.merge_tags(body.tenant_id, body.entity_id, all_new_tags)
     await redis_tags.set_cached_score(body.tenant_id, body.entity_id, final_score)
 
@@ -1647,6 +1947,9 @@ async def evaluate_decision(
         final_score,
         features,
         ml_detail=ml_detail if isinstance(ml_detail, dict) else None,
+        calibration_meta=calibration_meta,
+        counter_meta=counter_meta,
+        location_meta=location_meta,
         **_plat_kw,
     )
     recommended_action = derive_recommended_action(decision, merged_signal_tags, inf_ctx)
@@ -1692,6 +1995,12 @@ async def evaluate_decision(
         snap_extra["fallback_reason"] = fb_reason
     if policy_routing is not None:
         snap_extra["policy_routing"] = policy_routing
+    if calibration_meta is not None:
+        snap_extra["calibration"] = calibration_meta
+    if counter_meta is not None:
+        snap_extra["counter"] = counter_meta
+    if location_meta is not None:
+        snap_extra["location"] = location_meta
 
     audit = AuditRecord(
         trace_id=trace_id,

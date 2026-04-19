@@ -74,6 +74,18 @@ Use this as a **single checklist** when closing GitHub issues and duplicate PRs.
 
 ---
 
+## First-class risk services (Cal/Counter/Location) — implementation evidence
+
+| Issue / backlog anchor | Status | Evidence |
+| --- | --- | --- |
+| **#33** Counter parity + maturity | **Implementation landed (branch evidence pending merge SHA)** | New service + contract: `contracts/openapi/counter-service.yaml`, `services/counter-service/src/counter_service/main.py`, tests `services/counter-service/tests/test_main.py`. Decision runtime integration: `settings.counter_service_url` + circuit breaker + fallback tags in `services/decision-api/src/decision_api/main.py`. Frontend ops surface: `frontend/src/pages/OpsCounters.tsx`. |
+| Location / co-location backlog (critical gap from scorecard review) | **Implementation landed (branch evidence pending merge SHA)** | New service + contract: `contracts/openapi/location-service.yaml`, `services/location-service/src/location_service/main.py`, tests `services/location-service/tests/test_main.py`. Decision runtime integration: `settings.location_service_url`, `location_eval` step + provenance in inference/audit. Graph semantics maintained through existing `Place`/`SEEN_AT` writes in `decision-api` graph upsert flow. |
+| Calibration service-first runtime | **Implementation landed (branch evidence pending merge SHA)** | New service + contract: `contracts/openapi/calibration-service.yaml`, `services/calibration-service/src/calibration_service/main.py`, tests `services/calibration-service/tests/test_main.py`. Decision runtime integration: `settings.calibration_service_url`, calibration step + audit snapshot embedding (`payload_snapshot.calibration`). |
+| Cross-service confidence provenance | **Implementation landed (branch evidence pending merge SHA)** | Inference context now carries first-class provenance fields: `calibration_profile_version`, `location_confidence`, `confidence_sources` in `services/decision-api/src/decision_api/inference_build.py` + `schemas.py`; OpenAPI contract updated in `contracts/openapi/decision-api.yaml`; frontend rendering in `frontend/src/pages/CaseDetail.tsx` and parser in `frontend/src/api/inferenceContext.ts`. |
+| Runtime resilience + auth hardening | **Implementation landed (branch evidence pending merge SHA)** | Per-upstream circuits and fallback reasons (`circuit_calibration/counter/location`) in decision runtime; fail-closed shared auth in `services/shared/auth.py`, RBAC posture in `services/shared/auth_rbac.py`; SLO endpoints in each new service and burn-rate coverage extended in `deploy/observability/prometheus-rules/slo-burn.yml`, with scrape targets wired in `deploy/observability/prometheus.yml`. |
+
+---
+
 ## Tier 6 — Publishing
 
 | **#53** Scorecard → Discussions | Partial | Use analytics-sink `GET /v1/analytics/scorecard` as the machine-readable source of truth; remaining: wired weekly publisher to Discussions and UI surfaces. |
