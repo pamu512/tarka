@@ -19,6 +19,8 @@ const ShadowMode = lazy(() => import("./pages/ShadowMode"));
 const Simulation = lazy(() => import("./pages/Simulation"));
 const Compliance = lazy(() => import("./pages/Compliance"));
 const OpsCounters = lazy(() => import("./pages/OpsCounters"));
+const OpsCalibration = lazy(() => import("./pages/OpsCalibration"));
+const MlLifecycle = lazy(() => import("./pages/MlLifecycle"));
 const OpsPipelines = lazy(() => import("./pages/OpsPipelines"));
 const FeatureTools = lazy(() => import("./pages/FeatureTools"));
 const EntityLists = lazy(() => import("./pages/EntityLists"));

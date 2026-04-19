@@ -69,6 +69,10 @@ class TestToolDispatch:
             "ingest_labeled_rows",
             "get_stored_labeled_dataset",
             "run_replay_ab_comparison",
+            "screen_sanctions_pep",
+            "summarize_adverse_media",
+            "consolidate_entity_profile",
+            "graph_risk_narrative",
         }
         assert set(TOOL_DISPATCH.keys()) == expected_tools
 

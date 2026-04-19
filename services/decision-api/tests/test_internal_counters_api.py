@@ -13,6 +13,7 @@ os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 @pytest.fixture(autouse=True)
 def _patch_env(monkeypatch):
     monkeypatch.setenv("API_KEYS", "")
+    monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
     monkeypatch.setenv("DATABASE_URL", "sqlite+aiosqlite:///")
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
 
