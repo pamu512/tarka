@@ -8,51 +8,9 @@ This schedule is committed to git for planned milestone tracking.
 - `v1.2.0` - `2026-05-30` — strategic concentration: productized quality, device/session/integrity, location & co-presence, counters/velocity platform, analyst workflows, network/consortium, operations & lock-in inverse (see `docs/docs/releases/v1.2.0-2026-05-30.md`).
 - `v1.3.0` - `2026-06-29`
 
-## Early `v1.1.0` release note (review before push)
+### `v1.2.0` — ship hold until Epic C “10x” (active)
 
-`v1.1.0` is an **early-development beta** release that stabilizes Tarka's core decision stack and makes the platform easier to evaluate and operate end-to-end.
-
-- Decision quality: stronger `inference_context` + `recommended_action` contract and clearer analyst explainability surfaces.
-- Platform reliability: hardened CI/security evidence path, explicit release gates, and improved smoke-test repeatability.
-- Integration readiness: API/SDK/OpenAPI parity and a practical five-minute lite-stack workflow for faster onboarding.
-
-This is a foundation release: it de-risks immediate adoption while preparing the system for broader v1.2/v1.3 productization.
-
-## v1.1.0 pending tasks snapshot
-
-Source of truth remains `docs/docs/releases/v1.1.0-2026-04-30.md` under **Pending tasks before tagging `v1.1.0`**.
-
-- Run full `ci.yml` on final RC SHA in `main`/`master` workflow scope (`master` SHA `df3224c3b3e5056d03554ca9732fde2f25086139`, [run 24377895049](https://github.com/pamu512/tarka/actions/runs/24377895049)).
-- Attach RC-linked `benchmark-latency-evaluate` artifact evidence (local artifact: `benchmark-latency-evaluate-local.txt`).
-- Attach RC-linked `security-scan.yml` run evidence ([run 24377895059](https://github.com/pamu512/tarka/actions/runs/24377895059)).
-- Attach RC-linked `secret-scan.yml` run evidence (beta-only temporary waiver: no `master` runs available yet via Actions API as of `2026-04-19`; expires within one week post-tag or on first successful `main/master` run).
-- Re-run `scripts/ci/verify_release_candidate.sh` on final tag candidate and refresh evidence dates/SHA (passed on `release/v1.2.0` SHA `ec89ac96e47d47b56e9df0cf6e7e382d4bbea6ee`).
-- Reconfirm no P0 blockers on the documented demo path before tag (GitHub issue search for open `P0` = `0`; smoke checks passed on `8000`/`8003`/`3000`).
-
-## Recent commits and stack impact
-
-- `860aeb2` (`feat(epic-c)`): adds `distinct_session_id_24h` in velocity manifest, improving counter parity and replay/rule consistency.
-- `5d9f435` (`fix(ci)`): fixes decision-api Ruff and aggregate gate failures, improving release reliability.
-- `663b104` (`merge`): combines location coherence and v1.1 prep work, improving cross-layer consistency (API + SDK + docs).
-- `6cfcf74` (`chore(ci)`): introduces secret-scan and benchmark gate prep, improving evidence and governance discipline.
-- `573b2c1` (`fix(location)`): tightens IP-geo gating and signal parsing, reducing noisy enrichment and improving trust in geo signals.
-- `84d4a8d` and `3499264` (`feat(location)`): calibration status endpoint plus SDK/graph geo signals, improving model observability and explainability.
-- `a91b3e4` (`feat(v1.2)`): vertical benchmark harness and ingress scorecards, advancing productization and operational monitoring.
-- `ed6dc64` (`feat`): copilot and collaboration bridge readiness, improving analyst workflow responsiveness.
-
-## Expected outcomes in coming releases
-
-### `v1.2.0` (May 30, 2026)
-
-- Vertical starter packs with deterministic benchmark scorecards and clearer promotion paths.
-- Stronger counters/velocity and location coherence across online scoring, replay, and operator tooling.
-- Better analyst + operator workflow depth via reliability scorecards and documented deployment options.
-
-### `v1.3.0` (June 29, 2026)
-
-- Trust Center, signed artifacts, and release-governance controls for enterprise posture.
-- Evidence exports and audit-ready lineage for compliance and procurement workflows.
-- Hardened operational readiness surfaces without breaking existing integration contracts.
+**Do not** publish a **`v1.2.0`** Git tag or GitHub release, and do not treat the train as “shipped to users,” until **[Epic C completion (10x bar)](docs/docs/guides/counter-replay-parity.md#epic-c-completion-10x-bar)** is satisfied on the release candidate commit. Integration branches (e.g. `release/v1.2.0`) may continue to move for development; the hold is on **customer-facing release finalization** only.
 
 ## Publication Notes
 

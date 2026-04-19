@@ -1,6 +1,7 @@
 # Tarka Lite — "try it in 5 minutes" deployment
-# postgres, redis, decision-api, case-api, integration-ingress (OSINT/KYC), frontend.
-# No Neo4j, NATS, ClickHouse, or OPA.
+# Core: postgres, redis, decision-api, case-api, integration-ingress, frontend.
+# Optional OSS path: Neo4j + graph-service + feature-service + ml-scoring (profiles: graph, ml)
+# so policy routing, typologies, velocities, and graph checkpoints work without the full stack.
 #
 # Usage:
 #   docker compose -f deploy/docker-compose.lite.yml up --build
@@ -35,6 +36,17 @@ services:
       timeout: 3s
       retries: 5
 
+  neo4j:
+    image: neo4j:5-community
+    environment:
+      NEO4J_AUTH: neo4j/tarka2026
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - fraud_neo4j_lite:/data
+    profiles: [graph]
+
   # ---------- Core Services ----------
   decision-api:
     build:
@@ -44,9 +56,9 @@ services:
       DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
       REDIS_URL: redis://redis:6379/0
       RULES_PATH: /app/rules
-      FEATURE_SERVICE_URL: ""
-      ML_SCORING_URL: ""
-      GRAPH_SERVICE_URL: ""
+      FEATURE_SERVICE_URL: ${FEATURE_SERVICE_URL:-}
+      ML_SCORING_URL: ${ML_SCORING_URL:-}
+      GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-}
       OPA_URL: ""
     ports:
       - "8000:8000"
@@ -62,13 +74,51 @@ services:
       retries: 5
       start_period: 15s
 
+  graph-service:
+    build:
+      context: ..
+      dockerfile: services/graph-service/Dockerfile
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: tarka2026
+    ports:
+      - "8001:8001"
+    depends_on:
+      - neo4j
+    profiles: [graph]
+
+  feature-service:
+    build:
+      context: ..
+      dockerfile: services/feature-service/Dockerfile
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      FEATURE_SERVICE_REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8004:8004"
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles: [ml]
+
+  ml-scoring:
+    build:
+      context: ..
+      dockerfile: services/ml-scoring/Dockerfile
+    environment:
+      DISABLE_ML: ${DISABLE_ML:-false}
+    ports:
+      - "8005:8005"
+    profiles: [ml]
+
   case-api:
     build:
       context: ..
       dockerfile: services/case-api/Dockerfile
     environment:
       DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
-      GRAPH_SERVICE_URL: ""
+      GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-}
       DECISION_API_URL: http://decision-api:8000
     ports:
       - "8002:8002"
@@ -121,3 +171,4 @@ services:
 
 volumes:
   fraud_pg:
+  fraud_neo4j_lite:

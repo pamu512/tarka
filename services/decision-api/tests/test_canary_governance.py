@@ -8,6 +8,25 @@ from unittest.mock import patch
 from decision_api.json_rules import evaluate_json_rules, governance_summary, load_rules
 
 
+def test_challenger_mode_includes_canary_excluded_packs():
+    """OSS #31: challenger path evaluates all packs that pass effective_at (ignores canary_percent)."""
+    pack = {
+        "version": 1,
+        "_source_file": "test.json",
+        "name": "t",
+        "canary_percent": 0,
+        "rules": [{"id": "always", "when": [{"field": "amount", "op": "gte", "value": 1}], "tags": ["x"], "score_delta": 5}],
+        "tag_rules": [],
+    }
+    import decision_api.json_rules as jr
+
+    jr._cached_packs = [pack]
+    h, _, d = evaluate_json_rules({"amount": 100}, [], "t1", "e1", evaluation_mode="production")
+    assert h == [] and d == 0.0
+    h2, _, d2 = evaluate_json_rules({"amount": 100}, [], "t1", "e1", evaluation_mode="challenger")
+    assert "always" in h2 and d2 == 5.0
+
+
 def test_simulation_bypasses_canary():
     pack = {
         "version": 1,

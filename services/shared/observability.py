@@ -76,6 +76,15 @@ class Metrics:
     def inc(self, name: str, value: int = 1) -> None:
         self._custom_counters[name] = self._custom_counters.get(name, 0) + value
 
+    def request_count_summary(self) -> dict[str, Any]:
+        """In-process HTTP counters since boot — for ``GET /v1/slo`` ``current`` (no external TSDB)."""
+        total = sum(self._request_count.values())
+        errors_5xx = sum(self._request_errors.values())
+        return {
+            "http_requests_total_observed": total,
+            "http_server_errors_total_observed": errors_5xx,
+        }
+
     def to_prometheus(self) -> str:
         lines: list[str] = []
         lines.append("# HELP http_requests_total Total HTTP requests")

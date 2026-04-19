@@ -30,7 +30,7 @@ Open-source, modular fraud detection platform. Pick the components you need or r
 These capabilities are in the codebase today and roll forward on `master`:
 
 - **Decision API:** normalized **`inference_context`** on evaluate responses (integrity, tamper, network trust, replay, geo-consistency, top signals) plus OpenAPI contract alignment; **session geo** merges optional **browser GPS** and **server IP geo** hints; **`sdk:geo_ip_mismatch`** / **`sdk:geo_tz_mismatch`** signal tags when inconsistent; **`/v1/ops/calibration-status`** and **`calibration_status`** on **`/v1/ops/governance`** for drift posture.
-- **Ingress hardening:** **replay-style payload detection** (short-lived Redis signatures) folded into scoring and audit context.
+- **Ingress hardening:** **replay-style payload detection** (short-lived Redis signatures) folded into scoring and audit context; optional **HMAC** on `POST /v1/decisions/evaluate` when **`REQUEST_SIGNATURE_SECRET`** is set (see [TLS pinning & signed requests](docs/docs/guides/tls-pinning-and-signed-requests.md)).
 - **SDKs:** **Python** and **TypeScript** clients typed for `inference_context` on evaluate responses; **TypeScript** optional **`enableGeo`** (browser GPS); **Python** server collector optional **`enable_ip_geo`** / **`ENABLE_IP_GEO_LOOKUP`** (public IP lookup is **off** by default).
 - **Graph (lite path):** default schema includes **`Place`** (quantized geo cells) and **`SEEN_AT`** edges for co-location–style graph context when enabled.
 - **Frontend:** case explainability surfaces **inference metrics**; API client can **fall back to mock data** when backends are down (demo-friendly).
@@ -270,8 +270,12 @@ Event Ingest --> NATS JetStream --> Analytics Sink --> ClickHouse
 |-----|----------|
 | `packages/fraud-sdk-typescript` | Web (browser) — device signals + behavioral biometrics |
 | `packages/fraud-sdk-python` | Server-side Python — IP/geo signal collection |
-| `packages/fraud-sdk-android` | Android (Kotlin) — Play Integrity attestation |
-| `packages/fraud-sdk-ios` | iOS (Swift) — App Attest |
+| `packages/fraud-sdk-android` | **Android (Kotlin)** — `io.tarka.sdk`, Play Integrity, `device_context` ([README](packages/fraud-sdk-android/README.md)) |
+| `packages/fraud-sdk-ios` | **iOS (Swift)** — App Attest, `device_context` ([README](packages/fraud-sdk-ios/README.md)) |
+
+**SDK positioning (directional, mid-scale scores):** [docs/docs/guides/sdk-scorecard-2026-01.md](docs/docs/guides/sdk-scorecard-2026-01.md).
+
+**Highly regulated sectors (fintech, banking, crypto-adjacent):** optional **[regulated markets feature pack](docs/docs/guides/feature-pack-regulated-markets.md)** checklist — ingress integrity, attestation, audit, self-hosted boundaries. **SOC 2 / PCI / ISO** orientation: [compliance readiness](docs/docs/guides/compliance-readiness-soc2-pci-iso.md).
 
 ## Frontend Pages
 

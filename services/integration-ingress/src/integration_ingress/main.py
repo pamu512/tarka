@@ -32,10 +32,10 @@ from integration_ingress.models import (
 from integration_ingress.osint import OsintConfig, full_osint_enrichment
 from integration_ingress.vault import InMemoryVault
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from audit_trail import AuditTrail, create_audit_model  # noqa: E402
 from auth_rbac import get_current_user, require_role, setup_auth  # noqa: E402
-from observability import setup_observability  # noqa: E402
+from observability import get_metrics, setup_observability  # noqa: E402
 from privacy import get_profile  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -115,6 +115,92 @@ _PROVIDER_SANDBOX_PROBES: dict[str, dict[str, str]] = {
     "complyadvantage": {"path_hint": "comply", "host_hint": "complyadvantage.com"},
     "opensanctions": {"path_hint": "sanction", "host_hint": "opensanctions.org"},
 }
+
+CONNECTOR_QUALITY_VERSION = 1
+
+
+def _latency_component_ms(latency_ms: float) -> float:
+    """0–100: lower latency scores higher."""
+    if latency_ms <= 0:
+        return 50.0
+    # Full credit under 300ms, decay to 0 by 2500ms
+    if latency_ms <= 300:
+        return 100.0
+    if latency_ms >= 2500:
+        return 0.0
+    return round(100.0 * (1.0 - (latency_ms - 300) / 2200.0), 1)
+
+
+def _connector_quality_v1_from_probe(
+    provider: dict[str, Any],
+    *,
+    probe_ok: bool,
+    probe_latency_ms: float,
+    probe_error: str,
+) -> dict[str, Any]:
+    """Heuristic v1 when tenant credentials are not evaluated (preflight / public doc probes)."""
+    reach = 100.0 if probe_ok else 0.0
+    lat = _latency_component_ms(probe_latency_ms) if probe_ok else 0.0
+    sem = 100.0
+    err = (probe_error or "").strip()
+    if err in {"host_hint_mismatch", "sandbox_semantic_check_failed"}:
+        sem = 40.0
+    score = round((reach * 0.45) + (lat * 0.25) + (sem * 0.3), 1)
+    return {
+        "version": CONNECTOR_QUALITY_VERSION,
+        "score": min(100.0, score),
+        "components": {
+            "doc_reachability": reach,
+            "latency_shape": lat,
+            "sandbox_semantics": sem,
+        },
+        "probe_error": err or None,
+    }
+
+
+def _connector_quality_v1_installed(
+    provider: dict[str, Any],
+    last: dict[str, Any],
+) -> dict[str, Any]:
+    """v1 score for a configured integration using last connectivity test + catalog metadata."""
+    check_status = str(last.get("status", "unknown")).lower()
+    live_probe = last.get("live_probe") if isinstance(last.get("live_probe"), dict) else {}
+    probe_ok = bool(live_probe.get("ok"))
+    probe_latency_ms = float(live_probe.get("latency_ms") or last.get("latency_ms") or 0.0)
+    probe_error = str(live_probe.get("error") or "")
+    missing_fields = last.get("missing_fields") or []
+    if not isinstance(missing_fields, list):
+        missing_fields = []
+
+    auth_ok = check_status == "pass"
+    req_fields = provider.get("required_config_fields") or []
+    req_n = len(req_fields) if isinstance(req_fields, list) else 0
+    missing_n = len(missing_fields)
+    config_pct = _config_completeness(req_n, missing_n)
+
+    reach = 100.0 if auth_ok else (35.0 if check_status == "fail" else 50.0)
+    probe_reach = 100.0 if probe_ok else 0.0
+    lat = _latency_component_ms(probe_latency_ms) if probe_ok else 0.0
+    sem = 100.0
+    if probe_error in {"host_hint_mismatch", "sandbox_semantic_check_failed"}:
+        sem = 45.0
+
+    score = round(
+        (reach * 0.35) + (probe_reach * 0.25) + (lat * 0.15) + (sem * 0.15) + (config_pct * 0.1),
+        1,
+    )
+    return {
+        "version": CONNECTOR_QUALITY_VERSION,
+        "score": min(100.0, score),
+        "components": {
+            "auth_material": reach,
+            "live_probe": probe_reach,
+            "latency_shape": lat,
+            "sandbox_semantics": sem,
+            "config_completeness_pct": config_pct,
+        },
+        "probe_error": probe_error or None,
+    }
 
 
 def _validate_kms_config() -> list[str]:
@@ -320,12 +406,17 @@ async def health():
 @app.get("/v1/slo")
 async def slo_status():
     # Lightweight runtime SLO surface for local/prod dashboards.
+    m = get_metrics()
+    cur = m.request_count_summary()
     return {
         "service": "integration-ingress",
         "availability_target": 99.9,
+        "availability_target_pct": 99.9,
         "latency_target_ms_p95": 500,
         "error_budget_window_days": 30,
+        "targets_note": "See docs/docs/guides/service-slos-v1.md; HTTP counts from in-process middleware.",
         "current": {
+            **cur,
             "kms_provider": _vault.provider,
             "rotation_jobs": int(_kms_metrics.get("rotation_jobs", 0)),
             "rotation_failures": int(_kms_metrics.get("rotation_failures", 0)),
@@ -656,8 +747,59 @@ async def osint_sources():
 async def integrations_catalog():
     return {
         "total_providers": len(PROVIDER_CATALOG),
+        "connector_quality_version": CONNECTOR_QUALITY_VERSION,
         "categories": list_categories(),
         "providers": PROVIDER_CATALOG,
+    }
+
+
+class PreflightProbesRequest(BaseModel):
+    """Run public doc + sandbox semantic probes without tenant credentials."""
+
+    provider_ids: list[str] | None = None
+
+
+@app.post("/v1/integrations/preflight-probes")
+async def preflight_integration_probes(body: PreflightProbesRequest, request: Request):
+    """Contract probe runner for connector catalog entries (no secrets; GET vendor doc URLs)."""
+    http: httpx.AsyncClient = request.app.state.http
+    want = body.provider_ids
+    targets: list[dict[str, Any]] = []
+    if want:
+        for pid in want:
+            p = get_provider(str(pid).strip())
+            if p:
+                targets.append(p)
+    else:
+        targets = list(PROVIDER_CATALOG)
+    results: list[dict[str, Any]] = []
+    for provider in targets:
+        probe_ok, probe_latency, probe_error = await _live_provider_probe(provider, http)
+        cq = _connector_quality_v1_from_probe(
+            provider,
+            probe_ok=probe_ok,
+            probe_latency_ms=probe_latency,
+            probe_error=probe_error,
+        )
+        results.append(
+            {
+                "provider_id": provider["id"],
+                "name": provider.get("name"),
+                "category": provider.get("category"),
+                "swimlane_module": provider.get("swimlane_module"),
+                "github_project_view_url": provider.get("github_project_view_url"),
+                "live_probe": {"ok": probe_ok, "latency_ms": probe_latency, "error": probe_error},
+                "connector_quality": cq,
+            }
+        )
+    ok_n = sum(1 for r in results if r["live_probe"]["ok"])
+    avg_score = round(sum(r["connector_quality"]["score"] for r in results) / max(len(results), 1), 1) if results else 0.0
+    return {
+        "connector_quality_version": CONNECTOR_QUALITY_VERSION,
+        "probed": len(results),
+        "probes_ok": ok_n,
+        "average_connector_quality": avg_score,
+        "results": results,
     }
 
 
@@ -896,6 +1038,7 @@ async def integration_scorecards(tenant_id: str, session: AsyncSession = Depends
         connectivity_score = 100.0 if check_status == "pass" else (35.0 if check_status == "fail" else 50.0)
         config_completeness = _config_completeness(required_count, len(missing_fields))
         provider_score = round((connectivity_score * 0.7) + (config_completeness * 0.3), 1)
+        cq = _connector_quality_v1_installed(provider, last if isinstance(last, dict) else {})
         providers.append(
             {
                 "provider_id": item.provider_id,
@@ -907,12 +1050,16 @@ async def integration_scorecards(tenant_id: str, session: AsyncSession = Depends
                 "last_checked_at": item.updated_at.isoformat() if item.updated_at else None,
                 "reasons": sorted(set(reasons)),
                 "provider_score": provider_score,
+                "connector_quality": cq,
             }
         )
     overall_score = round(sum(p["provider_score"] for p in providers) / max(len(providers), 1), 1) if providers else 0.0
+    overall_cq = round(sum(p["connector_quality"]["score"] for p in providers) / max(len(providers), 1), 1) if providers else 0.0
     return {
         "tenant_id": tenant_id,
+        "connector_quality_version": CONNECTOR_QUALITY_VERSION,
         "overall_score": overall_score,
+        "overall_connector_quality": overall_cq,
         "providers": providers,
     }
 

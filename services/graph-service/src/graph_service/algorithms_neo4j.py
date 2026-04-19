@@ -318,6 +318,8 @@ _HIGH_RISK_TAGS = frozenset(
 async def compute_entity_risk(
     tenant_id: str,
     entity_id: str,
+    *,
+    checkpoint: str | None = None,
 ) -> dict:
     """
     Composite risk score (0-100) for a single entity, based on:
@@ -326,11 +328,20 @@ async def compute_entity_risk(
       - flagged neighbours
       - shared devices / attributes
       - community size
+
+    Optional ``checkpoint`` selects a profile from ``checkpoint_profiles_v1.json`` (risk score multiplier).
     """
+    from graph_service.checkpoint_registry import resolve_profile
+
+    profile = resolve_profile(checkpoint)
+    mult = float(profile.get("risk_score_multiplier") or 1.0)
+    hop_depth = _clamp_depth(int(profile.get("max_neighbor_hops") or 3))
+
     driver = await get_driver()
 
-    q = """
-    MATCH (n {tenant_id: $tenant_id, external_id: $entity_id})
+    # Cypher requires path depth as a literal (not a parameter); keep bounded via checkpoint profile.
+    q = f"""
+    MATCH (n {{tenant_id: $tenant_id, external_id: $entity_id}})
 
     OPTIONAL MATCH (n)-[r]-(neighbor)
     WHERE neighbor.tenant_id = $tenant_id
@@ -344,12 +355,12 @@ async def compute_entity_risk(
                          WHERE t IN $high_risk_tags)
          ]) AS flagged_neighbors
 
-    OPTIONAL MATCH (n)-[*1..3]-(community_member)
+    OPTIONAL MATCH (n)-[*1..{hop_depth}]-(community_member)
     WHERE community_member.tenant_id = $tenant_id
     WITH n, conn_count, flagged_neighbors,
          count(DISTINCT community_member) + 1 AS community_size
 
-    OPTIONAL MATCH (other {tenant_id: $tenant_id})
+    OPTIONAL MATCH (other {{tenant_id: $tenant_id}})
     WHERE other.external_id <> $entity_id
       AND other.device_id IS NOT NULL
       AND n.device_id IS NOT NULL
@@ -381,6 +392,9 @@ async def compute_entity_risk(
             "risk_factors": ["entity_not_found"],
             "connected_flagged_count": 0,
             "community_size": 0,
+            "graph_checkpoint": checkpoint,
+            "graph_profile": profile.get("_profile_name"),
+            "graph_profile_max_neighbor_hops": hop_depth,
         }
 
     tags = list(rec["tags"] or [])
@@ -419,7 +433,7 @@ async def compute_entity_risk(
         score += 5
         factors.append(f"moderate_connectivity:{conn_count}")
 
-    score = min(round(score), 100)
+    score = min(round(score * mult), 100)
 
     return {
         "entity_id": entity_id,
@@ -427,4 +441,8 @@ async def compute_entity_risk(
         "risk_factors": factors,
         "connected_flagged_count": flagged,
         "community_size": community_size,
+        "graph_checkpoint": checkpoint,
+        "graph_profile": profile.get("_profile_name"),
+        "graph_profile_multiplier": mult,
+        "graph_profile_max_neighbor_hops": hop_depth,
     }

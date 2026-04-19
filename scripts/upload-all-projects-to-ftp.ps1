@@ -1,10 +1,10 @@
-# Upload git repos under Documents + Cursor IDE metadata (.cursor, .cursorignore, AGENTS.md) to
+# Upload git repos under Documents + editor workspace metadata (.cursor, .cursorignore, AGENTS.md) to
 # ftp://192.168.0.1/G/Pamu/Projects/<folder-name>/ . Excludes large SDK checkouts by default.
 #
 # Examples:
 #   $env:FTP_PASS = "secret"; .\upload-all-projects-to-ftp.ps1
 #   .\upload-all-projects-to-ftp.ps1 -ExcludeRepo @() -IncludeFlutterSdk
-#   .\upload-all-projects-to-ftp.ps1 -IncludeCursorIdeFiles:$false   # git only, no .cursor uploads
+#   .\upload-all-projects-to-ftp.ps1 -IncludeIdeWorkspaceExtras:$false   # git only, no .cursor uploads
 
 [CmdletBinding()]
 param(
@@ -13,7 +13,7 @@ param(
     [string]$FtpUser = "suop",
     [string[]]$ExcludeRepo = @("flutter_sdk"),
     [switch]$IncludeFlutterSdk,
-    [bool]$IncludeCursorIdeFiles = $true,
+    [bool]$IncludeIdeWorkspaceExtras = $true,
     [switch]$StopOnError,
     [System.Management.Automation.PSCredential]$Credential
 )
@@ -37,14 +37,14 @@ $repos = Get-ChildItem -LiteralPath $DocumentsRoot -Directory -ErrorAction Stop 
     } |
     Sort-Object Name
 
-$hasWorkspaceCursor = (
+$hasWorkspaceIdeMetadata = (
     (Test-Path -LiteralPath (Join-Path $DocumentsRoot ".cursor")) -or
     (Test-Path -LiteralPath (Join-Path $DocumentsRoot ".cursorignore")) -or
     (Test-Path -LiteralPath (Join-Path $DocumentsRoot "AGENTS.md"))
 )
 
-if (-not $repos -and -not ($hasWorkspaceCursor -and $IncludeCursorIdeFiles)) {
-    Write-Warning "No git repositories under $DocumentsRoot (after excludes), and no Documents-level Cursor files to upload."
+if (-not $repos -and -not ($hasWorkspaceIdeMetadata -and $IncludeIdeWorkspaceExtras)) {
+    Write-Warning "No git repositories under $DocumentsRoot (after excludes), and no Documents-level workspace metadata files to upload."
     exit 0
 }
 
@@ -58,11 +58,11 @@ foreach ($dir in $repos) {
     Write-Host "======== $($dir.Name) ========"
     try {
         $params = @{
-            RepoRoot              = $dir.FullName
-            RemoteProjectName     = $dir.Name
-            FtpPrefix             = $FtpPrefix
-            FtpUser               = $FtpUser
-            IncludeCursorIdeFiles = $IncludeCursorIdeFiles
+            RepoRoot                 = $dir.FullName
+            RemoteProjectName      = $dir.Name
+            FtpPrefix                = $FtpPrefix
+            FtpUser                  = $FtpUser
+            IncludeIdeWorkspaceExtras = $IncludeIdeWorkspaceExtras
         }
         if ($Credential) {
             $params.Credential = $Credential
@@ -78,24 +78,24 @@ foreach ($dir in $repos) {
     }
 }
 
-if ($hasWorkspaceCursor -and $IncludeCursorIdeFiles) {
+if ($hasWorkspaceIdeMetadata -and $IncludeIdeWorkspaceExtras) {
     Write-Host ""
-    Write-Host "======== Documents (workspace Cursor IDE files) -> _documents-cursor ========"
+    Write-Host "======== Documents (workspace IDE metadata) -> _documents-ide-workspace ========"
     try {
         $params = @{
-            RepoRoot               = $DocumentsRoot
-            RemoteProjectName      = "_documents-cursor"
-            FtpPrefix              = $FtpPrefix
-            FtpUser                = $FtpUser
-            SkipGitTracked         = $true
-            IncludeCursorIdeFiles  = $true
+            RepoRoot                  = $DocumentsRoot
+            RemoteProjectName         = "_documents-ide-workspace"
+            FtpPrefix                 = $FtpPrefix
+            FtpUser                   = $FtpUser
+            SkipGitTracked            = $true
+            IncludeIdeWorkspaceExtras = $true
         }
         if ($Credential) {
             $params.Credential = $Credential
         }
         & $uploadScript @params
     } catch {
-        $msg = "_documents-cursor: $($_.Exception.Message)"
+        $msg = "_documents-ide-workspace: $($_.Exception.Message)"
         [void]$failures.Add($msg)
         Write-Warning $msg
         if ($StopOnError) {
