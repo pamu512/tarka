@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 
 def test_profile_publish_activate_score_flow(tmp_path: Path, monkeypatch):

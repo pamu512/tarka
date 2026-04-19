@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import os
+import sys
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
 os.environ.setdefault("ALLOW_INSECURE_NO_AUTH", "true")
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from counter_service.main import app
 
 
