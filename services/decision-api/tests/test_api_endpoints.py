@@ -13,7 +13,8 @@ import httpx
 
 @pytest.fixture(autouse=True)
 def _patch_env(monkeypatch):
-    monkeypatch.setenv("API_KEYS", "")
+    monkeypatch.setenv("API_KEYS", "test-key")
+    monkeypatch.delenv("ALLOW_INSECURE_NO_AUTH", raising=False)
     monkeypatch.setenv("DATABASE_URL", "sqlite+aiosqlite:///")
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
 
@@ -43,6 +44,7 @@ async def client():
                     app.dependency_overrides = {}
                     transport = httpx.ASGITransport(app=app)
                     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+                        c.headers.update({"x-api-key": "test-key"})
                         c.tarka_app = app
                         yield c
                     app.dependency_overrides = {}

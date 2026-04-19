@@ -33,7 +33,7 @@ _shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
 from audit_trail import AuditTrail, create_audit_model  # noqa: E402
-from auth_rbac import get_current_user, setup_auth  # noqa: E402
+from auth_rbac import get_current_user, require_role, setup_auth  # noqa: E402
 from observability import get_metrics, setup_observability  # noqa: E402
 from rate_limiter import setup_rate_limiter  # noqa: E402
 from webhook_sender import WebhookSender  # noqa: E402
@@ -251,7 +251,12 @@ async def list_cases(
 
 
 @app.post("/v1/cases", response_model=CaseOut, status_code=201)
-async def create_case(body: CreateCaseRequest, request: Request, session: AsyncSession = Depends(get_session)):
+async def create_case(
+    body: CreateCaseRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    _=Depends(require_role("analyst")),
+):
     user = get_current_user(request)
     c = Case(
         tenant_id=body.tenant_id,
@@ -393,6 +398,7 @@ async def update_case(
     request: Request,
     session: AsyncSession = Depends(get_session),
     tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    _=Depends(require_role("analyst")),
 ):
     user = get_current_user(request)
     case = await _case_for_tenant(session, case_id, tenant_id)
@@ -432,6 +438,7 @@ async def add_comment(
     request: Request,
     session: AsyncSession = Depends(get_session),
     tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    _=Depends(require_role("analyst")),
 ):
     case = await _case_for_tenant(session, case_id, tenant_id)
     session.add(CaseComment(case_id=case_id, author=body.author, body=body.body))
@@ -458,6 +465,7 @@ async def apply_labels(
     request: Request,
     session: AsyncSession = Depends(get_session),
     tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    _=Depends(require_role("analyst")),
 ):
     case = await _case_for_tenant(session, case_id, tenant_id)
     old_labels = list(case.labels) if case.labels else []
@@ -483,6 +491,7 @@ async def bulk_update_cases(
     body: BulkCaseUpdateRequest,
     request: Request,
     session: AsyncSession = Depends(get_session),
+    _=Depends(require_role("analyst")),
 ):
     if not body.case_ids:
         return {"updated": 0, "items": []}
@@ -525,6 +534,7 @@ async def apply_playbook(
     request: Request,
     session: AsyncSession = Depends(get_session),
     tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    _=Depends(require_role("analyst")),
 ):
     if playbook_id not in _PLAYBOOKS:
         raise HTTPException(404, "playbook not found")
@@ -875,6 +885,7 @@ async def generate_sar(
     request: Request,
     session: AsyncSession = Depends(get_session),
     tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    _=Depends(require_role("analyst")),
 ):
     """Generate a SAR/STR from case data.
 
@@ -979,13 +990,13 @@ async def list_sar_filings(
 
 
 @app.get("/v1/webhooks/dlq")
-async def webhook_dlq(request: Request):
+async def webhook_dlq(request: Request, _admin=Depends(require_role("admin"))):
     sender: WebhookSender = request.app.state.webhook
     return {"items": sender.get_dlq()}
 
 
 @app.post("/v1/webhooks/dlq/{webhook_id}/retry")
-async def retry_webhook(webhook_id: str, request: Request):
+async def retry_webhook(webhook_id: str, request: Request, _admin=Depends(require_role("admin"))):
     sender: WebhookSender = request.app.state.webhook
     ok = await sender.retry_dlq_item(webhook_id)
     return {"retried": ok}

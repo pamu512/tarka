@@ -72,7 +72,7 @@ from decision_api.typology_predicate_registry import registry_public_view, reloa
 _shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
-from auth_rbac import setup_auth  # noqa: E402
+from auth_rbac import require_role, setup_auth  # noqa: E402
 from observability import get_metrics, setup_observability  # noqa: E402
 from rate_limiter import setup_rate_limiter  # noqa: E402
 from security_headers import setup_security_headers  # noqa: E402
@@ -418,7 +418,13 @@ def _get_api_keys() -> frozenset[str]:
 async def require_api_key(request: Request) -> None:
     keys = _get_api_keys()
     if not keys:
-        return
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+        if allow:
+            return
+        raise HTTPException(
+            status_code=503,
+            detail="service auth misconfigured: API_KEYS is empty (set API_KEYS or ALLOW_INSECURE_NO_AUTH=true for local development)",
+        )
     header = request.headers.get("x-api-key", "")
     if header not in keys:
         raise HTTPException(status_code=401, detail="invalid or missing API key")
@@ -621,16 +627,17 @@ async def attestation_verify(body: VerifyRequest):
 
 
 @app.post("/v1/admin/rules/reload")
-async def reload_rules():
+async def reload_rules(_=Depends(require_role("admin"))):
     load_rules()
     reload_typology_definitions()
     reload_predicate_registry()
+    _load_graph_routing_policy(force=True)
     load_challenge_policies(force=True)
     return {"ok": True}
 
 
 @app.get("/v1/admin/typology/predicate-registry")
-async def get_typology_predicate_registry():
+async def get_typology_predicate_registry(_=Depends(require_role("admin"))):
     """OSS #46 — named predicate catalog (version pin must match typology_definitions ``predicate_registry_pin``)."""
     return {"ok": True, **registry_public_view()}
 
@@ -710,7 +717,7 @@ async def list_challenge_policy_templates():
 
 
 @app.post("/v1/admin/shadow/reload")
-async def reload_shadow():
+async def reload_shadow(_=Depends(require_role("admin"))):
     load_shadow_rules()
     return {"ok": True}
 
@@ -726,7 +733,7 @@ class TenantFlagsBody(BaseModel):
 
 
 @app.get("/v1/admin/tenants/{tenant_id}/flags")
-async def get_tenant_flags_admin(tenant_id: str):
+async def get_tenant_flags_admin(tenant_id: str, _=Depends(require_role("admin"))):
     if not redis_tags._client:
         raise HTTPException(503, detail="Redis not configured")
     flags = await redis_tags.get_tenant_flags(tenant_id)
@@ -734,7 +741,7 @@ async def get_tenant_flags_admin(tenant_id: str):
 
 
 @app.patch("/v1/admin/tenants/{tenant_id}/flags")
-async def patch_tenant_flags_admin(tenant_id: str, body: TenantFlagsBody):
+async def patch_tenant_flags_admin(tenant_id: str, body: TenantFlagsBody, _=Depends(require_role("admin"))):
     if not redis_tags._client:
         raise HTTPException(503, detail="Redis not configured")
     updates = body.model_dump(exclude_none=True)

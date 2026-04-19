@@ -35,6 +35,7 @@ from integration_ingress.vault import InMemoryVault
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from audit_trail import AuditTrail, create_audit_model  # noqa: E402
 from auth_rbac import get_current_user, require_role, setup_auth  # noqa: E402
+from auth import require_api_key as shared_require_api_key  # noqa: E402
 from observability import get_metrics, setup_observability  # noqa: E402
 from privacy import get_profile  # noqa: E402
 
@@ -42,23 +43,10 @@ logger = logging.getLogger(__name__)
 
 # ---------- auth ----------
 
-_valid_api_keys: frozenset[str] | None = None
-
-
-def _get_api_keys() -> frozenset[str]:
-    global _valid_api_keys
-    if _valid_api_keys is None:
-        raw = settings.api_keys.strip()
-        _valid_api_keys = frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
-    return _valid_api_keys
-
 
 async def require_api_key(request: Request) -> None:
-    keys = _get_api_keys()
-    if not keys:
-        return
-    if request.headers.get("x-api-key", "") not in keys:
-        raise HTTPException(status_code=401, detail="invalid or missing API key")
+    # Use shared fail-closed auth helper to avoid service-local drift.
+    await shared_require_api_key(request)
 
 
 _osint_cfg = OsintConfig(

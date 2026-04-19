@@ -40,6 +40,10 @@ _jwks_cache: dict[str, Any] = {}
 _jwks_fetched_at: float = 0
 
 
+def _allow_insecure_no_auth() -> bool:
+    return os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 async def _fetch_jwks() -> dict[str, Any]:
     global _jwks_cache, _jwks_fetched_at
     if _jwks_cache and time.time() - _jwks_fetched_at < 3600:
@@ -118,7 +122,13 @@ async def _authenticate(request: Request) -> AuthUser:
 
     if api_key:
         if valid_keys and api_key in valid_keys:
-            return AuthUser(user_id="service", roles=["service", "admin"], auth_type="api_key")
+            # Backward-compatible default keeps test/service API keys at admin, while allowing
+            # hardened deployments to drop this to "service" explicitly.
+            role = os.environ.get("SERVICE_API_KEY_ROLE", "admin").strip().lower()
+            if role not in ROLE_HIERARCHY:
+                role = "admin"
+            roles = ["service", role]
+            return AuthUser(user_id="service", roles=sorted(set(roles)), auth_type="api_key")
         if valid_keys:
             raise HTTPException(401, "invalid API key")
 
@@ -133,7 +143,12 @@ async def _authenticate(request: Request) -> AuthUser:
         return AuthUser(user_id=user_id, roles=roles, auth_type="jwt", claims=claims)
 
     if not valid_keys and not OIDC_ISSUER:
-        return AuthUser(user_id="anonymous", roles=["admin"], auth_type="none")
+        if _allow_insecure_no_auth():
+            return AuthUser(user_id="anonymous", roles=["viewer"], auth_type="none")
+        raise HTTPException(
+            503,
+            "authentication misconfigured: set API_KEYS or OIDC_ISSUER (or ALLOW_INSECURE_NO_AUTH=true for local development)",
+        )
 
     raise HTTPException(401, "authentication required")
 
@@ -141,11 +156,11 @@ async def _authenticate(request: Request) -> AuthUser:
 class AuthMiddleware(BaseHTTPMiddleware):
     """Injects AuthUser into request.state.auth_user."""
 
-    SKIP_PATHS = {"/v1/health", "/metrics", "/docs", "/openapi.json", "/redoc"}
+    SKIP_PATHS = {"/v1/health", "/metrics"}
 
     async def dispatch(self, request: Request, call_next):
         if request.url.path in self.SKIP_PATHS:
-            request.state.auth_user = AuthUser("system", ["admin"], "bypass")
+            request.state.auth_user = AuthUser("system", ["viewer"], "bypass")
             return await call_next(request)
         try:
             request.state.auth_user = await _authenticate(request)
