@@ -6,6 +6,8 @@ This guide covers deploying Tarka from local development through production, inc
 
 **See also:** [Service ports & OpenAPI index](./service-ports.md) — default ports, Compose DNS names, and contract file mapping.
 
+**Runtime tiers:** [Deployment profiles — Community vs Pro](./deployment-profiles-community-vs-pro.md) — `docker-compose.lite.yml` vs profile-based `docker-compose.yml`, env matrix, limitations (**#38**).
+
 **Evaluate path hardening:** [Evaluation step controls](./evaluation-step-controls.md) — optional-service timeouts and retries (**#32**).
 
 ---
