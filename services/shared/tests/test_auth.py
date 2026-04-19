@@ -1,0 +1,75 @@
+from __future__ import annotations
+
+import os
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from auth import require_api_key
+
+
+@pytest.fixture(autouse=True)
+def _reset_auth_cache():
+    # Reset module-level cache between tests.
+    import auth as auth_mod
+
+    auth_mod._valid_keys = None
+    yield
+    auth_mod._valid_keys = None
+
+
+def _build_app() -> FastAPI:
+    app = FastAPI(dependencies=[])
+
+    @app.get("/protected")
+    async def protected():
+        return {"ok": True}
+
+    app.dependency_overrides = {}
+    app.dependency_overrides[require_api_key] = require_api_key
+    return app
+
+
+def test_require_api_key_fails_closed_when_unconfigured(monkeypatch):
+    monkeypatch.delenv("API_KEYS", raising=False)
+    monkeypatch.delenv("ALLOW_INSECURE_NO_AUTH", raising=False)
+    app = FastAPI(dependencies=[pytest.importorskip("fastapi").Depends(require_api_key)])
+
+    @app.get("/protected")
+    async def protected():
+        return {"ok": True}
+
+    with TestClient(app) as client:
+        resp = client.get("/protected")
+    assert resp.status_code == 503
+
+
+def test_require_api_key_allows_explicit_insecure_dev(monkeypatch):
+    monkeypatch.delenv("API_KEYS", raising=False)
+    monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
+    app = FastAPI(dependencies=[pytest.importorskip("fastapi").Depends(require_api_key)])
+
+    @app.get("/protected")
+    async def protected():
+        return {"ok": True}
+
+    with TestClient(app) as client:
+        resp = client.get("/protected")
+    assert resp.status_code == 200
+
+
+def test_require_api_key_enforces_valid_header(monkeypatch):
+    monkeypatch.setenv("API_KEYS", "k1")
+    monkeypatch.delenv("ALLOW_INSECURE_NO_AUTH", raising=False)
+    app = FastAPI(dependencies=[pytest.importorskip("fastapi").Depends(require_api_key)])
+
+    @app.get("/protected")
+    async def protected():
+        return {"ok": True}
+
+    with TestClient(app) as client:
+        bad = client.get("/protected")
+        good = client.get("/protected", headers={"x-api-key": "k1"})
+    assert bad.status_code == 401
+    assert good.status_code == 200

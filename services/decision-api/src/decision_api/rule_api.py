@@ -10,7 +10,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Header, HTTPException, Query
+import sys
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from decision_api.config import settings
@@ -22,6 +25,11 @@ from decision_api.vertical_packs import get_vertical_pack, list_vertical_packs
 router = APIRouter(prefix="/v1/rules", tags=["rules"])
 _SAFE_FILENAME_RE = re.compile(r"^[a-zA-Z0-9_-]{1,120}\.json$")
 _SAFE_SLUG_RE = re.compile(r"[^a-z0-9_-]+")
+
+_shared = Path(__file__).resolve().parents[3] / "shared"
+if str(_shared) not in sys.path:
+    sys.path.insert(0, str(_shared))
+from auth_rbac import require_role  # noqa: E402
 
 
 class Condition(BaseModel):
@@ -170,6 +178,7 @@ async def install_vertical_pack(
     vertical_name: str,
     overwrite: bool = False,
     x_actor: str | None = Header(default=None, alias="X-Actor"),
+    _admin=Depends(require_role("admin")),
 ):
     pack = get_vertical_pack(vertical_name)
     if not pack:
@@ -214,7 +223,11 @@ async def get_rule_pack(filename: str):
 
 
 @router.post("", status_code=201)
-async def create_rule_pack(body: RulePackIn, x_actor: str | None = Header(default=None, alias="X-Actor")):
+async def create_rule_pack(
+    body: RulePackIn,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    _admin=Depends(require_role("admin")),
+):
     slug = _slugify_pack_name(body.name)
     for path in _list_pack_paths().values():
         try:
@@ -244,7 +257,12 @@ async def create_rule_pack(body: RulePackIn, x_actor: str | None = Header(defaul
 
 
 @router.put("/{filename}")
-async def update_rule_pack(filename: str, body: RulePackIn, x_actor: str | None = Header(default=None, alias="X-Actor")):
+async def update_rule_pack(
+    filename: str,
+    body: RulePackIn,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    _admin=Depends(require_role("admin")),
+):
     fpath = _existing_pack_path(filename)
     pack = {
         "version": 1,
@@ -270,7 +288,11 @@ async def update_rule_pack(filename: str, body: RulePackIn, x_actor: str | None 
 
 
 @router.delete("/{filename}")
-async def delete_rule_pack(filename: str, x_actor: str | None = Header(default=None, alias="X-Actor")):
+async def delete_rule_pack(
+    filename: str,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    _admin=Depends(require_role("admin")),
+):
     fpath = _existing_pack_path(filename)
     fpath.unlink()
     load_rules()
@@ -279,7 +301,12 @@ async def delete_rule_pack(filename: str, x_actor: str | None = Header(default=N
 
 
 @router.post("/{filename}/rules")
-async def add_rule(filename: str, body: RuleIn, x_actor: str | None = Header(default=None, alias="X-Actor")):
+async def add_rule(
+    filename: str,
+    body: RuleIn,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    _admin=Depends(require_role("admin")),
+):
     fpath = _existing_pack_path(filename)
     pack = json.loads(fpath.read_text(encoding="utf-8"))
     if not body.id:
@@ -296,7 +323,12 @@ class RulePackMode(BaseModel):
 
 
 @router.put("/{filename}/mode")
-async def set_pack_mode(filename: str, body: RulePackMode, x_actor: str | None = Header(default=None, alias="X-Actor")):
+async def set_pack_mode(
+    filename: str,
+    body: RulePackMode,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    _admin=Depends(require_role("admin")),
+):
     """Set a rule pack to active, shadow, or disabled mode."""
     fpath = _existing_pack_path(filename)
     if body.mode not in ("active", "shadow", "disabled"):
@@ -310,7 +342,12 @@ async def set_pack_mode(filename: str, body: RulePackMode, x_actor: str | None =
 
 
 @router.delete("/{filename}/rules/{rule_id}")
-async def remove_rule(filename: str, rule_id: str, x_actor: str | None = Header(default=None, alias="X-Actor")):
+async def remove_rule(
+    filename: str,
+    rule_id: str,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    _admin=Depends(require_role("admin")),
+):
     fpath = _existing_pack_path(filename)
     pack = json.loads(fpath.read_text(encoding="utf-8"))
     original = len(pack.get("rules", []))
@@ -324,7 +361,7 @@ async def remove_rule(filename: str, rule_id: str, x_actor: str | None = Header(
 
 
 @router.post("/shadow/reload")
-async def reload_shadow_rules():
+async def reload_shadow_rules(_admin=Depends(require_role("admin"))):
     load_shadow_rules()
     return {"ok": True}
 

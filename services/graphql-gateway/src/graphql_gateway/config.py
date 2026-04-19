@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     graph_service_url: str = "http://localhost:8001"
 
     api_keys: str = ""
+    allow_insecure_no_auth: bool = False
 
     http_timeout: float = 10.0
     http_connect_timeout: float = 3.0

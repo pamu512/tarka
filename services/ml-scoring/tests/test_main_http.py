@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import os
+
 from fastapi.testclient import TestClient
 from ml_scoring.main import app
+
+os.environ.setdefault("ALLOW_INSECURE_NO_AUTH", "true")
 
 
 def test_health() -> None:
