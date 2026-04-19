@@ -5,6 +5,8 @@ import { AppTopBar } from "./components/AppTopBar";
 import { CommandPalette } from "./components/CommandPalette";
 import { ModuleIcon, type ModuleId } from "./components/ModuleIcon";
 import { TarkaLogo } from "./components/TarkaLogo";
+import MlLifecycle from "./pages/MlLifecycle";
+import OpsCalibration from "./pages/OpsCalibration";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Cases = lazy(() => import("./pages/Cases"));
@@ -19,8 +21,6 @@ const ShadowMode = lazy(() => import("./pages/ShadowMode"));
 const Simulation = lazy(() => import("./pages/Simulation"));
 const Compliance = lazy(() => import("./pages/Compliance"));
 const OpsCounters = lazy(() => import("./pages/OpsCounters"));
-const OpsCalibration = lazy(() => import("./pages/OpsCalibration"));
-const MlLifecycle = lazy(() => import("./pages/MlLifecycle"));
 const OpsPipelines = lazy(() => import("./pages/OpsPipelines"));
 const FeatureTools = lazy(() => import("./pages/FeatureTools"));
 const EntityLists = lazy(() => import("./pages/EntityLists"));
