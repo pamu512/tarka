@@ -38,8 +38,16 @@ export default function Cases() {
 
   useEffect(() => {
     const t = searchParams.get("tenant_id")?.trim();
-    if (t) setTenantId(t);
-  }, [searchParams, setTenantId]);
+    if (!t) return;
+    if (t !== tenantId) {
+      // Prevent silent cross-tenant context flips from shared URLs.
+      const confirmed = window.confirm(
+        `Switch workspace tenant from "${tenantId}" to "${t}" based on this link?`,
+      );
+      if (!confirmed) return;
+    }
+    setTenantId(t);
+  }, [searchParams, setTenantId, tenantId]);
 
   const clearSavedViewSelection = useCallback(() => setSavedViewSelection(""), []);
 

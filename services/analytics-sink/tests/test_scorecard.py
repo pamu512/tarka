@@ -1,7 +1,10 @@
+import os
 from unittest.mock import MagicMock, patch
 
 from analytics_sink.main import app
 from fastapi.testclient import TestClient
+
+os.environ.setdefault("ALLOW_INSECURE_NO_AUTH", "true")
 
 
 class _FakeQueryResult:
@@ -22,7 +25,7 @@ def _mock_scorecard_queries(mock_ch):
         ("amount_stress", 10),
     ]
 
-    def _query(sql: str):
+    def _query(sql: str, **_kwargs):
         sql_l = sql.lower()
         if "group by decision" in sql_l:
             return _FakeQueryResult(

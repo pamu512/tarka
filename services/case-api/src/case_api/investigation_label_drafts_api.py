@@ -13,6 +13,12 @@ from case_api.db import get_session
 from case_api.models import InvestigationLabelDraft
 from case_api.schemas import LabelDraftBatchIn, LabelDraftOut, LabelDraftRowIn
 
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
+from auth_rbac import require_role  # noqa: E402
+
 router = APIRouter(prefix="/v1/investigation-label-drafts", tags=["investigation-label-drafts"])
 
 _UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
@@ -45,6 +51,7 @@ async def batch_append(
     tenant_id: str,
     body: LabelDraftBatchIn,
     session: AsyncSession = Depends(get_session),
+    _admin=Depends(require_role("admin")),
 ):
     analyst_id = str(body.analyst_id).strip()[:256]
     if not analyst_id:
@@ -121,6 +128,7 @@ async def list_drafts(
     analyst_id: str,
     session: AsyncSession = Depends(get_session),
     limit: int = 200,
+    _analyst=Depends(require_role("analyst")),
 ):
     analyst_id = str(analyst_id).strip()[:256]
     lim = max(1, min(limit, 500))
@@ -145,6 +153,7 @@ async def clear_drafts(
     tenant_id: str,
     analyst_id: str,
     session: AsyncSession = Depends(get_session),
+    _admin=Depends(require_role("admin")),
 ):
     analyst_id = str(analyst_id).strip()[:256]
     r = await session.execute(
@@ -163,6 +172,7 @@ async def delete_one(
     tenant_id: str,
     analyst_id: str,
     session: AsyncSession = Depends(get_session),
+    _admin=Depends(require_role("admin")),
 ):
     analyst_id = str(analyst_id).strip()[:256]
     result = await session.execute(

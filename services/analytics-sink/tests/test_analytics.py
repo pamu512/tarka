@@ -93,6 +93,8 @@ class TestQueryEndpoints:
                 ("tr2", "t1", "e2", "allow", 10.0),
             ],
         )
+        env_patch = patch.dict("os.environ", {"ALLOW_INSECURE_NO_AUTH": "true"}, clear=False)
+        env_patch.start()
         with patch("analytics_sink.main._ch_client", mock_ch):
             with patch("analytics_sink.main._init_clickhouse"):
                 with patch("analytics_sink.main.asyncio.create_task"):
@@ -101,6 +103,7 @@ class TestQueryEndpoints:
 
                     with TestClient(app) as c:
                         yield c
+        env_patch.stop()
 
     def test_health(self, client):
         r = client.get("/v1/health")

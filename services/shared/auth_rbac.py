@@ -40,6 +40,10 @@ _jwks_cache: dict[str, Any] = {}
 _jwks_fetched_at: float = 0
 
 
+def _allow_insecure_no_auth() -> bool:
+    return os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 async def _fetch_jwks() -> dict[str, Any]:
     global _jwks_cache, _jwks_fetched_at
     if _jwks_cache and time.time() - _jwks_fetched_at < 3600:
