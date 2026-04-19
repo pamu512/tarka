@@ -51,6 +51,7 @@ def test_evidence_summary_endpoint_deterministic():
     assert len(citations) >= 2
     assert any("12345678-1234-5678-9012-123456789abc" in str(c.get("text", "")) for c in citations)
 
+
 def test_evidence_summary_deterministic_and_cited():
     payload = _payload()
     with TestClient(app) as client:
@@ -66,7 +67,4 @@ def test_evidence_summary_deterministic_and_cited():
     assert b1["claim_confidence_summary"]["medium"] >= 1
     assert len(b1["citations"]) >= 2
     assert b1["summary"] == payload["reply"]
-    assert any(
-        c.get("text", "").find(payload["trace_id"]) >= 0 and c.get("source") == "tool"
-        for c in b1["citations"]
-    )
+    assert any(c.get("text", "").find(payload["trace_id"]) >= 0 and c.get("source") == "tool" for c in b1["citations"])

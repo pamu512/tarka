@@ -83,6 +83,9 @@ services:
       FEATURE_SERVICE_URL: ${FEATURE_SERVICE_URL:-}
       ML_SCORING_URL: ${ML_SCORING_URL:-}
       GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-}
+      CALIBRATION_SERVICE_URL: ${CALIBRATION_SERVICE_URL:-}
+      COUNTER_SERVICE_URL: ${COUNTER_SERVICE_URL:-}
+      LOCATION_SERVICE_URL: ${LOCATION_SERVICE_URL:-}
       OPA_URL: ${OPA_URL:-}
       NATS_URL: nats://nats:4222
     ports:
@@ -254,8 +257,49 @@ services:
       - investigation-agent
     profiles: [ui, full]
 
+  calibration-service:
+    build:
+      context: ..
+      dockerfile: services/calibration-service/Dockerfile
+    environment:
+      CALIBRATION_SERVICE_DATA_DIR: /data
+      API_KEYS: ${API_KEYS:-}
+    volumes:
+      - fraud_calibration_data:/data
+    ports:
+      - "8011:8011"
+    profiles: [risk, full]
+
+  counter-service:
+    build:
+      context: ..
+      dockerfile: services/counter-service/Dockerfile
+    environment:
+      COUNTER_SERVICE_REDIS_URL: redis://redis:6379/0
+      API_KEYS: ${API_KEYS:-}
+    depends_on:
+      - redis
+    ports:
+      - "8012:8012"
+    profiles: [risk, full]
+
+  location-service:
+    build:
+      context: ..
+      dockerfile: services/location-service/Dockerfile
+    environment:
+      LOCATION_SERVICE_DATA_DIR: /data
+      API_KEYS: ${API_KEYS:-}
+    volumes:
+      - fraud_location_data:/data
+    ports:
+      - "8013:8013"
+    profiles: [risk, full]
+
 volumes:
   fraud_pg:
   fraud_neo4j:
   fraud_nats:
   fraud_ch:
+  fraud_calibration_data:
+  fraud_location_data:

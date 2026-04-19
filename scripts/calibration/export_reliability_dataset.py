@@ -27,10 +27,10 @@ if str(_dec_src) not in sys.path:
 
 
 async def _run(args: argparse.Namespace) -> int:
+    import os
+
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import create_async_engine
-
-    import os
 
     url = args.database_url or os.environ.get("DATABASE_URL", "")
     if not url:
