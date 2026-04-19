@@ -2,6 +2,8 @@
 
 **Problem:** Vendors win on **deterministic counters** with **replay** from audit streams and **shadow** parity checks. Tarka has Redis-backed aggregates in `decision_api.aggregates` but lacks a first-class **offline replay job** and **counter versioning**.
 
+**Event time vs ingest:** when clients send **`metadata.event_time`**, Redis aggregate scores follow **business time**; offline export/replay use the same rules — see **[late-arrival-watermarks.md](./late-arrival-watermarks.md)**.
+
 ## Engineering plan (ship by ~2026-05-30)
 
 1. **Counter manifest** — YAML/JSON declaring named counters (window, key fields, version). Store version in Redis key prefix or sidecar metadata.

@@ -109,7 +109,7 @@ python scripts/replay/replay_aggregates.py --manifest-info
 
 **Counter manifest:** `replay_aggregates.py --manifest-info` prints the bundled version; **Decision API** exposes the same JSON at **`GET /v1/internal/counters/manifest`**. For small JSON batches (no file), **`POST /v1/internal/counters/replay`** writes to a scratch Redis URL when **`COUNTER_REPLAY_TOKEN`** is set and you send header **`X-Tarka-Counter-Replay-Token`**.
 
-JSONL rows should include **`tenant_id`**, **`entity_id`**, and either **`fields`** (object) or **`payload`** / **`request_body`** for aggregate dimensions. Optional **`event_id`**, **`trace_id`**, or **`ts`** (unix) per line.
+JSONL rows should include **`tenant_id`**, **`entity_id`**, and either **`fields`** (object) or **`payload`** / **`request_body`** for aggregate dimensions. Optional **`event_id`**, **`trace_id`**, or **`ts`** (unix) per line. If **`ts`** is omitted, **`metadata.event_time`**-style keys on the row (with **`fields`**) are used — same rules as evaluate; see **[Late arrival & watermarks](./late-arrival-watermarks.md)**.
 
 See **`scripts/replay/README.md`** and **[counter-replay-parity.md](./counter-replay-parity.md)** for the full v1.2 acceptance picture.
 

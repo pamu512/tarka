@@ -36,6 +36,7 @@ from graph_service.graph_runtime import (
 log = logging.getLogger(__name__)
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
+from auth_rbac import require_role  # noqa: E402
 from observability import setup_observability  # noqa: E402
 
 # ---------- auth ----------
@@ -54,7 +55,13 @@ def _get_api_keys() -> frozenset[str]:
 async def require_api_key(request: Request) -> None:
     keys = _get_api_keys()
     if not keys:
-        return
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+        if allow:
+            return
+        raise HTTPException(
+            status_code=503,
+            detail="service auth misconfigured: API_KEYS is empty (set API_KEYS or ALLOW_INSECURE_NO_AUTH=true for local development)",
+        )
     header = request.headers.get("x-api-key", "")
     if header not in keys:
         raise HTTPException(status_code=401, detail="invalid or missing API key")
@@ -247,6 +254,6 @@ async def get_checkpoint_profiles():
 
 
 @app.post("/v1/admin/checkpoint-profiles/reload")
-async def reload_checkpoint_profiles():
+async def reload_checkpoint_profiles(_=Depends(require_role("admin"))):
     reload_checkpoint_registry()
     return {"ok": True, **registry_public_view()}

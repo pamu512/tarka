@@ -19,6 +19,7 @@ import {
   presetModuleSet,
   type AccessPolicyId,
 } from "../config/accessPolicyPresets";
+import { safeExternalHref } from "../utils/externalLinks";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -810,16 +811,25 @@ function IntegrationRequestsTab({
                   </span>
                   <span className="text-gray-300">{r.requested_name}</span>
                 </div>
-                {r.status === "approved" && r.github_issue_url ? (
-                  <a
-                    href={r.github_issue_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-brand-400 hover:text-brand-300 mt-1 inline-block break-all"
-                  >
-                    Open GitHub issue draft
-                  </a>
-                ) : null}
+                {r.status === "approved" && (
+                  (() => {
+                    const safeIssueHref = safeExternalHref(r.github_issue_url);
+                    return safeIssueHref ? (
+                      <a
+                        href={safeIssueHref}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-brand-400 hover:text-brand-300 mt-1 inline-block break-all"
+                      >
+                        Open GitHub issue draft
+                      </a>
+                    ) : (
+                      <span className="text-[11px] text-gray-500 mt-1 inline-block">
+                        Issue draft URL unavailable
+                      </span>
+                    );
+                  })()
+                )}
                 {r.status === "rejected" && r.rejection_reason ? (
                   <div className="text-[11px] text-gray-600 mt-1">{r.rejection_reason}</div>
                 ) : null}
