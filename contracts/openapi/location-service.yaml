@@ -1,0 +1,224 @@
+openapi: 3.1.0
+info:
+  title: Tarka Location Service
+  version: 1.0.0
+  description: First-class location confidence, copresence, and impossible travel service.
+servers:
+  - url: http://localhost:8013
+    description: Local
+paths:
+  /v1/health:
+    get:
+      operationId: locationHealth
+      summary: Liveness probe
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+  /v1/slo:
+    get:
+      operationId: locationSlo
+      summary: SLO posture and request counters
+      responses:
+        "200":
+          description: SLO summary
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/resolve:
+    post:
+      operationId: resolveLocationSignals
+      summary: Resolve location confidence from device and IP signals
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LocationResolveRequest"
+      responses:
+        "200":
+          description: Location signal resolution
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocationResolveResponse"
+  /v1/evaluate:
+    post:
+      operationId: evaluateLocationRisk
+      summary: Compute location risk, copresence, and impossible travel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LocationEvaluateRequest"
+      responses:
+        "200":
+          description: Location risk evaluation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocationEvaluateResponse"
+  /v1/trusted-places/{tenant_id}/{entity_id}:
+    put:
+      operationId: upsertTrustedPlaces
+      summary: Replace trusted place profile for tenant/entity
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: entity_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrustedPlacesRequest"
+      responses:
+        "200":
+          description: Trusted places updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  tenant_id: { type: string }
+                  entity_id: { type: string }
+                  count: { type: integer }
+    get:
+      operationId: getTrustedPlaces
+      summary: Fetch trusted place profile for tenant/entity
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: entity_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Trusted places
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrustedPlacesRequest"
+components:
+  schemas:
+    GeoPoint:
+      type: object
+      required: [lat, lon]
+      properties:
+        lat: { type: number, minimum: -90, maximum: 90 }
+        lon: { type: number, minimum: -180, maximum: 180 }
+        ts: { type: number, nullable: true }
+        source: { type: string, nullable: true }
+    LocationResolveRequest:
+      type: object
+      required: [tenant_id]
+      properties:
+        tenant_id: { type: string, minLength: 1, maxLength: 128 }
+        device_geo:
+          $ref: "#/components/schemas/GeoPoint"
+        ip_geo:
+          $ref: "#/components/schemas/GeoPoint"
+        timezone: { type: string, nullable: true }
+        ip_timezone: { type: string, nullable: true }
+    LocationResolveResponse:
+      type: object
+      required:
+        - resolved
+        - confidence
+        - provenance
+        - tags
+      properties:
+        resolved:
+          $ref: "#/components/schemas/GeoPoint"
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        provenance:
+          type: array
+          items: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        device_ip_distance_km:
+          type: number
+          nullable: true
+    LocationEvaluateRequest:
+      type: object
+      required: [tenant_id, entity_id]
+      properties:
+        tenant_id: { type: string, minLength: 1, maxLength: 128 }
+        entity_id: { type: string, minLength: 1, maxLength: 512 }
+        session_id: { type: string, nullable: true }
+        current:
+          $ref: "#/components/schemas/GeoPoint"
+        previous:
+          $ref: "#/components/schemas/GeoPoint"
+        trusted_places:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrustedPlace"
+        features:
+          type: object
+          additionalProperties: true
+          default: {}
+    LocationEvaluateResponse:
+      type: object
+      required:
+        - location_confidence
+        - copresence_risk
+        - impossible_travel_risk
+        - tags
+        - trace
+      properties:
+        location_confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        copresence_risk:
+          type: number
+          minimum: 0
+          maximum: 1
+        impossible_travel_risk:
+          type: number
+          minimum: 0
+          maximum: 1
+        tags:
+          type: array
+          items: { type: string }
+        trace:
+          type: object
+          additionalProperties: true
+    TrustedPlace:
+      type: object
+      required: [lat, lon, radius_km]
+      properties:
+        lat: { type: number, minimum: -90, maximum: 90 }
+        lon: { type: number, minimum: -180, maximum: 180 }
+        radius_km: { type: number, minimum: 0.1, maximum: 5000 }
+        label: { type: string, nullable: true }
+    TrustedPlacesRequest:
+      type: object
+      required: [places]
+      properties:
+        places:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrustedPlace"

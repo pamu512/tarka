@@ -1,6 +1,8 @@
 {
   "version": 1,
-  "description": "Reference typologies (OSS #34) — aggregate rule hits + feature predicates; breach levels drive disposition labels.",
+  "dsl_version": 1,
+  "predicate_registry_pin": 1,
+  "description": "Reference typologies (OSS #34 / #46) — aggregate rule hits + feature predicates (inline or predicate_ref); breach levels drive disposition labels.",
   "typologies": [
     {
       "id": "velocity_abuse",
@@ -8,7 +10,7 @@
       "member_rule_ids": ["velocity_high_1h", "velocity_high_24h", "escalate_velocity_vpn"],
       "weight_per_rule_hit": 35,
       "feature_predicates": [
-        { "field": "event_count_1h", "op": "gte", "value": 25, "bonus": 15 }
+        { "predicate_ref": "vel_event_1h_threshold", "bonus": 15 }
       ],
       "breach_thresholds": { "warning": 40, "alert": 75 },
       "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }
@@ -19,7 +21,7 @@
       "member_rule_ids": ["many_devices_24h", "many_ips_24h", "sdk_vpn", "sdk_datacenter_ip"],
       "weight_per_rule_hit": 25,
       "feature_predicates": [
-        { "field": "distinct_device_id_24h", "op": "gte", "value": 2, "bonus": 20 }
+        { "predicate_ref": "distinct_devices_churn", "bonus": 20 }
       ],
       "breach_thresholds": { "warning": 35, "alert": 70 },
       "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }
@@ -30,7 +32,7 @@
       "member_rule_ids": ["high_sum_amount_24h"],
       "weight_per_rule_hit": 40,
       "feature_predicates": [
-        { "field": "sum_amount_24h", "op": "gte", "value": 25000, "bonus": 30 }
+        { "predicate_ref": "sum_amount_stress", "bonus": 30 }
       ],
       "breach_thresholds": { "warning": 45, "alert": 80 },
       "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }

@@ -58,7 +58,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: docker/setup-buildx-action@v4.0.0
       - name: Build image (local)
-        uses: docker/build-push-action@v7.0.0
+        uses: docker/build-push-action@v7.1.0
         with:
           context: .
           file: services/decision-api/Dockerfile

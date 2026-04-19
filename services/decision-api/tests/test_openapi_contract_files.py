@@ -22,6 +22,9 @@ _OPENAPI_DIR = _REPO_ROOT / "contracts" / "openapi"
         "ml-scoring.yaml",
         "feature-service.yaml",
         "investigation-agent.yaml",
+        "calibration-service.yaml",
+        "counter-service.yaml",
+        "location-service.yaml",
     ],
 )
 def test_openapi_yaml_parses_and_validates_oas31(name: str):
@@ -77,3 +80,6 @@ def test_fastapi_openapi_contains_evaluate_and_inference():
                         assert replay_post.get("security") == [{"TarkaCounterReplayToken": []}]
                         blob = json.dumps(schema)
                         assert "inference_context" in blob.lower()
+                        assert "calibration_profile_version" in blob
+                        assert "location_confidence" in blob
+                        assert "confidence_sources" in blob
