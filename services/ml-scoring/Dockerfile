@@ -8,6 +8,7 @@ RUN apt-get update \
 WORKDIR /app
 RUN pip install --no-cache-dir pip -U
 COPY services/ml-scoring/pyproject.toml /app/
+COPY services/ml-scoring/rules /app/rules
 COPY services/ml-scoring/src /app/src
 COPY services/shared /app/shared
 RUN pip install --no-cache-dir -e .
