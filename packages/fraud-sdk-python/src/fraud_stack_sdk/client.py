@@ -5,6 +5,13 @@ from uuid import UUID
 
 import httpx
 
+from fraud_stack_sdk.envelope import (
+    build_evaluate_envelope,
+    build_evaluate_request_headers,
+    canonical_json_bytes,
+    default_client_nonce,
+    default_client_timestamp,
+)
 from fraud_stack_sdk.signals import ServerSignalCollector
 
 
@@ -26,6 +33,8 @@ class InferenceContext(TypedDict):
     velocity_events_5m: int
     velocity_events_1h: int
     velocity_events_24h: int
+    confidence_tier_label: NotRequired[str]
+    driver_explain: NotRequired[list[dict[str, Any]]]
     ml_top_factors: NotRequired[list[dict[str, Any]]]
     ml_summary: NotRequired[str | None]
     ml_model: NotRequired[str | None]
@@ -54,11 +63,16 @@ class DecisionClient:
         api_key: str = "",
         timeout: float = 10.0,
         server_signals: bool = False,
+        *,
+        request_signing_secret: str | None = None,
+        strict_evaluate_response: bool = False,
     ) -> None:
         self._base = base_url.rstrip("/")
         self._api_key = api_key
         self._timeout = timeout
         self._collector = ServerSignalCollector() if server_signals else None
+        self._request_signing_secret = request_signing_secret
+        self._strict_evaluate_response = strict_evaluate_response
 
     def _headers(self) -> dict[str, str]:
         h: dict[str, str] = {"Content-Type": "application/json"}
@@ -77,6 +91,13 @@ class DecisionClient:
         device_context: dict[str, Any] | None = None,
         client_ip: str | None = None,
         request_headers: dict[str, str] | None = None,
+        *,
+        region: str | None = None,
+        challenge_policy_id: str | None = None,
+        idempotency_key: str | None = None,
+        replay_safe_headers: bool = False,
+        client_nonce: str | None = None,
+        client_timestamp: int | None = None,
     ) -> EvaluateResponse:
         if self._collector and client_ip:
             device_context = self._collector.build_device_context(
@@ -85,27 +106,47 @@ class DecisionClient:
                 client_device_context=device_context,
             )
 
-        body: dict[str, Any] = {
-            "tenant_id": tenant_id,
-            "event_type": event_type,
-            "entity_id": entity_id,
-            "payload": payload or {},
-        }
-        if session_id is not None:
-            body["session_id"] = session_id
-        if metadata is not None:
-            body["metadata"] = metadata
-        if device_context is not None:
-            body["device_context"] = device_context
+        body = build_evaluate_envelope(
+            tenant_id=tenant_id,
+            event_type=event_type,
+            entity_id=entity_id,
+            payload=payload,
+            session_id=session_id,
+            metadata=metadata,
+            device_context=device_context,
+            region=region,
+            challenge_policy_id=challenge_policy_id,
+        )
+        body_bytes = canonical_json_bytes(body)
+        nonce = client_nonce
+        ts = client_timestamp
+        if replay_safe_headers:
+            if nonce is None:
+                nonce = default_client_nonce()
+            if ts is None:
+                ts = default_client_timestamp()
+        headers = build_evaluate_request_headers(
+            api_key=self._api_key,
+            body_bytes=body_bytes,
+            request_secret=self._request_signing_secret,
+            idempotency_key=idempotency_key,
+            client_nonce=nonce,
+            client_timestamp=ts,
+        )
 
         with httpx.Client(timeout=self._timeout) as client:
             r = client.post(
                 f"{self._base}/v1/decisions/evaluate",
-                json=body,
-                headers=self._headers(),
+                content=body_bytes,
+                headers=headers,
             )
             r.raise_for_status()
-            return r.json()
+            data = r.json()
+            if self._strict_evaluate_response:
+                from fraud_stack_sdk.evaluate_response import parse_evaluate_response
+
+                return parse_evaluate_response(data)
+            return data
 
     async def evaluate_async(
         self,
@@ -118,6 +159,13 @@ class DecisionClient:
         device_context: dict[str, Any] | None = None,
         client_ip: str | None = None,
         request_headers: dict[str, str] | None = None,
+        *,
+        region: str | None = None,
+        challenge_policy_id: str | None = None,
+        idempotency_key: str | None = None,
+        replay_safe_headers: bool = False,
+        client_nonce: str | None = None,
+        client_timestamp: int | None = None,
     ) -> EvaluateResponse:
         if self._collector and client_ip:
             device_context = self._collector.build_device_context(
@@ -126,27 +174,47 @@ class DecisionClient:
                 client_device_context=device_context,
             )
 
-        body: dict[str, Any] = {
-            "tenant_id": tenant_id,
-            "event_type": event_type,
-            "entity_id": entity_id,
-            "payload": payload or {},
-        }
-        if session_id is not None:
-            body["session_id"] = session_id
-        if metadata is not None:
-            body["metadata"] = metadata
-        if device_context is not None:
-            body["device_context"] = device_context
+        body = build_evaluate_envelope(
+            tenant_id=tenant_id,
+            event_type=event_type,
+            entity_id=entity_id,
+            payload=payload,
+            session_id=session_id,
+            metadata=metadata,
+            device_context=device_context,
+            region=region,
+            challenge_policy_id=challenge_policy_id,
+        )
+        body_bytes = canonical_json_bytes(body)
+        nonce = client_nonce
+        ts = client_timestamp
+        if replay_safe_headers:
+            if nonce is None:
+                nonce = default_client_nonce()
+            if ts is None:
+                ts = default_client_timestamp()
+        headers = build_evaluate_request_headers(
+            api_key=self._api_key,
+            body_bytes=body_bytes,
+            request_secret=self._request_signing_secret,
+            idempotency_key=idempotency_key,
+            client_nonce=nonce,
+            client_timestamp=ts,
+        )
 
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             r = await client.post(
                 f"{self._base}/v1/decisions/evaluate",
-                json=body,
-                headers=self._headers(),
+                content=body_bytes,
+                headers=headers,
             )
             r.raise_for_status()
-            return r.json()
+            data = r.json()
+            if self._strict_evaluate_response:
+                from fraud_stack_sdk.evaluate_response import parse_evaluate_response
+
+                return parse_evaluate_response(data)
+            return data
 
     def validate_attestation(self, nonce: str, token: str, provider: str) -> dict[str, Any]:
         with httpx.Client(timeout=self._timeout) as client:

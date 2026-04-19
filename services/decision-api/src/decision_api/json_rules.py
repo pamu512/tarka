@@ -11,6 +11,10 @@ from decision_api.config import settings
 
 log = logging.getLogger(__name__)
 
+# N3/N4: in-process rule hit counts since process start (reset on restart).
+_rule_hit_counts: dict[str, int] = {}
+_telemetry_started_at_unix: float = time.time()
+
 _MAX_FIELD_LEN = 128
 _MAX_VALUE_LEN = 1024
 _MAX_RULES_PER_PACK = 200
@@ -20,6 +24,51 @@ _MAX_REGEX_PATTERN_LEN = 256
 
 _cached_packs: list[dict[str, Any]] = []
 _shadow_mode_packs: list[dict[str, Any]] = []
+
+
+def _telemetry_key(pack_file: str, rule_id: str, kind: str) -> str:
+    pf = (pack_file or "unknown")[:160]
+    rid = (rule_id or "unknown")[:160]
+    k = (kind or "rule")[:32]
+    return f"{pf}|{rid}|{k}"
+
+
+def record_rule_hit(pack_file: str, rule_id: str, kind: str = "rule") -> None:
+    """Increment per-rule hit telemetry (N3) and optional Prometheus aggregate (N4)."""
+    key = _telemetry_key(pack_file, rule_id, kind)
+    _rule_hit_counts[key] = _rule_hit_counts.get(key, 0) + 1
+    try:
+        from observability import get_metrics
+
+        get_metrics().inc("tarka_json_rule_hits_total")
+    except Exception:
+        pass
+
+
+def get_rule_hit_telemetry() -> dict[str, Any]:
+    """Snapshot of rule hit counts since boot for dashboards / Rules UI."""
+    rows: list[dict[str, Any]] = []
+    total = 0
+    for key, n in sorted(_rule_hit_counts.items()):
+        parts = key.split("|", 2)
+        pack_file = parts[0] if len(parts) > 0 else "unknown"
+        rule_id = parts[1] if len(parts) > 1 else "unknown"
+        kind = parts[2] if len(parts) > 2 else "rule"
+        total += n
+        rows.append(
+            {
+                "pack_file": pack_file,
+                "rule_id": rule_id,
+                "kind": kind,
+                "hits": n,
+            }
+        )
+    return {
+        "since_unix": _telemetry_started_at_unix,
+        "total_hits": total,
+        "unique_keys": len(rows),
+        "rows": rows,
+    }
 
 
 def load_rules() -> None:
@@ -241,6 +290,7 @@ def _evaluate_pack(
             hits.append(str(rid))
             tags.extend(str(t) for t in rule.get("tags", [])[:50])
             delta += float(rule.get("score_delta", 0))
+            record_rule_hit(str(pack.get("_source_file") or pack.get("name") or "pack"), str(rid), "rule")
 
     tag_rules = pack.get("tag_rules", [])
     for rule in tag_rules[:_MAX_RULES_PER_PACK]:
@@ -253,6 +303,8 @@ def _evaluate_pack(
             hits.append(str(rid))
             tags.extend(str(t) for t in rule.get("tags", [])[:50])
             delta += float(rule.get("score_delta", 0))
+            tr_id = str(rid) if rid else "tagrule"
+            record_rule_hit(str(pack.get("_source_file") or pack.get("name") or "pack"), tr_id, "tag_rule")
 
     return hits, tags, delta
 

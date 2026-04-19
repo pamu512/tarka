@@ -49,6 +49,28 @@ When **`REDIS_URL`** is set, **`POST /v1/events`** deduplicates on:
 
 Same tenant + same key within the TTL returns the **first** response with **`duplicate: true`** (no second NATS publish). Configure TTL with **`IDEMPOTENCY_TTL_SECONDS`** (default **86400**). Key prefix in Redis: **`ingest:idemp:`** (override with **`IDEMPOTENCY_KEY_PREFIX`**).
 
+### Contract-first envelope (v1, v1.2.5)
+
+**`INGEST_ENVELOPE_MODE`** (default **`optional`**):
+
+- **`optional`**: accept either **legacy flat** body `{ tenant_id, event_type, entity_id, ... }` or **v1 envelope**:
+  ```json
+  { "schema_version": "1", "event": { "tenant_id": "...", "event_type": "login", "entity_id": "...", "payload": {} } }
+  ```
+- **`required`**: only the envelope form above is accepted.
+
+**`INGEST_REQUIRE_IDEMPOTENCY_KEY`** (default **`false`**): when **`true`**, **`POST /v1/events`** returns **`422`** with `reason_codes: ["ingest_idempotency_key_required"]` if the **`Idempotency-Key`** header is missing (high-volume retry safety).
+
+Malformed `event_type` (not in Decision API enum) returns **`422`** with `reason_codes: ["ingest_event_type_invalid"]`.
+
+Prometheus: **`ingest_contract_reject_total`** and **`ingest_contract_reject_total_<reason>`**.
+
+**`GET /v1/ingest/stats`** (authenticated like other ingest routes): in-process totals of contract rejects by `reason_codes` since process start.
+
+**DLQ (optional):** set **`INGEST_DLQ_PUBLISH_ON_EVALUATE_4XX=true`** so the NATS→evaluate worker **acks** 4xx evaluates and publishes a JSON envelope to **`INGEST_DLQ_SUBJECT`** (default `fraud.events.dlq`, same stream `fraud.events.>`). Replay: **`scripts/etl/replay_dlq.py`**.
+
+See also: [v1.2.5 execution backlog](./v1.2.5-execution-backlog-resiliency-etl-rules.md) (Epic **E1**). [Bronze/Silver/Gold](./etl-bronze-silver-gold.md) (Epic **E2**).
+
 ### Idempotency (batch)
 
 **`POST /v1/events/batch`** supports a **whole-batch** key: header **`Idempotency-Key`** or JSON field **`idempotency_key`** (sibling of **`events`**). The cache fingerprint is **`SHA256(idem + canonical JSON of events)`** — same key with different event payloads publishes again. Response may include **`duplicate: true`** on replay. Per-row idempotency is not applied inside a batch; use single-event **`POST /v1/events`** for row-level keys.

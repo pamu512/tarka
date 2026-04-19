@@ -91,7 +91,7 @@ async def _verify_jwt(token: str) -> dict[str, Any]:
         )
     except Exception as e:
         log.warning("JWT verification failed: %s", e)
-        raise HTTPException(401, f"JWT verification failed: {e}")
+        raise HTTPException(401, "JWT verification failed")
 
 
 class AuthUser:
@@ -120,15 +120,15 @@ async def _authenticate(request: Request) -> AuthUser:
     api_keys_raw = os.environ.get("API_KEYS", "").strip()
     valid_keys = frozenset(k.strip() for k in api_keys_raw.split(",") if k.strip()) if api_keys_raw else frozenset()
 
+    allow_insecure = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+
     if api_key:
         if valid_keys and api_key in valid_keys:
-            # Backward-compatible default keeps test/service API keys at admin, while allowing
-            # hardened deployments to drop this to "service" explicitly.
             role = os.environ.get("SERVICE_API_KEY_ROLE", "admin").strip().lower()
             if role not in ROLE_HIERARCHY:
                 role = "admin"
-            roles = ["service", role]
-            return AuthUser(user_id="service", roles=sorted(set(roles)), auth_type="api_key")
+            roles = sorted(set(["service", role]))
+            return AuthUser(user_id="service", roles=roles, auth_type="api_key")
         if valid_keys:
             raise HTTPException(401, "invalid API key")
 
@@ -143,7 +143,7 @@ async def _authenticate(request: Request) -> AuthUser:
         return AuthUser(user_id=user_id, roles=roles, auth_type="jwt", claims=claims)
 
     if not valid_keys and not OIDC_ISSUER:
-        if _allow_insecure_no_auth():
+        if allow_insecure:
             return AuthUser(user_id="anonymous", roles=["viewer"], auth_type="none")
         raise HTTPException(
             503,

@@ -31,7 +31,8 @@ def _keys() -> frozenset[str]:
 async def require_api_key(request: Request) -> None:
     keys = _keys()
     if not keys:
-        if _allow_insecure_no_auth():
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+        if allow:
             return
         raise HTTPException(
             status_code=503,
