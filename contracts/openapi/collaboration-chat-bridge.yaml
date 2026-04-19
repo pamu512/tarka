@@ -42,6 +42,10 @@ paths:
       responses:
         "200":
           description: Success or connector-safe failure card payload
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
           content:
             application/json:
               schema:
@@ -49,8 +53,16 @@ paths:
                 additionalProperties: true
         "401":
           description: Invalid bridge secret
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
         "429":
           description: Rate limit exceeded
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
 
   /v1/teams/activity:
     post:
@@ -73,6 +85,10 @@ paths:
       responses:
         "200":
           description: Message response or ignored reason
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
           content:
             application/json:
               schema:
@@ -80,8 +96,16 @@ paths:
                 additionalProperties: true
         "401":
           description: Invalid bridge secret
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
         "429":
           description: Rate limit exceeded
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
 
   /v1/plugin/session:
     post:
@@ -231,6 +255,10 @@ paths:
       responses:
         "200":
           description: Ack or challenge response
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
           content:
             application/json:
               schema:
@@ -238,10 +266,22 @@ paths:
                 additionalProperties: true
         "400":
           description: Invalid JSON or payload
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
         "401":
           description: Invalid Slack signature
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
         "429":
           description: Rate limit exceeded
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
 
   /v1/lark/event:
     post:
@@ -260,6 +300,10 @@ paths:
       responses:
         "200":
           description: Ack or challenge response
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
           content:
             application/json:
               schema:
@@ -267,10 +311,22 @@ paths:
                 additionalProperties: true
         "400":
           description: Invalid event payload
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
         "401":
           description: Invalid verification token
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
         "429":
           description: Rate limit exceeded
+          headers:
+            X-Correlation-Id:
+              description: Correlation id for support and audit tracing.
+              schema: { type: string }
 
 components:
   schemas:

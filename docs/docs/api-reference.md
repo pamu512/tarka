@@ -684,6 +684,7 @@ Plugin endpoints include `correlation_id` in the JSON body and `X-Correlation-Id
 Ingress audit model:
 - `bridge.ingress.audit` is emitted for `slack/events`, `teams/messages`, `teams/activity`, and `lark/event`.
 - Slack/Lark async flows emit two events with the same `correlation_id`: an ingress `accepted` event and a completion event that may include `upstream_status`.
+- Bridge ingress and plugin endpoints return `X-Correlation-Id` response headers so clients can join request/response traces to audit events.
 
 ---
 
