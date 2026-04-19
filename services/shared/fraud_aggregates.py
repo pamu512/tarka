@@ -15,6 +15,7 @@ Supported aggregate types:
 
 from __future__ import annotations
 
+import os
 import time
 from collections.abc import Callable
 from typing import Any
@@ -25,8 +26,17 @@ AGG_PREFIX = "fraud:agg:"
 AGG_VAL_PREFIX = "fraud:aggval:"
 MAX_WINDOW = 86400 * 30  # 30 days max
 
+
+def _agg_key_version_segment() -> str:
+    """Optional Redis key segment for migrations (set AGG_KEY_VERSION). Empty = legacy keys."""
+    raw = os.environ.get("AGG_KEY_VERSION", "").strip()
+    if not raw or not all(c.isalnum() or c in "._:-" for c in raw):
+        return ""
+    return raw + ":"
+
+
 NUMERIC_FIELDS = frozenset({"amount", "score", "price", "quantity", "original_amount"})
-DISTINCT_FIELDS = frozenset({"ip_address", "device_id", "email", "phone", "card_hash", "country", "original_currency"})
+DISTINCT_FIELDS = frozenset({"ip_address", "device_id", "session_id", "email", "phone", "card_hash", "country", "original_currency"})
 
 
 class AggregateStore:
@@ -43,10 +53,12 @@ class AggregateStore:
         self._client = client
 
     def _key(self, tenant_id: str, entity_id: str, metric: str) -> str:
-        return f"{AGG_PREFIX}{tenant_id}:{entity_id}:{metric}"
+        vs = _agg_key_version_segment()
+        return f"{AGG_PREFIX}{vs}{tenant_id}:{entity_id}:{metric}"
 
     def _val_key(self, tenant_id: str, entity_id: str, metric: str) -> str:
-        return f"{AGG_VAL_PREFIX}{tenant_id}:{entity_id}:{metric}"
+        vs = _agg_key_version_segment()
+        return f"{AGG_VAL_PREFIX}{vs}{tenant_id}:{entity_id}:{metric}"
 
     async def record_event(
         self,
@@ -139,7 +151,7 @@ class AggregateStore:
                     features[f"sum_{field}_{window_label}"] = await self.sum_field(tenant_id, entity_id, field, window_secs)
                     features[f"avg_{field}_{window_label}"] = await self.avg_field(tenant_id, entity_id, field, window_secs)
 
-        for field in ("ip_address", "device_id"):
+        for field in ("ip_address", "device_id", "session_id"):
             if fields.get(field):
                 features[f"distinct_{field}_24h"] = await self.distinct_count(tenant_id, entity_id, field, 86400)
 
@@ -159,4 +171,5 @@ def normalized_velocity_key_names() -> tuple[str, ...]:
         "avg_amount_24h",
         "distinct_ip_address_24h",
         "distinct_device_id_24h",
+        "distinct_session_id_24h",
     )

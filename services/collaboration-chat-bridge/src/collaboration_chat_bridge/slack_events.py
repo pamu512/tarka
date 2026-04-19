@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from collaboration_chat_bridge.agent_client import AgentChatError, post_chat
+from collaboration_chat_bridge.bridge_turn import merge_workflow_with_explicit, prepare_messages_for_agent
 from collaboration_chat_bridge.config import Settings
 from collaboration_chat_bridge.reply_format import (
     format_slack_blocks,
@@ -92,6 +93,9 @@ async def process_slack_event_payload(settings: Settings, raw_body: bytes) -> di
     if not text or not channel:
         return None
 
+    raw_files = event.get("files")
+    files: list[dict[str, Any]] = raw_files if isinstance(raw_files, list) else []
+
     return {
         "_async_slack": True,
         "channel": channel,
@@ -99,6 +103,8 @@ async def process_slack_event_payload(settings: Settings, raw_body: bytes) -> di
         "text": text,
         "thread_ts": thread_ts,
         "ts": event.get("ts"),
+        "files": files,
+        "team_id": str(payload.get("team_id") or "")[:64],
     }
 
 
@@ -120,6 +126,7 @@ async def run_slack_turn(settings: Settings, meta: dict[str, Any]) -> None:
     if not messages:
         messages = [{"role": "user", "content": text}]
 
+    files = meta.get("files") or []
     tenant = settings.default_tenant_id
     case_id = settings.default_case_id
 
@@ -132,12 +139,29 @@ async def run_slack_turn(settings: Settings, meta: dict[str, Any]) -> None:
         reply_thread = None
 
     try:
+        msgs, wf_msg, p_msg, pers = await prepare_messages_for_agent(
+            settings,
+            messages,
+            slack_files=files if isinstance(files, list) else [],
+            slack_bot_token=token,
+            explicit_persona=None,
+        )
+        wf_id, wf_params = merge_workflow_with_explicit(
+            wf_msg,
+            p_msg,
+            explicit_workflow_id=None,
+            explicit_params=None,
+        )
         agent_out = await post_chat(
             settings,
             tenant_id=tenant,
             analyst_id=f"slack:{user}"[:128],
-            messages=messages,
+            messages=msgs,
             case_id=case_id,
+            persona=pers,
+            messages_preprocessed=True,
+            workflow_id=wf_id,
+            workflow_params=wf_params if wf_params else None,
         )
         blocks = format_slack_blocks(agent_out)
     except AgentChatError as e:

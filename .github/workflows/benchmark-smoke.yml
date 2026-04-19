@@ -88,3 +88,62 @@ jobs:
             --shifted scripts/benchmarks/fixtures/drift_shifted.json \
             --min-delta 8 \
             --max-delta 95
+
+  vertical-benchmark-smoke:
+    name: vertical_benchmark_smoke.py (baseline vs packs)
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services/decision-api/pyproject.toml
+
+      - name: Install decision-api
+        run: pip install -e ".[dev]"
+        working-directory: services/decision-api
+
+      - name: Start Decision API
+        working-directory: services/decision-api
+        env:
+          PYTHONPATH: src:../shared
+          DATABASE_URL: sqlite+aiosqlite:///
+          REDIS_URL: redis://127.0.0.1:6379/0
+          API_KEYS: ""
+          FEATURE_SERVICE_URL: ""
+        run: |
+          set -euo pipefail
+          nohup python -m uvicorn decision_api.main:app --host 127.0.0.1 --port 8000 > /tmp/decision-api.log 2>&1 &
+          echo $! > /tmp/decision-api.pid
+          for i in $(seq 1 45); do
+            if curl -sf http://127.0.0.1:8000/v1/health >/dev/null; then
+              echo "decision-api ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "--- decision-api log ---"
+          cat /tmp/decision-api.log || true
+          exit 1
+
+      - name: Run vertical benchmark smoke
+        working-directory: ${{ github.workspace }}
+        run: |
+          python scripts/benchmarks/vertical_benchmark_smoke.py \
+            --url http://127.0.0.1:8000 \
+            --scenario baseline \
+            --verticals fintech,ecommerce,gaming \
+            --timeout 90
+
+      - name: Stop Decision API
+        if: always()
+        run: |
+          if [ -f /tmp/decision-api.pid ]; then
+            kill "$(cat /tmp/decision-api.pid)" 2>/dev/null || true
+          fi

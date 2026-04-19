@@ -369,3 +369,9 @@ interface DeviceContext {
   attestation?: Attestation | null;
 }
 ```
+
+---
+
+## Scorecard vs typical SDKs
+
+Directional comparison (scores anchored near **3**): **[SDK scorecard — calibrated mid-scale](../guides/sdk-scorecard-2026-01.md)**.

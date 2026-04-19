@@ -13,6 +13,7 @@ services:
       - --web.enable-lifecycle
     volumes:
       - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus-rules:/etc/prometheus/rules:ro
     ports:
       - "9090:9090"
     profiles: [observe]

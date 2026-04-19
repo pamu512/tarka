@@ -2,10 +2,19 @@ from __future__ import annotations
 
 from typing import Any
 
+_VELOCITY_PRESETS: dict[str, list[dict[str, Any]]] = {
+    "standard": [
+        {"name": "burst_5m", "feature": "event_count_5m", "window_seconds": 300},
+        {"name": "hourly_1h", "feature": "event_count_1h", "window_seconds": 3600},
+        {"name": "daily_24h", "feature": "event_count_24h", "window_seconds": 86400},
+    ],
+}
+
 _PACKS: dict[str, dict[str, Any]] = {
     "fintech": {
         "name": "Vertical Fintech Starter",
         "version": 1,
+        "velocity_presets": "standard",
         "rules": [
             {
                 "id": "fin_high_amount_new_account",
@@ -30,6 +39,7 @@ _PACKS: dict[str, dict[str, Any]] = {
     "ecommerce": {
         "name": "Vertical E-commerce Starter",
         "version": 1,
+        "velocity_presets": "standard",
         "rules": [
             {
                 "id": "eco_bot_checkout",
@@ -57,6 +67,7 @@ _PACKS: dict[str, dict[str, Any]] = {
     "gaming": {
         "name": "Vertical Gaming Starter",
         "version": 1,
+        "velocity_presets": "standard",
         "rules": [
             {
                 "id": "gam_emulator_bot",
@@ -92,9 +103,12 @@ def get_vertical_pack(name: str) -> dict[str, Any] | None:
     pack = _PACKS.get(name.lower())
     if not pack:
         return None
+    vp_key = pack.get("velocity_presets")
+    presets = _VELOCITY_PRESETS.get(str(vp_key), []) if vp_key else []
     return {
         "name": pack["name"],
         "version": pack.get("version", 1),
+        "velocity_presets": presets,
         "rules": [dict(r) for r in pack.get("rules", [])],
         "tag_rules": [dict(r) for r in pack.get("tag_rules", [])],
     }

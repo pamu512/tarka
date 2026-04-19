@@ -66,6 +66,8 @@ def test_health_includes_integration():
     cf = data.get("copilot_features") or {}
     assert cf.get("evidence_bundle_format") == "dual"
     assert cf.get("evidence_bundle_v1") is True
+    assert "workflows_fingerprint" in cf
+    assert "sop_case_summary_v1" in (cf.get("copilot_workflows") or [])
 
 
 def test_integration_endpoint():

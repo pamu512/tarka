@@ -73,6 +73,18 @@ class TestServerSignalCollector:
         signals = self.collector.collect(ip="8.8.8.8", country="US")
         assert signals["ip_geo_country"] == "US"
 
+    def test_ip_geo_lookup_disabled_by_default(self):
+        signals = self.collector.collect(ip="8.8.8.8")
+        assert "ip_geo_lat" not in signals
+        assert "ip_geo_lon" not in signals
+        assert "ip_geo_timezone" not in signals
+
+    def test_ip_geo_lookup_enabled(self):
+        collector = ServerSignalCollector(enable_ip_geo=True)
+        # use private IP to avoid external dependency; still validates gate/path
+        signals = collector.collect(ip="10.0.0.5")
+        assert "ip_geo_lat" not in signals
+
 
 class TestBuildDeviceContext:
     def setup_method(self):

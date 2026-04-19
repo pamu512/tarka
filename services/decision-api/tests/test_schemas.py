@@ -57,6 +57,10 @@ class TestEvaluateResponse:
                 "replay_risk": 0.0,
                 "geo_consistency_risk": 0.0,
                 "top_signals": [],
+                "confidence_tier": "high",
+                "calibration_profile_version": 1,
+                "location_confidence": 0.8,
+                "confidence_sources": {"calibration": "heuristic", "counter": "local-fallback", "location": "heuristic"},
             },
         )
         assert r.decision == "allow"
@@ -78,6 +82,10 @@ class TestEvaluateResponse:
                 "replay_risk": 0.1,
                 "geo_consistency_risk": 0.3,
                 "top_signals": ["sdk:bot"],
+                "confidence_tier": "low",
+                "calibration_profile_version": 3,
+                "location_confidence": 0.35,
+                "confidence_sources": {"calibration": "service", "counter": "service", "location": "service"},
             },
         )
         assert r.ml_score == 88.0

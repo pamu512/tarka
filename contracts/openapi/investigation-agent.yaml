@@ -25,6 +25,10 @@ paths:
                     enum: [us, eu_uk, global]
                   ai_governance_label: { type: string }
                   copilot_prompt_version: { type: string }
+                  production:
+                    type: object
+                    description: Production profile flags and config_ok (GET /v1/health).
+                    additionalProperties: true
                   copilot_features:
                     type: object
                     additionalProperties: true
@@ -41,6 +45,46 @@ paths:
       responses:
         "200":
           description: Integration snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/ready:
+    get:
+      operationId: agentReady
+      description: >
+        Readiness probe — SQLite/RAG data directory writable. Does not call the LLM.
+        Returns 503 if the data path is not writable.
+      responses:
+        "200":
+          description: Ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [ready] }
+        "503":
+          description: Not ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [not_ready] }
+                  errors:
+                    type: array
+                    items: { type: string }
+  /v1/setup:
+    get:
+      operationId: setupDiagnostics
+      description: >
+        First-run checklist for minimal-integration deployments (LLM keys, embedding/RAG, optional upstreams).
+        Config-derived only; does not probe external networks.
+      responses:
+        "200":
+          description: Setup snapshot (schema saarthi_setup_v1)
           content:
             application/json:
               schema:
@@ -329,6 +373,11 @@ paths:
                   enum: [investigation, orchestrator]
                   default: investigation
                   description: Copilot persona (GET /v1/personas).
+                workflow_id: { type: string, nullable: true }
+                workflow_params:
+                  type: object
+                  nullable: true
+                  additionalProperties: true
                 messages:
                   type: array
                   items:
@@ -388,6 +437,188 @@ paths:
                         id: { type: string }
                         title: { type: string }
                         vertical: { type: string }
+  /v1/workflows:
+    get:
+      operationId: listWorkflows
+      description: SOP-style workflow manifests (system prompt append + template params); use workflow_id + workflow_params on POST /v1/chat.
+      responses:
+        "200":
+          description: Workflow catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workflows:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, title, description]
+                      properties:
+                        id: { type: string }
+                        title: { type: string }
+                        description: { type: string }
+  /v1/evidence/summary:
+    post:
+      operationId: evidenceSummary
+      description: >
+        Deterministic investigation evidence summary from provided artifacts (no LLM call). Produces a concise
+        narrative, confidence label, and citations for trace_id / case_id / source refs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_id, analyst_id]
+              properties:
+                tenant_id: { type: string }
+                analyst_id: { type: string }
+                case_id: { type: string, nullable: true }
+                trace_id: { type: string, nullable: true }
+                decision_audit:
+                  type: object
+                  nullable: true
+                  additionalProperties: true
+                source_refs:
+                  type: array
+                  nullable: true
+                  items:
+                    type: object
+                    additionalProperties: true
+                claims:
+                  type: array
+                  nullable: true
+                  items:
+                    type: object
+                    additionalProperties: true
+                max_citations:
+                  type: integer
+                  default: 12
+      responses:
+        "200":
+          description: Deterministic summary + confidence + citations
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [summary, confidence_label, citations]
+                properties:
+                  summary: { type: string }
+                  confidence_label: { type: string, enum: [low, medium, high] }
+                  citations:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  evidence_counts:
+                    type: object
+                    additionalProperties: true
+        "403":
+          description: Analyst not allowed
+  /v1/reports/case-summary:
+    post:
+      operationId: caseSummaryPdf
+      description: >
+        Render a case-summary PDF from fields matching POST /v1/chat response (reply, answer_sections, claims).
+        Client-supplied content only; no server-side chat replay.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_id, analyst_id, reply]
+              properties:
+                tenant_id: { type: string }
+                analyst_id: { type: string }
+                title: { type: string, default: "Case summary" }
+                turn_id: { type: string, nullable: true }
+                case_id: { type: string, nullable: true }
+                workflow_id: { type: string, nullable: true }
+                prompt_version: { type: string, nullable: true }
+                reply: { type: string }
+                answer_sections:
+                  type: object
+                  additionalProperties: true
+                claims:
+                  type: array
+                  nullable: true
+                  items:
+                    type: object
+                    properties:
+                      text: { type: string }
+                      source: { type: string, enum: [tool, unknown] }
+      responses:
+        "200":
+          description: PDF bytes
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "403":
+          description: Analyst not allowed
+  /v1/reports/turn-bundle:
+    post:
+      operationId: turnBundleExport
+      description: >
+        Export Markdown plus structured JSON for one turn (paste from POST /v1/chat). For review/Jira/archival;
+        no server-side replay.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_id, analyst_id, reply]
+              properties:
+                tenant_id: { type: string }
+                analyst_id: { type: string }
+                title: { type: string }
+                turn_id: { type: string, nullable: true }
+                case_id: { type: string, nullable: true }
+                workflow_id: { type: string, nullable: true }
+                prompt_version: { type: string, nullable: true }
+                reply: { type: string }
+                answer_sections:
+                  type: object
+                  additionalProperties: true
+                claims:
+                  type: array
+                  nullable: true
+                  items:
+                    type: object
+                    properties:
+                      text: { type: string }
+                      source: { type: string, enum: [tool, unknown] }
+                tool_calls:
+                  type: array
+                  nullable: true
+                  items:
+                    type: object
+                    additionalProperties: true
+                source_refs:
+                  type: array
+                  nullable: true
+                  items:
+                    type: object
+                    additionalProperties: true
+      responses:
+        "200":
+          description: turn_bundle_v1 JSON (markdown + structured)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  format: { type: string, enum: [turn_bundle_v1] }
+                  markdown: { type: string }
+                  structured:
+                    type: object
+                    additionalProperties: true
+        "403":
+          description: Analyst not allowed
   /v1/chat:
     post:
       operationId: chat
@@ -417,6 +648,15 @@ paths:
                   enum: [investigation, orchestrator]
                   default: investigation
                   description: Copilot persona (GET /v1/personas). Orchestrator emphasizes lean sequencing and workload reduction.
+                workflow_id:
+                  type: string
+                  nullable: true
+                  description: Optional SOP workflow id from GET /v1/workflows
+                workflow_params:
+                  type: object
+                  nullable: true
+                  additionalProperties: true
+                  description: Template parameters for the workflow manifest (e.g. audience, report_label)
                 platform_audit:
                   type: array
                   nullable: true
@@ -479,6 +719,14 @@ paths:
                     type: string
                     enum: [investigation, orchestrator]
                     description: Copilot persona used for this turn.
+                  workflow_id:
+                    type: string
+                    nullable: true
+                    description: Echoed when a workflow manifest was active (GET /v1/workflows).
+                  workflow_params:
+                    type: object
+                    nullable: true
+                    additionalProperties: true
                   claims_warning: { type: string }
                   claims_grounding_adjustments:
                     type: array
@@ -487,6 +735,10 @@ paths:
                   injection_sanitized: { type: boolean }
                   turn_id: { type: string }
                   prompt_version: { type: string }
+                  turn_metrics:
+                    type: object
+                    description: Model id, completion rounds, tool_surface (plain|tools), aggregated token usage when returned by the LLM.
+                    additionalProperties: true
                   answer_sections:
                     type: object
                     additionalProperties: true

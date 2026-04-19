@@ -22,6 +22,9 @@ _OPENAPI_DIR = _REPO_ROOT / "contracts" / "openapi"
         "ml-scoring.yaml",
         "feature-service.yaml",
         "investigation-agent.yaml",
+        "calibration-service.yaml",
+        "counter-service.yaml",
+        "location-service.yaml",
     ],
 )
 def test_openapi_yaml_parses_and_validates_oas31(name: str):
@@ -38,6 +41,9 @@ def test_openapi_yaml_parses_and_validates_oas31(name: str):
 
 
 def test_fastapi_openapi_contains_evaluate_and_inference():
+    # Load submodule so patch("decision_api.main....") resolves (pkgutil.getattr).
+    import decision_api.main  # noqa: F401
+
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("DATABASE_URL", "sqlite+aiosqlite:///")
         mp.setenv("REDIS_URL", "redis://localhost:6379/0")
@@ -62,5 +68,18 @@ def test_fastapi_openapi_contains_evaluate_and_inference():
                         paths = schema.get("paths", {})
                         assert "/v1/decisions/evaluate" in paths, "FastAPI schema should expose POST evaluate"
                         assert "/v1/challenge-policies" in paths, "FastAPI schema should expose GET challenge-policies"
+                        assert "/v1/internal/counters/manifest" in paths
+                        assert "/v1/internal/counters/catalog" in paths
+                        assert "/v1/internal/counters/replay" in paths
+                        assert "/v1/internal/counters/replay/from-audit" in paths
+                        assert "/v1/ops/calibration-status" in paths
+                        assert "/v1/slo" in paths
+                        schemes = schema.get("components", {}).get("securitySchemes", {})
+                        assert "TarkaCounterReplayToken" in schemes
+                        replay_post = paths["/v1/internal/counters/replay"].get("post", {})
+                        assert replay_post.get("security") == [{"TarkaCounterReplayToken": []}]
                         blob = json.dumps(schema)
                         assert "inference_context" in blob.lower()
+                        assert "calibration_profile_version" in blob
+                        assert "location_confidence" in blob
+                        assert "confidence_sources" in blob

@@ -233,7 +233,7 @@ class TestCopilotHardening:
 class TestChatInjectionPolicy:
     @staticmethod
     async def _fake_llm_ok(http, system, messages, tenant_id, analyst_id, tool_defs):
-        return ('Ack.\nTARKA_CLAIMS_JSON={"claims":[]}', [])
+        return ('Ack.\nTARKA_CLAIMS_JSON={"claims":[]}', [], {}, 1)
 
     def test_injection_sanitize_continues_and_sets_flag(self):
         with patch(
@@ -296,7 +296,7 @@ class TestChatInjectionPolicy:
 
         async def capture(http, system, messages, tenant_id, analyst_id, tool_defs):
             captured["system"] = system
-            return ('ok\nTARKA_CLAIMS_JSON={"claims":[]}', [])
+            return ('ok\nTARKA_CLAIMS_JSON={"claims":[]}', [], {}, 1)
 
         with patch("investigation_agent.main._llm_tool_loop", new=AsyncMock(side_effect=capture)):
             with patch.multiple(

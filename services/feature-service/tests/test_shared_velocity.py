@@ -15,13 +15,13 @@ async def test_compute_features_matches_normalized_key_list():
         "t_vel",
         "e_vel",
         "ev1",
-        {"amount": 10.0, "ip_address": "10.0.0.1", "device_id": "dev-1"},
+        {"amount": 10.0, "ip_address": "10.0.0.1", "device_id": "dev-1", "session_id": "sess-1"},
         ts=T0 + 1.0,
     )
     feats = await s.compute_features(
         "t_vel",
         "e_vel",
-        {"amount": 1.0, "ip_address": "10.0.0.9", "device_id": "dev-z"},
+        {"amount": 1.0, "ip_address": "10.0.0.9", "device_id": "dev-z", "session_id": "sess-z"},
     )
     assert set(feats.keys()) == set(normalized_velocity_key_names())
 
@@ -31,3 +31,4 @@ def test_normalized_velocity_key_names_stable():
     assert "event_count_5m" in names
     assert "event_count_1h" in names
     assert "distinct_device_id_24h" in names
+    assert "distinct_session_id_24h" in names

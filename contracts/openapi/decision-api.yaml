@@ -2,7 +2,9 @@ openapi: 3.1.0
 info:
   title: Tarka Decision API
   version: 1.0.0
-  description: Synchronous fraud scoring and event ingestion. SDK clients call this service only.
+  description: >-
+    Synchronous fraud scoring and event ingestion. SDK clients call this service only.
+    For the live OpenAPI document (including internal counter routes and security schemes), use GET /openapi.json on a running instance.
 servers:
   - url: http://localhost:8000
     description: Local
@@ -22,6 +24,18 @@ paths:
                   status:
                     type: string
                     example: ok
+  /v1/slo:
+    get:
+      operationId: sloStatus
+      summary: SLO targets and in-process HTTP counters (v1.2.5)
+      responses:
+        "200":
+          description: SLO snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
   /v1/decisions/evaluate:
     post:
       operationId: evaluateDecision
@@ -55,6 +69,68 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChallengePoliciesResponse"
+  /v1/rules/vertical-packs:
+    get:
+      operationId: listVerticalPacks
+      summary: List built-in vertical pack templates
+      responses:
+        "200":
+          description: Vertical pack catalog
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerticalPackCatalogResponse"
+  /v1/rules/vertical-packs/{vertical_name}/install:
+    post:
+      operationId: installVerticalPack
+      summary: Install vertical pack into active rules directory
+      parameters:
+        - name: vertical_name
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [fintech, ecommerce, gaming]
+        - name: overwrite
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "201":
+          description: Vertical pack installed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerticalPackInstallResponse"
+        "404":
+          description: Unknown vertical pack
+        "409":
+          description: Existing installed vertical pack requires overwrite=true
+        "422":
+          description: Validation errors in target pack
+  /v1/simulation/benchmark/vertical:
+    post:
+      operationId: benchmarkVerticalPack
+      summary: Compare baseline simulation vs built-in vertical pack
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerticalBenchmarkRequest"
+      responses:
+        "200":
+          description: Baseline vs vertical benchmark results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerticalBenchmarkResponse"
+        "400":
+          description: Unknown scenario
+        "404":
+          description: Unknown vertical pack
   /v1/attestation/challenge:
     post:
       operationId: attestationChallenge
@@ -214,8 +290,394 @@ paths:
           description: Invalid request
         "404":
           description: No audit rows matched
+  /v1/ops/governance:
+    get:
+      operationId: opsGovernance
+      summary: Rollout posture, experiment log size, stretch tooling pointers
+      responses:
+        "200":
+          description: Governance bundle
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/calibration/snapshots:
+    post:
+      operationId: calibrationAppendSnapshot
+      summary: Append integrity histogram snapshot for drift tracking (file-backed)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalibrationSnapshotBody"
+      responses:
+        "201":
+          description: Stored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  id: { type: string }
+  /v1/calibration/drift:
+    get:
+      operationId: calibrationDrift
+      summary: Compare latest snapshot to pinned reference (L1 drift score)
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: profile
+          in: query
+          schema: { type: string, default: default }
+      responses:
+        "200":
+          description: Drift hint
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/calibration/reference/{profile}:
+    post:
+      operationId: calibrationSetReference
+      summary: Pin reference histogram for drift comparison
+      parameters:
+        - name: profile
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalibrationSnapshotBody"
+      responses:
+        "200":
+          description: Reference written
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  path: { type: string }
+  /v1/calibration/summary:
+    get:
+      operationId: calibrationSummary
+      summary: Recent snapshots for tenant/profile
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: profile
+          in: query
+          schema: { type: string, default: default }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Snapshot list
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/ops/calibration-status:
+    get:
+      operationId: opsCalibrationStatus
+      summary: Drift and governance hints for a tenant profile
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: profile
+          in: query
+          required: false
+          schema: { type: string, default: default }
+      responses:
+        "200":
+          description: Calibration drift bundle
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/internal/counters/manifest:
+    get:
+      operationId: getCounterManifest
+      summary: Counter manifest (velocity feature names and windows)
+      description: >-
+        Read-only parity contract for Redis-backed aggregates. When AGG_KEY_VERSION is set on the server,
+        response includes redis_key_version. Does not require COUNTER_REPLAY_TOKEN.
+      responses:
+        "200":
+          description: Manifest JSON (feature_outputs, manifest_version, optional redis_key_version)
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/internal/counters/catalog:
+    get:
+      operationId: getCounterCatalogMerged
+      summary: Declarative counter catalog (titles + manifest merge)
+      description: >-
+        Merges counter_manifest_v1.json with data/counter_catalog.json (human titles, categories).
+        Does not require COUNTER_REPLAY_TOKEN.
+      responses:
+        "200":
+          description: Merged catalog for ops UI
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/internal/counters/replay:
+    post:
+      operationId: replayCountersToScratchRedis
+      summary: Replay inline events into a scratch Redis (offline parity)
+      description: >-
+        Requires env COUNTER_REPLAY_TOKEN and header X-Tarka-Counter-Replay-Token. Aggregate keys honor
+        AGG_KEY_VERSION on the API process when writing. Use an isolated Redis DB index for scratch_redis_url.
+      security:
+        - TarkaCounterReplayToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CounterReplayRequest"
+      responses:
+        "200":
+          description: Replay summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CounterReplayResponse"
+        "401":
+          description: Invalid or missing replay token
+        "503":
+          description: Counter replay disabled (COUNTER_REPLAY_TOKEN unset)
+  /v1/internal/counters/replay/from-audit:
+    post:
+      operationId: replayCountersFromAudit
+      summary: Replay decision_audit rows into scratch Redis
+      description: >-
+        Loads payload_snapshot.payload per row as aggregate fields. Same authentication as POST /v1/internal/counters/replay.
+      security:
+        - TarkaCounterReplayToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CounterReplayFromAuditRequest"
+      responses:
+        "200":
+          description: Replay summary including audit row count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CounterReplayFromAuditResponse"
+        "401":
+          description: Invalid or missing replay token
+        "404":
+          description: No audit rows for tenant_id and entity_id
+        "503":
+          description: Counter replay disabled (COUNTER_REPLAY_TOKEN unset)
 components:
+  securitySchemes:
+    TarkaCounterReplayToken:
+      type: apiKey
+      in: header
+      name: X-Tarka-Counter-Replay-Token
   schemas:
+    CalibrationSnapshotBody:
+      type: object
+      required: [tenant_id, sample_count]
+      properties:
+        tenant_id: { type: string }
+        profile: { type: string, default: default }
+        schema_version: { type: string }
+        expected_calibration_version: { type: integer }
+        sample_count: { type: integer, minimum: 1 }
+        integrity_histogram:
+          type: object
+          additionalProperties: { type: integer }
+        mean_integrity: { type: number, nullable: true }
+        mean_final_score: { type: number, nullable: true }
+        notes: { type: string, nullable: true }
+    CounterReplayEvent:
+      type: object
+      required: [tenant_id, entity_id]
+      properties:
+        tenant_id: { type: string, maxLength: 256 }
+        entity_id: { type: string, maxLength: 512 }
+        event_id: { type: string, nullable: true, maxLength: 256 }
+        fields:
+          type: object
+          additionalProperties: true
+          default: {}
+        ts: { type: number, nullable: true, description: Unix epoch seconds for aggregate windowing }
+    CounterReplayRequest:
+      type: object
+      required: [scratch_redis_url]
+      properties:
+        scratch_redis_url:
+          type: string
+          minLength: 8
+          description: e.g. redis://localhost:6379/15
+        events:
+          type: array
+          maxItems: 2000
+          items:
+            $ref: "#/components/schemas/CounterReplayEvent"
+          default: []
+    CounterReplayResponse:
+      type: object
+      required: [manifest_version, recorded, scratch_redis_url]
+      properties:
+        manifest_version: { type: string }
+        recorded: { type: integer, minimum: 0 }
+        scratch_redis_url: { type: string }
+    CounterReplayFromAuditRequest:
+      type: object
+      required: [scratch_redis_url, tenant_id, entity_id]
+      properties:
+        scratch_redis_url:
+          type: string
+          minLength: 8
+        tenant_id: { type: string, minLength: 1, maxLength: 128 }
+        entity_id: { type: string, minLength: 1, maxLength: 512 }
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 20000
+          default: 2000
+    CounterReplayFromAuditResponse:
+      type: object
+      required:
+        - manifest_version
+        - recorded
+        - audit_rows
+        - scratch_redis_url
+        - tenant_id
+        - entity_id
+      properties:
+        manifest_version: { type: string }
+        recorded: { type: integer, minimum: 0 }
+        audit_rows: { type: integer, minimum: 0 }
+        scratch_redis_url: { type: string }
+        tenant_id: { type: string }
+        entity_id: { type: string }
+    VerticalPackSummary:
+      type: object
+      required: [name, rules, version]
+      properties:
+        name:
+          type: string
+        rules:
+          type: integer
+          minimum: 0
+        version:
+          type: integer
+          minimum: 1
+    VerticalPackCatalogResponse:
+      type: object
+      required: [vertical_packs]
+      properties:
+        vertical_packs:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/VerticalPackSummary"
+    VerticalPackInstallResponse:
+      type: object
+      required: [installed, vertical, rules]
+      properties:
+        installed:
+          type: string
+          description: Generated JSON file name under rules path
+        vertical:
+          type: string
+        rules:
+          type: integer
+          minimum: 0
+    VerticalBenchmarkRequest:
+      type: object
+      properties:
+        scenario:
+          type: string
+          default: baseline
+        vertical:
+          type: string
+          default: fintech
+          enum: [fintech, ecommerce, gaming]
+        custom_profile:
+          type: object
+          nullable: true
+          additionalProperties: true
+      additionalProperties: false
+    SimulationSummary:
+      type: object
+      required:
+        - total_events
+        - fraud_events
+        - predicted_fraud
+        - true_positives
+        - false_positives
+        - false_negatives
+        - true_negatives
+        - precision
+        - recall
+        - f1_score
+        - average_score
+        - score_separation
+      properties:
+        total_events: { type: integer, minimum: 0 }
+        fraud_events: { type: integer, minimum: 0 }
+        predicted_fraud: { type: integer, minimum: 0 }
+        true_positives: { type: integer, minimum: 0 }
+        false_positives: { type: integer, minimum: 0 }
+        false_negatives: { type: integer, minimum: 0 }
+        true_negatives: { type: integer, minimum: 0 }
+        precision: { type: number }
+        recall: { type: number }
+        f1_score: { type: number }
+        average_score: { type: number }
+        score_separation: { type: number }
+    VerticalBenchmarkDelta:
+      type: object
+      required: [precision, recall, f1_score, score_separation, false_positives, false_negatives]
+      properties:
+        precision: { type: number }
+        recall: { type: number }
+        f1_score: { type: number }
+        score_separation: { type: number }
+        false_positives: { type: integer }
+        false_negatives: { type: integer }
+    VerticalBenchmarkResponse:
+      type: object
+      required: [scenario, vertical, baseline, vertical_pack, delta]
+      properties:
+        scenario:
+          type: string
+        vertical:
+          type: string
+        baseline:
+          $ref: "#/components/schemas/SimulationSummary"
+        vertical_pack:
+          $ref: "#/components/schemas/SimulationSummary"
+        delta:
+          $ref: "#/components/schemas/VerticalBenchmarkDelta"
     ChallengePoliciesResponse:
       type: object
       required: [policies]
@@ -254,6 +716,10 @@ components:
         payload:
           type: object
           additionalProperties: true
+          description: >
+            Optional geo/session hints: trusted_zones [{lat,lon,radius_km}], session_last_lat, session_last_lon,
+            session_last_ts (unix), session_prev_lat, session_prev_lon, session_prev_ts for travel inference;
+            calibration_bias (-0.1..0.1) for ops tuning.
         device_context:
           type: object
           nullable: true
@@ -261,17 +727,46 @@ components:
           properties:
             device_id: { type: string }
             platform: { type: string, enum: [web, android, ios, server] }
-            signals: { type: object, additionalProperties: true }
+            signals:
+              type: object
+              additionalProperties: true
+              description: >
+                May include geo_lat, geo_lon, geo_accuracy_m, geo_source (e.g. browser_gps), geo_ts (ISO8601);
+                optional ip_geo_lat, ip_geo_lon, ip_geo_timezone from server-side collectors.
             attestation:
               type: object
               nullable: true
+              description: >
+                Mobile integrity attestation (Play Integrity / App Attest). Server normalizes provider aliases
+                and sets status/confidence_tier; see docs/docs/guides/mobile-attestation-taxonomy.md.
               properties:
                 nonce: { type: string }
                 token: { type: string }
-                provider: { type: string }
+                provider:
+                  type: string
+                  description: Canonical values play_integrity (Android) and app_attest (iOS).
+                status:
+                  type: string
+                  description: obtained | absent | failed | disabled | unsupported
+                confidence_tier:
+                  type: string
+                  description: none | low | medium | high (client hint)
+                failure_reason:
+                  type: string
+                  nullable: true
+                  description: Set when status is failed or unsupported
+                attestation_schema_version: { type: integer, minimum: 1 }
+                verified: { type: boolean, description: Set when server-side verify succeeded }
         metadata:
           type: object
           additionalProperties: true
+          description: >
+            Optional client hints for identity and network posture. Recognized keys (all optional):
+            tls_pinning_verified (bool) for MitM posture hints;
+            vendor_visitor_id, vendor_device_id, vendor_install_id (strings) for server-side vendor→entity
+            bridge when consent and mapping contract exist — see docs/guides/device-id-semantics.md.
+            Optional event_time (or event_ts, occurred_at) — ISO-8601 or unix seconds — sets Redis aggregate
+            timestamps to business time for velocity windows when present; see docs/guides/late-arrival-watermarks.md.
         challenge_policy_id:
           type: string
           nullable: true
@@ -322,10 +817,31 @@ components:
           nullable: true
           additionalProperties: true
           description: Matched rule id, escalation ladder, rule index (audit-friendly)
+        fallback_reason:
+          type: string
+          nullable: true
+          description: >-
+            Present when evaluation used degraded dependencies (circuit open, tenant kill-switch) or rules-only blend;
+            mirrors audit payload_snapshot.fallback_reason.
+    DriverExplainEntry:
+      type: object
+      required: [reason, category, label]
+      properties:
+        reason:
+          type: string
+          description: Same code as in driver_reasons (e.g. rule:..., ml_factor:...)
+        category:
+          type: string
+          description: Coarse bucket for UI grouping (rules, ml, network, geo, velocity, device_integrity, replay, other)
+        label:
+          type: string
+          description: Short human-readable label for analysts
     InferenceContext:
       type: object
       required:
         - schema_version
+        - calibration_profile
+        - expected_calibration_version
         - integrity_confidence
         - tamper_risk
         - network_trust
@@ -335,14 +851,34 @@ components:
         - confidence_tier
         - driver_reasons
         - colocation_risk
+        - copresence_risk
         - impossible_travel_risk
         - velocity_events_5m
         - velocity_events_1h
         - velocity_events_24h
+        - calibration_profile_version
+        - location_confidence
+        - confidence_sources
       properties:
         schema_version:
           type: string
-          example: "2"
+          example: "3"
+        calibration_profile:
+          type: string
+          description: Named calibration / drift profile for ops (e.g. default, payments_strict_v1)
+          default: default
+        expected_calibration_version:
+          type: integer
+          minimum: 1
+          description: Bump when redeploying calibration tables; compare to ops drift pipeline version
+        confidence_tier_label:
+          type: string
+          description: Plain-language summary for the confidence_tier (low / medium / high)
+        driver_explain:
+          type: array
+          items:
+            $ref: "#/components/schemas/DriverExplainEntry"
+          description: Structured drivers (category + label); complements driver_reasons codes
         integrity_confidence:
           type: number
           format: float
@@ -385,6 +921,12 @@ components:
           format: float
           minimum: 0
           maximum: 1
+        copresence_risk:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Alias of colocation risk for multi-session / shared-device narratives
         impossible_travel_risk:
           type: number
           format: float
@@ -399,6 +941,30 @@ components:
         velocity_events_24h:
           type: integer
           minimum: 0
+        calibration_profile_version:
+          type: integer
+          minimum: 1
+          description: Active calibration profile version returned by calibration service
+        location_confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Location confidence score returned by location service evaluation
+        confidence_sources:
+          type: object
+          description: Source provenance for calibration/counter/location enrichments.
+          required: [calibration, counter, location]
+          properties:
+            calibration:
+              type: string
+              description: calibration-service | calibration-heuristic
+            counter:
+              type: string
+              description: counter-service | counter-local-fallback | counter-heuristic
+            location:
+              type: string
+              description: location-service | location-heuristic
         ml_top_factors:
           type: array
           description: Ranked ML explanation factors from ml-scoring (v1.2+); optional TreeSHAP when enabled server-side

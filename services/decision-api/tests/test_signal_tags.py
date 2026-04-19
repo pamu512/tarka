@@ -64,6 +64,12 @@ class TestExtractSignalTags:
         ctx = {"signals": {"is_vpn": 1, "is_bot": "yes"}}
         assert extract_signal_tags(ctx) == []
 
+    def test_no_duplicate_geo_tags(self):
+        ctx = {"signals": {"geo_ip_mismatch": True, "geo_tz_mismatch": True}}
+        tags = extract_signal_tags(ctx)
+        assert tags.count("sdk:geo_ip_mismatch") == 1
+        assert tags.count("sdk:geo_tz_mismatch") == 1
+
     def test_missing_signals_key(self):
         assert extract_signal_tags({"device_id": "abc"}) == []
 

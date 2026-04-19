@@ -10,13 +10,22 @@ The platform is designed around composability. Run just the Decision API with Re
 
 ---
 
+## What’s new (April 2026)
+
+- **Investigation copilot (OSS):** **`GET /v1/ready`** and **`GET /v1/setup`**, production diagnostics on **`GET /v1/health`**, **workflow-aware** **`POST /v1/chat`**, case-summary **PDF** / turn-bundle exports, and production guardrails — see [Integration changelog](guides/CHANGELOG_INTEGRATION.md) and [Investigation Agent project](projects/investigation-agent-project.md).
+- **Collaboration chat bridge:** Slack, Teams, and Lark → agent with **attachments** (incl. **xlsx**), **SSRF-safe URL** enrichment, **workflow directives**, and **ingress rate limits** — [bridge README](../../services/collaboration-chat-bridge/README.md) and [Collaboration chat & cloud](guides/investigation-collaboration-chat-aws-azure.md).
+- **Tarka repo:** Default development branch is **`master`**; release cadence and tags are unchanged — [Release schedule](../../RELEASE_SCHEDULE.md) (repository root).
+
+---
+
 ## Key Features
 
 - **Real-time fraud scoring** — Sub-50ms decisions combining JSON rules, ML models, OPA policies, and device signals into a single score.
 - **Entity graph** — Neo4j-backed graph that automatically links accounts, devices, sessions, and payments. Built-in community detection, fraud ring identification, and risk propagation.
 - **ML model serving** — ONNX model registry with versioned deployments, A/B traffic splitting, and automatic heuristic fallback. Train models with the included pipeline or bring your own.
 - **Case management** — Full investigation workflow with SLA tracking, workflow automation, audit trails, labels, comments, and WebSocket live feeds.
-- **Device signal SDKs** — TypeScript (browser), Python (server), Android (Kotlin), and iOS (Swift) SDKs that collect emulator detection, VPN detection, bot detection, location spoofing, and app integrity attestation.
+- **Device signal SDKs** — **TypeScript** (browser), **Python** (server), **Kotlin** ([Android SDK](sdks/android.md)), and **Swift** ([iOS SDK](sdks/ios.md)) ship in-repo with the same `device_context` contract — see [SDK scorecard](guides/sdk-scorecard-2026-01.md) and [Mobile SDK project](projects/sdk-mobile-project.md).
+- **Regulated markets (optional)** — fintech, banking, crypto-adjacent, and similar deployments can follow the **[regulated markets feature pack](guides/feature-pack-regulated-markets.md)** checklist (ingress integrity, attestation, audit, self-hosted data boundaries). For **SOC 2 / PCI / ISO** orientation (readiness vs certification), see **[compliance readiness](guides/compliance-readiness-soc2-pci-iso.md)**. Mobile **`device_context.attestation`** uses a shared vocabulary — **[mobile attestation taxonomy](guides/mobile-attestation-taxonomy.md)**.
 - **Streaming ingestion** — NATS JetStream-backed event pipeline for high-throughput async processing with at-least-once delivery.
 - **Workflow automation** — JSON-defined workflows that auto-escalate, route, label, and webhook based on triggers and conditions.
 - **Full audit trail** — Every decision, rule hit, score, and case mutation is recorded in Postgres with trace IDs for end-to-end observability.
@@ -57,7 +66,7 @@ The platform is designed around composability. Run just the Decision API with Re
 
 - :material-kubernetes: **[Deployment Guide](guides/deployment.md)**
 
-    Deploy to production with Docker Compose profiles or Helm on Kubernetes.
+    Deploy to production with Docker Compose profiles or Helm on Kubernetes. **[OSS track closure checklist](guides/oss-track-issue-closure-evidence-2026-04.md)** (#31–#54 merge evidence). **[Policy DAG (OSS #31)](./guides/policy-dag-oss-31.md)** (canary, shadow, champion–challenger audit). **[Typology / parity / graph checkpoints (#34, #48, #49)](./guides/oss-typology-parity-graph-34-48-49.md)**. **[Typology DSL / predicate registry (OSS #46)](./guides/oss-typology-dsl-46.md)**. **[v1.2.5 backlog status](./guides/v1.2.5-execution-backlog-status.md)** (shipped vs deferred). **[Close epics #4–#12 (paste-ready comments)](./guides/github-issue-closure-epics-4-12.md)**. **[ETL Bronze/Silver/Gold](./guides/etl-bronze-silver-gold.md)** (ingest DLQ, silver checks). **[Service SLOs (v1)](./guides/service-slos-v1.md)** · **[Late arrival & watermarks](./guides/late-arrival-watermarks.md)**.
 
 - :material-robot: **[Investigation copilot (Saarthi) & Saarthi Pro](guides/saarthi-pro-vs-oss.md)**
 

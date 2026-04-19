@@ -7,7 +7,7 @@ import pytest
 from decision_api.inference_build import build_inference_context
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_GOLDEN_PATH = _REPO_ROOT / "contracts" / "golden" / "inference-context-v2.example.json"
+_GOLDEN_PATH = _REPO_ROOT / "contracts" / "golden" / "inference-context-v3.example.json"
 
 
 @pytest.fixture

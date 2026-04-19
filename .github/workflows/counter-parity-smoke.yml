@@ -1,0 +1,54 @@
+# Weekly smoke: replay the same JSONL into two Redis DB indices and diff ZSETs (parity = identical).
+name: Counter parity smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * 1" # Mondays 06:17 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  replay-and-diff:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install redis (sync) for flush + diff
+        run: pip install redis
+      - name: Flush scratch DBs and replay fixture twice (with AGG_KEY_VERSION)
+        env:
+          AGG_KEY_VERSION: ci_parity_v1
+        run: |
+          python3 - <<'PY'
+          import redis
+          for db in (14, 15):
+              r = redis.from_url(f"redis://127.0.0.1:6379/{db}", decode_responses=True)
+              r.flushdb()
+              r.close()
+          PY
+          python3 scripts/replay/replay_aggregates.py \
+            --input scripts/replay/fixtures/parity_smoke.jsonl \
+            --redis-url redis://127.0.0.1:6379/14
+          python3 scripts/replay/replay_aggregates.py \
+            --input scripts/replay/fixtures/parity_smoke.jsonl \
+            --redis-url redis://127.0.0.1:6379/15
+      - name: Diff aggregate ZSETs (expect no differences)
+        run: |
+          python3 scripts/replay/diff_aggregate_redis.py \
+            --left-url redis://127.0.0.1:6379/14 \
+            --right-url redis://127.0.0.1:6379/15 \
+            --pattern 'fraud:agg*'
