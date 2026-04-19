@@ -33,10 +33,13 @@ def main() -> int:
         print(f"rules path not found: {rules_dir}", file=sys.stderr)
         return 1
 
-    from decision_api.rule_api import _validate_rule_pack
+    from decision_api.rule_pack_validation import validate_rule_pack
 
     errors: list[str] = []
+    skip_names = frozenset({"typology_definitions_v1.json", "typology_predicate_registry_v1.json"})
     for f in sorted(rules_dir.glob("*.json")):
+        if f.name in skip_names:
+            continue
         try:
             data = json.loads(f.read_text(encoding="utf-8"))
         except json.JSONDecodeError as e:
@@ -49,7 +52,7 @@ def main() -> int:
         if ver != 1:
             errors.append(f"{f.name}: unsupported version {ver!r} (expected 1)")
             continue
-        errs = _validate_rule_pack(data)
+        errs = validate_rule_pack(data)
         for e in errs:
             errors.append(f"{f.name}: {e}")
 

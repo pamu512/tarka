@@ -20,6 +20,13 @@ export interface InferenceContext {
   schema_version: string;
   calibration_profile: string;
   expected_calibration_version: number;
+  calibration_profile_version: number;
+  location_confidence: number;
+  confidence_sources: {
+    calibration: string;
+    counter: string;
+    location: string;
+  };
   confidence_tier_label: string;
   driver_explain: DriverExplainEntry[];
   integrity_confidence: number;
@@ -73,6 +80,34 @@ export function normalizeInferenceContext(raw: unknown): InferenceContext | null
     schema_version: typeof r.schema_version === "string" ? r.schema_version : "3",
     calibration_profile: typeof r.calibration_profile === "string" ? r.calibration_profile : "default",
     expected_calibration_version: typeof r.expected_calibration_version === "number" ? r.expected_calibration_version : 1,
+    calibration_profile_version: typeof (r as { calibration_profile_version?: unknown }).calibration_profile_version === "number"
+      ? ((r as { calibration_profile_version: number }).calibration_profile_version ?? 1)
+      : 1,
+    location_confidence: typeof (r as { location_confidence?: unknown }).location_confidence === "number"
+      ? ((r as { location_confidence: number }).location_confidence ?? 0)
+      : 0,
+    confidence_sources:
+      (r as { confidence_sources?: unknown }).confidence_sources &&
+      typeof (r as { confidence_sources?: unknown }).confidence_sources === "object"
+        ? {
+            calibration:
+              typeof ((r as { confidence_sources?: { calibration?: unknown } }).confidence_sources?.calibration) === "string"
+                ? ((r as { confidence_sources?: { calibration?: string } }).confidence_sources?.calibration ?? "heuristic")
+                : "heuristic",
+            counter:
+              typeof ((r as { confidence_sources?: { counter?: unknown } }).confidence_sources?.counter) === "string"
+                ? ((r as { confidence_sources?: { counter?: string } }).confidence_sources?.counter ?? "heuristic")
+                : "heuristic",
+            location:
+              typeof ((r as { confidence_sources?: { location?: unknown } }).confidence_sources?.location) === "string"
+                ? ((r as { confidence_sources?: { location?: string } }).confidence_sources?.location ?? "heuristic")
+                : "heuristic",
+          }
+        : {
+            calibration: "heuristic",
+            counter: "heuristic",
+            location: "heuristic",
+          },
     confidence_tier_label: (() => {
       if (typeof (r as InferenceContextLike).confidence_tier_label === "string") {
         return (r as InferenceContextLike).confidence_tier_label as string;

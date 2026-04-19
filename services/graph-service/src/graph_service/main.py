@@ -14,6 +14,10 @@ from graph_service.algorithms import (
     find_shared_attributes,
     propagate_risk,
 )
+from graph_service.checkpoint_registry import (
+    registry_public_view,
+    reload_checkpoint_registry,
+)
 from graph_service.custom_schema import (
     TenantSchema,
     invalidate_cache,
@@ -231,5 +235,18 @@ async def fraud_rings_endpoint(tenant_id: str, min_size: int = 3):
 
 
 @app.get("/v1/analytics/entity-risk")
-async def entity_risk_endpoint(tenant_id: str, entity_id: str):
-    return await compute_entity_risk(tenant_id, entity_id)
+async def entity_risk_endpoint(tenant_id: str, entity_id: str, checkpoint: str | None = None):
+    """Optional ``checkpoint`` selects graph profile (OSS #49). See GET /v1/checkpoint-profiles."""
+    return await compute_entity_risk(tenant_id, entity_id, checkpoint=checkpoint)
+
+
+@app.get("/v1/checkpoint-profiles")
+async def get_checkpoint_profiles():
+    """Registry of checkpoint → graph analytics profile (multipliers, hop hints)."""
+    return registry_public_view()
+
+
+@app.post("/v1/admin/checkpoint-profiles/reload")
+async def reload_checkpoint_profiles():
+    reload_checkpoint_registry()
+    return {"ok": True, **registry_public_view()}
