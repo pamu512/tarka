@@ -11,6 +11,8 @@ import { getMockResponse } from "./mockData";
 export type { ConfidenceTier, InferenceContext, MlTopFactor };
 export { normalizeInferenceContext };
 
+const USE_API_MOCKS = (import.meta.env.VITE_USE_API_MOCKS as string | undefined)?.trim().toLowerCase() === "true";
+
 // ── Types ────────────────────────────────────────────────────────────
 
 export interface DecisionRequest {
@@ -221,6 +223,7 @@ export interface RuleSimulationResult {
 // ── Fetcher ──────────────────────────────────────────────────────────
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  const allowMockFallback = USE_API_MOCKS;
   try {
     const res = await fetch(url, {
       ...init,
@@ -229,19 +232,23 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     const text = await res.text();
     const ct = res.headers.get("content-type") ?? "";
     if (!res.ok) {
-      const mock = getMockResponse(url, init);
-      if (mock !== null) {
-        reportDataOutcome("mock");
-        return mock as T;
+      if (allowMockFallback) {
+        const mock = getMockResponse(url, init);
+        if (mock !== null) {
+          reportDataOutcome("mock");
+          return mock as T;
+        }
       }
       reportDataOutcome("offline");
       throw new Error(`${res.status} ${text || res.statusText}`);
     }
     if (!ct.includes("json") && !text.trimStart().startsWith("{") && !text.trimStart().startsWith("[")) {
-      const mock = getMockResponse(url, init);
-      if (mock !== null) {
-        reportDataOutcome("mock");
-        return mock as T;
+      if (allowMockFallback) {
+        const mock = getMockResponse(url, init);
+        if (mock !== null) {
+          reportDataOutcome("mock");
+          return mock as T;
+        }
       }
       reportDataOutcome("offline");
       throw new Error(
@@ -253,10 +260,12 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
       reportDataOutcome("live");
       return parsed;
     } catch {
-      const mock = getMockResponse(url, init);
-      if (mock !== null) {
-        reportDataOutcome("mock");
-        return mock as T;
+      if (allowMockFallback) {
+        const mock = getMockResponse(url, init);
+        if (mock !== null) {
+          reportDataOutcome("mock");
+          return mock as T;
+        }
       }
       reportDataOutcome("offline");
       throw new Error(
@@ -264,10 +273,12 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
       );
     }
   } catch (err) {
-    const mock = getMockResponse(url, init);
-    if (mock !== null) {
-      reportDataOutcome("mock");
-      return mock as T;
+    if (allowMockFallback) {
+      const mock = getMockResponse(url, init);
+      if (mock !== null) {
+        reportDataOutcome("mock");
+        return mock as T;
+      }
     }
     reportDataOutcome("offline");
     throw err;
@@ -401,13 +412,8 @@ export const features = {
 // ── Event ingest (event-ingest :8007) — proxied as /api/ingest ───────
 
 export const ingest = {
-  /** Contract reject tallies since process boot (send `VITE_EVENT_INGEST_API_KEY` when event-ingest uses `API_KEYS`). */
+  /** Contract reject tallies since process boot. */
   ingestStats() {
-    const key = import.meta.env.VITE_EVENT_INGEST_API_KEY as string | undefined;
-    const headers: Record<string, string> = {};
-    if (key?.trim()) {
-      headers["x-api-key"] = key.trim();
-    }
     return request<{
       service: string;
       since: string;
@@ -416,7 +422,7 @@ export const ingest = {
       envelope_mode?: string;
       require_idempotency_key?: boolean;
       note?: string;
-    }>("/api/ingest/v1/ingest/stats", { headers });
+    }>("/api/ingest/v1/ingest/stats");
   },
 };
 
@@ -1307,12 +1313,16 @@ export const investigation = {
       if (res.ok) {
         return JSON.parse(text) as InvestigationBatchIngestResponse;
       }
-      const mock = getMockResponse(url, { method: "POST" });
-      if (mock !== null) return mock as InvestigationBatchIngestResponse;
+      if (USE_API_MOCKS) {
+        const mock = getMockResponse(url, { method: "POST" });
+        if (mock !== null) return mock as InvestigationBatchIngestResponse;
+      }
       throw new Error(`${res.status} ${text || res.statusText}`);
     } catch (err) {
-      const mock = getMockResponse(url, { method: "POST" });
-      if (mock !== null) return mock as InvestigationBatchIngestResponse;
+      if (USE_API_MOCKS) {
+        const mock = getMockResponse(url, { method: "POST" });
+        if (mock !== null) return mock as InvestigationBatchIngestResponse;
+      }
       throw err instanceof Error ? err : new Error("Batch ingest failed");
     }
   },

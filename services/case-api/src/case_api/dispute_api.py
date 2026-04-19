@@ -15,6 +15,14 @@ from case_api.db import get_session
 from case_api.models import Case, CaseComment, Dispute
 from case_api.schemas import CreateDisputeRequest, DisputeOut, UpdateDisputeRequest
 
+import sys
+from pathlib import Path
+
+_shared = Path(__file__).resolve().parents[3] / "shared"
+if str(_shared) not in sys.path:
+    sys.path.insert(0, str(_shared))
+from auth_rbac import require_role  # noqa: E402
+
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/disputes", tags=["disputes"])
 
@@ -93,6 +101,7 @@ async def create_dispute(
     body: CreateDisputeRequest,
     request: Request,
     session: AsyncSession = Depends(get_session),
+    _user=Depends(require_role("analyst")),
 ):
     """File a new dispute or chargeback, auto-linking to the original decision."""
     if body.dispute_type not in VALID_DISPUTE_TYPES:
@@ -229,6 +238,7 @@ async def update_dispute(
     body: UpdateDisputeRequest,
     request: Request,
     session: AsyncSession = Depends(get_session),
+    _user=Depends(require_role("analyst")),
 ):
     """Update dispute status/outcome. Triggers real-time tags and ML feedback."""
     result = await session.execute(select(Dispute).where(Dispute.id == dispute_id))

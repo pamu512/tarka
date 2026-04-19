@@ -802,6 +802,7 @@ async def reload_rules(_=Depends(require_role("admin"))):
     load_rules()
     reload_typology_definitions()
     reload_predicate_registry()
+    _load_graph_routing_policy(force=True)
     load_challenge_policies(force=True)
     _load_graph_routing_policy(force=True)
     return {"ok": True}

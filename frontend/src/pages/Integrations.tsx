@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { integrations } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
+import { safeExternalHref } from "../utils/externalLinks";
 
 type Provider = {
   id: string;
@@ -290,9 +291,16 @@ export default function Integrations() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <a href={p.doc_url} target="_blank" rel="noreferrer" className="text-xs text-brand-400 hover:text-brand-300">
-                    Docs
-                  </a>
+                  {(() => {
+                    const safeDocHref = safeExternalHref(p.doc_url);
+                    return safeDocHref ? (
+                      <a href={safeDocHref} target="_blank" rel="noreferrer" className="text-xs text-brand-400 hover:text-brand-300">
+                        Docs
+                      </a>
+                    ) : (
+                      <span className="text-xs text-gray-500">Docs unavailable</span>
+                    );
+                  })()}
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => openConfigWizard(p)}
