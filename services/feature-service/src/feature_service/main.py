@@ -30,7 +30,13 @@ def _get_api_keys() -> frozenset[str]:
 async def require_api_key(request: Request) -> None:
     keys = _get_api_keys()
     if not keys:
-        return
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+        if allow:
+            return
+        raise HTTPException(
+            status_code=503,
+            detail="service auth misconfigured: API_KEYS is empty (set API_KEYS or ALLOW_INSECURE_NO_AUTH=true for local development)",
+        )
     if request.headers.get("x-api-key", "") not in keys:
         raise HTTPException(status_code=401, detail="invalid or missing API key")
 

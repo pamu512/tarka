@@ -6,6 +6,7 @@ See docs/docs/guides/counter-replay-parity.md and docs/docs/guides/ingest-replay
 
 Expected JSONL shapes (one object per line):
   - Minimal: {"tenant_id": "...", "entity_id": "...", "event_id": "...", "fields": {"amount": 1.0}}
+  - With ts: optional top-level "ts" (unix) for ZSET scores; if missing, metadata.event_time / fields.event_time parsed like evaluate
   - Audit-like: {"tenant_id": "...", "entity_id": "...", "trace_id": "...", "payload": {...}}
     (payload dict is passed as aggregate fields when "fields" is absent)
 """

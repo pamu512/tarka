@@ -11,6 +11,8 @@ import { getMockResponse } from "./mockData";
 export type { ConfidenceTier, InferenceContext, MlTopFactor };
 export { normalizeInferenceContext };
 
+const USE_API_MOCKS = (import.meta.env.VITE_USE_API_MOCKS as string | undefined)?.trim().toLowerCase() === "true";
+
 // ── Types ────────────────────────────────────────────────────────────
 
 export interface DecisionRequest {
@@ -186,6 +188,23 @@ export interface CaseOpsKpis {
   median_case_age_hours: number;
   by_status?: Record<string, number>;
   sla_breached_open_or_investigating?: number;
+  /** Cases with fraud/chargeback label boosts in queue score */
+  label_boost_cases?: number;
+}
+
+export interface CaseDeskActivity {
+  tenant_id: string;
+  period_days: number;
+  since: string;
+  touch_actions_total: number;
+  by_action: Record<string, number>;
+  recent: Array<{
+    id: string;
+    action: string;
+    actor: string;
+    resource_id: string;
+    created_at: string | null;
+  }>;
 }
 
 export interface RulePack {
@@ -221,6 +240,7 @@ export interface RuleSimulationResult {
 // ── Fetcher ──────────────────────────────────────────────────────────
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  const allowMockFallback = USE_API_MOCKS;
   try {
     const res = await fetch(url, {
       ...init,
@@ -229,19 +249,23 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     const text = await res.text();
     const ct = res.headers.get("content-type") ?? "";
     if (!res.ok) {
-      const mock = getMockResponse(url, init);
-      if (mock !== null) {
-        reportDataOutcome("mock");
-        return mock as T;
+      if (allowMockFallback) {
+        const mock = getMockResponse(url, init);
+        if (mock !== null) {
+          reportDataOutcome("mock");
+          return mock as T;
+        }
       }
       reportDataOutcome("offline");
       throw new Error(`${res.status} ${text || res.statusText}`);
     }
     if (!ct.includes("json") && !text.trimStart().startsWith("{") && !text.trimStart().startsWith("[")) {
-      const mock = getMockResponse(url, init);
-      if (mock !== null) {
-        reportDataOutcome("mock");
-        return mock as T;
+      if (allowMockFallback) {
+        const mock = getMockResponse(url, init);
+        if (mock !== null) {
+          reportDataOutcome("mock");
+          return mock as T;
+        }
       }
       reportDataOutcome("offline");
       throw new Error(
@@ -253,10 +277,12 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
       reportDataOutcome("live");
       return parsed;
     } catch {
-      const mock = getMockResponse(url, init);
-      if (mock !== null) {
-        reportDataOutcome("mock");
-        return mock as T;
+      if (allowMockFallback) {
+        const mock = getMockResponse(url, init);
+        if (mock !== null) {
+          reportDataOutcome("mock");
+          return mock as T;
+        }
       }
       reportDataOutcome("offline");
       throw new Error(
@@ -264,10 +290,12 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
       );
     }
   } catch (err) {
-    const mock = getMockResponse(url, init);
-    if (mock !== null) {
-      reportDataOutcome("mock");
-      return mock as T;
+    if (allowMockFallback) {
+      const mock = getMockResponse(url, init);
+      if (mock !== null) {
+        reportDataOutcome("mock");
+        return mock as T;
+      }
     }
     reportDataOutcome("offline");
     throw err;
@@ -336,6 +364,31 @@ export const decisions = {
       counters: Array<Record<string, unknown>>;
     }>("/api/decisions/v1/internal/counters/catalog");
   },
+
+  calibrationStatus(tenantId: string, profile: string = "default") {
+    const q = new URLSearchParams({ tenant_id: tenantId, profile });
+    return request<{
+      tenant_id: string;
+      profile: string;
+      inference_schema_version: string;
+      challenge_policy_default?: string;
+      calibration: Record<string, unknown>;
+    }>(`/api/decisions/v1/ops/calibration-status?${q}`);
+  },
+
+  calibrationDrift(tenantId: string, profile: string = "default") {
+    const q = new URLSearchParams({ tenant_id: tenantId, profile });
+    return request<Record<string, unknown>>(`/api/decisions/v1/calibration/drift?${q}`);
+  },
+
+  calibrationSummary(tenantId: string, profile: string = "default", limit: number = 15) {
+    const q = new URLSearchParams({ tenant_id: tenantId, profile, limit: String(limit) });
+    return request<{
+      tenant_id: string;
+      profile: string;
+      snapshots: Array<Record<string, unknown>>;
+    }>(`/api/decisions/v1/calibration/summary?${q}`);
+  },
 };
 
 // ── Feature service (velocity + parity verify) — proxied as /api/features ─
@@ -401,13 +454,8 @@ export const features = {
 // ── Event ingest (event-ingest :8007) — proxied as /api/ingest ───────
 
 export const ingest = {
-  /** Contract reject tallies since process boot (send `VITE_EVENT_INGEST_API_KEY` when event-ingest uses `API_KEYS`). */
+  /** Contract reject tallies since process boot. */
   ingestStats() {
-    const key = import.meta.env.VITE_EVENT_INGEST_API_KEY as string | undefined;
-    const headers: Record<string, string> = {};
-    if (key?.trim()) {
-      headers["x-api-key"] = key.trim();
-    }
     return request<{
       service: string;
       since: string;
@@ -416,7 +464,7 @@ export const ingest = {
       envelope_mode?: string;
       require_idempotency_key?: boolean;
       note?: string;
-    }>("/api/ingest/v1/ingest/stats", { headers });
+    }>("/api/ingest/v1/ingest/stats");
   },
 };
 
@@ -561,6 +609,15 @@ export const cases = {
       delta_percent_vs_prior: number | null;
     }>(`/api/cases/v1/cases/analytics/cohort-compare?${q}`);
   },
+
+  deskActivity(tenantId: string, periodDays: number = 7, limit: number = 40) {
+    const q = new URLSearchParams({
+      tenant_id: tenantId,
+      period_days: String(periodDays),
+      limit: String(limit),
+    });
+    return request<CaseDeskActivity>(`/api/cases/v1/cases/ops/desk-activity?${q}`);
+  },
 };
 
 // ── Graph (graph-service :8001) ─────────────────────────────────────
@@ -639,6 +696,17 @@ export const analytics = {
 // ── ML (ml-scoring :8005) ───────────────────────────────────────────
 
 export const ml = {
+  health() {
+    return request<{
+      status: string;
+      disable_ml?: boolean;
+      model_version?: string;
+      onnx_loaded?: boolean;
+      registry_models?: number;
+      shap_stretch_enabled?: boolean;
+    }>("/api/ml/v1/health");
+  },
+
   models() {
     return request<{ models: ModelInfo[] }>("/api/ml/v1/models");
   },
@@ -1307,12 +1375,16 @@ export const investigation = {
       if (res.ok) {
         return JSON.parse(text) as InvestigationBatchIngestResponse;
       }
-      const mock = getMockResponse(url, { method: "POST" });
-      if (mock !== null) return mock as InvestigationBatchIngestResponse;
+      if (USE_API_MOCKS) {
+        const mock = getMockResponse(url, { method: "POST" });
+        if (mock !== null) return mock as InvestigationBatchIngestResponse;
+      }
       throw new Error(`${res.status} ${text || res.statusText}`);
     } catch (err) {
-      const mock = getMockResponse(url, { method: "POST" });
-      if (mock !== null) return mock as InvestigationBatchIngestResponse;
+      if (USE_API_MOCKS) {
+        const mock = getMockResponse(url, { method: "POST" });
+        if (mock !== null) return mock as InvestigationBatchIngestResponse;
+      }
       throw err instanceof Error ? err : new Error("Batch ingest failed");
     }
   },

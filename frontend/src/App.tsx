@@ -54,6 +54,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { to: "/investigation", label: "Investigation Copilot", module: "investigation" },
       { to: "/osint", label: "OSINT", module: "osint" },
       { to: "/analytics", label: "Analytics", module: "analytics" },
+      { to: "/ops/ml-lifecycle", label: "ML lifecycle", module: "analytics" },
     ],
   },
   {
@@ -69,6 +70,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: "Governance",
     items: [
       { to: "/compliance", label: "Compliance", module: "compliance", badge: { count: 1, kind: "info" } },
+      { to: "/ops/calibration", label: "Calibration & drift", module: "analytics" },
       { to: "/ops/counters", label: "Counters catalog", module: "compliance" },
       { to: "/ops/features", label: "Feature tools", module: "compliance" },
       { to: "/ops/pipelines", label: "ETL / pipelines", module: "compliance" },
@@ -176,6 +178,8 @@ export default function App() {
             <Route path="/simulation" element={<Simulation />} />
             <Route path="/graph" element={<GraphExplorer />} />
             <Route path="/analytics" element={<Analytics />} />
+            <Route path="/ops/calibration" element={<OpsCalibration />} />
+            <Route path="/ops/ml-lifecycle" element={<MlLifecycle />} />
             <Route path="/investigation" element={<Investigation />} />
             <Route path="/osint" element={<OsintEnrichment />} />
             <Route path="/compliance" element={<Compliance />} />

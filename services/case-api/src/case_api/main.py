@@ -33,7 +33,7 @@ _shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
 from audit_trail import AuditTrail, create_audit_model  # noqa: E402
-from auth_rbac import get_current_user, setup_auth  # noqa: E402
+from auth_rbac import get_current_user, require_role, setup_auth  # noqa: E402
 from observability import get_metrics, setup_observability  # noqa: E402
 from rate_limiter import setup_rate_limiter  # noqa: E402
 from webhook_sender import WebhookSender  # noqa: E402
@@ -251,7 +251,12 @@ async def list_cases(
 
 
 @app.post("/v1/cases", response_model=CaseOut, status_code=201)
-async def create_case(body: CreateCaseRequest, request: Request, session: AsyncSession = Depends(get_session)):
+async def create_case(
+    body: CreateCaseRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    _=Depends(require_role("analyst")),
+):
     user = get_current_user(request)
     c = Case(
         tenant_id=body.tenant_id,
@@ -393,6 +398,7 @@ async def update_case(
     request: Request,
     session: AsyncSession = Depends(get_session),
     tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    _=Depends(require_role("analyst")),
 ):
     user = get_current_user(request)
     case = await _case_for_tenant(session, case_id, tenant_id)
@@ -432,6 +438,7 @@ async def add_comment(
     request: Request,
     session: AsyncSession = Depends(get_session),
     tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    _=Depends(require_role("analyst")),
 ):
     case = await _case_for_tenant(session, case_id, tenant_id)
     session.add(CaseComment(case_id=case_id, author=body.author, body=body.body))
@@ -458,6 +465,7 @@ async def apply_labels(
     request: Request,
     session: AsyncSession = Depends(get_session),
     tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    _=Depends(require_role("analyst")),
 ):
     case = await _case_for_tenant(session, case_id, tenant_id)
     old_labels = list(case.labels) if case.labels else []
@@ -483,6 +491,7 @@ async def bulk_update_cases(
     body: BulkCaseUpdateRequest,
     request: Request,
     session: AsyncSession = Depends(get_session),
+    _=Depends(require_role("analyst")),
 ):
     if not body.case_ids:
         return {"updated": 0, "items": []}
@@ -525,6 +534,7 @@ async def apply_playbook(
     request: Request,
     session: AsyncSession = Depends(get_session),
     tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    _=Depends(require_role("analyst")),
 ):
     if playbook_id not in _PLAYBOOKS:
         raise HTTPException(404, "playbook not found")
@@ -561,9 +571,8 @@ async def list_playbooks():
 
 @app.get("/v1/cases/ops/kpis")
 async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_session)):
-    q = select(Case).where(Case.tenant_id == tenant_id).limit(5000)
-    rows = (await session.execute(q)).scalars().all()
-    total = len(rows)
+    """Queue health KPIs for the full case population (aggregated; not capped)."""
+    total = (await session.execute(select(func.count()).select_from(Case).where(Case.tenant_id == tenant_id))).scalar_one()
     if total == 0:
         return {
             "tenant_id": tenant_id,
@@ -575,36 +584,73 @@ async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_sess
             "median_case_age_hours": 0.0,
             "by_status": {},
             "sla_breached_open_or_investigating": 0,
+            "label_boost_cases": 0,
         }
-    queue_scores = [_queue_score(r) for r in rows]
-    critical_open = sum(1 for r in rows if (r.priority or "").lower() == "critical" and (r.status or "").lower() in {"open", "investigating"})
-    investigating = sum(1 for r in rows if (r.status or "").lower() == "investigating")
-    resolved = sum(1 for r in rows if (r.status or "").lower() in {"resolved", "closed"})
+
+    st_rows = (
+        await session.execute(
+            select(Case.status, func.count())
+            .where(Case.tenant_id == tenant_id)
+            .group_by(Case.status),
+        )
+    ).all()
+    by_status: dict[str, int] = {}
+    for st, ct in st_rows:
+        key = (st or "unknown").lower()
+        by_status[key] = by_status.get(key, 0) + int(ct)
+
+    investigating = int(by_status.get("investigating", 0))
+    resolved = int(by_status.get("resolved", 0) + by_status.get("closed", 0))
+
+    crit_open_q = select(func.count()).select_from(Case).where(
+        Case.tenant_id == tenant_id,
+        func.lower(Case.priority) == "critical",
+        func.lower(Case.status).in_(("open", "investigating")),
+    )
+    critical_open = int((await session.execute(crit_open_q)).scalar_one())
+
     now = datetime.now(timezone.utc)
-    ages = []
-    for r in rows:
-        if r.created_at:
-            delta = now - r.created_at
-            ages.append(max(0.0, delta.total_seconds() / 3600.0))
+    times = (
+        await session.execute(select(Case.created_at).where(Case.tenant_id == tenant_id).where(Case.created_at.is_not(None)))
+    ).scalars().all()
+    ages: list[float] = []
+    for t in times:
+        if t:
+            ages.append(max(0.0, (now - t).total_seconds() / 3600.0))
     ages.sort()
     median_age = ages[len(ages) // 2] if ages else 0.0
-    by_status: dict[str, int] = {}
+
+    lean = (
+        await session.execute(
+            select(Case.priority, Case.status, Case.labels, Case.created_at).where(Case.tenant_id == tenant_id),
+        )
+    ).all()
+    queue_scores: list[float] = []
     sla_breached = 0
-    for r in rows:
-        st = (r.status or "unknown").lower()
-        by_status[st] = by_status.get(st, 0) + 1
-        if st in ("open", "investigating") and is_sla_breached(r.priority, r.created_at):
+    label_boost_cases = 0
+    for pr, st, labels, ca in lean:
+        lbls = set(labels or [])
+        if "confirmed_fraud" in lbls or "chargeback" in lbls or "dispute:chargeback" in lbls:
+            label_boost_cases += 1
+        pseudo = Case()
+        pseudo.priority = pr or "medium"
+        pseudo.status = st or "open"
+        pseudo.labels = list(labels or [])
+        queue_scores.append(_queue_score(pseudo))
+        if (st or "open").lower() in ("open", "investigating") and ca and is_sla_breached(pr or "medium", ca):
             sla_breached += 1
+
     return {
         "tenant_id": tenant_id,
-        "total_cases": total,
-        "queue_score_avg": round(sum(queue_scores) / total, 2),
+        "total_cases": int(total),
+        "queue_score_avg": round(sum(queue_scores) / len(queue_scores), 2) if queue_scores else 0.0,
         "critical_open": critical_open,
         "investigating_rate": round(investigating / total, 4),
         "resolved_rate": round(resolved / total, 4),
         "median_case_age_hours": round(median_age, 2),
         "by_status": by_status,
         "sla_breached_open_or_investigating": sla_breached,
+        "label_boost_cases": label_boost_cases,
     }
 
 
@@ -646,6 +692,70 @@ async def cohort_compare_cases(
         "cases_created_prior": int(n_prior),
         "delta": delta,
         "delta_percent_vs_prior": pct,
+    }
+
+
+@app.get("/v1/cases/ops/desk-activity")
+async def case_desk_activity(
+    tenant_id: str,
+    session: AsyncSession = Depends(get_session),
+    period_days: int = 7,
+    limit: int = 50,
+):
+    """Analyst touch volume from audit trail: status/label/comment updates in the last window."""
+    since = datetime.now(timezone.utc) - timedelta(days=max(1, min(period_days, 365)))
+    lim = max(1, min(limit, 500))
+    q = (
+        select(AuditRecord.action, func.count())
+        .where(
+            AuditRecord.tenant_id == tenant_id,
+            AuditRecord.resource_type == "case",
+            AuditRecord.created_at >= since,
+            AuditRecord.action.in_(
+                (
+                    "update_case",
+                    "bulk_update_case",
+                    "apply_playbook",
+                    "update_labels",
+                    "add_comment",
+                    "workflow_mutation",
+                ),
+            ),
+        )
+        .group_by(AuditRecord.action)
+    )
+    rows = (await session.execute(q)).all()
+    by_action = {str(a): int(c) for a, c in rows}
+    total_actions = sum(by_action.values())
+
+    recent_q = (
+        select(AuditRecord)
+        .where(
+            AuditRecord.tenant_id == tenant_id,
+            AuditRecord.resource_type == "case",
+            AuditRecord.created_at >= since,
+        )
+        .order_by(AuditRecord.created_at.desc())
+        .limit(lim)
+    )
+    recent_rows = (await session.execute(recent_q)).scalars().all()
+    recent = [
+        {
+            "id": str(r.id),
+            "action": r.action,
+            "actor": r.actor,
+            "resource_id": r.resource_id,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in recent_rows
+    ]
+    return {
+        "tenant_id": tenant_id,
+        "period_days": period_days,
+        "since": since.isoformat(),
+        "touch_actions_total": total_actions,
+        "by_action": by_action,
+        "recent": recent,
     }
 
 
@@ -875,6 +985,7 @@ async def generate_sar(
     request: Request,
     session: AsyncSession = Depends(get_session),
     tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    _=Depends(require_role("analyst")),
 ):
     """Generate a SAR/STR from case data.
 
@@ -979,13 +1090,13 @@ async def list_sar_filings(
 
 
 @app.get("/v1/webhooks/dlq")
-async def webhook_dlq(request: Request):
+async def webhook_dlq(request: Request, _admin=Depends(require_role("admin"))):
     sender: WebhookSender = request.app.state.webhook
     return {"items": sender.get_dlq()}
 
 
 @app.post("/v1/webhooks/dlq/{webhook_id}/retry")
-async def retry_webhook(webhook_id: str, request: Request):
+async def retry_webhook(webhook_id: str, request: Request, _admin=Depends(require_role("admin"))):
     sender: WebhookSender = request.app.state.webhook
     ok = await sender.retry_dlq_item(webhook_id)
     return {"retried": ok}

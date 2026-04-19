@@ -283,6 +283,66 @@ paths:
       responses:
         "200":
           description: OK
+  /v1/cases/ops/kpis:
+    get:
+      operationId: caseOpsKpis
+      summary: Queue health KPIs (full tenant aggregate)
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: KPI bundle
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/cases/analytics/cohort-compare:
+    get:
+      operationId: caseCohortCompare
+      summary: Case volume vs prior window
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: period_days
+          in: query
+          schema: { type: integer, default: 7 }
+      responses:
+        "200":
+          description: Cohort comparison
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/cases/ops/desk-activity:
+    get:
+      operationId: caseDeskActivity
+      summary: Analyst touch volume from audit trail (recent window)
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: period_days
+          in: query
+          schema: { type: integer, default: 7 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          description: Desk activity summary
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
   /v1/investigation-label-drafts/batch:
     post:
       operationId: investigationLabelDraftsBatch

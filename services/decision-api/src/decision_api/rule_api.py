@@ -10,7 +10,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Header, HTTPException, Query
+import sys
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from decision_api.config import settings
@@ -22,6 +25,11 @@ from decision_api.vertical_packs import get_vertical_pack, list_vertical_packs
 router = APIRouter(prefix="/v1/rules", tags=["rules"])
 _SAFE_FILENAME_RE = re.compile(r"^[a-zA-Z0-9_-]{1,120}\.json$")
 _SAFE_SLUG_RE = re.compile(r"[^a-z0-9_-]+")
+
+_shared = Path(__file__).resolve().parents[3] / "shared"
+if str(_shared) not in sys.path:
+    sys.path.insert(0, str(_shared))
+from auth_rbac import require_role  # noqa: E402
 
 
 class Condition(BaseModel):
@@ -379,7 +387,7 @@ async def remove_rule(
 
 
 @router.post("/shadow/reload")
-async def reload_shadow_rules():
+async def reload_shadow_rules(_admin=Depends(require_role("admin"))):
     load_shadow_rules()
     return {"ok": True}
 

@@ -10,6 +10,7 @@ import inspect
 import json
 import logging
 import os
+import re
 import sys
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -29,6 +30,7 @@ from observability import get_metrics, setup_observability  # noqa: E402
 log = logging.getLogger("analytics-sink")
 
 _ch_client = None
+_SAFE_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,127}$")
 
 DDL_EVENTS = """
 CREATE TABLE IF NOT EXISTS {db}.decision_events (
@@ -83,9 +85,22 @@ def _get_api_keys() -> frozenset[str]:
 async def require_api_key(request: Request) -> None:
     keys = _get_api_keys()
     if not keys:
-        return
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+        if allow:
+            return
+        raise HTTPException(
+            status_code=503,
+            detail="service auth misconfigured: API_KEYS is empty (set API_KEYS or ALLOW_INSECURE_NO_AUTH=true for local development)",
+        )
     if request.headers.get("x-api-key", "") not in keys:
         raise HTTPException(status_code=401, detail="invalid or missing API key")
+
+
+def _safe_db_name() -> str:
+    db = settings.clickhouse_database.strip()
+    if not _SAFE_IDENTIFIER_RE.fullmatch(db):
+        raise RuntimeError("Invalid clickhouse_database identifier")
+    return db
 
 
 def _init_clickhouse():
@@ -96,8 +111,8 @@ def _init_clickhouse():
         username=settings.clickhouse_user,
         password=settings.clickhouse_password,
     )
-    _ch_client.command(f"CREATE DATABASE IF NOT EXISTS {settings.clickhouse_database}")
-    db = settings.clickhouse_database
+    db = _safe_db_name()
+    _ch_client.command(f"CREATE DATABASE IF NOT EXISTS {db}")
     _ch_client.command(DDL_EVENTS.format(db=db))
     _ch_client.command(DDL_HOURLY_MV.format(db=db))
     log.info("ClickHouse tables initialized in database '%s'", db)
@@ -248,14 +263,21 @@ async def query_decisions(
     """Query recent decision events from ClickHouse."""
     if not _ch_client:
         raise HTTPException(503, "ClickHouse not available")
-    db = settings.clickhouse_database
-    where = [f"tenant_id = '{tenant_id}'", f"created_at >= now() - INTERVAL {days} DAY"]
+    db = _safe_db_name()
+    where = ["tenant_id = %(tenant_id)s", "created_at >= now() - INTERVAL %(days)s DAY"]
+    params: dict[str, Any] = {
+        "tenant_id": tenant_id,
+        "days": days,
+        "limit": limit,
+    }
     if decision:
-        where.append(f"decision = '{decision}'")
+        where.append("decision = %(decision)s")
+        params["decision"] = decision
     if entity_id:
-        where.append(f"entity_id = '{entity_id}'")
-    q = f"SELECT * FROM {db}.decision_events WHERE {' AND '.join(where)} ORDER BY created_at DESC LIMIT {limit}"
-    result = _ch_client.query(q)
+        where.append("entity_id = %(entity_id)s")
+        params["entity_id"] = entity_id
+    q = f"SELECT * FROM {db}.decision_events WHERE {' AND '.join(where)} ORDER BY created_at DESC LIMIT %(limit)s"
+    result = _ch_client.query(q, parameters=params)
     return {"rows": [dict(zip(result.column_names, row)) for row in result.result_rows], "total": len(result.result_rows)}
 
 
@@ -267,14 +289,14 @@ async def hourly_stats(
     """Hourly aggregated stats from materialized view."""
     if not _ch_client:
         raise HTTPException(503, "ClickHouse not available")
-    db = settings.clickhouse_database
+    db = _safe_db_name()
     q = f"""
     SELECT hour, decision, event_count, avg_score, deny_count, review_count, allow_count
     FROM {db}.hourly_stats
-    WHERE tenant_id = '{tenant_id}' AND hour >= now() - INTERVAL {days} DAY
+    WHERE tenant_id = %(tenant_id)s AND hour >= now() - INTERVAL %(days)s DAY
     ORDER BY hour DESC
     """
-    result = _ch_client.query(q)
+    result = _ch_client.query(q, parameters={"tenant_id": tenant_id, "days": days})
     return {"rows": [dict(zip(result.column_names, row)) for row in result.result_rows]}
 
 
@@ -283,14 +305,14 @@ async def entity_history(entity_id: str, tenant_id: str, limit: int = 50):
     """Full decision history for a specific entity."""
     if not _ch_client:
         raise HTTPException(503, "ClickHouse not available")
-    db = settings.clickhouse_database
+    db = _safe_db_name()
     q = f"""
     SELECT trace_id, event_type, decision, score, tags, rule_hits, ml_score, created_at
     FROM {db}.decision_events
-    WHERE tenant_id = '{tenant_id}' AND entity_id = '{entity_id}'
-    ORDER BY created_at DESC LIMIT {limit}
+    WHERE tenant_id = %(tenant_id)s AND entity_id = %(entity_id)s
+    ORDER BY created_at DESC LIMIT %(limit)s
     """
-    result = _ch_client.query(q)
+    result = _ch_client.query(q, parameters={"tenant_id": tenant_id, "entity_id": entity_id, "limit": limit})
     return {"entity_id": entity_id, "events": [dict(zip(result.column_names, row)) for row in result.result_rows]}
 
 
@@ -304,14 +326,22 @@ async def top_entities(
     """Top entities by decision count."""
     if not _ch_client:
         raise HTTPException(503, "ClickHouse not available")
-    db = settings.clickhouse_database
+    db = _safe_db_name()
     q = f"""
     SELECT entity_id, count() AS cnt, avg(score) AS avg_score, groupArray(10)(trace_id) AS sample_traces
     FROM {db}.decision_events
-    WHERE tenant_id = '{tenant_id}' AND decision = '{decision}' AND created_at >= now() - INTERVAL {days} DAY
-    GROUP BY entity_id ORDER BY cnt DESC LIMIT {limit}
+    WHERE tenant_id = %(tenant_id)s AND decision = %(decision)s AND created_at >= now() - INTERVAL %(days)s DAY
+    GROUP BY entity_id ORDER BY cnt DESC LIMIT %(limit)s
     """
-    result = _ch_client.query(q)
+    result = _ch_client.query(
+        q,
+        parameters={
+            "tenant_id": tenant_id,
+            "decision": decision,
+            "days": days,
+            "limit": limit,
+        },
+    )
     return {"decision": decision, "entities": [dict(zip(result.column_names, row)) for row in result.result_rows]}
 
 
@@ -328,8 +358,8 @@ async def decision_scorecard(
     """
     if not _ch_client:
         raise HTTPException(503, "ClickHouse not available")
-    db = settings.clickhouse_database
-    window_clause = f"created_at >= now() - INTERVAL {days} DAY"
+    db = _safe_db_name()
+    window_clause = "created_at >= now() - INTERVAL %(days)s DAY"
 
     # Per-decision aggregates
     q_decisions = f"""
@@ -340,10 +370,11 @@ async def decision_scorecard(
         min(score) AS min_score,
         max(score) AS max_score
     FROM {db}.decision_events
-    WHERE tenant_id = '{tenant_id}' AND {window_clause}
+    WHERE tenant_id = %(tenant_id)s AND {window_clause}
     GROUP BY decision
     """
-    r_dec = _ch_client.query(q_decisions)
+    base_params = {"tenant_id": tenant_id, "days": days}
+    r_dec = _ch_client.query(q_decisions, parameters=base_params)
     decision_rows = [dict(zip(r_dec.column_names, row)) for row in r_dec.result_rows]
     total_events = sum(int(row.get("event_count", 0)) for row in decision_rows) or 1
 
@@ -371,12 +402,12 @@ async def decision_scorecard(
         arrayJoin(rule_hits) AS rule_id,
         count() AS hit_count
     FROM {db}.decision_events
-    WHERE tenant_id = '{tenant_id}' AND {window_clause}
+    WHERE tenant_id = %(tenant_id)s AND {window_clause}
     GROUP BY rule_id
     ORDER BY hit_count DESC
     LIMIT 10
     """
-    r_rules = _ch_client.query(q_rules)
+    r_rules = _ch_client.query(q_rules, parameters=base_params)
     rules_summary = [dict(zip(r_rules.column_names, row)) for row in r_rules.result_rows]
 
     # Headline metrics.

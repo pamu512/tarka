@@ -7,6 +7,10 @@ import os
 from fastapi import HTTPException, Request
 
 
+def _allow_insecure_no_auth() -> bool:
+    return os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _get_valid_keys() -> frozenset[str]:
     raw = os.environ.get("API_KEYS", "").strip()
     if not raw:

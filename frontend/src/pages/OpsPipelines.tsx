@@ -62,9 +62,9 @@ export default function OpsPipelines() {
         </div>
         <div className="rounded-xl border border-surface-700 bg-surface-900 p-4 text-sm text-gray-400">
           <p>
-            Wire <span className="font-mono">VITE_EVENT_INGEST_API_KEY</span> (or your gateway) so the UI can call ingest with
-            the same <span className="font-mono">x-api-key</span> as producers when <span className="font-mono">API_KEYS</span>{" "}
-            is set on event-ingest.
+            Prefer a server-side gateway/BFF for ingest stats in production. Avoid browser-embedded service secrets and keep{" "}
+            <span className="font-mono">x-api-key</span> injection on trusted backend hops when{" "}
+            <span className="font-mono">API_KEYS</span> is set on event-ingest.
           </p>
           {data && (data.envelope_mode != null || data.require_idempotency_key != null) ? (
             <p className="mt-2 text-xs text-gray-500">
