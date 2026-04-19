@@ -1,0 +1,22 @@
+{
+  "registry_id": "typology_predicates_v1",
+  "version": 1,
+  "description": "OSS #46 — named, reusable feature predicates for typology DSL. Referenced from typology_definitions_v1.json via predicate_ref.",
+  "predicates": [
+    {
+      "id": "vel_event_1h_threshold",
+      "description": "High hourly event volume (matches former inline velocity_abuse predicate)",
+      "when": { "field": "event_count_1h", "op": "gte", "value": 25 }
+    },
+    {
+      "id": "distinct_devices_churn",
+      "description": "Multiple devices in 24h window",
+      "when": { "field": "distinct_device_id_24h", "op": "gte", "value": 2 }
+    },
+    {
+      "id": "sum_amount_stress",
+      "description": "Large rolling sum amount",
+      "when": { "field": "sum_amount_24h", "op": "gte", "value": 25000 }
+    }
+  ]
+}

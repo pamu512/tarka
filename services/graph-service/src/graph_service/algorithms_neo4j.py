@@ -318,6 +318,8 @@ _HIGH_RISK_TAGS = frozenset(
 async def compute_entity_risk(
     tenant_id: str,
     entity_id: str,
+    *,
+    checkpoint: str | None = None,
 ) -> dict:
     """
     Composite risk score (0-100) for a single entity, based on:
@@ -326,7 +328,14 @@ async def compute_entity_risk(
       - flagged neighbours
       - shared devices / attributes
       - community size
+
+    Optional ``checkpoint`` selects a profile from ``checkpoint_profiles_v1.json`` (risk score multiplier).
     """
+    from graph_service.checkpoint_registry import resolve_profile
+
+    profile = resolve_profile(checkpoint)
+    mult = float(profile.get("risk_score_multiplier") or 1.0)
+
     driver = await get_driver()
 
     q = """
@@ -381,6 +390,8 @@ async def compute_entity_risk(
             "risk_factors": ["entity_not_found"],
             "connected_flagged_count": 0,
             "community_size": 0,
+            "graph_checkpoint": checkpoint,
+            "graph_profile": profile.get("_profile_name"),
         }
 
     tags = list(rec["tags"] or [])
@@ -419,7 +430,7 @@ async def compute_entity_risk(
         score += 5
         factors.append(f"moderate_connectivity:{conn_count}")
 
-    score = min(round(score), 100)
+    score = min(round(score * mult), 100)
 
     return {
         "entity_id": entity_id,
@@ -427,4 +438,7 @@ async def compute_entity_risk(
         "risk_factors": factors,
         "connected_flagged_count": flagged,
         "community_size": community_size,
+        "graph_checkpoint": checkpoint,
+        "graph_profile": profile.get("_profile_name"),
+        "graph_profile_multiplier": mult,
     }

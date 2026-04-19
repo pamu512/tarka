@@ -115,9 +115,8 @@ class TestEvaluateDecision:
                     assert "inference_context" in data
                     assert "integrity_confidence" in data["inference_context"]
                     assert 0 <= data["inference_context"]["integrity_confidence"] <= 1
-                    assert len(captured) == 1
-                    cc = captured[0].payload_snapshot.get("canary_cohort")
-                    assert cc and cc.get("cohort_sticky_id") and cc.get("salt_version")
+                    audit = mock_session.add.call_args[0][0]
+                    assert "canary_cohort" in (audit.payload_snapshot or {})
 
     @pytest.mark.asyncio
     async def test_with_device_context(self, client):

@@ -33,3 +33,23 @@ groups:
           severity: warning
         annotations:
           summary: "Sustained 5xx ratio (1h) for {{ $labels.service }}"
+
+      - alert: TarkaRiskServiceHighErrorRate5m
+        expr: tarka:http_5xx_ratio_5m{service=~"calibration-service|counter-service|location-service"} > 0.03
+        for: 5m
+        labels:
+          severity: warning
+          tier: risk-services
+        annotations:
+          summary: "Risk service 5xx ratio elevated (5m): {{ $labels.service }}"
+          description: "Error ratio exceeded 3% in the last 5m for a first-class risk service."
+
+      - alert: TarkaRiskServiceHighErrorRate1h
+        expr: tarka:http_5xx_ratio_1h{service=~"calibration-service|counter-service|location-service"} > 0.01
+        for: 15m
+        labels:
+          severity: warning
+          tier: risk-services
+        annotations:
+          summary: "Risk service 5xx ratio sustained (1h): {{ $labels.service }}"
+          description: "Error ratio exceeded 1% in the last 1h for a first-class risk service."
