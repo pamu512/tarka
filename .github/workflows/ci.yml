@@ -2,6 +2,11 @@
 # Upload steps use continue-on-error so CI stays green without a token.
 name: CI
 
+# GitHub Actions often injects empty env vars; shared auth fails closed without keys.
+# Unit tests use TestClient/httpx without real keys — keep a deterministic CI key.
+env:
+  API_KEYS: test-ci-key
+
 on:
   push:
     branches: [main, master]
