@@ -32,8 +32,34 @@ def _load_trusted_places() -> dict[str, list[dict[str, Any]]]:
         return {}
 
 
+_SAFE_TRUSTED_PLACE_KEYS = frozenset(
+    {
+        "label",
+        "lat",
+        "lon",
+        "radius_km",
+        "kind",
+        "accuracy_m",
+        "name",
+        "address",
+        "source",
+    }
+)
+
+
+def _sanitize_place_entry(place: dict[str, Any]) -> dict[str, Any]:
+    """Drop credential-like keys before persisting to disk (CodeQL: clear-text sensitive storage)."""
+    return {k: v for k, v in place.items() if k in _SAFE_TRUSTED_PLACE_KEYS}
+
+
 def _save_trusted_places(data: dict[str, list[dict[str, Any]]]) -> None:
-    _trusted_places_path().write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+    sanitized: dict[str, list[dict[str, Any]]] = {
+        k: [_sanitize_place_entry(dict(p)) for p in v] for k, v in data.items()
+    }
+    _trusted_places_path().write_text(
+        json.dumps(sanitized, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:

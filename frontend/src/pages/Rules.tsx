@@ -3,6 +3,7 @@ import {
   rules as rulesApi,
   simulation,
   ml,
+  syncRuleGovernanceSecret,
   type RulePack,
   type RuleDetail,
   type DecisionRequest,
@@ -241,9 +242,7 @@ export default function Rules() {
   const [ruleChangeLog, setRuleChangeLog] = useState<
     Array<{ ts: string; action: string; file: string; actor: string }>
   >([]);
-  const [ruleGovSecret, setRuleGovSecret] = useState(() =>
-    typeof localStorage !== "undefined" ? localStorage.getItem("tarka.rule_governance_secret") || "" : "",
-  );
+  const [ruleGovSecret, setRuleGovSecret] = useState("");
   const [showFieldCatalog, setShowFieldCatalog] = useState(false);
   const [telemetryRows, setTelemetryRows] = useState<
     Array<{ pack_file: string; rule_id: string; kind: string; hits: number }>
@@ -256,24 +255,16 @@ export default function Rules() {
   }, []);
 
   useEffect(() => {
+    syncRuleGovernanceSecret(ruleGovSecret);
+  }, [ruleGovSecret]);
+
+  useEffect(() => {
     try {
       localStorage.setItem("tarka.rule_actor", ruleActor.trim() || "web-ui");
     } catch {
       /* ignore */
     }
   }, [ruleActor]);
-
-  useEffect(() => {
-    try {
-      if (ruleGovSecret.trim()) {
-        localStorage.setItem("tarka.rule_governance_secret", ruleGovSecret.trim());
-      } else {
-        localStorage.removeItem("tarka.rule_governance_secret");
-      }
-    } catch {
-      /* ignore */
-    }
-  }, [ruleGovSecret]);
 
   useEffect(() => {
     (async () => {

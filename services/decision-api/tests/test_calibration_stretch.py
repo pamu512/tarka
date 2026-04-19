@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from unittest.mock import patch
 
 from decision_api.calibration_api import compute_drift_for_tenant
@@ -26,7 +27,8 @@ def test_trusted_zones_from_file(tmp_path):
     assert zones[0]["label"] == "hq"
 
 
-def test_drift_compute(tmp_path):
+def test_drift_compute(tmp_path, monkeypatch):
+    monkeypatch.setenv("CALIBRATION_DATA_DIR", str(tmp_path))
     ref = {
         "integrity_histogram": {"a": 50, "b": 50},
         "mean_integrity": 0.5,
@@ -44,6 +46,7 @@ def test_drift_compute(tmp_path):
     }
     snap_path = tmp_path / "snapshots.jsonl"
     snap_path.write_text(json.dumps(snap) + "\n", encoding="utf-8")
-    data = compute_drift_for_tenant("acme", "default", snapshots_path=snap_path, reference_path=ref_path)
+    assert os.environ.get("CALIBRATION_DATA_DIR") == str(tmp_path)
+    data = compute_drift_for_tenant("acme", "default")
     assert data.get("drift_score") is not None
     assert data["hint"] in ("ok", "moderate_drift_monitor", "elevated_bin_shift_review_calibration")

@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlparse
-from urllib.request import Request, urlopen
+from urllib.parse import urlparse, urlunparse
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 class WebFetchError(Exception):
     pass
+
+
+class _NoRedirects(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[override]
+        raise WebFetchError("HTTP redirects are not allowed for web fetch")
 
 
 def _blocked_host(hostname: str) -> bool:
@@ -31,21 +36,38 @@ def _blocked_host(hostname: str) -> bool:
     return False
 
 
-def fetch_public_text(url: str, *, max_bytes: int = 500_000, timeout_sec: float = 15.0) -> str:
-    """GET public http(s) URL; blocks obvious private/link-local targets."""
-    parsed = urlparse(url.strip())
-    if parsed.scheme not in ("http", "https"):
+def _canonical_http_url(parsed) -> str:
+    """Rebuild URL from validated components only (mitigate user-controlled URL tricks)."""
+    scheme = (parsed.scheme or "").lower()
+    if scheme not in ("http", "https"):
         raise WebFetchError("Only http(s) URLs are allowed")
+    if parsed.username or parsed.password:
+        raise WebFetchError("URL must not include credentials")
     host = parsed.hostname or ""
     if _blocked_host(host):
         raise WebFetchError("Host is not allowed for web fetch")
+    netloc = host
+    if parsed.port:
+        if scheme == "http" and parsed.port != 80:
+            netloc = f"{host}:{parsed.port}"
+        elif scheme == "https" and parsed.port != 443:
+            netloc = f"{host}:{parsed.port}"
+    path = parsed.path or "/"
+    return urlunparse((scheme, netloc, path, "", parsed.query, ""))
+
+
+def fetch_public_text(url: str, *, max_bytes: int = 500_000, timeout_sec: float = 15.0) -> str:
+    """GET public http(s) URL; blocks obvious private/link-local targets and redirects."""
+    parsed = urlparse(url.strip())
+    clean = _canonical_http_url(parsed)
     req = Request(
-        url.strip(),
+        clean,
         headers={"User-Agent": "TarkaCollaborationBridge/1.0"},
         method="GET",
     )
+    opener = build_opener(_NoRedirects())
     try:
-        with urlopen(req, timeout=timeout_sec) as resp:
+        with opener.open(req, timeout=timeout_sec) as resp:
             data = resp.read(max_bytes + 1)
     except HTTPError as e:
         raise WebFetchError(f"HTTP {e.code}: {e.reason}") from e
