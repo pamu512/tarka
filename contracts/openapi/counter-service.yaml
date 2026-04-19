@@ -1,0 +1,236 @@
+openapi: 3.1.0
+info:
+  title: Tarka Counter Service
+  version: 1.0.0
+  description: First-class counter registry, online windows, replay, and parity APIs.
+servers:
+  - url: http://localhost:8012
+    description: Local
+paths:
+  /v1/health:
+    get:
+      operationId: counterHealth
+      summary: Liveness probe
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+  /v1/slo:
+    get:
+      operationId: counterSlo
+      summary: SLO posture and current request counters
+      responses:
+        "200":
+          description: SLO summary
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/definitions:
+    get:
+      operationId: listCounterDefinitions
+      summary: List declarative counter definitions
+      responses:
+        "200":
+          description: Counter definitions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CounterDefinition"
+    post:
+      operationId: putCounterDefinition
+      summary: Create or replace a counter definition version
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CounterDefinition"
+      responses:
+        "201":
+          description: Definition stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CounterDefinition"
+  /v1/query:
+    post:
+      operationId: queryCounterWindows
+      summary: Query multi-window counters for an entity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CounterQueryRequest"
+      responses:
+        "200":
+          description: Counter windows
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CounterQueryResponse"
+  /v1/record-and-query:
+    post:
+      operationId: recordAndQueryCounters
+      summary: Record current event and return current windows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CounterRecordAndQueryRequest"
+      responses:
+        "200":
+          description: Counter windows and record metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CounterRecordAndQueryResponse"
+  /v1/replay:
+    post:
+      operationId: replayCounters
+      summary: Replay events to scratch Redis for parity/backfill
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CounterReplayRequest"
+      responses:
+        "200":
+          description: Replay summary
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/parity-report:
+    post:
+      operationId: parityReport
+      summary: Compare expected counters to live windows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CounterParityRequest"
+      responses:
+        "200":
+          description: Parity result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+components:
+  schemas:
+    CounterDefinition:
+      type: object
+      required: [tenant_id, definition_id, version, windows]
+      properties:
+        tenant_id: { type: string, minLength: 1, maxLength: 128 }
+        definition_id: { type: string, minLength: 1, maxLength: 128 }
+        version: { type: integer, minimum: 1 }
+        windows:
+          type: array
+          minItems: 1
+          items: { type: string }
+        fields:
+          type: array
+          items: { type: string }
+        retention_seconds:
+          type: integer
+          minimum: 300
+          default: 2592000
+    CounterQueryRequest:
+      type: object
+      required: [tenant_id, entity_id]
+      properties:
+        tenant_id: { type: string }
+        entity_id: { type: string }
+        payload:
+          type: object
+          additionalProperties: true
+          default: {}
+    CounterQueryResponse:
+      type: object
+      required: [tenant_id, entity_id, counters]
+      properties:
+        tenant_id: { type: string }
+        entity_id: { type: string }
+        counters:
+          type: object
+          additionalProperties: true
+        definition_id: { type: string, nullable: true }
+        definition_version: { type: integer, nullable: true }
+    CounterRecordAndQueryRequest:
+      type: object
+      required: [tenant_id, entity_id]
+      properties:
+        tenant_id: { type: string }
+        entity_id: { type: string }
+        event_id: { type: string, nullable: true }
+        ts: { type: number, nullable: true }
+        payload:
+          type: object
+          additionalProperties: true
+          default: {}
+    CounterRecordAndQueryResponse:
+      allOf:
+        - $ref: "#/components/schemas/CounterQueryResponse"
+        - type: object
+          required: [recorded]
+          properties:
+            recorded: { type: boolean }
+            event_id: { type: string }
+    CounterReplayEvent:
+      type: object
+      required: [tenant_id, entity_id]
+      properties:
+        tenant_id: { type: string }
+        entity_id: { type: string }
+        event_id: { type: string, nullable: true }
+        ts: { type: number, nullable: true }
+        payload:
+          type: object
+          additionalProperties: true
+          default: {}
+    CounterReplayRequest:
+      type: object
+      required: [scratch_redis_url]
+      properties:
+        scratch_redis_url: { type: string, minLength: 8 }
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/CounterReplayEvent"
+          default: []
+    CounterParityRequest:
+      type: object
+      required: [tenant_id, entity_id, expected]
+      properties:
+        tenant_id: { type: string }
+        entity_id: { type: string }
+        payload:
+          type: object
+          additionalProperties: true
+          default: {}
+        expected:
+          type: object
+          additionalProperties: { type: number }
+        epsilon:
+          type: number
+          minimum: 0
+          default: 0.5
