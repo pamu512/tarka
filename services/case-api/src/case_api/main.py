@@ -351,11 +351,36 @@ async def get_case_evidence_bundle(
                 decision_block = r.json()
         except Exception:
             decision_block = {"error": "decision_api_unreachable"}
-    bundle = {
-        "bundle_version": "1",
+
+    case_payload = CaseOut.model_validate(case).model_dump(mode="json")
+    # Evidence bundle v1 alignment (OSS #50): schema_id + provenance + content hash.
+    bundle_core: dict[str, Any] = {
+        "schema_id": "tarka.evidence_bundle/v1",
+        "contract_version": "oss-1",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "turn_id": f"case:{case.id}",
+        "prompt_version": "case-api/v1",
+        "playbook_id": None,
+        "redaction_level": "export_safe",
+        "tool_invocation_count": 0,
+        "narrative": {
+            "reply": "",
+        },
+        "tool_trace_redacted": [],
+    }
+    # Deterministic content hash over stable subset for procurement exports.
+    content_basis = {
         "tenant_id": tenant_id,
-        "case": CaseOut.model_validate(case).model_dump(mode="json"),
+        "case": case_payload,
         "decision_audit": decision_block,
+    }
+    bundle_core["content_sha256"] = hashlib.sha256(_canonical_json(content_basis).encode("utf-8")).hexdigest()
+
+    bundle = {
+        "tenant_id": tenant_id,
+        "case": case_payload,
+        "decision_audit": decision_block,
+        "evidence_bundle_v1": bundle_core,
         "signing_key_id": _signing_key_id(),
     }
     bundle["bundle_signature"] = _bundle_signature(bundle)
