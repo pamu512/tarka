@@ -1,0 +1,5 @@
+URL: http://localhost:8000/v1/decisions/evaluate
+requests=20 concurrency=1 errors=0
+latency_ms: min=4.14 p50=4.94 p95=9.13 p99=11.33 max=11.87
+mean_ms=5.93 stdev_ms=2.00
+status: {200: 20}
