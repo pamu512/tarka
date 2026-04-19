@@ -1413,9 +1413,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "screen_sanctions_pep",
-            "description": (
-                "Run sanctions/PEP screening through integration-ingress and return match buckets with source citations."
-            ),
+            "description": ("Run sanctions/PEP screening through integration-ingress and return match buckets with source citations."),
             "parameters": {
                 "type": "object",
                 "required": ["name"],
@@ -1432,9 +1430,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "summarize_adverse_media",
-            "description": (
-                "Build adverse-media style summary using OSINT enrichment with citation links and risk observations."
-            ),
+            "description": ("Build adverse-media style summary using OSINT enrichment with citation links and risk observations."),
             "parameters": {
                 "type": "object",
                 "required": ["name"],
@@ -1453,9 +1449,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "consolidate_entity_profile",
-            "description": (
-                "Consolidate sanctions/PEP and adverse-media checks into a single profile recommendation."
-            ),
+            "description": ("Consolidate sanctions/PEP and adverse-media checks into a single profile recommendation."),
             "parameters": {
                 "type": "object",
                 "required": ["name"],
@@ -1477,9 +1471,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "graph_risk_narrative",
-            "description": (
-                "Generate deterministic flow-of-funds and risk narrative from graph topology plus velocity overlay."
-            ),
+            "description": ("Generate deterministic flow-of-funds and risk narrative from graph topology plus velocity overlay."),
             "parameters": {
                 "type": "object",
                 "required": ["entity_id"],

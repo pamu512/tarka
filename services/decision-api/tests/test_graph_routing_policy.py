@@ -65,4 +65,3 @@ class TestDecideGraphRouting:
         assert out["skip_graph"] is False
         assert out["graph_checkpoint"] == "standard"
         assert out["matched_rule_id"] is None
-
