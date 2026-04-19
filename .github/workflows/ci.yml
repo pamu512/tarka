@@ -2,10 +2,11 @@
 # Upload steps use continue-on-error so CI stays green without a token.
 name: CI
 
-# GitHub Actions often injects empty env vars; shared auth fails closed without keys.
-# Unit tests use TestClient/httpx without real keys — keep a deterministic CI key.
+# Shared auth fails closed when API_KEYS and OIDC are unset. Do not set API_KEYS here:
+# configured keys require X-API-Key on every request; pytest TestClient calls usually omit it.
+# Insecure dev mode lets tests reach route handlers without headers (see per-service conftests).
 env:
-  API_KEYS: test-ci-key
+  ALLOW_INSECURE_NO_AUTH: "true"
 
 on:
   push:
