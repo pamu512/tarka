@@ -87,6 +87,7 @@ def _upstream_headers() -> dict[str, str]:
         key = settings.api_keys.split(",")[0].strip() if settings.api_keys.strip() else ""
     return {"x-api-key": key} if key else {}
 
+
 _circuit_graph = AsyncCircuitBreaker(
     "graph",
     failure_threshold=settings.circuit_graph_failure_threshold,

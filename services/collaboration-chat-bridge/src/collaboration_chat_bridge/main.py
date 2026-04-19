@@ -66,9 +66,7 @@ async def health():
         "slack_skip_retry_background": settings.slack_skip_retry_background,
         "slack_thread_under_mention": settings.slack_thread_under_mention,
         "teams_bridge_secret_configured": bool((settings.teams_bridge_secret or "").strip()),
-        "plugin_bridge_secret_configured": bool(
-            ((settings.bridge_plugin_secret or "").strip()) or ((settings.teams_bridge_secret or "").strip())
-        ),
+        "plugin_bridge_secret_configured": bool(((settings.bridge_plugin_secret or "").strip()) or ((settings.teams_bridge_secret or "").strip())),
         "lark_verification_configured": bool((settings.lark_verification_token or "").strip()),
         "lark_reply_configured": bool((settings.lark_tenant_access_token or "").strip()),
         "default_copilot_persona": settings.default_copilot_persona,
@@ -81,12 +79,14 @@ async def health():
 @app.post("/v1/slack/events")
 async def slack_events(
     request: Request,
+    response: Response,
     background_tasks: BackgroundTasks,
     x_slack_request_timestamp: str | None = Header(default=None, alias="X-Slack-Request-Timestamp"),
     x_slack_signature: str | None = Header(default=None, alias="X-Slack-Signature"),
     x_slack_retry_num: str | None = Header(default=None, alias="X-Slack-Retry-Num"),
 ):
     correlation_id = _request_correlation_id(request)
+    response.headers["X-Correlation-Id"] = correlation_id
     body = await request.body()
     secret = (settings.slack_signing_secret or "").strip()
     if not secret:
@@ -98,7 +98,7 @@ async def slack_events(
             request=request,
             reason="slack_signing_secret_missing",
         )
-        raise HTTPException(status_code=503, detail="SLACK_SIGNING_SECRET not configured")
+        raise _ingress_http_exc(503, "SLACK_SIGNING_SECRET not configured", correlation_id)
     if not verify_slack_signature(secret, x_slack_request_timestamp or "", body, x_slack_signature or ""):
         _audit_ingress_event(
             route="slack_events",
@@ -108,12 +108,12 @@ async def slack_events(
             request=request,
             reason="invalid_slack_signature",
         )
-        raise HTTPException(status_code=401, detail="invalid slack signature")
+        raise _ingress_http_exc(401, "invalid slack signature", correlation_id)
 
     try:
         payload_early = json.loads(body.decode("utf-8"))
     except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="invalid json") from None
+        raise _ingress_http_exc(400, "invalid json", correlation_id) from None
 
     if payload_early.get("type") == "url_verification":
         _audit_ingress_event(
@@ -126,6 +126,7 @@ async def slack_events(
         return Response(
             content=json.dumps({"challenge": payload_early.get("challenge", "")}),
             media_type="application/json",
+            headers={"X-Correlation-Id": correlation_id},
         )
 
     if settings.bridge_rate_limit_per_minute > 0:
@@ -140,7 +141,11 @@ async def slack_events(
                     status_code=429,
                     request=request,
                 )
-                return JSONResponse(status_code=429, content={"detail": "rate limit exceeded"})
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "rate limit exceeded"},
+                    headers={"X-Correlation-Id": correlation_id},
+                )
 
     if settings.slack_skip_retry_background and x_slack_retry_num:
         try:
@@ -168,7 +173,7 @@ async def slack_events(
             request=request,
             reason=str(pre.get("error")),
         )
-        raise HTTPException(status_code=400, detail=pre["error"])
+        raise _ingress_http_exc(400, str(pre["error"]), correlation_id)
     if isinstance(pre, dict) and pre.get("_async_slack"):
         payload = {k: v for k, v in pre.items() if k != "_async_slack"}
         payload["correlation_id"] = correlation_id
@@ -407,6 +412,14 @@ def _plugin_http_exc(status_code: int, detail: str, correlation_id: str) -> HTTP
     )
 
 
+def _ingress_http_exc(status_code: int, detail: str, correlation_id: str) -> HTTPException:
+    return HTTPException(
+        status_code=status_code,
+        detail=detail,
+        headers={"X-Correlation-Id": correlation_id},
+    )
+
+
 async def _teams_chat_result(
     *,
     tenant_id: str,
@@ -475,10 +488,12 @@ async def _teams_chat_result(
 @app.post("/v1/teams/messages")
 async def teams_messages(
     request: Request,
+    response: Response,
     body: TeamsBridgeBody,
     x_bridge_secret: str | None = Header(default=None, alias="X-Bridge-Secret"),
 ):
     correlation_id = _request_correlation_id(request)
+    response.headers["X-Correlation-Id"] = correlation_id
     if not _teams_secret_ok(x_bridge_secret):
         _audit_ingress_event(
             route="teams_messages",
@@ -490,7 +505,7 @@ async def teams_messages(
             analyst_id=body.analyst_id or "teams_user",
             reason="invalid_bridge_secret",
         )
-        raise HTTPException(status_code=401, detail="invalid X-Bridge-Secret")
+        raise _ingress_http_exc(401, "invalid X-Bridge-Secret", correlation_id)
     if settings.bridge_rate_limit_per_minute > 0:
         lim = getattr(request.app.state, "rate_limiter", None)
         if lim:
@@ -505,7 +520,7 @@ async def teams_messages(
                     tenant_id=body.tenant_id or settings.default_tenant_id,
                     analyst_id=body.analyst_id or "teams_user",
                 )
-                raise HTTPException(status_code=429, detail="rate limit exceeded")
+                raise _ingress_http_exc(429, "rate limit exceeded", correlation_id)
     messages = list(body.thread_context or [])
     messages.append({"role": "user", "content": body.text})
     out = await _teams_chat_result(
@@ -521,6 +536,7 @@ async def teams_messages(
         correlation_id=correlation_id,
     )
     if isinstance(out, JSONResponse):
+        out.headers["X-Correlation-Id"] = correlation_id
         upstream_status = _extract_agent_http_status(out)
         _audit_ingress_event(
             route="teams_messages",
@@ -704,6 +720,7 @@ class TeamsActivityBody(BaseModel):
 @app.post("/v1/teams/activity")
 async def teams_activity(
     request: Request,
+    response: Response,
     body: TeamsActivityBody,
     x_bridge_secret: str | None = Header(default=None, alias="X-Bridge-Secret"),
 ):
@@ -712,6 +729,7 @@ async def teams_activity(
     Same `X-Bridge-Secret` as `/v1/teams/messages`.
     """
     correlation_id = _request_correlation_id(request)
+    response.headers["X-Correlation-Id"] = correlation_id
     if not _teams_secret_ok(x_bridge_secret):
         _audit_ingress_event(
             route="teams_activity",
@@ -722,7 +740,7 @@ async def teams_activity(
             tenant_id=settings.default_tenant_id,
             reason="invalid_bridge_secret",
         )
-        raise HTTPException(status_code=401, detail="invalid X-Bridge-Secret")
+        raise _ingress_http_exc(401, "invalid X-Bridge-Secret", correlation_id)
     if settings.bridge_rate_limit_per_minute > 0:
         lim = getattr(request.app.state, "rate_limiter", None)
         if lim:
@@ -736,7 +754,7 @@ async def teams_activity(
                     request=request,
                     tenant_id=settings.default_tenant_id,
                 )
-                raise HTTPException(status_code=429, detail="rate limit exceeded")
+                raise _ingress_http_exc(429, "rate limit exceeded", correlation_id)
     if (body.type or "").lower() != "message":
         _audit_ingress_event(
             route="teams_activity",
@@ -775,6 +793,8 @@ async def teams_activity(
         batch_id=None,
         correlation_id=correlation_id,
     )
+    if isinstance(out, JSONResponse):
+        out.headers["X-Correlation-Id"] = correlation_id
     upstream_status = _extract_agent_http_status(out) if isinstance(out, JSONResponse) else None
     _audit_ingress_event(
         route="teams_activity",
@@ -803,8 +823,9 @@ class LarkEventWrapper(BaseModel):
 
 
 @app.post("/v1/lark/event")
-async def lark_event(request: Request, background_tasks: BackgroundTasks):
+async def lark_event(request: Request, response: Response, background_tasks: BackgroundTasks):
     correlation_id = _request_correlation_id(request)
+    response.headers["X-Correlation-Id"] = correlation_id
     raw = await request.json()
     if not isinstance(raw, dict):
         _audit_ingress_event(
@@ -815,7 +836,7 @@ async def lark_event(request: Request, background_tasks: BackgroundTasks):
             request=request,
             reason="expected_json_object",
         )
-        raise HTTPException(status_code=400, detail="expected JSON object")
+        raise _ingress_http_exc(400, "expected JSON object", correlation_id)
 
     if raw.get("type") == "url_verification" or raw.get("challenge") is not None:
         ch = raw.get("challenge")
@@ -841,7 +862,7 @@ async def lark_event(request: Request, background_tasks: BackgroundTasks):
                 request=request,
                 reason="invalid_lark_verification_token",
             )
-            raise HTTPException(status_code=401, detail="invalid lark verification token")
+            raise _ingress_http_exc(401, "invalid lark verification token", correlation_id)
         if settings.bridge_rate_limit_per_minute > 0:
             lim = getattr(request.app.state, "rate_limiter", None)
             if lim:
@@ -854,7 +875,7 @@ async def lark_event(request: Request, background_tasks: BackgroundTasks):
                         status_code=429,
                         request=request,
                     )
-                    raise HTTPException(status_code=429, detail="rate limit exceeded")
+                    raise _ingress_http_exc(429, "rate limit exceeded", correlation_id)
         ev = wrap.event or {}
         msg = ev.get("message") if isinstance(ev.get("message"), dict) else {}
         content_raw = msg.get("content") or "{}"

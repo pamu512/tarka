@@ -55,17 +55,20 @@ def test_evaluate_sends_canonical_bytes_and_idempotency():
         )
         inst.post.assert_called_once()
         _, kwargs = inst.post.call_args
-        assert kwargs["content"] == json.dumps(
-            {
-                "entity_id": "e1",
-                "event_type": "login",
-                "payload": {"a": 1, "b": 2},
-                "tenant_id": "t1",
-            },
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
-        ).encode()
+        assert (
+            kwargs["content"]
+            == json.dumps(
+                {
+                    "entity_id": "e1",
+                    "event_type": "login",
+                    "payload": {"a": 1, "b": 2},
+                    "tenant_id": "t1",
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+            ).encode()
+        )
         hdrs = kwargs["headers"]
         assert hdrs["Idempotency-Key"] == "idem-x"
         assert hdrs["X-Tarka-Client-Nonce"] == "fixed-nonce"

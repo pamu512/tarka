@@ -43,6 +43,7 @@ def _promotion_skip(request: Request) -> bool:
         return True
     return False
 
+
 _onnx_session = None
 _onnx_input_name: str = ""
 

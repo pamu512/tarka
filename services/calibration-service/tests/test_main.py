@@ -67,4 +67,3 @@ def test_profile_publish_activate_score_flow(tmp_path: Path, monkeypatch):
         assert data["profile_version"] == 2
         assert data["expected_calibration_version"] == 7
         assert 0 <= data["calibrated_confidence"] <= 1
-

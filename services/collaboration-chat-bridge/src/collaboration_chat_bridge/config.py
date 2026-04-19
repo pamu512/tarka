@@ -30,10 +30,7 @@ class Settings(BaseSettings):
     )
     bridge_plugin_secret: str = Field(
         default="",
-        description=(
-            "Shared secret for external plugin/embed endpoints (/v1/plugin/*). "
-            "If empty, TEAMS_BRIDGE_SECRET is used as fallback."
-        ),
+        description=("Shared secret for external plugin/embed endpoints (/v1/plugin/*). If empty, TEAMS_BRIDGE_SECRET is used as fallback."),
     )
 
     lark_verification_token: str = Field(

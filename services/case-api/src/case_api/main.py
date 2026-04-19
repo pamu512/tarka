@@ -589,9 +589,7 @@ async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_sess
 
     st_rows = (
         await session.execute(
-            select(Case.status, func.count())
-            .where(Case.tenant_id == tenant_id)
-            .group_by(Case.status),
+            select(Case.status, func.count()).where(Case.tenant_id == tenant_id).group_by(Case.status),
         )
     ).all()
     by_status: dict[str, int] = {}
@@ -602,17 +600,19 @@ async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_sess
     investigating = int(by_status.get("investigating", 0))
     resolved = int(by_status.get("resolved", 0) + by_status.get("closed", 0))
 
-    crit_open_q = select(func.count()).select_from(Case).where(
-        Case.tenant_id == tenant_id,
-        func.lower(Case.priority) == "critical",
-        func.lower(Case.status).in_(("open", "investigating")),
+    crit_open_q = (
+        select(func.count())
+        .select_from(Case)
+        .where(
+            Case.tenant_id == tenant_id,
+            func.lower(Case.priority) == "critical",
+            func.lower(Case.status).in_(("open", "investigating")),
+        )
     )
     critical_open = int((await session.execute(crit_open_q)).scalar_one())
 
     now = datetime.now(timezone.utc)
-    times = (
-        await session.execute(select(Case.created_at).where(Case.tenant_id == tenant_id).where(Case.created_at.is_not(None)))
-    ).scalars().all()
+    times = (await session.execute(select(Case.created_at).where(Case.tenant_id == tenant_id).where(Case.created_at.is_not(None)))).scalars().all()
     ages: list[float] = []
     for t in times:
         if t:
