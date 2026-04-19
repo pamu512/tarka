@@ -138,6 +138,7 @@ Typical pattern: **one task/service per container**, private subnets, **ALB** HT
 - Non-plugin ingress (`/v1/slack/events`, `/v1/teams/messages`, `/v1/teams/activity`, `/v1/lark/event`) emits structured audit events (`bridge.ingress.audit`).
 - Async channels (Slack/Lark) use a two-phase audit pattern: `accepted` on ingress, then a completion event with final `outcome` and optional `upstream_status` for agent failures.
 - Correlate both phases using the same request `correlation_id` (`X-Request-Id`/`X-Correlation-Id` if supplied, otherwise bridge-generated).
+- Bridge ingress and plugin responses include `X-Correlation-Id` so clients can stitch transport logs to audit events.
 
 ## Related
 

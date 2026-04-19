@@ -106,6 +106,7 @@ async def test_slack_url_verification(monkeypatch):
         )
     assert r.status_code == 200
     assert r.json().get("challenge") == "abc123"
+    assert isinstance(r.headers.get("x-correlation-id"), str) and r.headers.get("x-correlation-id")
 
 
 @pytest.mark.asyncio
@@ -151,6 +152,7 @@ async def test_slack_event_forwards_correlation_to_background_turn(monkeypatch):
             },
         )
     assert r.status_code == 200
+    assert r.headers.get("x-correlation-id") == "req-slack-1"
     assert seen.get("correlation_id") == "req-slack-1"
 
 
@@ -176,6 +178,7 @@ async def test_teams_bridge_secret(monkeypatch):
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         r_bad = await client.post("/v1/teams/messages", json={"text": "hi"})
         assert r_bad.status_code == 401
+        assert isinstance(r_bad.headers.get("x-correlation-id"), str) and r_bad.headers.get("x-correlation-id")
         r_ok = await client.post(
             "/v1/teams/messages",
             json={"text": "hello", "analyst_id": "u1"},
@@ -186,6 +189,7 @@ async def test_teams_bridge_secret(monkeypatch):
     assert data.get("ok") is True
     assert "adaptive_card" in data
     assert data["raw"]["turn_id"] == "turn-test"
+    assert r_ok.headers.get("x-correlation-id") == "req-teams-1"
     assert seen.get("correlation_id") == "req-teams-1"
 
 
@@ -213,6 +217,7 @@ async def test_teams_agent_error_returns_card(monkeypatch):
     assert data.get("ok") is False
     assert data.get("error") == "copilot_unavailable"
     assert data.get("agent_http_status") == 503
+    assert isinstance(r.headers.get("x-correlation-id"), str) and r.headers.get("x-correlation-id")
     assert "adaptive_card" in data
 
 
@@ -272,6 +277,7 @@ async def test_teams_activity_message(monkeypatch):
         )
     assert r.status_code == 200
     assert r.json().get("ok") is True
+    assert r.headers.get("x-correlation-id") == "req-teams-2"
     assert seen.get("correlation_id") == "req-teams-2"
 
 
@@ -303,6 +309,7 @@ async def test_lark_event_forwards_correlation_to_background_turn(monkeypatch):
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         r = await client.post("/v1/lark/event", json=payload, headers={"X-Request-Id": "req-lark-1"})
     assert r.status_code == 200
+    assert r.headers.get("x-correlation-id") == "req-lark-1"
     assert seen.get("correlation_id") == "req-lark-1"
 
 
