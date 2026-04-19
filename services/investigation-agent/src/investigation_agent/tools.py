@@ -40,6 +40,7 @@ _UUID_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9._@:/-]{1,256}$")
+_SAFE_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9 .,'()/-]{2,256}$")
 
 
 def _validate_case_id(case_id: str) -> str:
@@ -56,6 +57,15 @@ def _validate_entity_id(entity_id: str) -> str:
     if not _SAFE_ID_PATTERN.match(entity_id):
         raise ValueError("Invalid entity_id format")
     return entity_id
+
+
+def _validate_subject_name(name: str) -> str:
+    val = str(name).strip()[:256]
+    if not val:
+        raise ValueError("name is required")
+    if not _SAFE_NAME_PATTERN.match(val):
+        raise ValueError("Invalid name format")
+    return val
 
 
 def _validate_limit(limit: int) -> int:
@@ -873,6 +883,198 @@ async def tool_compare_entity_queue_snapshot(
     )
 
 
+async def tool_screen_sanctions_pep(
+    http: httpx.AsyncClient,
+    tenant_id: str,
+    analyst_id: str,
+    name: str,
+    subject_id: str | None = None,
+    country: str | None = None,
+    dob: str | None = None,
+) -> dict[str, Any]:
+    """Sanctions/PEP screening via integration-ingress."""
+    if not _analyst_allowed(analyst_id):
+        return {"error": "forbidden"}
+    try:
+        q_name = _validate_subject_name(name)
+    except ValueError as e:
+        return {"error": str(e)}
+    base = (settings.integration_ingress_url or "").rstrip("/")
+    if not base:
+        return {"error": "integration_ingress_disabled"}
+    payload = {
+        "tenant_id": tenant_id,
+        "subject_id": (subject_id or q_name)[:128],
+        "name": q_name,
+        "country": (country or None),
+        "dob": (dob or None),
+    }
+    try:
+        r = await http.post(
+            f"{base}/v1/screening/sanctions-pep",
+            json=payload,
+            headers={**_auth_headers(), "Content-Type": "application/json"},
+        )
+        if r.status_code >= 400:
+            return {"error": "screening_failed", "status": r.status_code, "detail": r.text[:500]}
+        return _limit_result(r.json())
+    except Exception as e:
+        return {"error": "screening_failed", "detail": str(e)[:500]}
+
+
+async def tool_summarize_adverse_media(
+    http: httpx.AsyncClient,
+    tenant_id: str,
+    analyst_id: str,
+    name: str,
+    subject_id: str | None = None,
+    email: str | None = None,
+    phone: str | None = None,
+    ip: str | None = None,
+    domain: str | None = None,
+) -> dict[str, Any]:
+    """Adverse-media style summary with source citations via integration-ingress."""
+    if not _analyst_allowed(analyst_id):
+        return {"error": "forbidden"}
+    try:
+        q_name = _validate_subject_name(name)
+    except ValueError as e:
+        return {"error": str(e)}
+    base = (settings.integration_ingress_url or "").rstrip("/")
+    if not base:
+        return {"error": "integration_ingress_disabled"}
+    payload = {
+        "tenant_id": tenant_id,
+        "subject_id": (subject_id or q_name)[:128],
+        "name": q_name,
+        "email": (email or None),
+        "phone": (phone or None),
+        "ip": (ip or None),
+        "domain": (domain or None),
+    }
+    try:
+        r = await http.post(
+            f"{base}/v1/screening/adverse-media",
+            json=payload,
+            headers={**_auth_headers(), "Content-Type": "application/json"},
+        )
+        if r.status_code >= 400:
+            return {"error": "adverse_media_failed", "status": r.status_code, "detail": r.text[:500]}
+        return _limit_result(r.json())
+    except Exception as e:
+        return {"error": "adverse_media_failed", "detail": str(e)[:500]}
+
+
+async def tool_consolidate_entity_profile(
+    http: httpx.AsyncClient,
+    tenant_id: str,
+    analyst_id: str,
+    name: str,
+    subject_id: str | None = None,
+    country: str | None = None,
+    dob: str | None = None,
+    email: str | None = None,
+    phone: str | None = None,
+    ip: str | None = None,
+    domain: str | None = None,
+    include_profile_enrichment: bool = True,
+) -> dict[str, Any]:
+    """Consolidated sanctions + adverse-media profile from integration-ingress."""
+    if not _analyst_allowed(analyst_id):
+        return {"error": "forbidden"}
+    try:
+        q_name = _validate_subject_name(name)
+    except ValueError as e:
+        return {"error": str(e)}
+    base = (settings.integration_ingress_url or "").rstrip("/")
+    if not base:
+        return {"error": "integration_ingress_disabled"}
+    payload = {
+        "tenant_id": tenant_id,
+        "subject_id": (subject_id or q_name)[:128],
+        "name": q_name,
+        "country": (country or None),
+        "dob": (dob or None),
+        "email": (email or None),
+        "phone": (phone or None),
+        "ip": (ip or None),
+        "domain": (domain or None),
+        "include_profile_enrichment": bool(include_profile_enrichment),
+    }
+    try:
+        r = await http.post(
+            f"{base}/v1/screening/entity-profile",
+            json=payload,
+            headers={**_auth_headers(), "Content-Type": "application/json"},
+        )
+        if r.status_code >= 400:
+            return {"error": "entity_profile_failed", "status": r.status_code, "detail": r.text[:500]}
+        return _limit_result(r.json())
+    except Exception as e:
+        return {"error": "entity_profile_failed", "detail": str(e)[:500]}
+
+
+async def tool_graph_risk_narrative(
+    http: httpx.AsyncClient,
+    tenant_id: str,
+    analyst_id: str,
+    entity_id: str,
+    depth: int = 2,
+    max_velocity_nodes: int = 10,
+) -> dict[str, Any]:
+    """Deterministic graph flow/risk narrative from graph + velocity overlay."""
+    if not _analyst_allowed(analyst_id):
+        return {"error": "forbidden"}
+    sub = await tool_subgraph_with_velocity(
+        http,
+        entity_id=entity_id,
+        tenant_id=tenant_id,
+        analyst_id=analyst_id,
+        depth=depth,
+        max_velocity_nodes=max_velocity_nodes,
+    )
+    if sub.get("error"):
+        return sub
+    nodes = sub.get("nodes") if isinstance(sub.get("nodes"), list) else []
+    edges = sub.get("edges") if isinstance(sub.get("edges"), list) else []
+    high_velocity_nodes: list[str] = []
+    proxy_like_nodes: list[str] = []
+    for n in nodes:
+        if not isinstance(n, dict):
+            continue
+        nid = str(n.get("id") or "")[:128]
+        vv = n.get("velocity_and_inference")
+        if isinstance(vv, dict):
+            v24 = ((vv.get("velocity") or {}).get("events_24h")) if isinstance(vv.get("velocity"), dict) else None
+            try:
+                if v24 is not None and float(v24) >= 25:
+                    high_velocity_nodes.append(nid)
+            except Exception:
+                pass
+        sig = n.get("sdk_signals_on_node")
+        if isinstance(sig, dict) and any(bool(sig.get(k)) for k in ("is_vpn", "is_proxy", "ip_is_proxy", "is_bot", "automation_detected")):
+            proxy_like_nodes.append(nid)
+    narrative_lines = [
+        f"Flow of funds graph includes {len(nodes)} nodes and {len(edges)} relationships at depth {depth}.",
+        f"{len(high_velocity_nodes)} nodes show elevated 24h velocity signals." if high_velocity_nodes else "No nodes exceed elevated 24h velocity threshold.",
+        (
+            f"{len(proxy_like_nodes)} nodes carry proxy/automation indicators."
+            if proxy_like_nodes
+            else "No proxy/automation indicators detected on enriched nodes."
+        ),
+    ]
+    return _limit_result(
+        {
+            "entity_id": entity_id,
+            "narrative": " ".join(narrative_lines),
+            "high_velocity_nodes": high_velocity_nodes[:12],
+            "proxy_or_automation_nodes": proxy_like_nodes[:12],
+            "graph_counts": {"nodes": len(nodes), "edges": len(edges)},
+            "source": "subgraph_with_velocity",
+        }
+    )
+
+
 def _replay_summary(resp: dict[str, Any]) -> dict[str, Any]:
     changed = [x for x in (resp.get("results") or []) if x.get("decision_changed")]
     return {
@@ -1207,6 +1409,88 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "screen_sanctions_pep",
+            "description": (
+                "Run sanctions/PEP screening through integration-ingress and return match buckets with source citations."
+            ),
+            "parameters": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                    "name": {"type": "string", "description": "Subject or entity name to screen"},
+                    "subject_id": {"type": "string", "description": "Optional external subject id"},
+                    "country": {"type": "string"},
+                    "dob": {"type": "string", "description": "Date of birth (YYYY-MM-DD) when available"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "summarize_adverse_media",
+            "description": (
+                "Build adverse-media style summary using OSINT enrichment with citation links and risk observations."
+            ),
+            "parameters": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                    "name": {"type": "string"},
+                    "subject_id": {"type": "string"},
+                    "email": {"type": "string"},
+                    "phone": {"type": "string"},
+                    "ip": {"type": "string"},
+                    "domain": {"type": "string"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "consolidate_entity_profile",
+            "description": (
+                "Consolidate sanctions/PEP and adverse-media checks into a single profile recommendation."
+            ),
+            "parameters": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                    "name": {"type": "string"},
+                    "subject_id": {"type": "string"},
+                    "country": {"type": "string"},
+                    "dob": {"type": "string"},
+                    "email": {"type": "string"},
+                    "phone": {"type": "string"},
+                    "ip": {"type": "string"},
+                    "domain": {"type": "string"},
+                    "include_profile_enrichment": {"type": "boolean", "default": True},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "graph_risk_narrative",
+            "description": (
+                "Generate deterministic flow-of-funds and risk narrative from graph topology plus velocity overlay."
+            ),
+            "parameters": {
+                "type": "object",
+                "required": ["entity_id"],
+                "properties": {
+                    "entity_id": {"type": "string"},
+                    "depth": {"type": "integer", "default": 2},
+                    "max_velocity_nodes": {"type": "integer", "default": 10},
+                },
+            },
+        },
+    },
 ]
 
 TOOL_DISPATCH = {
@@ -1226,4 +1510,8 @@ TOOL_DISPATCH = {
     "ingest_labeled_rows": tool_ingest_labeled_rows,
     "get_stored_labeled_dataset": tool_get_stored_labeled_dataset,
     "run_replay_ab_comparison": tool_run_replay_ab_comparison,
+    "screen_sanctions_pep": tool_screen_sanctions_pep,
+    "summarize_adverse_media": tool_summarize_adverse_media,
+    "consolidate_entity_profile": tool_consolidate_entity_profile,
+    "graph_risk_narrative": tool_graph_risk_narrative,
 }

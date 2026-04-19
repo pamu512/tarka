@@ -21,7 +21,7 @@ from typing import Any
 import httpx
 import nats
 import redis.asyncio as aioredis
-from fastapi import Body, Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from nats.aio.client import Client as NatsClient
 from nats.js import JetStreamContext
 from pydantic import BaseModel, Field, ValidationError
@@ -254,17 +254,17 @@ class EventPayload(BaseModel):
 
 
 class BatchPayload(BaseModel):
-    """Each item may be a legacy flat object or an envelope ``{schema_version, event}``."""
+    """Validated batch after per-item contract parsing."""
 
-    events: list[dict[str, Any]]
+    events: list[EventPayload]
     idempotency_key: str | None = Field(
         default=None,
         description="Optional; same as Idempotency-Key header for whole-batch deduplication",
     )
 
 
-def _batch_idempotency_redis_key(idempotency_key: str, events: list[dict[str, Any]]) -> str:
-    canon = json.dumps(events, sort_keys=True)
+def _batch_idempotency_redis_key(idempotency_key: str, events: list[EventPayload]) -> str:
+    canon = json.dumps([e.model_dump(mode="json") for e in events], sort_keys=True)
     digest = hashlib.sha256(f"{idempotency_key}\n{canon}".encode("utf-8")).hexdigest()
     return f"{settings.idempotency_key_prefix}:batch:{digest}"
 
@@ -373,18 +373,7 @@ async def ingest_event(request: Request):
 
     redis = getattr(request.app.state, "redis", None)
     idem_header = request.headers.get("idempotency-key") or request.headers.get("Idempotency-Key")
-    if settings.ingest_require_idempotency_key and not (idem_header or "").strip():
-        raise _ingest_contract_http_exception("ingest_idempotency_key_required")
-
-    try:
-        inner = parse_ingest_body(body, envelope_mode=settings.ingest_envelope_mode)
-    except ValueError as e:
-        code = str(e.args[0]) if e.args else "ingest_event_invalid"
-        raise _ingest_contract_http_exception(code) from None
-
-    body_model = EventPayload.model_validate(inner.model_dump(mode="json"))
-    redis = getattr(request.app.state, "redis", None)
-    idem_meta = (body_model.metadata or {}).get("idempotency_key") if isinstance(body_model.metadata, dict) else None
+    idem_meta = (body.metadata or {}).get("idempotency_key") if isinstance(body.metadata, dict) else None
     idem = (idem_header or idem_meta or "").strip() or None
 
     if settings.ingest_require_idempotency_key and not idem:
@@ -398,7 +387,7 @@ async def ingest_event(request: Request):
         )
 
     if redis is not None and idem:
-        rkey = _idempotency_redis_key(body_model.tenant_id, idem)
+        rkey = _idempotency_redis_key(body.tenant_id, idem)
         try:
             cached = await redis.get(rkey)
         except Exception as e:
@@ -417,8 +406,8 @@ async def ingest_event(request: Request):
                     pass
                 return out
 
-    subject = f"{settings.subject_prefix}.{body_model.tenant_id}.{body_model.event_type}"
-    data = body_model.model_dump(mode="json")
+    subject = f"{settings.subject_prefix}.{body.tenant_id}.{body.event_type}"
+    data = body.model_dump(mode="json")
     data["_ingest_id"] = uuid.uuid4().hex
     ack = await _js.publish(subject, json.dumps(data).encode())
     try:
@@ -427,7 +416,7 @@ async def ingest_event(request: Request):
         pass
     response = {"accepted": True, "stream_seq": ack.seq, "ingest_id": data["_ingest_id"]}
     if redis is not None and idem:
-        rkey = _idempotency_redis_key(body_model.tenant_id, idem)
+        rkey = _idempotency_redis_key(body.tenant_id, idem)
         try:
             await redis.set(
                 rkey,
@@ -534,15 +523,7 @@ async def ingest_batch(request: Request):
                 return out
 
     results = []
-    for raw_ev in body.events:
-        if not isinstance(raw_ev, dict):
-            raise _ingest_contract_http_exception("ingest_body_not_object")
-        try:
-            inner = parse_ingest_body(raw_ev, envelope_mode=settings.ingest_envelope_mode)
-        except ValueError as e:
-            code = str(e.args[0]) if e.args else "ingest_event_invalid"
-            raise _ingest_contract_http_exception(code) from None
-        event = EventPayload.model_validate(inner.model_dump(mode="json"))
+    for event in body.events:
         subject = f"{settings.subject_prefix}.{event.tenant_id}.{event.event_type}"
         data = event.model_dump(mode="json")
         data["_ingest_id"] = uuid.uuid4().hex

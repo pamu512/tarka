@@ -1,8 +1,10 @@
 """Dispute and chargeback automation with rules/ML feedback loop."""
 
 import logging
+import sys
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -14,9 +16,6 @@ from case_api.config import settings
 from case_api.db import get_session
 from case_api.models import Case, CaseComment, Dispute
 from case_api.schemas import CreateDisputeRequest, DisputeOut, UpdateDisputeRequest
-
-import sys
-from pathlib import Path
 
 _shared = Path(__file__).resolve().parents[3] / "shared"
 if str(_shared) not in sys.path:

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import re
+import sys
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -12,9 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from case_api.db import get_session
 from case_api.models import InvestigationLabelDraft
 from case_api.schemas import LabelDraftBatchIn, LabelDraftOut, LabelDraftRowIn
-
-import os
-import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
 from auth_rbac import require_role  # noqa: E402

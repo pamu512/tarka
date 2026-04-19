@@ -698,6 +698,107 @@ components:
           minimum: 1
         description:
           type: string
+    AgentClient:
+      type: object
+      properties:
+        client_type:
+          type: string
+          nullable: true
+          description: e.g. mcp, copilot_plugin, sdk, browser_extension, unknown
+        oauth_client_id:
+          type: string
+          nullable: true
+        mcp_server_ids:
+          type: array
+          items:
+            type: string
+        manifest_hash:
+          type: string
+          nullable: true
+          description: Hash of capability manifest or tool allowlist config
+        tool_allowlist_hash:
+          type: string
+          nullable: true
+        sdk_version:
+          type: string
+          nullable: true
+    HumanControl:
+      type: object
+      properties:
+        hitl_required_for_event:
+          type: boolean
+          nullable: true
+        human_approval_received:
+          type: boolean
+          nullable: true
+        approver_entity_id:
+          type: string
+          nullable: true
+        maker_checker_satisfied:
+          type: boolean
+          nullable: true
+    Orchestration:
+      type: object
+      properties:
+        turn_id:
+          type: string
+          nullable: true
+        tool_names_ordered:
+          type: array
+          items:
+            type: string
+        tool_sequence_digest:
+          type: string
+          nullable: true
+        tool_depth:
+          type: integer
+          nullable: true
+        tool_retry_count:
+          type: integer
+          nullable: true
+        plan_digest:
+          type: string
+          nullable: true
+        untrusted_content_sources:
+          type: array
+          items:
+            type: string
+          description: Tags e.g. email_body, web_page when untrusted content was in context
+    Integrity:
+      type: object
+      properties:
+        prompt_injection_heuristic_flag:
+          type: boolean
+          nullable: true
+        cross_channel_mismatch_flag:
+          type: boolean
+          nullable: true
+        policy_denial_count_this_session:
+          type: integer
+          nullable: true
+    AgentContext:
+      type: object
+      properties:
+        agent_runtime_id:
+          type: string
+          nullable: true
+          description: Stable-ish id for this installed agent runtime (rotates on reinstall)
+        agent_session_id:
+          type: string
+          nullable: true
+          description: Ephemeral conversation or MCP session id
+        agent_client:
+          $ref: "#/components/schemas/AgentClient"
+          nullable: true
+        human_control:
+          $ref: "#/components/schemas/HumanControl"
+          nullable: true
+        orchestration:
+          $ref: "#/components/schemas/Orchestration"
+          nullable: true
+        integrity:
+          $ref: "#/components/schemas/Integrity"
+          nullable: true
     EvaluateRequest:
       type: object
       required: [tenant_id, event_type, entity_id, payload]
@@ -762,11 +863,17 @@ components:
           additionalProperties: true
           description: >
             Optional client hints for identity and network posture. Recognized keys (all optional):
+            correlation_id (string) for end-to-end tracing across agent tools and payment authorization;
             tls_pinning_verified (bool) for MitM posture hints;
             vendor_visitor_id, vendor_device_id, vendor_install_id (strings) for server-side vendor→entity
             bridge when consent and mapping contract exist — see docs/guides/device-id-semantics.md.
             Optional event_time (or event_ts, occurred_at) — ISO-8601 or unix seconds — sets Redis aggregate
             timestamps to business time for velocity windows when present; see docs/guides/late-arrival-watermarks.md.
+        agent_context:
+          description: Optional LLM agent / MCP session context; merged into rule features when present.
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AgentContext"
         challenge_policy_id:
           type: string
           nullable: true

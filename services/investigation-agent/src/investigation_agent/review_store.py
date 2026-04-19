@@ -110,3 +110,44 @@ def latest_review(turn_id: str, tenant_id: str) -> dict[str, Any] | None:
         "note": row[5],
         "created_at": row[6],
     }
+
+
+def review_metrics(tenant_id: str, days: float = 30.0) -> dict[str, Any]:
+    c = _get_conn()
+    now = time.time()
+    window_days = max(0.5, min(float(days), 365.0))
+    since = now - (window_days * 86400.0)
+    rows = c.execute(
+        """
+        SELECT status, COUNT(*) AS n
+        FROM copilot_turn_reviews
+        WHERE tenant_id = ? AND created_at >= ?
+        GROUP BY status
+        """,
+        (tenant_id, since),
+    ).fetchall()
+    by_status = {str(r[0]): int(r[1]) for r in rows}
+    total = int(sum(by_status.values()))
+    approved = int(by_status.get("approved", 0))
+    rejected = int(by_status.get("rejected", 0))
+    approval_rate = (approved / total) if total > 0 else None
+
+    uniq = c.execute(
+        """
+        SELECT COUNT(DISTINCT analyst_id)
+        FROM copilot_turn_reviews
+        WHERE tenant_id = ? AND created_at >= ?
+        """,
+        (tenant_id, since),
+    ).fetchone()
+    unique_reviewers = int(uniq[0] or 0) if uniq else 0
+    return {
+        "tenant_id": tenant_id,
+        "window_days": window_days,
+        "total_reviews": total,
+        "approved": approved,
+        "rejected": rejected,
+        "approval_rate": approval_rate,
+        "unique_reviewers": unique_reviewers,
+        "by_status": by_status,
+    }

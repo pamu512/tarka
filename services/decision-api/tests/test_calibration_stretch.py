@@ -35,8 +35,8 @@ def test_drift_compute(tmp_path, monkeypatch):
         "sample_count": 100,
         "set_at": "2026-01-01T00:00:00+00:00",
     }
-    ref_path = tmp_path / "reference_default.json"
-    ref_path.write_text(json.dumps(ref), encoding="utf-8")
+    ref_path = tmp_path / "references.json"
+    ref_path.write_text(json.dumps({"default": ref}), encoding="utf-8")
     snap = {
         "ts": "2026-02-01T00:00:00+00:00",
         "tenant_id": "acme",

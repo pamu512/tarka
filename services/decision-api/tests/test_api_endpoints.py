@@ -153,6 +153,46 @@ class TestEvaluateDecision:
                     assert "top_signals" in data["inference_context"]
 
     @pytest.mark.asyncio
+    async def test_with_agent_context(self, client):
+        mock_session = AsyncMock()
+        mock_session.add = MagicMock()
+        mock_session.commit = AsyncMock()
+        from decision_api.main import get_session
+
+        captured_features: dict = {}
+
+        def _capture_rules(features, *_args, **_kwargs):
+            captured_features.update(dict(features) if features else {})
+            return ([], [], 0.0)
+
+        with patch("decision_api.main.evaluate_json_rules", side_effect=_capture_rules):
+            with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
+                with patch("decision_api.main._fetch_ml_score_wrapped", new_callable=AsyncMock, return_value=(None, {})):
+                    client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
+                    ac = {
+                        "agent_session_id": "asess-test",
+                        "agent_client": {"oauth_client_id": "reg-client-1", "client_type": "mcp"},
+                        "integrity": {"prompt_injection_heuristic_flag": False},
+                    }
+                    r = await client.post(
+                        "/v1/decisions/evaluate",
+                        json={
+                            "tenant_id": "t1",
+                            "event_type": "payment",
+                            "entity_id": "u1",
+                            "payload": {"amount": 10},
+                            "metadata": {"correlation_id": "corr-xyz"},
+                            "agent_context": ac,
+                        },
+                    )
+                    client.tarka_app.dependency_overrides.pop(get_session, None)
+                    assert r.status_code == 200
+                    assert captured_features.get("agent_context", {}).get("agent_client", {}).get("oauth_client_id") == "reg-client-1"
+                    audit = mock_session.add.call_args[0][0]
+                    snap = audit.payload_snapshot or {}
+                    assert snap.get("agent_context", {}).get("agent_session_id") == "asess-test"
+
+    @pytest.mark.asyncio
     async def test_validation_error(self, client):
         r = await client.post("/v1/decisions/evaluate", json={"tenant_id": "t1"})
         assert r.status_code == 422

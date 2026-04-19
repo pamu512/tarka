@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from decision_api.config import settings
@@ -31,20 +31,33 @@ def _snapshots_path() -> Path:
     return _data_dir() / "snapshots.jsonl"
 
 
-def _reference_path(profile: str) -> Path:
-    safe = "".join(c if c.isalnum() or c in "._-" else "_" for c in profile.strip())[:120] or "default"
-    return _data_dir() / f"reference_{safe}.json"
+def _references_path() -> Path:
+    return _data_dir() / "references.json"
 
 
-def _resolved_under_data_dir(path: Path) -> Path:
-    """Reject paths outside CALIBRATION_DATA_DIR (mitigate path injection via parameters)."""
-    base = _data_dir().resolve()
+def _safe_profile(profile: str) -> str:
+    return "".join(c if c.isalnum() or c in "._-" else "_" for c in profile.strip())[:120] or "default"
+
+
+def _load_reference_map() -> dict[str, dict[str, Any]]:
+    path = _references_path()
+    if not path.is_file():
+        return {}
     try:
-        resolved = path.resolve()
-        resolved.relative_to(base)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="calibration path must be under data directory") from None
-    return resolved
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for key, value in data.items():
+        if isinstance(key, str) and isinstance(value, dict):
+            out[key] = value
+    return out
+
+
+def _save_reference_map(data: dict[str, dict[str, Any]]) -> None:
+    _references_path().write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
 
 
 class CalibrationSnapshotIn(BaseModel):
@@ -69,7 +82,7 @@ async def append_snapshot(body: CalibrationSnapshotIn):
     rec = {
         "ts": datetime.now(timezone.utc).isoformat(),
         "tenant_id": body.tenant_id,
-        "profile": body.profile,
+        "profile": _safe_profile(body.profile),
         "schema_version": body.schema_version,
         "expected_calibration_version": body.expected_calibration_version,
         "sample_count": body.sample_count,
@@ -86,40 +99,40 @@ async def append_snapshot(body: CalibrationSnapshotIn):
 
 @router.post("/reference/{profile}")
 async def set_reference(profile: str, body: CalibrationSnapshotIn):
-    """Pin a golden reference distribution for drift comparison (overwrites file)."""
+    """Pin a golden reference distribution for drift comparison."""
+    safe_profile = _safe_profile(profile)
     ref = {
-        "profile": profile,
+        "profile": safe_profile,
         "set_at": datetime.now(timezone.utc).isoformat(),
         "integrity_histogram": body.integrity_histogram,
         "mean_integrity": body.mean_integrity,
         "sample_count": body.sample_count,
     }
-    path = _resolved_under_data_dir(_reference_path(profile))
-    path.write_text(json.dumps(ref, indent=2), encoding="utf-8")
-    return {"ok": True, "path": str(path)}
+    refs = _load_reference_map()
+    refs[safe_profile] = ref
+    _save_reference_map(refs)
+    return {"ok": True, "profile": safe_profile, "path": str(_references_path())}
 
 
 def compute_drift_for_tenant(
     tenant_id: str,
     profile: str,
-    *,
-    snapshots_path: Path | None = None,
-    reference_path: Path | None = None,
 ) -> dict[str, Any]:
     """Pure helper for tests and tooling."""
-    ref_p = _resolved_under_data_dir(reference_path or _reference_path(profile))
-    if not ref_p.is_file():
+    safe_profile = _safe_profile(profile)
+    refs = _load_reference_map()
+    ref = refs.get(safe_profile)
+    if not ref:
         return {
             "tenant_id": tenant_id,
-            "profile": profile,
+            "profile": safe_profile,
             "drift_score": None,
             "hint": "no_reference_set",
-            "reference_path": str(ref_p),
+            "reference_path": str(_references_path()),
         }
-    ref = json.loads(ref_p.read_text(encoding="utf-8"))
     ref_hist = ref.get("integrity_histogram") or {}
     latest: dict[str, Any] | None = None
-    sp = _resolved_under_data_dir(snapshots_path or _snapshots_path())
+    sp = _snapshots_path()
     if sp.is_file():
         for line in reversed(sp.read_text(encoding="utf-8").splitlines()):
             line = line.strip()
@@ -129,24 +142,25 @@ def compute_drift_for_tenant(
                 row = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if row.get("tenant_id") == tenant_id and row.get("profile") == profile:
+            row_profile = _safe_profile(str(row.get("profile") or "default"))
+            if row.get("tenant_id") == tenant_id and row_profile == safe_profile:
                 latest = row
                 break
     if not latest:
         return {
             "tenant_id": tenant_id,
-            "profile": profile,
+            "profile": safe_profile,
             "drift_score": None,
             "hint": "no_snapshots_for_tenant",
         }
     cur_hist = latest.get("integrity_histogram") or {}
     keys = sorted(set(ref_hist.keys()) | set(cur_hist.keys()))
     if not keys:
-        return {"tenant_id": tenant_id, "profile": profile, "drift_score": None, "hint": "empty_histograms"}
+        return {"tenant_id": tenant_id, "profile": safe_profile, "drift_score": None, "hint": "empty_histograms"}
     total_r = sum(int(ref_hist.get(k, 0)) for k in keys)
     total_c = sum(int(cur_hist.get(k, 0)) for k in keys)
     if total_r <= 0 or total_c <= 0:
-        return {"tenant_id": tenant_id, "profile": profile, "drift_score": None, "hint": "insufficient_mass"}
+        return {"tenant_id": tenant_id, "profile": safe_profile, "drift_score": None, "hint": "insufficient_mass"}
     drift = 0.0
     for k in keys:
         pr = ref_hist.get(k, 0) / total_r
@@ -160,7 +174,7 @@ def compute_drift_for_tenant(
         hint = "moderate_drift_monitor"
     return {
         "tenant_id": tenant_id,
-        "profile": profile,
+        "profile": safe_profile,
         "drift_score": drift,
         "hint": hint,
         "latest_ts": latest.get("ts"),
@@ -178,9 +192,10 @@ async def drift_hint(tenant_id: str, profile: str = "default"):
 async def summary(tenant_id: str, profile: str = "default", limit: int = 20):
     """Last N snapshots for tenant/profile (for Trust Center / debugging)."""
     sp = _snapshots_path()
+    safe_profile = _safe_profile(profile)
     out: list[dict[str, Any]] = []
     if not sp.is_file():
-        return {"tenant_id": tenant_id, "profile": profile, "snapshots": []}
+        return {"tenant_id": tenant_id, "profile": safe_profile, "snapshots": []}
     for line in reversed(sp.read_text(encoding="utf-8").splitlines()):
         line = line.strip()
         if not line:
@@ -189,8 +204,9 @@ async def summary(tenant_id: str, profile: str = "default", limit: int = 20):
             row = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if row.get("tenant_id") == tenant_id and row.get("profile") == profile:
+        row_profile = _safe_profile(str(row.get("profile") or "default"))
+        if row.get("tenant_id") == tenant_id and row_profile == safe_profile:
             out.append(row)
         if len(out) >= min(limit, 100):
             break
-    return {"tenant_id": tenant_id, "profile": profile, "snapshots": out}
+    return {"tenant_id": tenant_id, "profile": safe_profile, "snapshots": out}

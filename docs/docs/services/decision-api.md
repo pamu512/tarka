@@ -63,7 +63,39 @@ POST /v1/decisions/evaluate
   },
   "metadata": {
     "ip": "203.0.113.42",
-    "user_agent": "Mozilla/5.0..."
+    "user_agent": "Mozilla/5.0...",
+    "correlation_id": "trace-9f3c..."
+  },
+  "agent_context": {
+    "agent_session_id": "asess-01JABC",
+    "agent_client": {
+      "client_type": "mcp",
+      "oauth_client_id": "client-registered-123",
+      "mcp_server_ids": ["payments-mcp.prod"],
+      "manifest_hash": "sha256:...",
+      "tool_allowlist_hash": "sha256:...",
+      "sdk_version": "tarka-sdk/1.2.3"
+    },
+    "human_control": {
+      "hitl_required_for_event": true,
+      "human_approval_received": true,
+      "approver_entity_id": "analyst-7",
+      "maker_checker_satisfied": true
+    },
+    "orchestration": {
+      "turn_id": "turn-uuid",
+      "tool_names_ordered": ["get_case", "subgraph"],
+      "tool_sequence_digest": "sha256:...",
+      "tool_depth": 2,
+      "tool_retry_count": 0,
+      "plan_digest": "sha256:...",
+      "untrusted_content_sources": []
+    },
+    "integrity": {
+      "prompt_injection_heuristic_flag": false,
+      "cross_channel_mismatch_flag": false,
+      "policy_denial_count_this_session": 0
+    }
   }
 }
 ```
@@ -76,7 +108,9 @@ POST /v1/decisions/evaluate
 | `session_id` | string | No | Session identifier for session linking in the graph |
 | `payload` | object | No | Event-specific data (amount, merchant, etc.) |
 | `device_context` | object | No | Device signals from SDK (see below) |
-| `metadata` | object | No | Additional context (IP, user agent, etc.) |
+| `metadata` | object | No | Additional context (IP, user agent, optional `correlation_id` for tracing) |
+| `agent_context` | object | No | Optional LLM/MCP session context; merged into rule features as `agent_context` (see [Agentic AI fraud detection](../guides/agentic-ai-fraud-detection-variables-and-layering.md)) |
+| `challenge_policy_id` | string | No | Optional challenge/escalation template id |
 
 **Device Context:**
 

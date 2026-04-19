@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI
 from pydantic import BaseModel, Field
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
@@ -32,29 +32,48 @@ def _load_trusted_places() -> dict[str, list[dict[str, Any]]]:
         return {}
 
 
-_SAFE_TRUSTED_PLACE_KEYS = frozenset(
-    {
-        "label",
-        "lat",
-        "lon",
-        "radius_km",
-        "kind",
-        "accuracy_m",
-        "name",
-        "address",
-        "source",
-    }
-)
+_SAFE_TRUSTED_PLACE_KINDS = frozenset({"home", "work", "travel", "other"})
+
+
+def _coerce_bounded_float(value: Any, *, min_v: float, max_v: float) -> float | None:
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return None
+    if out < min_v or out > max_v:
+        return None
+    return out
 
 
 def _sanitize_place_entry(place: dict[str, Any]) -> dict[str, Any]:
-    """Drop credential-like keys before persisting to disk (CodeQL: clear-text sensitive storage)."""
-    return {k: v for k, v in place.items() if k in _SAFE_TRUSTED_PLACE_KEYS}
+    """
+    Persist only minimal geometric metadata needed by scoring.
+
+    This intentionally drops all free-form strings to reduce accidental clear-text
+    storage of PII in trusted-place snapshots.
+    """
+    lat = _coerce_bounded_float(place.get("lat"), min_v=-90.0, max_v=90.0)
+    lon = _coerce_bounded_float(place.get("lon"), min_v=-180.0, max_v=180.0)
+    radius_km = _coerce_bounded_float(place.get("radius_km"), min_v=0.05, max_v=5000.0)
+    if lat is None or lon is None or radius_km is None:
+        return {}
+    kind_raw = str(place.get("kind") or "other").strip().lower()
+    kind = kind_raw if kind_raw in _SAFE_TRUSTED_PLACE_KINDS else "other"
+    out: dict[str, Any] = {
+        "lat": round(lat, 6),
+        "lon": round(lon, 6),
+        "radius_km": round(radius_km, 3),
+        "kind": kind,
+    }
+    accuracy_m = _coerce_bounded_float(place.get("accuracy_m"), min_v=0.0, max_v=100000.0)
+    if accuracy_m is not None:
+        out["accuracy_m"] = round(accuracy_m, 2)
+    return out
 
 
 def _save_trusted_places(data: dict[str, list[dict[str, Any]]]) -> None:
     sanitized: dict[str, list[dict[str, Any]]] = {
-        k: [_sanitize_place_entry(dict(p)) for p in v] for k, v in data.items()
+        k: [clean for p in v if isinstance(p, dict) and (clean := _sanitize_place_entry(dict(p)))] for k, v in data.items()
     }
     _trusted_places_path().write_text(
         json.dumps(sanitized, indent=2, sort_keys=True),

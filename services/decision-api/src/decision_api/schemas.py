@@ -37,6 +37,66 @@ class DeviceContextIn(BaseModel):
         return self
 
 
+class AgentClientIn(BaseModel):
+    """Registered client / capability manifest for agent-mediated evaluate calls."""
+
+    client_type: str | None = Field(
+        default=None,
+        description="e.g. mcp, copilot_plugin, sdk, browser_extension, unknown",
+    )
+    oauth_client_id: str | None = None
+    mcp_server_ids: list[str] = Field(default_factory=list)
+    manifest_hash: str | None = Field(default=None, description="Hash of capability manifest / config")
+    tool_allowlist_hash: str | None = None
+    sdk_version: str | None = None
+
+
+class HumanControlIn(BaseModel):
+    """Human-in-the-loop and maker–checker signals for sensitive agent actions."""
+
+    hitl_required_for_event: bool | None = None
+    human_approval_received: bool | None = None
+    approver_entity_id: str | None = None
+    maker_checker_satisfied: bool | None = None
+
+
+class OrchestrationIn(BaseModel):
+    """Tool loop telemetry (hashes preferred over raw prompts)."""
+
+    turn_id: str | None = None
+    tool_names_ordered: list[str] = Field(default_factory=list)
+    tool_sequence_digest: str | None = None
+    tool_depth: int | None = None
+    tool_retry_count: int | None = None
+    plan_digest: str | None = None
+    untrusted_content_sources: list[str] = Field(default_factory=list)
+
+
+class IntegrityIn(BaseModel):
+    """Heuristic flags from gateways or copilot; weak learners for rules/ML."""
+
+    prompt_injection_heuristic_flag: bool | None = None
+    cross_channel_mismatch_flag: bool | None = None
+    policy_denial_count_this_session: int | None = None
+
+
+class AgentContextIn(BaseModel):
+    """Optional envelope for LLM agent / MCP session context on synchronous evaluate."""
+
+    agent_runtime_id: str | None = Field(
+        default=None,
+        description="Stable-ish id for this installed agent runtime (rotates on reinstall)",
+    )
+    agent_session_id: str | None = Field(
+        default=None,
+        description="Ephemeral conversation or MCP session id",
+    )
+    agent_client: AgentClientIn | None = None
+    human_control: HumanControlIn | None = None
+    orchestration: OrchestrationIn | None = None
+    integrity: IntegrityIn | None = None
+
+
 class EvaluateRequest(BaseModel):
     tenant_id: str
     event_type: EventType
@@ -46,6 +106,10 @@ class EvaluateRequest(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
     device_context: DeviceContextIn | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+    agent_context: AgentContextIn | None = Field(
+        default=None,
+        description="Optional agent/MCP session context; merged into rule features when present",
+    )
     challenge_policy_id: str | None = Field(
         default=None,
         description="Optional challenge/escalation template id (JSON in rules/challenge_policies/)",

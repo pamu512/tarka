@@ -11,13 +11,29 @@ from collaboration_chat_bridge.persona_bridge import resolve_copilot_persona_for
 log = logging.getLogger(__name__)
 
 
-class AgentChatError(Exception):
-    """investigation-agent /v1/chat failed or was unreachable."""
+class AgentUpstreamError(Exception):
+    """investigation-agent upstream call failed or was unreachable."""
 
     def __init__(self, message: str, *, status_code: int = 0, body_snippet: str = ""):
         super().__init__(message)
         self.status_code = status_code
         self.body_snippet = (body_snippet or "")[:800]
+
+
+class AgentChatError(AgentUpstreamError):
+    """investigation-agent /v1/chat failed or was unreachable."""
+
+
+def _agent_headers(settings: Settings, *, correlation_id: str | None = None) -> dict[str, str]:
+    headers: dict[str, str] = {}
+    key = (settings.investigation_agent_api_key or "").strip()
+    if key:
+        headers["x-api-key"] = key
+    cid = (correlation_id or "").strip()
+    if cid:
+        headers["x-request-id"] = cid[:128]
+        headers["x-correlation-id"] = cid[:128]
+    return headers
 
 
 async def post_chat(
@@ -33,12 +49,10 @@ async def post_chat(
     playbook_id: str | None = None,
     batch_id: str | None = None,
     messages_preprocessed: bool = False,
+    correlation_id: str | None = None,
 ) -> dict[str, Any]:
     url = f"{settings.investigation_agent_url.rstrip('/')}/v1/chat"
-    headers: dict[str, str] = {}
-    key = (settings.investigation_agent_api_key or "").strip()
-    if key:
-        headers["x-api-key"] = key
+    headers = _agent_headers(settings, correlation_id=correlation_id)
     if messages_preprocessed:
         eff_persona = (persona or "investigation").strip().lower()
         if eff_persona not in ("investigation", "orchestrator"):
@@ -90,3 +104,77 @@ async def post_chat(
         # Log full error server-side; keep exception message generic for clients (CodeQL py/stack-trace-exposure).
         log.warning("investigation-agent unreachable: %s", e)
         raise AgentChatError("cannot reach investigation-agent", status_code=0) from e
+
+
+async def create_plugin_session(
+    settings: Settings,
+    *,
+    tenant_id: str,
+    analyst_id: str,
+    case_id: str | None = None,
+    external_case_id: str | None = None,
+    origin: str | None = None,
+    ttl_seconds: int | None = None,
+    correlation_id: str | None = None,
+) -> dict[str, Any]:
+    url = f"{settings.investigation_agent_url.rstrip('/')}/v1/plugin/session"
+    payload: dict[str, Any] = {
+        "tenant_id": tenant_id[:128],
+        "analyst_id": analyst_id[:128],
+    }
+    if case_id:
+        payload["case_id"] = case_id[:128]
+    if external_case_id:
+        payload["external_case_id"] = external_case_id[:128]
+    if origin:
+        payload["origin"] = origin[:255]
+    if ttl_seconds is not None:
+        payload["ttl_seconds"] = int(ttl_seconds)
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
+            r = await client.post(url, json=payload, headers=_agent_headers(settings, correlation_id=correlation_id))
+            if r.status_code >= 400:
+                log.warning("investigation-agent plugin/session HTTP %s: %s", r.status_code, r.text[:500])
+            r.raise_for_status()
+            data = r.json()
+            if not isinstance(data, dict):
+                raise AgentUpstreamError("invalid response from investigation-agent", status_code=502)
+            return data
+    except httpx.HTTPStatusError as e:
+        resp = e.response
+        raise AgentUpstreamError(
+            f"investigation-agent returned HTTP {resp.status_code if resp is not None else 0}",
+            status_code=resp.status_code if resp is not None else 0,
+            body_snippet=resp.text[:800] if resp is not None else "",
+        ) from e
+    except httpx.RequestError as e:
+        log.warning("investigation-agent plugin/session unreachable: %s", e)
+        raise AgentUpstreamError("cannot reach investigation-agent", status_code=0) from e
+
+
+async def bootstrap_plugin_session(settings: Settings, *, token: str, correlation_id: str | None = None) -> dict[str, Any]:
+    url = f"{settings.investigation_agent_url.rstrip('/')}/v1/plugin/bootstrap"
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
+            r = await client.post(
+                url,
+                json={"token": token[:4096]},
+                headers=_agent_headers(settings, correlation_id=correlation_id),
+            )
+            if r.status_code >= 400:
+                log.warning("investigation-agent plugin/bootstrap HTTP %s: %s", r.status_code, r.text[:500])
+            r.raise_for_status()
+            data = r.json()
+            if not isinstance(data, dict):
+                raise AgentUpstreamError("invalid response from investigation-agent", status_code=502)
+            return data
+    except httpx.HTTPStatusError as e:
+        resp = e.response
+        raise AgentUpstreamError(
+            f"investigation-agent returned HTTP {resp.status_code if resp is not None else 0}",
+            status_code=resp.status_code if resp is not None else 0,
+            body_snippet=resp.text[:800] if resp is not None else "",
+        ) from e
+    except httpx.RequestError as e:
+        log.warning("investigation-agent plugin/bootstrap unreachable: %s", e)
+        raise AgentUpstreamError("cannot reach investigation-agent", status_code=0) from e

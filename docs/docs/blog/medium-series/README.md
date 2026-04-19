@@ -23,6 +23,7 @@ Copy any `.md` file into Medium (paste, then fix headers if needed) or use **Imp
 | Risk | `risk/02-rules-ml-and-graph-without-the-jargon.md` | What the stack actually does for you |
 | Risk | `risk/03-vendor-checklist-and-open-source.md` | Evaluating tools and keeping data close |
 | Risk / Product | `risk/04-opaque-fraud-metrics-demanding-clarity-medium.md` | Vendor fraud metrics as claims to verify; tiered asks, RFP questions, evidence |
+| Risk / Agentic AI | `risk/09-agentic-ai-persistent-ids-without-surveillance-medium.md` | Why agent-driven fraud needs privacy-preserving persistent IDs, not surveillance |
 | Executive | `risk/05-exec-tco-liability-build-vs-buy-medium.md` | TCO, liability, support, build vs buy vs hybrid (no ports) |
 | Vendors / partners | `risk/06-partnerships-what-we-want-from-fraud-vendors-medium.md` | Collaborative spec: transparency, hybrid stacks, where OSS aligns |
 | **Hub** | `SERIES-HUB-who-should-read-what-medium.md` | Table: role → which posts to read first |

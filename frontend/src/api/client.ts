@@ -15,6 +15,40 @@ const USE_API_MOCKS = (import.meta.env.VITE_USE_API_MOCKS as string | undefined)
 
 // ── Types ────────────────────────────────────────────────────────────
 
+/** Optional envelope for LLM/MCP agent context on `POST /v1/decisions/evaluate` (mirrors decision-api schema). */
+export interface AgentContextRequest {
+  agent_runtime_id?: string;
+  agent_session_id?: string;
+  agent_client?: {
+    client_type?: string;
+    oauth_client_id?: string;
+    mcp_server_ids?: string[];
+    manifest_hash?: string;
+    tool_allowlist_hash?: string;
+    sdk_version?: string;
+  };
+  human_control?: {
+    hitl_required_for_event?: boolean;
+    human_approval_received?: boolean;
+    approver_entity_id?: string;
+    maker_checker_satisfied?: boolean;
+  };
+  orchestration?: {
+    turn_id?: string;
+    tool_names_ordered?: string[];
+    tool_sequence_digest?: string;
+    tool_depth?: number;
+    tool_retry_count?: number;
+    plan_digest?: string;
+    untrusted_content_sources?: string[];
+  };
+  integrity?: {
+    prompt_injection_heuristic_flag?: boolean;
+    cross_channel_mismatch_flag?: boolean;
+    policy_denial_count_this_session?: number;
+  };
+}
+
 export interface DecisionRequest {
   event_type: string;
   entity_id: string;
@@ -23,6 +57,7 @@ export interface DecisionRequest {
   payload?: Record<string, unknown>;
   device_context?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
+  agent_context?: AgentContextRequest;
 }
 
 export interface DecisionResponse {

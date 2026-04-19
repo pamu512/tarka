@@ -28,6 +28,13 @@ class Settings(BaseSettings):
         default="",
         description="Shared secret: incoming Teams/custom connector posts must send X-Bridge-Secret.",
     )
+    bridge_plugin_secret: str = Field(
+        default="",
+        description=(
+            "Shared secret for external plugin/embed endpoints (/v1/plugin/*). "
+            "If empty, TEAMS_BRIDGE_SECRET is used as fallback."
+        ),
+    )
 
     lark_verification_token: str = Field(
         default="",
