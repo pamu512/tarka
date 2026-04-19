@@ -20,10 +20,17 @@ def _base_dir() -> Path:
     return p
 
 
+def _safe_filename_segment(raw: str, *, max_len: int = 120) -> str:
+    s = "".join(c if c.isalnum() or c in "._-" else "_" for c in (raw or "").strip())
+    s = s[:max_len] if s else "default"
+    return s
+
+
 def load_trusted_zones_for_tenant(tenant_id: str) -> list[dict[str, Any]]:
     """Load zones from ``trusted_zones_<tenant>.json`` or ``trusted_zones_default.json``."""
     base = _base_dir()
-    for name in (f"trusted_zones_{tenant_id}.json", "trusted_zones_default.json"):
+    safe_tenant = _safe_filename_segment(tenant_id)
+    for name in (f"trusted_zones_{safe_tenant}.json", "trusted_zones_default.json"):
         path = base / name
         if not path.is_file():
             continue

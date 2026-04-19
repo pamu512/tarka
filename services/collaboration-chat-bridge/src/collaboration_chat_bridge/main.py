@@ -188,17 +188,20 @@ async def _teams_chat_result(
             batch_id=batch_id,
         )
     except AgentChatError as e:
-        detail = str(e)
-        if e.body_snippet:
-            detail = f"{detail}\n{e.body_snippet}"
+        log.warning(
+            "copilot_unavailable status=%s",
+            e.status_code,
+            exc_info=False,
+        )
+        safe_detail = "The investigation agent is unavailable. Retry later or check service health."
         return JSONResponse(
             status_code=200,
             content={
                 "ok": False,
-                # Stable code for API consumers; human text stays in adaptive_card only.
+                # Stable code for API consumers; do not echo upstream errors (stack traces / secrets).
                 "error": "copilot_unavailable",
                 "agent_http_status": e.status_code or None,
-                "adaptive_card": format_teams_error_card("Copilot unavailable", detail),
+                "adaptive_card": format_teams_error_card("Copilot unavailable", safe_detail),
             },
         )
     return {

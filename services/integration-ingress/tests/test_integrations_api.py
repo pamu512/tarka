@@ -47,7 +47,9 @@ async def test_catalog_contains_20(client):
     assert data.get("connector_quality_version") == 1
     prov = next(p for p in data["providers"] if p["id"] == "jira")
     assert prov.get("swimlane_module")
-    assert "github.com" in (prov.get("github_project_view_url") or "")
+    view_url = prov.get("github_project_view_url") or ""
+    host = (urlparse(view_url).hostname or "").lower()
+    assert host == "github.com" or host.endswith(".github.com")
 
 
 @pytest.mark.asyncio

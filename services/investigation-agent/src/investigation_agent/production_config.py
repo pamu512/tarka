@@ -25,8 +25,8 @@ def runtime_readiness_errors() -> list[str]:
         probe = p / ".saarthi_write_probe"
         probe.write_text("1", encoding="utf-8")
         probe.unlink(missing_ok=True)
-    except OSError as e:
-        return [f"investigation data directory not writable: {e}"]
+    except OSError:
+        return ["investigation data directory not writable"]
     return []
 
 
