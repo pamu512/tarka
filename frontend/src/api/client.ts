@@ -46,6 +46,14 @@ export interface AuditEntry {
   rule_hits: string[];
   /** May be partial; UI should pass through `normalizeInferenceContext`. */
   inference_context?: unknown;
+  /** Ordered explainability rows persisted with audit snapshots (v1.2+). */
+  explanation_drivers?: Array<{
+    reason: string;
+    category: string;
+    label: string;
+    rank: number;
+    source: "driver_explain" | "driver_reasons";
+  }>;
   recommended_action?: string | null;
   created_at: string;
 }
@@ -232,8 +240,8 @@ export interface RuleSimulationResult {
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   try {
     const res = await fetch(url, {
-      headers: { "Content-Type": "application/json", ...init?.headers },
       ...init,
+      headers: { "Content-Type": "application/json", ...(init?.headers as Record<string, string> | undefined) },
     });
     const text = await res.text();
     const ct = res.headers.get("content-type") ?? "";
@@ -369,6 +377,88 @@ export const decisions = {
       profile: string;
       snapshots: Array<Record<string, unknown>>;
     }>(`/api/decisions/v1/calibration/summary?${q}`);
+  },
+};
+
+// ── Feature service (velocity + parity verify) — proxied as /api/features ─
+
+const _featureHeaders = (): HeadersInit => {
+  const h: Record<string, string> = {};
+  const key = (import.meta.env.VITE_FEATURE_SERVICE_API_KEY as string | undefined)?.trim();
+  if (key) h["x-api-key"] = key;
+  return h;
+};
+
+export const features = {
+  health() {
+    return request<{ status?: string }>("/api/features/v1/health");
+  },
+
+  velocityQuery(body: { tenant_id: string; entity_id: string; payload?: Record<string, unknown> }) {
+    return request<{
+      tenant_id: string;
+      entity_id: string;
+      velocity_counters: Record<string, unknown>;
+      velocity_key_order: string[];
+    }>("/api/features/v1/velocity/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ..._featureHeaders() },
+      body: JSON.stringify({
+        tenant_id: body.tenant_id,
+        entity_id: body.entity_id,
+        payload: body.payload ?? {},
+      }),
+    });
+  },
+
+  parityVerify(body: {
+    tenant_id: string;
+    entity_id: string;
+    payload?: Record<string, unknown>;
+    expected: Record<string, number>;
+    epsilon?: number;
+  }) {
+    return request<{
+      ok: boolean;
+      tenant_id: string;
+      entity_id: string;
+      epsilon: number;
+      checked_keys: string[];
+      drift: Record<string, unknown>;
+      live_sample: Record<string, unknown>;
+    }>("/api/features/v1/internal/parity/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ..._featureHeaders() },
+      body: JSON.stringify({
+        tenant_id: body.tenant_id,
+        entity_id: body.entity_id,
+        payload: body.payload ?? {},
+        expected: body.expected,
+        epsilon: body.epsilon ?? 0.5,
+      }),
+    });
+  },
+};
+
+// ── Event ingest (event-ingest :8007) — proxied as /api/ingest ───────
+
+export const ingest = {
+  /** Contract reject tallies since process boot (send `VITE_EVENT_INGEST_API_KEY` when event-ingest uses `API_KEYS`). */
+  ingestStats() {
+    const key = import.meta.env.VITE_EVENT_INGEST_API_KEY as string | undefined;
+    const headers: Record<string, string> = {};
+    if (key?.trim()) {
+      headers["x-api-key"] = key.trim();
+    }
+    return request<{
+      service: string;
+      since: string;
+      contract_reject_by_reason: Record<string, number>;
+      total_contract_rejects: number;
+      envelope_mode?: string;
+      require_idempotency_key?: boolean;
+      note?: string;
+    }>("/api/ingest/v1/ingest/stats", { headers });
   },
 };
 
@@ -664,9 +754,17 @@ export const ml = {
 
 // ── Rules (decision-api :8000, /v1/rules router) ────────────────────
 
-const _ruleActorHeaders = (): HeadersInit => ({
-  "X-Actor": (typeof localStorage !== "undefined" && localStorage.getItem("tarka.rule_actor")) || "web-ui",
-});
+const _ruleActorHeaders = (): HeadersInit => {
+  const h: Record<string, string> = {
+    "X-Actor": (typeof localStorage !== "undefined" && localStorage.getItem("tarka.rule_actor")) || "web-ui",
+  };
+  const gov =
+    typeof localStorage !== "undefined" ? localStorage.getItem("tarka.rule_governance_secret")?.trim() : "";
+  if (gov) {
+    h["X-Rule-Governance-Secret"] = gov;
+  }
+  return h;
+};
 
 export const rules = {
   list() {
@@ -677,6 +775,15 @@ export const rules = {
     return request<{ items: Array<{ ts: string; action: string; file: string; actor: string; detail?: unknown }> }>(
       `/api/decisions/v1/rules/change-log?limit=${limit}`,
     );
+  },
+
+  telemetry() {
+    return request<{
+      since_unix: number;
+      total_hits: number;
+      unique_keys: number;
+      rows: Array<{ pack_file: string; rule_id: string; kind: string; hits: number }>;
+    }>("/api/decisions/v1/rules/telemetry");
   },
 
   create(data: { name: string; rules?: unknown[]; tag_rules?: unknown[] }) {
@@ -977,6 +1084,25 @@ export interface InvestigationEvidenceBundleDraft {
   tool_invocation_count?: number;
 }
 
+export interface InvestigationEvidenceSummaryResponse {
+  tenant_id: string;
+  analyst_id: string;
+  case_id?: string | null;
+  summary: string;
+  confidence_label: "high" | "medium" | "low";
+  citations: Array<{
+    type: "trace_id" | "case_id" | "entity_id" | "artifact";
+    value: string;
+    source_tool?: string;
+  }>;
+  based_on: {
+    source_ref_count: number;
+    claim_count: number;
+    supported_claim_count: number;
+    tool_error_count: number;
+  };
+}
+
 export interface InvestigationChatResponse {
   reply: string;
   tool_calls?: unknown[];
@@ -1137,6 +1263,21 @@ export const investigation = {
         playbook_id: string | null;
       }>;
     }>(`/api/investigation/v1/feedback/recent?${q}`);
+  },
+
+  evidenceSummary(payload: {
+    tenant_id: string;
+    analyst_id: string;
+    case_id?: string;
+    source_refs?: InvestigationSourceRefCard[];
+    claims?: InvestigationClaim[];
+    claims_deterministic_support?: InvestigationClaimSupportRow[];
+    reply?: string;
+  }) {
+    return request<InvestigationEvidenceSummaryResponse>("/api/investigation/v1/evidence/summary", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 
   /**

@@ -14,7 +14,8 @@ from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from decision_api.config import settings
-from decision_api.json_rules import load_rules
+from decision_api.json_rules import get_rule_hit_telemetry, load_rules
+from decision_api.rule_pack_validation import validate_rule_pack as _validate_rule_pack
 from decision_api.shadow import get_observation_stats, get_observations, load_shadow_rules
 from decision_api.vertical_packs import get_vertical_pack, list_vertical_packs
 
@@ -125,47 +126,28 @@ def _read_all_packs() -> list[dict[str, Any]]:
     return packs
 
 
-def _validate_rule_pack(pack: dict) -> list[str]:
-    """Validate a rule pack and return list of errors."""
-    errors = []
-    canary = pack.get("canary_percent")
-    if canary is not None:
-        try:
-            c = float(canary)
-            if c < 0 or c > 100:
-                errors.append("canary_percent must be between 0 and 100")
-        except (TypeError, ValueError):
-            errors.append("canary_percent must be a number")
-    eff = pack.get("effective_at")
-    if eff is not None and not isinstance(eff, str):
-        errors.append("effective_at must be an ISO-8601 string when set")
-    appr = pack.get("approved_by")
-    if appr is not None and (not isinstance(appr, str) or len(str(appr)) > 256):
-        errors.append("approved_by must be a short string when set")
-    rules = pack.get("rules", [])
-    if len(rules) > 200:
-        errors.append(f"Too many rules: {len(rules)} (max 200)")
-    for i, rule in enumerate(rules):
-        rid = rule.get("id", f"rule_{i}")
-        conditions = rule.get("when", [])
-        if len(conditions) > 20:
-            errors.append(f"Rule {rid}: too many conditions ({len(conditions)}, max 20)")
-        for j, c in enumerate(conditions):
-            if not c.get("field"):
-                errors.append(f"Rule {rid}, condition {j}: missing 'field'")
-            if c.get("op") == "regex":
-                pattern = str(c.get("value", ""))
-                if len(pattern) > 256:
-                    errors.append(f"Rule {rid}, condition {j}: regex pattern too long")
-        sd = rule.get("score_delta", 0)
-        if abs(float(sd)) > 100:
-            errors.append(f"Rule {rid}: score_delta {sd} exceeds bounds (-100, 100)")
-    return errors
-
-
 def _actor_from_headers(x_actor: str | None) -> str:
     a = (x_actor or os.environ.get("RULE_CHANGE_ACTOR") or "api").strip()
     return a[:256] if a else "api"
+
+
+def _require_rule_governance(x_rule_governance_secret: str | None) -> None:
+    """N2: when RULE_GOVERNANCE_SECRET is set, mutating rule APIs require X-Rule-Governance-Secret."""
+    expected = settings.rule_governance_secret
+    if not expected:
+        return
+    got = (x_rule_governance_secret or "").strip()
+    if not got or got != expected:
+        raise HTTPException(
+            403,
+            "rule governance secret required (set RULE_GOVERNANCE_SECRET on server; send X-Rule-Governance-Secret)",
+        )
+
+
+@router.get("/telemetry")
+async def rule_hit_telemetry():
+    """N3/N4: per-rule hit counts since process start (in-memory) + aggregate in /metrics."""
+    return get_rule_hit_telemetry()
 
 
 @router.get("/change-log")
@@ -207,7 +189,9 @@ async def install_vertical_pack(
     vertical_name: str,
     overwrite: bool = False,
     x_actor: str | None = Header(default=None, alias="X-Actor"),
+    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
 ):
+    _require_rule_governance(x_rule_governance_secret)
     pack = get_vertical_pack(vertical_name)
     if not pack:
         raise HTTPException(404, f"unknown vertical pack '{vertical_name}'")
@@ -251,7 +235,12 @@ async def get_rule_pack(filename: str):
 
 
 @router.post("", status_code=201)
-async def create_rule_pack(body: RulePackIn, x_actor: str | None = Header(default=None, alias="X-Actor")):
+async def create_rule_pack(
+    body: RulePackIn,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
+):
+    _require_rule_governance(x_rule_governance_secret)
     slug = _slugify_pack_name(body.name)
     for path in _list_pack_paths().values():
         try:
@@ -281,7 +270,13 @@ async def create_rule_pack(body: RulePackIn, x_actor: str | None = Header(defaul
 
 
 @router.put("/{filename}")
-async def update_rule_pack(filename: str, body: RulePackIn, x_actor: str | None = Header(default=None, alias="X-Actor")):
+async def update_rule_pack(
+    filename: str,
+    body: RulePackIn,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
+):
+    _require_rule_governance(x_rule_governance_secret)
     fpath = _existing_pack_path(filename)
     pack = {
         "version": 1,
@@ -307,7 +302,12 @@ async def update_rule_pack(filename: str, body: RulePackIn, x_actor: str | None 
 
 
 @router.delete("/{filename}")
-async def delete_rule_pack(filename: str, x_actor: str | None = Header(default=None, alias="X-Actor")):
+async def delete_rule_pack(
+    filename: str,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
+):
+    _require_rule_governance(x_rule_governance_secret)
     fpath = _existing_pack_path(filename)
     fpath.unlink()
     load_rules()
@@ -316,7 +316,13 @@ async def delete_rule_pack(filename: str, x_actor: str | None = Header(default=N
 
 
 @router.post("/{filename}/rules")
-async def add_rule(filename: str, body: RuleIn, x_actor: str | None = Header(default=None, alias="X-Actor")):
+async def add_rule(
+    filename: str,
+    body: RuleIn,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
+):
+    _require_rule_governance(x_rule_governance_secret)
     fpath = _existing_pack_path(filename)
     pack = json.loads(fpath.read_text(encoding="utf-8"))
     if not body.id:
@@ -333,7 +339,13 @@ class RulePackMode(BaseModel):
 
 
 @router.put("/{filename}/mode")
-async def set_pack_mode(filename: str, body: RulePackMode, x_actor: str | None = Header(default=None, alias="X-Actor")):
+async def set_pack_mode(
+    filename: str,
+    body: RulePackMode,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
+):
+    _require_rule_governance(x_rule_governance_secret)
     """Set a rule pack to active, shadow, or disabled mode."""
     fpath = _existing_pack_path(filename)
     if body.mode not in ("active", "shadow", "disabled"):
@@ -347,7 +359,13 @@ async def set_pack_mode(filename: str, body: RulePackMode, x_actor: str | None =
 
 
 @router.delete("/{filename}/rules/{rule_id}")
-async def remove_rule(filename: str, rule_id: str, x_actor: str | None = Header(default=None, alias="X-Actor")):
+async def remove_rule(
+    filename: str,
+    rule_id: str,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
+):
+    _require_rule_governance(x_rule_governance_secret)
     fpath = _existing_pack_path(filename)
     pack = json.loads(fpath.read_text(encoding="utf-8"))
     original = len(pack.get("rules", []))

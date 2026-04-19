@@ -77,6 +77,11 @@ function normalizeSourceRefs(raw: unknown): InvestigationSourceRefCard[] {
     .filter((c) => c.tool.length > 0);
 }
 
+function normalizeConfidenceLabel(raw: unknown): string {
+  const v = String(raw ?? "").trim();
+  return v || "Unspecified";
+}
+
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -91,8 +96,13 @@ interface Message {
   turn_id?: string;
   answer_sections?: InvestigationAnswerSections;
   claims_deterministic_support?: InvestigationClaimSupportRow[];
+  summary_confidence_label?: string;
   tool_acknowledgment_warnings?: string[];
   judge_assessments?: unknown;
+  summary_confidence?: "high" | "medium" | "low";
+  summary_citations?: Array<{ kind: string; value: string; source_ref_tool?: string }>;
+  summary_trace_ids?: string[];
+  summary_artifact_ids?: string[];
   timestamp: Date;
   /** Rich formatting for /skill output and repeat-task hints */
   bubble?: MessageBubbleKind;
@@ -1276,6 +1286,27 @@ function MessageBubble({
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+        {!isUser && !richBubble && message.summary_confidence && (
+          <div className="mt-2 text-xs border-t border-surface-700/80 pt-2 max-w-[75vw] sm:max-w-xl">
+            <div className="text-gray-500 font-medium mb-1">Summary confidence</div>
+            <div className="flex items-center gap-2">
+              <span
+                className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono uppercase ${
+                  message.summary_confidence === "high"
+                    ? "bg-emerald-500/20 text-emerald-300"
+                    : message.summary_confidence === "medium"
+                      ? "bg-amber-500/20 text-amber-300"
+                      : "bg-rose-500/20 text-rose-300"
+                }`}
+              >
+                {message.summary_confidence}
+              </span>
+            </div>
+            {message.summary_confidence_label ? (
+              <p className="mt-1 text-gray-500">{message.summary_confidence_label}</p>
+            ) : null}
           </div>
         )}
 

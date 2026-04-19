@@ -159,6 +159,11 @@ class TestEvaluateJsonRules:
         assert hits == ["big_tx"]
         assert tags == ["high_amount"]
         assert delta == 20.0
+        from decision_api.json_rules import get_rule_hit_telemetry
+
+        snap = get_rule_hit_telemetry()
+        assert snap["total_hits"] >= 1
+        assert any(r["rule_id"] == "big_tx" and r["hits"] >= 1 for r in snap["rows"])
 
     def test_no_hit(self):
         self._load_pack(
@@ -226,6 +231,27 @@ class TestEvaluateJsonRules:
         hits, tags, delta = evaluate_json_rules({}, ["sdk:vpn", "sdk:emulator"])
         assert hits == ["escalate_vpn"]
         assert tags == ["escalated"]
+        assert delta == 10.0
+
+    def test_signal_tags_merge_for_tag_rules(self):
+        """Request-scoped tags (replay, geo) participate in tag_rules without Redis."""
+        self._load_pack(
+            {
+                "version": 1,
+                "rules": [],
+                "tag_rules": [
+                    {
+                        "id": "replay_escalation",
+                        "any_tag": ["ingress:replay_payload"],
+                        "tags": ["policy:replay"],
+                        "score_delta": 10,
+                    }
+                ],
+            }
+        )
+        hits, tags, delta = evaluate_json_rules({}, [], signal_tags=["ingress:replay_payload"])
+        assert hits == ["replay_escalation"]
+        assert "policy:replay" in tags
         assert delta == 10.0
 
     def test_tag_rules_no_match(self):

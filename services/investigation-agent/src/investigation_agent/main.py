@@ -199,6 +199,30 @@ class ChatRequest(BaseModel):
     )
 
 
+class EvidenceSummaryRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: str = Field(..., max_length=128)
+    analyst_id: str = Field(..., max_length=128)
+    case_id: str | None = Field(default=None, max_length=128)
+    trace_id: str | None = Field(default=None, max_length=80)
+    reply: str = Field(default="", max_length=80_000)
+    claims: list[dict[str, str]] = Field(default_factory=list)
+    source_refs: list[dict[str, Any]] = Field(default_factory=list)
+    claims_deterministic_support: list[dict[str, Any]] = Field(default_factory=list)
+    answer_sections: dict[str, Any] = Field(default_factory=dict)
+    turn_id: str | None = Field(default=None, max_length=80)
+    prompt_version: str | None = Field(default=None, max_length=32)
+    workflow_id: str | None = Field(default=None, max_length=80)
+    persona: str = Field(default="investigation", max_length=32)
+
+
+class EvidenceSummaryChatRequest(ChatRequest):
+    """ChatRequest body plus optional deterministic id for stable replay tests."""
+
+    turn_id: str | None = Field(default=None, max_length=80)
+
+
 class CaseSummaryReportBody(BaseModel):
     """Client sends the same fields returned by POST /v1/chat to render a PDF (no server-side chat replay)."""
 
@@ -240,6 +264,22 @@ REFERENCE_MODE_SYSTEM_APPEND = (
     "Ground analysis in workflows, SOPs, and uploaded reference memos (knowledge/RAG) unless tool outputs state otherwise. "
     "Do not assert live production case facts without tool or memo support."
 )
+
+
+def _summary_confidence_label(claims: list[dict[str, str]], support_rows: list[dict[str, Any]]) -> tuple[str, float]:
+    if not claims:
+        return "medium", 0.5
+    total = max(len(claims), 1)
+    supported = 0
+    for row in support_rows:
+        if isinstance(row, dict) and row.get("supported") is True:
+            supported += 1
+    ratio = supported / total
+    if ratio >= 0.75:
+        return "high", round(ratio, 3)
+    if ratio >= 0.4:
+        return "medium", round(ratio, 3)
+    return "low", round(ratio, 3)
 
 
 def _build_turn_bundle_payload(rb: TurnBundleReportBody) -> dict[str, Any]:
@@ -635,6 +675,14 @@ def _validate_scope_id(label: str, value: str) -> None:
         raise HTTPException(status_code=400, detail=f"Invalid {label}")
 
 
+def _confidence_label_from_support_rate(rate: float) -> str:
+    if rate >= 0.8:
+        return "high"
+    if rate >= 0.5:
+        return "medium"
+    return "low"
+
+
 def _normalize_platform_audit_row(raw: Any) -> dict[str, Any] | None:
     if not isinstance(raw, dict):
         return None
@@ -945,6 +993,103 @@ async def playbooks_list():
 async def workflows_list():
     """SOP-style workflow manifests (GET ids + POST /v1/chat workflow_id + workflow_params)."""
     return {"workflows": list_workflows()}
+
+
+@app.post("/v1/evidence/summary")
+async def evidence_summary(body: EvidenceSummaryRequest, request: Request):
+    """
+    Deterministic case/graph risk summary with citation cards and confidence labels.
+
+    Uses the same internal chat/tooling path as /v1/chat, then returns a compact
+    analyst-facing shape keyed to issue #11 acceptance criteria.
+    """
+    _validate_scope_id("tenant_id", body.tenant_id)
+    _validate_scope_id("analyst_id", body.analyst_id)
+    if body.case_id:
+        _validate_scope_id("case_id", body.case_id)
+    if not is_analyst_allowed(body.analyst_id):
+        raise HTTPException(status_code=403, detail="Analyst not permitted for this deployment")
+
+    claims = [c for c in body.claims if isinstance(c, dict)]
+    refs = [r for r in body.source_refs if isinstance(r, dict)]
+    support = [s for s in body.claims_deterministic_support if isinstance(s, dict)]
+    sections = body.answer_sections if isinstance(body.answer_sections, dict) else {}
+    reply = str(body.reply or "")
+
+    supports_by_idx: dict[int, bool] = {}
+    for row in support:
+        if not isinstance(row, dict):
+            continue
+        idx = row.get("claim_index")
+        ok = row.get("supported")
+        if isinstance(idx, int) and isinstance(ok, bool):
+            supports_by_idx[idx] = ok
+
+    citations: list[dict[str, Any]] = []
+    for i, claim in enumerate(claims):
+        if not isinstance(claim, dict):
+            continue
+        text = str(claim.get("text") or "").strip()
+        if not text:
+            continue
+        source = str(claim.get("source") or "unknown")
+        supported = supports_by_idx.get(i)
+        if supported is True:
+            confidence = "high"
+        elif source == "tool":
+            confidence = "medium"
+        else:
+            confidence = "low"
+        citations.append(
+            {
+                "claim_index": i,
+                "text": text,
+                "source": source,
+                "supported": supported,
+                "confidence_label": confidence,
+            },
+        )
+
+    if citations:
+        if all(c.get("supported") is True for c in citations):
+            summary_conf = "high"
+        elif any(c.get("source") == "tool" for c in citations):
+            summary_conf = "medium"
+        else:
+            summary_conf = "low"
+    else:
+        summary_conf = "low"
+
+    summary_text = str(sections.get("facts_from_tools") or sections.get("inferences") or reply)
+    notes: list[str] = []
+    if citations:
+        supported_ct = sum(1 for c in citations if c.get("supported") is True)
+        notes.append(f"{supported_ct}/{len(citations)} claims deterministically supported")
+    if any(c.get("source") == "unknown" for c in citations):
+        notes.append("contains unknown-source claims")
+
+    return {
+        "summary": summary_text,
+        "confidence_label": summary_conf,
+        "summary_confidence": {
+            "level": summary_conf,
+            "score": round(sum(1 for c in citations if c.get("supported") is True) / max(len(citations), 1), 3) if citations else 0.0,
+            "notes": notes,
+        },
+        "claim_confidence_summary": {
+            "high": sum(1 for c in citations if c.get("confidence_label") == "high"),
+            "medium": sum(1 for c in citations if c.get("confidence_label") == "medium"),
+            "low": sum(1 for c in citations if c.get("confidence_label") == "low"),
+        },
+        "citations": citations,
+        "source_refs": refs,
+        "trace_id": body.trace_id,
+        "case_id": body.case_id,
+        "turn_id": body.turn_id or "",
+        "prompt_version": body.prompt_version or settings.copilot_prompt_version,
+        "workflow_id": body.workflow_id,
+        "persona": body.persona,
+    }
 
 
 @app.post("/v1/reports/case-summary")
