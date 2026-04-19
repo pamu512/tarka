@@ -4,7 +4,7 @@ This guide maps [GitHub issue #31](https://github.com/pamu512/tarka/issues/31) (
 
 ## Canary (stable cohort + traffic %)
 
-JSON rule packs support **`canary_percent`** (0–100) and optional **`effective_at`**. For each pack, the Decision API computes a **stable 0..99 bucket**:
+JSON rule packs support `**canary_percent`** (0–100) and optional `**effective_at**`. For each pack, the Decision API computes a **stable 0..99 bucket**:
 
 ```text
 SHA256("{tenant_id}|{entity_id}|{pack_key}")[:8] mod 100
@@ -22,19 +22,35 @@ Shadow rule packs (`mode: shadow` on disk, or `SHADOW_RULES_PATH`) are evaluated
 - **Implementation:** `services/decision-api/src/decision_api/shadow.py`, `_run_shadow_evaluation` in `main.py`.
 - **API:** `GET /v1/rules/shadow/observations`, `GET /v1/rules/shadow/stats`.
 
-## Champion–challenger (audit-only analysis)
+## Canary cohort fields (OSS #47, audit / dashboards)
 
-When **`POLICY_CHAMPION_CHALLENGER_ENABLED=true`**, the API runs a second JSON rule pass with **`evaluation_mode=challenger`**: all active packs that pass **`effective_at`** are evaluated **ignoring `canary_percent`**. That produces a **challenger** rule-score delta comparable to the **champion** (production canary) path.
-
-Both paths share the same **OPA delta**, consortium/graph/replay additions, and thresholds for a **rule-only** `allow` / `review` / `deny` comparison. The **HTTP response is unchanged** (still production scoring + ML blend). Structured comparison is stored on the audit row under **`payload_snapshot.policy_routing`**.
+Every evaluate path that writes `decision_audit` includes **`payload_snapshot.canary_cohort`**:
 
 | Field | Meaning |
 |--------|---------|
-| `cohort_bucket_0_99` | Stable bucket for dashboards (`POLICY_COHORT_SALT` + tenant + entity) |
-| `champion_rule_score` / `challenger_rule_score` | Rule-era scores before ML blend |
-| `champion_decision` / `challenger_decision` | Thresholded from rule scores only |
-| `decisions_agree` | Boolean |
-| `ml_score` | ML score if present (for offline joins) |
+| `schema_version` | Document shape (currently `1`) |
+| `cohort_sticky_id` | First 16 hex chars of `SHA256("{tenant}\|{entity}\|{salt_version}")` — stable join key for stickiness |
+| `cohort_bucket_0_99` | Same 0..99 bucket as canary routing when salt aligns |
+| `salt_version` | From **`POLICY_COHORT_SALT`** (default `policy_v1`) |
+| `experiment_id` | Optional; from **`POLICY_EXPERIMENT_ID`** |
+
+List bypass (whitelist/blacklist) audits include the same block for consistent dashboard queries.
+
+## Champion–challenger (audit-only analysis)
+
+When `**POLICY_CHAMPION_CHALLENGER_ENABLED=true`**, the API runs a second JSON rule pass with `**evaluation_mode=challenger**`: all active packs that pass `**effective_at**` are evaluated **ignoring `canary_percent`**. That produces a **challenger** rule-score delta comparable to the **champion** (production canary) path.
+
+Both paths share the same **OPA delta**, consortium/graph/replay additions, and thresholds for a **rule-only** `allow` / `review` / `deny` comparison. The **HTTP response is unchanged** (still production scoring + ML blend). Structured comparison is stored on the audit row under `**payload_snapshot.policy_routing`**.
+
+
+| Field                                           | Meaning                                                               |
+| ----------------------------------------------- | --------------------------------------------------------------------- |
+| `cohort_bucket_0_99`                            | Stable bucket for dashboards (`POLICY_COHORT_SALT` + tenant + entity) |
+| `champion_rule_score` / `challenger_rule_score` | Rule-era scores before ML blend                                       |
+| `champion_decision` / `challenger_decision`     | Thresholded from rule scores only                                     |
+| `decisions_agree`                               | Boolean                                                               |
+| `ml_score`                                      | ML score if present (for offline joins)                               |
+
 
 - **Helpers:** `services/decision-api/src/decision_api/policy_routing.py`
 - **Env:** `POLICY_CHAMPION_CHALLENGER_ENABLED`, `POLICY_COHORT_SALT` (default `policy_v1`)
@@ -53,3 +69,4 @@ For strict “canary > AB > main” tables from risk-engine YAML, continue to us
 
 - [OSS ship order](./oss-ship-order-dependencies.md) (issue #31 dependencies)
 - [Counter replay parity](./counter-replay-parity.md) (separate Epic C track)
+

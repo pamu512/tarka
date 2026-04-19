@@ -92,7 +92,12 @@ class TestEvaluateDecision:
     @pytest.mark.asyncio
     async def test_basic_allow(self, client):
         mock_session = AsyncMock()
-        mock_session.add = MagicMock()
+        captured: list = []
+
+        def _capture_add(obj):
+            captured.append(obj)
+
+        mock_session.add = MagicMock(side_effect=_capture_add)
         mock_session.commit = AsyncMock()
         from decision_api.main import get_session
 
@@ -260,6 +265,8 @@ class TestChampionChallengerPolicyRouting:
         assert r.status_code == 200
         assert len(captured) == 1
         snap = captured[0].payload_snapshot
+        assert "canary_cohort" in snap
+        assert snap["canary_cohort"].get("cohort_sticky_id")
         assert "policy_routing" in snap
         pr = snap["policy_routing"]
         assert pr["champion_decision"] == "allow"
