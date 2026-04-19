@@ -64,6 +64,9 @@ def build_inference_context(
     ml_detail: dict[str, Any] | None = None,
     platform: str = "web",
     tls_pinning_verified: bool | None = None,
+    location_meta: dict[str, Any] | None = None,
+    counter_meta: dict[str, Any] | None = None,
+    calibration_meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Normalize heterogeneous risk signals into a versioned inference contract (Epic A/E)."""
     features = features or {}
@@ -125,6 +128,25 @@ def build_inference_context(
         exp_cal_ver = 1
     exp_cal_ver = max(1, min(999999, exp_cal_ver))
 
+    cal_profile_ver = 1
+    calibration_source = "heuristic"
+    if calibration_meta:
+        calibration_source = "service"
+        profile_id = calibration_meta.get("profile_id")
+        if isinstance(profile_id, str) and profile_id.strip():
+            cal_profile_s = profile_id.strip()[:64]
+        profile_ver = calibration_meta.get("expected_calibration_version")
+        try:
+            if profile_ver is not None:
+                exp_cal_ver = max(1, min(999999, int(profile_ver)))
+        except (TypeError, ValueError):
+            pass
+        runtime_profile_ver = calibration_meta.get("profile_version")
+        try:
+            if runtime_profile_ver is not None:
+                cal_profile_ver = max(1, min(999999, int(runtime_profile_ver)))
+        except (TypeError, ValueError):
+            pass
     # --- Epic E: shared-device / velocity heuristics (co-location & impossible travel proxies) ---
     colocation_risk = _clamp01(0.75 if "sdk:shared_device" in signal_set else 0.0)
     distinct_sess = int(features.get("distinct_session_id_24h") or 0)
@@ -170,6 +192,62 @@ def build_inference_context(
         geo_consistency_risk = max(0.0, geo_consistency_risk - 0.2)
 
     impossible_travel_risk = _clamp01(travel_boost)
+
+    location_confidence = 0.0
+    location_source = "heuristic"
+    if location_meta:
+        location_source = "service"
+        try:
+            geo_consistency_risk = _clamp01(float(location_meta.get("geo_consistency_risk", geo_consistency_risk)))
+        except (TypeError, ValueError):
+            pass
+        try:
+            colocation_risk = _clamp01(float(location_meta.get("copresence_risk", colocation_risk)))
+        except (TypeError, ValueError):
+            pass
+        try:
+            impossible_travel_risk = _clamp01(float(location_meta.get("impossible_travel_risk", impossible_travel_risk)))
+        except (TypeError, ValueError):
+            pass
+        try:
+            location_confidence = _clamp01(float(location_meta.get("location_confidence", 0.0)))
+        except (TypeError, ValueError):
+            pass
+
+    counter_source = "heuristic"
+    if counter_meta:
+        counter_source = "service"
+        counters = counter_meta.get("counters")
+        if isinstance(counters, dict):
+            ev5 = counters.get("event_count_5m")
+            ev1 = counters.get("event_count_1h")
+            ev24 = counters.get("event_count_24h")
+            try:
+                if ev5 is not None:
+                    features["event_count_5m"] = int(ev5)
+            except (TypeError, ValueError):
+                pass
+            try:
+                if ev1 is not None:
+                    features["event_count_1h"] = int(ev1)
+            except (TypeError, ValueError):
+                pass
+            try:
+                if ev24 is not None:
+                    features["event_count_24h"] = int(ev24)
+            except (TypeError, ValueError):
+                pass
+    elif any(k in features for k in ("event_count_5m", "event_count_1h", "event_count_24h")):
+        counter_source = "local-fallback"
+
+    try:
+        ev1h = int(features.get("event_count_1h") or ev1h)
+    except (TypeError, ValueError):
+        ev1h = int(ev1h)
+    try:
+        ev24 = int(features.get("event_count_24h") or ev24)
+    except (TypeError, ValueError):
+        ev24 = int(ev24)
 
     # Epic A: tier + analyst-facing drivers
     if integrity_confidence >= 0.72:
@@ -242,6 +320,13 @@ def build_inference_context(
         "velocity_events_5m": int(features.get("event_count_5m") or 0),
         "velocity_events_1h": ev1h,
         "velocity_events_24h": ev24,
+        "calibration_profile_version": cal_profile_ver,
+        "location_confidence": round(location_confidence, 4),
+        "confidence_sources": {
+            "calibration": calibration_source,
+            "counter": counter_source,
+            "location": location_source,
+        },
         "ml_top_factors": ml_top_factors,
         "ml_summary": ml_summary,
         "ml_model": ml_model,
