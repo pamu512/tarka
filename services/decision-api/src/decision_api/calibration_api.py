@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from decision_api.config import settings
@@ -34,6 +34,17 @@ def _snapshots_path() -> Path:
 def _reference_path(profile: str) -> Path:
     safe = "".join(c if c.isalnum() or c in "._-" else "_" for c in profile.strip())[:120] or "default"
     return _data_dir() / f"reference_{safe}.json"
+
+
+def _resolved_under_data_dir(path: Path) -> Path:
+    """Reject paths outside CALIBRATION_DATA_DIR (mitigate path injection via parameters)."""
+    base = _data_dir().resolve()
+    try:
+        resolved = path.resolve()
+        resolved.relative_to(base)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="calibration path must be under data directory") from None
+    return resolved
 
 
 class CalibrationSnapshotIn(BaseModel):
@@ -83,7 +94,7 @@ async def set_reference(profile: str, body: CalibrationSnapshotIn):
         "mean_integrity": body.mean_integrity,
         "sample_count": body.sample_count,
     }
-    path = _reference_path(profile)
+    path = _resolved_under_data_dir(_reference_path(profile))
     path.write_text(json.dumps(ref, indent=2), encoding="utf-8")
     return {"ok": True, "path": str(path)}
 
@@ -96,7 +107,7 @@ def compute_drift_for_tenant(
     reference_path: Path | None = None,
 ) -> dict[str, Any]:
     """Pure helper for tests and tooling."""
-    ref_p = reference_path or _reference_path(profile)
+    ref_p = _resolved_under_data_dir(reference_path or _reference_path(profile))
     if not ref_p.is_file():
         return {
             "tenant_id": tenant_id,
@@ -108,7 +119,7 @@ def compute_drift_for_tenant(
     ref = json.loads(ref_p.read_text(encoding="utf-8"))
     ref_hist = ref.get("integrity_histogram") or {}
     latest: dict[str, Any] | None = None
-    sp = snapshots_path or _snapshots_path()
+    sp = _resolved_under_data_dir(snapshots_path or _snapshots_path())
     if sp.is_file():
         for line in reversed(sp.read_text(encoding="utf-8").splitlines()):
             line = line.strip()

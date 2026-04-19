@@ -760,14 +760,20 @@ export const ml = {
 
 // ── Rules (decision-api :8000, /v1/rules router) ────────────────────
 
+/** Session-only governance secret (never persisted; avoids clear-text storage in localStorage). */
+let _sessionRuleGovernanceSecret = "";
+
+/** Called from Rules UI when the secret field changes. */
+export function syncRuleGovernanceSecret(value: string): void {
+  _sessionRuleGovernanceSecret = value.trim();
+}
+
 const _ruleActorHeaders = (): HeadersInit => {
   const h: Record<string, string> = {
     "X-Actor": (typeof localStorage !== "undefined" && localStorage.getItem("tarka.rule_actor")) || "web-ui",
   };
-  const gov =
-    typeof localStorage !== "undefined" ? localStorage.getItem("tarka.rule_governance_secret")?.trim() : "";
-  if (gov) {
-    h["X-Rule-Governance-Secret"] = gov;
+  if (_sessionRuleGovernanceSecret) {
+    h["X-Rule-Governance-Secret"] = _sessionRuleGovernanceSecret;
   }
   return h;
 };
