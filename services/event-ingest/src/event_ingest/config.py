@@ -15,6 +15,22 @@ class Settings(BaseSettings):
     redis_url: str = ""
     idempotency_ttl_seconds: int = 86400
     idempotency_key_prefix: str = "ingest:idemp"
+    # E1: optional | required envelope { schema_version: "1", event: { ... } }
+    ingest_envelope_mode: str = "optional"
+    # When true, POST /v1/events requires Idempotency-Key (or metadata.idempotency_key).
+    ingest_require_idempotency_key: bool = False
+    # E2: publish poison / rule-reject evaluate outcomes to a DLQ subject (same stream wildcard fraud.events.>).
+    ingest_dlq_subject: str = ""
+    ingest_dlq_publish_on_evaluate_4xx: bool = False
+
+    # E1 contract-first: optional | required — required = only `{schema_version:"1", event:{...}}`
+    ingest_envelope_mode: str = "optional"
+    # R3.1 — reject ingest when Idempotency-Key missing (high-volume safe retries)
+    ingest_require_idempotency_key: bool = False
+
+    # E2 DLQ: publish poison / bad-evaluate payloads to JetStream (same stream wildcard fraud.events.>)
+    ingest_dlq_subject: str = "fraud.events.dlq"
+    ingest_dlq_publish_on_evaluate_4xx: bool = False
 
 
 settings = Settings()

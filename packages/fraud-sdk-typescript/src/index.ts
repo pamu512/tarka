@@ -9,7 +9,23 @@ export {
   type BotIndicators,
 } from "./behavior.js";
 
+export {
+  describeSdkCapabilities,
+  getSdkRuntime,
+  resolveCollectorTimeouts,
+  withTimeoutFailOpen,
+  type CollectorTimeoutsMs,
+  type SdkCapabilityMatrix,
+  type SdkRuntime,
+} from "./runtime.js";
+
 import type { BehaviorCollector as BehaviorCollectorClass, BehaviorSignals } from "./behavior.js";
+import type { CollectorTimeoutsMs, SdkCapabilityMatrix } from "./runtime.js";
+import {
+  describeSdkCapabilities,
+  resolveCollectorTimeouts,
+  withTimeoutFailOpen,
+} from "./runtime.js";
 
 export type EventType =
   | "login"
@@ -152,6 +168,8 @@ export interface InferenceContext {
   schema_version: string;
   calibration_profile: string;
   expected_calibration_version: number;
+  confidence_tier_label?: string;
+  driver_explain?: Array<{ reason: string; category: string; label: string }>;
   integrity_confidence: number;
   tamper_risk: number;
   network_trust: number;
@@ -257,13 +275,13 @@ function getWebGLRenderer(): string | null {
   }
 }
 
-function detectVpnWebRTC(): Promise<boolean> {
+function detectVpnWebRTC(timeoutMs: number): Promise<boolean> {
   return new Promise((resolve) => {
     if (typeof RTCPeerConnection === "undefined") {
       resolve(false);
       return;
     }
-    const timer = setTimeout(() => resolve(false), 3000);
+    const timer = setTimeout(() => resolve(false), Math.max(1, timeoutMs));
     try {
       const pc = new RTCPeerConnection({
         iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
@@ -332,6 +350,7 @@ function createBehaviorCollector(): SimpleBehaviorState {
 
 async function getAudioFingerprint(): Promise<string | null> {
   if (typeof AudioContext === "undefined" && typeof (window as any).webkitAudioContext === "undefined") return null;
+  if (typeof crypto === "undefined" || typeof crypto.subtle === "undefined") return null;
   try {
     const AC = AudioContext || (window as any).webkitAudioContext;
     const ctx = new AC();
@@ -417,6 +436,7 @@ function collectBrowserGeo(
 
 function isStorageAvailable(type: "localStorage" | "sessionStorage" | "indexedDB"): boolean | null {
   try {
+    if (typeof window === "undefined") return null;
     if (type === "indexedDB") return typeof indexedDB !== "undefined";
     const storage = window[type];
     const key = "__tarka_test__";
@@ -428,27 +448,56 @@ function isStorageAvailable(type: "localStorage" | "sessionStorage" | "indexedDB
   }
 }
 
+export interface DeviceSignalCollectorOptions {
+  enableGeo?: boolean;
+  /** Override per-source timeouts (ms); zero skips that async collector (fail-open). */
+  collectorTimeouts?: Partial<CollectorTimeoutsMs>;
+  /** Pre-computed capabilities; default `describeSdkCapabilities()`. */
+  capabilities?: SdkCapabilityMatrix;
+  /** Log `console.warn` when a collector hits its timeout (browser only). */
+  failOpenLogTimeouts?: boolean;
+}
+
 export class DeviceSignalCollector {
   private behavior: SimpleBehaviorState;
   private canvasRaw: string | null = null;
   private behaviorCollector: BehaviorCollectorClass | null = null;
   private readonly enableGeo: boolean;
+  private readonly caps: SdkCapabilityMatrix;
+  private readonly timeouts: CollectorTimeoutsMs;
+  private readonly failOpenLogTimeouts: boolean;
 
   constructor(
     behaviorCollector?: BehaviorCollectorClass,
-    opts?: { enableGeo?: boolean }
+    opts?: DeviceSignalCollectorOptions,
   ) {
     this.behavior = createBehaviorCollector();
     this.canvasRaw = getCanvasFingerprint();
     this.behaviorCollector = behaviorCollector ?? null;
     this.enableGeo = opts?.enableGeo === true;
+    this.caps = opts?.capabilities ?? describeSdkCapabilities();
+    this.timeouts = resolveCollectorTimeouts(this.caps, opts?.collectorTimeouts);
+    this.failOpenLogTimeouts = opts?.failOpenLogTimeouts === true;
+  }
+
+  /** Capability matrix for this environment (browser vs server, APIs present). */
+  getCapabilities(): SdkCapabilityMatrix {
+    return this.caps;
   }
 
   async collect(): Promise<DeviceSignals> {
     const webdriver = detectWebdriver();
     const headless = detectHeadless();
     const automation = detectAutomation();
-    const vpn = await detectVpnWebRTC();
+    const vpn =
+      this.timeouts.vpn > 0 && this.caps.has_rtc_peer_connection
+        ? await withTimeoutFailOpen(
+            detectVpnWebRTC(this.timeouts.vpn),
+            this.timeouts.vpn,
+            false,
+            { collectorName: "vpn_webrtc", logTimeouts: this.failOpenLogTimeouts },
+          )
+        : false;
     const webglRenderer = getWebGLRenderer();
     const canvasHash = this.canvasRaw
       ? await sha256Hex(this.canvasRaw)
@@ -479,8 +528,8 @@ export class DeviceSignalCollector {
     let geo_accuracy_m: number | null = null;
     let geo_source: GeoSource = "none";
     let geo_ts: string | null = null;
-    if (this.enableGeo) {
-      const g = await collectBrowserGeo(2800);
+    if (this.enableGeo && this.timeouts.geo > 0 && this.caps.has_geolocation) {
+      const g = await collectBrowserGeo(this.timeouts.geo);
       if (g) {
         geo_lat = g.lat;
         geo_lon = g.lon;
@@ -511,7 +560,15 @@ export class DeviceSignalCollector {
       battery_api_present: battery,
       language: lang,
       platform_version: pv,
-      audio_fp_hash: await getAudioFingerprint(),
+      audio_fp_hash:
+        this.timeouts.audio > 0 && this.caps.has_audio_context && this.caps.has_subtle_crypto
+          ? await withTimeoutFailOpen(
+              getAudioFingerprint(),
+              this.timeouts.audio,
+              null,
+              { collectorName: "audio_fp", logTimeouts: this.failOpenLogTimeouts },
+            )
+          : null,
       connection_type: getConnectionType(),
       device_memory: typeof navigator !== "undefined" ? (navigator as any).deviceMemory ?? null : null,
       hardware_concurrency: typeof navigator !== "undefined" ? navigator.hardwareConcurrency ?? null : null,
@@ -588,6 +645,12 @@ export interface DecisionClientOptions {
   autoCollectSignals?: boolean;
   /** When true, attempts a one-shot browser geolocation read (non-blocking timeout). Off by default. */
   enableGeo?: boolean;
+  /** Per-signal-collector timeouts (VPN WebRTC, audio FP, geo); fail-open on timeout. */
+  collectorTimeouts?: Partial<CollectorTimeoutsMs>;
+  /** Log when a collector times out (browser only). */
+  failOpenLogTimeouts?: boolean;
+  /** Override environment detection (tests). */
+  capabilities?: SdkCapabilityMatrix;
 }
 
 export class DecisionClient {
@@ -602,7 +665,12 @@ export class DecisionClient {
     this.timeoutMs = opts.timeoutMs ?? 10_000;
     this.collector =
       opts.autoCollectSignals !== false
-        ? new DeviceSignalCollector(undefined, { enableGeo: opts.enableGeo })
+        ? new DeviceSignalCollector(undefined, {
+            enableGeo: opts.enableGeo,
+            collectorTimeouts: opts.collectorTimeouts,
+            failOpenLogTimeouts: opts.failOpenLogTimeouts,
+            capabilities: opts.capabilities,
+          })
         : null;
   }
 

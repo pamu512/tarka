@@ -25,7 +25,7 @@ The platform is designed around composability. Run just the Decision API with Re
 - **ML model serving** — ONNX model registry with versioned deployments, A/B traffic splitting, and automatic heuristic fallback. Train models with the included pipeline or bring your own.
 - **Case management** — Full investigation workflow with SLA tracking, workflow automation, audit trails, labels, comments, and WebSocket live feeds.
 - **Device signal SDKs** — **TypeScript** (browser), **Python** (server), **Kotlin** ([Android SDK](sdks/android.md)), and **Swift** ([iOS SDK](sdks/ios.md)) ship in-repo with the same `device_context` contract — see [SDK scorecard](guides/sdk-scorecard-2026-01.md) and [Mobile SDK project](projects/sdk-mobile-project.md).
-- **Regulated markets (optional)** — fintech, banking, crypto-adjacent, and similar deployments can follow the **[regulated markets feature pack](guides/feature-pack-regulated-markets.md)** checklist (ingress integrity, attestation, audit, self-hosted data boundaries). For **SOC 2 / PCI / ISO** orientation (readiness vs certification), see **[compliance readiness](guides/compliance-readiness-soc2-pci-iso.md)**.
+- **Regulated markets (optional)** — fintech, banking, crypto-adjacent, and similar deployments can follow the **[regulated markets feature pack](guides/feature-pack-regulated-markets.md)** checklist (ingress integrity, attestation, audit, self-hosted data boundaries). For **SOC 2 / PCI / ISO** orientation (readiness vs certification), see **[compliance readiness](guides/compliance-readiness-soc2-pci-iso.md)**. Mobile **`device_context.attestation`** uses a shared vocabulary — **[mobile attestation taxonomy](guides/mobile-attestation-taxonomy.md)**.
 - **Streaming ingestion** — NATS JetStream-backed event pipeline for high-throughput async processing with at-least-once delivery.
 - **Workflow automation** — JSON-defined workflows that auto-escalate, route, label, and webhook based on triggers and conditions.
 - **Full audit trail** — Every decision, rule hit, score, and case mutation is recorded in Postgres with trace IDs for end-to-end observability.
@@ -64,9 +64,9 @@ The platform is designed around composability. Run just the Decision API with Re
 
     Write your first fraud detection rule pack in JSON.
 
-- :material-kubernetes: **[Deployment Guide](guides/deployment.md)**
+- :material-kubernetes: **[Deployment Guide](guides/deployment.md)** — profiles, Helm, hardening; **[Community vs Pro profiles](guides/deployment-profiles-community-vs-pro.md)** (compose tiers, **#38**).
 
-    Deploy to production with Docker Compose profiles or Helm on Kubernetes.
+    Deploy to production with Docker Compose profiles or Helm on Kubernetes. **[OSS track closure checklist](guides/oss-track-issue-closure-evidence-2026-04.md)** (#31–#54 merge evidence). **[Policy DAG (OSS #31)](./guides/policy-dag-oss-31.md)** (canary, shadow, champion–challenger audit). **[Typology / parity / graph checkpoints (#34, #48, #49)](./guides/oss-typology-parity-graph-34-48-49.md)**. **[Typology DSL / predicate registry (OSS #46)](./guides/oss-typology-dsl-46.md)**. **[v1.2.5 backlog status](./guides/v1.2.5-execution-backlog-status.md)** (shipped vs deferred). **[Close epics #4–#12 (paste-ready comments)](./guides/github-issue-closure-epics-4-12.md)**. **[ETL Bronze/Silver/Gold](./guides/etl-bronze-silver-gold.md)** (ingest DLQ, silver checks). **[Service SLOs (v1)](./guides/service-slos-v1.md)** · **[Late arrival & watermarks](./guides/late-arrival-watermarks.md)**.
 
 - :material-robot: **[Investigation copilot (Saarthi) & Saarthi Pro](guides/saarthi-pro-vs-oss.md)**
 

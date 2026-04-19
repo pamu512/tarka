@@ -11,6 +11,7 @@ SCORE_PREFIX = "fraud:score:"
 NONCE_PREFIX = "fraud:nonce:"
 CONSORTIUM_PREFIX = "fraud:consortium:"
 REPLAY_PREFIX = "fraud:replay:"
+TENANT_FLAGS_PREFIX = "fraud:tenant_flags:"
 TTL_SECONDS = 86400 * 7
 
 SCORE_TTL_SECONDS = int(os.environ.get("REDIS_SCORE_TTL_SECONDS", str(86400 * 7)))
@@ -115,6 +116,37 @@ class RedisTags:
         return val is not None
 
     # --- Ingress replay detection ---
+    async def get_tenant_flags(self, tenant_id: str) -> dict[str, Any]:
+        """JSON flags keyed by tenant for kill-switches (R2.3). Empty if unset."""
+        await self.connect()
+        assert self._client
+        raw = await self._client.get(f"{TENANT_FLAGS_PREFIX}{tenant_id}")
+        if not raw:
+            return {}
+        try:
+            data = json.loads(raw)
+            return data if isinstance(data, dict) else {}
+        except json.JSONDecodeError:
+            return {}
+
+    async def set_tenant_flags(self, tenant_id: str, flags: dict[str, Any]) -> dict[str, Any]:
+        """Replace tenant flags document (admin / ops)."""
+        await self.connect()
+        assert self._client
+        key = f"{TENANT_FLAGS_PREFIX}{tenant_id}"
+        await self._client.set(key, json.dumps(flags, sort_keys=True, default=str))
+        return dict(flags)
+
+    async def patch_tenant_flags(self, tenant_id: str, updates: dict[str, Any]) -> dict[str, Any]:
+        """Merge updates into tenant flags."""
+        cur = await self.get_tenant_flags(tenant_id)
+        for k, v in updates.items():
+            if v is None:
+                cur.pop(k, None)
+            else:
+                cur[k] = v
+        return await self.set_tenant_flags(tenant_id, cur)
+
     async def check_and_store_replay_signature(
         self,
         tenant_id: str,

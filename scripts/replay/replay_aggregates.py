@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import datetime as dt
 import json
 import sys
 import uuid
@@ -21,6 +22,10 @@ from pathlib import Path
 from typing import Any, Iterator
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
+_SHARED = _REPO_ROOT / "services" / "shared"
+if str(_SHARED) not in sys.path:
+    sys.path.insert(0, str(_SHARED))
+from event_time import event_time_unix_for_evaluate  # noqa: E402
 
 
 def _ensure_import_paths() -> None:
@@ -36,6 +41,46 @@ def iter_audit_rows(path: Path) -> Iterator[dict[str, Any]]:
             if not line:
                 continue
             yield json.loads(line)
+
+
+def parse_time_bound(raw: str) -> float:
+    """Parse unix-seconds or ISO-8601 into epoch seconds."""
+    s = str(raw).strip()
+    if not s:
+        raise ValueError("empty time bound")
+    try:
+        return float(s)
+    except ValueError:
+        pass
+    # Accept `Z` suffix in addition to offset-aware ISO.
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    ts = dt.datetime.fromisoformat(s)
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=dt.timezone.utc)
+    return ts.timestamp()
+
+
+def row_timestamp_seconds(row: dict[str, Any]) -> float | None:
+    """Best-effort event timestamp from canonical fields."""
+    for key in ("ts", "created_at", "event_ts", "timestamp"):
+        v = row.get(key)
+        if v is None:
+            continue
+        if isinstance(v, (int, float)):
+            return float(v)
+        if isinstance(v, str):
+            s = v.strip()
+            if not s:
+                continue
+            try:
+                return float(s)
+            except ValueError:
+                try:
+                    return parse_time_bound(s)
+                except ValueError:
+                    continue
+    return None
 
 
 def row_to_record_args(row: dict[str, Any]) -> tuple[str, str, str, dict[str, Any], float | None] | None:
@@ -55,8 +100,11 @@ def row_to_record_args(row: dict[str, Any]) -> tuple[str, str, str, dict[str, An
         fields = dict(payload) if isinstance(payload, dict) else {}
     elif not isinstance(fields, dict):
         fields = {}
+    meta = row.get("metadata") if isinstance(row.get("metadata"), dict) else None
     ts = row.get("ts")
-    ts_f = float(ts) if ts is not None else None
+    ts_f: float | None = float(ts) if ts is not None else None
+    if ts_f is None:
+        ts_f = event_time_unix_for_evaluate(meta, fields)
     return str(tenant_id), str(entity_id), str(event_id), fields, ts_f
 
 
@@ -65,6 +113,8 @@ async def replay_to_redis(
     redis_url: str,
     *,
     limit: int | None = None,
+    from_ts: float | None = None,
+    to_ts: float | None = None,
     dry_run: bool,
 ) -> int:
     _ensure_import_paths()
@@ -79,6 +129,11 @@ async def replay_to_redis(
         for row in iter_audit_rows(path):
             if limit is not None and count >= limit:
                 break
+            row_ts = row_timestamp_seconds(row)
+            if from_ts is not None and (row_ts is None or row_ts < from_ts):
+                continue
+            if to_ts is not None and (row_ts is None or row_ts > to_ts):
+                continue
             parsed = row_to_record_args(row)
             if parsed is None:
                 skipped += 1
@@ -115,6 +170,18 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument("--limit", type=int, default=None, help="Max rows to process")
     p.add_argument(
+        "--from-ts",
+        type=str,
+        default="",
+        help="Inclusive lower timestamp bound (unix seconds or ISO-8601, e.g. 2026-04-01T00:00:00Z)",
+    )
+    p.add_argument(
+        "--to-ts",
+        type=str,
+        default="",
+        help="Inclusive upper timestamp bound (unix seconds or ISO-8601)",
+    )
+    p.add_argument(
         "--dry-run",
         action="store_true",
         help="Validate and count rows only; no Redis writes",
@@ -149,11 +216,31 @@ def main(argv: list[str] | None = None) -> int:
         print("Provide --redis-url or use --dry-run.", file=sys.stderr)
         return 1
 
+    from_ts: float | None = None
+    to_ts: float | None = None
+    if str(args.from_ts).strip():
+        try:
+            from_ts = parse_time_bound(args.from_ts)
+        except ValueError as exc:
+            print(f"Invalid --from-ts: {exc}", file=sys.stderr)
+            return 1
+    if str(args.to_ts).strip():
+        try:
+            to_ts = parse_time_bound(args.to_ts)
+        except ValueError as exc:
+            print(f"Invalid --to-ts: {exc}", file=sys.stderr)
+            return 1
+    if from_ts is not None and to_ts is not None and from_ts > to_ts:
+        print("--from-ts must be <= --to-ts", file=sys.stderr)
+        return 1
+
     return asyncio.run(
         replay_to_redis(
             args.input,
             args.redis_url.strip(),
             limit=args.limit,
+            from_ts=from_ts,
+            to_ts=to_ts,
             dry_run=args.dry_run,
         )
     )

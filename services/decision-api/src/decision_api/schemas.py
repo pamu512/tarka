@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 from enum import Enum
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+from decision_api.attestation_taxonomy import normalize_attestation_object
 
 
 class EventType(str, Enum):
@@ -20,6 +24,17 @@ class DeviceContextIn(BaseModel):
     signals: dict[str, Any] = Field(default_factory=dict)
     attestation: dict[str, Any] | None = None
     behavior: dict[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def _normalize_attestation(self) -> DeviceContextIn:
+        if self.attestation is None:
+            return self
+        normalized = normalize_attestation_object(self.attestation, platform=self.platform)
+        if normalized is None:
+            object.__setattr__(self, "attestation", None)
+        else:
+            object.__setattr__(self, "attestation", normalized)
+        return self
 
 
 class EvaluateRequest(BaseModel):
@@ -63,6 +78,11 @@ class InferenceContext(BaseModel):
     velocity_events_5m: int = 0
     velocity_events_1h: int = 0
     velocity_events_24h: int = 0
+    calibration_profile_version: int = 1
+    location_confidence: float = 0.0
+    confidence_sources: dict[str, str] = Field(
+        default_factory=lambda: {"calibration": "heuristic", "counter": "heuristic", "location": "heuristic"}
+    )
     ml_top_factors: list[dict[str, Any]] = Field(default_factory=list)
     ml_summary: str | None = None
     ml_model: str | None = None
@@ -85,4 +105,8 @@ class EvaluateResponse(BaseModel):
     challenge_metadata: dict[str, Any] | None = Field(
         default=None,
         description="Matched rule id, escalation ladder, etc.",
+    )
+    fallback_reason: str | None = Field(
+        default=None,
+        description="Set when evaluate used rules-only or degraded dependencies (circuit/tenant flags); mirrors audit payload_snapshot.fallback_reason",
     )

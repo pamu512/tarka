@@ -1,0 +1,18 @@
+# Example Prometheus recording rules: fast (5m) vs slow (1h) error-rate windows for burn alerts.
+# Copy into your Prometheus rules directory and adjust metric names to match your scrape config.
+#
+# Requires: rate(http_requests_total{...}[5m]) or your service error metric.
+
+groups:
+  - name: tarka_slo_burn_examples
+    rules:
+      - record: job:http_5xx_rate5m
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) by (job)
+          /
+          clamp_min(sum(rate(http_requests_total[5m])) by (job), 1e-9)
+      - record: job:http_5xx_rate1h
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[1h])) by (job)
+          /
+          clamp_min(sum(rate(http_requests_total[1h])) by (job), 1e-9)
