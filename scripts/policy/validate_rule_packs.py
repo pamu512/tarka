@@ -36,7 +36,7 @@ def main() -> int:
     from decision_api.rule_pack_validation import validate_rule_pack
 
     errors: list[str] = []
-    skip_names = frozenset({"typology_definitions_v1.json"})
+    skip_names = frozenset({"typology_definitions_v1.json", "typology_predicate_registry_v1.json"})
     for f in sorted(rules_dir.glob("*.json")):
         if f.name in skip_names:
             continue

@@ -3,8 +3,31 @@
 The TypeScript SDK (`@tarka/sdk`) provides a browser-side client for the Decision API with automatic device signal collection, fingerprinting, and attestation. Use it in your web application to evaluate fraud decisions with rich client-side context.
 
 **Package:** `@tarka/sdk`
-**Runtime:** Browser (uses `crypto.subtle`, `navigator`, `RTCPeerConnection`)
+**Runtime:** Browser (uses `crypto.subtle`, `navigator`, `RTCPeerConnection` when available); **server / worker** environments skip DOM-only collectors and use **fail-open** defaults so `evaluate` never blocks on missing APIs.
 **Dependencies:** None (zero dependencies, uses native `fetch`)
+
+---
+
+## Runtime guards & fail-open collection (Issue #44)
+
+The SDK exposes a small **capability matrix** so you can reason about what will run in the current JS realm:
+
+```typescript
+import { describeSdkCapabilities, resolveCollectorTimeouts } from "@tarka/sdk";
+
+const caps = describeSdkCapabilities();
+// caps.runtime: "browser" | "server" | "worker" | "unknown"
+// caps.has_rtc_peer_connection, has_geolocation, has_audio_context, ...
+
+const timeouts = resolveCollectorTimeouts(caps);
+// Per-source caps: VPN WebRTC, audio fingerprint, browser geo — zero means “skip that collector”
+```
+
+`DeviceSignalCollector` applies **per-collector timeouts** (VPN WebRTC, audio FP, optional geo). On timeout or rejection the collector returns a **safe default** (e.g. `is_vpn: false`, `audio_fp_hash: null`) so checkout flows are not wedged.
+
+`DecisionClient` forwards optional **`collectorTimeouts`**, **`failOpenLogTimeouts`**, and **`capabilities`** to the underlying collector when `autoCollectSignals` is on.
+
+**Module swimlane:** SDK TypeScript (GitHub **#44**, `borrowed-from-OSS`).
 
 ---
 

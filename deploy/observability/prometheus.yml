@@ -14,6 +14,9 @@ scrape_configs:
     static_configs:
       - targets:
           - decision-api:8000
+          - calibration-service:8011
+          - counter-service:8012
+          - location-service:8013
           - case-api:8002
           - graph-service:8001
           - integration-ingress:8003
