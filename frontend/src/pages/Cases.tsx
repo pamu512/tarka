@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { cases, type Case, type CaseCreateRequest, type CaseOpsKpis } from "../api/client";
+import { cases, type Case, type CaseCreateRequest, type CaseDeskActivity, type CaseOpsKpis } from "../api/client";
 import { useAnalystWorkspace } from "../context/AnalystWorkspaceContext";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import StatusBadge from "../components/StatusBadge";
@@ -33,6 +33,7 @@ export default function Cases() {
     cases_created_prior: number;
     delta_percent_vs_prior: number | null;
   } | null>(null);
+  const [deskActivity, setDeskActivity] = useState<CaseDeskActivity | null>(null);
   const [savedViewSelection, setSavedViewSelection] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(true);
 
@@ -74,9 +75,10 @@ export default function Cases() {
       }
       setCaseList(data);
       try {
-        const [kpis, coh] = await Promise.all([
+        const [kpis, coh, desk] = await Promise.all([
           cases.opsKpis(tenantId),
           cases.cohortCompare(tenantId, 7).catch(() => null),
+          cases.deskActivity(tenantId, 7, 40).catch(() => null),
         ]);
         setOpsKpis(kpis);
         setCohort(
@@ -88,9 +90,11 @@ export default function Cases() {
               }
             : null,
         );
+        setDeskActivity(desk);
       } catch {
         setOpsKpis(null);
         setCohort(null);
+        setDeskActivity(null);
       }
       setError(null);
     } catch (e) {
@@ -192,14 +196,64 @@ export default function Cases() {
           {typeof opsKpis.sla_breached_open_or_investigating === "number" ? (
             <KpiCard label="SLA breached (open)" value={String(opsKpis.sla_breached_open_or_investigating)} />
           ) : null}
+          {typeof opsKpis.label_boost_cases === "number" ? (
+            <KpiCard label="Label-boost queue" value={String(opsKpis.label_boost_cases)} />
+          ) : null}
           {cohort && cohort.delta_percent_vs_prior != null ? (
             <KpiCard
               label="Cases vs prior 7d"
               value={`${cohort.delta_percent_vs_prior >= 0 ? "+" : ""}${cohort.delta_percent_vs_prior.toFixed(0)}%`}
             />
           ) : null}
+          {deskActivity ? (
+            <KpiCard label="Desk touches (7d)" value={String(deskActivity.touch_actions_total)} />
+          ) : null}
         </div>
       )}
+
+      {deskActivity && deskActivity.touch_actions_total > 0 ? (
+        <div className="rounded-xl border border-surface-700 bg-surface-900/40 p-4 space-y-3">
+          <div className="text-sm font-medium text-gray-300">Case desk activity (audit)</div>
+          <p className="text-xs text-gray-500">
+            From <span className="font-mono">/v1/cases/ops/desk-activity</span> — analyst touches (comments, status, labels)
+            in the last {deskActivity.period_days}d.
+          </p>
+          <div className="flex flex-wrap gap-2 text-xs">
+            {Object.entries(deskActivity.by_action).map(([action, n]) => (
+              <span
+                key={action}
+                className="px-2 py-0.5 rounded-md bg-surface-800 text-gray-300 font-mono"
+              >
+                {action}: {n}
+              </span>
+            ))}
+          </div>
+          <div className="overflow-x-auto max-h-40">
+            <table className="min-w-full text-xs text-left">
+              <thead className="text-gray-500 border-b border-surface-700">
+                <tr>
+                  <th className="py-1 pr-2">When</th>
+                  <th className="py-1 pr-2">Action</th>
+                  <th className="py-1 pr-2">Actor</th>
+                  <th className="py-1">Case</th>
+                </tr>
+              </thead>
+              <tbody>
+                {deskActivity.recent.slice(0, 8).map((r) => (
+                  <tr key={r.id} className="border-t border-surface-800">
+                    <td className="py-1 pr-2 text-gray-500 whitespace-nowrap">{r.created_at ?? "—"}</td>
+                    <td className="py-1 pr-2 font-mono text-brand-300/90">{r.action}</td>
+                    <td className="py-1 pr-2 text-gray-400 truncate max-w-[8rem]" title={r.actor}>
+                      {r.actor}
+                    </td>
+                    <td className="py-1 font-mono text-gray-500 truncate max-w-[10rem]">{r.resource_id}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
 
       {/* Filter bar — collapsible on small screens */}
       <div className="rounded-xl border border-surface-700 bg-surface-900/50 overflow-hidden">

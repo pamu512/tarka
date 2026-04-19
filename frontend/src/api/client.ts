@@ -188,6 +188,23 @@ export interface CaseOpsKpis {
   median_case_age_hours: number;
   by_status?: Record<string, number>;
   sla_breached_open_or_investigating?: number;
+  /** Cases with fraud/chargeback label boosts in queue score */
+  label_boost_cases?: number;
+}
+
+export interface CaseDeskActivity {
+  tenant_id: string;
+  period_days: number;
+  since: string;
+  touch_actions_total: number;
+  by_action: Record<string, number>;
+  recent: Array<{
+    id: string;
+    action: string;
+    actor: string;
+    resource_id: string;
+    created_at: string | null;
+  }>;
 }
 
 export interface RulePack {
@@ -346,6 +363,31 @@ export const decisions = {
       redis_key_version?: string | null;
       counters: Array<Record<string, unknown>>;
     }>("/api/decisions/v1/internal/counters/catalog");
+  },
+
+  calibrationStatus(tenantId: string, profile: string = "default") {
+    const q = new URLSearchParams({ tenant_id: tenantId, profile });
+    return request<{
+      tenant_id: string;
+      profile: string;
+      inference_schema_version: string;
+      challenge_policy_default?: string;
+      calibration: Record<string, unknown>;
+    }>(`/api/decisions/v1/ops/calibration-status?${q}`);
+  },
+
+  calibrationDrift(tenantId: string, profile: string = "default") {
+    const q = new URLSearchParams({ tenant_id: tenantId, profile });
+    return request<Record<string, unknown>>(`/api/decisions/v1/calibration/drift?${q}`);
+  },
+
+  calibrationSummary(tenantId: string, profile: string = "default", limit: number = 15) {
+    const q = new URLSearchParams({ tenant_id: tenantId, profile, limit: String(limit) });
+    return request<{
+      tenant_id: string;
+      profile: string;
+      snapshots: Array<Record<string, unknown>>;
+    }>(`/api/decisions/v1/calibration/summary?${q}`);
   },
 };
 
@@ -567,6 +609,15 @@ export const cases = {
       delta_percent_vs_prior: number | null;
     }>(`/api/cases/v1/cases/analytics/cohort-compare?${q}`);
   },
+
+  deskActivity(tenantId: string, periodDays: number = 7, limit: number = 40) {
+    const q = new URLSearchParams({
+      tenant_id: tenantId,
+      period_days: String(periodDays),
+      limit: String(limit),
+    });
+    return request<CaseDeskActivity>(`/api/cases/v1/cases/ops/desk-activity?${q}`);
+  },
 };
 
 // ── Graph (graph-service :8001) ─────────────────────────────────────
@@ -645,6 +696,17 @@ export const analytics = {
 // ── ML (ml-scoring :8005) ───────────────────────────────────────────
 
 export const ml = {
+  health() {
+    return request<{
+      status: string;
+      disable_ml?: boolean;
+      model_version?: string;
+      onnx_loaded?: boolean;
+      registry_models?: number;
+      shap_stretch_enabled?: boolean;
+    }>("/api/ml/v1/health");
+  },
+
   models() {
     return request<{ models: ModelInfo[] }>("/api/ml/v1/models");
   },

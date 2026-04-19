@@ -11,6 +11,8 @@ Scoring scale:
 
 Competitor columns are **directional benchmarks** (product categories differ: device intel, location, platform risk, in-house velocity). They are **not** recomputed every release.
 
+For a **finer-grained, module-by-module** rescoring after recent parity work — split by **OSS**, **full-stack paid**, **device enrichment**, and **location enrichment** — see **[competitive-module-rescore-post-parity-2026-04.md](./competitive-module-rescore-post-parity-2026-04.md)**.
+
 ---
 
 ## Git basis (for Tarka rows)
