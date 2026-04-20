@@ -21,9 +21,9 @@ def test_challenger_mode_includes_canary_excluded_packs():
     import decision_api.json_rules as jr
 
     jr._cached_packs = [pack]
-    h, _, d = evaluate_json_rules({"amount": 100}, [], "t1", "e1", evaluation_mode="production")
+    h, _, d, _pf = evaluate_json_rules({"amount": 100}, [], "t1", "e1", evaluation_mode="production")
     assert h == [] and d == 0.0
-    h2, _, d2 = evaluate_json_rules({"amount": 100}, [], "t1", "e1", evaluation_mode="challenger")
+    h2, _, d2, _pf2 = evaluate_json_rules({"amount": 100}, [], "t1", "e1", evaluation_mode="challenger")
     assert "always" in h2 and d2 == 5.0
 
 
@@ -39,9 +39,9 @@ def test_simulation_bypasses_canary():
     import decision_api.json_rules as jr
 
     jr._cached_packs = [pack]
-    h, t, d = evaluate_json_rules({"amount": 100}, [], "t1", "e1", evaluation_mode="production")
+    h, t, d, _pfa = evaluate_json_rules({"amount": 100}, [], "t1", "e1", evaluation_mode="production")
     assert h == [] and d == 0.0
-    h2, t2, d2 = evaluate_json_rules({"amount": 100}, [], "t1", "e1", evaluation_mode="simulation")
+    h2, t2, d2, _pfb = evaluate_json_rules({"amount": 100}, [], "t1", "e1", evaluation_mode="simulation")
     assert "always" in h2 and d2 == 5.0
 
 
@@ -57,7 +57,7 @@ def test_effective_at_future_excludes_pack():
     import decision_api.json_rules as jr
 
     jr._cached_packs = [pack]
-    h, _, d = evaluate_json_rules({"amount": 50}, [], "t", "e", evaluation_mode="production")
+    h, _, d, _pfc = evaluate_json_rules({"amount": 50}, [], "t", "e", evaluation_mode="production")
     assert h == [] and d == 0.0
 
 

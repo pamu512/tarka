@@ -535,6 +535,12 @@ def _compute_fallback_reason(degrade_tags: list[str], step_trace: list[dict[str,
     return "; ".join(parts) if parts else None
 
 
+def _audit_counter_version_label() -> str:
+    """Align with AggregateStore / replay keying (``AGG_KEY_VERSION``); stable default when unset."""
+    v = (os.environ.get("AGG_KEY_VERSION") or "").strip()
+    return v if v else "default"
+
+
 def _velocity_anomaly_flags(features: dict[str, Any]) -> dict[str, Any]:
     """Heuristic flags for analyst / copilot tooling only (not a decision)."""
     ev5 = int(features.get("event_count_5m") or 0)
@@ -1661,6 +1667,9 @@ async def evaluate_decision(
                     "recommended_action": _wl_rec,
                     "challenge_metadata": _wl_meta,
                     "step_trace": step_trace,
+                    "counter_version": _audit_counter_version_label(),
+                    "rule_pack_file": "",
+                    "ml_model": _wl_inf.get("ml_model"),
                     "canary_cohort": build_canary_cohort_audit(
                         body.tenant_id,
                         body.entity_id,
@@ -1712,6 +1721,9 @@ async def evaluate_decision(
                     "recommended_action": _bl_rec,
                     "challenge_metadata": _bl_meta,
                     "step_trace": step_trace,
+                    "counter_version": _audit_counter_version_label(),
+                    "rule_pack_file": "",
+                    "ml_model": _bl_inf.get("ml_model"),
                     "canary_cohort": build_canary_cohort_audit(
                         body.tenant_id,
                         body.entity_id,
@@ -1919,7 +1931,7 @@ async def evaluate_decision(
     signal_tags.extend(supplemental_tags_for_integrity(_plat_kw["platform"], signal_tags))
 
     # Run rules + OPA + ML in parallel (OPA and ML don't need each other)
-    rule_hits, rule_tags, score_delta = evaluate_json_rules(
+    rule_hits, rule_tags, score_delta, json_rule_pack_files = evaluate_json_rules(
         features,
         redis_tag_list,
         body.tenant_id,
@@ -1969,7 +1981,7 @@ async def evaluate_decision(
 
     policy_routing: dict[str, Any] | None = None
     if settings.policy_champion_challenger_enabled:
-        _, _, ch_json_delta = evaluate_json_rules(
+        _, _, ch_json_delta, _ = evaluate_json_rules(
             features,
             redis_tag_list,
             body.tenant_id,
@@ -2123,6 +2135,10 @@ async def evaluate_decision(
         snap_extra["counter"] = counter_meta
     if location_meta is not None:
         snap_extra["location"] = location_meta
+
+    snap_extra["counter_version"] = _audit_counter_version_label()
+    snap_extra["rule_pack_file"] = ",".join(json_rule_pack_files)
+    snap_extra["ml_model"] = inf_ctx.get("ml_model")
 
     audit = AuditRecord(
         trace_id=trace_id,
@@ -2304,6 +2320,9 @@ async def get_audit(
         "score": row.score,
         "tags": row.tags,
         "rule_hits": row.rule_hits,
+        "counter_version": snap.get("counter_version"),
+        "rule_pack_file": snap.get("rule_pack_file"),
+        "ml_model": snap.get("ml_model"),
         "inference_context": snap.get("inference_context"),
         "decision_explain": {
             "driver_reasons": (snap.get("inference_context") or {}).get("driver_reasons", []),

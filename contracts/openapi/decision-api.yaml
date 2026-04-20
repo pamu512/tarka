@@ -204,6 +204,34 @@ paths:
             application/json:
               schema:
                 type: object
+                properties:
+                  trace_id: { type: string }
+                  tenant_id: { type: string }
+                  entity_id: { type: string }
+                  event_type: { type: string }
+                  decision: { type: string }
+                  score: { type: number }
+                  tags:
+                    type: array
+                    items: { type: string }
+                  rule_hits:
+                    type: array
+                    items: { type: string }
+                  counter_version:
+                    type: string
+                    description: Aggregate key version label (AGG_KEY_VERSION, or "default" when unset)
+                  rule_pack_file:
+                    type: string
+                    description: Comma-separated JSON rule pack source filenames that contributed at least one hit
+                  ml_model:
+                    type: string
+                    nullable: true
+                    description: ML model id from inference path (mirrors inference_context.ml_model)
+                  inference_context: { type: object, additionalProperties: true }
+                  decision_explain: { type: object, additionalProperties: true }
+                  recommended_action: { type: string, nullable: true }
+                  created_at: { type: string, nullable: true }
+                additionalProperties: true
         "404":
           description: Not found
   /v1/analyst/entity-velocity:

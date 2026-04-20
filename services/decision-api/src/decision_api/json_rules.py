@@ -263,11 +263,16 @@ def _evaluate_pack(
     pack: dict[str, Any],
     features: dict[str, Any],
     redis_tags: list[str],
-) -> tuple[list[str], list[str], float]:
-    """Evaluate a single rule pack with safety limits."""
+) -> tuple[list[str], list[str], float, str | None]:
+    """Evaluate a single rule pack with safety limits.
+
+    Returns ``(hits, tags, delta, source_file_if_hit)`` where the last element is the pack's
+    ``_source_file`` when this pack contributed at least one rule/tag_rule hit (for audit lineage).
+    """
     hits: list[str] = []
     tags: list[str] = []
     delta = 0.0
+    source_file = str(pack.get("_source_file") or pack.get("name") or "pack")
 
     rules = pack.get("rules", [])
     if len(rules) > _MAX_RULES_PER_PACK:
@@ -290,7 +295,7 @@ def _evaluate_pack(
             hits.append(str(rid))
             tags.extend(str(t) for t in rule.get("tags", [])[:50])
             delta += float(rule.get("score_delta", 0))
-            record_rule_hit(str(pack.get("_source_file") or pack.get("name") or "pack"), str(rid), "rule")
+            record_rule_hit(source_file, str(rid), "rule")
 
     tag_rules = pack.get("tag_rules", [])
     for rule in tag_rules[:_MAX_RULES_PER_PACK]:
@@ -304,9 +309,9 @@ def _evaluate_pack(
             tags.extend(str(t) for t in rule.get("tags", [])[:50])
             delta += float(rule.get("score_delta", 0))
             tr_id = str(rid) if rid else "tagrule"
-            record_rule_hit(str(pack.get("_source_file") or pack.get("name") or "pack"), tr_id, "tag_rule")
+            record_rule_hit(source_file, tr_id, "tag_rule")
 
-    return hits, tags, delta
+    return hits, tags, delta, source_file if hits else None
 
 
 def evaluate_json_rules(
@@ -317,8 +322,11 @@ def evaluate_json_rules(
     *,
     evaluation_mode: str = "production",
     signal_tags: list[str] | None = None,
-) -> tuple[list[str], list[str], float]:
-    """Returns (rule_ids, tags_to_apply, score_delta).
+) -> tuple[list[str], list[str], float, list[str]]:
+    """Returns (rule_ids, tags_to_apply, score_delta, contributing_pack_files).
+
+    *contributing_pack_files* is the sorted unique list of JSON pack ``_source_file`` values that
+    produced at least one rule hit in this evaluation (Epic X.1 audit lineage).
 
     When *tenant_id* and *entity_id* are set, per-pack *canary_percent* and *effective_at* apply
     (unless *evaluation_mode* is ``simulation``).
@@ -341,12 +349,15 @@ def evaluate_json_rules(
     hits: list[str] = []
     tags: list[str] = []
     delta = 0.0
+    contributing: list[str] = []
     for pack in _cached_packs:
         ok, _reason = _pack_should_apply(pack, tid, eid, evaluation_mode=mode)
         if not ok:
             continue
-        pack_hits, pack_tags, pack_delta = _evaluate_pack(pack, features, merged_tags)
+        pack_hits, pack_tags, pack_delta, pack_file = _evaluate_pack(pack, features, merged_tags)
         hits.extend(pack_hits)
         tags.extend(pack_tags)
         delta += pack_delta
-    return hits, tags, delta
+        if pack_file:
+            contributing.append(pack_file)
+    return hits, tags, delta, sorted(set(contributing))

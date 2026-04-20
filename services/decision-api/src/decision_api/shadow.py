@@ -59,13 +59,13 @@ def evaluate_shadow(features: dict[str, Any], tags: list[str]) -> dict[str, Any]
 
     if has_file_packs:
         for pack in _shadow_packs:
-            hits, new_tags, delta = _evaluate_pack(pack, features, tags)
+            hits, new_tags, delta, _pf = _evaluate_pack(pack, features, tags)
             all_hits.extend(hits)
             all_tags.extend(new_tags)
             total_delta += delta
 
     for pack in shadow_mode_packs:
-        hits, new_tags, delta = _evaluate_pack(pack, features, tags)
+        hits, new_tags, delta, _pf = _evaluate_pack(pack, features, tags)
         all_hits.extend(hits)
         all_tags.extend(new_tags)
         total_delta += delta

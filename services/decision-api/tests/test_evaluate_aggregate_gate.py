@@ -41,7 +41,7 @@ async def aggregate_eval_client():
 
     def capture_rules(features: dict, tags: list, *args, **kwargs) -> tuple:
         captured.append((dict(features), list(tags)))
-        return ([], [], 0.0)
+        return ([], [], 0.0, [])
 
     list_store = MagicMock()
     list_store.check = AsyncMock(return_value=SimpleNamespace(found=False))
