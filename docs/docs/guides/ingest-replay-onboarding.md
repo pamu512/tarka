@@ -61,6 +61,8 @@ Same tenant + same key within the TTL returns the **first** response with **`dup
   ```
 - **`required`**: only the envelope form above is accepted.
 
+Optional **`etl_batch_id`** on the **v1 envelope root** (next to **`schema_version`**) is normalized and merged into **`event.metadata.etl_batch_id`** so the Decision API can persist it on audit (`payload_snapshot.etl_batch_id` when evaluate receives `metadata.etl_batch_id`).
+
 **`INGEST_REQUIRE_IDEMPOTENCY_KEY`** (default **`false`**): when **`true`**, **`POST /v1/events`** returns **`422`** with `reason_codes: ["ingest_idempotency_key_required"]` if the **`Idempotency-Key`** header is missing (high-volume retry safety).
 
 Malformed `event_type` (not in Decision API enum) returns **`422`** with `reason_codes: ["ingest_event_type_invalid"]`.

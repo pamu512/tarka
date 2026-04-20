@@ -12,6 +12,9 @@ from typing import Any
 # Keep aligned with decision_api.schemas.EventType
 VALID_EVENT_TYPES = frozenset({"login", "payment", "signup", "device", "session", "custom"})
 
+# Epic X.2: optional envelope-level lineage (v1 envelope root; merged into event.metadata)
+_MAX_ETL_BATCH_ID_LEN = 256
+
 
 class IngestContractError(Exception):
     """Raised when the HTTP body violates the ingest contract."""
@@ -30,8 +33,12 @@ def _unwrap_envelope(
     raw: dict[str, Any],
     *,
     envelope_mode: str,
-) -> dict[str, Any]:
-    """Return a flat event dict or raise IngestContractError."""
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Return ``(flat_event_dict, envelope_extras)`` or raise IngestContractError.
+
+    *envelope_extras* may contain ``etl_batch_id`` when set on a v1 envelope root (outside ``event``).
+    """
+    extras: dict[str, Any] = {}
     sv = raw.get("schema_version")
     if sv is None or sv == "":
         if envelope_mode == "required":
@@ -39,7 +46,7 @@ def _unwrap_envelope(
                 ["ingest_envelope_required"],
                 'Set schema_version to "1" and nest the payload under "event", or set INGEST_ENVELOPE_MODE=optional.',
             )
-        return _strip_event_dict(raw)
+        return _strip_event_dict(raw), extras
 
     if str(sv) != "1":
         raise IngestContractError(
@@ -47,13 +54,19 @@ def _unwrap_envelope(
             f'Unsupported schema_version {sv!r}; only "1" is accepted.',
         )
 
+    eb = raw.get("etl_batch_id")
+    if eb is not None:
+        s = str(eb).strip()
+        if s:
+            extras["etl_batch_id"] = s[:_MAX_ETL_BATCH_ID_LEN]
+
     inner = raw.get("event")
     if not isinstance(inner, dict):
         raise IngestContractError(
             ["ingest_envelope_event_missing"],
             'When schema_version is "1", a JSON object "event" is required.',
         )
-    return _strip_event_dict(inner)
+    return _strip_event_dict(inner), extras
 
 
 def parse_ingest_event_body(
@@ -66,7 +79,7 @@ def parse_ingest_event_body(
 
     Raises ``IngestContractError`` with ``reason_codes`` on violation.
     """
-    flat = _unwrap_envelope(raw, envelope_mode=envelope_mode)
+    flat, env_extras = _unwrap_envelope(raw, envelope_mode=envelope_mode)
     tid = flat.get("tenant_id")
     eid = flat.get("entity_id")
     et = flat.get("event_type")
@@ -89,6 +102,16 @@ def parse_ingest_event_body(
     out["tenant_id"] = str(tid).strip()
     out["entity_id"] = str(eid).strip()
     out["event_type"] = et_s
+
+    if "etl_batch_id" in env_extras:
+        md = out.get("metadata")
+        if not isinstance(md, dict):
+            md = {}
+        else:
+            md = dict(md)
+        md["etl_batch_id"] = env_extras["etl_batch_id"]
+        out["metadata"] = md
+
     return out
 
 

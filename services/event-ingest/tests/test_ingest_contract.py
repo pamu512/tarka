@@ -42,6 +42,40 @@ def test_parse_invalid_event_type():
     assert "ingest_event_type_invalid" in exc.value.reason_codes
 
 
+def test_v1_envelope_etl_batch_id_merges_into_metadata():
+    out = parse_ingest_event_body(
+        {
+            "schema_version": "1",
+            "etl_batch_id": "  batch-run-1  ",
+            "event": {
+                "tenant_id": "t",
+                "entity_id": "e",
+                "event_type": "login",
+                "payload": {},
+            },
+        },
+        envelope_mode="optional",
+    )
+    assert out["metadata"]["etl_batch_id"] == "batch-run-1"
+
+
+def test_v1_envelope_empty_etl_batch_id_ignored():
+    out = parse_ingest_event_body(
+        {
+            "schema_version": "1",
+            "etl_batch_id": "   ",
+            "event": {
+                "tenant_id": "t",
+                "entity_id": "e",
+                "event_type": "login",
+                "payload": {},
+            },
+        },
+        envelope_mode="optional",
+    )
+    assert out.get("metadata", {}) == {}
+
+
 def test_parse_v1_envelope(client, mock_js):
     r = client.post(
         "/v1/events",
