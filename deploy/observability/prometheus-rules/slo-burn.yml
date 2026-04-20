@@ -1,4 +1,5 @@
 # Recording rules: HTTP 5xx ratio (5m vs 1h windows) by service label from shared observability middleware.
+# http_requests_total includes optional tenant_query=present|absent; sums by service are unchanged.
 # Load via prometheus.yml rule_files. Tune alert thresholds for your error budget.
 
 groups:

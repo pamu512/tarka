@@ -58,20 +58,35 @@ class Metrics:
 
     def __init__(self, service: str) -> None:
         self.service = service
+        # Key: method|path|status|tenant_query — tenant_query is present|absent (query param only; R1.4)
         self._request_count: dict[str, int] = {}
-        self._request_errors: dict[str, int] = {}
         self._latency_sum: dict[str, float] = {}
         self._latency_count: dict[str, int] = {}
+        # 5xx / 4xx by route + tenant_query (no raw tenant id — cardinality-safe)
+        self._server_errors: dict[str, int] = {}
+        self._client_errors: dict[str, int] = {}
         self._custom_counters: dict[str, int] = {}
 
-    def record_request(self, method: str, path: str, status: int, duration: float) -> None:
-        key = f"{method}|{path}|{status}"
-        self._request_count[key] = self._request_count.get(key, 0) + 1
+    def record_request(
+        self,
+        method: str,
+        path: str,
+        status: int,
+        duration: float,
+        *,
+        tenant_query_scope: str = "absent",
+    ) -> None:
+        tq = tenant_query_scope if tenant_query_scope in ("present", "absent") else "absent"
+        req_key = f"{method}|{path}|{status}|{tq}"
+        self._request_count[req_key] = self._request_count.get(req_key, 0) + 1
         lat_key = f"{method}|{path}"
         self._latency_sum[lat_key] = self._latency_sum.get(lat_key, 0.0) + duration
         self._latency_count[lat_key] = self._latency_count.get(lat_key, 0) + 1
-        if status >= 500:
-            self._request_errors[lat_key] = self._request_errors.get(lat_key, 0) + 1
+        err_key = f"{method}|{path}|{tq}"
+        if 400 <= status < 500:
+            self._client_errors[err_key] = self._client_errors.get(err_key, 0) + 1
+        elif status >= 500:
+            self._server_errors[err_key] = self._server_errors.get(err_key, 0) + 1
 
     def inc(self, name: str, value: int = 1) -> None:
         self._custom_counters[name] = self._custom_counters.get(name, 0) + value
@@ -79,10 +94,12 @@ class Metrics:
     def request_count_summary(self) -> dict[str, Any]:
         """In-process HTTP counters since boot — for ``GET /v1/slo`` ``current`` (no external TSDB)."""
         total = sum(self._request_count.values())
-        errors_5xx = sum(self._request_errors.values())
+        errors_5xx = sum(self._server_errors.values())
+        errors_4xx = sum(self._client_errors.values())
         return {
             "http_requests_total_observed": total,
             "http_server_errors_total_observed": errors_5xx,
+            "http_client_errors_total_observed": errors_4xx,
         }
 
     def to_prometheus(self) -> str:
@@ -90,8 +107,10 @@ class Metrics:
         lines.append("# HELP http_requests_total Total HTTP requests")
         lines.append("# TYPE http_requests_total counter")
         for key, count in sorted(self._request_count.items()):
-            method, path, status = key.split("|")
-            lines.append(f'http_requests_total{{service="{self.service}",method="{method}",path="{path}",status="{status}"}} {count}')
+            method, path, status, tq = key.split("|", 3)
+            lines.append(
+                f'http_requests_total{{service="{self.service}",method="{method}",path="{path}",status="{status}",tenant_query="{tq}"}} {count}'
+            )
 
         lines.append("# HELP http_request_duration_seconds_sum Sum of HTTP request durations")
         lines.append("# TYPE http_request_duration_seconds_sum counter")
@@ -103,9 +122,19 @@ class Metrics:
 
         lines.append("# HELP http_server_errors_total Total 5xx errors")
         lines.append("# TYPE http_server_errors_total counter")
-        for key, count in sorted(self._request_errors.items()):
-            method, path = key.split("|")
-            lines.append(f'http_server_errors_total{{service="{self.service}",method="{method}",path="{path}"}} {count}')
+        for key, count in sorted(self._server_errors.items()):
+            method, path, tq = key.split("|", 2)
+            lines.append(
+                f'http_server_errors_total{{service="{self.service}",method="{method}",path="{path}",tenant_query="{tq}"}} {count}'
+            )
+
+        lines.append("# HELP http_client_errors_total Total 4xx errors")
+        lines.append("# TYPE http_client_errors_total counter")
+        for key, count in sorted(self._client_errors.items()):
+            method, path, tq = key.split("|", 2)
+            lines.append(
+                f'http_client_errors_total{{service="{self.service}",method="{method}",path="{path}",tenant_query="{tq}"}} {count}'
+            )
 
         for name, val in sorted(self._custom_counters.items()):
             lines.append(f"# TYPE {name} counter")
@@ -153,7 +182,14 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
         if "/entities/" in path and "/tags" in path:
             path = "/v1/entities/{id}/tags"
 
-        self._metrics.record_request(request.method, path, response.status_code, duration)
+        tq = "present" if (request.query_params.get("tenant_id") or "").strip() else "absent"
+        self._metrics.record_request(
+            request.method,
+            path,
+            response.status_code,
+            duration,
+            tenant_query_scope=tq,
+        )
         response.headers["X-Trace-Id"] = trace_id
 
         self._log.info(
