@@ -88,6 +88,9 @@ services:
       LOCATION_SERVICE_URL: ${LOCATION_SERVICE_URL:-}
       OPA_URL: ${OPA_URL:-}
       NATS_URL: nats://nats:4222
+      # Dev/smoke: auth_rbac requires API_KEYS, OIDC, or this flag; host env is not injected unless listed here.
+      # scripts/ci/full_stack_smoke.py POSTs /v1/decisions/evaluate without X-API-Key (health is skipped; evaluate is not).
+      ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-true}
     ports:
       - "8000:8000"
     depends_on:
