@@ -63,6 +63,8 @@ Same tenant + same key within the TTL returns the **first** response with **`dup
 
 Optional **`etl_batch_id`** on the **v1 envelope root** (next to **`schema_version`**) is normalized and merged into **`event.metadata.etl_batch_id`** so the Decision API can persist it on audit (`payload_snapshot.etl_batch_id` when evaluate receives `metadata.etl_batch_id`).
 
+**Decision evaluate (R3.2):** set **`TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true`** on **decision-api** to require **`Idempotency-Key`** on **`POST /v1/decisions/evaluate`** (presence check only; pair with your gateway or client dedupe policy).
+
 **`INGEST_REQUIRE_IDEMPOTENCY_KEY`** (default **`false`**): when **`true`**, **`POST /v1/events`** returns **`422`** with `reason_codes: ["ingest_idempotency_key_required"]` if the **`Idempotency-Key`** header is missing (high-volume retry safety).
 
 Malformed `event_type` (not in Decision API enum) returns **`422`** with `reason_codes: ["ingest_event_type_invalid"]`.

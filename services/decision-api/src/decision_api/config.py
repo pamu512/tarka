@@ -110,5 +110,12 @@ class Settings(BaseSettings):
     # Epic X.4: tenant reliability hint for ops/analysts (invalid values treated as balanced).
     tarka_tenant_reliability_profile: str = os.environ.get("TARKA_TENANT_RELIABILITY_PROFILE", "balanced").strip().lower()
 
+    # R3.2: when true, POST /v1/decisions/evaluate requires Idempotency-Key (or idempotency-key) header.
+    evaluate_require_idempotency_key: bool = os.environ.get("TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
 
 settings = Settings()

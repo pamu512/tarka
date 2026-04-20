@@ -767,6 +767,7 @@ async def slo_status():
             **cur,
             "redis_connected": redis_tags._client is not None,
             "nats_connected": getattr(app.state, "nats_nc", None) is not None,
+            "evaluate_require_idempotency_key": settings.evaluate_require_idempotency_key,
         },
     }
 
@@ -1581,6 +1582,17 @@ async def evaluate_decision(
     bg: BackgroundTasks,
     session: AsyncSession = Depends(get_session),
 ):
+    if settings.evaluate_require_idempotency_key:
+        idem = (request.headers.get("Idempotency-Key") or request.headers.get("idempotency-key") or "").strip()
+        if not idem:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "evaluate_idempotency_required",
+                    "message": "Idempotency-Key header is required when TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY is enabled.",
+                },
+            )
+
     http = _http(request)
     trace_id = uuid.uuid4()
     replay_ttl_seconds = int(os.environ.get("REPLAY_PAYLOAD_TTL_SECONDS", "300"))
