@@ -140,12 +140,15 @@ def smoke_evaluate() -> None:
             raw = resp.read().decode()
             if resp.status != 200:
                 raise RuntimeError(f"evaluate returned {resp.status}: {raw[:1200]}")
-            body = json.loads(raw)
+            try:
+                body = json.loads(raw)
+            except json.JSONDecodeError as e:
+                raise RuntimeError(f"evaluate returned non-JSON ({e}): {raw[:1200]}") from e
     except urllib.error.HTTPError as e:
         detail = e.read().decode(errors="replace")
         raise RuntimeError(f"evaluate HTTP {e.code}: {detail[:1200]}") from e
     if "trace_id" not in body or "decision" not in body:
-        raise RuntimeError(f"unexpected evaluate body keys: {list(body.keys())}")
+        raise RuntimeError(f"unexpected evaluate body keys: {list(body.keys())} body={str(body)[:800]}")
     print(f"[ok] POST /v1/decisions/evaluate trace_id={body.get('trace_id')}")
 
 
