@@ -1,0 +1,15 @@
+---
+description: Python must satisfy Ruff per root pyproject.toml (matches CI)
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Ruff (Python)
+
+Configuration lives in the repo root `pyproject.toml` under `[tool.ruff]` and `[tool.ruff.lint]` (line length 160, target Python 3.11, lint rules `E`, `F`, `I`, `W`, and excludes for the cookiecutter template path).
+
+- After editing Python, run from the repository root: `ruff check <paths>` and `ruff format <paths>` (or `ruff format --check <paths>` to verify without writing).
+- **CI runs `ruff format --check .` from the repo root** (entire tree, including `services/shared/` and other paths outside a single service). Before pushing or claiming Python work is done, run **`ruff format .`** or **`ruff format --check .`** from the repository root so CI does not fail on an unrelated file.
+- Do not introduce style that fails `ruff check` or `ruff format --check`; CI runs both on the tree.
+
+Optional locally: install hooks with `pip install pre-commit && pre-commit install` so commits run the same Ruff hooks as `.pre-commit-config.yaml`.
