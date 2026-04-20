@@ -546,6 +546,20 @@ def _audit_counter_version_label() -> str:
     return v if v else "default"
 
 
+def _metadata_etl_batch_id(body: EvaluateRequest) -> str | None:
+    """Epic X.2 — optional lineage id from evaluate ``metadata`` (e.g. propagated from ingest v1 envelope)."""
+    md = body.metadata
+    if not isinstance(md, dict):
+        return None
+    v = md.get("etl_batch_id")
+    if v is None:
+        return None
+    s = str(v).strip()
+    if not s:
+        return None
+    return s[:256]
+
+
 def _velocity_anomaly_flags(features: dict[str, Any]) -> dict[str, Any]:
     """Heuristic flags for analyst / copilot tooling only (not a decision)."""
     ev5 = int(features.get("event_count_5m") or 0)
@@ -1675,6 +1689,11 @@ async def evaluate_decision(
                     "counter_version": _audit_counter_version_label(),
                     "rule_pack_file": "",
                     "ml_model": _wl_inf.get("ml_model"),
+                    **(
+                        {"etl_batch_id": _eb_wl}
+                        if (_eb_wl := _metadata_etl_batch_id(body))
+                        else {}
+                    ),
                     "canary_cohort": build_canary_cohort_audit(
                         body.tenant_id,
                         body.entity_id,
@@ -1729,6 +1748,11 @@ async def evaluate_decision(
                     "counter_version": _audit_counter_version_label(),
                     "rule_pack_file": "",
                     "ml_model": _bl_inf.get("ml_model"),
+                    **(
+                        {"etl_batch_id": _eb_bl}
+                        if (_eb_bl := _metadata_etl_batch_id(body))
+                        else {}
+                    ),
                     "canary_cohort": build_canary_cohort_audit(
                         body.tenant_id,
                         body.entity_id,
@@ -2144,6 +2168,9 @@ async def evaluate_decision(
     snap_extra["counter_version"] = _audit_counter_version_label()
     snap_extra["rule_pack_file"] = ",".join(json_rule_pack_files)
     snap_extra["ml_model"] = inf_ctx.get("ml_model")
+    _eb_snap = _metadata_etl_batch_id(body)
+    if _eb_snap:
+        snap_extra["etl_batch_id"] = _eb_snap
 
     audit = AuditRecord(
         trace_id=trace_id,
@@ -2328,6 +2355,7 @@ async def get_audit(
         "counter_version": snap.get("counter_version"),
         "rule_pack_file": snap.get("rule_pack_file"),
         "ml_model": snap.get("ml_model"),
+        "etl_batch_id": snap.get("etl_batch_id"),
         "inference_context": snap.get("inference_context"),
         "decision_explain": {
             "driver_reasons": (snap.get("inference_context") or {}).get("driver_reasons", []),

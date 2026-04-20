@@ -227,6 +227,10 @@ paths:
                     type: string
                     nullable: true
                     description: ML model id from inference path (mirrors inference_context.ml_model)
+                  etl_batch_id:
+                    type: string
+                    nullable: true
+                    description: Optional ETL / ingest batch lineage (e.g. from event-ingest v1 envelope etl_batch_id)
                   inference_context: { type: object, additionalProperties: true }
                   decision_explain: { type: object, additionalProperties: true }
                   recommended_action: { type: string, nullable: true }
