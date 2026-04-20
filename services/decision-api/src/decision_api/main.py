@@ -4,9 +4,9 @@ import hmac
 import json as _json
 import logging
 import os
-import time
 import re as _re
 import sys
+import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -26,8 +26,13 @@ from decision_api.db import get_session, init_db
 from decision_api.entity_link_store import entity_link_store
 from decision_api.eval_steps import run_evaluation_step
 from decision_api.fingerprint_store import fingerprint_store
-from decision_api.json_rules import evaluate_json_rules, load_rules
-from decision_api.json_rules import governance_summary as rules_governance_summary
+from decision_api.json_rules import (
+    evaluate_json_rules,
+    load_rules,
+)
+from decision_api.json_rules import (
+    governance_summary as rules_governance_summary,
+)
 from decision_api.models import AuditRecord
 from decision_api.opa_client import evaluate_opa_or_raise
 from decision_api.redis_store import redis_tags
