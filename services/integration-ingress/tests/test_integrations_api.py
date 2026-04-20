@@ -32,7 +32,11 @@ async def client():
             ok_resp = SimpleNamespace(status_code=200)
             app.state.http.get = AsyncMock(return_value=ok_resp)
             transport = httpx.ASGITransport(app=app)
-            async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+            async with httpx.AsyncClient(
+                transport=transport,
+                base_url="http://testserver",
+                headers={"X-API-Key": (os.environ.get("API_KEYS") or "").split(",")[0].strip()},
+            ) as c:
                 c.test_session = session
                 yield c
             app.dependency_overrides = {}
