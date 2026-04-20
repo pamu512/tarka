@@ -19,6 +19,10 @@
 
 - **`GET /v1/slo`** — JSON: `availability_target_pct` or `availability_target`, `latency_target_ms_p95`, `error_budget_window_days`, `current` (service-specific + `http_requests_total_observed` from in-process middleware when available).
 
+## HTTP metrics (R1.4)
+
+Shared **`observability`** middleware exposes **`/metrics`** with **`http_requests_total`** labeled by **`method`**, normalized **`path`**, **`status`**, and **`tenant_query`** (`present` \| `absent`). **`tenant_query=present`** means the request carried a non-empty **`tenant_id` query parameter** (safe cardinality — not the tenant value). JSON bodies are not inspected. **`http_client_errors_total`** counts **4xx** and **`http_server_errors_total`** counts **5xx** with the same **`path`** and **`tenant_query`** labels. Latency histograms remain **`method` + `path`** only to limit series growth.
+
 ## Burn-rate alerts (operator pattern)
 
 Use **two windows** on error rate or latency: **5m** (fast burn) and **1h** (slow burn) vs budget.
