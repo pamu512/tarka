@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     calibration_service_url: str = ""
     counter_service_url: str = ""
     location_service_url: str = ""
+    scameter_enabled: bool = os.environ.get("SCAMETER_ENABLED", "false").strip().lower() in ("1", "true", "yes", "on")
+    scameter_base_url: str = os.environ.get("SCAMETER_BASE_URL", "").strip()
+    scameter_api_key: str = os.environ.get("SCAMETER_API_KEY", "").strip()
+    external_signal_timeout_seconds: float = float(os.environ.get("EXTERNAL_SIGNAL_TIMEOUT_SECONDS", "1.8"))
     upstream_api_key: str = ""
     opa_url: str = ""
     rules_path: str = "./rules"
@@ -44,6 +48,10 @@ class Settings(BaseSettings):
     consortium_id: str = os.environ.get("CONSORTIUM_ID", "default")
     consortium_min_tenants: int = int(os.environ.get("CONSORTIUM_MIN_TENANTS", "2"))
     evidence_signing_secret: str = os.environ.get("EVIDENCE_SIGNING_SECRET", "")
+    decision_log_enabled: bool = os.environ.get("DECISION_LOG_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")
+    decision_log_path: str = os.environ.get("DECISION_LOG_PATH", "./data/decision_logs/decision-log.jsonl")
+    decision_log_warehouse_url: str = os.environ.get("DECISION_LOG_WAREHOUSE_URL", "")
+    decision_log_warehouse_api_key: str = os.environ.get("DECISION_LOG_WAREHOUSE_API_KEY", "")
 
     # Optional: enables POST /v1/internal/counters/replay (scratch Redis replay for parity ops)
     counter_replay_token: str = os.environ.get("COUNTER_REPLAY_TOKEN", "")

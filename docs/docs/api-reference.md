@@ -6,7 +6,9 @@ Complete endpoint reference for all Tarka services. All services use JSON reques
 
 ---
 
-## Decision API — `:8000`
+## Decision API — `:8000` {#decision-api}
+
+OpenAPI: `contracts/openapi/decision-api.yaml`
 
 ### Core
 
@@ -18,6 +20,10 @@ Complete endpoint reference for all Tarka services. All services use JSON reques
 | `POST` | `/v1/decisions/evaluate` | Evaluate a fraud decision; optional header **`Idempotency-Key`** (or `idempotency-key`) — **required** when **`TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true`** (R3.2) |
 | `GET` | `/v1/audit/{trace_id}` | Get audit record by trace ID (includes `counter_version`, `rule_pack_file`, `ml_model`, optional `etl_batch_id` from stored `payload_snapshot` / metadata) |
 | `WebSocket` | `/v1/decisions/ws` | Live decision stream |
+
+#### Trust / ops readiness (OSS #36) {#trust-ops-readiness}
+
+The console **trust/ops readiness** strip (`frontend/src/components/AnalystReadinessBar.tsx`) calls **`GET /v1/ops/evaluation-posture`** (evaluation mode, deployment tier, `tenant_reliability_profile`, compliance degradation, typology count, predicate registry pin match, dependency rows, `last_rules_reload_at`) and **`GET /v1/slo`** (Redis/NATS connectivity hints). Deployment context: [Community vs Pro profiles](guides/deployment-profiles-community-vs-pro.md).
 
 ### Attestation
 
@@ -37,7 +43,8 @@ Complete endpoint reference for all Tarka services. All services use JSON reques
 | `DELETE` | `/v1/rules/{filename}` | Delete a rule pack |
 | `POST` | `/v1/rules/{filename}/rules` | Add a rule to a pack |
 | `DELETE` | `/v1/rules/{filename}/rules/{rule_id}` | Remove a rule from a pack |
-| `POST` | `/v1/admin/rules/reload` | Hot-reload rules from disk |
+| `POST` | `/v1/admin/rules/reload` | Hot-reload rules, typologies, and predicate registry from disk |
+| `GET` | `/v1/admin/typology/predicate-registry` | OSS #46 typology DSL catalog: `registry_id`, `version`, `predicates[]` (`id`, `description`, `when`); pin must match `predicate_registry_pin` in typology definitions |
 
 ### Replay
 
@@ -210,7 +217,7 @@ Complete endpoint reference for all Tarka services. All services use JSON reques
 
 ---
 
-## Graph Service — `:8001`
+## Graph Service — `:8001` {#graph-service}
 
 ### Entities & Links
 
@@ -405,7 +412,7 @@ Complete endpoint reference for all Tarka services. All services use JSON reques
 
 ---
 
-## Case API — `:8002`
+## Case API — `:8002` {#case-api}
 
 ### Cases
 
@@ -528,7 +535,7 @@ Complete endpoint reference for all Tarka services. All services use JSON reques
 
 ---
 
-## Integration Ingress — `:8003`
+## Integration Ingress — `:8003` {#integration-ingress}
 
 Provider catalog, installs, connectivity tests, and **integration reliability scorecards** (per installed connection).
 
@@ -547,7 +554,7 @@ OpenAPI: `contracts/openapi/integration-ingress.yaml`.
 
 ---
 
-## Analytics Sink — `:8008`
+## Analytics Sink — `:8008` {#analytics-sink}
 
 ClickHouse-backed analytics over decision events. Requires `X-API-Key` when the service is configured with `API_KEYS` (same pattern as other services).
 
@@ -559,11 +566,13 @@ ClickHouse-backed analytics over decision events. Requires `X-API-Key` when the 
 | `GET` | `/v1/analytics/top-entities` | Top entities by decision (`tenant_id`, `decision`, `days`) |
 | `GET` | `/v1/analytics/scorecard` | **Decision scorecard JSON** — totals, per-decision mix, top rule hits (`tenant_id`, `days`) — used by Analytics UI and weekly export scripts |
 
+OpenAPI: _not published under `contracts/openapi/` yet_ (this HTTP table is authoritative).
+
 Weekly JSON export stub (N4.2): `scripts/analytics/export_weekly_scorecard_json.py`. Discussions publisher (OSS #53): `scripts/analytics/publish_scorecard_discussion.py`.
 
 ---
 
-## ML Scoring — `:8005`
+## ML Scoring — `:8005` {#ml-scoring}
 
 | Method | Path | Description |
 |---|---|---|
@@ -626,7 +635,7 @@ OpenAPI: `contracts/openapi/ml-scoring.yaml`. Policy files: `services/ml-scoring
 
 ---
 
-## Event Ingest — `:8007`
+## Event Ingest — `:8007` {#event-ingest}
 
 | Method | Path | Description |
 |---|---|---|
@@ -635,6 +644,8 @@ OpenAPI: `contracts/openapi/ml-scoring.yaml`. Policy files: `services/ml-scoring
 | `POST` | `/v1/events/batch` | Ingest batch of events |
 | `WebSocket` | `/v1/events/ws` | Stream events via WebSocket |
 | `GET` | `/v1/stream/info` | Get NATS stream metadata |
+
+OpenAPI: _not published under `contracts/openapi/` yet_ (this HTTP table is authoritative).
 
 ---
 
@@ -706,7 +717,56 @@ OpenAPI: `contracts/openapi/ml-scoring.yaml`. Policy files: `services/ml-scoring
 
 ---
 
-## Collaboration Chat Bridge — `:8010`
+## Feature Service — `:8004` {#feature-service}
+
+Velocity reads and feature snapshots over the same Redis aggregate keyspace as decision-api (when `REDIS_URL` / `FEATURE_SERVICE_REDIS_URL` is set).
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/v1/health` | Health check |
+| `GET` | `/v1/slo` | In-process HTTP counters and Redis velocity wiring hint |
+| `POST` | `/v1/velocity/query` | Multi-window velocity counters for `tenant_id` + `entity_id` |
+| `POST` | `/v1/internal/parity/verify` | OSS #48 golden parity: diff live counters vs `expected` within `epsilon` (**200** `ok: true`, **409** drift detail in `detail`) |
+| `POST` | `/v1/snapshot` | Canonical feature snapshot for an entity/event |
+
+OpenAPI: `contracts/openapi/feature-service.yaml`
+
+---
+
+## Investigation Agent — `:8006` {#investigation-agent}
+
+Investigation copilot (tools + structured claims) and deterministic evidence surfaces.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/v1/health` | Health check |
+| `GET` | `/v1/ready` | Readiness |
+| `GET` | `/v1/setup` | First-run / integration checklist |
+| `GET` | `/v1/integration` | Integration contract snapshot |
+| `GET` | `/v1/personas` | Copilot personas |
+| `GET` | `/v1/playbooks` | Built-in playbooks |
+| `GET` | `/v1/workflows` | SOP workflow manifests |
+| `POST` | `/v1/chat` | Chat completion with tools, `claims`, `source_refs`, optional `answer_sections` |
+| `POST` | `/v1/chat/stream` | Same as chat over SSE |
+| `POST` | `/v1/evidence/summary` | OSS #40 deterministic evidence summary (no LLM): `citations[].resolves_to`, `next_actions`, optional `typology_breakdown` / `decision_audit` / allow-listed `proposed_next_actions` |
+| `POST` | `/v1/reports/case-summary` | Case summary PDF from client-supplied fields |
+| `POST` | `/v1/reports/turn-bundle` | Turn Markdown + JSON export |
+| `POST` | `/v1/feedback` | Turn feedback |
+| `GET` | `/v1/feedback/summary` | Feedback aggregates |
+| `GET` | `/v1/feedback/recent` | Recent feedback rows |
+| `POST` | `/v1/review/turn` | Maker/checker review |
+| `GET` | `/v1/review/turn` | Fetch review |
+| `GET` | `/v1/review/metrics` | Review metrics |
+| `POST` | `/v1/plugin/session` | Plugin session token |
+| `POST` | `/v1/plugin/bootstrap` | Plugin bootstrap |
+
+OpenAPI: `contracts/openapi/investigation-agent.yaml`
+
+---
+
+## Collaboration Chat Bridge — `:8009` {#collaboration-chat-bridge}
+
+**Compose default:** host **8009** (`8009:8009` in `deploy/docker-compose.yml`). Do not confuse with the **GraphQL gateway** on **:8010**.
 
 | Method | Path | Description |
 |---|---|---|
@@ -731,7 +791,29 @@ Ingress audit model:
 
 ---
 
-## Error Responses
+## GraphQL Gateway — `:8010` {#graphql-gateway}
+
+**Compose default:** host **8010** (`8010:8010` in `deploy/docker-compose.yml`). Do not confuse with the **collaboration chat bridge** on **:8009**.
+
+Strawberry **GraphQL** over HTTP, with the same shared **observability** stack as other Python services (**`GET` `/metrics`**, structured request logging). Send **`X-API-Key`** when the gateway is configured with **`API_KEYS`** (empty keys without `ALLOW_INSECURE_NO_AUTH` yields **`503`** — see `services/graphql-gateway`).
+
+| Kind | Field | Upstream (summary) |
+|------|-------|--------------------|
+| `Query` | `cases`, `case` | Case API list + get |
+| `Query` | `subgraph`, `entity_tags` | Graph Service subgraph + entity tags |
+| `Mutation` | `evaluate` | Decision API evaluate (includes `recommended_action` / `inference_context` when the upstream payload provides them) |
+| `Mutation` | `create_case` | Case API create |
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/graphql` | GraphQL queries and mutations |
+| `GET` | `/v1/health` | Health (`{"status": "ok"}`) |
+
+OpenAPI: _not published under `contracts/openapi/`._ The schema is **code-first** in `services/graphql-gateway/src/graphql_gateway/schema.py`.
+
+---
+
+## Error Responses {#error-responses}
 
 All services return errors in a consistent format:
 

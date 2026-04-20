@@ -221,7 +221,7 @@ class EvidenceSummaryRequest(BaseModel):
     case_id: str | None = Field(default=None, max_length=128)
     trace_id: str | None = Field(default=None, max_length=80)
     reply: str = Field(default="", max_length=80_000)
-    claims: list[dict[str, str]] = Field(default_factory=list)
+    claims: list[dict[str, Any]] = Field(default_factory=list)
     source_refs: list[dict[str, Any]] = Field(default_factory=list)
     claims_deterministic_support: list[dict[str, Any]] = Field(default_factory=list)
     answer_sections: dict[str, Any] = Field(default_factory=dict)
@@ -229,6 +229,18 @@ class EvidenceSummaryRequest(BaseModel):
     prompt_version: str | None = Field(default=None, max_length=32)
     workflow_id: str | None = Field(default=None, max_length=80)
     persona: str = Field(default="investigation", max_length=32)
+    decision_audit: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional decision evaluate/audit JSON; anchors typology/rule/trace ids for citation resolves_to.",
+    )
+    typology_breakdown: list[dict[str, Any]] | None = Field(
+        default=None,
+        description="Optional typology rows with contributing_rules[] for deterministic next_actions (read-only).",
+    )
+    proposed_next_actions: list[dict[str, Any]] | None = Field(
+        default=None,
+        description="Optional client-proposed actions; kind=automated_side_effect requires allow-list match (see settings).",
+    )
 
 
 class EvidenceSummaryChatRequest(ChatRequest):
@@ -1124,6 +1136,139 @@ async def workflows_list():
     return {"workflows": list_workflows()}
 
 
+def _merge_resolution_refs(*parts: list[dict[str, str]]) -> list[dict[str, str]]:
+    seen: set[tuple[str, str]] = set()
+    out: list[dict[str, str]] = []
+    for part in parts:
+        for r in part:
+            if not isinstance(r, dict):
+                continue
+            art = str(r.get("artifact") or "").strip()
+            rid = str(r.get("id") or "").strip()
+            if not art or not rid:
+                continue
+            key = (art, rid)
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append({"artifact": art, "id": rid})
+    return out
+
+
+def _decision_audit_resolution_refs(audit: dict[str, Any]) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
+
+    def add(artifact: str, rid: str) -> None:
+        out.append({"artifact": artifact, "id": rid})
+
+    tid = audit.get("trace_id")
+    if isinstance(tid, str) and tid.strip():
+        add("decision_trace", tid.strip())
+    snap = audit.get("payload_snapshot")
+    if isinstance(snap, dict):
+        st = snap.get("trace_id")
+        if isinstance(st, str) and st.strip():
+            add("decision_trace", st.strip())
+        typs = snap.get("typologies")
+        if isinstance(typs, list):
+            for row in typs:
+                if not isinstance(row, dict):
+                    continue
+                typ_id = row.get("typology_id") or row.get("id")
+                if isinstance(typ_id, str) and typ_id.strip():
+                    add("typology", typ_id.strip())
+        rules = snap.get("rules_fired") or snap.get("fired_rules")
+        if isinstance(rules, list):
+            for r in rules:
+                if isinstance(r, str) and r.strip():
+                    add("json_rule", r.strip())
+                elif isinstance(r, dict):
+                    rid = r.get("rule_id") or r.get("id")
+                    if isinstance(rid, str) and rid.strip():
+                        add("json_rule", rid.strip())
+    return _merge_resolution_refs(out)
+
+
+def _claim_resolution_refs(claim: dict[str, Any], trace_id: str | None, case_id: str | None) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    if trace_id and str(trace_id).strip():
+        rows.append({"artifact": "decision_trace", "id": str(trace_id).strip()})
+    if case_id and str(case_id).strip():
+        rows.append({"artifact": "case", "id": str(case_id).strip()})
+    rid = claim.get("rule_id")
+    if isinstance(rid, str) and rid.strip():
+        rows.append({"artifact": "json_rule", "id": rid.strip()})
+    tid = claim.get("typology_id")
+    if isinstance(tid, str) and tid.strip():
+        rows.append({"artifact": "typology", "id": tid.strip()})
+    return _merge_resolution_refs(rows)
+
+
+def _typology_breakdown_next_actions(breakdown: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for row in breakdown or []:
+        if not isinstance(row, dict):
+            continue
+        tid = str(row.get("typology_id") or "").strip()
+        if not tid:
+            continue
+        crs = row.get("contributing_rules")
+        if not isinstance(crs, list) or not crs:
+            crs = [{}]
+        for cr in crs:
+            if not isinstance(cr, dict):
+                continue
+            rid = str(cr.get("rule_id") or "").strip()
+            label = f"Review typology {tid}" + (f" driver rule {rid}" if rid else "")
+            action_id = f"read:{tid}:{rid or 'na'}"
+            resolves: list[dict[str, str]] = [{"artifact": "typology", "id": tid}]
+            if rid:
+                resolves.append({"artifact": "json_rule", "id": rid})
+            out.append(
+                {
+                    "id": action_id,
+                    "label": label,
+                    "confidence": "medium",
+                    "kind": "read",
+                    "resolves_to": _merge_resolution_refs(resolves),
+                },
+            )
+    return out
+
+
+def _filter_proposed_next_actions(
+    proposed: list[dict[str, Any]] | None,
+    allowlist: set[str],
+) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for raw in proposed or []:
+        if not isinstance(raw, dict):
+            continue
+        kind = (str(raw.get("kind") or "read").strip() or "read").lower()
+        aid = str(raw.get("id") or "").strip()
+        label = str(raw.get("label") or aid or "action").strip()
+        if kind == "automated_side_effect" and aid not in allowlist:
+            continue
+        resolves_in = raw.get("resolves_to")
+        resolves: list[dict[str, str]] = []
+        if isinstance(resolves_in, list):
+            for x in resolves_in:
+                if isinstance(x, dict) and str(x.get("artifact") or "").strip() and str(x.get("id") or "").strip():
+                    resolves.append(
+                        {"artifact": str(x["artifact"]).strip(), "id": str(x["id"]).strip()},
+                    )
+        out.append(
+            {
+                "id": aid or f"action_{len(out)}",
+                "label": label or aid,
+                "confidence": str(raw.get("confidence") or "low"),
+                "kind": kind,
+                "resolves_to": _merge_resolution_refs(resolves),
+            },
+        )
+    return out
+
+
 @app.post("/v1/evidence/summary")
 async def evidence_summary(body: EvidenceSummaryRequest, request: Request):
     """
@@ -1154,6 +1299,14 @@ async def evidence_summary(body: EvidenceSummaryRequest, request: Request):
         if isinstance(idx, int) and isinstance(ok, bool):
             supports_by_idx[idx] = ok
 
+    audit_refs: list[dict[str, str]] = (
+        _decision_audit_resolution_refs(body.decision_audit) if isinstance(body.decision_audit, dict) else []
+    )
+    allow_ids = {x.strip() for x in (settings.evidence_summary_automated_action_allowlist or "").split(",") if x.strip()}
+    next_actions: list[dict[str, Any]] = []
+    next_actions.extend(_typology_breakdown_next_actions(body.typology_breakdown))
+    next_actions.extend(_filter_proposed_next_actions(body.proposed_next_actions, allow_ids))
+
     citations: list[dict[str, Any]] = []
     for i, claim in enumerate(claims):
         if not isinstance(claim, dict):
@@ -1169,6 +1322,8 @@ async def evidence_summary(body: EvidenceSummaryRequest, request: Request):
             confidence = "medium"
         else:
             confidence = "low"
+        claim_refs = _claim_resolution_refs(claim, body.trace_id, body.case_id)
+        merged = _merge_resolution_refs(claim_refs, audit_refs if i == 0 else [])
         citations.append(
             {
                 "claim_index": i,
@@ -1176,6 +1331,7 @@ async def evidence_summary(body: EvidenceSummaryRequest, request: Request):
                 "source": source,
                 "supported": supported,
                 "confidence_label": confidence,
+                "resolves_to": merged,
             },
         )
 
@@ -1211,6 +1367,7 @@ async def evidence_summary(body: EvidenceSummaryRequest, request: Request):
             "low": sum(1 for c in citations if c.get("confidence_label") == "low"),
         },
         "citations": citations,
+        "next_actions": next_actions,
         "source_refs": refs,
         "trace_id": body.trace_id,
         "case_id": body.case_id,

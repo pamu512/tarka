@@ -218,6 +218,15 @@ class Settings(BaseSettings):
         description="Reject requests with Content-Length larger than this (JSON/tabular uploads).",
     )
 
+    # --- Evidence summary (OSS #40): automated next actions are dropped unless id is allow-listed ---
+    evidence_summary_automated_action_allowlist: str = Field(
+        default="",
+        description=(
+            "Comma-separated action ids permitted when proposed_next_actions use kind=automated_side_effect "
+            "on POST /v1/evidence/summary. Empty means no automated actions are returned."
+        ),
+    )
+
 
 settings = Settings()
 

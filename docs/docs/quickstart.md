@@ -76,6 +76,7 @@ This starts all services:
 | Investigation Agent | 8006 | agent |
 | Event Ingest | 8007 | streaming |
 | Analytics Sink | 8008 | analytics |
+| Collaboration chat bridge | 8009 | collab |
 | GraphQL Gateway | 8010 | gateway |
 | Neo4j Browser | 7474 | graph |
 | NATS Monitoring | 8222 | streaming |
@@ -220,6 +221,8 @@ If the Case API is running, open the investigation UI:
 http://localhost:8002/ui
 ```
 
+To hack on the **Vite** analyst console from `frontend/` (proxies `/api/*` when local backends are up): `npm ci`, then **`npm run test`** (Vitest), **`npm run dev`** (often **http://localhost:3000**), and **`npm run build`** for the same TypeScript + production check CI runs.
+
 The frontend (port 3000 if built separately) provides:
 
 - **Dashboard** — Real-time decision feed with score distributions
@@ -237,3 +240,6 @@ The frontend (port 3000 if built separately) provides:
 - [Deployment Guide](guides/deployment.md) — Deploy to production with Kubernetes
 - [Graph Analysis Guide](guides/graph-analysis.md) — Detect fraud rings with graph analytics
 - [API Reference](api-reference.md) — Complete endpoint documentation
+- [Feature Service](services/feature-service.md) — Velocity reads and **parity verify** (OSS #48)
+- [Investigation Agent](services/investigation-agent.md) — Copilot, **`POST /v1/evidence/summary`** (OSS #40), exports
+- [OSS track (#31–#54)](guides/oss-track-issue-closure-evidence-2026-04.md) — Prioritized open issues and closure evidence

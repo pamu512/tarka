@@ -1,0 +1,17 @@
+{
+  "trace_id": "trace-golden-01",
+  "case_id": "case-golden-01",
+  "citations": [
+    {
+      "claim_index": 0,
+      "confidence_label": "high",
+      "resolves_to": [
+        { "artifact": "decision_trace", "id": "trace-golden-01" },
+        { "artifact": "case", "id": "case-golden-01" },
+        { "artifact": "json_rule", "id": "rule_velocity_burst" },
+        { "artifact": "typology", "id": "velocity_abuse" }
+      ]
+    }
+  ],
+  "next_actions": []
+}

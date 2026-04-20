@@ -622,7 +622,9 @@ paths:
       operationId: evidenceSummary
       description: >
         Deterministic investigation evidence summary from provided artifacts (no LLM call). Produces a concise
-        narrative, confidence label, and citations for trace_id / case_id / source refs.
+        narrative, confidence label, citations with structured resolves_to (trace, case, rule, typology), and
+        read-only next_actions from typology_breakdown. Proposed automated_side_effect actions are returned only
+        when their ids match EVIDENCE_SUMMARY_AUTOMATED_ACTION_ALLOWLIST (OSS #40).
       requestBody:
         required: true
         content:
@@ -635,10 +637,27 @@ paths:
                 analyst_id: { type: string }
                 case_id: { type: string, nullable: true }
                 trace_id: { type: string, nullable: true }
+                reply: { type: string }
+                turn_id: { type: string, nullable: true }
+                prompt_version: { type: string, nullable: true }
+                workflow_id: { type: string, nullable: true }
+                persona: { type: string }
                 decision_audit:
                   type: object
                   nullable: true
                   additionalProperties: true
+                typology_breakdown:
+                  type: array
+                  nullable: true
+                  items:
+                    type: object
+                    additionalProperties: true
+                proposed_next_actions:
+                  type: array
+                  nullable: true
+                  items:
+                    type: object
+                    additionalProperties: true
                 source_refs:
                   type: array
                   nullable: true
@@ -651,6 +670,16 @@ paths:
                   items:
                     type: object
                     additionalProperties: true
+                claims_deterministic_support:
+                  type: array
+                  nullable: true
+                  items:
+                    type: object
+                    additionalProperties: true
+                answer_sections:
+                  type: object
+                  nullable: true
+                  additionalProperties: true
                 max_citations:
                   type: integer
                   default: 12
@@ -665,10 +694,31 @@ paths:
                 properties:
                   summary: { type: string }
                   confidence_label: { type: string, enum: [low, medium, high] }
+                  next_actions:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
                   citations:
                     type: array
                     items:
                       type: object
+                      properties:
+                        claim_index: { type: integer }
+                        text: { type: string }
+                        source: { type: string }
+                        supported: { type: boolean, nullable: true }
+                        confidence_label: { type: string }
+                        resolves_to:
+                          type: array
+                          items:
+                            type: object
+                            required: [artifact, id]
+                            properties:
+                              artifact:
+                                type: string
+                                description: decision_trace | case | json_rule | typology
+                              id: { type: string }
                       additionalProperties: true
                   evidence_counts:
                     type: object

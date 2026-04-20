@@ -6,6 +6,8 @@ The ML Scoring service provides real-time model inference for fraud detection. I
 **Version:** 3.0.0
 **Framework:** Python / FastAPI
 
+Canonical HTTP tables: **[API Reference — ML Scoring](../api-reference.md#ml-scoring)** · OpenAPI: `contracts/openapi/ml-scoring.yaml`
+
 ---
 
 ## Endpoints

@@ -17,7 +17,7 @@ Builds on the typology layer (OSS #34) with **named, reusable predicates** and *
 
 ## API
 
-- **`GET /v1/admin/typology/predicate-registry`** — public catalog (reload with **`POST /v1/admin/rules/reload`**).
+- **`GET /v1/admin/typology/predicate-registry`** — public catalog (reload with **`POST /v1/admin/rules/reload`**). OpenAPI: `contracts/openapi/decision-api.yaml` (`TypologyPredicateRegistryPublic`, `OpsEvaluationPosture` for posture banner data).
 
 ## CI
 

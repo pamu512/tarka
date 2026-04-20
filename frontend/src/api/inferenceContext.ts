@@ -27,6 +27,11 @@ export interface InferenceContext {
     counter: string;
     location: string;
   };
+  graph_risk_score: number;
+  graph_risk_reasons: string[];
+  external_signal_score: number;
+  external_signal_providers: string[];
+  policy_experiment_id: string | null;
   confidence_tier_label: string;
   driver_explain: DriverExplainEntry[];
   integrity_confidence: number;
@@ -127,6 +132,26 @@ export function normalizeInferenceContext(raw: unknown): InferenceContext | null
     geo_consistency_risk: typeof r.geo_consistency_risk === "number" ? r.geo_consistency_risk : 0,
     top_signals: Array.isArray(r.top_signals) ? r.top_signals.filter((s): s is string => typeof s === "string") : [],
     confidence_tier: asConfidenceTier(r.confidence_tier),
+    graph_risk_score:
+      typeof (r as { graph_risk_score?: unknown }).graph_risk_score === "number"
+        ? ((r as { graph_risk_score: number }).graph_risk_score ?? 0)
+        : 0,
+    graph_risk_reasons:
+      Array.isArray((r as { graph_risk_reasons?: unknown }).graph_risk_reasons)
+        ? ((r as { graph_risk_reasons: unknown[] }).graph_risk_reasons ?? []).filter((x): x is string => typeof x === "string")
+        : [],
+    external_signal_score:
+      typeof (r as { external_signal_score?: unknown }).external_signal_score === "number"
+        ? ((r as { external_signal_score: number }).external_signal_score ?? 0)
+        : 0,
+    external_signal_providers:
+      Array.isArray((r as { external_signal_providers?: unknown }).external_signal_providers)
+        ? ((r as { external_signal_providers: unknown[] }).external_signal_providers ?? []).filter((x): x is string => typeof x === "string")
+        : [],
+    policy_experiment_id:
+      typeof (r as { policy_experiment_id?: unknown }).policy_experiment_id === "string"
+        ? ((r as { policy_experiment_id: string }).policy_experiment_id ?? null)
+        : null,
     driver_reasons: Array.isArray(r.driver_reasons)
       ? r.driver_reasons.filter((s): s is string => typeof s === "string")
       : [],

@@ -4,6 +4,10 @@
 
 Core real-time decisioning, risk blending, inference normalization, replay/tamper controls, and auditable outputs.
 
+**Typology DSL (OSS #46):** `typology_definitions_v1.json` + `typology_predicate_registry_v1.json`; `GET /v1/admin/typology/predicate-registry`; CI `scripts/policy/validate_typology_dsl.py`. [Service doc — Typology predicate registry](../services/decision-api.md#typology-predicate-registry-oss-46) · [API Reference](../api-reference.md#decision-api).
+
+**Trust / ops UX (OSS #36):** `GET /v1/ops/evaluation-posture` + `GET /v1/slo` feed the console readiness strip. [Service doc](../services/decision-api.md#trust-ops-posture-slo-oss-36) · [API Reference](../api-reference.md#trust-ops-readiness).
+
 ## Current Gaps
 
 - Inference calibration is baseline-only and needs stronger confidence tuning.

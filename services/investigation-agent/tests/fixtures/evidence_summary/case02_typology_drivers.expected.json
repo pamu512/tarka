@@ -1,0 +1,20 @@
+{
+  "next_actions": [
+    {
+      "id": "read:payee_risk:r1",
+      "kind": "read",
+      "resolves_to": [
+        { "artifact": "typology", "id": "payee_risk" },
+        { "artifact": "json_rule", "id": "r1" }
+      ]
+    },
+    {
+      "id": "read:payee_risk:r2",
+      "kind": "read",
+      "resolves_to": [
+        { "artifact": "typology", "id": "payee_risk" },
+        { "artifact": "json_rule", "id": "r2" }
+      ]
+    }
+  ]
+}

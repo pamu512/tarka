@@ -70,7 +70,9 @@ nav:
       - Decision API: services/decision-api.md
       - Graph Service: services/graph-service.md
       - Case API: services/case-api.md
+      - Feature Service: services/feature-service.md
       - ML Scoring: services/ml-scoring.md
+      - Investigation Agent: services/investigation-agent.md
   - Guides:
       - Rule Authoring: guides/rules.md
       - Graph Analysis: guides/graph-analysis.md

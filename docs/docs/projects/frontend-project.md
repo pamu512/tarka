@@ -4,6 +4,10 @@
 
 Analyst UX across dashboard, cases, graph explorer, explainability, and operations pages.
 
+## Testing
+
+From `frontend/`: **`npm run test`** runs **Vitest** (jsdom + Testing Library) against selected UI surfaces (e.g. trust/ops readiness). **`npm run build`** runs `tsc -b` and the Vite production bundle. CI runs both in that order after `npm ci` (see `.github/workflows/ci.yml`, `build-frontend` job).
+
 ## Current Gaps
 
 - Inference metrics are only partially surfaced across views.

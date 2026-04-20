@@ -4,6 +4,8 @@
 
 Feature snapshot generation, counter windows, and online/offline feature parity.
 
+**Parity gate (OSS #48):** `POST /v1/internal/parity/verify` compares live Redis velocity counters to caller-supplied `expected` within `epsilon` (same `AggregateStore` path as `POST /v1/velocity/query`). Tests: `services/feature-service/tests/test_parity_verify.py`. Contract: `contracts/openapi/feature-service.yaml`. Index: [API Reference — Feature Service](../api-reference.md#feature-service).
+
 ## Current Gaps
 
 - Multi-window counter platform is not fully productized yet.

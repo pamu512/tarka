@@ -26,9 +26,30 @@ def test_build_inference_context_schema_and_velocity():
     assert isinstance(ctx.get("driver_explain"), list)
     assert isinstance(ctx["driver_reasons"], list)
     assert isinstance(ctx["top_signals"], list)
+    assert isinstance(ctx["graph_risk_reasons"], list)
+    assert isinstance(ctx["external_signal_providers"], list)
+    assert ctx["policy_experiment_id"] is None
     assert ctx["ml_top_factors"] == []
     assert ctx["ml_summary"] is None
     assert ctx["ml_model"] is None
+
+
+def test_build_inference_context_graph_and_external_meta():
+    ctx = build_inference_context(
+        signal_tags=[],
+        rule_hits=[],
+        ml_score=None,
+        final_score=45.0,
+        features={},
+        graph_meta={"risk_score": 80, "risk_factors": ["connected_flagged_3"]},
+        external_signal_meta={"risk_score": 68, "providers": ["scameter"]},
+        policy_experiment_id="policy-exp-001",
+    )
+    assert ctx["graph_risk_score"] == 0.8
+    assert ctx["graph_risk_reasons"] == ["connected_flagged_3"]
+    assert ctx["external_signal_score"] == 0.68
+    assert ctx["external_signal_providers"] == ["scameter"]
+    assert ctx["policy_experiment_id"] == "policy-exp-001"
 
 
 def test_build_inference_context_colocation_and_travel():

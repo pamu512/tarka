@@ -23,8 +23,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from decision_api.config import settings
 from decision_api.currency import normalize_amount
 from decision_api.db import get_session, init_db
+from decision_api.decision_log import build_decision_log_record, emit_decision_log
 from decision_api.entity_link_store import entity_link_store
 from decision_api.eval_steps import run_evaluation_step
+from decision_api.external_signals import evaluate_external_signals
 from decision_api.fingerprint_store import fingerprint_store
 from decision_api.json_rules import (
     evaluate_json_rules,
@@ -69,6 +71,7 @@ from decision_api.policy_routing import (
 )
 from decision_api.schemas import EvaluateRequest, EvaluateResponse
 from decision_api.shadow import evaluate_shadow, load_shadow_rules, record_observation
+from decision_api.tags import derive_contextual_tags
 from decision_api.tenant_flags import tenant_flag_enabled
 from decision_api.trusted_zones import load_trusted_zones_for_tenant
 from decision_api.typology import evaluate_typologies, load_typology_definitions, reload_typology_definitions, summarize_typologies
@@ -1611,6 +1614,8 @@ async def evaluate_decision(
     signal_tags.extend(extract_captcha_tags(dc_dump))
     consortium_delta = 0.0
     graph_delta = 0.0
+    external_signal_delta = 0.0
+    external_signal_meta: dict[str, Any] | None = None
     replay_rule_hits: list[str] = []
 
     # Detect payload replay at ingress using a short-lived signature cache.
@@ -1959,6 +1964,29 @@ async def evaluate_decision(
             if isinstance(ltags, list):
                 signal_tags.extend(str(t) for t in ltags if isinstance(t, str))
 
+    external_signal_meta, external_trace = await run_evaluation_step(
+        "external_signals",
+        lambda: evaluate_external_signals(http, body, features),
+        timeout_seconds=settings.external_signal_timeout_seconds,
+        max_attempts=1,
+        on_failure="SKIP",
+        fallback=None,
+    )
+    step_trace.append(external_trace)
+    if isinstance(external_signal_meta, dict):
+        try:
+            external_signal_delta = max(0.0, min(20.0, float(external_signal_meta.get("score_delta", 0.0))))
+        except (TypeError, ValueError):
+            external_signal_delta = 0.0
+        ext_tags = external_signal_meta.get("tags")
+        if isinstance(ext_tags, list):
+            signal_tags.extend(str(t) for t in ext_tags if isinstance(t, str))
+        ext_enrichment = external_signal_meta.get("enrichments")
+        if isinstance(ext_enrichment, dict):
+            features.setdefault("external_signals", {})
+            if isinstance(features["external_signals"], dict):
+                features["external_signals"].update(ext_enrichment)
+
     # Platform integrity supplements (must run before JSON tag_rules so policy can match integrity:*)
     _plat_kw = _infer_ctx_kwargs(body, features)
     signal_tags.extend(supplemental_tags_for_integrity(_plat_kw["platform"], signal_tags))
@@ -2035,13 +2063,24 @@ async def evaluate_decision(
             ml_score=ml_score if isinstance(ml_score, float) else None,
         )
 
+    signal_tags.extend(
+        derive_contextual_tags(
+            features=features,
+            signal_tags=signal_tags,
+            graph_risk=graph_risk if isinstance(graph_risk, dict) else None,
+            external_signal_meta=external_signal_meta if isinstance(external_signal_meta, dict) else None,
+        )
+    )
+
     all_new_tags = rule_tags + signal_tags
     if consortium_delta > 0:
         rule_hits.append("consortium_shared_signal")
     if graph_delta > 0:
         rule_hits.append("graph_network_risk")
+    if external_signal_delta > 0:
+        rule_hits.append("external_signal_risk")
     replay_delta = 20.0 if is_replayed else 0.0
-    base_score = 10.0 + score_delta + consortium_delta + graph_delta + replay_delta
+    base_score = 10.0 + score_delta + consortium_delta + graph_delta + replay_delta + external_signal_delta
     final_score = _blend_scores(base_score, ml_score if isinstance(ml_score, float) else None)
 
     calibration_meta: dict[str, Any] | None = None
@@ -2055,6 +2094,9 @@ async def evaluate_decision(
             ml_detail=ml_detail if isinstance(ml_detail, dict) else None,
             location_meta=location_meta,
             counter_meta=counter_meta,
+            graph_meta=graph_risk if isinstance(graph_risk, dict) else None,
+            external_signal_meta=external_signal_meta if isinstance(external_signal_meta, dict) else None,
+            policy_experiment_id=settings.policy_experiment_id or None,
             **_plat_kw,
         )
         baseline_conf = float(baseline_inf.get("integrity_confidence") or 0.0)
@@ -2103,6 +2145,8 @@ async def evaluate_decision(
         reasons.append(f"signals:{','.join(signal_tags)}")
     if ml_score is not None and isinstance(ml_score, float):
         reasons.append(f"ml:{ml_score:.2f}")
+    if external_signal_delta > 0:
+        reasons.append(f"external_signals:+{external_signal_delta:.2f}")
 
     merged_signal_tags = list(dict.fromkeys(signal_tags))
     inf_ctx = build_inference_context(
@@ -2115,6 +2159,9 @@ async def evaluate_decision(
         calibration_meta=calibration_meta,
         counter_meta=counter_meta,
         location_meta=location_meta,
+        graph_meta=graph_risk if isinstance(graph_risk, dict) else None,
+        external_signal_meta=external_signal_meta if isinstance(external_signal_meta, dict) else None,
+        policy_experiment_id=settings.policy_experiment_id or None,
         **_plat_kw,
     )
     recommended_action = derive_recommended_action(decision, merged_signal_tags, inf_ctx)
@@ -2168,6 +2215,8 @@ async def evaluate_decision(
         snap_extra["counter"] = counter_meta
     if location_meta is not None:
         snap_extra["location"] = location_meta
+    if external_signal_meta is not None:
+        snap_extra["external_signals"] = external_signal_meta
 
     snap_extra["counter_version"] = _audit_counter_version_label()
     snap_extra["rule_pack_file"] = ",".join(json_rule_pack_files)
@@ -2189,6 +2238,26 @@ async def evaluate_decision(
     )
     session.add(audit)
     await session.commit()
+
+    decision_log_record = build_decision_log_record(
+        trace_id=str(trace_id),
+        tenant_id=body.tenant_id,
+        entity_id=body.entity_id,
+        event_type=body.event_type.value,
+        decision=decision,
+        score=final_score,
+        tags=merged_tags,
+        rule_hits=combined_rule_hits,
+        reasons=reasons,
+        ml_score=ml_score if isinstance(ml_score, float) else None,
+        inference_context=inf_ctx,
+        recommended_action=recommended_action,
+        challenge_policy_id=ch_meta.get("policy_id"),
+        challenge_metadata=ch_meta,
+        fallback_reason=fb_reason,
+        payload_snapshot=snap_extra,
+    )
+    bg.add_task(emit_decision_log, decision_log_record)
 
     bg.add_task(_graph_upsert_stepped, http, body, str(trace_id), merged_tags, geo_extra_tags, tenant_flags)
 

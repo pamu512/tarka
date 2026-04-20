@@ -28,6 +28,7 @@ The `deploy/docker-compose.yml` file uses Compose profiles so you can pick exact
 | `analytics` | Analytics Sink, ClickHouse |
 | `integration` | Integration Ingress |
 | `agent` | Investigation Agent |
+| `collab` | Collaboration chat bridge (Slack / Teams / Lark → investigation-agent) |
 | `gateway` | GraphQL Gateway |
 | `opa` | Open Policy Agent |
 | `risk` | Calibration, Counter, and Location first-class services |
@@ -60,6 +61,8 @@ docker compose --profile core --profile ml up -d
 cp .env.example .env   # configure inter-service URLs
 docker compose --profile full up -d
 ```
+
+**Collaboration chat (Slack / Teams / Lark)** — add **`--profile collab`** for **collaboration-chat-bridge** on host **8009** (compose default). It forwards to **investigation-agent**, so also enable **`agent`** and whatever upstream profiles the agent needs (often **`core`**, **`cases`**, **`graph`**). Operator wiring and secrets: **[Collaboration chat & cloud](./investigation-collaboration-chat-aws-azure.md)**.
 
 ### Inter-Service Configuration
 
@@ -245,6 +248,21 @@ helm install tarka deploy/helm/fraud-stack \
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI-compatible API base |
 | `OPENAI_MODEL` | `gpt-4o-mini` | Chat model id |
 | `ALLOWED_ANALYSTS` | `*` | Comma-separated analyst IDs (or `*` for all) |
+
+### Collaboration chat bridge (port 8009)
+
+| Variable | Default | Description |
+|---|---|---|
+| `INVESTIGATION_AGENT_URL` | `http://investigation-agent:8006` | Investigation agent base URL (no trailing slash) |
+| `INVESTIGATION_AGENT_API_KEY` | _(empty)_ | If set, sent as `x-api-key` to the agent |
+| `SLACK_SIGNING_SECRET` | _(empty)_ | Slack Events API signing secret |
+| `SLACK_BOT_TOKEN` | _(empty)_ | Slack bot token (`xoxb-…`) for replies / thread reads |
+| `TEAMS_BRIDGE_SECRET` | _(empty)_ | Shared secret for Teams/custom connector posts (`X-Bridge-Secret`) |
+| `BRIDGE_PLUGIN_SECRET` | _(empty)_ | Secret for bridge-proxied `/v1/plugin/*` (falls back to `TEAMS_BRIDGE_SECRET` if empty) |
+| `LARK_VERIFICATION_TOKEN` | _(empty)_ | Lark / Feishu verification token |
+| `LARK_TENANT_ACCESS_TOKEN` | _(empty)_ | Lark tenant token for outbound messages |
+
+Full ingress options, rate limits, and cloud runbooks: **[Collaboration chat & cloud](./investigation-collaboration-chat-aws-azure.md)**.
 
 ### Event Ingest (port 8007)
 

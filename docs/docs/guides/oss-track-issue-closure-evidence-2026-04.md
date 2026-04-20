@@ -12,10 +12,10 @@ Live list: [issues: open + `roadmap`](https://github.com/pamu512/tarka/issues?q=
 
 | Priority | Issue | Title (short) | In-repo notes |
 |----------|-------|-----------------|---------------|
-| P0 | [#36](https://github.com/pamu512/tarka/issues/36) | UX evaluation posture (detection vs compliance, degraded) | **Partial:** `AnalystReadinessBar`, `GET /v1/ops/evaluation-posture`, `GET /v1/slo`, Help `#readiness`, `tenant_reliability_profile`. Remaining: trust/ops copy polish, E2E degraded compliance. |
-| P0 | [#46](https://github.com/pamu512/tarka/issues/46) | Typology DSL + versioned predicate registry | [oss-typology-dsl-46.md](./oss-typology-dsl-46.md); close when issue AC + contract/tests are explicitly satisfied. |
-| P0 | [#48](https://github.com/pamu512/tarka/issues/48) | Feature-service parity verifier + drift gate | [oss-typology-parity-graph-34-48-49.md](./oss-typology-parity-graph-34-48-49.md); wire verifier job/CI per AC. |
-| P1 | [#40](https://github.com/pamu512/tarka/issues/40) | Evidence summaries + next-best-action (typology drivers) | **Partial:** `POST /v1/evidence/summary`; extend citations + golden tests per AC. |
+| P0 | [#36](https://github.com/pamu512/tarka/issues/36) | UX evaluation posture (detection vs compliance, degraded) | **Partial:** `AnalystReadinessBar`, `GET /v1/ops/evaluation-posture`, `GET /v1/slo`, in-app Help `#readiness`, `tenant_reliability_profile`. [API reference — Trust / ops readiness](../api-reference.md#trust-ops-readiness). Remaining: E2E degraded compliance (optional). |
+| P0 | [#46](https://github.com/pamu512/tarka/issues/46) | Typology DSL + versioned predicate registry | [oss-typology-dsl-46.md](./oss-typology-dsl-46.md); [API reference — Decision API](../api-reference.md#decision-api) (predicate registry row); `scripts/policy/validate_typology_dsl.py` in CI. Close when issue AC + milestone checklist satisfied. |
+| P0 | [#48](https://github.com/pamu512/tarka/issues/48) | Feature-service parity verifier + drift gate | [oss-typology-parity-graph-34-48-49.md](./oss-typology-parity-graph-34-48-49.md); OpenAPI `contracts/openapi/feature-service.yaml`; CI via `test-feature-service` (`tests/test_parity_verify.py`); [API reference — Feature Service](../api-reference.md#feature-service). |
+| P1 | [#40](https://github.com/pamu512/tarka/issues/40) | Evidence summaries + next-best-action (typology drivers) | **Partial:** `POST /v1/evidence/summary` + golden tests + UI anchors; OpenAPI `contracts/openapi/investigation-agent.yaml`; see [API reference — Investigation Agent](../api-reference.md#investigation-agent). |
 | P2 | [#55](https://github.com/pamu512/tarka/issues/55) … [#69](https://github.com/pamu512/tarka/issues/69) | Top-5 epics (Marble → xFraud) | Roadmap-sized; sequence after P0/P1 OSS slices. |
 
 ### Recently closed — evidence audit (2026-04-22)

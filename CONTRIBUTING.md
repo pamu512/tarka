@@ -90,7 +90,9 @@ docker compose --profile full up -d
 
 ## Running Tests
 
-**CI:** GitHub Actions runs lint (Ruff); Python tests for decision-api, case-api, graph-service, integration-ingress, investigation-agent (including golden integration profiles), collaboration-chat-bridge, graphql-gateway, event-ingest, analytics-sink, feature-service, ml-scoring, and the Python SDK; **`npm run build`** for the **frontend** and **`npm run build`** for **`packages/fraud-sdk-typescript`**; then Docker image builds for each `services/*/Dockerfile` (see `.github/workflows/ci.yml`), including **`investigation-agent`**. **Saarthi Pro** commercial images are **not** built here; they ship from the private **Saarthi-pro** repo. Security scanning (Trivy + SARIF upload) runs in `.github/workflows/security-scan.yml`.
+**Contracts:** From the repo root, `pip install pyyaml && python scripts/ci/validate_openapi_yaml.py` must pass (same check as the **lint** job on `contracts/openapi/*.yaml`). Other script entrypoints are indexed in [`scripts/README.md`](scripts/README.md).
+
+**CI:** GitHub Actions runs lint (Ruff); Python tests for decision-api, case-api, graph-service, integration-ingress, investigation-agent (including golden integration profiles), collaboration-chat-bridge, graphql-gateway, event-ingest, analytics-sink, feature-service, ml-scoring, and the Python SDK; **`npm run test`** then **`npm run build`** for the **frontend** (Vitest + production bundle) and **`npm run build`** for **`packages/fraud-sdk-typescript`**; then Docker image builds for each `services/*/Dockerfile` (see `.github/workflows/ci.yml`), including **`investigation-agent`**. **Saarthi Pro** commercial images are **not** built here; they ship from the private **Saarthi-pro** repo. Security scanning (Trivy + SARIF upload) runs in `.github/workflows/security-scan.yml`.
 
 Each service has a `tests/` directory. Run tests from the service root:
 
@@ -159,9 +161,10 @@ pip install -e ".[dev]"
 export PYTHONPATH=src:../shared
 pytest tests/
 
-# Frontend (TypeScript check + Vite production build)
+# Frontend (Vitest + TypeScript check + Vite production build)
 cd frontend
 npm ci
+npm run test
 npm run build
 
 # TypeScript fraud SDK

@@ -261,6 +261,21 @@ class TestAdminReload:
             assert r.status_code == 200
 
 
+class TestTypologyPredicateRegistry:
+    @pytest.mark.asyncio
+    async def test_predicate_registry_public_shape(self, client):
+        r = await client.get("/v1/admin/typology/predicate-registry")
+        assert r.status_code == 200
+        data = r.json()
+        assert data.get("ok") is True
+        assert "registry_id" in data
+        assert "version" in data
+        preds = data.get("predicates")
+        assert isinstance(preds, list)
+        for p in preds:
+            assert isinstance(p, dict) and "id" in p
+
+
 class TestOpsEndpoints:
     @pytest.mark.asyncio
     async def test_ops_governance_includes_calibration_status(self, client):

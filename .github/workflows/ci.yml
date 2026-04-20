@@ -39,6 +39,10 @@ jobs:
         run: python scripts/policy/validate_rule_packs.py
       - name: Validate typology DSL + predicate registry (OSS #46)
         run: python scripts/policy/validate_typology_dsl.py
+      - name: Parse-check OpenAPI YAML (contracts/openapi)
+        run: |
+          pip install pyyaml
+          python scripts/ci/validate_openapi_yaml.py
       - name: Validate ML signal catalogs vs heuristic FEATURE_ORDER
         run: python scripts/ml/validate_signal_catalogs.py
       - name: ML promotion policy YAML/JSON sync + metadata (OSS #37 / #52)

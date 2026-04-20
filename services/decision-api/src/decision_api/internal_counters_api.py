@@ -151,6 +151,18 @@ async def get_counter_catalog_merged() -> dict[str, Any]:
     }
 
 
+@router.get("/definitions")
+async def get_counter_definitions() -> dict[str, Any]:
+    """Raw declarative counter definitions for internal tooling and docs generation."""
+    cat = _read_counter_catalog_file()
+    manifest = dict(load_counter_manifest_v1())
+    return {
+        "catalog_version": cat.get("catalog_version", "0"),
+        "manifest_version": manifest.get("manifest_version"),
+        "definitions": cat.get("counters") or [],
+    }
+
+
 @_secured.post(
     "/replay",
     response_model=CounterReplayResponse,

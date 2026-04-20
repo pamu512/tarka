@@ -893,6 +893,14 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
         velocity_events_5m: 2,
         velocity_events_1h: 12,
         velocity_events_24h: 48,
+        calibration_profile_version: 1,
+        location_confidence: 0.74,
+        confidence_sources: { calibration: "service", counter: "service", location: "service" },
+        graph_risk_score: 0.22,
+        graph_risk_reasons: [],
+        external_signal_score: 0,
+        external_signal_providers: [],
+        policy_experiment_id: null,
         ml_model: "heuristic-v1",
         ml_summary:
           "ML risk score 71.0/100 (heuristic-v1). Top signals: ELEVATED_RISK: Overall risk score 71/100 — elevated risk, manual review recommended",
@@ -1032,6 +1040,14 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
         velocity_events_5m: 2,
         velocity_events_1h: 12,
         velocity_events_24h: 48,
+        calibration_profile_version: 1,
+        location_confidence: 0.74,
+        confidence_sources: { calibration: "service", counter: "service", location: "service" },
+        graph_risk_score: 0.22,
+        graph_risk_reasons: [],
+        external_signal_score: 0,
+        external_signal_providers: [],
+        policy_experiment_id: null,
         ml_model: "heuristic-v1",
         ml_summary:
           "ML risk score 71.0/100 (heuristic-v1). Top signals: ELEVATED_RISK: Overall risk score 71/100 — elevated risk, manual review recommended",
@@ -1581,13 +1597,25 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
         medium: claims.length,
         low: 0,
       },
-      citations: claims.map((c, i) => ({
-        claim_index: i,
-        text: String(c.text ?? ""),
-        source: String(c.source ?? "unknown"),
-        supported: true,
-        confidence_label: "medium",
-      })),
+      citations: claims.map((c, i) => {
+        const ruleId = typeof (c as { rule_id?: string }).rule_id === "string" ? (c as { rule_id: string }).rule_id : "";
+        const typologyId =
+          typeof (c as { typology_id?: string }).typology_id === "string" ? (c as { typology_id: string }).typology_id : "";
+        const resolves: { artifact: string; id: string }[] = [];
+        if (traceId) resolves.push({ artifact: "decision_trace", id: traceId });
+        if (typeof b.case_id === "string" && b.case_id) resolves.push({ artifact: "case", id: b.case_id });
+        if (ruleId) resolves.push({ artifact: "json_rule", id: ruleId });
+        if (typologyId) resolves.push({ artifact: "typology", id: typologyId });
+        return {
+          claim_index: i,
+          text: String(c.text ?? ""),
+          source: String(c.source ?? "unknown"),
+          supported: true,
+          confidence_label: "medium",
+          resolves_to: resolves,
+        };
+      }),
+      next_actions: [],
       source_refs: Array.isArray(b.source_refs) ? b.source_refs : [],
       trace_id: traceId,
       case_id: typeof b.case_id === "string" ? b.case_id : null,

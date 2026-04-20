@@ -1,0 +1,15 @@
+{
+  "tenant_id": "demo",
+  "analyst_id": "analyst-1",
+  "reply": "Typology drivers only.",
+  "claims": [{ "text": "Manual note without tool grounding.", "source": "human" }],
+  "typology_breakdown": [
+    {
+      "typology_id": "payee_risk",
+      "contributing_rules": [{ "rule_id": "r1" }, { "rule_id": "r2" }]
+    }
+  ],
+  "source_refs": [],
+  "claims_deterministic_support": [],
+  "turn_id": "golden-turn-02"
+}

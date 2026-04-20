@@ -168,6 +168,16 @@ export interface EntityRiskResult {
   risk_factors: string[];
   connected_flagged_count: number;
   community_size: number;
+  gnn_beta?: Record<string, unknown> | null;
+}
+
+export interface RingSuspicionResult {
+  tenant_id: string;
+  entity_id: string;
+  suspicion_level: "low" | "medium" | "high";
+  score: number;
+  reasons: string[];
+  ring_samples: Array<Record<string, unknown>>;
 }
 
 export interface RiskPropagationResult {
@@ -755,6 +765,12 @@ export const graph = {
       `/api/graph/v1/analytics/entity-risk?entity_id=${entityId}&tenant_id=${tenantId}`,
     );
   },
+
+  ringSuspicion(entityId: string, tenantId: string, minRingSize: number = 3) {
+    return request<RingSuspicionResult>(
+      `/api/graph/v1/analytics/ring-suspicion?entity_id=${entityId}&tenant_id=${tenantId}&min_ring_size=${minRingSize}`,
+    );
+  },
 };
 
 // ── Analytics (analytics-sink :8008) ────────────────────────────────
@@ -1143,6 +1159,9 @@ export interface InvestigationGovernanceInfo {
 export interface InvestigationClaim {
   text: string;
   source: "tool" | "unknown";
+  /** Optional anchors for /v1/evidence/summary resolves_to (OSS #40). */
+  rule_id?: string;
+  typology_id?: string;
 }
 
 /** One row per tool invocation — mirrors investigation-agent `build_source_reference_cards`. */
@@ -1197,6 +1216,31 @@ export interface InvestigationEvidenceBundleDraft {
 }
 
 /** Matches investigation-agent `POST /v1/evidence/summary` JSON body. */
+export interface InvestigationEvidenceResolutionRef {
+  /** decision_trace | case | json_rule | typology */
+  artifact: string;
+  id: string;
+}
+
+export interface InvestigationEvidenceSummaryCitation {
+  claim_index: number;
+  text: string;
+  source: string;
+  supported?: boolean | null;
+  confidence_label: string;
+  /** Structured anchors to trace, case, rule, or typology ids (OSS #40). */
+  resolves_to?: InvestigationEvidenceResolutionRef[];
+}
+
+export interface InvestigationEvidenceSummaryNextAction {
+  id: string;
+  label: string;
+  confidence: string;
+  /** read | automated_side_effect (latter only when allow-listed server-side). */
+  kind: string;
+  resolves_to?: InvestigationEvidenceResolutionRef[];
+}
+
 export interface InvestigationEvidenceSummaryResponse {
   summary: string;
   confidence_label: "high" | "medium" | "low";
@@ -1210,13 +1254,9 @@ export interface InvestigationEvidenceSummaryResponse {
     medium: number;
     low: number;
   };
-  citations: Array<{
-    claim_index: number;
-    text: string;
-    source: string;
-    supported?: boolean | null;
-    confidence_label: string;
-  }>;
+  citations: InvestigationEvidenceSummaryCitation[];
+  /** Present on investigation-agent builds with OSS #40; treat as empty when missing. */
+  next_actions?: InvestigationEvidenceSummaryNextAction[];
   source_refs?: InvestigationSourceRefCard[];
   trace_id?: string | null;
   case_id?: string | null;
@@ -1399,6 +1439,9 @@ export const investigation = {
     source_refs?: InvestigationSourceRefCard[];
     claims_deterministic_support?: InvestigationClaimSupportRow[];
     answer_sections?: InvestigationAnswerSections;
+    decision_audit?: Record<string, unknown> | null;
+    typology_breakdown?: Array<Record<string, unknown>> | null;
+    proposed_next_actions?: Array<Record<string, unknown>> | null;
   }) {
     return request<InvestigationEvidenceSummaryResponse>("/api/investigation/v1/evidence/summary", {
       method: "POST",
