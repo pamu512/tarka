@@ -150,15 +150,17 @@ class TestEvaluateJsonRules:
     def test_single_rule_hit(self):
         self._load_pack(
             {
+                "_source_file": "rules_live.json",
                 "version": 1,
                 "rules": [{"id": "big_tx", "when": [{"field": "amount", "op": "gte", "value": 5000}], "tags": ["high_amount"], "score_delta": 20}],
                 "tag_rules": [],
             }
         )
-        hits, tags, delta = evaluate_json_rules({"amount": 10000}, [])
+        hits, tags, delta, contributing = evaluate_json_rules({"amount": 10000}, [])
         assert hits == ["big_tx"]
         assert tags == ["high_amount"]
         assert delta == 20.0
+        assert contributing == ["rules_live.json"]
         from decision_api.json_rules import get_rule_hit_telemetry
 
         snap = get_rule_hit_telemetry()
@@ -173,10 +175,11 @@ class TestEvaluateJsonRules:
                 "tag_rules": [],
             }
         )
-        hits, tags, delta = evaluate_json_rules({"amount": 100}, [])
+        hits, tags, delta, contributing = evaluate_json_rules({"amount": 100}, [])
         assert hits == []
         assert tags == []
         assert delta == 0.0
+        assert contributing == []
 
     def test_multi_condition_all_match(self):
         self._load_pack(
@@ -196,7 +199,7 @@ class TestEvaluateJsonRules:
                 "tag_rules": [],
             }
         )
-        hits, tags, delta = evaluate_json_rules({"amount": 6000, "is_vpn": True}, [])
+        hits, tags, delta, _contributing = evaluate_json_rules({"amount": 6000, "is_vpn": True}, [])
         assert hits == ["combo"]
 
     def test_multi_condition_partial_match(self):
@@ -217,7 +220,7 @@ class TestEvaluateJsonRules:
                 "tag_rules": [],
             }
         )
-        hits, tags, delta = evaluate_json_rules({"amount": 6000, "is_vpn": False}, [])
+        hits, tags, delta, _contributing = evaluate_json_rules({"amount": 6000, "is_vpn": False}, [])
         assert hits == []
 
     def test_tag_rules(self):
@@ -228,7 +231,7 @@ class TestEvaluateJsonRules:
                 "tag_rules": [{"id": "escalate_vpn", "any_tag": ["sdk:vpn"], "tags": ["escalated"], "score_delta": 10}],
             }
         )
-        hits, tags, delta = evaluate_json_rules({}, ["sdk:vpn", "sdk:emulator"])
+        hits, tags, delta, _contributing = evaluate_json_rules({}, ["sdk:vpn", "sdk:emulator"])
         assert hits == ["escalate_vpn"]
         assert tags == ["escalated"]
         assert delta == 10.0
@@ -249,7 +252,7 @@ class TestEvaluateJsonRules:
                 ],
             }
         )
-        hits, tags, delta = evaluate_json_rules({}, [], signal_tags=["ingress:replay_payload"])
+        hits, tags, delta, _contributing = evaluate_json_rules({}, [], signal_tags=["ingress:replay_payload"])
         assert hits == ["replay_escalation"]
         assert "policy:replay" in tags
         assert delta == 10.0
@@ -262,7 +265,7 @@ class TestEvaluateJsonRules:
                 "tag_rules": [{"id": "escalate_vpn", "any_tag": ["sdk:vpn"], "tags": ["escalated"], "score_delta": 10}],
             }
         )
-        hits, tags, delta = evaluate_json_rules({}, ["sdk:emulator"])
+        hits, tags, delta, _contributing = evaluate_json_rules({}, ["sdk:emulator"])
         assert hits == []
 
     def test_empty_when_skipped(self):
@@ -273,7 +276,7 @@ class TestEvaluateJsonRules:
                 "tag_rules": [],
             }
         )
-        hits, tags, delta = evaluate_json_rules({"amount": 100}, [])
+        hits, tags, delta, _contributing = evaluate_json_rules({"amount": 100}, [])
         assert hits == []
 
     def test_multiple_rules_accumulate(self):
@@ -287,7 +290,7 @@ class TestEvaluateJsonRules:
                 "tag_rules": [],
             }
         )
-        hits, tags, delta = evaluate_json_rules({"is_bot": True, "is_vpn": True}, [])
+        hits, tags, delta, _contributing = evaluate_json_rules({"is_bot": True, "is_vpn": True}, [])
         assert hits == ["r1", "r2"]
         assert sorted(tags) == ["bot", "vpn"]
         assert delta == 55.0
@@ -296,5 +299,5 @@ class TestEvaluateJsonRules:
         import decision_api.json_rules as mod
 
         mod._cached_packs = []
-        hits, tags, delta = evaluate_json_rules({"amount": 999999}, [])
+        hits, tags, delta, _contributing = evaluate_json_rules({"amount": 999999}, [])
         assert hits == []

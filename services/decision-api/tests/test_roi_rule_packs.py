@@ -57,7 +57,7 @@ class TestROIRuleEvaluation:
             "event_count_5m": 16,
             "transaction_count_24h": 30,
         }
-        hits, tags, delta = evaluate_json_rules(feats, [])
+        hits, tags, delta, _pf = evaluate_json_rules(feats, [])
         assert "burst_5m_severe" in hits
         assert "pay_high_amount_untrusted_device" in hits
         assert delta > 0

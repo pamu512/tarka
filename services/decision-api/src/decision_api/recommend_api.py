@@ -134,7 +134,7 @@ async def preview_recommendation(
     for rec in records:
         snapshot = rec.payload_snapshot or {}
         features = {**snapshot.get("payload", {}), **snapshot.get("metadata", {})}
-        hits, tags, delta = _evaluate_pack(pack, features, [])
+        hits, tags, delta, _pf = _evaluate_pack(pack, features, [])
         if hits:
             affected += 1
             new_score = max(0.0, min(100.0, rec.score + delta))

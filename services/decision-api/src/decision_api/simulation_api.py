@@ -73,7 +73,7 @@ async def run_simulation(body: RunSimulationRequest, request: Request):
 
     for event in events:
         features = dict(event.get("payload", {}))
-        rule_hits, rule_tags, score_delta = evaluate_json_rules(
+        rule_hits, rule_tags, score_delta, _pack_files = evaluate_json_rules(
             features,
             [],
             evaluation_mode="simulation",
@@ -146,7 +146,7 @@ def _eval_with_override_rules(event: dict[str, Any], override_rules: list[dict[s
                 delta += float(rule.get("score_delta", 0))
         score = max(0.0, min(100.0, 10.0 + delta))
     else:
-        hits, tags, delta = evaluate_json_rules(features, [], evaluation_mode="simulation")
+        hits, tags, delta, _pack_files = evaluate_json_rules(features, [], evaluation_mode="simulation")
         score = max(0.0, min(100.0, 10.0 + delta))
 
     if score >= settings.deny_threshold:

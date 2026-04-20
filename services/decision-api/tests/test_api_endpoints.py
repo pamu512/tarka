@@ -119,7 +119,7 @@ class TestEvaluateDecision:
         mock_session.commit = AsyncMock()
         from decision_api.main import get_session
 
-        with patch("decision_api.main.evaluate_json_rules", return_value=([], [], 0.0)):
+        with patch("decision_api.main.evaluate_json_rules", return_value=([], [], 0.0, [])):
             with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
                 with patch("decision_api.main._fetch_ml_score_wrapped", new_callable=AsyncMock, return_value=(None, {})):
                     client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
@@ -134,7 +134,11 @@ class TestEvaluateDecision:
                     assert "integrity_confidence" in data["inference_context"]
                     assert 0 <= data["inference_context"]["integrity_confidence"] <= 1
                     audit = mock_session.add.call_args[0][0]
-                    assert "canary_cohort" in (audit.payload_snapshot or {})
+                    snap0 = audit.payload_snapshot or {}
+                    assert "canary_cohort" in snap0
+                    assert snap0.get("counter_version") == "default"
+                    assert snap0.get("rule_pack_file") == ""
+                    assert "ml_model" in snap0
 
     @pytest.mark.asyncio
     async def test_with_device_context(self, client):
@@ -143,7 +147,7 @@ class TestEvaluateDecision:
         mock_session.commit = AsyncMock()
         from decision_api.main import get_session
 
-        with patch("decision_api.main.evaluate_json_rules", return_value=(["sdk_bot"], ["sdk:bot"], 40.0)):
+        with patch("decision_api.main.evaluate_json_rules", return_value=(["sdk_bot"], ["sdk:bot"], 40.0, [])):
             with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
                 with patch("decision_api.main._fetch_ml_score_wrapped", new_callable=AsyncMock, return_value=(None, {})):
                     client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
@@ -179,7 +183,7 @@ class TestEvaluateDecision:
 
         def _capture_rules(features, *_args, **_kwargs):
             captured_features.update(dict(features) if features else {})
-            return ([], [], 0.0)
+            return ([], [], 0.0, [])
 
         with patch("decision_api.main.evaluate_json_rules", side_effect=_capture_rules):
             with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
@@ -308,8 +312,8 @@ class TestChampionChallengerPolicyRouting:
 
         def _fake_eval(features, redis_tags, tenant_id, entity_id, evaluation_mode="production", signal_tags=None):
             if evaluation_mode == "challenger":
-                return ([], [], 50.0)
-            return ([], [], 0.0)
+                return ([], [], 50.0, [])
+            return ([], [], 0.0, [])
 
         with patch("decision_api.main.evaluate_json_rules", side_effect=_fake_eval):
             with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
