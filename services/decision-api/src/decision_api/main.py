@@ -1689,11 +1689,7 @@ async def evaluate_decision(
                     "counter_version": _audit_counter_version_label(),
                     "rule_pack_file": "",
                     "ml_model": _wl_inf.get("ml_model"),
-                    **(
-                        {"etl_batch_id": _eb_wl}
-                        if (_eb_wl := _metadata_etl_batch_id(body))
-                        else {}
-                    ),
+                    **({"etl_batch_id": _eb_wl} if (_eb_wl := _metadata_etl_batch_id(body)) else {}),
                     "canary_cohort": build_canary_cohort_audit(
                         body.tenant_id,
                         body.entity_id,
@@ -1748,11 +1744,7 @@ async def evaluate_decision(
                     "counter_version": _audit_counter_version_label(),
                     "rule_pack_file": "",
                     "ml_model": _bl_inf.get("ml_model"),
-                    **(
-                        {"etl_batch_id": _eb_bl}
-                        if (_eb_bl := _metadata_etl_batch_id(body))
-                        else {}
-                    ),
+                    **({"etl_batch_id": _eb_bl} if (_eb_bl := _metadata_etl_batch_id(body)) else {}),
                     "canary_cohort": build_canary_cohort_audit(
                         body.tenant_id,
                         body.entity_id,
