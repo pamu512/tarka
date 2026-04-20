@@ -53,6 +53,8 @@ def _get_api_keys() -> frozenset[str]:
 
 
 async def require_api_key(request: Request) -> None:
+    if request.url.path in {"/v1/health", "/metrics"}:
+        return
     keys = _get_api_keys()
     if not keys:
         allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}

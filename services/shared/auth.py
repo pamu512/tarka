@@ -29,6 +29,9 @@ def _keys() -> frozenset[str]:
 
 
 async def require_api_key(request: Request) -> None:
+    # Orchestrators and scripts (e.g. scripts/ci/full_stack_smoke.py) probe these without X-API-Key.
+    if request.url.path in {"/v1/health", "/metrics"}:
+        return
     keys = _keys()
     if not keys:
         allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
