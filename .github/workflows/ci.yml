@@ -41,6 +41,10 @@ jobs:
         run: python scripts/policy/validate_typology_dsl.py
       - name: Validate ML signal catalogs vs heuristic FEATURE_ORDER
         run: python scripts/ml/validate_signal_catalogs.py
+      - name: ML promotion policy YAML/JSON sync + metadata (OSS #37 / #52)
+        run: |
+          pip install pyyaml
+          python scripts/ml/validate_ml_promotion_policy.py --check-sync --strict
       - name: Block vendor IDE tokens in tracked sources
         run: |
           python << 'PY'

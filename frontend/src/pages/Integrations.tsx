@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { integrations } from "../api/client";
+import { integrations, type IntegrationScorecardsPayload } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
 import { safeExternalHref } from "../utils/externalLinks";
 
@@ -45,6 +45,7 @@ export default function Integrations() {
   const [kmsStatus, setKmsStatus] = useState<{ provider: string; active_key_id: string; config_valid: boolean } | null>(null);
   const [rotationJobs, setRotationJobs] = useState<Array<{ id: string; status: string; processed: number; rotated: number; failed: number }>>([]);
   const [slo, setSlo] = useState<{ availability_target: number; latency_target_ms_p95: number; error_budget_window_days: number; current: { kms_provider: string; rotation_jobs: number; rotation_failures: number } } | null>(null);
+  const [scorecards, setScorecards] = useState<IntegrationScorecardsPayload | null>(null);
 
   const [requestName, setRequestName] = useState("");
   const [requestCategory, setRequestCategory] = useState("kyc");
@@ -91,6 +92,12 @@ export default function Integrations() {
       };
     }
     setTestResults(tests);
+    try {
+      const sc = await integrations.scorecards(tenantId);
+      setScorecards(sc);
+    } catch {
+      setScorecards(null);
+    }
   }
 
   useEffect(() => {
@@ -265,6 +272,59 @@ export default function Integrations() {
                   {j.status} | processed {j.processed} | rotated {j.rotated} | failed {j.failed}
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {scorecards && (
+        <div className="bg-surface-900 border border-surface-700 rounded-xl p-4 space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-200">Integration scorecards</h2>
+              <p className="text-xs text-gray-400 mt-1">
+                Installed providers — <code className="text-gray-500">GET /v1/integrations/scorecards</code>
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-xl font-bold text-brand-300 tabular-nums">{scorecards.overall_score.toFixed(1)}</div>
+              <div className="text-xs text-gray-400">overall score</div>
+              <div className="text-xs text-gray-500 mt-1 tabular-nums">
+                Connector quality {scorecards.overall_connector_quality.toFixed(1)}
+                {scorecards.connector_quality_version ? ` · ${scorecards.connector_quality_version}` : ""}
+              </div>
+            </div>
+          </div>
+          {scorecards.providers.length === 0 ? (
+            <p className="text-xs text-gray-500">No installed integration connections for this tenant.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-surface-800">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-gray-500 border-b border-surface-800 bg-surface-950/80">
+                    <th className="text-left py-2 px-3 font-medium">Provider</th>
+                    <th className="text-left py-2 px-3 font-medium">Category</th>
+                    <th className="text-left py-2 px-3 font-medium">Status</th>
+                    <th className="text-right py-2 px-3 font-medium">Score</th>
+                    <th className="text-right py-2 px-3 font-medium">Latency</th>
+                    <th className="text-left py-2 px-3 font-medium">Reasons</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scorecards.providers.map((row) => (
+                    <tr key={row.provider_id} className="border-b border-surface-800/80">
+                      <td className="py-2 px-3 font-mono text-gray-200">{row.provider_id}</td>
+                      <td className="py-2 px-3 text-gray-400">{CATEGORY_LABELS[row.category] ?? row.category}</td>
+                      <td className="py-2 px-3 text-gray-300">{row.status}</td>
+                      <td className="py-2 px-3 text-right text-gray-200 tabular-nums">{row.provider_score.toFixed(1)}</td>
+                      <td className="py-2 px-3 text-right text-gray-400 tabular-nums">{row.latency_ms.toFixed(0)}ms</td>
+                      <td className="py-2 px-3 text-gray-500 max-w-[220px] truncate" title={row.reasons.join(", ")}>
+                        {row.reasons.length ? row.reasons.join(", ") : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

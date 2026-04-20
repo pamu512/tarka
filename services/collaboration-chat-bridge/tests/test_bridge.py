@@ -251,6 +251,7 @@ async def test_teams_ingress_audit_logs_unavailable_has_upstream_status(monkeypa
     assert hit
     assert hit[0]["correlation_id"] == "req-ing-fail-1"
     assert hit[0]["status_code"] == 200
+    assert hit[0]["status_class"] == "2xx"
     assert hit[0]["upstream_status"] == 503
 
 
@@ -342,6 +343,7 @@ async def test_teams_ingress_audit_logs(monkeypatch, caplog):
     hit = [p for p in audit_payloads if p.get("route") == "teams_messages" and p.get("outcome") == "success"]
     assert hit
     assert hit[0]["correlation_id"] == "req-ing-1"
+    assert hit[0]["status_class"] == "2xx"
     assert hit[0]["tenant_id"] == "demo"
     assert hit[0]["analyst_id"] == "analyst-1"
 
@@ -397,6 +399,7 @@ async def test_slack_ingress_audit_logs(monkeypatch, caplog):
     hit = [p for p in audit_payloads if p.get("route") == "slack_events" and p.get("outcome") == "accepted"]
     assert hit
     assert hit[0]["correlation_id"] == "req-slack-a1"
+    assert hit[0]["status_class"] == "2xx"
 
 
 @pytest.mark.asyncio
@@ -456,6 +459,8 @@ async def test_slack_async_completion_audit_logs_upstream_status(monkeypatch, ca
     hit = [p for p in audit_payloads if p.get("route") == "slack_events" and p.get("outcome") == "unavailable"]
     assert hit
     assert hit[0]["correlation_id"] == "req-slack-c1"
+    assert hit[0]["status_code"] == 503
+    assert hit[0]["status_class"] == "5xx"
     assert hit[0]["upstream_status"] == 503
     assert hit[0]["analyst_id"] == "slack:U123"
 
@@ -502,6 +507,8 @@ async def test_lark_async_completion_audit_logs_upstream_status(monkeypatch, cap
     hit = [p for p in audit_payloads if p.get("route") == "lark_event" and p.get("outcome") == "unavailable"]
     assert hit
     assert hit[0]["correlation_id"] == "req-lark-c1"
+    assert hit[0]["status_code"] == 503
+    assert hit[0]["status_class"] == "5xx"
     assert hit[0]["upstream_status"] == 503
     assert hit[0]["analyst_id"] == "lark:ou_1"
 
@@ -703,6 +710,7 @@ async def test_plugin_audit_logs(monkeypatch, caplog):
     success = [p for p in audit_payloads if p.get("action") == "plugin_session" and p.get("outcome") == "success"]
     assert success
     assert success[0]["correlation_id"] == "req-42"
+    assert success[0]["status_class"] == "2xx"
     assert success[0]["tenant_id"] == "demo"
     assert success[0]["analyst_id"] == "analyst-1"
 
@@ -737,6 +745,7 @@ async def test_plugin_audit_logs_rejected(monkeypatch, caplog):
     rejected = [p for p in audit_payloads if p.get("action") == "plugin_bootstrap" and p.get("outcome") == "rejected"]
     assert rejected
     assert rejected[0]["status_code"] == 401
+    assert rejected[0]["status_class"] == "4xx"
     assert rejected[0]["upstream_status"] == 401
     assert rejected[0]["correlation_id"] == "req-rej-1"
 

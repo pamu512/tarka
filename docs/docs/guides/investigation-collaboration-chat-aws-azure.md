@@ -140,6 +140,144 @@ Typical pattern: **one task/service per container**, private subnets, **ALB** HT
 - Correlate both phases using the same request `correlation_id` (`X-Request-Id`/`X-Correlation-Id` if supplied, otherwise bridge-generated).
 - Bridge ingress and plugin responses include `X-Correlation-Id` so clients can stitch transport logs to audit events.
 
+### Audit troubleshooting quick checks
+
+Use these patterns in your log backend:
+
+- Find all records for one request: filter `correlation_id="<id>"`.
+- Trace plugin handshake outcomes: filter `event="bridge.plugin.audit"` and `action in ("plugin_session","plugin_bootstrap")`.
+- Trace channel ingress lifecycle: filter `event="bridge.ingress.audit"` and one `route`; for Slack/Lark expect both `outcome="accepted"` and a second completion event with the same `correlation_id`.
+- Identify upstream outages: filter `event="bridge.ingress.audit"` with `outcome="unavailable"` or `upstream_status >= 500`.
+- Spot auth/rate-limit pressure: filter `outcome in ("unauthorized","rate_limited")` grouped by `route`, `tenant_id`, and time window.
+
+### Audit log schema (stable fields)
+
+Both `bridge.plugin.audit` and `bridge.ingress.audit` emit normalized fields intended for dashboards and alerts:
+
+- `event`: audit stream id (`bridge.plugin.audit` or `bridge.ingress.audit`).
+- `correlation_id`: joins transport logs, response headers, and multi-phase audit entries.
+- `outcome`: normalized lifecycle state (`success`, `accepted`, `unavailable`, `unauthorized`, `rate_limited`, `ignored`, etc.).
+- `status_code`: bridge-facing status code for this event.
+- `status_class`: pre-bucketed class (`2xx`, `4xx`, `5xx`) for low-cardinality aggregation.
+- `upstream_status` (optional): upstream agent/service status when known.
+- `tenant_id` / `analyst_id` (optional): scoped identifiers for tenant-level ops analytics.
+
+Channel/plugin specific fields:
+
+- Plugin events include `action` (`plugin_session`, `plugin_bootstrap`) and optional `case_id`/`external_case_id`.
+- Ingress events include `route` (`slack_events`, `teams_messages`, `teams_activity`, `lark_event`) and optional `reason`.
+
+### Alert starter set
+
+Seed your monitoring with low-noise alerts:
+
+- **Bridge upstream outage (critical):** `event="bridge.ingress.audit" AND outcome="unavailable" AND status_class="5xx"` over 5 minutes.
+- **Plugin handshake failure burst (high):** `event="bridge.plugin.audit" AND outcome IN ("rejected","unavailable")` grouped by `action` and `tenant_id`.
+- **Rate-limit pressure (medium):** `outcome="rate_limited"` grouped by `route`, `tenant_id`, and client network over a rolling 15-minute window.
+- **Auth failure spike (medium):** `outcome="unauthorized"` grouped by `route` and `tenant_id`; alert on sudden baseline deviation.
+- **Async completion gap (high):** for `route IN ("slack_events","lark_event")`, detect `accepted` events without a matching completion event on the same `correlation_id` within 2 minutes.
+
+Example async-gap logic:
+
+1. Stream A: `bridge.ingress.audit` where `route IN ("slack_events","lark_event") AND outcome="accepted"`.
+2. Stream B: `bridge.ingress.audit` where `route IN ("slack_events","lark_event") AND outcome IN ("success","unavailable","delivery_failed","ignored","failed")`.
+3. Alert when an A record has no matching B record on `correlation_id` before timeout.
+
+### Grafana / Loki (LogQL) copy-paste {: #grafana-loki-logql }
+
+Audit lines are emitted as a short prefix plus **compact JSON** (for example `bridge_ingress_audit {"event":"bridge.ingress.audit",...}`).
+
+#### Label selector recipes
+
+Use **one** label set that matches how logs are scraped into Loki (Promtail, Alloy, Datadog Agent, etc.):
+
+| Deployment | Example selector |
+|------------|------------------|
+| Kubernetes (container name) | `{namespace="tarka", container="collaboration-chat-bridge"}` |
+| Kubernetes (pod name regex) | `{namespace="tarka", pod=~"collaboration-chat-bridge.*"}` |
+| Kubernetes / Helm (`app`) | `{app="collaboration-chat-bridge"}` |
+| Service / APM-style | `{service_name="collaboration-chat-bridge"}` |
+
+The examples below use **`{namespace="tarka", container="collaboration-chat-bridge"}`** — substitute your namespace and the labels your shipper attaches (`pod`, `container`, `app`, `service_name`, …). Enterprise plugin and governance context (same queries, different framing) is in [Enterprise Copilot — plugin and governance](enterprise-copilot-plugin-and-governance-controls.md#grafana-loki-bridge-audit).
+
+**Extract JSON payload** (use this `regexp` → `line_format` → `json` pipeline once per query, then filter on fields):
+
+```logql
+{namespace="tarka", container="collaboration-chat-bridge"}
+  |= "bridge_ingress_audit"
+  | regexp `bridge_ingress_audit (?P<payload>\{.*\})`
+  | line_format "{{.payload}}"
+  | json
+```
+
+**Ingress — upstream unavailable (5xx-class completion / outage signal):**
+
+```logql
+sum(count_over_time(
+  {namespace="tarka", container="collaboration-chat-bridge"}
+    |= "bridge_ingress_audit"
+    | regexp `bridge_ingress_audit (?P<payload>\{.*\})`
+    | line_format "{{.payload}}"
+    | json
+    | event="bridge.ingress.audit"
+    | outcome="unavailable"
+    | status_class="5xx"
+  [5m]
+)) > 0
+```
+
+**Plugin — handshake failures (rejected or unavailable):**
+
+```logql
+sum(count_over_time(
+  {namespace="tarka", container="collaboration-chat-bridge"}
+    |= "bridge_plugin_audit"
+    | regexp `bridge_plugin_audit (?P<payload>\{.*\})`
+    | line_format "{{.payload}}"
+    | json
+    | event="bridge.plugin.audit"
+    | outcome=~"rejected|unavailable"
+  [5m]
+)) > 0
+```
+
+**Rate limits / auth (any route):**
+
+```logql
+sum by (route) (count_over_time(
+  {namespace="tarka", container="collaboration-chat-bridge"}
+    |= "bridge_ingress_audit"
+    | regexp `bridge_ingress_audit (?P<payload>\{.*\})`
+    | line_format "{{.payload}}"
+    | json
+    | event="bridge.ingress.audit"
+    | outcome=~"rate_limited|unauthorized"
+  [15m]
+)) > 0
+```
+
+**Async Slack/Lark — `accepted` without a timely completion** (tune thresholds): run two queries in Grafana (or two alert rules) and alert when **A** exists without **B** for the same `correlation_id` within your SLO window. **Stream A (`accepted`):**
+
+```logql
+sum by (correlation_id) (count_over_time(
+  {namespace="tarka", container="collaboration-chat-bridge"}
+    |= "bridge_ingress_audit"
+    | regexp `bridge_ingress_audit (?P<payload>\{.*\})`
+    | line_format "{{.payload}}"
+    | json
+    | event="bridge.ingress.audit"
+    | route=~"slack_events|lark_event"
+    | outcome="accepted"
+  [2m]
+))
+```
+
+**Stream B (terminal completion):** same pipeline with
+`outcome=~"success|unavailable|delivery_failed|ignored|failed"`.
+Pairing A/B on `correlation_id` is usually done with a **recording rule**, **metrics generator**, or an external checker; pure LogQL cannot join two log streams by arbitrary id without extra instrumentation.
+
+If your log pipeline already **ships the JSON object as the full log line** (no prefix), drop the `regexp` / `line_format` stages and keep `| json` plus the field filters.
+
 ## Related
 
 - OpenAPI contract: [`contracts/openapi/collaboration-chat-bridge.yaml`](../../../contracts/openapi/collaboration-chat-bridge.yaml)

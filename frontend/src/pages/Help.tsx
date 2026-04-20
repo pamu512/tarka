@@ -47,6 +47,7 @@ export default function Help() {
         <ul className="flex flex-wrap gap-x-4 gap-y-1">
           {[
             ["#overview", "Overview"],
+            ["#readiness", "Readiness"],
             ["#operations", "Operations"],
             ["#investigation", "Investigation"],
             ["#policy", "Policy & testing"],
@@ -94,6 +95,24 @@ export default function Help() {
         <p>
           This UI is a <strong className="text-gray-400">prototype</strong>: many actions call real or mock APIs. When
           backends are offline, the app falls back to synthetic data so you can still click through flows.
+        </p>
+      </Section>
+
+      <Section id="readiness" title="Readiness &amp; analyst banner">
+        <p>
+          Below the top bar, the <strong className="text-gray-400">analyst readiness strip</strong> shows{" "}
+          <strong className="text-gray-400">detection vs compliance</strong> evaluation mode, a{" "}
+          <strong className="text-gray-400">Community vs Pro</strong>-shaped stack hint, live{" "}
+          <strong className="text-gray-400">Redis / NATS</strong> connectivity from the decision API, and (when expanded) a
+          dependency matrix with remediation links. Amber alerts appear when compliance prerequisites fail (for example
+          empty typologies or predicate registry pin mismatch in compliance mode). Rose alerts highlight runtime issues such
+          as Redis disconnected.
+        </p>
+        <p>
+          Operators: align <code className="text-gray-500">TARKA_EVALUATION_MODE</code> and optional{" "}
+          <code className="text-gray-500">TARKA_DEPLOYMENT_TIER</code> with your compose profile; see the deployment
+          profiles guide linked from the banner. Analysts: if the strip shows warnings, confirm whether your tenant expects
+          graph, ML, or streaming features before trusting compliance-heavy workflows.
         </p>
       </Section>
 

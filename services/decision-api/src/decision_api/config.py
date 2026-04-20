@@ -103,5 +103,10 @@ class Settings(BaseSettings):
     # When set, clients must send matching X-Rule-Governance-Secret on mutating requests.
     rule_governance_secret: str = os.environ.get("RULE_GOVERNANCE_SECRET", "").strip()
 
+    # OSS #36 / deployment-profiles: analyst-visible evaluation posture (detection vs compliance UX).
+    tarka_evaluation_mode: str = os.environ.get("TARKA_EVALUATION_MODE", "detection").strip().lower()
+    # Optional explicit tier label: "community" | "pro" (empty = infer from configured URLs).
+    tarka_deployment_tier: str = os.environ.get("TARKA_DEPLOYMENT_TIER", "").strip().lower()
+
 
 settings = Settings()

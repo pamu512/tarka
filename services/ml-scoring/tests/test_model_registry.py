@@ -64,6 +64,36 @@ def test_promotion_gate_blocks_when_min_auc_not_met(tmp_path: Path):
     assert reasons
 
 
+def test_promotion_gate_benchmark_fp_delta(tmp_path: Path):
+    rules = tmp_path.parent / "rules"
+    rules.mkdir(parents=True, exist_ok=True)
+    (rules / "ml_promotion_policy_v1.json").write_text(
+        '{"policy_id":"t","version":1,"min_training_auc_roc":0.0,"max_training_latency_p99_ms":null,'
+        '"max_fp_rate_delta_vs_champion":0.01,"min_recall_lift_vs_champion":null,"max_benchmark_latency_p95_ms":null}',
+        encoding="utf-8",
+    )
+    _write_version(
+        tmp_path,
+        "fraud",
+        3,
+        {
+            "traffic_weight": 100,
+            "active": True,
+            "approved": True,
+            "framework": "sklearn",
+            "training_metrics": {
+                "auc_roc": 0.9,
+                "benchmark_vs_champion": {"fp_rate_delta": 0.02, "dataset_id": "golden_v1"},
+            },
+        },
+    )
+    reg = ModelRegistry(tmp_path)
+    reg.scan()
+    ok, reasons, _ = reg.check_promotion_gate("fraud", 3)
+    assert ok is False
+    assert any("fp_rate_delta" in r for r in reasons)
+
+
 def test_lineage_signature_present(tmp_path: Path):
     _write_version(tmp_path, "fraud", 7, {"traffic_weight": 100, "active": True, "approved": True})
     reg = ModelRegistry(tmp_path)

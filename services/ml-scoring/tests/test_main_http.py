@@ -52,6 +52,15 @@ def test_models_list() -> None:
     assert "models" in r.json()
 
 
+def test_promotion_check_endpoint() -> None:
+    with TestClient(app) as client:
+        r = client.get("/v1/models/fraud-gbm/1/promotion-check")
+    assert r.status_code == 200
+    body = r.json()
+    assert body.get("ok") is True
+    assert "report" in body
+
+
 def test_adaptive_endpoints() -> None:
     with TestClient(app) as client:
         assert client.get("/v1/adaptive/stats").status_code == 200

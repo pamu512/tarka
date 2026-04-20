@@ -275,6 +275,13 @@ def _request_correlation_id(request: Request) -> str:
     return f"bridge-{uuid.uuid4().hex}"
 
 
+def _status_class(status_code: int) -> str:
+    code = int(status_code or 0)
+    if 100 <= code <= 599:
+        return f"{code // 100}xx"
+    return "unknown"
+
+
 def _audit_plugin_event(
     *,
     action: Literal["plugin_session", "plugin_bootstrap"],
@@ -294,6 +301,7 @@ def _audit_plugin_event(
         "outcome": outcome,
         "correlation_id": correlation_id[:128],
         "status_code": int(status_code),
+        "status_class": _status_class(status_code),
         "upstream_status": int(upstream_status) if upstream_status is not None else None,
         "client_ip": (request.client.host if request.client else "unknown"),
         "tenant_id": (tenant_id or "")[:128] or None,
@@ -322,6 +330,7 @@ def _audit_ingress_event(
         "outcome": outcome,
         "correlation_id": correlation_id[:128],
         "status_code": int(status_code),
+        "status_class": _status_class(status_code),
         "upstream_status": int(upstream_status) if upstream_status is not None else None,
         "client_ip": (request.client.host if request.client else "unknown"),
         "tenant_id": (tenant_id or "")[:128] or None,
@@ -348,6 +357,7 @@ def _audit_ingress_async_completion(
         "outcome": outcome,
         "correlation_id": correlation_id[:128],
         "status_code": int(status_code),
+        "status_class": _status_class(status_code),
         "upstream_status": int(upstream_status) if upstream_status is not None else None,
         "client_ip": None,
         "tenant_id": (tenant_id or "")[:128] or None,
@@ -382,6 +392,7 @@ async def _run_slack_turn_with_audit(settings: Settings, meta: dict[str, Any]) -
         route="slack_events",
         outcome=str(result.get("outcome") or "completed"),
         correlation_id=correlation_id,
+        status_code=int(result["upstream_status"]) if result.get("upstream_status") is not None else 200,
         tenant_id=str(result.get("tenant_id") or "") or None,
         analyst_id=str(result.get("analyst_id") or "") or None,
         reason=str(result.get("reason") or "async_completion"),
@@ -1040,6 +1051,7 @@ async def _lark_reply_task_with_audit(
         route="lark_event",
         outcome=str(result.get("outcome") or "completed"),
         correlation_id=cid,
+        status_code=int(result["upstream_status"]) if result.get("upstream_status") is not None else 200,
         tenant_id=str(result.get("tenant_id") or "") or None,
         analyst_id=str(result.get("analyst_id") or "") or None,
         reason=str(result.get("reason") or "async_completion"),

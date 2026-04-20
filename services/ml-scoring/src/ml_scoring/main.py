@@ -347,6 +347,15 @@ async def reload_promotion_policy():
     return {"ok": True, "policy": registry.promotion_policy()}
 
 
+@app.get("/v1/models/{name}/{version}/promotion-check")
+async def promotion_check(name: str, version: int):
+    """Dry-run promotion gate for a version — returns report artifact for CI/release notes (OSS #37)."""
+    if not registry.has_version(name, version):
+        raise HTTPException(404, f"model '{name}' version {version} not found")
+    ok, reasons, report = registry.check_promotion_gate(name, version)
+    return {"ok": ok, "model": name, "version": version, "reasons": reasons, "report": report}
+
+
 class ActivateRequest(BaseModel):
     version: int
 

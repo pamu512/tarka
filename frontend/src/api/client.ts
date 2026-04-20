@@ -202,6 +202,23 @@ export interface TopEntity {
   sample_traces: string[];
 }
 
+/** `GET /v1/analytics/scorecard` — compact decision + rule-hit summary (analytics-sink). */
+export interface AnalyticsDecisionScorecard {
+  tenant_id: string;
+  window_days: number;
+  total_events: number;
+  deny_rate_pct: number;
+  per_decision: Array<{
+    decision: string;
+    event_count: number;
+    event_pct: number;
+    avg_score: number;
+    min_score: number;
+    max_score: number;
+  }>;
+  top_rule_hits: Array<Record<string, unknown>>;
+}
+
 export interface ModelInfo {
   model_name: string;
   version: number;
@@ -424,7 +441,45 @@ export const decisions = {
       snapshots: Array<Record<string, unknown>>;
     }>(`/api/decisions/v1/calibration/summary?${q}`);
   },
+
+  /** OSS #36 — detection vs compliance posture + dependency hints for analyst banner. */
+  evaluationPosture() {
+    return request<EvaluationPostureResponse>("/api/decisions/v1/ops/evaluation-posture");
+  },
+
+  /** OSS #51 — in-process SLO snapshot (Redis/NATS connectivity flags). */
+  slo() {
+    return request<DecisionApiSloResponse>("/api/decisions/v1/slo");
+  },
 };
+
+export interface DecisionApiSloResponse {
+  service: string;
+  availability_target_pct?: number;
+  latency_target_ms_p95?: number;
+  error_budget_window_days?: number;
+  current?: {
+    redis_connected?: boolean;
+    nats_connected?: boolean;
+    [key: string]: unknown;
+  };
+}
+
+export interface EvaluationPostureResponse {
+  service: string;
+  deployment_tier: string;
+  evaluation_mode: "detection" | "compliance" | string;
+  compliance_posture: string;
+  compliance_degraded: boolean;
+  compliance_degraded_reasons: string[];
+  typology_count: number;
+  predicate_registry_version: number;
+  predicate_registry_pin_match: boolean;
+  dependencies: Array<{ id: string; ok: boolean; detail?: string }>;
+  last_rules_reload_at: string | null;
+  runbook_url: string;
+  request_id?: string | null;
+}
 
 // ── Feature service (velocity + parity verify) — proxied as /api/features ─
 
@@ -706,25 +761,34 @@ export const graph = {
 export const analytics = {
   decisions(params?: { tenant_id?: string; limit?: number }) {
     const q = new URLSearchParams();
-    if (params?.tenant_id) q.set("tenant_id", params.tenant_id);
+    q.set("tenant_id", params?.tenant_id ?? "demo");
     if (params?.limit) q.set("limit", String(params.limit));
     return request<{ rows: unknown[]; total: number }>(`/api/analytics/v1/analytics/decisions?${q}`);
   },
 
   hourly(params?: { tenant_id?: string; days?: number }) {
     const q = new URLSearchParams();
-    if (params?.tenant_id) q.set("tenant_id", params.tenant_id);
-    if (params?.days) q.set("days", String(params.days));
+    q.set("tenant_id", params?.tenant_id ?? "demo");
+    if (params?.days != null) q.set("days", String(params.days));
     return request<{ rows: HourlyStat[] }>(`/api/analytics/v1/analytics/hourly?${q}`);
   },
 
-  topEntities(params?: { tenant_id?: string; limit?: number }) {
+  topEntities(params?: { tenant_id?: string; limit?: number; days?: number; decision?: string }) {
     const q = new URLSearchParams();
     if (params?.tenant_id) q.set("tenant_id", params.tenant_id);
     if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.days != null) q.set("days", String(params.days));
+    if (params?.decision) q.set("decision", params.decision);
     return request<{ decision: string; entities: TopEntity[] }>(
       `/api/analytics/v1/analytics/top-entities?${q}`,
     );
+  },
+
+  scorecard(params?: { tenant_id?: string; days?: number }) {
+    const q = new URLSearchParams();
+    q.set("tenant_id", params?.tenant_id ?? "demo");
+    if (params?.days != null) q.set("days", String(params.days));
+    return request<AnalyticsDecisionScorecard>(`/api/analytics/v1/analytics/scorecard?${q}`);
   },
 };
 
@@ -1131,23 +1195,34 @@ export interface InvestigationEvidenceBundleDraft {
   tool_invocation_count?: number;
 }
 
+/** Matches investigation-agent `POST /v1/evidence/summary` JSON body. */
 export interface InvestigationEvidenceSummaryResponse {
-  tenant_id: string;
-  analyst_id: string;
-  case_id?: string | null;
   summary: string;
   confidence_label: "high" | "medium" | "low";
-  citations: Array<{
-    type: "trace_id" | "case_id" | "entity_id" | "artifact";
-    value: string;
-    source_tool?: string;
-  }>;
-  based_on: {
-    source_ref_count: number;
-    claim_count: number;
-    supported_claim_count: number;
-    tool_error_count: number;
+  summary_confidence?: {
+    level: string;
+    score: number;
+    notes: string[];
   };
+  claim_confidence_summary?: {
+    high: number;
+    medium: number;
+    low: number;
+  };
+  citations: Array<{
+    claim_index: number;
+    text: string;
+    source: string;
+    supported?: boolean | null;
+    confidence_label: string;
+  }>;
+  source_refs?: InvestigationSourceRefCard[];
+  trace_id?: string | null;
+  case_id?: string | null;
+  turn_id?: string;
+  prompt_version?: string;
+  workflow_id?: string | null;
+  persona?: string;
 }
 
 export interface InvestigationChatResponse {
@@ -1316,10 +1391,13 @@ export const investigation = {
     tenant_id: string;
     analyst_id: string;
     case_id?: string;
-    source_refs?: InvestigationSourceRefCard[];
-    claims?: InvestigationClaim[];
-    claims_deterministic_support?: InvestigationClaimSupportRow[];
+    trace_id?: string;
+    turn_id?: string;
     reply?: string;
+    claims?: InvestigationClaim[];
+    source_refs?: InvestigationSourceRefCard[];
+    claims_deterministic_support?: InvestigationClaimSupportRow[];
+    answer_sections?: InvestigationAnswerSections;
   }) {
     return request<InvestigationEvidenceSummaryResponse>("/api/investigation/v1/evidence/summary", {
       method: "POST",
@@ -1532,6 +1610,28 @@ export const osint = {
   },
 };
 
+/** `GET /v1/integrations/scorecards` — per-provider connectivity + connector quality (integration-ingress). */
+export interface IntegrationProviderScorecard {
+  provider_id: string;
+  category: string;
+  status: string;
+  connectivity_score: number;
+  latency_ms: number;
+  config_completeness: number;
+  last_checked_at: string | null;
+  reasons: string[];
+  provider_score: number;
+  connector_quality: Record<string, unknown>;
+}
+
+export interface IntegrationScorecardsPayload {
+  tenant_id: string;
+  connector_quality_version?: string;
+  overall_score: number;
+  overall_connector_quality: number;
+  providers: IntegrationProviderScorecard[];
+}
+
 export interface IntegrationRequestRecord {
   id: string;
   tenant_id: string;
@@ -1626,6 +1726,11 @@ export const integrations = {
       score: number;
       rows: Array<{ provider_id: string; status: string; latency_ms: number; missing_fields: string[] }>;
     }>(`/api/ingress/v1/integrations/health-matrix?tenant_id=${tenantId}`);
+  },
+  scorecards(tenantId: string) {
+    return request<IntegrationScorecardsPayload>(
+      `/api/ingress/v1/integrations/scorecards?tenant_id=${encodeURIComponent(tenantId)}`,
+    );
   },
   /** Submitted requests; `github_issue_url` is set only after admin approval. */
   listRequests(params?: { tenant_id?: string; status?: string }) {

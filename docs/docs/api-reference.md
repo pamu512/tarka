@@ -533,8 +533,12 @@ Complete endpoint reference for all Tarka services. All services use JSON reques
 | `GET` | `/v1/health` | Health check (includes model status) |
 | `POST` | `/v1/score` | Score features for fraud risk |
 | `GET` | `/v1/models` | List all registered models |
+| `GET` | `/v1/promotion-policy` | Active promotion gate policy JSON (OSS #37 / #52) |
+| `GET` | `/v1/models/{name}/{version}/promotion-check` | Dry-run gate + `report` artifact without activating traffic |
 | `POST` | `/v1/models/{name}/activate` | Activate a model version |
 | `GET` | `/v1/models/{name}/stats` | Get model inference stats |
+
+OpenAPI: `contracts/openapi/ml-scoring.yaml`. Policy files: `services/ml-scoring/rules/ml_promotion_policy_v1.json` (+ YAML twin for CI sync).
 
 ---
 
@@ -685,6 +689,8 @@ Ingress audit model:
 - `bridge.ingress.audit` is emitted for `slack/events`, `teams/messages`, `teams/activity`, and `lark/event`.
 - Slack/Lark async flows emit two events with the same `correlation_id`: an ingress `accepted` event and a completion event that may include `upstream_status`.
 - Bridge ingress and plugin endpoints return `X-Correlation-Id` response headers so clients can join request/response traces to audit events.
+- Audit payloads include normalized `status_code` and `status_class` (`2xx`/`4xx`/`5xx`) for alerting and low-cardinality dashboards.
+- Copy-paste **Grafana / Loki (LogQL)** queries for alerts and Explore: [collaboration chat (ingress + plugin)](guides/investigation-collaboration-chat-aws-azure.md#grafana-loki-logql) and [Enterprise Copilot plugin + governance (bridge audit + labels)](guides/enterprise-copilot-plugin-and-governance-controls.md#grafana-loki-bridge-audit).
 
 ---
 

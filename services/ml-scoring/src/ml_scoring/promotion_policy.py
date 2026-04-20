@@ -85,6 +85,82 @@ def evaluate_version_gate(
             elif lat_f > cap:
                 reasons.append(f"training_metrics.latency_p99_ms {lat_f} > policy max {cap} ms")
 
+    # Champion vs challenger golden-set / benchmark guardrails (OSS #37 / #52).
+    # Expect training_metrics.benchmark_vs_champion with optional fp_rate_delta, recall_lift, latency_p95_ms.
+    bench: dict[str, Any] | None = None
+    if isinstance(tm, dict):
+        b = tm.get("benchmark_vs_champion")
+        bench = b if isinstance(b, dict) else None
+
+    max_fp_delta = policy.get("max_fp_rate_delta_vs_champion")
+    if max_fp_delta is not None:
+        try:
+            fp_cap = float(max_fp_delta)
+        except (TypeError, ValueError):
+            fp_cap = None
+        if fp_cap is not None:
+            fp_val: float | None = None
+            if bench and bench.get("fp_rate_delta") is not None:
+                try:
+                    fp_val = float(bench["fp_rate_delta"])
+                except (TypeError, ValueError):
+                    fp_val = None
+            checks["fp_rate_delta_vs_champion"] = {"max_allowed": fp_cap, "value": fp_val}
+            if fp_val is None:
+                reasons.append(
+                    f"missing training_metrics.benchmark_vs_champion.fp_rate_delta (required max delta {fp_cap})",
+                )
+            elif fp_val > fp_cap:
+                reasons.append(
+                    f"benchmark fp_rate_delta {fp_val} exceeds policy max_fp_rate_delta_vs_champion {fp_cap}",
+                )
+
+    min_lift = policy.get("min_recall_lift_vs_champion")
+    if min_lift is not None:
+        try:
+            lift_min = float(min_lift)
+        except (TypeError, ValueError):
+            lift_min = None
+        if lift_min is not None:
+            lift_val: float | None = None
+            if bench and bench.get("recall_lift") is not None:
+                try:
+                    lift_val = float(bench["recall_lift"])
+                except (TypeError, ValueError):
+                    lift_val = None
+            checks["recall_lift_vs_champion"] = {"min_required": lift_min, "value": lift_val}
+            if lift_val is None:
+                reasons.append(
+                    f"missing training_metrics.benchmark_vs_champion.recall_lift (required min {lift_min})",
+                )
+            elif lift_val < lift_min:
+                reasons.append(
+                    f"benchmark recall_lift {lift_val} < policy min_recall_lift_vs_champion {lift_min}",
+                )
+
+    max_bench_lat = policy.get("max_benchmark_latency_p95_ms")
+    if max_bench_lat is not None:
+        try:
+            lat_cap = float(max_bench_lat)
+        except (TypeError, ValueError):
+            lat_cap = None
+        if lat_cap is not None:
+            b_lat: float | None = None
+            if bench and bench.get("latency_p95_ms") is not None:
+                try:
+                    b_lat = float(bench["latency_p95_ms"])
+                except (TypeError, ValueError):
+                    b_lat = None
+            checks["benchmark_latency_p95_ms"] = {"max_allowed": lat_cap, "value": b_lat}
+            if b_lat is None:
+                reasons.append(
+                    f"missing training_metrics.benchmark_vs_champion.latency_p95_ms (required max {lat_cap} ms)",
+                )
+            elif b_lat > lat_cap:
+                reasons.append(
+                    f"benchmark latency_p95_ms {b_lat} > policy max_benchmark_latency_p95_ms {lat_cap} ms",
+                )
+
     report = {
         "policy_id": policy.get("policy_id", "unknown"),
         "policy_version": policy.get("version", 0),

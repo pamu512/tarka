@@ -11,6 +11,41 @@ paths:
       responses:
         "200":
           description: OK
+  /v1/promotion-policy:
+    get:
+      operationId: mlPromotionPolicyGet
+      summary: Active ML promotion gate policy (OSS #37 / #52)
+      responses:
+        "200":
+          description: Policy bundle
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/models/{name}/{version}/promotion-check:
+    get:
+      operationId: mlPromotionCheck
+      summary: Dry-run promotion gate for a model version (report artifact)
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+        - name: version
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Gate result and report
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "404":
+          description: Unknown model version
   /v1/score:
     post:
       operationId: score

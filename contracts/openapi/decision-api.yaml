@@ -290,6 +290,18 @@ paths:
           description: Invalid request
         "404":
           description: No audit rows matched
+  /v1/ops/evaluation-posture:
+    get:
+      operationId: opsEvaluationPosture
+      summary: Deployment tier hint, evaluation mode (detection vs compliance), and compliance readiness (OSS #36)
+      responses:
+        "200":
+          description: Posture snapshot for analyst/ops banner
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
   /v1/ops/governance:
     get:
       operationId: opsGovernance

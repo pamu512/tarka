@@ -10,10 +10,57 @@ import {
   AreaChart,
   Area,
 } from "recharts";
-import { analytics, ml, type HourlyStat, type ModelInfo, type TopEntity } from "../api/client";
+import {
+  analytics,
+  ml,
+  type AnalyticsDecisionScorecard,
+  type HourlyStat,
+  type ModelInfo,
+  type TopEntity,
+} from "../api/client";
 import { PageTitle } from "../components/PageTitle";
+import { useToast } from "../context/ToastContext";
 
 const HOURS_OPTIONS = [6, 12, 24, 48, 72];
+
+function buildScorecardExportBundle(data: AnalyticsDecisionScorecard) {
+  return {
+    schema: "tarka_decision_scorecard_export_v1",
+    exported_at: new Date().toISOString(),
+    source_path: "GET /v1/analytics/scorecard",
+    service: "analytics-sink",
+    data,
+  };
+}
+
+function buildScorecardDiscussionMarkdown(data: AnalyticsDecisionScorecard): string {
+  const lines: string[] = [
+    `## Decision scorecard — \`${data.tenant_id}\``,
+    "",
+    `**Window:** ${data.window_days} day(s) · **Total events:** ${data.total_events.toLocaleString()} · **Deny rate:** ${data.deny_rate_pct.toFixed(2)}%`,
+    "",
+    "### Per decision",
+    "",
+    "| Decision | Count | % | Avg score |",
+    "| --- | ---: | ---: | ---: |",
+  ];
+  for (const r of data.per_decision) {
+    lines.push(`| ${r.decision} | ${r.event_count} | ${r.event_pct} | ${r.avg_score.toFixed(1)} |`);
+  }
+  lines.push("", "### Top rule hits", "");
+  if (data.top_rule_hits.length === 0) {
+    lines.push("_No rule hits in window._");
+  } else {
+    lines.push("| Rule | Hits |", "| --- | ---: |");
+    for (const raw of data.top_rule_hits) {
+      const rid = String(raw.rule_id ?? "");
+      const hits = raw.hit_count ?? raw["hit_count"];
+      lines.push(`| \`${rid || "—"}\` | ${typeof hits === "number" ? hits : String(hits ?? "—")} |`);
+    }
+  }
+  lines.push("", "---", `_Exported from Tarka Analytics · ${new Date().toISOString()}_`);
+  return lines.join("\n");
+}
 
 export default function Analytics() {
   const [hours, setHours] = useState(24);
@@ -24,21 +71,40 @@ export default function Analytics() {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [governanceBusy, setGovernanceBusy] = useState(false);
   const [governanceMessage, setGovernanceMessage] = useState<string>("");
+  const [scorecard, setScorecard] = useState<AnalyticsDecisionScorecard | null>(null);
+  const { toast } = useToast();
+
+  const copyScorecardText = useCallback(
+    async (text: string, okMessage: string) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        toast(okMessage, "success");
+      } catch {
+        toast("Clipboard unavailable", "error");
+      }
+    },
+    [toast],
+  );
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [h, t] = await Promise.all([
+      const [hourlyRes, topRes, scoreRes] = await Promise.allSettled([
         analytics.hourly({ days: hours }),
-        analytics.topEntities({ limit: 20 }),
+        analytics.topEntities({ limit: 20, days: hours }),
+        analytics.scorecard({ days: hours }),
       ]);
-      setHourlyData(h.rows);
-      setTopEntities(t.entities);
+      if (hourlyRes.status !== "fulfilled") throw hourlyRes.reason;
+      if (topRes.status !== "fulfilled") throw topRes.reason;
+      setHourlyData(hourlyRes.value.rows);
+      setTopEntities(topRes.value.entities);
+      setScorecard(scoreRes.status === "fulfilled" ? scoreRes.value : null);
       const m = await ml.models();
       setModels(m.models);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load analytics");
+      setScorecard(null);
     } finally {
       setLoading(false);
     }
@@ -155,6 +221,132 @@ export default function Analytics() {
         </div>
       ) : (
         <>
+          {scorecard && (
+            <div className="bg-surface-900 border border-surface-700 rounded-xl p-5 space-y-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 space-y-1">
+                  <h2 className="text-sm font-semibold text-gray-300">Decision scorecard</h2>
+                  <p className="text-xs text-gray-500">
+                    Tenant <span className="font-mono text-gray-400">{scorecard.tenant_id}</span> · last{" "}
+                    {scorecard.window_days} day{scorecard.window_days === 1 ? "" : "s"} · from analytics-sink{" "}
+                    <code className="text-gray-600">GET /v1/analytics/scorecard</code>
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 shrink-0">
+                  <button
+                    type="button"
+                    className="px-2.5 py-1 rounded-lg border border-surface-600 bg-surface-800 text-xs text-gray-300 hover:bg-surface-700 hover:text-gray-100"
+                    onClick={() =>
+                      void copyScorecardText(
+                        JSON.stringify(buildScorecardExportBundle(scorecard), null, 2),
+                        "Copied scorecard JSON",
+                      )
+                    }
+                  >
+                    Copy JSON
+                  </button>
+                  <button
+                    type="button"
+                    className="px-2.5 py-1 rounded-lg border border-surface-600 bg-surface-800 text-xs text-gray-300 hover:bg-surface-700 hover:text-gray-100"
+                    onClick={() =>
+                      void copyScorecardText(
+                        buildScorecardDiscussionMarkdown(scorecard),
+                        "Copied Discussion markdown",
+                      )
+                    }
+                  >
+                    Copy for Discussions
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="rounded-lg border border-surface-700 bg-surface-950/60 px-4 py-3">
+                  <div className="text-[11px] text-gray-500 uppercase tracking-wide">Total events</div>
+                  <div className="text-xl font-semibold text-gray-100 tabular-nums">
+                    {scorecard.total_events.toLocaleString()}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-surface-700 bg-surface-950/60 px-4 py-3">
+                  <div className="text-[11px] text-gray-500 uppercase tracking-wide">Deny rate</div>
+                  <div className="text-xl font-semibold text-rose-300 tabular-nums">
+                    {scorecard.deny_rate_pct.toFixed(2)}%
+                  </div>
+                </div>
+                <div className="rounded-lg border border-surface-700 bg-surface-950/60 px-4 py-3">
+                  <div className="text-[11px] text-gray-500 uppercase tracking-wide">Decisions in window</div>
+                  <div className="text-sm text-gray-400">
+                    {scorecard.per_decision.map((d) => (
+                      <span key={d.decision} className="mr-3 inline-block">
+                        <span className="text-gray-500">{d.decision}:</span>{" "}
+                        <span className="text-gray-200 tabular-nums">{d.event_count}</span>
+                        <span className="text-gray-600"> ({d.event_pct}%)</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div>
+                  <h3 className="text-xs font-medium text-gray-500 mb-2">Per decision</h3>
+                  <div className="overflow-x-auto rounded-lg border border-surface-800">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-gray-500 border-b border-surface-800 bg-surface-950/80">
+                          <th className="text-left py-2 px-3 font-medium">Decision</th>
+                          <th className="text-right py-2 px-3 font-medium">Count</th>
+                          <th className="text-right py-2 px-3 font-medium">%</th>
+                          <th className="text-right py-2 px-3 font-medium">Avg score</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {scorecard.per_decision.map((row) => (
+                          <tr key={row.decision} className="border-b border-surface-800/80">
+                            <td className="py-2 px-3 text-gray-300">{row.decision}</td>
+                            <td className="py-2 px-3 text-right text-gray-200 tabular-nums">{row.event_count}</td>
+                            <td className="py-2 px-3 text-right text-gray-400 tabular-nums">{row.event_pct}</td>
+                            <td className="py-2 px-3 text-right text-gray-300 tabular-nums">
+                              {row.avg_score.toFixed(1)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-xs font-medium text-gray-500 mb-2">Top rule hits</h3>
+                  <div className="overflow-x-auto rounded-lg border border-surface-800">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-gray-500 border-b border-surface-800 bg-surface-950/80">
+                          <th className="text-left py-2 px-3 font-medium">Rule</th>
+                          <th className="text-right py-2 px-3 font-medium">Hits</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {scorecard.top_rule_hits.map((raw, i) => {
+                          const rid = String(raw.rule_id ?? raw["rule_id"] ?? "");
+                          const hits = raw.hit_count ?? raw["hit_count"];
+                          return (
+                            <tr key={`${rid}-${i}`} className="border-b border-surface-800/80">
+                              <td className="py-2 px-3 font-mono text-gray-300">{rid || "—"}</td>
+                              <td className="py-2 px-3 text-right text-gray-200 tabular-nums">
+                                {typeof hits === "number" ? hits : String(hits ?? "—")}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {scorecard.top_rule_hits.length === 0 && (
+                    <p className="text-xs text-gray-600 mt-2">No rule hit aggregates in this window.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Stacked Bar: Hourly Decisions */}
           <div className="bg-surface-900 border border-surface-700 rounded-xl p-5">
             <h2 className="text-sm font-semibold text-gray-300 mb-4">

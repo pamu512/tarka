@@ -1,0 +1,7 @@
+# https://pre-commit.com — uses root pyproject.toml [tool.ruff] (line length, target-version, lint select, excludes).
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.10
+    hooks:
+      - id: ruff
+      - id: ruff-format
