@@ -8,7 +8,7 @@ _TESTS_DIR = Path(__file__).resolve().parent
 if str(_TESTS_DIR) not in sys.path:
     sys.path.insert(0, str(_TESTS_DIR))
 
-# CI may set API_KEYS="" (empty string); setdefault does not override that.
-if not (os.environ.get("API_KEYS") or "").strip():
-    os.environ["API_KEYS"] = "test-key"
-os.environ.setdefault("ALLOW_INSECURE_NO_AUTH", "")
+# Tests use TestClient without X-API-Key; do not inject API_KEYS (that would require a header on every call).
+# Match other services: allow insecure dev auth when keys and OIDC are unset.
+if not (os.environ.get("API_KEYS") or "").strip() and not (os.environ.get("OIDC_ISSUER") or "").strip():
+    os.environ["ALLOW_INSECURE_NO_AUTH"] = "true"

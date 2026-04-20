@@ -35,7 +35,7 @@ from graph_service.graph_runtime import (
 
 log = logging.getLogger(__name__)
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from auth_rbac import require_role  # noqa: E402
 from observability import setup_observability  # noqa: E402
 
