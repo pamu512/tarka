@@ -15,6 +15,16 @@ const DEP_LABELS: Record<string, string> = {
   opa_configured: "OPA policy URL",
 };
 
+function formatRulesReloadDisplay(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? iso : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  } catch {
+    return iso;
+  }
+}
+
 function remediation(
   depId: string,
   tier: string,
@@ -40,8 +50,8 @@ function remediation(
 }
 
 /**
- * OSS #36 / #51 — analyst mode strip, compliance/degraded alerts, and expandable dependency matrix
- * with remediation links (pairs with decision-api evaluation-posture + SLO).
+ * OSS #36 / #51 — trust/ops readiness strip: mode, tier, reliability hint, last rules reload,
+ * compliance/degraded alerts, and expandable dependency matrix (evaluation-posture + SLO).
  */
 export function AnalystReadinessBar() {
   const [posture, setPosture] = useState<EvaluationPostureResponse | null>(null);
@@ -85,7 +95,7 @@ export function AnalystReadinessBar() {
         className="shrink-0 border-b border-amber-900/50 bg-amber-950/40 px-4 py-2 text-xs text-amber-100"
         role="status"
       >
-        <span className="font-medium">Analyst readiness:</span> could not load decision-api signals ({err}). Check API
+        <span className="font-medium">Trust / operations readiness:</span> could not load decision-api signals ({err}). Check API
         proxy and credentials.
       </div>
     );
@@ -94,7 +104,7 @@ export function AnalystReadinessBar() {
   if (!posture) {
     return (
       <div className="shrink-0 border-b border-surface-800 bg-surface-900/40 px-4 py-1.5 text-[11px] text-gray-500">
-        Loading analyst readiness…
+        Loading trust and operations readiness…
       </div>
     );
   }
@@ -113,7 +123,11 @@ export function AnalystReadinessBar() {
   const showAlert = complianceDegraded || runtimeDegraded;
 
   return (
-    <div className="shrink-0 border-b border-surface-800 bg-surface-900/60">
+    <div
+      className="shrink-0 border-b border-surface-800 bg-surface-900/60"
+      role="region"
+      aria-label="Trust and operations readiness"
+    >
       {showAlert ? (
         <div
           className={`px-4 py-2 text-xs border-b ${
@@ -151,7 +165,7 @@ export function AnalystReadinessBar() {
       ) : null}
 
       <div className="px-4 py-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-400 border-b border-surface-800/80">
-        <span className="text-gray-500 font-medium uppercase tracking-wide text-[10px]">Analyst workspace</span>
+        <span className="text-gray-500 font-medium uppercase tracking-wide text-[10px]">Trust / ops readiness</span>
         <span
           className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
             posture.evaluation_mode === "compliance"
@@ -180,6 +194,13 @@ export function AnalystReadinessBar() {
             NATS: {slo.current.nats_connected ? "up" : "n/a"}
           </span>
         ) : null}
+        <span
+          className="text-gray-500 sm:ml-0"
+          title="last_rules_reload_at from GET /v1/ops/evaluation-posture (rules + typologies materialized)"
+        >
+          Config reload:{" "}
+          <span className="text-gray-300 tabular-nums">{formatRulesReloadDisplay(posture.last_rules_reload_at)}</span>
+        </span>
         <span className="ml-auto text-gray-600">
           Posture: <span className="text-gray-300">{posture.compliance_posture}</span>
         </span>
