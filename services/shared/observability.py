@@ -108,9 +108,7 @@ class Metrics:
         lines.append("# TYPE http_requests_total counter")
         for key, count in sorted(self._request_count.items()):
             method, path, status, tq = key.split("|", 3)
-            lines.append(
-                f'http_requests_total{{service="{self.service}",method="{method}",path="{path}",status="{status}",tenant_query="{tq}"}} {count}'
-            )
+            lines.append(f'http_requests_total{{service="{self.service}",method="{method}",path="{path}",status="{status}",tenant_query="{tq}"}} {count}')
 
         lines.append("# HELP http_request_duration_seconds_sum Sum of HTTP request durations")
         lines.append("# TYPE http_request_duration_seconds_sum counter")
@@ -124,17 +122,13 @@ class Metrics:
         lines.append("# TYPE http_server_errors_total counter")
         for key, count in sorted(self._server_errors.items()):
             method, path, tq = key.split("|", 2)
-            lines.append(
-                f'http_server_errors_total{{service="{self.service}",method="{method}",path="{path}",tenant_query="{tq}"}} {count}'
-            )
+            lines.append(f'http_server_errors_total{{service="{self.service}",method="{method}",path="{path}",tenant_query="{tq}"}} {count}')
 
         lines.append("# HELP http_client_errors_total Total 4xx errors")
         lines.append("# TYPE http_client_errors_total counter")
         for key, count in sorted(self._client_errors.items()):
             method, path, tq = key.split("|", 2)
-            lines.append(
-                f'http_client_errors_total{{service="{self.service}",method="{method}",path="{path}",tenant_query="{tq}"}} {count}'
-            )
+            lines.append(f'http_client_errors_total{{service="{self.service}",method="{method}",path="{path}",tenant_query="{tq}"}} {count}')
 
         for name, val in sorted(self._custom_counters.items()):
             lines.append(f"# TYPE {name} counter")
