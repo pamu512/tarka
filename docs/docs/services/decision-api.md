@@ -10,6 +10,8 @@ The Decision API is the central scoring engine. It receives fraud evaluation req
 
 ## Endpoints
 
+Canonical tables for every path (including internal/counter routes) live in **[API Reference](../api-reference.md#decision-api)** with OpenAPI: `contracts/openapi/decision-api.yaml`.
+
 ### Health Check
 
 ```
@@ -246,6 +248,33 @@ POST /v1/admin/rules/reload
 ```json
 { "ok": true }
 ```
+
+---
+
+### Typology predicate registry (OSS #46) {#typology-predicate-registry-oss-46}
+
+Named predicates for the typology scoring DSL (version-pinned with `typology_definitions_v1.json`). Requires an **admin**-authenticated caller (same auth model as reload).
+
+```
+GET /v1/admin/typology/predicate-registry
+```
+
+Guide: [Typology DSL + predicate registry](../guides/oss-typology-dsl-46.md). Full tables: [API Reference — Decision API](../api-reference.md#decision-api). OpenAPI: `contracts/openapi/decision-api.yaml`.
+
+---
+
+### Trust / ops posture & SLO (OSS #36) {#trust-ops-posture-slo-oss-36}
+
+Read-only surfaces used by the analyst console **trust/ops readiness** strip together with the investigation UI proxy:
+
+```
+GET /v1/ops/evaluation-posture
+GET /v1/slo
+```
+
+**Evaluation posture** returns evaluation mode (detection vs compliance), deployment tier hint, `tenant_reliability_profile`, compliance degradation reasons, typology count, predicate registry pin match, dependency rows, and `last_rules_reload_at`. **SLO** returns in-process counters plus Redis/NATS connectivity hints where configured.
+
+[API Reference — Trust / ops readiness](../api-reference.md#trust-ops-readiness) · [Community vs Pro profiles](../guides/deployment-profiles-community-vs-pro.md)
 
 ---
 

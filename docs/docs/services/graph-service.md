@@ -6,6 +6,8 @@ The Graph Service manages an entity graph backed by Neo4j. It handles entity res
 **Version:** 3.0.0
 **Framework:** Python / FastAPI
 
+Canonical HTTP tables: **[API Reference — Graph Service](../api-reference.md#graph-service)** · OpenAPI: `contracts/openapi/graph-service.yaml`
+
 ---
 
 ## Endpoints

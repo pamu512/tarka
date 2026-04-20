@@ -477,6 +477,28 @@ export default function CaseDetail() {
                           {decisionExplain.inference_context.velocity_events_24h}
                         </span>
                       </div>
+                      {decisionExplain.inference_context.external_signal_score > 0 && (
+                        <div className="text-xs text-gray-500">
+                          External signal score:{" "}
+                          <span className="text-gray-300 font-mono tabular-nums">
+                            {(decisionExplain.inference_context.external_signal_score * 100).toFixed(1)}%
+                          </span>
+                          {decisionExplain.inference_context.external_signal_providers.length > 0 && (
+                            <>
+                              {" · providers "}
+                              <span className="text-gray-300">
+                                {decisionExplain.inference_context.external_signal_providers.join(", ")}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      )}
+                      {decisionExplain.inference_context.policy_experiment_id && (
+                        <div className="text-xs text-gray-500">
+                          Policy experiment:{" "}
+                          <span className="text-gray-300 font-mono">{decisionExplain.inference_context.policy_experiment_id}</span>
+                        </div>
+                      )}
                       {decisionExplain.inference_context.driver_reasons.length > 3 && (
                         <div>
                           <div className="text-xs font-medium text-gray-500 mb-1">All drivers</div>

@@ -1,0 +1,23 @@
+{
+  "tenant_id": "demo",
+  "analyst_id": "analyst-1",
+  "trace_id": "outer-trace",
+  "case_id": "c99",
+  "reply": "Audit-backed summary.",
+  "claims": [
+    { "text": "First claim", "source": "tool" },
+    { "text": "Second claim", "source": "tool" }
+  ],
+  "claims_deterministic_support": [
+    { "claim_index": 0, "supported": true },
+    { "claim_index": 1, "supported": true }
+  ],
+  "decision_audit": {
+    "trace_id": "audit-trace-xyz",
+    "payload_snapshot": {
+      "typologies": [{ "typology_id": "t_graph" }],
+      "rules_fired": ["rule_a"]
+    }
+  },
+  "turn_id": "golden-turn-03"
+}

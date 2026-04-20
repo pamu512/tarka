@@ -1,6 +1,6 @@
 # Service SLOs (v1) — reference
 
-**Purpose:** Single place for **aspirational** availability and latency targets for core Tarka services. **Actual** SLO attainment comes from your metrics stack (Prometheus + Grafana, Datadog, etc.). Each service exposes **`GET /v1/slo`** with **targets** plus **current** in-process HTTP counters where observability middleware is enabled.
+**Purpose:** Single place for **aspirational** availability and latency targets for core Tarka services. **Actual** SLO attainment comes from your metrics stack (Prometheus + Grafana, Datadog, etc.). Many HTTP services expose **`GET /v1/slo`** with **targets** plus **current** in-process HTTP counters where that route is implemented; compose **host ports** below match [Service ports](service-ports.md).
 
 ## Targets (defaults)
 
@@ -10,7 +10,7 @@
 | case-api | 8002 | 99.9% | 200 ms | Case CRUD + webhooks |
 | feature-service | 8004 | 99.9% | 150 ms | Snapshot + velocity reads |
 | ml-scoring | 8005 | 99.9% | 120 ms | Score endpoint |
-| integration-ingress | 8010 | 99.9% | 500 ms | Enrich / connectors |
+| integration-ingress | 8003 | 99.9% | 500 ms | Enrich / connectors |
 | event-ingest | 8007 | 99.9% | 200 ms | Accept + NATS publish |
 
 **Queue lag** (NATS consumer pending messages, JetStream lag) should be monitored separately; not included in **`/v1/slo`** JSON today.

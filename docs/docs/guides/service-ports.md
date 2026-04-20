@@ -16,10 +16,10 @@ Single reference for **default HTTP ports**, **Docker Compose service names** (i
 | Calibration service | 8011 | `calibration-service` | [calibration-service.yaml](../../../contracts/openapi/calibration-service.yaml) | `full` profile; calibration registry + drift + confidence scoring |
 | Counter service | 8012 | `counter-service` | [counter-service.yaml](../../../contracts/openapi/counter-service.yaml) | `full` profile; counter definitions + replay/parity APIs |
 | Location service | 8013 | `location-service` | [location-service.yaml](../../../contracts/openapi/location-service.yaml) | `full` profile; location confidence + co-presence/impossible travel |
-| Collaboration chat bridge | 8009 | `collaboration-chat-bridge` | _(no contract in repo)_ | `collab` / `agent` / `full`; Slack / Teams / Lark → agent |
+| Collaboration chat bridge | 8009 | `collaboration-chat-bridge` | [collaboration-chat-bridge.yaml](../../../contracts/openapi/collaboration-chat-bridge.yaml) | `collab` / `agent` / `full`; Slack / Teams / Lark → agent |
 | Event ingest | 8007 | `event-ingest` | _(no contract in repo)_ | `streaming` profile |
 | Analytics sink | 8008 | `analytics-sink` | _(no contract in repo)_ | `analytics` profile |
-| GraphQL gateway | 8010 | `graphql-gateway` | _(no contract in repo)_ | `gateway` profile |
+| GraphQL gateway | 8010 | `graphql-gateway` | _(no REST OpenAPI in repo — GraphQL schema is code-first; see [API Reference — GraphQL Gateway](../api-reference.md#graphql-gateway))_ | `gateway` profile |
 | Frontend (nginx) | 3000 → container 80 | `frontend` | _(UI)_ | `ui` / `full` profile |
 
 ## Internal URLs (Docker network)

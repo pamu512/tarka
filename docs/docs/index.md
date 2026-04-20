@@ -12,6 +12,7 @@ The platform is designed around composability. Run just the Decision API with Re
 
 ## What’s new (April 2026)
 
+- **API reference (OSS #36 / #40 / #46 / #48):** [API Reference](api-reference.md) covers **trust/ops readiness** (`GET /v1/ops/evaluation-posture` + `GET /v1/slo`, [§ Trust / ops readiness](api-reference.md#trust-ops-readiness)), **typology predicate registry** ([§ Decision API](api-reference.md#decision-api)), deterministic **evidence summary** ([§ Investigation Agent](api-reference.md#investigation-agent)), **velocity parity verify** ([§ Feature Service](api-reference.md#feature-service)), and the **GraphQL gateway** façade ([§ GraphQL Gateway](api-reference.md#graphql-gateway)).
 - **Investigation copilot (OSS):** **`GET /v1/ready`** and **`GET /v1/setup`**, production diagnostics on **`GET /v1/health`**, **workflow-aware** **`POST /v1/chat`**, case-summary **PDF** / turn-bundle exports, and production guardrails — see [Integration changelog](guides/CHANGELOG_INTEGRATION.md) and [Investigation Agent project](projects/investigation-agent-project.md).
 - **Collaboration chat bridge:** Slack, Teams, and Lark → agent with **attachments** (incl. **xlsx**), **SSRF-safe URL** enrichment, **workflow directives**, and **ingress rate limits** — [bridge README](../../services/collaboration-chat-bridge/README.md) and [Collaboration chat & cloud](guides/investigation-collaboration-chat-aws-azure.md).
 - **Tarka repo:** Default development branch is **`master`**; release cadence and tags are unchanged — [Release schedule](../../RELEASE_SCHEDULE.md) (repository root).
@@ -71,5 +72,9 @@ The platform is designed around composability. Run just the Decision API with Re
 - :material-robot: **[Investigation copilot (Saarthi) & Saarthi Pro](guides/saarthi-pro-vs-oss.md)**
 
     LLM tool-use loop against case, graph, and decision APIs. Open reference ships in-repo; **Saarthi Pro** is the commercial packaging (support, adapters, procurement). Start with **vs OSS**.
+
+- :material-book-search-outline: **[API Reference](api-reference.md)**
+
+    Service-by-service HTTP tables (default Compose **8000–8010**): Decision API (evaluate, audit, **evaluation posture**, typology registry), Feature Service (**parity verify**), Investigation Agent (**evidence summary**, chat, exports), collaboration bridge on **8009**, GraphQL gateway on **8010**, and more — OpenAPI pointers under `contracts/openapi/` where published; GraphQL is summarized in [§ GraphQL Gateway](api-reference.md#graphql-gateway).
 
 </div>

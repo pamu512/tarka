@@ -24,6 +24,18 @@
   "velocity_events_5m": 0,
   "velocity_events_1h": 10,
   "velocity_events_24h": 100,
+  "calibration_profile_version": 1,
+  "location_confidence": 0.0,
+  "confidence_sources": {
+    "calibration": "heuristic",
+    "counter": "heuristic",
+    "location": "heuristic"
+  },
+  "graph_risk_score": 0.0,
+  "graph_risk_reasons": [],
+  "external_signal_score": 0.0,
+  "external_signal_providers": [],
+  "policy_experiment_id": null,
   "ml_top_factors": [],
   "ml_summary": null,
   "ml_model": null

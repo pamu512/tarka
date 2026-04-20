@@ -1300,9 +1300,73 @@ function MessageBubble({
                     ))}
                   </ul>
                 ) : null}
-                <pre className="mt-2 text-[10px] text-gray-600 overflow-x-auto whitespace-pre-wrap break-all">
-                  {JSON.stringify(evidenceSummary, null, 2)}
-                </pre>
+                {(evidenceSummary.next_actions ?? []).length > 0 ? (
+                  <div className="mt-3 border-t border-surface-800/80 pt-2">
+                    <div className="text-gray-500 font-medium mb-1">Next actions (typology / policy drivers)</div>
+                    <ul className="space-y-2 text-gray-300">
+                      {(evidenceSummary.next_actions ?? []).map((a, i) => (
+                        <li key={`${a.id}-${i}`} className="leading-snug">
+                          <span
+                            className={
+                              a.kind === "automated_side_effect"
+                                ? "text-amber-400/90 font-mono text-[10px] uppercase"
+                                : "text-gray-500 font-mono text-[10px] uppercase"
+                            }
+                          >
+                            [{a.kind}]
+                          </span>{" "}
+                          <span className="text-gray-200">{a.label}</span>
+                          {a.resolves_to?.length ? (
+                            <div className="mt-0.5 flex flex-wrap gap-1">
+                              {a.resolves_to.map((r, j) => (
+                                <span
+                                  key={`${r.artifact}-${r.id}-${j}`}
+                                  className="rounded bg-surface-900 px-1 py-0.5 font-mono text-[10px] text-gray-500"
+                                  title="Artifact id from evidence summary"
+                                >
+                                  {r.artifact}:{r.id}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {evidenceSummary.citations?.length ? (
+                  <div className="mt-3 border-t border-surface-800/80 pt-2">
+                    <div className="text-gray-500 font-medium mb-1">Citations &amp; anchors</div>
+                    <ul className="space-y-2">
+                      {evidenceSummary.citations.map((c, i) => (
+                        <li key={`c-${c.claim_index}-${i}`} className="text-gray-300 leading-snug">
+                          <span className="text-gray-500">#{c.claim_index}</span>{" "}
+                          <span className="text-gray-400">({c.confidence_label})</span> {c.text}
+                          {c.resolves_to?.length ? (
+                            <div className="mt-0.5 flex flex-wrap gap-1">
+                              {c.resolves_to.map((r, j) => (
+                                <span
+                                  key={`${r.artifact}-${r.id}-${j}`}
+                                  className="rounded bg-surface-900 px-1 py-0.5 font-mono text-[10px] text-gray-500"
+                                >
+                                  {r.artifact}:{r.id}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                <details className="mt-2 border-t border-surface-800/80 pt-2">
+                  <summary className="cursor-pointer text-gray-600 hover:text-gray-500 text-[10px] select-none">
+                    Raw JSON (debug)
+                  </summary>
+                  <pre className="mt-1 text-[10px] text-gray-600 overflow-x-auto whitespace-pre-wrap break-all max-h-48 overflow-y-auto">
+                    {JSON.stringify(evidenceSummary, null, 2)}
+                  </pre>
+                </details>
               </details>
             ) : null}
           </div>

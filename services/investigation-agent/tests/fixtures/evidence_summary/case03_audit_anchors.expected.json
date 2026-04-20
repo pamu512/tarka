@@ -1,0 +1,21 @@
+{
+  "citations": [
+    {
+      "claim_index": 0,
+      "resolves_to": [
+        { "artifact": "decision_trace", "id": "outer-trace" },
+        { "artifact": "case", "id": "c99" },
+        { "artifact": "decision_trace", "id": "audit-trace-xyz" },
+        { "artifact": "typology", "id": "t_graph" },
+        { "artifact": "json_rule", "id": "rule_a" }
+      ]
+    },
+    {
+      "claim_index": 1,
+      "resolves_to": [
+        { "artifact": "decision_trace", "id": "outer-trace" },
+        { "artifact": "case", "id": "c99" }
+      ]
+    }
+  ]
+}

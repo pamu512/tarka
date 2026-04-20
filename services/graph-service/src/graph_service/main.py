@@ -24,6 +24,7 @@ from graph_service.custom_schema import (
     load_tenant_schema,
     save_tenant_schema,
 )
+from graph_service.graph_risk_model import score_graph_risk_beta
 from graph_service.graph_runtime import (
     close_graph_backend,
     create_link,
@@ -109,6 +110,15 @@ class LinkRequest(BaseModel):
 class TagsRequest(BaseModel):
     tenant_id: str
     tags: list[str]
+
+
+class RingSuspicionResponse(BaseModel):
+    tenant_id: str
+    entity_id: str
+    suspicion_level: str
+    score: float
+    reasons: list[str] = Field(default_factory=list)
+    ring_samples: list[dict[str, Any]] = Field(default_factory=list)
 
 
 @app.get("/v1/health")
@@ -246,7 +256,49 @@ async def fraud_rings_endpoint(tenant_id: str, min_size: int = 3):
 @app.get("/v1/analytics/entity-risk")
 async def entity_risk_endpoint(tenant_id: str, entity_id: str, checkpoint: str | None = None):
     """Optional ``checkpoint`` selects graph profile (OSS #49). See GET /v1/checkpoint-profiles."""
-    return await compute_entity_risk(tenant_id, entity_id, checkpoint=checkpoint)
+    base = await compute_entity_risk(tenant_id, entity_id, checkpoint=checkpoint)
+    beta = await score_graph_risk_beta(tenant_id, entity_id)
+    if isinstance(beta, dict):
+        try:
+            beta_score = max(0.0, min(100.0, float(beta.get("risk_score", 0.0))))
+        except (TypeError, ValueError):
+            beta_score = 0.0
+        base_score = float(base.get("risk_score", 0.0))
+        if beta_score > base_score:
+            base["risk_score"] = round(beta_score, 2)
+            reasons = list(base.get("risk_factors") or [])
+            reasons.append("gnn_beta_high_risk")
+            base["risk_factors"] = list(dict.fromkeys(str(x) for x in reasons if str(x).strip()))
+        base["gnn_beta"] = beta
+    return base
+
+
+@app.get("/v1/analytics/ring-suspicion", response_model=RingSuspicionResponse)
+async def ring_suspicion_endpoint(tenant_id: str, entity_id: str, min_ring_size: int = 3):
+    """Mule/ring heuristic summary combining entity risk and ring samples."""
+    risk = await compute_entity_risk(tenant_id, entity_id)
+    rings = await detect_fraud_rings(tenant_id, min_ring_size=min_ring_size)
+    ring_samples = [r for r in rings if entity_id in [str(x) for x in (r.get("ring_members") or [])]][:3]
+    reasons = [str(x) for x in (risk.get("risk_factors") or []) if str(x).strip()]
+    if ring_samples:
+        reasons.append("entity_present_in_detected_ring")
+    score = float(risk.get("risk_score", 0.0))
+    if ring_samples:
+        score = min(100.0, score + 12.0)
+    if score >= 75:
+        suspicion_level = "high"
+    elif score >= 45:
+        suspicion_level = "medium"
+    else:
+        suspicion_level = "low"
+    return RingSuspicionResponse(
+        tenant_id=tenant_id,
+        entity_id=entity_id,
+        suspicion_level=suspicion_level,
+        score=round(score, 2),
+        reasons=list(dict.fromkeys(reasons)),
+        ring_samples=ring_samples,
+    )
 
 
 @app.get("/v1/checkpoint-profiles")

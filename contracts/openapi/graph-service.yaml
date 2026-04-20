@@ -75,6 +75,52 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SubgraphResponse"
+  /v1/analytics/entity-risk:
+    get:
+      operationId: computeEntityRisk
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: entity_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: checkpoint
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Heuristic risk with optional gnn_beta section
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntityRiskResponse"
+  /v1/analytics/ring-suspicion:
+    get:
+      operationId: ringSuspicion
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: entity_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: min_ring_size
+          in: query
+          required: false
+          schema: { type: integer, default: 3, minimum: 3, maximum: 6 }
+      responses:
+        "200":
+          description: Mule/ring heuristic summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RingSuspicionResponse"
 components:
   schemas:
     UpsertEntityRequest:
@@ -128,3 +174,35 @@ components:
               to_id: { type: string }
               type: { type: string }
               properties: { type: object, additionalProperties: true }
+    EntityRiskResponse:
+      type: object
+      properties:
+        entity_id: { type: string }
+        risk_score: { type: number }
+        risk_factors:
+          type: array
+          items: { type: string }
+        connected_flagged_count: { type: integer }
+        community_size: { type: integer }
+        gnn_beta:
+          type: object
+          nullable: true
+          additionalProperties: true
+    RingSuspicionResponse:
+      type: object
+      required: [tenant_id, entity_id, suspicion_level, score, reasons, ring_samples]
+      properties:
+        tenant_id: { type: string }
+        entity_id: { type: string }
+        suspicion_level:
+          type: string
+          enum: [low, medium, high]
+        score: { type: number }
+        reasons:
+          type: array
+          items: { type: string }
+        ring_samples:
+          type: array
+          items:
+            type: object
+            additionalProperties: true

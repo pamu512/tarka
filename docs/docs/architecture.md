@@ -79,6 +79,10 @@ Tarka is a collection of loosely coupled microservices connected via HTTP and me
 │   │  :8003                 │  │  :8010                 │               │
 │   │  (KYC adapters)        │  │  (unified API)         │               │
 │   └────────────────────────┘  └────────────────────────┘               │
+│                                                                         │
+│   ┌──────────────────────────────────────────────────────────────┐     │
+│   │  Collaboration chat bridge :8009 (Slack / Teams / Lark)      │     │
+│   └──────────────────────────────────────────────────────────────┘     │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -89,18 +93,20 @@ Tarka is a collection of loosely coupled microservices connected via HTTP and me
 
 | Service                 | Port | Technology          | Purpose                                                       | Dependencies                          |
 | ----------------------- | ---- | ------------------- | ------------------------------------------------------------- | ------------------------------------- |
-| **Decision API**        | 8000 | Python / FastAPI    | Real-time fraud scoring, rule + ML orchestration, attestation | Postgres, Redis                       |
+| **Decision API**        | 8000 | Python / FastAPI    | Real-time fraud scoring, typology DSL, **evaluation posture** + **SLO** for trust/ops UI ([API ref](api-reference.md#trust-ops-readiness)), attestation | Postgres, Redis                       |
 | **Graph Service**       | 8001 | Python / FastAPI    | Entity graph, tag storage, community/ring detection           | Neo4j                                 |
 | **Case API**            | 8002 | Python / FastAPI    | Investigation cases, workflows, SLA, audit trail              | Postgres, Graph Service (optional)    |
 | **Integration Ingress** | 8003 | Python / FastAPI    | KYC webhook adapters, sanctions screening                     | Postgres                              |
-| **Feature Service**     | 8004 | Python / FastAPI    | Feature snapshot computation for ML models                    | —                                     |
+| **Feature Service**     | 8004 | Python / FastAPI    | Velocity reads, feature snapshots, **parity verify** ([OSS #48](guides/oss-typology-parity-graph-34-48-49.md)) | Redis (same aggregate keyspace as Decision API) |
 | **ML Scoring**          | 8005 | Python / FastAPI    | ONNX + heuristic model inference, A/B testing                 | —                                     |
-| **Investigation Agent** | 8006 | Python / FastAPI    | AI copilot with LLM tool-use loop                             | Case API, Graph Service, OpenAI       |
+| **Investigation Agent** | 8006 | Python / FastAPI    | LLM copilot; **POST /v1/evidence/summary** (deterministic citations + next actions, [API ref](api-reference.md#investigation-agent)) | Case API, Graph Service, Decision API, OpenAI |
 | **Event Ingest**        | 8007 | Python / FastAPI    | High-throughput async event ingestion                         | NATS, Decision API                    |
 | **Analytics Sink**      | 8008 | Python / FastAPI    | Streams events to ClickHouse for analytics                    | NATS, ClickHouse                      |
+| **Collaboration chat bridge** | 8009 | Python / FastAPI | Slack / Teams / Lark ingress → investigation-agent ([API ref](api-reference.md#collaboration-chat-bridge)) | Investigation Agent                   |
 | **GraphQL Gateway**     | 8010 | Python / Strawberry | Unified GraphQL API across services                           | Decision API, Case API, Graph Service |
 | **Frontend**            | 3000 | React / Vite        | Investigation UI, dashboard, graph explorer                   | Case API, Decision API                |
 
+Per-service overview pages (ports, primary endpoints, doc pointers): [Decision API](services/decision-api.md) · [Graph Service](services/graph-service.md) · [Case API](services/case-api.md) · [Feature Service](services/feature-service.md) · [ML Scoring](services/ml-scoring.md) · [Investigation Agent](services/investigation-agent.md). **Collaboration chat bridge** has no separate `services/*.md` page — see [API Reference — Collaboration Chat Bridge](api-reference.md#collaboration-chat-bridge) and [Collaboration chat & cloud](guides/investigation-collaboration-chat-aws-azure.md).
 
 The analyst UI uses a **single HTTP entry point** in the repo (`frontend/src/api/client.ts`): a barrel that re-exports shared types, `request()`, and per-service API objects from `frontend/src/api/modules/`. For the layout (what changed when the former monolithic `client.ts` was split), see [Frontend project](projects/frontend-project.md) (section **UI HTTP client**).
 

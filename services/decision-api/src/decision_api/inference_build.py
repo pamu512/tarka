@@ -67,6 +67,9 @@ def build_inference_context(
     location_meta: dict[str, Any] | None = None,
     counter_meta: dict[str, Any] | None = None,
     calibration_meta: dict[str, Any] | None = None,
+    graph_meta: dict[str, Any] | None = None,
+    external_signal_meta: dict[str, Any] | None = None,
+    policy_experiment_id: str | None = None,
 ) -> dict[str, Any]:
     """Normalize heterogeneous risk signals into a versioned inference contract (Epic A/E)."""
     features = features or {}
@@ -240,6 +243,31 @@ def build_inference_context(
     elif any(k in features for k in ("event_count_5m", "event_count_1h", "event_count_24h")):
         counter_source = "local-fallback"
 
+    graph_risk_score = 0.0
+    graph_risk_reasons: list[str] = []
+    if graph_meta:
+        try:
+            graph_risk_score = _clamp01(float(graph_meta.get("risk_score", 0.0)) / 100.0)
+        except (TypeError, ValueError):
+            graph_risk_score = 0.0
+        raw_graph_reasons = graph_meta.get("risk_factors")
+        if isinstance(raw_graph_reasons, list):
+            graph_risk_reasons = [str(x).strip() for x in raw_graph_reasons if str(x).strip()][:8]
+
+    external_signal_score = 0.0
+    external_signal_providers: list[str] = []
+    if external_signal_meta:
+        try:
+            score_raw = external_signal_meta.get("risk_score")
+            if score_raw is None:
+                score_raw = float(external_signal_meta.get("score_delta", 0.0)) * 5.0
+            external_signal_score = _clamp01(float(score_raw) / 100.0)
+        except (TypeError, ValueError):
+            external_signal_score = 0.0
+        providers = external_signal_meta.get("providers")
+        if isinstance(providers, list):
+            external_signal_providers = [str(x).strip() for x in providers if str(x).strip()]
+
     try:
         ev1h = int(features.get("event_count_1h") or ev1h)
     except (TypeError, ValueError):
@@ -327,6 +355,11 @@ def build_inference_context(
             "counter": counter_source,
             "location": location_source,
         },
+        "graph_risk_score": round(graph_risk_score, 4),
+        "graph_risk_reasons": graph_risk_reasons,
+        "external_signal_score": round(external_signal_score, 4),
+        "external_signal_providers": external_signal_providers,
+        "policy_experiment_id": policy_experiment_id.strip()[:128] if isinstance(policy_experiment_id, str) and policy_experiment_id.strip() else None,
         "ml_top_factors": ml_top_factors,
         "ml_summary": ml_summary,
         "ml_model": ml_model,

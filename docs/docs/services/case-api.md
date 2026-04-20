@@ -6,6 +6,8 @@ The Case API provides investigation case management with workflow automation, SL
 **Version:** 4.0.0
 **Framework:** Python / FastAPI
 
+Canonical HTTP tables: **[API Reference — Case API](../api-reference.md#case-api)** · OpenAPI: `contracts/openapi/case-api.yaml`
+
 ---
 
 ## Endpoints

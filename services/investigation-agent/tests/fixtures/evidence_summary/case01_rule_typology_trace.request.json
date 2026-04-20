@@ -1,0 +1,18 @@
+{
+  "tenant_id": "demo",
+  "analyst_id": "analyst-1",
+  "case_id": "case-golden-01",
+  "trace_id": "trace-golden-01",
+  "reply": "Elevated velocity with typology hit.",
+  "claims": [
+    {
+      "text": "Rule rule_velocity_burst fired on trace trace-golden-01",
+      "source": "tool",
+      "rule_id": "rule_velocity_burst",
+      "typology_id": "velocity_abuse"
+    }
+  ],
+  "source_refs": [],
+  "claims_deterministic_support": [{ "claim_index": 0, "supported": true }],
+  "turn_id": "golden-turn-01"
+}

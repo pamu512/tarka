@@ -12,6 +12,7 @@
 
 - **UI:** **Governance → Feature tools** (`/ops/features`) proxies the feature-service via nginx (`/api/features/`) so operators can query velocity and run parity without curl.
 - **Endpoint:** `POST /v1/internal/parity/verify` — body: `tenant_id`, `entity_id`, `payload`, `expected` (map of velocity key → expected float), `epsilon`.
+- **Contract:** `contracts/openapi/feature-service.yaml` — `ParityVerifyRequest`, `ParityVerifyResponse`, plus `/v1/velocity/query` and `/v1/slo` summaries.
 - **Behavior:** Reads Redis via the same `AggregateStore` as `/v1/velocity/query`. Returns **200** with `ok: true` when all keys within epsilon; **409** with drift detail when not.
 - **Fixtures:** Use the same Redis as decision-api for production parity; for CI, use a scratch Redis + known JSONL replay.
 

@@ -145,6 +145,11 @@ class InferenceContext(BaseModel):
     calibration_profile_version: int = 1
     location_confidence: float = 0.0
     confidence_sources: dict[str, str] = Field(default_factory=lambda: {"calibration": "heuristic", "counter": "heuristic", "location": "heuristic"})
+    graph_risk_score: float = 0.0
+    graph_risk_reasons: list[str] = Field(default_factory=list)
+    external_signal_score: float = 0.0
+    external_signal_providers: list[str] = Field(default_factory=list)
+    policy_experiment_id: str | None = None
     ml_top_factors: list[dict[str, Any]] = Field(default_factory=list)
     ml_summary: str | None = None
     ml_model: str | None = None

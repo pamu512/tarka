@@ -6,7 +6,7 @@ info:
     Slack, Teams, and Lark bridge for investigation-agent, including
     system-agnostic plugin/embed proxy endpoints.
 servers:
-  - url: http://localhost:8010
+  - url: http://localhost:8009
 paths:
   /v1/health:
     get:

@@ -39,6 +39,7 @@ These capabilities are in the codebase today and roll forward on `master`:
 ### April 2026 — Investigation copilot, collaboration bridge, and ops
 
 - **Investigation agent (Saarthi):** **`GET /v1/ready`** (data-dir readiness), **`GET /v1/setup`** (first-run checklist), and a **`production`** object on **`GET /v1/health`** when production profiling is enabled; **`GET /v1/workflows`** with **`workflow_id` / `workflow_params`** (plus **`playbook_id` / `batch_id`** where applicable) on **`POST /v1/chat`**; **case-summary PDF** and **turn-bundle** report routes; optional **copilot rate limits** and **request body size cap**. Reference env: **`services/investigation-agent/.env.reference.example`**. Hardening compose: **`deploy/docker-compose.production-hardening.yml`**. Integration notes: **[CHANGELOG_INTEGRATION](docs/docs/guides/CHANGELOG_INTEGRATION.md)**.
+- **Trust / ops, evidence summary, parity:** Decision API **`GET /v1/ops/evaluation-posture`** + **`GET /v1/slo`** for the console readiness strip; **`POST /v1/evidence/summary`** (deterministic citations + next actions); Feature Service **`POST /v1/internal/parity/verify`**. Indexed in **[API Reference](docs/docs/api-reference.md)** (Decision, Feature Service, Investigation Agent sections).
 - **Collaboration chat bridge** (`services/collaboration-chat-bridge`): **Slack, Microsoft Teams, and Lark** with optional **per-source minute rate limits**; **Slack file** text extraction (plain text, CSV, PDF, **Excel .xlsx**); **SSRF-hardened** fetch of the first public **`https://`** URL in the user line; directives **`!wf`**, **`!wfp`**, **`!style`**; forwards workflow and batch fields to the agent. Details: **`services/collaboration-chat-bridge/README.md`**, **[Collaboration chat & cloud](docs/docs/guides/investigation-collaboration-chat-aws-azure.md)**.
 - **Frontend:** **Investigation** page updates for copilot setup and workflows (`frontend/src/pages/Investigation.tsx`).
 - **Observability & deploy:** Grafana dashboard JSON for copilot metrics under **`deploy/observability/`**; optional **`deploy/docker-compose.host-ports.override.yml`** for local port mapping; guide **[Investigation CMS & ITSM](docs/docs/guides/investigation-cms-and-itsm-integrations.md)**.
@@ -54,7 +55,7 @@ Mirrors [docs/docs/releases/v1.1.0-2026-04-30.md](docs/docs/releases/v1.1.0-2026
 
 **CI/CD, security hygiene, and first-run polish**
 
-- **GitHub Actions CI** (`main` / `master`): Ruff; **decision-api** tests with coverage gate (**≥48%** as enforced in **`.github/workflows/ci.yml`**, path to 60%+); **case-api**, **Python SDK**; **graph-service**; **integration-ingress**; **investigation-agent**; **graphql-gateway**, **event-ingest**, **analytics-sink**, **feature-service**, **ml-scoring**; **frontend** + **TypeScript SDK** **`npm run build`**; **Alembic** migrations for decision/case APIs on PostgreSQL startup; **GraphQL** **`/metrics`** via shared observability; **`benchmark-latency-evaluate`** job (lite compose + **`scripts/benchmarks/latency_evaluate.py`** artifact); coverage XML artifacts; **Docker builds** gated on all jobs.
+- **GitHub Actions CI** (`main` / `master`): Ruff; **decision-api** tests with coverage gate (**≥48%** as enforced in **`.github/workflows/ci.yml`**, path to 60%+); **case-api**, **Python SDK**; **graph-service**; **integration-ingress**; **investigation-agent**; **graphql-gateway**, **event-ingest**, **analytics-sink**, **feature-service**, **ml-scoring**; **frontend** **`npm run test`** then **`npm run build`** + **TypeScript SDK** **`npm run build`**; **Alembic** migrations for decision/case APIs on PostgreSQL startup; **GraphQL** **`/metrics`** via shared observability; **`benchmark-latency-evaluate`** job (lite compose + **`scripts/benchmarks/latency_evaluate.py`** artifact); coverage XML artifacts; **Docker builds** gated on all jobs.
 - **Security scanning workflow**: **Trivy** filesystem + **decision-api** image → **SARIF** upload (where code scanning is enabled); weekly schedule.
 - **Secret scanning workflow**: **TruffleHog** on push/PR/schedule (**`.github/workflows/secret-scan.yml`**).
 - **Dependabot**: grouped updates for **GitHub Actions**, **pip** (core services), **npm** (frontend).
@@ -64,7 +65,7 @@ Mirrors [docs/docs/releases/v1.1.0-2026-04-30.md](docs/docs/releases/v1.1.0-2026
 
 **Planned validation (release gate)**
 
-- **`pytest`** (decision-api), frontend **`npm run build`**, and **TypeScript SDK** **`npm run build`** green before tag.
+- **`pytest`** (decision-api), frontend **`npm run test`** + **`npm run build`**, and **TypeScript SDK** **`npm run build`** green before tag.
 - **CI workflow green** on default branch: lint, all Python service test jobs, Node builds, Docker build matrix.
 - **Trivy** security workflow completes (SARIF upload may depend on org plan); **Dependabot** enabled for the repository.
 - **Lite compose** smoke: `docker compose -f deploy/docker-compose.lite.yml up -d --build` → **8000** evaluate, **8003** OSINT health, **3000** frontend reachable.
@@ -80,6 +81,7 @@ Onboarding (ports, metrics, replay script): **[docs/docs/guides/ingest-replay-on
 
 | What | Where |
 |------|--------|
+| **Scripts index** (CI gates, policy/ML validators, links to subtree READMEs) | [scripts/README.md](scripts/README.md) |
 | **Three walkthroughs** (payments + ML, bot defense, IOC + graph) | [docs/docs/guides/examples/README.md](docs/docs/guides/examples/README.md) |
 | **Evaluate latency** (stdlib script) | [scripts/benchmarks/README.md](scripts/benchmarks/README.md) |
 | **Simulation / A-B rules** | [docs/docs/guides/shadow-and-ab-testing.md](docs/docs/guides/shadow-and-ab-testing.md) |

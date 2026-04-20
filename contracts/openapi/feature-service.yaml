@@ -2,6 +2,9 @@ openapi: 3.1.0
 info:
   title: Tarka Feature Service
   version: 1.0.0
+  description: >-
+    Velocity reads and feature snapshots over Redis-backed aggregates. Includes **POST /v1/internal/parity/verify**
+    (OSS #48) for golden parity vs decision-api counter materialization.
 servers:
   - url: http://localhost:8004
 paths:
@@ -11,6 +14,81 @@ paths:
       responses:
         "200":
           description: OK
+  /v1/slo:
+    get:
+      operationId: featureSlo
+      summary: In-process HTTP counters and Redis velocity wiring hint
+      responses:
+        "200":
+          description: SLO snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/velocity/query:
+    post:
+      operationId: velocityQuery
+      summary: Read multi-window velocity from the shared Redis aggregate store
+      description: >-
+        Same key space as decision-api aggregates. Returns 503 when Redis is not configured.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VelocityQueryRequest"
+      responses:
+        "200":
+          description: Velocity counters and canonical key order
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tenant_id, entity_id, velocity_counters, velocity_key_order]
+                properties:
+                  tenant_id: { type: string }
+                  entity_id: { type: string }
+                  velocity_counters:
+                    type: object
+                    additionalProperties: true
+                  velocity_key_order:
+                    type: array
+                    items: { type: string }
+        "503":
+          description: Redis not configured
+  /v1/internal/parity/verify:
+    post:
+      operationId: parityVerify
+      summary: Golden parity gate — diff live Redis velocity vs expected within epsilon (OSS #48)
+      description: >-
+        Reads counters via the same `AggregateStore` path as `/v1/velocity/query`. **200** when every expected
+        key is within `epsilon` of live values; **409** with drift detail in `detail` when any key drifts or is missing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParityVerifyRequest"
+      responses:
+        "200":
+          description: All checked keys within epsilon
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParityVerifyResponse"
+        "409":
+          description: Drift or non-numeric / missing live values
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [detail]
+                properties:
+                  detail:
+                    $ref: "#/components/schemas/ParityVerifyResponse"
+        "503":
+          description: Redis not configured
   /v1/snapshot:
     post:
       operationId: buildSnapshot
@@ -47,3 +125,51 @@ paths:
                   redis_tags:
                     type: array
                     items: { type: string }
+components:
+  schemas:
+    VelocityQueryRequest:
+      type: object
+      required: [tenant_id, entity_id]
+      properties:
+        tenant_id: { type: string }
+        entity_id: { type: string }
+        payload:
+          type: object
+          additionalProperties: true
+    ParityVerifyRequest:
+      type: object
+      required: [tenant_id, entity_id, expected]
+      properties:
+        tenant_id: { type: string }
+        entity_id: { type: string }
+        payload:
+          type: object
+          additionalProperties: true
+        expected:
+          type: object
+          additionalProperties: { type: number }
+          description: Expected counter values (e.g. event_count_1h).
+        epsilon:
+          type: number
+          minimum: 0
+          maximum: 1000000
+          default: 0.5
+    ParityVerifyResponse:
+      type: object
+      required: [ok, tenant_id, entity_id, epsilon, checked_keys, drift, live_sample]
+      properties:
+        ok: { type: boolean }
+        tenant_id: { type: string }
+        entity_id: { type: string }
+        epsilon: { type: number }
+        checked_keys:
+          type: array
+          items: { type: string }
+        drift:
+          type: object
+          additionalProperties: true
+          description: Per-key drift rows when ok is false (expected, live, delta, or error).
+        live_sample:
+          type: object
+          additionalProperties: true
+          description: Live values for checked keys only.

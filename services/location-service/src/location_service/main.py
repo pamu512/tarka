@@ -47,10 +47,10 @@ def _coerce_bounded_float(value: Any, *, min_v: float, max_v: float) -> float | 
 
 def _sanitize_place_entry(place: dict[str, Any]) -> dict[str, Any]:
     """
-    Persist only minimal geometric metadata needed by scoring.
+    Persist minimal geometric metadata needed by scoring.
 
-    This intentionally drops all free-form strings to reduce accidental clear-text
-    storage of PII in trusted-place snapshots.
+    ``label`` is preserved as an analyst-facing hint for trusted-place round-trip UX,
+    but bounded to a short safe string.
     """
     lat = _coerce_bounded_float(place.get("lat"), min_v=-90.0, max_v=90.0)
     lon = _coerce_bounded_float(place.get("lon"), min_v=-180.0, max_v=180.0)
@@ -65,6 +65,11 @@ def _sanitize_place_entry(place: dict[str, Any]) -> dict[str, Any]:
         "radius_km": round(radius_km, 3),
         "kind": kind,
     }
+    label = place.get("label")
+    if isinstance(label, str):
+        label_s = label.strip()
+        if label_s:
+            out["label"] = label_s[:64]
     accuracy_m = _coerce_bounded_float(place.get("accuracy_m"), min_v=0.0, max_v=100000.0)
     if accuracy_m is not None:
         out["accuracy_m"] = round(accuracy_m, 2)

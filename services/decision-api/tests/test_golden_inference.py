@@ -1,4 +1,4 @@
-"""Golden key parity for inference_context v2 (contracts/golden)."""
+"""Golden key parity for inference_context v3 (contracts/golden)."""
 
 import json
 from pathlib import Path
@@ -35,3 +35,16 @@ def test_build_inference_context_includes_all_golden_keys(golden_keys: set[str])
 
 def test_golden_file_exists():
     assert _GOLDEN_PATH.is_file(), f"expected {_GOLDEN_PATH}"
+
+
+def test_golden_contains_required_v3_fields(golden_keys: set[str]):
+    for key in (
+        "calibration_profile_version",
+        "location_confidence",
+        "confidence_sources",
+        "graph_risk_score",
+        "graph_risk_reasons",
+        "external_signal_score",
+        "external_signal_providers",
+    ):
+        assert key in golden_keys
