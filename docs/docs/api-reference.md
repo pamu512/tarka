@@ -13,6 +13,8 @@ Complete endpoint reference for all Tarka services. All services use JSON reques
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/v1/health` | Health check |
+| `GET` | `/v1/slo` | Service SLO snapshot (availability, dependency checks, optional Redis/NATS signals) |
+| `GET` | `/v1/ops/evaluation-posture` | Evaluation mode, deployment tier hint, compliance prerequisites, predicate registry pin |
 | `POST` | `/v1/decisions/evaluate` | Evaluate a fraud decision |
 | `GET` | `/v1/audit/{trace_id}` | Get audit record by trace ID |
 | `WebSocket` | `/v1/decisions/ws` | Live decision stream |
@@ -523,6 +525,41 @@ Complete endpoint reference for all Tarka services. All services use JSON reques
   "mutations": { "status": "escalated", "priority": "critical" }
 }
 ```
+
+---
+
+## Integration Ingress — `:8003`
+
+Provider catalog, installs, connectivity tests, and **integration reliability scorecards** (per installed connection).
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/v1/health` | Health check |
+| `GET` | `/v1/integrations/catalog` | List available integration providers |
+| `GET` | `/v1/integrations/installed` | List tenant connections (`tenant_id` query) |
+| `GET` | `/v1/integrations/readiness` | Category coverage score (`tenant_id`) |
+| `GET` | `/v1/integrations/health-matrix` | Latest connectivity probe summary (`tenant_id`) |
+| `GET` | `/v1/integrations/scorecards` | **Per-provider scores + connector quality** (`tenant_id`) — used by the Integrations UI |
+| `POST` | `/v1/integrations/install` | Install / enable a provider |
+| `POST` | `/v1/integrations/test-connectivity` | Run connectivity check |
+
+OpenAPI: `contracts/openapi/integration-ingress.yaml`.
+
+---
+
+## Analytics Sink — `:8008`
+
+ClickHouse-backed analytics over decision events. Requires `X-API-Key` when the service is configured with `API_KEYS` (same pattern as other services).
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/v1/health` | Health (`clickhouse` availability) |
+| `GET` | `/v1/analytics/decisions` | Recent decision rows (`tenant_id`, optional filters) |
+| `GET` | `/v1/analytics/hourly` | Hourly aggregates (`tenant_id`, `days`) |
+| `GET` | `/v1/analytics/top-entities` | Top entities by decision (`tenant_id`, `decision`, `days`) |
+| `GET` | `/v1/analytics/scorecard` | **Decision scorecard JSON** — totals, per-decision mix, top rule hits (`tenant_id`, `days`) — used by Analytics UI and weekly export scripts |
+
+Weekly JSON export stub (N4.2): `scripts/analytics/export_weekly_scorecard_json.py`. Discussions publisher (OSS #53): `scripts/analytics/publish_scorecard_discussion.py`.
 
 ---
 
