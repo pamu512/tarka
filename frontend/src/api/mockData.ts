@@ -919,6 +919,43 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       ],
     };
   }
+  if (path.includes("/api/decisions/v1/slo")) {
+    return {
+      service: "decision-api",
+      availability_target_pct: 99.9,
+      latency_target_ms_p95: 50,
+      error_budget_window_days: 30,
+      current: {
+        redis_connected: true,
+        nats_connected: true,
+        total_requests: 42,
+      },
+    };
+  }
+  if (path.includes("/api/decisions/v1/ops/evaluation-posture")) {
+    return {
+      service: "decision-api",
+      deployment_tier: "pro",
+      evaluation_mode: "detection",
+      compliance_posture: "ready",
+      compliance_degraded: false,
+      compliance_degraded_reasons: [],
+      typology_count: 2,
+      predicate_registry_version: 1,
+      predicate_registry_pin_match: true,
+      dependencies: [
+        { id: "redis", ok: true, detail: "connected" },
+        { id: "graph_service_configured", ok: true, detail: "set" },
+        { id: "feature_service_configured", ok: false, detail: "empty" },
+        { id: "ml_scoring_configured", ok: false, detail: "empty" },
+        { id: "nats_configured", ok: true, detail: "set" },
+        { id: "opa_configured", ok: false, detail: "empty" },
+      ],
+      last_rules_reload_at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+      runbook_url: "https://github.com/pamu512/tarka/blob/master/docs/docs/guides/deployment-profiles-community-vs-pro.md",
+      request_id: null,
+    };
+  }
   if (path.includes("/api/decisions/v1/ops/governance")) {
     return {
       inference_schema_version: "3",
@@ -1099,6 +1136,44 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   if (path.includes("/api/analytics/v1/analytics/decisions")) return { rows: [{ decision: "deny", count: 28 }], total: 120 };
   if (path.includes("/api/analytics/v1/analytics/hourly")) return { rows: [{ hour: nowIso(), decision: "deny", event_count: 12, avg_score: 83, deny_count: 6, review_count: 4, allow_count: 2 }] };
   if (path.includes("/api/analytics/v1/analytics/top-entities")) return { decision: "deny", entities: [{ entity_id: "fraud_frank", cnt: 11, avg_score: 91, sample_traces: ["tr-1001"] }] };
+  if (path.includes("/api/analytics/v1/analytics/scorecard")) {
+    return {
+      tenant_id: "demo",
+      window_days: 7,
+      total_events: 120,
+      deny_rate_pct: 23.33,
+      per_decision: [
+        {
+          decision: "deny",
+          event_count: 28,
+          event_pct: 23.33,
+          avg_score: 88.2,
+          min_score: 42,
+          max_score: 99,
+        },
+        {
+          decision: "review",
+          event_count: 45,
+          event_pct: 37.5,
+          avg_score: 62.1,
+          min_score: 35,
+          max_score: 91,
+        },
+        {
+          decision: "allow",
+          event_count: 47,
+          event_pct: 39.17,
+          avg_score: 28.4,
+          min_score: 5,
+          max_score: 72,
+        },
+      ],
+      top_rule_hits: [
+        { rule_id: "velocity_spike", hit_count: 41 },
+        { rule_id: "new_device", hit_count: 22 },
+      ],
+    };
+  }
 
   if (path.includes("/api/ml/v1/health")) {
     return {
@@ -1274,6 +1349,28 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   if (path.includes("/api/ingress/v1/integrations/installed")) return { tenant_id: "demo", installed: mockInstalledIntegrations, count: mockInstalledIntegrations.length };
   if (path.includes("/api/ingress/v1/integrations/readiness")) return { tenant_id: "demo", readiness_score: 78, covered_categories: 3, total_categories: 10, coverage: { ip_intelligence: { installed: true, count: 1 }, device_intelligence: { installed: true, count: 1 }, crm: { installed: true, count: 1 }, sanctions: { installed: false, count: 0 } } };
   if (path.includes("/api/ingress/v1/integrations/health-matrix")) return { tenant_id: "demo", score: 85, rows: mockInstalledIntegrations.map((i) => ({ provider_id: i.provider_id as string, status: "pass", latency_ms: 120, missing_fields: [] })) };
+  if (path.includes("/api/ingress/v1/integrations/scorecards")) {
+    const providers = mockInstalledIntegrations.map((i) => ({
+      provider_id: i.provider_id as string,
+      category: String(i.category ?? "crm"),
+      status: "healthy",
+      connectivity_score: 100,
+      latency_ms: 118,
+      config_completeness: 92,
+      last_checked_at: nowIso(),
+      reasons: [],
+      provider_score: 94.2,
+      connector_quality: { score: 88, version: "v1", notes: "mock" },
+    }));
+    const n = Math.max(providers.length, 1);
+    return {
+      tenant_id: "demo",
+      connector_quality_version: "v1",
+      overall_score: Math.round((providers.reduce((s, p) => s + p.provider_score, 0) / n) * 10) / 10,
+      overall_connector_quality: Math.round((providers.reduce((s, p) => s + Number((p.connector_quality as { score?: number }).score ?? 0), 0) / n) * 10) / 10,
+      providers,
+    };
+  }
   if (path.includes("/api/ingress/v1/integrations/install") && method === "POST") return { ok: true, integration: body };
   if (path.includes("/api/ingress/v1/integrations/uninstall") && method === "POST") return { ok: true };
   if (path.includes("/api/ingress/v1/integrations/test-connectivity")) return { provider_id: body.provider_id ?? "demo", status: "pass", latency_ms: 110, missing_fields: [], required_config_fields: [] };
@@ -1458,6 +1555,44 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
     }
 
     return { error: "admin_unknown_route", path, method };
+  }
+
+  if (path.includes("/api/investigation/v1/evidence/summary") && method === "POST") {
+    const b = body as Record<string, unknown>;
+    const reply = String(b.reply ?? "");
+    const claims = Array.isArray(b.claims) ? (b.claims as { text?: string; source?: string }[]) : [];
+    const traceId =
+      typeof b.trace_id === "string"
+        ? b.trace_id
+        : (Array.isArray(b.source_refs)
+            ? (b.source_refs as { trace_id?: string }[]).find((s) => s.trace_id)?.trace_id
+            : undefined) ?? null;
+    return {
+      summary: reply || "No reply text in mock request.",
+      confidence_label: claims.length ? ("medium" as const) : ("low" as const),
+      summary_confidence: {
+        level: claims.length ? "medium" : "low",
+        score: claims.length ? 0.5 : 0,
+        notes: ["Offline mock — connect investigation-agent for live summaries."],
+      },
+      claim_confidence_summary: {
+        high: 0,
+        medium: claims.length,
+        low: 0,
+      },
+      citations: claims.map((c, i) => ({
+        claim_index: i,
+        text: String(c.text ?? ""),
+        source: String(c.source ?? "unknown"),
+        supported: true,
+        confidence_label: "medium",
+      })),
+      source_refs: Array.isArray(b.source_refs) ? b.source_refs : [],
+      trace_id: traceId,
+      case_id: typeof b.case_id === "string" ? b.case_id : null,
+      turn_id: typeof b.turn_id === "string" ? b.turn_id : "mock-turn",
+      prompt_version: "mock",
+    };
   }
 
   if (path.includes("/api/investigation/v1/chat") && method === "POST") {

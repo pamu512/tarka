@@ -6,6 +6,7 @@ import {
   type InvestigationAnswerSections,
   type InvestigationClaim,
   type InvestigationClaimSupportRow,
+  type InvestigationEvidenceSummaryResponse,
   type InvestigationGovernanceInfo,
   type InvestigationSourceRefCard,
 } from "../api/client";
@@ -796,6 +797,7 @@ export default function Investigation() {
             message={msg}
             tenantId={contextTenantId}
             analystId={DEFAULT_ANALYST}
+            caseId={contextCaseId}
             onFeedbackRecorded={() => void loadFeedbackAnalytics()}
           />
         ))}
@@ -1032,17 +1034,47 @@ function MessageBubble({
   message,
   tenantId,
   analystId,
+  caseId,
   onFeedbackRecorded,
 }: {
   message: Message;
   tenantId: string;
   analystId: string;
+  caseId?: string;
   onFeedbackRecorded?: () => void;
 }) {
   const [toolsExpanded, setToolsExpanded] = useState(false);
   const [feedbackBusy, setFeedbackBusy] = useState(false);
+  const [evidenceSummaryBusy, setEvidenceSummaryBusy] = useState(false);
+  const [evidenceSummary, setEvidenceSummary] = useState<InvestigationEvidenceSummaryResponse | null>(null);
+  const [evidenceSummaryErr, setEvidenceSummaryErr] = useState<string | null>(null);
   const isUser = message.role === "user";
   const richBubble = message.bubble === "system_help" || message.bubble === "repeat_hint";
+  const canRequestEvidenceSummary = !isUser && !richBubble && message.content.trim().length > 0;
+
+  const runEvidenceSummary = () => {
+    if (!canRequestEvidenceSummary) return;
+    setEvidenceSummaryBusy(true);
+    setEvidenceSummaryErr(null);
+    setEvidenceSummary(null);
+    const traceFromRefs = message.source_refs?.find((s) => s.trace_id)?.trace_id;
+    void investigation
+      .evidenceSummary({
+        tenant_id: tenantId,
+        analyst_id: analystId,
+        case_id: caseId,
+        trace_id: traceFromRefs,
+        turn_id: message.turn_id,
+        reply: message.content,
+        claims: message.claims,
+        source_refs: message.source_refs,
+        claims_deterministic_support: message.claims_deterministic_support,
+        answer_sections: message.answer_sections,
+      })
+      .then((data) => setEvidenceSummary(data))
+      .catch((e: unknown) => setEvidenceSummaryErr(e instanceof Error ? e.message : String(e)))
+      .finally(() => setEvidenceSummaryBusy(false));
+  };
 
   const assistantShell =
     message.bubble === "system_help"
@@ -1236,6 +1268,43 @@ function MessageBubble({
             >
               Not helpful
             </button>
+          </div>
+        )}
+
+        {canRequestEvidenceSummary && (
+          <div className="mt-2 flex flex-col gap-1.5 max-w-[75vw] sm:max-w-xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-gray-600 text-[11px]">Deterministic summary</span>
+              <button
+                type="button"
+                disabled={evidenceSummaryBusy}
+                className="px-2 py-0.5 rounded bg-surface-700 hover:bg-surface-600 text-gray-300 text-[11px] disabled:opacity-50"
+                onClick={runEvidenceSummary}
+              >
+                {evidenceSummaryBusy ? "Calling /v1/evidence/summary…" : "Run evidence summary"}
+              </button>
+            </div>
+            {evidenceSummaryErr ? (
+              <div className="text-[11px] text-rose-400 whitespace-pre-wrap">{evidenceSummaryErr}</div>
+            ) : null}
+            {evidenceSummary ? (
+              <details className="rounded-lg border border-surface-700 bg-surface-950/80 px-3 py-2 text-[11px] text-gray-400">
+                <summary className="cursor-pointer text-gray-500 hover:text-gray-400 select-none">
+                  Evidence summary ({evidenceSummary.confidence_label})
+                </summary>
+                <p className="mt-2 text-gray-300 text-xs leading-relaxed whitespace-pre-wrap">{evidenceSummary.summary}</p>
+                {evidenceSummary.summary_confidence?.notes?.length ? (
+                  <ul className="mt-2 list-disc pl-4 text-gray-500 space-y-0.5">
+                    {evidenceSummary.summary_confidence.notes.map((n, i) => (
+                      <li key={i}>{n}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                <pre className="mt-2 text-[10px] text-gray-600 overflow-x-auto whitespace-pre-wrap break-all">
+                  {JSON.stringify(evidenceSummary, null, 2)}
+                </pre>
+              </details>
+            ) : null}
           </div>
         )}
 

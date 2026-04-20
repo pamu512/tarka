@@ -78,7 +78,9 @@ nav:
       - "Deployment: AWS": guides/deployment-aws.md
       - "Deployment: Azure": guides/deployment-azure.md
       - Enterprise Readiness: guides/enterprise-readiness.md
+      - "Enterprise Copilot: plugin + governance": guides/enterprise-copilot-plugin-and-governance-controls.md
       - Incident Response: guides/incident-response.md
+      - "Chaos runbook (template)": guides/runbook-chaos-template.md
       - 30/60/90 Roadmap: guides/roadmap-30-60-90.md
       - Release Calendar (May 2026): guides/release-calendar-2026-05.md
       - OSS ship order (dependencies): guides/oss-ship-order-dependencies.md

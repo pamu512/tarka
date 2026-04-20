@@ -4,6 +4,7 @@ import hmac
 import json as _json
 import logging
 import os
+import time
 import re as _re
 import sys
 import uuid
@@ -66,7 +67,7 @@ from decision_api.shadow import evaluate_shadow, load_shadow_rules, record_obser
 from decision_api.tenant_flags import tenant_flag_enabled
 from decision_api.trusted_zones import load_trusted_zones_for_tenant
 from decision_api.typology import evaluate_typologies, load_typology_definitions, reload_typology_definitions, summarize_typologies
-from decision_api.typology_predicate_registry import registry_public_view, reload_predicate_registry
+from decision_api.typology_predicate_registry import load_predicate_registry, registry_public_view, reload_predicate_registry
 
 # ---------- observability ----------
 _shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
@@ -560,6 +561,14 @@ def _velocity_anomaly_flags(features: dict[str, Any]) -> dict[str, Any]:
 # ---------- websocket live feed ----------
 _ws_clients: set[WebSocket] = set()
 
+# Last time rules/typology/predicate materialization completed (for ops UX; OSS #36).
+_RULES_MATERIALIZED_AT: float | None = None
+
+
+def _touch_rules_materialized() -> None:
+    global _RULES_MATERIALIZED_AT
+    _RULES_MATERIALIZED_AT = time.time()
+
 
 async def _broadcast_decision(data: dict) -> None:
     if not _ws_clients:
@@ -612,6 +621,7 @@ async def lifespan(application: FastAPI):
     await redis_tags.connect()
     load_rules()
     load_typology_definitions()
+    _touch_rules_materialized()
     load_challenge_policies(force=True)
     load_shadow_rules()
     if redis_tags._client:
@@ -736,6 +746,106 @@ async def slo_status():
     }
 
 
+@app.get("/v1/ops/evaluation-posture")
+async def evaluation_posture(request: Request):
+    """Analyst/ops surface: deployment tier hint, evaluation mode, and compliance readiness (OSS #36)."""
+    mode = (settings.tarka_evaluation_mode or "detection").strip().lower()
+    if mode not in ("detection", "compliance"):
+        mode = "detection"
+
+    explicit_tier = (settings.tarka_deployment_tier or "").strip().lower()
+    if explicit_tier in ("community", "pro"):
+        deployment_tier = explicit_tier
+    else:
+        has_graph = bool((settings.graph_service_url or "").strip())
+        has_nats = bool((settings.nats_url or "").strip())
+        has_ml_plane = bool((settings.feature_service_url or "").strip() or (settings.ml_scoring_url or "").strip())
+        if not has_graph and not has_nats and not has_ml_plane:
+            deployment_tier = "community"
+        else:
+            deployment_tier = "pro"
+
+    data = load_typology_definitions()
+    typologies = data.get("typologies") if isinstance(data.get("typologies"), list) else []
+    typology_count = len([t for t in typologies if isinstance(t, dict) and str(t.get("id") or "").strip()])
+
+    registry = load_predicate_registry()
+    reg_ver = int(registry.get("version") or 0)
+    pin = data.get("predicate_registry_pin")
+    try:
+        pin_int = int(pin) if pin is not None else reg_ver
+    except (TypeError, ValueError):
+        pin_int = reg_ver
+    pin_match = reg_ver == pin_int
+
+    degraded_reasons: list[str] = []
+    if typology_count == 0:
+        degraded_reasons.append("typologies_empty")
+    if not pin_match:
+        degraded_reasons.append("predicate_registry_pin_mismatch")
+
+    compliance_degraded = mode == "compliance" and bool(degraded_reasons)
+    posture = "degraded" if compliance_degraded else "ready"
+
+    deps: list[dict[str, Any]] = [
+        {
+            "id": "redis",
+            "ok": redis_tags._client is not None,
+            "detail": "connected" if redis_tags._client else "not_connected",
+        },
+        {
+            "id": "graph_service_configured",
+            "ok": bool((settings.graph_service_url or "").strip()),
+            "detail": "set" if (settings.graph_service_url or "").strip() else "empty",
+        },
+        {
+            "id": "feature_service_configured",
+            "ok": bool((settings.feature_service_url or "").strip()),
+            "detail": "set" if (settings.feature_service_url or "").strip() else "empty",
+        },
+        {
+            "id": "ml_scoring_configured",
+            "ok": bool((settings.ml_scoring_url or "").strip()),
+            "detail": "set" if (settings.ml_scoring_url or "").strip() else "empty",
+        },
+        {
+            "id": "nats_configured",
+            "ok": bool((settings.nats_url or "").strip()),
+            "detail": "set" if (settings.nats_url or "").strip() else "empty",
+        },
+        {
+            "id": "opa_configured",
+            "ok": bool((settings.opa_url or "").strip()),
+            "detail": "set" if (settings.opa_url or "").strip() else "empty",
+        },
+    ]
+
+    last_reload = _RULES_MATERIALIZED_AT
+    last_reload_iso: str | None
+    if last_reload is None:
+        last_reload_iso = None
+    else:
+        last_reload_iso = datetime.fromtimestamp(last_reload, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+
+    runbook = "https://github.com/pamu512/tarka/blob/master/docs/docs/guides/deployment-profiles-community-vs-pro.md"
+
+    return {
+        "service": "decision-api",
+        "deployment_tier": deployment_tier,
+        "evaluation_mode": mode,
+        "compliance_posture": posture,
+        "compliance_degraded": compliance_degraded,
+        "compliance_degraded_reasons": degraded_reasons if mode == "compliance" else [],
+        "typology_count": typology_count,
+        "predicate_registry_version": reg_ver,
+        "predicate_registry_pin_match": pin_match,
+        "dependencies": deps,
+        "last_rules_reload_at": last_reload_iso,
+        "runbook_url": runbook,
+        "request_id": request.headers.get("x-request-id") or request.headers.get("x-correlation-id"),
+    }
+
+
 # ---------- attestation ----------
 
 
@@ -803,6 +913,7 @@ async def reload_rules(_=Depends(require_role("admin"))):
     load_rules()
     reload_typology_definitions()
     reload_predicate_registry()
+    _touch_rules_materialized()
     _load_graph_routing_policy(force=True)
     load_challenge_policies(force=True)
     _load_graph_routing_policy(force=True)

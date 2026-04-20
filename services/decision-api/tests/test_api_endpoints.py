@@ -64,6 +64,21 @@ class TestHealthEndpoint:
         assert r.json()["status"] == "ok"
 
 
+class TestEvaluationPosture:
+    @pytest.mark.asyncio
+    async def test_evaluation_posture_shape(self, client):
+        r = await client.get("/v1/ops/evaluation-posture")
+        assert r.status_code == 200
+        body = r.json()
+        assert body.get("service") == "decision-api"
+        assert body.get("deployment_tier") in {"community", "pro"}
+        assert body.get("evaluation_mode") in {"detection", "compliance"}
+        assert "compliance_degraded" in body
+        assert "dependencies" in body and isinstance(body["dependencies"], list)
+        assert "typology_count" in body
+        assert "predicate_registry_version" in body
+
+
 class TestAttestationChallenge:
     @pytest.mark.asyncio
     async def test_challenge(self, client):

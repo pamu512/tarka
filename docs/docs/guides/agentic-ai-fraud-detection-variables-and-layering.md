@@ -10,14 +10,16 @@ The tables below map **signal ownership** (what Tarka and its deployers own vers
 
 Use this to avoid duplicating vendor scope, to contract clearly, and to route features to the right service.
 
-| Signal category | Examples | Typically owned by **tenant / merchant** | Typically **card network / issuer / wallet** | **Tarka OSS** role (how it fits) |
-| ---------------- | -------- | ------------------------------------------ | -------------------------------------------- | --------------------------------- |
-| **Payment instrument** | BIN, AVS/CVV outcomes, 3DS challenge vs frictionless, authorization response codes | Merchant vault tokenization choices, checkout UX, routing to PSP | Authorization decision, issuer risk, SCA rules | Ingest instrument-related fields as **features** on `payment` events via [Decision API](../services/decision-api.md) payloads; persist outcomes for replay and batch labeling. Tarka does not replace the issuer. |
-| **Account / identity** | KYC tier, account age, recovery flows, prior disputes | IAM, CRM, onboarding vendor | Issuer “trusted beneficiary” style programs (indirect) | [Integration Ingress](../projects/integration-ingress-project.md) for adapter-style webhooks (KYC/sanctions); [Case API](../services/case-api.md) for investigation state—not a system of record for core banking identity. |
-| **Device & session** | Fingerprint, VPN/datacenter flags, webdriver/headless hints | App/SDK instrumentation, device intelligence vendors | EMV 3DS device binding where applicable | [Decision API](../services/decision-api.md) `device_context` and `metadata` (IP, user agent); mobile docs such as [mobile attestation taxonomy](mobile-attestation-taxonomy.md). Tenant supplies signals; Tarka scores and audits. |
-| **Graph / linkage** | Shared cards, devices, addresses across `entity_id`s | Entity identifiers and event graph policy | Consortium / network fraud exchanges (optional external feeds) | [Graph Service](../services/graph-service.md) for entity resolution and community detection; ingest edges from your events. |
-| **Velocity & aggregates** | Counts and sums per entity, session, instrument | Feature definitions for “normal” per product | Network velocity (not directly exposed to all merchants) | [Feature Service](../projects/feature-service-project.md), Redis-backed tags, [Event Ingest](../guides/ingest-replay-onboarding.md) async path for high volume. |
-| **Model scores** | Custom rules, ONNX models, ensembles | Feature engineering ownership | N/A | [ML Scoring](../services/ml-scoring.md), JSON rules, optional OPA in Decision API pipeline. |
+
+| Signal category           | Examples                                                                           | Typically owned by **tenant / merchant**                         | Typically **card network / issuer / wallet**                   | **Tarka OSS** role (how it fits)                                                                                                                                                                                                   |
+| ------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Payment instrument**    | BIN, AVS/CVV outcomes, 3DS challenge vs frictionless, authorization response codes | Merchant vault tokenization choices, checkout UX, routing to PSP | Authorization decision, issuer risk, SCA rules                 | Ingest instrument-related fields as **features** on `payment` events via [Decision API](../services/decision-api.md) payloads; persist outcomes for replay and batch labeling. Tarka does not replace the issuer.                  |
+| **Account / identity**    | KYC tier, account age, recovery flows, prior disputes                              | IAM, CRM, onboarding vendor                                      | Issuer “trusted beneficiary” style programs (indirect)         | [Integration Ingress](../projects/integration-ingress-project.md) for adapter-style webhooks (KYC/sanctions); [Case API](../services/case-api.md) for investigation state—not a system of record for core banking identity.        |
+| **Device & session**      | Fingerprint, VPN/datacenter flags, webdriver/headless hints                        | App/SDK instrumentation, device intelligence vendors             | EMV 3DS device binding where applicable                        | [Decision API](../services/decision-api.md) `device_context` and `metadata` (IP, user agent); mobile docs such as [mobile attestation taxonomy](mobile-attestation-taxonomy.md). Tenant supplies signals; Tarka scores and audits. |
+| **Graph / linkage**       | Shared cards, devices, addresses across `entity_id`s                               | Entity identifiers and event graph policy                        | Consortium / network fraud exchanges (optional external feeds) | [Graph Service](../services/graph-service.md) for entity resolution and community detection; ingest edges from your events.                                                                                                        |
+| **Velocity & aggregates** | Counts and sums per entity, session, instrument                                    | Feature definitions for “normal” per product                     | Network velocity (not directly exposed to all merchants)       | [Feature Service](../projects/feature-service-project.md), Redis-backed tags, [Event Ingest](../guides/ingest-replay-onboarding.md) async path for high volume.                                                                    |
+| **Model scores**          | Custom rules, ONNX models, ensembles                                               | Feature engineering ownership                                    | N/A                                                            | [ML Scoring](../services/ml-scoring.md), JSON rules, optional OPA in Decision API pipeline.                                                                                                                                        |
+
 
 **Practical split**
 
@@ -33,46 +35,56 @@ Agentic fraud detection needs **structured** records of **what ran**, **in what 
 
 ### 2.1 Core event dimensions (all agent surfaces)
 
-| Field / concept | Purpose |
-| ---------------- | ------- |
+
+| Field / concept                        | Purpose                                                                                              |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `tenant_id`, `entity_id`, `session_id` | Tie agent activity to scoring and graph ([Decision API](../services/decision-api.md) request shape). |
-| `correlation_id` / `trace_id` | Join browser → API → tool → payment authorization. |
-| `event_type` | Distinguish `payment`, `login`, `session`, `custom` for downstream rules. |
-| Client surface | `web` vs `server` vs embedded plugin—detect cross-channel mismatch. |
+| `correlation_id` / `trace_id`          | Join browser → API → tool → payment authorization.                                                   |
+| `event_type`                           | Distinguish `payment`, `login`, `session`, `custom` for downstream rules.                            |
+| Client surface                         | `web` vs `server` vs embedded plugin—detect cross-channel mismatch.                                  |
+
 
 ### 2.2 Tool loop and HTTP tool calls (investigation / copilot)
 
 Log one structured record per **tool invocation** (name, args hash or redacted args, latency, HTTP status, error class, retry count).
 
-| Telemetry | What it enables |
-| ---------- | ---------------- |
-| **Tool name sequence** | Rare order vs user baseline (for example `get_case` → `subgraph` vs immediate `ingest_labeled_rows`). |
-| **Retries and backoff** | Scripted abuse and injection-driven loops versus normal analyst correction. |
+
+| Telemetry                             | What it enables                                                                                        |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Tool name sequence**                | Rare order vs user baseline (for example `get_case` → `subgraph` vs immediate `ingest_labeled_rows`).  |
+| **Retries and backoff**               | Scripted abuse and injection-driven loops versus normal analyst correction.                            |
 | **Tool errors vs model continuation** | Correlate with assurance/refusal policies ([assurance modes](investigation-agent-assurance-modes.md)). |
-| **Depth and fan-out** | Number of tools per turn; unusual breadth before a sensitive tool. |
+| **Depth and fan-out**                 | Number of tools per turn; unusual breadth before a sensitive tool.                                     |
+
 
 Implementation touchpoints in this repo: investigation-agent tools (`services/investigation-agent/.../tools.py`), structured logs/metrics mentioned in [intended use](investigation-agent-intended-use-and-data-flows.md).
 
 ### 2.3 Plan vs execution (semantic consistency)
 
-| Check | Notes |
-| ----- | ----- |
+
+| Check                          | Notes                                                                                                                                              |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Stated plan vs API payload** | If the UI or agent “plan” is logged, hash or summarize it and compare to downstream `payment` / `custom` event payloads (amount, payee, shipping). |
-| **Approval gates** | Sensitive tools should align with [review and maker–checker](enterprise-copilot-plugin-and-governance-controls.md) metadata when enabled. |
+| **Approval gates**             | Sensitive tools should align with [review and maker–checker](enterprise-copilot-plugin-and-governance-controls.md) metadata when enabled.          |
+
 
 ### 2.4 Ingest for async and replay
 
-| Path | Use |
-| ---- | --- |
+
+| Path                                                              | Use                                                                                         |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | [Event Ingest](ingest-replay-onboarding.md) → NATS → Decision API | High-volume **transactional** and **custom** agent events with idempotency keys for replay. |
-| Analytics sink / ClickHouse | Longitudinal analytics on orchestration metrics (see [architecture](../architecture.md)). |
+| Analytics sink / ClickHouse                                       | Longitudinal analytics on orchestration metrics (see [architecture](../architecture.md)).   |
+
 
 ### 2.5 Prompt-injection and untrusted content
 
-| Signal | Why |
-| ------ | --- |
-| Source of user text (email paste, web scrape, ticket body) | Correlate with spikes in sensitive tool use or payment events. |
-| Sanitization / reject outcomes | Documented heuristics in [intended use](investigation-agent-intended-use-and-data-flows.md)—log policy decisions, not just model output. |
+
+| Signal                                                     | Why                                                                                                                                      |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Source of user text (email paste, web scrape, ticket body) | Correlate with spikes in sensitive tool use or payment events.                                                                           |
+| Sanitization / reject outcomes                             | Documented heuristics in [intended use](investigation-agent-intended-use-and-data-flows.md)—log policy decisions, not just model output. |
+
 
 ---
 
@@ -94,12 +106,14 @@ Store rolling features in your feature pipeline ([Feature Service](../projects/f
 
 Adjust thresholds to your risk appetite; these are **patterns**, not prescribed defaults.
 
-| Trigger | Example response |
-| ------- | ----------------- |
-| New device + high value + new payee | Step-up auth, 3DS, delay, or manual review case. |
-| Orchestration anomaly + instrument risk | Raise score; route to `review`; attach graph context. |
+
+| Trigger                                            | Example response                                                                                                                  |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| New device + high value + new payee                | Step-up auth, 3DS, delay, or manual review case.                                                                                  |
+| Orchestration anomaly + instrument risk            | Raise score; route to `review`; attach graph context.                                                                             |
 | Sensitive tool or export (when product defines it) | Require **maker–checker** or reviewer secret ([enterprise Copilot plugin](enterprise-copilot-plugin-and-governance-controls.md)). |
-| Repeated tool failures then payment attempt | Block or challenge—possible scripted card testing. |
+| Repeated tool failures then payment attempt        | Block or challenge—possible scripted card testing.                                                                                |
+
 
 ### 3.3 Governance hooks already in this codebase
 
@@ -116,9 +130,9 @@ A patient attacker with a **strong stolen instrument** and **coherent digital id
 
 ## 4) `agent_context` on evaluate: reasoning
 
-1. **Separation of concerns**: Classical fraud features stay on `entity_id`, instrument fields in `payload`, and `device_context`. **`agent_context`** records *how* the action was mediated (registered client, tool loop, human approval)—without overloading payment semantics in `payload`.
+1. **Separation of concerns**: Classical fraud features stay on `entity_id`, instrument fields in `payload`, and `device_context`. `**agent_context`** records *how* the action was mediated (registered client, tool loop, human approval)—without overloading payment semantics in `payload`.
 2. **Auditability**: Investigations can show **which software** initiated the request, **whether HITL/maker–checker** applied, and **hashes** of manifests and tool sequences—without storing raw prompts in the transactional event (prefer hashes; see [Enterprise Copilot plugin + governance](enterprise-copilot-plugin-and-governance-controls.md)).
-3. **Correlation**: Use `metadata.correlation_id` with **`agent_session_id`** to join browser, MCP, and authorization steps in one timeline.
+3. **Correlation**: Use `metadata.correlation_id` with `**agent_session_id`** to join browser, MCP, and authorization steps in one timeline.
 4. **Risk is not “automation = bad”**: Tiered criteria in [section 6](#6-agentic-risk-tiers-policy-inputs) reward **registered clients** and **narrow allowlists** while boosting **unknown clients**, **injection heuristics**, and **cross-channel mismatch**.
 
 **Server behavior (Decision API)**: When `agent_context` is present, it is merged into the **rule feature map** under the key `agent_context` (nested object) and included in the **audit snapshot** (subject to regional PII masking). See [Decision API](../services/decision-api.md) and [contracts/openapi/decision-api.yaml](../../../contracts/openapi/decision-api.yaml).
@@ -175,17 +189,19 @@ Optional top-level field on `POST /v1/decisions/evaluate` (same shape can be sen
 
 ### Field reference
 
-| Field | Purpose |
-| ----- | ------- |
-| `metadata.correlation_id` | End-to-end trace across services (works with or without `agent_context`). |
-| `agent_runtime_id` | Stable-ish id for this **installed** agent runtime (rotates on reinstall). |
-| `agent_session_id` | **Ephemeral** MCP or conversation session; ties multiple tool calls. |
-| `agent_client.oauth_client_id` | **Registered** OAuth client when applicable—`null`/missing increases tiered risk. |
-| `agent_client.manifest_hash` / `tool_allowlist_hash` | Detect capability drift vs tenant allowlist. |
-| `human_control.*` | Aligns with maker–checker and sensitive-tool governance. |
-| `orchestration.tool_sequence_digest` | Hash of ordered tools (and coarse arg classes)—not raw PII. |
-| `orchestration.untrusted_content_sources` | Tags (e.g. `email_body`, `web_page`) when untrusted content was near a sensitive step. |
-| `integrity.*` | Upstream heuristics (gateway/copilot); **weak learners** for rules/ML. |
+
+| Field                                                | Purpose                                                                                |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `metadata.correlation_id`                            | End-to-end trace across services (works with or without `agent_context`).              |
+| `agent_runtime_id`                                   | Stable-ish id for this **installed** agent runtime (rotates on reinstall).             |
+| `agent_session_id`                                   | **Ephemeral** MCP or conversation session; ties multiple tool calls.                   |
+| `agent_client.oauth_client_id`                       | **Registered** OAuth client when applicable—`null`/missing increases tiered risk.      |
+| `agent_client.manifest_hash` / `tool_allowlist_hash` | Detect capability drift vs tenant allowlist.                                           |
+| `human_control.`*                                    | Aligns with maker–checker and sensitive-tool governance.                               |
+| `orchestration.tool_sequence_digest`                 | Hash of ordered tools (and coarse arg classes)—not raw PII.                            |
+| `orchestration.untrusted_content_sources`            | Tags (e.g. `email_body`, `web_page`) when untrusted content was near a sensitive step. |
+| `integrity.`*                                        | Upstream heuristics (gateway/copilot); **weak learners** for rules/ML.                 |
+
 
 ### Graph (optional)
 
@@ -208,6 +224,8 @@ flowchart TB
   agentic --> decision
 ```
 
+
+
 ---
 
 ## 6) Agentic risk tiers (policy inputs)
@@ -216,35 +234,41 @@ Use as **inputs** to rules and scores (boost `review`, step-up auth, etc.), **no
 
 ### Lower risk (well-governed agent use)
 
-| Requirement | Rationale |
-| ------------- | --------- |
-| `oauth_client_id` matches a **tenant-registered** allowlist | Reduces anonymous or trojaned clients. |
-| `manifest_hash` / `tool_allowlist_hash` match **known good** for that client | Detects tampering or drift. |
-| `device_context` with stable `device_id` or strong **attestation** | Binds action to an enrolled device. |
-| For sensitive events: `human_approval_received` and `maker_checker_satisfied` when policy requires | Evidence of HITL. |
+
+| Requirement                                                                                                                            | Rationale                                       |
+| -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `oauth_client_id` matches a **tenant-registered** allowlist                                                                            | Reduces anonymous or trojaned clients.          |
+| `manifest_hash` / `tool_allowlist_hash` match **known good** for that client                                                           | Detects tampering or drift.                     |
+| `device_context` with stable `device_id` or strong **attestation**                                                                     | Binds action to an enrolled device.             |
+| For sensitive events: `human_approval_received` and `maker_checker_satisfied` when policy requires                                     | Evidence of HITL.                               |
 | `integrity.prompt_injection_heuristic_flag` false; `untrusted_content_sources` empty or no sensitive mutation in same `correlation_id` | Injection not co-occurring with money movement. |
-| `integrity.cross_channel_mismatch_flag` false | Consistent identity posture across channels. |
-| Moderate `tool_depth`, low `tool_retry_count`, stable `policy_denial_count_this_session` | Matches steady copilot or analyst baseline. |
+| `integrity.cross_channel_mismatch_flag` false                                                                                          | Consistent identity posture across channels.    |
+| Moderate `tool_depth`, low `tool_retry_count`, stable `policy_denial_count_this_session`                                               | Matches steady copilot or analyst baseline.     |
+
 
 ### Medium risk (elevated scrutiny)
 
-| Indicator | Typical response |
-| --------- | ---------------- |
-| New `oauth_client_id` or new `manifest_hash` for this `entity_id` recently | Review or step-up. |
-| High `tool_retry_count` or error–repair loops before payment | Possible scripting or injection-driven repair. |
-| Non-empty `untrusted_content_sources` with payout/shipping change in `payload` | Boost injection-related score. |
-| VPN/datacenter without prior baseline | Combine with classical device risk. |
-| `hitl_required_for_event` true but approval fields missing | Block or force review. |
+
+| Indicator                                                                      | Typical response                               |
+| ------------------------------------------------------------------------------ | ---------------------------------------------- |
+| New `oauth_client_id` or new `manifest_hash` for this `entity_id` recently     | Review or step-up.                             |
+| High `tool_retry_count` or error–repair loops before payment                   | Possible scripting or injection-driven repair. |
+| Non-empty `untrusted_content_sources` with payout/shipping change in `payload` | Boost injection-related score.                 |
+| VPN/datacenter without prior baseline                                          | Combine with classical device risk.            |
+| `hitl_required_for_event` true but approval fields missing                     | Block or force review.                         |
+
 
 ### Higher risk (strong boosters)
 
-| Indicator | Typical response |
-| --------- | ---------------- |
-| Money movement with missing `oauth_client_id` and unknown `client_type` | High score; challenge. |
-| `prompt_injection_heuristic_flag` true and sensitive financial change under same `correlation_id` | Strong booster; manual review. |
-| `cross_channel_mismatch_flag` true with high value or new payee | Step-up authentication. |
-| Rapid permission expansion (new `mcp_server_ids`, manifest change) with first-time high-value payment | Possible ATO or malware. |
-| Very high `tool_depth`, many denials, then payment success | Automated probing pattern. |
+
+| Indicator                                                                                             | Typical response               |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Money movement with missing `oauth_client_id` and unknown `client_type`                               | High score; challenge.         |
+| `prompt_injection_heuristic_flag` true and sensitive financial change under same `correlation_id`     | Strong booster; manual review. |
+| `cross_channel_mismatch_flag` true with high value or new payee                                       | Step-up authentication.        |
+| Rapid permission expansion (new `mcp_server_ids`, manifest change) with first-time high-value payment | Possible ATO or malware.       |
+| Very high `tool_depth`, many denials, then payment success                                            | Automated probing pattern.     |
+
 
 ---
 
@@ -254,3 +278,4 @@ Use as **inputs** to rules and scores (boost `review`, step-up auth, etc.), **no
 - [Decision API](../services/decision-api.md)
 - [Graph analysis](graph-analysis.md)
 - [Investigation agent LLM data flow](investigation-agent-llm-data-flow.md)
+

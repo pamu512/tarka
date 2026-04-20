@@ -29,6 +29,9 @@ Thumbs.db
 # Local AI-assisted editor metadata — keep the repo vendor-neutral; do not commit.
 .cursor/
 
+# Local AI stack runtime configuration
+deploy/local-ai/.env.local
+
 # Python coverage (local pytest)
 .coverage
 **/.coverage

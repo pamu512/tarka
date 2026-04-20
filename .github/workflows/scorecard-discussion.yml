@@ -1,0 +1,63 @@
+# OSS #53 — publish analytics-sink decision scorecard to GitHub Discussions (weekly or manual).
+name: Scorecard discussion
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Optional. Overrides repo variable SCORECARD_BASE_URL (e.g. https://host/api/analytics)"
+        required: false
+        default: ""
+  schedule:
+    - cron: "15 15 * * 1" # Mondays 15:15 UTC
+
+permissions:
+  contents: read
+  discussions: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Resolve SCORECARD_BASE_URL
+        id: cfg
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.base_url }}" ]; then
+            echo "base=${{ github.event.inputs.base_url }}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ vars.SCORECARD_BASE_URL }}" ]; then
+            echo "base=${{ vars.SCORECARD_BASE_URL }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish scorecard Discussion
+        if: steps.cfg.outputs.base != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          SCORECARD_BASE_URL: ${{ steps.cfg.outputs.base }}
+          SCORECARD_API_KEY: ${{ secrets.SCORECARD_API_KEY }}
+          SCORECARD_TENANT_ID: ${{ vars.SCORECARD_TENANT_ID }}
+          SCORECARD_DAYS: ${{ vars.SCORECARD_DAYS }}
+          DISCUSSION_CATEGORY: ${{ vars.DISCUSSION_CATEGORY }}
+        run: |
+          export DISCUSSION_CATEGORY="${DISCUSSION_CATEGORY:-General}"
+          TENANT="${SCORECARD_TENANT_ID:-demo}"
+          DAYS="${SCORECARD_DAYS:-7}"
+          python3 scripts/analytics/publish_scorecard_discussion.py \
+            --tenant-id "$TENANT" \
+            --days "$DAYS"
+
+      - name: Skip (no SCORECARD_BASE_URL)
+        if: steps.cfg.outputs.base == ''
+        run: |
+          echo "Set repository Actions variable SCORECARD_BASE_URL to your UI gateway base (e.g. https://example.com/api/analytics),"
+          echo "or run this workflow manually and set the base_url input."

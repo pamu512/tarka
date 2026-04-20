@@ -311,7 +311,8 @@ Workflows live in `services/case-api/workflows/` as JSON files. They automate ca
 
 ## Code Style
 
-- **Linter/formatter**: [Ruff](https://docs.astral.sh/ruff/) — run `ruff check .` and `ruff format --check .`
+- **Linter/formatter**: [Ruff](https://docs.astral.sh/ruff/) — run `ruff check .` and `ruff format --check .` (settings are in the root `pyproject.toml`; CI enforces both commands on every PR).
+- **Git hooks (optional)**: `pip install pre-commit && pre-commit install` — runs Ruff before each commit via `.pre-commit-config.yaml`.
 - **Type hints**: Required on all function signatures. Use `from __future__ import annotations` where needed.
 - **Async**: All I/O-bound operations must be async. Use `httpx.AsyncClient` for HTTP calls.
 - **Pydantic**: Use Pydantic v2 models for all request/response schemas. Use `pydantic-settings` for configuration.

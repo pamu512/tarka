@@ -1,0 +1,38 @@
+# R4.2 — manual chaos smoke: core Compose profile, Redis (or Postgres) fault, health + evaluate probes, recovery.
+name: Chaos smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      fault:
+        description: "Service to stop during fault window"
+        required: true
+        default: redis
+        type: choice
+        options:
+          - redis
+          - postgres
+      wait_health_seconds:
+        description: "Max seconds to wait for decision-api health after compose up"
+        required: false
+        default: "900"
+
+permissions:
+  contents: read
+
+jobs:
+  chaos-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-buildx-action@v4.0.0
+
+      - name: Chaos smoke (compose profile core)
+        env:
+          DOCKER_BUILDKIT: "1"
+        run: |
+          python3 scripts/chaos/chaos_smoke.py \
+            --fault "${{ github.event.inputs.fault }}" \
+            --wait-health-seconds "${{ github.event.inputs.wait_health_seconds }}"
