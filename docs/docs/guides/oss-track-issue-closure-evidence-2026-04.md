@@ -6,6 +6,22 @@ Use this as a **single checklist** when closing GitHub issues and duplicate PRs.
 
 ---
 
+## Current open GitHub issues (2026-04-22)
+
+**Query:** [is:issue is:open label:roadmap](https://github.com/pamu512/tarka/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap) (includes OSS + Top-5 epics).
+
+| Priority | Issue | Title (short) | In-repo notes |
+|----------|-------|-----------------|---------------|
+| P0 | [#36](https://github.com/pamu512/tarka/issues/36) | UX evaluation posture (detection vs compliance, degraded) | **Partial:** `AnalystReadinessBar`, `GET /v1/ops/evaluation-posture`, `GET /v1/slo`, Help `#readiness`, `tenant_reliability_profile`. Remaining AC: dedicated trust/ops panel copy, E2E with mocked degraded compliance. |
+| P0 | [#46](https://github.com/pamu512/tarka/issues/46) | Typology DSL + versioned predicate registry | See [oss-typology-dsl-46.md](./oss-typology-dsl-46.md); registry + typologies already power evaluate — extend per issue AC before close. |
+| P0 | [#48](https://github.com/pamu512/tarka/issues/48) | Feature-service parity verifier + drift gate | See [oss-typology-parity-graph-34-48-49.md](./oss-typology-parity-graph-34-48-49.md); wire job/CI per AC. |
+| P1 | [#40](https://github.com/pamu512/tarka/issues/40) | Evidence summaries + next-best-action (typology drivers) | **Partial:** `POST /v1/evidence/summary`, investigation UI hooks — extend citations/golden tests per AC. |
+| P2 | [#55](https://github.com/pamu512/tarka/issues/55) … [#69](https://github.com/pamu512/tarka/issues/69) | Top-5 epics (Marble → xFraud) | Large roadmap slices; sequence per product priority after P0 OSS closure. |
+
+**Superseded by merges (do not re-open without new scope):** [#37](https://github.com/pamu512/tarka/issues/37), [#51](https://github.com/pamu512/tarka/issues/51), [#52](https://github.com/pamu512/tarka/issues/52) — landed in-repo (promotion gates, analyst banner, ML promotion policy CI); use git log / PR links when auditing.
+
+---
+
 ## Tier 0 — Client + environment baselines
 
 
@@ -103,4 +119,4 @@ Use this as a **single checklist** when closing GitHub issues and duplicate PRs.
 
 ---
 
-*Last updated: 2026-04 — refresh SHAs after each merge to `ide/v1.2.5-7320`.*
+*Last updated: 2026-04-22 — open-issue table refreshed; refresh SHAs after each merge to `ide/v1.2.5-7320` / `master`.*
