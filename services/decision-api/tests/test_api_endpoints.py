@@ -217,6 +217,41 @@ class TestEvaluateDecision:
         r = await client.post("/v1/decisions/evaluate", json={"tenant_id": "t1"})
         assert r.status_code == 422
 
+    @pytest.mark.asyncio
+    async def test_evaluate_idempotency_header_required_when_configured(self, client, monkeypatch):
+        from decision_api.config import settings
+
+        monkeypatch.setattr(settings, "evaluate_require_idempotency_key", True)
+        r = await client.post(
+            "/v1/decisions/evaluate",
+            json={"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}},
+        )
+        assert r.status_code == 422
+        d = r.json()["detail"]
+        assert d.get("error") == "evaluate_idempotency_required"
+
+    @pytest.mark.asyncio
+    async def test_evaluate_idempotency_header_satisfies_requirement(self, client, monkeypatch):
+        from decision_api.config import settings
+
+        monkeypatch.setattr(settings, "evaluate_require_idempotency_key", True)
+        mock_session = AsyncMock()
+        mock_session.add = MagicMock()
+        mock_session.commit = AsyncMock()
+        from decision_api.main import get_session
+
+        with patch("decision_api.main.evaluate_json_rules", return_value=([], [], 0.0, [])):
+            with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
+                with patch("decision_api.main._fetch_ml_score_wrapped", new_callable=AsyncMock, return_value=(None, {})):
+                    client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
+                    r = await client.post(
+                        "/v1/decisions/evaluate",
+                        headers={"Idempotency-Key": "idem-eval-1"},
+                        json={"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}},
+                    )
+                    client.tarka_app.dependency_overrides.pop(get_session, None)
+        assert r.status_code == 200
+
 
 class TestAdminReload:
     @pytest.mark.asyncio

@@ -40,6 +40,15 @@ paths:
     post:
       operationId: evaluateDecision
       summary: Evaluate fraud decision for an event
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+          description: >-
+            Optional unless the deployment sets TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true; then required.
+            Accepts idempotency-key (lowercase) as an alias.
       requestBody:
         required: true
         content:
@@ -54,7 +63,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/EvaluateResponse"
         "422":
-          description: Validation error
+          description: Validation error or missing Idempotency-Key when TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY is enabled
   /v1/challenge-policies:
     get:
       operationId: listChallengePolicies
