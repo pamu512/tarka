@@ -69,10 +69,7 @@ def build_markdown(data: dict[str, Any]) -> str:
         [
             "",
             "---",
-            "_Published by `scripts/analytics/publish_scorecard_discussion.py`"
-            + (f" · {run_url}" if run_url else "")
-            + (f" · `{sha}`" if sha else "")
-            + "_",
+            "_Published by `scripts/analytics/publish_scorecard_discussion.py`" + (f" · {run_url}" if run_url else "") + (f" · `{sha}`" if sha else "") + "_",
         ]
     )
     return "\n".join(lines)
