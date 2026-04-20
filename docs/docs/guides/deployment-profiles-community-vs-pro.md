@@ -96,6 +96,10 @@ docker compose --profile core --profile ml --profile integration up -d
 - Full-repo smoke: GitHub Actions **`stack-smoke`** runs `scripts/ci/full_stack_smoke.py` (health + evaluate)—see root CI workflow.
 - **Optional:** run the same script locally against **Community** (`lite`) or **Pro** (`core` / `full`) after `docker compose up` to validate both tiers when changing compose or env docs.
 
+### Tenant reliability profile (Decision API)
+
+Set **`TARKA_TENANT_RELIABILITY_PROFILE`** on **decision-api** to one of **`strict`**, **`balanced`** (default), or **`permissive`**. Invalid or empty values fall back to **`balanced`**. The active value is returned as **`tenant_reliability_profile`** on **`GET /v1/ops/evaluation-posture`** (analyst workspace strip and automation can read the same field).
+
 ---
 
 ## Module swimlane

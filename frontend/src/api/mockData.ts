@@ -936,6 +936,7 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
     return {
       service: "decision-api",
       deployment_tier: "pro",
+      tenant_reliability_profile: "balanced",
       evaluation_mode: "detection",
       compliance_posture: "ready",
       compliance_degraded: false,

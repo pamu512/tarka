@@ -14,7 +14,7 @@ Complete endpoint reference for all Tarka services. All services use JSON reques
 |---|---|---|
 | `GET` | `/v1/health` | Health check |
 | `GET` | `/v1/slo` | Service SLO snapshot (availability, dependency checks, optional Redis/NATS signals) |
-| `GET` | `/v1/ops/evaluation-posture` | Evaluation mode, deployment tier hint, compliance prerequisites, predicate registry pin |
+| `GET` | `/v1/ops/evaluation-posture` | Evaluation mode, deployment tier hint, `tenant_reliability_profile` (`TARKA_TENANT_RELIABILITY_PROFILE`), compliance prerequisites, predicate registry pin |
 | `POST` | `/v1/decisions/evaluate` | Evaluate a fraud decision |
 | `GET` | `/v1/audit/{trace_id}` | Get audit record by trace ID |
 | `WebSocket` | `/v1/decisions/ws` | Live decision stream |

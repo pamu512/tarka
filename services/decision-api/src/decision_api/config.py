@@ -107,6 +107,8 @@ class Settings(BaseSettings):
     tarka_evaluation_mode: str = os.environ.get("TARKA_EVALUATION_MODE", "detection").strip().lower()
     # Optional explicit tier label: "community" | "pro" (empty = infer from configured URLs).
     tarka_deployment_tier: str = os.environ.get("TARKA_DEPLOYMENT_TIER", "").strip().lower()
+    # Epic X.4: tenant reliability hint for ops/analysts (invalid values treated as balanced).
+    tarka_tenant_reliability_profile: str = os.environ.get("TARKA_TENANT_RELIABILITY_PROFILE", "balanced").strip().lower()
 
 
 settings = Settings()

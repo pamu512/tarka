@@ -77,6 +77,7 @@ class TestEvaluationPosture:
         assert "dependencies" in body and isinstance(body["dependencies"], list)
         assert "typology_count" in body
         assert "predicate_registry_version" in body
+        assert body.get("tenant_reliability_profile") in {"strict", "balanced", "permissive"}
 
 
 class TestAttestationChallenge:

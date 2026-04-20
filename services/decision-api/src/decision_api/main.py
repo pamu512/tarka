@@ -829,10 +829,15 @@ async def evaluation_posture(request: Request):
 
     runbook = "https://github.com/pamu512/tarka/blob/master/docs/docs/guides/deployment-profiles-community-vs-pro.md"
 
+    trp = (settings.tarka_tenant_reliability_profile or "balanced").strip().lower()
+    if trp not in ("strict", "balanced", "permissive"):
+        trp = "balanced"
+
     return {
         "service": "decision-api",
         "deployment_tier": deployment_tier,
         "evaluation_mode": mode,
+        "tenant_reliability_profile": trp,
         "compliance_posture": posture,
         "compliance_degraded": compliance_degraded,
         "compliance_degraded_reasons": degraded_reasons if mode == "compliance" else [],
