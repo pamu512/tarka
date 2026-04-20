@@ -468,6 +468,7 @@ export interface DecisionApiSloResponse {
 export interface EvaluationPostureResponse {
   service: string;
   deployment_tier: string;
+  tenant_reliability_profile?: "strict" | "balanced" | "permissive";
   evaluation_mode: "detection" | "compliance" | string;
   compliance_posture: string;
   compliance_degraded: boolean;

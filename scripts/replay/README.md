@@ -81,6 +81,10 @@ With **`COUNTER_REPLAY_TOKEN`** set and header **`X-Tarka-Counter-Replay-Token`*
 
 [`fixtures/parity_smoke.jsonl`](fixtures/parity_smoke.jsonl) — used by [`.github/workflows/counter-parity-smoke.yml`](../../.github/workflows/counter-parity-smoke.yml).
 
+## CI parity gate (threshold)
+
+The weekly **[Counter parity smoke](../../.github/workflows/counter-parity-smoke.yml)** job is the **replay parity gate**: the same fixture is replayed into **two** empty Redis DB indices with the same `AGG_KEY_VERSION`, then **`diff_aggregate_redis.py`** compares aggregate ZSETs. The **threshold is zero drift** — the diff step must exit **0** (any missing key or member/score mismatch exits **1** and fails CI). For offline reports with a reference Redis, **`run_offline_parity.py`** writes JSON you can archive; treat **no diff** as the pass condition for parity checks.
+
 ## Changing Redis key prefix (`AGG_KEY_VERSION`)
 
 See **[redis-agg-key-version-migration.md](../../docs/docs/guides/redis-agg-key-version-migration.md)** for production migration strategies and rollback.

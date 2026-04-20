@@ -103,6 +103,11 @@ export function AnalystReadinessBar() {
     posture.evaluation_mode === "compliance" ? "Compliance evaluation" : "Detection evaluation";
   const tier = posture.deployment_tier === "community" ? "community" : "pro";
   const tierLabel = posture.deployment_tier === "community" ? "Community-shaped" : "Pro-shaped";
+  const trpRaw = posture.tenant_reliability_profile ?? "balanced";
+  const trp =
+    trpRaw === "strict" || trpRaw === "balanced" || trpRaw === "permissive" ? trpRaw : "balanced";
+  const trpLabel =
+    trp === "strict" ? "Strict reliability" : trp === "permissive" ? "Permissive reliability" : "Balanced reliability";
   const complianceDegraded = posture.compliance_degraded === true;
   const reasons = (posture.compliance_degraded_reasons ?? []).join(", ");
   const showAlert = complianceDegraded || runtimeDegraded;
@@ -158,6 +163,12 @@ export function AnalystReadinessBar() {
         </span>
         <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-surface-800 text-gray-300 border border-surface-600">
           {tierLabel}
+        </span>
+        <span
+          className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-surface-800/90 text-gray-300 border border-surface-600"
+          title="TARKA_TENANT_RELIABILITY_PROFILE (decision-api)"
+        >
+          {trpLabel}
         </span>
         {slo?.current?.redis_connected != null ? (
           <span className={slo.current.redis_connected ? "text-emerald-400/90" : "text-rose-400"}>
