@@ -47,7 +47,7 @@ export default function Help() {
         <ul className="flex flex-wrap gap-x-4 gap-y-1">
           {[
             ["#overview", "Overview"],
-            ["#readiness", "Readiness"],
+            ["#readiness", "Trust / ops readiness"],
             ["#operations", "Operations"],
             ["#investigation", "Investigation"],
             ["#policy", "Policy & testing"],
@@ -98,21 +98,31 @@ export default function Help() {
         </p>
       </Section>
 
-      <Section id="readiness" title="Readiness &amp; analyst banner">
+      <Section id="readiness" title="Readiness &amp; trust / operations strip">
         <p>
-          Below the top bar, the <strong className="text-gray-400">analyst readiness strip</strong> shows{" "}
+          Below the top bar, the <strong className="text-gray-400">trust / operations readiness strip</strong> shows{" "}
           <strong className="text-gray-400">detection vs compliance</strong> evaluation mode, a{" "}
-          <strong className="text-gray-400">Community vs Pro</strong>-shaped stack hint, live{" "}
-          <strong className="text-gray-400">Redis / NATS</strong> connectivity from the decision API, and (when expanded) a
-          dependency matrix with remediation links. Amber alerts appear when compliance prerequisites fail (for example
-          empty typologies or predicate registry pin mismatch in compliance mode). Rose alerts highlight runtime issues such
-          as Redis disconnected.
+          <strong className="text-gray-400">Community vs Pro</strong>-shaped stack hint, tenant{" "}
+          <strong className="text-gray-400">reliability profile</strong> (strict / balanced / permissive), live{" "}
+          <strong className="text-gray-400">Redis / NATS</strong> signals from the decision API, and the{" "}
+          <strong className="text-gray-400">last rules / typology materialization</strong> time (config reload). Expand
+          the row for the full dependency matrix and remediation links. Amber alerts appear when compliance prerequisites
+          fail (for example empty typologies or predicate registry pin mismatch in compliance mode). Rose alerts highlight
+          runtime issues such as Redis disconnected.
         </p>
         <p>
-          Operators: align <code className="text-gray-500">TARKA_EVALUATION_MODE</code> and optional{" "}
-          <code className="text-gray-500">TARKA_DEPLOYMENT_TIER</code> with your compose profile; see the deployment
-          profiles guide linked from the banner. Analysts: if the strip shows warnings, confirm whether your tenant expects
-          graph, ML, or streaming features before trusting compliance-heavy workflows.
+          <strong className="text-gray-400">Operators / admins:</strong> set{" "}
+          <code className="text-gray-500">TARKA_EVALUATION_MODE</code>, optional{" "}
+          <code className="text-gray-500">TARKA_DEPLOYMENT_TIER</code>, and optional{" "}
+          <code className="text-gray-500">TARKA_TENANT_RELIABILITY_PROFILE</code> to match your deployment profile; use the
+          config reload timestamp to confirm rules and typologies have been picked up after changes. Follow the deployment
+          profiles guide linked from the banner when the strip shows degraded state.
+        </p>
+        <p>
+          <strong className="text-gray-400">Analysts:</strong> use the mode and alerts as guardrails—if you see compliance
+          or runtime warnings, treat scores and policy-heavy views as potentially incomplete until operators clear the
+          underlying issue; confirm whether your tenant expects graph, ML, or streaming features before relying on
+          compliance-heavy workflows.
         </p>
       </Section>
 
