@@ -75,6 +75,8 @@ class TestEvaluationPosture:
         assert body.get("evaluation_mode") in {"detection", "compliance"}
         assert "compliance_degraded" in body
         assert "dependencies" in body and isinstance(body["dependencies"], list)
+        assert "dependency_resilience_policy" in body and isinstance(body["dependency_resilience_policy"], dict)
+        assert "external_signals" in body["dependency_resilience_policy"]
         assert "typology_count" in body
         assert "predicate_registry_version" in body
         assert body.get("tenant_reliability_profile") in {"strict", "balanced", "permissive"}
@@ -211,6 +213,62 @@ class TestEvaluateDecision:
                     audit = mock_session.add.call_args[0][0]
                     snap = audit.payload_snapshot or {}
                     assert snap.get("agent_context", {}).get("agent_session_id") == "asess-test"
+
+    @pytest.mark.asyncio
+    async def test_explainability_tier_downgrades_for_viewer_role(self, client, monkeypatch):
+        monkeypatch.setenv("SERVICE_API_KEY_ROLE", "viewer")
+        mock_session = AsyncMock()
+        mock_session.add = MagicMock()
+        mock_session.commit = AsyncMock()
+        from decision_api.main import get_session
+
+        with patch("decision_api.main.evaluate_json_rules", return_value=(["rule:velocity_guard"], ["rule:velocity_guard"], 40.0, [])):
+            with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
+                with patch(
+                    "decision_api.main._fetch_ml_score_wrapped",
+                    new_callable=AsyncMock,
+                    return_value=(71.0, {"top_factors": [{"code": "HIGH_AMOUNT", "contribution": 0.3}], "summary": "high amount", "model": "m1"}),
+                ):
+                    client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
+                    r = await client.post(
+                        "/v1/decisions/evaluate",
+                        headers={"x-tarka-explainability-tier": "analyst"},
+                        json={"tenant_id": "t1", "event_type": "payment", "entity_id": "u1", "payload": {"amount": 500}},
+                    )
+                    client.tarka_app.dependency_overrides.pop(get_session, None)
+
+        assert r.status_code == 200
+        inf = r.json()["inference_context"]
+        assert inf["ml_top_factors"] == []
+        assert inf["ml_summary"] is None
+
+    @pytest.mark.asyncio
+    async def test_explainability_tier_full_allowed_for_analyst_role(self, client, monkeypatch):
+        monkeypatch.setenv("SERVICE_API_KEY_ROLE", "analyst")
+        mock_session = AsyncMock()
+        mock_session.add = MagicMock()
+        mock_session.commit = AsyncMock()
+        from decision_api.main import get_session
+
+        with patch("decision_api.main.evaluate_json_rules", return_value=(["rule:velocity_guard"], ["rule:velocity_guard"], 40.0, [])):
+            with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
+                with patch(
+                    "decision_api.main._fetch_ml_score_wrapped",
+                    new_callable=AsyncMock,
+                    return_value=(71.0, {"top_factors": [{"code": "HIGH_AMOUNT", "contribution": 0.3}], "summary": "high amount", "model": "m1"}),
+                ):
+                    client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
+                    r = await client.post(
+                        "/v1/decisions/evaluate",
+                        headers={"x-tarka-explainability-tier": "full"},
+                        json={"tenant_id": "t1", "event_type": "payment", "entity_id": "u1", "payload": {"amount": 500}},
+                    )
+                    client.tarka_app.dependency_overrides.pop(get_session, None)
+
+        assert r.status_code == 200
+        inf = r.json()["inference_context"]
+        assert inf["ml_top_factors"]
+        assert inf["ml_summary"] == "high amount"
 
     @pytest.mark.asyncio
     async def test_validation_error(self, client):

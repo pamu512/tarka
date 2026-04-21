@@ -16,6 +16,22 @@ on:
         description: "Max seconds to wait for decision-api health after compose up"
         required: false
         default: "900"
+      profile:
+        description: "Compose profile to run"
+        required: true
+        default: core
+        type: choice
+        options:
+          - core
+          - full
+      dependency_fallback_checks:
+        description: "Run dependency-level fallback matrix checks (best with full profile)"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 permissions:
   contents: read
@@ -34,5 +50,7 @@ jobs:
           DOCKER_BUILDKIT: "1"
         run: |
           python3 scripts/chaos/chaos_smoke.py \
+            --profile "${{ github.event.inputs.profile }}" \
             --fault "${{ github.event.inputs.fault }}" \
-            --wait-health-seconds "${{ github.event.inputs.wait_health_seconds }}"
+            --wait-health-seconds "${{ github.event.inputs.wait_health_seconds }}" \
+            ${{ github.event.inputs.dependency_fallback_checks == 'true' && '--dependency-fallback-checks' || '' }}

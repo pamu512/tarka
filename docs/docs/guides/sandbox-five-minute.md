@@ -66,7 +66,7 @@ In the terminal:
 docker compose -f deploy/docker-compose.lite.yml up -d --build
 ```
 
-Forwarded ports: **3000**, **8000**, **8002**, **8003** (see `.devcontainer/devcontainer.json`).
+Forwarded ports (Codespaces / Dev Containers): see `.devcontainer/devcontainer.json` — defaults include **3000**, **8000**, **8002**, **8003**, **8005**, **8006**, **8009** (collaboration bridge), **8010** (GraphQL).
 
 ## AI copilot (optional)
 

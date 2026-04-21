@@ -37,6 +37,81 @@ return cjson.encode(result)
 """
 
 
+def _consortium_metrics_recompute(current: dict[str, Any]) -> dict[str, Any]:
+    """Normalize and recompute consortium quality metrics for share + feedback paths."""
+    tenants = sorted({str(x).strip() for x in (current.get("tenants") or []) if str(x).strip()})
+    trust_map_raw = current.get("tenant_trust")
+    trust_map: dict[str, float] = {}
+    if isinstance(trust_map_raw, dict):
+        for tenant_id, trust_value in trust_map_raw.items():
+            t = str(tenant_id).strip()
+            if not t:
+                continue
+            try:
+                trust_map[t] = max(0.1, min(2.0, float(trust_value)))
+            except (TypeError, ValueError):
+                trust_map[t] = 1.0
+    for tenant_id in tenants:
+        trust_map.setdefault(tenant_id, 1.0)
+
+    signal_counts_raw = current.get("signal_counts")
+    signal_counts: dict[str, int] = {}
+    if isinstance(signal_counts_raw, dict):
+        for signal_type, count in signal_counts_raw.items():
+            key = str(signal_type).strip().lower()
+            if not key:
+                continue
+            try:
+                signal_counts[key] = max(0, int(count))
+            except (TypeError, ValueError):
+                signal_counts[key] = 0
+
+    report_count_default = sum(signal_counts.values())
+    report_count = max(0, int(current.get("report_count", report_count_default) or report_count_default))
+    if report_count == 0 and report_count_default > 0:
+        report_count = report_count_default
+
+    try:
+        max_severity = max(0.0, min(5.0, float(current.get("max_severity", 0.0) or 0.0)))
+    except (TypeError, ValueError):
+        max_severity = 0.0
+
+    try:
+        weighted_report_score = float(current.get("weighted_report_score", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        weighted_report_score = 0.0
+    if weighted_report_score <= 0.0 and report_count > 0:
+        avg_trust = sum(trust_map.values()) / max(1, len(trust_map))
+        weighted_report_score = float(report_count) * avg_trust
+
+    weighted_tenant_score = sum(float(v) for v in trust_map.values()) if trust_map else 0.0
+    false_positive_count = max(0, int(current.get("false_positive_count", 0) or 0))
+    confirmed_fraud_count = max(0, int(current.get("confirmed_fraud_count", 0) or 0))
+    denom = max(1, false_positive_count + confirmed_fraud_count)
+    false_positive_rate = false_positive_count / denom
+    coverage = min(1.0, len(tenants) / 10.0)
+    trust_norm = min(1.5, weighted_tenant_score / max(1.0, len(tenants)))
+    quality_score = max(0.2, (coverage * trust_norm) * max(0.2, 1.0 - false_positive_rate))
+
+    current.update(
+        {
+            "tenant_count": len(tenants),
+            "tenants": tenants,
+            "tenant_trust": trust_map,
+            "signal_counts": signal_counts,
+            "report_count": report_count,
+            "max_severity": max_severity,
+            "weighted_tenant_score": weighted_tenant_score,
+            "weighted_report_score": weighted_report_score,
+            "false_positive_count": false_positive_count,
+            "confirmed_fraud_count": confirmed_fraud_count,
+            "false_positive_rate": false_positive_rate,
+            "quality_score": quality_score,
+        }
+    )
+    return current
+
+
 class RedisTags:
     def __init__(self, url: str) -> None:
         self._url = url
@@ -216,31 +291,19 @@ class RedisTags:
         trust_map = dict(current.get("tenant_trust", {}))
         if reporter_tenant not in trust_map:
             trust_map[reporter_tenant] = await self.get_consortium_tenant_trust(consortium_id, reporter_tenant)
-        weighted_tenant_score = sum(float(v) for v in trust_map.values())
-        weighted_report_score = float(current.get("weighted_report_score", 0.0)) + float(trust_map[reporter_tenant])
-        false_positive_count = int(current.get("false_positive_count", 0))
-        confirmed_fraud_count = int(current.get("confirmed_fraud_count", 0))
-        denom = max(1, false_positive_count + confirmed_fraud_count)
-        false_positive_rate = false_positive_count / denom
-        # quality score: trust-weighted coverage penalized by false positive rate.
-        coverage = min(1.0, len(tenants) / 10.0)
-        trust_norm = min(1.5, weighted_tenant_score / max(1.0, len(tenants)))
-        quality_score = max(0.2, (coverage * trust_norm) * max(0.2, 1.0 - false_positive_rate))
-        updated = {
-            "consortium_id": consortium_id,
-            "tenant_count": len(tenants),
-            "tenants": sorted(tenants),
-            "tenant_trust": trust_map,
-            "signal_counts": signal_counts,
-            "report_count": report_count,
-            "max_severity": max_severity,
-            "weighted_tenant_score": weighted_tenant_score,
-            "weighted_report_score": weighted_report_score,
-            "false_positive_count": false_positive_count,
-            "confirmed_fraud_count": confirmed_fraud_count,
-            "false_positive_rate": false_positive_rate,
-            "quality_score": quality_score,
-        }
+        updated = _consortium_metrics_recompute(
+            {
+                "consortium_id": consortium_id,
+                "tenants": sorted(tenants),
+                "tenant_trust": trust_map,
+                "signal_counts": signal_counts,
+                "report_count": report_count,
+                "max_severity": max_severity,
+                "weighted_report_score": float(current.get("weighted_report_score", 0.0)) + float(trust_map[reporter_tenant]),
+                "false_positive_count": int(current.get("false_positive_count", 0)),
+                "confirmed_fraud_count": int(current.get("confirmed_fraud_count", 0)),
+            }
+        )
         ttl = max(1, int(ttl_days)) * 86400
         await self._client.setex(key, ttl, json.dumps(updated))
         return updated
@@ -290,8 +353,7 @@ class RedisTags:
             cf += 1
         current["false_positive_count"] = fp
         current["confirmed_fraud_count"] = cf
-        denom = max(1, fp + cf)
-        current["false_positive_rate"] = fp / denom
+        current = _consortium_metrics_recompute(current)
         ttl = max(1, int(ttl_days)) * 86400
         await self._client.setex(key, ttl, json.dumps(current))
         current.pop("tenants", None)

@@ -88,6 +88,30 @@
           "expr": "rate(tarka_circuit_open_total_list[5m])",
           "legendFormat": "list",
           "refId": "E"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "rate(tarka_circuit_open_total_calibration[5m])",
+          "legendFormat": "calibration",
+          "refId": "F"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "rate(tarka_circuit_open_total_counter[5m])",
+          "legendFormat": "counter",
+          "refId": "G"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "rate(tarka_circuit_open_total_location[5m])",
+          "legendFormat": "location",
+          "refId": "H"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "rate(tarka_circuit_open_total_external[5m])",
+          "legendFormat": "external",
+          "refId": "I"
         }
       ],
       "title": "Decision API circuit opens (rate) — decision-api only",

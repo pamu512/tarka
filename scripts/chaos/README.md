@@ -45,12 +45,13 @@ docker compose -f docker-compose.yml ps
 
 ## CI / automation (R4.2)
 
-- **Script:** `scripts/chaos/chaos_smoke.py` — `docker compose` **profile `core`**, baseline `POST /v1/decisions/evaluate`, stop **`redis`** (or **`postgres`**), log `GET /v1/health` + evaluate under fault, restart service, require evaluate green again, then `compose down`.
-- **GitHub Actions:** workflow **`chaos-smoke`** (manual dispatch only) in `.github/workflows/chaos-smoke.yml`. Choose fault service and health wait in the UI.
+- **Script:** `scripts/chaos/chaos_smoke.py` — baseline recovery path (`redis` or `postgres`) plus optional dependency fallback matrix checks (`graph-service`, `feature-service`, `ml-scoring`, `counter-service`, `location-service`, `calibration-service`) that assert evaluate remains `200` with expected `fallback_reason` fragments.
+- **GitHub Actions:** workflow **`chaos-smoke`** (manual dispatch only) in `.github/workflows/chaos-smoke.yml`. Choose profile (`core`/`full`), fault service, and whether to run dependency fallback checks.
 
 ```bash
 python3 scripts/chaos/chaos_smoke.py
 python3 scripts/chaos/chaos_smoke.py --fault postgres --wait-health-seconds 600
+python3 scripts/chaos/chaos_smoke.py --profile full --dependency-fallback-checks
 ```
 
 See also **R4** in `docs/docs/guides/v1.2.5-execution-backlog-resiliency-etl-rules.md`.

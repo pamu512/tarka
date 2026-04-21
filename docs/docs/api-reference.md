@@ -420,7 +420,9 @@ The console **trust/ops readiness** strip (`frontend/src/components/AnalystReadi
 |---|---|---|
 | `GET` | `/v1/health` | Health check |
 | `GET` | `/v1/cases` | List cases |
-| `POST` | `/v1/cases` | Create case |
+| `POST` | `/v1/cases` | Create case (optional **`playbook_id`** applies a built-in investigation template at create; unknown id → **422**) |
+| `GET` | `/v1/cases/playbooks` | List built-in investigation playbooks / template packs |
+| `POST` | `/v1/cases/{case_id}/playbooks/{playbook_id}` | Apply a playbook to an existing case |
 | `GET` | `/v1/cases/{case_id}` | Get case |
 | `PATCH` | `/v1/cases/{case_id}` | Update case |
 | `POST` | `/v1/cases/{case_id}/comments` | Add comment |
@@ -459,9 +461,12 @@ The console **trust/ops readiness** strip (`frontend/src/components/AnalystReadi
   "title": "Suspicious payment",
   "entity_id": "user-42",
   "trace_id": "a1b2c3d4-...",
-  "priority": "high"
+  "priority": "high",
+  "playbook_id": "escalate_fraud"
 }
 ```
+
+Omit **`playbook_id`** when starting from a blank open case; use **`GET /v1/cases/playbooks`** for valid ids (e.g. **`escalate_fraud`**, **`expedite_chargeback`**, **`close_false_positive`**).
 
 **Response `201`:**
 
@@ -802,7 +807,7 @@ Strawberry **GraphQL** over HTTP, with the same shared **observability** stack a
 | `Query` | `cases`, `case` | Case API list + get |
 | `Query` | `subgraph`, `entity_tags` | Graph Service subgraph + entity tags |
 | `Mutation` | `evaluate` | Decision API evaluate (includes `recommended_action` / `inference_context` when the upstream payload provides them) |
-| `Mutation` | `create_case` | Case API create |
+| `Mutation` | `create_case` | Case API create (optional **`playbookId`** → JSON **`playbook_id`** on **`POST /v1/cases`**) |
 
 | Method | Path | Description |
 |---|---|---|

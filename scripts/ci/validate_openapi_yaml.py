@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Parse all contracts/openapi/*.yaml with PyYAML (CI lint + local smoke).
+"""Validate OpenAPI contracts with YAML + semantic OAS checks.
 
-Run from repo root after: pip install pyyaml
+Run from repo root after:
+  pip install pyyaml openapi-spec-validator
 """
 
 from __future__ import annotations
@@ -13,6 +14,12 @@ try:
     import yaml  # type: ignore[import-untyped]
 except ImportError:
     print("Install PyYAML: pip install pyyaml", file=sys.stderr)
+    raise SystemExit(2) from None
+
+try:
+    from openapi_spec_validator import validate  # type: ignore[import-untyped]
+except ImportError:
+    print("Install OpenAPI validator: pip install openapi-spec-validator", file=sys.stderr)
     raise SystemExit(2) from None
 
 
@@ -28,7 +35,12 @@ def main() -> int:
     failed = 0
     for p in files:
         try:
-            yaml.safe_load(p.read_text(encoding="utf-8"))
+            spec = yaml.safe_load(p.read_text(encoding="utf-8"))
+            if not isinstance(spec, dict):
+                raise TypeError("root must be a mapping")
+            if "openapi" not in spec:
+                raise KeyError("missing openapi field")
+            validate(spec)
         except Exception as exc:
             print(f"FAIL {p.relative_to(root.parents[1])}: {exc}", file=sys.stderr)
             failed += 1

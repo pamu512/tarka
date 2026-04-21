@@ -9,6 +9,8 @@ Tarka writes a canonical decision record for every evaluate call using schema `t
 - Challenge policy resolution (`recommended_action`, `challenge_policy_id`, `challenge_metadata`).
 - Fallback/degraded-path reason when any dependency was unavailable.
 - Masked `payload_snapshot` used for replay and audit.
+- `artifact_manifest` with rule-pack fingerprint, schema/runtime versions, model/checkpoint metadata, and connector providers.
+- `record_hash` and `previous_record_hash` chain links for tamper-evident append checks.
 
 ## OSS storage mode
 
@@ -42,7 +44,14 @@ Use replay tooling to compare historical decisions with current runtime behavior
 python scripts/replay/replay_decision_logs.py \
   --input ./data/decision_logs/decision-log.jsonl \
   --base-url http://localhost:8000 \
-  --api-key "$API_KEY"
+  --api-key "$API_KEY" \
+  --max-allowed-decision-change-rate 0.05 \
+  --max-allowed-drift-rate 0.10
 ```
 
-This outputs decision-change rate for regression checks after rule/model updates.
+This outputs:
+
+- decision change rate,
+- score-band/rule-hit/tag/inference-slice drift rates,
+- drift-class counts (`policy_drift`, `model_drift`, `dependency_drift`, `data_drift`),
+- sample trace rows with classified differences.

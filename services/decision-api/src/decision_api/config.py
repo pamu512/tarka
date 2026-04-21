@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     consortium_secret: str = os.environ.get("CONSORTIUM_SECRET", "")
     consortium_id: str = os.environ.get("CONSORTIUM_ID", "default")
     consortium_min_tenants: int = int(os.environ.get("CONSORTIUM_MIN_TENANTS", "2"))
+    consortium_min_reports: int = int(os.environ.get("CONSORTIUM_MIN_REPORTS", "3"))
+    consortium_score_trust_floor: float = float(os.environ.get("CONSORTIUM_SCORE_TRUST_FLOOR", "0.2"))
+    consortium_score_max_delta: float = float(os.environ.get("CONSORTIUM_SCORE_MAX_DELTA", "35"))
+    consortium_hash_scope: str = os.environ.get("CONSORTIUM_HASH_SCOPE", "consortium").strip().lower()
     evidence_signing_secret: str = os.environ.get("EVIDENCE_SIGNING_SECRET", "")
     decision_log_enabled: bool = os.environ.get("DECISION_LOG_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")
     decision_log_path: str = os.environ.get("DECISION_LOG_PATH", "./data/decision_logs/decision-log.jsonl")
@@ -76,6 +80,7 @@ class Settings(BaseSettings):
     eval_step_opa_max_attempts: int = int(os.environ.get("EVAL_STEP_OPA_MAX_ATTEMPTS", "2"))
     eval_step_graph_upsert_timeout_seconds: float = float(os.environ.get("EVAL_STEP_GRAPH_UPSERT_TIMEOUT_SECONDS", "8.0"))
     eval_step_graph_upsert_max_attempts: int = int(os.environ.get("EVAL_STEP_GRAPH_UPSERT_MAX_ATTEMPTS", "1"))
+    eval_step_external_signal_max_attempts: int = int(os.environ.get("EVAL_STEP_EXTERNAL_SIGNAL_MAX_ATTEMPTS", "1"))
 
     # R2: outbound circuit breakers (consecutive failures before open, seconds until retry)
     circuit_graph_failure_threshold: int = int(os.environ.get("CIRCUIT_GRAPH_FAILURE_THRESHOLD", "5"))
@@ -94,6 +99,8 @@ class Settings(BaseSettings):
     circuit_counter_recovery_seconds: float = float(os.environ.get("CIRCUIT_COUNTER_RECOVERY_SECONDS", "30"))
     circuit_location_failure_threshold: int = int(os.environ.get("CIRCUIT_LOCATION_FAILURE_THRESHOLD", "5"))
     circuit_location_recovery_seconds: float = float(os.environ.get("CIRCUIT_LOCATION_RECOVERY_SECONDS", "30"))
+    circuit_external_failure_threshold: int = int(os.environ.get("CIRCUIT_EXTERNAL_FAILURE_THRESHOLD", "5"))
+    circuit_external_recovery_seconds: float = float(os.environ.get("CIRCUIT_EXTERNAL_RECOVERY_SECONDS", "30"))
 
     # OSS #31: optional champion–challenger JSON rule evaluation (audit-only; production decision unchanged)
     policy_champion_challenger_enabled: bool = os.environ.get("POLICY_CHAMPION_CHALLENGER_ENABLED", "false").lower() in (
@@ -115,6 +122,8 @@ class Settings(BaseSettings):
     tarka_evaluation_mode: str = os.environ.get("TARKA_EVALUATION_MODE", "detection").strip().lower()
     # Optional explicit tier label: "community" | "pro" (empty = infer from configured URLs).
     tarka_deployment_tier: str = os.environ.get("TARKA_DEPLOYMENT_TIER", "").strip().lower()
+    # Audience-level explainability surface: "minimal" (external-safe), "analyst", or "full".
+    explainability_tier_default: str = os.environ.get("EXPLAINABILITY_TIER_DEFAULT", "analyst").strip().lower()
     # Epic X.4: tenant reliability hint for ops/analysts (invalid values treated as balanced).
     tarka_tenant_reliability_profile: str = os.environ.get("TARKA_TENANT_RELIABILITY_PROFILE", "balanced").strip().lower()
 
@@ -127,3 +136,79 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def dependency_resilience_policy_table() -> dict[str, dict[str, float | int | str]]:
+    """Single policy map for timeout/retry/circuit posture used by ops surfaces and docs."""
+    return {
+        "lists": {
+            "timeout_seconds": settings.eval_step_list_timeout_seconds,
+            "max_attempts": settings.eval_step_list_max_attempts,
+            "circuit_failure_threshold": settings.circuit_list_failure_threshold,
+            "circuit_recovery_seconds": settings.circuit_list_recovery_seconds,
+            "on_failure": "SKIP",
+        },
+        "graph_risk": {
+            "timeout_seconds": settings.eval_step_graph_risk_timeout_seconds,
+            "max_attempts": settings.eval_step_graph_risk_max_attempts,
+            "circuit_failure_threshold": settings.circuit_graph_failure_threshold,
+            "circuit_recovery_seconds": settings.circuit_graph_recovery_seconds,
+            "on_failure": "SKIP",
+        },
+        "feature_snapshot": {
+            "timeout_seconds": settings.eval_step_feature_snapshot_timeout_seconds,
+            "max_attempts": settings.eval_step_feature_snapshot_max_attempts,
+            "circuit_failure_threshold": settings.circuit_feature_failure_threshold,
+            "circuit_recovery_seconds": settings.circuit_feature_recovery_seconds,
+            "on_failure": "SKIP",
+        },
+        "ml_score": {
+            "timeout_seconds": settings.eval_step_ml_timeout_seconds,
+            "max_attempts": settings.eval_step_ml_max_attempts,
+            "circuit_failure_threshold": settings.circuit_ml_failure_threshold,
+            "circuit_recovery_seconds": settings.circuit_ml_recovery_seconds,
+            "on_failure": "SKIP",
+        },
+        "opa": {
+            "timeout_seconds": settings.eval_step_opa_timeout_seconds,
+            "max_attempts": settings.eval_step_opa_max_attempts,
+            "circuit_failure_threshold": settings.circuit_opa_failure_threshold,
+            "circuit_recovery_seconds": settings.circuit_opa_recovery_seconds,
+            "on_failure": "SKIP",
+        },
+        "counter_snapshot": {
+            "timeout_seconds": settings.eval_step_feature_snapshot_timeout_seconds,
+            "max_attempts": settings.eval_step_feature_snapshot_max_attempts,
+            "circuit_failure_threshold": settings.circuit_counter_failure_threshold,
+            "circuit_recovery_seconds": settings.circuit_counter_recovery_seconds,
+            "on_failure": "SKIP",
+        },
+        "location_eval": {
+            "timeout_seconds": settings.eval_step_feature_snapshot_timeout_seconds,
+            "max_attempts": settings.eval_step_feature_snapshot_max_attempts,
+            "circuit_failure_threshold": settings.circuit_location_failure_threshold,
+            "circuit_recovery_seconds": settings.circuit_location_recovery_seconds,
+            "on_failure": "SKIP",
+        },
+        "calibration": {
+            "timeout_seconds": settings.eval_step_feature_snapshot_timeout_seconds,
+            "max_attempts": settings.eval_step_feature_snapshot_max_attempts,
+            "circuit_failure_threshold": settings.circuit_calibration_failure_threshold,
+            "circuit_recovery_seconds": settings.circuit_calibration_recovery_seconds,
+            "on_failure": "SKIP",
+        },
+        "external_signals": {
+            "timeout_seconds": settings.external_signal_timeout_seconds,
+            "max_attempts": settings.eval_step_external_signal_max_attempts,
+            "circuit_failure_threshold": settings.circuit_external_failure_threshold,
+            "circuit_recovery_seconds": settings.circuit_external_recovery_seconds,
+            "on_failure": "SKIP",
+        },
+        "graph_upsert": {
+            "timeout_seconds": settings.eval_step_graph_upsert_timeout_seconds,
+            "max_attempts": settings.eval_step_graph_upsert_max_attempts,
+            "circuit_failure_threshold": settings.circuit_graph_failure_threshold,
+            "circuit_recovery_seconds": settings.circuit_graph_recovery_seconds,
+            "on_failure": "SKIP",
+        },
+    }

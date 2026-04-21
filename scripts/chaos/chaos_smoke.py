@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
-Chaos smoke (R4.2): bring up deploy/docker-compose.yml with --profile core, baseline evaluate,
-stop Redis (fault), run health + evaluate (observational), restart Redis, verify evaluate recovery, tear down.
+Chaos smoke (R4.2): baseline recovery checks + optional dependency fallback matrix.
 
 Manual / CI:
   python3 scripts/chaos/chaos_smoke.py
-  python3 scripts/chaos/chaos_smoke.py --skip-up    # stack already running (no down)
-  python3 scripts/chaos/chaos_smoke.py --fault postgres   # optional; harsher than redis
+  python3 scripts/chaos/chaos_smoke.py --fault postgres
+  python3 scripts/chaos/chaos_smoke.py --profile full --dependency-fallback-checks
 """
 
 from __future__ import annotations
@@ -24,6 +23,14 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 COMPOSE_FILE = REPO_ROOT / "deploy" / "docker-compose.yml"
 DECISION_HEALTH = "http://127.0.0.1:8000/v1/health"
 EVALUATE_URL = "http://127.0.0.1:8000/v1/decisions/evaluate"
+DEPENDENCY_FALLBACK_MATRIX = [
+    ("graph-service", "step_graph_risk:http_error"),
+    ("feature-service", "step_feature_snapshot:http_error"),
+    ("ml-scoring", "step_ml_score:http_error"),
+    ("counter-service", "step_counter_snapshot:http_error"),
+    ("location-service", "step_location_eval:http_error"),
+    ("calibration-service", "step_calibration:http_error"),
+]
 
 
 def compose_cmd(profile: str) -> list[str]:
@@ -52,6 +59,17 @@ def compose_logs_tail(profile: str) -> None:
         cwd=REPO_ROOT,
         check=False,
     )
+
+
+def compose_running_services(profile: str) -> set[str]:
+    proc = subprocess.run(
+        compose_cmd(profile) + ["ps", "--services", "--status", "running"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return {line.strip() for line in proc.stdout.splitlines() if line.strip()}
 
 
 def compose_stop(profile: str, service: str) -> None:
@@ -154,6 +172,42 @@ def evaluate_any_status() -> tuple[int, str]:
         return -1, str(e)
 
 
+def _extract_fallback_reason(raw: str) -> str:
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    val = payload.get("fallback_reason")
+    return str(val or "")
+
+
+def run_dependency_fallback_checks(profile: str, wait_health_seconds: float) -> None:
+    running = compose_running_services(profile)
+    print(f"[info] running services: {sorted(running)}")
+    for service, expected_fragment in DEPENDENCY_FALLBACK_MATRIX:
+        if service not in running:
+            print(f"[skip] {service} not running in profile={profile}")
+            continue
+
+        print(f"[check] fault {service} -> expect fallback contains '{expected_fragment}'")
+        compose_stop(profile, service)
+        time.sleep(4)
+        status, body = evaluate_any_status()
+        if status != 200:
+            raise RuntimeError(f"{service}: evaluate expected 200 under degrade path, got {status} body={body[:240]}")
+        fallback_reason = _extract_fallback_reason(body)
+        if expected_fragment not in fallback_reason:
+            raise RuntimeError(f"{service}: fallback_reason missing '{expected_fragment}'. got={fallback_reason!r} body={body[:240]}")
+        print(f"[ok] {service} fallback_reason={fallback_reason!r}")
+
+        compose_start(profile, service)
+        time.sleep(4)
+        wait_decision_health_ok(deadline_seconds=min(wait_health_seconds, 300.0))
+        smoke_evaluate_ok()
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description="Chaos smoke: stop a dependency, probe health + evaluate, recover.")
     p.add_argument("--skip-up", action="store_true", help="Assume compose already up; skip compose down at end")
@@ -164,6 +218,11 @@ def main() -> int:
         help="Service to stop for the fault window (default: redis)",
     )
     p.add_argument("--profile", default="core", help="Compose profile (default: core)")
+    p.add_argument(
+        "--dependency-fallback-checks",
+        action="store_true",
+        help="Run per-service fault checks (graph/feature/ml/counter/location/calibration) when services are available.",
+    )
     p.add_argument(
         "--wait-health-seconds",
         type=float,
@@ -212,6 +271,10 @@ def main() -> int:
 
         print("Recovery check: POST /v1/decisions/evaluate (expect 200)...")
         smoke_evaluate_ok()
+
+        if args.dependency_fallback_checks:
+            print("Running dependency fallback matrix checks...")
+            run_dependency_fallback_checks(profile, args.wait_health_seconds)
 
         print("Chaos smoke passed (baseline + recovery).")
         return 0

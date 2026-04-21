@@ -147,9 +147,47 @@ def smoke_evaluate() -> None:
     except urllib.error.HTTPError as e:
         detail = e.read().decode(errors="replace")
         raise RuntimeError(f"evaluate HTTP {e.code}: {detail[:1200]}") from e
-    if "trace_id" not in body or "decision" not in body:
-        raise RuntimeError(f"unexpected evaluate body keys: {list(body.keys())} body={str(body)[:800]}")
+    _assert_evaluate_contract_shape(body)
     print(f"[ok] POST /v1/decisions/evaluate trace_id={body.get('trace_id')}")
+
+
+def _assert_evaluate_contract_shape(body: dict[str, object]) -> None:
+    required_top_level = {
+        "trace_id",
+        "decision",
+        "score",
+        "tags",
+        "rule_hits",
+        "reasons",
+        "inference_context",
+    }
+    missing = sorted(k for k in required_top_level if k not in body)
+    if missing:
+        raise RuntimeError(f"evaluate missing required keys: {missing}; got={sorted(body.keys())}")
+
+    if body.get("decision") not in {"allow", "review", "deny"}:
+        raise RuntimeError(f"unexpected decision value: {body.get('decision')!r}")
+    if not isinstance(body.get("score"), (int, float)):
+        raise RuntimeError("evaluate.score must be numeric")
+    for key in ("tags", "rule_hits", "reasons"):
+        if not isinstance(body.get(key), list):
+            raise RuntimeError(f"evaluate.{key} must be a list")
+    inf = body.get("inference_context")
+    if not isinstance(inf, dict):
+        raise RuntimeError("evaluate.inference_context must be an object")
+
+    required_inference = {
+        "schema_version",
+        "driver_reasons",
+        "driver_explain",
+        "top_signals",
+        "graph_risk_score",
+        "external_signal_score",
+        "policy_experiment_id",
+    }
+    missing_inference = sorted(k for k in required_inference if k not in inf)
+    if missing_inference:
+        raise RuntimeError(f"inference_context missing keys: {missing_inference}")
 
 
 def main() -> int:
