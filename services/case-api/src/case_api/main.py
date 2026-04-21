@@ -19,14 +19,21 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from case_api.builtin_playbooks import PLAYBOOKS
 from case_api.config import settings
 from case_api.db import Base, get_session, init_db
 from case_api.dispute_api import router as dispute_router
 from case_api.investigation_label_drafts_api import router as investigation_label_drafts_router
+from case_api.investigation_templates_api import router as investigation_templates_router
 from case_api.models import Case, CaseComment, SARFiling
 from case_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 from case_api.sar import SARGenerator
 from case_api.schemas import CaseOut, CommentIn, CreateCaseRequest, LabelsIn
+from case_api.template_apply import (
+    apply_case_payload_to_case,
+    apply_investigation_template_transaction,
+    resolve_playbook_or_template,
+)
 from case_api.workflow import evaluate_workflows, get_workflows, is_sla_breached, load_workflows
 
 _shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
@@ -48,29 +55,6 @@ _ws_clients: set[WebSocket] = set()
 _PRIORITY_WEIGHT = {"critical": 100, "high": 70, "medium": 40, "low": 15}
 _STATUS_WEIGHT = {"open": 25, "investigating": 20, "resolved": -10, "closed": -30}
 _SAVED_VIEWS: dict[str, dict[str, dict[str, Any]]] = {}
-_PLAYBOOKS: dict[str, dict[str, Any]] = {
-    "escalate_fraud": {
-        "status": "investigating",
-        "priority": "critical",
-        "labels": ["escalated", "fraud_watch"],
-        "assigned_team": "fraud-l2",
-        "comment": "Playbook applied: escalate_fraud",
-    },
-    "expedite_chargeback": {
-        "status": "investigating",
-        "priority": "high",
-        "labels": ["chargeback", "expedited"],
-        "assigned_team": "chargeback-ops",
-        "comment": "Playbook applied: expedite_chargeback",
-    },
-    "close_false_positive": {
-        "status": "closed",
-        "priority": "low",
-        "labels": ["false_positive", "closed_clean"],
-        "assigned_team": "qa-review",
-        "comment": "Playbook applied: close_false_positive",
-    },
-}
 
 
 def _canonical_json(value: Any) -> str:
@@ -121,15 +105,7 @@ def _recommended_action(case: Case, score: float) -> str:
 
 
 def _apply_case_mutations(case: Case, payload: dict[str, Any]) -> None:
-    if "status" in payload and payload["status"]:
-        case.status = str(payload["status"])
-    if "priority" in payload and payload["priority"]:
-        case.priority = str(payload["priority"])
-    if "assigned_team" in payload:
-        case.assigned_team = payload["assigned_team"]
-    if "labels" in payload and isinstance(payload["labels"], list):
-        existing = set(case.labels or [])
-        case.labels = sorted(existing | {str(x) for x in payload["labels"] if str(x).strip()})
+    apply_case_payload_to_case(case, payload)
 
 
 class BulkCaseUpdateRequest(BaseModel):
@@ -196,6 +172,7 @@ app.add_middleware(
 )
 app.include_router(dispute_router)
 app.include_router(investigation_label_drafts_router)
+app.include_router(investigation_templates_router)
 
 
 @app.get("/v1/health")
@@ -258,6 +235,14 @@ async def create_case(
     _=Depends(require_role("analyst")),
 ):
     user = get_current_user(request)
+    trail_key, apply_cfg, tmpl_uuid = None, {}, None
+    if body.playbook_id and str(body.playbook_id).strip():
+        trail_key, apply_cfg, tmpl_uuid = await resolve_playbook_or_template(
+            session,
+            body.tenant_id,
+            body.playbook_id,
+        )
+
     c = Case(
         tenant_id=body.tenant_id,
         title=body.title,
@@ -281,6 +266,20 @@ async def create_case(
         tenant_id=body.tenant_id,
     )
     await session.commit()
+
+    if body.playbook_id and str(body.playbook_id).strip():
+        await apply_investigation_template_transaction(
+            trail=_trail,
+            session=session,
+            case=c,
+            apply_config=apply_cfg,
+            trail_key=trail_key or "",
+            actor=user.user_id,
+            trail_action="apply_playbook_on_create",
+            tenant_id=body.tenant_id,
+            template_uuid=tmpl_uuid,
+        )
+        await session.refresh(c)
 
     case_dict = CaseOut.model_validate(c).model_dump(mode="json")
     http = request.app.state.http
@@ -536,37 +535,29 @@ async def apply_playbook(
     tenant_id: str = Query(..., description="Tenant scope; must match the case"),
     _=Depends(require_role("analyst")),
 ):
-    if playbook_id not in _PLAYBOOKS:
-        raise HTTPException(404, "playbook not found")
     case = await _case_for_tenant(session, case_id, tenant_id)
-    old_state = CaseOut.model_validate(case).model_dump(mode="json")
-    pb = _PLAYBOOKS[playbook_id]
-    _apply_case_mutations(case, pb)
-    if pb.get("comment"):
-        session.add(CaseComment(case_id=case.id, author="playbook", body=str(pb["comment"])))
-    await session.commit()
+    user = get_current_user(request)
+    trail_key, apply_cfg, tmpl_uuid = await resolve_playbook_or_template(session, tenant_id, playbook_id)
+    await apply_investigation_template_transaction(
+        trail=_trail,
+        session=session,
+        case=case,
+        apply_config=apply_cfg,
+        trail_key=trail_key or playbook_id,
+        actor=user.user_id,
+        trail_action="apply_playbook",
+        tenant_id=case.tenant_id,
+        template_uuid=tmpl_uuid,
+    )
     await session.refresh(case)
     new_state = CaseOut.model_validate(case).model_dump(mode="json")
-    user = get_current_user(request)
-    diff = _trail.diff(old_state, new_state)
-    if diff:
-        await _trail.record(
-            session,
-            actor=user.user_id,
-            action="apply_playbook",
-            resource_type="case",
-            resource_id=str(case.id),
-            changes={"playbook": playbook_id, **diff},
-            tenant_id=case.tenant_id,
-        )
-        await session.commit()
     await _broadcast({"event": "case_updated", "case": new_state})
     return {"ok": True, "playbook": playbook_id, "case": new_state}
 
 
 @app.get("/v1/cases/playbooks")
 async def list_playbooks():
-    return {"playbooks": _PLAYBOOKS}
+    return {"playbooks": PLAYBOOKS}
 
 
 @app.get("/v1/cases/ops/kpis")
@@ -622,13 +613,15 @@ async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_sess
 
     lean = (
         await session.execute(
-            select(Case.priority, Case.status, Case.labels, Case.created_at).where(Case.tenant_id == tenant_id),
+            select(Case.priority, Case.status, Case.labels, Case.created_at, Case.sla_hours_override).where(
+                Case.tenant_id == tenant_id,
+            ),
         )
     ).all()
     queue_scores: list[float] = []
     sla_breached = 0
     label_boost_cases = 0
-    for pr, st, labels, ca in lean:
+    for pr, st, labels, ca, slo in lean:
         lbls = set(labels or [])
         if "confirmed_fraud" in lbls or "chargeback" in lbls or "dispute:chargeback" in lbls:
             label_boost_cases += 1
@@ -637,7 +630,15 @@ async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_sess
         pseudo.status = st or "open"
         pseudo.labels = list(labels or [])
         queue_scores.append(_queue_score(pseudo))
-        if (st or "open").lower() in ("open", "investigating") and ca and is_sla_breached(pr or "medium", ca):
+        if (
+            (st or "open").lower() in ("open", "investigating")
+            and ca
+            and is_sla_breached(
+                pr or "medium",
+                ca,
+                sla_hours_override=slo,
+            )
+        ):
             sla_breached += 1
 
     return {
@@ -716,6 +717,7 @@ async def case_desk_activity(
                     "update_case",
                     "bulk_update_case",
                     "apply_playbook",
+                    "apply_playbook_on_create",
                     "update_labels",
                     "add_comment",
                     "workflow_mutation",
@@ -963,8 +965,8 @@ async def case_sla(
     case = await _case_for_tenant(session, case_id, tenant_id)
     from case_api.workflow import compute_sla_deadline
 
-    deadline = compute_sla_deadline(case.priority, case.created_at)
-    breached = is_sla_breached(case.priority, case.created_at)
+    deadline = compute_sla_deadline(case.priority, case.created_at, sla_hours_override=case.sla_hours_override)
+    breached = is_sla_breached(case.priority, case.created_at, sla_hours_override=case.sla_hours_override)
     return {
         "case_id": str(case.id),
         "priority": case.priority,

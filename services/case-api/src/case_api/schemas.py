@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -10,6 +11,13 @@ class CreateCaseRequest(BaseModel):
     entity_id: str
     trace_id: str
     priority: str = "medium"
+    playbook_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional playbook slug (GET /v1/cases/playbooks) or investigation-template UUID "
+            "(GET /v1/investigation-templates), applied immediately after create."
+        ),
+    )
 
 
 class CaseOut(BaseModel):
@@ -22,10 +30,50 @@ class CaseOut(BaseModel):
     priority: str = "medium"
     assigned_team: str | None = None
     labels: list[str]
+    default_owner: str | None = None
+    sla_hours_override: int | None = None
+    applied_template_id: UUID | None = None
     created_at: datetime | None
     updated_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+class InvestigationTemplateApplyConfig(BaseModel):
+    """Payload applied to a case when a template (or playbook extension) runs."""
+
+    status: str | None = None
+    priority: str | None = None
+    assigned_team: str | None = None
+    labels: list[str] | None = None
+    comment: str | None = None
+    default_owner: str | None = None
+    sla_hours: int | None = Field(default=None, ge=1, le=8760)
+    escalation_team: str | None = None
+
+
+class InvestigationTemplateOut(BaseModel):
+    id: UUID
+    tenant_id: str
+    slug: str
+    name: str
+    apply_config: dict[str, Any]
+    created_at: datetime | None
+    updated_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
+class CreateInvestigationTemplateRequest(BaseModel):
+    tenant_id: str
+    slug: str = Field(min_length=2, max_length=128, pattern=r"^[a-z0-9][a-z0-9_-]*$")
+    name: str = Field(min_length=1, max_length=256)
+    apply: InvestigationTemplateApplyConfig
+
+
+class PatchInvestigationTemplateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=256)
+    apply: InvestigationTemplateApplyConfig | None = None
 
 
 class CommentIn(BaseModel):

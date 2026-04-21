@@ -175,18 +175,31 @@ async def evaluate_workflows(
     return ctx
 
 
-def compute_sla_deadline(priority: str, created_at: datetime | None = None) -> datetime:
-    """Returns the SLA deadline based on priority."""
+def compute_sla_deadline(
+    priority: str,
+    created_at: datetime | None = None,
+    *,
+    sla_hours_override: int | None = None,
+) -> datetime:
+    """Returns the SLA deadline based on priority, or ``sla_hours_override`` when set (1–8760)."""
     base = created_at or datetime.now(timezone.utc)
     if base.tzinfo is None:
         base = base.replace(tzinfo=timezone.utc)
-    sla_hours = {"critical": 1, "high": 4, "medium": 24, "low": 72}
-    hours = sla_hours.get(priority, 24)
+    if sla_hours_override is not None and int(sla_hours_override) > 0:
+        hours = int(sla_hours_override)
+    else:
+        sla_hours = {"critical": 1, "high": 4, "medium": 24, "low": 72}
+        hours = sla_hours.get(priority, 24)
     return base + timedelta(hours=hours)
 
 
-def is_sla_breached(priority: str, created_at: datetime) -> bool:
+def is_sla_breached(
+    priority: str,
+    created_at: datetime,
+    *,
+    sla_hours_override: int | None = None,
+) -> bool:
     if created_at.tzinfo is None:
         created_at = created_at.replace(tzinfo=timezone.utc)
-    deadline = compute_sla_deadline(priority, created_at)
+    deadline = compute_sla_deadline(priority, created_at, sla_hours_override=sla_hours_override)
     return datetime.now(timezone.utc) > deadline

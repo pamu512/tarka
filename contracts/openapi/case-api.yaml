@@ -468,6 +468,10 @@ components:
         entity_id: { type: string }
         trace_id: { type: string }
         priority: { type: string, enum: [low, medium, high] }
+        playbook_id:
+          type: string
+          nullable: true
+          description: Optional built-in investigation playbook applied immediately after create (catalog from GET /v1/cases/playbooks).
     Case:
       type: object
       properties:
