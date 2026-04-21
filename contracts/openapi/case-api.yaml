@@ -300,6 +300,34 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+  /v1/cases/ops/kpi-series:
+    get:
+      operationId: caseOpsKpiSeries
+      summary: Dashboard-ready KPI time series (daily or weekly buckets)
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: granularity
+          in: query
+          schema: { type: string, enum: [daily, weekly], default: daily }
+        - name: periods
+          in: query
+          schema: { type: integer, default: 14, minimum: 1, maximum: 52 }
+        - name: as_of
+          in: query
+          required: false
+          description: Optional ISO-8601 anchor (UTC) for reproducible exports
+          schema: { type: string }
+      responses:
+        "200":
+          description: KPI series and window summary
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
   /v1/cases/analytics/cohort-compare:
     get:
       operationId: caseCohortCompare

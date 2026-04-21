@@ -26,6 +26,7 @@ from case_api.dispute_api import router as dispute_router
 from case_api.investigation_label_drafts_api import router as investigation_label_drafts_router
 from case_api.investigation_templates_api import router as investigation_templates_router
 from case_api.models import Case, CaseComment, SARFiling
+from case_api.ops_kpi_series import router as ops_kpi_series_router
 from case_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 from case_api.sar import SARGenerator
 from case_api.schemas import CaseOut, CommentIn, CreateCaseRequest, LabelsIn
@@ -173,6 +174,7 @@ app.add_middleware(
 app.include_router(dispute_router)
 app.include_router(investigation_label_drafts_router)
 app.include_router(investigation_templates_router)
+app.include_router(ops_kpi_series_router)
 
 
 @app.get("/v1/health")
