@@ -43,6 +43,65 @@ _SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9._@:/-]{1,256}$")
 _SAFE_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9 .,'()/-]{2,256}$")
 
 
+def normalize_tool_error_shape(tool_name: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Standardize error payload fields while preserving existing keys.
+
+    Existing callers rely on `error` string; we add richer fields (`code`, `message`,
+    `severity`, `retryable`, `upstream`) for UIs and adapters.
+    """
+    if not isinstance(payload, dict) or "error" not in payload:
+        return payload
+    out = dict(payload)
+    code = str(out.get("code") or out.get("error") or "tool_error").strip() or "tool_error"
+    if "code" not in out:
+        out["code"] = code
+    if "message" not in out:
+        detail = str(out.get("detail") or "").strip()
+        out["message"] = detail[:400] if detail else code.replace("_", " ")
+
+    low_severity_codes = {
+        "graph_disabled",
+        "decision_api_disabled",
+        "integration_ingress_disabled",
+        "not_found",
+        "no_audit_records",
+        "batch_not_found",
+    }
+    retryable_codes = {
+        "cases_fetch_failed",
+        "disputes_fetch_failed",
+        "label_drafts_batch_failed",
+        "label_drafts_list_failed",
+        "replay_failed",
+        "screening_failed",
+        "adverse_media_failed",
+        "entity_profile_failed",
+        "list_cases_failed",
+        "tool_execution_failed",
+    }
+    if "severity" not in out:
+        out["severity"] = "warning" if code in low_severity_codes else "error"
+    if "retryable" not in out:
+        out["retryable"] = bool(code in retryable_codes)
+
+    upstream = str(out.get("upstream") or "").strip()
+    if not upstream:
+        if tool_name in {"subgraph", "get_entity_tags", "subgraph_with_velocity"}:
+            upstream = "graph_service"
+        elif tool_name in {"get_entity_velocity", "get_decision_audit", "run_replay_ab_comparison"}:
+            upstream = "decision_api"
+        elif tool_name in {"screen_sanctions_pep", "summarize_adverse_media", "consolidate_entity_profile"}:
+            upstream = "integration_ingress"
+        elif tool_name in {"get_case", "list_cases", "compare_entity_queue_snapshot", "export_outcome_labeled_dataset"}:
+            upstream = "case_api"
+        elif tool_name in {"get_batch_profile", "query_batch_rows", "aggregate_batch_column"}:
+            upstream = "local_batch_store"
+        else:
+            upstream = "copilot_tool"
+    out["upstream"] = upstream
+    return out
+
+
 def _validate_case_id(case_id: str) -> str:
     """Validate case_id as UUID or safe identifier."""
     case_id = str(case_id).strip()

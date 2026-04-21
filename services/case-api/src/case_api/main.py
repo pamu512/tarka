@@ -25,7 +25,7 @@ from case_api.db import Base, get_session, init_db
 from case_api.dispute_api import router as dispute_router
 from case_api.investigation_label_drafts_api import router as investigation_label_drafts_router
 from case_api.investigation_templates_api import router as investigation_templates_router
-from case_api.models import Case, CaseComment, SARFiling
+from case_api.models import Case, CaseComment, CaseView, SARFiling
 from case_api.ops_kpi_series import router as ops_kpi_series_router
 from case_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 from case_api.sar import SARGenerator
@@ -55,7 +55,6 @@ _trail = AuditTrail(AuditRecord)
 _ws_clients: set[WebSocket] = set()
 _PRIORITY_WEIGHT = {"critical": 100, "high": 70, "medium": 40, "low": 15}
 _STATUS_WEIGHT = {"open": 25, "investigating": 20, "resolved": -10, "closed": -30}
-_SAVED_VIEWS: dict[str, dict[str, dict[str, Any]]] = {}
 
 
 def _canonical_json(value: Any) -> str:
@@ -122,6 +121,17 @@ class SaveViewRequest(BaseModel):
     tenant_id: str
     name: str = Field(min_length=1, max_length=128)
     filters: dict[str, Any] = Field(default_factory=dict)
+
+
+def _view_to_payload(v: CaseView) -> dict[str, Any]:
+    return {
+        "id": str(v.id),
+        "name": v.name,
+        "tenant_id": v.tenant_id,
+        "filters": v.filters or {},
+        "created_at": v.created_at.isoformat() if v.created_at else None,
+        "updated_at": v.updated_at.isoformat() if v.updated_at else None,
+    }
 
 
 class EvidenceVerifyRequest(BaseModel):
@@ -764,22 +774,49 @@ async def case_desk_activity(
 
 
 @app.get("/v1/case-views")
-async def list_case_views(tenant_id: str):
-    return {"items": list((_SAVED_VIEWS.get(tenant_id) or {}).values())}
+async def list_case_views(tenant_id: str, session: AsyncSession = Depends(get_session)):
+    rows = (
+        await session.execute(
+            select(CaseView).where(CaseView.tenant_id == tenant_id).order_by(CaseView.updated_at.desc(), CaseView.name.asc()),
+        )
+    ).scalars()
+    return {"items": [_view_to_payload(v) for v in rows]}
 
 
 @app.post("/v1/case-views")
-async def save_case_view(body: SaveViewRequest):
-    store = _SAVED_VIEWS.setdefault(body.tenant_id, {})
-    store[body.name] = {"name": body.name, "tenant_id": body.tenant_id, "filters": body.filters}
-    return {"ok": True, "view": store[body.name]}
+async def save_case_view(body: SaveViewRequest, session: AsyncSession = Depends(get_session)):
+    row = (
+        await session.execute(
+            select(CaseView).where(
+                CaseView.tenant_id == body.tenant_id,
+                CaseView.name == body.name,
+            ),
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        row = CaseView(tenant_id=body.tenant_id, name=body.name, filters=body.filters)
+        session.add(row)
+    else:
+        row.filters = body.filters
+    await session.commit()
+    await session.refresh(row)
+    return {"ok": True, "view": _view_to_payload(row)}
 
 
 @app.delete("/v1/case-views/{name}")
-async def delete_case_view(name: str, tenant_id: str):
-    store = _SAVED_VIEWS.get(tenant_id, {})
-    existed = name in store
-    store.pop(name, None)
+async def delete_case_view(name: str, tenant_id: str, session: AsyncSession = Depends(get_session)):
+    row = (
+        await session.execute(
+            select(CaseView).where(
+                CaseView.tenant_id == tenant_id,
+                CaseView.name == name,
+            ),
+        )
+    ).scalar_one_or_none()
+    existed = row is not None
+    if row is not None:
+        await session.delete(row)
+        await session.commit()
     return {"removed": existed}
 
 

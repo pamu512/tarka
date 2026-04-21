@@ -17,7 +17,7 @@ from investigation_agent.copilot_hardening import filter_tool_definitions, parse
 from investigation_agent.tools import TOOL_DEFINITIONS
 
 # Bump when tool names, families, or upstream semantics change in a breaking way for adapters.
-INTEGRATION_CONTRACT_VERSION = "1.1.0"
+INTEGRATION_CONTRACT_VERSION = "1.2.0"
 
 # Logical families for mapping third-party stacks → OSS tool surface.
 _TOOL_FAMILY: dict[str, str] = {
@@ -136,6 +136,10 @@ def build_integration_snapshot(
             "graph_tools_return_error_if_unconfigured": True,
             "decision_tools_return_error_if_unconfigured": True,
             "hide_tools_without_upstream": bool(settings.copilot_hide_tools_without_upstream),
+            "tool_error_shape": {
+                "required": ["error", "code", "message", "severity", "retryable", "upstream"],
+                "severity_values": ["warning", "error"],
+            },
         },
         "tools": {
             "registered_total": len(all_names),

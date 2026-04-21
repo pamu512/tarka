@@ -14,6 +14,7 @@ from investigation_agent.tools import (
     _validate_limit,
     _validate_max_velocity_nodes,
     _validate_replay_limit,
+    _validate_subject_name,
     _validate_trace_id,
 )
 
@@ -237,5 +238,63 @@ def validate_tool_arguments(name: str, raw: Any) -> tuple[dict[str, Any] | None,
         except (TypeError, ValueError):
             return None, "list_limit must be an integer"
         return {"entity_id": eid_v, "list_limit": max(10, min(li, 100))}, None
+
+    if name in ("screen_sanctions_pep", "summarize_adverse_media", "consolidate_entity_profile"):
+        q_name = raw.get("name")
+        if q_name is None or (isinstance(q_name, str) and not str(q_name).strip()):
+            return None, f"{name} requires name"
+        try:
+            q_name_v = _validate_subject_name(str(q_name))
+        except ValueError as e:
+            return None, str(e)
+        out = {
+            "name": q_name_v,
+            "subject_id": str(raw.get("subject_id", "")).strip()[:128] or None,
+            "country": str(raw.get("country", "")).strip()[:8] or None,
+            "dob": str(raw.get("dob", "")).strip()[:32] or None,
+            "email": str(raw.get("email", "")).strip()[:256] or None,
+            "phone": str(raw.get("phone", "")).strip()[:64] or None,
+            "ip": str(raw.get("ip", "")).strip()[:64] or None,
+            "domain": str(raw.get("domain", "")).strip()[:256] or None,
+        }
+        if name == "screen_sanctions_pep":
+            return {
+                "name": out["name"],
+                "subject_id": out["subject_id"],
+                "country": out["country"],
+                "dob": out["dob"],
+            }, None
+        if name == "summarize_adverse_media":
+            return {
+                "name": out["name"],
+                "subject_id": out["subject_id"],
+                "email": out["email"],
+                "phone": out["phone"],
+                "ip": out["ip"],
+                "domain": out["domain"],
+            }, None
+        return {
+            **out,
+            "include_profile_enrichment": _as_bool(raw.get("include_profile_enrichment", True), True),
+        }, None
+
+    if name == "graph_risk_narrative":
+        eid = raw.get("entity_id")
+        if eid is None or (isinstance(eid, str) and not str(eid).strip()):
+            return None, "graph_risk_narrative requires entity_id"
+        try:
+            eid_v = _validate_entity_id(str(eid))
+        except ValueError as e:
+            return None, str(e)
+        try:
+            depth = int(raw.get("depth", 2))
+            max_nodes = int(raw.get("max_velocity_nodes", 10))
+        except (TypeError, ValueError):
+            return None, "depth and max_velocity_nodes must be integers"
+        return {
+            "entity_id": eid_v,
+            "depth": _validate_depth(depth),
+            "max_velocity_nodes": _validate_max_velocity_nodes(max_nodes),
+        }, None
 
     return None, f"unknown tool for validation: {name}"

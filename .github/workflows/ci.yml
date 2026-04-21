@@ -358,6 +358,8 @@ jobs:
         working-directory: frontend
       - run: npm run test
         working-directory: frontend
+      - name: Guard production build mock mode
+        run: python scripts/ci/check_frontend_mock_mode.py
       - run: npm run build
         working-directory: frontend
 

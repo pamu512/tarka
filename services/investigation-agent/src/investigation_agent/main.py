@@ -71,7 +71,7 @@ from investigation_agent.production_config import (
 from investigation_agent.rate_limit import MinuteRateLimiter
 from investigation_agent.reports.case_summary_pdf import render_case_summary_pdf
 from investigation_agent.tool_validation import validate_tool_arguments
-from investigation_agent.tools import TOOL_DEFINITIONS, TOOL_DISPATCH, is_analyst_allowed
+from investigation_agent.tools import TOOL_DEFINITIONS, TOOL_DISPATCH, is_analyst_allowed, normalize_tool_error_shape
 from investigation_agent.workflows.registry import (
     format_workflow_system_append,
     list_workflows,
@@ -414,15 +414,16 @@ async def _execute_tool(
 ) -> dict[str, Any]:
     fn = TOOL_DISPATCH.get(name)
     if not fn:
-        return {"error": f"unknown tool: {name}"}
+        return normalize_tool_error_shape(name, {"error": f"unknown_tool:{name}", "detail": f"unknown tool: {name}"})
     norm, verr = validate_tool_arguments(name, arguments)
     if verr:
-        return {"error": "invalid_tool_arguments", "detail": verr}
+        return normalize_tool_error_shape(name, {"error": "invalid_tool_arguments", "detail": verr})
     assert norm is not None
+    result: dict[str, Any]
     if name == "get_batch_profile":
-        return await fn(http, tenant_id, analyst_id, norm["batch_id"])
-    if name == "query_batch_rows":
-        return await fn(
+        result = await fn(http, tenant_id, analyst_id, norm["batch_id"])
+    elif name == "query_batch_rows":
+        result = await fn(
             http,
             tenant_id,
             analyst_id,
@@ -431,8 +432,8 @@ async def _execute_tool(
             norm["limit"],
             norm["columns"],
         )
-    if name == "aggregate_batch_column":
-        return await fn(
+    elif name == "aggregate_batch_column":
+        result = await fn(
             http,
             tenant_id,
             analyst_id,
@@ -440,20 +441,20 @@ async def _execute_tool(
             norm["column"],
             norm["mode"],
         )
-    if name == "get_case":
-        return await fn(http, norm["case_id"], tenant_id, analyst_id)
-    if name == "list_cases":
-        return await fn(http, tenant_id, analyst_id, norm["limit"])
-    if name == "subgraph":
-        return await fn(http, norm["entity_id"], tenant_id, analyst_id, norm["depth"])
-    if name == "get_entity_tags":
-        return await fn(http, norm["entity_id"], tenant_id, analyst_id)
-    if name == "get_entity_velocity":
-        return await fn(http, norm["entity_id"], tenant_id, analyst_id)
-    if name == "get_decision_audit":
-        return await fn(http, norm["trace_id"], tenant_id, analyst_id)
-    if name == "subgraph_with_velocity":
-        return await fn(
+    elif name == "get_case":
+        result = await fn(http, norm["case_id"], tenant_id, analyst_id)
+    elif name == "list_cases":
+        result = await fn(http, tenant_id, analyst_id, norm["limit"])
+    elif name == "subgraph":
+        result = await fn(http, norm["entity_id"], tenant_id, analyst_id, norm["depth"])
+    elif name == "get_entity_tags":
+        result = await fn(http, norm["entity_id"], tenant_id, analyst_id)
+    elif name == "get_entity_velocity":
+        result = await fn(http, norm["entity_id"], tenant_id, analyst_id)
+    elif name == "get_decision_audit":
+        result = await fn(http, norm["trace_id"], tenant_id, analyst_id)
+    elif name == "subgraph_with_velocity":
+        result = await fn(
             http,
             norm["entity_id"],
             tenant_id,
@@ -461,8 +462,8 @@ async def _execute_tool(
             norm["depth"],
             norm["max_velocity_nodes"],
         )
-    if name == "export_outcome_labeled_dataset":
-        return await fn(
+    elif name == "export_outcome_labeled_dataset":
+        result = await fn(
             http,
             tenant_id,
             analyst_id,
@@ -470,18 +471,18 @@ async def _execute_tool(
             norm["dispute_limit"],
             norm["resolved_disputes_only"],
         )
-    if name == "ingest_labeled_rows":
-        return await fn(
+    elif name == "ingest_labeled_rows":
+        result = await fn(
             http,
             tenant_id,
             analyst_id,
             norm["rows"],
             norm["clear_existing"],
         )
-    if name == "get_stored_labeled_dataset":
-        return await fn(http, tenant_id, analyst_id)
-    if name == "run_replay_ab_comparison":
-        return await fn(
+    elif name == "get_stored_labeled_dataset":
+        result = await fn(http, tenant_id, analyst_id)
+    elif name == "run_replay_ab_comparison":
+        result = await fn(
             http,
             tenant_id,
             analyst_id,
@@ -490,11 +491,59 @@ async def _execute_tool(
             norm["limit"],
             norm["trace_ids"],
         )
-    if name == "search_knowledge":
-        return await fn(http, tenant_id, analyst_id, norm["query"], norm["limit"])
-    if name == "compare_entity_queue_snapshot":
-        return await fn(http, norm["entity_id"], tenant_id, analyst_id, norm["list_limit"])
-    return {"error": "dispatch_failure"}
+    elif name == "search_knowledge":
+        result = await fn(http, tenant_id, analyst_id, norm["query"], norm["limit"])
+    elif name == "compare_entity_queue_snapshot":
+        result = await fn(http, norm["entity_id"], tenant_id, analyst_id, norm["list_limit"])
+    elif name == "screen_sanctions_pep":
+        result = await fn(
+            http,
+            tenant_id,
+            analyst_id,
+            norm["name"],
+            norm.get("subject_id"),
+            norm.get("country"),
+            norm.get("dob"),
+        )
+    elif name == "summarize_adverse_media":
+        result = await fn(
+            http,
+            tenant_id,
+            analyst_id,
+            norm["name"],
+            norm.get("subject_id"),
+            norm.get("email"),
+            norm.get("phone"),
+            norm.get("ip"),
+            norm.get("domain"),
+        )
+    elif name == "consolidate_entity_profile":
+        result = await fn(
+            http,
+            tenant_id,
+            analyst_id,
+            norm["name"],
+            norm.get("subject_id"),
+            norm.get("country"),
+            norm.get("dob"),
+            norm.get("email"),
+            norm.get("phone"),
+            norm.get("ip"),
+            norm.get("domain"),
+            norm.get("include_profile_enrichment", True),
+        )
+    elif name == "graph_risk_narrative":
+        result = await fn(
+            http,
+            tenant_id,
+            analyst_id,
+            norm["entity_id"],
+            norm["depth"],
+            norm["max_velocity_nodes"],
+        )
+    else:
+        result = {"error": "dispatch_failure"}
+    return normalize_tool_error_shape(name, result)
 
 
 def _effective_chat_model() -> str:
@@ -511,6 +560,124 @@ def _merge_usage(usages: list[dict[str, Any]]) -> dict[str, Any]:
     if tt == 0 and (pt or ct):
         tt = pt + ct
     return {"prompt_tokens": pt, "completion_tokens": ct, "total_tokens": tt}
+
+
+def _chat_mode(
+    *,
+    llm_available: bool,
+    deterministic_fallback: bool,
+    tool_defs_count: int,
+    injection_blocked: bool = False,
+) -> str:
+    if deterministic_fallback:
+        return "tools_only_deterministic"
+    if not llm_available:
+        return "offline"
+    if injection_blocked or tool_defs_count == 0:
+        return "read_only_summary"
+    return "full"
+
+
+def _degraded_reasons_for_mode(
+    *,
+    llm_available: bool,
+    deterministic_fallback: bool,
+    tool_defs_count: int,
+    injection_blocked: bool = False,
+    plain_chat_enabled: bool = False,
+    tool_errors: int = 0,
+    assurance_refused: bool = False,
+) -> list[str]:
+    out: list[str] = []
+    if deterministic_fallback:
+        out.append("openai_api_key_missing")
+    elif not llm_available:
+        out.append("llm_unavailable")
+    if injection_blocked:
+        out.append("injection_rejected")
+    if tool_defs_count == 0:
+        out.append("tool_surface_empty")
+    if plain_chat_enabled:
+        out.append("copilot_plain_chat_enabled")
+    if tool_errors > 0:
+        out.append("tool_errors_present")
+    if assurance_refused:
+        out.append("strict_assurance_refused")
+    return out
+
+
+async def _deterministic_tools_only_fallback(
+    *,
+    http: httpx.AsyncClient,
+    tenant_id: str,
+    analyst_id: str,
+    case_id: str | None,
+) -> tuple[str, list[dict[str, Any]], list[dict[str, str]]]:
+    """Deterministic fallback when LLM is unavailable: execute safe read-only tools."""
+    tool_calls: list[dict[str, Any]] = []
+    claims: list[dict[str, str]] = []
+
+    async def _run(name: str, args: dict[str, Any]) -> dict[str, Any]:
+        try:
+            result = await _execute_tool(http, name, args, tenant_id, analyst_id)
+        except Exception:
+            result = {
+                "error": "tool_execution_failed",
+                "upstream": name,
+                "severity": "warning",
+                "retryable": True,
+            }
+        tool_calls.append({"tool": name, "args": args, "result": result})
+        return result
+
+    if case_id:
+        case_result = await _run("get_case", {"case_id": case_id})
+        if isinstance(case_result, dict):
+            c = case_result.get("case")
+            if isinstance(c, dict):
+                cid = str(c.get("id") or case_id)
+                status = str(c.get("status") or "unknown")
+                claims.append({"text": f"Case {cid} fetched deterministically (status={status}).", "source": "tool"})
+                eid = str(c.get("entity_id") or "").strip()
+                if eid:
+                    graph_result = await _run("subgraph_with_velocity", {"entity_id": eid, "depth": 2, "max_velocity_nodes": 10})
+                    if isinstance(graph_result, dict):
+                        nodes = graph_result.get("nodes")
+                        if isinstance(nodes, list):
+                            claims.append({"text": f"Graph context fetched for entity {eid} ({len(nodes)} nodes).", "source": "tool"})
+                trace_id = str(c.get("trace_id") or "").strip()
+                if trace_id:
+                    try:
+                        uuid.UUID(trace_id)
+                        audit_result = await _run("get_decision_audit", {"trace_id": trace_id})
+                        if isinstance(audit_result, dict) and isinstance(audit_result.get("audit"), dict):
+                            claims.append({"text": f"Decision audit fetched for trace {trace_id}.", "source": "tool"})
+                    except ValueError:
+                        pass
+    else:
+        cases_result = await _run("list_cases", {"limit": 5})
+        if isinstance(cases_result, dict):
+            items = cases_result.get("items")
+            if isinstance(items, list):
+                claims.append({"text": f"Queue snapshot fetched deterministically ({len(items)} cases).", "source": "tool"})
+
+    if not claims:
+        claims = [
+            {
+                "text": "LLM is unavailable; deterministic read-only checks ran with current upstream connectivity.",
+                "source": "unknown",
+            }
+        ]
+
+    touched = [str(c.get("tool")) for c in tool_calls if isinstance(c, dict) and c.get("tool")]
+    unique_tools = ", ".join(sorted(set(touched))) if touched else "none"
+    scope_hint = f" for case_id={case_id}" if case_id else ""
+    reply = (
+        "LLM is currently unavailable, so Saarthi executed deterministic read-only tools only"
+        f"{scope_hint}. Tool surface used: {unique_tools}. "
+        "Review source references and evidence summary outputs for analyst-safe fallback handling."
+    )
+    return reply, tool_calls, claims
 
 
 async def _llm_plain_completion(
@@ -1299,9 +1466,7 @@ async def evidence_summary(body: EvidenceSummaryRequest, request: Request):
         if isinstance(idx, int) and isinstance(ok, bool):
             supports_by_idx[idx] = ok
 
-    audit_refs: list[dict[str, str]] = (
-        _decision_audit_resolution_refs(body.decision_audit) if isinstance(body.decision_audit, dict) else []
-    )
+    audit_refs: list[dict[str, str]] = _decision_audit_resolution_refs(body.decision_audit) if isinstance(body.decision_audit, dict) else []
     allow_ids = {x.strip() for x in (settings.evidence_summary_automated_action_allowlist or "").split(",") if x.strip()}
     next_actions: list[dict[str, Any]] = []
     next_actions.extend(_typology_breakdown_next_actions(body.typology_breakdown))
@@ -1432,6 +1597,7 @@ async def governance_info():
         "label": governance_profile_label(gov),
         "references": governance_profile_references(gov),
         "batch_ttl_seconds": batch_store.ttl_seconds(),
+        "batch_storage_mode": batch_store.storage_mode(),
         "assurance_defaults": {
             "mode": settings.copilot_assurance_mode,
             "maker_checker_required": bool(settings.copilot_maker_checker_required),
@@ -1554,6 +1720,8 @@ async def batch_ingest(
     rec = batch_store.get_batch(batch_id, tenant_id, analyst_id)
     assert rec is not None
     prof = batch_store.batch_profile(rec)
+    created_at = float(rec.get("created_at") or time.time())
+    durable_until = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(created_at + batch_store.ttl_seconds()))
     return {
         "batch_id": batch_id,
         "filename": prof.get("filename"),
@@ -1566,6 +1734,8 @@ async def batch_ingest(
             "max_file_mib": batch_store._MAX_FILE_BYTES // (1024 * 1024),
             "ttl_hours": batch_store.ttl_seconds() // 3600,
         },
+        "storage_mode": batch_store.storage_mode(),
+        "durable_until": durable_until,
     }
 
 
@@ -1720,6 +1890,8 @@ async def chat_stream(body: ChatRequest, request: Request):
             "persona": out.get("persona"),
             "workflow_id": out.get("workflow_id"),
             "warning": out.get("warning"),
+            "copilot_mode": out.get("copilot_mode"),
+            "degraded_reasons": out.get("degraded_reasons"),
         }
         yield f"data: {json.dumps({'type': 'meta', 'payload': meta})}\n\n"
         yield f"data: {json.dumps({'type': 'tool_calls', 'payload': {'count': len(out.get('tool_calls') or [])}})}\n\n"
@@ -1752,6 +1924,8 @@ async def chat_stream(body: ChatRequest, request: Request):
                 "assurance_refused",
                 "assurance_violations",
                 "turn_metrics",
+                "copilot_mode",
+                "degraded_reasons",
             )
             if k in out
         }
@@ -1907,6 +2081,18 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             "workflow_id": active_workflow,
             "workflow_params": workflow_params_norm if active_workflow else None,
             "prompt_version": settings.copilot_prompt_version,
+            "copilot_mode": _chat_mode(
+                llm_available=bool(settings.openai_api_key),
+                deterministic_fallback=False,
+                tool_defs_count=0,
+                injection_blocked=True,
+            ),
+            "degraded_reasons": _degraded_reasons_for_mode(
+                llm_available=bool(settings.openai_api_key),
+                deterministic_fallback=False,
+                tool_defs_count=0,
+                injection_blocked=True,
+            ),
             "answer_sections": {"sections_found": []},
             "claims_deterministic_support": deterministic_claim_support(blk_claims, []),
             "evidence_bundle_draft": build_evidence_bundle_draft(
@@ -1940,6 +2126,93 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
     active_tool_defs = filter_tool_definitions(TOOL_DEFINITIONS, disabled)
     if settings.copilot_plain_chat:
         active_tool_defs = []
+
+    if not settings.openai_api_key:
+        reply, tool_calls, claims = await _deterministic_tools_only_fallback(
+            http=http,
+            tenant_id=body.tenant_id,
+            analyst_id=body.analyst_id,
+            case_id=body.case_id,
+        )
+        source_refs = build_source_reference_cards(tool_calls)
+        turn_id = str(uuid.uuid4())
+        answer_sections = parse_structured_sections(reply)
+        det_support = deterministic_claim_support(claims, tool_calls)
+        mode = _chat_mode(
+            llm_available=False,
+            deterministic_fallback=True,
+            tool_defs_count=len(active_tool_defs),
+        )
+        degraded_reasons = _degraded_reasons_for_mode(
+            llm_available=False,
+            deterministic_fallback=True,
+            tool_defs_count=len(active_tool_defs),
+            plain_chat_enabled=bool(settings.copilot_plain_chat),
+        )
+        out: dict[str, Any] = {
+            "reply": reply,
+            "tool_calls": tool_calls,
+            "claims": claims,
+            "source_refs": source_refs,
+            "turn_id": turn_id,
+            "persona": body.persona,
+            "prompt_version": settings.copilot_prompt_version,
+            "copilot_mode": mode,
+            "degraded_reasons": degraded_reasons,
+            "answer_sections": answer_sections,
+            "claims_deterministic_support": det_support,
+            "turn_metrics": {
+                "model": _effective_chat_model(),
+                "llm_completion_rounds": 0,
+                "tool_surface": "tools",
+                "usage": {},
+            },
+            "evidence_bundle_draft": build_evidence_bundle_draft(
+                reply=reply,
+                claims=claims,
+                source_refs=source_refs,
+                answer_sections=answer_sections,
+                claims_analysis=det_support,
+                tool_calls=tool_calls,
+                prompt_version=settings.copilot_prompt_version,
+                playbook_id=active_playbook,
+                turn_id=turn_id,
+                bundle_format=settings.copilot_evidence_bundle_format,
+                contract_version=INTEGRATION_CONTRACT_VERSION,
+                agent_build=(settings.agent_build_id or "").strip(),
+                redaction_level=settings.copilot_evidence_redaction_level,
+            ),
+        }
+        if active_playbook:
+            out["playbook_id"] = active_playbook
+        if active_workflow:
+            out["workflow_id"] = active_workflow
+            out["workflow_params"] = workflow_params_norm
+        copilot_analytics.schedule_turn_completed(
+            settings,
+            tenant_id=body.tenant_id,
+            analyst_id=body.analyst_id,
+            turn_id=turn_id,
+            tool_invocation_count=len(tool_calls),
+            assurance_mode=settings.copilot_assurance_mode,
+            had_tool_error=any(isinstance(t.get("result"), dict) and (t.get("result") or {}).get("error") for t in tool_calls if isinstance(t, dict)),
+            assurance_refused=False,
+            persona=body.persona,
+        )
+        feedback_store.record_turn(
+            turn_id=turn_id,
+            tenant_id=body.tenant_id,
+            analyst_id=body.analyst_id,
+            case_id=body.case_id,
+            playbook_id=active_playbook,
+            prompt_version=settings.copilot_prompt_version,
+            reply_preview=reply[:1800],
+            tool_count=len(tool_calls),
+            persona=body.persona,
+            workflow_id=active_workflow,
+        )
+        return out
+
     if not active_tool_defs:
         system = await _maybe_prefetch_rag_to_system(
             http,
@@ -2044,6 +2317,19 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             judge_assessments = ja.get("assessments")
 
     tool_surface = "plain" if not active_tool_defs else "tools"
+    mode = _chat_mode(
+        llm_available=bool(settings.openai_api_key),
+        deterministic_fallback=False,
+        tool_defs_count=len(active_tool_defs),
+    )
+    degraded_reasons = _degraded_reasons_for_mode(
+        llm_available=bool(settings.openai_api_key),
+        deterministic_fallback=False,
+        tool_defs_count=len(active_tool_defs),
+        plain_chat_enabled=bool(settings.copilot_plain_chat),
+        tool_errors=tool_errors,
+        assurance_refused=assurance_refused,
+    )
     out: dict[str, Any] = {
         "reply": reply,
         "tool_calls": tool_calls,
@@ -2052,6 +2338,8 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         "turn_id": turn_id,
         "persona": body.persona,
         "prompt_version": settings.copilot_prompt_version,
+        "copilot_mode": mode,
+        "degraded_reasons": degraded_reasons,
         "answer_sections": answer_sections,
         "claims_deterministic_support": det_support,
         "turn_metrics": {

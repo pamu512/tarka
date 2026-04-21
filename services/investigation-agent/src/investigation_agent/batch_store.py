@@ -11,6 +11,7 @@ import threading
 import time
 import uuid
 from collections import Counter
+from pathlib import Path
 from typing import Any
 
 _MAX_FILE_BYTES = 15 * 1024 * 1024
@@ -43,10 +44,112 @@ _lock = threading.Lock()
 _store: dict[str, dict[str, Any]] = {}
 
 
+def storage_mode() -> str:
+    return "disk+memory" if (os.environ.get("BATCH_STORE_PATH", "").strip()) else "memory"
+
+
+def _disk_store_dir() -> Path | None:
+    raw = os.environ.get("BATCH_STORE_PATH", "").strip()
+    if not raw:
+        return None
+    p = Path(raw).expanduser()
+    try:
+        p.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        return None
+    return p
+
+
+def _disk_record_path(batch_id: str) -> Path | None:
+    root = _disk_store_dir()
+    if root is None:
+        return None
+    return root / f"{batch_id}.json"
+
+
+def _write_disk_record(rec: dict[str, Any]) -> None:
+    p = _disk_record_path(str(rec.get("batch_id", "")))
+    if p is None:
+        return
+    payload = {
+        "batch_id": rec.get("batch_id"),
+        "created_at": float(rec.get("created_at", time.time())),
+        "tenant_id": rec.get("tenant_id"),
+        "analyst_id": rec.get("analyst_id"),
+        "filename": rec.get("filename"),
+        "format": rec.get("format"),
+        "columns": rec.get("columns") or [],
+        "rows": rec.get("rows") or [],
+        "row_count": int(rec.get("row_count") or 0),
+    }
+    p.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
+
+
+def _read_disk_record(batch_id: str) -> dict[str, Any] | None:
+    p = _disk_record_path(batch_id)
+    if p is None or not p.exists():
+        return None
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(raw, dict):
+        return None
+    rows = raw.get("rows")
+    cols = raw.get("columns")
+    if not isinstance(rows, list) or not isinstance(cols, list):
+        return None
+    return {
+        "batch_id": str(raw.get("batch_id") or batch_id),
+        "created_at": float(raw.get("created_at") or 0.0),
+        "tenant_id": str(raw.get("tenant_id") or ""),
+        "analyst_id": str(raw.get("analyst_id") or ""),
+        "filename": str(raw.get("filename") or "upload"),
+        "format": str(raw.get("format") or "json"),
+        "columns": [str(c)[:256] for c in cols[:_MAX_COLS]],
+        "rows": rows[:_MAX_ROWS],
+        "row_count": int(raw.get("row_count") or len(rows)),
+    }
+
+
+def _cleanup_disk(now: float) -> None:
+    root = _disk_store_dir()
+    if root is None:
+        return
+    files = sorted(root.glob("*.json"), key=lambda p: p.stat().st_mtime if p.exists() else 0.0)
+    ttl = ttl_seconds()
+    alive: list[Path] = []
+    for p in files:
+        try:
+            rec = json.loads(p.read_text(encoding="utf-8"))
+            created_at = float(rec.get("created_at") or p.stat().st_mtime)
+        except Exception:
+            try:
+                p.unlink(missing_ok=True)
+            except Exception:
+                pass
+            continue
+        if now - created_at > ttl:
+            try:
+                p.unlink(missing_ok=True)
+            except Exception:
+                pass
+            continue
+        alive.append(p)
+    if len(alive) <= _MAX_STORE_BATCHES:
+        return
+    for p in alive[: max(0, len(alive) - _MAX_STORE_BATCHES)]:
+        try:
+            p.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
 def _cleanup_unlocked(now: float) -> None:
     dead = [bid for bid, rec in _store.items() if now - float(rec.get("created_at", 0)) > ttl_seconds()]
     for bid in dead:
         del _store[bid]
+    _cleanup_disk(now)
     if len(_store) <= _MAX_STORE_BATCHES:
         return
     # Drop oldest beyond cap
@@ -228,7 +331,7 @@ def store_batch(
     now = time.time()
     with _lock:
         _cleanup_unlocked(now)
-        _store[batch_id] = {
+        rec = {
             "batch_id": batch_id,
             "created_at": now,
             "tenant_id": tenant_id,
@@ -239,6 +342,8 @@ def store_batch(
             "rows": rows,
             "row_count": len(rows),
         }
+        _store[batch_id] = rec
+        _write_disk_record(rec)
     return batch_id
 
 
@@ -251,6 +356,10 @@ def get_batch(batch_id: str, tenant_id: str, analyst_id: str) -> dict[str, Any] 
     with _lock:
         _cleanup_unlocked(now)
         rec = _store.get(batch_id)
+        if not rec:
+            rec = _read_disk_record(batch_id)
+            if rec:
+                _store[batch_id] = rec
         if not rec:
             return None
         if rec.get("tenant_id") != tenant_id or rec.get("analyst_id") != analyst_id:

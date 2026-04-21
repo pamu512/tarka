@@ -2,7 +2,10 @@ import { useState, useRef, useEffect, useCallback, type ReactNode } from "react"
 import { Link, useSearchParams } from "react-router-dom";
 import {
   admin,
+  cases,
   investigation,
+  type CaseDecisionExplanationPayload,
+  type CaseGraphPayload,
   type InvestigationAnswerSections,
   type InvestigationClaim,
   type InvestigationClaimSupportRow,
@@ -104,6 +107,8 @@ interface Message {
   summary_citations?: Array<{ kind: string; value: string; source_ref_tool?: string }>;
   summary_trace_ids?: string[];
   summary_artifact_ids?: string[];
+  copilot_mode?: "full" | "tools_only_deterministic" | "read_only_summary" | "offline";
+  degraded_reasons?: string[];
   timestamp: Date;
   /** Rich formatting for /skill output and repeat-task hints */
   bubble?: MessageBubbleKind;
@@ -167,6 +172,10 @@ export default function Investigation() {
   const [feedbackAnalyticsError, setFeedbackAnalyticsError] = useState<string | null>(null);
   /** Bottom composer: extra preset chips (same as empty-state catalog, collapsed by default). */
   const [composerPresetsOpen, setComposerPresetsOpen] = useState(false);
+  const [caseGraph, setCaseGraph] = useState<CaseGraphPayload | null>(null);
+  const [caseDecisionExplanation, setCaseDecisionExplanation] = useState<CaseDecisionExplanationPayload | null>(null);
+  const [caseContextLoading, setCaseContextLoading] = useState(false);
+  const [caseContextError, setCaseContextError] = useState<string | null>(null);
 
   const viteGovProfile = import.meta.env.VITE_AI_GOVERNANCE_PROFILE as string | undefined;
   const viteGovLabels: Record<string, string> = {
@@ -215,6 +224,37 @@ export default function Investigation() {
   useEffect(() => {
     void loadFeedbackAnalytics();
   }, [loadFeedbackAnalytics]);
+
+  useEffect(() => {
+    if (!contextCaseId) {
+      setCaseGraph(null);
+      setCaseDecisionExplanation(null);
+      setCaseContextError(null);
+      return;
+    }
+    let cancelled = false;
+    setCaseContextLoading(true);
+    setCaseContextError(null);
+    void Promise.all([
+      cases.getGraph(contextCaseId, contextTenantId, 2),
+      cases.getDecisionExplanation(contextCaseId, contextTenantId),
+    ])
+      .then(([graphData, explanationData]) => {
+        if (cancelled) return;
+        setCaseGraph(graphData);
+        setCaseDecisionExplanation(explanationData);
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        setCaseContextError(e instanceof Error ? e.message : "Failed to load case context");
+      })
+      .finally(() => {
+        if (!cancelled) setCaseContextLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [contextCaseId, contextTenantId]);
 
   const handleNewSession = () => {
     setMessages([]);
@@ -406,6 +446,8 @@ export default function Investigation() {
         claims_deterministic_support: data.claims_deterministic_support,
         tool_acknowledgment_warnings: data.tool_acknowledgment_warnings,
         judge_assessments: data.judge_assessments,
+        copilot_mode: data.copilot_mode,
+        degraded_reasons: data.degraded_reasons,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, assistantMsg]);
@@ -713,6 +755,87 @@ export default function Investigation() {
             <span className="text-gray-600"> · batch TTL {Math.round(governanceInfo.batch_ttl_seconds / 60)}m</span>
           )}
           <span className="text-gray-600"> · not legal advice</span>
+        </div>
+      )}
+
+      {contextCaseId && (
+        <div className="shrink-0 px-5 py-2 border-b border-surface-800/80 bg-surface-950/40">
+          <details className="rounded-lg border border-surface-800/90 bg-surface-900/25" open>
+            <summary className="cursor-pointer select-none px-3 py-2 text-[11px] text-gray-500 hover:text-gray-400 list-none flex flex-wrap items-center gap-2">
+              <span className="text-gray-600">▸</span>
+              <span>Case context</span>
+              <span className="font-mono text-[10px] text-gray-600">{contextCaseId}</span>
+              {caseContextLoading ? <span className="text-gray-600">loading…</span> : null}
+            </summary>
+            <div className="px-3 pb-3 pt-1 border-t border-surface-800/80 space-y-2">
+              {caseContextError ? (
+                <p className="text-[11px] text-rose-400">{caseContextError}</p>
+              ) : (
+                <>
+                  <div className="grid gap-2 sm:grid-cols-2 text-[11px]">
+                    <div className="rounded border border-surface-800 bg-surface-950/70 px-2 py-1.5 text-gray-400">
+                      <div className="text-gray-500">Case graph</div>
+                      <div className="text-gray-200 font-mono">
+                        {(caseGraph?.nodes?.length ?? 0)} nodes · {(caseGraph?.edges?.length ?? 0)} edges
+                      </div>
+                      {caseGraph?.message ? <div className="text-[10px] text-gray-600 mt-0.5">{caseGraph.message}</div> : null}
+                    </div>
+                    <div className="rounded border border-surface-800 bg-surface-950/70 px-2 py-1.5 text-gray-400">
+                      <div className="text-gray-500">Decision explanation</div>
+                      <div className="text-gray-200 font-mono">
+                        source: {caseDecisionExplanation?.source ?? "unknown"}
+                      </div>
+                      <div className="text-[10px] text-gray-600 mt-0.5">
+                        factors:{" "}
+                        {Array.isArray(caseDecisionExplanation?.graph_decision_explanation?.factors)
+                          ? caseDecisionExplanation?.graph_decision_explanation?.factors?.length
+                          : 0}
+                        {" · "}why-links:{" "}
+                        {Array.isArray(caseDecisionExplanation?.graph_decision_explanation?.why_links)
+                          ? caseDecisionExplanation?.graph_decision_explanation?.why_links?.length
+                          : 0}
+                      </div>
+                    </div>
+                  </div>
+                  {caseDecisionExplanation?.source &&
+                    caseDecisionExplanation.source !== "decision_audit" && (
+                      <div className="rounded-md border border-amber-500/35 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-300">
+                        Decision explanation is degraded: <span className="font-mono">{caseDecisionExplanation.source}</span>
+                      </div>
+                    )}
+                  {caseDecisionExplanation?.trace_id ? (
+                    <div className="text-[11px] text-gray-500 flex flex-wrap items-center gap-2">
+                      <span className="text-gray-600">trace</span>
+                      <code className="text-gray-400">{caseDecisionExplanation.trace_id}</code>
+                      <a
+                        className="text-brand-300 hover:text-brand-200 underline decoration-brand-500/40 underline-offset-2"
+                        href={`/api/decisions/v1/audit/${encodeURIComponent(caseDecisionExplanation.trace_id)}?tenant_id=${encodeURIComponent(contextTenantId)}&detail_level=analyst`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open decision audit JSON
+                      </a>
+                    </div>
+                  ) : null}
+                  <details className="rounded border border-surface-800 bg-surface-950/80">
+                    <summary className="cursor-pointer px-2 py-1.5 text-[10px] text-gray-600 hover:text-gray-500">
+                      Raw case context JSON
+                    </summary>
+                    <pre className="px-2 pb-2 text-[10px] text-gray-500 overflow-x-auto whitespace-pre-wrap break-all max-h-44 overflow-y-auto">
+                      {JSON.stringify(
+                        {
+                          graph: caseGraph,
+                          decision_explanation: caseDecisionExplanation,
+                        },
+                        null,
+                        2,
+                      )}
+                    </pre>
+                  </details>
+                </>
+              )}
+            </div>
+          </details>
         </div>
       )}
 
@@ -1115,6 +1238,22 @@ function MessageBubble({
             <RichHelpBody text={message.content} />
           )}
         </div>
+
+        {!isUser &&
+          !richBubble &&
+          ((message.copilot_mode && message.copilot_mode !== "full") ||
+            (message.degraded_reasons?.length ?? 0) > 0) && (
+            <div className="mt-2 text-[11px] border border-amber-500/35 rounded-md px-2 py-1.5 max-w-[75vw] sm:max-w-xl bg-amber-500/[0.08] text-amber-300">
+              <div className="font-medium text-amber-200/90">
+                Copilot degraded mode: <span className="font-mono">{message.copilot_mode ?? "unknown"}</span>
+              </div>
+              {(message.degraded_reasons?.length ?? 0) > 0 ? (
+                <div className="mt-0.5 text-amber-300/85 break-words">
+                  {message.degraded_reasons?.join(" · ")}
+                </div>
+              ) : null}
+            </div>
+          )}
 
         {!richBubble && message.tool_calls && message.tool_calls.length > 0 && (
           <div className="mt-2">
