@@ -206,6 +206,14 @@ paths:
           description: Must match the audit row tenant_id
           schema:
             type: string
+        - name: detail_level
+          in: query
+          required: false
+          description: Explainability detail level (`minimal` by default; `analyst`/`full` require analyst role)
+          schema:
+            type: string
+            enum: [minimal, analyst, full]
+            default: minimal
       responses:
         "200":
           description: Audit row
@@ -242,11 +250,19 @@ paths:
                     description: Optional ETL / ingest batch lineage (e.g. from event-ingest v1 envelope etl_batch_id)
                   inference_context: { type: object, additionalProperties: true }
                   decision_explain: { type: object, additionalProperties: true }
+                  graph_decision_explanation:
+                    type: object
+                    nullable: true
+                    additionalProperties: true
+                    description: >-
+                      Present when evaluate stored graph risk; matches contracts/schemas/tarka-graph-decision-explanation-v1.schema.json
                   recommended_action: { type: string, nullable: true }
                   created_at: { type: string, nullable: true }
                 additionalProperties: true
         "404":
           description: Not found
+        "403":
+          description: Analyst role required for requested detail level
   /v1/analyst/entity-velocity:
     get:
       operationId: analystEntityVelocity
@@ -1120,6 +1136,13 @@ components:
           description: >-
             Present when evaluation used degraded dependencies (circuit open, tenant kill-switch) or rules-only blend;
             mirrors audit payload_snapshot.fallback_reason.
+        graph_decision_explanation:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: >-
+            When graph risk contributed: versioned factor→evidence mapping (tarka.graph_decision_explanation/v1); see
+            contracts/schemas/tarka-graph-decision-explanation-v1.schema.json
     DriverExplainEntry:
       type: object
       required: [reason, category, label]

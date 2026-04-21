@@ -52,6 +52,7 @@ class EvaluateResponse(TypedDict, total=False):
     recommended_action: str | None
     challenge_policy_id: NotRequired[str | None]
     challenge_metadata: NotRequired[dict[str, Any] | None]
+    graph_decision_explanation: NotRequired[dict[str, Any] | None]
 
 
 class DecisionClient:

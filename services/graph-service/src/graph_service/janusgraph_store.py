@@ -11,6 +11,7 @@ from gremlin_python.process.graph_traversal import __
 from gremlin_python.process.traversal import Cardinality
 
 from graph_service.custom_schema import get_allowed_labels, get_allowed_rels
+from graph_service.hetero_schema import validate_typed_edge_or_raise
 from graph_service.janusgraph_gremlin import get_traversal_source, run_in_gremlin_thread
 
 log = logging.getLogger("graph-service.janus")
@@ -187,6 +188,13 @@ def _create_link_sync(
             to_external_id,
         )
         return
+
+    try:
+        la = str(g.V(a[0]).label().next())
+        lb = str(g.V(b[0]).label().next())
+    except StopIteration:
+        la, lb = "Custom", "Custom"
+    validate_typed_edge_or_raise(tenant_id, rel, [la], [lb])
 
     trav = g.V(a[0]).addE(rel).to(__.V(b[0]))
     for pk, pv in (properties or {}).items():

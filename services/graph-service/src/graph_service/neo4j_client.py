@@ -5,6 +5,7 @@ from neo4j import AsyncDriver, AsyncGraphDatabase
 
 from graph_service.config import settings
 from graph_service.custom_schema import get_allowed_labels, get_allowed_rels
+from graph_service.hetero_schema import validate_typed_edge_or_raise
 
 _driver: AsyncDriver | None = None
 
@@ -143,6 +144,11 @@ async def create_link(
     if rel not in (ALLOWED_RELS | tenant_rels):
         rel = "RELATED"
     rel = _sanitize_rel(rel)
+    q_meta = """
+    MATCH (a {tenant_id: $tenant_id, external_id: $from_id})
+    MATCH (b {tenant_id: $tenant_id, external_id: $to_id})
+    RETURN labels(a) AS la, labels(b) AS lb
+    """
     q = f"""
     MATCH (a {{tenant_id: $tenant_id, external_id: $from_id}})
     MATCH (b {{tenant_id: $tenant_id, external_id: $to_id}})
@@ -150,6 +156,15 @@ async def create_link(
     SET r += $rel_props
     """
     async with driver.session() as session:
+        meta = await session.run(
+            q_meta,
+            tenant_id=tenant_id,
+            from_id=from_external_id,
+            to_id=to_external_id,
+        )
+        mrec = await meta.single()
+        if mrec:
+            validate_typed_edge_or_raise(tenant_id, rel, list(mrec["la"] or []), list(mrec["lb"] or []))
         await session.run(
             q,
             tenant_id=tenant_id,

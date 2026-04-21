@@ -213,6 +213,36 @@ paths:
       responses:
         "200":
           description: OK
+  /v1/cases/{case_id}/decision-explanation:
+    get:
+      operationId: caseDecisionExplanation
+      summary: Graph decision explanation for case (via decision-api audit)
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: >-
+            Wraps decision-api GET /v1/audit/{trace_id} for the case trace_id; graph_decision_explanation when graph risk ran.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                properties:
+                  case_id: { type: string }
+                  trace_id: { type: string }
+                  entity_id: { type: string }
+                  source: { type: string }
+                  decision: { type: string, nullable: true }
+                  score: { type: number, nullable: true }
+                  graph_decision_explanation: { type: object, nullable: true, additionalProperties: true }
   /v1/cases/{case_id}/audit:
     get:
       operationId: caseAudit

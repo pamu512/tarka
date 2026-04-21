@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from decision_api.config import settings
+from decision_api.config import dependency_resilience_policy_table, settings
 from decision_api.currency import normalize_amount
 from decision_api.db import get_session, init_db
 from decision_api.decision_log import build_decision_log_record, emit_decision_log
@@ -50,6 +50,7 @@ from decision_api.aggregates import agg_store
 from decision_api.attestation_taxonomy import attestation_signal_tags
 from decision_api.challenge_policy import apply_challenge_policy, load_challenge_policies
 from decision_api.consortium import consortium_score_delta, hash_entity_id
+from decision_api.graph_decision_explanation import build_graph_decision_explanation_v1
 from decision_api.graph_intel import graph_score_delta, graph_tags_from_risk
 from decision_api.inference_build import (
     SCHEMA_VERSION as INFERENCE_SCHEMA_VERSION,
@@ -136,6 +137,11 @@ _circuit_location = AsyncCircuitBreaker(
     "location",
     failure_threshold=settings.circuit_location_failure_threshold,
     recovery_seconds=settings.circuit_location_recovery_seconds,
+)
+_circuit_external = AsyncCircuitBreaker(
+    "external",
+    failure_threshold=settings.circuit_external_failure_threshold,
+    recovery_seconds=settings.circuit_external_recovery_seconds,
 )
 
 _ANALYST_ENTITY_ID = _re.compile(r"^[a-zA-Z0-9._@:/-]{1,512}$")
@@ -507,6 +513,20 @@ async def _evaluate_opa_wrapped(
         return None
 
 
+async def _fetch_external_signals_wrapped(
+    http: httpx.AsyncClient,
+    body: EvaluateRequest,
+    features: dict[str, Any],
+    degrade_tags: list[str],
+) -> dict[str, Any] | None:
+    try:
+        return await _circuit_external.call(lambda: evaluate_external_signals(http, body, features))
+    except CircuitOpenError:
+        _circuit_metrics_inc("tarka_circuit_open_total_external")
+        degrade_tags.append("external:unavailable")
+        return None
+
+
 def _compute_fallback_reason(degrade_tags: list[str], step_trace: list[dict[str, Any]]) -> str | None:
     """R2.4 — compact audit field when rules-only or degraded path was used."""
     tag_map = {
@@ -518,6 +538,8 @@ def _compute_fallback_reason(degrade_tags: list[str], step_trace: list[dict[str,
         "calibration:unavailable": "circuit_calibration",
         "counter:unavailable": "circuit_counter",
         "location:unavailable": "circuit_location",
+        "external:unavailable": "circuit_external",
+        "counter:fallback_local_agg": "counter_local_aggregate_fallback",
         "lists:disabled_by_tenant": "tenant_disable_entity_lists",
         "graph:disabled_by_tenant": "tenant_disable_graph",
         "enrichment:disabled_by_tenant": "tenant_disable_feature_service",
@@ -543,10 +565,94 @@ def _compute_fallback_reason(degrade_tags: list[str], step_trace: list[dict[str,
     return "; ".join(parts) if parts else None
 
 
+def _normalize_explainability_tier(raw: str | None) -> str:
+    tier = str(raw or "").strip().lower()
+    if tier in {"minimal", "analyst", "full"}:
+        return tier
+    return "minimal"
+
+
+def _shape_inference_context_for_tier(inference_context: dict[str, Any], tier: str) -> dict[str, Any]:
+    normalized_tier = _normalize_explainability_tier(tier)
+    if normalized_tier in {"analyst", "full"}:
+        return _json.loads(_json.dumps(inference_context, default=str))
+
+    out = _json.loads(_json.dumps(inference_context, default=str))
+    out["graph_risk_reasons"] = []
+    out["ml_top_factors"] = []
+    out["ml_summary"] = None
+    out["policy_experiment_id"] = None
+
+    top_signals = out.get("top_signals")
+    if isinstance(top_signals, list):
+        out["top_signals"] = list(dict.fromkeys(str(s).split(":", 1)[0] for s in top_signals if str(s).strip()))
+
+    driver_explain = out.get("driver_explain")
+    if isinstance(driver_explain, list):
+        compact: list[dict[str, str]] = []
+        for row in driver_explain:
+            if not isinstance(row, dict):
+                continue
+            reason = str(row.get("reason") or "").strip()
+            if not reason:
+                continue
+            compact.append(
+                {
+                    "reason": reason,
+                    "category": str(row.get("category") or "other"),
+                    "label": "",
+                }
+            )
+        out["driver_explain"] = compact
+    return out
+
+
+def _resolve_response_explainability_tier(request: Request) -> str:
+    requested_raw = request.headers.get("x-tarka-explainability-tier")
+    default_tier = _normalize_explainability_tier(settings.explainability_tier_default)
+    user = getattr(request.state, "auth_user", None)
+    can_view_analyst = bool(user and hasattr(user, "has_role") and user.has_role("analyst"))
+
+    if requested_raw is not None:
+        requested = _normalize_explainability_tier(requested_raw)
+        if requested in {"analyst", "full"} and not can_view_analyst:
+            return "minimal"
+        return requested
+
+    if default_tier in {"analyst", "full"} and not can_view_analyst:
+        return "minimal"
+    return default_tier
+
+
 def _audit_counter_version_label() -> str:
     """Align with AggregateStore / replay keying (``AGG_KEY_VERSION``); stable default when unset."""
     v = (os.environ.get("AGG_KEY_VERSION") or "").strip()
     return v if v else "default"
+
+
+def _build_artifact_manifest(
+    *,
+    json_rule_pack_files: list[str],
+    inf_ctx: dict[str, Any],
+    graph_checkpoint: str | None,
+    external_signal_meta: dict[str, Any] | None,
+    challenge_policy_id: str | None,
+) -> dict[str, Any]:
+    rule_pack_joined = ",".join(sorted(str(x).strip() for x in json_rule_pack_files if str(x).strip()))
+    return {
+        "decision_api_revision": (os.environ.get("GIT_SHA") or os.environ.get("COMMIT_SHA") or "").strip(),
+        "inference_schema_version": INFERENCE_SCHEMA_VERSION,
+        "rule_pack_files": sorted(str(x).strip() for x in json_rule_pack_files if str(x).strip()),
+        "rule_pack_fingerprint_sha256": hashlib.sha256(rule_pack_joined.encode("utf-8")).hexdigest() if rule_pack_joined else "",
+        "score_blend_strategy": settings.score_blend_strategy,
+        "counter_version": _audit_counter_version_label(),
+        "ml_model": str(inf_ctx.get("ml_model") or ""),
+        "graph_checkpoint": graph_checkpoint or "",
+        "policy_experiment_id": str(inf_ctx.get("policy_experiment_id") or ""),
+        "challenge_policy_id": challenge_policy_id or "",
+        "consortium_hash_scope": settings.consortium_hash_scope,
+        "external_signal_providers": list((external_signal_meta or {}).get("providers") or []),
+    }
 
 
 def _metadata_etl_batch_id(body: EvaluateRequest) -> str | None:
@@ -874,6 +980,7 @@ async def evaluation_posture(request: Request):
         "predicate_registry_version": reg_ver,
         "predicate_registry_pin_match": pin_match,
         "dependencies": deps,
+        "dependency_resilience_policy": dependency_resilience_policy_table(),
         "last_rules_reload_at": last_reload_iso,
         "runbook_url": runbook,
         "request_id": request.headers.get("x-request-id") or request.headers.get("x-correlation-id"),
@@ -1790,11 +1897,19 @@ async def evaluate_decision(
 
     if settings.consortium_enabled:
         try:
-            signal_hash = hash_entity_id(settings.consortium_secret, body.tenant_id, body.entity_id)
+            signal_hash = hash_entity_id(
+                settings.consortium_secret,
+                body.tenant_id,
+                body.entity_id,
+                hash_scope=settings.consortium_hash_scope,
+            )
             consortium_data = await redis_tags.check_consortium_signal(settings.consortium_id, signal_hash)
             consortium_delta = consortium_score_delta(
                 consortium_data,
                 min_tenants=settings.consortium_min_tenants,
+                min_reports=settings.consortium_min_reports,
+                trust_floor=settings.consortium_score_trust_floor,
+                max_delta=settings.consortium_score_max_delta,
             )
             if consortium_delta > 0:
                 signal_tags.append("consortium:cross_tenant_hit")
@@ -1966,9 +2081,9 @@ async def evaluate_decision(
 
     external_signal_meta, external_trace = await run_evaluation_step(
         "external_signals",
-        lambda: evaluate_external_signals(http, body, features),
+        lambda: _fetch_external_signals_wrapped(http, body, features, degrade_tags),
         timeout_seconds=settings.external_signal_timeout_seconds,
-        max_attempts=1,
+        max_attempts=settings.eval_step_external_signal_max_attempts,
         on_failure="SKIP",
         fallback=None,
     )
@@ -2174,6 +2289,14 @@ async def evaluate_decision(
         body.payload,
     )
 
+    graph_decision_explanation = build_graph_decision_explanation_v1(
+        trace_id=str(trace_id),
+        tenant_id=body.tenant_id,
+        entity_id=body.entity_id,
+        graph_risk=graph_risk if isinstance(graph_risk, dict) else None,
+        graph_trace=graph_trace if isinstance(graph_trace, dict) else None,
+    )
+
     # Apply region-aware PII masking before storage
     region = getattr(body, "region", settings.default_region) or settings.default_region
     privacy_profile = get_profile(region)
@@ -2217,6 +2340,8 @@ async def evaluate_decision(
         snap_extra["location"] = location_meta
     if external_signal_meta is not None:
         snap_extra["external_signals"] = external_signal_meta
+    if graph_decision_explanation is not None:
+        snap_extra["graph_decision_explanation"] = graph_decision_explanation
 
     snap_extra["counter_version"] = _audit_counter_version_label()
     snap_extra["rule_pack_file"] = ",".join(json_rule_pack_files)
@@ -2256,6 +2381,13 @@ async def evaluate_decision(
         challenge_metadata=ch_meta,
         fallback_reason=fb_reason,
         payload_snapshot=snap_extra,
+        artifact_manifest=_build_artifact_manifest(
+            json_rule_pack_files=json_rule_pack_files,
+            inf_ctx=inf_ctx,
+            graph_checkpoint=graph_checkpoint,
+            external_signal_meta=external_signal_meta if isinstance(external_signal_meta, dict) else None,
+            challenge_policy_id=ch_meta.get("policy_id"),
+        ),
     )
     bg.add_task(emit_decision_log, decision_log_record)
 
@@ -2271,6 +2403,16 @@ async def evaluate_decision(
     except Exception:
         pass
 
+    response_tier = _resolve_response_explainability_tier(request)
+    response_inf_ctx = _shape_inference_context_for_tier(inf_ctx, response_tier)
+    region_profile = get_profile(body.region)
+    if region_profile.mask_pii_in_responses:
+        response_inf_ctx = mask_dict(response_inf_ctx, region_profile)
+
+    response_graph_explanation = graph_decision_explanation
+    if response_graph_explanation is not None and region_profile.mask_pii_in_responses:
+        response_graph_explanation = mask_dict(response_graph_explanation, region_profile)
+
     response = EvaluateResponse(
         trace_id=trace_id,
         decision=decision,
@@ -2279,11 +2421,12 @@ async def evaluate_decision(
         rule_hits=combined_rule_hits,
         reasons=reasons,
         ml_score=ml_score if isinstance(ml_score, float) else None,
-        inference_context=inf_ctx,
+        inference_context=response_inf_ctx,
         recommended_action=recommended_action,
         challenge_policy_id=ch_meta.get("policy_id"),
         challenge_metadata=ch_meta,
         fallback_reason=fb_reason,
+        graph_decision_explanation=response_graph_explanation,
     )
 
     bg.add_task(
@@ -2408,15 +2551,24 @@ if _STATIC_DIR.is_dir():
 @app.get("/v1/audit/{trace_id}")
 async def get_audit(
     trace_id: UUID,
+    request: Request,
     tenant_id: str = Query(..., description="Must match the audit row tenant_id"),
+    detail_level: str = Query("minimal", pattern="^(minimal|analyst|full)$"),
     session: AsyncSession = Depends(get_session),
 ):
+    user = getattr(request.state, "auth_user", None)
+    if detail_level in {"analyst", "full"} and not (user and hasattr(user, "has_role") and user.has_role("analyst")):
+        raise HTTPException(status_code=403, detail="analyst role required for full audit detail")
     result = await session.execute(select(AuditRecord).where(AuditRecord.trace_id == trace_id))
     row = result.scalar_one_or_none()
     if not row or str(row.tenant_id) != tenant_id:
         raise HTTPException(status_code=404, detail="not found")
     snap = row.payload_snapshot or {}
-    return {
+    inf_ctx = snap.get("inference_context")
+    if not isinstance(inf_ctx, dict):
+        inf_ctx = {}
+    inf_ctx_out = _shape_inference_context_for_tier(inf_ctx, detail_level)
+    out: dict[str, Any] = {
         "trace_id": str(row.trace_id),
         "tenant_id": row.tenant_id,
         "entity_id": row.entity_id,
@@ -2429,14 +2581,18 @@ async def get_audit(
         "rule_pack_file": snap.get("rule_pack_file"),
         "ml_model": snap.get("ml_model"),
         "etl_batch_id": snap.get("etl_batch_id"),
-        "inference_context": snap.get("inference_context"),
+        "inference_context": inf_ctx_out,
         "decision_explain": {
-            "driver_reasons": (snap.get("inference_context") or {}).get("driver_reasons", []),
-            "driver_explain": (snap.get("inference_context") or {}).get("driver_explain", []),
+            "driver_reasons": inf_ctx_out.get("driver_reasons", []),
+            "driver_explain": inf_ctx_out.get("driver_explain", []),
         },
         "recommended_action": snap.get("recommended_action"),
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }
+    ge = snap.get("graph_decision_explanation")
+    if isinstance(ge, dict):
+        out["graph_decision_explanation"] = ge
+    return out
 
 
 @app.get("/v1/analyst/entity-velocity")

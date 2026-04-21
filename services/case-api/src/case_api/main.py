@@ -801,6 +801,61 @@ async def case_graph(
     return r.json()
 
 
+@app.get("/v1/cases/{case_id}/decision-explanation")
+async def case_decision_explanation(
+    case_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+):
+    """Resolve graph decision explanation for a case via decision-api audit (trace_id on the case)."""
+    case = await _case_for_tenant(session, case_id, tenant_id)
+    base = (settings.decision_api_url or "").strip().rstrip("/")
+    if not base:
+        return {
+            "case_id": str(case_id),
+            "trace_id": case.trace_id,
+            "entity_id": case.entity_id,
+            "graph_decision_explanation": None,
+            "source": "decision_api_url_unset",
+        }
+    http: httpx.AsyncClient = request.app.state.http
+    headers: dict[str, str] = {}
+    key = (settings.decision_api_key or "").strip()
+    if key:
+        headers["x-api-key"] = key
+    url = f"{base}/v1/audit/{case.trace_id}"
+    try:
+        r = await http.get(url, params={"tenant_id": tenant_id, "detail_level": "analyst"}, headers=headers, timeout=10.0)
+    except Exception:
+        return {
+            "case_id": str(case_id),
+            "trace_id": case.trace_id,
+            "entity_id": case.entity_id,
+            "graph_decision_explanation": None,
+            "source": "decision_api_unreachable",
+        }
+    if r.status_code != 200:
+        return {
+            "case_id": str(case_id),
+            "trace_id": case.trace_id,
+            "entity_id": case.entity_id,
+            "graph_decision_explanation": None,
+            "source": f"decision_api_http_{r.status_code}",
+        }
+    data = r.json()
+    ge = data.get("graph_decision_explanation")
+    return {
+        "case_id": str(case_id),
+        "trace_id": case.trace_id,
+        "entity_id": case.entity_id,
+        "graph_decision_explanation": ge if isinstance(ge, dict) else None,
+        "source": "decision_audit",
+        "decision": data.get("decision"),
+        "score": data.get("score"),
+    }
+
+
 # ---------- audit trail ----------
 
 
