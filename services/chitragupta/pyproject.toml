@@ -1,0 +1,23 @@
+[project]
+name = "tarka-chitragupta"
+version = "0.1.0"
+description = "Plugin registry, capability contracts, and export emitters (Chitragupta-style orchestration)"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.32.0",
+  "pydantic>=2.10.0",
+  "pydantic-settings>=2.6.0",
+  "sqlalchemy[asyncio]>=2.0.36",
+  "aiosqlite>=0.20.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.24.0", "pytest-cov>=5.0", "httpx>=0.28.0"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

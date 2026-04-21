@@ -42,6 +42,7 @@ Investigation UI --> Case API --> Graph Service
 | `services/collaboration-chat-bridge` | 8009 | Slack / Teams / Lark webhooks → copilot |
 | `services/event-ingest` | 8007 | Event ingestion pipeline |
 | `services/analytics-sink` | 8008 | Analytics and reporting sink |
+| `services/chitragupta` | 8012 | Plugin registry, emitter orchestration, run metadata |
 | `services/graphql-gateway` | 8010 | GraphQL API aggregating all services |
 
 ### Shared Utilities
@@ -92,7 +93,7 @@ docker compose --profile full up -d
 
 **Contracts:** From the repo root, `pip install pyyaml && python scripts/ci/validate_openapi_yaml.py` must pass (same check as the **lint** job on `contracts/openapi/*.yaml`). Other script entrypoints are indexed in [`scripts/README.md`](scripts/README.md).
 
-**CI:** GitHub Actions runs lint (Ruff); Python tests for decision-api, case-api, graph-service, integration-ingress, investigation-agent (including golden integration profiles), collaboration-chat-bridge, graphql-gateway, event-ingest, analytics-sink, feature-service, ml-scoring, and the Python SDK; **`npm run test`** then **`npm run build`** for the **frontend** (Vitest + production bundle) and **`npm run build`** for **`packages/fraud-sdk-typescript`**; then Docker image builds for each `services/*/Dockerfile` (see `.github/workflows/ci.yml`), including **`investigation-agent`**. **Saarthi Pro** commercial images are **not** built here; they ship from the private **Saarthi-pro** repo. Security scanning (Trivy + SARIF upload) runs in `.github/workflows/security-scan.yml`.
+**CI:** GitHub Actions runs lint (Ruff); Python tests for decision-api, case-api, graph-service, integration-ingress, investigation-agent (including golden integration profiles), collaboration-chat-bridge, graphql-gateway, event-ingest, analytics-sink, chitragupta, feature-service, ml-scoring, and the Python SDK; **`npm run test`** then **`npm run build`** for the **frontend** (Vitest + production bundle) and **`npm run build`** for **`packages/fraud-sdk-typescript`**; then Docker image builds for each `services/*/Dockerfile` (see `.github/workflows/ci.yml`), including **`investigation-agent`**. **Saarthi Pro** commercial images are **not** built here; they ship from the private **Saarthi-pro** repo. Security scanning (Trivy + SARIF upload) runs in `.github/workflows/security-scan.yml`.
 
 Each service has a `tests/` directory. Run tests from the service root:
 
@@ -173,7 +174,7 @@ npm install
 npm run build
 ```
 
-On Linux/macOS, use `export PYTHONPATH=src:../shared` (decision-api, investigation-agent, **integration-ingress**, graphql-gateway, event-ingest, analytics-sink, ml-scoring) or `export PYTHONPATH=src` (graph service, feature-service only).
+On Linux/macOS, use `export PYTHONPATH=src:../shared` (decision-api, investigation-agent, **integration-ingress**, graphql-gateway, event-ingest, analytics-sink, ml-scoring) or `export PYTHONPATH=src` (graph service, feature-service, chitragupta only).
 
 ### Database migrations (decision-api / case-api)
 
