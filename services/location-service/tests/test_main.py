@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 from pathlib import Path
@@ -53,7 +54,8 @@ def test_resolve_and_evaluate_location():
         assert "trace" in data
 
 
-def test_trusted_places_round_trip():
+def test_trusted_places_round_trip(tmp_path, monkeypatch):
+    monkeypatch.setenv("LOCATION_SERVICE_DATA_DIR", str(tmp_path))
     with TestClient(app) as client:
         put = client.put(
             "/v1/trusted-places/t1/e1",
@@ -69,3 +71,7 @@ def test_trusted_places_round_trip():
         payload = get.json()
         assert isinstance(payload.get("places"), list)
         assert payload["places"][0]["label"] == "hq"
+
+    disk_payload = json.loads((tmp_path / "trusted_places.json").read_text(encoding="utf-8"))
+    serialized = json.dumps(disk_payload)
+    assert "t1:e1" not in serialized
