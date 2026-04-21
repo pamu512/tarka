@@ -1,5 +1,7 @@
 """Tabular batch parse + store."""
 
+from pathlib import Path
+
 from investigation_agent import batch_store
 
 
@@ -51,3 +53,20 @@ def test_aggregate_numeric():
     assert agg["count"] == 2
     assert agg["min"] == 10.0
     assert agg["max"] == 20.0
+
+
+def test_storage_mode_reports_disk_when_path_set(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("BATCH_STORE_PATH", str(tmp_path / "batch-cache"))
+    assert batch_store.storage_mode() == "disk+memory"
+
+
+def test_reads_from_disk_when_memory_cache_cleared(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("BATCH_STORE_PATH", str(tmp_path / "batch-cache"))
+    cols = ["x"]
+    rows = [{"x": "1"}, {"x": "2"}]
+    bid = batch_store.store_batch("tenant-a", "analyst-a", "f.csv", cols, rows, "csv")
+    # Simulate process-memory eviction / restart while persistent files remain.
+    batch_store._store.clear()  # noqa: SLF001
+    rec = batch_store.get_batch(bid, "tenant-a", "analyst-a")
+    assert rec is not None
+    assert rec["row_count"] == 2

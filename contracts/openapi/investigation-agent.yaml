@@ -108,6 +108,7 @@ paths:
                     type: array
                     items: { type: string }
                   batch_ttl_seconds: { type: integer }
+                  batch_storage_mode: { type: string, description: "memory | disk+memory" }
                   assurance_defaults:
                     type: object
                     properties:
@@ -234,7 +235,8 @@ paths:
       operationId: batchIngest
       description: >
         Upload CSV, JSON, NDJSON, or XLSX for tabular analysis. Returns batch_id for copilot tools
-        (get_batch_profile, query_batch_rows, aggregate_batch_column). Scoped to tenant_id + analyst_id; in-memory TTL.
+        (get_batch_profile, query_batch_rows, aggregate_batch_column). Scoped to tenant_id + analyst_id with TTL;
+        storage mode is reported as memory or disk+memory depending on BATCH_STORE_PATH.
       requestBody:
         required: true
         content:
@@ -271,6 +273,12 @@ paths:
                   limits:
                     type: object
                     additionalProperties: true
+                  storage_mode:
+                    type: string
+                    description: memory | disk+memory
+                  durable_until:
+                    type: string
+                    description: UTC expiry timestamp derived from configured batch TTL.
         "400":
           description: Parse error or unsupported format
   /v1/knowledge/ingest:
@@ -831,6 +839,10 @@ paths:
   /v1/chat:
     post:
       operationId: chat
+      description: >
+        Copilot turn with structured degraded-mode metadata. When LLM config is unavailable,
+        the service executes deterministic read-only tools and returns
+        `copilot_mode=tools_only_deterministic` with `degraded_reasons`.
       requestBody:
         required: true
         content:
@@ -944,6 +956,14 @@ paths:
                   injection_sanitized: { type: boolean }
                   turn_id: { type: string }
                   prompt_version: { type: string }
+                  copilot_mode:
+                    type: string
+                    enum: [full, tools_only_deterministic, read_only_summary, offline]
+                    description: Runtime copilot capability tier for this turn.
+                  degraded_reasons:
+                    type: array
+                    description: Machine-readable reasons explaining why this turn is degraded.
+                    items: { type: string }
                   turn_metrics:
                     type: object
                     description: Model id, completion rounds, tool_surface (plain|tools), aggregated token usage when returned by the LLM.

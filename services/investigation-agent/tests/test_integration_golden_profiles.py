@@ -8,9 +8,11 @@ Excluded from default CI shard when main job uses -m "not golden_profile".
 from __future__ import annotations
 
 import pytest
+from fastapi.testclient import TestClient
 from investigation_agent import config
 from investigation_agent.copilot_hardening import filter_tool_definitions
 from investigation_agent.integration_contract import build_integration_snapshot, effective_disabled_tools
+from investigation_agent.main import app
 from investigation_agent.tools import TOOL_DEFINITIONS
 
 _ALL_TOOLS = frozenset((d.get("function") or {}).get("name") for d in TOOL_DEFINITIONS if isinstance((d.get("function") or {}).get("name"), str))
@@ -145,3 +147,40 @@ def test_golden_profile_integration_surface(
     assert snap["tools"]["enabled_count"] == len(expected)
     assert frozenset(snap["tools"]["enabled"]) == expected
     assert snap["contract_version"]
+
+
+@pytest.mark.golden_profile
+@pytest.mark.parametrize(
+    "profile,case,decision,graph",
+    [
+        ("full", True, True, True),
+        ("no_graph", True, True, False),
+        ("no_case", False, True, True),
+        ("no_decision", True, False, True),
+        ("case_only", True, False, False),
+    ],
+)
+def test_golden_profile_chat_mode_when_llm_unconfigured(
+    profile: str,
+    case: bool,
+    decision: bool,
+    graph: bool,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _apply_upstream(monkeypatch, case=case, decision=decision, graph=graph, hide_without_upstream=True)
+    monkeypatch.setattr(config.settings, "openai_api_key", "")
+    monkeypatch.setattr(config.settings, "copilot_plain_chat", False)
+
+    async def _fake_tool(*args, **kwargs):
+        return {"items": []}
+
+    monkeypatch.setattr("investigation_agent.main._execute_tool", _fake_tool)
+    with TestClient(app) as client:
+        r = client.post(
+            "/v1/chat",
+            json={"tenant_id": "demo", "analyst_id": "analyst-1", "messages": [{"role": "user", "content": f"profile={profile}"}]},
+        )
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out.get("copilot_mode") == "tools_only_deterministic"
+    assert "openai_api_key_missing" in (out.get("degraded_reasons") or [])

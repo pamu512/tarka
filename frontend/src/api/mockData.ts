@@ -1125,6 +1125,34 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   if (path.includes("/api/cases/v1/cases/") && path.includes("/playbooks/") && method === "POST") {
     return { ok: true, playbook: "demo", case: mockCases[0] };
   }
+  if (path.match(/\/api\/cases\/v1\/cases\/[^/]+\/graph/)) {
+    return {
+      nodes: [
+        { id: "fraud_frank", labels: ["User"], properties: { risk: "high" } },
+        { id: "dev_emulator_003", labels: ["Device"], properties: { is_emulator: true } },
+      ],
+      edges: [{ from_id: "fraud_frank", to_id: "dev_emulator_003", type: "USED", properties: { shared: true } }],
+    };
+  }
+  if (path.match(/\/api\/cases\/v1\/cases\/[^/]+\/decision-explanation/)) {
+    const caseId = path.split("/").slice(-2, -1)[0] ?? "c1";
+    return {
+      case_id: caseId,
+      trace_id: "tr-1001",
+      entity_id: "fraud_frank",
+      source: "decision_audit",
+      decision: "deny",
+      score: 92,
+      graph_decision_explanation: {
+        schema_id: "tarka.graph_decision_explanation/v1",
+        factors: [
+          { factor_id: "shared_device_ring", weight: 0.73 },
+          { factor_id: "velocity_burst", weight: 0.62 },
+        ],
+        why_links: [{ from_factor_id: "velocity_burst", to_artifact_id: "tr-1001" }],
+      },
+    };
+  }
   if (path.includes("/api/cases/v1/cases") && method === "GET") {
     if (path.match(/\/api\/cases\/v1\/cases\/[^/]+$/)) return mockCases.find((c) => c.id === path.split("/").pop()) ?? mockCases[0];
     return { items: mockCases };

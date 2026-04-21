@@ -119,6 +119,22 @@ export interface CaseComment {
   created_at: string;
 }
 
+export interface CaseGraphPayload {
+  nodes: Array<Record<string, unknown>>;
+  edges: Array<Record<string, unknown>>;
+  message?: string;
+}
+
+export interface CaseDecisionExplanationPayload {
+  case_id: string;
+  trace_id: string;
+  entity_id: string;
+  graph_decision_explanation?: Record<string, unknown> | null;
+  source: string;
+  decision?: string;
+  score?: number;
+}
+
 export interface CaseCreateRequest {
   title: string;
   entity_id: string;
@@ -634,6 +650,16 @@ export const cases = {
   getAudit(caseId: string, tenantId: string) {
     const q = new URLSearchParams({ tenant_id: tenantId });
     return request<{ history: unknown[] }>(`/api/cases/v1/cases/${caseId}/audit?${q}`);
+  },
+
+  getGraph(caseId: string, tenantId: string, depth: number = 2) {
+    const q = new URLSearchParams({ tenant_id: tenantId, depth: String(depth) });
+    return request<CaseGraphPayload>(`/api/cases/v1/cases/${caseId}/graph?${q}`);
+  },
+
+  getDecisionExplanation(caseId: string, tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<CaseDecisionExplanationPayload>(`/api/cases/v1/cases/${caseId}/decision-explanation?${q}`);
   },
 
   evidenceBundle(caseId: string, tenantId: string) {
@@ -1289,6 +1315,10 @@ export interface InvestigationChatResponse {
   warning?: string;
   /** True when injection heuristics matched under sanitize policy (request continued). */
   injection_sanitized?: boolean;
+  /** Runtime capability tier for the turn (LLM/tool availability). */
+  copilot_mode?: "full" | "tools_only_deterministic" | "read_only_summary" | "offline";
+  /** Machine-readable degradation causes for audit-friendly UI banners. */
+  degraded_reasons?: string[];
 }
 
 export const investigation = {
