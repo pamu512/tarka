@@ -26,6 +26,7 @@ _shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
 from observability import get_metrics, setup_observability  # noqa: E402
+from tenant_binding import enforce_tenant_access, parse_api_key_tenant_map  # noqa: E402
 
 log = logging.getLogger("analytics-sink")
 
@@ -71,15 +72,9 @@ GROUP BY tenant_id, decision, hour
 """
 
 # ---------- auth ----------
-_valid_api_keys: frozenset[str] | None = None
-
-
 def _get_api_keys() -> frozenset[str]:
-    global _valid_api_keys
-    if _valid_api_keys is None:
-        raw = settings.api_keys.strip()
-        _valid_api_keys = frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
-    return _valid_api_keys
+    raw = settings.api_keys.strip()
+    return frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
 
 
 async def require_api_key(request: Request) -> None:
@@ -94,8 +89,11 @@ async def require_api_key(request: Request) -> None:
             status_code=503,
             detail="service auth misconfigured: API_KEYS is empty (set API_KEYS or ALLOW_INSECURE_NO_AUTH=true for local development)",
         )
-    if request.headers.get("x-api-key", "") not in keys:
+    header = request.headers.get("x-api-key", "")
+    if header not in keys:
         raise HTTPException(status_code=401, detail="invalid or missing API key")
+    tenant_map = parse_api_key_tenant_map()
+    await enforce_tenant_access(request, allowed_tenants=tenant_map.get(header, set()) if tenant_map else None)
 
 
 def _safe_db_name() -> str:

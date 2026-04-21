@@ -205,6 +205,10 @@ class Settings(BaseSettings):
         default=False,
         description="If true, refuse to start unless API keys, explicit analyst allowlist, and LLM key are set.",
     )
+    copilot_trusted_scope_headers_required: bool = Field(
+        default=False,
+        description="If true, require X-Tenant-Id and X-Analyst-Id headers and override request-body scope with them.",
+    )
     copilot_rate_limit_per_minute: int = Field(
         default=0,
         ge=0,

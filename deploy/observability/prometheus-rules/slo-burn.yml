@@ -94,3 +94,13 @@ groups:
         annotations:
           summary: "Decision API external signal circuit is opening frequently"
           description: "External connector path is degraded; inspect provider outages and timeout budget."
+
+      - alert: TarkaDecisionApiFallbackRateElevated
+        expr: rate(fraud_fallback_total[5m]) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          tier: decision-resilience
+        annotations:
+          summary: "Decision API fallback rate elevated"
+          description: "Fallback decisions are occurring frequently; inspect fallback_reason metrics and dependency health."

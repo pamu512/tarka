@@ -88,9 +88,10 @@ services:
       LOCATION_SERVICE_URL: ${LOCATION_SERVICE_URL:-}
       OPA_URL: ${OPA_URL:-}
       NATS_URL: nats://nats:4222
-      # Dev/smoke: auth_rbac requires API_KEYS, OIDC, or this flag; host env is not injected unless listed here.
-      # scripts/ci/full_stack_smoke.py POSTs /v1/decisions/evaluate without X-API-Key (health is skipped; evaluate is not).
-      ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-true}
+      # Dev/smoke: auth_rbac requires API_KEYS, OIDC, or this flag; keep disabled by default.
+      ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-false}
+      TENANT_BINDING_REQUIRED: ${TENANT_BINDING_REQUIRED:-false}
+      API_KEY_TENANT_MAP: ${API_KEY_TENANT_MAP:-}
     ports:
       - "8000:8000"
     depends_on:
@@ -108,6 +109,8 @@ services:
       NEO4J_URI: bolt://neo4j:7687
       NEO4J_USER: neo4j
       NEO4J_PASSWORD: tarka2026
+      TENANT_BINDING_REQUIRED: ${TENANT_BINDING_REQUIRED:-false}
+      API_KEY_TENANT_MAP: ${API_KEY_TENANT_MAP:-}
     ports:
       - "8001:8001"
     depends_on:
@@ -122,6 +125,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
       GRAPH_SERVICE_URL: http://graph-service:8001
       DECISION_API_URL: http://decision-api:8000
+      TENANT_BINDING_REQUIRED: ${TENANT_BINDING_REQUIRED:-false}
+      API_KEY_TENANT_MAP: ${API_KEY_TENANT_MAP:-}
     ports:
       - "8002:8002"
     depends_on:
@@ -135,6 +140,8 @@ services:
       dockerfile: services/integration-ingress/Dockerfile
     environment:
       DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
+      TENANT_BINDING_REQUIRED: ${TENANT_BINDING_REQUIRED:-false}
+      API_KEY_TENANT_MAP: ${API_KEY_TENANT_MAP:-}
     ports:
       - "8003:8003"
     depends_on:
@@ -174,11 +181,12 @@ services:
       CASE_API_URL: http://case-api:8002
       GRAPH_SERVICE_URL: http://graph-service:8001
       DECISION_API_URL: http://decision-api:8000
-      ALLOWED_ANALYSTS: ${ALLOWED_ANALYSTS:-*}
+      ALLOWED_ANALYSTS: ${ALLOWED_ANALYSTS:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       AI_GOVERNANCE_PROFILE: ${AI_GOVERNANCE_PROFILE:-global}
       BATCH_TTL_SECONDS: ${BATCH_TTL_SECONDS:-7200}
-      COPILOT_INJECTION_POLICY: ${COPILOT_INJECTION_POLICY:-sanitize}
+      COPILOT_INJECTION_POLICY: ${COPILOT_INJECTION_POLICY:-reject}
+      COPILOT_TRUSTED_SCOPE_HEADERS_REQUIRED: ${COPILOT_TRUSTED_SCOPE_HEADERS_REQUIRED:-false}
     ports:
       - "8006:8006"
     depends_on:
@@ -194,6 +202,7 @@ services:
       NATS_URL: nats://nats:4222
       DECISION_API_URL: http://decision-api:8000
       REDIS_URL: redis://redis:6379/0
+      UPSTREAM_API_KEY: ${UPSTREAM_API_KEY:-}
     ports:
       - "8007:8007"
     depends_on:
@@ -209,6 +218,8 @@ services:
     environment:
       CLICKHOUSE_HOST: clickhouse
       NATS_URL: nats://nats:4222
+      TENANT_BINDING_REQUIRED: ${TENANT_BINDING_REQUIRED:-false}
+      API_KEY_TENANT_MAP: ${API_KEY_TENANT_MAP:-}
     ports:
       - "8008:8008"
     depends_on:

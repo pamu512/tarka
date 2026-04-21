@@ -6,6 +6,7 @@ import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import StatusBadge from "../components/StatusBadge";
 import PriorityBadge from "../components/PriorityBadge";
 import { PageTitle } from "../components/PageTitle";
+import { toUserFacingError } from "../utils/userFacingErrors";
 
 export default function Cases() {
   const navigate = useNavigate();
@@ -98,7 +99,7 @@ export default function Cases() {
       }
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load cases");
+      setError(toUserFacingError(e, { subject: "Case queue", action: "load cases" }));
     } finally {
       setLoading(false);
     }
@@ -138,7 +139,7 @@ export default function Cases() {
       setBulkLabel("");
       await fetchCases();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Bulk action failed");
+      setError(toUserFacingError(e, { subject: "Bulk update", action: "update selected cases" }));
     } finally {
       setBulkBusy(false);
     }
@@ -154,7 +155,7 @@ export default function Cases() {
       setSelectedIds(new Set());
       await fetchCases();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Playbook action failed");
+      setError(toUserFacingError(e, { subject: "Playbook apply", action: "run playbook on selected cases" }));
     } finally {
       setBulkBusy(false);
     }
@@ -360,7 +361,7 @@ export default function Cases() {
               setSavedViewSelection(savedName);
               setError(null);
             } catch (e) {
-              setError(e instanceof Error ? e.message : "Could not save view");
+              setError(toUserFacingError(e, { subject: "Saved view", action: "save this filter view" }));
             } finally {
               setSaveViewBusy(false);
             }
@@ -422,7 +423,10 @@ export default function Cases() {
       {/* Table */}
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm">
-          {error}
+          <p>{error}</p>
+          <p className="mt-1 text-[11px] text-red-300/80">
+            Tip: retry the queue fetch. If this persists, use Investigation in demo/mock mode and escalate service health.
+          </p>
         </div>
       )}
 
@@ -629,10 +633,38 @@ function CreateCaseModal({
     e.preventDefault();
     setSubmitting(true);
     try {
-      await cases.create(form);
+      const description = (form.description ?? "").trim();
+      const assignedTeam = (form.assigned_team ?? "").trim();
+      const createPayload = {
+        tenant_id: form.tenant_id,
+        entity_id: form.entity_id,
+        trace_id: form.trace_id,
+        title: form.title,
+        priority: form.priority,
+      };
+      const created = await cases.create(createPayload);
+      const tenant = created.tenant_id || createPayload.tenant_id;
+
+      // Keep "Team" and "Description" inputs truthful even though create API does not natively persist them.
+      const followUps: Array<Promise<unknown>> = [];
+      if (assignedTeam) {
+        followUps.push(
+          cases
+            .update(created.id, tenant, { assigned_team: assignedTeam })
+            .catch(() => null),
+        );
+      }
+      if (description) {
+        followUps.push(
+          cases
+            .addComment(created.id, tenant, "analyst", description)
+            .catch(() => null),
+        );
+      }
+      if (followUps.length > 0) await Promise.all(followUps);
       onCreated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create case");
+      setError(toUserFacingError(err, { subject: "Case creation", action: "create a new case" }));
     } finally {
       setSubmitting(false);
     }

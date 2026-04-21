@@ -17,50 +17,116 @@
 global:
   imageRegistry: ""
   imagePullPolicy: IfNotPresent
+  environment: dev
+  # Optional pre-created secret containing `API_KEYS` and other shared app secrets.
+  # Example: kubectl create secret generic tarka-app-secrets --from-literal=API_KEYS=...
+  appSecretsName: ""
+  externalServices:
+    postgres:
+      enabled: false
+      databaseUrl: ""
+    redis:
+      enabled: false
+      redisUrl: ""
+    neo4j:
+      enabled: false
+      uri: ""
+      user: "neo4j"
+      password: ""
+    nats:
+      enabled: false
+      url: ""
+    clickhouse:
+      enabled: false
+      host: ""
+      port: 8123
+      user: "default"
+      password: ""
+      database: "fraud"
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    frontendHost: ""
+    graphqlHost: ""
+    pathType: Prefix
 
 postgres:
   enabled: true
+  image: postgres:16-alpine
   auth:
     username: fraud
+    # Empty uses chart default "fraud" in templates for local/in-cluster quickstarts.
     password: fraud
     database: fraud
 
 redis:
   enabled: true
+  image: redis:7-alpine
 
 decisionApi:
   enabled: true
   image: tarka-decision-api
   tag: latest
   replicaCount: 2
+  servicePort: 8000
+  allowInsecureNoAuth: false
+  tenantBindingRequired: true
+  apiKeyTenantMap: ""
+  resources: {}
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
 
 graphService:
   enabled: false
   image: tarka-graph-service
   tag: latest
+  replicaCount: 1
+  servicePort: 8001
 
 neo4j:
   enabled: false
+  image: neo4j:5-community
+  auth:
+    user: neo4j
+    password: fraud_neo4j
 
 caseApi:
   enabled: false
   image: tarka-case-api
   tag: latest
+  replicaCount: 1
+  servicePort: 8002
+  tenantBindingRequired: true
+  allowInsecureNoAuth: false
 
 featureService:
   enabled: false
+  # Requires chart Redis, external Redis URL, or global.externalServices.redis when enabled.
   image: tarka-feature-service
   tag: latest
+  replicaCount: 1
+  servicePort: 8004
 
 mlScoring:
   enabled: false
   image: tarka-ml-scoring
   tag: latest
+  replicaCount: 1
+  servicePort: 8005
 
 investigationAgent:
   enabled: false
   image: tarka-investigation-agent
   tag: latest
+  replicaCount: 1
+  servicePort: 8006
   # Regional AI governance: us | eu_uk | global (see docs/docs/guides/ai-governance-regional-builds.md)
   aiGovernanceProfile: global
   # Optional in-memory batch TTL for copilot uploads (seconds); omit to use default
@@ -71,6 +137,10 @@ integrationIngress:
   enabled: false
   image: tarka-integration-ingress
   tag: latest
+  replicaCount: 1
+  servicePort: 8003
+  tenantBindingRequired: true
+  allowInsecureNoAuth: false
 
 nats:
   enabled: true
@@ -87,25 +157,78 @@ eventIngest:
   enabled: true
   image: tarka-event-ingest
   tag: latest
+  replicaCount: 1
   port: 8007
-  apiKeys: "test-key-1"
+  apiKeys: ""
+  upstreamApiKey: ""
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
 
 analyticsSink:
   enabled: true
   image: tarka-analytics-sink
   tag: latest
+  replicaCount: 1
   port: 8008
-  apiKeys: "test-key-1"
+  apiKeys: ""
+  tenantBindingRequired: true
+  apiKeyTenantMap: ""
 
 graphqlGateway:
   enabled: true
   image: tarka-graphql-gateway
   tag: latest
+  replicaCount: 1
   port: 8010
+  decisionApiUrl: ""
+  caseApiUrl: ""
+  graphServiceUrl: ""
 
 frontend:
   enabled: true
   image: tarka-frontend
   tag: latest
+  replicaCount: 1
   port: 80
   serviceType: ClusterIP
+
+collaborationChatBridge:
+  enabled: false
+  image: tarka-collaboration-chat-bridge
+  tag: latest
+  replicaCount: 1
+  port: 8009
+  investigationAgentUrl: ""
+  investigationAgentApiKey: ""
+  defaultTenantId: collab_default
+  defaultCaseId: ""
+  defaultCopilotPersona: investigation
+
+calibrationService:
+  enabled: false
+  image: tarka-calibration-service
+  tag: latest
+  replicaCount: 1
+  port: 8011
+
+counterService:
+  enabled: false
+  image: tarka-counter-service
+  tag: latest
+  replicaCount: 1
+  port: 8012
+
+locationService:
+  enabled: false
+  image: tarka-location-service
+  tag: latest
+  replicaCount: 1
+  port: 8013
+
+opa:
+  enabled: false
+  image: openpolicyagent/opa:0.70.0
+  port: 8181

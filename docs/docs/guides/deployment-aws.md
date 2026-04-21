@@ -2,7 +2,7 @@
 
 This guide maps the **reference** deployment artifacts in this repo ([Docker Compose](../../../deploy/docker-compose.yml), [Helm chart](../../../deploy/helm/fraud-stack/)) to a typical **Amazon Web Services** production layout. It is **not** a one-click Terraform module; it describes what to provision, how services fit together, and where to inject secrets and URLs.
 
-**See also:** [Deployment Guide](./deployment.md) (Compose profiles, Helm install, env reference), [Service ports](./service-ports.md), [Enterprise readiness](./enterprise-readiness.md).
+**See also:** [Deployment Guide](./deployment.md) (Compose profiles, Helm install, env reference), [Service ports](./service-ports.md), [Cloud presets and generated values](./deployment-presets.md), [Enterprise readiness](./enterprise-readiness.md).
 
 ---
 
@@ -49,6 +49,19 @@ docker push <account>.dkr.ecr.<region>.amazonaws.com/tarka/decision-api:<tag>
 ```
 
 Repeat for each enabled service (`graph-service`, `case-api`, `investigation-agent`, etc.). Point Helm `global.imageRegistry` / per-service `image` and `tag` at your ECR paths.
+
+### Guided preset bootstrap
+
+Use the preset generator for a quick starting values file:
+
+```bash
+python3 scripts/deploy/generate_cloud_values.py \
+  --preset core-on-aws \
+  --image-registry <account>.dkr.ecr.<region>.amazonaws.com/tarka \
+  --db-url postgresql+asyncpg://fraud:***@<rds-host>:5432/fraud \
+  --redis-url redis://<elasticache-host>:6379/0 \
+  --output deploy/generated/core-on-aws.values.yaml
+```
 
 ---
 

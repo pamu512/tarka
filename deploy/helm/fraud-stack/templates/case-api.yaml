@@ -4,7 +4,7 @@ kind: Deployment
 metadata:
   name: {{ include "tarka.fullname" . }}-case-api
 spec:
-  replicas: 1
+  replicas: {{ .Values.caseApi.replicaCount }}
   selector:
     matchLabels:
       app: {{ include "tarka.fullname" . }}-case-api
@@ -15,13 +15,17 @@ spec:
     spec:
       containers:
         - name: case-api
-          image: "{{ .Values.caseApi.image }}:{{ .Values.caseApi.tag }}"
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.caseApi.image "tag" .Values.caseApi.tag) | quote }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
-            - containerPort: 8002
+            - containerPort: {{ .Values.caseApi.servicePort }}
           env:
             - name: DATABASE_URL
-              value: "postgresql+asyncpg://{{ .Values.postgres.auth.username }}:{{ .Values.postgres.auth.password }}@{{ include "tarka.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}"
+              {{- if .Values.global.externalServices.postgres.enabled }}
+              value: {{ .Values.global.externalServices.postgres.databaseUrl | quote }}
+              {{- else }}
+              value: "postgresql+asyncpg://{{ .Values.postgres.auth.username }}:{{ .Values.postgres.auth.password | default "fraud" }}@{{ include "tarka.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}"
+              {{- end }}
             {{- if .Values.graphService.enabled }}
             - name: GRAPH_SERVICE_URL
               value: "http://{{ include "tarka.fullname" . }}-graph-service:8001"
@@ -29,6 +33,30 @@ spec:
             {{- if .Values.decisionApi.enabled }}
             - name: DECISION_API_URL
               value: "http://{{ include "tarka.fullname" . }}-decision-api:8000"
+            {{- end }}
+            - name: TENANT_BINDING_REQUIRED
+              value: {{ ternary "true" "false" .Values.caseApi.tenantBindingRequired | quote }}
+            - name: ALLOW_INSECURE_NO_AUTH
+              value: {{ ternary "true" "false" .Values.caseApi.allowInsecureNoAuth | quote }}
+            {{- if .Values.global.appSecretsName }}
+            - name: API_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: API_KEYS
+                  optional: true
+            - name: API_KEY_TENANT_MAP
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: API_KEY_TENANT_MAP
+                  optional: true
+            - name: EVIDENCE_SIGNING_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: EVIDENCE_SIGNING_SECRET
+                  optional: true
             {{- end }}
 ---
 apiVersion: v1
@@ -39,6 +67,6 @@ spec:
   selector:
     app: {{ include "tarka.fullname" . }}-case-api
   ports:
-    - port: 8002
-      targetPort: 8002
+    - port: {{ .Values.caseApi.servicePort }}
+      targetPort: {{ .Values.caseApi.servicePort }}
 {{- end }}

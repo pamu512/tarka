@@ -25,6 +25,7 @@ from typing import Any
 import httpx
 from fastapi import FastAPI, HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
+from tenant_binding import enforce_tenant_access, parse_api_key_tenant_map, tenant_binding_required, tenants_from_claims
 
 log = logging.getLogger("auth-rbac")
 
@@ -97,11 +98,19 @@ async def _verify_jwt(token: str) -> dict[str, Any]:
 class AuthUser:
     """Represents an authenticated user or service."""
 
-    def __init__(self, user_id: str, roles: list[str], auth_type: str, claims: dict[str, Any] | None = None):
+    def __init__(
+        self,
+        user_id: str,
+        roles: list[str],
+        auth_type: str,
+        claims: dict[str, Any] | None = None,
+        tenant_ids: set[str] | None = None,
+    ):
         self.user_id = user_id
         self.roles = roles
         self.auth_type = auth_type
         self.claims = claims or {}
+        self.tenant_ids = tenant_ids if tenant_ids is not None else set()
 
     @property
     def best_role(self) -> str:
@@ -113,12 +122,18 @@ class AuthUser:
         required_level = ROLE_HIERARCHY.get(required, 0)
         return any(ROLE_HIERARCHY.get(r, 0) >= required_level for r in self.roles)
 
+    def allows_tenant(self, tenant_id: str) -> bool:
+        if not self.tenant_ids:
+            return False
+        return "*" in self.tenant_ids or tenant_id in self.tenant_ids
+
 
 async def _authenticate(request: Request) -> AuthUser:
     """Extract and validate credentials from request."""
     api_key = request.headers.get("x-api-key", "")
     api_keys_raw = os.environ.get("API_KEYS", "").strip()
     valid_keys = frozenset(k.strip() for k in api_keys_raw.split(",") if k.strip()) if api_keys_raw else frozenset()
+    key_tenant_map = parse_api_key_tenant_map()
 
     allow_insecure = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
 
@@ -128,7 +143,8 @@ async def _authenticate(request: Request) -> AuthUser:
             if role not in ROLE_HIERARCHY:
                 role = "admin"
             roles = sorted(set(["service", role]))
-            return AuthUser(user_id="service", roles=roles, auth_type="api_key")
+            tenant_ids = key_tenant_map.get(api_key, set()) if key_tenant_map else {"*"}
+            return AuthUser(user_id="service", roles=roles, auth_type="api_key", tenant_ids=tenant_ids)
         if valid_keys:
             raise HTTPException(401, "invalid API key")
 
@@ -140,11 +156,12 @@ async def _authenticate(request: Request) -> AuthUser:
         roles = claims.get(OIDC_ROLES_CLAIM, ["viewer"])
         if isinstance(roles, str):
             roles = [roles]
-        return AuthUser(user_id=user_id, roles=roles, auth_type="jwt", claims=claims)
+        tenant_ids = tenants_from_claims(claims)
+        return AuthUser(user_id=user_id, roles=roles, auth_type="jwt", claims=claims, tenant_ids=tenant_ids)
 
     if not valid_keys and not OIDC_ISSUER:
         if allow_insecure:
-            return AuthUser(user_id="anonymous", roles=["viewer"], auth_type="none")
+            return AuthUser(user_id="anonymous", roles=["viewer"], auth_type="none", tenant_ids={"*"})
         raise HTTPException(
             503,
             "authentication misconfigured: set API_KEYS or OIDC_ISSUER (or ALLOW_INSECURE_NO_AUTH=true for local development)",
@@ -160,10 +177,13 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         if request.url.path in self.SKIP_PATHS:
-            request.state.auth_user = AuthUser("system", ["viewer"], "bypass")
+            request.state.auth_user = AuthUser("system", ["viewer"], "bypass", tenant_ids={"*"})
             return await call_next(request)
         try:
-            request.state.auth_user = await _authenticate(request)
+            user = await _authenticate(request)
+            request.state.auth_user = user
+            if tenant_binding_required():
+                await enforce_tenant_access(request, allowed_tenants=user.tenant_ids)
         except HTTPException:
             raise
         except Exception as e:
@@ -186,7 +206,7 @@ def require_role(role: str):
 
 
 def get_current_user(request: Request) -> AuthUser:
-    return getattr(request.state, "auth_user", AuthUser("anonymous", ["viewer"], "none"))
+    return getattr(request.state, "auth_user", AuthUser("anonymous", ["viewer"], "none", tenant_ids=set()))
 
 
 def setup_auth(app: FastAPI) -> None:

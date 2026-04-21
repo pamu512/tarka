@@ -68,6 +68,14 @@ class Settings(BaseSettings):
         le=100_000,
         description="Per-key POST rate limit (Slack team_id, Teams/Lark client IP); 0 disables.",
     )
+    bridge_trusted_scope_headers_required: bool = Field(
+        default=False,
+        description="If true, Teams requests must include X-Tenant-Id and X-Analyst-Id; body values are ignored.",
+    )
+    teams_allowed_tenant_ids: str = Field(
+        default="",
+        description="Optional comma-separated allowlist for resolved Teams tenant_id values.",
+    )
     bridge_web_fetch_enabled: bool = Field(
         default=True,
         description="If true, first https URL in last user message triggers SSRF-hardened fetch prepended to prompt.",

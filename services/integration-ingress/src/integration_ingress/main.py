@@ -35,20 +35,11 @@ from integration_ingress.vault import InMemoryVault
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from audit_trail import AuditTrail, create_audit_model  # noqa: E402
-from auth import require_api_key as shared_require_api_key  # noqa: E402
 from auth_rbac import get_current_user, require_role, setup_auth  # noqa: E402
 from observability import get_metrics, setup_observability  # noqa: E402
 from privacy import get_profile  # noqa: E402
 
 logger = logging.getLogger(__name__)
-
-# ---------- auth ----------
-
-
-async def require_api_key(request: Request) -> None:
-    # Use shared fail-closed auth helper to avoid service-local drift.
-    await shared_require_api_key(request)
-
 
 _osint_cfg = OsintConfig(
     abuseipdb_key=settings.abuseipdb_key,
@@ -265,7 +256,6 @@ app = FastAPI(
     title="Tarka Integration Ingress",
     version="3.0.0",
     lifespan=lifespan,
-    dependencies=[Depends(require_api_key)],
 )
 setup_observability(app, "integration-ingress")
 setup_auth(app)

@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from case_api.builtin_playbooks import PLAYBOOKS
@@ -44,6 +45,7 @@ from audit_trail import AuditTrail, create_audit_model  # noqa: E402
 from auth_rbac import get_current_user, require_role, setup_auth  # noqa: E402
 from observability import get_metrics, setup_observability  # noqa: E402
 from rate_limiter import setup_rate_limiter  # noqa: E402
+from tenant_binding import parse_api_key_tenant_map  # noqa: E402
 from webhook_sender import WebhookSender  # noqa: E402
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -52,9 +54,10 @@ AuditRecord = create_audit_model(Base)
 _trail = AuditTrail(AuditRecord)
 
 # ---------- websocket connections for live feed ----------
-_ws_clients: set[WebSocket] = set()
+_ws_clients: dict[WebSocket, str] = {}
 _PRIORITY_WEIGHT = {"critical": 100, "high": 70, "medium": 40, "low": 15}
 _STATUS_WEIGHT = {"open": 25, "investigating": 20, "resolved": -10, "closed": -30}
+_DEV_EVIDENCE_SIGNING_SECRET = "tarka-evidence-dev-secret"
 
 
 def _canonical_json(value: Any) -> str:
@@ -73,12 +76,12 @@ def _hash_chain(records: list[dict[str, Any]]) -> str:
 
 
 def _bundle_signature(payload: dict[str, Any]) -> str:
-    key = (settings.evidence_signing_secret or "tarka-evidence-dev-secret").encode("utf-8")
+    key = (settings.evidence_signing_secret or _DEV_EVIDENCE_SIGNING_SECRET).encode("utf-8")
     return hmac.new(key, _canonical_json(payload).encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def _signing_key_id() -> str:
-    key = settings.evidence_signing_secret or "tarka-evidence-dev-secret"
+    key = settings.evidence_signing_secret or _DEV_EVIDENCE_SIGNING_SECRET
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
 
 
@@ -138,22 +141,36 @@ class EvidenceVerifyRequest(BaseModel):
     bundle: dict[str, Any]
 
 
+def _get_api_keys() -> frozenset[str]:
+    raw = (os.environ.get("API_KEYS") or "").strip()
+    return frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
+
+
 async def _broadcast(event: dict):
     import json
 
     data = json.dumps(event, default=str)
+    tenant_id = str(event.get("tenant_id") or "").strip()
+    if not tenant_id and isinstance(event.get("case"), dict):
+        tenant_id = str(event["case"].get("tenant_id") or "").strip()
     dead: list[WebSocket] = []
-    for ws in _ws_clients:
+    for ws, subscribed_tenant in _ws_clients.items():
+        if tenant_id and subscribed_tenant not in {tenant_id, "*"}:
+            continue
         try:
             await ws.send_text(data)
         except Exception:
             dead.append(ws)
     for ws in dead:
-        _ws_clients.discard(ws)
+        _ws_clients.pop(ws, None)
 
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    if settings.case_api_production_mode and (settings.evidence_signing_secret or "").strip() in {"", _DEV_EVIDENCE_SIGNING_SECRET}:
+        raise RuntimeError(
+            "case-api: EVIDENCE_SIGNING_SECRET must be explicitly set when CASE_API_PRODUCTION_MODE=true",
+        )
     await init_db()
     application.state.http = httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=3.0))
     application.state.webhook = WebhookSender(max_retries=5, http=application.state.http)
@@ -224,8 +241,11 @@ async def list_cases(
     else:
         q = q.order_by(Case.updated_at.desc())
     q = q.limit(limit)
-    result = await session.execute(q)
-    rows = result.scalars().all()
+    try:
+        result = await session.execute(q)
+        rows = result.scalars().all()
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=503, detail="case_store_unavailable") from exc
     items = [CaseOut.model_validate(r).model_dump() for r in rows]
     if sort_by == "queue":
         enriched: list[dict[str, Any]] = []
@@ -248,90 +268,97 @@ async def create_case(
 ):
     user = get_current_user(request)
     trail_key, apply_cfg, tmpl_uuid = None, {}, None
-    if body.playbook_id and str(body.playbook_id).strip():
-        trail_key, apply_cfg, tmpl_uuid = await resolve_playbook_or_template(
-            session,
-            body.tenant_id,
-            body.playbook_id,
-        )
+    try:
+        if body.playbook_id and str(body.playbook_id).strip():
+            trail_key, apply_cfg, tmpl_uuid = await resolve_playbook_or_template(
+                session,
+                body.tenant_id,
+                body.playbook_id,
+            )
 
-    c = Case(
-        tenant_id=body.tenant_id,
-        title=body.title,
-        entity_id=body.entity_id,
-        trace_id=body.trace_id,
-        priority=body.priority,
-        status="open",
-        labels=[],
-    )
-    session.add(c)
-    await session.commit()
-    await session.refresh(c)
-
-    await _trail.record(
-        session,
-        actor=user.user_id,
-        action="create_case",
-        resource_type="case",
-        resource_id=str(c.id),
-        changes={"status": {"old": None, "new": "open"}, "priority": {"old": None, "new": body.priority}},
-        tenant_id=body.tenant_id,
-    )
-    await session.commit()
-
-    if body.playbook_id and str(body.playbook_id).strip():
-        await apply_investigation_template_transaction(
-            trail=_trail,
-            session=session,
-            case=c,
-            apply_config=apply_cfg,
-            trail_key=trail_key or "",
-            actor=user.user_id,
-            trail_action="apply_playbook_on_create",
+        c = Case(
             tenant_id=body.tenant_id,
-            template_uuid=tmpl_uuid,
+            title=body.title,
+            entity_id=body.entity_id,
+            trace_id=body.trace_id,
+            priority=body.priority,
+            status="open",
+            labels=[],
         )
-        await session.refresh(c)
-
-    case_dict = CaseOut.model_validate(c).model_dump(mode="json")
-    http = request.app.state.http
-    ctx = await evaluate_workflows("case_created", case_dict, http=http)
-    if ctx.mutations:
-        old_state = CaseOut.model_validate(c).model_dump(mode="json")
-        if "priority" in ctx.mutations:
-            c.priority = ctx.mutations["priority"]
-        if "status" in ctx.mutations:
-            c.status = ctx.mutations["status"]
-        if "labels" in ctx.mutations:
-            c.labels = ctx.mutations["labels"]
-        if "assigned_team" in ctx.mutations:
-            c.assigned_team = ctx.mutations["assigned_team"]
-        for comment in ctx.mutations.get("_comments", []):
-            session.add(CaseComment(case_id=c.id, author=comment["author"], body=comment["body"]))
+        session.add(c)
         await session.commit()
         await session.refresh(c)
 
-        new_state = CaseOut.model_validate(c).model_dump(mode="json")
-        diff = _trail.diff(old_state, new_state)
-        if diff:
-            await _trail.record(
-                session,
-                actor="workflow-engine",
-                action="workflow_mutation",
-                resource_type="case",
-                resource_id=str(c.id),
-                changes=diff,
-                tenant_id=body.tenant_id,
-            )
-            await session.commit()
+        await _trail.record(
+            session,
+            actor=user.user_id,
+            action="create_case",
+            resource_type="case",
+            resource_id=str(c.id),
+            changes={"status": {"old": None, "new": "open"}, "priority": {"old": None, "new": body.priority}},
+            tenant_id=body.tenant_id,
+        )
+        await session.commit()
 
-    await _broadcast({"event": "case_created", "case": CaseOut.model_validate(c).model_dump(mode="json")})
-    return CaseOut.model_validate(c)
+        if body.playbook_id and str(body.playbook_id).strip():
+            await apply_investigation_template_transaction(
+                trail=_trail,
+                session=session,
+                case=c,
+                apply_config=apply_cfg,
+                trail_key=trail_key or "",
+                actor=user.user_id,
+                trail_action="apply_playbook_on_create",
+                tenant_id=body.tenant_id,
+                template_uuid=tmpl_uuid,
+            )
+            await session.refresh(c)
+
+        case_dict = CaseOut.model_validate(c).model_dump(mode="json")
+        http = request.app.state.http
+        ctx = await evaluate_workflows("case_created", case_dict, http=http)
+        if ctx.mutations:
+            old_state = CaseOut.model_validate(c).model_dump(mode="json")
+            if "priority" in ctx.mutations:
+                c.priority = ctx.mutations["priority"]
+            if "status" in ctx.mutations:
+                c.status = ctx.mutations["status"]
+            if "labels" in ctx.mutations:
+                c.labels = ctx.mutations["labels"]
+            if "assigned_team" in ctx.mutations:
+                c.assigned_team = ctx.mutations["assigned_team"]
+            for comment in ctx.mutations.get("_comments", []):
+                session.add(CaseComment(case_id=c.id, author=comment["author"], body=comment["body"]))
+            await session.commit()
+            await session.refresh(c)
+
+            new_state = CaseOut.model_validate(c).model_dump(mode="json")
+            diff = _trail.diff(old_state, new_state)
+            if diff:
+                await _trail.record(
+                    session,
+                    actor="workflow-engine",
+                    action="workflow_mutation",
+                    resource_type="case",
+                    resource_id=str(c.id),
+                    changes=diff,
+                    tenant_id=body.tenant_id,
+                )
+                await session.commit()
+
+        await _broadcast({"event": "case_created", "case": CaseOut.model_validate(c).model_dump(mode="json")})
+        return CaseOut.model_validate(c)
+    except SQLAlchemyError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=503, detail="case_store_unavailable") from exc
 
 
 async def _case_for_tenant(session: AsyncSession, case_id: uuid.UUID, tenant_id: str) -> Case:
-    result = await session.execute(select(Case).where(Case.id == case_id, Case.tenant_id == tenant_id))
-    row = result.scalar_one_or_none()
+    try:
+        result = await session.execute(select(Case).where(Case.id == case_id, Case.tenant_id == tenant_id))
+        row = result.scalar_one_or_none()
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=503, detail="case_store_unavailable") from exc
     if not row:
         raise HTTPException(404, "not found")
     return row
@@ -833,9 +860,18 @@ async def case_graph(
     case = await _case_for_tenant(session, case_id, tenant_id)
     base = settings.graph_service_url.rstrip("/")
     http: httpx.AsyncClient = request.app.state.http
-    r = await http.get(f"{base}/v1/subgraph", params={"entity_id": case.entity_id, "tenant_id": case.tenant_id, "depth": depth})
-    r.raise_for_status()
-    return r.json()
+    try:
+        r = await http.get(
+            f"{base}/v1/subgraph",
+            params={"entity_id": case.entity_id, "tenant_id": case.tenant_id, "depth": depth},
+            timeout=8.0,
+        )
+        r.raise_for_status()
+        return r.json()
+    except httpx.HTTPStatusError as exc:
+        return {"nodes": [], "edges": [], "message": f"graph_service_http_{exc.response.status_code}"}
+    except Exception:
+        return {"nodes": [], "edges": [], "message": "graph_service_unreachable"}
 
 
 @app.get("/v1/cases/{case_id}/decision-explanation")
@@ -1203,13 +1239,34 @@ async def retry_webhook(webhook_id: str, request: Request, _admin=Depends(requir
 
 @app.websocket("/v1/cases/ws")
 async def ws_feed(ws: WebSocket):
+    tenant_id = (ws.query_params.get("tenant_id") or "").strip()
+    if not tenant_id:
+        await ws.close(code=4400, reason="tenant_id query parameter is required")
+        return
+    keys = _get_api_keys()
+    if keys:
+        key = (ws.headers.get("x-api-key") or "").strip()
+        if key not in keys:
+            await ws.close(code=4401, reason="invalid or missing API key")
+            return
+        tenant_map = parse_api_key_tenant_map()
+        if tenant_map:
+            allowed = tenant_map.get(key, set())
+            if "*" not in allowed and tenant_id not in allowed:
+                await ws.close(code=4403, reason="tenant out of scope")
+                return
+    else:
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+        if not allow:
+            await ws.close(code=4401, reason="authentication required")
+            return
     await ws.accept()
-    _ws_clients.add(ws)
+    _ws_clients[ws] = tenant_id
     try:
         while True:
             await ws.receive_text()
     except WebSocketDisconnect:
-        _ws_clients.discard(ws)
+        _ws_clients.pop(ws, None)
 
 
 # ---------- static UI ----------

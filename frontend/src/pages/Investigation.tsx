@@ -14,6 +14,7 @@ import {
   type InvestigationSourceRefCard,
 } from "../api/client";
 import { buildPlatformAuditForCopilot, type CopilotContextFlags } from "../utils/copilotContext";
+import { toUserFacingError } from "../utils/userFacingErrors";
 import {
   buildRepeatSkillSuggestionPrompt,
   buildSkillCommandHelp,
@@ -246,7 +247,7 @@ export default function Investigation() {
       })
       .catch((e: unknown) => {
         if (cancelled) return;
-        setCaseContextError(e instanceof Error ? e.message : "Failed to load case context");
+        setCaseContextError(toUserFacingError(e, { subject: "Case context", action: "load graph and decision context" }));
       })
       .finally(() => {
         if (!cancelled) setCaseContextLoading(false);
@@ -255,6 +256,16 @@ export default function Investigation() {
       cancelled = true;
     };
   }, [contextCaseId, contextTenantId]);
+
+  const caseContextHealth = (() => {
+    if (!contextCaseId) return null;
+    if (caseContextLoading) return { label: "loading", tone: "text-gray-600" };
+    if (caseContextError) return { label: "ungrounded", tone: "text-rose-400" };
+    const graphReady = (caseGraph?.nodes?.length ?? 0) > 0 || Boolean(caseGraph?.message);
+    const explanationReady = caseDecisionExplanation?.source === "decision_audit";
+    if (graphReady && explanationReady) return { label: "grounded", tone: "text-emerald-400" };
+    return { label: "degraded", tone: "text-amber-300" };
+  })();
 
   const handleNewSession = () => {
     setMessages([]);
@@ -766,10 +777,18 @@ export default function Investigation() {
               <span>Case context</span>
               <span className="font-mono text-[10px] text-gray-600">{contextCaseId}</span>
               {caseContextLoading ? <span className="text-gray-600">loading…</span> : null}
+              {caseContextHealth ? (
+                <span className={`font-mono text-[10px] uppercase ${caseContextHealth.tone}`}>{caseContextHealth.label}</span>
+              ) : null}
             </summary>
             <div className="px-3 pb-3 pt-1 border-t border-surface-800/80 space-y-2">
               {caseContextError ? (
-                <p className="text-[11px] text-rose-400">{caseContextError}</p>
+                <div className="rounded-md border border-rose-500/35 bg-rose-500/10 px-2.5 py-1.5 space-y-1">
+                  <p className="text-[11px] text-rose-300">{caseContextError}</p>
+                  <p className="text-[10px] text-rose-300/80">
+                    Copilot can still respond, but case-grounded recommendations are degraded until context recovers.
+                  </p>
+                </div>
               ) : (
                 <>
                   <div className="grid gap-2 sm:grid-cols-2 text-[11px]">

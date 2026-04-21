@@ -4,7 +4,7 @@ kind: Deployment
 metadata:
   name: {{ include "tarka.fullname" . }}-feature-service
 spec:
-  replicas: 1
+  replicas: {{ .Values.featureService.replicaCount }}
   selector:
     matchLabels:
       app: {{ include "tarka.fullname" . }}-feature-service
@@ -15,10 +15,25 @@ spec:
     spec:
       containers:
         - name: feature-service
-          image: "{{ .Values.featureService.image }}:{{ .Values.featureService.tag }}"
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.featureService.image "tag" .Values.featureService.tag) | quote }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
-            - containerPort: 8004
+            - containerPort: {{ .Values.featureService.servicePort }}
+          env:
+            {{- if or .Values.redis.enabled .Values.global.externalServices.redis.enabled }}
+            - name: REDIS_URL
+              {{- if .Values.global.externalServices.redis.enabled }}
+              value: {{ .Values.global.externalServices.redis.redisUrl | quote }}
+              {{- else }}
+              value: "redis://{{ include "tarka.fullname" . }}-redis:6379/0"
+              {{- end }}
+            - name: FEATURE_SERVICE_REDIS_URL
+              {{- if .Values.global.externalServices.redis.enabled }}
+              value: {{ .Values.global.externalServices.redis.redisUrl | quote }}
+              {{- else }}
+              value: "redis://{{ include "tarka.fullname" . }}-redis:6379/0"
+              {{- end }}
+            {{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -28,6 +43,6 @@ spec:
   selector:
     app: {{ include "tarka.fullname" . }}-feature-service
   ports:
-    - port: 8004
-      targetPort: 8004
+    - port: {{ .Values.featureService.servicePort }}
+      targetPort: {{ .Values.featureService.servicePort }}
 {{- end }}

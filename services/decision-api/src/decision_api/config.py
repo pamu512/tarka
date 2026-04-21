@@ -56,6 +56,12 @@ class Settings(BaseSettings):
     decision_log_path: str = os.environ.get("DECISION_LOG_PATH", "./data/decision_logs/decision-log.jsonl")
     decision_log_warehouse_url: str = os.environ.get("DECISION_LOG_WAREHOUSE_URL", "")
     decision_log_warehouse_api_key: str = os.environ.get("DECISION_LOG_WAREHOUSE_API_KEY", "")
+    decision_log_include_payload_snapshot: bool = os.environ.get("DECISION_LOG_INCLUDE_PAYLOAD_SNAPSHOT", "false").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
 
     # Optional: enables POST /v1/internal/counters/replay (scratch Redis replay for parity ops)
     counter_replay_token: str = os.environ.get("COUNTER_REPLAY_TOKEN", "")

@@ -4,7 +4,7 @@ kind: Deployment
 metadata:
   name: {{ include "tarka.fullname" . }}-event-ingest
 spec:
-  replicas: 1
+  replicas: {{ .Values.eventIngest.replicaCount }}
   selector:
     matchLabels:
       app: {{ include "tarka.fullname" . }}-event-ingest
@@ -15,21 +15,40 @@ spec:
     spec:
       containers:
         - name: event-ingest
-          image: "{{ .Values.eventIngest.image }}:{{ .Values.eventIngest.tag }}"
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.eventIngest.image "tag" .Values.eventIngest.tag) | quote }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.eventIngest.port }}
           env:
             - name: NATS_URL
+              {{- if .Values.global.externalServices.nats.enabled }}
+              value: {{ .Values.global.externalServices.nats.url | quote }}
+              {{- else }}
               value: "nats://{{ include "tarka.fullname" . }}-nats:4222"
+              {{- end }}
             - name: DECISION_API_URL
               value: "http://{{ include "tarka.fullname" . }}-decision-api:8000"
-            {{- if .Values.redis.enabled }}
+            {{- if or .Values.redis.enabled .Values.global.externalServices.redis.enabled }}
             - name: REDIS_URL
+              {{- if .Values.global.externalServices.redis.enabled }}
+              value: {{ .Values.global.externalServices.redis.redisUrl | quote }}
+              {{- else }}
               value: "redis://{{ include "tarka.fullname" . }}-redis:6379/0"
+              {{- end }}
             {{- end }}
+            - name: UPSTREAM_API_KEY
+              value: {{ .Values.eventIngest.upstreamApiKey | default "" | quote }}
+            {{- if .Values.global.appSecretsName }}
             - name: API_KEYS
-              value: {{ .Values.eventIngest.apiKeys | default "test-key-1" | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: API_KEYS
+                  optional: true
+            {{- else }}
+            - name: API_KEYS
+              value: {{ .Values.eventIngest.apiKeys | default "" | quote }}
+            {{- end }}
           readinessProbe:
             httpGet:
               path: /v1/health

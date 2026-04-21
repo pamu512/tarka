@@ -15,14 +15,23 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:16-alpine
+          image: {{ .Values.postgres.image | quote }}
           ports:
             - containerPort: 5432
           env:
             - name: POSTGRES_USER
               value: {{ .Values.postgres.auth.username | quote }}
+            {{- if .Values.global.appSecretsName }}
             - name: POSTGRES_PASSWORD
-              value: {{ .Values.postgres.auth.password | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: POSTGRES_PASSWORD
+                  optional: true
+            {{- else }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgres.auth.password | default "fraud" | quote }}
+            {{- end }}
             - name: POSTGRES_DB
               value: {{ .Values.postgres.auth.database | quote }}
           volumeMounts:

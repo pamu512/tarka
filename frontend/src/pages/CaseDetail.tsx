@@ -21,6 +21,7 @@ import PriorityBadge from "../components/PriorityBadge";
 import { PageTitle } from "../components/PageTitle";
 import { FraudScoreTrack } from "../components/FraudScoreTrack";
 import { InferenceMetricTrack } from "../components/InferenceMetricTrack";
+import { toUserFacingError } from "../utils/userFacingErrors";
 import { Network, type Options } from "vis-network";
 import { DataSet } from "vis-data";
 
@@ -100,7 +101,7 @@ export default function CaseDetail() {
       setCaseData(data);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load case");
+      setError(toUserFacingError(e, { subject: "Case detail", action: "load this case" }));
     } finally {
       setLoading(false);
     }
@@ -165,7 +166,7 @@ export default function CaseDetail() {
       const updated = await cases.update(caseId, caseData.tenant_id, { status: newStatus as Case["status"] });
       setCaseData(updated);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to update status");
+      setError(toUserFacingError(e, { subject: "Case status", action: "update case status" }));
     } finally {
       setStatusUpdating(false);
     }
@@ -177,7 +178,7 @@ export default function CaseDetail() {
       const updated = await cases.update(caseId, caseData.tenant_id, { priority: newPriority as Case["priority"] });
       setCaseData(updated);
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Could not update priority", "error");
+      toast(toUserFacingError(e, { subject: "Case priority", action: "update case priority" }), "error");
     }
   };
 
@@ -190,7 +191,7 @@ export default function CaseDetail() {
       await fetchCase();
       setCommentText("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add comment");
+      setError(toUserFacingError(err, { subject: "Case comment", action: "add a case comment" }));
     } finally {
       setCommentSubmitting(false);
     }
@@ -210,7 +211,7 @@ export default function CaseDetail() {
       URL.revokeObjectURL(url);
       toast("Evidence bundle downloaded", "success");
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Bundle download failed", "error");
+      toast(toUserFacingError(e, { subject: "Evidence bundle", action: "download evidence bundle" }), "error");
     } finally {
       setBundleBusy(false);
     }
@@ -223,7 +224,7 @@ export default function CaseDetail() {
       await fetchCase();
       setLabelInput("");
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Could not add label", "error");
+      toast(toUserFacingError(e, { subject: "Case label", action: "add a case label" }), "error");
     }
   };
 
@@ -901,7 +902,7 @@ function GraphTab({
         const data = await graph.subgraph(entityId, tenantId, 2);
         setGraphData(data);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Graph load failed");
+        setError(toUserFacingError(e, { subject: "Case graph", action: "load related entity graph" }));
       } finally {
         setLoading(false);
       }

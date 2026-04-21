@@ -4,7 +4,7 @@ kind: Deployment
 metadata:
   name: {{ include "tarka.fullname" . }}-graphql-gateway
 spec:
-  replicas: 1
+  replicas: {{ .Values.graphqlGateway.replicaCount }}
   selector:
     matchLabels:
       app: {{ include "tarka.fullname" . }}-graphql-gateway
@@ -15,17 +15,21 @@ spec:
     spec:
       containers:
         - name: graphql-gateway
-          image: "{{ .Values.graphqlGateway.image }}:{{ .Values.graphqlGateway.tag }}"
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.graphqlGateway.image "tag" .Values.graphqlGateway.tag) | quote }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.graphqlGateway.port }}
           env:
             - name: DECISION_API_URL
-              value: "http://{{ include "tarka.fullname" . }}-decision-api:8000"
+              value: {{ .Values.graphqlGateway.decisionApiUrl | default (printf "http://%s-decision-api:8000" (include "tarka.fullname" .)) | quote }}
             - name: CASE_API_URL
-              value: "http://{{ include "tarka.fullname" . }}-case-api:8002"
+              value: {{ .Values.graphqlGateway.caseApiUrl | default (printf "http://%s-case-api:8002" (include "tarka.fullname" .)) | quote }}
             - name: GRAPH_SERVICE_URL
-              value: "http://{{ include "tarka.fullname" . }}-graph-service:8001"
+              {{- if or .Values.graphService.enabled .Values.graphqlGateway.graphServiceUrl }}
+              value: {{ .Values.graphqlGateway.graphServiceUrl | default (printf "http://%s-graph-service:8001" (include "tarka.fullname" .)) | quote }}
+              {{- else }}
+              value: ""
+              {{- end }}
           readinessProbe:
             tcpSocket:
               port: {{ .Values.graphqlGateway.port }}

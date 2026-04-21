@@ -8,12 +8,8 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture(autouse=True)
 def _reset_auth_cache():
-    # Reset module-level cache between tests.
-    import auth as auth_mod
-
-    auth_mod._valid_keys = None
+    # auth.py reads API_KEYS per request; keep fixture for compatibility with old tests.
     yield
-    auth_mod._valid_keys = None
 
 
 def _build_app() -> FastAPI:
