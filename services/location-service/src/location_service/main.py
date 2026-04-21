@@ -3,6 +3,7 @@ import math
 import os
 import sys
 from datetime import datetime, timezone
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -138,7 +139,21 @@ setup_observability(app, "location-service")
 
 
 def _trusted_key(tenant_id: str, entity_id: str) -> str:
+    salt = (os.environ.get("LOCATION_SERVICE_TRUSTED_PLACES_SALT") or "local-dev-only").strip()
+    raw = f"{tenant_id}:{entity_id}".encode("utf-8")
+    digest = sha256(salt.encode("utf-8") + b":" + raw).hexdigest()
+    return f"v2:{digest}"
+
+
+def _trusted_key_legacy(tenant_id: str, entity_id: str) -> str:
     return f"{tenant_id}:{entity_id}"
+
+
+def _trusted_places_for_entity(data: dict[str, list[dict[str, Any]]], tenant_id: str, entity_id: str) -> list[dict[str, Any]]:
+    key = _trusted_key(tenant_id, entity_id)
+    if key in data:
+        return data.get(key, [])
+    return data.get(_trusted_key_legacy(tenant_id, entity_id), [])
 
 
 def _resolve_location(req: LocationResolveRequest) -> tuple[GeoPoint, float, list[str], list[str], float | None]:
@@ -253,7 +268,7 @@ async def evaluate(req: LocationEvaluateRequest):
 
     trusted = req.trusted_places
     if not trusted:
-        trusted = _load_trusted_places().get(_trusted_key(req.tenant_id, req.entity_id), [])
+        trusted = _trusted_places_for_entity(_load_trusted_places(), req.tenant_id, req.entity_id)
 
     trusted_hit = False
     if trusted and req.current:
@@ -291,6 +306,7 @@ async def evaluate(req: LocationEvaluateRequest):
 async def put_trusted_places(tenant_id: str, entity_id: str, body: TrustedPlacesRequest):
     data = _load_trusted_places()
     data[_trusted_key(tenant_id, entity_id)] = list(body.places)
+    data.pop(_trusted_key_legacy(tenant_id, entity_id), None)
     _save_trusted_places(data)
     return {"ok": True, "tenant_id": tenant_id, "entity_id": entity_id, "count": len(body.places)}
 
@@ -298,4 +314,4 @@ async def put_trusted_places(tenant_id: str, entity_id: str, body: TrustedPlaces
 @app.get("/v1/trusted-places/{tenant_id}/{entity_id}")
 async def get_trusted_places(tenant_id: str, entity_id: str):
     data = _load_trusted_places()
-    return {"places": data.get(_trusted_key(tenant_id, entity_id), [])}
+    return {"places": _trusted_places_for_entity(data, tenant_id, entity_id)}
