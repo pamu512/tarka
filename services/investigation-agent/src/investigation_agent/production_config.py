@@ -41,6 +41,8 @@ def production_config_errors(
     errs: list[str] = []
     if not settings.copilot_require_investigation_api_key:
         errs.append("set COPILOT_REQUIRE_INVESTIGATION_API_KEY=true")
+    if not settings.copilot_trusted_scope_headers_required:
+        errs.append("set COPILOT_TRUSTED_SCOPE_HEADERS_REQUIRED=true")
     raw = (api_keys_raw if api_keys_raw is not None else os.environ.get("API_KEYS", "")).strip()
     if not raw:
         errs.append("set non-empty API_KEYS (comma-separated)")

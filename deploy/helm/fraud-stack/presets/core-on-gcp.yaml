@@ -1,0 +1,44 @@
+global:
+  environment: prod
+  imageRegistry: "__IMAGE_REGISTRY__"
+  externalServices:
+    postgres:
+      enabled: true
+      databaseUrl: "__DB_URL__"
+    redis:
+      enabled: true
+      redisUrl: "__REDIS_URL__"
+
+postgres:
+  enabled: false
+redis:
+  enabled: false
+neo4j:
+  enabled: false
+nats:
+  enabled: false
+clickhouse:
+  enabled: false
+
+decisionApi:
+  enabled: true
+  replicaCount: 2
+featureService:
+  enabled: true
+mlScoring:
+  enabled: true
+
+caseApi:
+  enabled: false
+investigationAgent:
+  enabled: false
+integrationIngress:
+  enabled: false
+eventIngest:
+  enabled: false
+analyticsSink:
+  enabled: false
+graphqlGateway:
+  enabled: false
+frontend:
+  enabled: false

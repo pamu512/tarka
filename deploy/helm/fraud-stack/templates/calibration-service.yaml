@@ -1,0 +1,44 @@
+{{- if .Values.calibrationService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-calibration-service
+spec:
+  replicas: {{ .Values.calibrationService.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-calibration-service
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-calibration-service
+    spec:
+      containers:
+        - name: calibration-service
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.calibrationService.image "tag" .Values.calibrationService.tag) | quote }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.calibrationService.port }}
+          env:
+            - name: CALIBRATION_SERVICE_DATA_DIR
+              value: /data
+            {{- if .Values.global.appSecretsName }}
+            - name: API_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: API_KEYS
+                  optional: true
+            {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-calibration-service
+spec:
+  selector:
+    app: {{ include "tarka.fullname" . }}-calibration-service
+  ports:
+    - port: {{ .Values.calibrationService.port }}
+      targetPort: {{ .Values.calibrationService.port }}
+{{- end }}

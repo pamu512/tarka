@@ -1941,6 +1941,22 @@ async def chat(body: ChatRequest, request: Request):
 
 
 async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str, Any]:
+    trusted_tenant = (request.headers.get("x-tenant-id") or request.headers.get("x-tarka-tenant-id") or "").strip()
+    trusted_analyst = (request.headers.get("x-analyst-id") or request.headers.get("x-tarka-analyst-id") or "").strip()
+    if settings.copilot_trusted_scope_headers_required:
+        if not trusted_tenant or not trusted_analyst:
+            raise HTTPException(
+                status_code=400,
+                detail="trusted scope headers required: provide X-Tenant-Id and X-Analyst-Id",
+            )
+    updates: dict[str, Any] = {}
+    if trusted_tenant:
+        updates["tenant_id"] = trusted_tenant
+    if trusted_analyst:
+        updates["analyst_id"] = trusted_analyst
+    if updates:
+        body = body.model_copy(update=updates)
+
     _validate_scope_id("tenant_id", body.tenant_id)
     _validate_scope_id("analyst_id", body.analyst_id)
     if body.case_id:

@@ -15,13 +15,13 @@ spec:
     spec:
       containers:
         - name: neo4j
-          image: neo4j:5-community
+          image: {{ .Values.neo4j.image | quote }}
           ports:
             - containerPort: 7474
             - containerPort: 7687
           env:
             - name: NEO4J_AUTH
-              value: "neo4j/fraud_neo4j"
+              value: "{{ .Values.neo4j.auth.user }}/{{ .Values.neo4j.auth.password }}"
           volumeMounts:
             - name: data
               mountPath: /data

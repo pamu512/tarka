@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     )
     ml_scoring_url: str = os.environ.get("ML_SCORING_URL", "")
     evidence_signing_secret: str = os.environ.get("EVIDENCE_SIGNING_SECRET", "")
+    case_api_production_mode: bool = os.environ.get("CASE_API_PRODUCTION_MODE", "false").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
     dispute_provider_default_response_hours: int = Field(
         default=168,
         description="Default provider-response deadline from filing when none is supplied (hours).",

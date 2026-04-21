@@ -714,3 +714,29 @@ jobs:
         env:
           DOCKER_BUILDKIT: "1"
         run: python3 scripts/ci/full_stack_smoke.py --wait-seconds 1200
+
+  cloud-preset-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.14.4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Helm lint
+        run: helm lint deploy/helm/fraud-stack
+      - name: Helm template (default values)
+        run: helm template tarka deploy/helm/fraud-stack -f deploy/helm/fraud-stack/values.yaml >/tmp/tarka-default.yaml
+      - name: Validate cloud preset generation
+        run: python3 scripts/ci/cloud_preset_smoke.py
+      - name: Helm template (generated core-on-aws preset)
+        run: |
+          python3 scripts/deploy/generate_cloud_values.py \
+            --preset core-on-aws \
+            --image-registry registry.example.com/tarka \
+            --db-url 'postgresql+asyncpg://fraud:pw@db.internal:5432/fraud' \
+            --redis-url 'redis://redis.internal:6379/0' \
+            --output /tmp/core-on-aws.values.yaml
+          helm template tarka deploy/helm/fraud-stack -f /tmp/core-on-aws.values.yaml >/tmp/tarka-core-aws.yaml

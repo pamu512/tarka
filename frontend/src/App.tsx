@@ -41,13 +41,15 @@ type NavItem = {
   badge?: NavBadge;
 };
 
+const SHOW_DEMO_BADGES = ((import.meta.env.VITE_SHOW_DEMO_BADGES as string | undefined) ?? "false").trim().toLowerCase() === "true";
+
 const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: "Operations",
     items: [
       { to: "/dashboard", label: "Dashboard", module: "dashboard" },
-      { to: "/cases", label: "Cases", module: "cases", badge: { count: 3, kind: "action" } },
-      { to: "/disputes", label: "Disputes", module: "disputes", badge: { count: 1, kind: "action" } },
+      { to: "/cases", label: "Cases", module: "cases", badge: SHOW_DEMO_BADGES ? { count: 3, kind: "action" } : undefined },
+      { to: "/disputes", label: "Disputes", module: "disputes", badge: SHOW_DEMO_BADGES ? { count: 1, kind: "action" } : undefined },
     ],
   },
   {
@@ -72,7 +74,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: "Governance",
     items: [
-      { to: "/compliance", label: "Compliance", module: "compliance", badge: { count: 1, kind: "info" } },
+      { to: "/compliance", label: "Compliance", module: "compliance", badge: SHOW_DEMO_BADGES ? { count: 1, kind: "info" } : undefined },
       { to: "/ops/calibration", label: "Calibration & drift", module: "analytics" },
       { to: "/ops/counters", label: "Counters catalog", module: "compliance" },
       { to: "/ops/features", label: "Feature tools", module: "compliance" },
@@ -83,8 +85,8 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   },
 ];
 
-/** Demo: actionable items surfaced in Notifications — replace with real counts. */
-const NOTIFICATION_ACTIONABLE_COUNT = 2;
+/** Demo counts are opt-in so production-like runs do not imply false confidence. */
+const NOTIFICATION_ACTIONABLE_COUNT = SHOW_DEMO_BADGES ? 2 : 0;
 
 function BadgePill({ badge }: { badge: NavBadge }) {
   if (badge.count <= 0) return null;

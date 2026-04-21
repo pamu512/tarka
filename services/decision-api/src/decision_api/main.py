@@ -167,6 +167,7 @@ from auth_rbac import require_role, setup_auth  # noqa: E402
 from observability import get_metrics, setup_observability  # noqa: E402
 from rate_limiter import setup_rate_limiter  # noqa: E402
 from security_headers import setup_security_headers  # noqa: E402
+from tenant_binding import parse_api_key_tenant_map  # noqa: E402
 
 log = logging.getLogger("decision-api")
 
@@ -774,7 +775,7 @@ def _velocity_anomaly_flags(features: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------- websocket live feed ----------
-_ws_clients: set[WebSocket] = set()
+_ws_clients: dict[WebSocket, str] = {}
 
 # Last time rules/typology/predicate materialization completed (for ops UX; OSS #36).
 _RULES_MATERIALIZED_AT: float | None = None
@@ -789,14 +790,17 @@ async def _broadcast_decision(data: dict) -> None:
     if not _ws_clients:
         return
     msg = _json.dumps(data, default=str)
+    tenant_id = str(data.get("tenant_id") or "").strip()
     dead: list[WebSocket] = []
-    for ws in _ws_clients:
+    for ws, subscribed_tenant in _ws_clients.items():
+        if tenant_id and subscribed_tenant not in {tenant_id, "*"}:
+            continue
         try:
             await ws.send_text(msg)
         except Exception:
             dead.append(ws)
     for ws in dead:
-        _ws_clients.discard(ws)
+        _ws_clients.pop(ws, None)
 
 
 # ---------- auth ----------
@@ -2478,6 +2482,11 @@ async def evaluate_decision(
         m = get_metrics()
         m.inc(f"fraud_decisions_{decision}_total")
         m.inc("fraud_evaluations_total")
+        if fb_reason:
+            m.inc("fraud_fallback_total")
+            reason_key = _re.sub(r"[^a-zA-Z0-9_]+", "_", str(fb_reason)).strip("_").lower()[:64]
+            if reason_key:
+                m.inc(f"fraud_fallback_total_{reason_key}")
         if signal_tags:
             for st in signal_tags:
                 m.inc(f"fraud_signal_tag_{st}_total")
@@ -2601,13 +2610,34 @@ async def evaluate_decision(
 @app.websocket("/v1/decisions/ws")
 async def ws_decision_feed(ws: WebSocket):
     """Live stream of fraud decisions for dashboards."""
+    tenant_id = (ws.query_params.get("tenant_id") or "").strip()
+    if not tenant_id:
+        await ws.close(code=4400, reason="tenant_id query parameter is required")
+        return
+    keys = _get_api_keys()
+    if keys:
+        key = (ws.headers.get("x-api-key") or "").strip()
+        if key not in keys:
+            await ws.close(code=4401, reason="invalid or missing API key")
+            return
+        tenant_map = parse_api_key_tenant_map()
+        if tenant_map:
+            allowed = tenant_map.get(key, set())
+            if "*" not in allowed and tenant_id not in allowed:
+                await ws.close(code=4403, reason="tenant out of scope")
+                return
+    else:
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+        if not allow:
+            await ws.close(code=4401, reason="authentication required")
+            return
     await ws.accept()
-    _ws_clients.add(ws)
+    _ws_clients[ws] = tenant_id
     try:
         while True:
             await ws.receive_text()
     except WebSocketDisconnect:
-        _ws_clients.discard(ws)
+        _ws_clients.pop(ws, None)
 
 
 # ---------- rule builder UI ----------

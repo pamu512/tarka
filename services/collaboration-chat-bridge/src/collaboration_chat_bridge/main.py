@@ -532,11 +532,42 @@ async def teams_messages(
                     analyst_id=body.analyst_id or "teams_user",
                 )
                 raise _ingress_http_exc(429, "rate limit exceeded", correlation_id)
+    trusted_tenant = (request.headers.get("X-Tenant-Id") or request.headers.get("X-Tarka-Tenant-Id") or "").strip()
+    trusted_analyst = (request.headers.get("X-Analyst-Id") or request.headers.get("X-Tarka-Analyst-Id") or "").strip()
+    if settings.bridge_trusted_scope_headers_required and (not trusted_tenant or not trusted_analyst):
+        _audit_ingress_event(
+            route="teams_messages",
+            outcome="rejected",
+            correlation_id=correlation_id,
+            status_code=400,
+            request=request,
+            tenant_id=body.tenant_id or settings.default_tenant_id,
+            analyst_id=body.analyst_id or "teams_user",
+            reason="trusted_scope_headers_required",
+        )
+        raise _ingress_http_exc(400, "X-Tenant-Id and X-Analyst-Id are required", correlation_id)
+
+    resolved_tenant_id = trusted_tenant or body.tenant_id or settings.default_tenant_id
+    resolved_analyst_id = trusted_analyst or body.analyst_id or "teams_user"
+    allowed_tenants = {t.strip() for t in (settings.teams_allowed_tenant_ids or "").split(",") if t.strip()}
+    if allowed_tenants and resolved_tenant_id not in allowed_tenants:
+        _audit_ingress_event(
+            route="teams_messages",
+            outcome="rejected",
+            correlation_id=correlation_id,
+            status_code=403,
+            request=request,
+            tenant_id=resolved_tenant_id,
+            analyst_id=resolved_analyst_id,
+            reason="tenant_not_allowed",
+        )
+        raise _ingress_http_exc(403, "tenant not allowed for teams bridge", correlation_id)
+
     messages = list(body.thread_context or [])
     messages.append({"role": "user", "content": body.text})
     out = await _teams_chat_result(
-        tenant_id=body.tenant_id or settings.default_tenant_id,
-        analyst_id=body.analyst_id or "teams_user",
+        tenant_id=resolved_tenant_id,
+        analyst_id=resolved_analyst_id,
         case_id=body.case_id or settings.default_case_id,
         messages=messages,
         persona=body.persona,
@@ -555,8 +586,8 @@ async def teams_messages(
             correlation_id=correlation_id,
             status_code=out.status_code,
             request=request,
-            tenant_id=body.tenant_id or settings.default_tenant_id,
-            analyst_id=body.analyst_id or "teams_user",
+            tenant_id=resolved_tenant_id,
+            analyst_id=resolved_analyst_id,
             upstream_status=upstream_status,
         )
         return out
@@ -566,8 +597,8 @@ async def teams_messages(
         correlation_id=correlation_id,
         status_code=200,
         request=request,
-        tenant_id=body.tenant_id or settings.default_tenant_id,
-        analyst_id=body.analyst_id or "teams_user",
+        tenant_id=resolved_tenant_id,
+        analyst_id=resolved_analyst_id,
     )
     return out
 

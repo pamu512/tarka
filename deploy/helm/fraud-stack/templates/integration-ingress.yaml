@@ -4,7 +4,7 @@ kind: Deployment
 metadata:
   name: {{ include "tarka.fullname" . }}-integration-ingress
 spec:
-  replicas: 1
+  replicas: {{ .Values.integrationIngress.replicaCount }}
   selector:
     matchLabels:
       app: {{ include "tarka.fullname" . }}-integration-ingress
@@ -15,13 +15,35 @@ spec:
     spec:
       containers:
         - name: integration-ingress
-          image: "{{ .Values.integrationIngress.image }}:{{ .Values.integrationIngress.tag }}"
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.integrationIngress.image "tag" .Values.integrationIngress.tag) | quote }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
-            - containerPort: 8003
+            - containerPort: {{ .Values.integrationIngress.servicePort }}
           env:
             - name: DATABASE_URL
-              value: "postgresql+asyncpg://{{ .Values.postgres.auth.username }}:{{ .Values.postgres.auth.password }}@{{ include "tarka.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}"
+              {{- if .Values.global.externalServices.postgres.enabled }}
+              value: {{ .Values.global.externalServices.postgres.databaseUrl | quote }}
+              {{- else }}
+              value: "postgresql+asyncpg://{{ .Values.postgres.auth.username }}:{{ .Values.postgres.auth.password | default "fraud" }}@{{ include "tarka.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}"
+              {{- end }}
+            - name: TENANT_BINDING_REQUIRED
+              value: {{ ternary "true" "false" .Values.integrationIngress.tenantBindingRequired | quote }}
+            - name: ALLOW_INSECURE_NO_AUTH
+              value: {{ ternary "true" "false" .Values.integrationIngress.allowInsecureNoAuth | quote }}
+            {{- if .Values.global.appSecretsName }}
+            - name: API_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: API_KEYS
+                  optional: true
+            - name: API_KEY_TENANT_MAP
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: API_KEY_TENANT_MAP
+                  optional: true
+            {{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -31,6 +53,6 @@ spec:
   selector:
     app: {{ include "tarka.fullname" . }}-integration-ingress
   ports:
-    - port: 8003
-      targetPort: 8003
+    - port: {{ .Values.integrationIngress.servicePort }}
+      targetPort: {{ .Values.integrationIngress.servicePort }}
 {{- end }}

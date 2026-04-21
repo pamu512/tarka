@@ -1,0 +1,95 @@
+{{- if and .Values.decisionApi.enabled .Values.decisionApi.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "tarka.fullname" . }}-decision-api
+spec:
+  minAvailable: {{ .Values.decisionApi.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-decision-api
+{{- end }}
+{{- if and .Values.decisionApi.enabled .Values.decisionApi.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "tarka.fullname" . }}-decision-api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "tarka.fullname" . }}-decision-api
+  minReplicas: {{ .Values.decisionApi.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.decisionApi.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.decisionApi.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- if and .Values.eventIngest.enabled .Values.eventIngest.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "tarka.fullname" . }}-event-ingest
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "tarka.fullname" . }}-event-ingest
+  minReplicas: {{ .Values.eventIngest.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.eventIngest.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.eventIngest.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- $ingressFrontend := and .Values.frontend.enabled .Values.global.ingress.frontendHost }}
+{{- $ingressGraphql := and .Values.graphqlGateway.enabled .Values.global.ingress.graphqlHost }}
+{{- if and .Values.global.ingress.enabled (or $ingressFrontend $ingressGraphql) }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "tarka.fullname" . }}-ingress
+  {{- with .Values.global.ingress.annotations }}
+  annotations:
+{{ toYaml . | indent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.global.ingress.className }}
+  ingressClassName: {{ .Values.global.ingress.className | quote }}
+  {{- end }}
+  rules:
+    {{- if $ingressFrontend }}
+    - host: {{ .Values.global.ingress.frontendHost | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: {{ .Values.global.ingress.pathType }}
+            backend:
+              service:
+                name: {{ include "tarka.fullname" . }}-frontend
+                port:
+                  number: {{ .Values.frontend.port }}
+    {{- end }}
+    {{- if $ingressGraphql }}
+    - host: {{ .Values.global.ingress.graphqlHost | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: {{ .Values.global.ingress.pathType }}
+            backend:
+              service:
+                name: {{ include "tarka.fullname" . }}-graphql-gateway
+                port:
+                  number: {{ .Values.graphqlGateway.port }}
+    {{- end }}
+{{- end }}

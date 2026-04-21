@@ -1,0 +1,49 @@
+{{- if .Values.opa.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-opa
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-opa
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-opa
+    spec:
+      containers:
+        - name: opa
+          image: {{ .Values.opa.image | quote }}
+          args: ["run", "--server", "/policies/policy.rego"]
+          ports:
+            - containerPort: {{ .Values.opa.port }}
+          volumeMounts:
+            - name: opa-policy
+              mountPath: /policies
+      volumes:
+        - name: opa-policy
+          configMap:
+            name: {{ include "tarka.fullname" . }}-opa-policy
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tarka.fullname" . }}-opa-policy
+data:
+  policy.rego: |
+    package tarka.authz
+    default allow := true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-opa
+spec:
+  selector:
+    app: {{ include "tarka.fullname" . }}-opa
+  ports:
+    - port: {{ .Values.opa.port }}
+      targetPort: {{ .Values.opa.port }}
+{{- end }}

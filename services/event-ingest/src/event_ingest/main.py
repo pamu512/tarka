@@ -55,15 +55,17 @@ _nc: NatsClient | None = None
 _js: JetStreamContext | None = None
 
 # ---------- auth ----------
-_valid_api_keys: frozenset[str] | None = None
-
-
 def _get_api_keys() -> frozenset[str]:
-    global _valid_api_keys
-    if _valid_api_keys is None:
-        raw = settings.api_keys.strip()
-        _valid_api_keys = frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
-    return _valid_api_keys
+    raw = settings.api_keys.strip()
+    return frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
+
+
+def _decision_api_headers() -> dict[str, str]:
+    key = (settings.upstream_api_key or "").strip()
+    if not key:
+        keys = _get_api_keys()
+        key = next(iter(keys), "")
+    return {"x-api-key": key} if key else {}
 
 
 def _record_contract_reject(reason_codes: list[str]) -> None:
@@ -155,7 +157,7 @@ async def _consumer_loop(js: JetStreamContext, http: httpx.AsyncClient) -> None:
                         continue
                     url = f"{settings.decision_api_url.rstrip('/')}/v1/decisions/evaluate"
                     eval_body = _payload_for_decision_api(payload)
-                    r = await http.post(url, json=eval_body, timeout=10.0)
+                    r = await http.post(url, json=eval_body, headers=_decision_api_headers(), timeout=10.0)
                     if r.status_code < 400:
                         m.inc("ingest_consumer_evaluate_2xx_total")
                         await msg.ack()

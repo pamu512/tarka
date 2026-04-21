@@ -4,7 +4,7 @@ kind: Deployment
 metadata:
   name: {{ include "tarka.fullname" . }}-investigation-agent
 spec:
-  replicas: 1
+  replicas: {{ .Values.investigationAgent.replicaCount }}
   selector:
     matchLabels:
       app: {{ include "tarka.fullname" . }}-investigation-agent
@@ -15,10 +15,10 @@ spec:
     spec:
       containers:
         - name: investigation-agent
-          image: "{{ .Values.investigationAgent.image }}:{{ .Values.investigationAgent.tag }}"
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.investigationAgent.image "tag" .Values.investigationAgent.tag) | quote }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
-            - containerPort: 8006
+            - containerPort: {{ .Values.investigationAgent.servicePort }}
           env:
             {{- if .Values.caseApi.enabled }}
             - name: CASE_API_URL
@@ -51,6 +51,6 @@ spec:
   selector:
     app: {{ include "tarka.fullname" . }}-investigation-agent
   ports:
-    - port: 8006
-      targetPort: 8006
+    - port: {{ .Values.investigationAgent.servicePort }}
+      targetPort: {{ .Values.investigationAgent.servicePort }}
 {{- end }}

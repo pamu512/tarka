@@ -4,7 +4,7 @@ kind: Deployment
 metadata:
   name: {{ include "tarka.fullname" . }}-graph-service
 spec:
-  replicas: 1
+  replicas: {{ .Values.graphService.replicaCount }}
   selector:
     matchLabels:
       app: {{ include "tarka.fullname" . }}-graph-service
@@ -15,17 +15,45 @@ spec:
     spec:
       containers:
         - name: graph-service
-          image: "{{ .Values.graphService.image }}:{{ .Values.graphService.tag }}"
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.graphService.image "tag" .Values.graphService.tag) | quote }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
-            - containerPort: 8001
+            - containerPort: {{ .Values.graphService.servicePort }}
           env:
             - name: NEO4J_URI
+              {{- if .Values.global.externalServices.neo4j.enabled }}
+              value: {{ .Values.global.externalServices.neo4j.uri | quote }}
+              {{- else }}
               value: "bolt://{{ include "tarka.fullname" . }}-neo4j:7687"
+              {{- end }}
             - name: NEO4J_USER
-              value: "neo4j"
+              {{- if .Values.global.externalServices.neo4j.enabled }}
+              value: {{ .Values.global.externalServices.neo4j.user | quote }}
+              {{- else }}
+              value: {{ .Values.neo4j.auth.user | quote }}
+              {{- end }}
             - name: NEO4J_PASSWORD
-              value: "fraud_neo4j"
+              {{- if .Values.global.externalServices.neo4j.enabled }}
+              value: {{ .Values.global.externalServices.neo4j.password | quote }}
+              {{- else }}
+              value: {{ .Values.neo4j.auth.password | quote }}
+              {{- end }}
+            - name: TENANT_BINDING_REQUIRED
+              value: "true"
+            {{- if .Values.global.appSecretsName }}
+            - name: API_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: API_KEYS
+                  optional: true
+            - name: API_KEY_TENANT_MAP
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: API_KEY_TENANT_MAP
+                  optional: true
+            {{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -35,6 +63,6 @@ spec:
   selector:
     app: {{ include "tarka.fullname" . }}-graph-service
   ports:
-    - port: 8001
-      targetPort: 8001
+    - port: {{ .Values.graphService.servicePort }}
+      targetPort: {{ .Values.graphService.servicePort }}
 {{- end }}

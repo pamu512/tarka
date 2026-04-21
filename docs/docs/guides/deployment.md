@@ -2,7 +2,17 @@
 
 This guide covers deploying Tarka from local development through production, including Docker Compose profiles, Kubernetes with Helm, environment variable reference, scaling, and security hardening.
 
-**Public cloud (Kubernetes):** For AWS and Azure–specific service mapping, ingress, managed Postgres/Redis, and secrets patterns, see **[Deploying on AWS](./deployment-aws.md)** and **[Deploying on Azure](./deployment-azure.md)**.
+**Public cloud (Kubernetes):** For AWS, Azure, and GCP service mapping, ingress, managed Postgres/Redis, and secrets patterns, see **[Deploying on AWS](./deployment-aws.md)**, **[Deploying on Azure](./deployment-azure.md)**, and **[Deploying on GCP](./deployment-gcp.md)**.
+
+**Cloud bundle model:** Use **[Cloud-native deployment bundles](./deployment-cloud-native-bundles.md)** to choose `core`, `investigation`, `streaming`, `analytics`, or `full` by outcome.
+
+**Preset workflows:** Use **[Cloud presets and generated values](./deployment-presets.md)** for low-touch AWS/GCP onboarding.
+
+**Managed dependency mode:** Use **[Managed services and secrets contract](./deployment-managed-services.md)** when customer-owned cloud infrastructure is the system of record.
+
+**Lighter adoption path:** Use **[Lighter managed-container deployment path](./deployment-lighter-runtime.md)** when teams need partial Tarka adoption before Kubernetes.
+
+**Release gate:** Use **[Cloud release readiness](./deployment-release-readiness.md)** before promoting cloud environments.
 
 **See also:** [Service ports & OpenAPI index](./service-ports.md) — default ports, Compose DNS names, and contract file mapping.
 
@@ -18,21 +28,23 @@ The `deploy/docker-compose.yml` file uses Compose profiles so you can pick exact
 
 ### Available Profiles
 
-| Profile | Services Included |
-|---|---|
-| `core` | Decision API, Postgres, Redis |
-| `graph` | Graph Service, Neo4j |
-| `cases` | Case API |
-| `ml` | ML Scoring, Feature Service |
-| `streaming` | Event Ingest, NATS JetStream |
-| `analytics` | Analytics Sink, ClickHouse |
-| `integration` | Integration Ingress |
-| `agent` | Investigation Agent |
-| `collab` | Collaboration chat bridge (Slack / Teams / Lark → investigation-agent) |
-| `gateway` | GraphQL Gateway |
-| `opa` | Open Policy Agent |
-| `risk` | Calibration, Counter, and Location first-class services |
-| `full` | All of the above |
+
+| Profile       | Services Included                                                      |
+| ------------- | ---------------------------------------------------------------------- |
+| `core`        | Decision API, Postgres, Redis                                          |
+| `graph`       | Graph Service, Neo4j                                                   |
+| `cases`       | Case API                                                               |
+| `ml`          | ML Scoring, Feature Service                                            |
+| `streaming`   | Event Ingest, NATS JetStream                                           |
+| `analytics`   | Analytics Sink, ClickHouse                                             |
+| `integration` | Integration Ingress                                                    |
+| `agent`       | Investigation Agent                                                    |
+| `collab`      | Collaboration chat bridge (Slack / Teams / Lark → investigation-agent) |
+| `gateway`     | GraphQL Gateway                                                        |
+| `opa`         | Open Policy Agent                                                      |
+| `risk`        | Calibration, Counter, and Location first-class services                |
+| `full`        | All of the above                                                       |
+
 
 ### Usage Examples
 
@@ -62,7 +74,7 @@ cp .env.example .env   # configure inter-service URLs
 docker compose --profile full up -d
 ```
 
-**Collaboration chat (Slack / Teams / Lark)** — add **`--profile collab`** for **collaboration-chat-bridge** on host **8009** (compose default). It forwards to **investigation-agent**, so also enable **`agent`** and whatever upstream profiles the agent needs (often **`core`**, **`cases`**, **`graph`**). Operator wiring and secrets: **[Collaboration chat & cloud](./investigation-collaboration-chat-aws-azure.md)**.
+**Collaboration chat (Slack / Teams / Lark)** — add `**--profile collab`** for **collaboration-chat-bridge** on host **8009** (compose default). It forwards to **investigation-agent**, so also enable `**agent`** and whatever upstream profiles the agent needs (often `**core**`, `**cases**`, `**graph**`). Operator wiring and secrets: **[Collaboration chat & cloud](./investigation-collaboration-chat-aws-azure.md)**.
 
 ### Inter-Service Configuration
 
@@ -104,6 +116,28 @@ The chart uses per-component toggles. Enable only what you need:
 global:
   imageRegistry: ""
   imagePullPolicy: IfNotPresent
+  externalServices:
+    postgres:
+      enabled: false
+      databaseUrl: ""
+    redis:
+      enabled: false
+      redisUrl: ""
+    neo4j:
+      enabled: false
+      uri: ""
+      user: "neo4j"
+      password: ""
+    nats:
+      enabled: false
+      url: ""
+    clickhouse:
+      enabled: false
+      host: ""
+      port: 8123
+      user: "default"
+      password: ""
+      database: "fraud"
 
 postgres:
   enabled: true
@@ -120,6 +154,14 @@ decisionApi:
   image: tarka-decision-api
   tag: latest
   replicaCount: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
 
 graphService:
   enabled: false          # set true if using graph
@@ -149,10 +191,65 @@ investigationAgent:
   image: tarka-investigation-agent
   tag: latest
 
+collaborationChatBridge:
+  enabled: false
+  image: tarka-collaboration-chat-bridge
+  tag: latest
+
+calibrationService:
+  enabled: false
+  image: tarka-calibration-service
+  tag: latest
+
+counterService:
+  enabled: false
+  image: tarka-counter-service
+  tag: latest
+
+locationService:
+  enabled: false
+  image: tarka-location-service
+  tag: latest
+
+opa:
+  enabled: false
+  image: openpolicyagent/opa:0.70.0
+
 integrationIngress:
   enabled: false
   image: tarka-integration-ingress
   tag: latest
+```
+
+### Managed services mode (RDS / ElastiCache / managed graph or analytics)
+
+When customers already run cloud-native data infrastructure, keep chart-managed dependencies disabled and inject managed endpoints through `global.externalServices.*`.
+
+Example:
+
+```yaml
+postgres:
+  enabled: false
+redis:
+  enabled: false
+neo4j:
+  enabled: false
+nats:
+  enabled: false
+clickhouse:
+  enabled: false
+
+global:
+  externalServices:
+    postgres:
+      enabled: true
+      databaseUrl: postgresql+asyncpg://fraud:${DB_PASSWORD}@my-rds.cluster.amazonaws.com:5432/fraud
+    redis:
+      enabled: true
+      redisUrl: rediss://my-elasticache.cache.amazonaws.com:6379/0
+    nats:
+      enabled: true
+      url: nats://nats.mycompany.internal:4222
 ```
 
 ### Custom Values for Production
@@ -175,121 +272,141 @@ helm install tarka deploy/helm/fraud-stack \
 
 ### Decision API (port 8000)
 
-| Variable | Default | Description |
-|---|---|---|
-| `DATABASE_URL` | `postgresql+asyncpg://fraud:fraud@localhost:5432/fraud` | Postgres connection |
-| `REDIS_URL` | `redis://localhost:6379/0` | Redis connection |
-| `RULES_PATH` | `./rules` | Path to JSON rule packs directory |
-| `API_KEYS` | _(empty)_ | Comma-separated API keys (empty = no auth) |
-| `DENY_THRESHOLD` | `80` | Score threshold for deny decisions |
-| `REVIEW_THRESHOLD` | `50` | Score threshold for review decisions |
-| `SCORE_BLEND_STRATEGY` | `average` | Score blend: `average`, `max`, `rules_only` |
-| `FEATURE_SERVICE_URL` | _(empty)_ | Feature Service URL |
-| `ML_SCORING_URL` | _(empty)_ | ML Scoring Service URL |
-| `GRAPH_SERVICE_URL` | _(empty)_ | Graph Service URL |
-| `CALIBRATION_SERVICE_URL` | _(empty)_ | Calibration Service URL (`/v1/score`, `/v1/drift`) |
-| `COUNTER_SERVICE_URL` | _(empty)_ | Counter Service URL (`/v1/record-and-query`) |
-| `LOCATION_SERVICE_URL` | _(empty)_ | Location Service URL (`/v1/evaluate`) |
-| `UPSTREAM_API_KEY` | _(empty)_ | API key forwarded by decision-api to downstream services when set |
-| `OPA_URL` | _(empty)_ | Open Policy Agent URL |
-| `ATTESTATION_NONCE_TTL` | `300` | Attestation nonce TTL in seconds |
-| `ATTESTATION_HMAC_SECRET` | _(empty)_ | HMAC secret for browser attestation |
-| `RATE_LIMIT_RPM` | `1000` | Rate limit (requests per minute) |
+
+| Variable                  | Default                                                 | Description                                                       |
+| ------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------- |
+| `DATABASE_URL`            | `postgresql+asyncpg://fraud:fraud@localhost:5432/fraud` | Postgres connection                                               |
+| `REDIS_URL`               | `redis://localhost:6379/0`                              | Redis connection                                                  |
+| `RULES_PATH`              | `./rules`                                               | Path to JSON rule packs directory                                 |
+| `API_KEYS`                | *(empty)*                                               | Comma-separated API keys (empty = no auth)                        |
+| `DENY_THRESHOLD`          | `80`                                                    | Score threshold for deny decisions                                |
+| `REVIEW_THRESHOLD`        | `50`                                                    | Score threshold for review decisions                              |
+| `SCORE_BLEND_STRATEGY`    | `average`                                               | Score blend: `average`, `max`, `rules_only`                       |
+| `FEATURE_SERVICE_URL`     | *(empty)*                                               | Feature Service URL                                               |
+| `ML_SCORING_URL`          | *(empty)*                                               | ML Scoring Service URL                                            |
+| `GRAPH_SERVICE_URL`       | *(empty)*                                               | Graph Service URL                                                 |
+| `CALIBRATION_SERVICE_URL` | *(empty)*                                               | Calibration Service URL (`/v1/score`, `/v1/drift`)                |
+| `COUNTER_SERVICE_URL`     | *(empty)*                                               | Counter Service URL (`/v1/record-and-query`)                      |
+| `LOCATION_SERVICE_URL`    | *(empty)*                                               | Location Service URL (`/v1/evaluate`)                             |
+| `UPSTREAM_API_KEY`        | *(empty)*                                               | API key forwarded by decision-api to downstream services when set |
+| `OPA_URL`                 | *(empty)*                                               | Open Policy Agent URL                                             |
+| `ATTESTATION_NONCE_TTL`   | `300`                                                   | Attestation nonce TTL in seconds                                  |
+| `ATTESTATION_HMAC_SECRET` | *(empty)*                                               | HMAC secret for browser attestation                               |
+| `RATE_LIMIT_RPM`          | `1000`                                                  | Rate limit (requests per minute)                                  |
+
 
 ### Graph Service (port 8001)
 
-| Variable | Default | Description |
-|---|---|---|
-| `NEO4J_URI` | `bolt://localhost:7687` | Neo4j Bolt URI |
-| `NEO4J_USER` | `neo4j` | Neo4j username |
-| `NEO4J_PASSWORD` | `tarka2026` | Neo4j password (matches `deploy/docker-compose.yml` `NEO4J_AUTH`) |
-| `API_KEYS` | _(empty)_ | Comma-separated API keys |
+
+| Variable         | Default                 | Description                                                       |
+| ---------------- | ----------------------- | ----------------------------------------------------------------- |
+| `NEO4J_URI`      | `bolt://localhost:7687` | Neo4j Bolt URI                                                    |
+| `NEO4J_USER`     | `neo4j`                 | Neo4j username                                                    |
+| `NEO4J_PASSWORD` | `tarka2026`             | Neo4j password (matches `deploy/docker-compose.yml` `NEO4J_AUTH`) |
+| `API_KEYS`       | *(empty)*               | Comma-separated API keys                                          |
+
 
 ### Case API (port 8002)
 
-| Variable | Default | Description |
-|---|---|---|
-| `DATABASE_URL` | `postgresql+asyncpg://fraud:fraud@localhost:5432/fraud_cases` | Postgres connection (local default; **`deploy/docker-compose.yml` uses `…/fraud` shared with decision-api** for simplicity) |
-| `GRAPH_SERVICE_URL` | _(empty)_ | Graph Service URL for case graph lookups |
-| `DECISION_API_URL` | `http://localhost:8000` | Decision API base URL (dispute flows, audit fetch, etc.) |
-| `ML_SCORING_URL` | _(empty)_ | Optional ML scoring service URL |
-| `EVIDENCE_SIGNING_SECRET` | _(empty)_ | Optional HMAC secret for signed evidence payloads |
-| `CORS_ORIGINS` | _(empty)_ | Comma-separated CORS origins |
-| `WORKFLOWS_PATH` | `./workflows` | Path to workflow JSON files |
-| `RATE_LIMIT_RPM` | `600` | Rate limit (requests per minute) |
+
+| Variable                  | Default                                                       | Description                                                                                                                 |
+| ------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`            | `postgresql+asyncpg://fraud:fraud@localhost:5432/fraud_cases` | Postgres connection (local default; `**deploy/docker-compose.yml` uses `…/fraud` shared with decision-api** for simplicity) |
+| `GRAPH_SERVICE_URL`       | *(empty)*                                                     | Graph Service URL for case graph lookups                                                                                    |
+| `DECISION_API_URL`        | `http://localhost:8000`                                       | Decision API base URL (dispute flows, audit fetch, etc.)                                                                    |
+| `ML_SCORING_URL`          | *(empty)*                                                     | Optional ML scoring service URL                                                                                             |
+| `EVIDENCE_SIGNING_SECRET` | *(empty)*                                                     | Optional HMAC secret for signed evidence payloads                                                                           |
+| `CORS_ORIGINS`            | *(empty)*                                                     | Comma-separated CORS origins                                                                                                |
+| `WORKFLOWS_PATH`          | `./workflows`                                                 | Path to workflow JSON files                                                                                                 |
+| `RATE_LIMIT_RPM`          | `600`                                                         | Rate limit (requests per minute)                                                                                            |
+
 
 ### Integration Ingress (port 8003)
 
-| Variable | Default | Description |
-|---|---|---|
-| `DATABASE_URL` | `postgresql+asyncpg://fraud:fraud@localhost:5432/fraud` | Postgres connection |
-| `API_KEYS` | _(empty)_ | Comma-separated API keys |
+
+| Variable       | Default                                                 | Description              |
+| -------------- | ------------------------------------------------------- | ------------------------ |
+| `DATABASE_URL` | `postgresql+asyncpg://fraud:fraud@localhost:5432/fraud` | Postgres connection      |
+| `API_KEYS`     | *(empty)*                                               | Comma-separated API keys |
+
 
 ### ML Scoring (port 8005)
 
-| Variable | Default | Description |
-|---|---|---|
-| `DISABLE_ML` | `false` | Disable ML scoring entirely |
-| `ML_MODEL_VERSION` | `heuristic-v1` | Default model version label |
-| `ONNX_MODEL_PATH` | _(empty)_ | Direct ONNX model path (legacy) |
-| `MODELS_DIR` | `./models` | Model registry directory |
-| `API_KEYS` | _(empty)_ | Comma-separated API keys |
+
+| Variable           | Default        | Description                     |
+| ------------------ | -------------- | ------------------------------- |
+| `DISABLE_ML`       | `false`        | Disable ML scoring entirely     |
+| `ML_MODEL_VERSION` | `heuristic-v1` | Default model version label     |
+| `ONNX_MODEL_PATH`  | *(empty)*      | Direct ONNX model path (legacy) |
+| `MODELS_DIR`       | `./models`     | Model registry directory        |
+| `API_KEYS`         | *(empty)*      | Comma-separated API keys        |
+
 
 ### Investigation Agent (port 8006)
 
-| Variable | Default | Description |
-|---|---|---|
-| `CASE_API_URL` | `http://localhost:8002` | Case API URL (cases, disputes, **investigation label drafts**) |
-| `DECISION_API_URL` | `http://localhost:8000` | Decision API URL (audit, entity-velocity, **replay** for A/B tools) |
-| `GRAPH_SERVICE_URL` | _(empty)_ | Graph Service URL (subgraph tools); empty disables graph tools |
-| `UPSTREAM_API_KEY` | _(empty)_ | If set, sent as `x-api-key` to case-api, graph, and decision-api |
-| `API_KEYS` | _(empty)_ | Comma-separated keys required on **`/v1/chat`** (empty = no auth on agent) |
-| `OPENAI_API_KEY` | _(empty)_ | OpenAI API key for LLM tool-use |
-| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI-compatible API base |
-| `OPENAI_MODEL` | `gpt-4o-mini` | Chat model id |
-| `ALLOWED_ANALYSTS` | `*` | Comma-separated analyst IDs (or `*` for all) |
+
+| Variable            | Default                     | Description                                                                |
+| ------------------- | --------------------------- | -------------------------------------------------------------------------- |
+| `CASE_API_URL`      | `http://localhost:8002`     | Case API URL (cases, disputes, **investigation label drafts**)             |
+| `DECISION_API_URL`  | `http://localhost:8000`     | Decision API URL (audit, entity-velocity, **replay** for A/B tools)        |
+| `GRAPH_SERVICE_URL` | *(empty)*                   | Graph Service URL (subgraph tools); empty disables graph tools             |
+| `UPSTREAM_API_KEY`  | *(empty)*                   | If set, sent as `x-api-key` to case-api, graph, and decision-api           |
+| `API_KEYS`          | *(empty)*                   | Comma-separated keys required on `**/v1/chat*`* (empty = no auth on agent) |
+| `OPENAI_API_KEY`    | *(empty)*                   | OpenAI API key for LLM tool-use                                            |
+| `OPENAI_BASE_URL`   | `https://api.openai.com/v1` | OpenAI-compatible API base                                                 |
+| `OPENAI_MODEL`      | `gpt-4o-mini`               | Chat model id                                                              |
+| `ALLOWED_ANALYSTS`  | `*`                         | Comma-separated analyst IDs (or `*` for all)                               |
+
 
 ### Collaboration chat bridge (port 8009)
 
-| Variable | Default | Description |
-|---|---|---|
-| `INVESTIGATION_AGENT_URL` | `http://investigation-agent:8006` | Investigation agent base URL (no trailing slash) |
-| `INVESTIGATION_AGENT_API_KEY` | _(empty)_ | If set, sent as `x-api-key` to the agent |
-| `SLACK_SIGNING_SECRET` | _(empty)_ | Slack Events API signing secret |
-| `SLACK_BOT_TOKEN` | _(empty)_ | Slack bot token (`xoxb-…`) for replies / thread reads |
-| `TEAMS_BRIDGE_SECRET` | _(empty)_ | Shared secret for Teams/custom connector posts (`X-Bridge-Secret`) |
-| `BRIDGE_PLUGIN_SECRET` | _(empty)_ | Secret for bridge-proxied `/v1/plugin/*` (falls back to `TEAMS_BRIDGE_SECRET` if empty) |
-| `LARK_VERIFICATION_TOKEN` | _(empty)_ | Lark / Feishu verification token |
-| `LARK_TENANT_ACCESS_TOKEN` | _(empty)_ | Lark tenant token for outbound messages |
+
+| Variable                      | Default                           | Description                                                                             |
+| ----------------------------- | --------------------------------- | --------------------------------------------------------------------------------------- |
+| `INVESTIGATION_AGENT_URL`     | `http://investigation-agent:8006` | Investigation agent base URL (no trailing slash)                                        |
+| `INVESTIGATION_AGENT_API_KEY` | *(empty)*                         | If set, sent as `x-api-key` to the agent                                                |
+| `SLACK_SIGNING_SECRET`        | *(empty)*                         | Slack Events API signing secret                                                         |
+| `SLACK_BOT_TOKEN`             | *(empty)*                         | Slack bot token (`xoxb-…`) for replies / thread reads                                   |
+| `TEAMS_BRIDGE_SECRET`         | *(empty)*                         | Shared secret for Teams/custom connector posts (`X-Bridge-Secret`)                      |
+| `BRIDGE_PLUGIN_SECRET`        | *(empty)*                         | Secret for bridge-proxied `/v1/plugin/`* (falls back to `TEAMS_BRIDGE_SECRET` if empty) |
+| `LARK_VERIFICATION_TOKEN`     | *(empty)*                         | Lark / Feishu verification token                                                        |
+| `LARK_TENANT_ACCESS_TOKEN`    | *(empty)*                         | Lark tenant token for outbound messages                                                 |
+
 
 Full ingress options, rate limits, and cloud runbooks: **[Collaboration chat & cloud](./investigation-collaboration-chat-aws-azure.md)**.
 
 ### Event Ingest (port 8007)
 
-| Variable | Default | Description |
-|---|---|---|
-| `NATS_URL` | `nats://localhost:4222` | NATS server URL |
+
+| Variable           | Default                 | Description                            |
+| ------------------ | ----------------------- | -------------------------------------- |
+| `NATS_URL`         | `nats://localhost:4222` | NATS server URL                        |
 | `DECISION_API_URL` | `http://localhost:8000` | Decision API URL for forwarding events |
-| `STREAM_NAME` | `FRAUD_EVENTS` | NATS JetStream stream name |
-| `SUBJECT_PREFIX` | `fraud.events` | NATS subject prefix |
-| `BATCH_FLUSH_MS` | `100` | Batch flush interval in ms |
-| `MAX_BATCH_SIZE` | `256` | Maximum events per batch pull |
-| `API_KEYS` | _(empty)_ | Comma-separated API keys |
+| `STREAM_NAME`      | `FRAUD_EVENTS`          | NATS JetStream stream name             |
+| `SUBJECT_PREFIX`   | `fraud.events`          | NATS subject prefix                    |
+| `BATCH_FLUSH_MS`   | `100`                   | Batch flush interval in ms             |
+| `MAX_BATCH_SIZE`   | `256`                   | Maximum events per batch pull          |
+| `API_KEYS`         | *(empty)*               | Comma-separated API keys               |
+
 
 ### Analytics Sink (port 8008)
 
-| Variable | Default | Description |
-|---|---|---|
-| `CLICKHOUSE_HOST` | `localhost` | ClickHouse host |
-| `NATS_URL` | `nats://localhost:4222` | NATS server URL |
+
+| Variable          | Default                 | Description     |
+| ----------------- | ----------------------- | --------------- |
+| `CLICKHOUSE_HOST` | `localhost`             | ClickHouse host |
+| `NATS_URL`        | `nats://localhost:4222` | NATS server URL |
+
 
 ### Infrastructure
 
-| Component | Key Environment Variables |
-|---|---|
+
+| Component    | Key Environment Variables                           |
+| ------------ | --------------------------------------------------- |
 | **Postgres** | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` |
-| **Neo4j** | `NEO4J_AUTH` (format: `user/password`) |
-| **OPA** | Policy files mounted at `/policies/` |
+| **Neo4j**    | `NEO4J_AUTH` (format: `user/password`)              |
+| **OPA**      | Policy files mounted at `/policies/`                |
+
 
 ---
 
@@ -310,12 +427,12 @@ The Decision API is the most latency-sensitive service. Scale horizontally behin
 
 ### Observability (Prometheus / Grafana)
 
-- Optional **compose merge** stacks Prometheus + Grafana against Tarka **`/metrics`** endpoints: [deploy/observability/README.md](../../../deploy/observability/README.md).
+- Optional **compose merge** stacks Prometheus + Grafana against Tarka `**/metrics*`* endpoints: [deploy/observability/README.md](../../../deploy/observability/README.md).
 
 ### Postgres
 
 - Decision API and Case API can share a Postgres instance but use separate databases.
-- **Schema migrations:** both services ship **Alembic** (`services/decision-api/alembic/`, `services/case-api/alembic/`). On startup, **PostgreSQL** URLs run `alembic upgrade head` automatically; **SQLite** (tests / local quick runs) still uses `create_all`. For manual upgrades: `cd services/decision-api && DATABASE_URL=postgresql+psycopg://… alembic upgrade head` (and the same for `case-api` with its `DATABASE_URL`). If you already created tables with `create_all` and the schema matches the initial revision, run **`alembic stamp head`** once instead of `upgrade` to avoid “already exists” errors.
+- **Schema migrations:** both services ship **Alembic** (`services/decision-api/alembic/`, `services/case-api/alembic/`). On startup, **PostgreSQL** URLs run `alembic upgrade head` automatically; **SQLite** (tests / local quick runs) still uses `create_all`. For manual upgrades: `cd services/decision-api && DATABASE_URL=postgresql+psycopg://… alembic upgrade head` (and the same for `case-api` with its `DATABASE_URL`). If you already created tables with `create_all` and the schema matches the initial revision, run `**alembic stamp head`** once instead of `upgrade` to avoid “already exists” errors.
 - Audit records grow linearly with traffic. Implement a retention policy (e.g., archive records older than 90 days).
 - Add read replicas for Case API list queries under high load.
 
@@ -340,46 +457,47 @@ The Decision API is the most latency-sensitive service. Scale horizontally behin
 
 ### Authentication
 
-- [ ] Set `API_KEYS` on all services with strong, unique keys
-- [ ] Rotate API keys on a regular schedule
-- [ ] Use separate API keys for each client application
+- Set `API_KEYS` on all services with strong, unique keys
+- Rotate API keys on a regular schedule
+- Use separate API keys for each client application
 
 ### Network
 
-- [ ] Do not expose infrastructure ports (5432, 6379, 7687, 4222) externally
-- [ ] Use an ingress controller / API gateway in front of service ports
-- [ ] Enable TLS on all external-facing endpoints
-- [ ] Configure `CORS_ORIGINS` on Case API to restrict allowed origins
+- Do not expose infrastructure ports (5432, 6379, 7687, 4222) externally
+- Use an ingress controller / API gateway in front of service ports
+- Enable TLS on all external-facing endpoints
+- Configure `CORS_ORIGINS` on Case API to restrict allowed origins
 
 ### Database
 
-- [ ] Change default Postgres password (`fraud:fraud`) to a strong password
-- [ ] Change default Neo4j password (compose default `neo4j/tarka2026`) to a strong password
-- [ ] Enable Postgres SSL connections in production
-- [ ] Implement database backup and recovery procedures
+- Change default Postgres password (`fraud:fraud`) to a strong password
+- Change default Neo4j password (compose default `neo4j/tarka2026`) to a strong password
+- Enable Postgres SSL connections in production
+- Implement database backup and recovery procedures
 
 ### Secrets
 
-- [ ] Store `OPENAI_API_KEY` in a secrets manager (Vault, AWS Secrets Manager, K8s secrets)
-- [ ] Store `ATTESTATION_HMAC_SECRET` in a secrets manager
-- [ ] Never commit `.env` files to version control
+- Store `OPENAI_API_KEY` in a secrets manager (Vault, AWS Secrets Manager, K8s secrets)
+- Store `ATTESTATION_HMAC_SECRET` in a secrets manager
+- Never commit `.env` files to version control
 
 ### Monitoring
 
-- [ ] All services expose `/v1/health` — configure liveness probes
-- [ ] Prometheus metrics are available via the observability module
-- [ ] Set up alerts for high error rates and latency spikes
-- [ ] Monitor NATS consumer lag for the event ingest pipeline
+- All services expose `/v1/health` — configure liveness probes
+- Prometheus metrics are available via the observability module
+- Set up alerts for high error rates and latency spikes
+- Monitor NATS consumer lag for the event ingest pipeline
 
 ### Data
 
-- [ ] Implement audit record retention policies
-- [ ] Configure Redis `maxmemory` and eviction policies
-- [ ] Back up Neo4j data volumes regularly
-- [ ] Encrypt data at rest for Postgres and ClickHouse volumes
+- Implement audit record retention policies
+- Configure Redis `maxmemory` and eviction policies
+- Back up Neo4j data volumes regularly
+- Encrypt data at rest for Postgres and ClickHouse volumes
 
 ### Rate Limiting
 
-- [ ] Configure `RATE_LIMIT_RPM` appropriate to your traffic volume
-- [ ] Implement additional rate limiting at the ingress/API gateway level
-- [ ] Monitor for rate limit violations in service logs
+- Configure `RATE_LIMIT_RPM` appropriate to your traffic volume
+- Implement additional rate limiting at the ingress/API gateway level
+- Monitor for rate limit violations in service logs
+

@@ -10,6 +10,7 @@ services:
     environment:
       COPILOT_PRODUCTION_MODE: "true"
       COPILOT_REQUIRE_INVESTIGATION_API_KEY: "true"
+      COPILOT_TRUSTED_SCOPE_HEADERS_REQUIRED: "true"
       COPILOT_INJECTION_POLICY: reject
       COPILOT_INCLUDE_PLATFORM_AUDIT_IN_PROMPT: "false"
       # Analyst allowlist (comma-separated); never use * in production:
@@ -18,3 +19,33 @@ services:
       COPILOT_MAX_REQUEST_BODY_BYTES: "8000000"
       # Set in shell / .env (required when COPILOT_PRODUCTION_MODE=true):
       # API_KEYS: "comma-separated-keys"
+
+  decision-api:
+    environment:
+      ALLOW_INSECURE_NO_AUTH: "false"
+      TENANT_BINDING_REQUIRED: "true"
+      TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY: "true"
+
+  case-api:
+    environment:
+      TENANT_BINDING_REQUIRED: "true"
+
+  integration-ingress:
+    environment:
+      TENANT_BINDING_REQUIRED: "true"
+
+  graph-service:
+    environment:
+      TENANT_BINDING_REQUIRED: "true"
+
+  analytics-sink:
+    environment:
+      TENANT_BINDING_REQUIRED: "true"
+
+  event-ingest:
+    environment:
+      INGEST_REQUIRE_IDEMPOTENCY_KEY: "true"
+
+  collaboration-chat-bridge:
+    environment:
+      BRIDGE_TRUSTED_SCOPE_HEADERS_REQUIRED: "true"

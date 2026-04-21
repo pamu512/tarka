@@ -194,6 +194,27 @@ function packFile(p: RulePack): string {
   return p._file ?? ((p as unknown as Record<string, unknown>).file as string | undefined) ?? p.name;
 }
 
+function normalizeRulePack(raw: RulePack, idx: number): RulePack {
+  const rec = raw as unknown as Record<string, unknown>;
+  const file =
+    typeof raw._file === "string" && raw._file.trim()
+      ? raw._file
+      : typeof rec.file === "string" && rec.file.trim()
+        ? rec.file
+        : `pack_${idx + 1}.json`;
+  const name =
+    typeof raw.name === "string" && raw.name.trim()
+      ? raw.name
+      : file.replace(/\.json$/i, "");
+  return {
+    _file: file,
+    name,
+    version: typeof raw.version === "number" ? raw.version : 1,
+    rules: Array.isArray(raw.rules) ? raw.rules : [],
+    tag_rules: Array.isArray(raw.tag_rules) ? raw.tag_rules : [],
+  };
+}
+
 // ── Main Component ───────────────────────────────────────────────────
 
 export default function Rules() {
@@ -296,7 +317,8 @@ export default function Rules() {
     setLoading(true);
     try {
       const res = await rulesApi.list();
-      setPacks(res.packs ?? []);
+      const normalized = (res.packs ?? []).map((pack, idx) => normalizeRulePack(pack, idx));
+      setPacks(normalized);
       setError(null);
       try {
         const cl = await rulesApi.changeLog(30);

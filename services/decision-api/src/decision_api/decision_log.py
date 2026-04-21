@@ -14,6 +14,7 @@ import httpx
 from decision_api.config import settings
 
 SCHEMA_ID = "tarka.decision_log/v1"
+_SENSITIVE_KEYS = {"password", "passcode", "token", "secret", "api_key", "authorization", "cookie"}
 
 
 def _utc_now_iso() -> str:
@@ -60,6 +61,21 @@ def _record_hash(record: dict[str, Any]) -> str:
     return hashlib.sha256(_json_dumps(record).encode("utf-8")).hexdigest()
 
 
+def _redact_sensitive(value: Any) -> Any:
+    if isinstance(value, dict):
+        out: dict[str, Any] = {}
+        for key, raw in value.items():
+            lk = str(key).strip().lower()
+            if lk in _SENSITIVE_KEYS or lk.endswith("_token") or lk.endswith("_secret") or lk.endswith("_key"):
+                out[key] = "[REDACTED]"
+            else:
+                out[key] = _redact_sensitive(raw)
+        return out
+    if isinstance(value, list):
+        return [_redact_sensitive(item) for item in value]
+    return value
+
+
 def build_decision_log_record(
     *,
     trace_id: str,
@@ -80,6 +96,7 @@ def build_decision_log_record(
     payload_snapshot: dict[str, Any],
     artifact_manifest: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    payload = payload_snapshot if settings.decision_log_include_payload_snapshot else {"omitted": True}
     return {
         "schema_id": SCHEMA_ID,
         "logged_at": _utc_now_iso(),
@@ -98,7 +115,7 @@ def build_decision_log_record(
         "challenge_policy_id": challenge_policy_id,
         "challenge_metadata": challenge_metadata or {},
         "fallback_reason": fallback_reason,
-        "payload_snapshot": payload_snapshot,
+        "payload_snapshot": _redact_sensitive(payload),
         "artifact_manifest": artifact_manifest or {},
     }
 

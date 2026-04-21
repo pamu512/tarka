@@ -11,7 +11,14 @@ import { getMockResponse } from "./mockData";
 export type { ConfidenceTier, InferenceContext, MlTopFactor };
 export { normalizeInferenceContext };
 
-const USE_API_MOCKS = (import.meta.env.VITE_USE_API_MOCKS as string | undefined)?.trim().toLowerCase() === "true";
+const MOCK_MODE = ((import.meta.env.VITE_USE_API_MOCKS as string | undefined) ?? "auto").trim().toLowerCase();
+/**
+ * Mock fallback policy:
+ * - `VITE_USE_API_MOCKS=true`  -> always allow fallback
+ * - `VITE_USE_API_MOCKS=false` -> never allow fallback
+ * - `VITE_USE_API_MOCKS=auto` (default) -> allow in dev, disable in production
+ */
+const USE_API_MOCKS = MOCK_MODE === "true" || (MOCK_MODE !== "false" && import.meta.env.DEV);
 
 // ── Types ────────────────────────────────────────────────────────────
 

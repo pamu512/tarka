@@ -53,18 +53,13 @@ def _store_benchmark_run(payload: dict[str, Any]) -> None:
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from auth_rbac import require_role  # noqa: E402
 from observability import setup_observability  # noqa: E402
+from tenant_binding import enforce_tenant_access, parse_api_key_tenant_map  # noqa: E402
 
 # ---------- auth ----------
 
-_valid_api_keys: frozenset[str] | None = None
-
-
 def _get_api_keys() -> frozenset[str]:
-    global _valid_api_keys
-    if _valid_api_keys is None:
-        raw = os.environ.get("API_KEYS", "").strip()
-        _valid_api_keys = frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
-    return _valid_api_keys
+    raw = os.environ.get("API_KEYS", "").strip()
+    return frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
 
 
 async def require_api_key(request: Request) -> None:
@@ -82,6 +77,8 @@ async def require_api_key(request: Request) -> None:
     header = request.headers.get("x-api-key", "")
     if header not in keys:
         raise HTTPException(status_code=401, detail="invalid or missing API key")
+    tenant_map = parse_api_key_tenant_map()
+    await enforce_tenant_access(request, allowed_tenants=tenant_map.get(header, set()) if tenant_map else None)
 
 
 @asynccontextmanager

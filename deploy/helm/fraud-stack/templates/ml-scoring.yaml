@@ -4,7 +4,7 @@ kind: Deployment
 metadata:
   name: {{ include "tarka.fullname" . }}-ml-scoring
 spec:
-  replicas: 1
+  replicas: {{ .Values.mlScoring.replicaCount }}
   selector:
     matchLabels:
       app: {{ include "tarka.fullname" . }}-ml-scoring
@@ -15,10 +15,10 @@ spec:
     spec:
       containers:
         - name: ml-scoring
-          image: "{{ .Values.mlScoring.image }}:{{ .Values.mlScoring.tag }}"
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.mlScoring.image "tag" .Values.mlScoring.tag) | quote }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
-            - containerPort: 8005
+            - containerPort: {{ .Values.mlScoring.servicePort }}
 ---
 apiVersion: v1
 kind: Service
@@ -28,6 +28,6 @@ spec:
   selector:
     app: {{ include "tarka.fullname" . }}-ml-scoring
   ports:
-    - port: 8005
-      targetPort: 8005
+    - port: {{ .Values.mlScoring.servicePort }}
+      targetPort: {{ .Values.mlScoring.servicePort }}
 {{- end }}
