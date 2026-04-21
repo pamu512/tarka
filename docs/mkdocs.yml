@@ -79,6 +79,12 @@ nav:
       - Deployment: guides/deployment.md
       - "Deployment: AWS": guides/deployment-aws.md
       - "Deployment: Azure": guides/deployment-azure.md
+      - "Deployment: GCP": guides/deployment-gcp.md
+      - "Deployment: Cloud-native bundles": guides/deployment-cloud-native-bundles.md
+      - "Deployment: Presets & generated values": guides/deployment-presets.md
+      - "Deployment: Managed services": guides/deployment-managed-services.md
+      - "Deployment: Lighter runtime": guides/deployment-lighter-runtime.md
+      - "Deployment: Release readiness": guides/deployment-release-readiness.md
       - Enterprise Readiness: guides/enterprise-readiness.md
       - "Enterprise Copilot: plugin + governance": guides/enterprise-copilot-plugin-and-governance-controls.md
       - Incident Response: guides/incident-response.md
