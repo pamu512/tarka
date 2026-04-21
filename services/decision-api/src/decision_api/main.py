@@ -20,7 +20,88 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from decision_api.config import dependency_resilience_policy_table, settings
+from decision_api.config import settings
+
+try:
+    from decision_api.config import dependency_resilience_policy_table
+except ImportError:
+    # Backward-compatible fallback for branches that have main.py import but not the
+    # config helper yet; keeps module importable during mixed revisions.
+    def dependency_resilience_policy_table() -> dict[str, dict[str, float | int | str]]:
+        return {
+            "lists": {
+                "timeout_seconds": settings.eval_step_list_timeout_seconds,
+                "max_attempts": settings.eval_step_list_max_attempts,
+                "circuit_failure_threshold": settings.circuit_list_failure_threshold,
+                "circuit_recovery_seconds": settings.circuit_list_recovery_seconds,
+                "on_failure": "SKIP",
+            },
+            "graph_risk": {
+                "timeout_seconds": settings.eval_step_graph_risk_timeout_seconds,
+                "max_attempts": settings.eval_step_graph_risk_max_attempts,
+                "circuit_failure_threshold": settings.circuit_graph_failure_threshold,
+                "circuit_recovery_seconds": settings.circuit_graph_recovery_seconds,
+                "on_failure": "SKIP",
+            },
+            "feature_snapshot": {
+                "timeout_seconds": settings.eval_step_feature_snapshot_timeout_seconds,
+                "max_attempts": settings.eval_step_feature_snapshot_max_attempts,
+                "circuit_failure_threshold": settings.circuit_feature_failure_threshold,
+                "circuit_recovery_seconds": settings.circuit_feature_recovery_seconds,
+                "on_failure": "SKIP",
+            },
+            "ml_score": {
+                "timeout_seconds": settings.eval_step_ml_timeout_seconds,
+                "max_attempts": settings.eval_step_ml_max_attempts,
+                "circuit_failure_threshold": settings.circuit_ml_failure_threshold,
+                "circuit_recovery_seconds": settings.circuit_ml_recovery_seconds,
+                "on_failure": "SKIP",
+            },
+            "opa": {
+                "timeout_seconds": settings.eval_step_opa_timeout_seconds,
+                "max_attempts": settings.eval_step_opa_max_attempts,
+                "circuit_failure_threshold": settings.circuit_opa_failure_threshold,
+                "circuit_recovery_seconds": settings.circuit_opa_recovery_seconds,
+                "on_failure": "SKIP",
+            },
+            "counter_snapshot": {
+                "timeout_seconds": settings.eval_step_feature_snapshot_timeout_seconds,
+                "max_attempts": settings.eval_step_feature_snapshot_max_attempts,
+                "circuit_failure_threshold": settings.circuit_counter_failure_threshold,
+                "circuit_recovery_seconds": settings.circuit_counter_recovery_seconds,
+                "on_failure": "SKIP",
+            },
+            "location_eval": {
+                "timeout_seconds": settings.eval_step_feature_snapshot_timeout_seconds,
+                "max_attempts": settings.eval_step_feature_snapshot_max_attempts,
+                "circuit_failure_threshold": settings.circuit_location_failure_threshold,
+                "circuit_recovery_seconds": settings.circuit_location_recovery_seconds,
+                "on_failure": "SKIP",
+            },
+            "calibration": {
+                "timeout_seconds": settings.eval_step_feature_snapshot_timeout_seconds,
+                "max_attempts": settings.eval_step_feature_snapshot_max_attempts,
+                "circuit_failure_threshold": settings.circuit_calibration_failure_threshold,
+                "circuit_recovery_seconds": settings.circuit_calibration_recovery_seconds,
+                "on_failure": "SKIP",
+            },
+            "external_signals": {
+                "timeout_seconds": settings.external_signal_timeout_seconds,
+                "max_attempts": settings.eval_step_external_signal_max_attempts,
+                "circuit_failure_threshold": settings.circuit_external_failure_threshold,
+                "circuit_recovery_seconds": settings.circuit_external_recovery_seconds,
+                "on_failure": "SKIP",
+            },
+            "graph_upsert": {
+                "timeout_seconds": settings.eval_step_graph_upsert_timeout_seconds,
+                "max_attempts": settings.eval_step_graph_upsert_max_attempts,
+                "circuit_failure_threshold": settings.circuit_graph_failure_threshold,
+                "circuit_recovery_seconds": settings.circuit_graph_recovery_seconds,
+                "on_failure": "SKIP",
+            },
+        }
+
+
 from decision_api.currency import normalize_amount
 from decision_api.db import get_session, init_db
 from decision_api.decision_log import build_decision_log_record, emit_decision_log
