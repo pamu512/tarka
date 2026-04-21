@@ -33,7 +33,7 @@ Investigation UI --> Case API --> Graph Service
 | Service | Port | Description |
 |---------|------|-------------|
 | `services/decision-api` | 8000 | Fraud scoring, attestation, rule + ML orchestration |
-| `services/graph-service` | 8001 | Entity graph (Neo4j), tag storage on nodes |
+| `services/graph-service` | 8001 | Entity graph (Neo4j), tag storage on nodes, `/v1/benchmark/*` harness |
 | `services/case-api` | 8002 | Investigation cases, labels, comments, UI |
 | `services/integration-ingress` | 8003 | KYC webhooks, adapter registry |
 | `services/feature-service` | 8004 | Feature snapshot computation |
