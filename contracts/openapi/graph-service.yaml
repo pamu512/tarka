@@ -121,6 +121,65 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RingSuspicionResponse"
+  /v1/benchmark/datasets:
+    get:
+      operationId: graphBenchmarkDatasets
+      summary: Curated graph-fraud benchmark tasks (DGFraud harness)
+      responses:
+        "200":
+          description: Task catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/benchmark/features:
+    get:
+      operationId: graphBenchmarkFeatureRegistry
+      summary: Graph feature registry export for decision pipelines
+      responses:
+        "200":
+          description: Registry + content digest
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/benchmark/runs:
+    post:
+      operationId: graphBenchmarkRunCreate
+      summary: Run baseline vs graph-enhanced experiment scorecard
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "201":
+          description: Scorecard artifact
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/benchmark/runs/{run_id}:
+    get:
+      operationId: graphBenchmarkRunGet
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Stored scorecard
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
 components:
   schemas:
     UpsertEntityRequest:

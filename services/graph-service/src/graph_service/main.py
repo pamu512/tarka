@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+from collections import OrderedDict
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -35,6 +36,19 @@ from graph_service.graph_runtime import (
 )
 
 log = logging.getLogger(__name__)
+
+_BENCHMARK_RUNS: OrderedDict[str, dict[str, Any]] = OrderedDict()
+_MAX_BENCHMARK_RUNS = 200
+
+
+def _store_benchmark_run(payload: dict[str, Any]) -> None:
+    rid = str(payload.get("run_id") or "")
+    if not rid:
+        return
+    _BENCHMARK_RUNS[rid] = payload
+    while len(_BENCHMARK_RUNS) > _MAX_BENCHMARK_RUNS:
+        _BENCHMARK_RUNS.popitem(last=False)
+
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from auth_rbac import require_role  # noqa: E402
@@ -119,6 +133,14 @@ class RingSuspicionResponse(BaseModel):
     score: float
     reasons: list[str] = Field(default_factory=list)
     ring_samples: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class BenchmarkRunRequest(BaseModel):
+    seed: int = Field(default=42, ge=0, le=2**31 - 1)
+    task_id: str
+    y_true: list[int]
+    baseline_scores: list[float]
+    graph_scores: list[float]
 
 
 @app.get("/v1/health")
@@ -311,3 +333,48 @@ async def get_checkpoint_profiles():
 async def reload_checkpoint_profiles(_=Depends(require_role("admin"))):
     reload_checkpoint_registry()
     return {"ok": True, **registry_public_view()}
+
+
+# ---------- DGFraud-style benchmark harness (#64–#66) ----------
+
+
+@app.get("/v1/benchmark/datasets")
+async def benchmark_datasets():
+    from graph_service.benchmark.datasets import list_tasks
+
+    return list_tasks()
+
+
+@app.get("/v1/benchmark/features")
+async def benchmark_features_export():
+    from graph_service.benchmark.registry import export_for_decision_pipeline, registry_content_digest
+
+    out = export_for_decision_pipeline()
+    out["content_digest"] = registry_content_digest()
+    return out
+
+
+@app.post("/v1/benchmark/runs", status_code=201)
+async def benchmark_runs_create(body: BenchmarkRunRequest):
+    from graph_service.benchmark.runner import run_experiment
+
+    try:
+        scorecard = run_experiment(
+            seed=body.seed,
+            task_id=body.task_id,
+            y_true=body.y_true,
+            baseline_scores=body.baseline_scores,
+            graph_scores=body.graph_scores,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    _store_benchmark_run(scorecard)
+    return scorecard
+
+
+@app.get("/v1/benchmark/runs/{run_id}")
+async def benchmark_runs_get(run_id: str):
+    row = _BENCHMARK_RUNS.get(run_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="run not found")
+    return row
