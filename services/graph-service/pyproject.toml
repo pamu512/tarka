@@ -3,13 +3,13 @@ name = "tarka-graph-service"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-  "fastapi>=0.135.3",
+  "fastapi>=0.136.0",
   "uvicorn[standard]>=0.44.0",
   "neo4j>=6.1.0",
   "gremlinpython>=3.8.1",
   "networkx>=3.6.1",
-  "pydantic-settings>=2.13.1",
-  "pydantic>=2.13.0",
+  "pydantic-settings>=2.14.0",
+  "pydantic>=2.13.3",
 ]
 
 [project.optional-dependencies]
