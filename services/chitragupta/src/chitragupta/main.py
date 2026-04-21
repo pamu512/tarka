@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import uuid
 from contextlib import asynccontextmanager
 from typing import Any
@@ -16,6 +17,8 @@ from chitragupta.config import settings
 from chitragupta.db import OrchestratorRun, configure_engine, get_session, init_db
 from chitragupta.emitters import canonical_input_hash, emit_with_retry, list_emitter_targets
 from chitragupta.plugin_sdk import PluginManifest, get_plugin, list_plugins, register_plugin, seed_builtin_plugins
+
+log = logging.getLogger("chitragupta.main")
 
 
 @asynccontextmanager
@@ -107,21 +110,39 @@ async def runs_create(body: RunCreate, session: AsyncSession = Depends(get_sessi
             artifacts[target] = {"sha256": sha, "bytes_len": len(data)}
             logs.append({"emitter": target, "attempts": elog})
         run.status = "completed"
-    except Exception as e:
+    except Exception:
+        log.exception("runs_create failed for plugin_id=%s tenant_id=%s", body.plugin_id, body.tenant_id)
         run.status = "failed"
-        last_error = str(e)
+        last_error = "internal_error"
         run.last_error = last_error
     run.artifacts = artifacts
     run.emitter_logs = logs
     await session.commit()
     await session.refresh(run)
+
+    sanitized_emitter_logs: list[dict[str, Any]] = []
+    for entry in run.emitter_logs or []:
+        attempts = entry.get("attempts") if isinstance(entry, dict) else None
+        sanitized_attempts: list[dict[str, Any]] = []
+        if isinstance(attempts, list):
+            for attempt in attempts:
+                if isinstance(attempt, dict):
+                    sanitized_attempts.append(
+                        {
+                            **attempt,
+                            "error": None if attempt.get("error") is None else "emitter_failed",
+                        }
+                    )
+        if isinstance(entry, dict):
+            sanitized_emitter_logs.append({**entry, "attempts": sanitized_attempts})
+
     return {
         "run_id": str(run.id),
         "status": run.status,
         "input_hash": run.input_hash,
         "artifacts": run.artifacts,
-        "emitter_logs": run.emitter_logs,
-        "last_error": run.last_error,
+        "emitter_logs": sanitized_emitter_logs,
+        "last_error": "internal_error" if run.last_error else None,
     }
 
 
