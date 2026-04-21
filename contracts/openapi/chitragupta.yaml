@@ -1,0 +1,36 @@
+openapi: 3.1.0
+info:
+  title: Tarka Chitragupta
+  version: 0.1.0
+  description: Plugin registry, contract versioning, and multi-emitter orchestration runs.
+servers:
+  - url: http://localhost:8012
+paths:
+  /v1/health:
+    get:
+      operationId: chitraguptaHealth
+      responses:
+        "200":
+          description: OK
+  /v1/plugins:
+    get:
+      operationId: chitraguptaPluginsList
+      responses:
+        "200":
+          description: Registered plugins
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/runs:
+    post:
+      operationId: chitraguptaRunCreate
+      responses:
+        "201":
+          description: Run created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
