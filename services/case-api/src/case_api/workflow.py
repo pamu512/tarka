@@ -193,13 +193,27 @@ def compute_sla_deadline(
     return base + timedelta(hours=hours)
 
 
+def is_sla_breached_at(
+    priority: str,
+    created_at: datetime,
+    *,
+    sla_hours_override: int | None = None,
+    as_of: datetime | None = None,
+) -> bool:
+    """Whether SLA is breached as of ``as_of`` (default: current UTC time)."""
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+    deadline = compute_sla_deadline(priority, created_at, sla_hours_override=sla_hours_override)
+    ref = as_of or datetime.now(timezone.utc)
+    if ref.tzinfo is None:
+        ref = ref.replace(tzinfo=timezone.utc)
+    return ref > deadline
+
+
 def is_sla_breached(
     priority: str,
     created_at: datetime,
     *,
     sla_hours_override: int | None = None,
 ) -> bool:
-    if created_at.tzinfo is None:
-        created_at = created_at.replace(tzinfo=timezone.utc)
-    deadline = compute_sla_deadline(priority, created_at, sla_hours_override=sla_hours_override)
-    return datetime.now(timezone.utc) > deadline
+    return is_sla_breached_at(priority, created_at, sla_hours_override=sla_hours_override, as_of=None)
