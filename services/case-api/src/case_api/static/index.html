@@ -40,7 +40,7 @@
       <input id="tenant" value="demo" />
     </div>
     <div>
-      <label>Optional X-Api-Key (saved to localStorage)</label>
+      <label>Optional X-Api-Key (not persisted; cleared on reload)</label>
       <input id="apiKey" placeholder="leave blank for unauthenticated dev mode" />
     </div>
     <button type="button" id="runSmoke">Run smoke checks</button>
@@ -54,7 +54,6 @@
   <script>
     const outEl = document.getElementById('out');
     const apiKeyEl = document.getElementById('apiKey');
-    apiKeyEl.value = localStorage.getItem('caseApiSmokeKey') || '';
 
     function headers() {
       const h = { 'Content-Type': 'application/json' };
@@ -76,7 +75,6 @@
 
     document.getElementById('runSmoke').onclick = async () => {
       const tenant = document.getElementById('tenant').value || 'demo';
-      localStorage.setItem('caseApiSmokeKey', (apiKeyEl.value || '').trim());
       outEl.textContent = 'Running smoke checks...';
       try {
         const [health, cases] = await Promise.all([

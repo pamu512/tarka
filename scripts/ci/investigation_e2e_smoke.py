@@ -85,10 +85,7 @@ def main() -> int:
     schema_id = graph_expl.get("schema_id") if isinstance(graph_expl, dict) else None
     if schema_id != "tarka.graph_decision_explanation/v1":
         source = explanation.get("source")
-        raise SystemExit(
-            "Decision explanation schema assertion failed: "
-            f"expected tarka.graph_decision_explanation/v1, got {schema_id!r} (source={source!r})"
-        )
+        raise SystemExit(f"Decision explanation schema assertion failed: expected tarka.graph_decision_explanation/v1, got {schema_id!r} (source={source!r})")
 
     print(
         json.dumps(

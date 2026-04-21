@@ -23,6 +23,7 @@ _SAFE_TENANT_ID = re.compile(r"^[A-Za-z0-9_-]{1,120}$")
 def _norm_rel_token(rel: str) -> str:
     return str(rel).strip().upper().replace(" ", "_").replace("-", "_")
 
+
 _SCHEMAS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "schemas"
 
 _DEFAULT_ENTITY_TYPES = [

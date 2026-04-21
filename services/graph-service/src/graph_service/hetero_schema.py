@@ -39,7 +39,4 @@ def validate_typed_edge_or_raise(
             continue
         if (from_set & ft) and (to_set & tt):
             return
-    raise ValueError(
-        f"typed edge {rel} not satisfied for endpoint labels "
-        f"{sorted(from_set)} -> {sorted(to_set)} (tenant hetero schema)"
-    )
+    raise ValueError(f"typed edge {rel} not satisfied for endpoint labels {sorted(from_set)} -> {sorted(to_set)} (tenant hetero schema)")

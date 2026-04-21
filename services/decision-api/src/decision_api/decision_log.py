@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -31,6 +32,34 @@ def _write_jsonl_line(path: str, payload: dict[str, Any]) -> None:
         f.write("\n")
 
 
+def _last_record_hash(path: str) -> str | None:
+    out = Path(path)
+    if not out.is_file():
+        return None
+    last_non_empty: str | None = None
+    with out.open("r", encoding="utf-8") as f:
+        for raw in f:
+            line = raw.strip()
+            if line:
+                last_non_empty = line
+    if not last_non_empty:
+        return None
+    try:
+        parsed = json.loads(last_non_empty)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    val = parsed.get("record_hash")
+    if isinstance(val, str) and val.strip():
+        return val.strip()
+    return None
+
+
+def _record_hash(record: dict[str, Any]) -> str:
+    return hashlib.sha256(_json_dumps(record).encode("utf-8")).hexdigest()
+
+
 def build_decision_log_record(
     *,
     trace_id: str,
@@ -49,6 +78,7 @@ def build_decision_log_record(
     challenge_metadata: dict[str, Any] | None,
     fallback_reason: str | None,
     payload_snapshot: dict[str, Any],
+    artifact_manifest: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "schema_id": SCHEMA_ID,
@@ -69,13 +99,20 @@ def build_decision_log_record(
         "challenge_metadata": challenge_metadata or {},
         "fallback_reason": fallback_reason,
         "payload_snapshot": payload_snapshot,
+        "artifact_manifest": artifact_manifest or {},
     }
 
 
 async def emit_decision_log(record: dict[str, Any]) -> None:
     if not settings.decision_log_enabled:
         return
-    await asyncio.to_thread(_write_jsonl_line, settings.decision_log_path, record)
+    prev_hash = await asyncio.to_thread(_last_record_hash, settings.decision_log_path)
+    record_out = dict(record)
+    if prev_hash:
+        record_out["previous_record_hash"] = prev_hash
+    record_out["record_hash"] = _record_hash(record_out)
+
+    await asyncio.to_thread(_write_jsonl_line, settings.decision_log_path, record_out)
 
     warehouse_url = settings.decision_log_warehouse_url.strip()
     if not warehouse_url:
@@ -85,4 +122,4 @@ async def emit_decision_log(record: dict[str, Any]) -> None:
     if settings.decision_log_warehouse_api_key.strip():
         headers["authorization"] = f"Bearer {settings.decision_log_warehouse_api_key.strip()}"
     async with httpx.AsyncClient(timeout=3.0) as client:
-        await client.post(warehouse_url, json=record, headers=headers)
+        await client.post(warehouse_url, json=record_out, headers=headers)

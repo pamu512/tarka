@@ -10,14 +10,16 @@
     }
   },
   "postCreateCommand": "python3 -m pip install -U pip ruff pytest pytest-asyncio && echo 'Ready. Start stack: docker compose -f deploy/docker-compose.lite.yml up -d --build'",
-  "forwardPorts": [3000, 8000, 8002, 8003, 8005, 8006],
+  "forwardPorts": [3000, 8000, 8002, 8003, 8005, 8006, 8009, 8010],
   "portsAttributes": {
     "3000": { "label": "Frontend", "onAutoForward": "notify" },
     "8000": { "label": "Decision API" },
     "8002": { "label": "Case API" },
     "8003": { "label": "Integration / OSINT" },
     "8005": { "label": "ML scoring (sandbox)" },
-    "8006": { "label": "Investigation agent (optional)" }
+    "8006": { "label": "Investigation agent (optional)" },
+    "8009": { "label": "Collaboration chat bridge (collab profile)" },
+    "8010": { "label": "GraphQL gateway (gateway profile)" }
   },
   "customizations": {
     "vscode": {

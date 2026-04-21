@@ -38,7 +38,12 @@ async def share_signal(body: ConsortiumShareRequest) -> dict[str, Any]:
     if not settings.consortium_enabled:
         raise HTTPException(status_code=403, detail="consortium disabled")
     consortium_id = (body.consortium_id or settings.consortium_id).strip()
-    signal_hash = hash_entity_id(settings.consortium_secret, body.tenant_id, body.entity_id)
+    signal_hash = hash_entity_id(
+        settings.consortium_secret,
+        body.tenant_id,
+        body.entity_id,
+        hash_scope=settings.consortium_hash_scope,
+    )
     data = await redis_tags.record_consortium_signal(
         consortium_id=consortium_id,
         signal_hash=signal_hash,
@@ -55,7 +60,12 @@ async def check_signal(tenant_id: str, entity_id: str, consortium_id: str | None
     if not settings.consortium_enabled:
         return {"enabled": False, "consortium": {}}
     cid = (consortium_id or settings.consortium_id).strip()
-    signal_hash = hash_entity_id(settings.consortium_secret, tenant_id, entity_id)
+    signal_hash = hash_entity_id(
+        settings.consortium_secret,
+        tenant_id,
+        entity_id,
+        hash_scope=settings.consortium_hash_scope,
+    )
     data = await redis_tags.check_consortium_signal(cid, signal_hash)
     return {"enabled": True, "signal_hash": signal_hash, "consortium": data}
 
@@ -74,7 +84,12 @@ async def add_feedback(body: ConsortiumFeedbackRequest) -> dict[str, Any]:
     if not settings.consortium_enabled:
         raise HTTPException(status_code=403, detail="consortium disabled")
     cid = (body.consortium_id or settings.consortium_id).strip()
-    signal_hash = hash_entity_id(settings.consortium_secret, body.tenant_id, body.entity_id)
+    signal_hash = hash_entity_id(
+        settings.consortium_secret,
+        body.tenant_id,
+        body.entity_id,
+        hash_scope=settings.consortium_hash_scope,
+    )
     data = await redis_tags.add_consortium_feedback(
         consortium_id=cid,
         signal_hash=signal_hash,

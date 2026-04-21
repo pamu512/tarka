@@ -54,3 +54,43 @@ groups:
         annotations:
           summary: "Risk service 5xx ratio sustained (1h): {{ $labels.service }}"
           description: "Error ratio exceeded 1% in the last 1h for a first-class risk service."
+
+      - alert: TarkaDecisionApiCircuitOpenCalibration
+        expr: rate(tarka_circuit_open_total_calibration[5m]) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          tier: decision-resilience
+        annotations:
+          summary: "Decision API calibration circuit is opening frequently"
+          description: "Calibration dependency is degraded; inspect fallback_reason and upstream latency."
+
+      - alert: TarkaDecisionApiCircuitOpenCounter
+        expr: rate(tarka_circuit_open_total_counter[5m]) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          tier: decision-resilience
+        annotations:
+          summary: "Decision API counter circuit is opening frequently"
+          description: "Counter-service fallback path is active; verify local aggregate fallback and upstream health."
+
+      - alert: TarkaDecisionApiCircuitOpenLocation
+        expr: rate(tarka_circuit_open_total_location[5m]) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          tier: decision-resilience
+        annotations:
+          summary: "Decision API location circuit is opening frequently"
+          description: "Location dependency is degraded; evaluate geo risk fallback quality."
+
+      - alert: TarkaDecisionApiCircuitOpenExternal
+        expr: rate(tarka_circuit_open_total_external[5m]) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          tier: decision-resilience
+        annotations:
+          summary: "Decision API external signal circuit is opening frequently"
+          description: "External connector path is degraded; inspect provider outages and timeout budget."

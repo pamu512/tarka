@@ -13,23 +13,12 @@ _OPENAPI_DIR = _REPO_ROOT / "contracts" / "openapi"
 
 
 @pytest.mark.parametrize(
-    "name",
-    [
-        "decision-api.yaml",
-        "case-api.yaml",
-        "graph-service.yaml",
-        "integration-ingress.yaml",
-        "ml-scoring.yaml",
-        "feature-service.yaml",
-        "investigation-agent.yaml",
-        "calibration-service.yaml",
-        "counter-service.yaml",
-        "location-service.yaml",
-    ],
+    "path",
+    sorted(_OPENAPI_DIR.glob("*.yaml")),
 )
-def test_openapi_yaml_parses_and_validates_oas31(name: str):
+def test_openapi_yaml_parses_and_validates_oas31(path: Path):
     """Checked-in contracts must parse as YAML, declare core fields, and satisfy OpenAPI 3.1 schema."""
-    path = _OPENAPI_DIR / name
+    name = path.name
     assert path.is_file(), f"missing {path}"
     spec = yaml.safe_load(path.read_text(encoding="utf-8"))
     assert isinstance(spec, dict), f"{name}: root must be a mapping"

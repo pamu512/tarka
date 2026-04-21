@@ -10,13 +10,16 @@ Use this as a **single checklist** when closing GitHub issues and duplicate PRs.
 
 Live list: [issues: open + `roadmap`](https://github.com/pamu512/tarka/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap). **Do not duplicate** work covered by [recently closed — evidence audit](#recently-closed--evidence-audit-2026-04-22) unless a gap is explicitly listed there.
 
+**OSS P0/P1 quartet** ([#36](https://github.com/pamu512/tarka/issues/36), [#40](https://github.com/pamu512/tarka/issues/40), [#46](https://github.com/pamu512/tarka/issues/46), [#48](https://github.com/pamu512/tarka/issues/48)): **closed on GitHub** with evidence comments (2026-04-21). Default-line merge tracking: branch `feature/bridge-correlation-traceability` @ `2c6518cff845ae27f11439a6288f486cafc08900` until merged to `master`.
+
 | Priority | Issue | Title (short) | In-repo notes |
 |----------|-------|-----------------|---------------|
-| P0 | [#36](https://github.com/pamu512/tarka/issues/36) | UX evaluation posture (detection vs compliance, degraded) | **Partial:** `AnalystReadinessBar`, `GET /v1/ops/evaluation-posture`, `GET /v1/slo`, in-app Help `#readiness`, `tenant_reliability_profile`. [API reference — Trust / ops readiness](../api-reference.md#trust-ops-readiness). Remaining: E2E degraded compliance (optional). |
-| P0 | [#46](https://github.com/pamu512/tarka/issues/46) | Typology DSL + versioned predicate registry | [oss-typology-dsl-46.md](./oss-typology-dsl-46.md); [API reference — Decision API](../api-reference.md#decision-api) (predicate registry row); `scripts/policy/validate_typology_dsl.py` in CI. Close when issue AC + milestone checklist satisfied. |
-| P0 | [#48](https://github.com/pamu512/tarka/issues/48) | Feature-service parity verifier + drift gate | [oss-typology-parity-graph-34-48-49.md](./oss-typology-parity-graph-34-48-49.md); OpenAPI `contracts/openapi/feature-service.yaml`; CI via `test-feature-service` (`tests/test_parity_verify.py`); [API reference — Feature Service](../api-reference.md#feature-service). |
-| P1 | [#40](https://github.com/pamu512/tarka/issues/40) | Evidence summaries + next-best-action (typology drivers) | **Partial:** `POST /v1/evidence/summary` + golden tests + UI anchors; OpenAPI `contracts/openapi/investigation-agent.yaml`; see [API reference — Investigation Agent](../api-reference.md#investigation-agent). |
-| P2 | [#55](https://github.com/pamu512/tarka/issues/55) … [#69](https://github.com/pamu512/tarka/issues/69) | Top-5 epics (Marble → xFraud) | Roadmap-sized; sequence after P0/P1 OSS slices. |
+| P2 | [#55](https://github.com/pamu512/tarka/issues/55) … [#69](https://github.com/pamu512/tarka/issues/69) | Top-5 epics (Marble → xFraud) | **Next:** [#56](https://github.com/pamu512/tarka/issues/56) (template packs — `playbook_id` on case create shipped; CRUD + SLA fields remain). Then [#57](https://github.com/pamu512/tarka/issues/57)–[#69](https://github.com/pamu512/tarka/issues/69) per epic order below. |
+
+### Next open issues — execution order
+
+1. **Marble / investigation** — [#56](https://github.com/pamu512/tarka/issues/56) (finish template AC: CRUD, SLA/owner, workflow tests) → [#57](https://github.com/pamu512/tarka/issues/57) → epic [#55](https://github.com/pamu512/tarka/issues/55) when children done.
+2. **RefundSwatterLite** [#58](https://github.com/pamu512/tarka/issues/58)–[#60](https://github.com/pamu512/tarka/issues/60) → **Chitragupta** [#61](https://github.com/pamu512/tarka/issues/61)–[#63](https://github.com/pamu512/tarka/issues/63) → **DGFraud** [#64](https://github.com/pamu512/tarka/issues/64)–[#66](https://github.com/pamu512/tarka/issues/66) → **xFraud** [#67](https://github.com/pamu512/tarka/issues/67)–[#69](https://github.com/pamu512/tarka/issues/69).
 
 ### Recently closed — evidence audit (2026-04-22)
 
@@ -24,7 +27,11 @@ Live list: [issues: open + `roadmap`](https://github.com/pamu512/tarka/issues?q=
 |-------|-----------------|----------|------------|
 | [#52](https://github.com/pamu512/tarka/issues/52) | **Aligned** | `services/ml-scoring/rules/ml_promotion_policy_v1.{json,yaml}`; `scripts/ml/validate_ml_promotion_policy.py`, `check_ml_promotion_policy_sync.py`; `.github/workflows/ci.yml` ML promotion step; `services/ml-scoring/tests/test_model_registry.py`; `GET /v1/promotion-policy`. | None blocking; keep CI green on policy edits. |
 | [#37](https://github.com/pamu512/tarka/issues/37) | **Mostly aligned** | `PROMOTION_GATE_ENFORCE`, `GET /v1/models/{name}/{version}/promotion-check` (`report`), activate/traffic-split gate + optional `x-ml-promotion-override`; `docs/docs/api-reference.md` ML scoring section. | **Process:** automated “link report into release notes” is not in-repo; operators attach `report` from promotion-check or 409 responses manually. |
-| [#51](https://github.com/pamu512/tarka/issues/51) | **Partial vs issue template** | `frontend/src/components/AnalystReadinessBar.tsx`, `App.tsx`, Help `#readiness`; decision-api posture + SLO for banner data. | GitHub issue left **all AC checkboxes unchecked** at close; **no dedicated frontend automated tests** found for the banner. Treat **#36** as the umbrella for remaining UX/E2E hardening or add tests + tick template on a follow-up. |
+| [#51](https://github.com/pamu512/tarka/issues/51) | **Partial vs issue template** | `frontend/src/components/AnalystReadinessBar.tsx`, `App.tsx`, Help `#readiness`; decision-api posture + SLO for banner data. | GitHub issue left **all AC checkboxes unchecked** at close; **no dedicated frontend automated tests** were cited at audit time. **Update:** **#36** now tracks Vitest coverage in `frontend/src/components/AnalystReadinessBar.test.tsx` (mocked `evaluationPosture` + `slo`). Remaining gap is optional full-browser E2E + template hygiene on GitHub. |
+| [#36](https://github.com/pamu512/tarka/issues/36) | **Closed (GitHub 2026-04-21)** | Trust/ops readiness UX + Vitest `AnalystReadinessBar.test.tsx`; decision-api posture + SLO. | Follow optional Playwright / copy review off-issue if desired. |
+| [#40](https://github.com/pamu512/tarka/issues/40) | **Closed (GitHub 2026-04-21)** | `POST /v1/evidence/summary` + goldens + allowlist; OpenAPI + UI. | — |
+| [#46](https://github.com/pamu512/tarka/issues/46) | **Closed (GitHub 2026-04-21)** | Typology DSL + predicate registry + `validate_typology_dsl.py` CI. | — |
+| [#48](https://github.com/pamu512/tarka/issues/48) | **Closed (GitHub 2026-04-21)** | `POST /v1/internal/parity/verify` + tests + OpenAPI. | — |
 
 ---
 

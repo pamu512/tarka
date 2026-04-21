@@ -23,3 +23,10 @@ For batch scoring against **ml-scoring** (separate from consortium), use `**[scr
 
 - Treat attestations as **provenance hints** until your org defines verification (signature checks, replay windows, allow-listed DAO keys).
 - Do not put cross-tenant PII into consortium payloads; align with `**[joinsonar-query-feedback-vs-consortium-api.md](joinsonar-query-feedback-vs-consortium-api.md)`** and `**[unit21-fraud-dao-vs-consortium-api.md](unit21-fraud-dao-vs-consortium-api.md)**`.
+
+## Quality and privacy tuning knobs
+
+- `CONSORTIUM_HASH_SCOPE=consortium|tenant` controls whether entity hashes are cross-tenant linkable (`consortium`, default) or tenant-scoped (`tenant`).
+- `CONSORTIUM_MIN_TENANTS` and `CONSORTIUM_MIN_REPORTS` gate cold-start deltas before shared signals materially affect score.
+- `CONSORTIUM_SCORE_TRUST_FLOOR` and `CONSORTIUM_SCORE_MAX_DELTA` bound score contribution during noisy periods.
+- Feedback updates (`POST /v1/consortium/feedback`) now recompute `quality_score` with the same normalization path used by signal sharing, so false-positive loops immediately dampen future deltas.

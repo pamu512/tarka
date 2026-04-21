@@ -5,7 +5,9 @@ import os
 # Default to in-memory SQLite (init_db create_all) unless the runner exports DATABASE_URL.
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 # API key grants admin (satisfies analyst-only routes); override locally if needed.
-os.environ.setdefault("API_KEYS", "case-api-test-key")
+# CI often exports API_KEYS=""; setdefault does not replace empty strings.
+if not (os.environ.get("API_KEYS") or "").strip():
+    os.environ["API_KEYS"] = "case-api-test-key"
 # Disable background retention sweeps during pytest (avoids races with in-memory DB lifecycle).
 os.environ.setdefault("CASE_RETENTION_DAYS", "0")
 

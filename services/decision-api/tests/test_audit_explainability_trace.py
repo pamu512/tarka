@@ -109,3 +109,56 @@ async def test_audit_endpoint_returns_ordered_driver_explain_and_reasons():
     assert got["driver_explain"][0]["category"] == "network"
     assert got["driver_explain"][1]["category"] == "rules"
     assert got["driver_explain"][2]["category"] == "ml"
+
+
+@pytest.mark.asyncio
+async def test_audit_endpoint_blocks_analyst_detail_without_role():
+    trace_id = uuid4()
+    row = SimpleNamespace(
+        trace_id=trace_id,
+        tenant_id="t1",
+        entity_id="u1",
+        event_type="payment",
+        decision="review",
+        score=68.2,
+        tags=[],
+        rule_hits=[],
+        payload_snapshot={"inference_context": {"driver_reasons": [], "driver_explain": []}},
+        created_at=datetime.now(timezone.utc),
+    )
+
+    with patch("decision_api.main.init_db", new_callable=AsyncMock):
+        with patch("decision_api.main.redis_tags") as mock_redis:
+            mock_redis.connect = AsyncMock()
+            mock_redis.close = AsyncMock()
+            mock_redis._client = MagicMock()
+            mock_redis.get_tags = AsyncMock(return_value=[])
+            mock_redis.merge_tags = AsyncMock(return_value=[])
+            mock_redis.set_cached_score = AsyncMock()
+            mock_redis.store_nonce = AsyncMock()
+            mock_redis.consume_nonce = AsyncMock(return_value=True)
+            mock_redis.check_and_store_replay_signature = AsyncMock(return_value=False)
+            with patch("decision_api.main.load_rules"):
+                with patch("decision_api.main.agg_store") as mock_agg:
+                    mock_agg._client = None
+                    from decision_api.main import app, get_session
+
+                    mock_session = AsyncMock()
+                    exec_result = SimpleNamespace(scalar_one_or_none=lambda: row)
+                    mock_session.execute = AsyncMock(return_value=exec_result)
+
+                    async def _override():
+                        yield mock_session
+
+                    app.dependency_overrides[get_session] = _override
+                    try:
+                        transport = httpx.ASGITransport(app=app)
+                        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+                            r = await c.get(
+                                f"/v1/audit/{trace_id}",
+                                params={"tenant_id": "t1", "detail_level": "analyst"},
+                            )
+                    finally:
+                        app.dependency_overrides.pop(get_session, None)
+
+    assert r.status_code == 403

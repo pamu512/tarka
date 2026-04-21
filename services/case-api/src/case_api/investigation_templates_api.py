@@ -30,11 +30,7 @@ async def list_templates(
     session: AsyncSession = Depends(get_session),
     _analyst=Depends(require_role("analyst")),
 ):
-    q = (
-        select(InvestigationTemplate)
-        .where(InvestigationTemplate.tenant_id == tenant_id)
-        .order_by(InvestigationTemplate.slug)
-    )
+    q = select(InvestigationTemplate).where(InvestigationTemplate.tenant_id == tenant_id).order_by(InvestigationTemplate.slug)
     rows = (await session.execute(q)).scalars().all()
     return {"items": [InvestigationTemplateOut.model_validate(r).model_dump(mode="json") for r in rows]}
 
