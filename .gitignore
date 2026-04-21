@@ -32,6 +32,9 @@ Thumbs.db
 # Local AI stack runtime configuration
 deploy/local-ai/.env.local
 
+# Generated Helm values (scripts/deploy/generate_cloud_values.py, CI smoke)
+deploy/generated/
+
 # Python coverage (local pytest)
 .coverage
 **/.coverage
