@@ -53,6 +53,18 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+  /v1/vault/byok-policy:
+    get:
+      operationId: vaultByokPolicy
+      summary: BYOK policy contract and per-connector capability flags
+      responses:
+        "200":
+          description: Policy document
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
   /v1/vault/rotation-jobs:
     get:
       operationId: vaultRotationJobs
