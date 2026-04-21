@@ -2188,6 +2188,8 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         if active_workflow:
             out["workflow_id"] = active_workflow
             out["workflow_params"] = workflow_params_norm
+        if injection_detected and settings.copilot_injection_policy == "sanitize":
+            out["injection_sanitized"] = True
         copilot_analytics.schedule_turn_completed(
             settings,
             tenant_id=body.tenant_id,

@@ -4,9 +4,8 @@ import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
-
 from case_api.workflow import WorkflowContext
+from fastapi.testclient import TestClient
 
 
 def _api_headers() -> dict[str, str]:
