@@ -95,6 +95,7 @@ class CreateCaseInput:
     entity_id: str
     trace_id: str
     priority: str = "medium"
+    playbook_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -286,13 +287,15 @@ class Mutation:
         input: CreateCaseInput,
     ) -> Case:
         client = _client_from_info(info)
-        body = {
+        body: dict[str, Any] = {
             "tenant_id": input.tenant_id,
             "title": input.title,
             "entity_id": input.entity_id,
             "trace_id": input.trace_id,
             "priority": input.priority,
         }
+        if input.playbook_id:
+            body["playbook_id"] = input.playbook_id
         url = f"{settings.case_api_url}/v1/cases"
         resp = await client.post(url, json=body)
         resp = await _raise_for_status(resp)

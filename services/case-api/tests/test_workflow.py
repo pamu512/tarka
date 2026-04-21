@@ -183,3 +183,13 @@ class TestSLA:
     def test_not_breached(self):
         recent = datetime.now(timezone.utc) - timedelta(minutes=5)
         assert is_sla_breached("medium", recent) is False
+
+    def test_sla_deadline_override_hours(self):
+        now = datetime.now(timezone.utc)
+        deadline = compute_sla_deadline("low", now, sla_hours_override=3)
+        assert deadline == now + timedelta(hours=3)
+
+    def test_breached_respects_override(self):
+        old = datetime.now(timezone.utc) - timedelta(hours=5)
+        assert is_sla_breached("medium", old, sla_hours_override=2) is True
+        assert is_sla_breached("medium", old, sla_hours_override=200) is False

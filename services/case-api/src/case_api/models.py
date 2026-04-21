@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -22,10 +22,32 @@ class Case(Base):
     priority: Mapped[str] = mapped_column(String(16), default="medium")
     assigned_team: Mapped[str | None] = mapped_column(String(128), nullable=True, default=None)
     labels: Mapped[list] = mapped_column(_JSON_COL, default=list)
+    default_owner: Mapped[str | None] = mapped_column(String(256), nullable=True, default=None)
+    sla_hours_override: Mapped[int | None] = mapped_column(nullable=True, default=None)
+    applied_template_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        nullable=True,
+        default=None,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     comments: Mapped[list["CaseComment"]] = relationship(back_populates="case", cascade="all, delete-orphan")
+
+
+class InvestigationTemplate(Base):
+    """Tenant-scoped investigation template (Marble #56): apply_config drives case mutations + SLA hints."""
+
+    __tablename__ = "investigation_templates"
+    __table_args__ = (UniqueConstraint("tenant_id", "slug", name="uq_investigation_templates_tenant_slug"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[str] = mapped_column(String(128), index=True)
+    slug: Mapped[str] = mapped_column(String(128), index=True)
+    name: Mapped[str] = mapped_column(String(256))
+    apply_config: Mapped[dict] = mapped_column(_JSON_COL, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class CaseComment(Base):
