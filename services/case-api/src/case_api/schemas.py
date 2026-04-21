@@ -96,6 +96,13 @@ class CreateDisputeRequest(BaseModel):
     merchant_id: str | None = None
     card_network: str | None = None
     case_id: str | None = None
+    provider_response_deadline_at: datetime | None = None
+    provider_response_deadline_hours: int | None = Field(
+        default=None,
+        ge=1,
+        le=8760,
+        description="Alternative to absolute deadline: hours from filing for provider/webhook response window.",
+    )
 
 
 class UpdateDisputeRequest(BaseModel):
@@ -125,6 +132,9 @@ class DisputeOut(BaseModel):
     resolution_notes: str | None
     filed_at: datetime | None
     resolved_at: datetime | None
+    provider_response_deadline_at: datetime | None = None
+    external_reprocess_count: int = 0
+    last_external_reprocess_at: datetime | None = None
     created_at: datetime | None
     updated_at: datetime | None
 

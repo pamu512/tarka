@@ -80,6 +80,19 @@ async def test_install_restricted_category_blocked_for_eu(client):
 
 
 @pytest.mark.asyncio
+async def test_install_rejects_byok_forbidden_platform_custody_keys(client):
+    r = await client.post(
+        "/v1/integrations/install",
+        json={
+            "tenant_id": "t1",
+            "provider_id": "stripe_radar",
+            "config": {"api_key": "k", "platform_api_key": "should-not-exist"},
+        },
+    )
+    assert r.status_code == 400
+
+
+@pytest.mark.asyncio
 async def test_test_connectivity_pass(client):
     session = client.test_session
     mock_conn = SimpleNamespace(last_connectivity_test=None, status="enabled")

@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from integration_ingress.adapters import ADAPTERS, verify
+from integration_ingress.byok_policy import policy_document, validate_install_config
 from integration_ingress.config import settings
 from integration_ingress.db import get_session, init_db
 from integration_ingress.enrichment import enrich_email, enrich_ip, enrich_phone
@@ -453,6 +454,31 @@ async def vault_metrics(_user=Depends(require_role("admin"))):
     merged = dict(_kms_metrics)
     merged.update(_vault.metrics())
     return {"provider": _vault.provider, "metrics": merged}
+
+
+@app.get("/v1/vault/byok-policy")
+async def vault_byok_policy(_user=Depends(require_role("admin"))):
+    """BYOK policy contract + per-connector capability flags (Refund Swatter / epic #58)."""
+    return policy_document(providers=list(PROVIDER_CATALOG))
+
+
+async def _audit_vault_crypto_event(
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    provider_id: str,
+    operation: str,
+    actor: str,
+) -> None:
+    await _trail.record(
+        session,
+        actor=actor,
+        action="vault_crypto_event",
+        resource_type="integration_secret",
+        resource_id=str(provider_id),
+        changes={"operation": operation, "tenant_scoped": True},
+        tenant_id=tenant_id,
+    )
 
 
 @app.get("/v1/vault/rotation-jobs")
@@ -940,7 +966,18 @@ async def test_integration_connectivity(
     provider = get_provider(body.provider_id)
     if not provider:
         raise HTTPException(status_code=404, detail=f"provider '{body.provider_id}' not found")
-    effective_config = body.config if body.config is not None else await _vault.get_config(session, body.tenant_id, body.provider_id)
+    actor = get_current_user(request).user_id
+    if body.config is None:
+        effective_config = await _vault.get_config(session, body.tenant_id, body.provider_id)
+        await _audit_vault_crypto_event(
+            session,
+            tenant_id=body.tenant_id,
+            provider_id=body.provider_id,
+            operation="decrypt_envelope_connectivity",
+            actor=actor,
+        )
+    else:
+        effective_config = body.config
     result = _integration_connectivity_result(provider, effective_config)
     probe_ok, probe_latency, probe_error = await _live_provider_probe(provider, request.app.state.http)
     result["live_probe"] = {"ok": probe_ok, "latency_ms": probe_latency, "error": probe_error}
@@ -957,7 +994,6 @@ async def test_integration_connectivity(
     if row:
         row.last_connectivity_test = result
         row.status = "enabled" if result["status"] == "pass" else "error"
-    actor = get_current_user(request).user_id
     await _trail.record(
         session,
         actor=actor,
@@ -984,6 +1020,13 @@ async def integration_health_matrix(tenant_id: str, session: AsyncSession = Depe
         last = item.last_connectivity_test
         if not isinstance(last, dict):
             cfg = await _vault.get_config(session, tenant_id, provider_id)
+            await _audit_vault_crypto_event(
+                session,
+                tenant_id=tenant_id,
+                provider_id=provider_id,
+                operation="decrypt_envelope_health_matrix",
+                actor="system",
+            )
             last = _integration_connectivity_result(provider, cfg)
         rows.append(
             {
@@ -1068,8 +1111,17 @@ async def install_integration(
         return snap
     _enforce_policy_for_install(provider, (body.config or {}).get("region"))
     config = body.config or {}
+    validate_install_config(config)
+    actor = get_current_user(request).user_id
     if config:
         await _vault.set_config(session, body.tenant_id, str(provider["id"]), config)
+        await _audit_vault_crypto_event(
+            session,
+            tenant_id=body.tenant_id,
+            provider_id=str(provider["id"]),
+            operation="encrypt_envelope_install",
+            actor=actor,
+        )
     q = await session.execute(
         select(IntegrationConnection).where(
             IntegrationConnection.tenant_id == body.tenant_id,
@@ -1100,7 +1152,6 @@ async def install_integration(
         "configured": bool(config) or bool(row.configured),
         "masked_config": await _vault.get_masked_config(session, body.tenant_id, str(provider["id"])),
     }
-    actor = get_current_user(request).user_id
     await _trail.record(
         session,
         actor=actor,
@@ -1183,7 +1234,16 @@ async def configure_integration(
     snap = await _get_operation_snapshot(session, tenant_id=body.tenant_id, provider_id=body.provider_id, action="configure", idempotency_key=idempotency_key)
     if snap:
         return snap
+    validate_install_config(body.config or {})
+    actor = get_current_user(request).user_id
     await _vault.set_config(session, body.tenant_id, body.provider_id, body.config or {})
+    await _audit_vault_crypto_event(
+        session,
+        tenant_id=body.tenant_id,
+        provider_id=body.provider_id,
+        operation="encrypt_envelope_configure",
+        actor=actor,
+    )
     q = await session.execute(
         select(IntegrationConnection).where(
             IntegrationConnection.tenant_id == body.tenant_id,
@@ -1194,7 +1254,6 @@ async def configure_integration(
     if row:
         row.configured = True
         row.version += 1
-    actor = get_current_user(request).user_id
     await _trail.record(
         session,
         actor=actor,

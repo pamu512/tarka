@@ -3,18 +3,20 @@
 import logging
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import func, select
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request
+from pydantic import BaseModel
+from sqlalchemy import func, nulls_last, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from case_api.config import settings
 from case_api.db import get_session
-from case_api.models import Case, CaseComment, Dispute
+from case_api.dispute_deadline import queue_item_view
+from case_api.models import Case, CaseComment, Dispute, DisputeReprocessLedger
 from case_api.schemas import CreateDisputeRequest, DisputeOut, UpdateDisputeRequest
 
 _shared = Path(__file__).resolve().parents[3] / "shared"
@@ -28,6 +30,11 @@ router = APIRouter(prefix="/v1/disputes", tags=["disputes"])
 VALID_DISPUTE_TYPES = {"chargeback", "dispute", "fraud_claim", "unauthorized", "service_not_rendered", "product_not_received"}
 VALID_STATUSES = {"filed", "investigating", "evidence_submitted", "accepted", "rejected", "resolved"}
 VALID_OUTCOMES = {"fraud_confirmed", "false_positive", "inconclusive", "merchant_fault", "customer_fault"}
+_EXTERNAL_QUEUE_STATUSES = ("filed", "investigating", "evidence_submitted")
+
+
+class ReprocessExternalBody(BaseModel):
+    reason: str | None = None
 
 
 async def _fetch_original_decision(http: httpx.AsyncClient, trace_id: str) -> dict[str, Any]:
@@ -137,6 +144,17 @@ async def create_dispute(
             )
         )
 
+    now = datetime.now(timezone.utc)
+    deadline_at: datetime | None = None
+    if body.provider_response_deadline_at is not None:
+        deadline_at = body.provider_response_deadline_at
+        if deadline_at.tzinfo is None:
+            deadline_at = deadline_at.replace(tzinfo=timezone.utc)
+    elif body.provider_response_deadline_hours is not None:
+        deadline_at = now + timedelta(hours=int(body.provider_response_deadline_hours))
+    elif settings.dispute_provider_default_response_hours > 0:
+        deadline_at = now + timedelta(hours=int(settings.dispute_provider_default_response_hours))
+
     dispute = Dispute(
         tenant_id=body.tenant_id,
         entity_id=body.entity_id,
@@ -153,6 +171,8 @@ async def create_dispute(
         original_score=original.get("score"),
         original_rule_hits=original.get("rule_hits", []),
         original_ml_score=None,
+        provider_response_deadline_at=deadline_at,
+        external_reprocess_count=0,
     )
     session.add(dispute)
     await session.commit()
@@ -220,6 +240,93 @@ async def dispute_stats(tenant_id: str, session: AsyncSession = Depends(get_sess
         "total_amount": sum_amount,
         "win_rate": win_rate,
     }
+
+
+@router.get("/ops/deadline-queue")
+async def dispute_deadline_queue(
+    tenant_id: str,
+    session: AsyncSession = Depends(get_session),
+    limit: int = 100,
+):
+    """Dashboard queue: disputes awaiting external/provider response with deadline countdown (#60)."""
+    now = datetime.now(timezone.utc)
+    lim = max(1, min(limit, 500))
+    q = (
+        select(Dispute)
+        .where(Dispute.tenant_id == tenant_id, Dispute.status.in_(_EXTERNAL_QUEUE_STATUSES))
+        .order_by(nulls_last(Dispute.provider_response_deadline_at.asc()), Dispute.filed_at.asc())
+        .limit(lim)
+    )
+    rows = (await session.execute(q)).scalars().all()
+    items = [queue_item_view(r, now=now, near_breach_ratio=float(settings.dispute_near_breach_ratio)) for r in rows]
+    return {
+        "schema": "tarka.dispute_deadline_queue/v1",
+        "tenant_id": tenant_id,
+        "generated_at": now.isoformat(),
+        "items": items,
+    }
+
+
+@router.post("/{dispute_id}/reprocess-external")
+async def reprocess_dispute_external(
+    dispute_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: str = Query(..., description="Tenant scope; must match the dispute"),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    body: ReprocessExternalBody = Body(default_factory=ReprocessExternalBody),
+    _user=Depends(require_role("analyst")),
+):
+    """Idempotent re-run hook for external provider / webhook workflows (#60)."""
+    if not idempotency_key or not str(idempotency_key).strip():
+        raise HTTPException(422, "Idempotency-Key header is required")
+    key = str(idempotency_key).strip()[:256]
+
+    existing = await session.scalar(
+        select(DisputeReprocessLedger).where(
+            DisputeReprocessLedger.dispute_id == dispute_id,
+            DisputeReprocessLedger.idempotency_key == key,
+        ),
+    )
+    if existing:
+        out = dict(existing.response_snapshot or {})
+        out["idempotent_replay"] = True
+        return out
+
+    row = await session.scalar(select(Dispute).where(Dispute.id == dispute_id, Dispute.tenant_id == tenant_id))
+    if not row:
+        raise HTTPException(404, "Dispute not found")
+
+    now = datetime.now(timezone.utc)
+    row.external_reprocess_count = int(row.external_reprocess_count or 0) + 1
+    row.last_external_reprocess_at = now
+    snap: dict[str, Any] = {
+        "ok": True,
+        "dispute_id": str(dispute_id),
+        "tenant_id": tenant_id,
+        "reprocessed_at": now.isoformat(),
+        "external_reprocess_count": row.external_reprocess_count,
+        "reason": (body.reason or "").strip()[:2000],
+        "idempotent_replay": False,
+    }
+    session.add(
+        DisputeReprocessLedger(
+            dispute_id=dispute_id,
+            tenant_id=tenant_id,
+            idempotency_key=key,
+            response_snapshot=snap,
+        ),
+    )
+    if row.case_id:
+        session.add(
+            CaseComment(
+                case_id=row.case_id,
+                author="system:dispute-engine",
+                body=f"External reprocess invoked (n={row.external_reprocess_count}).",
+            ),
+        )
+    await session.commit()
+    return snap
 
 
 @router.get("/{dispute_id}", response_model=DisputeOut)
