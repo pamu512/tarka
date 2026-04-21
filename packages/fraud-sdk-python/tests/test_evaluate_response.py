@@ -41,6 +41,13 @@ def test_parse_evaluate_response_ok():
     assert out["inference_context"]["schema_version"] == "3"
 
 
+def test_parse_accepts_optional_graph_decision_explanation():
+    body = _minimal_evaluate_json()
+    body["graph_decision_explanation"] = {"schema_id": "tarka.graph_decision_explanation/v1", "factors": []}
+    out = parse_evaluate_response(body)
+    assert out["graph_decision_explanation"]["schema_id"] == "tarka.graph_decision_explanation/v1"
+
+
 def test_parse_rejects_bad_decision():
     bad = _minimal_evaluate_json()
     bad["decision"] = "maybe"

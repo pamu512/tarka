@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tarka.dev/schemas/tarka-graph-decision-explanation-v1.json",
+  "title": "Tarka graph decision explanation (v1)",
+  "description": "Factor-to-evidence mapping from graph-service entity risk into decision / case workflows (xFraud-style why-links).",
+  "type": "object",
+  "required": ["schema_id", "trace_id", "tenant_id", "subject", "factors", "why_links"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_id": {
+      "type": "string",
+      "const": "tarka.graph_decision_explanation/v1"
+    },
+    "trace_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "subject": {
+      "type": "object",
+      "required": ["external_id"],
+      "properties": {
+        "external_id": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "graph_trace": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "step": { "type": "string" },
+        "status": { "type": "string" },
+        "reason": { "type": "string" }
+      }
+    },
+    "factors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "code", "source"],
+        "properties": {
+          "id": { "type": "string" },
+          "code": { "type": "string" },
+          "source": { "type": "string" },
+          "weight_hint": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "why_links": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["factor_id", "evidence"],
+        "properties": {
+          "factor_id": { "type": "string" },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["kind", "ref"],
+              "properties": {
+                "kind": { "type": "string" },
+                "ref": { "type": "string" },
+                "role": { "type": "string" }
+              },
+              "additionalProperties": true
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "case_ui": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "gnn_beta_overlay": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

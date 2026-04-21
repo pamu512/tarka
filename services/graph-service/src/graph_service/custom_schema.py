@@ -19,6 +19,10 @@ log = logging.getLogger(__name__)
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 _SAFE_TENANT_ID = re.compile(r"^[A-Za-z0-9_-]{1,120}$")
 
+
+def _norm_rel_token(rel: str) -> str:
+    return str(rel).strip().upper().replace(" ", "_").replace("-", "_")
+
 _SCHEMAS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "schemas"
 
 _DEFAULT_ENTITY_TYPES = [
@@ -55,11 +59,15 @@ class TenantSchema:
         entity_types: list[str] | None = None,
         relationship_types: list[str] | None = None,
         extra: dict[str, Any] | None = None,
+        typed_edges: list[dict[str, Any]] | None = None,
+        node_context_hints: dict[str, list[str]] | None = None,
     ) -> None:
         self.tenant_id = tenant_id
         self.entity_types: list[str] = list(dict.fromkeys(_DEFAULT_ENTITY_TYPES + (entity_types or [])))
         self.relationship_types: list[str] = list(dict.fromkeys(_DEFAULT_RELATIONSHIP_TYPES + (relationship_types or [])))
         self.extra: dict[str, Any] = extra or {}
+        self.typed_edges: list[dict[str, Any]] = list(typed_edges or [])
+        self.node_context_hints: dict[str, list[str]] = dict(node_context_hints or {})
 
     def allows_label(self, label: str) -> bool:
         return label in self.entity_types
@@ -72,16 +80,27 @@ class TenantSchema:
             "tenant_id": self.tenant_id,
             "entity_types": self.entity_types,
             "relationship_types": self.relationship_types,
+            "typed_edges": self.typed_edges,
+            "node_context_hints": self.node_context_hints,
             "extra": self.extra,
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> TenantSchema:
+        extra = dict(data.get("extra") or {})
+        typed_edges = data.get("typed_edges")
+        if typed_edges is None and "typed_edges" in extra:
+            typed_edges = extra.pop("typed_edges", None)
+        hints = data.get("node_context_hints")
+        if hints is None and "node_context_hints" in extra:
+            hints = extra.pop("node_context_hints", None)
         return cls(
             tenant_id=data.get("tenant_id", "default"),
             entity_types=data.get("entity_types"),
             relationship_types=data.get("relationship_types"),
-            extra=data.get("extra"),
+            extra=extra or None,
+            typed_edges=typed_edges if isinstance(typed_edges, list) else None,
+            node_context_hints=hints if isinstance(hints, dict) else None,
         )
 
 
@@ -141,6 +160,24 @@ def save_tenant_schema(schema: TenantSchema) -> None:
     bad = [t for t in schema.entity_types + schema.relationship_types if not _SAFE_IDENTIFIER.match(t)]
     if bad:
         raise ValueError(f"unsafe identifiers rejected: {bad}")
+    for spec in schema.typed_edges:
+        if not isinstance(spec, dict):
+            raise ValueError("typed_edges entries must be objects")
+        rel = str(spec.get("relationship", "")).strip()
+        if rel and not _SAFE_IDENTIFIER.match(_norm_rel_token(rel)):
+            raise ValueError(f"unsafe typed_edges.relationship rejected: {rel}")
+        for key in ("from_entity_types", "to_entity_types"):
+            for t in spec.get(key) or []:
+                ts = str(t).strip()
+                if ts and not _SAFE_IDENTIFIER.match(ts):
+                    raise ValueError(f"unsafe typed_edges.{key} entry rejected: {t}")
+    for nt, keys in schema.node_context_hints.items():
+        if not _SAFE_IDENTIFIER.match(str(nt).strip()):
+            raise ValueError(f"unsafe node_context_hints key rejected: {nt}")
+        for k in keys:
+            ks = str(k).strip()
+            if ks and not _SAFE_IDENTIFIER.match(ks):
+                raise ValueError(f"unsafe node_context_hints value rejected: {k}")
 
     _SCHEMAS_DIR.mkdir(parents=True, exist_ok=True)
     path = _schema_path(schema.tenant_id)

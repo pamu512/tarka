@@ -177,3 +177,7 @@ class EvaluateResponse(BaseModel):
         default=None,
         description="Set when evaluate used rules-only or degraded dependencies (circuit/tenant flags); mirrors audit payload_snapshot.fallback_reason",
     )
+    graph_decision_explanation: dict[str, Any] | None = Field(
+        default=None,
+        description="When graph risk ran: tarka.graph_decision_explanation/v1 factor→evidence mapping for case/analyst UI",
+    )

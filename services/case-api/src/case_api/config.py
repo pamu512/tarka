@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     graph_service_url: str = ""
     cors_origins: str = ""
     decision_api_url: str = os.environ.get("DECISION_API_URL", "http://localhost:8000")
+    decision_api_key: str = Field(
+        default="",
+        description="Optional x-api-key for outbound GETs to decision-api (audit / explanation chain).",
+    )
     ml_scoring_url: str = os.environ.get("ML_SCORING_URL", "")
     evidence_signing_secret: str = os.environ.get("EVIDENCE_SIGNING_SECRET", "")
     dispute_provider_default_response_hours: int = Field(

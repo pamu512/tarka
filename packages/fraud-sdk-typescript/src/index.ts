@@ -153,6 +153,8 @@ export interface EvaluateResponse {
   ml_score?: number | null;
   inference_context: InferenceContext;
   recommended_action?: string | null;
+  /** When graph risk ran: tarka.graph_decision_explanation/v1 (see contracts/schemas). */
+  graph_decision_explanation?: Record<string, unknown> | null;
 }
 
 /** Matches `InferenceContext` in `contracts/openapi/decision-api.yaml` (evaluate response). */

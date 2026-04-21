@@ -206,6 +206,14 @@ async def subgraph(entity_id: str, tenant_id: str, depth: int = 2):
 class SchemaUpdateRequest(BaseModel):
     entity_types: list[str] = Field(default_factory=list)
     relationship_types: list[str] = Field(default_factory=list)
+    typed_edges: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Optional hetero constraints: relationship + allowed endpoint entity types (xFraud-style).",
+    )
+    node_context_hints: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="Suggested transaction-context property keys per entity type (documentation / UI hints).",
+    )
     extra: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -223,6 +231,8 @@ async def put_schema(tenant_id: str, body: SchemaUpdateRequest):
         entity_types=body.entity_types or None,
         relationship_types=body.relationship_types or None,
         extra=body.extra,
+        typed_edges=body.typed_edges or None,
+        node_context_hints=body.node_context_hints or None,
     )
     save_tenant_schema(schema)
     return schema.to_dict()
