@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Any, cast
 
 from fraud_stack_sdk.client import EvaluateResponse, InferenceContext
