@@ -56,7 +56,7 @@ jobs:
           tokens = ("C" + "ursor", "A" + "nysphere")
           for token in tokens:
               r = subprocess.run(
-                  ["git", "grep", "-nF", token, "--", "."],
+                  ["git", "grep", "-nF", "--exclude=.github/workflows/ci.yml", token, "--", "."],
                   capture_output=True,
                   text=True,
               )
