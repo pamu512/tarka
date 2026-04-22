@@ -9,6 +9,7 @@ Takes raw behavior data collected by the TypeScript SDK's BehaviorCollector
 and computes risk indicators for fraud detection.
 """
 
+
 class BehaviorAnalyzer:
     """Analyzes behavioral biometrics data from client-side collection.
 

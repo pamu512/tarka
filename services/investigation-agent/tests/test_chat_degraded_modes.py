@@ -8,6 +8,7 @@ from investigation_agent.main import app
 
 """Chat degraded mode contract: copilot_mode + degraded_reasons."""
 
+
 def test_chat_returns_tools_only_deterministic_when_llm_key_missing(monkeypatch):
     payload = {
         "tenant_id": "demo",

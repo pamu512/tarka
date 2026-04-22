@@ -30,6 +30,7 @@ Example:
   SCORECARD_BASE_URL=https://localhost/api/analytics python3 scripts/analytics/export_weekly_scorecard_json.py -o exports/scorecard-demo.json
 """
 
+
 def fetch_scorecard(base_url: str, tenant_id: str, days: int, api_key: str) -> dict:
     q = urllib.parse.urlencode({"tenant_id": tenant_id, "days": str(days)})
     url = f"{base_url.rstrip('/')}/v1/analytics/scorecard?{q}"

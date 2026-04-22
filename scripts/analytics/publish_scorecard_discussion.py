@@ -24,6 +24,7 @@ Environment (typical in GitHub Actions):
 Dry-run locally without GITHUB_TOKEN: prints Markdown only.
 """
 
+
 def build_markdown(data: dict[str, Any]) -> str:
     tenant = str(data.get("tenant_id", ""))
     days = int(data.get("window_days", 0))

@@ -9,6 +9,7 @@ from fraud_stack_sdk.request_signing import build_signature_headers
 
 """Resilient evaluate request envelope: canonical JSON, signing headers, idempotency hints."""
 
+
 def canonical_json_bytes(obj: dict[str, Any]) -> bytes:
     """Stable UTF-8 JSON for HMAC and retries (sorted keys, no extra whitespace)."""
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")

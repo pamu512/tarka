@@ -22,6 +22,7 @@ Local mode (no server): imports ``heuristic_score`` from ``ml_scoring.heuristic`
 HTTP mode: POST /v1/score per row (optional; for integration tests).
 """
 
+
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 

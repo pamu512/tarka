@@ -6,6 +6,7 @@ from threading import Lock
 
 """In-process sliding-window rate limiter (per key)."""
 
+
 class MinuteRateLimiter:
     """At most `max_events` calls per `window` seconds per distinct key."""
 

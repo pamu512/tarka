@@ -10,6 +10,7 @@ All queries use parameterized Cypher ($params) except variable-length
 path depths, which Cypher requires as literal integers (clamped to 1-5).
 """
 
+
 def _clamp_depth(depth: int) -> int:
     return max(1, min(int(depth), 5))
 

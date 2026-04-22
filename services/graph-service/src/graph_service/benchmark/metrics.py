@@ -3,7 +3,6 @@ from __future__ import annotations
 """Standardized evaluation metrics for graph benchmark harness (#64)."""
 
 
-
 def _as_binary_labels(y: list[int]) -> list[int]:
     return [1 if int(x) >= 1 else 0 for x in y]
 

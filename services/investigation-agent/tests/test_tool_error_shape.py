@@ -6,6 +6,7 @@ from investigation_agent.tools import normalize_tool_error_shape
 
 """Tool error payload hardening."""
 
+
 def test_normalize_tool_error_shape_adds_contract_fields():
     out = normalize_tool_error_shape("subgraph", {"error": "graph_disabled"})
     assert out["error"] == "graph_disabled"

@@ -16,6 +16,7 @@ Usage:
   python scripts/ci/inventory_light_implementations.py --write docs/docs/guides/light-implementation-hardening-inventory.md
 """
 
+
 @dataclass(frozen=True)
 class Rule:
     component: str

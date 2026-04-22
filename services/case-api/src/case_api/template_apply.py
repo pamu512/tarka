@@ -14,6 +14,7 @@ from case_api.schemas import CaseOut
 
 """Resolve and apply investigation templates / built-in playbooks (Marble #56)."""
 
+
 def _normalize_apply_config(raw: dict[str, Any]) -> dict[str, Any]:
     cfg = dict(raw)
     labels = list(cfg.get("labels") or [])

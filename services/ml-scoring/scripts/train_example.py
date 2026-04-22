@@ -10,6 +10,7 @@ Optional: log a run to MLflow and export a trivial ONNX model for ONNX_MODEL_PAT
 Usage (with extras): pip install -e '.[onnx,mlflow]' && python scripts/train_example.py
 """
 
+
 def main() -> None:
     try:
         import mlflow

@@ -71,6 +71,7 @@ FROM {db}.decision_events
 GROUP BY tenant_id, decision, hour
 """
 
+
 # ---------- auth ----------
 def _get_api_keys() -> frozenset[str]:
     raw = settings.api_keys.strip()

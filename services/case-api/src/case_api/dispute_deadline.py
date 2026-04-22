@@ -5,6 +5,7 @@ from typing import Any, Literal
 
 """Deadline / SLA-style countdown helpers for dispute external-response queues (#60)."""
 
+
 def _aware(dt: datetime) -> datetime:
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)

@@ -9,6 +9,7 @@ from decision_api.trusted_zones import load_trusted_zones_for_tenant
 
 """Stretch: calibration snapshots + trusted zones file load."""
 
+
 def test_trusted_zones_from_file(tmp_path):
     rules = tmp_path / "rules"
     rules.mkdir()

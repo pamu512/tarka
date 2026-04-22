@@ -11,6 +11,7 @@ Canary routing for JSON rule packs uses the same stable bucket as ``json_rules._
 this module documents the salt semantics and exposes helpers for audit metadata.
 """
 
+
 def _cohort_digest_hex(tenant_id: str, entity_id: str, salt: str) -> str:
     raw = f"{tenant_id}|{entity_id}|{salt}".encode("utf-8")
     return hashlib.sha256(raw).hexdigest()

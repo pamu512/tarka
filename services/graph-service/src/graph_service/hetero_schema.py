@@ -10,6 +10,7 @@ When a tenant schema defines ``typed_edges``, ``create_link`` enforces that the
 Neo4j/Janus endpoints carry at least one label matching the allowed from/to sets.
 """
 
+
 def _norm_rel(rel: str) -> str:
     return str(rel or "").upper().replace(" ", "_").replace("-", "_")
 

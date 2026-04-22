@@ -57,6 +57,7 @@ from tenant_binding import enforce_tenant_access, parse_api_key_tenant_map  # no
 
 # ---------- auth ----------
 
+
 def _get_api_keys() -> frozenset[str]:
     raw = os.environ.get("API_KEYS", "").strip()
     return frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()

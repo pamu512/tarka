@@ -17,6 +17,7 @@ Example:
 Requires: httpx (same as investigation-agent).
 """
 
+
 def main() -> int:
     p = argparse.ArgumentParser(description="Ingest .md files into Saarthi knowledge RAG")
     p.add_argument("--base-url", default="http://localhost:8006", help="Agent base URL")

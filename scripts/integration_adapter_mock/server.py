@@ -15,6 +15,7 @@ used by investigation-agent tools (stdlib only).
   python scripts/integration_adapter_mock/server.py --port 18080
 """
 
+
 def _json_body(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
     try:
         n = int(handler.headers.get("Content-Length") or 0)

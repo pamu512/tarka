@@ -9,6 +9,7 @@ from chitragupta.contract_compat import assert_contract_compatible
 
 """Plugin registration, discovery, and manifest contract (issue #62)."""
 
+
 class PluginManifest(BaseModel):
     plugin_id: str = Field(min_length=2, max_length=128, pattern=r"^[a-z0-9][a-z0-9_.-]*$")
     contract_version: str = Field(default="1.0.0", description="Semantic contract version for this plugin surface.")

@@ -9,6 +9,7 @@ Callers (main.py, tests) import from this module only — never from algorithms_
 or algorithms_janus directly.
 """
 
+
 def _clamp_depth(depth: int) -> int:
     """Shared depth bound for path-style analytics (matches neo4j algorithms)."""
     return max(1, min(int(depth), 5))

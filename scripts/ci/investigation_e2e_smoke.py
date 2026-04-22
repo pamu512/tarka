@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 
 """Investigation smoke: decision evaluate -> case -> decision-explanation schema check."""
 
+
 def _json_request(url: str, *, method: str = "GET", body: dict | None = None, api_key: str = "") -> dict:
     data = None
     headers = {"Accept": "application/json"}

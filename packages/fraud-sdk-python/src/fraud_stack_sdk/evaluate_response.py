@@ -6,6 +6,7 @@ from fraud_stack_sdk.client import EvaluateResponse, InferenceContext
 
 """Strict validation for Decision API evaluate JSON (TypedDict contract)."""
 
+
 class EvaluateResponseValidationError(ValueError):
     """Raised when the API response does not match the expected evaluate contract."""
 

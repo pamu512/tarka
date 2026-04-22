@@ -8,6 +8,7 @@ from fastapi import HTTPException, Request
 
 """Shared tenant binding helpers for API-key and JWT-protected services."""
 
+
 def tenant_binding_required() -> bool:
     return os.environ.get("TENANT_BINDING_REQUIRED", "").strip().lower() in {"1", "true", "yes", "on"}
 

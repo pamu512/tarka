@@ -9,6 +9,7 @@ from decision_api.config import settings
 
 """Stretch: load trusted geo zones from disk (per-tenant) for inference trusted_zone_hit."""
 
+
 def _base_dir() -> Path:
     raw = os.environ.get("CALIBRATION_DATA_DIR", "").strip()
     if raw:
