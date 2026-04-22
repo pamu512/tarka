@@ -1,10 +1,7 @@
 from __future__ import annotations
-
-"""Copilot personas: investigation (evidence-first) vs orchestrator (workflow efficiency)."""
-
-
 from typing import Literal
 
+"""Copilot personas: investigation (evidence-first) vs orchestrator (workflow efficiency)."""
 CopilotPersona = Literal["investigation", "orchestrator"]
 
 DEFAULT_COPILOT_PERSONA: CopilotPersona = "investigation"

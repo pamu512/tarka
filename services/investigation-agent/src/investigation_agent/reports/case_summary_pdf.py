@@ -1,14 +1,11 @@
 from __future__ import annotations
-
-"""Case summary PDF from structured answer_sections + reply (no LLM)."""
-
-
 from datetime import datetime, timezone
 from io import BytesIO
 from typing import Any
 
 from fpdf import FPDF
 
+"""Case summary PDF from structured answer_sections + reply (no LLM)."""
 
 def _safe_pdf_text(s: str) -> str:
     """FPDF core fonts: approximate Latin-1; replace unsupported chars."""

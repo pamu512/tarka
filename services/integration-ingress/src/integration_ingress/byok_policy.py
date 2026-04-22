@@ -1,12 +1,9 @@
 from __future__ import annotations
-
-"""BYOK (bring-your-own-key) contract for connector credentials (Refund Swatter #59 / epic #58)."""
-
-
 from typing import Any
 
 from fastapi import HTTPException
 
+"""BYOK (bring-your-own-key) contract for connector credentials (Refund Swatter #59 / epic #58)."""
 BYOK_POLICY_VERSION = 1
 
 # Keys that imply the platform holds third-party API custody (forbidden under strict BYOK).

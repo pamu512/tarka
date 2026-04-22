@@ -1,10 +1,7 @@
 from __future__ import annotations
-
-"""Per-tenant kill switches (R2.3) — Redis JSON at fraud:tenant_flags:{tenant_id}."""
-
-
 from typing import Any
 
+"""Per-tenant kill switches (R2.3) — Redis JSON at fraud:tenant_flags:{tenant_id}."""
 
 def tenant_flag_enabled(flags: dict[str, Any], key: str) -> bool:
     v = flags.get(key)

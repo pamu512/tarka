@@ -1,4 +1,5 @@
 from __future__ import annotations
+from graph_service.config import settings
 
 """
 Graph analytics entrypoint: Neo4j (Cypher) or JanusGraph (Gremlin) per GRAPH_BACKEND.
@@ -6,10 +7,6 @@ Graph analytics entrypoint: Neo4j (Cypher) or JanusGraph (Gremlin) per GRAPH_BAC
 Callers (main.py, tests) import from this module only — never from algorithms_neo4j
 or algorithms_janus directly.
 """
-
-
-from graph_service.config import settings
-
 
 def _clamp_depth(depth: int) -> int:
     """Shared depth bound for path-style analytics (matches neo4j algorithms)."""

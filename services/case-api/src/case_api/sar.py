@@ -1,4 +1,10 @@
 from __future__ import annotations
+import uuid
+import xml.etree.ElementTree as ET
+from dataclasses import dataclass
+from datetime import date, datetime, timezone
+from decimal import Decimal
+from typing import Any
 
 """SAR/STR report generation.
 
@@ -8,15 +14,6 @@ Supports FinCEN SAR (US), UK SAR (NCA), and generic XML/JSON formats.
 FinCEN XML follows the BSA E-Filing XML schema (FinCEN SAR v1.3).
 NCA JSON follows the UK NCA Defence Against Money Laundering (DAML) format.
 """
-
-
-import uuid
-import xml.etree.ElementTree as ET
-from dataclasses import dataclass
-from datetime import date, datetime, timezone
-from decimal import Decimal
-from typing import Any
-
 
 @dataclass
 class SARReport:

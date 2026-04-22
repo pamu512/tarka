@@ -1,4 +1,10 @@
 from __future__ import annotations
+import hashlib
+import logging
+import re
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any
 
 """Region-aware privacy compliance framework.
 
@@ -15,15 +21,6 @@ Each profile controls:
 - Anonymization requirements
 - Breach notification timelines
 """
-
-
-import hashlib
-import logging
-import re
-from dataclasses import dataclass
-from enum import Enum
-from typing import Any
-
 log = logging.getLogger("tarka.privacy")
 
 

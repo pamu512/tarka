@@ -1,14 +1,11 @@
 from __future__ import annotations
-
-"""SQLite persistence for human sign-off on copilot turns (assurance workflow)."""
-
-
 import os
 import sqlite3
 import threading
 import time
 from typing import Any, Literal
 
+"""SQLite persistence for human sign-off on copilot turns (assurance workflow)."""
 _lock = threading.Lock()
 _conn: sqlite3.Connection | None = None
 

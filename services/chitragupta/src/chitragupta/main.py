@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""HTTP surface: plugin discovery + multi-emitter orchestration runs."""
-
-
 import hashlib
 import logging
 import uuid
@@ -19,6 +15,7 @@ from chitragupta.db import OrchestratorRun, configure_engine, get_session, init_
 from chitragupta.emitters import canonical_input_hash, emit_with_retry, list_emitter_targets
 from chitragupta.plugin_sdk import PluginManifest, get_plugin, list_plugins, register_plugin, seed_builtin_plugins
 
+"""HTTP surface: plugin discovery + multi-emitter orchestration runs."""
 log = logging.getLogger("chitragupta.main")
 
 

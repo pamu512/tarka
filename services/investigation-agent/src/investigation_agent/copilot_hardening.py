@@ -1,17 +1,14 @@
 from __future__ import annotations
+import json
+import logging
+import re
+from typing import Any
 
 """
 Structured copilot security helpers: audit sanitization, tool-claim grounding, tool allowlists.
 
 Complements regex injection handling (see main._sanitize_message) and schema validation (tool_validation).
 """
-
-
-import json
-import logging
-import re
-from typing import Any
-
 log = logging.getLogger(__name__)
 
 # UUID + common external ids (alphanumeric._-:@/)

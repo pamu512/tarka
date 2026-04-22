@@ -1,12 +1,9 @@
 from __future__ import annotations
-
-"""Resolve copilot persona for bridge → investigation-agent: env default, optional API body, or message prefix."""
-
-
 import copy as _copy
 import re
 from typing import Literal
 
+"""Resolve copilot persona for bridge → investigation-agent: env default, optional API body, or message prefix."""
 CopilotPersonaId = Literal["investigation", "orchestrator"]
 
 

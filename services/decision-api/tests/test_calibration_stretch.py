@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Stretch: calibration snapshots + trusted zones file load."""
-
-
 import json
 import os
 from unittest.mock import patch
@@ -10,6 +6,7 @@ from unittest.mock import patch
 from decision_api.calibration_api import compute_drift_for_tenant
 from decision_api.trusted_zones import load_trusted_zones_for_tenant
 
+"""Stretch: calibration snapshots + trusted zones file load."""
 
 def test_trusted_zones_from_file(tmp_path):
     rules = tmp_path / "rules"

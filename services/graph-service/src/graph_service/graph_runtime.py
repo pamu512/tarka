@@ -1,12 +1,9 @@
 from __future__ import annotations
-
-"""Dispatch graph persistence to Neo4j or JanusGraph based on GRAPH_BACKEND (no HTTP API changes)."""
-
-
 from typing import Any
 
 from graph_service.config import settings
 
+"""Dispatch graph persistence to Neo4j or JanusGraph based on GRAPH_BACKEND (no HTTP API changes)."""
 
 async def upsert_entity(
     tenant_id: str,

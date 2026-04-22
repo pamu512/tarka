@@ -1,11 +1,8 @@
 from __future__ import annotations
-
-"""Deadline / SLA-style countdown helpers for dispute external-response queues (#60)."""
-
-
 from datetime import datetime, timezone
 from typing import Any, Literal
 
+"""Deadline / SLA-style countdown helpers for dispute external-response queues (#60)."""
 
 def _aware(dt: datetime) -> datetime:
     if dt.tzinfo is None:

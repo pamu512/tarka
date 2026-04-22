@@ -1,13 +1,10 @@
 from __future__ import annotations
-
-"""Load and validate the v1 counter manifest (online/offline parity contract)."""
-
-
 import json
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+"""Load and validate the v1 counter manifest (online/offline parity contract)."""
 _MANIFEST_FILE = "counter_manifest_v1.json"
 
 

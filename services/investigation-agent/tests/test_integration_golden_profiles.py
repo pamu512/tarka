@@ -1,13 +1,4 @@
 from __future__ import annotations
-
-"""
-Golden integration profiles: expected tool surface vs upstream configuration.
-
-Run with the rest of the suite, or only goldens: pytest -m golden_profile
-Excluded from default CI shard when main job uses -m "not golden_profile".
-"""
-
-
 import pytest
 from fastapi.testclient import TestClient
 from investigation_agent import config
@@ -16,6 +7,12 @@ from investigation_agent.integration_contract import build_integration_snapshot,
 from investigation_agent.main import app
 from investigation_agent.tools import TOOL_DEFINITIONS
 
+"""
+Golden integration profiles: expected tool surface vs upstream configuration.
+
+Run with the rest of the suite, or only goldens: pytest -m golden_profile
+Excluded from default CI shard when main job uses -m "not golden_profile".
+"""
 _ALL_TOOLS = frozenset((d.get("function") or {}).get("name") for d in TOOL_DEFINITIONS if isinstance((d.get("function") or {}).get("name"), str))
 
 

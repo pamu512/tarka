@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Shared pipeline: workflow directives → Slack files → web fetch → persona → agent payload."""
-
-
 import logging
 from typing import Any
 
@@ -12,6 +8,7 @@ from collaboration_chat_bridge.message_enrich import maybe_enrich_last_user_with
 from collaboration_chat_bridge.persona_bridge import resolve_copilot_persona_for_bridge
 from collaboration_chat_bridge.workflow_bridge import resolve_workflow_from_messages
 
+"""Shared pipeline: workflow directives → Slack files → web fetch → persona → agent payload."""
 log = logging.getLogger(__name__)
 
 

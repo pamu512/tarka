@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""JanusGraph / Gremlin implementation of graph CRUD (same contract as neo4j_client)."""
-
-
 import json
 import logging
 import re
@@ -15,6 +11,7 @@ from graph_service.custom_schema import get_allowed_labels, get_allowed_rels
 from graph_service.hetero_schema import validate_typed_edge_or_raise
 from graph_service.janusgraph_gremlin import get_traversal_source, run_in_gremlin_thread
 
+"""JanusGraph / Gremlin implementation of graph CRUD (same contract as neo4j_client)."""
 log = logging.getLogger("graph-service.janus")
 
 ALLOWED_LABELS = frozenset({"Person", "Account", "Device", "Payment", "Document", "Custom"})

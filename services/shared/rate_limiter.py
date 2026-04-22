@@ -1,4 +1,9 @@
 from __future__ import annotations
+import time
+from typing import Any
+
+from fastapi import FastAPI, Request, Response
+from starlette.middleware.base import BaseHTTPMiddleware
 
 """Token-bucket rate limiter middleware using in-memory or Redis backend.
 
@@ -9,14 +14,6 @@ Usage::
     # Or with Redis:
     setup_rate_limiter(app, rpm=600, burst=50, redis_url="redis://localhost:6379/1")
 """
-
-
-import time
-from typing import Any
-
-from fastapi import FastAPI, Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
-
 SKIP_PATHS = {"/v1/health", "/metrics"}
 
 

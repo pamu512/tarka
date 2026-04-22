@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Literal
 
 """Regional AI governance overlays for the Investigation Copilot (prompt + metadata).
 
@@ -6,10 +7,6 @@ These blocks align *product behavior* with common expectations in major jurisdic
 They are not legal advice; each deployment must be validated by counsel against the
 customer's use case, sector, and contracts.
 """
-
-
-from typing import Literal
-
 GovernanceProfile = Literal["us", "eu_uk", "global"]
 
 _PROFILE_ALIASES: dict[str, GovernanceProfile] = {

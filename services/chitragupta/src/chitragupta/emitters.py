@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Emitter targets with retry/backoff and failure visibility (#63)."""
-
-
 import asyncio
 import csv
 import hashlib
@@ -11,6 +7,7 @@ import json
 import logging
 from typing import Any, Callable
 
+"""Emitter targets with retry/backoff and failure visibility (#63)."""
 log = logging.getLogger("chitragupta.emitters")
 
 

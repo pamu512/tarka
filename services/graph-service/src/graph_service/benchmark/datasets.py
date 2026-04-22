@@ -1,10 +1,7 @@
 from __future__ import annotations
-
-"""Curated graph-fraud benchmark tasks (#64)."""
-
-
 from typing import Any
 
+"""Curated graph-fraud benchmark tasks (#64)."""
 BENCHMARK_TASKS: list[dict[str, Any]] = [
     {
         "task_id": "binary_entity_high_risk",

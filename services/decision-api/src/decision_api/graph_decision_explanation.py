@@ -1,10 +1,7 @@
 from __future__ import annotations
-
-"""Versioned graph → case explanation payload (xFraud-style why-links)."""
-
-
 from typing import Any
 
+"""Versioned graph → case explanation payload (xFraud-style why-links)."""
 SCHEMA_ID = "tarka.graph_decision_explanation/v1"
 
 

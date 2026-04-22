@@ -1,14 +1,11 @@
 from __future__ import annotations
-
-"""Derive session geo + consistency hints from device signals and IP/OSINT features."""
-
-
 import re
 from datetime import datetime, timezone
 from typing import Any
 
 from decision_api.integrity_policy import haversine_km
 
+"""Derive session geo + consistency hints from device signals and IP/OSINT features."""
 _GEO_SOURCES_TRUST_GPS = frozenset({"browser_gps", "android_gps", "ios_gps"})
 
 

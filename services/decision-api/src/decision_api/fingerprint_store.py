@@ -1,4 +1,11 @@
 from __future__ import annotations
+import hashlib
+import json
+import time
+from dataclasses import dataclass, field
+from typing import Any
+
+import redis.asyncio as aioredis
 
 """Redis-backed browser fingerprint store.
 
@@ -9,16 +16,6 @@ Key schema (all tenant-scoped):
     fraud:fp:{tenant}:{fp_hash}          -> JSON FingerprintRecord
     fraud:fp:entity:{tenant}:{entity_id} -> sorted set of fp_hashes (score=last_seen)
 """
-
-
-import hashlib
-import json
-import time
-from dataclasses import dataclass, field
-from typing import Any
-
-import redis.asyncio as aioredis
-
 FP_PREFIX = "fraud:fp:"
 FP_ENTITY_PREFIX = "fraud:fp:entity:"
 FP_TTL = 86400 * 90  # 90 days

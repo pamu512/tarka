@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Time-bucketed investigation KPIs for dashboards and exports (Marble #57)."""
-
-
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
@@ -14,6 +10,7 @@ from case_api.db import get_session
 from case_api.models import Case
 from case_api.workflow import is_sla_breached_at
 
+"""Time-bucketed investigation KPIs for dashboards and exports (Marble #57)."""
 router = APIRouter(prefix="/v1/cases/ops", tags=["case-ops-kpi-series"])
 
 _CLOSED = frozenset({"resolved", "closed"})

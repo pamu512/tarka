@@ -1,13 +1,10 @@
 from __future__ import annotations
-
-"""Draft evidence-shaped payload for audit export (v0 legacy + optional v1)."""
-
-
 import hashlib
 import json
 from datetime import datetime, timezone
 from typing import Any, Literal
 
+"""Draft evidence-shaped payload for audit export (v0 legacy + optional v1)."""
 BundleFormat = Literal["v0", "v1", "dual"]
 RedactionLevel = Literal["none", "analyst_view", "export_safe"]
 

@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Rule recommendation API — AI-powered rule suggestion from historical data."""
-
-
 import json
 import logging
 import re
@@ -17,6 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from decision_api.db import get_session
 from decision_api.models import AuditRecord
 from decision_api.rule_recommender import (
+
+"""Rule recommendation API — AI-powered rule suggestion from historical data."""
     analyze_features,
     generate_recommendations,
 )

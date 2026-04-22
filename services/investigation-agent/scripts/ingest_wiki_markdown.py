@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
+import sys
+from pathlib import Path
+
+import httpx
 
 """
 Upload Markdown files to investigation-agent knowledge (POST /v1/knowledge/ingest).
@@ -10,14 +15,6 @@ Example:
 
 Requires: httpx (same as investigation-agent).
 """
-
-
-import argparse
-import sys
-from pathlib import Path
-
-import httpx
-
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Ingest .md files into Saarthi knowledge RAG")

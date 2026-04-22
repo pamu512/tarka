@@ -1,15 +1,4 @@
 from __future__ import annotations
-
-"""Compliance API — DSAR, data erasure, data export, privacy controls.
-
-Implements data subject rights required by GDPR, CCPA, LGPD, and other regulations:
-- Right to Access (Article 15 GDPR)
-- Right to Erasure (Article 17 GDPR / "Right to be Forgotten")
-- Right to Data Portability (Article 20 GDPR)
-- Right to Rectification (Article 16 GDPR)
-"""
-
-
 import hashlib
 import hmac
 import json
@@ -28,6 +17,14 @@ from decision_api.config import settings
 from decision_api.db import get_session
 from decision_api.models import AuditRecord
 
+"""Compliance API — DSAR, data erasure, data export, privacy controls.
+
+Implements data subject rights required by GDPR, CCPA, LGPD, and other regulations:
+- Right to Access (Article 15 GDPR)
+- Right to Erasure (Article 17 GDPR / "Right to be Forgotten")
+- Right to Data Portability (Article 20 GDPR)
+- Right to Rectification (Article 16 GDPR)
+"""
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/compliance", tags=["compliance"])
 

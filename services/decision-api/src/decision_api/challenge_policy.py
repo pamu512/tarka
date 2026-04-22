@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Challenge / escalation policy templates (Epic D) — extends recommended_action hints."""
-
-
 import json
 import logging
 from pathlib import Path
@@ -10,6 +6,7 @@ from typing import Any
 
 from decision_api.config import settings
 
+"""Challenge / escalation policy templates (Epic D) — extends recommended_action hints."""
 log = logging.getLogger(__name__)
 
 _policies: dict[str, dict[str, Any]] | None = None

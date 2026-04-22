@@ -1,13 +1,10 @@
 from __future__ import annotations
-
-"""Optional web URL fetch to prepend context to the last user message."""
-
-
 import copy
 import re
 
 from collaboration_chat_bridge.web_fetch import WebFetchError, fetch_public_text
 
+"""Optional web URL fetch to prepend context to the last user message."""
 _URL_RE = re.compile(r"https://[^\s<>\"']{8,2048}", re.IGNORECASE)
 
 

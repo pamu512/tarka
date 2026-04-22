@@ -1,4 +1,13 @@
 from __future__ import annotations
+import asyncio
+import hashlib
+import logging
+import re
+import socket
+import time
+from typing import Any
+
+import httpx
 
 """OSINT enrichment framework — multi-source intelligence gathering.
 
@@ -29,18 +38,6 @@ Domain Intelligence:
 Social/Identity:
   - GitHub profile       (free, username existence)
 """
-
-
-import asyncio
-import hashlib
-import logging
-import re
-import socket
-import time
-from typing import Any
-
-import httpx
-
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------

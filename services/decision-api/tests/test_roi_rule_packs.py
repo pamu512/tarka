@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Regression tests for ROI rule packs (horizontal burst, vertical payment, shadow probe)."""
-
-
 from pathlib import Path
 from unittest.mock import patch
 
@@ -10,6 +6,7 @@ from decision_api.json_rules import evaluate_json_rules, get_shadow_packs, load_
 from decision_api.simulation_api import _eval_with_override_rules
 from decision_api.vertical_packs import get_vertical_pack
 
+"""Regression tests for ROI rule packs (horizontal burst, vertical payment, shadow probe)."""
 _RULES_DIR = Path(__file__).resolve().parent.parent / "rules"
 
 

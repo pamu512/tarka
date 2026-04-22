@@ -1,12 +1,4 @@
 from __future__ import annotations
-
-"""High-throughput event ingestion service.
-
-Accepts events via REST or WebSocket, publishes to NATS JetStream.
-A built-in consumer drains NATS and forwards to Decision API.
-"""
-
-
 import asyncio
 import hashlib
 import inspect
@@ -30,6 +22,11 @@ from pydantic import BaseModel, Field, ValidationError
 from event_ingest.config import settings
 from event_ingest.ingest_contract import IngestContractError, parse_batch_event_item, parse_ingest_event_body
 
+"""High-throughput event ingestion service.
+
+Accepts events via REST or WebSocket, publishes to NATS JetStream.
+A built-in consumer drains NATS and forwards to Decision API.
+"""
 # Keys added by ingest; must not be forwarded to Decision API evaluate.
 _INGEST_INTERNAL_KEYS = frozenset({"_ingest_id"})
 

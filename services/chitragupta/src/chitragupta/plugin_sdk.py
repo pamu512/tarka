@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Plugin registration, discovery, and manifest contract (issue #62)."""
-
-
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -10,6 +6,7 @@ from pydantic import BaseModel, Field
 from chitragupta.config import settings
 from chitragupta.contract_compat import assert_contract_compatible
 
+"""Plugin registration, discovery, and manifest contract (issue #62)."""
 
 class PluginManifest(BaseModel):
     plugin_id: str = Field(min_length=2, max_length=128, pattern=r"^[a-z0-9][a-z0-9_.-]*$")

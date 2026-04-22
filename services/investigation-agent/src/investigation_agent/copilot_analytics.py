@@ -1,10 +1,4 @@
 from __future__ import annotations
-
-"""
-Optional org analytics events (PII-minimized). Opt-in via COPILOT_ANALYTICS_* settings.
-"""
-
-
 import asyncio
 import hashlib
 import hmac
@@ -17,6 +11,9 @@ import httpx
 
 from investigation_agent.config import Settings
 
+"""
+Optional org analytics events (PII-minimized). Opt-in via COPILOT_ANALYTICS_* settings.
+"""
 log = logging.getLogger(__name__)
 
 

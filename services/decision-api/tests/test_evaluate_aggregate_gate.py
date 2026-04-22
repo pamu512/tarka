@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Evaluate path + AggregateStore: counters must reach rule features (parity / TPS guard)."""
-
-
 import os
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -10,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
+"""Evaluate path + AggregateStore: counters must reach rule features (parity / TPS guard)."""
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 

@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Lightweight simulation experiment registry (audit trail for A/B and vertical benchmarks)."""
-
-
 import json
 import uuid
 from datetime import datetime, timezone
@@ -14,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from decision_api.config import settings
 
+"""Lightweight simulation experiment registry (audit trail for A/B and vertical benchmarks)."""
 router = APIRouter(prefix="/v1/simulation/experiments", tags=["simulation"])
 
 

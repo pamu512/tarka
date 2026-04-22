@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Any
 
 """Contract-first single/batch event body parsing (v1.2.5 E1).
 
@@ -6,10 +7,6 @@ Supports optional v1 envelope ``{ "schema_version": "1", "event": { ... } }`` an
 ``event_type`` against Decision API enum. See ``INGEST_ENVELOPE_MODE`` and
 ``INGEST_REQUIRE_IDEMPOTENCY_KEY`` in config.
 """
-
-
-from typing import Any
-
 # Keep aligned with decision_api.schemas.EventType
 VALID_EVENT_TYPES = frozenset({"login", "payment", "signup", "device", "session", "custom"})
 

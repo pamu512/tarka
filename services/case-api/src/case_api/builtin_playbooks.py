@@ -1,10 +1,7 @@
 from __future__ import annotations
-
-"""Built-in investigation playbooks (short ids for `playbook_id` on case create)."""
-
-
 from typing import Any
 
+"""Built-in investigation playbooks (short ids for `playbook_id` on case create)."""
 PLAYBOOKS: dict[str, dict[str, Any]] = {
     "escalate_fraud": {
         "status": "investigating",

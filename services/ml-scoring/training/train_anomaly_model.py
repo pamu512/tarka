@@ -1,4 +1,12 @@
 from __future__ import annotations
+import json
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
+import numpy as np
+from sklearn.ensemble import GradientBoostingClassifier, IsolationForest
+from sklearn.metrics import (
 
 """Train anomaly detection and supervised fraud models, export to ONNX.
 
@@ -9,16 +17,6 @@ Outputs:
     ../models/anomaly-iforest/1/model.onnx  + metadata.json
     ../models/fraud-gbm/1/model.onnx        + metadata.json
 """
-
-
-import json
-import time
-from datetime import datetime, timezone
-from pathlib import Path
-
-import numpy as np
-from sklearn.ensemble import GradientBoostingClassifier, IsolationForest
-from sklearn.metrics import (
     auc,
     precision_recall_curve,
     roc_auc_score,

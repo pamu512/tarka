@@ -1,17 +1,14 @@
 from __future__ import annotations
+import asyncio
+import time
+from collections.abc import Awaitable, Callable
+from typing import TypeVar
 
 """Lightweight async circuit breaker for outbound HTTP-style calls (R2).
 
 After ``failure_threshold`` consecutive failures, block new calls until ``recovery_seconds`` elapse,
 then the next attempt is allowed (half-open). Success resets; failure reopens.
 """
-
-
-import asyncio
-import time
-from collections.abc import Awaitable, Callable
-from typing import TypeVar
-
 T = TypeVar("T")
 
 

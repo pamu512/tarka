@@ -1,11 +1,8 @@
 from __future__ import annotations
-
-"""Parse optional structured section headings from assistant prose (best-effort)."""
-
-
 import re
 from typing import Any
 
+"""Parse optional structured section headings from assistant prose (best-effort)."""
 # Markdown-style or ALL CAPS section headers the model is instructed to use
 _SECTION_PATTERNS = [
     ("facts_from_tools", re.compile(r"(?:^|\n)#+\s*FACTS?\s*FROM\s*TOOLS?\s*\n", re.IGNORECASE)),

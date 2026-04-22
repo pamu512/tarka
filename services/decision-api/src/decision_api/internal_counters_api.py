@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Internal counter manifest + optional scratch-Redis replay (ops / parity)."""
-
-
 import json
 import os
 import uuid
@@ -22,6 +18,7 @@ from decision_api.counter_manifest import load_counter_manifest_v1, manifest_ver
 from decision_api.db import get_session
 from decision_api.models import AuditRecord
 
+"""Internal counter manifest + optional scratch-Redis replay (ops / parity)."""
 router = APIRouter(prefix="/v1/internal/counters", tags=["internal-counters"])
 
 # OpenAPI + runtime: header-based token (same as env COUNTER_REPLAY_TOKEN)

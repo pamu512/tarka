@@ -1,4 +1,8 @@
 from __future__ import annotations
+import time
+from typing import Any
+
+import redis.asyncio as aioredis
 
 """Server-side entity ↔ device ↔ vendor ID linking (Redis).
 
@@ -11,13 +15,6 @@ Metadata keys on evaluate (optional):
   vendor_install_id  — e.g. analytics install id
   vendor_visitor_id  — alias for cross-session visitor (same as vendor_device_id if only one)
 """
-
-
-import time
-from typing import Any
-
-import redis.asyncio as aioredis
-
 LINK_DEVICE_ENTITY_PREFIX = "fraud:link:device_entity:"
 LINK_VENDOR_PREFIX = "fraud:link:vendor:"
 LINK_TTL = 86400 * 90  # 90 days, matches fingerprint TTL spirit

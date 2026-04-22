@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Alembic environment — sync migrations for PostgreSQL (SQLite tests use create_all)."""
-
-
 import os
 import sys
 from logging.config import fileConfig
@@ -11,6 +7,7 @@ from pathlib import Path
 from alembic import context
 from sqlalchemy import create_engine, pool
 
+"""Alembic environment — sync migrations for PostgreSQL (SQLite tests use create_all)."""
 if context.config.config_file_name:
     fileConfig(context.config.config_file_name)
 

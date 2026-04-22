@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Stretch: lightweight calibration snapshots and drift hints (file-backed; not full reliability diagrams)."""
-
-
 import hashlib
 import json
 import os
@@ -15,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from decision_api.config import settings
 
+"""Stretch: lightweight calibration snapshots and drift hints (file-backed; not full reliability diagrams)."""
 router = APIRouter(prefix="/v1/calibration", tags=["calibration"])
 
 

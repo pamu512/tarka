@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""REST API for rule CRUD — serves the visual rule builder."""
-
-
 import json
 import os
 import re
@@ -21,6 +17,7 @@ from decision_api.rule_pack_validation import validate_rule_pack as _validate_ru
 from decision_api.shadow import get_observation_stats, get_observations, load_shadow_rules
 from decision_api.vertical_packs import get_vertical_pack, list_vertical_packs
 
+"""REST API for rule CRUD — serves the visual rule builder."""
 router = APIRouter(prefix="/v1/rules", tags=["rules"])
 _SAFE_FILENAME_RE = re.compile(r"^[a-zA-Z0-9_-]{1,120}\.json$")
 _SAFE_SLUG_RE = re.compile(r"[^a-z0-9_-]+")

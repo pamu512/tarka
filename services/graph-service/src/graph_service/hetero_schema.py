@@ -1,16 +1,13 @@
 from __future__ import annotations
+from typing import Any, Sequence
+
+from graph_service.custom_schema import load_tenant_schema
 
 """Heterogeneous graph edge validation (xFraud-style typed endpoints).
 
 When a tenant schema defines ``typed_edges``, ``create_link`` enforces that the
 Neo4j/Janus endpoints carry at least one label matching the allowed from/to sets.
 """
-
-
-from typing import Any, Sequence
-
-from graph_service.custom_schema import load_tenant_schema
-
 
 def _norm_rel(rel: str) -> str:
     return str(rel or "").upper().replace(" ", "_").replace("-", "_")

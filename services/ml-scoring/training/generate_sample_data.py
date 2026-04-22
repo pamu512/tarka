@@ -1,4 +1,8 @@
 from __future__ import annotations
+import csv
+from pathlib import Path
+
+import numpy as np
 
 """Generate a sample CSV of realistic transactions with fraud labels.
 
@@ -8,13 +12,6 @@ Usage:
 Output:
     training/sample_transactions.csv  (1000 rows)
 """
-
-
-import csv
-from pathlib import Path
-
-import numpy as np
-
 FEATURES = [
     "amount",
     "hour_of_day",

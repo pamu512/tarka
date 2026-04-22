@@ -1,13 +1,4 @@
 from __future__ import annotations
-
-"""Per-tenant custom schema configuration.
-
-Each tenant may define additional entity types (node labels) and relationship
-types beyond the built-in defaults.  Schemas are stored as JSON files in a
-``schemas/`` directory adjacent to the service package root.
-"""
-
-
 import hashlib
 import json
 import logging
@@ -15,6 +6,12 @@ import re
 from pathlib import Path
 from typing import Any
 
+"""Per-tenant custom schema configuration.
+
+Each tenant may define additional entity types (node labels) and relationship
+types beyond the built-in defaults.  Schemas are stored as JSON files in a
+``schemas/`` directory adjacent to the service package root.
+"""
 log = logging.getLogger(__name__)
 
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")

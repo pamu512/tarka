@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Bounded evaluation steps: timeout, bounded retries, onFailure (SKIP | REJECT) + metrics (#32)."""
-
-
 import asyncio
 import logging
 import random
@@ -13,6 +9,7 @@ from typing import Any, Literal
 
 import httpx
 
+"""Bounded evaluation steps: timeout, bounded retries, onFailure (SKIP | REJECT) + metrics (#32)."""
 log = logging.getLogger(__name__)
 
 OnFailure = Literal["SKIP", "REJECT"]

@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""External connector framework for third-party risk signals (Scameter first)."""
-
-
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -11,6 +7,7 @@ import httpx
 from decision_api.config import settings
 from decision_api.schemas import EvaluateRequest
 
+"""External connector framework for third-party risk signals (Scameter first)."""
 
 @dataclass(slots=True)
 class ExternalSignalResult:
