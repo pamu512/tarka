@@ -7,7 +7,6 @@ from pathlib import Path
 import numpy as np
 from sklearn.ensemble import GradientBoostingClassifier, IsolationForest
 from sklearn.metrics import (
-
 """Train anomaly detection and supervised fraud models, export to ONNX.
 
 Usage:

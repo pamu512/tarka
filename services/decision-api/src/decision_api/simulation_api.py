@@ -9,7 +9,6 @@ from decision_api.config import settings
 from decision_api.experiment_api import append_experiment_record
 from decision_api.json_rules import evaluate_json_rules
 from decision_api.simulator import (
-
 """Simulation API router — synthetic data generation and replay analysis."""
     SCENARIO_TEMPLATES,
     SyntheticProfile,

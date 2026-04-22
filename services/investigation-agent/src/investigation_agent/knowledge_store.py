@@ -2,7 +2,6 @@ from __future__ import annotations
 from typing import Any
 
 from investigation_agent.knowledge_db import (
-
 """Facade: investigation memo RAG (SQLite + optional OpenAI embeddings)."""
     count_docs,
     ingest_document_async,
