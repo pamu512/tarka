@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Stretch: calibration snapshots + trusted zones file load."""
 
-from __future__ import annotations
 
 import json
 import os

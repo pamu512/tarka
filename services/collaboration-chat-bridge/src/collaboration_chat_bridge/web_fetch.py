@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """SSRF-hardened HTTP fetch for optional URL context in chat (Skuld-style)."""
 
-from __future__ import annotations
 
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse, urlunparse

@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """
 Optional: log a run to MLflow and export a trivial ONNX model for ONNX_MODEL_PATH.
 
 Usage (with extras): pip install -e '.[onnx,mlflow]' && python scripts/train_example.py
 """
 
-from __future__ import annotations
 
 import os
 

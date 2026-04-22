@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Internal counter manifest + optional scratch-Redis replay (ops / parity)."""
 
-from __future__ import annotations
 
 import json
 import os

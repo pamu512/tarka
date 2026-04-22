@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Strict validation for Decision API evaluate JSON (TypedDict contract)."""
 
-from __future__ import annotations
 
 from typing import Any, cast
 

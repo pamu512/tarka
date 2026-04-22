@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """Canonical HMAC-SHA256 request signing for ``X-Tarka-Timestamp`` + ``X-Tarka-Signature``.
 
 Used by ``fraud_stack_sdk.request_signing`` and optional Decision API middleware.
 Message format: ``f"{timestamp}\\n".encode() + body_bytes`` (same as Python SDK).
 """
 
-from __future__ import annotations
 
 import hashlib
 import hmac

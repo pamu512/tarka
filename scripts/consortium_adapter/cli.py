@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """CLI for Tarka consortium adapter (share, check, feedback, trust, ingest)."""
 
-from __future__ import annotations
 
 import argparse
 import json

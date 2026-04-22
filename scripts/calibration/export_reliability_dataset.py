@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Export decision_audit rows for offline reliability / calibration analysis (CSV).
 
 Reads the **Decision API** database via DATABASE_URL (same DB as `decision_audit`).
@@ -10,7 +12,6 @@ Usage::
     python scripts/calibration/export_reliability_dataset.py --out /tmp/reliability.csv --tenant-id acme --limit 5000
 """
 
-from __future__ import annotations
 
 import argparse
 import asyncio

@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Tool definitions and execution for the investigation agent."""
 
-from __future__ import annotations
 
 import json
 import re

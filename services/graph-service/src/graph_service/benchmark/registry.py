@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Graph-derived feature registry with stable IDs and provenance (#65)."""
 
-from __future__ import annotations
 
 import json
 from hashlib import sha256

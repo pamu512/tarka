@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Token-bucket rate limiter middleware using in-memory or Redis backend.
 
 Usage::
@@ -8,7 +10,6 @@ Usage::
     setup_rate_limiter(app, rpm=600, burst=50, redis_url="redis://localhost:6379/1")
 """
 
-from __future__ import annotations
 
 import time
 from typing import Any

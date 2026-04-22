@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Graph analytics when GRAPH_BACKEND=janusgraph (Gremlin).
 
@@ -6,7 +8,6 @@ operators can swap backends without changing Decision API, Case API, or copilot 
 Large tenants may hit ``janusgraph_analytics_vertex_cap`` — raise the cap or use Neo4j.
 """
 
-from __future__ import annotations
 
 import logging
 from collections import defaultdict, deque

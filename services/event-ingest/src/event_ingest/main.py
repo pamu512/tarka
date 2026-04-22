@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """High-throughput event ingestion service.
 
 Accepts events via REST or WebSocket, publishes to NATS JetStream.
 A built-in consumer drains NATS and forwards to Decision API.
 """
 
-from __future__ import annotations
 
 import asyncio
 import hashlib

@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Tenant-scoped investigation templates (Marble #56): CRUD + apply via ``playbook_id`` on cases."""
 
-from __future__ import annotations
 
 import os
 import sys

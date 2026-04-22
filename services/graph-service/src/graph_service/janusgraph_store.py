@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """JanusGraph / Gremlin implementation of graph CRUD (same contract as neo4j_client)."""
 
-from __future__ import annotations
 
 import json
 import logging

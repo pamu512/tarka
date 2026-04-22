@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Validate LLM tool-call arguments before dispatch (no KeyError, structured errors)."""
 
-from __future__ import annotations
 
 from typing import Any
 

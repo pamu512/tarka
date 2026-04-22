@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """ONNX Model Registry with versioning and A/B traffic splitting.
 
 Models are stored on disk at:
@@ -9,7 +11,6 @@ routing.  The registry selects a model probabilistically based on the
 normalised weights of all *active* versions.
 """
 
-from __future__ import annotations
 
 import hashlib
 import json

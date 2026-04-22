@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Seed realistic demo data into the Tarka APIs.
 
@@ -13,7 +15,6 @@ Usage:
         --graph-url http://localhost:8001
 """
 
-from __future__ import annotations
 
 import argparse
 import asyncio

@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Challenge / escalation policy templates (Epic D) — extends recommended_action hints."""
 
-from __future__ import annotations
 
 import json
 import logging

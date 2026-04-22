@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Optional TreeSHAP explanations for a persisted LightGBM sklearn model (stretch / v1.2).
 
 Enable with ``ML_SHAP_ENABLED=1`` and ``ML_LGBM_MODEL_PATH`` pointing to a ``joblib``-pickled
@@ -7,7 +9,6 @@ Enable with ``ML_SHAP_ENABLED=1`` and ``ML_LGBM_MODEL_PATH`` pointing to a ``job
 Install: ``pip install -e ".[shap]"`` in ``services/ml-scoring``.
 """
 
-from __future__ import annotations
 
 import logging
 import os

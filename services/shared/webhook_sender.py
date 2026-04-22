@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Webhook delivery with exponential backoff retry and dead letter queue.
 
 Usage::
@@ -6,7 +8,6 @@ Usage::
     await sender.send("https://example.com/hook", payload={"event": "deny"})
 """
 
-from __future__ import annotations
 
 import asyncio
 import logging

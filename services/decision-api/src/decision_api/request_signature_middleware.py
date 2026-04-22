@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Optional HMAC verification for POST bodies (see docs/guides/tls-pinning-and-signed-requests.md)."""
 
-from __future__ import annotations
 
 import sys
 from pathlib import Path

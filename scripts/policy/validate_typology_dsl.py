@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """OSS #46 — validate typology_definitions + predicate registry pins and predicate_ref ids."""
 
-from __future__ import annotations
 
 import argparse
 import json

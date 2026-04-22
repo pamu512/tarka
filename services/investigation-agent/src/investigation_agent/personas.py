@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Copilot personas: investigation (evidence-first) vs orchestrator (workflow efficiency)."""
 
-from __future__ import annotations
 
 from typing import Literal
 

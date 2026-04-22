@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Shared pipeline: workflow directives → Slack files → web fetch → persona → agent payload."""
 
-from __future__ import annotations
 
 import logging
 from typing import Any

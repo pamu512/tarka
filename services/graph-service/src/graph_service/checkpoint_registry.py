@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Checkpoint → graph profile registry (OSS #49). Hot reload via POST /v1/admin/checkpoint-profiles/reload."""
 
-from __future__ import annotations
 
 import json
 import logging

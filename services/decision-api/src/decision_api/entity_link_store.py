@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Server-side entity ↔ device ↔ vendor ID linking (Redis).
 
 Keys (tenant-scoped, TTL aligned with fingerprint store where applicable):
@@ -10,7 +12,6 @@ Metadata keys on evaluate (optional):
   vendor_visitor_id  — alias for cross-session visitor (same as vendor_device_id if only one)
 """
 
-from __future__ import annotations
 
 import time
 from typing import Any

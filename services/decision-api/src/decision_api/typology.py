@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Typology layer (OSS #34): aggregate rule outcomes + feature predicates into scored scenarios."""
 
-from __future__ import annotations
 
 import json
 import logging

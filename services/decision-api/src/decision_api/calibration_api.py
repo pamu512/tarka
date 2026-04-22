@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Stretch: lightweight calibration snapshots and drift hints (file-backed; not full reliability diagrams)."""
 
-from __future__ import annotations
 
 import hashlib
 import json

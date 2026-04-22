@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Golden integration profiles: expected tool surface vs upstream configuration.
 
@@ -5,7 +7,6 @@ Run with the rest of the suite, or only goldens: pytest -m golden_profile
 Excluded from default CI shard when main job uses -m "not golden_profile".
 """
 
-from __future__ import annotations
 
 import pytest
 from fastapi.testclient import TestClient

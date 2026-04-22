@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Replay JSONL audit/export rows into a scratch Redis so aggregate keys can be diffed against prod.
 
@@ -11,7 +13,6 @@ Expected JSONL shapes (one object per line):
     (payload dict is passed as aggregate fields when "fields" is absent)
 """
 
-from __future__ import annotations
 
 import argparse
 import asyncio

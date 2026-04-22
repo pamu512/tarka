@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """OSS #46 — versioned predicate registry for typology DSL (named conditions, pin-able versions)."""
 
-from __future__ import annotations
 
 import json
 import logging

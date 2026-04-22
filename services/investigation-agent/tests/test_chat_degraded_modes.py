@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Chat degraded mode contract: copilot_mode + degraded_reasons."""
 
-from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 

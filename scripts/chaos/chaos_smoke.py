@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Chaos smoke (R4.2): baseline recovery checks + optional dependency fallback matrix.
 
@@ -8,7 +10,6 @@ Manual / CI:
   python3 scripts/chaos/chaos_smoke.py --profile full --dependency-fallback-checks
 """
 
-from __future__ import annotations
 
 import argparse
 import json

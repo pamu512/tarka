@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Minimal HTTP server stubbing Case API, Graph Service, and Decision API paths
 used by investigation-agent tools (stdlib only).
@@ -6,7 +8,6 @@ used by investigation-agent tools (stdlib only).
   python scripts/integration_adapter_mock/server.py --port 18080
 """
 
-from __future__ import annotations
 
 import argparse
 import json

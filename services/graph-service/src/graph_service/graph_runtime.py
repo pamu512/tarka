@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Dispatch graph persistence to Neo4j or JanusGraph based on GRAPH_BACKEND (no HTTP API changes)."""
 
-from __future__ import annotations
 
 from typing import Any
 

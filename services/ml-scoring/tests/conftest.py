@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Pytest hooks for ml-scoring: env before ``main`` is imported (coverage + fast /v1/score)."""
 
-from __future__ import annotations
 
 import os
 

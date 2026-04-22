@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Export decision_audit rows to JSONL for offline counter replay (Epic C).
 
@@ -15,7 +17,6 @@ Each line matches the shape expected by replay_aggregates.py:
   optional metadata echo, ts (prefer logical event_time from snapshot, else created_at).
 """
 
-from __future__ import annotations
 
 import argparse
 import json

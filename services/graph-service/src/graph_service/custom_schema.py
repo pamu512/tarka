@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Per-tenant custom schema configuration.
 
 Each tenant may define additional entity types (node labels) and relationship
@@ -5,7 +7,6 @@ types beyond the built-in defaults.  Schemas are stored as JSON files in a
 ``schemas/`` directory adjacent to the service package root.
 """
 
-from __future__ import annotations
 
 import hashlib
 import json

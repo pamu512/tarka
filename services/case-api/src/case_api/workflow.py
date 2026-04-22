@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Workflow engine for case automation.
 
 Workflows are defined as JSON and stored in a workflows/ directory.
@@ -19,7 +21,6 @@ Action types:
   - add_comment      — auto-add a system comment
 """
 
-from __future__ import annotations
 
 import json
 import logging

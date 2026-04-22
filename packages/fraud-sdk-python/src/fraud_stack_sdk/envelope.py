@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Resilient evaluate request envelope: canonical JSON, signing headers, idempotency hints."""
 
-from __future__ import annotations
 
 import json
 import time

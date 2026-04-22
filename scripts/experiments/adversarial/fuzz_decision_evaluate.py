@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Minimal adversarial fuzz harness for POST /v1/decisions/evaluate."""
 
-from __future__ import annotations
 
 import argparse
 import json

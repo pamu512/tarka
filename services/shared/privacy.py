@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Region-aware privacy compliance framework.
 
 Supports GDPR (EU), CCPA/CPRA (California), LGPD (Brazil), DPDP (India),
@@ -14,7 +16,6 @@ Each profile controls:
 - Breach notification timelines
 """
 
-from __future__ import annotations
 
 import hashlib
 import logging

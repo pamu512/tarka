@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tarka shared SSO (OIDC/JWT) + RBAC middleware.
 
 Supports two authentication modes:
@@ -15,7 +17,6 @@ Usage::
     async def admin_endpoint(): ...
 """
 
-from __future__ import annotations
 
 import logging
 import os

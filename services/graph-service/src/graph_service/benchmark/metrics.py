@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Standardized evaluation metrics for graph benchmark harness (#64)."""
 
-from __future__ import annotations
 
 
 def _as_binary_labels(y: list[int]) -> list[int]:

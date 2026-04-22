@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Built-in investigation playbooks — structured workflow hints appended to the copilot system prompt.
 
 These reduce the \"empty canvas\" weakness vs suite vendors by shipping opinionated checklists.
@@ -9,7 +11,6 @@ common industry typologies. They are **not** legal or scheme-compliance advice; 
 network rules and counsel.
 """
 
-from __future__ import annotations
 
 import hashlib
 import re

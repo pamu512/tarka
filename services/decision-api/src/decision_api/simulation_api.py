@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Simulation API router — synthetic data generation and replay analysis."""
 
-from __future__ import annotations
 
 import logging
 from typing import Any

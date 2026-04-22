@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Drift smoke: compare mean ml-scoring heuristic scores on two fixed feature batches.
 
@@ -11,7 +13,6 @@ Local mode (no server): imports ``heuristic_score`` from ``ml_scoring.heuristic`
 HTTP mode: POST /v1/score per row (optional; for integration tests).
 """
 
-from __future__ import annotations
 
 import argparse
 import json

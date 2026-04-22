@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Generate Helm values from cloud deployment presets."""
 
-from __future__ import annotations
 
 import argparse
 from pathlib import Path

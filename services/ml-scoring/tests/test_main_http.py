@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Smoke coverage for ``ml_scoring.main`` (FastAPI app) — restores cov on ``main.py`` after heuristic split."""
 
-from __future__ import annotations
 
 import os
 

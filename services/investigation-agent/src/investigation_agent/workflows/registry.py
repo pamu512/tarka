@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Load JSON workflow manifests from package data; validate ids and template params."""
 
-from __future__ import annotations
 
 import hashlib
 import json

@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Centralized contextual tagging for evaluate responses and audit trails."""
 
-from __future__ import annotations
 
 from typing import Any
 

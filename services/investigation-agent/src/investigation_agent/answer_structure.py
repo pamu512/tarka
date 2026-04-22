@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Parse optional structured section headings from assistant prose (best-effort)."""
 
-from __future__ import annotations
 
 import re
 from typing import Any

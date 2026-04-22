@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 """KYC adapter registry. Adapters are registered by name.
 Third-party adapters can be added by appending to ADAPTERS dict."""
 
-from __future__ import annotations
 
 from typing import Any, Awaitable, Callable
 

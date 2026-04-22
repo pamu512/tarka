@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Golden eval cases from fixtures (structural; works with OPENAI_API_KEY unset / offline reply)."""
 
-from __future__ import annotations
 
 import json
 from pathlib import Path

@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Optional GNN-beta adapter for graph risk scoring."""
 
-from __future__ import annotations
 
 import asyncio
 from typing import Any

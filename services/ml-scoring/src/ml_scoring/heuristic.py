@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """Pure-Python heuristic scoring and feature extraction (no FastAPI).
 
 Used by ``main`` and by lightweight callers (e.g. ``scripts/benchmarks/drift_score_smoke``)
 that must not import the full ASGI stack.
 """
 
-from __future__ import annotations
 
 from typing import Any
 

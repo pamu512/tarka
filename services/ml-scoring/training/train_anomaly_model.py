@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Train anomaly detection and supervised fraud models, export to ONNX.
 
 Usage:
@@ -8,7 +10,6 @@ Outputs:
     ../models/fraud-gbm/1/model.onnx        + metadata.json
 """
 
-from __future__ import annotations
 
 import json
 import time

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Smoke benchmark for baseline-vs-vertical simulation endpoint.
 
 Runs /v1/simulation/benchmark/vertical for selected vertical packs and validates
 response shape for deterministic CI checks.
 """
 
-from __future__ import annotations
 
 import argparse
 import json

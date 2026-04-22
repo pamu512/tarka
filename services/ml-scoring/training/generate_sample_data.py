@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Generate a sample CSV of realistic transactions with fraud labels.
 
 Usage:
@@ -7,7 +9,6 @@ Output:
     training/sample_transactions.csv  (1000 rows)
 """
 
-from __future__ import annotations
 
 import csv
 from pathlib import Path

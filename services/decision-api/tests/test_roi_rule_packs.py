@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Regression tests for ROI rule packs (horizontal burst, vertical payment, shadow probe)."""
 
-from __future__ import annotations
 
 from pathlib import Path
 from unittest.mock import patch

@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Resolve copilot persona for bridge → investigation-agent: env default, optional API body, or message prefix."""
 
-from __future__ import annotations
 
 import copy as _copy
 import re

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Run offline counter replay + optional Redis diff; write a JSON report (parity dashboard input).
 
@@ -15,7 +17,6 @@ Example::
       --report /tmp/parity_report.json
 """
 
-from __future__ import annotations
 
 import argparse
 import json

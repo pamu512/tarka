@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """
 Structured copilot security helpers: audit sanitization, tool-claim grounding, tool allowlists.
 
 Complements regex injection handling (see main._sanitize_message) and schema validation (tool_validation).
 """
 
-from __future__ import annotations
 
 import json
 import logging

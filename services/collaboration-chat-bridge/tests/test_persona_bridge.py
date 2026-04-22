@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Copilot persona resolution for bridge → investigation-agent."""
 
-from __future__ import annotations
 
 import pytest
 from collaboration_chat_bridge.config import Settings

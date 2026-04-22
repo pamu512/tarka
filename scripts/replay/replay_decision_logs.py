@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Replay canonical decision logs against a target Decision API and classify drift."""
 
-from __future__ import annotations
 
 import argparse
 import json

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Tarka — unified installer and management CLI.
 
 Usage:
@@ -13,7 +15,6 @@ Usage:
     python tarka.py env                         # Generate .env from template
 """
 
-from __future__ import annotations
 
 import argparse
 import json

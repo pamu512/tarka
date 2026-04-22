@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """SQLite persistence for chat turns and analyst feedback (RAG / quality loop)."""
 
-from __future__ import annotations
 
 import json
 import os

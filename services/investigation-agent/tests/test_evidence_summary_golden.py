@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Golden fixtures for POST /v1/evidence/summary (OSS #40 — citations + next actions)."""
 
-from __future__ import annotations
 
 import json
 from pathlib import Path
