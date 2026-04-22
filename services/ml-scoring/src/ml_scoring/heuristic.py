@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Any
 
 """Pure-Python heuristic scoring and feature extraction (no FastAPI).

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Any
 
 """Platform × signal integrity expectations (competitive gap: policy-driven confidence)."""

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Any
 
 from investigation_agent.config import Settings

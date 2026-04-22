@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import pytest
 from investigation_agent.main import _execute_tool
 from investigation_agent.tools import normalize_tool_error_shape

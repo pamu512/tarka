@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Any, Sequence
 
 from graph_service.custom_schema import load_tenant_schema

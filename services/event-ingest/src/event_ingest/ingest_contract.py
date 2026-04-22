@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Any
 
 """Contract-first single/batch event body parsing (v1.2.5 E1).

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from graph_service.neo4j_client import get_driver
 
 """
