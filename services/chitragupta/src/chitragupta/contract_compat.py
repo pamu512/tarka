@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from fastapi import HTTPException
 
 """Versioned capability contract and breaking-change guardrails."""

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Any
 
 """Built-in investigation playbooks (short ids for `playbook_id` on case create)."""

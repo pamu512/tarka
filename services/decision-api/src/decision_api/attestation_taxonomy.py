@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Any
 
 """Shared mobile attestation normalization (Android Play Integrity + iOS App Attest).

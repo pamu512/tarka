@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import os
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch

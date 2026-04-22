@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Literal
 
 """Regional AI governance overlays for the Investigation Copilot (prompt + metadata).

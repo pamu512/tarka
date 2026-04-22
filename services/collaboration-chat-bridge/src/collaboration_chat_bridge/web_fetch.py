@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse, urlunparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener

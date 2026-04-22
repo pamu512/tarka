@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from graph_service.config import settings
 
 """
