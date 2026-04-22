@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Smoke-check cloud preset generation for Helm values."""
-
 from __future__ import annotations
+
+"""Smoke-check cloud preset generation for Helm values."""
 
 import subprocess
 import sys
