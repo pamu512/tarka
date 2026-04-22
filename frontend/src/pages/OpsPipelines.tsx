@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { analytics, ingest } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
+import { SupportIdHint } from "../components/SupportIdHint";
+import { toUserFacingError } from "../utils/userFacingErrors";
 
 export default function OpsPipelines() {
   const [data, setData] = useState<{
@@ -37,7 +39,7 @@ export default function OpsPipelines() {
           window_days: sc.window_days,
         });
       } catch (e) {
-        setErr(e instanceof Error ? e.message : "Failed to load ingest stats");
+        setErr(toUserFacingError(e, { subject: "Ingest pipeline stats", action: "load ingest and scorecard stats" }));
       }
     })();
   }, []);
@@ -60,12 +62,17 @@ export default function OpsPipelines() {
       </div>
 
       {err && (
-        <p className="text-sm text-amber-400/90">
-          {err}
-          <span className="block text-xs text-gray-500 mt-1">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-300/90 space-y-1">
+          <p>{err}</p>
+          <SupportIdHint
+            message={err}
+            className="flex flex-wrap items-center gap-2 text-[11px] text-amber-200/85"
+            buttonClassName="px-1.5 py-0.5 rounded border border-amber-400/35 hover:border-amber-300/50 hover:text-amber-100 transition-colors"
+          />
+          <p className="text-xs text-gray-500 mt-1">
             Dev proxy: <span className="font-mono">/api/ingest</span> → event-ingest :8007. Demo data loads when offline.
-          </span>
-        </p>
+          </p>
+        </div>
       )}
 
       <div className="grid gap-4 sm:grid-cols-3">

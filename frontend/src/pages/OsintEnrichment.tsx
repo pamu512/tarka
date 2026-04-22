@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { osint } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
+import { SupportIdHint } from "../components/SupportIdHint";
+import { toUserFacingError } from "../utils/userFacingErrors";
 
 interface OsintResult {
   composite_risk_score: number;
@@ -404,7 +406,7 @@ export default function OsintEnrichment() {
       const data = await osint.enrich(body);
       setResult(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "OSINT enrichment failed");
+      setError(toUserFacingError(err, { subject: "OSINT enrichment", action: "run OSINT enrichment" }));
     } finally {
       setLoading(false);
     }
@@ -482,8 +484,13 @@ export default function OsintEnrichment() {
       </form>
 
       {error && (
-        <div className="bg-red-900/20 border border-red-700/40 text-red-400 text-sm rounded-xl px-4 py-3">
-          {error}
+        <div className="bg-red-900/20 border border-red-700/40 text-red-400 text-sm rounded-xl px-4 py-3 space-y-1">
+          <p>{error}</p>
+          <SupportIdHint
+            message={error}
+            className="flex flex-wrap items-center gap-2 text-[11px] text-red-300/85"
+            buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+          />
         </div>
       )}
 

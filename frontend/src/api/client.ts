@@ -126,6 +126,15 @@ export interface CaseComment {
   created_at: string;
 }
 
+export interface CaseApiHealthResponse {
+  status: string;
+  database_backend?: string;
+  database_url?: string;
+  database_fallback_active?: boolean;
+  database_fallback_reason?: string | null;
+  database_bootstrap_mode?: string;
+}
+
 export interface CaseGraphPayload {
   nodes: Array<Record<string, unknown>>;
   edges: Array<Record<string, unknown>>;
@@ -324,6 +333,40 @@ export interface RuleSimulationResult {
 
 // ── Fetcher ──────────────────────────────────────────────────────────
 
+function parseErrorString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function parseHttpErrorMessage(status: number, statusText: string, text: string, headers: Headers): string {
+  let detail = text.trim() || statusText || "Request failed";
+  let code: string | null = null;
+  let supportId = parseErrorString(headers.get("x-correlation-id")) ?? parseErrorString(headers.get("x-request-id"));
+  if (text.trimStart().startsWith("{")) {
+    try {
+      const body = JSON.parse(text) as Record<string, unknown>;
+      if (body && typeof body === "object") {
+        const err = (body.error ?? null) as Record<string, unknown> | null;
+        detail =
+          parseErrorString(err?.message) ??
+          parseErrorString(body.detail) ??
+          parseErrorString(text) ??
+          statusText;
+        code = parseErrorString(err?.code);
+        supportId =
+          parseErrorString(err?.support_id) ??
+          parseErrorString(body.support_id) ??
+          supportId;
+      }
+    } catch {
+      /* keep fallback detail */
+    }
+  }
+  const normalizedDetail = detail.replace(/\s+/g, " ").slice(0, 220);
+  const codeSuffix = code ? ` code=${code}` : "";
+  const supportSuffix = supportId ? ` support_id=${supportId}` : "";
+  return `${status} ${normalizedDetail}${codeSuffix}${supportSuffix}`;
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const allowMockFallback = USE_API_MOCKS;
   try {
@@ -342,7 +385,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
         }
       }
       reportDataOutcome("offline");
-      throw new Error(`${res.status} ${text || res.statusText}`);
+      throw new Error(parseHttpErrorMessage(res.status, res.statusText, text, res.headers));
     }
     if (!ct.includes("json") && !text.trimStart().startsWith("{") && !text.trimStart().startsWith("[")) {
       if (allowMockFallback) {
@@ -595,6 +638,10 @@ export const ingest = {
 // ── Cases (case-api :8002) ──────────────────────────────────────────
 
 export const cases = {
+  health() {
+    return request<CaseApiHealthResponse>("/api/cases/v1/health");
+  },
+
   list(params: { tenant_id: string; status?: string; limit?: number; sort_by?: "queue" | "updated" | "priority" }) {
     const q = new URLSearchParams({ tenant_id: params.tenant_id });
     if (params.status) q.set("status", params.status);
@@ -1515,7 +1562,7 @@ export const investigation = {
     });
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`${res.status} ${text || res.statusText}`);
+      throw new Error(parseHttpErrorMessage(res.status, res.statusText, text, res.headers));
     }
     const reader = res.body?.getReader();
     if (!reader) throw new Error("No response body");
@@ -1579,7 +1626,7 @@ export const investigation = {
         const mock = getMockResponse(url, { method: "POST" });
         if (mock !== null) return mock as InvestigationBatchIngestResponse;
       }
-      throw new Error(`${res.status} ${text || res.statusText}`);
+      throw new Error(parseHttpErrorMessage(res.status, res.statusText, text, res.headers));
     } catch (err) {
       if (USE_API_MOCKS) {
         const mock = getMockResponse(url, { method: "POST" });

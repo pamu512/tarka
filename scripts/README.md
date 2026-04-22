@@ -10,6 +10,7 @@ Automation, **CI gates**, benchmarks, ETL helpers, and release tooling. Many sub
 | [`ci/check_integration_contract.py`](ci/check_integration_contract.py) | Integration contract checks (see CI / file header). |
 | [`ci/full_stack_smoke.py`](ci/full_stack_smoke.py) | Full-stack smoke helper (see CI / file header). |
 | [`ci/verify_release_candidate.sh`](ci/verify_release_candidate.sh) | Bash gate for release candidates. |
+| [`github/create_roadmap_epic_issues.py`](github/create_roadmap_epic_issues.py) | One-time helper: create umbrella GitHub issues for [`docs/docs/guides/tarka-12-month-roadmap-execution-kit.md`](../docs/docs/guides/tarka-12-month-roadmap-execution-kit.md) (requires `gh` auth; **do not re-run** on the main repo if issues already exist). |
 
 ## Policy and typology
 

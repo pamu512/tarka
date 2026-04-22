@@ -4,6 +4,8 @@ This guide describes how to run Tarka against customer-managed cloud infrastruct
 
 Use this for AWS, GCP, or any environment where platform teams already own data stores, IAM, secret rotation, and network controls.
 
+When rolling out **secret-backed auth and tenant controls** after wiring `global.appSecretsName` and shared keys, use **[Production security rollout checklist](./production-security-rollout.md)** for ordering, compatibility toggles, and rollback.
+
 ---
 
 ## Runtime classification

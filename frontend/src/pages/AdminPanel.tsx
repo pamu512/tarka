@@ -19,7 +19,9 @@ import {
   presetModuleSet,
   type AccessPolicyId,
 } from "../config/accessPolicyPresets";
+import { SupportIdHint } from "../components/SupportIdHint";
 import { safeExternalHref } from "../utils/externalLinks";
+import { toUserFacingError } from "../utils/userFacingErrors";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -109,7 +111,7 @@ export default function AdminPanel() {
       setIntegrationRequests(ir.items);
       setSelectedUserId((prev) => prev || u.users[0]?.user_id || "");
     } catch (e) {
-      setLoadErr(e instanceof Error ? e.message : "Failed to load admin data");
+      setLoadErr(toUserFacingError(e, { subject: "Admin panel", action: "load admin data" }));
     }
   }, [flagsOnly]);
 
@@ -176,10 +178,15 @@ export default function AdminPanel() {
         setSaveMsg("Access updated (standard change — applied immediately).");
         await reloadAll();
       } else if ("error" in res) {
-        setSaveMsg(String((res as { error: string }).error));
+        setSaveMsg(
+          toUserFacingError((res as { error: string }).error, {
+            subject: "User access update",
+            action: "save user access changes",
+          }),
+        );
       }
     } catch (e) {
-      setSaveMsg(e instanceof Error ? e.message : "Save failed");
+      setSaveMsg(toUserFacingError(e, { subject: "User access", action: "save user access changes" }));
     } finally {
       setBusy(false);
     }
@@ -191,6 +198,8 @@ export default function AdminPanel() {
       const r = await admin.approveRequest(approvalId, { approver_id: approverId, approver_name: approverName });
       if (!r.ok) setSaveMsg(r.error === "already_voted" ? "This approver already signed." : "Approve failed");
       await reloadAll();
+    } catch (e) {
+      setSaveMsg(toUserFacingError(e, { subject: "Approval request", action: "approve access request" }));
     } finally {
       setBusy(false);
     }
@@ -201,6 +210,8 @@ export default function AdminPanel() {
     try {
       await admin.rejectRequest(approvalId, { approver_id: "u-admin-demo" });
       await reloadAll();
+    } catch (e) {
+      setSaveMsg(toUserFacingError(e, { subject: "Approval request", action: "reject access request" }));
     } finally {
       setBusy(false);
     }
@@ -217,7 +228,14 @@ export default function AdminPanel() {
       </p>
 
       {loadErr && (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">{loadErr}</div>
+        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300 space-y-1">
+          <p>{loadErr}</p>
+          <SupportIdHint
+            message={loadErr}
+            className="flex flex-wrap items-center gap-2 text-[11px] text-red-300/85"
+            buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+          />
+        </div>
       )}
 
       <div className="flex flex-wrap gap-2 border-b border-surface-700 pb-3">
@@ -247,7 +265,14 @@ export default function AdminPanel() {
       </div>
 
       {saveMsg && (
-        <div className="rounded-lg border border-brand-500/30 bg-brand-500/10 px-4 py-2 text-sm text-brand-200">{saveMsg}</div>
+        <div className="rounded-lg border border-brand-500/30 bg-brand-500/10 px-4 py-2 text-sm text-brand-200 space-y-1">
+          <p>{saveMsg}</p>
+          <SupportIdHint
+            message={saveMsg}
+            className="flex flex-wrap items-center gap-2 text-[11px] text-brand-200/85"
+            buttonClassName="px-1.5 py-0.5 rounded border border-brand-400/35 hover:border-brand-300/50 hover:text-brand-100 transition-colors"
+          />
+        </div>
       )}
 
       {tab === "overview" && overview && (
@@ -316,8 +341,12 @@ export default function AdminPanel() {
           onFlagsOnly={setFlagsOnly}
           users={users}
           onFilterUser={async (userId) => {
-            const { items } = await admin.auditLog({ flags_only: flagsOnly, user_id: userId || undefined });
-            setAudit(items);
+            try {
+              const { items } = await admin.auditLog({ flags_only: flagsOnly, user_id: userId || undefined });
+              setAudit(items);
+            } catch (e) {
+              setLoadErr(toUserFacingError(e, { subject: "Audit log", action: "filter audit log by user" }));
+            }
           }}
         />
       )}
@@ -703,7 +732,7 @@ function IntegrationRequestsTab({
     try {
       const res = await integrations.approveRequest(requestId, { approver_id: approverId, approver_name: approverName });
       if (!res.ok) {
-        onMessage(String(res.error ?? "Approve failed"));
+        onMessage(toUserFacingError(res.error ?? "Approve failed", { subject: "Integration request", action: "approve integration request" }));
         await onReload();
         return;
       }
@@ -717,7 +746,7 @@ function IntegrationRequestsTab({
       );
       await onReload();
     } catch (e) {
-      onMessage(e instanceof Error ? e.message : "Approve failed");
+      onMessage(toUserFacingError(e, { subject: "Integration request", action: "approve integration request" }));
       await onReload();
     }
   };
@@ -728,7 +757,7 @@ function IntegrationRequestsTab({
       onMessage("Request rejected.");
       await onReload();
     } catch (e) {
-      onMessage(e instanceof Error ? e.message : "Reject failed");
+      onMessage(toUserFacingError(e, { subject: "Integration request", action: "reject integration request" }));
       await onReload();
     }
   };

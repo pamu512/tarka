@@ -19,7 +19,9 @@ import {
   type TopEntity,
 } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
+import { SupportIdHint } from "../components/SupportIdHint";
 import { useToast } from "../context/ToastContext";
+import { toUserFacingError } from "../utils/userFacingErrors";
 
 const HOURS_OPTIONS = [6, 12, 24, 48, 72];
 
@@ -103,7 +105,7 @@ export default function Analytics() {
       setModels(m.models);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load analytics");
+      setError(toUserFacingError(e, { subject: "Analytics", action: "load analytics" }));
       setScorecard(null);
     } finally {
       setLoading(false);
@@ -153,7 +155,7 @@ export default function Analytics() {
       setGovernanceMessage(success);
       await fetchData();
     } catch (e) {
-      setGovernanceMessage(e instanceof Error ? e.message : "Governance action failed");
+      setGovernanceMessage(toUserFacingError(e, { subject: "Model governance", action: "apply governance action" }));
     } finally {
       setGovernanceBusy(false);
     }
@@ -184,8 +186,13 @@ export default function Analytics() {
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm">
-          {error}
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm space-y-1">
+          <p>{error}</p>
+          <SupportIdHint
+            message={error}
+            className="flex flex-wrap items-center gap-2 text-[11px] text-red-300/85"
+            buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+          />
         </div>
       )}
 

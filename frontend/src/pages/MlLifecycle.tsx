@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { ml, type ModelInfo } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
+import { SupportIdHint } from "../components/SupportIdHint";
+import { toUserFacingError } from "../utils/userFacingErrors";
 
 type VerStat = {
   version: number;
@@ -35,7 +37,7 @@ export default function MlLifecycle() {
           setSelected(m.models[0]!.model_name);
         }
       } catch (e) {
-        setErr(e instanceof Error ? e.message : "Failed to reach ML service");
+        setErr(toUserFacingError(e, { subject: "ML lifecycle", action: "load ML health and model registry" }));
       }
     })();
   }, []);
@@ -68,7 +70,7 @@ export default function MlLifecycle() {
       await fn();
       setMsg(ok);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Request failed");
+      setErr(toUserFacingError(e, { subject: "ML lifecycle action", action: "run selected ML lifecycle action" }));
     }
   };
 
@@ -97,7 +99,16 @@ export default function MlLifecycle() {
         </div>
       )}
 
-      {err && <p className="text-sm text-red-400">{err}</p>}
+      {err && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300 space-y-1">
+          <p>{err}</p>
+          <SupportIdHint
+            message={err}
+            className="flex flex-wrap items-center gap-2 text-[11px] text-red-300/85"
+            buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+          />
+        </div>
+      )}
       {msg && <p className="text-sm text-emerald-400">{msg}</p>}
 
       <div className="rounded-xl border border-surface-700 bg-surface-900 p-4 space-y-4">
@@ -230,7 +241,7 @@ export default function MlLifecycle() {
                   setLineage(r.lineage as Record<string, unknown>);
                   setMsg("Lineage loaded");
                 } catch (e) {
-                  setErr(e instanceof Error ? e.message : "Lineage failed");
+                  setErr(toUserFacingError(e, { subject: "Model lineage", action: "load model lineage" }));
                 }
               })();
             }}

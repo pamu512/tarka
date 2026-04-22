@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { compliance } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
+import { SupportIdHint } from "../components/SupportIdHint";
+import { toUserFacingError } from "../utils/userFacingErrors";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -124,7 +126,7 @@ export default function Compliance() {
       const keys = Object.keys(res.regions ?? {});
       if (keys.length > 0 && !selectedRegion) setSelectedRegion(keys[0]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load regions");
+      setError(toUserFacingError(e, { subject: "Compliance regions", action: "load compliance regions" }));
     } finally {
       setLoading(false);
     }
@@ -182,7 +184,7 @@ export default function Compliance() {
       }
       setDsarResult(res);
     } catch (e) {
-      setDsarResult({ error: e instanceof Error ? e.message : "DSAR request failed" });
+      setDsarResult({ error: toUserFacingError(e, { subject: "DSAR request", action: `submit ${dsarType} DSAR request` }) });
     } finally {
       setDsarLoading(false);
     }
@@ -201,7 +203,7 @@ export default function Compliance() {
       setDecisionKeyId(dk.active_key_id);
       setCaseKeyId(ck.active_key_id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Evidence export failed");
+      setError(toUserFacingError(e, { subject: "Trust evidence", action: "load trust center evidence bundles" }));
     } finally {
       setEvidenceLoading(false);
     }
@@ -223,7 +225,7 @@ export default function Compliance() {
       const res = await compliance.verifyDecisionEvidence(decisionEvidence);
       setDecisionVerify(res.valid ? `Verified (key ${res.active_key_id})` : "Verification failed");
     } catch (e) {
-      setDecisionVerify(e instanceof Error ? e.message : "Verification failed");
+      setDecisionVerify(toUserFacingError(e, { subject: "Decision evidence", action: "verify decision evidence bundle" }));
     }
   }
 
@@ -233,7 +235,7 @@ export default function Compliance() {
       const res = await compliance.verifyCaseEvidence(caseEvidence);
       setCaseVerify(res.valid ? `Verified (key ${res.active_key_id})` : "Verification failed");
     } catch (e) {
-      setCaseVerify(e instanceof Error ? e.message : "Verification failed");
+      setCaseVerify(toUserFacingError(e, { subject: "Case evidence", action: "verify case evidence bundle" }));
     }
   }
 
@@ -251,9 +253,14 @@ export default function Compliance() {
   if (error) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="bg-red-900/30 border border-red-700 text-red-300 px-6 py-4 rounded-lg max-w-lg text-center">
+        <div className="bg-red-900/30 border border-red-700 text-red-300 px-6 py-4 rounded-lg max-w-lg text-center space-y-2">
           <p className="font-medium">Error</p>
           <p className="text-sm mt-1 text-red-400">{error}</p>
+          <SupportIdHint
+            message={error}
+            className="flex flex-wrap items-center justify-center gap-2 text-[11px] text-red-300/85"
+            buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+          />
           <button
             className="mt-3 px-4 py-1.5 text-xs rounded bg-red-700 hover:bg-red-600 text-white transition-colors"
             onClick={() => { setError(null); setLoading(true); fetchRegions(); }}
@@ -266,6 +273,10 @@ export default function Compliance() {
   }
 
   const regionKeys = Object.keys(regions);
+  const dsarErrorMessage =
+    dsarResult && typeof dsarResult === "object" && "error" in (dsarResult as Record<string, unknown>)
+      ? String((dsarResult as Record<string, unknown>).error ?? "")
+      : null;
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -423,6 +434,13 @@ export default function Compliance() {
                 <pre className="text-xs text-gray-300 whitespace-pre-wrap break-words font-mono">
                   {JSON.stringify(dsarResult, null, 2)}
                 </pre>
+                {dsarErrorMessage ? (
+                  <SupportIdHint
+                    message={dsarErrorMessage}
+                    className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-red-300/85"
+                    buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+                  />
+                ) : null}
               </div>
             )}
           </div>
@@ -564,7 +582,16 @@ export default function Compliance() {
             </div>
             <p className="text-[11px] text-gray-500 mb-1">Active Key ID: {decisionKeyId || "unknown"}</p>
             <p className="text-[11px] text-gray-500 mb-2">{integritySummary(decisionEvidence)}</p>
-            {decisionVerify && <p className="text-[11px] text-emerald-400 mb-2">{decisionVerify}</p>}
+            {decisionVerify && (
+              <>
+                <p className="text-[11px] text-emerald-400 mb-2">{decisionVerify}</p>
+                <SupportIdHint
+                  message={decisionVerify}
+                  className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-emerald-300/85"
+                  buttonClassName="px-1.5 py-0.5 rounded border border-emerald-400/35 hover:border-emerald-300/50 hover:text-emerald-100 transition-colors"
+                />
+              </>
+            )}
             {decisionEvidence ? (
               <pre className="text-xs text-gray-400 max-h-64 overflow-y-auto whitespace-pre-wrap">
                 {JSON.stringify(decisionEvidence, null, 2)}
@@ -596,7 +623,16 @@ export default function Compliance() {
             </div>
             <p className="text-[11px] text-gray-500 mb-1">Active Key ID: {caseKeyId || "unknown"}</p>
             <p className="text-[11px] text-gray-500 mb-2">{integritySummary(caseEvidence)}</p>
-            {caseVerify && <p className="text-[11px] text-emerald-400 mb-2">{caseVerify}</p>}
+            {caseVerify && (
+              <>
+                <p className="text-[11px] text-emerald-400 mb-2">{caseVerify}</p>
+                <SupportIdHint
+                  message={caseVerify}
+                  className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-emerald-300/85"
+                  buttonClassName="px-1.5 py-0.5 rounded border border-emerald-400/35 hover:border-emerald-300/50 hover:text-emerald-100 transition-colors"
+                />
+              </>
+            )}
             {caseEvidence ? (
               <pre className="text-xs text-gray-400 max-h-64 overflow-y-auto whitespace-pre-wrap">
                 {JSON.stringify(caseEvidence, null, 2)}

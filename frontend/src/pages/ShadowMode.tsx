@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { rules, shadow, type RulePack } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
+import { SupportIdHint } from "../components/SupportIdHint";
+import { toUserFacingError } from "../utils/userFacingErrors";
 
 type PackMode = "active" | "shadow" | "disabled";
 
@@ -45,7 +47,7 @@ export default function ShadowMode() {
       if (obsRes.status === "fulfilled") setObservations((obsRes.value.observations ?? []) as Observation[]);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load shadow data");
+      setError(toUserFacingError(e, { subject: "Shadow mode", action: "load shadow observations" }));
     } finally {
       setLoading(false);
     }
@@ -63,7 +65,7 @@ export default function ShadowMode() {
       await shadow.setPackMode(filename, mode);
       await fetchAll();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to set mode");
+      setError(toUserFacingError(e, { subject: "Pack mode", action: "set pack mode" }));
     } finally {
       setTogglingPack(null);
     }
@@ -101,8 +103,13 @@ export default function ShadowMode() {
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm">
-          {error}
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm space-y-1">
+          <p>{error}</p>
+          <SupportIdHint
+            message={error}
+            className="flex flex-wrap items-center gap-2 text-[11px] text-red-300/85"
+            buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+          />
         </div>
       )}
 

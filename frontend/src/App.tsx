@@ -1,5 +1,6 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { Routes, Route, NavLink, Navigate } from "react-router-dom";
+import { getDataSourceSnapshot, subscribeDataSource } from "./api/dataSourceState";
 import { AnalystCaseTabBar } from "./components/AnalystCaseTabBar";
 import { AppTopBar } from "./components/AppTopBar";
 import { AnalystReadinessBar } from "./components/AnalystReadinessBar";
@@ -88,7 +89,18 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
 /** Demo counts are opt-in so production-like runs do not imply false confidence. */
 const NOTIFICATION_ACTIONABLE_COUNT = SHOW_DEMO_BADGES ? 2 : 0;
 
-function BadgePill({ badge }: { badge: NavBadge }) {
+function BadgePill({ badge, degradedTitle }: { badge: NavBadge; degradedTitle?: string }) {
+  if (degradedTitle) {
+    return (
+      <span
+        className="ml-auto shrink-0 min-w-[1.125rem] h-5 px-1 rounded-full text-[10px] font-semibold flex items-center justify-center tabular-nums bg-rose-500/20 text-rose-300 border border-rose-500/30"
+        aria-label="Queue indicator degraded"
+        title={degradedTitle}
+      >
+        !
+      </span>
+    );
+  }
   if (badge.count <= 0) return null;
   const shown = badge.count > 99 ? "99+" : String(badge.count);
   const cls =
@@ -105,7 +117,26 @@ function BadgePill({ badge }: { badge: NavBadge }) {
   );
 }
 
+function formatFreshness(ts: number): string {
+  const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (s < 5) return "just now";
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  return `${Math.floor(s / 3600)}h ago`;
+}
+
 export default function App() {
+  const [dataSource, setDataSource] = useState(() => getDataSourceSnapshot());
+
+  useEffect(() => subscribeDataSource(() => setDataSource(getDataSourceSnapshot())), []);
+
+  const queueSignalDegraded = dataSource.outcome !== "live";
+  const notificationActionableCount = queueSignalDegraded ? 0 : NOTIFICATION_ACTIONABLE_COUNT;
+  const queueDegradedTitle = useMemo(
+    () => `Queue signal degraded: ${dataSource.outcome} data. Last refresh ${formatFreshness(dataSource.updatedAt)}.`,
+    [dataSource.outcome, dataSource.updatedAt],
+  );
+
   return (
     <div className="flex h-screen overflow-hidden">
       <aside className="w-60 flex-shrink-0 bg-surface-900 border-r border-surface-700 flex flex-col">
@@ -142,7 +173,11 @@ export default function App() {
                     >
                       <ModuleIcon module={item.module} className="w-[1.125rem] h-[1.125rem] opacity-90 shrink-0" aria-hidden />
                       <span className="truncate">{item.label}</span>
-                      {item.badge ? <BadgePill badge={item.badge} /> : null}
+                      {item.to === "/cases" && queueSignalDegraded ? (
+                        <BadgePill badge={{ count: 1, kind: "info" }} degradedTitle={queueDegradedTitle} />
+                      ) : item.badge ? (
+                        <BadgePill badge={item.badge} />
+                      ) : null}
                     </NavLink>
                   ))}
                 </div>
@@ -160,7 +195,7 @@ export default function App() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col bg-surface-950">
-        <AppTopBar notificationActionableCount={NOTIFICATION_ACTIONABLE_COUNT} />
+        <AppTopBar notificationActionableCount={notificationActionableCount} />
         <AnalystReadinessBar />
         <AnalystCaseTabBar />
         <CommandPalette />

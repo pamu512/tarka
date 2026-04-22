@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { disputes, type DisputeEntry, type DisputeStats } from "../api/client";
+import { SupportIdHint } from "../components/SupportIdHint";
 import { PageTitle } from "../components/PageTitle";
+import { toUserFacingError } from "../utils/userFacingErrors";
 
 const TENANT = "demo";
 
@@ -26,6 +28,7 @@ export default function Disputes() {
   const [stats, setStats] = useState<DisputeStats | null>(null);
   const [filter, setFilter] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [selected, setSelected] = useState<DisputeEntry | null>(null);
 
@@ -38,8 +41,9 @@ export default function Disputes() {
       ]);
       setItems(listRes.items);
       setStats(statsRes);
+      setError(null);
     } catch (e) {
-      console.error(e);
+      setError(toUserFacingError(e, { subject: "Disputes", action: "load disputes and chargeback stats" }));
     } finally {
       setLoading(false);
     }
@@ -65,6 +69,23 @@ export default function Disputes() {
           </button>
         ))}
       </div>
+
+      {error ? (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm space-y-1">
+          <p>{error}</p>
+          <SupportIdHint
+            message={error}
+            className="flex flex-wrap items-center gap-2 text-[11px] text-red-300/85"
+            buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+          />
+          <button
+            onClick={() => void load()}
+            className="text-xs text-red-300/80 hover:text-red-200 underline underline-offset-2"
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="text-gray-400 text-center py-12">Loading...</div>
@@ -153,9 +174,11 @@ function CreateDisputeModal({ onClose, onCreated }: { onClose: () => void; onCre
     entity_id: "", trace_id: "", dispute_type: "chargeback", reason_code: "", amount: "0", currency: "USD", merchant_id: "", card_network: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
     setSubmitting(true);
+    setError(null);
     try {
       await disputes.create({
         tenant_id: TENANT,
@@ -171,7 +194,7 @@ function CreateDisputeModal({ onClose, onCreated }: { onClose: () => void; onCre
       onCreated();
       onClose();
     } catch (e) {
-      console.error(e);
+      setError(toUserFacingError(e, { subject: "Dispute filing", action: "file a new dispute" }));
     } finally {
       setSubmitting(false);
     }
@@ -204,6 +227,16 @@ function CreateDisputeModal({ onClose, onCreated }: { onClose: () => void; onCre
             <option value="discover">Discover</option>
           </select>
         </div>
+        {error ? (
+          <div className="text-red-400 text-sm space-y-1">
+            <p>{error}</p>
+            <SupportIdHint
+              message={error}
+              className="flex flex-wrap items-center gap-2 text-[11px] text-red-300/85"
+              buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+            />
+          </div>
+        ) : null}
         <div className="flex justify-end gap-3 pt-2">
           <button onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200">Cancel</button>
           <button onClick={submit} disabled={submitting || !form.entity_id || !form.trace_id} className="px-4 py-2 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium">
@@ -219,16 +252,18 @@ function DisputeDetailModal({ dispute, onClose, onUpdated }: { dispute: DisputeE
   const [outcome, setOutcome] = useState(dispute.outcome || "");
   const [notes, setNotes] = useState(dispute.resolution_notes || "");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const resolve = async () => {
     if (!outcome) return;
     setSaving(true);
+    setError(null);
     try {
       await disputes.update(dispute.id, { outcome, resolution_notes: notes });
       onUpdated();
       onClose();
     } catch (e) {
-      console.error(e);
+      setError(toUserFacingError(e, { subject: "Dispute resolution", action: "resolve this dispute" }));
     } finally {
       setSaving(false);
     }
@@ -265,6 +300,16 @@ function DisputeDetailModal({ dispute, onClose, onUpdated }: { dispute: DisputeE
               <option value="customer_fault">Customer Fault</option>
             </select>
             <textarea placeholder="Resolution notes..." value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="w-full bg-surface-800 border border-surface-600 rounded-lg px-3 py-2 text-sm text-gray-200" />
+            {error ? (
+              <div className="text-red-400 text-sm space-y-1">
+                <p>{error}</p>
+                <SupportIdHint
+                  message={error}
+                  className="flex flex-wrap items-center gap-2 text-[11px] text-red-300/85"
+                  buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+                />
+              </div>
+            ) : null}
             <button onClick={resolve} disabled={saving || !outcome} className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium">
               {saving ? "Saving..." : "Resolve"}
             </button>

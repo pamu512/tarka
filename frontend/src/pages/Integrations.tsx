@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { integrations, type IntegrationScorecardsPayload } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
+import { SupportIdHint } from "../components/SupportIdHint";
 import { safeExternalHref } from "../utils/externalLinks";
+import { toUserFacingError } from "../utils/userFacingErrors";
 
 type Provider = {
   id: string;
@@ -104,6 +106,8 @@ export default function Integrations() {
     (async () => {
       try {
         await refresh();
+      } catch (e) {
+        setMessage(toUserFacingError(e, { subject: "Integrations", action: "load integrations overview" }));
       } finally {
         setLoading(false);
       }
@@ -134,7 +138,7 @@ export default function Integrations() {
       }
       await refresh();
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Integration update failed");
+      setMessage(toUserFacingError(e, { subject: "Integration", action: "update integration state" }));
     } finally {
       setBusyId("");
     }
@@ -160,7 +164,7 @@ export default function Integrations() {
       setRequestUseCase("");
       setRequestGithubUser("");
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Failed to submit request");
+      setMessage(toUserFacingError(e, { subject: "Integration request", action: "submit integration request" }));
     }
   }
 
@@ -184,7 +188,7 @@ export default function Integrations() {
       );
       await refresh();
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Connectivity test failed");
+      setMessage(toUserFacingError(e, { subject: "Integration connectivity", action: "test integration connectivity" }));
     } finally {
       setTestBusyId("");
     }
@@ -209,7 +213,7 @@ export default function Integrations() {
       setConfigDraft({});
       await refresh();
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Failed to save config");
+      setMessage(toUserFacingError(e, { subject: "Integration credentials", action: "save integration credentials" }));
     }
   }
 
@@ -330,7 +334,16 @@ export default function Integrations() {
         </div>
       )}
 
-      {message && <div className="text-xs text-brand-300 bg-brand-900/20 border border-brand-700/40 rounded p-2">{message}</div>}
+      {message && (
+        <div className="text-xs text-brand-300 bg-brand-900/20 border border-brand-700/40 rounded p-2 space-y-1">
+          <p>{message}</p>
+          <SupportIdHint
+            message={message}
+            className="flex flex-wrap items-center gap-2 text-[11px] text-brand-200/85"
+            buttonClassName="px-1.5 py-0.5 rounded border border-brand-400/35 hover:border-brand-300/50 hover:text-brand-100 transition-colors"
+          />
+        </div>
+      )}
 
       {loading ? (
         <div className="text-sm text-gray-400">Loading integrations…</div>

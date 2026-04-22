@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  cases,
   decisions,
+  type CaseApiHealthResponse,
   type DecisionApiSloResponse,
   type EvaluationPostureResponse,
 } from "../api/client";
+import { SupportIdHint } from "./SupportIdHint";
+import { toUserFacingError } from "../utils/userFacingErrors";
 
 const DEP_LABELS: Record<string, string> = {
   redis: "Redis (cache / tags)",
@@ -56,23 +60,30 @@ function remediation(
 export function AnalystReadinessBar() {
   const [posture, setPosture] = useState<EvaluationPostureResponse | null>(null);
   const [slo, setSlo] = useState<DecisionApiSloResponse | null>(null);
+  const [caseHealth, setCaseHealth] = useState<CaseApiHealthResponse | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [p, s] = await Promise.all([decisions.evaluationPosture(), decisions.slo()]);
+        const [p, s, c] = await Promise.all([
+          decisions.evaluationPosture(),
+          decisions.slo(),
+          cases.health().catch(() => null),
+        ]);
         if (!cancelled) {
           setPosture(p);
           setSlo(s);
+          setCaseHealth(c);
           setErr(null);
         }
       } catch (e) {
         if (!cancelled) {
-          setErr(e instanceof Error ? e.message : "unavailable");
+          setErr(toUserFacingError(e, { subject: "Readiness bar", action: "load trust and readiness posture" }));
           setPosture(null);
           setSlo(null);
+          setCaseHealth(null);
         }
       }
     })();
@@ -83,20 +94,27 @@ export function AnalystReadinessBar() {
 
   const redisDown = slo?.current?.redis_connected === false;
   const natsDown = slo?.current?.nats_connected === false;
+  const caseDbFallbackActive = caseHealth?.database_fallback_active === true;
 
   const runtimeDegraded = useMemo(
-    () => Boolean(redisDown || natsDown),
-    [redisDown, natsDown],
+    () => Boolean(redisDown || natsDown || caseDbFallbackActive),
+    [redisDown, natsDown, caseDbFallbackActive],
   );
 
   if (err) {
     return (
       <div
-        className="shrink-0 border-b border-amber-900/50 bg-amber-950/40 px-4 py-2 text-xs text-amber-100"
+        className="shrink-0 border-b border-amber-900/50 bg-amber-950/40 px-4 py-2 text-xs text-amber-100 space-y-1"
         role="status"
       >
-        <span className="font-medium">Trust / operations readiness:</span> could not load decision-api signals ({err}). Check API
-        proxy and credentials.
+        <p>
+          <span className="font-medium">Trust / operations readiness:</span> could not load decision-api signals ({err}). Check API proxy and credentials.
+        </p>
+        <SupportIdHint
+          message={err}
+          className="flex flex-wrap items-center gap-2 text-[11px] text-amber-100/90"
+          buttonClassName="px-1.5 py-0.5 rounded border border-amber-400/35 hover:border-amber-300/50 hover:text-amber-50 transition-colors"
+        />
       </div>
     );
   }
@@ -147,6 +165,7 @@ export function AnalystReadinessBar() {
               <span className="font-semibold">Runtime degraded.</span>{" "}
               {redisDown ? <span className="text-rose-100/90">Redis disconnected </span> : null}
               {natsDown ? <span className="text-rose-100/90">NATS disconnected </span> : null}
+              {caseDbFallbackActive ? <span className="text-rose-100/90">Case DB running in SQLite fallback </span> : null}
             </>
           )}
           <a
@@ -194,6 +213,11 @@ export function AnalystReadinessBar() {
             NATS: {slo.current.nats_connected ? "up" : "n/a"}
           </span>
         ) : null}
+        {caseHealth?.database_fallback_active != null ? (
+          <span className={caseHealth.database_fallback_active ? "text-amber-300" : "text-emerald-400/90"}>
+            Case DB: {caseHealth.database_fallback_active ? "fallback" : caseHealth.database_backend ?? "live"}
+          </span>
+        ) : null}
         <span
           className="text-gray-500 sm:ml-0"
           title="last_rules_reload_at from GET /v1/ops/evaluation-posture (rules + typologies materialized)"
@@ -205,6 +229,16 @@ export function AnalystReadinessBar() {
           Posture: <span className="text-gray-300">{posture.compliance_posture}</span>
         </span>
       </div>
+      {caseHealth?.database_fallback_active ? (
+        <div className="px-4 py-1.5 text-[11px] text-amber-100/90 bg-amber-950/35 border-b border-amber-900/40">
+          case-api bootstrap mode <span className="font-mono">{caseHealth.database_bootstrap_mode ?? "unknown"}</span>
+          {caseHealth.database_fallback_reason ? (
+            <>
+              {" · "}reason <span className="font-mono">{caseHealth.database_fallback_reason}</span>
+            </>
+          ) : null}
+        </div>
+      ) : null}
 
       <details className="group px-4 py-2 text-[11px] text-gray-400">
         <summary className="cursor-pointer list-none flex items-center gap-2 text-gray-300 hover:text-gray-100 select-none">

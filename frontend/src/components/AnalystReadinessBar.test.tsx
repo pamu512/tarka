@@ -5,16 +5,20 @@ import type { EvaluationPostureResponse } from "../api/client";
 import { AnalystReadinessBar } from "./AnalystReadinessBar";
 
 vi.mock("../api/client", () => ({
+  cases: {
+    health: vi.fn(),
+  },
   decisions: {
     evaluationPosture: vi.fn(),
     slo: vi.fn(),
   },
 }));
 
-import { decisions } from "../api/client";
+import { cases, decisions } from "../api/client";
 
 const mockEvaluationPosture = vi.mocked(decisions.evaluationPosture);
 const mockSlo = vi.mocked(decisions.slo);
+const mockCaseHealth = vi.mocked(cases.health);
 
 function degradedCompliancePosture(): EvaluationPostureResponse {
   return {
@@ -46,6 +50,13 @@ describe("AnalystReadinessBar", () => {
   beforeEach(() => {
     mockEvaluationPosture.mockReset();
     mockSlo.mockReset();
+    mockCaseHealth.mockReset();
+    mockCaseHealth.mockResolvedValue({
+      status: "ok",
+      database_backend: "postgresql",
+      database_fallback_active: false,
+      database_bootstrap_mode: "alembic_head",
+    });
   });
 
   it("shows degraded compliance alert and config reload on the trust/ops strip (OSS #36)", async () => {

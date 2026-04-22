@@ -22,6 +22,8 @@ import {
 } from "../api/client";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { PageTitle } from "../components/PageTitle";
+import { SupportIdHint } from "../components/SupportIdHint";
+import { toUserFacingError } from "../utils/userFacingErrors";
 
 const DECISION_COLORS = {
   allow: "#22c55e",
@@ -119,7 +121,7 @@ export default function Dashboard() {
       setDataWarnings(warnings);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load dashboard");
+      setError(toUserFacingError(e, { subject: "Dashboard", action: "load dashboard metrics" }));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -513,6 +515,11 @@ function ErrorState({
         <div className="text-red-400 text-4xl">!</div>
         <p className="text-gray-300 font-medium">Failed to load dashboard</p>
         <p className="text-gray-500 text-sm max-w-sm">{message}</p>
+        <SupportIdHint
+          message={message}
+          className="flex flex-wrap items-center justify-center gap-2 text-[11px] text-red-300/85"
+          buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+        />
         <button
           onClick={onRetry}
           className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm rounded-lg transition-colors"

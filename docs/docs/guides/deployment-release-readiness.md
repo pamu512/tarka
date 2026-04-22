@@ -2,6 +2,8 @@
 
 Use this checklist before promoting Tarka cloud deployments from staging to production.
 
+For **staged security cutover** (tenant binding, keys, Copilot/bridge headers, idempotency, rollback toggles), follow **[Production security rollout checklist](./production-security-rollout.md)** in parallel with this document.
+
 ---
 
 ## Image publication matrix
