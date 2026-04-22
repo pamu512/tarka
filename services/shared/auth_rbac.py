@@ -173,7 +173,16 @@ async def _authenticate(request: Request) -> AuthUser:
 class AuthMiddleware(BaseHTTPMiddleware):
     """Injects AuthUser into request.state.auth_user."""
 
-    SKIP_PATHS = {"/v1/health", "/metrics"}
+    # Shell UI (AnalystReadinessBar) calls these without X-API-Key via nginx /api/decisions/* proxy.
+    # They return non-secret operational metadata (OSS #36 / #51); same trust model as /v1/health.
+    SKIP_PATHS = frozenset(
+        {
+            "/v1/health",
+            "/metrics",
+            "/v1/slo",
+            "/v1/ops/evaluation-posture",
+        }
+    )
 
     async def dispatch(self, request: Request, call_next):
         if request.url.path in self.SKIP_PATHS:

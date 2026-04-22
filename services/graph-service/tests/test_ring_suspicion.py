@@ -4,7 +4,7 @@ from graph_service.main import app
 
 def test_ring_suspicion_endpoint_returns_mule_summary(monkeypatch):
     monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
-    monkeypatch.setattr("graph_service.main._valid_api_keys", None)
+    monkeypatch.setenv("API_KEYS", "")
 
     async def _risk(tenant_id, entity_id):
         return {
