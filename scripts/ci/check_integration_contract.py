@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Probe a running investigation-agent for GET /v1/integration (adapter parity / smoke).
 

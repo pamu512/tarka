@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Validate OpenAPI contracts with YAML + semantic OAS checks.
 
 Run from repo root after:
   pip install pyyaml openapi-spec-validator
 """
-
-from __future__ import annotations
 
 import sys
 from pathlib import Path
