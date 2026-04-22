@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
+import json
+import os
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from typing import Any
 
 """Fetch analytics-sink decision scorecard JSON and open a GitHub Discussion (OSS #53).
 
@@ -14,17 +22,6 @@ Environment (typical in GitHub Actions):
 
 Dry-run locally without GITHUB_TOKEN: prints Markdown only.
 """
-
-
-import argparse
-import json
-import os
-import sys
-import urllib.error
-import urllib.parse
-import urllib.request
-from typing import Any
-
 
 def build_markdown(data: dict[str, Any]) -> str:
     tenant = str(data.get("tenant_id", ""))

@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-
-"""Fail CI when frontend production build enables API mock mode."""
-
 import os
 import re
 import sys
 from pathlib import Path
 
+"""Fail CI when frontend production build enables API mock mode."""
 _TRUE_VALUES = {"1", "true", "yes", "on"}
 _ASSIGN_RE = re.compile(r"^\s*VITE_USE_API_MOCKS\s*=\s*(.+?)\s*$")
 

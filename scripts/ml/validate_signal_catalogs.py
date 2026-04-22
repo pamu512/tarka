@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import json
+import sys
+from pathlib import Path
 
 """
 Fail CI/local checks if signal catalogs drift or are structurally invalid.
 
 Run from repo root: python scripts/ml/validate_signal_catalogs.py
 """
-
-
-import json
-import sys
-from pathlib import Path
-
 _SCRIPTS_ML = Path(__file__).resolve().parent
 if str(_SCRIPTS_ML) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_ML))

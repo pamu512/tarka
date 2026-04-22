@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
+import asyncio
+import json
+import os
+import sys
+from pathlib import Path
 
 """
 Pull messages from the ingest DLQ JetStream subject and optionally re-post to evaluate.
@@ -9,15 +15,6 @@ Requires: nats-py, running NATS with a stream covering the DLQ subject (e.g. fra
   python scripts/etl/replay_dlq.py --nats-url nats://localhost:4222 --subject fraud.events.dlq --max 5 --dry-run
   DECISION_API_URL=http://localhost:8000 python scripts/etl/replay_dlq.py --max 1
 """
-
-
-import argparse
-import asyncio
-import json
-import os
-import sys
-from pathlib import Path
-
 _REPO = Path(__file__).resolve().parents[2]
 
 

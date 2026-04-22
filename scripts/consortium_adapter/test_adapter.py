@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Tests for consortium_adapter HTTP client and ingest helpers."""
-
-
 import json
 import sys
 from pathlib import Path
@@ -10,6 +6,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+"""Tests for consortium_adapter HTTP client and ingest helpers."""
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from client import (  # noqa: E402

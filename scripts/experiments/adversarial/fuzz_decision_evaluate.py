@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-
-"""Minimal adversarial fuzz harness for POST /v1/decisions/evaluate."""
-
-
 import argparse
 import json
 import random
@@ -14,6 +10,7 @@ from typing import Any
 
 import httpx
 
+"""Minimal adversarial fuzz harness for POST /v1/decisions/evaluate."""
 
 def _rand_id(prefix: str) -> str:
     return f"{prefix}_{''.join(random.choices(string.ascii_lowercase + string.digits, k=8))}"

@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-
-"""OSS #46 — validate typology_definitions + predicate registry pins and predicate_ref ids."""
-
-
 import argparse
 import json
 import os
 import sys
 from pathlib import Path
 
+"""OSS #46 — validate typology_definitions + predicate registry pins and predicate_ref ids."""
 _REPO = Path(__file__).resolve().parents[2]
 _DEC = _REPO / "services" / "decision-api"
 _RULES = _DEC / "rules"

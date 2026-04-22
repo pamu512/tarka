@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
+import csv
+import json
+import sys
+from pathlib import Path
+from typing import Any
 
 """Batch score rows via ml-scoring ``POST /v1/score`` (v1.2 stretch — analyst dry-runs).
 
@@ -18,15 +24,6 @@ Example::
 
 See also ``scripts/benchmarks/README.md``.
 """
-
-
-import argparse
-import csv
-import json
-import sys
-from pathlib import Path
-from typing import Any
-
 RESERVED = frozenset(
     {
         "tenant_id",

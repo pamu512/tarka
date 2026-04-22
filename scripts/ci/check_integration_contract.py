@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import urllib.error
+import urllib.request
 
 """
 Probe a running investigation-agent for GET /v1/integration (adapter parity / smoke).
@@ -10,15 +17,6 @@ Example:
 Optional headers for deployments that require x-api-key:
   python scripts/ci/check_integration_contract.py --base-url https://agent.example --api-key secret
 """
-
-from __future__ import annotations
-
-import argparse
-import json
-import sys
-import urllib.error
-import urllib.request
-
 
 def main() -> int:
     p = argparse.ArgumentParser(description="GET /v1/integration and validate shape")

@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Server-side signal collector for Python SDK."""
-
-
 import hashlib
 import ipaddress
 import json
@@ -11,6 +7,7 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+"""Server-side signal collector for Python SDK."""
 # Known datacenter/proxy ASN prefixes (lightweight list; extend or use MaxMind)
 _DATACENTER_ASNS = frozenset(
     {

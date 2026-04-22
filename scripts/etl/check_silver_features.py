@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
+import json
+import sys
+from pathlib import Path
 
 """
 Silver-layer quality gate for exported feature / audit JSONL (v1.2.5 E2).
@@ -10,13 +14,6 @@ Exits non-zero if violation rate exceeds --max-violation-rate.
 Example:
   python scripts/etl/check_silver_features.py --input export.jsonl --max-violation-rate 0.01
 """
-
-
-import argparse
-import json
-import sys
-from pathlib import Path
-
 VALID_EVENT_TYPES = frozenset({"login", "payment", "signup", "device", "session", "custom"})
 
 

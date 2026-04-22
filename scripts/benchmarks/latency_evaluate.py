@@ -1,16 +1,5 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-
-"""
-Measure latency for Decision API POST /v1/decisions/evaluate (stdlib only).
-
-Example:
-  python latency_evaluate.py --url http://localhost:8000 --requests 200 --concurrency 20
-
-For publishable benchmark posts, record hardware, compose profile, warm-up count, and seed payload.
-"""
-
-
 import argparse
 import json
 import statistics
@@ -20,6 +9,14 @@ import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+"""
+Measure latency for Decision API POST /v1/decisions/evaluate (stdlib only).
+
+Example:
+  python latency_evaluate.py --url http://localhost:8000 --requests 200 --concurrency 20
+
+For publishable benchmark posts, record hardware, compose profile, warm-up count, and seed payload.
+"""
 DEFAULT_BODY = {
     "tenant_id": "bench",
     "event_type": "payment",

@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
+import asyncio
+import csv
+import json
+import sys
+from pathlib import Path
+from typing import Any
 
 """Export decision_audit rows for offline reliability / calibration analysis (CSV).
 
@@ -11,16 +18,6 @@ Usage::
     export DATABASE_URL=postgresql+asyncpg://...
     python scripts/calibration/export_reliability_dataset.py --out /tmp/reliability.csv --tenant-id acme --limit 5000
 """
-
-
-import argparse
-import asyncio
-import csv
-import json
-import sys
-from pathlib import Path
-from typing import Any
-
 _REPO = Path(__file__).resolve().parents[2]
 _dec_src = _REPO / "services" / "decision-api" / "src"
 if str(_dec_src) not in sys.path:

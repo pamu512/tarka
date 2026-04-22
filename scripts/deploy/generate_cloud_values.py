@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-
-"""Generate Helm values from cloud deployment presets."""
-
-
 import argparse
 from pathlib import Path
 
+"""Generate Helm values from cloud deployment presets."""
 PRESET_DIR = Path("deploy/helm/fraud-stack/presets")
 PLACEHOLDER_MAP = {
     "__IMAGE_REGISTRY__": "image_registry",

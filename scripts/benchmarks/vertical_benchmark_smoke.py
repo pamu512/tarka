@@ -1,19 +1,16 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-
-"""Smoke benchmark for baseline-vs-vertical simulation endpoint.
-
-Runs /v1/simulation/benchmark/vertical for selected vertical packs and validates
-response shape for deterministic CI checks.
-"""
-
-
 import argparse
 import json
 import sys
 import urllib.error
 import urllib.request
 
+"""Smoke benchmark for baseline-vs-vertical simulation endpoint.
+
+Runs /v1/simulation/benchmark/vertical for selected vertical packs and validates
+response shape for deterministic CI checks.
+"""
 
 def _post_json(url: str, payload: dict, timeout: float) -> dict:
     req = urllib.request.Request(

@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+from typing import Any
 
 """
 Export decision_audit rows to JSONL for offline counter replay (Epic C).
@@ -16,15 +22,6 @@ Each line matches the shape expected by replay_aggregates.py:
   tenant_id, entity_id, event_id (trace_id), fields (from payload_snapshot),
   optional metadata echo, ts (prefer logical event_time from snapshot, else created_at).
 """
-
-
-import argparse
-import json
-import os
-import sys
-from pathlib import Path
-from typing import Any
-
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _SHARED = _REPO_ROOT / "services" / "shared"
 if str(_SHARED) not in sys.path:

@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import sys
+from pathlib import Path
 
 """Validate OpenAPI contracts with YAML + semantic OAS checks.
 
 Run from repo root after:
   pip install pyyaml openapi-spec-validator
 """
-
-import sys
-from pathlib import Path
-
 try:
     import yaml  # type: ignore[import-untyped]
 except ImportError:

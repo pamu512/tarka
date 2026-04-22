@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
+import json
+import subprocess
+import sys
+from pathlib import Path
 
 """Validate ML promotion policy files and shipped model metadata (OSS #37 / #52).
 
@@ -7,14 +12,6 @@ from __future__ import annotations
 - Validate policy JSON schema (required keys / types).
 - Check active ONNX/sklearn model versions under models/ have metadata matching policy strictness.
 """
-
-
-import argparse
-import json
-import subprocess
-import sys
-from pathlib import Path
-
 _REPO = Path(__file__).resolve().parents[2]
 _DEFAULT_MODELS = _REPO / "services" / "ml-scoring" / "models"
 _POLICY_JSON = _REPO / "services" / "ml-scoring" / "rules" / "ml_promotion_policy_v1.json"

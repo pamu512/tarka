@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-
-"""Smoke-check cloud preset generation for Helm values."""
-
 import subprocess
 import sys
 from pathlib import Path
 
+"""Smoke-check cloud preset generation for Helm values."""
 
 PRESETS = ("core-on-aws", "investigation-on-aws", "core-on-gcp", "full-on-k8s")
 SCRIPT = Path("scripts/deploy/generate_cloud_values.py")
