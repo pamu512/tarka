@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Investigation smoke: decision evaluate -> case -> decision-explanation schema check."""
-
 from __future__ import annotations
+
+"""Investigation smoke: decision evaluate -> case -> decision-explanation schema check."""
 
 import argparse
 import json

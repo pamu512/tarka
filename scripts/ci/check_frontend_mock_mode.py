@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Fail CI when frontend production build enables API mock mode."""
-
 from __future__ import annotations
+
+"""Fail CI when frontend production build enables API mock mode."""
 
 import os
 import re
