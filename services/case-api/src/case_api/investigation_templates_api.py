@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Tenant-scoped investigation templates (Marble #56): CRUD + apply via ``playbook_id`` on cases."""
-
-
 import os
 import sys
 import uuid
@@ -14,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from case_api.db import get_session
 from case_api.models import InvestigationTemplate
 from case_api.schemas import (
+
+"""Tenant-scoped investigation templates (Marble #56): CRUD + apply via ``playbook_id`` on cases."""
     CreateInvestigationTemplateRequest,
     InvestigationTemplateOut,
     PatchInvestigationTemplateRequest,

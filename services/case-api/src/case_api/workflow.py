@@ -1,4 +1,11 @@
 from __future__ import annotations
+import json
+import logging
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any
+
+import httpx
 
 """Workflow engine for case automation.
 
@@ -20,16 +27,6 @@ Action types:
   - escalate         — change status to "escalated"
   - add_comment      — auto-add a system comment
 """
-
-
-import json
-import logging
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import Any
-
-import httpx
-
 log = logging.getLogger("case-api.workflow")
 
 _workflows: list[dict[str, Any]] = []

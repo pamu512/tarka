@@ -1,4 +1,8 @@
 from __future__ import annotations
+import os
+from typing import Any
+
+import httpx
 
 """
 Map customer Case / Graph / Decision HTTP APIs to shapes expected by investigation-agent tools.
@@ -6,13 +10,6 @@ Map customer Case / Graph / Decision HTTP APIs to shapes expected by investigati
 This module is a stub: implement real clients, auth, pagination, and field mapping here (or split into
 submodules). Keep `INTEGRATION_PROFILE_ID` in agent config aligned with profile `{{ cookiecutter.integration_profile_id }}`.
 """
-
-
-import os
-from typing import Any
-
-import httpx
-
 INTEGRATION_PROFILE_ID = "{{ cookiecutter.integration_profile_id }}"
 
 

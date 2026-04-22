@@ -1,4 +1,9 @@
 from __future__ import annotations
+from typing import Any
+
+from investigation_agent.config import Settings
+from investigation_agent.copilot_hardening import filter_tool_definitions, parse_disabled_tools, parse_sensitive_tools
+from investigation_agent.tools import TOOL_DEFINITIONS
 
 """
 Logical integration contract for the investigation copilot.
@@ -9,14 +14,6 @@ and which tools are registered—used for adapter parity checks and Saarthi Pro 
 
 Does not expose raw URLs (avoid leaking internal endpoints in health responses).
 """
-
-
-from typing import Any
-
-from investigation_agent.config import Settings
-from investigation_agent.copilot_hardening import filter_tool_definitions, parse_disabled_tools, parse_sensitive_tools
-from investigation_agent.tools import TOOL_DEFINITIONS
-
 # Bump when tool names, families, or upstream semantics change in a breaking way for adapters.
 INTEGRATION_CONTRACT_VERSION = "1.2.0"
 

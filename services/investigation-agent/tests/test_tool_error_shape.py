@@ -1,12 +1,9 @@
 from __future__ import annotations
-
-"""Tool error payload hardening."""
-
-
 import pytest
 from investigation_agent.main import _execute_tool
 from investigation_agent.tools import normalize_tool_error_shape
 
+"""Tool error payload hardening."""
 
 def test_normalize_tool_error_shape_adds_contract_fields():
     out = normalize_tool_error_shape("subgraph", {"error": "graph_disabled"})

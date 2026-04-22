@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Reproducible graph vs baseline experiment runner and scorecard (#66)."""
-
-
 import json
 import random
 import time
@@ -13,6 +9,7 @@ from typing import Any
 from graph_service.benchmark.datasets import get_task
 from graph_service.benchmark.metrics import average_precision_binary, precision_recall
 
+"""Reproducible graph vs baseline experiment runner and scorecard (#66)."""
 
 def _digest(payload: dict[str, Any]) -> str:
     raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")

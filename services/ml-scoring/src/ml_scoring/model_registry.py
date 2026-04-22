@@ -1,17 +1,4 @@
 from __future__ import annotations
-
-"""ONNX Model Registry with versioning and A/B traffic splitting.
-
-Models are stored on disk at:
-    models/{model_name}/{version}/model.onnx
-    models/{model_name}/{version}/metadata.json
-
-Each model version carries a ``traffic_weight`` (0-100) used for A/B
-routing.  The registry selects a model probabilistically based on the
-normalised weights of all *active* versions.
-"""
-
-
 import hashlib
 import json
 import logging
@@ -23,6 +10,16 @@ from typing import Any
 
 from ml_scoring.promotion_policy import evaluate_version_gate, read_promotion_policy
 
+"""ONNX Model Registry with versioning and A/B traffic splitting.
+
+Models are stored on disk at:
+    models/{model_name}/{version}/model.onnx
+    models/{model_name}/{version}/metadata.json
+
+Each model version carries a ``traffic_weight`` (0-100) used for A/B
+routing.  The registry selects a model probabilistically based on the
+normalised weights of all *active* versions.
+"""
 log = logging.getLogger("ml-scoring.registry")
 
 

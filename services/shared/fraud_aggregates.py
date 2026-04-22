@@ -1,4 +1,10 @@
 from __future__ import annotations
+import os
+import time
+from collections.abc import Callable
+from typing import Any
+
+import redis.asyncio as redis
 
 """Real-time aggregate computation using Redis sorted sets.
 
@@ -14,15 +20,6 @@ Supported aggregate types:
   - avg(entity, field, window) — average of a numeric field in window
   - distinct(entity, field, window) — count of distinct values in window
 """
-
-
-import os
-import time
-from collections.abc import Callable
-from typing import Any
-
-import redis.asyncio as redis
-
 AGG_PREFIX = "fraud:agg:"
 AGG_VAL_PREFIX = "fraud:aggval:"
 MAX_WINDOW = 86400 * 30  # 30 days max

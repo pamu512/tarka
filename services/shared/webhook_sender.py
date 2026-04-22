@@ -1,14 +1,4 @@
 from __future__ import annotations
-
-"""Webhook delivery with exponential backoff retry and dead letter queue.
-
-Usage::
-
-    sender = WebhookSender(max_retries=5)
-    await sender.send("https://example.com/hook", payload={"event": "deny"})
-"""
-
-
 import asyncio
 import logging
 import uuid
@@ -18,6 +8,13 @@ from typing import Any
 
 import httpx
 
+"""Webhook delivery with exponential backoff retry and dead letter queue.
+
+Usage::
+
+    sender = WebhookSender(max_retries=5)
+    await sender.send("https://example.com/hook", payload={"event": "deny"})
+"""
 log = logging.getLogger("webhook-sender")
 
 

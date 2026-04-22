@@ -1,11 +1,8 @@
 from __future__ import annotations
-
-"""Strip !wf / !wfp / !style from last user message; map to investigation-agent workflow_id + workflow_params."""
-
-
 import copy
 import re
 
+"""Strip !wf / !wfp / !style from last user message; map to investigation-agent workflow_id + workflow_params."""
 # Aligns with common workflow manifests (e.g. sop_case_summary_v1: audience, report_label).
 _STYLE_TO_PARAMS: dict[str, dict[str, str]] = {
     "standard": {},

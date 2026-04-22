@@ -1,14 +1,4 @@
 from __future__ import annotations
-
-"""
-Graph analytics when GRAPH_BACKEND=janusgraph (Gremlin).
-
-Uses bounded traversals and in-memory helpers (union-find / optional NetworkX) so
-operators can swap backends without changing Decision API, Case API, or copilot URLs.
-Large tenants may hit ``janusgraph_analytics_vertex_cap`` — raise the cap or use Neo4j.
-"""
-
-
 import logging
 from collections import defaultdict, deque
 from typing import Any
@@ -19,6 +9,13 @@ from graph_service.config import settings
 from graph_service.janusgraph_gremlin import get_traversal_source, run_in_gremlin_thread
 from graph_service.janusgraph_store import _vertex_external_id
 
+"""
+Graph analytics when GRAPH_BACKEND=janusgraph (Gremlin).
+
+Uses bounded traversals and in-memory helpers (union-find / optional NetworkX) so
+operators can swap backends without changing Decision API, Case API, or copilot URLs.
+Large tenants may hit ``janusgraph_analytics_vertex_cap`` — raise the cap or use Neo4j.
+"""
 log = logging.getLogger("graph-service.algorithms.janus")
 
 _HIGH_RISK_TAGS = frozenset(

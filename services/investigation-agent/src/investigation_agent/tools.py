@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Tool definitions and execution for the investigation agent."""
-
-
 import json
 import re
 from typing import Any
@@ -12,6 +8,7 @@ import httpx
 from investigation_agent import batch_store, knowledge_store
 from investigation_agent.config import effective_embedding_api_key, effective_embedding_base_url, settings
 
+"""Tool definitions and execution for the investigation agent."""
 _MAX_RULES_OVERRIDE = 15
 _MAX_REPLAY_TRACE_IDS = 150
 _MAX_CONDITIONS_PER_RULE = 12

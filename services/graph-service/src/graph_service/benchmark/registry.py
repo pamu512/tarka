@@ -1,12 +1,9 @@
 from __future__ import annotations
-
-"""Graph-derived feature registry with stable IDs and provenance (#65)."""
-
-
 import json
 from hashlib import sha256
 from typing import Any
 
+"""Graph-derived feature registry with stable IDs and provenance (#65)."""
 # v1.1 adds optional ``tags`` only; all v1.0 ``feature_id`` values remain stable.
 GRAPH_FEATURES: list[dict[str, Any]] = [
     {

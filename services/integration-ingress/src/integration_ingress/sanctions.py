@@ -1,15 +1,4 @@
 from __future__ import annotations
-
-"""Sanctions & PEP screening against the OpenSanctions consolidated dataset.
-
-Downloads the FtM entities JSON-lines file, caches it locally, and provides
-fuzzy name matching with optional country / date-of-birth filters.
-
-All I/O is async-safe — network downloads use httpx and file parsing is
-offloaded to a thread pool to avoid blocking the event loop.
-"""
-
-
 import asyncio
 import json
 import logging
@@ -20,6 +9,14 @@ from typing import Any
 
 import httpx
 
+"""Sanctions & PEP screening against the OpenSanctions consolidated dataset.
+
+Downloads the FtM entities JSON-lines file, caches it locally, and provides
+fuzzy name matching with optional country / date-of-birth filters.
+
+All I/O is async-safe — network downloads use httpx and file parsing is
+offloaded to a thread pool to avoid blocking the event loop.
+"""
 log = logging.getLogger(__name__)
 
 _DATASET_URL = "https://data.opensanctions.org/datasets/latest/default/entities.ftm.json"

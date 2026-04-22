@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Typology layer (OSS #34): aggregate rule outcomes + feature predicates into scored scenarios."""
-
-
 import json
 import logging
 from pathlib import Path
@@ -12,6 +8,7 @@ from decision_api.config import settings
 from decision_api.json_rules import _match_condition
 from decision_api.typology_predicate_registry import load_predicate_registry, predicate_when_by_id
 
+"""Typology layer (OSS #34): aggregate rule outcomes + feature predicates into scored scenarios."""
 log = logging.getLogger(__name__)
 
 _DEFINITIONS: dict[str, Any] | None = None

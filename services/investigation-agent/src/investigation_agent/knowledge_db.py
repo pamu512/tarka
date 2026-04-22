@@ -1,11 +1,4 @@
 from __future__ import annotations
-
-"""
-SQLite-backed investigation memos with optional embedding vectors (RAG).
-Hybrid retrieval: cosine similarity + keyword overlap when embeddings exist.
-"""
-
-
 import json
 import os
 import re
@@ -17,6 +10,10 @@ from typing import Any
 
 from investigation_agent import embeddings as emb_mod
 
+"""
+SQLite-backed investigation memos with optional embedding vectors (RAG).
+Hybrid retrieval: cosine similarity + keyword overlap when embeddings exist.
+"""
 _MAX_DOCS_PER_SCOPE = 80
 _MAX_DOC_CHARS = 120_000
 _MAX_CHUNK = 1800

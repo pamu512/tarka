@@ -1,4 +1,12 @@
 from __future__ import annotations
+import uuid
+from datetime import datetime
+from typing import Any
+
+from sqlalchemy import JSON, DateTime, String, func
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 """Immutable field-level audit trail.
 
@@ -18,17 +26,6 @@ Usage::
         changes={"status": {"old": "open", "new": "escalated"}},
     )
 """
-
-
-import uuid
-from datetime import datetime
-from typing import Any
-
-from sqlalchemy import JSON, DateTime, String, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-
 _JSON_COL = JSON().with_variant(JSONB(), "postgresql")
 
 

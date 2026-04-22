@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Shared Gremlin Server connection for JanusGraph backend (sync driver, thread offload)."""
-
-
 import asyncio
 import logging
 from typing import Callable, TypeVar
@@ -12,6 +8,7 @@ from gremlin_python.process.anonymous_traversal import traversal
 
 from graph_service.config import settings
 
+"""Shared Gremlin Server connection for JanusGraph backend (sync driver, thread offload)."""
 log = logging.getLogger("graph-service.janus")
 
 _conn: DriverRemoteConnection | None = None

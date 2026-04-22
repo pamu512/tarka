@@ -1,13 +1,10 @@
 from __future__ import annotations
-
-"""Smoke coverage for ``ml_scoring.main`` (FastAPI app) — restores cov on ``main.py`` after heuristic split."""
-
-
 import os
 
 from fastapi.testclient import TestClient
 from ml_scoring.main import app
 
+"""Smoke coverage for ``ml_scoring.main`` (FastAPI app) — restores cov on ``main.py`` after heuristic split."""
 os.environ.setdefault("ALLOW_INSECURE_NO_AUTH", "true")
 
 

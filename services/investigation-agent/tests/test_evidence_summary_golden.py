@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Golden fixtures for POST /v1/evidence/summary (OSS #40 — citations + next actions)."""
-
-
 import json
 from pathlib import Path
 from typing import Any
@@ -12,6 +8,7 @@ from fastapi.testclient import TestClient
 from investigation_agent import main as main_mod
 from investigation_agent.main import app
 
+"""Golden fixtures for POST /v1/evidence/summary (OSS #40 — citations + next actions)."""
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "evidence_summary"
 
 

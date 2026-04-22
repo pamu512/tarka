@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""In-memory tabular batch jobs (CSV / JSON / Excel) for copilot analysis tools."""
-
-
 import csv
 import io
 import json
@@ -15,6 +11,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+"""In-memory tabular batch jobs (CSV / JSON / Excel) for copilot analysis tools."""
 _MAX_FILE_BYTES = 15 * 1024 * 1024
 _MAX_ROWS = 8_000
 _MAX_COLS = 128

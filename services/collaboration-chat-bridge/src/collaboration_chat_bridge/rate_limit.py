@@ -1,12 +1,9 @@
 from __future__ import annotations
-
-"""In-process sliding-window rate limiter (per key)."""
-
-
 import time
 from collections import defaultdict, deque
 from threading import Lock
 
+"""In-process sliding-window rate limiter (per key)."""
 
 class MinuteRateLimiter:
     """At most `max_events` calls per `window` seconds per distinct key."""

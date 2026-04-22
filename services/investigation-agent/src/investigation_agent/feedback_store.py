@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""SQLite persistence for chat turns and analyst feedback (RAG / quality loop)."""
-
-
 import json
 import os
 import sqlite3
@@ -10,6 +6,7 @@ import threading
 import time
 from typing import Any
 
+"""SQLite persistence for chat turns and analyst feedback (RAG / quality loop)."""
 _lock = threading.Lock()
 _conn: sqlite3.Connection | None = None
 

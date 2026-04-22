@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""OSS #46 — versioned predicate registry for typology DSL (named conditions, pin-able versions)."""
-
-
 import json
 import logging
 from pathlib import Path
@@ -10,6 +6,7 @@ from typing import Any
 
 from decision_api.config import settings
 
+"""OSS #46 — versioned predicate registry for typology DSL (named conditions, pin-able versions)."""
 log = logging.getLogger(__name__)
 
 _REGISTRY: dict[str, Any] | None = None

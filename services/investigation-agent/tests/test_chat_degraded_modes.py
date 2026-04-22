@@ -1,14 +1,11 @@
 from __future__ import annotations
-
-"""Chat degraded mode contract: copilot_mode + degraded_reasons."""
-
-
 from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 from investigation_agent import config
 from investigation_agent.main import app
 
+"""Chat degraded mode contract: copilot_mode + degraded_reasons."""
 
 def test_chat_returns_tools_only_deterministic_when_llm_key_missing(monkeypatch):
     payload = {

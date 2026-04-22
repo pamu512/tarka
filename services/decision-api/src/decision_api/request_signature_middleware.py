@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Optional HMAC verification for POST bodies (see docs/guides/tls-pinning-and-signed-requests.md)."""
-
-
 import sys
 from pathlib import Path
 
@@ -10,6 +6,7 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import JSONResponse, Response
 
+"""Optional HMAC verification for POST bodies (see docs/guides/tls-pinning-and-signed-requests.md)."""
 # Shared helpers (repo layout: services/shared next to decision-api)
 _shared = Path(__file__).resolve().parents[3] / "shared"
 if str(_shared) not in sys.path:

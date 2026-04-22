@@ -1,16 +1,13 @@
 from __future__ import annotations
+import os
+
+import numpy as np
 
 """
 Optional: log a run to MLflow and export a trivial ONNX model for ONNX_MODEL_PATH.
 
 Usage (with extras): pip install -e '.[onnx,mlflow]' && python scripts/train_example.py
 """
-
-
-import os
-
-import numpy as np
-
 
 def main() -> None:
     try:

@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Resolve and apply investigation templates / built-in playbooks (Marble #56)."""
-
-
 import uuid
 from typing import Any
 
@@ -15,6 +11,7 @@ from case_api.builtin_playbooks import PLAYBOOKS
 from case_api.models import Case, CaseComment, InvestigationTemplate
 from case_api.schemas import CaseOut
 
+"""Resolve and apply investigation templates / built-in playbooks (Marble #56)."""
 
 def _normalize_apply_config(raw: dict[str, Any]) -> dict[str, Any]:
     cfg = dict(raw)

@@ -1,4 +1,9 @@
 from __future__ import annotations
+import logging
+import os
+from typing import Any, Callable
+
+import numpy as np
 
 """Optional TreeSHAP explanations for a persisted LightGBM sklearn model (stretch / v1.2).
 
@@ -8,14 +13,6 @@ Enable with ``ML_SHAP_ENABLED=1`` and ``ML_LGBM_MODEL_PATH`` pointing to a ``job
 
 Install: ``pip install -e ".[shap]"`` in ``services/ml-scoring``.
 """
-
-
-import logging
-import os
-from typing import Any, Callable
-
-import numpy as np
-
 log = logging.getLogger(__name__)
 
 _FEATURE_NAMES = [

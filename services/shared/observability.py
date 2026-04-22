@@ -1,14 +1,4 @@
 from __future__ import annotations
-
-"""Shared observability: Prometheus metrics, structured logging, trace context.
-
-Usage in any FastAPI service::
-
-    from observability import setup_observability
-    setup_observability(app, service_name="decision-api")
-"""
-
-
 import json
 import logging
 import os
@@ -20,6 +10,13 @@ from typing import Any
 from fastapi import FastAPI, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
+"""Shared observability: Prometheus metrics, structured logging, trace context.
+
+Usage in any FastAPI service::
+
+    from observability import setup_observability
+    setup_observability(app, service_name="decision-api")
+"""
 # ---- Structured JSON logging ----
 
 

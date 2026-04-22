@@ -1,4 +1,13 @@
 from __future__ import annotations
+import logging
+import os
+import time
+from typing import Any
+
+import httpx
+from fastapi import FastAPI, HTTPException, Request
+from starlette.middleware.base import BaseHTTPMiddleware
+from tenant_binding import enforce_tenant_access, parse_api_key_tenant_map, tenant_binding_required, tenants_from_claims
 
 """Tarka shared SSO (OIDC/JWT) + RBAC middleware.
 
@@ -16,18 +25,6 @@ Usage::
     @app.get("/admin-only", dependencies=[Depends(require_role("admin"))])
     async def admin_endpoint(): ...
 """
-
-
-import logging
-import os
-import time
-from typing import Any
-
-import httpx
-from fastapi import FastAPI, HTTPException, Request
-from starlette.middleware.base import BaseHTTPMiddleware
-from tenant_binding import enforce_tenant_access, parse_api_key_tenant_map, tenant_binding_required, tenants_from_claims
-
 log = logging.getLogger("auth-rbac")
 
 ROLE_HIERARCHY = {"admin": 4, "analyst": 3, "viewer": 2, "service": 1}

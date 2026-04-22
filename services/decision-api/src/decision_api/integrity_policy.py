@@ -1,10 +1,7 @@
 from __future__ import annotations
-
-"""Platform × signal integrity expectations (competitive gap: policy-driven confidence)."""
-
-
 from typing import Any
 
+"""Platform × signal integrity expectations (competitive gap: policy-driven confidence)."""
 # platform -> list of (required_signal_prefix_or_tag, min_fraction_of_required_met)
 # min_fraction 1.0 means all listed must be absent of tamper tags for "full" trust boost.
 _INTEGRITY_EXPECTATIONS: dict[str, list[tuple[str, float]]] = {

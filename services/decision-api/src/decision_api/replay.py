@@ -1,12 +1,4 @@
 from __future__ import annotations
-
-"""Event replay / backtesting router.
-
-Allows analysts to re-evaluate historical events through the rules engine
-with overridden rules, comparing the original decision to the new one.
-"""
-
-
 import logging
 import uuid as uuid_lib
 from typing import Any
@@ -20,6 +12,11 @@ from decision_api.db import get_session
 from decision_api.json_rules import _match_condition
 from decision_api.models import AuditRecord
 
+"""Event replay / backtesting router.
+
+Allows analysts to re-evaluate historical events through the rules engine
+with overridden rules, comparing the original decision to the new one.
+"""
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/replay", tags=["replay"])

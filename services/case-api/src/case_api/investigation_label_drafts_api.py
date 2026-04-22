@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Durable analyst-scoped investigation label drafts (separate from case workflow labels)."""
-
-
 import os
 import re
 import sys
@@ -16,6 +12,7 @@ from case_api.db import get_session
 from case_api.models import InvestigationLabelDraft
 from case_api.schemas import LabelDraftBatchIn, LabelDraftOut, LabelDraftRowIn
 
+"""Durable analyst-scoped investigation label drafts (separate from case workflow labels)."""
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
 from auth_rbac import require_role  # noqa: E402
 

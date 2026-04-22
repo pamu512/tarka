@@ -1,13 +1,10 @@
 from __future__ import annotations
-
-"""Versioned ML promotion gate (OSS #37) — evaluate model metadata against ml_promotion_policy_v1.json."""
-
-
 import json
 import logging
 from pathlib import Path
 from typing import Any
 
+"""Versioned ML promotion gate (OSS #37) — evaluate model metadata against ml_promotion_policy_v1.json."""
 log = logging.getLogger(__name__)
 
 

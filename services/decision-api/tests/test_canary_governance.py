@@ -1,13 +1,10 @@
 from __future__ import annotations
-
-"""Canary / effective_at gating and governance summary."""
-
-
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from decision_api.json_rules import evaluate_json_rules, governance_summary, load_rules
 
+"""Canary / effective_at gating and governance summary."""
 
 def test_challenger_mode_includes_canary_excluded_packs():
     """OSS #31: challenger path evaluates all packs that pass effective_at (ignores canary_percent)."""

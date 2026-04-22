@@ -1,10 +1,7 @@
 from __future__ import annotations
-
-"""OpenAI-compatible embedding API for RAG (async)."""
-
-
 import httpx
 
+"""OpenAI-compatible embedding API for RAG (async)."""
 
 async def embed_texts(
     client: httpx.AsyncClient,

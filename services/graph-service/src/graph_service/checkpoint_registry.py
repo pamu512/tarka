@@ -1,13 +1,10 @@
 from __future__ import annotations
-
-"""Checkpoint → graph profile registry (OSS #49). Hot reload via POST /v1/admin/checkpoint-profiles/reload."""
-
-
 import json
 import logging
 from pathlib import Path
 from typing import Any
 
+"""Checkpoint → graph profile registry (OSS #49). Hot reload via POST /v1/admin/checkpoint-profiles/reload."""
 log = logging.getLogger(__name__)
 
 _registry: dict[str, Any] | None = None

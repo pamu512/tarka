@@ -1,14 +1,11 @@
 from __future__ import annotations
-
-"""Download Slack files and extract text for copilot context (PDF, plain text, CSV, xlsx)."""
-
-
 import logging
 from io import BytesIO
 from typing import Any
 
 import httpx
 
+"""Download Slack files and extract text for copilot context (PDF, plain text, CSV, xlsx)."""
 logger = logging.getLogger(__name__)
 
 _TEXT_PREFIXES = ("text/", "application/json", "application/xml")

@@ -1,13 +1,10 @@
 from __future__ import annotations
+from typing import Any
 
 """Shared mobile attestation normalization (Android Play Integrity + iOS App Attest).
 
 See docs/docs/guides/mobile-attestation-taxonomy.md for the human-readable contract.
 """
-
-
-from typing import Any
-
 ATTESTATION_SCHEMA_VERSION = 1
 
 _CANONICAL_PROVIDERS = frozenset({"play_integrity", "app_attest"})

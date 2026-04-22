@@ -1,4 +1,6 @@
 from __future__ import annotations
+import hashlib
+import re
 
 """Built-in investigation playbooks — structured workflow hints appended to the copilot system prompt.
 
@@ -10,11 +12,6 @@ ratios and enumeration, Mastercard chargeback/dispute program concepts, MRC-styl
 common industry typologies. They are **not** legal or scheme-compliance advice; analysts must follow your
 network rules and counsel.
 """
-
-
-import hashlib
-import re
-
 _PLAYBOOK_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$", re.IGNORECASE)
 
 # id -> { title, vertical, fragment }

@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Canonical immutable decision log writer (OSS JSONL + optional warehouse sink)."""
-
-
 import asyncio
 import hashlib
 import json
@@ -14,6 +10,7 @@ import httpx
 
 from decision_api.config import settings
 
+"""Canonical immutable decision log writer (OSS JSONL + optional warehouse sink)."""
 SCHEMA_ID = "tarka.decision_log/v1"
 _SENSITIVE_KEYS = {"password", "passcode", "token", "secret", "api_key", "authorization", "cookie"}
 

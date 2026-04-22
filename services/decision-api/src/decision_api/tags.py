@@ -1,10 +1,7 @@
 from __future__ import annotations
-
-"""Centralized contextual tagging for evaluate responses and audit trails."""
-
-
 from typing import Any
 
+"""Centralized contextual tagging for evaluate responses and audit trails."""
 
 def _safe_int(value: Any) -> int:
     try:

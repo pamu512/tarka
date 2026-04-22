@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Optional GNN-beta adapter for graph risk scoring."""
-
-
 import asyncio
 from typing import Any
 
@@ -10,6 +6,7 @@ import httpx
 
 from graph_service.config import settings
 
+"""Optional GNN-beta adapter for graph risk scoring."""
 
 async def score_graph_risk_beta(
     tenant_id: str,

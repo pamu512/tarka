@@ -1,13 +1,10 @@
 from __future__ import annotations
-
-"""Shared X-API-Key authentication dependency for all services."""
-
-
 import os
 
 from fastapi import HTTPException, Request
 from tenant_binding import enforce_tenant_access, parse_api_key_tenant_map
 
+"""Shared X-API-Key authentication dependency for all services."""
 
 def _allow_insecure_no_auth() -> bool:
     return os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}

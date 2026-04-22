@@ -1,8 +1,4 @@
 from __future__ import annotations
-
-"""Golden eval cases from fixtures (structural; works with OPENAI_API_KEY unset / offline reply)."""
-
-
 import json
 from pathlib import Path
 
@@ -10,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from investigation_agent.main import app
 
+"""Golden eval cases from fixtures (structural; works with OPENAI_API_KEY unset / offline reply)."""
 _FIXTURE = Path(__file__).resolve().parent / "fixtures" / "copilot_eval_cases.json"
 
 

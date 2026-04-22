@@ -1,4 +1,7 @@
 from __future__ import annotations
+import os
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 """
 Fail-fast checks when COPILOT_PRODUCTION_MODE=true.
@@ -6,12 +9,6 @@ Fail-fast checks when COPILOT_PRODUCTION_MODE=true.
 Operators must set API keys, analyst allowlists, and LLM credentials explicitly.
 Does not replace network policies, TLS, or upstream RBAC.
 """
-
-
-import os
-from pathlib import Path
-from typing import TYPE_CHECKING
-
 if TYPE_CHECKING:
     from investigation_agent.config import Settings
 

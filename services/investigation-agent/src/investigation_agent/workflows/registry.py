@@ -1,14 +1,11 @@
 from __future__ import annotations
-
-"""Load JSON workflow manifests from package data; validate ids and template params."""
-
-
 import hashlib
 import json
 import re
 from pathlib import Path
 from typing import Any
 
+"""Load JSON workflow manifests from package data; validate ids and template params."""
 _WORKFLOW_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{0,79}$", re.IGNORECASE)
 
 _MANIFEST_DIR = Path(__file__).resolve().parent / "manifests"
