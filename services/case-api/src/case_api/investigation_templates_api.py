@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import os
 import sys
 import uuid
@@ -10,11 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from case_api.db import get_session
 from case_api.models import InvestigationTemplate
 from case_api.schemas import (
-"""Tenant-scoped investigation templates (Marble #56): CRUD + apply via ``playbook_id`` on cases."""
     CreateInvestigationTemplateRequest,
     InvestigationTemplateOut,
     PatchInvestigationTemplateRequest,
 )
+
+"""Tenant-scoped investigation templates (Marble #56): CRUD + apply via ``playbook_id`` on cases."""
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
 from auth_rbac import require_role  # noqa: E402

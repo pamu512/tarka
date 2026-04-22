@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import json
 import logging
 import re
@@ -13,10 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from decision_api.db import get_session
 from decision_api.models import AuditRecord
 from decision_api.rule_recommender import (
-"""Rule recommendation API — AI-powered rule suggestion from historical data."""
     analyze_features,
     generate_recommendations,
 )
+
+"""Rule recommendation API — AI-powered rule suggestion from historical data."""
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/recommendations", tags=["recommendations"])

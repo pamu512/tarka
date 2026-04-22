@@ -1,9 +1,9 @@
 from __future__ import annotations
+
 from typing import Any
 
 from investigation_agent import batch_store
 from investigation_agent.tools import (
-"""Validate LLM tool-call arguments before dispatch (no KeyError, structured errors)."""
     _coerce_replay_trace_ids,
     _validate_case_id,
     _validate_dataset_limit,
@@ -15,6 +15,8 @@ from investigation_agent.tools import (
     _validate_subject_name,
     _validate_trace_id,
 )
+
+"""Validate LLM tool-call arguments before dispatch (no KeyError, structured errors)."""
 
 
 def _as_bool(v: Any, default: bool = False) -> bool:
