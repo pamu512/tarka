@@ -1,11 +1,13 @@
 from __future__ import annotations
+
 import pytest
 from collaboration_chat_bridge.config import Settings
 from collaboration_chat_bridge.persona_bridge import (
-"""Copilot persona resolution for bridge → investigation-agent."""
     resolve_copilot_persona_for_bridge,
     strip_persona_command,
 )
+
+"""Copilot persona resolution for bridge → investigation-agent."""
 
 
 def test_strip_persona_variants():

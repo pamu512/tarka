@@ -1,6 +1,6 @@
 from __future__ import annotations
+
 from fraud_aggregates import (
-"""Redis-backed aggregates; implementation in services/shared/fraud_aggregates.py."""
     AGG_PREFIX,
     AGG_VAL_PREFIX,
     DISTINCT_FIELDS,
@@ -8,6 +8,8 @@ from fraud_aggregates import (
     NUMERIC_FIELDS,
     AggregateStore,
 )
+
+"""Redis-backed aggregates; implementation in services/shared/fraud_aggregates.py."""
 
 agg_store = AggregateStore()
 

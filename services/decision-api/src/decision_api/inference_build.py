@@ -1,16 +1,18 @@
 from __future__ import annotations
+
 from typing import Any
 
 from decision_api.integrity_policy import (
-"""Build inference_context (v3) and recommended customer actions (challenge orchestration hints).
-
-SCHEMA_VERSION is the public contract version for OpenAPI + golden parity.
-"""
     adjust_integrity_confidence,
     haversine_km,
     parse_session_geo,
     trusted_zone_hit,
 )
+
+"""Build inference_context (v3) and recommended customer actions (challenge orchestration hints).
+
+SCHEMA_VERSION is the public contract version for OpenAPI + golden parity.
+"""
 
 SCHEMA_VERSION = "3"
 

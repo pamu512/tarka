@@ -1,8 +1,8 @@
 from __future__ import annotations
+
 from typing import Any
 
 from investigation_agent.knowledge_db import (
-"""Facade: investigation memo RAG (SQLite + optional OpenAI embeddings)."""
     count_docs,
     ingest_document_async,
     ingest_document_sync,
@@ -16,6 +16,8 @@ from investigation_agent.knowledge_db import (
 from investigation_agent.knowledge_db import (
     reset_connection_for_tests as reset_rag_connection_for_tests,
 )
+
+"""Facade: investigation memo RAG (SQLite + optional OpenAI embeddings)."""
 
 __all__ = [
     "count_docs",

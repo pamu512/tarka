@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import logging
 from typing import Any
 
@@ -9,13 +10,14 @@ from decision_api.config import settings
 from decision_api.experiment_api import append_experiment_record
 from decision_api.json_rules import evaluate_json_rules
 from decision_api.simulator import (
-"""Simulation API router — synthetic data generation and replay analysis."""
     SCENARIO_TEMPLATES,
     SyntheticProfile,
     analyze_simulation,
     generate_scenario,
 )
 from decision_api.vertical_packs import get_vertical_pack
+
+"""Simulation API router — synthetic data generation and replay analysis."""
 
 log = logging.getLogger(__name__)
 
