@@ -14,6 +14,8 @@ This guide covers deploying Tarka from local development through production, inc
 
 **Release gate:** Use **[Cloud release readiness](./deployment-release-readiness.md)** before promoting cloud environments.
 
+**Security hardening rollout:** Use **[Production security rollout checklist](./production-security-rollout.md)** for staged cutover of tenant binding, API keys, Copilot trusted headers, ingest/evaluate idempotency, WebSockets, and rollback toggles.
+
 **See also:** [Service ports & OpenAPI index](./service-ports.md) — default ports, Compose DNS names, and contract file mapping.
 
 **Runtime tiers:** [Deployment profiles — Community vs Pro](./deployment-profiles-community-vs-pro.md) — `docker-compose.lite.yml` vs profile-based `docker-compose.yml`, env matrix, limitations (**#38**).

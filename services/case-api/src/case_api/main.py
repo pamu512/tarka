@@ -13,7 +13,7 @@ from typing import Any
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
@@ -22,7 +22,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from case_api.builtin_playbooks import PLAYBOOKS
 from case_api.config import settings
-from case_api.db import Base, get_session, init_db
+from case_api.db import (
+    Base,
+    active_database_backend,
+    bootstrap_mode,
+    fallback_reason,
+    get_session,
+    init_db,
+    migration_status,
+    public_database_url,
+    using_local_fallback,
+)
 from case_api.dispute_api import router as dispute_router
 from case_api.investigation_label_drafts_api import router as investigation_label_drafts_router
 from case_api.investigation_templates_api import router as investigation_templates_router
@@ -58,6 +68,52 @@ _ws_clients: dict[WebSocket, str] = {}
 _PRIORITY_WEIGHT = {"critical": 100, "high": 70, "medium": 40, "low": 15}
 _STATUS_WEIGHT = {"open": 25, "investigating": 20, "resolved": -10, "closed": -30}
 _DEV_EVIDENCE_SIGNING_SECRET = "tarka-evidence-dev-secret"
+
+
+def _request_support_id(request: Request) -> str:
+    rid = (request.headers.get("x-request-id") or request.headers.get("x-correlation-id") or "").strip()
+    return rid[:128] if rid else f"case-{uuid.uuid4().hex}"
+
+
+def _error_code_from_detail(detail: Any, status_code: int) -> str:
+    if isinstance(detail, dict):
+        raw = detail.get("code")
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()[:80]
+    if isinstance(detail, str) and detail.strip() and detail.replace("_", "").isalnum():
+        return detail.strip()[:80]
+    return f"http_{status_code}"
+
+
+def _error_message_from_detail(detail: Any, status_code: int) -> str:
+    if isinstance(detail, dict):
+        for key in ("message", "detail", "error"):
+            raw = detail.get(key)
+            if isinstance(raw, str) and raw.strip():
+                return raw.strip()[:240]
+        return f"Request failed with status {status_code}"
+    if isinstance(detail, str) and detail.strip():
+        return detail.strip()[:240]
+    return f"Request failed with status {status_code}"
+
+
+def _is_retryable(status_code: int, code: str) -> bool:
+    return status_code >= 500 or code.endswith("_unavailable")
+
+
+def _error_envelope(*, status_code: int, detail: Any, support_id: str) -> dict[str, Any]:
+    code = _error_code_from_detail(detail, status_code)
+    message = _error_message_from_detail(detail, status_code)
+    return {
+        "detail": message,
+        "support_id": support_id,
+        "error": {
+            "code": code,
+            "message": message,
+            "retryable": _is_retryable(status_code, code),
+            "support_id": support_id,
+        },
+    }
 
 
 def _canonical_json(value: Any) -> str:
@@ -204,9 +260,55 @@ app.include_router(investigation_templates_router)
 app.include_router(ops_kpi_series_router)
 
 
+@app.middleware("http")
+async def support_id_middleware(request: Request, call_next):
+    support_id = _request_support_id(request)
+    request.state.support_id = support_id
+    response = await call_next(request)
+    response.headers.setdefault("X-Correlation-Id", support_id)
+    response.headers.setdefault("X-Request-Id", support_id)
+    return response
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    support_id = getattr(request.state, "support_id", _request_support_id(request))
+    payload = _error_envelope(status_code=exc.status_code, detail=exc.detail, support_id=support_id)
+    headers = dict(exc.headers or {})
+    headers.setdefault("X-Correlation-Id", support_id)
+    headers.setdefault("X-Request-Id", support_id)
+    return JSONResponse(status_code=exc.status_code, content=payload, headers=headers)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, _exc: Exception):
+    support_id = getattr(request.state, "support_id", _request_support_id(request))
+    payload = _error_envelope(status_code=500, detail="internal_server_error", support_id=support_id)
+    headers = {"X-Correlation-Id": support_id, "X-Request-Id": support_id}
+    return JSONResponse(status_code=500, content=payload, headers=headers)
+
+
 @app.get("/v1/health")
 async def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "database_backend": active_database_backend(),
+        "database_url": public_database_url(),
+        "database_fallback_active": using_local_fallback(),
+        "database_fallback_reason": fallback_reason(),
+        "database_bootstrap_mode": bootstrap_mode(),
+    }
+
+
+@app.get("/v1/admin/db/migration-status")
+async def db_migration_status(_admin=Depends(require_role("admin"))):
+    """
+    Runbook endpoint:
+    - expected_heads: Alembic migration head(s) from service migration scripts
+    - current_versions: revision(s) in DB version table
+    - state=drift when current != expected
+    """
+    return await migration_status()
 
 
 @app.get("/v1/slo")

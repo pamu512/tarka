@@ -8,6 +8,8 @@ import {
 } from "../api/client";
 import RiskScore from "../components/RiskScore";
 import { PageTitle } from "../components/PageTitle";
+import { SupportIdHint } from "../components/SupportIdHint";
+import { toUserFacingError } from "../utils/userFacingErrors";
 import { Network, type Options } from "vis-network";
 import { DataSet } from "vis-data";
 
@@ -87,7 +89,7 @@ export default function GraphExplorer() {
         const data = await graph.subgraph(entityId.trim(), tenantId.trim(), 2);
         setGraphData(data);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load graph");
+        setError(toUserFacingError(e, { subject: "Entity graph", action: "load graph exploration data" }));
       } finally {
         setLoading(false);
       }
@@ -228,8 +230,13 @@ export default function GraphExplorer() {
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm">
-          {error}
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm space-y-1">
+          <p>{error}</p>
+          <SupportIdHint
+            message={error}
+            className="flex flex-wrap items-center gap-2 text-[11px] text-red-300/85"
+            buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+          />
         </div>
       )}
 

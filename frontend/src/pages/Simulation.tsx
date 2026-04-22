@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { rules, simulation } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
+import { SupportIdHint } from "../components/SupportIdHint";
+import { toUserFacingError } from "../utils/userFacingErrors";
 
 type Tab = "simulate" | "ab-test" | "vertical-benchmark";
 
@@ -79,7 +81,7 @@ export default function Simulation() {
       setScenarios((resp.scenarios ?? resp) as Record<string, Scenario>);
       setVerticalCatalog(packs.vertical_packs ?? {});
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load scenarios");
+      setError(toUserFacingError(e, { subject: "Simulation scenarios", action: "load scenarios" }));
     } finally {
       setScenariosLoading(false);
     }
@@ -104,7 +106,7 @@ export default function Simulation() {
       const events = resp.sample_events ?? resp.sample_decisions ?? [];
       setSampleEvents((events as SampleEvent[]).slice(0, 10));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Simulation failed");
+      setError(toUserFacingError(e, { subject: "Simulation", action: "run simulation" }));
     } finally {
       setLoading(false);
     }
@@ -124,7 +126,7 @@ export default function Simulation() {
       });
       setAbResult(resp as ABResult);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "A/B test failed");
+      setError(toUserFacingError(e, { subject: "A/B test", action: "run A/B test" }));
     } finally {
       setLoading(false);
     }
@@ -136,7 +138,7 @@ export default function Simulation() {
     try {
       await rules.installVerticalPack(vertical, true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Install failed");
+      setError(toUserFacingError(e, { subject: "Vertical pack", action: "install selected vertical pack" }));
     } finally {
       setLoading(false);
     }
@@ -172,7 +174,7 @@ export default function Simulation() {
         /* ignore localStorage failures */
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Vertical benchmark failed");
+      setError(toUserFacingError(e, { subject: "Vertical benchmark", action: "run vertical benchmark" }));
     } finally {
       setLoading(false);
     }
@@ -203,8 +205,13 @@ export default function Simulation() {
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm">
-          {error}
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm space-y-1">
+          <p>{error}</p>
+          <SupportIdHint
+            message={error}
+            className="flex flex-wrap items-center gap-2 text-[11px] text-red-300/85"
+            buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+          />
         </div>
       )}
 

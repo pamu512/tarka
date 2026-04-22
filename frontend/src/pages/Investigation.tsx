@@ -27,6 +27,7 @@ import {
 } from "../config/copilotSkills";
 import { PageTitle } from "../components/PageTitle";
 import { ModuleIcon } from "../components/ModuleIcon";
+import { SupportIdHint } from "../components/SupportIdHint";
 
 interface ToolCall {
   name: string;
@@ -214,7 +215,7 @@ export default function Investigation() {
       setFeedbackSummary(sum);
       setFeedbackRecent(rec.items ?? []);
     } catch (e) {
-      setFeedbackAnalyticsError(e instanceof Error ? e.message : "Failed to load feedback analytics");
+      setFeedbackAnalyticsError(toUserFacingError(e, { subject: "Feedback analytics", action: "load feedback analytics" }));
       setFeedbackSummary(null);
       setFeedbackRecent([]);
     } finally {
@@ -266,6 +267,12 @@ export default function Investigation() {
     if (graphReady && explanationReady) return { label: "grounded", tone: "text-emerald-400" };
     return { label: "degraded", tone: "text-amber-300" };
   })();
+  const caseQuickActionsDisabled = Boolean(contextCaseId) && caseContextHealth?.label !== "grounded";
+  const caseQuickActionsDisabledReason = contextCaseId
+    ? caseContextHealth?.label === "loading"
+      ? "Case context is still loading; quick case actions unlock once grounding completes."
+      : "Case context is not grounded. Restore graph/decision context before running case quick actions."
+    : "Runs immediately";
 
   const handleNewSession = () => {
     setMessages([]);
@@ -297,7 +304,7 @@ export default function Investigation() {
         },
       ]);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Memo save failed";
+      const msg = toUserFacingError(err, { subject: "Investigation memo", action: "save investigation memo" });
       setMessages((prev) => [
         ...prev,
         {
@@ -326,7 +333,7 @@ export default function Investigation() {
         columnCount: r.columns?.length ?? 0,
       });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Upload failed";
+      const msg = toUserFacingError(err, { subject: "Batch upload", action: "upload batch investigation data" });
       setMessages((prev) => [
         ...prev,
         {
@@ -478,7 +485,7 @@ export default function Investigation() {
       const errorMsg: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `Error: ${err instanceof Error ? err.message : "Failed to reach Investigation Copilot service"}`,
+        content: `Error: ${toUserFacingError(err, { subject: "Investigation Copilot", action: "send copilot request" })}`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -659,7 +666,16 @@ export default function Investigation() {
                   {feedbackAnalyticsLoading ? "…" : "Refresh"}
                 </button>
               </div>
-              {feedbackAnalyticsError && <p className="text-[10px] text-rose-400/90">{feedbackAnalyticsError}</p>}
+              {feedbackAnalyticsError && (
+                <div className="space-y-1">
+                  <p className="text-[10px] text-rose-400/90">{feedbackAnalyticsError}</p>
+                  <SupportIdHint
+                    message={feedbackAnalyticsError}
+                    className="flex flex-wrap items-center gap-2 text-[10px] text-rose-300/85"
+                    buttonClassName="px-1.5 py-0.5 rounded border border-rose-400/35 hover:border-rose-300/50 hover:text-rose-100 transition-colors"
+                  />
+                </div>
+              )}
               {feedbackSummary && !feedbackAnalyticsError && (
                 <div className="space-y-1.5">
                   {feedbackSummary.total === 0 ? (
@@ -785,6 +801,11 @@ export default function Investigation() {
               {caseContextError ? (
                 <div className="rounded-md border border-rose-500/35 bg-rose-500/10 px-2.5 py-1.5 space-y-1">
                   <p className="text-[11px] text-rose-300">{caseContextError}</p>
+                  <SupportIdHint
+                    message={caseContextError}
+                    className="flex flex-wrap items-center gap-2 text-[10px] text-rose-300/90"
+                    buttonClassName="px-1.5 py-0.5 rounded border border-rose-400/35 hover:border-rose-300/50 hover:text-rose-100 transition-colors"
+                  />
                   <p className="text-[10px] text-rose-300/80">
                     Copilot can still respond, but case-grounded recommendations are degraded until context recovers.
                   </p>
@@ -881,10 +902,16 @@ export default function Investigation() {
                     label={skill.label}
                     instant
                     compact
-                    disabled={sending}
+                    disabled={sending || caseQuickActionsDisabled}
+                    title={caseQuickActionsDisabled ? caseQuickActionsDisabledReason : undefined}
                     onTrigger={() => void sendMessage(skill.prompt)}
                   />
                 ))}
+              </div>
+            )}
+            {caseQuickActionsDisabled && (
+              <div className="rounded-md border border-amber-500/35 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-300">
+                Quick case actions are paused until case context is grounded.
               </div>
             )}
             <details className="rounded-xl border border-surface-800/90 bg-surface-900/20 group/skills">
@@ -1045,7 +1072,8 @@ export default function Investigation() {
                       label={skill.label}
                       instant
                       compact
-                      disabled={sending}
+                      disabled={sending || caseQuickActionsDisabled}
+                      title={caseQuickActionsDisabled ? caseQuickActionsDisabledReason : undefined}
                       onTrigger={() => void sendMessage(skill.prompt)}
                     />
                   ))}
@@ -1147,12 +1175,14 @@ function SkillChip({
   instant,
   compact,
   disabled,
+  title,
   onTrigger,
 }: {
   label: string;
   instant?: boolean;
   compact?: boolean;
   disabled?: boolean;
+  title?: string;
   onTrigger: () => void;
 }) {
   return (
@@ -1160,7 +1190,7 @@ function SkillChip({
       type="button"
       disabled={disabled}
       onClick={onTrigger}
-      title={instant ? "Runs immediately" : "Fills the message box — edit then Send"}
+      title={title ?? (instant ? "Runs immediately" : "Fills the message box — edit then Send")}
       className={`text-left rounded-md border transition-colors disabled:opacity-40 ${
         instant
           ? "border-brand-500/20 bg-brand-600/[0.06] text-brand-200/90 hover:bg-brand-600/12"
@@ -1214,7 +1244,9 @@ function MessageBubble({
         answer_sections: message.answer_sections,
       })
       .then((data) => setEvidenceSummary(data))
-      .catch((e: unknown) => setEvidenceSummaryErr(e instanceof Error ? e.message : String(e)))
+      .catch((e: unknown) =>
+        setEvidenceSummaryErr(toUserFacingError(e, { subject: "Evidence summary", action: "generate evidence summary" })),
+      )
       .finally(() => setEvidenceSummaryBusy(false));
   };
 
@@ -1443,7 +1475,14 @@ function MessageBubble({
               </button>
             </div>
             {evidenceSummaryErr ? (
-              <div className="text-[11px] text-rose-400 whitespace-pre-wrap">{evidenceSummaryErr}</div>
+              <div className="space-y-1">
+                <div className="text-[11px] text-rose-400 whitespace-pre-wrap">{evidenceSummaryErr}</div>
+                <SupportIdHint
+                  message={evidenceSummaryErr}
+                  className="flex flex-wrap items-center gap-2 text-[10px] text-rose-300/90"
+                  buttonClassName="px-1.5 py-0.5 rounded border border-rose-400/35 hover:border-rose-300/50 hover:text-rose-100 transition-colors"
+                />
+              </div>
             ) : null}
             {evidenceSummary ? (
               <details className="rounded-lg border border-surface-700 bg-surface-950/80 px-3 py-2 text-[11px] text-gray-400">

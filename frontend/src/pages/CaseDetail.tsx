@@ -21,6 +21,7 @@ import PriorityBadge from "../components/PriorityBadge";
 import { PageTitle } from "../components/PageTitle";
 import { FraudScoreTrack } from "../components/FraudScoreTrack";
 import { InferenceMetricTrack } from "../components/InferenceMetricTrack";
+import { SupportIdHint } from "../components/SupportIdHint";
 import { toUserFacingError } from "../utils/userFacingErrors";
 import { Network, type Options } from "vis-network";
 import { DataSet } from "vis-data";
@@ -46,6 +47,7 @@ function humanizeRecommendedAction(code: string): string {
   const c = code.trim();
   return RECOMMENDED_ACTION_LABELS[c] ?? c.replace(/_/g, " ");
 }
+
 type DecisionExplain = {
   score: number;
   decision: string;
@@ -241,6 +243,11 @@ export default function CaseDetail() {
       <div className="flex items-center justify-center h-full">
         <div className="text-center space-y-3">
           <p className="text-red-400">{error}</p>
+          <SupportIdHint
+            message={error}
+            className="flex flex-wrap items-center justify-center gap-2 text-[11px] text-red-300/85"
+            buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+          />
           <button
             onClick={() => navigate("/cases")}
             className="px-4 py-2 text-sm text-brand-400 hover:text-brand-300"
@@ -268,6 +275,17 @@ export default function CaseDetail() {
         <span aria-hidden>/</span>
         <span className="text-gray-300 truncate min-w-0 max-w-[min(100%,32rem)]">{caseData.title}</span>
       </nav>
+
+      {error ? (
+        <div className="rounded-lg border border-rose-500/35 bg-rose-500/10 px-3 py-2 text-sm text-rose-300 space-y-1">
+          <p>{error}</p>
+          <SupportIdHint
+            message={error}
+            className="flex flex-wrap items-center gap-2 text-[11px] text-rose-200/85"
+            buttonClassName="px-1.5 py-0.5 rounded border border-rose-400/35 hover:border-rose-300/50 hover:text-rose-100 transition-colors"
+          />
+        </div>
+      ) : null}
 
       {decisionExplain?.recommended_action ? (
         <div className="sticky top-0 z-10 rounded-xl border border-amber-500/40 bg-amber-500/[0.12] backdrop-blur-sm px-4 py-3 shadow-lg shadow-black/20">
@@ -968,8 +986,13 @@ function GraphTab({
   if (error) {
     return (
       <div className="space-y-4">
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm">
-          {error}
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm space-y-1">
+          <p>{error}</p>
+          <SupportIdHint
+            message={error}
+            className="flex flex-wrap items-center gap-2 text-[11px] text-red-300/85"
+            buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+          />
         </div>
         {graphData ? <GraphDataTable nodes={graphData.nodes} edges={graphData.edges} /> : null}
       </div>

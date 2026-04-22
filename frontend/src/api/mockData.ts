@@ -927,6 +927,16 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       ],
     };
   }
+  if (path.includes("/api/cases/v1/health")) {
+    return {
+      status: "ok",
+      database_backend: "postgresql",
+      database_url: "postgresql+asyncpg://fraud:***@localhost:5432/fraud_cases",
+      database_fallback_active: false,
+      database_fallback_reason: null,
+      database_bootstrap_mode: "alembic_head",
+    };
+  }
   if (path.includes("/api/decisions/v1/slo")) {
     return {
       service: "decision-api",

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { PageTitle } from "../components/PageTitle";
 import { useTheme, type ThemePreference } from "../context/ThemeContext";
 import { decisions } from "../api/client";
+import { SupportIdHint } from "../components/SupportIdHint";
+import { toUserFacingError } from "../utils/userFacingErrors";
 
 export default function Settings() {
   const { preference, setPreference, effective } = useTheme();
@@ -24,7 +26,9 @@ export default function Settings() {
           setGov(g);
         }
       } catch (e) {
-        if (!cancelled) setChallengeErr(e instanceof Error ? e.message : "Failed to load policies");
+        if (!cancelled) {
+          setChallengeErr(toUserFacingError(e, { subject: "Challenge policies", action: "load challenge policies" }));
+        }
       }
     })();
     return () => {
@@ -115,7 +119,16 @@ export default function Settings() {
           Templates loaded by the Decision API (<code className="text-gray-600">GET /v1/challenge-policies</code>). Use{" "}
           <code className="text-gray-600">challenge_policy_id</code> on evaluate to select one.
         </p>
-        {challengeErr && <p className="text-xs text-amber-500/90">{challengeErr}</p>}
+        {challengeErr && (
+          <div className="space-y-1">
+            <p className="text-xs text-amber-500/90">{challengeErr}</p>
+            <SupportIdHint
+              message={challengeErr}
+              className="flex flex-wrap items-center gap-2 text-[11px] text-amber-300/85"
+              buttonClassName="px-1.5 py-0.5 rounded border border-amber-400/35 hover:border-amber-300/50 hover:text-amber-100 transition-colors"
+            />
+          </div>
+        )}
         {!challengeErr && challengePolicies.length === 0 && (
           <p className="text-xs text-gray-600">No policies returned (backend may be offline).</p>
         )}

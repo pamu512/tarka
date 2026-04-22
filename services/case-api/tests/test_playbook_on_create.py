@@ -52,6 +52,13 @@ def test_create_case_unknown_playbook_returns_422(case_client: TestClient) -> No
         "priority": "low",
         "playbook_id": "not_a_real_playbook",
     }
-    r = case_client.post("/v1/cases", json=body, headers=_api_headers())
+    headers = _api_headers()
+    headers["X-Request-Id"] = "req-pb-422"
+    r = case_client.post("/v1/cases", json=body, headers=headers)
     assert r.status_code == 422
-    assert "unknown playbook_id" in (r.json().get("detail") or "").lower()
+    data = r.json()
+    assert "unknown playbook_id" in (data.get("detail") or "").lower()
+    assert data.get("support_id") == "req-pb-422"
+    assert (data.get("error") or {}).get("support_id") == "req-pb-422"
+    assert (data.get("error") or {}).get("retryable") is False
+    assert r.headers.get("x-correlation-id") == "req-pb-422"

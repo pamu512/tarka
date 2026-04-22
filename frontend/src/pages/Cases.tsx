@@ -6,6 +6,7 @@ import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import StatusBadge from "../components/StatusBadge";
 import PriorityBadge from "../components/PriorityBadge";
 import { PageTitle } from "../components/PageTitle";
+import { SupportIdHint } from "../components/SupportIdHint";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
 export default function Cases() {
@@ -424,6 +425,11 @@ export default function Cases() {
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm">
           <p>{error}</p>
+          <SupportIdHint
+            message={error}
+            className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-red-300/85"
+            buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+          />
           <p className="mt-1 text-[11px] text-red-300/80">
             Tip: retry the queue fetch. If this persists, use Investigation in demo/mock mode and escalate service health.
           </p>
@@ -743,7 +749,14 @@ function CreateCaseModal({
           </div>
 
           {error && (
-            <p className="text-red-400 text-sm">{error}</p>
+            <div className="text-red-400 text-sm space-y-1">
+              <p>{error}</p>
+              <SupportIdHint
+                message={error}
+                className="flex flex-wrap items-center gap-2 text-[11px] text-red-300/85"
+                buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+              />
+            </div>
           )}
 
           <div className="flex justify-end gap-3 pt-2">

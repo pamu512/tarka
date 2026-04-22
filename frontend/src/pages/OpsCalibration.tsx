@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { decisions } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
+import { SupportIdHint } from "../components/SupportIdHint";
+import { toUserFacingError } from "../utils/userFacingErrors";
 
 export default function OpsCalibration() {
   const { tenantId } = useTenantEnvironment();
@@ -25,7 +27,7 @@ export default function OpsCalibration() {
         setDrift(d);
         setSummary((sum.snapshots as Array<Record<string, unknown>>) ?? []);
       } catch (e) {
-        setErr(e instanceof Error ? e.message : "Failed to load calibration");
+        setErr(toUserFacingError(e, { subject: "Calibration data", action: "load calibration and drift data" }));
         setStatus(null);
         setDrift(null);
         setSummary([]);
@@ -60,7 +62,16 @@ export default function OpsCalibration() {
         </span>
       </div>
 
-      {err && <p className="text-sm text-red-400">{err}</p>}
+      {err && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300 space-y-1">
+          <p>{err}</p>
+          <SupportIdHint
+            message={err}
+            className="flex flex-wrap items-center gap-2 text-[11px] text-red-300/85"
+            buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+          />
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-surface-700 bg-surface-900 p-4 text-sm">

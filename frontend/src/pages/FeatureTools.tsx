@@ -1,6 +1,8 @@
 import { useCallback, useState } from "react";
 import { features } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
+import { SupportIdHint } from "../components/SupportIdHint";
+import { toUserFacingError } from "../utils/userFacingErrors";
 
 const DEFAULT_PAYLOAD = `{
   "amount": 100,
@@ -38,7 +40,7 @@ export default function FeatureTools() {
       const data = await features.velocityQuery({ tenant_id: tenantId, entity_id: entityId, payload });
       setResult(JSON.stringify(data, null, 2));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(toUserFacingError(e, { subject: "Velocity query", action: "run velocity query" }));
     } finally {
       setLoading(false);
     }
@@ -75,7 +77,7 @@ export default function FeatureTools() {
       });
       setResult(JSON.stringify(data, null, 2));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(toUserFacingError(e, { subject: "Parity verification", action: "run parity verification" }));
     } finally {
       setLoading(false);
     }
@@ -172,8 +174,13 @@ export default function FeatureTools() {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300 whitespace-pre-wrap font-mono">
-          {error}
+        <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300 whitespace-pre-wrap font-mono space-y-1">
+          <p>{error}</p>
+          <SupportIdHint
+            message={error}
+            className="flex flex-wrap items-center gap-2 text-[11px] text-red-300/85 not-italic"
+            buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+          />
         </div>
       )}
       {result && (
