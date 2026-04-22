@@ -1,6 +1,5 @@
 from __future__ import annotations
 from fraud_aggregates import (
-
 """Redis-backed aggregates; implementation in services/shared/fraud_aggregates.py."""
     AGG_PREFIX,
     AGG_VAL_PREFIX,
