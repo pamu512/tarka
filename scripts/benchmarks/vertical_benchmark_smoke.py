@@ -13,6 +13,7 @@ Runs /v1/simulation/benchmark/vertical for selected vertical packs and validates
 response shape for deterministic CI checks.
 """
 
+
 def _post_json(url: str, payload: dict, timeout: float) -> dict:
     req = urllib.request.Request(
         url,

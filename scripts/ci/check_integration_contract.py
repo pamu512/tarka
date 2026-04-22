@@ -17,6 +17,7 @@ Optional headers for deployments that require x-api-key:
   python scripts/ci/check_integration_contract.py --base-url https://agent.example --api-key secret
 """
 
+
 def main() -> int:
     p = argparse.ArgumentParser(description="GET /v1/integration and validate shape")
     p.add_argument("--base-url", default="http://localhost:8006", help="Agent base URL (no trailing slash)")

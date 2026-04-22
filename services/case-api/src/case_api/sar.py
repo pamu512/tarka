@@ -16,6 +16,7 @@ FinCEN XML follows the BSA E-Filing XML schema (FinCEN SAR v1.3).
 NCA JSON follows the UK NCA Defence Against Money Laundering (DAML) format.
 """
 
+
 @dataclass
 class SARReport:
     report_id: str

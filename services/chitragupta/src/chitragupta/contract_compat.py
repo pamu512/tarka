@@ -4,6 +4,7 @@ from fastapi import HTTPException
 
 """Versioned capability contract and breaking-change guardrails."""
 
+
 def _major(version: str) -> int:
     v = (version or "0.0.0").strip().lstrip("v")
     part = v.split(".", 1)[0]

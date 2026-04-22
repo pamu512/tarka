@@ -22,6 +22,7 @@ Env:
   NATS_CONSUMER_NAME (optional durable name for pending/ack metrics)
 """
 
+
 async def _run() -> str:
     import nats  # type: ignore
 

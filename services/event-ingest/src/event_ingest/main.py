@@ -53,6 +53,7 @@ _contract_reject_reason_counts: defaultdict[str, int] = defaultdict(int)
 _nc: NatsClient | None = None
 _js: JetStreamContext | None = None
 
+
 # ---------- auth ----------
 def _get_api_keys() -> frozenset[str]:
     raw = settings.api_keys.strip()

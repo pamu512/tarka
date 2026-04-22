@@ -6,6 +6,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 """SSRF-hardened HTTP fetch for optional URL context in chat (Skuld-style)."""
 
+
 class WebFetchError(Exception):
     pass
 

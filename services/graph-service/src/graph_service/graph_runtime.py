@@ -6,6 +6,7 @@ from graph_service.config import settings
 
 """Dispatch graph persistence to Neo4j or JanusGraph based on GRAPH_BACKEND (no HTTP API changes)."""
 
+
 async def upsert_entity(
     tenant_id: str,
     entity_type: str,

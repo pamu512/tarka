@@ -4,6 +4,7 @@ import httpx
 
 """OpenAI-compatible embedding API for RAG (async)."""
 
+
 async def embed_texts(
     client: httpx.AsyncClient,
     *,

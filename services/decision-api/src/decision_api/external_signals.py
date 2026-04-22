@@ -10,6 +10,7 @@ from decision_api.schemas import EvaluateRequest
 
 """External connector framework for third-party risk signals (Scameter first)."""
 
+
 @dataclass(slots=True)
 class ExternalSignalResult:
     provider_id: str

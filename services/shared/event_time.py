@@ -9,6 +9,7 @@ Velocity windows use ``AggregateStore.record_event(..., ts=...)``. When set, **e
 replaces wall-clock ingest time for ZSET scores. See ``docs/docs/guides/late-arrival-watermarks.md``.
 """
 
+
 def parse_event_time_to_unix(raw: Any) -> float | None:
     """Best-effort parse to Unix seconds. Returns None if missing or unparseable."""
     if raw is None:

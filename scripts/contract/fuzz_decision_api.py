@@ -29,6 +29,7 @@ Or point at the repo contract file::
 This script only verifies reachability and prints the above instructions.
 """
 
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--base-url", default=os.environ.get("DECISION_API_BASE", "http://127.0.0.1:8000"))

@@ -11,6 +11,7 @@ Used by ``fraud_stack_sdk.request_signing`` and optional Decision API middleware
 Message format: ``f"{timestamp}\\n".encode() + body_bytes`` (same as Python SDK).
 """
 
+
 def build_signature_headers(
     body_bytes: bytes,
     *,

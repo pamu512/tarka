@@ -10,6 +10,7 @@ import httpx
 
 """Replay canonical decision logs against a target Decision API and classify drift."""
 
+
 def _iter_jsonl(path: Path):
     with path.open("r", encoding="utf-8") as f:
         for raw in f:
