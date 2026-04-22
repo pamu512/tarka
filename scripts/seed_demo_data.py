@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
+import asyncio
+import random
+import sys
+import uuid
+from datetime import datetime, timedelta, timezone
+from urllib.parse import quote_plus
+
+import httpx
 
 """
 Seed realistic demo data into the Tarka APIs.
@@ -14,18 +23,6 @@ Usage:
         --case-url http://localhost:8002 \
         --graph-url http://localhost:8001
 """
-
-
-import argparse
-import asyncio
-import random
-import sys
-import uuid
-from datetime import datetime, timedelta, timezone
-from urllib.parse import quote_plus
-
-import httpx
-
 TENANT_ID = "demo"
 
 # ---------------------------------------------------------------------------

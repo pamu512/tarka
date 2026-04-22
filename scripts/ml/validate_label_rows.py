@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
+import json
+import re
+import sys
+from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 """
 Validate label rows (JSONL or single JSON object).
@@ -16,16 +23,6 @@ Usage:
   python scripts/ml/validate_label_rows.py path/to/labels.jsonl
   python scripts/ml/validate_label_rows.py --allowed-labels fraud,legit,suspect data.jsonl
 """
-
-
-import argparse
-import json
-import re
-import sys
-from datetime import datetime
-from pathlib import Path
-from typing import Any
-
 _REQUIRED = ("trace_id", "tenant_id", "label")
 _TRACE_RE = re.compile(r"^[a-zA-Z0-9._:@-]{8,128}$")
 _REF_SCHEMES = ("https://", "s3://", "gs://", "file://")

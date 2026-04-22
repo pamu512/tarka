@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
+import hashlib
+import json
+import os
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import datetime, timezone
 
 """
 N4.2 — weekly aggregate export with integrity metadata.
@@ -19,18 +28,6 @@ Environment (optional defaults):
 Example:
   SCORECARD_BASE_URL=https://localhost/api/analytics python3 scripts/analytics/export_weekly_scorecard_json.py -o exports/scorecard-demo.json
 """
-
-
-import argparse
-import hashlib
-import json
-import os
-import sys
-import urllib.error
-import urllib.parse
-import urllib.request
-from datetime import datetime, timezone
-
 
 def fetch_scorecard(base_url: str, tenant_id: str, days: int, api_key: str) -> dict:
     q = urllib.parse.urlencode({"tenant_id": tenant_id, "days": str(days)})

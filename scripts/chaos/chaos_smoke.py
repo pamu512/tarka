@@ -1,16 +1,5 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-
-"""
-Chaos smoke (R4.2): baseline recovery checks + optional dependency fallback matrix.
-
-Manual / CI:
-  python3 scripts/chaos/chaos_smoke.py
-  python3 scripts/chaos/chaos_smoke.py --fault postgres
-  python3 scripts/chaos/chaos_smoke.py --profile full --dependency-fallback-checks
-"""
-
-
 import argparse
 import json
 import subprocess
@@ -20,6 +9,14 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+"""
+Chaos smoke (R4.2): baseline recovery checks + optional dependency fallback matrix.
+
+Manual / CI:
+  python3 scripts/chaos/chaos_smoke.py
+  python3 scripts/chaos/chaos_smoke.py --fault postgres
+  python3 scripts/chaos/chaos_smoke.py --profile full --dependency-fallback-checks
+"""
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COMPOSE_FILE = REPO_ROOT / "deploy" / "docker-compose.yml"
 DECISION_HEALTH = "http://127.0.0.1:8000/v1/health"

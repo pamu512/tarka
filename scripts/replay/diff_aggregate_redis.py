@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
+import sys
+from typing import Any
 
 """
 Compare aggregate sorted-set keys between two Redis instances (e.g. production vs scratch replay DB).
@@ -9,12 +12,6 @@ Usage:
   python scripts/replay/diff_aggregate_redis.py \\
     --left-url redis://localhost:6379/0 --right-url redis://localhost:6379/15
 """
-
-
-import argparse
-import sys
-from typing import Any
-
 try:
     import redis
 except ImportError:

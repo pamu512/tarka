@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import os
+import sys
 
 """
 Stretch: NATS JetStream → Prometheus text (pull model).
@@ -18,11 +20,6 @@ Env:
   NATS_STREAM_NAME (default: tarka-events)
   NATS_CONSUMER_NAME (optional durable name for pending/ack metrics)
 """
-
-
-import os
-import sys
-
 
 async def _run() -> str:
     import nats  # type: ignore

@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-
-"""Inventory lightweight implementations and emit a hardening matrix.
-
-Usage:
-  python scripts/ci/inventory_light_implementations.py
-  python scripts/ci/inventory_light_implementations.py --json
-  python scripts/ci/inventory_light_implementations.py --write docs/docs/guides/light-implementation-hardening-inventory.md
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -18,6 +9,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+"""Inventory lightweight implementations and emit a hardening matrix.
+
+Usage:
+  python scripts/ci/inventory_light_implementations.py
+  python scripts/ci/inventory_light_implementations.py --json
+  python scripts/ci/inventory_light_implementations.py --write docs/docs/guides/light-implementation-hardening-inventory.md
+"""
 
 @dataclass(frozen=True)
 class Rule:

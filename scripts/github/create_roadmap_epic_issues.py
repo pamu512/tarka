@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
+import subprocess
+import sys
 
 """Create umbrella GitHub issues for docs/docs/guides/tarka-12-month-roadmap-execution-kit.md epics.
 
@@ -11,12 +14,6 @@ Usage:
 
 Re-run safety: always creates new issues; do not run twice unless you want duplicates.
 """
-
-
-import argparse
-import subprocess
-import sys
-
 REPO = "pamu512/tarka"
 DOC_PATH = "docs/docs/guides/tarka-12-month-roadmap-execution-kit.md"
 DOC_URL = f"https://github.com/{REPO}/blob/master/{DOC_PATH}"

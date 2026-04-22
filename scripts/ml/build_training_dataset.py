@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
+import json
+import re
+import sys
+from pathlib import Path
+from typing import Any
 
 """
 Build a supervised training table from label rows + feature snapshots (ROI pipeline).
@@ -14,15 +20,6 @@ Output:
 
 This script does not call live services; it stitches files you export from audit/feature store.
 """
-
-
-import argparse
-import json
-import re
-import sys
-from pathlib import Path
-from typing import Any
-
 _SCRIPTS_ML = Path(__file__).resolve().parent
 if str(_SCRIPTS_ML) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_ML))

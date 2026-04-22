@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-
-"""CLI for Tarka consortium adapter (share, check, feedback, trust, ingest)."""
-
-
 import argparse
 import json
 import os
 import sys
 from pathlib import Path
 
+"""CLI for Tarka consortium adapter (share, check, feedback, trust, ingest)."""
 # Allow `python scripts/consortium_adapter/cli.py` from repo root
 if __name__ == "__main__" and (__package__ is None or __package__ == ""):
     _root = Path(__file__).resolve().parent

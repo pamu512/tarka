@@ -1,4 +1,7 @@
 from __future__ import annotations
+import sys
+from pathlib import Path
+from typing import Any
 
 """Optional HMAC request signing helpers (gateway or decision-api middleware).
 
@@ -6,12 +9,6 @@ Implementation matches ``services/shared/tarka_request_signature.py`` when the
 monorepo is on ``PYTHONPATH``; otherwise falls back to the same logic inline so
 the published wheel stays self-contained.
 """
-
-
-import sys
-from pathlib import Path
-from typing import Any
-
 # Monorepo: prefer shared module (single source of truth)
 _pkg_dir = Path(__file__).resolve().parents[4]
 _shared = _pkg_dir / "services" / "shared"

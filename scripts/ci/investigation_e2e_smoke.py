@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-
-"""Investigation smoke: decision evaluate -> case -> decision-explanation schema check."""
-
 import argparse
 import json
 import os
@@ -11,6 +8,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
+"""Investigation smoke: decision evaluate -> case -> decision-explanation schema check."""
 
 def _json_request(url: str, *, method: str = "GET", body: dict | None = None, api_key: str = "") -> dict:
     data = None

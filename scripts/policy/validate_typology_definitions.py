@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-
-"""Ensure typology_definitions_v1.json references only rule ids that exist in JSON rule packs.
-
-Fails CI if typologies drift from shipped packs (OSS #34 contract).
-"""
-
-
 import argparse
 import json
 import os
 import sys
 from pathlib import Path
 
+"""Ensure typology_definitions_v1.json references only rule ids that exist in JSON rule packs.
+
+Fails CI if typologies drift from shipped packs (OSS #34 contract).
+"""
 _REPO = Path(__file__).resolve().parents[2]
 _DEC = _REPO / "services" / "decision-api"
 _SRC = _DEC / "src"

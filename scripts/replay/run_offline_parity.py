@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
+import json
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
 
 """
 Run offline counter replay + optional Redis diff; write a JSON report (parity dashboard input).
@@ -16,15 +22,6 @@ Example::
       --reference-url redis://localhost:6379/0 \\
       --report /tmp/parity_report.json
 """
-
-
-import argparse
-import json
-import subprocess
-import sys
-from datetime import datetime, timezone
-from pathlib import Path
-
 _REPO = Path(__file__).resolve().parents[2]
 
 

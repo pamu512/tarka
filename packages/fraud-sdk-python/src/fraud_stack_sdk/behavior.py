@@ -1,15 +1,12 @@
 from __future__ import annotations
+import math
+from typing import Any
 
 """Server-side behavioral biometrics analyzer.
 
 Takes raw behavior data collected by the TypeScript SDK's BehaviorCollector
 and computes risk indicators for fraud detection.
 """
-
-
-import math
-from typing import Any
-
 
 class BehaviorAnalyzer:
     """Analyzes behavioral biometrics data from client-side collection.

@@ -1,13 +1,4 @@
 from __future__ import annotations
-
-"""
-HTTP client for Tarka Decision API consortium endpoints (`/v1/consortium/*`).
-
-Use from Python or via `cli.py`. Requires matching `CONSORTIUM_SECRET` / Redis on the
-server side; this adapter only speaks HTTP.
-"""
-
-
 import json
 import os
 from typing import Any
@@ -15,6 +6,12 @@ from urllib.parse import quote
 
 import httpx
 
+"""
+HTTP client for Tarka Decision API consortium endpoints (`/v1/consortium/*`).
+
+Use from Python or via `cli.py`. Requires matching `CONSORTIUM_SECRET` / Redis on the
+server side; this adapter only speaks HTTP.
+"""
 __all__ = [
     "ConsortiumAdapter",
     "ingest_json_lines",

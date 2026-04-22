@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
+import json
+import statistics
+import sys
+import urllib.error
+import urllib.request
+from pathlib import Path
+from typing import Any
 
 """
 Drift smoke: compare mean ml-scoring heuristic scores on two fixed feature batches.
@@ -12,17 +20,6 @@ Local mode (no server): imports ``heuristic_score`` from ``ml_scoring.heuristic`
 
 HTTP mode: POST /v1/score per row (optional; for integration tests).
 """
-
-
-import argparse
-import json
-import statistics
-import sys
-import urllib.error
-import urllib.request
-from pathlib import Path
-from typing import Any
-
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]

@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-
-"""Replay canonical decision logs against a target Decision API and classify drift."""
-
-
 import argparse
 import json
 from pathlib import Path
@@ -11,6 +7,7 @@ from typing import Any
 
 import httpx
 
+"""Replay canonical decision logs against a target Decision API and classify drift."""
 
 def _iter_jsonl(path: Path):
     with path.open("r", encoding="utf-8") as f:

@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-
-"""
-Bring up deploy/docker-compose.yml with --profile full, wait for HTTP health, POST evaluate, tear down.
-
-Used by GitHub Actions; runnable locally from repo root:
-  python scripts/ci/full_stack_smoke.py
-  python scripts/ci/full_stack_smoke.py --skip-up   # stack already running (no compose down)
-"""
-
 import argparse
 import json
 import subprocess
@@ -18,6 +9,13 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+"""
+Bring up deploy/docker-compose.yml with --profile full, wait for HTTP health, POST evaluate, tear down.
+
+Used by GitHub Actions; runnable locally from repo root:
+  python scripts/ci/full_stack_smoke.py
+  python scripts/ci/full_stack_smoke.py --skip-up   # stack already running (no compose down)
+"""
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COMPOSE_FILE = REPO_ROOT / "deploy" / "docker-compose.yml"
 

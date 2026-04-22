@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
+import asyncio
+import datetime as dt
+import json
+import sys
+import uuid
+from pathlib import Path
+from typing import Any, Iterator
 
 """
 Replay JSONL audit/export rows into a scratch Redis so aggregate keys can be diffed against prod.
@@ -12,17 +20,6 @@ Expected JSONL shapes (one object per line):
   - Audit-like: {"tenant_id": "...", "entity_id": "...", "trace_id": "...", "payload": {...}}
     (payload dict is passed as aggregate fields when "fields" is absent)
 """
-
-
-import argparse
-import asyncio
-import datetime as dt
-import json
-import sys
-import uuid
-from pathlib import Path
-from typing import Any, Iterator
-
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _SHARED = _REPO_ROOT / "services" / "shared"
 if str(_SHARED) not in sys.path:
