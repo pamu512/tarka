@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Evaluate path + AggregateStore: counters must reach rule features (parity / TPS guard)."""
 
-from __future__ import annotations
 
 import os
 from types import SimpleNamespace

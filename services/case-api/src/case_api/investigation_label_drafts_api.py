@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Durable analyst-scoped investigation label drafts (separate from case workflow labels)."""
 
-from __future__ import annotations
 
 import os
 import re

@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Time-bucketed investigation KPIs for dashboards and exports (Marble #57)."""
 
-from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal

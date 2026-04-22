@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Real-time aggregate computation using Redis sorted sets.
 
 Shared by decision-api (writes) and feature-service (reads) so velocity keys stay aligned.
@@ -13,7 +15,6 @@ Supported aggregate types:
   - distinct(entity, field, window) — count of distinct values in window
 """
 
-from __future__ import annotations
 
 import os
 import time

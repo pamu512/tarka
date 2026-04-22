@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """HTTP surface: plugin discovery + multi-emitter orchestration runs."""
 
-from __future__ import annotations
 
 import hashlib
 import logging

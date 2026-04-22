@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Fetch analytics-sink decision scorecard JSON and open a GitHub Discussion (OSS #53).
 
 Environment (typical in GitHub Actions):
@@ -13,7 +15,6 @@ Environment (typical in GitHub Actions):
 Dry-run locally without GITHUB_TOKEN: prints Markdown only.
 """
 
-from __future__ import annotations
 
 import argparse
 import json

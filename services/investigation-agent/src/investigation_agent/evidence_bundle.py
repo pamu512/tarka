@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Draft evidence-shaped payload for audit export (v0 legacy + optional v1)."""
 
-from __future__ import annotations
 
 import hashlib
 import json

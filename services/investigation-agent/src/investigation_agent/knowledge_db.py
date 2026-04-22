@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 """
 SQLite-backed investigation memos with optional embedding vectors (RAG).
 Hybrid retrieval: cosine similarity + keyword overlap when embeddings exist.
 """
 
-from __future__ import annotations
 
 import json
 import os

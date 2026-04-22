@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Silver-layer quality gate for exported feature / audit JSONL (v1.2.5 E2).
 
@@ -9,7 +11,6 @@ Example:
   python scripts/etl/check_silver_features.py --input export.jsonl --max-violation-rate 0.01
 """
 
-from __future__ import annotations
 
 import argparse
 import json

@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Strip !wf / !wfp / !style from last user message; map to investigation-agent workflow_id + workflow_params."""
 
-from __future__ import annotations
 
 import copy
 import re

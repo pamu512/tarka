@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """SAR/STR report generation.
 
 Generates regulatory-compliant suspicious activity reports from case data.
@@ -7,7 +9,6 @@ FinCEN XML follows the BSA E-Filing XML schema (FinCEN SAR v1.3).
 NCA JSON follows the UK NCA Defence Against Money Laundering (DAML) format.
 """
 
-from __future__ import annotations
 
 import uuid
 import xml.etree.ElementTree as ET

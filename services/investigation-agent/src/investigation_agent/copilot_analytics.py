@@ -1,8 +1,9 @@
+from __future__ import annotations
+
 """
 Optional org analytics events (PII-minimized). Opt-in via COPILOT_ANALYTICS_* settings.
 """
 
-from __future__ import annotations
 
 import asyncio
 import hashlib

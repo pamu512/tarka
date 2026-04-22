@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Per-tenant kill switches (R2.3) — Redis JSON at fraud:tenant_flags:{tenant_id}."""
 
-from __future__ import annotations
 
 from typing import Any
 

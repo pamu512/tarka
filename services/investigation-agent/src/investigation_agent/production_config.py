@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Fail-fast checks when COPILOT_PRODUCTION_MODE=true.
 
@@ -5,7 +7,6 @@ Operators must set API keys, analyst allowlists, and LLM credentials explicitly.
 Does not replace network policies, TLS, or upstream RBAC.
 """
 
-from __future__ import annotations
 
 import os
 from pathlib import Path

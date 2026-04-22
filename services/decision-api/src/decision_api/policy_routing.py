@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """Policy DAG helpers (OSS #31): stable cohort buckets and champion–challenger comparison.
 
 Canary routing for JSON rule packs uses the same stable bucket as ``json_rules._pack_experiment_bucket``;
 this module documents the salt semantics and exposes helpers for audit metadata.
 """
 
-from __future__ import annotations
 
 import hashlib
 from typing import Any

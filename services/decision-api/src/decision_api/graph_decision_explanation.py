@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Versioned graph → case explanation payload (xFraud-style why-links)."""
 
-from __future__ import annotations
 
 from typing import Any
 

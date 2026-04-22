@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Ensure ml_promotion_policy_v1.json and .yaml parse to the same object (OSS #52)."""
 
-from __future__ import annotations
 
 import json
 import sys

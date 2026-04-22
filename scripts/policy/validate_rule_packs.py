@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Validate JSON rule packs under services/decision-api/rules (or RULES_PATH).
 
 Exit 0 if all packs parse and pass structural validation (same checks as rule_api).
 Used by CI for policy-as-code gate.
 """
 
-from __future__ import annotations
 
 import argparse
 import json

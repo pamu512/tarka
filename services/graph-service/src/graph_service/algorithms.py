@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Graph analytics entrypoint: Neo4j (Cypher) or JanusGraph (Gremlin) per GRAPH_BACKEND.
 
@@ -5,7 +7,6 @@ Callers (main.py, tests) import from this module only — never from algorithms_
 or algorithms_janus directly.
 """
 
-from __future__ import annotations
 
 from graph_service.config import settings
 

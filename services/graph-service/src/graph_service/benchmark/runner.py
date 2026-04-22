@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Reproducible graph vs baseline experiment runner and scorecard (#66)."""
 
-from __future__ import annotations
 
 import json
 import random

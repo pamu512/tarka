@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Upload Markdown files to investigation-agent knowledge (POST /v1/knowledge/ingest).
 
@@ -9,7 +11,6 @@ Example:
 Requires: httpx (same as investigation-agent).
 """
 
-from __future__ import annotations
 
 import argparse
 import sys

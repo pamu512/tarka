@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Tests for consortium_adapter HTTP client and ingest helpers."""
 
-from __future__ import annotations
 
 import json
 import sys

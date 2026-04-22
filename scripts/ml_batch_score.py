@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Batch score rows via ml-scoring ``POST /v1/score`` (v1.2 stretch — analyst dry-runs).
 
 Reads a CSV with at least ``tenant_id`` and ``entity_id``. Feature columns are every column
@@ -17,7 +19,6 @@ Example::
 See also ``scripts/benchmarks/README.md``.
 """
 
-from __future__ import annotations
 
 import argparse
 import csv

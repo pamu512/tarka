@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """Event replay / backtesting router.
 
 Allows analysts to re-evaluate historical events through the rules engine
 with overridden rules, comparing the original decision to the new one.
 """
 
-from __future__ import annotations
 
 import logging
 import uuid as uuid_lib

@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """In-memory tabular batch jobs (CSV / JSON / Excel) for copilot analysis tools."""
 
-from __future__ import annotations
 
 import csv
 import io

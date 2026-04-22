@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Plugin registration, discovery, and manifest contract (issue #62)."""
 
-from __future__ import annotations
 
 from typing import Any
 

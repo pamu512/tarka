@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Single source of truth for ML 9-feature order: delegates to ``ml_scoring.heuristic``."""
 
-from __future__ import annotations
 
 import sys
 from pathlib import Path

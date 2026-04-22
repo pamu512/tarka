@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Shared observability: Prometheus metrics, structured logging, trace context.
 
 Usage in any FastAPI service::
@@ -6,7 +8,6 @@ Usage in any FastAPI service::
     setup_observability(app, service_name="decision-api")
 """
 
-from __future__ import annotations
 
 import json
 import logging

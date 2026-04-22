@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Immutable field-level audit trail.
 
 Tracks all mutations to cases, rules, and entities with before/after snapshots.
@@ -17,7 +19,6 @@ Usage::
     )
 """
 
-from __future__ import annotations
 
 import uuid
 from datetime import datetime

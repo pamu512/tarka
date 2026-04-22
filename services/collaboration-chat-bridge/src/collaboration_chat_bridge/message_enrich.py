@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Optional web URL fetch to prepend context to the last user message."""
 
-from __future__ import annotations
 
 import copy
 import re

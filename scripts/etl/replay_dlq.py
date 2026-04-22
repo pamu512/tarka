@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Pull messages from the ingest DLQ JetStream subject and optionally re-post to evaluate.
 
@@ -8,7 +10,6 @@ Requires: nats-py, running NATS with a stream covering the DLQ subject (e.g. fra
   DECISION_API_URL=http://localhost:8000 python scripts/etl/replay_dlq.py --max 1
 """
 
-from __future__ import annotations
 
 import argparse
 import asyncio

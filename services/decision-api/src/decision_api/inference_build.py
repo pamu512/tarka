@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 """Build inference_context (v3) and recommended customer actions (challenge orchestration hints).
 
 SCHEMA_VERSION is the public contract version for OpenAPI + golden parity.
 """
 
-from __future__ import annotations
 
 from typing import Any
 

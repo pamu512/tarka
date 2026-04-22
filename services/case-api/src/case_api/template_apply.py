@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Resolve and apply investigation templates / built-in playbooks (Marble #56)."""
 
-from __future__ import annotations
 
 import uuid
 from typing import Any

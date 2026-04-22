@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """Multi-currency normalisation with exchange-rate caching.
 
 Fetches live rates from a free API (exchangerate.host / frankfurter.app)
 and falls back to static rates when the network call fails.
 """
 
-from __future__ import annotations
 
 import logging
 import time

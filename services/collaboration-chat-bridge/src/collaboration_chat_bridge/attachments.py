@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Download Slack files and extract text for copilot context (PDF, plain text, CSV, xlsx)."""
 
-from __future__ import annotations
 
 import logging
 from io import BytesIO

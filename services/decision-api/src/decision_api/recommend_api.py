@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Rule recommendation API — AI-powered rule suggestion from historical data."""
 
-from __future__ import annotations
 
 import json
 import logging

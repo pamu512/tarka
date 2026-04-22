@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Server-side signal collector for Python SDK."""
 
-from __future__ import annotations
 
 import hashlib
 import ipaddress

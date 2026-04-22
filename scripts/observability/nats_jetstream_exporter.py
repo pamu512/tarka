@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Stretch: NATS JetStream → Prometheus text (pull model).
 
@@ -17,7 +19,6 @@ Env:
   NATS_CONSUMER_NAME (optional durable name for pending/ack metrics)
 """
 
-from __future__ import annotations
 
 import os
 import sys

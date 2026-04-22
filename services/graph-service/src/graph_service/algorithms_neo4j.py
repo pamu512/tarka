@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Graph analytics functions using native Neo4j Cypher.
 
@@ -6,7 +8,6 @@ All queries use parameterized Cypher ($params) except variable-length
 path depths, which Cypher requires as literal integers (clamped to 1-5).
 """
 
-from __future__ import annotations
 
 from graph_service.neo4j_client import get_driver
 

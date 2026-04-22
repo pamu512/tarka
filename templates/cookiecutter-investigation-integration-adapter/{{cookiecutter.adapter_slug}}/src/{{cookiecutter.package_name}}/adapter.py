@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Map customer Case / Graph / Decision HTTP APIs to shapes expected by investigation-agent tools.
 
@@ -5,7 +7,6 @@ This module is a stub: implement real clients, auth, pagination, and field mappi
 submodules). Keep `INTEGRATION_PROFILE_ID` in agent config aligned with profile `{{ cookiecutter.integration_profile_id }}`.
 """
 
-from __future__ import annotations
 
 import os
 from typing import Any

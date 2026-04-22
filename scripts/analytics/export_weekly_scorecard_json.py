@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 N4.2 — weekly aggregate export with integrity metadata.
 
@@ -18,7 +20,6 @@ Example:
   SCORECARD_BASE_URL=https://localhost/api/analytics python3 scripts/analytics/export_weekly_scorecard_json.py -o exports/scorecard-demo.json
 """
 
-from __future__ import annotations
 
 import argparse
 import hashlib

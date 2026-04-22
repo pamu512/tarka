@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Stretch: contract smoke / optional Schemathesis against a running Decision API.
 
@@ -21,7 +23,6 @@ Or point at the repo contract file::
 This script only verifies reachability and prints the above instructions.
 """
 
-from __future__ import annotations
 
 import argparse
 import os

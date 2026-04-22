@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """In-process sliding-window rate limiter (per key)."""
 
-from __future__ import annotations
 
 import time
 from collections import defaultdict, deque

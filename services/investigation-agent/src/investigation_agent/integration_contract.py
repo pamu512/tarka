@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Logical integration contract for the investigation copilot.
 
@@ -8,7 +10,6 @@ and which tools are registered—used for adapter parity checks and Saarthi Pro 
 Does not expose raw URLs (avoid leaking internal endpoints in health responses).
 """
 
-from __future__ import annotations
 
 from typing import Any
 

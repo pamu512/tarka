@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Stretch: load trusted geo zones from disk (per-tenant) for inference trusted_zone_hit."""
 
-from __future__ import annotations
 
 import json
 import os

@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Load and validate the v1 counter manifest (online/offline parity contract)."""
 
-from __future__ import annotations
 
 import json
 from functools import lru_cache

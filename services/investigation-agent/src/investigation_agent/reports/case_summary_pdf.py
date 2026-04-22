@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Case summary PDF from structured answer_sections + reply (no LLM)."""
 
-from __future__ import annotations
 
 from datetime import datetime, timezone
 from io import BytesIO

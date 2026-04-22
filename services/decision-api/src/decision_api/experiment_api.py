@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Lightweight simulation experiment registry (audit trail for A/B and vertical benchmarks)."""
 
-from __future__ import annotations
 
 import json
 import uuid

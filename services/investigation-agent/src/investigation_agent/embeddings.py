@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """OpenAI-compatible embedding API for RAG (async)."""
 
-from __future__ import annotations
 
 import httpx
 

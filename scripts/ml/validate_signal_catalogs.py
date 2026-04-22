@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Fail CI/local checks if signal catalogs drift or are structurally invalid.
 
 Run from repo root: python scripts/ml/validate_signal_catalogs.py
 """
 
-from __future__ import annotations
 
 import json
 import sys

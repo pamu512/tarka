@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Build a supervised training table from label rows + feature snapshots (ROI pipeline).
 
@@ -13,7 +15,6 @@ Output:
 This script does not call live services; it stitches files you export from audit/feature store.
 """
 
-from __future__ import annotations
 
 import argparse
 import json

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Measure latency for Decision API POST /v1/decisions/evaluate (stdlib only).
 
@@ -8,7 +10,6 @@ Example:
 For publishable benchmark posts, record hardware, compose profile, warm-up count, and seed payload.
 """
 
-from __future__ import annotations
 
 import argparse
 import json

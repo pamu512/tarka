@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Compliance API — DSAR, data erasure, data export, privacy controls.
 
 Implements data subject rights required by GDPR, CCPA, LGPD, and other regulations:
@@ -7,7 +9,6 @@ Implements data subject rights required by GDPR, CCPA, LGPD, and other regulatio
 - Right to Rectification (Article 16 GDPR)
 """
 
-from __future__ import annotations
 
 import hashlib
 import hmac

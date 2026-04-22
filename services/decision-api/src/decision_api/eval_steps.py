@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Bounded evaluation steps: timeout, bounded retries, onFailure (SKIP | REJECT) + metrics (#32)."""
 
-from __future__ import annotations
 
 import asyncio
 import logging

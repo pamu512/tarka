@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Shared tenant binding helpers for API-key and JWT-protected services."""
 
-from __future__ import annotations
 
 import json
 import os

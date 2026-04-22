@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """Logical event time (business time) for Redis aggregates and replay alignment.
 
 Velocity windows use ``AggregateStore.record_event(..., ts=...)``. When set, **event time**
 replaces wall-clock ingest time for ZSET scores. See ``docs/docs/guides/late-arrival-watermarks.md``.
 """
 
-from __future__ import annotations
 
 import datetime as dt
 from typing import Any

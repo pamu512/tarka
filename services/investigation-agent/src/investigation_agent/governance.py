@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Regional AI governance overlays for the Investigation Copilot (prompt + metadata).
 
 These blocks align *product behavior* with common expectations in major jurisdictions.
@@ -5,7 +7,6 @@ They are not legal advice; each deployment must be validated by counsel against 
 customer's use case, sector, and contracts.
 """
 
-from __future__ import annotations
 
 from typing import Literal
 

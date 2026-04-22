@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Validate ML promotion policy files and shipped model metadata (OSS #37 / #52).
 
 - Optional: ensure ml_promotion_policy_v1.json and .yaml stay in sync (requires PyYAML).
@@ -6,7 +8,6 @@
 - Check active ONNX/sklearn model versions under models/ have metadata matching policy strictness.
 """
 
-from __future__ import annotations
 
 import argparse
 import json

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Validate label rows (JSONL or single JSON object).
 
@@ -15,7 +17,6 @@ Usage:
   python scripts/ml/validate_label_rows.py --allowed-labels fraud,legit,suspect data.jsonl
 """
 
-from __future__ import annotations
 
 import argparse
 import json

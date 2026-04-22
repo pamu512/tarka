@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """OSINT enrichment framework — multi-source intelligence gathering.
 
 Integrates free/open OSINT APIs for comprehensive entity risk profiling:
@@ -28,7 +30,6 @@ Social/Identity:
   - GitHub profile       (free, username existence)
 """
 
-from __future__ import annotations
 
 import asyncio
 import hashlib

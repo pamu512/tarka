@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Facade: investigation memo RAG (SQLite + optional OpenAI embeddings)."""
 
-from __future__ import annotations
 
 from typing import Any
 

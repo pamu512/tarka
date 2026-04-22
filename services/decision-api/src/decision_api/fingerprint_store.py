@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Redis-backed browser fingerprint store.
 
 Tracks device fingerprints across entities and time, enabling cross-entity
@@ -8,7 +10,6 @@ Key schema (all tenant-scoped):
     fraud:fp:entity:{tenant}:{entity_id} -> sorted set of fp_hashes (score=last_seen)
 """
 
-from __future__ import annotations
 
 import hashlib
 import json

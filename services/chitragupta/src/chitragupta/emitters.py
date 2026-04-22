@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Emitter targets with retry/backoff and failure visibility (#63)."""
 
-from __future__ import annotations
 
 import asyncio
 import csv

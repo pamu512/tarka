@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Sanctions & PEP screening against the OpenSanctions consolidated dataset.
 
 Downloads the FtM entities JSON-lines file, caches it locally, and provides
@@ -7,7 +9,6 @@ All I/O is async-safe — network downloads use httpx and file parsing is
 offloaded to a thread pool to avoid blocking the event loop.
 """
 
-from __future__ import annotations
 
 import asyncio
 import json

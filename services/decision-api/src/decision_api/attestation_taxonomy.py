@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 """Shared mobile attestation normalization (Android Play Integrity + iOS App Attest).
 
 See docs/docs/guides/mobile-attestation-taxonomy.md for the human-readable contract.
 """
 
-from __future__ import annotations
 
 from typing import Any
 

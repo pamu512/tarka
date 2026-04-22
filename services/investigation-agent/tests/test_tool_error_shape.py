@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Tool error payload hardening."""
 
-from __future__ import annotations
 
 import pytest
 from investigation_agent.main import _execute_tool

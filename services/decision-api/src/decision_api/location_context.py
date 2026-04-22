@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Derive session geo + consistency hints from device signals and IP/OSINT features."""
 
-from __future__ import annotations
 
 import re
 from datetime import datetime, timezone

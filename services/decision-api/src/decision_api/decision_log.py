@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Canonical immutable decision log writer (OSS JSONL + optional warehouse sink)."""
 
-from __future__ import annotations
 
 import asyncio
 import hashlib

@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Deadline / SLA-style countdown helpers for dispute external-response queues (#60)."""
 
-from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any, Literal

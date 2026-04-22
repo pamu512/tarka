@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """BYOK (bring-your-own-key) contract for connector credentials (Refund Swatter #59 / epic #58)."""
 
-from __future__ import annotations
 
 from typing import Any
 

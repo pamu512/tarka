@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Shared Gremlin Server connection for JanusGraph backend (sync driver, thread offload)."""
 
-from __future__ import annotations
 
 import asyncio
 import logging
