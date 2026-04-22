@@ -7,12 +7,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-"""Evaluate path + AggregateStore: counters must reach rule features (parity / TPS guard)."""
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 
 from aggregate_fake_redis import FakeRedis
 from decision_api.aggregates import AggregateStore
+
+"""Evaluate path + AggregateStore: counters must reach rule features (parity / TPS guard)."""
 
 
 @pytest.fixture(autouse=True)
