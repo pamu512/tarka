@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
+import json
+import os
+import platform
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
 """Tarka — unified installer and management CLI.
 
 Usage:
@@ -14,17 +24,6 @@ Usage:
     python tarka.py dev <module>                # Run a single module locally (no Docker)
     python tarka.py env                         # Generate .env from template
 """
-
-
-import argparse
-import json
-import os
-import platform
-import shutil
-import subprocess
-import sys
-from pathlib import Path
-from typing import Any
 
 ROOT = Path(__file__).resolve().parent
 DEPLOY = ROOT / "deploy"
