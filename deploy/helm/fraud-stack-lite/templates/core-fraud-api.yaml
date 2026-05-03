@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: core-fraud-api
+spec:
+  replicas: {{ .Values.coreFraudApi.replicas }}
+  selector:
+    matchLabels:
+      app: core-fraud-api
+  template:
+    metadata:
+      labels:
+        app: core-fraud-api
+    spec:
+      containers:
+        - name: core-fraud-api
+          image: "{{ .Values.coreFraudApi.image }}:{{ .Values.coreFraudApi.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.coreFraudApi.port }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: core-fraud-api
+spec:
+  selector:
+    app: core-fraud-api
+  ports:
+    - port: {{ .Values.coreFraudApi.port }}
+      targetPort: {{ .Values.coreFraudApi.port }}
+
