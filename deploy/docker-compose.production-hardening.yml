@@ -46,6 +46,3 @@ services:
     environment:
       INGEST_REQUIRE_IDEMPOTENCY_KEY: "true"
 
-  collaboration-chat-bridge:
-    environment:
-      BRIDGE_TRUSTED_SCOPE_HEADERS_REQUIRED: "true"

@@ -24,10 +24,6 @@ graphqlGateway:
   enabled: true
 frontend:
   enabled: true
-collaborationChatBridge:
-  enabled: true
-calibrationService:
-  enabled: true
 counterService:
   enabled: true
 locationService:

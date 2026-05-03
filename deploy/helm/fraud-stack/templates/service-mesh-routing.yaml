@@ -1,0 +1,108 @@
+{{- if and .Values.global.serviceMesh.enabled (eq (default "istio" .Values.global.serviceMesh.provider) "istio") }}
+{{- $mesh := .Values.global.serviceMesh.healthRouting }}
+{{- if .Values.decisionApi.enabled }}
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ include "tarka.fullname" . }}-decision-api-dr
+spec:
+  host: {{ include "tarka.fullname" . }}-decision-api
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_REQUEST
+    outlierDetection:
+      consecutive5xxErrors: {{ $mesh.consecutive5xxErrors }}
+      interval: {{ $mesh.interval | quote }}
+      baseEjectionTime: {{ $mesh.baseEjectionTime | quote }}
+      maxEjectionPercent: {{ $mesh.maxEjectionPercent }}
+      minHealthPercent: {{ $mesh.minHealthPercent }}
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ include "tarka.fullname" . }}-decision-api-vs
+spec:
+  hosts:
+    - {{ include "tarka.fullname" . }}-decision-api
+  http:
+    - retries:
+        attempts: {{ $mesh.retries }}
+        perTryTimeout: {{ $mesh.perTryTimeout | quote }}
+        retryOn: connect-failure,refused-stream,unavailable,5xx
+      timeout: {{ $mesh.timeout | quote }}
+      route:
+        - destination:
+            host: {{ include "tarka.fullname" . }}-decision-api
+{{- end }}
+{{- if .Values.caseApi.enabled }}
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ include "tarka.fullname" . }}-case-api-dr
+spec:
+  host: {{ include "tarka.fullname" . }}-case-api
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_REQUEST
+    outlierDetection:
+      consecutive5xxErrors: {{ $mesh.consecutive5xxErrors }}
+      interval: {{ $mesh.interval | quote }}
+      baseEjectionTime: {{ $mesh.baseEjectionTime | quote }}
+      maxEjectionPercent: {{ $mesh.maxEjectionPercent }}
+      minHealthPercent: {{ $mesh.minHealthPercent }}
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ include "tarka.fullname" . }}-case-api-vs
+spec:
+  hosts:
+    - {{ include "tarka.fullname" . }}-case-api
+  http:
+    - retries:
+        attempts: {{ $mesh.retries }}
+        perTryTimeout: {{ $mesh.perTryTimeout | quote }}
+        retryOn: connect-failure,refused-stream,unavailable,5xx
+      timeout: {{ $mesh.timeout | quote }}
+      route:
+        - destination:
+            host: {{ include "tarka.fullname" . }}-case-api
+{{- end }}
+{{- if .Values.graphService.enabled }}
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ include "tarka.fullname" . }}-graph-service-dr
+spec:
+  host: {{ include "tarka.fullname" . }}-graph-service
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_REQUEST
+    outlierDetection:
+      consecutive5xxErrors: {{ $mesh.consecutive5xxErrors }}
+      interval: {{ $mesh.interval | quote }}
+      baseEjectionTime: {{ $mesh.baseEjectionTime | quote }}
+      maxEjectionPercent: {{ $mesh.maxEjectionPercent }}
+      minHealthPercent: {{ $mesh.minHealthPercent }}
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ include "tarka.fullname" . }}-graph-service-vs
+spec:
+  hosts:
+    - {{ include "tarka.fullname" . }}-graph-service
+  http:
+    - retries:
+        attempts: {{ $mesh.retries }}
+        perTryTimeout: {{ $mesh.perTryTimeout | quote }}
+        retryOn: connect-failure,refused-stream,unavailable,5xx
+      timeout: {{ $mesh.timeout | quote }}
+      route:
+        - destination:
+            host: {{ include "tarka.fullname" . }}-graph-service
+{{- end }}
+{{- end }}
+

@@ -1,0 +1,16 @@
+global:
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/use-forwarded-headers: "true"
+    frontendHost: "__FRONTEND_HOST__"
+    graphqlHost: "__GRAPHQL_HOST__"
+
+decisionApi:
+  edgeSecurity:
+    enabled: true
+    wafActionHeader: cf-waf-action
+    botScoreHeader: cf-bot-score
+    botScoreBlockThreshold: 25
+    botScoreReviewThreshold: 50

@@ -18,6 +18,18 @@ global:
   imageRegistry: ""
   imagePullPolicy: IfNotPresent
   environment: dev
+  serviceMesh:
+    enabled: false
+    provider: istio
+    healthRouting:
+      retries: 2
+      perTryTimeout: 2s
+      timeout: 8s
+      consecutive5xxErrors: 3
+      interval: 5s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 50
   # Optional pre-created secret containing `API_KEYS` and other shared app secrets.
   # Example: kubectl create secret generic tarka-app-secrets --from-literal=API_KEYS=...
   appSecretsName: ""
@@ -53,7 +65,7 @@ global:
 
 postgres:
   enabled: true
-  image: postgres:16-alpine
+  image: apache/age:release_PG16_1.6.0
   auth:
     username: fraud
     # Empty uses chart default "fraud" in templates for local/in-cluster quickstarts.
@@ -82,6 +94,13 @@ decisionApi:
     minReplicas: 2
     maxReplicas: 8
     targetCPUUtilizationPercentage: 70
+  edgeSecurity:
+    enabled: false
+    wafActionHeader: x-waf-action
+    botScoreHeader: x-bot-score
+    botScoreBlockThreshold: 25
+    botScoreReviewThreshold: 50
+  extraEnv: {}
 
 graphService:
   enabled: false
@@ -89,13 +108,7 @@ graphService:
   tag: latest
   replicaCount: 1
   servicePort: 8001
-
-neo4j:
-  enabled: false
-  image: neo4j:5-community
-  auth:
-    user: neo4j
-    password: fraud_neo4j
+  graphBackend: age
 
 caseApi:
   enabled: false
@@ -120,6 +133,17 @@ mlScoring:
   tag: latest
   replicaCount: 1
   servicePort: 8005
+  tritonModelInput: X
+  tritonModelOutput: probabilities
+
+triton:
+  enabled: false
+  image: nvcr.io/nvidia/tritonserver
+  tag: 23.12-py3
+  replicaCount: 1
+  servicePort: 8020
+  grpcPort: 8021
+  metricsPort: 8022
 
 investigationAgent:
   enabled: false
@@ -161,6 +185,7 @@ eventIngest:
   port: 8007
   apiKeys: ""
   upstreamApiKey: ""
+  schemaRegistryMode: enforce
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -194,25 +219,6 @@ frontend:
   replicaCount: 1
   port: 80
   serviceType: ClusterIP
-
-collaborationChatBridge:
-  enabled: false
-  image: tarka-collaboration-chat-bridge
-  tag: latest
-  replicaCount: 1
-  port: 8009
-  investigationAgentUrl: ""
-  investigationAgentApiKey: ""
-  defaultTenantId: collab_default
-  defaultCaseId: ""
-  defaultCopilotPersona: investigation
-
-calibrationService:
-  enabled: false
-  image: tarka-calibration-service
-  tag: latest
-  replicaCount: 1
-  port: 8011
 
 counterService:
   enabled: false

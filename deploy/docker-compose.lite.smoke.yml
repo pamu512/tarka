@@ -1,0 +1,83 @@
+name: tarka-lite-smoke
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fraud
+      POSTGRES_PASSWORD: fraud
+      POSTGRES_DB: fraud
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fraud -d fraud"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  neo4j:
+    image: neo4j:5-community
+    environment:
+      NEO4J_AUTH: neo4j/tarka2026
+
+  graph-service:
+    build:
+      context: ..
+      dockerfile: services/graph-service/Dockerfile
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: tarka2026
+    ports:
+      - "18001:8001"
+    depends_on:
+      - neo4j
+
+  ml-scoring:
+    build:
+      context: ..
+      dockerfile: services/ml-scoring/Dockerfile
+    ports:
+      - "18005:8005"
+
+  decision-api:
+    build:
+      context: ..
+      dockerfile: services/decision-api/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
+      REDIS_URL: redis://redis:6379/0
+      RULES_PATH: /app/rules
+      GRAPH_SERVICE_URL: http://graph-service:8001
+      ML_SCORING_URL: http://ml-scoring:8005
+      ALLOW_INSECURE_NO_AUTH: "true"
+    ports:
+      - "18000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  data-platform:
+    build:
+      context: ..
+      dockerfile: services/data-platform/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://fraud:fraud@postgres:5432/fraud
+      REDIS_URL: redis://redis:6379/0
+      ALLOW_INSECURE_NO_AUTH: "true"
+    ports:
+      - "18014:8014"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+

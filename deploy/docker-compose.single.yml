@@ -1,0 +1,67 @@
+name: tarka-single
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fraud
+      POSTGRES_PASSWORD: fraud
+      POSTGRES_DB: fraud
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  core-fraud-api:
+    build:
+      context: ..
+      dockerfile: services/decision-api/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
+      REDIS_URL: redis://redis:6379/0
+      COUNTER_BACKEND: redis
+      FEATURE_SERVICE_URL: ""
+      COUNTER_SERVICE_URL: ""
+      ML_SCORING_URL: http://ml-scoring:8005
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+
+  data-platform:
+    build:
+      context: ..
+      dockerfile: services/data-platform/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://fraud:fraud@postgres:5432/fraud
+      REDIS_URL: redis://redis:6379/0
+      ALLOW_INSECURE_NO_AUTH: "true"
+    ports:
+      - "8014:8014"
+    depends_on:
+      - postgres
+      - redis
+
+  investigation-agent:
+    build:
+      context: ..
+      dockerfile: services/investigation-agent/Dockerfile
+    environment:
+      DECISION_API_URL: http://core-fraud-api:8000
+      AI_GOVERNANCE_PROFILE: global
+    ports:
+      - "8006:8006"
+    depends_on:
+      - core-fraud-api
+
+  ml-scoring:
+    build:
+      context: ..
+      dockerfile: services/ml-scoring/Dockerfile
+    ports:
+      - "8005:8005"
+

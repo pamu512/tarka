@@ -13,6 +13,7 @@
     "entity_id": { "type": "string" },
     "session_id": { "type": ["string", "null"] },
     "payload": { "type": "object", "additionalProperties": true },
+    "device_context": { "type": ["object", "null"], "additionalProperties": true },
     "metadata": { "type": "object", "additionalProperties": true }
   },
   "additionalProperties": false

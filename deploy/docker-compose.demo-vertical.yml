@@ -1,0 +1,24 @@
+# Optional merge: shared API key for decision + case + event-ingest so the demo vertical smoke
+# can POST evaluate, create a case (analyst role), and POST /v1/events with one x-api-key.
+#
+#   docker compose -f deploy/docker-compose.lite.yml -f deploy/docker-compose.demo-vertical.yml --profile ingest up -d --build
+#   export DEMO_API_KEY=tarka-demo-vertical
+#   python3 scripts/ci/demo_vertical_smoke.py
+#
+# Omit this file to keep default lite auth (empty API_KEYS + optional ALLOW_INSECURE for curl-only demos).
+
+name: tarka-lite
+services:
+  decision-api:
+    environment:
+      API_KEYS: tarka-demo-vertical
+      SERVICE_API_KEY_ROLE: admin
+  case-api:
+    environment:
+      API_KEYS: tarka-demo-vertical
+      SERVICE_API_KEY_ROLE: admin
+  event-ingest:
+    environment:
+      API_KEYS: tarka-demo-vertical
+      SERVICE_API_KEY_ROLE: admin
+      ALLOW_INSECURE_NO_AUTH: "true"

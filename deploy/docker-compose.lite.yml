@@ -5,6 +5,9 @@
 #
 # Usage:
 #   docker compose -f deploy/docker-compose.lite.yml up --build
+# Optional async ingest (NATS + event-ingest :8007):
+#   docker compose -f deploy/docker-compose.lite.yml -f deploy/docker-compose.demo-vertical.yml --profile ingest up --build
+# See README (demo vertical) and scripts/ci/demo_vertical_smoke.py
 
 name: tarka-lite
 
@@ -36,6 +39,15 @@ services:
       timeout: 3s
       retries: 5
 
+  nats:
+    image: nats:2-alpine
+    command: ["-js", "-sd", "/data"]
+    ports:
+      - "4222:4222"
+    volumes:
+      - fraud_nats_lite:/data
+    profiles: [ingest]
+
   neo4j:
     image: neo4j:5-community
     environment:
@@ -60,6 +72,9 @@ services:
       ML_SCORING_URL: ${ML_SCORING_URL:-}
       GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-}
       OPA_URL: ""
+      EDGE_SECURITY_SIGNALS_ENABLED: ${EDGE_SECURITY_SIGNALS_ENABLED:-false}
+      API_KEYS: ${API_KEYS:-}
+      ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-false}
     ports:
       - "8000:8000"
     depends_on:
@@ -68,7 +83,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/v1/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/v1/ready')"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -153,6 +168,58 @@ services:
       retries: 5
       start_period: 20s
 
+  data-platform:
+    build:
+      context: ..
+      dockerfile: services/data-platform/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://fraud:fraud@postgres:5432/fraud
+      REDIS_URL: redis://redis:6379/0
+      ALLOW_INSECURE_NO_AUTH: "true"
+    ports:
+      - "8014:8014"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8014/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  event-ingest:
+    build:
+      context: ..
+      dockerfile: services/event-ingest/Dockerfile
+    environment:
+      NATS_URL: nats://nats:4222
+      DECISION_API_URL: http://decision-api:8000
+      REDIS_URL: redis://redis:6379/0
+      API_KEYS: ${API_KEYS:-}
+      ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-true}
+      INGEST_SCHEMA_REGISTRY_MODE: ${INGEST_SCHEMA_REGISTRY_MODE:-enforce}
+    ports:
+      - "8007:8007"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_started
+      decision-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8007/v1/ready')"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 35s
+    profiles: [ingest]
+
   frontend:
     build:
       context: ..
@@ -163,6 +230,7 @@ services:
       - decision-api
       - case-api
       - integration-ingress
+      - data-platform
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/"]
       interval: 10s
@@ -172,3 +240,4 @@ services:
 volumes:
   fraud_pg:
   fraud_neo4j_lite:
+  fraud_nats_lite:
