@@ -1,0 +1,14 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "tarka-rule-engine"
+version = "0.1.0"
+description = "Rust JSON rule evaluation core (PyO3) for Tarka decision-api"
+requires-python = ">=3.11"
+classifiers = ["Programming Language :: Rust", "Programming Language :: Python"]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "tarka_rule_engine"
