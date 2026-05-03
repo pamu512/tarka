@@ -769,19 +769,23 @@ OpenAPI: `contracts/openapi/investigation-agent.yaml`
 
 ---
 
-## Collaboration Chat Bridge — `:8009` {#collaboration-chat-bridge}
+## Collaboration chat (embedded) — investigation-agent `:8006` {#collaboration-chat-bridge}
 
-**Compose default:** host **8009** (`8009:8009` in `deploy/docker-compose.yml`). Do not confuse with the **GraphQL gateway** on **:8010**.
+**Implementation:** Slack, Teams, Lark, and plugin-proxy routes are implemented by **`investigation_agent.chat_bridge`**, mounted on the **investigation-agent** process (default **port 8006**). A separate **collaboration-chat-bridge** container on **:8009** is **not** shipped in this repository.
 
-| Method | Path | Description |
+**Public paths** use the **`/v1/chat/…`** prefix on the agent (for example **`GET /v1/chat/health`**, **`POST /v1/chat/slack/events`**). The machine-readable contract in `contracts/openapi/collaboration-chat-bridge.yaml` lists paths in “stand-alone bridge” form; read the file **description** for the exact **prefix mapping**.
+
+| Method | Path (on investigation-agent) | Description |
 |---|---|---|
-| `GET` | `/v1/health` | Health and bridge feature flags |
-| `POST` | `/v1/slack/events` | Slack Events API ingress (signature-verified) |
-| `POST` | `/v1/teams/messages` | Teams/custom connector message ingress (`X-Bridge-Secret`) |
-| `POST` | `/v1/teams/activity` | Bot Framework activity ingress (`X-Bridge-Secret`) |
-| `POST` | `/v1/lark/event` | Lark/Feishu event ingress |
-| `POST` | `/v1/plugin/session` | Bridge-proxied plugin token issuance (`X-Bridge-Secret`) |
-| `POST` | `/v1/plugin/bootstrap` | Bridge-proxied plugin bootstrap (`X-Bridge-Secret`) |
+| `GET` | `/v1/chat/health` | Bridge liveness and feature flags |
+| `POST` | `/v1/chat/slack/events` | Slack Events API ingress (signature-verified) |
+| `POST` | `/v1/chat/teams/messages` | Teams/custom connector message ingress (`X-Bridge-Secret`) |
+| `POST` | `/v1/chat/teams/activity` | Bot Framework activity ingress (`X-Bridge-Secret`) |
+| `POST` | `/v1/chat/lark/event` | Lark/Feishu event ingress |
+| `POST` | `/v1/chat/plugin/session` | Bridge-proxied plugin token issuance (`X-Bridge-Secret`) |
+| `POST` | `/v1/chat/plugin/bootstrap` | Bridge-proxied plugin bootstrap (`X-Bridge-Secret`) |
+
+Copilot chat remains **`POST /v1/chat`** on the same port (see [Investigation Agent](#investigation-agent)).
 
 OpenAPI: `contracts/openapi/collaboration-chat-bridge.yaml`
 
@@ -798,7 +802,7 @@ Ingress audit model:
 
 ## GraphQL Gateway — `:8010` {#graphql-gateway}
 
-**Compose default:** host **8010** (`8010:8010` in `deploy/docker-compose.yml`). Do not confuse with the **collaboration chat bridge** on **:8009**.
+**Compose default:** host **8010** (`8010:8010` in `deploy/docker-compose.yml`). Do not confuse with **investigation-agent** on **:8006** (copilot + embedded collaboration ingress).
 
 Strawberry **GraphQL** over HTTP, with the same shared **observability** stack as other Python services (**`GET` `/metrics`**, structured request logging). Send **`X-API-Key`** when the gateway is configured with **`API_KEYS`** (empty keys without `ALLOW_INSECURE_NO_AUTH` yields **`503`** — see `services/graphql-gateway`).
 

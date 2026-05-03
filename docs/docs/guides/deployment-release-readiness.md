@@ -21,10 +21,10 @@ Publish immutable tags for each enabled service image:
 - `tarka-analytics-sink`
 - `tarka-graphql-gateway`
 - `tarka-frontend`
-- `tarka-collaboration-chat-bridge`
-- `tarka-calibration-service`
 - `tarka-counter-service`
 - `tarka-location-service`
+
+**Optional / external images (not in the default Helm surface):** publish tags for any **separately operated** services you connect via URL (for example a **calibration** implementation reached by **`CALIBRATION_SERVICE_URL`** on decision-api). **Collaboration chat** does **not** use a second image — it is **embedded** in `tarka-investigation-agent` (`/v1/chat/…`).
 
 Guideline: pin deployed tags to release identifiers or commit SHAs, not `latest`.
 

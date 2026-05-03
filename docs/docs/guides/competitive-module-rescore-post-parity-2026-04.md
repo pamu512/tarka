@@ -178,7 +178,7 @@ Sub-dimensions are scored **independently** then rolled into the **module mean**
 
 ## 10. Investigation agent & collaboration
 
-**Scope:** Investigation agent (chat, workflows, PDF exports), collaboration chat bridge (Slack/Teams/Lark), guardrails.
+**Scope:** Investigation agent (chat, workflows, PDF exports), embedded collaboration chat (`chat_bridge`, Slack/Teams/Lark on **`/v1/chat/…`**), guardrails.
 
 | Sub-dimension | Tarka | OSS | Full-stack paid | Device | Location |
 | ------------- | ----: | --: | ---------------: | -----: | -------: |

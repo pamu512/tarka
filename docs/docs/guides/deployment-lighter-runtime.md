@@ -25,7 +25,7 @@ Use it for early production pilots, smaller module footprints, or organizations 
 |---|---|
 | `graph-service` with self-managed graph | Stateful graph lifecycle often needs stronger ops controls |
 | `event-ingest` + `analytics-sink` at scale | Throughput tuning and queue/analytics coupling are easier on K8s |
-| `calibration-service` and `location-service` | Local `/data` patterns need externalization before elastic autoscaling |
+| optional external **calibration** (URL-driven) and `location-service` | Local `/data` patterns on some services need externalization before elastic autoscaling |
 | `investigation-agent` at high scale | Embedded/local stores should be redesigned for highly elastic multi-replica operation |
 
 ---

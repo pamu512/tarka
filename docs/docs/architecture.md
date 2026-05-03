@@ -37,13 +37,18 @@ Tarka is a collection of loosely coupled microservices connected via HTTP and me
 │                                                                         │
 │   ┌────────────────┐  ┌────────────────┐  ┌────────────────────────┐   │
 │   │  JSON Rules    │  │  OPA :8181     │  │  ML Scoring :8005      │   │
-│   │  (built-in)    │  │  (optional)    │  │  (heuristic + ONNX)    │   │
+│   │  (built-in)    │  │  (optional)    │  │  (heuristic + Triton)  │   │
+│   └────────────────┘  └────────────────┘  └──────────┬─────────────┘   │
+│                                                      │                 │
+│   ┌────────────────┐  ┌────────────────┐  ┌────────────────────────┐   │
+│   │  Feature Svc   │  │  Redis :6379   │  │  Postgres :5432        │   │
+│   │  :8004         │  │  (tags, aggs,  │  │  (audit, cases, graph) │   │
+│   │                │  │   scores)      │  │                        │   │
 │   └────────────────┘  └────────────────┘  └────────────────────────┘   │
 │                                                                         │
 │   ┌────────────────┐  ┌────────────────┐  ┌────────────────────────┐   │
-│   │  Feature Svc   │  │  Redis :6379   │  │  Postgres :5432        │   │
-│   │  :8004         │  │  (tags, aggs,  │  │  (audit, cases)        │   │
-│   │                │  │   scores)      │  │                        │   │
+│   │  Triton :8020  │  │                │  │                        │   │
+│   │  (ONNX models) │  │                │  │                        │   │
 │   └────────────────┘  └────────────────┘  └────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────┘
                │
@@ -81,7 +86,8 @@ Tarka is a collection of loosely coupled microservices connected via HTTP and me
 │   └────────────────────────┘  └────────────────────────┘               │
 │                                                                         │
 │   ┌──────────────────────────────────────────────────────────────┐     │
-│   │  Collaboration chat bridge :8009 (Slack / Teams / Lark)      │     │
+│   │  (Slack / Teams / Lark ingress lives on investigation-agent  │     │
+│   │   :8006 under /v1/chat/…)                                     │     │
 │   └──────────────────────────────────────────────────────────────┘     │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -94,19 +100,18 @@ Tarka is a collection of loosely coupled microservices connected via HTTP and me
 | Service                 | Port | Technology          | Purpose                                                       | Dependencies                          |
 | ----------------------- | ---- | ------------------- | ------------------------------------------------------------- | ------------------------------------- |
 | **Decision API**        | 8000 | Python / FastAPI    | Real-time fraud scoring, typology DSL, **evaluation posture** + **SLO** for trust/ops UI ([API ref](api-reference.md#trust-ops-readiness)), attestation | Postgres, Redis                       |
-| **Graph Service**       | 8001 | Python / FastAPI    | Entity graph, tag storage, community/ring detection           | Neo4j                                 |
+| **Graph Service**       | 8001 | Python / FastAPI    | Entity graph, tag storage, community/ring detection           | Postgres (Apache AGE)                 |
 | **Case API**            | 8002 | Python / FastAPI    | Investigation cases, workflows, SLA, audit trail              | Postgres, Graph Service (optional)    |
 | **Integration Ingress** | 8003 | Python / FastAPI    | KYC webhook adapters, sanctions screening                     | Postgres                              |
 | **Feature Service**     | 8004 | Python / FastAPI    | Velocity reads, feature snapshots, **parity verify** ([OSS #48](guides/oss-typology-parity-graph-34-48-49.md)) | Redis (same aggregate keyspace as Decision API) |
-| **ML Scoring**          | 8005 | Python / FastAPI    | ONNX + heuristic model inference, A/B testing                 | —                                     |
-| **Investigation Agent** | 8006 | Python / FastAPI    | LLM copilot; **POST /v1/evidence/summary** (deterministic citations + next actions, [API ref](api-reference.md#investigation-agent)) | Case API, Graph Service, Decision API, OpenAI |
-| **Event Ingest**        | 8007 | Python / FastAPI    | High-throughput async event ingestion                         | NATS, Decision API                    |
-| **Analytics Sink**      | 8008 | Python / FastAPI    | Streams events to ClickHouse for analytics                    | NATS, ClickHouse                      |
-| **Collaboration chat bridge** | 8009 | Python / FastAPI | Slack / Teams / Lark ingress → investigation-agent ([API ref](api-reference.md#collaboration-chat-bridge)) | Investigation Agent                   |
+| **ML Scoring**          | 8005 | Python / FastAPI    | Heuristic model inference, A/B testing                        | Triton Inference Server               |
+| **Investigation Agent** | 8006 | Python / FastAPI    | LLM copilot; **POST /v1/chat**; embedded **Slack / Teams / Lark** + plugin proxy under **`/v1/chat/…`** ([API ref](api-reference.md#investigation-agent), [chat contract](api-reference.md#collaboration-chat-bridge)); **POST /v1/evidence/summary** (deterministic citations + next actions) | Case API, Graph Service, Decision API, OpenAI |
+| **Event Ingest**        | 8007 | Rust / Axum         | High-throughput async event ingestion                         | NATS, Decision API                    |
+| **Analytics Sink**      | 8008 | Rust / Axum         | Streams events to ClickHouse for analytics                    | NATS, ClickHouse                      |
 | **GraphQL Gateway**     | 8010 | Python / Strawberry | Unified GraphQL API across services                           | Decision API, Case API, Graph Service |
 | **Frontend**            | 3000 | React / Vite        | Investigation UI, dashboard, graph explorer                   | Case API, Decision API                |
 
-Per-service overview pages (ports, primary endpoints, doc pointers): [Decision API](services/decision-api.md) · [Graph Service](services/graph-service.md) · [Case API](services/case-api.md) · [Feature Service](services/feature-service.md) · [ML Scoring](services/ml-scoring.md) · [Investigation Agent](services/investigation-agent.md). **Collaboration chat bridge** has no separate `services/*.md` page — see [API Reference — Collaboration Chat Bridge](api-reference.md#collaboration-chat-bridge) and [Collaboration chat & cloud](guides/investigation-collaboration-chat-aws-azure.md).
+Per-service overview pages (ports, primary endpoints, doc pointers): [Decision API](services/decision-api.md) · [Graph Service](services/graph-service.md) · [Case API](services/case-api.md) · [Feature Service](services/feature-service.md) · [ML Scoring](services/ml-scoring.md) · [Investigation Agent](services/investigation-agent.md). **Collaboration chat** is embedded in the agent process — see [API Reference — Collaboration chat (embedded)](api-reference.md#collaboration-chat-bridge) and [Collaboration chat & cloud](guides/investigation-collaboration-chat-aws-azure.md).
 
 The analyst UI uses a **single HTTP entry point** in the repo (`frontend/src/api/client.ts`): a barrel that re-exports shared types, `request()`, and per-service API objects from `frontend/src/api/modules/`. For the layout (what changed when the former monolithic `client.ts` was split), see [Frontend project](projects/frontend-project.md) (section **UI HTTP client**).
 
@@ -115,12 +120,12 @@ The analyst UI uses a **single HTTP entry point** in the repo (`frontend/src/api
 
 | Component          | Port                         | Purpose                                           |
 | ------------------ | ---------------------------- | ------------------------------------------------- |
-| **Postgres**       | 5432                         | Audit records, case data, integration state       |
+| **Postgres**       | 5432                         | Audit records, case data, integration state, Apache AGE graph |
 | **Redis**          | 6379                         | Tags, cached scores, real-time aggregates, nonces |
-| **Neo4j**          | 7687 (bolt) / 7474 (browser) | Entity graph storage                              |
 | **NATS JetStream** | 4222 / 8222 (monitoring)     | Event streaming with at-least-once delivery       |
 | **ClickHouse**     | 8123 (HTTP) / 9000 (native)  | Columnar analytics storage                        |
 | **OPA**            | 8181                         | Optional external policy engine                   |
+| **Triton**         | 8020 (HTTP) / 8021 (gRPC)    | High-performance ONNX model inference             |
 
 
 ---

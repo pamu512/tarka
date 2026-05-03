@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: investigation-agent
+spec:
+  replicas: {{ .Values.investigationAgent.replicas }}
+  selector:
+    matchLabels:
+      app: investigation-agent
+  template:
+    metadata:
+      labels:
+        app: investigation-agent
+    spec:
+      containers:
+        - name: investigation-agent
+          image: "{{ .Values.investigationAgent.image }}:{{ .Values.investigationAgent.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.investigationAgent.port }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: investigation-agent
+spec:
+  selector:
+    app: investigation-agent
+  ports:
+    - port: {{ .Values.investigationAgent.port }}
+      targetPort: {{ .Values.investigationAgent.port }}
+
