@@ -26,9 +26,6 @@ services:
   investigation-agent:
     ports: !override
       - "18006:8006"
-  collaboration-chat-bridge:
-    ports: !override
-      - "18009:8009"
   frontend:
     ports: !override
       - "13000:80"

@@ -46,9 +46,9 @@ spec:
             - name: GRAPH_SERVICE_URL
               value: "http://{{ include "tarka.fullname" . }}-graph-service:{{ .Values.graphService.servicePort }}"
             {{- end }}
-            {{- if .Values.calibrationService.enabled }}
+            {{- if .Values.mlScoring.enabled }}
             - name: CALIBRATION_SERVICE_URL
-              value: "http://{{ include "tarka.fullname" . }}-calibration-service:{{ .Values.calibrationService.port }}"
+              value: "http://{{ include "tarka.fullname" . }}-ml-scoring:{{ .Values.mlScoring.servicePort }}"
             {{- end }}
             {{- if .Values.counterService.enabled }}
             - name: COUNTER_SERVICE_URL
@@ -76,6 +76,20 @@ spec:
               value: {{ ternary "true" "false" .Values.decisionApi.tenantBindingRequired | quote }}
             - name: API_KEY_TENANT_MAP
               value: {{ .Values.decisionApi.apiKeyTenantMap | default "" | quote }}
+            - name: EDGE_SECURITY_SIGNALS_ENABLED
+              value: {{ ternary "true" "false" .Values.decisionApi.edgeSecurity.enabled | quote }}
+            - name: EDGE_WAF_ACTION_HEADER
+              value: {{ .Values.decisionApi.edgeSecurity.wafActionHeader | default "x-waf-action" | quote }}
+            - name: EDGE_BOT_SCORE_HEADER
+              value: {{ .Values.decisionApi.edgeSecurity.botScoreHeader | default "x-bot-score" | quote }}
+            - name: EDGE_BOT_SCORE_BLOCK_THRESHOLD
+              value: {{ .Values.decisionApi.edgeSecurity.botScoreBlockThreshold | default 25 | quote }}
+            - name: EDGE_BOT_SCORE_REVIEW_THRESHOLD
+              value: {{ .Values.decisionApi.edgeSecurity.botScoreReviewThreshold | default 50 | quote }}
+            {{- range $k, $v := .Values.decisionApi.extraEnv }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
             {{- if .Values.global.appSecretsName }}
             - name: API_KEYS
               valueFrom:
@@ -84,6 +98,22 @@ spec:
                   key: API_KEYS
                   optional: true
             {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /v1/ready
+              port: {{ .Values.decisionApi.servicePort }}
+            initialDelaySeconds: 8
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /v1/health
+              port: {{ .Values.decisionApi.servicePort }}
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 4
           {{- with .Values.decisionApi.resources }}
           resources:
 {{ toYaml . | indent 12 }}

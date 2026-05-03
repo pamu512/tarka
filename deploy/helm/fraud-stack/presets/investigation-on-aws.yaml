@@ -34,8 +34,6 @@ graphqlGateway:
   enabled: true
 frontend:
   enabled: true
-collaborationChatBridge:
-  enabled: true
 
 featureService:
   enabled: true

@@ -19,6 +19,15 @@ spec:
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.mlScoring.servicePort }}
+          env:
+            {{- if .Values.triton.enabled }}
+            - name: TRITON_URL
+              value: "http://{{ include "tarka.fullname" . }}-triton:{{ .Values.triton.servicePort }}"
+            - name: TRITON_MODEL_INPUT
+              value: {{ .Values.mlScoring.tritonModelInput | default "X" | quote }}
+            - name: TRITON_MODEL_OUTPUT
+              value: {{ .Values.mlScoring.tritonModelOutput | default "probabilities" | quote }}
+            {{- end }}
 ---
 apiVersion: v1
 kind: Service

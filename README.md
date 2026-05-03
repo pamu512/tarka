@@ -25,22 +25,30 @@ Open-source, modular fraud detection platform. Pick the components you need or r
 | **You own** | Upgrades, uptime, compliance mapping | Commercial terms + vendor support (where purchased) |
 | **Code** | Here in `services/investigation-agent` | [github.com/pamu512/Saarthi-pro](https://github.com/pamu512/Saarthi-pro) |
 
+## Deployment Reality
+
+- **Production team:** plan for **2-3 engineers** to operate Tarka reliably.
+- **Time to production:** expect **3-6 months** for a full production deployment.
+- **Best fit scale:** strongest value in the **1M-10M transactions/year** range.
+- **Typical TCO at 10M tx/year:** **$150K-$250K/year** all-in (infra + engineering operations).
+- **Dual mode:** keep full-stack Tarka for advanced operations; use **Tarka Lite** for simpler, reliable deployments.
+
 ## What’s on trunk (shipping now)
 
 These capabilities are in the codebase today and roll forward on `master`:
 
-- **Decision API:** normalized **`inference_context`** on evaluate responses (integrity, tamper, network trust, replay, geo-consistency, top signals) plus OpenAPI contract alignment; **session geo** merges optional **browser GPS** and **server IP geo** hints; **`sdk:geo_ip_mismatch`** / **`sdk:geo_tz_mismatch`** signal tags when inconsistent; **`/v1/ops/calibration-status`** and **`calibration_status`** on **`/v1/ops/governance`** for drift posture.
+- **Decision API:** normalized **`inference_context`** on evaluate responses (integrity, tamper, network trust, replay, geo-consistency, top signals) plus OpenAPI contract alignment; **session geo** merges optional **browser GPS** and **server IP geo** hints; **`sdk:geo_ip_mismatch`** / **`sdk:geo_tz_mismatch`** signal tags when inconsistent; **`/v1/ops/calibration-status`** and **`calibration_status`** on **`/v1/ops/governance`** for drift posture (when an external **calibration service** is not configured, governance still returns a **hint** such as `calibration_service_not_configured`—see `CALIBRATION_SERVICE_URL` in [deployment](docs/docs/guides/deployment.md)).
 - **Ingress hardening:** **replay-style payload detection** (short-lived Redis signatures) folded into scoring and audit context; optional **HMAC** on `POST /v1/decisions/evaluate` when **`REQUEST_SIGNATURE_SECRET`** is set (see [TLS pinning & signed requests](docs/docs/guides/tls-pinning-and-signed-requests.md)).
 - **SDKs:** **Python** and **TypeScript** clients typed for `inference_context` on evaluate responses; **TypeScript** optional **`enableGeo`** (browser GPS); **Python** server collector optional **`enable_ip_geo`** / **`ENABLE_IP_GEO_LOOKUP`** (public IP lookup is **off** by default).
 - **Graph (lite path):** default schema includes **`Place`** (quantized geo cells) and **`SEEN_AT`** edges for co-location–style graph context when enabled.
 - **Frontend:** case explainability surfaces **inference metrics**; API client can **fall back to mock data** when backends are down (demo-friendly).
 - **Ops / planning:** module **project roadmaps** under `docs/docs/projects/`, **30/60/90** plan, competitive notes, and **OSS adoption backlog** (issues + dependency order in docs).
 
-### April 2026 — Investigation copilot, collaboration bridge, and ops
+### April 2026 — Investigation copilot, collaboration ingress, and ops
 
-- **Investigation agent (Saarthi):** **`GET /v1/ready`** (data-dir readiness), **`GET /v1/setup`** (first-run checklist), and a **`production`** object on **`GET /v1/health`** when production profiling is enabled; **`GET /v1/workflows`** with **`workflow_id` / `workflow_params`** (plus **`playbook_id` / `batch_id`** where applicable) on **`POST /v1/chat`**; **case-summary PDF** and **turn-bundle** report routes; optional **copilot rate limits** and **request body size cap**. Reference env: **`services/investigation-agent/.env.reference.example`**. Hardening compose: **`deploy/docker-compose.production-hardening.yml`**. Integration notes: **[CHANGELOG_INTEGRATION](docs/docs/guides/CHANGELOG_INTEGRATION.md)**.
+- **Investigation agent (Saarthi):** **`GET /v1/ready`** (data-dir readiness), **`GET /v1/setup`** (first-run checklist), and a **`production`** object on **`GET /v1/health`** when production profiling is enabled; **`GET /v1/workflows`** with **`workflow_id` / `workflow_params`** (plus **`playbook_id` / `batch_id`** where applicable) on **`POST /v1/chat`**; **case-summary PDF** and **turn-bundle** report routes; optional **copilot rate limits** and **request body size cap**. Reference env: **`services/investigation-agent/.env.example`**. Hardening compose: **`deploy/docker-compose.production-hardening.yml`**. Integration notes: **[CHANGELOG_INTEGRATION](docs/docs/guides/CHANGELOG_INTEGRATION.md)**.
 - **Trust / ops, evidence summary, parity:** Decision API **`GET /v1/ops/evaluation-posture`** + **`GET /v1/slo`** for the console readiness strip; **`POST /v1/evidence/summary`** (deterministic citations + next actions); Feature Service **`POST /v1/internal/parity/verify`**. Indexed in **[API Reference](docs/docs/api-reference.md)** (Decision, Feature Service, Investigation Agent sections).
-- **Collaboration chat bridge** (`services/collaboration-chat-bridge`): **Slack, Microsoft Teams, and Lark** with optional **per-source minute rate limits**; **Slack file** text extraction (plain text, CSV, PDF, **Excel .xlsx**); **SSRF-hardened** fetch of the first public **`https://`** URL in the user line; directives **`!wf`**, **`!wfp`**, **`!style`**; forwards workflow and batch fields to the agent. Details: **`services/collaboration-chat-bridge/README.md`**, **[Collaboration chat & cloud](docs/docs/guides/investigation-collaboration-chat-aws-azure.md)**.
+- **Collaboration chat (Slack, Teams, Lark):** implemented **inside** **`services/investigation-agent`** as **`investigation_agent.chat_bridge`** (mounted on the agent process; the stand-alone **`services/collaboration-chat-bridge`** service was **removed** in favor of this consolidation). Features include optional **per-source minute rate limits**, **Slack file** text extraction (plain text, CSV, PDF, **Excel .xlsx**), **SSRF-hardened** fetch of the first public **`https://`** URL, directives **`!wf`**, **`!wfp`**, **`!style`**, and forwarding workflow/batch fields to the copilot. Operator wiring: **[Collaboration chat & cloud](docs/docs/guides/investigation-collaboration-chat-aws-azure.md)** (replace references to a separate `collaboration-chat-bridge` container with **`investigation-agent`** on **:8006**).
 - **Frontend:** **Investigation** page updates for copilot setup and workflows (`frontend/src/pages/Investigation.tsx`).
 - **Observability & deploy:** Grafana dashboard JSON for copilot metrics under **`deploy/observability/`**; optional **`deploy/docker-compose.host-ports.override.yml`** for local port mapping; guide **[Investigation CMS & ITSM](docs/docs/guides/investigation-cms-and-itsm-integrations.md)**.
 
@@ -61,7 +69,7 @@ Mirrors [docs/docs/releases/v1.1.0-2026-04-30.md](docs/docs/releases/v1.1.0-2026
 - **Dependabot**: grouped updates for **GitHub Actions**, **pip** (core services), **npm** (frontend).
 - **Docs:** **`SECURITY.md`** (responsible disclosure), **`LICENSE-DEPENDENCIES.md`** (Neo4j AGPL / lite and alternates), **`CODE_OF_CONDUCT.md`**, **`docs/docs/guides/security-scanning.md`**, **`docs/docs/guides/sandbox-five-minute.md`** (copy-paste evaluate + OSINT + UI path).
 - **Onboarding:** **`.devcontainer/devcontainer.json`** (Codespaces / Docker-outside-Docker); **README** badges (CI, security scan, Codespaces); **Maintainer walkthrough (Loom, [Tarka](https://github.com/pamu512/tarka) / this repo only):** [five-minute sandbox + Case Detail explainability](https://www.loom.com/share/b46f1eccbc6b438381ee44c6978f2f5e). *(Not [Skuld](https://github.com/pamu512/Skuld) or other repos — those are separate products.)*
-- **`deploy/docker-compose.lite.yml`**: adds **integration-ingress** (**8003**) so lite stack matches the five-minute OSINT demo without full Neo4j.
+- **`deploy/docker-compose.lite.yml`**: adds **integration-ingress** (**8003**) so lite stack matches the five-minute OSINT demo without full Neo4j. Optional **`--profile ingest`** adds **NATS** + **event-ingest** (**8007**) for the **evaluate + case + async ingest** demo (see [Demo vertical smoke](scripts/README.md#demo-vertical-smoke)).
 
 **Planned validation (release gate)**
 
@@ -135,6 +143,16 @@ python tarka.py install --modules core,graph,ml,frontend
 
 **Full copy-paste path:** [docs/docs/guides/sandbox-five-minute.md](docs/docs/guides/sandbox-five-minute.md) — `docker compose -f deploy/docker-compose.lite.yml up -d --build`, then `curl` the Decision API for live **`inference_context`**, Integration Ingress for **parallel OSINT**, and open the **frontend** (mock fallbacks for graph-heavy views when Neo4j is not running).
 
+**Demo vertical (synchronous evaluate → case API → event ingest, optional UI):** start **Lite** with the **`ingest`** profile and the optional key override, then run the smoke script (CI contracts in `scripts/ci/test_demo_vertical_contracts.py`):
+
+```bash
+docker compose -f deploy/docker-compose.lite.yml -f deploy/docker-compose.demo-vertical.yml --profile ingest up -d --build
+export DEMO_API_KEY=tarka-demo-vertical
+python3 scripts/ci/demo_vertical_smoke.py
+```
+
+Omit `docker-compose.demo-vertical.yml` if you prefer the default auth model; the smoke script falls back to a **read-only** case list when case **create** returns **401/403**. Use **`--skip-frontend`** if port **3000** is not available.
+
 ### Prebuilt images (optional)
 
 ```bash
@@ -181,7 +199,7 @@ CLI slugs stay stable; **codenames** are the product story (see [Module codename
 | `integration` | **Setu** | KYC adapters, **12-source OSINT enrichment** | Postgres |
 | `agent` | **Saarthi** | AI investigation copilot (LLM tool-use) | — |
 | `streaming` | **Srotas** | High-throughput event ingestion via NATS JetStream | NATS |
-| `analytics` | **Kala** | ClickHouse OLAP, historical decision analytics | ClickHouse, NATS |
+| `analytics` | **Kala** | Historical decision analytics (**full** stack: ClickHouse + NATS; **Tarka Lite**: Postgres-backed **data-platform** — see `deploy/docker-compose.lite.yml`) | ClickHouse + NATS *or* Postgres + Redis |
 | `gateway` | **Riti** | Unified GraphQL API over all REST services | — |
 | `frontend` | **Dwar** | React dashboard (10 pages) | — |
 
@@ -246,7 +264,7 @@ Investigation UI --> Case API --> Graph Service
                        |
                   AI Agent (LLM tool-use)
 
-Event Ingest --> NATS JetStream --> Analytics Sink --> ClickHouse
+Event Ingest --> NATS JetStream --> Analytics Sink --> ClickHouse *(full profile; Lite uses data-platform on Postgres)*
 ```
 
 ## Components
@@ -259,9 +277,8 @@ Event Ingest --> NATS JetStream --> Analytics Sink --> ClickHouse
 | `integration-ingress` | 8003 | KYC webhooks, adapter registry, **OSINT enrichment (12 sources)** |
 | `feature-service` | 8004 | Feature engineering, enrichment, OSINT signal injection |
 | `ml-scoring` | 8005 | ONNX inference, adaptive autoencoder, drift detection, model registry |
-| `investigation-agent` | 8006 | AI copilot with LLM tool-use loop |
-| `collaboration-chat-bridge` | 8009 | Slack / Teams / Lark → investigation-agent (`collab` profile) |
-| `event-ingest` | 8007 | NATS-based high-throughput event ingestion |
+| `investigation-agent` | 8006 | AI copilot with LLM tool-use loop **and embedded Slack/Teams/Lark chat bridge** (`chat_bridge`, former stand-alone service removed) |
+| `event-ingest` | 8007 | NATS-based high-throughput event ingestion (`streaming` / `ingest` profiles; optional on **Lite** via `--profile ingest`) |
 | `analytics-sink` | 8008 | ClickHouse analytics writer |
 | `graphql-gateway` | 8010 | Unified GraphQL API |
 | `frontend` | 3000 | React dashboard (10 pages) |

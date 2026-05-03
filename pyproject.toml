@@ -26,14 +26,14 @@ dependencies = [
 [project.optional-dependencies]
 # Individual modules — install only what you need
 core = [
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.32.0",
+    "fastapi>=0.135.0",
+    "uvicorn[standard]>=0.44.0",
     "redis[hiredis]>=5.2.0",
-    "sqlalchemy[asyncio]>=2.0.36",
-    "asyncpg>=0.30.0",
+    "sqlalchemy[asyncio]>=2.0.49",
+    "asyncpg>=0.31.0",
     "httpx>=0.28.0",
     "pydantic-settings>=2.6.0",
-    "pydantic>=2.10.0",
+    "pydantic>=2.13.0",
 ]
 graph = [
     "neo4j>=5.25.0",
@@ -44,9 +44,9 @@ ml = [
     "scikit-learn>=1.5.0",
 ]
 cases = [
-    "fastapi>=0.115.0",
-    "sqlalchemy[asyncio]>=2.0.36",
-    "asyncpg>=0.30.0",
+    "fastapi>=0.135.0",
+    "sqlalchemy[asyncio]>=2.0.49",
+    "asyncpg>=0.31.0",
 ]
 streaming = [
     "nats-py>=2.9.0",
@@ -68,6 +68,12 @@ sdk = [
     "httpx>=0.28.0",
 ]
 
+observability = [
+    "opentelemetry-api>=1.27.0",
+    "opentelemetry-sdk>=1.27.0",
+    "opentelemetry-instrumentation-fastapi>=0.48b0",
+]
+
 # Bundles — common combinations
 lite = [
     "tarka[core,cases]",
@@ -79,40 +85,41 @@ full = [
     "tarka[core,graph,ml,cases,streaming,analytics,agent,osint,gateway]",
 ]
 
-# Development
-dev = [
-    "ruff>=0.8.0",
-    "pytest>=8.0",
-    "pytest-asyncio>=0.24.0",
-    "httpx>=0.28.0",
-    "mypy>=1.0",
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".git",
+    "*.egg-info",
+    "dist",
+    "build",
 ]
 
-[project.scripts]
-tarka = "tarka:main"
-
-[project.urls]
-Homepage = "https://github.com/tarka-fraud/tarka"
-Documentation = "https://tarka-fraud.github.io/tarka"
-Repository = "https://github.com/tarka-fraud/tarka"
-Issues = "https://github.com/tarka-fraud/tarka/issues"
-
-[build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools]
-py-modules = ["tarka"]
-
-[tool.ruff]
-# 160 accommodates long catalog URLs and benchmark output without per-line churn; keep new code readable.
-line-length = 160
-target-version = "py311"
-# Cookiecutter templates contain Jinja in .py files; exclude from Python lint.
-extend-exclude = ["templates/cookiecutter-investigation-integration-adapter"]
-
 [tool.ruff.lint]
-select = ["E", "F", "I", "W"]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # Pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "W",   # pycodestyle warnings
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",  # Line too long (handled by formatter)
+    "E402",  # Module level import not at top (for shared imports)
+]
 
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
