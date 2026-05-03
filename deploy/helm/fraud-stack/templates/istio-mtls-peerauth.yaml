@@ -1,0 +1,9 @@
+{{- if and .Values.global.serviceMesh.enabled (eq (default "istio" .Values.global.serviceMesh.provider) "istio") .Values.global.serviceMesh.strictMtls }}
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: {{ include "tarka.fullname" . }}-default-strict-mtls
+spec:
+  mtls:
+    mode: STRICT
+{{- end }}
