@@ -6,6 +6,7 @@ use parking_lot::Mutex;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use regex::Regex;
+use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
@@ -211,15 +212,24 @@ fn match_condition(features: &serde_json::Map<String, Value>, condition: &Condit
     }
 }
 
+#[derive(Clone, Serialize)]
+struct TelEvent {
+    pack_file: String,
+    rule_id: String,
+    kind: String,
+}
+
 fn evaluate_pack(
     pack: &ParsedPack,
     features: &serde_json::Map<String, Value>,
     redis_tags: &[String],
-) -> (Vec<String>, Vec<String>, f64, Option<String>) {
+) -> (Vec<String>, Vec<String>, f64, Option<String>, Vec<TelEvent>) {
     let mut hits = Vec::new();
     let mut tags = Vec::new();
     let mut delta = 0.0;
+    let mut telemetry: Vec<TelEvent> = Vec::new();
     let t0 = Instant::now();
+    let pf_base = pack.source_file.clone();
     for rule in &pack.rules {
         if t0.elapsed() > MAX_EVAL_TIME {
             break;
@@ -231,6 +241,11 @@ fn evaluate_pack(
             hits.push(rule.id.clone());
             tags.extend(rule.tags.iter().cloned());
             delta += rule.score_delta;
+            telemetry.push(TelEvent {
+                pack_file: pf_base.clone(),
+                rule_id: rule.id.clone(),
+                kind: "rule".to_string(),
+            });
         }
     }
     let redis_set: HashSet<&str> = redis_tags.iter().map(String::as_str).collect();
@@ -248,6 +263,11 @@ fn evaluate_pack(
             hits.push(rid.to_string());
             tags.extend(rule.tags.iter().cloned());
             delta += rule.score_delta;
+            telemetry.push(TelEvent {
+                pack_file: pf_base.clone(),
+                rule_id: rid.to_string(),
+                kind: "tag_rule".to_string(),
+            });
         }
     }
     let src = pack.source_file.clone();
@@ -256,10 +276,12 @@ fn evaluate_pack(
     } else {
         Some(src)
     };
-    (hits, tags, delta, contributing)
+    (hits, tags, delta, contributing, telemetry)
 }
 
-fn parse_active_packs(arr: &[Value]) -> Vec<Arc<ParsedPack>> {
+/// Parse rule packs from JSON. When `exclude_shadow` is true, packs with mode `shadow` are skipped
+/// (production / GitOps sync path). When false, shadow packs are included (adhoc / shadow evaluation).
+fn parse_active_packs(arr: &[Value], exclude_shadow: bool) -> Vec<Arc<ParsedPack>> {
     let mut out = Vec::new();
     for v in arr {
         let version = v.get("version").and_then(|x| x.as_u64()).unwrap_or(0);
@@ -267,7 +289,10 @@ fn parse_active_packs(arr: &[Value]) -> Vec<Arc<ParsedPack>> {
             continue;
         }
         let mode = v.get("mode").and_then(|x| x.as_str()).unwrap_or("active");
-        if mode == "disabled" || mode == "shadow" {
+        if mode == "disabled" {
+            continue;
+        }
+        if exclude_shadow && mode == "shadow" {
             continue;
         }
         let source_file = v
@@ -280,9 +305,9 @@ fn parse_active_packs(arr: &[Value]) -> Vec<Arc<ParsedPack>> {
             .get("effective_at")
             .and_then(|x| x.as_str())
             .and_then(parse_effective_at);
-        let rules_json = match v.get("rules").and_then(|x| x.as_array()) {
-            Some(r) => r,
-            None => continue,
+        let rules_json: &[Value] = match v.get("rules").and_then(|x| x.as_array()) {
+            Some(r) => r.as_slice(),
+            None => &[],
         };
         let mut rules = Vec::new();
         for rule in rules_json.iter().take(MAX_RULES_PER_PACK) {
@@ -384,7 +409,7 @@ fn get_cached_parsed(json: &Arc<String>) -> Arc<Vec<Arc<ParsedPack>>> {
         }
     }
     let parsed: Arc<Vec<Arc<ParsedPack>>> = match serde_json::from_str::<Vec<Value>>(json.as_str()) {
-        Ok(arr) => Arc::new(parse_active_packs(&arr)),
+        Ok(arr) => Arc::new(parse_active_packs(&arr, true)),
         Err(_) => Arc::new(Vec::new()),
     };
     let mut cache = PARSED_CACHE.lock();
@@ -410,6 +435,62 @@ fn sync_packs_json(packs_json: String) -> PyResult<()> {
         .map_err(|e| PyErr::new::<PyValueError, _>(format!("serialize packs: {e}")))?;
     *ACTIVE_PACKS_JSON.lock() = Some(Arc::new(s));
     Ok(())
+}
+
+fn merge_tags_signal(
+    redis_tags_json: &str,
+    signal_tags_json: Option<&str>,
+) -> Vec<String> {
+    let mut redis_tags: Vec<String> = serde_json::from_str(redis_tags_json).unwrap_or_default();
+    if let Some(st) = signal_tags_json {
+        if let Ok(extra) = serde_json::from_str::<Vec<String>>(st) {
+            let mut seen: HashSet<String> = redis_tags.iter().cloned().collect();
+            for t in extra {
+                if seen.insert(t.clone()) {
+                    redis_tags.push(t);
+                }
+            }
+        }
+    }
+    redis_tags
+}
+
+fn evaluate_parsed_slice(
+    parsed: &[Arc<ParsedPack>],
+    fmap: &serde_json::Map<String, Value>,
+    redis_tags: &[String],
+    tid: &str,
+    eid: &str,
+    mode: &str,
+) -> serde_json::Value {
+    let mut hits: Vec<String> = Vec::new();
+    let mut tags: Vec<String> = Vec::new();
+    let mut delta = 0.0;
+    let mut contributing: Vec<String> = Vec::new();
+    let mut telemetry: Vec<TelEvent> = Vec::new();
+
+    for pack in parsed.iter() {
+        if !pack_should_apply(pack, tid, eid, mode) {
+            continue;
+        }
+        let (h, t, d, pf, tel) = evaluate_pack(pack, fmap, redis_tags);
+        hits.extend(h);
+        tags.extend(t);
+        delta += d;
+        telemetry.extend(tel);
+        if let Some(p) = pf {
+            contributing.push(p);
+        }
+    }
+    contributing.sort();
+    contributing.dedup();
+    serde_json::json!({
+        "rule_hits": hits,
+        "tags": tags,
+        "score_delta": delta,
+        "contributing_pack_files": contributing,
+        "telemetry": telemetry,
+    })
 }
 
 #[pyfunction]
@@ -443,17 +524,8 @@ fn evaluate_json_rules_rust(
         .cloned()
         .unwrap_or_else(|| serde_json::Map::new());
 
-    let mut redis_tags: Vec<String> = serde_json::from_str(&redis_tags_json).unwrap_or_default();
-    if let Some(st) = signal_tags_json {
-        if let Ok(extra) = serde_json::from_str::<Vec<String>>(&st) {
-            let mut seen: HashSet<String> = redis_tags.iter().cloned().collect();
-            for t in extra {
-                if seen.insert(t.clone()) {
-                    redis_tags.push(t);
-                }
-            }
-        }
-    }
+    let st_ref = signal_tags_json.as_deref();
+    let redis_tags = merge_tags_signal(&redis_tags_json, st_ref);
 
     let tid = tenant_id.trim();
     let tid = if tid.is_empty() { "default" } else { tid };
@@ -464,31 +536,45 @@ fn evaluate_json_rules_rust(
         _ => "production",
     };
 
-    let mut hits: Vec<String> = Vec::new();
-    let mut tags: Vec<String> = Vec::new();
-    let mut delta = 0.0;
-    let mut contributing: Vec<String> = Vec::new();
+    let out = evaluate_parsed_slice(&parsed, &fmap, &redis_tags, tid, eid, mode);
+    serde_json::to_string(&out).map_err(|e| PyErr::new::<PyValueError, _>(e.to_string()))
+}
 
-    for pack in parsed.iter() {
-        if !pack_should_apply(pack, tid, eid, mode) {
-            continue;
-        }
-        let (h, t, d, pf) = evaluate_pack(pack, &fmap, &redis_tags);
-        hits.extend(h);
-        tags.extend(t);
-        delta += d;
-        if let Some(p) = pf {
-            contributing.push(p);
-        }
-    }
-    contributing.sort();
-    contributing.dedup();
-    let out = serde_json::json!({
-        "rule_hits": hits,
-        "tags": tags,
-        "score_delta": delta,
-        "contributing_pack_files": contributing,
-    });
+/// Evaluate caller-supplied packs (e.g. shadow / recommendation preview) without touching global sync state.
+#[pyfunction]
+fn evaluate_adhoc_packs_rust(
+    packs_json: String,
+    features_json: String,
+    redis_tags_json: String,
+    tenant_id: String,
+    entity_id: String,
+    evaluation_mode: String,
+    signal_tags_json: Option<String>,
+) -> PyResult<String> {
+    let arr: Vec<Value> = serde_json::from_str(&packs_json)
+        .map_err(|e| PyErr::new::<PyValueError, _>(format!("packs json: {e}")))?;
+    let parsed: Vec<Arc<ParsedPack>> = parse_active_packs(&arr, false);
+
+    let features: Value = serde_json::from_str(&features_json)
+        .map_err(|e| PyErr::new::<PyValueError, _>(format!("features json: {e}")))?;
+    let fmap = features
+        .as_object()
+        .cloned()
+        .unwrap_or_else(|| serde_json::Map::new());
+
+    let st_ref = signal_tags_json.as_deref();
+    let redis_tags = merge_tags_signal(&redis_tags_json, st_ref);
+
+    let tid = tenant_id.trim();
+    let tid = if tid.is_empty() { "default" } else { tid };
+    let eid = entity_id.trim();
+    let eid = if eid.is_empty() { "default" } else { eid };
+    let mode = match evaluation_mode.as_str() {
+        "production" | "simulation" | "challenger" => evaluation_mode.as_str(),
+        _ => "production",
+    };
+
+    let out = evaluate_parsed_slice(&parsed, &fmap, &redis_tags, tid, eid, mode);
     serde_json::to_string(&out).map_err(|e| PyErr::new::<PyValueError, _>(e.to_string()))
 }
 
@@ -496,6 +582,7 @@ fn evaluate_json_rules_rust(
 fn tarka_rule_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sync_packs_json, m)?)?;
     m.add_function(wrap_pyfunction!(evaluate_json_rules_rust, m)?)?;
+    m.add_function(wrap_pyfunction!(evaluate_adhoc_packs_rust, m)?)?;
     m.add_function(wrap_pyfunction!(rust_engine_cache_stats, m)?)?;
     Ok(())
 }

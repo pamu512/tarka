@@ -1,6 +1,6 @@
 # Tarka Lite — "try it in 5 minutes" deployment
 # Core: postgres, redis, core-api (decision+case), integration-ingress, frontend.
-# Optional OSS path: Neo4j + graph-service (profile: graph); signal-api (features+ML+counter+location) is always on for core-api.
+# Optional OSS path: Gremlin Server (JanusGraph-compatible) + graph-service (profile: graph); signal-api is always on for core-api.
 # so policy routing, typologies, velocities, and graph checkpoints work without the full stack.
 #
 # Usage:
@@ -46,17 +46,11 @@ services:
       - "4222:4222"
     volumes:
       - fraud_nats_lite:/data
-    profiles: [ingest]
 
-  neo4j:
-    image: neo4j:5-community
-    environment:
-      NEO4J_AUTH: neo4j/tarka2026
+  janusgraph:
+    image: tinkerpop/gremlin-server:3.7.2
     ports:
-      - "7474:7474"
-      - "7687:7687"
-    volumes:
-      - fraud_neo4j_lite:/data
+      - "8182:8182"
     profiles: [graph]
 
   # ---------- Core Services ----------
@@ -71,6 +65,7 @@ services:
       FEATURE_SERVICE_URL: ${FEATURE_SERVICE_URL:-http://signal-api:8004/features}
       ML_SCORING_URL: ${ML_SCORING_URL:-http://signal-api:8004/ml}
       GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-}
+      NATS_URL: ${NATS_URL:-nats://nats:4222}
       OPA_URL: ""
       EDGE_SECURITY_SIGNALS_ENABLED: ${EDGE_SECURITY_SIGNALS_ENABLED:-false}
       API_KEYS: ${API_KEYS:-}
@@ -83,6 +78,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      nats:
+        condition: service_started
       signal-api:
         condition: service_started
     healthcheck:
@@ -97,13 +94,12 @@ services:
       context: ..
       dockerfile: services/graph-service/Dockerfile
     environment:
-      NEO4J_URI: bolt://neo4j:7687
-      NEO4J_USER: neo4j
-      NEO4J_PASSWORD: tarka2026
+      GRAPH_BACKEND: janusgraph
+      JANUSGRAPH_GREMLIN_URL: ws://janusgraph:8182/gremlin
     ports:
       - "8001:8001"
     depends_on:
-      - neo4j
+      - janusgraph
     profiles: [graph]
 
   signal-api:
@@ -130,11 +126,17 @@ services:
       KMS_PROVIDER: local
       KMS_ACTIVE_KEY_ID: lite-v1
       INTEGRATION_VAULT_KEY: lite-dev-key
+      NATS_URL: nats://nats:4222
+      REDIS_URL: redis://redis:6379/0
     ports:
       - "8003:8003"
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/v1/health')"]
       interval: 10s
@@ -215,5 +217,4 @@ services:
 
 volumes:
   fraud_pg:
-  fraud_neo4j_lite:
   fraud_nats_lite:

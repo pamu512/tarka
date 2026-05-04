@@ -30,8 +30,8 @@ Tarka separates the Decision Plane (Fast/Stateless) from the Audit Plane (Durabl
 The audit story above sits on top of concrete services—not vaporware directories.
 
 *   **Signal plane (Anumana):** [`services/signal-api/`](services/signal-api/) runs one Uvicorn process that mounts **feature-service**, ML scoring, calibration, counters, and location. The feature sub-app lives in [`services/feature-service/`](services/feature-service/) and uses **Redis** (`redis[hiredis]`) for real-time temporal aggregates, velocity-style context, and parity checks—this is the bounded “fast features” path, not authoritative audit storage.
-*   **Rust rule engine (packaged, optional hot path):** [`services/rule-engine/`](services/rule-engine/) is a **`tarka_rule_engine`** Rust crate exposed as a **PyO3** extension module (`cdylib`, abi3). Use it for benchmarks and forward integration. **Today, synchronous scoring in [`services/core-api/`](services/core-api/) still goes through the Python JSON evaluator** in [`services/decision-api/`](services/decision-api/) (`json_rules` and friends). Treat the Rust extension as a performance primitive until your deployment explicitly wires it into evaluate.
-*   **Graph service (Jaala):** [`services/graph-service/`](services/graph-service/) persists entities and edges to **Neo4j** (Bolt + Cypher) by default, or to **JanusGraph** via **Gremlin Server** when `GRAPH_BACKEND=janusgraph`—same HTTP API, different backend. That Janus path exists so operators can avoid Neo4j’s **AGPL-3.0** network-copyleft posture in production if legal requires it. Operator guide: [`services/graph-service/docs/janusgraph-adapter.md`](services/graph-service/docs/janusgraph-adapter.md).
+*   **Rust rule engine (mandatory evaluate path):** [`services/rule-engine/`](services/rule-engine/) is a **`tarka_rule_engine`** Rust crate exposed as a **PyO3** extension module (`cdylib`, abi3). **Production JSON rule evaluation runs only through this Rust core**; `services/decision-api` syncs active packs into the extension at load/reload time. Build: `pip install maturin && cd services/rule-engine && maturin develop --release`.
+*   **Graph service (Jaala):** [`services/graph-service/`](services/graph-service/) defaults to **Gremlin Server** (`GRAPH_BACKEND=janusgraph`, `JANUSGRAPH_GREMLIN_URL`)—Apache-2.0 friendly. **Neo4j** (Bolt + Cypher) remains available as an explicit operator choice (`GRAPH_BACKEND=neo4j`) when you accept its **AGPL-3.0** obligations. Same HTTP API either way. Operator guide: [`services/graph-service/docs/janusgraph-adapter.md`](services/graph-service/docs/janusgraph-adapter.md).
 
 ***
 
@@ -65,7 +65,7 @@ Tarka is modular. CLI slugs stay stable; the Sanskrit codenames represent the pr
 | `integration` | **Setu** | **Verified:** 12-source OSINT with Postgres-backed Screening Logs. |
 | `cases` | **Lekh** | **Durable Intent:** SAR generation with persistent filing state machines. |
 | `ml` | **Anumana** | **Redis + ONNX:** `signal-api` mounts feature-service (Redis temporal aggregates) and ML scoring; not a second mystery “AI box.” |
-| `graph` | **Jaala** | **Durable graph:** Neo4j (default) or **JanusGraph + Gremlin** (`GRAPH_BACKEND=janusgraph`); same HTTP API—see `services/graph-service/docs/janusgraph-adapter.md`. |
+| `graph` | **Jaala** | **Durable graph:** **Gremlin / JanusGraph-compatible** default (`GRAPH_BACKEND=janusgraph`); optional **Neo4j** (`GRAPH_BACKEND=neo4j`, AGPL)—see `services/graph-service/docs/janusgraph-adapter.md`. |
 | `agent` | **Saarthi** | **Tool-Use Loop:** AI investigation copilot with strict execution boundaries. |
 | `forensics` | **Shadow** | **Local-First:** Agentic forensics and logic stress-testing via Ollama. |
 
@@ -89,7 +89,9 @@ For high-sensitivity investigations, Tarka integrates with **[Shadow](https://gi
 ### 📡 The Signals We Actually Collect
 
 #### 1. OSINT Enrichment (Integration Ingress)
-Built-in OSINT enrichment queries 12 sources in parallel (9 work without API keys):
+**Evaluate path:** `decision-api` does **not** block on outbound OSINT HTTP during `/v1/decisions/evaluate`. It merges the latest materialized OSINT from **Redis** (written asynchronously by integration-ingress from **NATS** `fraud.enrichment.request`) and publishes a refresh request each evaluation so the worker can update the cache.
+
+**Worker path:** Built-in OSINT enrichment queries 12 sources in parallel (9 work without API keys):
 *   **IP Data:** Shodan InternetDB (Open ports/CVEs), AbuseIPDB, GreyNoise, IPinfo Lite, ip-api.com.
 *   **Email Data:** EmailRep.io, Gravatar, Have I Been Pwned, DNS MX validation.
 *   **Phone/Domain/Identity:** NumVerify, RDAP, GitHub profile discovery.
@@ -111,7 +113,7 @@ Tarka is built to run locally via Docker Compose or be installed via our Python 
 git clone https://github.com/pamu512/tarka.git
 cd tarka
 
-# Option 1: Minimal setup (Decision + Case + OSINT + UI + Postgres Audit; no Neo4j)
+# Option 1: Minimal setup (Decision + Case + OSINT + UI + Postgres Audit; no graph profile)
 python tarka.py install --lite
 
 # Option 2: Interactive installer (pick your modules)
@@ -143,4 +145,4 @@ docker compose -f https://raw.githubusercontent.com/pamu512/tarka/master/deploy/
 
 *   **Security Hygiene:** We run strict CI/CD gates. GitHub Actions enforces Ruff linting, pytest coverage (≥48% gate), Trivy filesystem/image scanning, and TruffleHog secret scanning on every PR.
 *   **License:** Application code in this repository is **Apache-2.0**. 
-*   **The AGPL Warning:** Default graph mode uses **Neo4j**, which is **AGPL-3.0** in typical networked deployments. Mitigations: **`--lite`** (no graph), **`GRAPH_BACKEND=janusgraph`** with your own JanusGraph/Gremlin stack (see [`services/graph-service/docs/janusgraph-adapter.md`](services/graph-service/docs/janusgraph-adapter.md)), or other backends documented in **`LICENSE-DEPENDENCIES.md`**.
+*   **Graph licensing:** The **default** sandbox and `graph-service` settings target **Gremlin Server** (JanusGraph-compatible, Apache-2.0 stack in [`deploy/docker-compose.lite.yml`](deploy/docker-compose.lite.yml)). If you opt into **Neo4j** (`GRAPH_BACKEND=neo4j`), review **AGPL-3.0** obligations in **`LICENSE-DEPENDENCIES.md`**.

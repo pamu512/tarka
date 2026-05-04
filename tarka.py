@@ -52,10 +52,10 @@ MODULES: dict[str, dict[str, Any]] = {
     },
     "graph": {
         "codename": "Jaala",
-        "name": "Graph Service (Neo4j)",
+        "name": "Graph Service (Gremlin / JanusGraph-compatible)",
         "description": "Entity resolution, link analysis, community detection, fraud ring discovery",
         "services": ["graph-service"],
-        "infra": ["neo4j"],
+        "infra": ["janusgraph"],
         "profiles": ["graph"],
         "port": 8001,
     },
@@ -482,11 +482,10 @@ def _generate_env(modules: list[str]):
     if "graph" in modules:
         lines.extend(
             [
-                "# Graph Service",
+                "# Graph Service (Gremlin Server / JanusGraph-compatible backend)",
                 "GRAPH_SERVICE_URL=http://graph-service:8001",
-                "NEO4J_URI=bolt://neo4j:7687",
-                "NEO4J_USER=neo4j",
-                "NEO4J_PASSWORD=tarka2026",
+                "GRAPH_BACKEND=janusgraph",
+                "JANUSGRAPH_GREMLIN_URL=ws://janusgraph:8182/gremlin",
                 "",
             ]
         )
@@ -513,6 +512,10 @@ def _generate_env(modules: list[str]):
     if "integration" in modules:
         lines.extend(
             [
+                "# Async OSINT fan-in (integration-ingress consumes NATS; writes Redis for evaluate path)",
+                "NATS_URL=nats://nats:4222",
+                "REDIS_URL=redis://redis:6379/0",
+                "",
                 "# OSINT API Keys (all optional — sources work without keys at lower limits)",
                 "ABUSEIPDB_KEY=",
                 "GREYNOISE_KEY=",

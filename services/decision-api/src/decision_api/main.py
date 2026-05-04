@@ -21,6 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decision_api.config import settings
+from decision_api.deps import close_analytics_infra, open_analytics_infra
 
 try:
     from decision_api.config import dependency_resilience_policy_table
@@ -85,11 +86,11 @@ except ImportError:
                 "circuit_recovery_seconds": settings.circuit_calibration_recovery_seconds,
                 "on_failure": "SKIP",
             },
-            "external_signals": {
-                "timeout_seconds": settings.external_signal_timeout_seconds,
-                "max_attempts": settings.eval_step_external_signal_max_attempts,
-                "circuit_failure_threshold": settings.circuit_external_failure_threshold,
-                "circuit_recovery_seconds": settings.circuit_external_recovery_seconds,
+            "async_osint_redis": {
+                "timeout_seconds": float(os.environ.get("ASYNC_OSINT_REDIS_TIMEOUT_SECONDS", "0.08")),
+                "max_attempts": int(os.environ.get("ASYNC_OSINT_REDIS_MAX_ATTEMPTS", "1")),
+                "circuit_failure_threshold": int(os.environ.get("ASYNC_OSINT_REDIS_CIRCUIT_FAILURE_THRESHOLD", "5")),
+                "circuit_recovery_seconds": float(os.environ.get("ASYNC_OSINT_REDIS_CIRCUIT_RECOVERY_SECONDS", "2.0")),
                 "on_failure": "SKIP",
             },
             "graph_upsert": {
@@ -108,8 +109,8 @@ from decision_api.decision_log import build_decision_log_record, emit_decision_l
 from decision_api.entity_link_store import entity_link_store
 from decision_api.eval_dag import EvalDAGRuntime
 from decision_api.eval_load_guard import EvalLoadGuard, acquire_eval_capacity
+from decision_api.async_osint_redis import merge_cached_async_osint, publish_async_enrichment_request
 from decision_api.eval_steps import run_evaluation_step
-from decision_api.external_signals import evaluate_external_signals
 from decision_api.fingerprint_store import fingerprint_store
 from decision_api.json_rules import (
     evaluate_json_rules,
@@ -222,12 +223,6 @@ _circuit_location = AsyncCircuitBreaker(
     failure_threshold=settings.circuit_location_failure_threshold,
     recovery_seconds=settings.circuit_location_recovery_seconds,
 )
-_circuit_external = AsyncCircuitBreaker(
-    "external",
-    failure_threshold=settings.circuit_external_failure_threshold,
-    recovery_seconds=settings.circuit_external_recovery_seconds,
-)
-
 _ANALYST_ENTITY_ID = _re.compile(r"^[a-zA-Z0-9._@:/-]{1,512}$")
 
 _graph_routing_policy: dict[str, Any] | None = None
@@ -427,8 +422,8 @@ async def _fetch_counter_snapshot(
         headers=_upstream_headers(),
         timeout=settings.eval_step_feature_snapshot_timeout_seconds,
     )
-    r.raise_for_status()
-    data = r.json()
+    await _maybe_await(r.raise_for_status())
+    data = await _maybe_await(r.json())
     return data if isinstance(data, dict) else None
 
 
@@ -489,8 +484,8 @@ async def _fetch_location_evaluation(
         headers=_upstream_headers(),
         timeout=settings.eval_step_feature_snapshot_timeout_seconds,
     )
-    r.raise_for_status()
-    data = r.json()
+    await _maybe_await(r.raise_for_status())
+    data = await _maybe_await(r.json())
     return data if isinstance(data, dict) else None
 
 
@@ -531,8 +526,8 @@ async def _fetch_calibration_adjustment(
         headers=_upstream_headers(),
         timeout=settings.eval_step_feature_snapshot_timeout_seconds,
     )
-    r.raise_for_status()
-    data = r.json()
+    await _maybe_await(r.raise_for_status())
+    data = await _maybe_await(r.json())
     return data if isinstance(data, dict) else None
 
 
@@ -597,20 +592,6 @@ async def _evaluate_opa_wrapped(
         return None
 
 
-async def _fetch_external_signals_wrapped(
-    http: httpx.AsyncClient,
-    body: EvaluateRequest,
-    features: dict[str, Any],
-    degrade_tags: list[str],
-) -> dict[str, Any] | None:
-    try:
-        return await _circuit_external.call(lambda: evaluate_external_signals(http, body, features))
-    except CircuitOpenError:
-        _circuit_metrics_inc("tarka_circuit_open_total_external")
-        degrade_tags.append("external:unavailable")
-        return None
-
-
 def _compute_fallback_reason(degrade_tags: list[str], step_trace: list[dict[str, Any]]) -> str | None:
     """R2.4 — compact audit field when rules-only or degraded path was used."""
     tag_map = {
@@ -622,7 +603,7 @@ def _compute_fallback_reason(degrade_tags: list[str], step_trace: list[dict[str,
         "calibration:unavailable": "circuit_calibration",
         "counter:unavailable": "circuit_counter",
         "location:unavailable": "circuit_location",
-        "external:unavailable": "circuit_external",
+        "async_osint:unavailable": "async_osint_redis",
         "counter:fallback_local_agg": "counter_local_aggregate_fallback",
         "lists:disabled_by_tenant": "tenant_disable_entity_lists",
         "graph:disabled_by_tenant": "tenant_disable_graph",
@@ -839,6 +820,7 @@ async def require_api_key(request: Request) -> None:
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     await init_db()
+    await open_analytics_infra(application)
     await redis_tags.connect()
     load_rules()
     load_typology_definitions()
@@ -891,6 +873,7 @@ async def lifespan(application: FastAPI):
     if application.state.nats_nc:
         await application.state.nats_nc.drain()
     await application.state.http.aclose()
+    await close_analytics_infra(application)
     await redis_tags.close()
 
 
@@ -1184,8 +1167,8 @@ async def ops_governance():
                 params={"tenant_id": "global", "profile_id": "default"},
                 timeout=settings.eval_step_feature_snapshot_timeout_seconds,
             )
-            r.raise_for_status()
-            data = r.json()
+            await _maybe_await(r.raise_for_status())
+            data = await _maybe_await(r.json())
             cal_status = data if isinstance(data, dict) else {"hint": "invalid_calibration_response"}
         except Exception:
             cal_status = {"hint": "calibration_service_unavailable"}
@@ -1248,8 +1231,8 @@ async def calibration_status(tenant_id: str, profile: str = "default"):
                 params={"tenant_id": tenant_id, "profile_id": profile},
                 timeout=settings.eval_step_feature_snapshot_timeout_seconds,
             )
-            r.raise_for_status()
-            data = r.json()
+            await _maybe_await(r.raise_for_status())
+            data = await _maybe_await(r.json())
             drift = data if isinstance(data, dict) else {"hint": "invalid_calibration_response"}
         except Exception:
             drift = {"hint": "calibration_service_unavailable"}
@@ -1446,6 +1429,13 @@ def extract_behavior_tags(device_context: dict[str, Any] | None) -> list[str]:
     return tags
 
 
+async def _maybe_await(value: Any) -> Any:
+    """Await coroutine/future results (e.g. unittest.mock.AsyncMock) from httpx-like responses."""
+    if asyncio.iscoroutine(value) or asyncio.isfuture(value):
+        return await value
+    return value
+
+
 # ---------- downstream helpers ----------
 
 
@@ -1474,8 +1464,9 @@ async def _fetch_feature_snapshot(http: httpx.AsyncClient, body: EvaluateRequest
         headers=_upstream_headers(),
         timeout=settings.eval_step_feature_snapshot_timeout_seconds,
     )
-    r.raise_for_status()
-    return r.json()
+    await _maybe_await(r.raise_for_status())
+    payload = await _maybe_await(r.json())
+    return payload if isinstance(payload, dict) else {}
 
 
 async def _fetch_ml_score(
@@ -1497,8 +1488,10 @@ async def _fetch_ml_score(
         headers=_upstream_headers(),
         timeout=settings.eval_step_ml_timeout_seconds,
     )
-    r.raise_for_status()
-    data = r.json()
+    await _maybe_await(r.raise_for_status())
+    data = await _maybe_await(r.json())
+    if not isinstance(data, dict):
+        data = {}
     score = float(data.get("score", 0))
     factors = data.get("ml_top_factors")
     if not isinstance(factors, list):
@@ -1712,8 +1705,8 @@ async def _fetch_graph_risk(
         params=params,
         timeout=settings.eval_step_graph_risk_timeout_seconds,
     )
-    r.raise_for_status()
-    data = r.json()
+    await _maybe_await(r.raise_for_status())
+    data = await _maybe_await(r.json())
     return data if isinstance(data, dict) else None
 
 
@@ -2199,29 +2192,23 @@ async def evaluate_decision(
                 if isinstance(ltags, list):
                     signal_tags.extend(str(t) for t in ltags if isinstance(t, str))
     
-        external_signal_meta, external_trace = await run_evaluation_step(
-            "external_signals",
-            lambda: _fetch_external_signals_wrapped(http, body, features, degrade_tags),
-            timeout_seconds=settings.external_signal_timeout_seconds,
-            max_attempts=settings.eval_step_external_signal_max_attempts,
+        async def _merge_async_osint_redis() -> bool:
+            if agg_store._client:
+                await merge_cached_async_osint(agg_store._client, body.tenant_id, body.entity_id, features)
+            return True
+
+        _osint_pol = dependency_resilience_policy_table().get("async_osint_redis", {})
+        _, async_osint_trace = await run_evaluation_step(
+            "async_osint_redis",
+            _merge_async_osint_redis,
+            timeout_seconds=float(_osint_pol.get("timeout_seconds", 0.08)),
+            max_attempts=int(_osint_pol.get("max_attempts", 1)),
             on_failure="SKIP",
             fallback=None,
         )
-        step_trace.append(external_trace)
-        if isinstance(external_signal_meta, dict):
-            try:
-                external_signal_delta = max(0.0, min(20.0, float(external_signal_meta.get("score_delta", 0.0))))
-            except (TypeError, ValueError):
-                external_signal_delta = 0.0
-            ext_tags = external_signal_meta.get("tags")
-            if isinstance(ext_tags, list):
-                signal_tags.extend(str(t) for t in ext_tags if isinstance(t, str))
-            ext_enrichment = external_signal_meta.get("enrichments")
-            if isinstance(ext_enrichment, dict):
-                features.setdefault("external_signals", {})
-                if isinstance(features["external_signals"], dict):
-                    features["external_signals"].update(ext_enrichment)
-    
+        step_trace.append(async_osint_trace)
+        await publish_async_enrichment_request(request.app.state, body, trace_id)
+
         # Platform integrity supplements (must run before JSON tag_rules so policy can match integrity:*)
         _plat_kw = _infer_ctx_kwargs(body, features)
         signal_tags.extend(supplemental_tags_for_integrity(_plat_kw["platform"], signal_tags))
@@ -2322,10 +2309,8 @@ async def evaluate_decision(
             rule_hits.append("consortium_shared_signal")
         if graph_delta > 0:
             rule_hits.append("graph_network_risk")
-        if external_signal_delta > 0:
-            rule_hits.append("external_signal_risk")
         replay_delta = 20.0 if is_replayed else 0.0
-        base_score = 10.0 + score_delta + consortium_delta + graph_delta + replay_delta + external_signal_delta
+        base_score = 10.0 + score_delta + consortium_delta + graph_delta + replay_delta
         final_score = _blend_scores(base_score, ml_score if isinstance(ml_score, float) else None)
     
         calibration_meta: dict[str, Any] | None = None
@@ -2396,9 +2381,6 @@ async def evaluate_decision(
             reasons.append(f"signals:{','.join(signal_tags)}")
         if ml_score is not None and isinstance(ml_score, float):
             reasons.append(f"ml:{ml_score:.2f}")
-        if external_signal_delta > 0:
-            reasons.append(f"external_signals:+{external_signal_delta:.2f}")
-    
         merged_signal_tags = list(dict.fromkeys(signal_tags))
         inf_ctx = build_inference_context(
             merged_signal_tags,
@@ -2474,8 +2456,6 @@ async def evaluate_decision(
             snap_extra["counter"] = counter_meta
         if location_meta is not None:
             snap_extra["location"] = location_meta
-        if external_signal_meta is not None:
-            snap_extra["external_signals"] = external_signal_meta
         if graph_decision_explanation is not None:
             snap_extra["graph_decision_explanation"] = graph_decision_explanation
     

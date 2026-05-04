@@ -1,5 +1,6 @@
 import os
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -7,6 +8,20 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+asyncpg://fraud:fraud@localhost:5432/fraud"
+    # ClickHouse analytics / feature-store execution (empty host = offline; routes fail closed via deps).
+    clickhouse_host: str = ""
+    clickhouse_port: int = Field(default=8123, ge=1, le=65535)
+    clickhouse_user: str = "default"
+    clickhouse_password: str = ""
+    clickhouse_database: str = "default"
+    clickhouse_statement_timeout_ms: int = Field(default=5000, ge=1, le=600_000)
+    # SR-03: bounded identifier; must also appear in nl_sql_allowed_tables for query-time enforcement.
+    clickhouse_analytics_events_table: str = Field(
+        default="fraud_decisions",
+        min_length=1,
+        max_length=128,
+        pattern=r"^[a-zA-Z_][a-zA-Z0-9_]*$",
+    )
     redis_url: str = "redis://localhost:6379/0"
     feature_service_url: str = "http://signal-api:8004/features"
     ml_scoring_url: str = "http://signal-api:8004/ml"
@@ -213,11 +228,11 @@ def dependency_resilience_policy_table() -> dict[str, dict[str, float | int | st
             "circuit_recovery_seconds": settings.circuit_calibration_recovery_seconds,
             "on_failure": "SKIP",
         },
-        "external_signals": {
-            "timeout_seconds": settings.external_signal_timeout_seconds,
-            "max_attempts": settings.eval_step_external_signal_max_attempts,
-            "circuit_failure_threshold": settings.circuit_external_failure_threshold,
-            "circuit_recovery_seconds": settings.circuit_external_recovery_seconds,
+        "async_osint_redis": {
+            "timeout_seconds": float(os.environ.get("ASYNC_OSINT_REDIS_TIMEOUT_SECONDS", "0.05")),
+            "max_attempts": int(os.environ.get("ASYNC_OSINT_REDIS_MAX_ATTEMPTS", "1")),
+            "circuit_failure_threshold": int(os.environ.get("ASYNC_OSINT_REDIS_CIRCUIT_FAILURE_THRESHOLD", "5")),
+            "circuit_recovery_seconds": float(os.environ.get("ASYNC_OSINT_REDIS_CIRCUIT_RECOVERY_SECONDS", "2.0")),
             "on_failure": "SKIP",
         },
         "graph_upsert": {

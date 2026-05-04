@@ -7,6 +7,11 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://fraud:fraud@localhost:5432/fraud"
     api_keys: str = ""
 
+    # Async OSINT fan-in (decision-api publishes; this service consumes and writes Redis)
+    nats_url: str = ""
+    redis_url: str = ""
+    async_enrichment_redis_ttl_seconds: int = 3600
+
     # OSINT API keys (all optional — sources without keys are skipped or use free tier)
     abuseipdb_key: str = ""
     greynoise_key: str = ""

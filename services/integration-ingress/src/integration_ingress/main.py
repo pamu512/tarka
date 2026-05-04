@@ -213,6 +213,8 @@ _trail = AuditTrail(AuditRecord)
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     application.state.http = httpx.AsyncClient(timeout=httpx.Timeout(5.0, connect=2.0))
+    application.state.nats_nc = None
+    application.state._enrichment_task: asyncio.Task | None = None
     await init_db()
     if settings.kms_startup_self_check:
         issues = _validate_kms_config()
@@ -246,7 +248,29 @@ async def lifespan(application: FastAPI):
 
     if settings.kms_rotation_enabled:
         rotation_task = asyncio.create_task(_rotation_loop())
+
+    if (settings.nats_url or "").strip() and (settings.redis_url or "").strip():
+        import nats
+
+        from integration_ingress.enrichment_consumer import run_enrichment_consumer
+
+        nc = await nats.connect((settings.nats_url or "").strip())
+        application.state.nats_nc = nc
+        application.state._enrichment_task = asyncio.create_task(
+            run_enrichment_consumer(nc=nc, http=application.state.http)
+        )
+        log.info("async enrichment consumer started (NATS + Redis)")
     yield
+    et = getattr(application.state, "_enrichment_task", None)
+    if et:
+        et.cancel()
+        try:
+            await et
+        except asyncio.CancelledError:
+            pass
+    nc_close = getattr(application.state, "nats_nc", None)
+    if nc_close:
+        await nc_close.drain()
     if rotation_task:
         rotation_task.cancel()
     await application.state.http.aclose()
