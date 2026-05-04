@@ -89,6 +89,7 @@ nav:
       - "Deployment: Lighter runtime": guides/deployment-lighter-runtime.md
       - "Deployment: Release readiness": guides/deployment-release-readiness.md
       - Enterprise Readiness: guides/enterprise-readiness.md
+      - "Enterprise parity (ingest, rules, vendors)": guides/competitor-parity.md
       - "Enterprise Copilot: plugin + governance": guides/enterprise-copilot-plugin-and-governance-controls.md
       - Incident Response: guides/incident-response.md
       - "Chaos runbook (template)": guides/runbook-chaos-template.md

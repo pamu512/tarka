@@ -2,31 +2,21 @@ global:
   environment: prod
   imageRegistry: "__IMAGE_REGISTRY__"
 
-decisionApi:
+coreApi:
   enabled: true
-caseApi:
+signalApi:
   enabled: true
 integrationIngress:
-  enabled: true
-featureService:
-  enabled: true
-mlScoring:
   enabled: true
 graphService:
   enabled: true
 investigationAgent:
   enabled: true
-eventIngest:
-  enabled: true
-analyticsSink:
+dataPlane:
   enabled: true
 graphqlGateway:
   enabled: true
 frontend:
-  enabled: true
-counterService:
-  enabled: true
-locationService:
   enabled: true
 opa:
   enabled: true

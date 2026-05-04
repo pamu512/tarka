@@ -7,7 +7,7 @@ global:
     frontendHost: "__FRONTEND_HOST__"
     graphqlHost: "__GRAPHQL_HOST__"
 
-decisionApi:
+coreApi:
   edgeSecurity:
     enabled: true
     wafActionHeader: cf-waf-action

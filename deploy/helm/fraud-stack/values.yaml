@@ -2,9 +2,9 @@
 #
 # Enable flags below toggle Deployments/Services in templates/*.yaml. They do NOT set every
 # container env var here—templates wire dependencies, for example:
-#   - case-api gets DECISION_API_URL when decisionApi.enabled (disputes / audit callbacks).
-#   - investigation-agent gets CASE_API_URL, DECISION_API_URL, optional GRAPH_SERVICE_URL.
-#   - event-ingest gets DECISION_API_URL and NATS_URL when enabled.
+#   - core-api (decisions + cases) sets in-process DECISION_API_URL for the case sub-app.
+#   - investigation-agent gets CASE_API_URL / DECISION_API_URL pointing at core-api mounts when coreApi.enabled.
+#   - data-plane (ingest + analytics) gets DECISION_API_URL, NATS_URL, and ClickHouse settings when enabled.
 #
 # Optional app secrets (use Kubernetes Secrets in production; do not commit real values):
 #   OPENAI_API_KEY, UPSTREAM_API_KEY / API_KEYS, ATTESTATION_HMAC_SECRET, EVIDENCE_SIGNING_SECRET
@@ -76,9 +76,9 @@ redis:
   enabled: true
   image: redis:7-alpine
 
-decisionApi:
+coreApi:
   enabled: true
-  image: tarka-decision-api
+  image: tarka-core-api
   tag: latest
   replicaCount: 2
   servicePort: 8000
@@ -102,6 +102,19 @@ decisionApi:
     botScoreReviewThreshold: 50
   extraEnv: {}
 
+signalApi:
+  enabled: false
+  image: tarka-signal-api
+  tag: latest
+  replicaCount: 1
+  servicePort: 8004
+  tritonModelInput: X
+  tritonModelOutput: probabilities
+  resources: {}
+  locationDataVolume:
+    enabled: false
+    claimName: ""
+
 graphService:
   enabled: false
   image: tarka-graph-service
@@ -109,32 +122,6 @@ graphService:
   replicaCount: 1
   servicePort: 8001
   graphBackend: age
-
-caseApi:
-  enabled: false
-  image: tarka-case-api
-  tag: latest
-  replicaCount: 1
-  servicePort: 8002
-  tenantBindingRequired: true
-  allowInsecureNoAuth: false
-
-featureService:
-  enabled: false
-  # Requires chart Redis, external Redis URL, or global.externalServices.redis when enabled.
-  image: tarka-feature-service
-  tag: latest
-  replicaCount: 1
-  servicePort: 8004
-
-mlScoring:
-  enabled: false
-  image: tarka-ml-scoring
-  tag: latest
-  replicaCount: 1
-  servicePort: 8005
-  tritonModelInput: X
-  tritonModelOutput: probabilities
 
 triton:
   enabled: false
@@ -177,30 +164,22 @@ clickhouse:
   password: ""
   database: fraud
 
-eventIngest:
+dataPlane:
   enabled: true
-  image: tarka-event-ingest
+  image: tarka-data-plane
   tag: latest
   replicaCount: 1
   port: 8007
   apiKeys: ""
   upstreamApiKey: ""
   schemaRegistryMode: enforce
+  tenantBindingRequired: true
+  apiKeyTenantMap: ""
   autoscaling:
     enabled: false
     minReplicas: 1
     maxReplicas: 6
     targetCPUUtilizationPercentage: 70
-
-analyticsSink:
-  enabled: true
-  image: tarka-analytics-sink
-  tag: latest
-  replicaCount: 1
-  port: 8008
-  apiKeys: ""
-  tenantBindingRequired: true
-  apiKeyTenantMap: ""
 
 graphqlGateway:
   enabled: true
@@ -208,6 +187,7 @@ graphqlGateway:
   tag: latest
   replicaCount: 1
   port: 8010
+  # Defaults resolve to in-cluster core-api mounts (see templates/graphql-gateway.yaml).
   decisionApiUrl: ""
   caseApiUrl: ""
   graphServiceUrl: ""
@@ -219,20 +199,6 @@ frontend:
   replicaCount: 1
   port: 80
   serviceType: ClusterIP
-
-counterService:
-  enabled: false
-  image: tarka-counter-service
-  tag: latest
-  replicaCount: 1
-  port: 8012
-
-locationService:
-  enabled: false
-  image: tarka-location-service
-  tag: latest
-  replicaCount: 1
-  port: 8013
 
 opa:
   enabled: false

@@ -31,21 +31,19 @@ The `deploy/docker-compose.yml` file uses Compose profiles so you can pick exact
 ### Available Profiles
 
 
-| Profile       | Services Included                                                      |
-| ------------- | ---------------------------------------------------------------------- |
-| `core`        | Decision API, Postgres, Redis                                          |
-| `graph`       | Graph Service, Neo4j                                                   |
-| `cases`       | Case API                                                               |
-| `ml`          | ML Scoring, Feature Service                                            |
-| `streaming`   | Event Ingest, NATS JetStream                                           |
-| `analytics`   | Analytics Sink, ClickHouse                                             |
-| `integration` | Integration Ingress                                                    |
-| `agent`       | Investigation Agent                                                    |
-| `collab`      | Collaboration chat bridge (Slack / Teams / Lark → investigation-agent) |
-| `gateway`     | GraphQL Gateway                                                        |
-| `opa`         | Open Policy Agent                                                      |
-| `risk`        | Calibration, Counter, and Location first-class services                |
-| `full`        | All of the above                                                       |
+| Profile       | Services Included                                                                 |
+| ------------- | ---------------------------------------------------------------------------------- |
+| `core`        | **Core API** (decisions + cases), **Signal API**, Postgres, Redis                   |
+| `graph`       | Graph Service, Neo4j                                                              |
+| `ml`          | Triton (ONNX); **Signal API** is already included with `core`                      |
+| `streaming`   | **Data plane** ingest path, NATS JetStream                                        |
+| `analytics`   | **Data plane** analytics path, ClickHouse                                          |
+| `integration` | Integration Ingress                                                               |
+| `agent`       | Investigation Agent (embedded **chat_bridge** for Slack / Teams / Lark)          |
+| `gateway`     | GraphQL Gateway                                                                   |
+| `opa`         | Open Policy Agent                                                                 |
+| `risk`        | Same **Signal API** image profile hook for counter/location-heavy demos (optional) |
+| `full`        | All of the above                                                                  |
 
 
 ### Usage Examples
@@ -57,10 +55,10 @@ cd deploy
 docker compose --profile core up -d
 ```
 
-**Core + graph + cases** — scoring with graph analytics and investigation:
+**Core + graph** — scoring with graph analytics (cases live on **core-api** at `/cases`):
 
 ```bash
-docker compose --profile core --profile graph --profile cases up -d
+docker compose --profile core --profile graph up -d
 ```
 
 **Core + ML** — scoring with machine learning:
@@ -76,19 +74,20 @@ cp .env.example .env   # configure inter-service URLs
 docker compose --profile full up -d
 ```
 
-**Collaboration chat (Slack / Teams / Lark)** — add `**--profile collab`** for **collaboration-chat-bridge** on host **8009** (compose default). It forwards to **investigation-agent**, so also enable `**agent`** and whatever upstream profiles the agent needs (often `**core**`, `**cases**`, `**graph**`). Operator wiring and secrets: **[Collaboration chat & cloud](./investigation-collaboration-chat-aws-azure.md)**.
+**Collaboration chat (Slack / Teams / Lark)** — enable **`agent`**; the **chat_bridge** runs **inside investigation-agent** on **`/v1/chat/…`**. Use **`core`** (and **`graph`** if you need graph-backed tools). Operator wiring and secrets: **[Collaboration chat & cloud](./investigation-collaboration-chat-aws-azure.md)**.
 
 ### Inter-Service Configuration
 
 When running multiple profiles, services need to know about each other. Copy `.env.example` to `.env` and uncomment the relevant URLs:
 
 ```bash
-FEATURE_SERVICE_URL=http://feature-service:8004
-ML_SCORING_URL=http://ml-scoring:8005
+# Defaults in compose already point core-api at signal-api mounts:
+# FEATURE_SERVICE_URL=http://signal-api:8004/features
+# ML_SCORING_URL=http://signal-api:8004/ml
+# CALIBRATION_SERVICE_URL=http://signal-api:8004/calibration
+# COUNTER_SERVICE_URL=http://signal-api:8004/counters
+# LOCATION_SERVICE_URL=http://signal-api:8004/location
 GRAPH_SERVICE_URL=http://graph-service:8001
-CALIBRATION_SERVICE_URL=http://calibration-service:8011
-COUNTER_SERVICE_URL=http://counter-service:8012
-LOCATION_SERVICE_URL=http://location-service:8013
 # UPSTREAM_API_KEY=<optional-shared-service-key>
 # OPA_URL=http://opa:8181
 # OPENAI_API_KEY=sk-...
@@ -151,9 +150,9 @@ postgres:
 redis:
   enabled: true
 
-decisionApi:
+coreApi:
   enabled: true
-  image: tarka-decision-api
+  image: tarka-core-api
   tag: latest
   replicaCount: 2
   podDisruptionBudget:
@@ -165,6 +164,11 @@ decisionApi:
     maxReplicas: 8
     targetCPUUtilizationPercentage: 70
 
+signalApi:
+  enabled: false
+  image: tarka-signal-api
+  tag: latest
+
 graphService:
   enabled: false          # set true if using graph
   image: tarka-graph-service
@@ -173,44 +177,9 @@ graphService:
 neo4j:
   enabled: false          # required by graphService
 
-caseApi:
-  enabled: false
-  image: tarka-case-api
-  tag: latest
-
-featureService:
-  enabled: false
-  image: tarka-feature-service
-  tag: latest
-
-mlScoring:
-  enabled: false
-  image: tarka-ml-scoring
-  tag: latest
-
 investigationAgent:
   enabled: false
   image: tarka-investigation-agent
-  tag: latest
-
-collaborationChatBridge:
-  enabled: false
-  image: tarka-collaboration-chat-bridge
-  tag: latest
-
-calibrationService:
-  enabled: false
-  image: tarka-calibration-service
-  tag: latest
-
-counterService:
-  enabled: false
-  image: tarka-counter-service
-  tag: latest
-
-locationService:
-  enabled: false
-  image: tarka-location-service
   tag: latest
 
 opa:
@@ -261,18 +230,19 @@ helm install tarka deploy/helm/fraud-stack \
   --namespace fraud \
   --create-namespace \
   --set postgres.auth.password=<strong-password> \
-  --set decisionApi.replicaCount=4 \
+  --set coreApi.replicaCount=4 \
   --set graphService.enabled=true \
   --set neo4j.enabled=true \
-  --set caseApi.enabled=true \
-  --set mlScoring.enabled=true
+  --set signalApi.enabled=true
 ```
 
 ---
 
 ## Environment Variable Reference
 
-### Decision API (port 8000)
+In **Docker Compose** and **Helm** defaults, the Decision and Case FastAPI apps run inside **core-api** on port **8000** with path prefixes **`/decisions`** and **`/cases`**. The tables below describe the **decision-api** and **case-api** Python modules (same env vars when mounted or when run standalone for development).
+
+### Decision API (port 8000, or `/decisions` on core-api)
 
 
 | Variable                  | Default                                                 | Description                                                       |
@@ -308,14 +278,14 @@ helm install tarka deploy/helm/fraud-stack \
 | `API_KEYS`       | *(empty)*               | Comma-separated API keys                                          |
 
 
-### Case API (port 8002)
+### Case API (port 8002, or `/cases` on core-api)
 
 
 | Variable                  | Default                                                       | Description                                                                                                                 |
 | ------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `DATABASE_URL`            | `postgresql+asyncpg://fraud:fraud@localhost:5432/fraud_cases` | Postgres connection (local default; `**deploy/docker-compose.yml` uses `…/fraud` shared with decision-api** for simplicity) |
 | `GRAPH_SERVICE_URL`       | *(empty)*                                                     | Graph Service URL for case graph lookups                                                                                    |
-| `DECISION_API_URL`        | `http://localhost:8000`                                       | Decision API base URL (dispute flows, audit fetch, etc.)                                                                    |
+| `DECISION_API_URL`        | `http://localhost:8000/decisions`                               | Decision API base URL including **`/decisions`** mount when using core-api (dispute flows, audit fetch, etc.)                |
 | `ML_SCORING_URL`          | *(empty)*                                                     | Optional ML scoring service URL                                                                                             |
 | `EVIDENCE_SIGNING_SECRET` | *(empty)*                                                     | Optional HMAC secret for signed evidence payloads                                                                           |
 | `CORS_ORIGINS`            | *(empty)*                                                     | Comma-separated CORS origins                                                                                                |
@@ -349,8 +319,8 @@ helm install tarka deploy/helm/fraud-stack \
 
 | Variable            | Default                     | Description                                                                |
 | ------------------- | --------------------------- | -------------------------------------------------------------------------- |
-| `CASE_API_URL`      | `http://localhost:8002`     | Case API URL (cases, disputes, **investigation label drafts**)             |
-| `DECISION_API_URL`  | `http://localhost:8000`     | Decision API URL (audit, entity-velocity, **replay** for A/B tools)        |
+| `CASE_API_URL`      | `http://localhost:8000/cases` | Case API URL including **`/cases`** mount when using core-api (cases, disputes, **investigation label drafts**) |
+| `DECISION_API_URL`  | `http://localhost:8000/decisions` | Decision API URL including **`/decisions`** mount (audit, entity-velocity, **replay** for A/B tools)        |
 | `GRAPH_SERVICE_URL` | *(empty)*                   | Graph Service URL (subgraph tools); empty disables graph tools             |
 | `UPSTREAM_API_KEY`  | *(empty)*                   | If set, sent as `x-api-key` to case-api, graph, and decision-api           |
 | `API_KEYS`          | *(empty)*                   | Comma-separated keys required on `**/v1/chat*`* (empty = no auth on agent) |

@@ -20,8 +20,8 @@ Manual / CI:
 """
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COMPOSE_FILE = REPO_ROOT / "deploy" / "docker-compose.yml"
-DECISION_HEALTH = "http://127.0.0.1:8000/v1/health"
-EVALUATE_URL = "http://127.0.0.1:8000/v1/decisions/evaluate"
+DECISION_HEALTH = "http://127.0.0.1:8000/decisions/v1/health"
+EVALUATE_URL = "http://127.0.0.1:8000/decisions/v1/decisions/evaluate"
 DEPENDENCY_FALLBACK_MATRIX = [
     ("graph-service", "step_graph_risk:http_error"),
     ("feature-service", "step_feature_snapshot:http_error"),

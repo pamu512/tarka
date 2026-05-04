@@ -419,29 +419,33 @@ jobs:
           flags: graphql-gateway
           fail_ci_if_error: false
 
-  test-event-ingest:
+  test-data-plane:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: v1-event-ingest
-      - name: cargo test
+          prefix-key: v1-data-plane-rust
+      - name: cargo test (event-ingest crate)
         run: cargo test
         working-directory: services/event-ingest
-
-  test-analytics-sink:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: v1-analytics-sink
-      - name: cargo test
+      - name: cargo test (analytics-sink crate)
         run: cargo test
         working-directory: services/analytics-sink
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services/data-plane/pyproject.toml
+      - name: Install data-plane (Python)
+        run: pip install -e "."
+        working-directory: services/data-plane
+      - name: Import merged FastAPI app
+        run: python -c "from data_plane.main import app; assert 'Data Plane' in app.title"
+        working-directory: services/data-plane
+        env:
+          PYTHONPATH: src:../shared
 
   test-chitragupta:
     runs-on: ubuntu-latest
@@ -549,27 +553,27 @@ jobs:
       - uses: docker/setup-buildx-action@v4.0.0
       - name: Start lite stack for benchmark
         run: docker compose -f deploy/docker-compose.lite.yml up -d --build
-      - name: Wait for decision-api health
+      - name: Wait for core-api (decision) health
         run: |
           python3 - <<'PY'
           import json, time, urllib.request
-          url = "http://127.0.0.1:8000/v1/health"
+          url = "http://127.0.0.1:8000/decisions/v1/health"
           for _ in range(120):
               try:
                   with urllib.request.urlopen(url, timeout=3) as r:
                       body = json.loads(r.read().decode())
                       if r.status == 200 and body.get("status") == "ok":
-                          print("decision-api ready")
+                          print("core-api decision plane ready")
                           raise SystemExit(0)
               except Exception:
                   pass
               time.sleep(2)
-          raise SystemExit("decision-api did not become ready")
+          raise SystemExit("core-api decision plane did not become ready")
           PY
       - name: Run latency benchmark and capture output
         run: |
           python3 scripts/benchmarks/latency_evaluate.py \
-            --url http://127.0.0.1:8000 \
+            --url http://127.0.0.1:8000/decisions \
             --requests 300 \
             --concurrency 30 \
             --warmup 20 | tee benchmark-latency-evaluate.txt
@@ -619,8 +623,7 @@ jobs:
       - build-frontend
       - build-sdk-typescript
       - test-graphql-gateway
-      - test-event-ingest
-      - test-analytics-sink
+      - test-data-plane
       - test-chitragupta
       - test-feature-service
       - test-ml-scoring
@@ -629,15 +632,12 @@ jobs:
       fail-fast: false
       matrix:
         service:
-          - decision-api
+          - core-api
+          - signal-api
           - graph-service
-          - case-api
-          - ml-scoring
-          - feature-service
           - investigation-agent
           - integration-ingress
-          - event-ingest
-          - analytics-sink
+          - data-plane
           - graphql-gateway
     steps:
       - uses: actions/checkout@v6

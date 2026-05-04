@@ -2,6 +2,8 @@
 
 Tarka is a collection of loosely coupled microservices connected via HTTP and message streaming. Each service is independently deployable and horizontally scalable.
 
+**Enterprise parity surfaces** (schemaless ingest on :8007, offline CSV backfill, visual rules + backtest SQL preview, vendor registry, embedded KPIs, case queue routing, SAR validation): [Enterprise parity (ingest, rules, vendors)](guides/competitor-parity.md). Environment table: [`../architecture/competitor-parity-env.md`](../architecture/competitor-parity-env.md).
+
 ---
 
 ## System Diagram
@@ -20,15 +22,15 @@ Tarka is a collection of loosely coupled microservices connected via HTTP and me
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                          Ingestion Layer                                │
 │                                                                         │
-│   ┌──────────────────────┐         ┌──────────────────────┐            │
-│   │  Decision API :8000  │◄────────│  Event Ingest :8007  │            │
-│   │  (sync evaluation)   │         │  (async via NATS)    │            │
-│   └──────────┬───────────┘         └──────────┬───────────┘            │
-│              │                                 │                        │
-│              │                     ┌───────────▼──────────┐            │
-│              │                     │   NATS JetStream     │            │
-│              │                     │   :4222              │            │
-│              │                     └──────────────────────┘            │
+│   ┌──────────────────────────┐         ┌──────────────────────────┐    │
+│   │  Core API :8000        │◄────────│  Data plane :8007        │    │
+│   │  (/decisions sync)     │         │  (async via NATS)        │    │
+│   └──────────┬─────────────┘         └──────────┬───────────────┘    │
+│              │                                   │                     │
+│              │                       ┌───────────▼──────────┐          │
+│              │                       │   NATS JetStream     │          │
+│              │                       │   :4222              │          │
+│              │                       └──────────────────────┘          │
 └──────────────┼─────────────────────────────────────────────────────────┘
                │
                ▼
@@ -36,13 +38,13 @@ Tarka is a collection of loosely coupled microservices connected via HTTP and me
 │                        Processing Layer                                 │
 │                                                                         │
 │   ┌────────────────┐  ┌────────────────┐  ┌────────────────────────┐   │
-│   │  JSON Rules    │  │  OPA :8181     │  │  ML Scoring :8005      │   │
-│   │  (built-in)    │  │  (optional)    │  │  (heuristic + Triton)  │   │
+│   │  JSON Rules    │  │  OPA :8181     │  │  Signal API :8004      │   │
+│   │  (built-in)    │  │  (optional)    │  │  (/ml + Triton :8020)  │   │
 │   └────────────────┘  └────────────────┘  └──────────┬─────────────┘   │
-│                                                      │                 │
+│                                                        │               │
 │   ┌────────────────┐  ┌────────────────┐  ┌────────────────────────┐   │
-│   │  Feature Svc   │  │  Redis :6379   │  │  Postgres :5432        │   │
-│   │  :8004         │  │  (tags, aggs,  │  │  (audit, cases, graph) │   │
+│   │  /features     │  │  Redis :6379   │  │  Postgres :5432        │   │
+│   │  (/counters)   │  │  (tags, aggs,  │  │  (audit, cases, graph) │   │
 │   │                │  │   scores)      │  │                        │   │
 │   └────────────────┘  └────────────────┘  └────────────────────────┘   │
 │                                                                         │
@@ -57,10 +59,10 @@ Tarka is a collection of loosely coupled microservices connected via HTTP and me
 │                        Analytics & Graph Layer                           │
 │                                                                         │
 │   ┌────────────────────────┐  ┌────────────────────────┐               │
-│   │  Graph Service :8001   │  │  Analytics Sink :8008   │              │
-│   │  (entity resolution,   │  │  (ClickHouse writer)    │              │
-│   │   community detection, │  │                         │              │
-│   │   fraud rings)         │  └──────────┬──────────────┘              │
+│   │  Graph Service :8001   │  │  Data plane :8007      │               │
+│   │  (entity resolution,   │  │  (ClickHouse writer)   │               │
+│   │   community detection, │  │                        │               │
+│   │   fraud rings)         │  └──────────┬─────────────┘               │
 │   └──────────┬─────────────┘             │                             │
 │              │                 ┌─────────▼──────────┐                  │
 │   ┌──────────▼─────────────┐  │  ClickHouse :8123  │                  │
@@ -74,9 +76,9 @@ Tarka is a collection of loosely coupled microservices connected via HTTP and me
 │                      Investigation Layer                                │
 │                                                                         │
 │   ┌────────────────────────┐  ┌────────────────────────┐               │
-│   │  Case API :8002        │  │  Investigation Agent   │               │
-│   │  (cases, workflows,    │  │  :8006                 │               │
-│   │   SLA, audit trail)    │  │  (LLM tool-use loop)   │               │
+│   │  Core API :8000        │  │  Investigation Agent   │               │
+│   │  (/cases workflows)    │  │  :8006                 │               │
+│   │                        │  │  (LLM tool-use loop)   │               │
 │   └────────────────────────┘  └────────────────────────┘               │
 │                                                                         │
 │   ┌────────────────────────┐  ┌────────────────────────┐               │
@@ -99,19 +101,16 @@ Tarka is a collection of loosely coupled microservices connected via HTTP and me
 
 | Service                 | Port | Technology          | Purpose                                                       | Dependencies                          |
 | ----------------------- | ---- | ------------------- | ------------------------------------------------------------- | ------------------------------------- |
-| **Decision API**        | 8000 | Python / FastAPI    | Real-time fraud scoring, typology DSL, **evaluation posture** + **SLO** for trust/ops UI ([API ref](api-reference.md#trust-ops-readiness)), attestation | Postgres, Redis                       |
+| **Core API**            | 8000 | Python / FastAPI    | **Macroservice:** decision (`/decisions`) + case (`/cases`); scoring, typology DSL, **evaluation posture** + **SLO**, attestation, workflows | Postgres, Redis, optional Signal API, Graph, OPA |
 | **Graph Service**       | 8001 | Python / FastAPI    | Entity graph, tag storage, community/ring detection           | Postgres (Apache AGE)                 |
-| **Case API**            | 8002 | Python / FastAPI    | Investigation cases, workflows, SLA, audit trail              | Postgres, Graph Service (optional)    |
 | **Integration Ingress** | 8003 | Python / FastAPI    | KYC webhook adapters, sanctions screening                     | Postgres                              |
-| **Feature Service**     | 8004 | Python / FastAPI    | Velocity reads, feature snapshots, **parity verify** ([OSS #48](guides/oss-typology-parity-graph-34-48-49.md)) | Redis (same aggregate keyspace as Decision API) |
-| **ML Scoring**          | 8005 | Python / FastAPI    | Heuristic model inference, A/B testing                        | Triton Inference Server               |
-| **Investigation Agent** | 8006 | Python / FastAPI    | LLM copilot; **POST /v1/chat**; embedded **Slack / Teams / Lark** + plugin proxy under **`/v1/chat/…`** ([API ref](api-reference.md#investigation-agent), [chat contract](api-reference.md#collaboration-chat-bridge)); **POST /v1/evidence/summary** (deterministic citations + next actions) | Case API, Graph Service, Decision API, OpenAI |
-| **Event Ingest**        | 8007 | Rust / Axum         | High-throughput async event ingestion                         | NATS, Decision API                    |
-| **Analytics Sink**      | 8008 | Rust / Axum         | Streams events to ClickHouse for analytics                    | NATS, ClickHouse                      |
-| **GraphQL Gateway**     | 8010 | Python / Strawberry | Unified GraphQL API across services                           | Decision API, Case API, Graph Service |
-| **Frontend**            | 3000 | React / Vite        | Investigation UI, dashboard, graph explorer                   | Case API, Decision API                |
+| **Signal API**          | 8004 | Python / FastAPI    | **Macroservice:** features, ML, calibration, counters, location (mounted paths) | Redis, optional Triton                |
+| **Investigation Agent** | 8006 | Python / FastAPI    | LLM copilot; **POST /v1/chat**; embedded **Slack / Teams / Lark** + plugin proxy under **`/v1/chat/…`** ([API ref](api-reference.md#investigation-agent), [chat contract](api-reference.md#collaboration-chat-bridge)); **POST /v1/evidence/summary** | Core API, Graph Service, OpenAI       |
+| **Data plane**          | 8007 | Python / FastAPI    | Event ingest + analytics sink (combined)                      | NATS, Core API, optional ClickHouse   |
+| **GraphQL Gateway**     | 8010 | Python / Strawberry | Unified GraphQL API across services                           | Core API (mount-aware URLs), Graph Service |
+| **Frontend**            | 3000 | React / Vite        | Investigation UI, dashboard, graph explorer                   | Core API, Graph Service               |
 
-Per-service overview pages (ports, primary endpoints, doc pointers): [Decision API](services/decision-api.md) · [Graph Service](services/graph-service.md) · [Case API](services/case-api.md) · [Feature Service](services/feature-service.md) · [ML Scoring](services/ml-scoring.md) · [Investigation Agent](services/investigation-agent.md). **Collaboration chat** is embedded in the agent process — see [API Reference — Collaboration chat (embedded)](api-reference.md#collaboration-chat-bridge) and [Collaboration chat & cloud](guides/investigation-collaboration-chat-aws-azure.md).
+Logical modules still live under `services/decision-api`, `services/case-api`, `services/feature-service`, `services/ml-scoring`, etc. Per-service docs: [Decision API](services/decision-api.md) · [Graph Service](services/graph-service.md) · [Case API](services/case-api.md) · [Feature Service](services/feature-service.md) · [ML Scoring](services/ml-scoring.md) · [Investigation Agent](services/investigation-agent.md). **Collaboration chat** is embedded in the agent — see [API Reference — Collaboration chat (embedded)](api-reference.md#collaboration-chat-bridge) and [Collaboration chat & cloud](guides/investigation-collaboration-chat-aws-azure.md).
 
 The analyst UI uses a **single HTTP entry point** in the repo (`frontend/src/api/client.ts`): a barrel that re-exports shared types, `request()`, and per-service API objects from `frontend/src/api/modules/`. For the layout (what changed when the former monolithic `client.ts` was split), see [Frontend project](projects/frontend-project.md) (section **UI HTTP client**).
 
@@ -138,17 +137,17 @@ The analyst UI uses a **single HTTP entry point** in the repo (`frontend/src/api
 Client SDK
   │
   ▼
-Decision API /v1/decisions/evaluate
+Core API /decisions/v1/decisions/evaluate   (or legacy standalone decision-api)
   │
   ├─── Extract device signal tags (sdk:emulator, sdk:vpn, sdk:bot, ...)
   ├─── Fetch existing tags from Redis
   ├─── Compute real-time aggregates from Redis sorted sets
-  ├─── Build feature snapshot (via Feature Service or inline)
+  ├─── Build feature snapshot (via Signal API /features or inline)
   ├─── Normalize currency (if applicable)
   │
   ├─── [parallel] Evaluate JSON rules → rule_hits + tags + score_delta
   ├─── [parallel] Evaluate OPA policies → additional rule_hits + tags
-  ├─── [parallel] Call ML Scoring → ml_score (0–100)
+  ├─── [parallel] Call Signal API /ml → ml_score (0–100)
   │
   ├─── Blend scores (average | max | rules_only)
   ├─── Apply decision thresholds (deny ≥ 80, review ≥ 50)
@@ -161,22 +160,22 @@ Decision API /v1/decisions/evaluate
   └─── Return: { trace_id, decision, score, tags, rule_hits, reasons, ml_score }
 ```
 
-### Asynchronous Path (Event Ingest)
+### Asynchronous Path (data plane ingest)
 
 ```
 Client
   │
   ▼
-Event Ingest /v1/events
+Data plane /v1/events
   │
   ▼
 NATS JetStream (fraud.events.{tenant}.{type})
   │
   ▼
-Consumer Loop → Decision API /v1/decisions/evaluate
+Consumer Loop → Core API /decisions/v1/decisions/evaluate
   │
   ▼
-Analytics Sink → ClickHouse
+Data plane analytics path → ClickHouse
 ```
 
 ---

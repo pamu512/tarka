@@ -20,23 +20,17 @@ nats:
 clickhouse:
   enabled: false
 
-decisionApi:
+coreApi:
   enabled: true
   replicaCount: 2
-featureService:
-  enabled: true
-mlScoring:
+signalApi:
   enabled: true
 
-caseApi:
-  enabled: false
 investigationAgent:
   enabled: false
 integrationIngress:
   enabled: false
-eventIngest:
-  enabled: false
-analyticsSink:
+dataPlane:
   enabled: false
 graphqlGateway:
   enabled: false

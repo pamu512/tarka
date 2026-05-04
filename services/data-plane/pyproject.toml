@@ -1,0 +1,30 @@
+[project]
+name = "tarka-data-plane"
+version = "1.0.0"
+description = "Consolidated event ingest + analytics (ClickHouse) API"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.32.0",
+  "nats-py>=2.9.0",
+  "httpx>=0.28.0",
+  "pydantic-settings>=2.6.0",
+  "pydantic>=2.10.0",
+  "redis[hiredis]>=5.2.0",
+  "clickhouse-connect>=0.8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-asyncio>=0.24.0",
+  "pytest-cov>=5.0",
+  "fakeredis>=2.23.0",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

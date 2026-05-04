@@ -105,7 +105,8 @@ app = FastAPI(
     lifespan=lifespan,
     dependencies=[Depends(require_api_key)],
 )
-setup_observability(app, "feature-service")
+if os.environ.get("TARKA_SIGNAL_PLANE_SUBAPP", "").strip() != "1":
+    setup_observability(app, "feature-service")
 
 
 class SnapshotRequest(BaseModel):

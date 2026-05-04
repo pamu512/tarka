@@ -1,0 +1,1 @@
+/Users/pamu/Documents/Documents\ -\ Anoop’s\ MacBook\ Pro/GitHub/tarka/services/batch-ingest/target/debug/batch-ingest: /Users/pamu/Documents/Documents\ -\ Anoop’s\ MacBook\ Pro/GitHub/tarka/services/batch-ingest/src/main.rs

@@ -106,6 +106,8 @@ from decision_api.currency import normalize_amount
 from decision_api.db import get_session, init_db
 from decision_api.decision_log import build_decision_log_record, emit_decision_log
 from decision_api.entity_link_store import entity_link_store
+from decision_api.eval_dag import EvalDAGRuntime
+from decision_api.eval_load_guard import EvalLoadGuard, acquire_eval_capacity
 from decision_api.eval_steps import run_evaluation_step
 from decision_api.external_signals import evaluate_external_signals
 from decision_api.fingerprint_store import fingerprint_store
@@ -863,6 +865,8 @@ async def lifespan(application: FastAPI):
         limits=httpx.Limits(max_connections=200, max_keepalive_connections=40),
     )
 
+    application.state.eval_load_guard = EvalLoadGuard(settings.tarka_max_concurrent_evaluations)
+
     application.state.nats_nc = None
     application.state.nats_js = None
     if settings.nats_url:
@@ -895,7 +899,8 @@ app = FastAPI(
     version="4.0.0",
     lifespan=lifespan,
 )
-setup_observability(app, "decision-api")
+if os.environ.get("TARKA_CORE_API_SUBAPP", "").strip() != "1":
+    setup_observability(app, "decision-api")
 setup_security_headers(app)
 setup_auth(app)
 setup_rate_limiter(app, rpm=int(os.environ.get("RATE_LIMIT_RPM", "1000")))
@@ -909,17 +914,24 @@ if settings.request_signature_secret:
         max_skew_seconds=settings.request_signature_max_skew_seconds,
     )
 
+from decision_api.analytics_dashboards import router as analytics_dashboards_router  # noqa: E402
+from decision_api.backtest_api import router as backtest_router  # noqa: E402
 from decision_api.calibration_api import router as calibration_router  # noqa: E402
 from decision_api.captcha import router as captcha_router  # noqa: E402
 from decision_api.compliance_api import router as compliance_router  # noqa: E402
 from decision_api.consortium_api import router as consortium_router  # noqa: E402
+from decision_api.feature_store_api import router as feature_store_router  # noqa: E402
 from decision_api.experiment_api import experiment_registry_line_count  # noqa: E402
 from decision_api.experiment_api import router as experiment_router  # noqa: E402
 from decision_api.internal_counters_api import router as internal_counters_router  # noqa: E402
 from decision_api.recommend_api import router as recommend_router  # noqa: E402
 from decision_api.replay import router as replay_router  # noqa: E402
+from decision_api.reporting_nl import router as reporting_nl_router  # noqa: E402
 from decision_api.rule_api import router as rule_router  # noqa: E402
+from decision_api.rule_compiler_api import router as rule_compiler_router  # noqa: E402
+from decision_api.rule_gitops_api import router as rule_gitops_router  # noqa: E402
 from decision_api.simulation_api import router as simulation_router  # noqa: E402
+from decision_api.vendor_marketplace_api import router as vendor_marketplace_router  # noqa: E402
 
 app.include_router(rule_router)
 app.include_router(replay_router)
@@ -932,6 +944,13 @@ app.include_router(lists_router)
 app.include_router(consortium_router)
 app.include_router(internal_counters_router)
 app.include_router(calibration_router)
+app.include_router(reporting_nl_router)
+app.include_router(rule_compiler_router)
+app.include_router(rule_gitops_router)
+app.include_router(backtest_router)
+app.include_router(feature_store_router)
+app.include_router(analytics_dashboards_router)
+app.include_router(vendor_marketplace_router)
 
 
 def _http(request: Request) -> httpx.AsyncClient:
@@ -1978,629 +1997,661 @@ async def evaluate_decision(
                 challenge_metadata=_bl_meta,
             )
 
-    existing_tags = await redis_tags.get_tags(body.tenant_id, body.entity_id)
-
-    if settings.consortium_enabled:
-        try:
-            signal_hash = hash_entity_id(
-                settings.consortium_secret,
-                body.tenant_id,
-                body.entity_id,
-                hash_scope=settings.consortium_hash_scope,
-            )
-            consortium_data = await redis_tags.check_consortium_signal(settings.consortium_id, signal_hash)
-            consortium_delta = consortium_score_delta(
-                consortium_data,
-                min_tenants=settings.consortium_min_tenants,
-                min_reports=settings.consortium_min_reports,
-                trust_floor=settings.consortium_score_trust_floor,
-                max_delta=settings.consortium_score_max_delta,
-            )
-            if consortium_delta > 0:
-                signal_tags.append("consortium:cross_tenant_hit")
-        except Exception:
-            consortium_delta = 0.0
-
-    # Graph routing (OSS #42): choose whether to call graph-service and which checkpoint to use.
-    graph_checkpoint = _graph_checkpoint_from_body(body)
-    graph_routing: dict[str, Any] | None = None
-    if not graph_checkpoint:
-        # Only apply routing policy when the caller has not pinned a checkpoint explicitly.
-        # Base score here is pre-graph: JSON rules + consortium + replay, no graph_delta yet.
-        tentative_base = 10.0 + consortium_delta + (20.0 if is_replayed else 0.0)
-        graph_routing = decide_graph_routing(body.event_type.value, tentative_base, tags=signal_tags)
-        if graph_routing and graph_routing.get("graph_checkpoint"):
-            graph_checkpoint = str(graph_routing["graph_checkpoint"])
-
-    graph_risk = None
-    graph_trace = {"step": "graph_risk", "status": "skipped", "reason": "graph_routing_skip"}
-    if not graph_routing or not graph_routing.get("skip_graph", False):
-        graph_risk, graph_trace = await run_evaluation_step(
-            "graph_risk",
-            lambda: _fetch_graph_risk_wrapped(
-                http,
-                body.tenant_id,
-                body.entity_id,
-                degrade_tags,
-                tenant_flags,
-                graph_checkpoint,
-            ),
-            timeout_seconds=settings.eval_step_graph_risk_timeout_seconds,
-            max_attempts=settings.eval_step_graph_risk_max_attempts,
-            on_failure="SKIP",
-            fallback=None,
-        )
-        if graph_risk:
-            graph_delta = graph_score_delta(graph_risk.get("risk_score"))
-            signal_tags.extend(graph_tags_from_risk(graph_risk))
-    step_trace.append(graph_trace)
-
-    # Feature snapshot (needed before OPA)
-    snapshot, snap_trace = await run_evaluation_step(
-        "feature_snapshot",
-        lambda: _fetch_feature_snapshot_wrapped(http, body, existing_tags, degrade_tags, tenant_flags),
-        timeout_seconds=settings.eval_step_feature_snapshot_timeout_seconds,
-        max_attempts=settings.eval_step_feature_snapshot_max_attempts,
-        on_failure="SKIP",
-        fallback=_feature_snapshot_fallback(body, existing_tags),
-    )
-    step_trace.append(snap_trace)
-    features: dict[str, Any] = dict(snapshot.get("features") or {})
-    redis_tag_list = list(snapshot.get("redis_tags") or existing_tags)
-
-    # Entity linking hints for rules (device ↔ entities, optional vendor bridge)
-    if body.device_context and entity_link_store._client:
-        linked = await entity_link_store.get_entities_for_device(
-            body.tenant_id,
-            body.device_context.device_id,
-            limit=50,
-        )
-        others = [e for e in linked if e != body.entity_id]
-        if others:
-            features["linked_entity_ids"] = others[:20]
-            signal_tags.append("sdk:linked_entities")
-        if isinstance(body.metadata, dict):
-            for vtype, mkey in (("visitor", "vendor_visitor_id"), ("device", "vendor_device_id"), ("install", "vendor_install_id")):
-                vid = body.metadata.get(mkey)
-                if isinstance(vid, str) and vid.strip():
-                    bridged = await entity_link_store.get_entity_for_vendor(body.tenant_id, vtype, vid.strip())
-                    if bridged and bridged != body.entity_id:
-                        features["vendor_bridge_entity_id"] = bridged
-                        signal_tags.append("sdk:vendor_entity_bridge")
-                    break
-
-    # Merge device signals into features so rules engine can see them
-    if body.device_context:
-        for k, v in body.device_context.signals.items():
-            features.setdefault(k, v)
-    if body.session_id:
-        features.setdefault("session_id", body.session_id)
-
-    if body.agent_context is not None:
-        features["agent_context"] = body.agent_context.model_dump(mode="json", exclude_none=True)
-
-    # Normalise amount to USD if a currency is specified
-    payload_currency = body.payload.get("currency")
-    if payload_currency and "amount" in body.payload:
-        try:
-            original_amount = float(body.payload["amount"])
-            normalized = await normalize_amount(original_amount, payload_currency, "USD", http)
-            features["amount"] = normalized
-            features["original_amount"] = original_amount
-            features["original_currency"] = payload_currency
-        except (TypeError, ValueError):
-            pass
-
-    # Counter ownership: prefer counter-service as source of truth; keep local aggregates as fallback.
-    counter_meta: dict[str, Any] | None = None
-    if settings.counter_service_url:
-        counter_meta, counter_trace = await run_evaluation_step(
-            "counter_snapshot",
-            lambda: _fetch_counter_snapshot_wrapped(http, body, features, degrade_tags),
+    async with acquire_eval_capacity(request.app) as cap:
+        _dag = EvalDAGRuntime(load_shed=cap.load_shed)
+        if cap.load_shed:
+            try:
+                get_metrics().inc("tarka_load_shedding_eval_total")
+            except Exception:
+                pass
+        existing_tags = await redis_tags.get_tags(body.tenant_id, body.entity_id)
+    
+        if settings.consortium_enabled:
+            try:
+                signal_hash = hash_entity_id(
+                    settings.consortium_secret,
+                    body.tenant_id,
+                    body.entity_id,
+                    hash_scope=settings.consortium_hash_scope,
+                )
+                consortium_data = await redis_tags.check_consortium_signal(settings.consortium_id, signal_hash)
+                consortium_delta = consortium_score_delta(
+                    consortium_data,
+                    min_tenants=settings.consortium_min_tenants,
+                    min_reports=settings.consortium_min_reports,
+                    trust_floor=settings.consortium_score_trust_floor,
+                    max_delta=settings.consortium_score_max_delta,
+                )
+                if consortium_delta > 0:
+                    signal_tags.append("consortium:cross_tenant_hit")
+            except Exception:
+                consortium_delta = 0.0
+    
+        # Graph routing (OSS #42): choose whether to call graph-service and which checkpoint to use.
+        graph_checkpoint = _graph_checkpoint_from_body(body)
+        graph_routing: dict[str, Any] | None = None
+        if not graph_checkpoint:
+            # Only apply routing policy when the caller has not pinned a checkpoint explicitly.
+            # Base score here is pre-graph: JSON rules + consortium + replay, no graph_delta yet.
+            tentative_base = 10.0 + consortium_delta + (20.0 if is_replayed else 0.0)
+            graph_routing = decide_graph_routing(body.event_type.value, tentative_base, tags=signal_tags)
+            if graph_routing and graph_routing.get("graph_checkpoint"):
+                graph_checkpoint = str(graph_routing["graph_checkpoint"])
+    
+        graph_risk = None
+        graph_trace = {"step": "graph_risk", "status": "skipped", "reason": "graph_routing_skip"}
+        if _dag.include_graph():
+            if not graph_routing or not graph_routing.get("skip_graph", False):
+                graph_risk, graph_trace = await run_evaluation_step(
+                    "graph_risk",
+                    lambda: _fetch_graph_risk_wrapped(
+                        http,
+                        body.tenant_id,
+                        body.entity_id,
+                        degrade_tags,
+                        tenant_flags,
+                        graph_checkpoint,
+                    ),
+                    timeout_seconds=settings.eval_step_graph_risk_timeout_seconds,
+                    max_attempts=settings.eval_step_graph_risk_max_attempts,
+                    on_failure="SKIP",
+                    fallback=None,
+                )
+                if graph_risk:
+                    graph_delta = graph_score_delta(graph_risk.get("risk_score"))
+                    signal_tags.extend(graph_tags_from_risk(graph_risk))
+        else:
+            graph_trace = {"step": "graph_risk", "status": "skipped", "reason": "load_shedding"}
+            if "load_shedding:active" not in degrade_tags:
+                degrade_tags.append("load_shedding:active")
+            try:
+                get_metrics().inc("tarka_load_shedding_active_total")
+            except Exception:
+                pass
+        step_trace.append(graph_trace)
+    
+        # Feature snapshot (needed before OPA)
+        snapshot, snap_trace = await run_evaluation_step(
+            "feature_snapshot",
+            lambda: _fetch_feature_snapshot_wrapped(http, body, existing_tags, degrade_tags, tenant_flags),
             timeout_seconds=settings.eval_step_feature_snapshot_timeout_seconds,
             max_attempts=settings.eval_step_feature_snapshot_max_attempts,
             on_failure="SKIP",
-            fallback=None,
+            fallback=_feature_snapshot_fallback(body, existing_tags),
         )
-        step_trace.append(counter_trace)
-        if isinstance(counter_meta, dict):
-            counters = counter_meta.get("counters")
-            if isinstance(counters, dict):
-                features.update(counters)
-            if counter_meta.get("definition_id"):
-                features["counter_definition_id"] = counter_meta.get("definition_id")
-            if counter_meta.get("definition_version") is not None:
-                features["counter_definition_version"] = counter_meta.get("definition_version")
+        step_trace.append(snap_trace)
+        features: dict[str, Any] = dict(snapshot.get("features") or {})
+        redis_tag_list = list(snapshot.get("redis_tags") or existing_tags)
+    
+        # Entity linking hints for rules (device ↔ entities, optional vendor bridge)
+        if body.device_context and entity_link_store._client:
+            linked = await entity_link_store.get_entities_for_device(
+                body.tenant_id,
+                body.device_context.device_id,
+                limit=50,
+            )
+            others = [e for e in linked if e != body.entity_id]
+            if others:
+                features["linked_entity_ids"] = others[:20]
+                signal_tags.append("sdk:linked_entities")
+            if isinstance(body.metadata, dict):
+                for vtype, mkey in (("visitor", "vendor_visitor_id"), ("device", "vendor_device_id"), ("install", "vendor_install_id")):
+                    vid = body.metadata.get(mkey)
+                    if isinstance(vid, str) and vid.strip():
+                        bridged = await entity_link_store.get_entity_for_vendor(body.tenant_id, vtype, vid.strip())
+                        if bridged and bridged != body.entity_id:
+                            features["vendor_bridge_entity_id"] = bridged
+                            signal_tags.append("sdk:vendor_entity_bridge")
+                        break
+    
+        # Merge device signals into features so rules engine can see them
+        if body.device_context:
+            for k, v in body.device_context.signals.items():
+                features.setdefault(k, v)
+        if body.session_id:
+            features.setdefault("session_id", body.session_id)
+    
+        if body.agent_context is not None:
+            features["agent_context"] = body.agent_context.model_dump(mode="json", exclude_none=True)
+    
+        # Normalise amount to USD if a currency is specified
+        payload_currency = body.payload.get("currency")
+        if payload_currency and "amount" in body.payload:
+            try:
+                original_amount = float(body.payload["amount"])
+                normalized = await normalize_amount(original_amount, payload_currency, "USD", http)
+                features["amount"] = normalized
+                features["original_amount"] = original_amount
+                features["original_currency"] = payload_currency
+            except (TypeError, ValueError):
+                pass
+    
+        # Counter ownership: prefer counter-service as source of truth; keep local aggregates as fallback.
+        counter_meta: dict[str, Any] | None = None
+        if settings.counter_service_url:
+            counter_meta, counter_trace = await run_evaluation_step(
+                "counter_snapshot",
+                lambda: _fetch_counter_snapshot_wrapped(http, body, features, degrade_tags),
+                timeout_seconds=settings.eval_step_feature_snapshot_timeout_seconds,
+                max_attempts=settings.eval_step_feature_snapshot_max_attempts,
+                on_failure="SKIP",
+                fallback=None,
+            )
+            step_trace.append(counter_trace)
+            if isinstance(counter_meta, dict):
+                counters = counter_meta.get("counters")
+                if isinstance(counters, dict):
+                    features.update(counters)
+                if counter_meta.get("definition_id"):
+                    features["counter_definition_id"] = counter_meta.get("definition_id")
+                if counter_meta.get("definition_version") is not None:
+                    features["counter_definition_version"] = counter_meta.get("definition_version")
+            elif agg_store._client:
+                # Adapter shim while services roll out; keeps evaluate path functional during outages.
+                degrade_tags.append("counter:fallback_local_agg")
+                agg_features = await agg_store.compute_features(body.tenant_id, body.entity_id, features)
+                features.update(agg_features)
+                agg_ts = event_time_unix_for_evaluate(body.metadata, body.payload)
+                await agg_store.record_event(body.tenant_id, body.entity_id, str(trace_id), features, ts=agg_ts)
         elif agg_store._client:
-            # Adapter shim while services roll out; keeps evaluate path functional during outages.
-            degrade_tags.append("counter:fallback_local_agg")
             agg_features = await agg_store.compute_features(body.tenant_id, body.entity_id, features)
             features.update(agg_features)
+            # Record this event for future aggregate computation (uses normalised amount).
+            # Optional metadata.event_time / payload.event_time sets Redis scores to business time (late arrival).
             agg_ts = event_time_unix_for_evaluate(body.metadata, body.payload)
             await agg_store.record_event(body.tenant_id, body.entity_id, str(trace_id), features, ts=agg_ts)
-    elif agg_store._client:
-        agg_features = await agg_store.compute_features(body.tenant_id, body.entity_id, features)
-        features.update(agg_features)
-        # Record this event for future aggregate computation (uses normalised amount).
-        # Optional metadata.event_time / payload.event_time sets Redis scores to business time (late arrival).
-        agg_ts = event_time_unix_for_evaluate(body.metadata, body.payload)
-        await agg_store.record_event(body.tenant_id, body.entity_id, str(trace_id), features, ts=agg_ts)
-
-    geo_extra_tags: list[str] = []
-    if body.device_context:
-        geo_extra_tags = merge_session_geo_from_device_and_features(features)
-        for t in geo_extra_tags:
-            if t == "sdk:geo_ip_mismatch":
-                features["geo_ip_mismatch"] = True
-            elif t == "sdk:geo_tz_mismatch":
-                features["geo_tz_mismatch"] = True
-        signal_tags.extend(geo_extra_tags)
-
-    location_meta: dict[str, Any] | None = None
-    if settings.location_service_url:
-        location_meta, location_trace = await run_evaluation_step(
-            "location_eval",
-            lambda: _fetch_location_evaluation_wrapped(http, body, features, degrade_tags),
-            timeout_seconds=settings.eval_step_feature_snapshot_timeout_seconds,
-            max_attempts=settings.eval_step_feature_snapshot_max_attempts,
+    
+        geo_extra_tags: list[str] = []
+        if body.device_context:
+            geo_extra_tags = merge_session_geo_from_device_and_features(features)
+            for t in geo_extra_tags:
+                if t == "sdk:geo_ip_mismatch":
+                    features["geo_ip_mismatch"] = True
+                elif t == "sdk:geo_tz_mismatch":
+                    features["geo_tz_mismatch"] = True
+            signal_tags.extend(geo_extra_tags)
+    
+        location_meta: dict[str, Any] | None = None
+        if settings.location_service_url:
+            location_meta, location_trace = await run_evaluation_step(
+                "location_eval",
+                lambda: _fetch_location_evaluation_wrapped(http, body, features, degrade_tags),
+                timeout_seconds=settings.eval_step_feature_snapshot_timeout_seconds,
+                max_attempts=settings.eval_step_feature_snapshot_max_attempts,
+                on_failure="SKIP",
+                fallback=None,
+            )
+            step_trace.append(location_trace)
+            if isinstance(location_meta, dict):
+                try:
+                    features["geo_consistency_risk"] = float(location_meta.get("geo_consistency_risk"))
+                except (TypeError, ValueError):
+                    pass
+                try:
+                    features["copresence_risk"] = float(location_meta.get("copresence_risk"))
+                except (TypeError, ValueError):
+                    pass
+                try:
+                    features["impossible_travel_risk"] = float(location_meta.get("impossible_travel_risk"))
+                except (TypeError, ValueError):
+                    pass
+                ltags = location_meta.get("tags")
+                if isinstance(ltags, list):
+                    signal_tags.extend(str(t) for t in ltags if isinstance(t, str))
+    
+        external_signal_meta, external_trace = await run_evaluation_step(
+            "external_signals",
+            lambda: _fetch_external_signals_wrapped(http, body, features, degrade_tags),
+            timeout_seconds=settings.external_signal_timeout_seconds,
+            max_attempts=settings.eval_step_external_signal_max_attempts,
             on_failure="SKIP",
             fallback=None,
         )
-        step_trace.append(location_trace)
-        if isinstance(location_meta, dict):
+        step_trace.append(external_trace)
+        if isinstance(external_signal_meta, dict):
             try:
-                features["geo_consistency_risk"] = float(location_meta.get("geo_consistency_risk"))
+                external_signal_delta = max(0.0, min(20.0, float(external_signal_meta.get("score_delta", 0.0))))
             except (TypeError, ValueError):
-                pass
-            try:
-                features["copresence_risk"] = float(location_meta.get("copresence_risk"))
-            except (TypeError, ValueError):
-                pass
-            try:
-                features["impossible_travel_risk"] = float(location_meta.get("impossible_travel_risk"))
-            except (TypeError, ValueError):
-                pass
-            ltags = location_meta.get("tags")
-            if isinstance(ltags, list):
-                signal_tags.extend(str(t) for t in ltags if isinstance(t, str))
-
-    external_signal_meta, external_trace = await run_evaluation_step(
-        "external_signals",
-        lambda: _fetch_external_signals_wrapped(http, body, features, degrade_tags),
-        timeout_seconds=settings.external_signal_timeout_seconds,
-        max_attempts=settings.eval_step_external_signal_max_attempts,
-        on_failure="SKIP",
-        fallback=None,
-    )
-    step_trace.append(external_trace)
-    if isinstance(external_signal_meta, dict):
-        try:
-            external_signal_delta = max(0.0, min(20.0, float(external_signal_meta.get("score_delta", 0.0))))
-        except (TypeError, ValueError):
-            external_signal_delta = 0.0
-        ext_tags = external_signal_meta.get("tags")
-        if isinstance(ext_tags, list):
-            signal_tags.extend(str(t) for t in ext_tags if isinstance(t, str))
-        ext_enrichment = external_signal_meta.get("enrichments")
-        if isinstance(ext_enrichment, dict):
-            features.setdefault("external_signals", {})
-            if isinstance(features["external_signals"], dict):
-                features["external_signals"].update(ext_enrichment)
-
-    # Platform integrity supplements (must run before JSON tag_rules so policy can match integrity:*)
-    _plat_kw = _infer_ctx_kwargs(body, features)
-    signal_tags.extend(supplemental_tags_for_integrity(_plat_kw["platform"], signal_tags))
-
-    # Run rules + OPA + ML in parallel (OPA and ML don't need each other)
-    rule_hits, rule_tags, score_delta, json_rule_pack_files = evaluate_json_rules(
-        features,
-        redis_tag_list,
-        body.tenant_id,
-        body.entity_id,
-        evaluation_mode="production",
-        signal_tags=signal_tags,
-    )
-
-    opa_task = run_evaluation_step(
-        "opa",
-        lambda: _evaluate_opa_wrapped(http, snapshot, degrade_tags, tenant_flags),
-        timeout_seconds=settings.eval_step_opa_timeout_seconds,
-        max_attempts=settings.eval_step_opa_max_attempts,
-        on_failure="SKIP",
-        fallback=None,
-    )
-    ml_task = run_evaluation_step(
-        "ml_score",
-        lambda: _fetch_ml_score_wrapped(
-            http,
-            body.tenant_id,
-            body.entity_id,
-            body.event_type.value,
-            features,
-            degrade_tags,
-            tenant_flags,
-        ),
-        timeout_seconds=settings.eval_step_ml_timeout_seconds,
-        max_attempts=settings.eval_step_ml_max_attempts,
-        on_failure="SKIP",
-        fallback=(None, {}),
-    )
-    (opa_result, opa_trace), (ml_pack, ml_trace) = await asyncio.gather(opa_task, ml_task, return_exceptions=False)
-    step_trace.extend([opa_trace, ml_trace])
-    ml_score, ml_detail = ml_pack
-
-    for _dt in degrade_tags:
-        if _dt not in signal_tags:
-            signal_tags.append(_dt)
-
-    opa_delta = 0.0
-    if opa_result and isinstance(opa_result, dict):
-        rule_hits.extend(str(x) for x in opa_result.get("rule_hits", []))
-        rule_tags.extend(str(t) for t in opa_result.get("tags", []))
-        opa_delta = float(opa_result.get("score_delta", 0))
-        score_delta += opa_delta
-
-    policy_routing: dict[str, Any] | None = None
-    if settings.policy_champion_challenger_enabled:
-        _, _, ch_json_delta, _ = evaluate_json_rules(
+                external_signal_delta = 0.0
+            ext_tags = external_signal_meta.get("tags")
+            if isinstance(ext_tags, list):
+                signal_tags.extend(str(t) for t in ext_tags if isinstance(t, str))
+            ext_enrichment = external_signal_meta.get("enrichments")
+            if isinstance(ext_enrichment, dict):
+                features.setdefault("external_signals", {})
+                if isinstance(features["external_signals"], dict):
+                    features["external_signals"].update(ext_enrichment)
+    
+        # Platform integrity supplements (must run before JSON tag_rules so policy can match integrity:*)
+        _plat_kw = _infer_ctx_kwargs(body, features)
+        signal_tags.extend(supplemental_tags_for_integrity(_plat_kw["platform"], signal_tags))
+    
+        # Run rules + OPA + ML in parallel (OPA and ML don't need each other)
+        rule_hits, rule_tags, score_delta, json_rule_pack_files = evaluate_json_rules(
             features,
             redis_tag_list,
             body.tenant_id,
             body.entity_id,
-            evaluation_mode="challenger",
+            evaluation_mode="production",
             signal_tags=signal_tags,
         )
-        replay_delta_cc = 20.0 if is_replayed else 0.0
-        champion_rule_score = 10.0 + score_delta + consortium_delta + graph_delta + replay_delta_cc
-        challenger_rule_score = 10.0 + ch_json_delta + opa_delta + consortium_delta + graph_delta + replay_delta_cc
-        policy_routing = build_policy_routing_audit(
-            cohort_bucket=cohort_bucket_0_99(body.tenant_id, body.entity_id, settings.policy_cohort_salt),
-            cohort_salt=settings.policy_cohort_salt,
-            champion_rule_score=champion_rule_score,
-            challenger_rule_score=challenger_rule_score,
-            champion_decision=decision_from_rule_score(champion_rule_score),
-            challenger_decision=decision_from_rule_score(challenger_rule_score),
-            ml_score=ml_score if isinstance(ml_score, float) else None,
+    
+        opa_task = run_evaluation_step(
+            "opa",
+            lambda: _evaluate_opa_wrapped(http, snapshot, degrade_tags, tenant_flags),
+            timeout_seconds=settings.eval_step_opa_timeout_seconds,
+            max_attempts=settings.eval_step_opa_max_attempts,
+            on_failure="SKIP",
+            fallback=None,
         )
-
-    signal_tags.extend(
-        derive_contextual_tags(
-            features=features,
-            signal_tags=signal_tags,
-            graph_risk=graph_risk if isinstance(graph_risk, dict) else None,
-            external_signal_meta=external_signal_meta if isinstance(external_signal_meta, dict) else None,
+        if _dag.include_ml(snap_trace):
+            ml_task = run_evaluation_step(
+                "ml_score",
+                lambda: _fetch_ml_score_wrapped(
+                    http,
+                    body.tenant_id,
+                    body.entity_id,
+                    body.event_type.value,
+                    features,
+                    degrade_tags,
+                    tenant_flags,
+                ),
+                timeout_seconds=settings.eval_step_ml_timeout_seconds,
+                max_attempts=settings.eval_step_ml_max_attempts,
+                on_failure="SKIP",
+                fallback=(None, {}),
+            )
+            (opa_result, opa_trace), (ml_pack, ml_trace) = await asyncio.gather(opa_task, ml_task, return_exceptions=False)
+        else:
+            opa_result, opa_trace = await opa_task
+            ml_pack = (None, {})
+            ml_trace = {
+                "step": "ml_score",
+                "status": "skipped",
+                "reason": _dag.ml_skip_reason(snap_trace),
+                "attempts": 0,
+            }
+        step_trace.extend([opa_trace, ml_trace])
+        ml_score, ml_detail = ml_pack
+    
+        for _dt in degrade_tags:
+            if _dt not in signal_tags:
+                signal_tags.append(_dt)
+    
+        opa_delta = 0.0
+        if opa_result and isinstance(opa_result, dict):
+            rule_hits.extend(str(x) for x in opa_result.get("rule_hits", []))
+            rule_tags.extend(str(t) for t in opa_result.get("tags", []))
+            opa_delta = float(opa_result.get("score_delta", 0))
+            score_delta += opa_delta
+    
+        policy_routing: dict[str, Any] | None = None
+        if settings.policy_champion_challenger_enabled:
+            _, _, ch_json_delta, _ = evaluate_json_rules(
+                features,
+                redis_tag_list,
+                body.tenant_id,
+                body.entity_id,
+                evaluation_mode="challenger",
+                signal_tags=signal_tags,
+            )
+            replay_delta_cc = 20.0 if is_replayed else 0.0
+            champion_rule_score = 10.0 + score_delta + consortium_delta + graph_delta + replay_delta_cc
+            challenger_rule_score = 10.0 + ch_json_delta + opa_delta + consortium_delta + graph_delta + replay_delta_cc
+            policy_routing = build_policy_routing_audit(
+                cohort_bucket=cohort_bucket_0_99(body.tenant_id, body.entity_id, settings.policy_cohort_salt),
+                cohort_salt=settings.policy_cohort_salt,
+                champion_rule_score=champion_rule_score,
+                challenger_rule_score=challenger_rule_score,
+                champion_decision=decision_from_rule_score(champion_rule_score),
+                challenger_decision=decision_from_rule_score(challenger_rule_score),
+                ml_score=ml_score if isinstance(ml_score, float) else None,
+            )
+    
+        signal_tags.extend(
+            derive_contextual_tags(
+                features=features,
+                signal_tags=signal_tags,
+                graph_risk=graph_risk if isinstance(graph_risk, dict) else None,
+                external_signal_meta=external_signal_meta if isinstance(external_signal_meta, dict) else None,
+            )
         )
-    )
-
-    all_new_tags = rule_tags + signal_tags
-    if consortium_delta > 0:
-        rule_hits.append("consortium_shared_signal")
-    if graph_delta > 0:
-        rule_hits.append("graph_network_risk")
-    if external_signal_delta > 0:
-        rule_hits.append("external_signal_risk")
-    replay_delta = 20.0 if is_replayed else 0.0
-    base_score = 10.0 + score_delta + consortium_delta + graph_delta + replay_delta + external_signal_delta
-    final_score = _blend_scores(base_score, ml_score if isinstance(ml_score, float) else None)
-
-    calibration_meta: dict[str, Any] | None = None
-    if settings.calibration_service_url:
-        baseline_inf = build_inference_context(
-            list(dict.fromkeys(signal_tags)),
-            rule_hits + replay_rule_hits,
+    
+        all_new_tags = rule_tags + signal_tags
+        if consortium_delta > 0:
+            rule_hits.append("consortium_shared_signal")
+        if graph_delta > 0:
+            rule_hits.append("graph_network_risk")
+        if external_signal_delta > 0:
+            rule_hits.append("external_signal_risk")
+        replay_delta = 20.0 if is_replayed else 0.0
+        base_score = 10.0 + score_delta + consortium_delta + graph_delta + replay_delta + external_signal_delta
+        final_score = _blend_scores(base_score, ml_score if isinstance(ml_score, float) else None)
+    
+        calibration_meta: dict[str, Any] | None = None
+        if settings.calibration_service_url:
+            if _dag.include_calibration(opa_trace, ml_trace):
+                baseline_inf = build_inference_context(
+                    list(dict.fromkeys(signal_tags)),
+                    rule_hits + replay_rule_hits,
+                    ml_score if isinstance(ml_score, float) else None,
+                    final_score,
+                    features,
+                    ml_detail=ml_detail if isinstance(ml_detail, dict) else None,
+                    location_meta=location_meta,
+                    counter_meta=counter_meta,
+                    graph_meta=graph_risk if isinstance(graph_risk, dict) else None,
+                    external_signal_meta=external_signal_meta if isinstance(external_signal_meta, dict) else None,
+                    policy_experiment_id=settings.policy_experiment_id or None,
+                    **_plat_kw,
+                )
+                baseline_conf = float(baseline_inf.get("integrity_confidence") or 0.0)
+                calibration_meta, calibration_trace = await run_evaluation_step(
+                    "calibration_adjustment",
+                    lambda: _fetch_calibration_adjustment_wrapped(http, body, baseline_conf, features, degrade_tags),
+                    timeout_seconds=settings.eval_step_feature_snapshot_timeout_seconds,
+                    max_attempts=settings.eval_step_feature_snapshot_max_attempts,
+                    on_failure="SKIP",
+                    fallback=None,
+                )
+                step_trace.append(calibration_trace)
+                if isinstance(calibration_meta, dict):
+                    cal_conf = calibration_meta.get("calibrated_confidence")
+                    if isinstance(cal_conf, (float, int)):
+                        features["calibrated_integrity_confidence"] = float(cal_conf)
+                    profile_id = calibration_meta.get("profile_id")
+                    if isinstance(profile_id, str) and profile_id.strip():
+                        features["calibration_profile"] = profile_id.strip()
+                    expected_ver = calibration_meta.get("expected_calibration_version")
+                    try:
+                        if expected_ver is not None:
+                            features["expected_calibration_version"] = int(expected_ver)
+                    except (TypeError, ValueError):
+                        pass
+            else:
+                reason = "load_shedding" if _dag.load_shed else "skipped_due_to_dependency_failure"
+                step_trace.append(
+                    {"step": "calibration_adjustment", "status": "skipped", "reason": reason, "attempts": 0}
+                )
+    
+        merged_tags = await redis_tags.merge_tags(body.tenant_id, body.entity_id, all_new_tags)
+        await redis_tags.set_cached_score(body.tenant_id, body.entity_id, final_score)
+    
+        combined_rule_hits = rule_hits + replay_rule_hits
+    
+        typology_results = evaluate_typologies(combined_rule_hits, features)
+        typology_summary = summarize_typologies(typology_results)
+    
+        if final_score >= settings.deny_threshold:
+            decision = "deny"
+        elif final_score >= settings.review_threshold:
+            decision = "review"
+        else:
+            decision = "allow"
+    
+        reasons: list[str] = []
+        if combined_rule_hits:
+            reasons.append(f"rules:{','.join(combined_rule_hits)}")
+        if signal_tags:
+            reasons.append(f"signals:{','.join(signal_tags)}")
+        if ml_score is not None and isinstance(ml_score, float):
+            reasons.append(f"ml:{ml_score:.2f}")
+        if external_signal_delta > 0:
+            reasons.append(f"external_signals:+{external_signal_delta:.2f}")
+    
+        merged_signal_tags = list(dict.fromkeys(signal_tags))
+        inf_ctx = build_inference_context(
+            merged_signal_tags,
+            combined_rule_hits,
             ml_score if isinstance(ml_score, float) else None,
             final_score,
             features,
             ml_detail=ml_detail if isinstance(ml_detail, dict) else None,
-            location_meta=location_meta,
+            calibration_meta=calibration_meta,
             counter_meta=counter_meta,
+            location_meta=location_meta,
             graph_meta=graph_risk if isinstance(graph_risk, dict) else None,
             external_signal_meta=external_signal_meta if isinstance(external_signal_meta, dict) else None,
             policy_experiment_id=settings.policy_experiment_id or None,
             **_plat_kw,
         )
-        baseline_conf = float(baseline_inf.get("integrity_confidence") or 0.0)
-        calibration_meta, calibration_trace = await run_evaluation_step(
-            "calibration_adjustment",
-            lambda: _fetch_calibration_adjustment_wrapped(http, body, baseline_conf, features, degrade_tags),
-            timeout_seconds=settings.eval_step_feature_snapshot_timeout_seconds,
-            max_attempts=settings.eval_step_feature_snapshot_max_attempts,
-            on_failure="SKIP",
-            fallback=None,
-        )
-        step_trace.append(calibration_trace)
-        if isinstance(calibration_meta, dict):
-            cal_conf = calibration_meta.get("calibrated_confidence")
-            if isinstance(cal_conf, (float, int)):
-                features["calibrated_integrity_confidence"] = float(cal_conf)
-            profile_id = calibration_meta.get("profile_id")
-            if isinstance(profile_id, str) and profile_id.strip():
-                features["calibration_profile"] = profile_id.strip()
-            expected_ver = calibration_meta.get("expected_calibration_version")
-            try:
-                if expected_ver is not None:
-                    features["expected_calibration_version"] = int(expected_ver)
-            except (TypeError, ValueError):
-                pass
-
-    merged_tags = await redis_tags.merge_tags(body.tenant_id, body.entity_id, all_new_tags)
-    await redis_tags.set_cached_score(body.tenant_id, body.entity_id, final_score)
-
-    combined_rule_hits = rule_hits + replay_rule_hits
-
-    typology_results = evaluate_typologies(combined_rule_hits, features)
-    typology_summary = summarize_typologies(typology_results)
-
-    if final_score >= settings.deny_threshold:
-        decision = "deny"
-    elif final_score >= settings.review_threshold:
-        decision = "review"
-    else:
-        decision = "allow"
-
-    reasons: list[str] = []
-    if combined_rule_hits:
-        reasons.append(f"rules:{','.join(combined_rule_hits)}")
-    if signal_tags:
-        reasons.append(f"signals:{','.join(signal_tags)}")
-    if ml_score is not None and isinstance(ml_score, float):
-        reasons.append(f"ml:{ml_score:.2f}")
-    if external_signal_delta > 0:
-        reasons.append(f"external_signals:+{external_signal_delta:.2f}")
-
-    merged_signal_tags = list(dict.fromkeys(signal_tags))
-    inf_ctx = build_inference_context(
-        merged_signal_tags,
-        combined_rule_hits,
-        ml_score if isinstance(ml_score, float) else None,
-        final_score,
-        features,
-        ml_detail=ml_detail if isinstance(ml_detail, dict) else None,
-        calibration_meta=calibration_meta,
-        counter_meta=counter_meta,
-        location_meta=location_meta,
-        graph_meta=graph_risk if isinstance(graph_risk, dict) else None,
-        external_signal_meta=external_signal_meta if isinstance(external_signal_meta, dict) else None,
-        policy_experiment_id=settings.policy_experiment_id or None,
-        **_plat_kw,
-    )
-    recommended_action = derive_recommended_action(decision, merged_signal_tags, inf_ctx)
-    recommended_action, ch_meta = apply_challenge_policy(
-        body.challenge_policy_id,
-        recommended_action,
-        decision,
-        inf_ctx,
-        merged_tags,
-        body.payload,
-    )
-
-    graph_decision_explanation = build_graph_decision_explanation_v1(
-        trace_id=str(trace_id),
-        tenant_id=body.tenant_id,
-        entity_id=body.entity_id,
-        graph_risk=graph_risk if isinstance(graph_risk, dict) else None,
-        graph_trace=graph_trace if isinstance(graph_trace, dict) else None,
-    )
-
-    # Apply region-aware PII masking before storage
-    region = getattr(body, "region", settings.default_region) or settings.default_region
-    privacy_profile = get_profile(region)
-    raw_snapshot: dict[str, Any] = {"payload": body.payload, "metadata": body.metadata}
-    if body.agent_context is not None:
-        raw_snapshot["agent_context"] = body.agent_context.model_dump(mode="json", exclude_none=True)
-    if privacy_profile.mask_pii_in_logs or privacy_profile.pseudonymize_at_rest:
-        stored_snapshot = mask_dict(raw_snapshot, privacy_profile)
-    else:
-        stored_snapshot = raw_snapshot
-
-    fb_reason = _compute_fallback_reason(degrade_tags, step_trace)
-    snap_extra: dict[str, Any] = {
-        **stored_snapshot,
-        "inference_context": inf_ctx,
-        "recommended_action": recommended_action,
-        "challenge_metadata": ch_meta,
-        "step_trace": step_trace,
-        "typologies": typology_results,
-        "typology_summary": typology_summary,
-        "canary_cohort": build_canary_cohort_audit(
-            body.tenant_id,
-            body.entity_id,
-            salt_version=settings.policy_cohort_salt,
-            experiment_id=settings.policy_experiment_id or None,
-        ),
-    }
-    if graph_checkpoint:
-        snap_extra["graph_checkpoint"] = graph_checkpoint
-    if graph_routing is not None:
-        snap_extra["graph_routing"] = graph_routing
-    if fb_reason:
-        snap_extra["fallback_reason"] = fb_reason
-    if policy_routing is not None:
-        snap_extra["policy_routing"] = policy_routing
-    if calibration_meta is not None:
-        snap_extra["calibration"] = calibration_meta
-    if counter_meta is not None:
-        snap_extra["counter"] = counter_meta
-    if location_meta is not None:
-        snap_extra["location"] = location_meta
-    if external_signal_meta is not None:
-        snap_extra["external_signals"] = external_signal_meta
-    if graph_decision_explanation is not None:
-        snap_extra["graph_decision_explanation"] = graph_decision_explanation
-
-    snap_extra["counter_version"] = _audit_counter_version_label()
-    snap_extra["rule_pack_file"] = ",".join(json_rule_pack_files)
-    snap_extra["ml_model"] = inf_ctx.get("ml_model")
-    _eb_snap = _metadata_etl_batch_id(body)
-    if _eb_snap:
-        snap_extra["etl_batch_id"] = _eb_snap
-
-    audit = AuditRecord(
-        trace_id=trace_id,
-        tenant_id=body.tenant_id,
-        entity_id=body.entity_id,
-        event_type=body.event_type.value,
-        decision=decision,
-        score=final_score,
-        tags=merged_tags,
-        rule_hits=combined_rule_hits,
-        payload_snapshot=snap_extra,
-    )
-    session.add(audit)
-    await session.commit()
-
-    decision_log_record = build_decision_log_record(
-        trace_id=str(trace_id),
-        tenant_id=body.tenant_id,
-        entity_id=body.entity_id,
-        event_type=body.event_type.value,
-        decision=decision,
-        score=final_score,
-        tags=merged_tags,
-        rule_hits=combined_rule_hits,
-        reasons=reasons,
-        ml_score=ml_score if isinstance(ml_score, float) else None,
-        inference_context=inf_ctx,
-        recommended_action=recommended_action,
-        challenge_policy_id=ch_meta.get("policy_id"),
-        challenge_metadata=ch_meta,
-        fallback_reason=fb_reason,
-        payload_snapshot=snap_extra,
-        artifact_manifest=_build_artifact_manifest(
-            json_rule_pack_files=json_rule_pack_files,
-            inf_ctx=inf_ctx,
-            graph_checkpoint=graph_checkpoint,
-            external_signal_meta=external_signal_meta if isinstance(external_signal_meta, dict) else None,
-            challenge_policy_id=ch_meta.get("policy_id"),
-        ),
-    )
-    bg.add_task(emit_decision_log, decision_log_record)
-
-    bg.add_task(_graph_upsert_stepped, http, body, str(trace_id), merged_tags, geo_extra_tags, tenant_flags)
-
-    try:
-        m = get_metrics()
-        m.inc(f"fraud_decisions_{decision}_total")
-        m.inc("fraud_evaluations_total")
-        if fb_reason:
-            m.inc("fraud_fallback_total")
-            reason_key = _re.sub(r"[^a-zA-Z0-9_]+", "_", str(fb_reason)).strip("_").lower()[:64]
-            if reason_key:
-                m.inc(f"fraud_fallback_total_{reason_key}")
-        if signal_tags:
-            for st in signal_tags:
-                m.inc(f"fraud_signal_tag_{st}_total")
-    except Exception:
-        pass
-
-    response_tier = _resolve_response_explainability_tier(request)
-    response_inf_ctx = _shape_inference_context_for_tier(inf_ctx, response_tier)
-    region_profile = get_profile(body.region)
-    if region_profile.mask_pii_in_responses:
-        response_inf_ctx = mask_dict(response_inf_ctx, region_profile)
-
-    response_graph_explanation = graph_decision_explanation
-    if response_graph_explanation is not None and region_profile.mask_pii_in_responses:
-        response_graph_explanation = mask_dict(response_graph_explanation, region_profile)
-
-    response = EvaluateResponse(
-        trace_id=trace_id,
-        decision=decision,
-        score=final_score,
-        tags=merged_tags,
-        rule_hits=combined_rule_hits,
-        reasons=reasons,
-        ml_score=ml_score if isinstance(ml_score, float) else None,
-        inference_context=response_inf_ctx,
-        recommended_action=recommended_action,
-        challenge_policy_id=ch_meta.get("policy_id"),
-        challenge_metadata=ch_meta,
-        fallback_reason=fb_reason,
-        graph_decision_explanation=response_graph_explanation,
-    )
-
-    bg.add_task(
-        _broadcast_decision,
-        {
-            "trace_id": str(trace_id),
-            "tenant_id": body.tenant_id,
-            "entity_id": body.entity_id,
-            "event_type": body.event_type.value,
-            "decision": decision,
-            "score": final_score,
-            "tags": merged_tags,
-        },
-    )
-
-    bg.add_task(
-        _publish_decision,
-        request.app.state,
-        {
-            "trace_id": str(trace_id),
-            "tenant_id": body.tenant_id,
-            "entity_id": body.entity_id,
-            "event_type": body.event_type.value,
-            "decision": decision,
-            "score": final_score,
-            "tags": merged_tags,
-            "rule_hits": combined_rule_hits,
-            "signal_tags": signal_tags,
-            "ml_score": ml_score if isinstance(ml_score, float) else None,
-            "payload": body.payload,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        },
-    )
-
-    bg.add_task(
-        _run_shadow_evaluation,
-        request.app.state,
-        features,
-        redis_tag_list,
-        decision,
-        final_score,
-        body.tenant_id,
-        str(trace_id),
-    )
-
-    # Test bypass: run full evaluation but override decision to allow
-    if list_check and list_check.found and list_check.list_type == "test_bypass":
-        _tb_hits = combined_rule_hits + ["test_bypass"]
-        _tb_plat = _infer_ctx_kwargs(body, features)
-        _tb_extra = supplemental_tags_for_integrity(_tb_plat["platform"], signal_tags)
-        _tb_merged = list(dict.fromkeys(signal_tags + _tb_extra))
-        _tb_inf = build_inference_context(
-            _tb_merged,
-            _tb_hits,
-            ml_score if isinstance(ml_score, float) else None,
-            final_score,
-            features,
-            ml_detail=ml_detail if isinstance(ml_detail, dict) else None,
-            **_tb_plat,
-        )
-        _tb_base = derive_recommended_action("allow", _tb_merged, _tb_inf)
-        _tb_rec, _tb_meta = apply_challenge_policy(
+        recommended_action = derive_recommended_action(decision, merged_signal_tags, inf_ctx)
+        recommended_action, ch_meta = apply_challenge_policy(
             body.challenge_policy_id,
-            _tb_base,
-            "allow",
-            _tb_inf,
-            signal_tags,
+            recommended_action,
+            decision,
+            inf_ctx,
+            merged_tags,
             body.payload,
         )
+    
+        graph_decision_explanation = build_graph_decision_explanation_v1(
+            trace_id=str(trace_id),
+            tenant_id=body.tenant_id,
+            entity_id=body.entity_id,
+            graph_risk=graph_risk if isinstance(graph_risk, dict) else None,
+            graph_trace=graph_trace if isinstance(graph_trace, dict) else None,
+        )
+    
+        # Apply region-aware PII masking before storage
+        region = getattr(body, "region", settings.default_region) or settings.default_region
+        privacy_profile = get_profile(region)
+        raw_snapshot: dict[str, Any] = {"payload": body.payload, "metadata": body.metadata}
+        if body.agent_context is not None:
+            raw_snapshot["agent_context"] = body.agent_context.model_dump(mode="json", exclude_none=True)
+        if privacy_profile.mask_pii_in_logs or privacy_profile.pseudonymize_at_rest:
+            stored_snapshot = mask_dict(raw_snapshot, privacy_profile)
+        else:
+            stored_snapshot = raw_snapshot
+    
+        fb_reason = _compute_fallback_reason(degrade_tags, step_trace)
+        snap_extra: dict[str, Any] = {
+            **stored_snapshot,
+            "inference_context": inf_ctx,
+            "recommended_action": recommended_action,
+            "challenge_metadata": ch_meta,
+            "step_trace": step_trace,
+            "typologies": typology_results,
+            "typology_summary": typology_summary,
+            "canary_cohort": build_canary_cohort_audit(
+                body.tenant_id,
+                body.entity_id,
+                salt_version=settings.policy_cohort_salt,
+                experiment_id=settings.policy_experiment_id or None,
+            ),
+        }
+        if graph_checkpoint:
+            snap_extra["graph_checkpoint"] = graph_checkpoint
+        if graph_routing is not None:
+            snap_extra["graph_routing"] = graph_routing
+        if fb_reason:
+            snap_extra["fallback_reason"] = fb_reason
+        if policy_routing is not None:
+            snap_extra["policy_routing"] = policy_routing
+        if calibration_meta is not None:
+            snap_extra["calibration"] = calibration_meta
+        if counter_meta is not None:
+            snap_extra["counter"] = counter_meta
+        if location_meta is not None:
+            snap_extra["location"] = location_meta
+        if external_signal_meta is not None:
+            snap_extra["external_signals"] = external_signal_meta
+        if graph_decision_explanation is not None:
+            snap_extra["graph_decision_explanation"] = graph_decision_explanation
+    
+        snap_extra["counter_version"] = _audit_counter_version_label()
+        snap_extra["rule_pack_file"] = ",".join(json_rule_pack_files)
+        snap_extra["ml_model"] = inf_ctx.get("ml_model")
+        _eb_snap = _metadata_etl_batch_id(body)
+        if _eb_snap:
+            snap_extra["etl_batch_id"] = _eb_snap
+    
+        audit = AuditRecord(
+            trace_id=trace_id,
+            tenant_id=body.tenant_id,
+            entity_id=body.entity_id,
+            event_type=body.event_type.value,
+            decision=decision,
+            score=final_score,
+            tags=merged_tags,
+            rule_hits=combined_rule_hits,
+            payload_snapshot=snap_extra,
+        )
+        session.add(audit)
+        await session.commit()
+    
+        decision_log_record = build_decision_log_record(
+            trace_id=str(trace_id),
+            tenant_id=body.tenant_id,
+            entity_id=body.entity_id,
+            event_type=body.event_type.value,
+            decision=decision,
+            score=final_score,
+            tags=merged_tags,
+            rule_hits=combined_rule_hits,
+            reasons=reasons,
+            ml_score=ml_score if isinstance(ml_score, float) else None,
+            inference_context=inf_ctx,
+            recommended_action=recommended_action,
+            challenge_policy_id=ch_meta.get("policy_id"),
+            challenge_metadata=ch_meta,
+            fallback_reason=fb_reason,
+            payload_snapshot=snap_extra,
+            artifact_manifest=_build_artifact_manifest(
+                json_rule_pack_files=json_rule_pack_files,
+                inf_ctx=inf_ctx,
+                graph_checkpoint=graph_checkpoint,
+                external_signal_meta=external_signal_meta if isinstance(external_signal_meta, dict) else None,
+                challenge_policy_id=ch_meta.get("policy_id"),
+            ),
+        )
+        bg.add_task(emit_decision_log, decision_log_record)
+    
+        bg.add_task(_graph_upsert_stepped, http, body, str(trace_id), merged_tags, geo_extra_tags, tenant_flags)
+    
+        try:
+            m = get_metrics()
+            m.inc(f"fraud_decisions_{decision}_total")
+            m.inc("fraud_evaluations_total")
+            if fb_reason:
+                m.inc("fraud_fallback_total")
+                reason_key = _re.sub(r"[^a-zA-Z0-9_]+", "_", str(fb_reason)).strip("_").lower()[:64]
+                if reason_key:
+                    m.inc(f"fraud_fallback_total_{reason_key}")
+            if signal_tags:
+                for st in signal_tags:
+                    m.inc(f"fraud_signal_tag_{st}_total")
+        except Exception:
+            pass
+    
+        response_tier = _resolve_response_explainability_tier(request)
+        response_inf_ctx = _shape_inference_context_for_tier(inf_ctx, response_tier)
+        region_profile = get_profile(body.region)
+        if region_profile.mask_pii_in_responses:
+            response_inf_ctx = mask_dict(response_inf_ctx, region_profile)
+    
+        response_graph_explanation = graph_decision_explanation
+        if response_graph_explanation is not None and region_profile.mask_pii_in_responses:
+            response_graph_explanation = mask_dict(response_graph_explanation, region_profile)
+    
         response = EvaluateResponse(
             trace_id=trace_id,
-            decision="allow",
+            decision=decision,
             score=final_score,
-            tags=merged_tags + ["list:test_bypass"],
-            rule_hits=_tb_hits,
-            reasons=reasons + [f"test_bypass:{list_check.reason}"],
+            tags=merged_tags,
+            rule_hits=combined_rule_hits,
+            reasons=reasons,
             ml_score=ml_score if isinstance(ml_score, float) else None,
-            inference_context=_tb_inf,
-            recommended_action=_tb_rec,
-            challenge_policy_id=_tb_meta.get("policy_id"),
-            challenge_metadata=_tb_meta,
+            inference_context=response_inf_ctx,
+            recommended_action=recommended_action,
+            challenge_policy_id=ch_meta.get("policy_id"),
+            challenge_metadata=ch_meta,
             fallback_reason=fb_reason,
+            graph_decision_explanation=response_graph_explanation,
         )
-
+    
+        bg.add_task(
+            _broadcast_decision,
+            {
+                "trace_id": str(trace_id),
+                "tenant_id": body.tenant_id,
+                "entity_id": body.entity_id,
+                "event_type": body.event_type.value,
+                "decision": decision,
+                "score": final_score,
+                "tags": merged_tags,
+            },
+        )
+    
+        bg.add_task(
+            _publish_decision,
+            request.app.state,
+            {
+                "trace_id": str(trace_id),
+                "tenant_id": body.tenant_id,
+                "entity_id": body.entity_id,
+                "event_type": body.event_type.value,
+                "decision": decision,
+                "score": final_score,
+                "tags": merged_tags,
+                "rule_hits": combined_rule_hits,
+                "signal_tags": signal_tags,
+                "ml_score": ml_score if isinstance(ml_score, float) else None,
+                "payload": body.payload,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+    
+        bg.add_task(
+            _run_shadow_evaluation,
+            request.app.state,
+            features,
+            redis_tag_list,
+            decision,
+            final_score,
+            body.tenant_id,
+            str(trace_id),
+        )
+    
+        # Test bypass: run full evaluation but override decision to allow
+        if list_check and list_check.found and list_check.list_type == "test_bypass":
+            _tb_hits = combined_rule_hits + ["test_bypass"]
+            _tb_plat = _infer_ctx_kwargs(body, features)
+            _tb_extra = supplemental_tags_for_integrity(_tb_plat["platform"], signal_tags)
+            _tb_merged = list(dict.fromkeys(signal_tags + _tb_extra))
+            _tb_inf = build_inference_context(
+                _tb_merged,
+                _tb_hits,
+                ml_score if isinstance(ml_score, float) else None,
+                final_score,
+                features,
+                ml_detail=ml_detail if isinstance(ml_detail, dict) else None,
+                **_tb_plat,
+            )
+            _tb_base = derive_recommended_action("allow", _tb_merged, _tb_inf)
+            _tb_rec, _tb_meta = apply_challenge_policy(
+                body.challenge_policy_id,
+                _tb_base,
+                "allow",
+                _tb_inf,
+                signal_tags,
+                body.payload,
+            )
+            response = EvaluateResponse(
+                trace_id=trace_id,
+                decision="allow",
+                score=final_score,
+                tags=merged_tags + ["list:test_bypass"],
+                rule_hits=_tb_hits,
+                reasons=reasons + [f"test_bypass:{list_check.reason}"],
+                ml_score=ml_score if isinstance(ml_score, float) else None,
+                inference_context=_tb_inf,
+                recommended_action=_tb_rec,
+                challenge_policy_id=_tb_meta.get("policy_id"),
+                challenge_metadata=_tb_meta,
+                fallback_reason=fb_reason,
+            )
+    
     return response
 
 

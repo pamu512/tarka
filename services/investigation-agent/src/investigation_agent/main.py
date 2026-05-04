@@ -2430,3 +2430,10 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         workflow_id=active_workflow,
     )
     return out
+
+
+# ── Collaboration (Slack / Teams / Lark) mounted under /collab (see frontend nginx /api/collab/) ──
+os.environ.setdefault("TARKA_CHAT_BRIDGE_SUBAPP", "1")
+from investigation_agent.chat_bridge.main import app as _collaboration_subapp  # noqa: E402
+
+app.mount("/collab", _collaboration_subapp)

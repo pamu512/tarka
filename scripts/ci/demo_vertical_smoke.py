@@ -5,7 +5,7 @@ Prerequisites: Tarka Lite with **ingest** profile, e.g. from repo root::
 
   docker compose -f deploy/docker-compose.lite.yml --profile ingest up -d --build
 
-Default URLs match published ports (decision 8000, case 8002, ingest 8007, UI 3000).
+Default URLs match published ports (core-api decision mount :8000/decisions, cases :8000/cases, ingest 8007, UI 3000).
 """
 
 from __future__ import annotations
@@ -65,8 +65,11 @@ def _get_status(url: str, *, api_key: str | None = None, timeout: float = 15.0) 
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Demo vertical: evaluate, case, ingest, optional UI.")
-    p.add_argument("--decision-api", default=os.environ.get("DEMO_DECISION_API", "http://127.0.0.1:8000"))
-    p.add_argument("--case-api", default=os.environ.get("DEMO_CASE_API", "http://127.0.0.1:8002"))
+    p.add_argument(
+        "--decision-api",
+        default=os.environ.get("DEMO_DECISION_API", "http://127.0.0.1:8000/decisions"),
+    )
+    p.add_argument("--case-api", default=os.environ.get("DEMO_CASE_API", "http://127.0.0.1:8000/cases"))
     p.add_argument("--event-ingest", default=os.environ.get("DEMO_EVENT_INGEST", "http://127.0.0.1:8007"))
     p.add_argument("--frontend", default=os.environ.get("DEMO_FRONTEND", "http://127.0.0.1:3000"))
     p.add_argument(
