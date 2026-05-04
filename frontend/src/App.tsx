@@ -31,6 +31,8 @@ const Notifications = lazy(() => import("./pages/Notifications"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Help = lazy(() => import("./pages/Help"));
 const AdminPanel = lazy(() => import("./pages/AdminPanel"));
+const VisualRuleBuilder = lazy(() => import("./pages/VisualRuleBuilder"));
+const ExecutiveDashboards = lazy(() => import("./pages/ExecutiveDashboards"));
 
 type NavBadge = { count: number; kind: "action" | "info" };
 
@@ -49,6 +51,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: "Operations",
     items: [
       { to: "/dashboard", label: "Dashboard", module: "dashboard" },
+      { to: "/exec-dashboards", label: "Executive KPIs", module: "dashboard" },
       { to: "/cases", label: "Cases", module: "cases", badge: SHOW_DEMO_BADGES ? { count: 3, kind: "action" } : undefined },
       { to: "/disputes", label: "Disputes", module: "disputes", badge: SHOW_DEMO_BADGES ? { count: 1, kind: "action" } : undefined },
     ],
@@ -67,6 +70,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: "Policy & testing",
     items: [
       { to: "/rules", label: "Rules", module: "rules" },
+      { to: "/rules/visual", label: "Visual rule builder", module: "rules" },
       { to: "/entity-lists", label: "Entity Lists", module: "entity-lists" },
       { to: "/shadow", label: "Shadow Mode", module: "shadow" },
       { to: "/simulation", label: "Simulation", module: "simulation" },
@@ -210,10 +214,12 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/exec-dashboards" element={<ExecutiveDashboards />} />
             <Route path="/cases" element={<Cases />} />
             <Route path="/cases/:caseId" element={<CaseDetail />} />
             <Route path="/disputes" element={<Disputes />} />
             <Route path="/rules" element={<Rules />} />
+            <Route path="/rules/visual" element={<VisualRuleBuilder />} />
             <Route path="/entity-lists" element={<EntityLists />} />
             <Route path="/shadow" element={<ShadowMode />} />
             <Route path="/simulation" element={<Simulation />} />

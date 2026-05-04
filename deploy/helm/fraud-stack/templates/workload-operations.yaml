@@ -1,55 +1,55 @@
-{{- if and .Values.decisionApi.enabled .Values.decisionApi.podDisruptionBudget.enabled }}
+{{- if and .Values.coreApi.enabled .Values.coreApi.podDisruptionBudget.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ include "tarka.fullname" . }}-decision-api
+  name: {{ include "tarka.fullname" . }}-core-api
 spec:
-  minAvailable: {{ .Values.decisionApi.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.coreApi.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
-      app: {{ include "tarka.fullname" . }}-decision-api
+      app: {{ include "tarka.fullname" . }}-core-api
 {{- end }}
-{{- if and .Values.decisionApi.enabled .Values.decisionApi.autoscaling.enabled }}
+{{- if and .Values.coreApi.enabled .Values.coreApi.autoscaling.enabled }}
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "tarka.fullname" . }}-decision-api
+  name: {{ include "tarka.fullname" . }}-core-api
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "tarka.fullname" . }}-decision-api
-  minReplicas: {{ .Values.decisionApi.autoscaling.minReplicas }}
-  maxReplicas: {{ .Values.decisionApi.autoscaling.maxReplicas }}
+    name: {{ include "tarka.fullname" . }}-core-api
+  minReplicas: {{ .Values.coreApi.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.coreApi.autoscaling.maxReplicas }}
   metrics:
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: {{ .Values.decisionApi.autoscaling.targetCPUUtilizationPercentage }}
+          averageUtilization: {{ .Values.coreApi.autoscaling.targetCPUUtilizationPercentage }}
 {{- end }}
-{{- if and .Values.eventIngest.enabled .Values.eventIngest.autoscaling.enabled }}
+{{- if and .Values.dataPlane.enabled .Values.dataPlane.autoscaling.enabled }}
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "tarka.fullname" . }}-event-ingest
+  name: {{ include "tarka.fullname" . }}-data-plane
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "tarka.fullname" . }}-event-ingest
-  minReplicas: {{ .Values.eventIngest.autoscaling.minReplicas }}
-  maxReplicas: {{ .Values.eventIngest.autoscaling.maxReplicas }}
+    name: {{ include "tarka.fullname" . }}-data-plane
+  minReplicas: {{ .Values.dataPlane.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.dataPlane.autoscaling.maxReplicas }}
   metrics:
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: {{ .Values.eventIngest.autoscaling.targetCPUUtilizationPercentage }}
+          averageUtilization: {{ .Values.dataPlane.autoscaling.targetCPUUtilizationPercentage }}
 {{- end }}
 {{- $ingressFrontend := and .Values.frontend.enabled .Values.global.ingress.frontendHost }}
 {{- $ingressGraphql := and .Values.graphqlGateway.enabled .Values.global.ingress.graphqlHost }}

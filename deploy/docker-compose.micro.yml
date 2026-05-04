@@ -1,0 +1,66 @@
+# Tarka Micro — single-container API (decision + case) for laptop onboarding.
+# No Postgres, ClickHouse, Redis, or NATS containers; durable state under a host bind mount.
+#
+# Run from repo root (recommended):
+#   ./scripts/start-micro.sh
+#
+# Or:
+#   export TARKA_MICRO_DATA_DIR="$PWD/.tarka-micro/data"
+#   docker compose --project-directory "$(pwd)" -f deploy/docker-compose.micro.yml up -d --build
+
+name: tarka-micro
+
+services:
+  core-api:
+    build:
+      context: ..
+      dockerfile: services/core-api/Dockerfile
+    ports:
+      - "${TARKA_MICRO_PORT:-8000}:8000"
+    environment:
+      # Strict micro data plane (SQLite audit DB + DuckDB analytics + in-process broker).
+      TARKA_DB_ENGINE: "sqlite"
+      DATABASE_URL: "sqlite+aiosqlite:////data/tarka.sqlite"
+      TARKA_ANALYTICS_STORE: "duckdb"
+      TARKA_ANALYTICS_DUCKDB_PATH: "/data/tarka-analytics.duckdb"
+      TARKA_BROKER: "local"
+      TARKA_ENV: "micro"
+      # In-process / file-backed only (no Redis URL, no NATS, no ClickHouse host).
+      REDIS_URL: ""
+      NATS_URL: ""
+      CLICKHOUSE_HOST: ""
+      LIST_STORE_BACKEND: "file"
+      LIST_STORE_FILE_DIR: "/data/lists"
+      DECISION_LOG_PATH: "/data/decision_logs/decision-log.jsonl"
+      ML_EXPORT_LOCAL_DIR: "/data/ml_exports"
+      RULES_PATH: "/app/rules"
+      ALLOW_INSECURE_NO_AUTH: "true"
+      DECISION_API_URL: "http://127.0.0.1:8000/decisions"
+      FEATURE_SERVICE_URL: ""
+      ML_SCORING_URL: ""
+      GRAPH_SERVICE_URL: ""
+      CALIBRATION_SERVICE_URL: ""
+      COUNTER_SERVICE_URL: ""
+      LOCATION_SERVICE_URL: ""
+      OPA_URL: ""
+    volumes:
+      - type: bind
+        source: ${TARKA_MICRO_DATA_DIR:?Set TARKA_MICRO_DATA_DIR (scripts/start-micro.sh exports an absolute path)}
+        target: /data
+    networks:
+      - micro_internal
+    # Migrations are run by scripts/start-micro.sh (docker compose run) so SQLite is not double-locked vs Dockerfile CMD.
+    command:
+      - /bin/sh
+      - -c
+      - exec uvicorn core_api.main:app --host 0.0.0.0 --port 8000
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/v1/health >/dev/null"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 25s
+
+networks:
+  micro_internal:
+    internal: true

@@ -25,7 +25,21 @@ permissions:
   contents: read
 
 jobs:
+  # Tier-1 Honesty: AST-only gate (stdlib). All test / lint jobs `need` this so nothing runs until it passes.
+  audit-stubs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Tier-1 Honesty gate — no stub APIs or empty implementations (AST)
+        run: python3 scripts/audit_stubs.py
+      - name: Tier-1 Honesty gate — audit_stubs self-test (stdlib unittest)
+        run: python3 scripts/ci/test_audit_stubs.py
+
   lint:
+    needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -35,6 +49,10 @@ jobs:
       - run: pip install ruff
       - run: ruff check .
       - run: ruff format --check .
+      - name: Enforce Python import style consistency
+        run: python scripts/ci/check_import_style_consistency.py
+      - name: Demo vertical contract unit tests (stdlib)
+        run: python3 scripts/ci/test_demo_vertical_contracts.py
       - name: Validate JSON rule packs (policy-as-code gate)
         run: python scripts/policy/validate_rule_packs.py
       - name: Validate typology DSL + predicate registry (OSS #46)
@@ -69,14 +87,19 @@ jobs:
           PY
 
   test-decision-api:
+    needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: services/decision-api/pyproject.toml
+      - name: Build Rust rule engine (PyO3)
+        run: pip install "maturin>=1.7,<2.0" && maturin develop --release
+        working-directory: services/rule-engine
       - name: Install dependencies
         run: pip install -e ".[dev]"
         working-directory: services/decision-api
@@ -109,6 +132,7 @@ jobs:
           fail_ci_if_error: false
 
   test-case-api:
+    needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -141,6 +165,7 @@ jobs:
           fail_ci_if_error: false
 
   test-graph-service:
+    needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -173,6 +198,7 @@ jobs:
           fail_ci_if_error: false
 
   test-graph-neo4j-live:
+    needs: audit-stubs
     runs-on: ubuntu-latest
     services:
       neo4j:
@@ -222,6 +248,7 @@ jobs:
           NEO4J_PASSWORD: graphcipass2026
 
   test-integration-ingress:
+    needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -254,6 +281,7 @@ jobs:
           fail_ci_if_error: false
 
   test-investigation-agent:
+    needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -286,6 +314,7 @@ jobs:
           fail_ci_if_error: false
 
   test-investigation-agent-golden-matrix:
+    needs: audit-stubs
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -311,6 +340,7 @@ jobs:
           PYTHONPATH: src:../shared
 
   test-sdk:
+    needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -343,6 +373,7 @@ jobs:
           fail_ci_if_error: false
 
   build-frontend:
+    needs: audit-stubs
     runs-on: ubuntu-latest
     env:
       # Deterministic Vite/tsc memory on CI runners (avoids flaky OOM on `vite build`).
@@ -364,6 +395,7 @@ jobs:
         working-directory: frontend
 
   build-sdk-typescript:
+    needs: audit-stubs
     runs-on: ubuntu-latest
     env:
       NODE_OPTIONS: --max-old-space-size=4096
@@ -384,6 +416,7 @@ jobs:
         working-directory: packages/fraud-sdk-typescript
 
   test-graphql-gateway:
+    needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -415,103 +448,37 @@ jobs:
           flags: graphql-gateway
           fail_ci_if_error: false
 
-  test-event-ingest:
+  test-data-plane:
+    needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
         with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: services/event-ingest/pyproject.toml
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
+          prefix-key: v1-data-plane-rust
+      - name: cargo test (event-ingest crate)
+        run: cargo test
         working-directory: services/event-ingest
-      - name: Run tests
-        run: pytest --cov=event_ingest --cov-report=xml --cov-report=term-missing --cov-fail-under=66 tests/
-        working-directory: services/event-ingest
-        env:
-          PYTHONPATH: src:../shared
-      - name: Upload coverage
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-event-ingest
-          path: services/event-ingest/coverage.xml
-          if-no-files-found: ignore
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
-        continue-on-error: true
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: services/event-ingest/coverage.xml
-          flags: event-ingest
-          fail_ci_if_error: false
-
-  test-collaboration-chat-bridge:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
+      - name: cargo test (analytics-sink crate)
+        run: cargo test
+        working-directory: services/analytics-sink
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: services/collaboration-chat-bridge/pyproject.toml
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-        working-directory: services/collaboration-chat-bridge
-      - name: Run tests
-        run: pytest --cov=collaboration_chat_bridge --cov-report=xml --cov-report=term-missing --cov-fail-under=50 tests/
-        working-directory: services/collaboration-chat-bridge
+          cache-dependency-path: services/data-plane/pyproject.toml
+      - name: Install data-plane (Python)
+        run: pip install -e "."
+        working-directory: services/data-plane
+      - name: Import merged FastAPI app
+        run: python -c "from data_plane.main import app; assert 'Data Plane' in app.title"
+        working-directory: services/data-plane
         env:
           PYTHONPATH: src:../shared
-      - name: Upload coverage
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-collaboration-chat-bridge
-          path: services/collaboration-chat-bridge/coverage.xml
-          if-no-files-found: ignore
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
-        continue-on-error: true
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: services/collaboration-chat-bridge/coverage.xml
-          flags: collaboration-chat-bridge
-          fail_ci_if_error: false
-
-  test-analytics-sink:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: services/analytics-sink/pyproject.toml
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-        working-directory: services/analytics-sink
-      - name: Run tests
-        run: pytest --cov=analytics_sink --cov-report=xml --cov-report=term-missing --cov-fail-under=62 tests/
-        working-directory: services/analytics-sink
-        env:
-          PYTHONPATH: src:../shared
-      - name: Upload coverage
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-analytics-sink
-          path: services/analytics-sink/coverage.xml
-          if-no-files-found: ignore
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
-        continue-on-error: true
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: services/analytics-sink/coverage.xml
-          flags: analytics-sink
-          fail_ci_if_error: false
 
   test-chitragupta:
+    needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -544,6 +511,7 @@ jobs:
           fail_ci_if_error: false
 
   test-feature-service:
+    needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -576,6 +544,7 @@ jobs:
           fail_ci_if_error: false
 
   test-ml-scoring:
+    needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -608,6 +577,7 @@ jobs:
           fail_ci_if_error: false
 
   benchmark-latency-evaluate:
+    needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -617,27 +587,27 @@ jobs:
       - uses: docker/setup-buildx-action@v4.0.0
       - name: Start lite stack for benchmark
         run: docker compose -f deploy/docker-compose.lite.yml up -d --build
-      - name: Wait for decision-api health
+      - name: Wait for core-api (decision) health
         run: |
           python3 - <<'PY'
           import json, time, urllib.request
-          url = "http://127.0.0.1:8000/v1/health"
+          url = "http://127.0.0.1:8000/decisions/v1/health"
           for _ in range(120):
               try:
                   with urllib.request.urlopen(url, timeout=3) as r:
                       body = json.loads(r.read().decode())
                       if r.status == 200 and body.get("status") == "ok":
-                          print("decision-api ready")
+                          print("core-api decision plane ready")
                           raise SystemExit(0)
               except Exception:
                   pass
               time.sleep(2)
-          raise SystemExit("decision-api did not become ready")
+          raise SystemExit("core-api decision plane did not become ready")
           PY
       - name: Run latency benchmark and capture output
         run: |
           python3 scripts/benchmarks/latency_evaluate.py \
-            --url http://127.0.0.1:8000 \
+            --url http://127.0.0.1:8000/decisions \
             --requests 300 \
             --concurrency 30 \
             --warmup 20 | tee benchmark-latency-evaluate.txt
@@ -651,9 +621,33 @@ jobs:
         if: always()
         run: docker compose -f deploy/docker-compose.lite.yml down -v --remove-orphans
 
+  chaos-matrix:
+    needs: audit-stubs
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        fault: [redis, postgres]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run chaos smoke
+        run: python3 scripts/chaos/chaos_smoke.py --profile core --fault ${{ matrix.fault }}
+
+  schema-registry-compat:
+    needs: audit-stubs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Event schema registry compatibility gate
+        run: python3 scripts/ci/schema_registry_compat.py
+
   docker-build:
     runs-on: ubuntu-latest
     needs:
+      - audit-stubs
       - lint
       - test-decision-api
       - test-case-api
@@ -666,9 +660,7 @@ jobs:
       - build-frontend
       - build-sdk-typescript
       - test-graphql-gateway
-      - test-event-ingest
-      - test-collaboration-chat-bridge
-      - test-analytics-sink
+      - test-data-plane
       - test-chitragupta
       - test-feature-service
       - test-ml-scoring
@@ -677,16 +669,12 @@ jobs:
       fail-fast: false
       matrix:
         service:
-          - decision-api
+          - core-api
+          - signal-api
           - graph-service
-          - case-api
-          - ml-scoring
-          - feature-service
           - investigation-agent
           - integration-ingress
-          - event-ingest
-          - collaboration-chat-bridge
-          - analytics-sink
+          - data-plane
           - graphql-gateway
     steps:
       - uses: actions/checkout@v6
@@ -714,8 +702,13 @@ jobs:
         env:
           DOCKER_BUILDKIT: "1"
         run: python3 scripts/ci/full_stack_smoke.py --wait-seconds 1200
+      - name: Service contract tests
+        run: python3 scripts/ci/test_service_contracts.py
+      - name: Traceparent propagation smoke (decision/case/investigation-agent)
+        run: python3 scripts/ci/traceparent_smoke.py
 
   cloud-preset-smoke:
+    needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

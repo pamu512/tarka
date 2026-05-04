@@ -14,7 +14,7 @@ When rolling out **secret-backed auth and tenant controls** after wiring `global
 |---|---|---|
 | Stateless HTTP services | `decision-api`, `case-api`, `integration-ingress`, `feature-service`, `ml-scoring`, `graphql-gateway`, `frontend`, `event-ingest`, `analytics-sink` | Horizontal scale behind ingress; no local persistent volumes required |
 | Stateful infrastructure dependencies | Postgres, Redis, Neo4j, NATS, ClickHouse | Prefer managed services and inject endpoints via Helm values/secrets |
-| Local-disk/embedded state (needs architecture decision before elastic scale) | `investigation-agent` local SQLite stores, `calibration-service` `/data`, `location-service` `/data` | Externalize storage (DB/object store) or document single-writer limits before aggressive autoscaling |
+| Local-disk/embedded state (needs architecture decision before elastic scale) | `investigation-agent` local SQLite stores; optional external **calibration** if you run one; `location-service` `/data` | Externalize storage (DB/object store) or document single-writer limits before aggressive autoscaling |
 
 ---
 

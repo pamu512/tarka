@@ -1,0 +1,16 @@
+# Rust build artifacts
+target/
+Cargo.lock
+*.rs.bk
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# IDEs
+.idea/
+.vscode/
+
+# OS
+.DS_Store

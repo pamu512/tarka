@@ -29,13 +29,9 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("tenant_id", "slug", name="uq_investigation_templates_tenant_slug"),
     )
     op.create_index("ix_investigation_templates_tenant_id", "investigation_templates", ["tenant_id"], unique=False)
-    op.create_unique_constraint(
-        "uq_investigation_templates_tenant_slug",
-        "investigation_templates",
-        ["tenant_id", "slug"],
-    )
 
     op.add_column("investigation_cases", sa.Column("default_owner", sa.String(length=256), nullable=True))
     op.add_column("investigation_cases", sa.Column("sla_hours_override", sa.Integer(), nullable=True))
@@ -49,6 +45,5 @@ def downgrade() -> None:
     op.drop_column("investigation_cases", "applied_template_id")
     op.drop_column("investigation_cases", "sla_hours_override")
     op.drop_column("investigation_cases", "default_owner")
-    op.drop_constraint("uq_investigation_templates_tenant_slug", "investigation_templates", type_="unique")
     op.drop_index("ix_investigation_templates_tenant_id", table_name="investigation_templates")
     op.drop_table("investigation_templates")

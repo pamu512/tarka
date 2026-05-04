@@ -1,0 +1,26 @@
+imagePullPolicy: IfNotPresent
+
+coreFraudApi:
+  image: tarka-decision-api
+  tag: latest
+  replicas: 1
+  port: 8000
+
+dataPlatform:
+  image: tarka-data-platform
+  tag: latest
+  replicas: 1
+  port: 8014
+
+investigationAgent:
+  image: tarka-investigation-agent
+  tag: latest
+  replicas: 1
+  port: 8006
+
+hpa:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+

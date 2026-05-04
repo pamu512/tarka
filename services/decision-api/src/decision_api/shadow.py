@@ -44,7 +44,7 @@ def load_shadow_rules() -> None:
 
 def evaluate_shadow(features: dict[str, Any], tags: list[str]) -> dict[str, Any] | None:
     """Evaluate shadow rules against the same features. Returns comparison result or None if disabled."""
-    from decision_api.json_rules import _evaluate_pack, get_shadow_packs
+    from decision_api.json_rules import evaluate_adhoc_packs_json, get_shadow_packs
 
     shadow_mode_packs = get_shadow_packs()
     has_file_packs = _shadow_enabled and bool(_shadow_packs)
@@ -53,22 +53,17 @@ def evaluate_shadow(features: dict[str, Any], tags: list[str]) -> dict[str, Any]
     if not has_file_packs and not has_mode_packs:
         return None
 
-    all_hits: list[str] = []
-    all_tags: list[str] = []
-    total_delta = 0.0
-
+    packs: list[dict] = []
     if has_file_packs:
-        for pack in _shadow_packs:
-            hits, new_tags, delta, _pf = _evaluate_pack(pack, features, tags)
-            all_hits.extend(hits)
-            all_tags.extend(new_tags)
-            total_delta += delta
-
-    for pack in shadow_mode_packs:
-        hits, new_tags, delta, _pf = _evaluate_pack(pack, features, tags)
-        all_hits.extend(hits)
-        all_tags.extend(new_tags)
-        total_delta += delta
+        packs.extend(_shadow_packs)
+    packs.extend(shadow_mode_packs)
+    all_hits, all_tags, total_delta, _pf = evaluate_adhoc_packs_json(
+        packs,
+        features,
+        tags,
+        evaluation_mode="simulation",
+        record_telemetry=False,
+    )
 
     shadow_score = max(0.0, min(100.0, 10.0 + total_delta))
 

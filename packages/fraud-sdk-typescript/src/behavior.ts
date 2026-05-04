@@ -1,8 +1,19 @@
+import {
+  aggregateMousePointsLocal,
+  createMouseDistanceWorker,
+  median,
+  typingHesitationCount,
+  type MouseWorkerAgg,
+} from "./telemetry.js";
+
 export interface TypingSignals {
   avg_inter_key_ms: number;
   std_inter_key_ms: number;
+  median_inter_key_ms: number;
   avg_hold_ms: number;
   key_count: number;
+  /** Count of inter-key gaps ≥ 500ms (human hesitation). */
+  hesitation_events_gt_500ms: number;
 }
 
 export interface MouseSignals {
@@ -10,6 +21,12 @@ export interface MouseSignals {
   std_speed_px_ms: number;
   click_count: number;
   avg_click_interval_ms: number;
+  /** Estimated pointer samples per second from recent movement cadence. */
+  samples_per_second_est: number;
+  /** Std-dev of recent pointer step lengths (px); near-zero with activity suggests synthetic / headless input. */
+  path_jitter_px: number;
+  /** Path length accumulated over the sampling window (px). */
+  path_length_px: number;
 }
 
 export interface ScrollSignals {
@@ -21,6 +38,12 @@ export interface ScrollSignals {
 export interface TouchSignals {
   avg_force: number;
   touch_count: number;
+  /** Distinct touch-drag strokes (touchmove sequences). */
+  touchstroke_count: number;
+  /** Approximate length of recent touch curves (px). */
+  curve_length_px: number;
+  /** Variance of instantaneous touch speed between samples (px²/ms² scale). */
+  curve_speed_variance: number;
 }
 
 export interface SessionSignals {
@@ -63,6 +86,7 @@ export class BehaviorCollector {
   private interKeyIntervals: number[] = [];
   private keyHoldDurations: number[] = [];
   private mouseSpeeds: number[] = [];
+  private stepLengthsPx: number[] = [];
   private clickTimestamps: number[] = [];
   private scrollSpeeds: number[] = [];
   private scrollDirectionChanges = 0;
@@ -82,9 +106,18 @@ export class BehaviorCollector {
 
   private lastKeydownTime: number | null = null;
   private keyDownTimes = new Map<string, number>();
-  private lastMousePos: { x: number; y: number; t: number } | null = null;
-  private mouseSampleTimer: number | null = null;
-  private pendingMousePos: { x: number; y: number; t: number } | null = null;
+
+  private pendingMouse: Array<{ t: number; x: number; y: number }> = [];
+  private rafScheduled = false;
+  private rafId: number | null = null;
+  private mouseWorker: Worker | null = null;
+  private workerPending = 0;
+  private mousePathDistAcc = 0;
+  private mousePathDtAcc = 0;
+
+  private touchTracing = false;
+  private touchTrace: Array<{ t: number; x: number; y: number }> = [];
+  private touchstrokes = 0;
 
   private listeners: Array<{
     target: EventTarget;
@@ -98,12 +131,25 @@ export class BehaviorCollector {
 
     if (typeof document === "undefined" || typeof window === "undefined") return;
 
+    this.mouseWorker = createMouseDistanceWorker();
+    if (this.mouseWorker) {
+      this.mouseWorker.onmessage = (ev: MessageEvent<MouseWorkerAgg>) => {
+        this.workerPending = Math.max(0, this.workerPending - 1);
+        const d = ev.data;
+        if (d && d.dt > 0 && d.n > 1) {
+          this.mousePathDistAcc += d.dist;
+          this.mousePathDtAcc += d.dt;
+        }
+      };
+    }
+
     this.addListener(document, "keydown", this.onKeydown);
     this.addListener(document, "keyup", this.onKeyup);
     this.addListener(document, "mousemove", this.onMousemove);
     this.addListener(document, "click", this.onClick);
     this.addListener(document, "scroll", this.onScroll, true);
     this.addListener(document, "touchstart", this.onTouchstart);
+    this.addListener(document, "touchmove", this.onTouchmove, { passive: true } as AddEventListenerOptions);
     this.addListener(document, "touchend", this.onTouchend);
     this.addListener(document, "paste", this.onPaste);
     this.addListener(document, "visibilitychange", this.onVisibilitychange);
@@ -115,10 +161,14 @@ export class BehaviorCollector {
     target: EventTarget,
     type: string,
     handler: (e: Event) => void,
-    capture = false,
+    captureOrOptions?: boolean | AddEventListenerOptions,
   ): void {
     const bound = handler.bind(this) as EventListener;
-    target.addEventListener(type, bound, { passive: true, capture });
+    const opts =
+      typeof captureOrOptions === "boolean"
+        ? { passive: true, capture: captureOrOptions }
+        : { passive: true, capture: false, ...(captureOrOptions ?? {}) };
+    target.addEventListener(type, bound, opts);
     this.listeners.push({ target, type, handler: bound });
   }
 
@@ -140,6 +190,69 @@ export class BehaviorCollector {
     }
   }
 
+  private scheduleRafFlush(): void {
+    if (this.rafScheduled) return;
+    this.rafScheduled = true;
+    const tick = () => {
+      this.rafScheduled = false;
+      this.flushFrame();
+    };
+    if (typeof requestAnimationFrame !== "undefined") {
+      this.rafId = requestAnimationFrame(tick);
+    } else {
+      this.rafId = window.setTimeout(tick, 16) as unknown as number;
+    }
+  }
+
+  private flushFrame(): void {
+    this.rafId = null;
+    const batch = this.pendingMouse.splice(0, this.pendingMouse.length);
+    if (batch.length >= 2) {
+      for (let i = 1; i < batch.length; i++) {
+        const a = batch[i - 1]!;
+        const b = batch[i]!;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const len = Math.hypot(dx, dy);
+        const dt = Math.max(1, b.t - a.t);
+        this.stepLengthsPx.push(len);
+        if (this.stepLengthsPx.length > 120) this.stepLengthsPx.shift();
+        const speed = len / dt;
+        this.mouseSpeeds.push(speed);
+        if (this.mouseSpeeds.length > 100) this.mouseSpeeds.shift();
+      }
+      if (this.mouseWorker && batch.length >= 2) {
+        this.workerPending++;
+        this.mouseWorker.postMessage({ points: batch });
+      } else {
+        const agg = aggregateMousePointsLocal(batch);
+        if (agg.dt > 0 && agg.n > 1) {
+          this.mousePathDistAcc += agg.dist;
+          this.mousePathDtAcc += agg.dt;
+        }
+      }
+    }
+
+    if (this.touchTrace.length >= 2) {
+      let len = 0;
+      const speeds: number[] = [];
+      for (let i = 1; i < this.touchTrace.length; i++) {
+        const a = this.touchTrace[i - 1]!;
+        const b = this.touchTrace[i]!;
+        const seg = Math.hypot(b.x - a.x, b.y - a.y);
+        len += seg;
+        const dt = Math.max(1, b.t - a.t);
+        speeds.push(seg / dt);
+      }
+      this._lastTouchCurveLen = len;
+      this._lastTouchSpeedVar = speeds.length > 1 ? stddev(speeds) : 0;
+      this.touchTrace.length = 0;
+    }
+  }
+
+  private _lastTouchCurveLen = 0;
+  private _lastTouchSpeedVar = 0;
+
   private onKeydown(e: Event): void {
     this.recordActivity();
     const ke = e as KeyboardEvent;
@@ -148,7 +261,7 @@ export class BehaviorCollector {
     if (this.lastKeydownTime !== null) {
       const interval = now - this.lastKeydownTime;
       this.interKeyIntervals.push(interval);
-      if (this.interKeyIntervals.length > 50) {
+      if (this.interKeyIntervals.length > 80) {
         this.interKeyIntervals.shift();
       }
     }
@@ -175,34 +288,9 @@ export class BehaviorCollector {
   private onMousemove(e: Event): void {
     this.recordActivity();
     const me = e as MouseEvent;
-    this.pendingMousePos = { x: me.clientX, y: me.clientY, t: Date.now() };
-
-    if (this.mouseSampleTimer === null) {
-      this.mouseSampleTimer = window.setTimeout(() => {
-        this.sampleMouseSpeed();
-        this.mouseSampleTimer = null;
-      }, 50);
-    }
-  }
-
-  private sampleMouseSpeed(): void {
-    if (!this.pendingMousePos) return;
-    const cur = this.pendingMousePos;
-
-    if (this.lastMousePos) {
-      const dx = cur.x - this.lastMousePos.x;
-      const dy = cur.y - this.lastMousePos.y;
-      const dt = cur.t - this.lastMousePos.t;
-      if (dt > 0) {
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const speed = dist / dt;
-        this.mouseSpeeds.push(speed);
-        if (this.mouseSpeeds.length > 100) {
-          this.mouseSpeeds.shift();
-        }
-      }
-    }
-    this.lastMousePos = cur;
+    this.pendingMouse.push({ t: Date.now(), x: me.clientX, y: me.clientY });
+    if (this.pendingMouse.length > 256) this.pendingMouse.shift();
+    this.scheduleRafFlush();
   }
 
   private onClick(): void {
@@ -222,11 +310,7 @@ export class BehaviorCollector {
         : target?.scrollTop ?? 0;
 
     const direction: "up" | "down" =
-      this.lastScrollDirection === null
-        ? "down"
-        : scrollTop >= 0
-          ? "down"
-          : "up";
+      this.lastScrollDirection === null ? "down" : scrollTop >= 0 ? "down" : "up";
 
     if (this.lastScrollDirection !== null && direction !== this.lastScrollDirection) {
       this.scrollDirectionChanges++;
@@ -239,9 +323,12 @@ export class BehaviorCollector {
   private onTouchstart(e: Event): void {
     this.recordActivity();
     this.touchCount++;
+    this.touchTracing = true;
     const te = e as TouchEvent;
     if (te.touches && te.touches.length > 0) {
-      const force = (te.touches[0] as any).force;
+      const touch = te.touches[0]!;
+      this.touchTrace.push({ t: Date.now(), x: touch.clientX, y: touch.clientY });
+      const force = (touch as Touch & { force?: number }).force;
       if (typeof force === "number" && force > 0) {
         this.touchForces.push(force);
         if (this.touchForces.length > 20) {
@@ -249,10 +336,24 @@ export class BehaviorCollector {
         }
       }
     }
+    this.touchstrokes++;
+    this.scheduleRafFlush();
+  }
+
+  private onTouchmove(e: Event): void {
+    if (!this.touchTracing) return;
+    const te = e as TouchEvent;
+    if (!te.touches?.length) return;
+    const touch = te.touches[0]!;
+    this.touchTrace.push({ t: Date.now(), x: touch.clientX, y: touch.clientY });
+    if (this.touchTrace.length > 200) this.touchTrace.shift();
+    this.scheduleRafFlush();
   }
 
   private onTouchend(): void {
     this.recordActivity();
+    this.touchTracing = false;
+    this.scheduleRafFlush();
   }
 
   private onPaste(): void {
@@ -270,19 +371,22 @@ export class BehaviorCollector {
     const now = Date.now();
     const sessionDurationMs = now - this.startTime;
 
-    const keyCount =
-      this.interKeyIntervals.length + (this.lastKeydownTime !== null ? 1 : 0);
-
     const clickIntervals: number[] = [];
     for (let i = 1; i < this.clickTimestamps.length; i++) {
-      clickIntervals.push(this.clickTimestamps[i] - this.clickTimestamps[i - 1]);
+      clickIntervals.push(this.clickTimestamps[i]! - this.clickTimestamps[i - 1]!);
     }
+
+    const jitter = stddev(this.stepLengthsPx);
+    const elapsedS = Math.max(0.001, (now - this.startTime) / 1000);
+    const samplesPerSecondEst = this.mouseSpeeds.length / elapsedS;
 
     const typing: TypingSignals = {
       avg_inter_key_ms: mean(this.interKeyIntervals),
       std_inter_key_ms: stddev(this.interKeyIntervals),
+      median_inter_key_ms: median(this.interKeyIntervals),
       avg_hold_ms: mean(this.keyHoldDurations),
-      key_count: keyCount,
+      key_count: this.interKeyIntervals.length + (this.lastKeydownTime !== null ? 1 : 0),
+      hesitation_events_gt_500ms: typingHesitationCount(this.interKeyIntervals, 500),
     };
 
     const mouse: MouseSignals = {
@@ -290,6 +394,9 @@ export class BehaviorCollector {
       std_speed_px_ms: stddev(this.mouseSpeeds),
       click_count: this.clickTimestamps.length,
       avg_click_interval_ms: mean(clickIntervals),
+      samples_per_second_est: samplesPerSecondEst,
+      path_jitter_px: jitter,
+      path_length_px: this.mousePathDistAcc,
     };
 
     const scroll: ScrollSignals = {
@@ -301,13 +408,14 @@ export class BehaviorCollector {
     const touch: TouchSignals = {
       avg_force: mean(this.touchForces),
       touch_count: this.touchCount,
+      touchstroke_count: this.touchstrokes,
+      curve_length_px: this._lastTouchCurveLen,
+      curve_speed_variance: this._lastTouchSpeedVar,
     };
 
     const session: SessionSignals = {
       time_to_first_interaction_ms:
-        this.firstInteractionTime !== null
-          ? this.firstInteractionTime - this.startTime
-          : -1,
+        this.firstInteractionTime !== null ? this.firstInteractionTime - this.startTime : -1,
       total_active_ms: this.totalActiveMs,
       idle_count: this.idleCount,
       paste_count: this.pasteCount,
@@ -316,14 +424,14 @@ export class BehaviorCollector {
 
     const bot_indicators: BotIndicators = {
       zero_mouse_movement:
-        mouse.click_count > 5 && mouse.avg_speed_px_ms === 0,
-      constant_typing_speed:
-        typing.std_inter_key_ms < 5 && typing.key_count > 20,
+        mouse.click_count > 3 &&
+        mouse.path_jitter_px === 0 &&
+        mouse.avg_speed_px_ms === 0 &&
+        mouse.samples_per_second_est < 1,
+      constant_typing_speed: typing.std_inter_key_ms < 5 && typing.key_count > 20,
       no_scroll: sessionDurationMs > 10_000 && this.totalScrolls === 0,
       suspiciously_fast:
-        typing.avg_inter_key_ms > 0 &&
-        typing.avg_inter_key_ms < 30 &&
-        typing.key_count > 50,
+        typing.avg_inter_key_ms > 0 && typing.avg_inter_key_ms < 30 && typing.key_count > 50,
     };
 
     return { typing, mouse, scroll, touch, session, bot_indicators };
@@ -339,9 +447,17 @@ export class BehaviorCollector {
       clearInterval(this.idleTimer);
       this.idleTimer = null;
     }
-    if (this.mouseSampleTimer !== null) {
-      clearTimeout(this.mouseSampleTimer);
-      this.mouseSampleTimer = null;
+    if (this.rafId !== null) {
+      if (typeof cancelAnimationFrame !== "undefined") {
+        cancelAnimationFrame(this.rafId);
+      } else {
+        clearTimeout(this.rafId);
+      }
+      this.rafId = null;
+    }
+    if (this.mouseWorker) {
+      this.mouseWorker.terminate();
+      this.mouseWorker = null;
     }
   }
 }

@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-platform
+spec:
+  replicas: {{ .Values.dataPlatform.replicas }}
+  selector:
+    matchLabels:
+      app: data-platform
+  template:
+    metadata:
+      labels:
+        app: data-platform
+    spec:
+      containers:
+        - name: data-platform
+          image: "{{ .Values.dataPlatform.image }}:{{ .Values.dataPlatform.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.dataPlatform.port }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: data-platform
+spec:
+  selector:
+    app: data-platform
+  ports:
+    - port: {{ .Values.dataPlatform.port }}
+      targetPort: {{ .Values.dataPlatform.port }}
+

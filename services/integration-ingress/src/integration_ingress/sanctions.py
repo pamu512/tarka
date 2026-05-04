@@ -1,23 +1,33 @@
 from __future__ import annotations
 
-import asyncio
-import json
-import logging
-import os
-import time
-from pathlib import Path
-from typing import Any
-
-import httpx
-
 """Sanctions & PEP screening against the OpenSanctions consolidated dataset.
 
 Downloads the FtM entities JSON-lines file, caches it locally, and provides
 fuzzy name matching with optional country / date-of-birth filters.
 
-All I/O is async-safe — network downloads use httpx and file parsing is
-offloaded to a thread pool to avoid blocking the event loop.
+**Persistence (SR-17):** Every adapter invocation appends a row to
+``sanctions_screening_logs`` (Postgres) before returning. If persistence fails,
+the request fails with **503 SCREENING_PERSISTENCE_FAILED** (no ephemeral-only
+screening). The on-disk FtM cache is the dataset artifact; in-process
+``_entities`` is a rebuildable search index, not the audit record of record.
 """
+
+import asyncio
+import json
+import logging
+import os
+import time
+import uuid
+from pathlib import Path
+from typing import Any
+
+import httpx
+from fastapi import HTTPException
+from sqlalchemy.exc import SQLAlchemyError
+
+from integration_ingress.db import SessionLocal
+from integration_ingress.models import SanctionsScreeningLog
+
 log = logging.getLogger(__name__)
 
 _DATASET_URL = "https://data.opensanctions.org/datasets/latest/default/entities.ftm.json"
@@ -25,6 +35,44 @@ _CACHE_DIR = Path(os.environ.get("SANCTIONS_CACHE_DIR", "/tmp/sanctions_cache"))
 _CACHE_FILE = _CACHE_DIR / "entities.ftm.json"
 _CACHE_TTL_SECONDS = int(os.environ.get("SANCTIONS_CACHE_TTL", str(24 * 3600)))
 _DOWNLOAD_TIMEOUT = int(os.environ.get("SANCTIONS_DOWNLOAD_TIMEOUT", "300"))
+
+_MAX_MATCH_ROWS_IN_LOG = 10
+_MAX_ENTITY_NAME_LEN = 512
+_MAX_TENANT_ID_LEN = 128
+
+
+async def _persist_screening_log(
+    tenant_id: str,
+    entity_name: str,
+    match_found: bool,
+    match_details: dict[str, Any],
+) -> uuid.UUID:
+    """Insert screening log; raises HTTPException 503 on persistence failure."""
+    tid = (tenant_id or "").strip()[:_MAX_TENANT_ID_LEN] or "(unknown_tenant)"
+    ename = (entity_name or "").strip()[:_MAX_ENTITY_NAME_LEN] or "(missing)"
+
+    async with SessionLocal() as session:
+        log_row = SanctionsScreeningLog(
+            tenant_id=tid,
+            entity_name=ename,
+            match_found=match_found,
+            match_details=match_details,
+        )
+        session.add(log_row)
+        try:
+            await session.commit()
+            await session.refresh(log_row)
+        except SQLAlchemyError as e:
+            await session.rollback()
+            log.warning("sanctions_screening_logs insert failed: %s", e)
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "reason_code": "SCREENING_PERSISTENCE_FAILED",
+                    "message": "Could not persist sanctions screening log.",
+                },
+            ) from e
+    return log_row.id
 
 
 def _levenshtein(s: str, t: str) -> int:
@@ -210,7 +258,19 @@ async def verify_sanctions(
     """
     raw = raw or {}
     name = raw.get("name", "")
+
     if not name:
+        log_id = await _persist_screening_log(
+            tenant_id,
+            "(missing)",
+            False,
+            {
+                "adapter": "sanctions",
+                "subject_id": subject_id,
+                "validation": "missing_name",
+                "error": "missing 'name' in request payload",
+            },
+        )
         return {
             "status": "error",
             "adapter": "sanctions",
@@ -220,7 +280,10 @@ async def verify_sanctions(
             "pep_sanctions_match": None,
             "confidence": None,
             "raw_reference": None,
-            "details": {"error": "missing 'name' in request payload"},
+            "details": {
+                "error": "missing 'name' in request payload",
+                "screening_log_id": str(log_id),
+            },
         }
 
     screener = _get_screener()
@@ -231,6 +294,24 @@ async def verify_sanctions(
     )
     has_match = len(matches) > 0
     top_score = matches[0]["score"] if matches else 0.0
+
+    match_details: dict[str, Any] = {
+        "adapter": "sanctions",
+        "subject_id": subject_id,
+        "query_name": name,
+        "query_country": raw.get("country"),
+        "query_dob": raw.get("dob"),
+        "match_count": len(matches),
+        "matches": matches[:_MAX_MATCH_ROWS_IN_LOG],
+        "dataset_cache_path": str(screener.cache_file),
+    }
+
+    log_id = await _persist_screening_log(
+        tenant_id,
+        str(name),
+        has_match,
+        match_details,
+    )
 
     return {
         "status": "verified",
@@ -248,5 +329,8 @@ async def verify_sanctions(
             "query_dob": raw.get("dob"),
             "match_count": len(matches),
             "matches": matches[:10],
+            "screening_log_id": str(log_id),
+            "dataset_cache_path": str(screener.cache_file),
+            "index_scope": "process_memory_rebuilt_from_disk_cache",
         },
     }

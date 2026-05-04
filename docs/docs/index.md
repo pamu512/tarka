@@ -14,7 +14,7 @@ The platform is designed around composability. Run just the Decision API with Re
 
 - **API reference (OSS #36 / #40 / #46 / #48):** [API Reference](api-reference.md) covers **trust/ops readiness** (`GET /v1/ops/evaluation-posture` + `GET /v1/slo`, [§ Trust / ops readiness](api-reference.md#trust-ops-readiness)), **typology predicate registry** ([§ Decision API](api-reference.md#decision-api)), deterministic **evidence summary** ([§ Investigation Agent](api-reference.md#investigation-agent)), **velocity parity verify** ([§ Feature Service](api-reference.md#feature-service)), and the **GraphQL gateway** façade ([§ GraphQL Gateway](api-reference.md#graphql-gateway)).
 - **Investigation copilot (OSS):** **`GET /v1/ready`** and **`GET /v1/setup`**, production diagnostics on **`GET /v1/health`**, **workflow-aware** **`POST /v1/chat`**, case-summary **PDF** / turn-bundle exports, and production guardrails — see [Integration changelog](guides/CHANGELOG_INTEGRATION.md) and [Investigation Agent project](projects/investigation-agent-project.md).
-- **Collaboration chat bridge:** Slack, Teams, and Lark → agent with **attachments** (incl. **xlsx**), **SSRF-safe URL** enrichment, **workflow directives**, and **ingress rate limits** — [bridge README](../../services/collaboration-chat-bridge/README.md) and [Collaboration chat & cloud](guides/investigation-collaboration-chat-aws-azure.md).
+- **Collaboration chat (Slack / Teams / Lark):** ships **inside** [Investigation Agent](api-reference.md#investigation-agent) as `investigation_agent.chat_bridge` (same process, **:8006**); see [Collaboration chat & cloud](guides/investigation-collaboration-chat-aws-azure.md) and OpenAPI [collaboration-chat-bridge.yaml](../../contracts/openapi/collaboration-chat-bridge.yaml) (includes **embedded path** notes).
 - **Tarka repo:** Default development branch is **`master`**; release cadence and tags are unchanged — [Release schedule](../../RELEASE_SCHEDULE.md) (repository root).
 
 ---
@@ -75,6 +75,6 @@ The platform is designed around composability. Run just the Decision API with Re
 
 - :material-book-search-outline: **[API Reference](api-reference.md)**
 
-    Service-by-service HTTP tables (default Compose **8000–8010**): Decision API (evaluate, audit, **evaluation posture**, typology registry), Feature Service (**parity verify**), Investigation Agent (**evidence summary**, chat, exports), collaboration bridge on **8009**, GraphQL gateway on **8010**, and more — OpenAPI pointers under `contracts/openapi/` where published; GraphQL is summarized in [§ GraphQL Gateway](api-reference.md#graphql-gateway).
+    Service-by-service HTTP tables (default Compose **8000–8010** + **8007** ingest / **8014** data-platform in Lite): Decision API (evaluate, audit, **evaluation posture**, typology registry), Feature Service (**parity verify**), Investigation Agent (**evidence summary**, **copilot** + **embedded** collaboration ingress on **:8006**), GraphQL gateway on **8010**, and more — OpenAPI pointers under `contracts/openapi/` where published; GraphQL is summarized in [§ GraphQL Gateway](api-reference.md#graphql-gateway).
 
 </div>

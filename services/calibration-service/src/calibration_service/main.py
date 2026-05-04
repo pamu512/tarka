@@ -145,7 +145,8 @@ app = FastAPI(
     version="1.0.0",
     dependencies=[Depends(require_api_key)],
 )
-setup_observability(app, "calibration-service")
+if os.environ.get("TARKA_SIGNAL_PLANE_SUBAPP", "").strip() != "1":
+    setup_observability(app, "calibration-service")
 
 
 @app.get("/v1/health")

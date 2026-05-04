@@ -1699,7 +1699,7 @@ async def batch_ingest(
     analyst_id: str = Form(...),
     file: UploadFile = File(...),
 ):
-    """Upload CSV, JSON, NDJSON, or XLSX for copilot tabular tools (tenant + analyst scoped, in-memory TTL)."""
+    """Upload CSV, JSON, NDJSON, or XLSX for copilot tabular tools (tenant + analyst scoped, disk-backed TTL)."""
     _validate_scope_id("tenant_id", tenant_id)
     _validate_scope_id("analyst_id", analyst_id)
     if not is_analyst_allowed(analyst_id):
@@ -2430,3 +2430,10 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         workflow_id=active_workflow,
     )
     return out
+
+
+# ── Collaboration (Slack / Teams / Lark) mounted under /collab (see frontend nginx /api/collab/) ──
+os.environ.setdefault("TARKA_CHAT_BRIDGE_SUBAPP", "1")
+from investigation_agent.chat_bridge.main import app as _collaboration_subapp  # noqa: E402
+
+app.mount("/collab", _collaboration_subapp)

@@ -4,8 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, String, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import JSON, DateTime, String, Uuid, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -27,22 +26,19 @@ Usage::
         changes={"status": {"old": "open", "new": "escalated"}},
     )
 """
-_JSON_COL = JSON().with_variant(JSONB(), "postgresql")
-
-
 class AuditEntry:
     """Mixin: add this to your Base to create the audit_trail table."""
 
     __tablename__ = "audit_trail"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[str] = mapped_column(String(128), index=True)
     actor: Mapped[str] = mapped_column(String(256))
     action: Mapped[str] = mapped_column(String(64), index=True)
     resource_type: Mapped[str] = mapped_column(String(64), index=True)
     resource_id: Mapped[str] = mapped_column(String(256), index=True)
-    changes: Mapped[dict] = mapped_column(_JSON_COL)
-    metadata_extra: Mapped[dict | None] = mapped_column(_JSON_COL, nullable=True)
+    changes: Mapped[dict] = mapped_column(JSON)
+    metadata_extra: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

@@ -180,6 +180,11 @@ export default function GraphExplorer() {
       <div className="flex items-center justify-between">
         <PageTitle module="graph">Graph Explorer</PageTitle>
       </div>
+      <p className="text-xs text-amber-200/90 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2">
+        Super-node safety: production graphs should use server-side clustering / top-N expansion (see{" "}
+        <code className="text-amber-100">graph-service/docs/DECISION_STREAM_INDEXER.md</code>) so shared ISP nodes do
+        not overwhelm the browser.
+      </p>
 
       {/* Search Bar */}
       <form onSubmit={handleSearch} className="flex flex-wrap gap-3">

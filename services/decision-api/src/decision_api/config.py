@@ -1,5 +1,6 @@
 import os
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -7,13 +8,27 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+asyncpg://fraud:fraud@localhost:5432/fraud"
+    # ClickHouse analytics / feature-store execution (empty host = offline; routes fail closed via deps).
+    clickhouse_host: str = ""
+    clickhouse_port: int = Field(default=8123, ge=1, le=65535)
+    clickhouse_user: str = "default"
+    clickhouse_password: str = ""
+    clickhouse_database: str = "default"
+    clickhouse_statement_timeout_ms: int = Field(default=5000, ge=1, le=600_000)
+    # SR-03: bounded identifier; must also appear in nl_sql_allowed_tables for query-time enforcement.
+    clickhouse_analytics_events_table: str = Field(
+        default="fraud_decisions",
+        min_length=1,
+        max_length=128,
+        pattern=r"^[a-zA-Z_][a-zA-Z0-9_]*$",
+    )
     redis_url: str = "redis://localhost:6379/0"
-    feature_service_url: str = ""
-    ml_scoring_url: str = ""
+    feature_service_url: str = "http://signal-api:8004/features"
+    ml_scoring_url: str = "http://signal-api:8004/ml"
     graph_service_url: str = ""
-    calibration_service_url: str = ""
-    counter_service_url: str = ""
-    location_service_url: str = ""
+    calibration_service_url: str = "http://signal-api:8004/calibration"
+    counter_service_url: str = "http://signal-api:8004/counters"
+    location_service_url: str = "http://signal-api:8004/location"
     scameter_enabled: bool = os.environ.get("SCAMETER_ENABLED", "false").strip().lower() in ("1", "true", "yes", "on")
     scameter_base_url: str = os.environ.get("SCAMETER_BASE_URL", "").strip()
     scameter_api_key: str = os.environ.get("SCAMETER_API_KEY", "").strip()
@@ -140,6 +155,56 @@ class Settings(BaseSettings):
         "yes",
     )
 
+    # Tier-1: cap in-flight evaluations per process; overflow sheds graph + ML (see EvalLoadGuard).
+    tarka_max_concurrent_evaluations: int = int(os.environ.get("TARKA_MAX_CONCURRENT_EVALUATIONS", "512"))
+
+    # Tier-1 reporting / compliance (optional JSON maps and NL→SQL allowlists).
+    nl_sql_allowed_tables: str = os.environ.get("NL_SQL_ALLOWED_TABLES", "fraud_decisions").strip()
+    adverse_action_rule_map_json: str = os.environ.get("ADVERSE_ACTION_RULE_MAP_JSON", "").strip()
+    reporting_nl_llm_url: str = os.environ.get("TARKA_REPORTING_NL_LLM_URL", "").strip()
+    reporting_nl_llm_api_key: str = os.environ.get("TARKA_REPORTING_NL_LLM_API_KEY", "").strip()
+    reporting_nl_llm_model: str = os.environ.get("TARKA_REPORTING_NL_LLM_MODEL", "gpt-4o-mini").strip()
+
+    # ``micro`` selects in-process :class:`tarka_core.messaging.LocalAsyncBroker` and :class:`tarka_core.cache.LocalDictCache`.
+    tarka_env: str = Field(default="production")
+    # Compose / laptops: ``TARKA_BROKER=local`` uses :class:`tarka_core.messaging.LocalAsyncBroker` without NATS.
+    tarka_broker: str = Field(default="", description="Messaging backend; 'local' = in-process broker")
+
+    # Warehouse rule backtest: wall-clock circuit breaker (streaming OLAP + Rust per row).
+    backtest_job_timeout_seconds: float = Field(default=60.0, ge=1.0, le=3600.0)
+
+    # PIT ML export (POST /v1/ml/export/pit-parquet): case labels + warehouse payload_json snapshots.
+    case_api_url: str = Field(default="", description="Case Management API base URL for training labels")
+    ml_export_local_dir: str = Field(default="./data/ml_exports", description="Tarka Micro: Parquet write directory")
+    ml_export_s3_bucket: str = Field(default="", description="Production: S3 bucket for uploaded Parquet")
+    ml_export_s3_prefix: str = Field(default="pit-exports", max_length=256)
+    ml_export_presign_ttl_seconds: int = Field(default=3600, ge=60, le=86_400)
+    ml_export_max_rows: int = Field(default=500_000, ge=1_000, le=50_000_000)
+
+    # OSINT / vendor plugins (opt-in; reference: ip-api.com geolocation).
+    vendor_ipapi_enabled: bool = os.environ.get("TARKA_VENDOR_IPAPI_ENABLED", "false").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    vendor_ipapi_api_key: str = os.environ.get("TARKA_VENDOR_IPAPI_API_KEY", "").strip()
+    vendor_ipapi_base_url: str = os.environ.get("TARKA_VENDOR_IPAPI_BASE_URL", "http://ip-api.com").strip()
+    vendor_http_max_attempts: int = int(os.environ.get("TARKA_VENDOR_HTTP_MAX_ATTEMPTS", "3"))
+    vendor_http_retry_min_wait: float = float(os.environ.get("TARKA_VENDOR_HTTP_RETRY_MIN_WAIT", "0.2"))
+    vendor_http_retry_max_wait: float = float(os.environ.get("TARKA_VENDOR_HTTP_RETRY_MAX_WAIT", "2.0"))
+
+    @property
+    def is_tarka_micro(self) -> bool:
+        v = (self.tarka_env or "").strip().lower()
+        return v in ("micro", "tarka_micro", "local_micro")
+
+    @property
+    def use_local_message_broker(self) -> bool:
+        if self.is_tarka_micro:
+            return True
+        return (self.tarka_broker or "").strip().lower() in ("local", "inprocess", "memory")
+
 
 settings = Settings()
 
@@ -203,11 +268,11 @@ def dependency_resilience_policy_table() -> dict[str, dict[str, float | int | st
             "circuit_recovery_seconds": settings.circuit_calibration_recovery_seconds,
             "on_failure": "SKIP",
         },
-        "external_signals": {
-            "timeout_seconds": settings.external_signal_timeout_seconds,
-            "max_attempts": settings.eval_step_external_signal_max_attempts,
-            "circuit_failure_threshold": settings.circuit_external_failure_threshold,
-            "circuit_recovery_seconds": settings.circuit_external_recovery_seconds,
+        "async_osint_redis": {
+            "timeout_seconds": float(os.environ.get("ASYNC_OSINT_REDIS_TIMEOUT_SECONDS", "0.05")),
+            "max_attempts": int(os.environ.get("ASYNC_OSINT_REDIS_MAX_ATTEMPTS", "1")),
+            "circuit_failure_threshold": int(os.environ.get("ASYNC_OSINT_REDIS_CIRCUIT_FAILURE_THRESHOLD", "5")),
+            "circuit_recovery_seconds": float(os.environ.get("ASYNC_OSINT_REDIS_CIRCUIT_RECOVERY_SECONDS", "2.0")),
             "on_failure": "SKIP",
         },
         "graph_upsert": {

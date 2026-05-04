@@ -20,10 +20,7 @@ nats:
 clickhouse:
   enabled: false
 
-decisionApi:
-  enabled: true
-  replicaCount: 2
-caseApi:
+coreApi:
   enabled: true
   replicaCount: 2
 integrationIngress:
@@ -34,12 +31,8 @@ graphqlGateway:
   enabled: true
 frontend:
   enabled: true
-collaborationChatBridge:
-  enabled: true
 
-featureService:
-  enabled: true
-mlScoring:
+signalApi:
   enabled: true
 graphService:
   enabled: false

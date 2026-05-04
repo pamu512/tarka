@@ -20,23 +20,13 @@ spec:
           ports:
             - containerPort: {{ .Values.graphService.servicePort }}
           env:
-            - name: NEO4J_URI
-              {{- if .Values.global.externalServices.neo4j.enabled }}
-              value: {{ .Values.global.externalServices.neo4j.uri | quote }}
+            - name: GRAPH_BACKEND
+              value: {{ .Values.graphService.graphBackend | default "age" | quote }}
+            - name: DATABASE_URL
+              {{- if .Values.global.externalServices.postgres.enabled }}
+              value: {{ .Values.global.externalServices.postgres.databaseUrl | quote }}
               {{- else }}
-              value: "bolt://{{ include "tarka.fullname" . }}-neo4j:7687"
-              {{- end }}
-            - name: NEO4J_USER
-              {{- if .Values.global.externalServices.neo4j.enabled }}
-              value: {{ .Values.global.externalServices.neo4j.user | quote }}
-              {{- else }}
-              value: {{ .Values.neo4j.auth.user | quote }}
-              {{- end }}
-            - name: NEO4J_PASSWORD
-              {{- if .Values.global.externalServices.neo4j.enabled }}
-              value: {{ .Values.global.externalServices.neo4j.password | quote }}
-              {{- else }}
-              value: {{ .Values.neo4j.auth.password | quote }}
+              value: "postgresql+asyncpg://{{ .Values.postgres.auth.username }}:{{ .Values.postgres.auth.password | default "fraud" }}@{{ include "tarka.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}"
               {{- end }}
             - name: TENANT_BINDING_REQUIRED
               value: "true"

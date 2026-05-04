@@ -28,7 +28,7 @@ Expected operator behavior:
 
 ## Bridge health fields to monitor
 
-`services/collaboration-chat-bridge` exposes `GET /v1/health` fields that should be tracked in degraded incidents:
+The embedded collaboration app (`investigation_agent.chat_bridge`, **`GET /v1/chat/health`** on investigation-agent) exposes health fields that should be tracked in degraded incidents:
 
 - `investigation_agent_configured`
 - `slack_signing_configured`

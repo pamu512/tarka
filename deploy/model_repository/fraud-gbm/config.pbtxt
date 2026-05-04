@@ -1,0 +1,22 @@
+name: "fraud-gbm"
+platform: "onnxruntime_onnx"
+max_batch_size: 128
+input [
+  {
+    name: "X"
+    data_type: TYPE_FP32
+    dims: [ -1, 9 ]
+  }
+]
+output [
+  {
+    name: "label"
+    data_type: TYPE_INT64
+    dims: [ -1 ]
+  },
+  {
+    name: "probabilities"
+    data_type: TYPE_FP32
+    dims: [ -1, 2 ]
+  }
+]

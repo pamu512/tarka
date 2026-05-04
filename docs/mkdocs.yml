@@ -83,9 +83,13 @@ nav:
       - "Deployment: Cloud-native bundles": guides/deployment-cloud-native-bundles.md
       - "Deployment: Presets & generated values": guides/deployment-presets.md
       - "Deployment: Managed services": guides/deployment-managed-services.md
+      - "Deployment: Service mesh health routing": guides/deployment-service-mesh-health-routing.md
+      - "Deployment: Edge security (WAF/Bot)": guides/edge-security-waf-bot.md
+      - "Deployment: Operationalizing device/LLM/schema": guides/operationalizing-device-llm-schema.md
       - "Deployment: Lighter runtime": guides/deployment-lighter-runtime.md
       - "Deployment: Release readiness": guides/deployment-release-readiness.md
       - Enterprise Readiness: guides/enterprise-readiness.md
+      - "Enterprise parity (ingest, rules, vendors)": guides/competitor-parity.md
       - "Enterprise Copilot: plugin + governance": guides/enterprise-copilot-plugin-and-governance-controls.md
       - Incident Response: guides/incident-response.md
       - "Chaos runbook (template)": guides/runbook-chaos-template.md
@@ -97,11 +101,23 @@ nav:
       - Module codenames: guides/module-codenames.md
       - "Collaboration chat (Slack, Teams, Lark) & cloud": guides/investigation-collaboration-chat-aws-azure.md
       - "Agentic AI fraud detection (variables & layering)": guides/agentic-ai-fraud-detection-variables-and-layering.md
+      - Distributed tracing: guides/distributed-tracing.md
+      - API versioning strategy: guides/api-versioning-strategy.md
+      - Feature flags rollout: guides/feature-flags-rollout.md
+      - Choosing Tarka: guides/choosing-tarka.md
       - Saarthi Pro:
           - vs open source (OSS): guides/saarthi-pro-vs-oss.md
           - Roadmap: guides/saarthi-pro-roadmap.md
           - Distribution & contract parity: guides/saarthi-pro-distribution-and-contract-parity.md
           - Adapter catalog & certification: guides/saarthi-pro-adapter-catalog-and-certification.md
+  - Analysis:
+      - Tarka scoring and comparison: analysis/tarka-scoring-and-comparison.md
+      - Harsh reality assessment: analysis/tarka-harsh-reality-assessment.md
+  - ADRs:
+      - ADR-0001 Shared Python packaging: adr/ADR-0001-shared-python-packaging.md
+      - ADR-0002 Service observability baseline: adr/ADR-0002-service-observability-baseline.md
+      - ADR-0003 API versioning policy: adr/ADR-0003-api-versioning-policy.md
+      - ADR-0004 Feature flag rollout: adr/ADR-0004-feature-flag-rollout.md
   - Projects:
       - Module Projects Overview: projects/README.md
       - Decision API Project: projects/decision-api-project.md
@@ -124,6 +140,9 @@ nav:
       - Python: sdks/python.md
       - TypeScript: sdks/typescript.md
   - API Reference: api-reference.md
+  - Operations:
+      - Runbook: common failures: operations/runbook-common-failures.md
+      - On-call playbook: operations/oncall-playbook.md
 
 extra:
   social:

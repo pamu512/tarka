@@ -125,7 +125,7 @@ class MemoryListStore(ListStore):
         return f"{list_type}:{tenant_id}:{entity_id}"
 
     async def connect(self) -> None:
-        pass
+        return None
 
     async def close(self) -> None:
         self._data.clear()

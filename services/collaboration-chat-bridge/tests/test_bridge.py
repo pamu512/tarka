@@ -758,7 +758,7 @@ async def test_lark_event_rate_limit(monkeypatch):
     import collaboration_chat_bridge.main as m
 
     m.settings = m.Settings()
-    m.app.state.rate_limiter = MinuteRateLimiter(1)
+    m.app.state.bridge_rate_limiter = MinuteRateLimiter(1)
 
     payload = {
         "token": "lvtok",

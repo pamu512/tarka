@@ -21,6 +21,12 @@ Automation, **CI gates**, benchmarks, ETL helpers, and release tooling. Many sub
 
 - [`ml/validate_ml_promotion_policy.py`](ml/validate_ml_promotion_policy.py), [`ml/validate_signal_catalogs.py`](ml/validate_signal_catalogs.py) — promotion policy and signal catalog gates.
 
+## Data backfill (offline)
+
+| Script | Purpose |
+|--------|---------|
+| [`run-batch-ingest.sh`](run-batch-ingest.sh) | Wrapper for **`services/batch-ingest`** — CSV → ClickHouse `fraud_features_offline` (checkpoints; no NATS). See [`services/batch-ingest/README.md`](../services/batch-ingest/README.md). |
+
 ## Documented elsewhere
 
 | Area | README |

@@ -106,17 +106,21 @@ def _safe_db_name() -> str:
 
 def _init_clickhouse():
     global _ch_client
-    _ch_client = clickhouse_connect.get_client(
-        host=settings.clickhouse_host,
-        port=settings.clickhouse_port,
-        username=settings.clickhouse_user,
-        password=settings.clickhouse_password,
-    )
-    db = _safe_db_name()
-    _ch_client.command(f"CREATE DATABASE IF NOT EXISTS {db}")
-    _ch_client.command(DDL_EVENTS.format(db=db))
-    _ch_client.command(DDL_HOURLY_MV.format(db=db))
-    log.info("ClickHouse tables initialized in database '%s'", db)
+    try:
+        _ch_client = clickhouse_connect.get_client(
+            host=settings.clickhouse_host,
+            port=settings.clickhouse_port,
+            username=settings.clickhouse_user,
+            password=settings.clickhouse_password,
+        )
+        db = _safe_db_name()
+        _ch_client.command(f"CREATE DATABASE IF NOT EXISTS {db}")
+        _ch_client.command(DDL_EVENTS.format(db=db))
+        _ch_client.command(DDL_HOURLY_MV.format(db=db))
+        log.info("ClickHouse tables initialized in database '%s'", db)
+    except Exception as e:
+        _ch_client = None
+        log.warning("ClickHouse unavailable (analytics queries disabled): %s", e)
 
 
 async def _nats_consumer():
@@ -245,7 +249,9 @@ app = FastAPI(
     lifespan=lifespan,
     dependencies=[Depends(require_api_key)],
 )
-setup_observability(app, "analytics-sink")
+# When mounted inside services/data-plane, observability is registered on the parent app only.
+if os.environ.get("TARKA_DATA_PLANE_SUBAPP", "").strip() != "1":
+    setup_observability(app, "analytics-sink")
 
 
 @app.get("/v1/health")
