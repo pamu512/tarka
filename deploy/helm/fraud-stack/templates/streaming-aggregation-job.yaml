@@ -1,0 +1,17 @@
+{{- if .Values.streamingAggregations.enabled }}
+# Placeholder for Apache Flink / Arroyo job that consumes fraud.events.> and upserts Redis counters.
+# Wire your operator (FlinkKubernetesOperator, Arroyo chart) to replace this stub Job.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tarka.fullname" . }}-streaming-agg-placeholder
+spec:
+  ttlSecondsAfterFinished: 120
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: placeholder
+          image: busybox:1.36
+          command: ["sh", "-c", "echo 'Replace with Flink/Arroyo deployment consuming NATS JetStream'; exit 0"]
+{{- end }}

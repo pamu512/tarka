@@ -14,6 +14,11 @@ from pydantic import BaseModel, Field
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from fraud_aggregates import AggregateStore, normalized_velocity_key_names  # noqa: E402
 from observability import get_metrics, setup_observability  # noqa: E402
+from osint_flatten import (  # noqa: E402
+    flatten_light_enrichment_response,
+    flatten_osint_response,
+    normalize_location_aliases,
+)
 
 # ---------- auth ----------
 _valid_api_keys: frozenset[str] | None = None
@@ -45,6 +50,12 @@ async def require_api_key(request: Request) -> None:
 
 REDIS_TAGS_URL = os.environ.get("REDIS_TAGS_HTTP", "")
 ENRICHMENT_URL = os.environ.get("ENRICHMENT_URL", "")
+TARKA_ASYNC_OSINT_REDIS = os.environ.get("TARKA_ASYNC_OSINT_REDIS", "1").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 # Ordered keys for the normalized numeric vector
 VECTOR_KEYS = [
@@ -105,7 +116,8 @@ app = FastAPI(
     lifespan=lifespan,
     dependencies=[Depends(require_api_key)],
 )
-setup_observability(app, "feature-service")
+if os.environ.get("TARKA_SIGNAL_PLANE_SUBAPP", "").strip() != "1":
+    setup_observability(app, "feature-service")
 
 
 class SnapshotRequest(BaseModel):
@@ -205,41 +217,7 @@ async def _fetch_enrichment(
     except Exception:
         return features
 
-    enrichments = data.get("enrichments", {})
-
-    email_data = enrichments.get("email", {})
-    if email_data:
-        features["email_risk_score"] = email_data.get("risk_score", 0)
-        features["is_disposable_email"] = email_data.get("is_disposable", False)
-        features["is_free_provider"] = email_data.get("is_free_provider", False)
-        features["gravatar_exists"] = email_data.get("gravatar_exists", False)
-        features["email_domain"] = email_data.get("domain", "")
-
-    phone_data = enrichments.get("phone", {})
-    if phone_data:
-        features["phone_risk_score"] = phone_data.get("risk_score", 0)
-        features["is_voip_phone"] = phone_data.get("is_voip_likely", False)
-        features["phone_country_code"] = phone_data.get("country_code")
-
-    ip_data = enrichments.get("ip", {})
-    if ip_data:
-        features["ip_risk_score"] = ip_data.get("risk_score", 0)
-        features["is_proxy_ip"] = ip_data.get("is_proxy", False)
-        features["is_hosting_ip"] = ip_data.get("is_hosting", False)
-        features["ip_country"] = ip_data.get("country")
-
-    features["aggregate_risk_score"] = data.get("aggregate_risk_score", 0)
-    return features
-
-
-def _normalize_location_features(features: dict[str, Any]) -> None:
-    """Alias OSINT IP geo into generic ip_geo_* keys for downstream decision-api."""
-    if features.get("osint_ip_geo_lat") is not None and features.get("ip_geo_lat") is None:
-        features["ip_geo_lat"] = features["osint_ip_geo_lat"]
-    if features.get("osint_ip_geo_lon") is not None and features.get("ip_geo_lon") is None:
-        features["ip_geo_lon"] = features["osint_ip_geo_lon"]
-    if features.get("osint_ip_geo_timezone") and not features.get("ip_geo_timezone"):
-        features["ip_geo_timezone"] = features["osint_ip_geo_timezone"]
+    return flatten_light_enrichment_response(data)
 
 
 async def _fetch_osint(
@@ -263,45 +241,39 @@ async def _fetch_osint(
     except Exception:
         return features
 
-    features["osint_composite_risk"] = data.get("composite_risk_score", 0)
-    features["osint_risk_level"] = data.get("risk_level", "unknown")
-
-    enrichments = data.get("enrichments", {})
-
-    ip_data = enrichments.get("ip", {})
-    ip_flags = ip_data.get("flags", {}) if isinstance(ip_data, dict) else {}
-    features["osint_ip_vpn"] = ip_flags.get("vpn", False)
-    features["osint_ip_proxy"] = ip_flags.get("proxy", False)
-    features["osint_ip_tor"] = ip_flags.get("tor", False)
-    features["osint_ip_hosting"] = ip_flags.get("hosting", False)
-    vulns = ip_data.get("vulnerabilities", []) if isinstance(ip_data, dict) else []
-    features["osint_ip_vuln_count"] = len(vulns) if isinstance(vulns, list) else 0
-    geo_block = ip_data.get("geo") if isinstance(ip_data, dict) else {}
-    if isinstance(geo_block, dict):
-        la = geo_block.get("lat")
-        lo = geo_block.get("lon")
-        try:
-            if la is not None:
-                features["osint_ip_geo_lat"] = float(la)
-            if lo is not None:
-                features["osint_ip_geo_lon"] = float(lo)
-        except (TypeError, ValueError):
-            pass
-        tzg = geo_block.get("timezone")
-        if isinstance(tzg, str) and tzg:
-            features["osint_ip_geo_timezone"] = tzg
-
-    email_data = enrichments.get("email", {})
-    if isinstance(email_data, dict):
-        features["osint_email_disposable"] = email_data.get("is_disposable", False)
-        features["osint_email_breach_count"] = email_data.get("breach_count", 0)
-        features["osint_email_reputation"] = email_data.get("reputation", 0)
-
-    phone_data = enrichments.get("phone", {})
-    if isinstance(phone_data, dict):
-        features["osint_phone_voip"] = phone_data.get("is_voip", False)
-
+    features.update(flatten_osint_response(data))
     return features
+
+
+async def _load_osint_from_redis(
+    request: Request,
+    tenant_id: str,
+    entity_id: str,
+) -> dict[str, Any]:
+    rc = getattr(request.app.state, "redis_client", None)
+    if not rc:
+        return {}
+    key = f"fraud:async_osint:{tenant_id}:{entity_id}"
+    try:
+        raw = await rc.get(key)
+    except Exception:
+        return {}
+    if not raw:
+        return {}
+    try:
+        if isinstance(raw, bytes | bytearray):
+            raw = raw.decode("utf-8")
+        blob = __import__("json").loads(raw)
+    except Exception:
+        return {}
+    if not isinstance(blob, dict):
+        return {}
+    osint_block = blob.get("osint")
+    if isinstance(osint_block, dict):
+        return flatten_osint_response(osint_block)
+    if "composite_risk_score" in blob or "enrichments" in blob:
+        return flatten_osint_response(blob)
+    return {}
 
 
 async def _compute_velocity_counters(
@@ -445,8 +417,11 @@ async def snapshot(body: SnapshotRequest, request: Request):
         )
         features.update(enrichment_features)
         features.update(osint_features)
+    elif TARKA_ASYNC_OSINT_REDIS:
+        redis_osint = await _load_osint_from_redis(request, body.tenant_id, body.entity_id)
+        features.update(redis_osint)
 
-    _normalize_location_features(features)
+    normalize_location_aliases(features)
 
     redis_tags: list[str] = []
     if REDIS_TAGS_URL:

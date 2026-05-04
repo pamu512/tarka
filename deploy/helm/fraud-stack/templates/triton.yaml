@@ -1,0 +1,74 @@
+{{- if .Values.triton.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-triton
+  labels:
+    app: {{ include "tarka.fullname" . }}-triton
+    app.kubernetes.io/component: triton
+spec:
+  replicas: {{ .Values.triton.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-triton
+      app.kubernetes.io/component: triton
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-triton
+        app.kubernetes.io/component: triton
+    spec:
+      containers:
+        - name: triton
+          image: "{{ .Values.triton.image }}:{{ .Values.triton.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["tritonserver", "--model-repository=/models", "--http-port={{ .Values.triton.servicePort }}", "--grpc-port={{ .Values.triton.grpcPort }}", "--metrics-port={{ .Values.triton.metricsPort }}"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.triton.servicePort }}
+              protocol: TCP
+            - name: grpc
+              containerPort: {{ .Values.triton.grpcPort }}
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.triton.metricsPort }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /v2/health/live
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /v2/health/ready
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-triton
+  labels:
+    app: {{ include "tarka.fullname" . }}-triton
+    app.kubernetes.io/component: triton
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.triton.servicePort }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: {{ .Values.triton.grpcPort }}
+      targetPort: grpc
+      protocol: TCP
+      name: grpc
+    - port: {{ .Values.triton.metricsPort }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    app: {{ include "tarka.fullname" . }}-triton
+    app.kubernetes.io/component: triton
+{{- end }}

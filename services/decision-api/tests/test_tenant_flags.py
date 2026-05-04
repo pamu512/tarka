@@ -17,10 +17,10 @@ def test_compute_fallback_reason_from_tags():
     assert "circuit_opa" in r
 
 
-def test_compute_fallback_reason_covers_external_and_counter_fallback():
-    r = _compute_fallback_reason(["external:unavailable", "counter:fallback_local_agg"], [])
+def test_compute_fallback_reason_covers_async_osint_and_counter_fallback():
+    r = _compute_fallback_reason(["async_osint:unavailable", "counter:fallback_local_agg"], [])
     assert r
-    assert "circuit_external" in r
+    assert "async_osint_redis" in r
     assert "counter_local_aggregate_fallback" in r
 
 

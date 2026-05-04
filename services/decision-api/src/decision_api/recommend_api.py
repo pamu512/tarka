@@ -118,7 +118,7 @@ async def preview_recommendation(
 
     from datetime import datetime, timedelta, timezone
 
-    from decision_api.json_rules import _evaluate_pack
+    from decision_api.json_rules import evaluate_adhoc_packs_json
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=30)
     stmt = (
@@ -127,14 +127,20 @@ async def preview_recommendation(
     result = await session.execute(stmt)
     records = list(result.scalars().all())
 
-    pack = {"rules": [rule], "tag_rules": []}
+    pack = {"rules": [rule], "tag_rules": [], "version": 1, "mode": "active", "_source_file": "preview.json"}
     affected = 0
     would_change = 0
 
     for rec in records:
         snapshot = rec.payload_snapshot or {}
         features = {**snapshot.get("payload", {}), **snapshot.get("metadata", {})}
-        hits, tags, delta, _pf = _evaluate_pack(pack, features, [])
+        hits, tags, delta, _pf = evaluate_adhoc_packs_json(
+            [pack],
+            features,
+            [],
+            evaluation_mode="simulation",
+            record_telemetry=False,
+        )
         if hits:
             affected += 1
             new_score = max(0.0, min(100.0, rec.score + delta))

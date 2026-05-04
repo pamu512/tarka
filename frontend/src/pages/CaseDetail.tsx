@@ -21,6 +21,7 @@ import PriorityBadge from "../components/PriorityBadge";
 import { PageTitle } from "../components/PageTitle";
 import { FraudScoreTrack } from "../components/FraudScoreTrack";
 import { InferenceMetricTrack } from "../components/InferenceMetricTrack";
+import { SarManagementPanel } from "../components/SarManagementPanel";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { toUserFacingError } from "../utils/userFacingErrors";
 import { Network, type Options } from "vis-network";
@@ -346,6 +347,8 @@ export default function CaseDetail() {
         <InfoCard label="Trace ID" value={caseData.trace_id ?? "—"} mono />
         <InfoCard label="Assigned Team" value={caseData.assigned_team || "Unassigned"} />
       </div>
+
+      <SarManagementPanel caseId={caseData.id} tenantId={caseData.tenant_id} />
 
       {/* Explainability — summary first; full metrics behind toggle */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

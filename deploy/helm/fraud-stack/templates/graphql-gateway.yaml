@@ -21,9 +21,9 @@ spec:
             - containerPort: {{ .Values.graphqlGateway.port }}
           env:
             - name: DECISION_API_URL
-              value: {{ .Values.graphqlGateway.decisionApiUrl | default (printf "http://%s-decision-api:8000" (include "tarka.fullname" .)) | quote }}
+              value: {{ .Values.graphqlGateway.decisionApiUrl | default (printf "http://%s-core-api:%v/decisions" (include "tarka.fullname" .) (.Values.coreApi.servicePort | int)) | quote }}
             - name: CASE_API_URL
-              value: {{ .Values.graphqlGateway.caseApiUrl | default (printf "http://%s-case-api:8002" (include "tarka.fullname" .)) | quote }}
+              value: {{ .Values.graphqlGateway.caseApiUrl | default (printf "http://%s-core-api:%v/cases" (include "tarka.fullname" .) (.Values.coreApi.servicePort | int)) | quote }}
             - name: GRAPH_SERVICE_URL
               {{- if or .Values.graphService.enabled .Values.graphqlGateway.graphServiceUrl }}
               value: {{ .Values.graphqlGateway.graphServiceUrl | default (printf "http://%s-graph-service:8001" (include "tarka.fullname" .)) | quote }}

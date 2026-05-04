@@ -21,6 +21,9 @@ export default defineConfig({
           if (id.includes("vis-network") || id.includes("vis-data")) {
             return "vendor-graph";
           }
+          if (id.includes("@xyflow")) {
+            return "vendor-flow";
+          }
           return;
         },
       },
@@ -32,25 +35,30 @@ export default defineConfig({
       "/api/decisions": {
         target: "http://localhost:8000",
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/decisions/, ""),
+        rewrite: (path) => path.replace(/^\/api\/decisions/, "/decisions"),
       },
       "/api/cases": {
-        target: "http://localhost:8002",
+        target: "http://localhost:8000",
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/cases/, ""),
+        rewrite: (path) => path.replace(/^\/api\/cases/, "/cases"),
       },
       "/api/graph": {
         target: "http://localhost:8001",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/graph/, ""),
       },
-      "/api/ml": {
-        target: "http://localhost:8005",
+      "/api/features": {
+        target: "http://localhost:8004",
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/ml/, ""),
+        rewrite: (path) => path.replace(/^\/api\/features/, "/features"),
+      },
+      "/api/ml": {
+        target: "http://localhost:8004",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/ml/, "/ml"),
       },
       "/api/analytics": {
-        target: "http://localhost:8008",
+        target: "http://localhost:8007",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/analytics/, ""),
       },

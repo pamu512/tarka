@@ -2,9 +2,9 @@
 #
 # Enable flags below toggle Deployments/Services in templates/*.yaml. They do NOT set every
 # container env var here—templates wire dependencies, for example:
-#   - case-api gets DECISION_API_URL when decisionApi.enabled (disputes / audit callbacks).
-#   - investigation-agent gets CASE_API_URL, DECISION_API_URL, optional GRAPH_SERVICE_URL.
-#   - event-ingest gets DECISION_API_URL and NATS_URL when enabled.
+#   - core-api (decisions + cases) sets in-process DECISION_API_URL for the case sub-app.
+#   - investigation-agent gets CASE_API_URL / DECISION_API_URL pointing at core-api mounts when coreApi.enabled.
+#   - data-plane (ingest + analytics) gets DECISION_API_URL, NATS_URL, and ClickHouse settings when enabled.
 #
 # Optional app secrets (use Kubernetes Secrets in production; do not commit real values):
 #   OPENAI_API_KEY, UPSTREAM_API_KEY / API_KEYS, ATTESTATION_HMAC_SECRET, EVIDENCE_SIGNING_SECRET
@@ -18,6 +18,18 @@ global:
   imageRegistry: ""
   imagePullPolicy: IfNotPresent
   environment: dev
+  serviceMesh:
+    enabled: false
+    provider: istio
+    healthRouting:
+      retries: 2
+      perTryTimeout: 2s
+      timeout: 8s
+      consecutive5xxErrors: 3
+      interval: 5s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 50
   # Optional pre-created secret containing `API_KEYS` and other shared app secrets.
   # Example: kubectl create secret generic tarka-app-secrets --from-literal=API_KEYS=...
   appSecretsName: ""
@@ -53,7 +65,7 @@ global:
 
 postgres:
   enabled: true
-  image: postgres:16-alpine
+  image: apache/age:release_PG16_1.6.0
   auth:
     username: fraud
     # Empty uses chart default "fraud" in templates for local/in-cluster quickstarts.
@@ -64,9 +76,9 @@ redis:
   enabled: true
   image: redis:7-alpine
 
-decisionApi:
+coreApi:
   enabled: true
-  image: tarka-decision-api
+  image: tarka-core-api
   tag: latest
   replicaCount: 2
   servicePort: 8000
@@ -82,6 +94,26 @@ decisionApi:
     minReplicas: 2
     maxReplicas: 8
     targetCPUUtilizationPercentage: 70
+  edgeSecurity:
+    enabled: false
+    wafActionHeader: x-waf-action
+    botScoreHeader: x-bot-score
+    botScoreBlockThreshold: 25
+    botScoreReviewThreshold: 50
+  extraEnv: {}
+
+signalApi:
+  enabled: false
+  image: tarka-signal-api
+  tag: latest
+  replicaCount: 1
+  servicePort: 8004
+  tritonModelInput: X
+  tritonModelOutput: probabilities
+  resources: {}
+  locationDataVolume:
+    enabled: false
+    claimName: ""
 
 graphService:
   enabled: false
@@ -89,37 +121,16 @@ graphService:
   tag: latest
   replicaCount: 1
   servicePort: 8001
+  graphBackend: age
 
-neo4j:
+triton:
   enabled: false
-  image: neo4j:5-community
-  auth:
-    user: neo4j
-    password: fraud_neo4j
-
-caseApi:
-  enabled: false
-  image: tarka-case-api
-  tag: latest
+  image: nvcr.io/nvidia/tritonserver
+  tag: 23.12-py3
   replicaCount: 1
-  servicePort: 8002
-  tenantBindingRequired: true
-  allowInsecureNoAuth: false
-
-featureService:
-  enabled: false
-  # Requires chart Redis, external Redis URL, or global.externalServices.redis when enabled.
-  image: tarka-feature-service
-  tag: latest
-  replicaCount: 1
-  servicePort: 8004
-
-mlScoring:
-  enabled: false
-  image: tarka-ml-scoring
-  tag: latest
-  replicaCount: 1
-  servicePort: 8005
+  servicePort: 8020
+  grpcPort: 8021
+  metricsPort: 8022
 
 investigationAgent:
   enabled: false
@@ -153,29 +164,22 @@ clickhouse:
   password: ""
   database: fraud
 
-eventIngest:
+dataPlane:
   enabled: true
-  image: tarka-event-ingest
+  image: tarka-data-plane
   tag: latest
   replicaCount: 1
   port: 8007
   apiKeys: ""
   upstreamApiKey: ""
+  schemaRegistryMode: enforce
+  tenantBindingRequired: true
+  apiKeyTenantMap: ""
   autoscaling:
     enabled: false
     minReplicas: 1
     maxReplicas: 6
     targetCPUUtilizationPercentage: 70
-
-analyticsSink:
-  enabled: true
-  image: tarka-analytics-sink
-  tag: latest
-  replicaCount: 1
-  port: 8008
-  apiKeys: ""
-  tenantBindingRequired: true
-  apiKeyTenantMap: ""
 
 graphqlGateway:
   enabled: true
@@ -183,6 +187,7 @@ graphqlGateway:
   tag: latest
   replicaCount: 1
   port: 8010
+  # Defaults resolve to in-cluster core-api mounts (see templates/graphql-gateway.yaml).
   decisionApiUrl: ""
   caseApiUrl: ""
   graphServiceUrl: ""
@@ -194,39 +199,6 @@ frontend:
   replicaCount: 1
   port: 80
   serviceType: ClusterIP
-
-collaborationChatBridge:
-  enabled: false
-  image: tarka-collaboration-chat-bridge
-  tag: latest
-  replicaCount: 1
-  port: 8009
-  investigationAgentUrl: ""
-  investigationAgentApiKey: ""
-  defaultTenantId: collab_default
-  defaultCaseId: ""
-  defaultCopilotPersona: investigation
-
-calibrationService:
-  enabled: false
-  image: tarka-calibration-service
-  tag: latest
-  replicaCount: 1
-  port: 8011
-
-counterService:
-  enabled: false
-  image: tarka-counter-service
-  tag: latest
-  replicaCount: 1
-  port: 8012
-
-locationService:
-  enabled: false
-  image: tarka-location-service
-  tag: latest
-  replicaCount: 1
-  port: 8013
 
 opa:
   enabled: false

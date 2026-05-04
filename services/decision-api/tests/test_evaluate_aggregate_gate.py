@@ -70,8 +70,6 @@ async def aggregate_eval_client():
                                             from decision_api.main import app, get_session
 
                                             app.state.http = AsyncMock()
-                                            app.state.nats_js = None
-                                            app.state.nats_nc = None
                                             app.dependency_overrides = {}
                                             app.dependency_overrides[get_session] = _session_override
                                             transport = httpx.ASGITransport(app=app)

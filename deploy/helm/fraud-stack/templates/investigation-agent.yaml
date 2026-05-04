@@ -20,17 +20,15 @@ spec:
           ports:
             - containerPort: {{ .Values.investigationAgent.servicePort }}
           env:
-            {{- if .Values.caseApi.enabled }}
+            {{- if .Values.coreApi.enabled }}
             - name: CASE_API_URL
-              value: "http://{{ include "tarka.fullname" . }}-case-api:8002"
+              value: "http://{{ include "tarka.fullname" . }}-core-api:{{ .Values.coreApi.servicePort }}/cases"
+            - name: DECISION_API_URL
+              value: "http://{{ include "tarka.fullname" . }}-core-api:{{ .Values.coreApi.servicePort }}/decisions"
             {{- end }}
             {{- if .Values.graphService.enabled }}
             - name: GRAPH_SERVICE_URL
               value: "http://{{ include "tarka.fullname" . }}-graph-service:8001"
-            {{- end }}
-            {{- if .Values.decisionApi.enabled }}
-            - name: DECISION_API_URL
-              value: "http://{{ include "tarka.fullname" . }}-decision-api:8000"
             {{- end }}
             - name: AI_GOVERNANCE_PROFILE
               value: {{ .Values.investigationAgent.aiGovernanceProfile | default "global" | quote }}
@@ -42,6 +40,22 @@ spec:
             - name: {{ $k }}
               value: {{ $v | quote }}
             {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /v1/ready
+              port: {{ .Values.investigationAgent.servicePort }}
+            initialDelaySeconds: 8
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /v1/health
+              port: {{ .Values.investigationAgent.servicePort }}
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 4
 ---
 apiVersion: v1
 kind: Service

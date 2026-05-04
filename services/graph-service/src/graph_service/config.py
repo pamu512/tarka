@@ -9,8 +9,8 @@ class Settings(BaseSettings):
 
     # --- Backend selection (operators flip GRAPH_BACKEND; HTTP API unchanged) ---
     graph_backend: Literal["neo4j", "janusgraph"] = Field(
-        default="neo4j",
-        description="Graph persistence: neo4j (Bolt/Cypher) or janusgraph (Gremlin Server).",
+        default="janusgraph",
+        description="Graph persistence: neo4j (Bolt/Cypher) or janusgraph (Gremlin Server / JanusGraph-compatible).",
     )
 
     # --- Neo4j (default) ---

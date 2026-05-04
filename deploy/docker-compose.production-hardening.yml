@@ -20,15 +20,11 @@ services:
       # Set in shell / .env (required when COPILOT_PRODUCTION_MODE=true):
       # API_KEYS: "comma-separated-keys"
 
-  decision-api:
+  core-api:
     environment:
       ALLOW_INSECURE_NO_AUTH: "false"
       TENANT_BINDING_REQUIRED: "true"
       TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY: "true"
-
-  case-api:
-    environment:
-      TENANT_BINDING_REQUIRED: "true"
 
   integration-ingress:
     environment:
@@ -38,14 +34,8 @@ services:
     environment:
       TENANT_BINDING_REQUIRED: "true"
 
-  analytics-sink:
+  data-plane:
     environment:
       TENANT_BINDING_REQUIRED: "true"
-
-  event-ingest:
-    environment:
       INGEST_REQUIRE_IDEMPOTENCY_KEY: "true"
 
-  collaboration-chat-bridge:
-    environment:
-      BRIDGE_TRUSTED_SCOPE_HEADERS_REQUIRED: "true"

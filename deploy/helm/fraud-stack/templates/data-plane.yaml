@@ -1,0 +1,115 @@
+{{- if .Values.dataPlane.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-data-plane
+spec:
+  replicas: {{ .Values.dataPlane.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-data-plane
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-data-plane
+    spec:
+      containers:
+        - name: data-plane
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.dataPlane.image "tag" .Values.dataPlane.tag) | quote }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.dataPlane.port }}
+          env:
+            - name: NATS_URL
+              {{- if .Values.global.externalServices.nats.enabled }}
+              value: {{ .Values.global.externalServices.nats.url | quote }}
+              {{- else }}
+              value: "nats://{{ include "tarka.fullname" . }}-nats:4222"
+              {{- end }}
+            - name: DECISION_API_URL
+              value: "http://{{ include "tarka.fullname" . }}-core-api:{{ .Values.coreApi.servicePort }}/decisions"
+            {{- if or .Values.redis.enabled .Values.global.externalServices.redis.enabled }}
+            - name: REDIS_URL
+              {{- if .Values.global.externalServices.redis.enabled }}
+              value: {{ .Values.global.externalServices.redis.redisUrl | quote }}
+              {{- else }}
+              value: "redis://{{ include "tarka.fullname" . }}-redis:6379/0"
+              {{- end }}
+            {{- end }}
+            - name: UPSTREAM_API_KEY
+              value: {{ .Values.dataPlane.upstreamApiKey | default "" | quote }}
+            - name: INGEST_SCHEMA_REGISTRY_MODE
+              value: {{ .Values.dataPlane.schemaRegistryMode | default "enforce" | quote }}
+            - name: CLICKHOUSE_HOST
+              {{- if .Values.global.externalServices.clickhouse.enabled }}
+              value: {{ .Values.global.externalServices.clickhouse.host | quote }}
+              {{- else }}
+              value: "{{ include "tarka.fullname" . }}-clickhouse"
+              {{- end }}
+            - name: CLICKHOUSE_PORT
+              {{- if .Values.global.externalServices.clickhouse.enabled }}
+              value: {{ .Values.global.externalServices.clickhouse.port | quote }}
+              {{- else }}
+              value: "8123"
+              {{- end }}
+            - name: CLICKHOUSE_USER
+              {{- if .Values.global.externalServices.clickhouse.enabled }}
+              value: {{ .Values.global.externalServices.clickhouse.user | quote }}
+              {{- else }}
+              value: {{ .Values.clickhouse.user | quote }}
+              {{- end }}
+            - name: CLICKHOUSE_PASSWORD
+              {{- if .Values.global.externalServices.clickhouse.enabled }}
+              value: {{ .Values.global.externalServices.clickhouse.password | quote }}
+              {{- else }}
+              value: {{ .Values.clickhouse.password | quote }}
+              {{- end }}
+            - name: CLICKHOUSE_DATABASE
+              {{- if .Values.global.externalServices.clickhouse.enabled }}
+              value: {{ .Values.global.externalServices.clickhouse.database | quote }}
+              {{- else }}
+              value: {{ .Values.clickhouse.database | quote }}
+              {{- end }}
+            - name: TENANT_BINDING_REQUIRED
+              value: {{ ternary "true" "false" .Values.dataPlane.tenantBindingRequired | quote }}
+            - name: API_KEY_TENANT_MAP
+              value: {{ .Values.dataPlane.apiKeyTenantMap | default "" | quote }}
+            {{- if .Values.global.appSecretsName }}
+            - name: API_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: API_KEYS
+                  optional: true
+            {{- else }}
+            - name: API_KEYS
+              value: {{ .Values.dataPlane.apiKeys | default "" | quote }}
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /v1/ready
+              port: {{ .Values.dataPlane.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /v1/health
+              port: {{ .Values.dataPlane.port }}
+            initialDelaySeconds: 25
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 4
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-data-plane
+spec:
+  selector:
+    app: {{ include "tarka.fullname" . }}-data-plane
+  ports:
+    - port: {{ .Values.dataPlane.port }}
+      targetPort: {{ .Values.dataPlane.port }}
+{{- end }}

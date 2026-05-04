@@ -37,9 +37,10 @@ settings = Settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.rate_limiter = None
+    # Distinct from investigation-agent's app.state.rate_limiter when mounted in-process.
+    app.state.bridge_rate_limiter = None
     if settings.bridge_rate_limit_per_minute > 0:
-        app.state.rate_limiter = MinuteRateLimiter(settings.bridge_rate_limit_per_minute)
+        app.state.bridge_rate_limiter = MinuteRateLimiter(settings.bridge_rate_limit_per_minute)
     yield
 
 
@@ -130,7 +131,7 @@ async def slack_events(
         )
 
     if settings.bridge_rate_limit_per_minute > 0:
-        lim = getattr(request.app.state, "rate_limiter", None)
+        lim = getattr(request.app.state, "bridge_rate_limiter", None)
         if lim:
             tid = str(payload_early.get("team_id") or "unknown")[:80]
             if not lim.allow(f"slack:{tid}"):
@@ -252,7 +253,7 @@ def _plugin_secret_ok(x_bridge_secret: str | None) -> bool:
 def _rate_limit_bridge_key(request: Request, prefix: str) -> None:
     if settings.bridge_rate_limit_per_minute <= 0:
         return
-    lim = getattr(request.app.state, "rate_limiter", None)
+    lim = getattr(request.app.state, "bridge_rate_limiter", None)
     if not lim:
         return
     rip = request.client.host if request.client else "unknown"
@@ -518,7 +519,7 @@ async def teams_messages(
         )
         raise _ingress_http_exc(401, "invalid X-Bridge-Secret", correlation_id)
     if settings.bridge_rate_limit_per_minute > 0:
-        lim = getattr(request.app.state, "rate_limiter", None)
+        lim = getattr(request.app.state, "bridge_rate_limiter", None)
         if lim:
             rip = request.client.host if request.client else "unknown"
             if not lim.allow(f"teams:{rip}"):
@@ -784,7 +785,7 @@ async def teams_activity(
         )
         raise _ingress_http_exc(401, "invalid X-Bridge-Secret", correlation_id)
     if settings.bridge_rate_limit_per_minute > 0:
-        lim = getattr(request.app.state, "rate_limiter", None)
+        lim = getattr(request.app.state, "bridge_rate_limiter", None)
         if lim:
             rip = request.client.host if request.client else "unknown"
             if not lim.allow(f"teams:{rip}"):
@@ -906,7 +907,7 @@ async def lark_event(request: Request, response: Response, background_tasks: Bac
             )
             raise _ingress_http_exc(401, "invalid lark verification token", correlation_id)
         if settings.bridge_rate_limit_per_minute > 0:
-            lim = getattr(request.app.state, "rate_limiter", None)
+            lim = getattr(request.app.state, "bridge_rate_limiter", None)
             if lim:
                 rip = request.client.host if request.client else "unknown"
                 if not lim.allow(f"lark:{rip}"):

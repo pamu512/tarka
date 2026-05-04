@@ -1,0 +1,7 @@
+apiVersion: v2
+name: fraud-stack-lite
+description: Minimal Tarka Lite deployment (core-fraud-api, data-platform, investigation-agent)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+

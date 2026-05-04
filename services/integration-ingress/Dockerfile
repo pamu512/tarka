@@ -5,11 +5,14 @@ RUN apt-get update \
     && apt-get upgrade -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+WORKDIR /repo/services/integration-ingress
 RUN pip install --no-cache-dir pip -U
-COPY services/integration-ingress/pyproject.toml /app/
-COPY services/integration-ingress/src /app/src
-COPY services/shared /app/shared
+COPY services/core /repo/services/core
+COPY services/integration-ingress/pyproject.toml /repo/services/integration-ingress/
+COPY services/integration-ingress/alembic.ini /repo/services/integration-ingress/
+COPY services/integration-ingress/alembic /repo/services/integration-ingress/alembic
+COPY services/integration-ingress/src /repo/services/integration-ingress/src
+COPY services/shared /repo/services/shared
 RUN pip install --no-cache-dir -e .
-ENV PYTHONPATH=/app/src:/app/shared
+ENV PYTHONPATH=/repo/services/integration-ingress/src:/repo/services/shared
 CMD ["uvicorn", "integration_ingress.main:app", "--host", "0.0.0.0", "--port", "8003"]

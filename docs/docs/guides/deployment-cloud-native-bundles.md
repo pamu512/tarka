@@ -11,11 +11,11 @@ These bundles map directly to existing module and profile behavior in `deploy/do
 
 | Bundle          | Includes                                                                                | Optional                                                                     | Managed dependencies                           | Target scale envelope                            |
 | --------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------ |
-| `core`          | `decision-api`                                                                          | `feature-service`, `ml-scoring`, `opa`                                       | Postgres, Redis                                | Low-latency scoring and policy checks            |
-| `investigation` | `case-api`, `investigation-agent`, `graphql-gateway`, `frontend`, `integration-ingress` | `graph-service`, `collaboration-chat-bridge`                                 | Postgres, Redis, optional graph store          | Analyst workflows and evidence reviews           |
-| `streaming`     | `event-ingest`                                                                          | `decision-api` passthrough keying                                            | NATS, Redis, optional Postgres for metadata    | Async ingest and backpressure-tolerant pipelines |
-| `analytics`     | `analytics-sink`                                                                        | dashboard/API surfaces consuming ClickHouse                                  | ClickHouse, NATS                               | Historical analytics and trend views             |
-| `full`          | all above bundles                                                                       | risk services (`calibration-service`, `counter-service`, `location-service`) | Postgres, Redis, graph store, NATS, ClickHouse | Platform-wide multi-team fraud operations        |
+| `core`          | `core-api` (decisions + cases), `signal-api`, Postgres, Redis                           | `opa` (optional); `ml` profile adds **Triton** for ONNX via signal-api      | Postgres, Redis                                | Low-latency scoring and policy checks            |
+| `investigation` | `investigation-agent`, `graphql-gateway`, `frontend`, `integration-ingress`             | `graph-service`; Slack/Teams/Lark ingress is **embedded** on `investigation-agent` **`/v1/chat/…`** | Postgres, Redis, optional graph store          | Analyst workflows and evidence reviews           |
+| `streaming`     | `data-plane` (ingest path), NATS                                                         | `core-api` for evaluate passthrough / keying                               | NATS, Redis, optional Postgres for metadata    | Async ingest and backpressure-tolerant pipelines |
+| `analytics`     | `data-plane` (analytics path), ClickHouse                                               | dashboard/API surfaces consuming ClickHouse                                | ClickHouse, NATS                               | Historical analytics and trend views             |
+| `full`          | all above bundles                                                                       | signal-api mounts cover calibration/counter/location; optional **external** calibration URL still supported on core-api | Postgres, Redis, graph store, NATS, ClickHouse | Platform-wide multi-team fraud operations        |
 
 
 ---
@@ -40,10 +40,10 @@ Each bundle is operated with the same contract:
 
 | Bundle          | Compose profiles (reference)                                           | Helm toggles (reference)                                                                                                                                                    |
 | --------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `core`          | `core` (+ optional `ml`, `opa`)                                        | `decisionApi.enabled`, `featureService.enabled`, `mlScoring.enabled`                                                                                                        |
-| `investigation` | `cases`, `agent`, `gateway`, `integration`, optional `graph`, `collab` | `caseApi.enabled`, `investigationAgent.enabled`, `graphqlGateway.enabled`, `integrationIngress.enabled`, optional `graphService.enabled`, `collaborationChatBridge.enabled` |
-| `streaming`     | `streaming`                                                            | `eventIngest.enabled`, `nats.enabled` (or external NATS)                                                                                                                    |
-| `analytics`     | `analytics`                                                            | `analyticsSink.enabled`, `clickhouse.enabled` (or external ClickHouse)                                                                                                      |
+| `core`          | `core` (+ optional `ml`, `opa`)                                        | `coreApi.enabled`, `signalApi.enabled`, optional `triton.enabled`, `opa.enabled`                                                                                            |
+| `investigation` | `agent`, `gateway`, `integration`, optional `graph`                      | `coreApi.enabled`, `investigationAgent.enabled` (embedded `chat_bridge` on **`/v1/chat/…`**), `graphqlGateway.enabled`, `integrationIngress.enabled`, optional `graphService.enabled` |
+| `streaming`     | `streaming`                                                            | `dataPlane.enabled`, `nats.enabled` (or external NATS), `coreApi.enabled` for evaluate URLs                                                                                  |
+| `analytics`     | `analytics`                                                            | `dataPlane.enabled`, `clickhouse.enabled` (or external ClickHouse)                                                                                                          |
 | `full`          | `full`                                                                 | all component toggles enabled                                                                                                                                               |
 
 
@@ -63,7 +63,7 @@ Each bundle is operated with the same contract:
 
 Use these as initial planning baselines, then validate with load tests.
 
-- `core`: prioritize `decision-api` p95/p99 latency and Redis saturation.
+- `core`: prioritize **core-api** (`/decisions`) p95/p99 latency and Redis saturation.
 - `investigation`: prioritize API availability and human workflow responsiveness.
 - `streaming`: prioritize queue lag, consumer throughput, and deduplication hit rate.
 - `analytics`: prioritize ingest-to-query freshness and query tail latency.

@@ -106,7 +106,8 @@ app = FastAPI(
     lifespan=lifespan,
     dependencies=[Depends(require_api_key)],
 )
-setup_observability(app, "ml-scoring")
+if os.environ.get("TARKA_SIGNAL_PLANE_SUBAPP", "").strip() != "1":
+    setup_observability(app, "ml-scoring")
 
 
 class ScoreRequest(BaseModel):
@@ -174,6 +175,33 @@ async def health():
         "onnx_loaded": _onnx_session is not None,
         "registry_models": len(registry.list_models()),
         "shap_stretch_enabled": shap_on and lgbm_path,
+    }
+
+
+@app.post("/v1/models/reload")
+async def models_reload(request: Request) -> dict[str, object]:
+    """Event-driven model registry refresh (optional ``ML_MODEL_WEBHOOK_SECRET`` header check)."""
+    secret = (os.environ.get("ML_MODEL_WEBHOOK_SECRET") or "").strip()
+    if secret and request.headers.get("x-ml-webhook-secret", "") != secret:
+        raise HTTPException(status_code=403, detail="invalid_webhook_secret")
+    global _onnx_session, _onnx_input_name
+    count = registry.scan()
+    if ONNX_PATH and not DISABLE_ML:
+        try:
+            import onnxruntime as ort
+
+            _onnx_session = ort.InferenceSession(ONNX_PATH, providers=["CPUExecutionProvider"])
+            _onnx_input_name = _onnx_session.get_inputs()[0].name
+        except Exception:
+            _onnx_session = None
+            _onnx_input_name = ""
+    else:
+        _onnx_session = None
+        _onnx_input_name = ""
+    return {
+        "ok": True,
+        "registry_versions_scanned": count,
+        "onnx_loaded": _onnx_session is not None,
     }
 
 

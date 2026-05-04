@@ -11,6 +11,22 @@ from decision_api.config import settings
 
 log = logging.getLogger(__name__)
 
+try:
+    import tarka_rule_engine as _tarka_rule_engine
+except ImportError:  # pragma: no cover — CI builds the extension explicitly
+    _tarka_rule_engine = None  # type: ignore[assignment]
+
+
+def _require_rust_engine() -> Any:
+    if _tarka_rule_engine is None:
+        msg = (
+            "tarka_rule_engine (Rust/PyO3) is required for rule evaluation. "
+            "Build and install from services/rule-engine: pip install maturin && maturin develop --release"
+        )
+        raise RuntimeError(msg)
+    return _tarka_rule_engine
+
+
 # N3/N4: in-process rule hit counts since process start (reset on restart).
 _rule_hit_counts: dict[str, int] = {}
 _telemetry_started_at_unix: float = time.time()
@@ -19,11 +35,37 @@ _MAX_FIELD_LEN = 128
 _MAX_VALUE_LEN = 1024
 _MAX_RULES_PER_PACK = 200
 _MAX_CONDITIONS_PER_RULE = 20
-_MAX_EVAL_TIME_MS = 50
 _MAX_REGEX_PATTERN_LEN = 256
 
 _cached_packs: list[dict[str, Any]] = []
 _shadow_mode_packs: list[dict[str, Any]] = []
+_last_rust_sync_fingerprint: str | None = None
+
+# Optional PLG sandbox bundle (Postgres-backed); merged pack, not on disk.
+SANDBOX_PLG_INDUSTRY_SOURCE_FILE = "sandbox_plg_industry_starter.json"
+_plg_sandbox_runtime_pack: dict[str, Any] | None = None
+
+
+def _attach_plg_sandbox_pack(active: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Strip any stale sandbox artifact from disk list, then append runtime PLG pack if configured."""
+    filtered = [p for p in active if p.get("_source_file") != SANDBOX_PLG_INDUSTRY_SOURCE_FILE]
+    if _plg_sandbox_runtime_pack is None:
+        return filtered
+    merged = dict(_plg_sandbox_runtime_pack)
+    merged.setdefault("_source_file", SANDBOX_PLG_INDUSTRY_SOURCE_FILE)
+    return filtered + [merged]
+
+
+def preload_plg_sandbox_runtime_pack(pack: dict[str, Any] | None) -> None:
+    """Set the runtime PLG sandbox pack without reloading from disk (used before ``load_rules()``)."""
+    global _plg_sandbox_runtime_pack
+    _plg_sandbox_runtime_pack = None if pack is None else dict(pack)
+
+
+def set_plg_sandbox_runtime_pack(pack: dict[str, Any] | None) -> None:
+    """Replace (or clear) the in-memory PLG sandbox pack and reload disk rules + Rust sync."""
+    preload_plg_sandbox_runtime_pack(pack)
+    load_rules()
 
 
 def _telemetry_key(pack_file: str, rule_id: str, kind: str) -> str:
@@ -71,13 +113,39 @@ def get_rule_hit_telemetry() -> dict[str, Any]:
     }
 
 
+def _sync_rust_active_packs() -> None:
+    global _last_rust_sync_fingerprint
+    tre = _require_rust_engine()
+    payload = json.dumps(_cached_packs, default=str)
+    tre.sync_packs_json(payload)
+    _last_rust_sync_fingerprint = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _ensure_rust_engine_has_current_packs() -> None:
+    """Sync active packs into the Rust engine when the in-memory list changed (including tests)."""
+    global _last_rust_sync_fingerprint
+    tre = _require_rust_engine()
+    payload = json.dumps(_cached_packs, default=str)
+    fp = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    if fp == _last_rust_sync_fingerprint:
+        return
+    tre.sync_packs_json(payload)
+    _last_rust_sync_fingerprint = fp
+
+
 def load_rules() -> None:
     """Load all JSON rule packs from disk into memory. Call at startup."""
     global _cached_packs, _shadow_mode_packs
     path = Path(settings.rules_path)
     if not path.is_dir():
-        _cached_packs = []
+        global _last_rust_sync_fingerprint
+        _cached_packs = _attach_plg_sandbox_pack([])
         _shadow_mode_packs = []
+        _last_rust_sync_fingerprint = None
+        if _tarka_rule_engine is not None:
+            payload = json.dumps(_cached_packs, default=str)
+            _tarka_rule_engine.sync_packs_json(payload)
+            _last_rust_sync_fingerprint = hashlib.sha256(payload.encode("utf-8")).hexdigest()
         return
     active: list[dict[str, Any]] = []
     shadow: list[dict[str, Any]] = []
@@ -96,9 +164,18 @@ def load_rules() -> None:
                 active.append(pack)
         except (json.JSONDecodeError, OSError) as e:
             log.warning("skipping rule file %s: %s", f, e)
-    _cached_packs = active
+    _cached_packs = _attach_plg_sandbox_pack(active)
     _shadow_mode_packs = shadow
-    log.info("loaded %d active + %d shadow rule packs from %s", len(active), len(shadow), path)
+    log.info(
+        "loaded %d disk-active + %d shadow rule packs from %s (runtime PLG sandbox=%s; engine_active=%d)",
+        len(active),
+        len(shadow),
+        path,
+        "yes" if _plg_sandbox_runtime_pack is not None else "no",
+        len(_cached_packs),
+    )
+    if _tarka_rule_engine is not None:
+        _sync_rust_active_packs()
 
 
 def get_shadow_packs() -> list[dict[str, Any]]:
@@ -165,7 +242,6 @@ def _match_condition(features: dict[str, Any], condition: dict[str, Any]) -> boo
         if op == "regex":
             if not expected:
                 return False
-            # Treat user-provided regex as a restricted wildcard pattern to avoid regex injection.
             pattern = str(expected)
             if len(pattern) > _MAX_REGEX_PATTERN_LEN:
                 return False
@@ -218,14 +294,9 @@ def _pack_should_apply(
     *,
     evaluation_mode: str,
 ) -> tuple[bool, str | None]:
-    """
-    Rollout gating: effective_at (scheduled start) and canary_percent (deterministic %).
-    Simulation mode skips gating so offline runs see full rule effects.
-    """
     if evaluation_mode == "simulation":
         return True, None
 
-    # Champion–challenger (OSS #31): evaluate all packs that pass effective_at, ignoring canary_percent.
     if evaluation_mode == "challenger":
         eff = _parse_effective_at(pack.get("effective_at"))
         if eff is not None:
@@ -259,59 +330,22 @@ def _pack_should_apply(
     return True, None
 
 
-def _evaluate_pack(
-    pack: dict[str, Any],
-    features: dict[str, Any],
-    redis_tags: list[str],
-) -> tuple[list[str], list[str], float, str | None]:
-    """Evaluate a single rule pack with safety limits.
+def _rust_eval_to_tuple(out: dict[str, Any]) -> tuple[list[str], list[str], float, list[str]]:
+    hits = [str(x) for x in (out.get("rule_hits") or [])]
+    tags = [str(x) for x in (out.get("tags") or [])]
+    delta = float(out.get("score_delta") or 0.0)
+    contributing = [str(x) for x in (out.get("contributing_pack_files") or [])]
+    return hits, tags, delta, contributing
 
-    Returns ``(hits, tags, delta, source_file_if_hit)`` where the last element is the pack's
-    ``_source_file`` when this pack contributed at least one rule/tag_rule hit (for audit lineage).
-    """
-    hits: list[str] = []
-    tags: list[str] = []
-    delta = 0.0
-    source_file = str(pack.get("_source_file") or pack.get("name") or "pack")
 
-    rules = pack.get("rules", [])
-    if len(rules) > _MAX_RULES_PER_PACK:
-        log.warning("Pack has %d rules, limiting to %d", len(rules), _MAX_RULES_PER_PACK)
-        rules = rules[:_MAX_RULES_PER_PACK]
-
-    t0 = time.monotonic()
-
-    for rule in rules:
-        elapsed_ms = (time.monotonic() - t0) * 1000
-        if elapsed_ms > _MAX_EVAL_TIME_MS:
-            log.warning("Rule evaluation timeout after %.1fms", elapsed_ms)
-            break
-
-        rid = rule.get("id", "unknown")
-        when = rule.get("when", [])
-        if not when or len(when) > _MAX_CONDITIONS_PER_RULE:
+def _apply_telemetry_from_rust(out: dict[str, Any]) -> None:
+    for row in out.get("telemetry") or []:
+        if not isinstance(row, dict):
             continue
-        if all(_match_condition(features, c) for c in when):
-            hits.append(str(rid))
-            tags.extend(str(t) for t in rule.get("tags", [])[:50])
-            delta += float(rule.get("score_delta", 0))
-            record_rule_hit(source_file, str(rid), "rule")
-
-    tag_rules = pack.get("tag_rules", [])
-    for rule in tag_rules[:_MAX_RULES_PER_PACK]:
-        elapsed_ms = (time.monotonic() - t0) * 1000
-        if elapsed_ms > _MAX_EVAL_TIME_MS:
-            break
-        rid = rule.get("id", "")
-        need = set(rule.get("any_tag", [])[:50])
-        if need and need.intersection(set(redis_tags)):
-            hits.append(str(rid))
-            tags.extend(str(t) for t in rule.get("tags", [])[:50])
-            delta += float(rule.get("score_delta", 0))
-            tr_id = str(rid) if rid else "tagrule"
-            record_rule_hit(source_file, tr_id, "tag_rule")
-
-    return hits, tags, delta, source_file if hits else None
+        pf = str(row.get("pack_file") or "unknown")
+        rid = str(row.get("rule_id") or "unknown")
+        kind = str(row.get("kind") or "rule")
+        record_rule_hit(pf, rid, kind)
 
 
 def evaluate_json_rules(
@@ -323,41 +357,55 @@ def evaluate_json_rules(
     evaluation_mode: str = "production",
     signal_tags: list[str] | None = None,
 ) -> tuple[list[str], list[str], float, list[str]]:
-    """Returns (rule_ids, tags_to_apply, score_delta, contributing_pack_files).
-
-    *contributing_pack_files* is the sorted unique list of JSON pack ``_source_file`` values that
-    produced at least one rule hit in this evaluation (Epic X.1 audit lineage).
-
-    When *tenant_id* and *entity_id* are set, per-pack *canary_percent* and *effective_at* apply
-    (unless *evaluation_mode* is ``simulation``).
-
-    *signal_tags* are merged with *redis_tags* for ``tag_rules`` matching (ingress replay,
-    geo mismatch, integrity supplements, etc.) without requiring those tags to be persisted in Redis.
-    """
+    """Evaluate active JSON rule packs via the Rust engine (PyO3)."""
+    _ensure_rust_engine_has_current_packs()
+    tre = _require_rust_engine()
     tid = (tenant_id or "").strip() or "default"
     eid = (entity_id or "").strip() or "default"
     mode = evaluation_mode if evaluation_mode in ("production", "simulation", "challenger") else "production"
+    st_json = json.dumps(list(signal_tags)) if signal_tags else None
+    raw = tre.evaluate_json_rules_rust(
+        json.dumps(features, default=str),
+        json.dumps(redis_tags),
+        tid,
+        eid,
+        mode,
+        st_json,
+    )
+    out = json.loads(raw)
+    _apply_telemetry_from_rust(out)
+    h, t, d, c = _rust_eval_to_tuple(out)
+    return h, t, d, c
 
-    merged_tags = list(redis_tags)
-    if signal_tags:
-        seen = set(merged_tags)
-        for t in signal_tags:
-            if t not in seen:
-                seen.add(t)
-                merged_tags.append(t)
 
-    hits: list[str] = []
-    tags: list[str] = []
-    delta = 0.0
-    contributing: list[str] = []
-    for pack in _cached_packs:
-        ok, _reason = _pack_should_apply(pack, tid, eid, evaluation_mode=mode)
-        if not ok:
-            continue
-        pack_hits, pack_tags, pack_delta, pack_file = _evaluate_pack(pack, features, merged_tags)
-        hits.extend(pack_hits)
-        tags.extend(pack_tags)
-        delta += pack_delta
-        if pack_file:
-            contributing.append(pack_file)
-    return hits, tags, delta, sorted(set(contributing))
+def evaluate_adhoc_packs_json(
+    packs: list[dict[str, Any]],
+    features: dict[str, Any],
+    redis_tags: list[str],
+    tenant_id: str | None = None,
+    entity_id: str | None = None,
+    *,
+    evaluation_mode: str = "production",
+    signal_tags: list[str] | None = None,
+    record_telemetry: bool = False,
+) -> tuple[list[str], list[str], float, list[str]]:
+    """Evaluate arbitrary pack JSON (shadow packs, recommendation preview) via Rust."""
+    tre = _require_rust_engine()
+    tid = (tenant_id or "").strip() or "default"
+    eid = (entity_id or "").strip() or "default"
+    mode = evaluation_mode if evaluation_mode in ("production", "simulation", "challenger") else "production"
+    st_json = json.dumps(list(signal_tags)) if signal_tags else None
+    raw = tre.evaluate_adhoc_packs_rust(
+        json.dumps(packs, default=str),
+        json.dumps(features, default=str),
+        json.dumps(redis_tags),
+        tid,
+        eid,
+        mode,
+        st_json,
+    )
+    out = json.loads(raw)
+    if record_telemetry:
+        _apply_telemetry_from_rust(out)
+    h, t, d, c = _rust_eval_to_tuple(out)
+    return h, t, d, c

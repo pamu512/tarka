@@ -2,11 +2,23 @@ openapi: 3.1.0
 info:
   title: Tarka Collaboration Chat Bridge API
   version: 1.0.0
-  description: >
-    Slack, Teams, and Lark bridge for investigation-agent, including
-    system-agnostic plugin/embed proxy endpoints.
+  description: |
+    Slack, Teams, Lark, and plugin-proxy HTTP surface for the investigation copilot.
+
+    **Implementation (current trunk):** the bridge lives in `services/investigation-agent` as
+    `investigation_agent.chat_bridge` and is **mounted under `/v1/chat`** on the investigation-agent
+    process (default **port 8006**). A stand-alone `collaboration-chat-bridge` container on **:8009**
+    is **not** shipped in this repository.
+
+    **URL mapping:** paths in this document are written as if the bridge were at the API root.
+    On a running agent, prefix with **`/v1/chat`** and drop the duplicate `v1` where the sub-app
+    defines routes without it — e.g. this spec’s `GET /v1/health` is served as **`GET /v1/chat/health`**,
+    and `POST /v1/slack/events` as **`POST /v1/chat/slack/events`**, on the same host as
+    `POST /v1/chat` (copilot). Verify with your deployment’s routing; do not point Slack/Teams/Lark
+    at legacy **:8009** unless you run a custom reverse-proxy.
 servers:
-  - url: http://localhost:8009
+  - url: http://localhost:8006
+    description: investigation-agent (embedded chat_bridge)
 paths:
   /v1/health:
     get:

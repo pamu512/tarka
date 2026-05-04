@@ -5,9 +5,12 @@ description = "Tarka — synchronous decision API"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+  "tarka-core @ file:../core",
+  "tarka-analytics @ file:../analytics",
   "fastapi>=0.115.0",
   "uvicorn[standard]>=0.32.0",
   "nats-py>=2.7.0",
+  "tarka-rule-engine @ file:../rule-engine",
   "redis[hiredis]>=5.2.0",
   "sqlalchemy[asyncio]>=2.0.36",
   "aiosqlite>=0.20.0",
@@ -15,11 +18,17 @@ dependencies = [
   "psycopg[binary]>=3.2.0",
   "alembic>=1.14.0",
   "httpx>=0.28.0",
+  "tenacity>=9.0.0",
   "pydantic-settings>=2.6.0",
   "pydantic>=2.10.0",
+  "clickhouse-connect>=0.8.0",
+  "pyarrow>=14.0.0",
 ]
 
 [project.optional-dependencies]
+s3 = [
+  "boto3>=1.34.0",
+]
 dev = [
   "ruff>=0.8.0",
   "pytest>=8.0",
@@ -39,3 +48,11 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 decision_api = ["data/*.json"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/decision_api/feature_store_api.py" = ["B008"]
+"src/decision_api/analytics_dashboards.py" = ["B008"]
+"src/decision_api/backtest_api.py" = ["B008"]
+"src/decision_api/rule_compiler_api.py" = ["B008"]
+"src/decision_api/ml_export_api.py" = ["B008"]
+"src/decision_api/rule_gitops_api.py" = ["B008"]

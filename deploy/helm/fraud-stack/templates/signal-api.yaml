@@ -1,0 +1,103 @@
+{{- if .Values.signalApi.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-signal-api
+spec:
+  replicas: {{ .Values.signalApi.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-signal-api
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-signal-api
+    spec:
+      containers:
+        - name: signal-api
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.signalApi.image "tag" .Values.signalApi.tag) | quote }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.signalApi.servicePort }}
+          env:
+            {{- if or .Values.redis.enabled .Values.global.externalServices.redis.enabled }}
+            - name: REDIS_URL
+              {{- if .Values.global.externalServices.redis.enabled }}
+              value: {{ .Values.global.externalServices.redis.redisUrl | quote }}
+              {{- else }}
+              value: "redis://{{ include "tarka.fullname" . }}-redis:6379/0"
+              {{- end }}
+            - name: FEATURE_SERVICE_REDIS_URL
+              {{- if .Values.global.externalServices.redis.enabled }}
+              value: {{ .Values.global.externalServices.redis.redisUrl | quote }}
+              {{- else }}
+              value: "redis://{{ include "tarka.fullname" . }}-redis:6379/0"
+              {{- end }}
+            - name: COUNTER_SERVICE_REDIS_URL
+              {{- if .Values.global.externalServices.redis.enabled }}
+              value: {{ .Values.global.externalServices.redis.redisUrl | quote }}
+              {{- else }}
+              value: "redis://{{ include "tarka.fullname" . }}-redis:6379/0"
+              {{- end }}
+            {{- end }}
+            {{- if .Values.triton.enabled }}
+            - name: TRITON_URL
+              value: "http://{{ include "tarka.fullname" . }}-triton:{{ .Values.triton.servicePort }}"
+            - name: TRITON_MODEL_INPUT
+              value: {{ .Values.signalApi.tritonModelInput | default "X" | quote }}
+            - name: TRITON_MODEL_OUTPUT
+              value: {{ .Values.signalApi.tritonModelOutput | default "probabilities" | quote }}
+            {{- end }}
+            - name: LOCATION_SERVICE_DATA_DIR
+              value: /data
+            {{- if .Values.global.appSecretsName }}
+            - name: API_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: API_KEYS
+                  optional: true
+            {{- end }}
+          volumeMounts:
+            - name: location-data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /v1/health
+              port: {{ .Values.signalApi.servicePort }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /v1/health
+              port: {{ .Values.signalApi.servicePort }}
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 4
+          {{- with .Values.signalApi.resources }}
+          resources:
+{{ toYaml . | indent 12 }}
+          {{- end }}
+      volumes:
+        - name: location-data
+          {{- if and .Values.signalApi.locationDataVolume.enabled .Values.signalApi.locationDataVolume.claimName }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.signalApi.locationDataVolume.claimName | quote }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-signal-api
+spec:
+  selector:
+    app: {{ include "tarka.fullname" . }}-signal-api
+  ports:
+    - port: {{ .Values.signalApi.servicePort }}
+      targetPort: {{ .Values.signalApi.servicePort }}
+{{- end }}

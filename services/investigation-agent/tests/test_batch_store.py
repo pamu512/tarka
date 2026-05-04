@@ -55,18 +55,19 @@ def test_aggregate_numeric():
     assert agg["max"] == 20.0
 
 
-def test_storage_mode_reports_disk_when_path_set(monkeypatch, tmp_path: Path):
+def test_storage_mode_is_disk(monkeypatch, tmp_path: Path):
     monkeypatch.setenv("BATCH_STORE_PATH", str(tmp_path / "batch-cache"))
-    assert batch_store.storage_mode() == "disk+memory"
+    assert batch_store.storage_mode() == "disk"
 
 
-def test_reads_from_disk_when_memory_cache_cleared(monkeypatch, tmp_path: Path):
-    monkeypatch.setenv("BATCH_STORE_PATH", str(tmp_path / "batch-cache"))
+def test_batch_persisted_under_configured_path(monkeypatch, tmp_path: Path):
+    root = tmp_path / "batch-cache"
+    monkeypatch.setenv("BATCH_STORE_PATH", str(root))
     cols = ["x"]
     rows = [{"x": "1"}, {"x": "2"}]
     bid = batch_store.store_batch("tenant-a", "analyst-a", "f.csv", cols, rows, "csv")
-    # Simulate process-memory eviction / restart while persistent files remain.
-    batch_store._store.clear()  # noqa: SLF001
+    json_files = list(root.glob("*.json"))
+    assert json_files, "batch JSON should exist on disk"
     rec = batch_store.get_batch(bid, "tenant-a", "analyst-a")
     assert rec is not None
     assert rec["row_count"] == 2

@@ -73,10 +73,9 @@ This starts all services:
 | Integration Ingress | 8003 | integration |
 | Feature Service | 8004 | ml |
 | ML Scoring | 8005 | ml |
-| Investigation Agent | 8006 | agent |
+| Investigation Agent | 8006 | agent (copilot + embedded Slack/Teams/Lark under `/v1/chat/…`) |
 | Event Ingest | 8007 | streaming |
 | Analytics Sink | 8008 | analytics |
-| Collaboration chat bridge | 8009 | collab |
 | GraphQL Gateway | 8010 | gateway |
 | Neo4j Browser | 7474 | graph |
 | NATS Monitoring | 8222 | streaming |

@@ -1,0 +1,5 @@
+/Users/pamu/Documents/Documents - Anoop’s MacBook Pro/GitHub/tarka/services/analytics-sink/target/debug/deps/lz4_sys-7890e302b6525468.d: /Users/pamu/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lz4-sys-1.11.1+lz4-1.10.0/src/lib.rs
+
+/Users/pamu/Documents/Documents - Anoop’s MacBook Pro/GitHub/tarka/services/analytics-sink/target/debug/deps/liblz4_sys-7890e302b6525468.rmeta: /Users/pamu/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lz4-sys-1.11.1+lz4-1.10.0/src/lib.rs
+
+/Users/pamu/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lz4-sys-1.11.1+lz4-1.10.0/src/lib.rs:

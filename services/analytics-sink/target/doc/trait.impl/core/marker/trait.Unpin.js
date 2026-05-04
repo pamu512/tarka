@@ -1,0 +1,9 @@
+(function() {
+    const implementors = Object.fromEntries([["analytics_sink",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.95.0/core/marker/trait.Unpin.html\" title=\"trait core::marker::Unpin\">Unpin</a> for <a class=\"struct\" href=\"analytics_sink/struct.ConfigAuditRow.html\" title=\"struct analytics_sink::ConfigAuditRow\">ConfigAuditRow</a>",0,1,["analytics_sink::ConfigAuditRow"]],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.95.0/core/marker/trait.Unpin.html\" title=\"trait core::marker::Unpin\">Unpin</a> for <a class=\"struct\" href=\"analytics_sink/struct.DecisionRow.html\" title=\"struct analytics_sink::DecisionRow\">DecisionRow</a>",0,1,["analytics_sink::DecisionRow"]],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.95.0/core/marker/trait.Unpin.html\" title=\"trait core::marker::Unpin\">Unpin</a> for <a class=\"struct\" href=\"analytics_sink/struct.FeatureOfflineRow.html\" title=\"struct analytics_sink::FeatureOfflineRow\">FeatureOfflineRow</a>",0,1,["analytics_sink::FeatureOfflineRow"]],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.95.0/core/marker/trait.Unpin.html\" title=\"trait core::marker::Unpin\">Unpin</a> for <a class=\"struct\" href=\"analytics_sink/struct.HealthResponse.html\" title=\"struct analytics_sink::HealthResponse\">HealthResponse</a>",0,1,["analytics_sink::HealthResponse"]],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.95.0/core/marker/trait.Unpin.html\" title=\"trait core::marker::Unpin\">Unpin</a> for <a class=\"struct\" href=\"analytics_sink/struct.ShadowScoreRow.html\" title=\"struct analytics_sink::ShadowScoreRow\">ShadowScoreRow</a>",0,1,["analytics_sink::ShadowScoreRow"]]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":59,"fragment_lengths":[1650]}

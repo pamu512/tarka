@@ -13,17 +13,11 @@ scrape_configs:
     honor_labels: true
     static_configs:
       - targets:
-          - decision-api:8000
-          - calibration-service:8011
-          - counter-service:8012
-          - location-service:8013
-          - case-api:8002
+          - core-api:8000
+          - signal-api:8004
           - graph-service:8001
           - integration-ingress:8003
-          - ml-scoring:8005
-          - feature-service:8004
-          - event-ingest:8007
-          - analytics-sink:8008
+          - data-plane:8007
           - investigation-agent:8006
           - graphql-gateway:8010
     relabel_configs:
