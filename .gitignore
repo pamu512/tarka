@@ -48,3 +48,6 @@ services/**/*.db
 
 # Investigation agent local data dir (feedback, RAG, review DB paths in dev)
 services/investigation-agent/var/
+
+# Rust build trees (never commit; TruffleHog/CodeQL noise if tracked)
+**/target/
