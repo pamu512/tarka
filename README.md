@@ -25,6 +25,14 @@ Tarka separates the Decision Plane (Fast/Stateless) from the Audit Plane (Durabl
 *   **Analytics Plane (Kala):** Historical decisioning data is synced to ClickHouse. All analytical queries are server-side execution-bounded (`max_execution_time`) to prevent warehouse latency from cascading into the API.
 *   **Forensic Plane (Shadow):** Tarka is fully integrated with [Shadow](https://github.com/pamu512/shadow), a local-first agentic AI designed for deep fraud forensics. While Tarka manages the durable audit plane and real-time signals, Shadow allows investigators to run intensive, air-gapped analysis using local LLMs (Llama 3.2, Qwen3-VL) via Ollama.
 
+#### Evaluation, signals, and graph backends
+
+The audit story above sits on top of concrete services—not vaporware directories.
+
+*   **Signal plane (Anumana):** [`services/signal-api/`](services/signal-api/) runs one Uvicorn process that mounts **feature-service**, ML scoring, calibration, counters, and location. The feature sub-app lives in [`services/feature-service/`](services/feature-service/) and uses **Redis** (`redis[hiredis]`) for real-time temporal aggregates, velocity-style context, and parity checks—this is the bounded “fast features” path, not authoritative audit storage.
+*   **Rust rule engine (packaged, optional hot path):** [`services/rule-engine/`](services/rule-engine/) is a **`tarka_rule_engine`** Rust crate exposed as a **PyO3** extension module (`cdylib`, abi3). Use it for benchmarks and forward integration. **Today, synchronous scoring in [`services/core-api/`](services/core-api/) still goes through the Python JSON evaluator** in [`services/decision-api/`](services/decision-api/) (`json_rules` and friends). Treat the Rust extension as a performance primitive until your deployment explicitly wires it into evaluate.
+*   **Graph service (Jaala):** [`services/graph-service/`](services/graph-service/) persists entities and edges to **Neo4j** (Bolt + Cypher) by default, or to **JanusGraph** via **Gremlin Server** when `GRAPH_BACKEND=janusgraph`—same HTTP API, different backend. That Janus path exists so operators can avoid Neo4j’s **AGPL-3.0** network-copyleft posture in production if legal requires it. Operator guide: [`services/graph-service/docs/janusgraph-adapter.md`](services/graph-service/docs/janusgraph-adapter.md).
+
 ***
 
 ### 🚦 Resilience & Observability
@@ -56,7 +64,8 @@ Tarka is modular. CLI slugs stay stable; the Sanskrit codenames represent the pr
 | `analytics` | **Kala** | **Bounded:** Real ClickHouse OLAP with 5s execution caps. |
 | `integration` | **Setu** | **Verified:** 12-source OSINT with Postgres-backed Screening Logs. |
 | `cases` | **Lekh** | **Durable Intent:** SAR generation with persistent filing state machines. |
-| `graph` | **Jaala** | **In-Memory/Lite:** Entity graph and community detection (Neo4j). |
+| `ml` | **Anumana** | **Redis + ONNX:** `signal-api` mounts feature-service (Redis temporal aggregates) and ML scoring; not a second mystery “AI box.” |
+| `graph` | **Jaala** | **Durable graph:** Neo4j (default) or **JanusGraph + Gremlin** (`GRAPH_BACKEND=janusgraph`); same HTTP API—see `services/graph-service/docs/janusgraph-adapter.md`. |
 | `agent` | **Saarthi** | **Tool-Use Loop:** AI investigation copilot with strict execution boundaries. |
 | `forensics` | **Shadow** | **Local-First:** Agentic forensics and logic stress-testing via Ollama. |
 
@@ -134,4 +143,4 @@ docker compose -f https://raw.githubusercontent.com/pamu512/tarka/master/deploy/
 
 *   **Security Hygiene:** We run strict CI/CD gates. GitHub Actions enforces Ruff linting, pytest coverage (≥48% gate), Trivy filesystem/image scanning, and TruffleHog secret scanning on every PR.
 *   **License:** Application code in this repository is **Apache-2.0**. 
-*   **The AGPL Warning:** If you run the full graph stack, be aware that **Neo4j is AGPL-3.0**. If your legal team blocks AGPL, use the `--lite` installation path or review `LICENSE-DEPENDENCIES.md` for Apache-friendly alternatives.
+*   **The AGPL Warning:** Default graph mode uses **Neo4j**, which is **AGPL-3.0** in typical networked deployments. Mitigations: **`--lite`** (no graph), **`GRAPH_BACKEND=janusgraph`** with your own JanusGraph/Gremlin stack (see [`services/graph-service/docs/janusgraph-adapter.md`](services/graph-service/docs/janusgraph-adapter.md)), or other backends documented in **`LICENSE-DEPENDENCIES.md`**.
