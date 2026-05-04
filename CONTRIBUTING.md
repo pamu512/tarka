@@ -15,15 +15,15 @@ Tarka is an open-source, modular fraud detection platform. The system follows a 
 ### Architecture
 
 ```
-SDK (Web/Android/iOS/Python) --> Decision API --> Redis (tags + scores)
+SDK (Web/Android/iOS/Python) --> Core API :8000 (/decisions, /cases) --> Redis (tags + scores)
                                      |                |
                                      +--> Rule Engine  |
-                                     +--> ML Scoring   |
+                                     +--> Signal API :8004 (/features, /ml, …)
                                      +--> OPA (optional)
                                      +--> Graph Service --> Neo4j
                                      +--> Integration Ingress (KYC adapters)
 
-Investigation UI --> Case API --> Graph Service
+Investigation UI --> Core API (/cases) --> Graph Service
                        |
                   AI Agent (LLM tool-use)
 ```
@@ -32,15 +32,18 @@ Investigation UI --> Case API --> Graph Service
 
 | Service | Port | Description |
 |---------|------|-------------|
-| `services/decision-api` | 8000 | Fraud scoring, attestation, rule + ML orchestration |
+| `services/core-api` | 8000 | **Macroservice image:** mounts `decision_api` + `case_api` at `/decisions` and `/cases` |
+| `services/signal-api` | 8004 | **Macroservice image:** feature, ML, calibration, counter, location sub-apps |
+| `services/data-plane` | 8007 | **Macroservice image:** ingest + analytics (single port) |
+| `services/decision-api` | *(module)* | Scoring engine; tested standalone; packaged into **core-api** |
 | `services/graph-service` | 8001 | Entity graph (Neo4j), tag storage on nodes, `/v1/benchmark/*` harness |
-| `services/case-api` | 8002 | Investigation cases, labels, comments, UI |
+| `services/case-api` | *(module)* | Cases, workflows; packaged into **core-api** |
 | `services/integration-ingress` | 8003 | KYC webhooks, adapter registry |
-| `services/feature-service` | 8004 | Feature snapshot computation |
-| `services/ml-scoring` | 8005 | ML inference (heuristic + ONNX) |
+| `services/feature-service` | *(module)* | Feature snapshots; packaged into **signal-api** |
+| `services/ml-scoring` | *(module)* | ML inference; packaged into **signal-api** |
 | `services/investigation-agent` | 8006 | AI copilot + embedded Slack/Teams/Lark bridge (`investigation_agent.chat_bridge`) |
-| `services/event-ingest` | 8007 | Event ingestion pipeline |
-| `services/analytics-sink` | 8008 | Analytics and reporting sink |
+| `services/event-ingest` | *(module)* | Ingest handlers; Rust crate + Python app paths; packaged into **data-plane** |
+| `services/analytics-sink` | *(module)* | ClickHouse writer; packaged into **data-plane** |
 | `services/chitragupta` | 8012 | Plugin registry, emitter orchestration, run metadata |
 | `services/graphql-gateway` | 8010 | GraphQL API aggregating all services |
 
@@ -80,7 +83,7 @@ Each service has its own `pyproject.toml` with a `[dev]` extras group containing
 ```bash
 cd deploy
 
-# Core only (Decision API + Redis + Postgres)
+# Core only (core-api + signal-api + Redis + Postgres)
 docker compose --profile core up -d
 
 # Full stack (all services)
@@ -173,11 +176,11 @@ npm install
 npm run build
 ```
 
-On Linux/macOS, use `export PYTHONPATH=src:../shared` (decision-api, investigation-agent, **integration-ingress**, graphql-gateway, event-ingest, analytics-sink, ml-scoring) or `export PYTHONPATH=src` (graph service, feature-service, chitragupta only).
+On Linux/macOS, use `export PYTHONPATH=src:../shared` (decision-api, case-api, **core-api**, **signal-api**, **data-plane**, investigation-agent, **integration-ingress**, graphql-gateway, event-ingest, analytics-sink, ml-scoring) or `export PYTHONPATH=src` (graph service, feature-service, chitragupta only).
 
-### Database migrations (decision-api / case-api)
+### Database migrations (decision / case)
 
-With **PostgreSQL**, the app runs **Alembic** on startup. To run migrations manually (e.g. before first deploy):
+The **core-api** Docker image runs **both** Alembic stacks sequentially before Uvicorn. For manual runs, use each module’s `alembic.ini` under `services/core-api/config/` or the legacy service directories:
 
 ```bash
 cd services/decision-api

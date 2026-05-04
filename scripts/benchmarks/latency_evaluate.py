@@ -64,7 +64,11 @@ def one_post(url: str, body: bytes, timeout: float) -> tuple[float, int]:
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Benchmark Decision API evaluate latency")
-    p.add_argument("--url", default="http://127.0.0.1:8000", help="Base URL (no trailing slash)")
+    p.add_argument(
+        "--url",
+        default="http://127.0.0.1:8000/decisions",
+        help="Decision API base URL including mount path (e.g. http://host:8000/decisions)",
+    )
     p.add_argument("--requests", type=int, default=100, help="Total requests")
     p.add_argument("--concurrency", type=int, default=10, help="Concurrent workers")
     p.add_argument("--timeout", type=float, default=30.0, help="Per-request timeout seconds")

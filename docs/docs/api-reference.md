@@ -4,6 +4,8 @@ Complete endpoint reference for all Tarka services. All services use JSON reques
 
 **Authentication:** Set `API_KEYS` environment variable on any service. Clients must send `X-API-Key: <key>` header. Leave `API_KEYS` empty to disable authentication (development mode).
 
+**URL prefixes (default Docker / Helm):** **core-api** serves the decision app under **`/decisions`** and the case app under **`/cases`** on port **8000** (e.g. `GET /decisions/v1/health`). **signal-api** serves **`/features`**, **`/ml`**, **`/calibration`**, **`/counters`**, **`/location`** on **8004**. **data-plane** uses **8007** for ingest + analytics routes. OpenAPI files describe the sub-apps as standalone; prepend the mount when calling a macroservice. The bundled **frontend** nginx may expose **`/api/decisions/…`** and **`/api/cases/…`** rewrites—see `frontend/nginx.conf`.
+
 ---
 
 ## Decision API — `:8000` {#decision-api}
@@ -45,6 +47,22 @@ The console **trust/ops readiness** strip (`frontend/src/components/AnalystReadi
 | `DELETE` | `/v1/rules/{filename}/rules/{rule_id}` | Remove a rule from a pack |
 | `POST` | `/v1/admin/rules/reload` | Hot-reload rules, typologies, and predicate registry from disk |
 | `GET` | `/v1/admin/typology/predicate-registry` | OSS #46 typology DSL catalog: `registry_id`, `version`, `predicates[]` (`id`, `description`, `when`); pin must match `predicate_registry_pin` in typology definitions |
+
+### Enterprise parity (visual rules, backtest, NL SQL, feature store, dashboards, vendors)
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/v1/rules/visual/compile` | Compile a visual-rule AST JSON payload into a deployable JSON rule pack (+ Rego stub) |
+| `POST` | `/v1/rules/gitops/approve` | Record maker/checker approval metadata for a rule pack (integrate with your SOX/Git workflow) |
+| `POST` | `/v1/rules/backtest/preview-sql` | Return bounded ClickHouse SQL for a 90-day window with point-in-time guidance in the response body |
+| `POST` | `/v1/rules/backtest/run` | Stub backtest metrics until a read-only ClickHouse role is wired server-side |
+| `POST` | `/v1/reporting/nl-to-sql` | Natural language → bounded SQL (LLM when configured; template fallback otherwise) |
+| `POST` | `/v1/feature-store/definitions` | Upsert feature definitions and versioned materialized-view DDL templates |
+| `GET` | `/v1/analytics/dashboards/kpis` | Cached KPI stub for embedded dashboards (Redis TTL `DASHBOARD_KPI_CACHE_TTL_SECONDS`; tenant-scoped when API keys bind tenants) |
+| `GET` | `/v1/vendors/registry` | List registered vendor adapters (cost-aware routing stub) |
+| `POST` | `/v1/vendors/probe` | Admin probe of a vendor adapter |
+
+Guide: [competitor-parity.md](guides/competitor-parity.md). Env vars: [competitor-parity-env.md](../architecture/competitor-parity-env.md).
 
 ### Replay
 
@@ -414,13 +432,15 @@ The console **trust/ops readiness** strip (`frontend/src/components/AnalystReadi
 
 ## Case API — `:8002` {#case-api}
 
+**Queue routing:** When **`CASE_QUEUE_ROUTING_RULES_JSON`** is set, **`POST /v1/cases`** evaluates JSON v1 rules against the create payload and may set **`assigned_team`** (e.g. route **`priority: critical`** to **`Tier3`**). See [competitor-parity.md](guides/competitor-parity.md#case-api--queue-routing--sar).
+
 ### Cases
 
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/v1/health` | Health check |
 | `GET` | `/v1/cases` | List cases |
-| `POST` | `/v1/cases` | Create case (optional **`playbook_id`** applies a built-in investigation template at create; unknown id → **422**) |
+| `POST` | `/v1/cases` | Create case (optional **`playbook_id`** applies a built-in investigation template at create; unknown id → **422**); **`assigned_team`** may be set from **`CASE_QUEUE_ROUTING_RULES_JSON`** |
 | `GET` | `/v1/cases/playbooks` | List built-in investigation playbooks / template packs |
 | `POST` | `/v1/cases/{case_id}/playbooks/{playbook_id}` | Apply a playbook to an existing case |
 | `GET` | `/v1/cases/{case_id}` | Get case |
@@ -446,7 +466,7 @@ The console **trust/ops readiness** strip (`frontend/src/components/AnalystReadi
 |---|---|---|
 | `GET` | `/v1/webhooks/dlq` | View webhook dead letter queue |
 | `POST` | `/v1/webhooks/dlq/{webhook_id}/retry` | Retry failed webhook |
-| `POST` | `/v1/cases/{case_id}/sar/generate` | Generate SAR/STR report |
+| `POST` | `/v1/cases/{case_id}/sar/generate` | Generate SAR/STR report; response includes **`prefiling_validation_errors`** for FinCEN XML; when **`FINCEN_BSA_SFTP_HOST`** is set, an ACK poll hook may be scheduled (wire a durable worker for production) |
 | `GET` | `/v1/cases/{case_id}/sar` | List SAR filings for a case |
 
 ---
@@ -647,10 +667,14 @@ OpenAPI: `contracts/openapi/ml-scoring.yaml`. Policy files: `services/ml-scoring
 | `GET` | `/v1/health` | Health check (includes NATS connection status) |
 | `POST` | `/v1/events` | Ingest single event (async via NATS) |
 | `POST` | `/v1/events/batch` | Ingest batch of events |
+| `POST` | `/v1/ingest/dynamic` | Schemaless JSON ingest: heuristic or cached mapping → canonical event; optional `INGEST_REDIS_URL` for cross-replica map cache; publishes `fraud.ingest.mapping.request` when unmapped (PII-tokenized sample when `INGEST_PII_TOKENIZE` is on) |
+| `POST` | `/v1/internal/ingest/mapping-cache` | Internal: persist `tenant_id` + `schema_fingerprint` → field mapping for dynamic ingest |
 | `WebSocket` | `/v1/events/ws` | Stream events via WebSocket |
 | `GET` | `/v1/stream/info` | Get NATS stream metadata |
 
 OpenAPI: _not published under `contracts/openapi/` yet_ (this HTTP table is authoritative).
+
+JetStream stream **`FRAUD_INGEST_MISC`** carries subjects such as `fraud.ingest.dlq` and `fraud.ingest.mapping.request`. Guide: [competitor-parity.md](guides/competitor-parity.md).
 
 ---
 

@@ -8,12 +8,12 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://fraud:fraud@localhost:5432/fraud"
     redis_url: str = "redis://localhost:6379/0"
-    feature_service_url: str = ""
-    ml_scoring_url: str = ""
+    feature_service_url: str = "http://signal-api:8004/features"
+    ml_scoring_url: str = "http://signal-api:8004/ml"
     graph_service_url: str = ""
-    calibration_service_url: str = ""
-    counter_service_url: str = ""
-    location_service_url: str = ""
+    calibration_service_url: str = "http://signal-api:8004/calibration"
+    counter_service_url: str = "http://signal-api:8004/counters"
+    location_service_url: str = "http://signal-api:8004/location"
     scameter_enabled: bool = os.environ.get("SCAMETER_ENABLED", "false").strip().lower() in ("1", "true", "yes", "on")
     scameter_base_url: str = os.environ.get("SCAMETER_BASE_URL", "").strip()
     scameter_api_key: str = os.environ.get("SCAMETER_API_KEY", "").strip()
@@ -139,6 +139,16 @@ class Settings(BaseSettings):
         "true",
         "yes",
     )
+
+    # Tier-1: cap in-flight evaluations per process; overflow sheds graph + ML (see EvalLoadGuard).
+    tarka_max_concurrent_evaluations: int = int(os.environ.get("TARKA_MAX_CONCURRENT_EVALUATIONS", "512"))
+
+    # Tier-1 reporting / compliance (optional JSON maps and NL→SQL allowlists).
+    nl_sql_allowed_tables: str = os.environ.get("NL_SQL_ALLOWED_TABLES", "fraud_decisions").strip()
+    adverse_action_rule_map_json: str = os.environ.get("ADVERSE_ACTION_RULE_MAP_JSON", "").strip()
+    reporting_nl_llm_url: str = os.environ.get("TARKA_REPORTING_NL_LLM_URL", "").strip()
+    reporting_nl_llm_api_key: str = os.environ.get("TARKA_REPORTING_NL_LLM_API_KEY", "").strip()
+    reporting_nl_llm_model: str = os.environ.get("TARKA_REPORTING_NL_LLM_MODEL", "gpt-4o-mini").strip()
 
 
 settings = Settings()

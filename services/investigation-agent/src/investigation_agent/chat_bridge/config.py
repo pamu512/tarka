@@ -10,8 +10,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     investigation_agent_url: str = Field(
-        default="http://investigation-agent:8006",
-        description="Base URL of investigation-agent (no trailing slash).",
+        default="",
+        description="Base URL of investigation-agent (no trailing slash). Empty = in-process chat (macroservice).",
     )
     investigation_agent_api_key: str = Field(
         default="",

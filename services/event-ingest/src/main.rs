@@ -1,5 +1,7 @@
 //! Event ingest: `POST /v1/events` → NATS JetStream; pull consumer → `POST /v1/decisions/evaluate`.
 
+mod dynamic_ingest;
+
 use anyhow::{Context, Result};
 use async_nats::jetstream::{self, consumer::pull, stream::Config as StreamConfig, AckKind};
 use axum::{
@@ -20,6 +22,12 @@ use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tracing::{error, info, warn};
+
+use dynamic_ingest::{
+    apply_cached_mapping, ensure_ingest_misc_stream, heuristic_map_to_evaluate_request,
+    mapping_cache_lookup, mapping_cache_store, publish_ingest_dlq, schema_fingerprint,
+    spawn_mapping_request, DynamicIngestState,
+};
 
 const VALID_EVENT_TYPES: &[&str] = &[
     "login", "payment", "signup", "device", "session", "custom",
@@ -42,6 +50,9 @@ struct AppState {
     deadletter_subject: Option<String>,
     /// When true, mask common PII scalar fields on ingested events before NATS publish.
     pii_tokenize: bool,
+    dynamic: DynamicIngestState,
+    /// Optional Redis URL for cross-replica mapping cache (same keying as in-process DashMap L1).
+    redis_mapping: Option<redis::aio::ConnectionManager>,
 }
 
 #[derive(Debug, Serialize)]
@@ -211,10 +222,52 @@ fn validate_evaluate_shape(ev: &Value) -> Result<(), String> {
     Ok(())
 }
 
-async fn publish_deadletter_record(js: &jetstream::Context, subject: &str, record: Value) {
-    if let Ok(bytes) = serde_json::to_vec(&record) {
-        if let Ok(ackf) = js.publish(subject.to_string(), bytes.into()).await {
-            let _ = ackf.await;
+/// Publish a dead-letter tombstone. Returns `true` if JetStream accepted the publish+ack.
+/// On any failure logs at **ERROR** with a `CRITICAL` prefix (Tier-1: operator-visible poison-pill path).
+/// Callers must still `ack()` the source message to avoid an infinite poison loop.
+async fn publish_deadletter_record(js: &jetstream::Context, subject: &str, record: Value) -> bool {
+    let bytes = match serde_json::to_vec(&record) {
+        Ok(b) => b,
+        Err(e) => {
+            error!(
+                "CRITICAL: dead-letter JSON serialize failed (subject={}): {}",
+                subject, e
+            );
+            return false;
+        }
+    };
+    let timeout_duration = std::time::Duration::from_secs(5);
+    match tokio::time::timeout(timeout_duration, js.publish(subject.to_string(), bytes.into())).await {
+        Ok(Ok(ack_fut)) => match tokio::time::timeout(timeout_duration, ack_fut).await {
+            Ok(Ok(_)) => true,
+            Ok(Err(e)) => {
+                error!(
+                    "CRITICAL: dead-letter publish ack failed (subject={}): {}",
+                    subject, e
+                );
+                false
+            }
+            Err(_) => {
+                error!(
+                    "CRITICAL: dead-letter publish ack timed out (subject={})",
+                    subject
+                );
+                false
+            }
+        },
+        Ok(Err(e)) => {
+            error!(
+                "CRITICAL: dead-letter publish failed (subject={}): {}",
+                subject, e
+            );
+            false
+        }
+        Err(_) => {
+            error!(
+                "CRITICAL: dead-letter publish timed out (subject={})",
+                subject
+            );
+            false
         }
     }
 }
@@ -356,6 +409,196 @@ async fn post_events(
         "ingest_id": ingest_id,
     }))
     .into_response()
+}
+
+/// Schemaless ingest: map cached/heuristic payloads to strict evaluate shape; async mapping request on miss.
+async fn post_ingest_dynamic(State(st): State<Arc<AppState>>, headers: HeaderMap, body: Bytes) -> Response {
+    if let Err(code) = require_ingest_auth(&headers) {
+        return code.into_response();
+    }
+    let body_v: Value = match serde_json::from_slice(&body) {
+        Ok(v) => v,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error": "invalid_json", "detail": e.to_string()})),
+            )
+                .into_response();
+        }
+    };
+    let tenant = body_v
+        .get("tenant_id")
+        .or_else(|| body_v.get("tenantId"))
+        .and_then(|x| x.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    let Some(tenant) = tenant else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": "tenant_id_required", "reason_codes": ["ingest:tenant_required"]})),
+        )
+            .into_response();
+    };
+    let fp = schema_fingerprint(&body_v);
+    let mut ev_opt = mapping_cache_lookup(&st.redis_mapping, &st.dynamic, tenant, &fp)
+        .await
+        .and_then(|m| apply_cached_mapping(&body_v, &m))
+        .or_else(|| heuristic_map_to_evaluate_request(&body_v));
+    if ev_opt.is_none() {
+        let mut sample = body_v.clone();
+        if st.pii_tokenize {
+            tokenize_pii_in_event(&mut sample);
+        }
+        let payload = json!({
+            "kind": "mapping_request",
+            "tenant_id": tenant,
+            "schema_fingerprint": fp,
+            "sample": sample,
+        });
+        spawn_mapping_request(
+            st.js.clone(),
+            payload,
+            tenant.to_string(),
+            fp.clone(),
+        );
+        return (
+            StatusCode::ACCEPTED,
+            Json(json!({
+                "accepted": false,
+                "mapping_pending": true,
+                "schema_fingerprint": fp,
+                "detail": "No heuristic or cached mapping; async mapping worker notified (PII-tokenized sample only)."
+            })),
+        )
+            .into_response();
+    }
+    let mut ev = ev_opt.take().unwrap();
+    if st.pii_tokenize {
+        tokenize_pii_in_event(&mut ev);
+    }
+    if let Err(code) = validate_evaluate_shape(&ev) {
+        let tomb = json!({
+            "kind": "dynamic_ingest_validation_failed",
+            "error": code,
+            "tenant_id": tenant,
+            "schema_fingerprint": fp,
+        });
+        let _ = publish_ingest_dlq(&st.js, tomb).await;
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"error": code, "reason_codes": [code]})),
+        )
+            .into_response();
+    }
+    if st.require_idempotency_key {
+        let idem = headers
+            .get("idempotency-key")
+            .or_else(|| headers.get("Idempotency-Key"))
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .trim();
+        let meta_key = ev
+            .get("metadata")
+            .and_then(|m| m.as_object())
+            .and_then(|m| m.get("idempotency_key"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim();
+        if idem.is_empty() && meta_key.is_empty() {
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(json!({
+                    "error": "ingest_idempotency_key_required",
+                    "reason_codes": ["ingest_idempotency_key_required"]
+                })),
+            )
+                .into_response();
+        }
+    }
+    let ingest_id = uuid::Uuid::new_v4().to_string();
+    let envelope = json!({
+        "ingest_id": ingest_id,
+        "evaluate_request": ev,
+    });
+    let subject = event_subject(&st.subject_prefix, &envelope["evaluate_request"]);
+    let payload = match serde_json::to_vec(&envelope) {
+        Ok(p) => p,
+        Err(e) => {
+            error!("serialize dynamic ingest envelope failed: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error": "serialize_failed", "detail": e.to_string()})),
+            )
+                .into_response();
+        }
+    };
+    let ack = match st.js.publish(subject.clone(), payload.into()).await {
+        Ok(fut) => match fut.await {
+            Ok(a) => a,
+            Err(e) => {
+                error!("NATS publish ack failed (dynamic): {}", e);
+                return (
+                    StatusCode::BAD_GATEWAY,
+                    Json(json!({"error": "nats_publish_failed", "detail": e.to_string()})),
+                )
+                    .into_response();
+            }
+        },
+        Err(e) => {
+            error!("NATS publish failed (dynamic): {}", e);
+            return (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({"error": "nats_publish_failed", "detail": e.to_string()})),
+            )
+                .into_response();
+        }
+    };
+    Json(json!({
+        "accepted": true,
+        "stream_seq": ack.sequence,
+        "ingest_id": ingest_id,
+        "schema_fingerprint": fp,
+        "path": "dynamic"
+    }))
+    .into_response()
+}
+
+#[derive(Debug, Deserialize)]
+struct RegisterIngestMappingBody {
+    tenant_id: String,
+    schema_fingerprint: String,
+    mapping: Value,
+}
+
+/// Operator / mapping-worker: persist a JSON mapping for ``tenant_id`` + ``schema_fingerprint``.
+async fn post_register_ingest_mapping(
+    State(st): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(body): Json<RegisterIngestMappingBody>,
+) -> Response {
+    if let Err(code) = require_ingest_auth(&headers) {
+        return code.into_response();
+    }
+    let tid = body.tenant_id.trim();
+    let fp = body.schema_fingerprint.trim();
+    if tid.is_empty() || fp.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": "tenant_id_and_fingerprint_required"})),
+        )
+            .into_response();
+    }
+    match mapping_cache_store(&st.redis_mapping, &st.dynamic, tid, fp, body.mapping).await {
+        Ok(()) => Json(json!({"ok": true})).into_response(),
+        Err(e) => {
+            error!("mapping_cache_store failed: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error": "mapping_cache_store_failed", "detail": e.to_string()})),
+            )
+                .into_response()
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -638,6 +881,21 @@ mod tests {
     }
 
     #[test]
+    fn dynamic_heuristic_maps_aliases() {
+        use crate::dynamic_ingest::heuristic_map_to_evaluate_request;
+        let body = json!({
+            "tenantId": "acme",
+            "userId": "user-1",
+            "type": "payment",
+            "amount": 12.5
+        });
+        let ev = heuristic_map_to_evaluate_request(&body).expect("mapped");
+        assert_eq!(ev["tenant_id"], "acme");
+        assert_eq!(ev["entity_id"], "user-1");
+        assert_eq!(ev["event_type"], "payment");
+    }
+
+    #[test]
     fn tokenize_rewrites_email_field() {
         let mut ev = json!({
             "tenant_id": "t1",
@@ -723,7 +981,30 @@ async fn main() -> Result<()> {
     })
     .await?;
     info!("Stream {} ready (subjects {}.>)", stream_name, subject_prefix);
-    nats_ready.store(true, Ordering::Relaxed);
+    ensure_ingest_misc_stream(&js)
+        .await
+        .context("ensure FRAUD_INGEST_MISC stream")?;
+
+    let redis_mapping: Option<redis::aio::ConnectionManager> =
+        match env::var("INGEST_REDIS_URL") {
+            Ok(url) if !url.trim().is_empty() => match redis::Client::open(url.as_str()) {
+                Ok(client) => match redis::aio::ConnectionManager::new(client).await {
+                    Ok(cm) => {
+                        info!("INGEST_REDIS_URL connected for cross-replica mapping cache");
+                        Some(cm)
+                    }
+                    Err(e) => {
+                        warn!("INGEST_REDIS_URL connection failed: {}", e);
+                        None
+                    }
+                },
+                Err(e) => {
+                    warn!("INGEST_REDIS_URL invalid client: {}", e);
+                    None
+                }
+            },
+            _ => None,
+        };
 
     let http = Client::builder()
         .timeout(std::time::Duration::from_secs(60))
@@ -742,6 +1023,8 @@ async fn main() -> Result<()> {
         dlq_subject,
         deadletter_subject,
         pii_tokenize,
+        dynamic: DynamicIngestState::new(),
+        redis_mapping,
     });
 
     let consumer_st = Arc::clone(&st);
@@ -755,6 +1038,11 @@ async fn main() -> Result<()> {
         .route("/v1/health", get(health_check))
         .route("/v1/ready", get(ready_check))
         .route("/v1/events", post(post_events))
+        .route("/v1/ingest/dynamic", post(post_ingest_dynamic))
+        .route(
+            "/v1/internal/ingest/mapping-cache",
+            post(post_register_ingest_mapping),
+        )
         .route("/v1/events/batch", post(post_events_batch))
         .route("/v1/stream/info", get(stream_info))
         .with_state(st);

@@ -1,5 +1,3 @@
-
-
 # Tarka
 
 [CI](https://github.com/pamu512/tarka/actions/workflows/ci.yml)
@@ -37,20 +35,20 @@ Open-source, modular fraud detection platform. Pick the components you need or r
 
 These capabilities are in the codebase today and roll forward on `master`:
 
-- **Decision API:** normalized `**inference_context`** on evaluate responses (integrity, tamper, network trust, replay, geo-consistency, top signals) plus OpenAPI contract alignment; **session geo** merges optional **browser GPS** and **server IP geo** hints; `**sdk:geo_ip_mismatch`** / `**sdk:geo_tz_mismatch**` signal tags when inconsistent; `**/v1/ops/calibration-status**` and `**calibration_status**` on `**/v1/ops/governance**` for drift posture (when an external **calibration service** is not configured, governance still returns a **hint** such as `calibration_service_not_configured`—see `CALIBRATION_SERVICE_URL` in [deployment](docs/docs/guides/deployment.md)).
+- **Decision API:** normalized `**inference_context`** on evaluate responses (integrity, tamper, network trust, replay, geo-consistency, top signals) plus OpenAPI contract alignment; **session geo** merges optional **browser GPS** and **server IP geo** hints; `**sdk:geo_ip_mismatch`** / `**sdk:geo_tz_mismatch`** signal tags when inconsistent; `**/v1/ops/calibration-status**` and `**calibration_status**` on `**/v1/ops/governance**` for drift posture (when an external **calibration service** is not configured, governance still returns a **hint** such as `calibration_service_not_configured`—see `CALIBRATION_SERVICE_URL` in [deployment](docs/docs/guides/deployment.md)).
 - **Ingress hardening:** **replay-style payload detection** (short-lived Redis signatures) folded into scoring and audit context; optional **HMAC** on `POST /v1/decisions/evaluate` when `**REQUEST_SIGNATURE_SECRET`** is set (see [TLS pinning & signed requests](docs/docs/guides/tls-pinning-and-signed-requests.md)).
-- **SDKs:** **Python** and **TypeScript** clients typed for `inference_context` on evaluate responses; **TypeScript** optional `**enableGeo`** (browser GPS); **Python** server collector optional `**enable_ip_geo`** / `**ENABLE_IP_GEO_LOOKUP**` (public IP lookup is **off** by default).
-- **Graph (lite path):** default schema includes `**Place`** (quantized geo cells) and `**SEEN_AT**` edges for co-location–style graph context when enabled.
+- **SDKs:** **Python** and **TypeScript** clients typed for `inference_context` on evaluate responses; **TypeScript** optional `**enableGeo`** (browser GPS); **Python** server collector optional `**enable_ip_geo`** / `**ENABLE_IP_GEO_LOOKUP`** (public IP lookup is **off** by default).
+- **Graph (lite path):** default schema includes `**Place`** (quantized geo cells) and `**SEEN_AT`** edges for co-location–style graph context when enabled.
 - **Frontend:** case explainability surfaces **inference metrics**; API client can **fall back to mock data** when backends are down (demo-friendly).
 - **Ops / planning:** module **project roadmaps** under `docs/docs/projects/`, **30/60/90** plan, competitive notes, and **OSS adoption backlog** (issues + dependency order in docs).
 
 ### April 2026 — Investigation copilot, collaboration ingress, and ops
 
-- **Investigation agent (Saarthi):** `**GET /v1/ready`** (data-dir readiness), `**GET /v1/setup**` (first-run checklist), and a `**production**` object on `**GET /v1/health**` when production profiling is enabled; `**GET /v1/workflows**` with `**workflow_id` / `workflow_params**` (plus `**playbook_id` / `batch_id**` where applicable) on `**POST /v1/chat**`; **case-summary PDF** and **turn-bundle** report routes; optional **copilot rate limits** and **request body size cap**. Reference env: `**services/investigation-agent/.env.example`**. Hardening compose: `**deploy/docker-compose.production-hardening.yml**`. Integration notes: **[CHANGELOG_INTEGRATION](docs/docs/guides/CHANGELOG_INTEGRATION.md)**.
-- **Trust / ops, evidence summary, parity:** Decision API `**GET /v1/ops/evaluation-posture`** + `**GET /v1/slo**` for the console readiness strip; `**POST /v1/evidence/summary**` (deterministic citations + next actions); Feature Service `**POST /v1/internal/parity/verify**`. Indexed in **[API Reference](docs/docs/api-reference.md)** (Decision, Feature Service, Investigation Agent sections).
-- **Collaboration chat (Slack, Teams, Lark):** implemented **inside** `**services/investigation-agent`** as `**investigation_agent.chat_bridge**` (mounted on the agent process; the stand-alone `**services/collaboration-chat-bridge**` service was **removed** in favor of this consolidation). Features include optional **per-source minute rate limits**, **Slack file** text extraction (plain text, CSV, PDF, **Excel .xlsx**), **SSRF-hardened** fetch of the first public `**https://`** URL, directives `**!wf**`, `**!wfp**`, `**!style**`, and forwarding workflow/batch fields to the copilot. Operator wiring: **[Collaboration chat & cloud](docs/docs/guides/investigation-collaboration-chat-aws-azure.md)** (replace references to a separate `collaboration-chat-bridge` container with `**investigation-agent`** on **:8006**).
+- **Investigation agent (Saarthi):** `**GET /v1/ready`** (data-dir readiness), `**GET /v1/setup`** (first-run checklist), and a `**production**` object on `**GET /v1/health**` when production profiling is enabled; `**GET /v1/workflows**` with `**workflow_id` / `workflow_params**` (plus `**playbook_id` / `batch_id**` where applicable) on `**POST /v1/chat**`; **case-summary PDF** and **turn-bundle** report routes; optional **copilot rate limits** and **request body size cap**. Reference env: `**services/investigation-agent/.env.example`**. Hardening compose: `**deploy/docker-compose.production-hardening.yml`**. Integration notes: **[CHANGELOG_INTEGRATION](docs/docs/guides/CHANGELOG_INTEGRATION.md)**.
+- **Trust / ops, evidence summary, parity:** Decision API `**GET /v1/ops/evaluation-posture`** + `**GET /v1/slo`** for the console readiness strip; `**POST /v1/evidence/summary**` (deterministic citations + next actions); Feature Service `**POST /v1/internal/parity/verify**`. Indexed in **[API Reference](docs/docs/api-reference.md)** (Decision, Feature Service, Investigation Agent sections).
+- **Collaboration chat (Slack, Teams, Lark):** implemented **inside** `**services/investigation-agent`** as `**investigation_agent.chat_bridge`** (mounted on the agent process; the stand-alone `**services/collaboration-chat-bridge**` service was **removed** in favor of this consolidation). Features include optional **per-source minute rate limits**, **Slack file** text extraction (plain text, CSV, PDF, **Excel .xlsx**), **SSRF-hardened** fetch of the first public `**https://`** URL, directives `**!wf`**, `**!wfp**`, `**!style**`, and forwarding workflow/batch fields to the copilot. Operator wiring: **[Collaboration chat & cloud](docs/docs/guides/investigation-collaboration-chat-aws-azure.md)** (replace references to a separate `collaboration-chat-bridge` container with `**investigation-agent`** on **:8006**).
 - **Frontend:** **Investigation** page updates for copilot setup and workflows (`frontend/src/pages/Investigation.tsx`).
-- **Observability & deploy:** Grafana dashboard JSON for copilot metrics under `**deploy/observability/`**; optional `**deploy/docker-compose.host-ports.override.yml**` for local port mapping; guide **[Investigation CMS & ITSM](docs/docs/guides/investigation-cms-and-itsm-integrations.md)**.
+- **Observability & deploy:** Grafana dashboard JSON for copilot metrics under `**deploy/observability/`**; optional `**deploy/docker-compose.host-ports.override.yml`** for local port mapping; guide **[Investigation CMS & ITSM](docs/docs/guides/investigation-cms-and-itsm-integrations.md)**.
 
 ### v1.1.0 train — tests, CI/CD, security, onboarding
 
@@ -58,22 +56,22 @@ Mirrors [docs/docs/releases/v1.1.0-2026-04-30.md](docs/docs/releases/v1.1.0-2026
 
 **Tests and validation**
 
-- Unit coverage for `**inference_build`** (tiering, velocity, travel/colocation, `**derive_recommended_action**`).
+- Unit coverage for `**inference_build`** (tiering, velocity, travel/colocation, `**derive_recommended_action`**).
 - `**pytest**` for `**/v1/replay**` paired `**trace_ids**` mode (order, `**missing_trace_ids**`, empty-window 404).
 
 **CI/CD, security hygiene, and first-run polish**
 
-- **GitHub Actions CI** (`main` / `master`): Ruff; **decision-api** tests with coverage gate (**≥48%** as enforced in `**.github/workflows/ci.yml`**, path to 60%+); **case-api**, **Python SDK**; **graph-service**; **integration-ingress**; **investigation-agent**; **graphql-gateway**, **event-ingest**, **analytics-sink**, **feature-service**, **ml-scoring**; **frontend** `**npm run test`** then `**npm run build**` + **TypeScript SDK** `**npm run build`**; **Alembic** migrations for decision/case APIs on PostgreSQL startup; **GraphQL** `**/metrics`** via shared observability; `**benchmark-latency-evaluate**` job (lite compose + `**scripts/benchmarks/latency_evaluate.py**` artifact); coverage XML artifacts; **Docker builds** gated on all jobs.
+- **GitHub Actions CI** (`main` / `master`): Ruff; **decision-api** tests with coverage gate (**≥48%** as enforced in `**.github/workflows/ci.yml`**, path to 60%+); case-api, Python SDK; graph-service; integration-ingress; investigation-agent; graphql-gateway, event-ingest, analytics-sink, feature-service, ml-scoring; frontend `**npm run test`** then `**npm run build**` + **TypeScript SDK** `**npm run build`**; Alembic migrations for decision/case APIs on PostgreSQL startup; GraphQL `**/metrics`** via shared observability; `**benchmark-latency-evaluate**` job (lite compose + `**scripts/benchmarks/latency_evaluate.py**` artifact); coverage XML artifacts; **Docker builds** gated on all jobs.
 - **Security scanning workflow**: **Trivy** filesystem + **decision-api** image → **SARIF** upload (where code scanning is enabled); weekly schedule.
 - **Secret scanning workflow**: **TruffleHog** on push/PR/schedule (`**.github/workflows/secret-scan.yml`**).
 - **Dependabot**: grouped updates for **GitHub Actions**, **pip** (core services), **npm** (frontend).
-- **Docs:** `**SECURITY.md`** (responsible disclosure), `**LICENSE-DEPENDENCIES.md**` (Neo4j AGPL / lite and alternates), `**CODE_OF_CONDUCT.md**`, `**docs/docs/guides/security-scanning.md**`, `**docs/docs/guides/sandbox-five-minute.md**` (copy-paste evaluate + OSINT + UI path).
+- **Docs:** `**SECURITY.md`** (responsible disclosure), `**LICENSE-DEPENDENCIES.md`** (Neo4j AGPL / lite and alternates), `**CODE_OF_CONDUCT.md**`, `**docs/docs/guides/security-scanning.md**`, `**docs/docs/guides/sandbox-five-minute.md**` (copy-paste evaluate + OSINT + UI path).
 - **Onboarding:** `**.devcontainer/devcontainer.json`** (Codespaces / Docker-outside-Docker); **README** badges (CI, security scan, Codespaces); **Maintainer walkthrough (Loom, [Tarka](https://github.com/pamu512/tarka) / this repo only):** [five-minute sandbox + Case Detail explainability](https://www.loom.com/share/b46f1eccbc6b438381ee44c6978f2f5e). *(Not [Skuld](https://github.com/pamu512/Skuld) or other repos — those are separate products.)*
-- `**deploy/docker-compose.lite.yml`**: adds **integration-ingress** (**8003**) so lite stack matches the five-minute OSINT demo without full Neo4j. Optional `**--profile ingest`** adds **NATS** + **event-ingest** (**8007**) for the **evaluate + case + async ingest** demo (see [Demo vertical smoke](scripts/README.md#demo-vertical-smoke)).
+- `**deploy/docker-compose.lite.yml`**: adds integration-ingress (8003) so lite stack matches the five-minute OSINT demo without full Neo4j. Optional `**--profile ingest`** adds **NATS** + **event-ingest** (**8007**) for the **evaluate + case + async ingest** demo (see [Demo vertical smoke](scripts/README.md#demo-vertical-smoke)).
 
 **Planned validation (release gate)**
 
-- `**pytest`** (decision-api), frontend `**npm run test**` + `**npm run build**`, and **TypeScript SDK** `**npm run build`** green before tag.
+- `**pytest`** (decision-api), frontend `**npm run test`** + `**npm run build**`, and **TypeScript SDK** `**npm run build`** green before tag.
 - **CI workflow green** on default branch: lint, all Python service test jobs, Node builds, Docker build matrix.
 - **Trivy** security workflow completes (SARIF upload may depend on org plan); **Dependabot** enabled for the repository.
 - **Lite compose** smoke: `docker compose -f deploy/docker-compose.lite.yml up -d --build` → **8000** evaluate, **8003** OSINT health, **3000** frontend reachable.
@@ -81,9 +79,31 @@ Mirrors [docs/docs/releases/v1.1.0-2026-04-30.md](docs/docs/releases/v1.1.0-2026
 ## Client SDKs (evaluate vs ingest)
 
 - **Synchronous scoring:** call **Decision API** `POST /v1/decisions/evaluate` via `**DecisionClient`** (Python / TypeScript under `packages/`).
-- **Async high-volume path:** send events to **event-ingest** `POST /v1/events` (NATS → worker → evaluate) via `**EventIngestClient`**; optional `**Idempotency-Key**` when `**REDIS_URL**` is configured on ingest.
+- **Async high-volume path:** send events to **event-ingest** `POST /v1/events` (NATS → worker → evaluate) via `**EventIngestClient`**; optional `**Idempotency-Key`** when `**REDIS_URL**` is configured on ingest. For **flexible vendor payloads**, use `**POST /v1/ingest/dynamic`** (see [Enterprise parity](#enterprise-parity-schemaless-ingest-backfill-rules-studio-vendors)).
 
 Onboarding (ports, metrics, replay script): **[docs/docs/guides/ingest-replay-onboarding.md](docs/docs/guides/ingest-replay-onboarding.md)** — see also **[docs/docs/sdks/python.md](docs/docs/sdks/python.md)** and **[docs/docs/sdks/typescript.md](docs/docs/sdks/typescript.md)**.
+
+## Enterprise parity (schemaless ingest, backfill, rules studio, vendors)
+
+Capabilities that narrow the gap to commercial fraud platforms (Alloy-class UX patterns, vendor adapters, executive KPIs, SAR hardening):
+
+
+| Area                        | What ships                                                                                                             | Docs                                                                                                                                            |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Schemaless ingest**       | `POST /v1/ingest/dynamic`, optional `**INGEST_REDIS_URL`**, JetStream `**FRAUD_INGEST_MISC**` (DLQ + mapping requests) | [Competitor parity guide](docs/docs/guides/competitor-parity.md#event-ingest--schemaless-path)                                                  |
+| **Bulk backfill**           | Rust `**batch-ingest`** → ClickHouse `fraud_features_offline` only (no NATS decisions)                                 | [services/batch-ingest/README.md](services/batch-ingest/README.md)                                                                              |
+| **Rules studio & backtest** | Visual AST compile, GitOps approval token, ClickHouse SQL preview (PIT notes)                                          | [Competitor parity guide](docs/docs/guides/competitor-parity.md#decision-api--rules-studio-backtest-reporting-feature-store-dashboards-vendors) |
+| **ML registry**             | `POST /v1/models/reload` on **ml-scoring** (webhook secret optional)                                                   | Same guide                                                                                                                                      |
+| **Feature store API**       | Versioned definitions + MV DDL templates                                                                               | Same guide                                                                                                                                      |
+| **Vendor marketplace**      | `VendorAdapter` plugins, registry, admin probe                                                                         | Same guide                                                                                                                                      |
+| **Embedded dashboards**     | Decision API KPI endpoint + Redis cache; UI `**/exec-dashboards`**                                                     | Same guide                                                                                                                                      |
+| **Case routing**            | `**CASE_QUEUE_ROUTING_RULES_JSON`** → `assigned_team` on create                                                        | Same guide                                                                                                                                      |
+| **SAR / FinCEN**            | Pre-filing validation + ACK poll hook (`FINCEN_BSA_SFTP_HOST`)                                                         | Same guide                                                                                                                                      |
+| **Graph ops**               | Decision-stream → graph indexer design doc                                                                             | [DECISION_STREAM_INDEXER.md](services/graph-service/docs/DECISION_STREAM_INDEXER.md)                                                            |
+| **Device SDK**              | `**@tarka/web-sdk`** (consent-aware)                                                                                   | [packages/tarka-web-sdk/README.md](packages/tarka-web-sdk/README.md)                                                                            |
+
+
+**Environment variables:** [docs/architecture/competitor-parity-env.md](docs/architecture/competitor-parity-env.md)
 
 ## Examples, benchmarks, and ops
 
@@ -195,18 +215,18 @@ Experience Tarka -**[Click Here](https://www.loom.com/share/b46f1eccbc6b438381ee
 CLI slugs stay stable; **codenames** are the product story (see [Module codenames](docs/docs/guides/module-codenames.md)). **Riti** (`gateway`) draws on **rīti** (रीति) in the technical Sanskrit lexicon—often read in sources such as the *Viṣṇudharmottarapurāṇa* as **iron rust**, an ingredient of **Vajralepa** (a hard cement)—as a metaphor for the GraphQL layer that **binds** services into one API surface.
 
 
-| Slug          | Codename    | What You Get                                                                                                                                                | Infrastructure                          |
-| ------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| `core`        | **Hetu**    | Decision API, rules engine, Redis tags/scores, OPA                                                                                                          | Postgres, Redis                         |
-| `graph`       | **Jaala**   | Neo4j entity graph, community detection, fraud rings                                                                                                        | Neo4j                                   |
-| `ml`          | **Anumana** | ONNX inference, adaptive autoencoder, feature engineering                                                                                                   | —                                       |
-| `cases`       | **Lekh**    | Case management, workflow automation, SAR generation                                                                                                        | Postgres                                |
-| `integration` | **Setu**    | KYC adapters, **12-source OSINT enrichment**                                                                                                                | Postgres                                |
-| `agent`       | **Saarthi** | AI investigation copilot (LLM tool-use)                                                                                                                     | —                                       |
-| `streaming`   | **Srotas**  | High-throughput event ingestion via NATS JetStream                                                                                                          | NATS                                    |
-| `analytics`   | **Kala**    | Historical decision analytics (**full** stack: ClickHouse + NATS; **Tarka Lite**: Postgres-backed **data-platform** — see `deploy/docker-compose.lite.yml`) | ClickHouse + NATS *or* Postgres + Redis |
-| `gateway`     | **Riti**    | Unified GraphQL API over all REST services                                                                                                                  | —                                       |
-| `frontend`    | **Dwar**    | React dashboard (10 pages)                                                                                                                                  | —                                       |
+| Slug          | Codename    | What You Get                                                                                                                                                | Infrastructure                                 |
+| ------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `core`        | **Hetu**    | Decision API, rules engine, Redis tags/scores, OPA                                                                                                          | Postgres, Redis                                |
+| `graph`       | **Jaala**   | Neo4j entity graph, community detection, fraud rings                                                                                                        | Neo4j                                          |
+| `ml`          | **Anumana** | ONNX inference, adaptive autoencoder, feature engineering                                                                                                   | —                                              |
+| `cases`       | **Lekh**    | Case management, workflow automation, SAR generation                                                                                                        | Postgres                                       |
+| `integration` | **Setu**    | KYC adapters, **12-source OSINT enrichment**                                                                                                                | Postgres                                       |
+| `agent`       | **Saarthi** | AI investigation copilot (LLM tool-use)                                                                                                                     | —                                              |
+| `streaming`   | **Srotas**  | High-throughput event ingestion via NATS JetStream; **schemaless** `POST /v1/ingest/dynamic` + optional `**INGEST_REDIS_URL`** mapping cache                | NATS (+ optional Redis for cross-replica maps) |
+| `analytics`   | **Kala**    | Historical decision analytics (**full** stack: ClickHouse + NATS; **Tarka Lite**: Postgres-backed **data-platform** — see `deploy/docker-compose.lite.yml`) | ClickHouse + NATS *or* Postgres + Redis        |
+| `gateway`     | **Riti**    | Unified GraphQL API over all REST services                                                                                                                  | —                                              |
+| `frontend`    | **Dwar**    | React dashboard (10 pages)                                                                                                                                  | —                                              |
 
 
 ### pip Install (Library Use)
@@ -284,21 +304,22 @@ Data plane :8007 --> NATS JetStream --> ClickHouse *(streaming + analytics profi
 ## Components
 
 
-| Service               | Port | Description                                                                                                                         |
-| --------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `core-api`            | 8000 | **Macroservice:** decision + case apps (`/decisions`, `/cases`); scoring, audit, workflows, SAR/STR                                 |
-| `graph-service`       | 8001 | Entity graph (Neo4j), GDS algorithms, tag storage on nodes                                                                          |
-| `integration-ingress` | 8003 | KYC webhooks, adapter registry, **OSINT enrichment (12 sources)**                                                                   |
-| `signal-api`          | 8004 | **Macroservice:** features, ML, calibration, counters, location (`/features`, `/ml`, …)                                            |
-| `investigation-agent` | 8006 | AI copilot with LLM tool-use loop **and embedded Slack/Teams/Lark chat bridge** (`chat_bridge`, former stand-alone service removed) |
-| `data-plane`          | 8007 | **Macroservice:** event ingest + analytics sink (same port; NATS + optional ClickHouse)                                            |
-| `graphql-gateway`     | 8010 | Unified GraphQL API (defaults target **core-api** mounts)                                                                         |
-| `frontend`            | 3000 | React dashboard (10 pages)                                                                                                          |
-| **Shadow (add-on)**   | 8742 (API) | Local forensic console — **Git submodule** [`tools/shadow`](tools/shadow); `python tarka.py forensics`; not in default Compose |
+| Service               | Port       | Description                                                                                                                         |
+| --------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `core-api`            | 8000       | **Macroservice:** decision + case apps (`/decisions`, `/cases`); scoring, audit, workflows, SAR/STR                                 |
+| `graph-service`       | 8001       | Entity graph (Neo4j), GDS algorithms, tag storage on nodes                                                                          |
+| `integration-ingress` | 8003       | KYC webhooks, adapter registry, **OSINT enrichment (12 sources)**                                                                   |
+| `signal-api`          | 8004       | **Macroservice:** features, ML, calibration, counters, location (`/features`, `/ml`, …)                                             |
+| `investigation-agent` | 8006       | AI copilot with LLM tool-use loop **and embedded Slack/Teams/Lark chat bridge** (`chat_bridge`, former stand-alone service removed) |
+| `data-plane`          | 8007       | **Macroservice:** event ingest + analytics sink (same port; NATS + optional ClickHouse)                                             |
+| `graphql-gateway`     | 8010       | Unified GraphQL API (defaults target **core-api** mounts)                                                                           |
+| `frontend`            | 3000       | React dashboard (10 pages)                                                                                                          |
+| **Shadow (add-on)**   | 8742 (API) | Local forensic console — **Git submodule** `[tools/shadow](tools/shadow)`; `python tarka.py forensics`; not in default Compose      |
+
 
 Source modules under `services/decision-api`, `services/case-api`, `services/feature-service`, `services/ml-scoring`, etc. still power **core-api** / **signal-api**; CI and `tarka.py dev` can target either the macroservice or a single module.
 
-**Cross-service env alignment:** **core-api** sets in-process `DECISION_API_URL` for the case app; `investigation-agent` uses `CASE_API_URL` / `DECISION_API_URL` pointing at **`http://core-api:8000/{cases|decisions}`**, plus optional `GRAPH_SERVICE_URL` / `UPSTREAM_API_KEY`. See [docs/docs/guides/deployment.md](docs/docs/guides/deployment.md), [service-ports.md](docs/docs/guides/service-ports.md), and `deploy/.env.example`.
+**Cross-service env alignment:** **core-api** sets in-process `DECISION_API_URL` for the case app; `investigation-agent` uses `CASE_API_URL` / `DECISION_API_URL` pointing at `**http://core-api:8000/{cases|decisions}`**, plus optional `GRAPH_SERVICE_URL` / `UPSTREAM_API_KEY`. See [docs/docs/guides/deployment.md](docs/docs/guides/deployment.md), [service-ports.md](docs/docs/guides/service-ports.md), and `deploy/.env.example`.
 
 
 | SDK                             | Platform                                                                                                                 |
@@ -373,7 +394,7 @@ All SDKs collect device signals and send them as `device_context` with each eval
 - **App repackaging** (certificate hash verification, Play Integrity, App Attest)
 - **Security handshake** (server nonce → SDK signs with platform attestation → server verifies)
 
-Signals become `sdk:*` tags on Redis and graph nodes (e.g., `sdk:emulator`, `sdk:vpn`, `sdk:bot`).
+Signals become `sdk:`* tags on Redis and graph nodes (e.g., `sdk:emulator`, `sdk:vpn`, `sdk:bot`).
 
 ## Configuration
 

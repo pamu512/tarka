@@ -19,6 +19,14 @@ use tracing::{error, info, warn};
 
 use async_nats::jetstream::Message as JsMessage;
 
+fn analytics_nak_delay() -> std::time::Duration {
+    let ms: u64 = env::var("ANALYTICS_CH_NAK_DELAY_MS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(2000);
+    std::time::Duration::from_millis(ms.max(1))
+}
+
 #[derive(Debug, Serialize)]
 struct HealthResponse {
     status: String,
@@ -177,7 +185,9 @@ async fn flush_decision_batch(ch: &clickhouse::Client, batch: &mut Vec<(Decision
         }
     } else {
         for (_, msg) in batch.drain(..) {
-            let _ = msg.ack_with(AckKind::Nak(None)).await;
+            let _ = msg
+                .ack_with(AckKind::Nak(Some(analytics_nak_delay())))
+                .await;
         }
     }
     res
@@ -347,7 +357,9 @@ async fn feature_offline_sink_loop(js: jetstream::Context, ch: clickhouse::Clien
             let _ = msg.ack().await;
         } else if let Err(e) = ins {
             warn!("feature insert failed: {}", e);
-            let _ = msg.ack_with(AckKind::Nak(None)).await;
+            let _ = msg
+                .ack_with(AckKind::Nak(Some(analytics_nak_delay())))
+                .await;
         }
     }
     Ok(())
@@ -410,7 +422,9 @@ async fn shadow_scores_sink_loop(js: jetstream::Context, ch: clickhouse::Client)
             let _ = msg.ack().await;
         } else if let Err(e) = ins {
             warn!("shadow insert failed: {}", e);
-            let _ = msg.ack_with(AckKind::Nak(None)).await;
+            let _ = msg
+                .ack_with(AckKind::Nak(Some(analytics_nak_delay())))
+                .await;
         }
     }
     Ok(())
@@ -467,7 +481,9 @@ async fn config_audit_sink_loop(js: jetstream::Context, ch: clickhouse::Client, 
             let _ = msg.ack().await;
         } else if let Err(e) = ins {
             warn!("audit insert failed: {}", e);
-            let _ = msg.ack_with(AckKind::Nak(None)).await;
+            let _ = msg
+                .ack_with(AckKind::Nak(Some(analytics_nak_delay())))
+                .await;
         }
     }
     Ok(())

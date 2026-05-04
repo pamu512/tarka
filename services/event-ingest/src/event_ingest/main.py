@@ -242,7 +242,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
-setup_observability(app, "event-ingest")
+# When mounted inside services/data-plane, observability is registered on the parent app only.
+if os.environ.get("TARKA_DATA_PLANE_SUBAPP", "").strip() != "1":
+    setup_observability(app, "event-ingest")
 
 
 class EventPayload(BaseModel):

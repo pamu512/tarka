@@ -1,12 +1,12 @@
 {{- if and .Values.global.serviceMesh.enabled (eq (default "istio" .Values.global.serviceMesh.provider) "istio") }}
 {{- $mesh := .Values.global.serviceMesh.healthRouting }}
-{{- if .Values.decisionApi.enabled }}
+{{- if .Values.coreApi.enabled }}
 apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
-  name: {{ include "tarka.fullname" . }}-decision-api-dr
+  name: {{ include "tarka.fullname" . }}-core-api-dr
 spec:
-  host: {{ include "tarka.fullname" . }}-decision-api
+  host: {{ include "tarka.fullname" . }}-core-api
   trafficPolicy:
     loadBalancer:
       simple: LEAST_REQUEST
@@ -20,10 +20,10 @@ spec:
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
-  name: {{ include "tarka.fullname" . }}-decision-api-vs
+  name: {{ include "tarka.fullname" . }}-core-api-vs
 spec:
   hosts:
-    - {{ include "tarka.fullname" . }}-decision-api
+    - {{ include "tarka.fullname" . }}-core-api
   http:
     - retries:
         attempts: {{ $mesh.retries }}
@@ -32,42 +32,7 @@ spec:
       timeout: {{ $mesh.timeout | quote }}
       route:
         - destination:
-            host: {{ include "tarka.fullname" . }}-decision-api
-{{- end }}
-{{- if .Values.caseApi.enabled }}
----
-apiVersion: networking.istio.io/v1beta1
-kind: DestinationRule
-metadata:
-  name: {{ include "tarka.fullname" . }}-case-api-dr
-spec:
-  host: {{ include "tarka.fullname" . }}-case-api
-  trafficPolicy:
-    loadBalancer:
-      simple: LEAST_REQUEST
-    outlierDetection:
-      consecutive5xxErrors: {{ $mesh.consecutive5xxErrors }}
-      interval: {{ $mesh.interval | quote }}
-      baseEjectionTime: {{ $mesh.baseEjectionTime | quote }}
-      maxEjectionPercent: {{ $mesh.maxEjectionPercent }}
-      minHealthPercent: {{ $mesh.minHealthPercent }}
----
-apiVersion: networking.istio.io/v1beta1
-kind: VirtualService
-metadata:
-  name: {{ include "tarka.fullname" . }}-case-api-vs
-spec:
-  hosts:
-    - {{ include "tarka.fullname" . }}-case-api
-  http:
-    - retries:
-        attempts: {{ $mesh.retries }}
-        perTryTimeout: {{ $mesh.perTryTimeout | quote }}
-        retryOn: connect-failure,refused-stream,unavailable,5xx
-      timeout: {{ $mesh.timeout | quote }}
-      route:
-        - destination:
-            host: {{ include "tarka.fullname" . }}-case-api
+            host: {{ include "tarka.fullname" . }}-core-api
 {{- end }}
 {{- if .Values.graphService.enabled }}
 ---

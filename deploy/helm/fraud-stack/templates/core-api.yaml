@@ -1,24 +1,24 @@
-{{- if .Values.decisionApi.enabled }}
+{{- if .Values.coreApi.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "tarka.fullname" . }}-decision-api
+  name: {{ include "tarka.fullname" . }}-core-api
 spec:
-  replicas: {{ .Values.decisionApi.replicaCount }}
+  replicas: {{ .Values.coreApi.replicaCount }}
   selector:
     matchLabels:
-      app: {{ include "tarka.fullname" . }}-decision-api
+      app: {{ include "tarka.fullname" . }}-core-api
   template:
     metadata:
       labels:
-        app: {{ include "tarka.fullname" . }}-decision-api
+        app: {{ include "tarka.fullname" . }}-core-api
     spec:
       containers:
-        - name: decision-api
-          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.decisionApi.image "tag" .Values.decisionApi.tag) | quote }}
+        - name: core-api
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.coreApi.image "tag" .Values.coreApi.tag) | quote }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
-            - containerPort: {{ .Values.decisionApi.servicePort }}
+            - containerPort: {{ .Values.coreApi.servicePort }}
           env:
             - name: DATABASE_URL
               {{- if .Values.global.externalServices.postgres.enabled }}
@@ -34,29 +34,23 @@ spec:
               {{- end }}
             - name: RULES_PATH
               value: "/app/rules"
-            {{- if .Values.featureService.enabled }}
-            - name: FEATURE_SERVICE_URL
-              value: "http://{{ include "tarka.fullname" . }}-feature-service:{{ .Values.featureService.servicePort }}"
-            {{- end }}
-            {{- if .Values.mlScoring.enabled }}
-            - name: ML_SCORING_URL
-              value: "http://{{ include "tarka.fullname" . }}-ml-scoring:{{ .Values.mlScoring.servicePort }}"
-            {{- end }}
+            - name: DECISION_API_URL
+              value: "http://127.0.0.1:{{ .Values.coreApi.servicePort }}/decisions"
             {{- if .Values.graphService.enabled }}
             - name: GRAPH_SERVICE_URL
               value: "http://{{ include "tarka.fullname" . }}-graph-service:{{ .Values.graphService.servicePort }}"
             {{- end }}
-            {{- if .Values.mlScoring.enabled }}
+            {{- if .Values.signalApi.enabled }}
+            - name: FEATURE_SERVICE_URL
+              value: "http://{{ include "tarka.fullname" . }}-signal-api:{{ .Values.signalApi.servicePort }}/features"
+            - name: ML_SCORING_URL
+              value: "http://{{ include "tarka.fullname" . }}-signal-api:{{ .Values.signalApi.servicePort }}/ml"
             - name: CALIBRATION_SERVICE_URL
-              value: "http://{{ include "tarka.fullname" . }}-ml-scoring:{{ .Values.mlScoring.servicePort }}"
-            {{- end }}
-            {{- if .Values.counterService.enabled }}
+              value: "http://{{ include "tarka.fullname" . }}-signal-api:{{ .Values.signalApi.servicePort }}/calibration"
             - name: COUNTER_SERVICE_URL
-              value: "http://{{ include "tarka.fullname" . }}-counter-service:{{ .Values.counterService.port }}"
-            {{- end }}
-            {{- if .Values.locationService.enabled }}
+              value: "http://{{ include "tarka.fullname" . }}-signal-api:{{ .Values.signalApi.servicePort }}/counters"
             - name: LOCATION_SERVICE_URL
-              value: "http://{{ include "tarka.fullname" . }}-location-service:{{ .Values.locationService.port }}"
+              value: "http://{{ include "tarka.fullname" . }}-signal-api:{{ .Values.signalApi.servicePort }}/location"
             {{- end }}
             {{- if .Values.opa.enabled }}
             - name: OPA_URL
@@ -71,22 +65,31 @@ spec:
               {{- end }}
             {{- end }}
             - name: ALLOW_INSECURE_NO_AUTH
-              value: {{ ternary "true" "false" .Values.decisionApi.allowInsecureNoAuth | quote }}
+              value: {{ ternary "true" "false" .Values.coreApi.allowInsecureNoAuth | quote }}
             - name: TENANT_BINDING_REQUIRED
-              value: {{ ternary "true" "false" .Values.decisionApi.tenantBindingRequired | quote }}
+              value: {{ ternary "true" "false" .Values.coreApi.tenantBindingRequired | quote }}
+            {{- if .Values.global.appSecretsName }}
             - name: API_KEY_TENANT_MAP
-              value: {{ .Values.decisionApi.apiKeyTenantMap | default "" | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: API_KEY_TENANT_MAP
+                  optional: true
+            {{- else }}
+            - name: API_KEY_TENANT_MAP
+              value: {{ .Values.coreApi.apiKeyTenantMap | default "" | quote }}
+            {{- end }}
             - name: EDGE_SECURITY_SIGNALS_ENABLED
-              value: {{ ternary "true" "false" .Values.decisionApi.edgeSecurity.enabled | quote }}
+              value: {{ ternary "true" "false" .Values.coreApi.edgeSecurity.enabled | quote }}
             - name: EDGE_WAF_ACTION_HEADER
-              value: {{ .Values.decisionApi.edgeSecurity.wafActionHeader | default "x-waf-action" | quote }}
+              value: {{ .Values.coreApi.edgeSecurity.wafActionHeader | default "x-waf-action" | quote }}
             - name: EDGE_BOT_SCORE_HEADER
-              value: {{ .Values.decisionApi.edgeSecurity.botScoreHeader | default "x-bot-score" | quote }}
+              value: {{ .Values.coreApi.edgeSecurity.botScoreHeader | default "x-bot-score" | quote }}
             - name: EDGE_BOT_SCORE_BLOCK_THRESHOLD
-              value: {{ .Values.decisionApi.edgeSecurity.botScoreBlockThreshold | default 25 | quote }}
+              value: {{ .Values.coreApi.edgeSecurity.botScoreBlockThreshold | default 25 | quote }}
             - name: EDGE_BOT_SCORE_REVIEW_THRESHOLD
-              value: {{ .Values.decisionApi.edgeSecurity.botScoreReviewThreshold | default 50 | quote }}
-            {{- range $k, $v := .Values.decisionApi.extraEnv }}
+              value: {{ .Values.coreApi.edgeSecurity.botScoreReviewThreshold | default 50 | quote }}
+            {{- range $k, $v := .Values.coreApi.extraEnv }}
             - name: {{ $k }}
               value: {{ $v | quote }}
             {{- end }}
@@ -97,24 +100,30 @@ spec:
                   name: {{ .Values.global.appSecretsName | quote }}
                   key: API_KEYS
                   optional: true
+            - name: EVIDENCE_SIGNING_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: EVIDENCE_SIGNING_SECRET
+                  optional: true
             {{- end }}
           readinessProbe:
             httpGet:
-              path: /v1/ready
-              port: {{ .Values.decisionApi.servicePort }}
+              path: /decisions/v1/ready
+              port: {{ .Values.coreApi.servicePort }}
             initialDelaySeconds: 8
             periodSeconds: 10
             timeoutSeconds: 2
             failureThreshold: 6
           livenessProbe:
             httpGet:
-              path: /v1/health
-              port: {{ .Values.decisionApi.servicePort }}
+              path: /decisions/v1/health
+              port: {{ .Values.coreApi.servicePort }}
             initialDelaySeconds: 20
             periodSeconds: 15
             timeoutSeconds: 2
             failureThreshold: 4
-          {{- with .Values.decisionApi.resources }}
+          {{- with .Values.coreApi.resources }}
           resources:
 {{ toYaml . | indent 12 }}
           {{- end }}
@@ -122,11 +131,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "tarka.fullname" . }}-decision-api
+  name: {{ include "tarka.fullname" . }}-core-api
 spec:
   selector:
-    app: {{ include "tarka.fullname" . }}-decision-api
+    app: {{ include "tarka.fullname" . }}-core-api
   ports:
-    - port: {{ .Values.decisionApi.servicePort }}
-      targetPort: {{ .Values.decisionApi.servicePort }}
+    - port: {{ .Values.coreApi.servicePort }}
+      targetPort: {{ .Values.coreApi.servicePort }}
 {{- end }}

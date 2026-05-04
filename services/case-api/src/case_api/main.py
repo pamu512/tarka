@@ -20,6 +20,8 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from case_api.agent_hooks import fire_case_brief
+from case_api.routing import evaluate_case_routing
 from case_api.builtin_playbooks import PLAYBOOKS
 from case_api.config import settings
 from case_api.db import (
@@ -40,6 +42,7 @@ from case_api.models import Case, CaseComment, CaseView, SARFiling
 from case_api.ops_kpi_series import router as ops_kpi_series_router
 from case_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 from case_api.sar import SARGenerator
+from case_api.sar_filing_transport import SarSubmissionEnvelope, schedule_ack_poll, validate_pre_filing
 from case_api.schemas import CaseOut, CommentIn, CreateCaseRequest, LabelsIn
 from case_api.template_apply import (
     apply_case_payload_to_case,
@@ -244,7 +247,8 @@ async def lifespan(application: FastAPI):
 
 
 app = FastAPI(title="Tarka Case API", version="4.0.0", lifespan=lifespan)
-setup_observability(app, "case-api")
+if os.environ.get("TARKA_CORE_API_SUBAPP", "").strip() != "1":
+    setup_observability(app, "case-api")
 setup_auth(app)
 setup_rate_limiter(app, rpm=int(os.environ.get("RATE_LIMIT_RPM", "600")))
 _cors_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()] if settings.cors_origins else []
@@ -378,6 +382,14 @@ async def create_case(
                 body.playbook_id,
             )
 
+        routed_team = evaluate_case_routing(
+            {
+                "tenant_id": body.tenant_id,
+                "title": body.title,
+                "entity_id": body.entity_id,
+                "priority": body.priority,
+            }
+        )
         c = Case(
             tenant_id=body.tenant_id,
             title=body.title,
@@ -386,6 +398,7 @@ async def create_case(
             priority=body.priority,
             status="open",
             labels=[],
+            assigned_team=routed_team,
         )
         session.add(c)
         await session.commit()
@@ -447,6 +460,13 @@ async def create_case(
                     tenant_id=body.tenant_id,
                 )
                 await session.commit()
+
+        await fire_case_brief(
+            http,
+            CaseOut.model_validate(c).model_dump(mode="json"),
+            session=session,
+            case_id=c.id,
+        )
 
         await _broadcast({"event": "case_created", "case": CaseOut.model_validate(c).model_dump(mode="json")})
         return CaseOut.model_validate(c)
@@ -1247,6 +1267,13 @@ async def generate_sar(
         filing_institution=filing_institution,
     )
 
+    sar_validation_errors: list[str] = []
+    if sar_format == "fincen_xml" and (report.xml_content or "").strip():
+        sar_validation_errors = validate_pre_filing(
+            report.xml_content or "",
+            ["Party", "Activity", "FilingInstitution"],
+        )
+
     filing = SARFiling(
         case_id=case_id,
         format=sar_format,
@@ -1278,6 +1305,14 @@ async def generate_sar(
     )
     await session.commit()
 
+    if sar_format == "fincen_xml" and (report.xml_content or "").strip():
+        schedule_ack_poll(
+            SarSubmissionEnvelope(
+                filing_id=str(filing.id),
+                xml_payload=report.xml_content or "",
+            )
+        )
+
     return {
         "id": str(filing.id),
         "case_id": str(case_id),
@@ -1288,6 +1323,7 @@ async def generate_sar(
         "xml_content": report.xml_content,
         "json_content": report.json_content,
         "created_at": filing.created_at.isoformat() if filing.created_at else None,
+        "prefiling_validation_errors": sar_validation_errors,
     }
 
 

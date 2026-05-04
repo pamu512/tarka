@@ -1,4 +1,4 @@
-# Optional merge: shared API key for decision + case + event-ingest so the demo vertical smoke
+# Optional merge: shared API key for core-api (decisions + cases) + data-plane so the demo vertical smoke
 # can POST evaluate, create a case (analyst role), and POST /v1/events with one x-api-key.
 #
 #   docker compose -f deploy/docker-compose.lite.yml -f deploy/docker-compose.demo-vertical.yml --profile ingest up -d --build
@@ -9,15 +9,11 @@
 
 name: tarka-lite
 services:
-  decision-api:
+  core-api:
     environment:
       API_KEYS: tarka-demo-vertical
       SERVICE_API_KEY_ROLE: admin
-  case-api:
-    environment:
-      API_KEYS: tarka-demo-vertical
-      SERVICE_API_KEY_ROLE: admin
-  event-ingest:
+  data-plane:
     environment:
       API_KEYS: tarka-demo-vertical
       SERVICE_API_KEY_ROLE: admin

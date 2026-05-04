@@ -1,11 +1,11 @@
 # Tarka Lite — "try it in 5 minutes" deployment
-# Core: postgres, redis, decision-api, case-api, integration-ingress, frontend.
-# Optional OSS path: Neo4j + graph-service + feature-service + ml-scoring (profiles: graph, ml)
+# Core: postgres, redis, core-api (decision+case), integration-ingress, frontend.
+# Optional OSS path: Neo4j + graph-service (profile: graph); signal-api (features+ML+counter+location) is always on for core-api.
 # so policy routing, typologies, velocities, and graph checkpoints work without the full stack.
 #
 # Usage:
 #   docker compose -f deploy/docker-compose.lite.yml up --build
-# Optional async ingest (NATS + event-ingest :8007):
+# Optional async ingest + analytics (NATS + data-plane :8007):
 #   docker compose -f deploy/docker-compose.lite.yml -f deploy/docker-compose.demo-vertical.yml --profile ingest up --build
 # See README (demo vertical) and scripts/ci/demo_vertical_smoke.py
 
@@ -60,21 +60,22 @@ services:
     profiles: [graph]
 
   # ---------- Core Services ----------
-  decision-api:
+  core-api:
     build:
       context: ..
-      dockerfile: services/decision-api/Dockerfile
+      dockerfile: services/core-api/Dockerfile
     environment:
       DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
       REDIS_URL: redis://redis:6379/0
       RULES_PATH: /app/rules
-      FEATURE_SERVICE_URL: ${FEATURE_SERVICE_URL:-}
-      ML_SCORING_URL: ${ML_SCORING_URL:-}
+      FEATURE_SERVICE_URL: ${FEATURE_SERVICE_URL:-http://signal-api:8004/features}
+      ML_SCORING_URL: ${ML_SCORING_URL:-http://signal-api:8004/ml}
       GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-}
       OPA_URL: ""
       EDGE_SECURITY_SIGNALS_ENABLED: ${EDGE_SECURITY_SIGNALS_ENABLED:-false}
       API_KEYS: ${API_KEYS:-}
       ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-false}
+      DECISION_API_URL: http://127.0.0.1:8000/decisions
     ports:
       - "8000:8000"
     depends_on:
@@ -82,8 +83,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      signal-api:
+        condition: service_started
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/v1/ready')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/decisions/v1/ready')"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -103,49 +106,20 @@ services:
       - neo4j
     profiles: [graph]
 
-  feature-service:
+  signal-api:
     build:
       context: ..
-      dockerfile: services/feature-service/Dockerfile
+      dockerfile: services/signal-api/Dockerfile
     environment:
       REDIS_URL: redis://redis:6379/0
       FEATURE_SERVICE_REDIS_URL: redis://redis:6379/0
+      COUNTER_SERVICE_REDIS_URL: redis://redis:6379/0
+      DISABLE_ML: ${DISABLE_ML:-true}
     ports:
       - "8004:8004"
     depends_on:
       redis:
         condition: service_healthy
-    profiles: [ml]
-
-  ml-scoring:
-    build:
-      context: ..
-      dockerfile: services/ml-scoring/Dockerfile
-    environment:
-      DISABLE_ML: ${DISABLE_ML:-false}
-    ports:
-      - "8005:8005"
-    profiles: [ml]
-
-  case-api:
-    build:
-      context: ..
-      dockerfile: services/case-api/Dockerfile
-    environment:
-      DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
-      GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-}
-      DECISION_API_URL: http://decision-api:8000
-    ports:
-      - "8002:8002"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/v1/health')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
 
   integration-ingress:
     build:
@@ -190,17 +164,19 @@ services:
       retries: 5
       start_period: 15s
 
-  event-ingest:
+  data-plane:
     build:
       context: ..
-      dockerfile: services/event-ingest/Dockerfile
+      dockerfile: services/data-plane/Dockerfile
     environment:
       NATS_URL: nats://nats:4222
-      DECISION_API_URL: http://decision-api:8000
+      DECISION_API_URL: http://core-api:8000/decisions
       REDIS_URL: redis://redis:6379/0
       API_KEYS: ${API_KEYS:-}
       ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-true}
       INGEST_SCHEMA_REGISTRY_MODE: ${INGEST_SCHEMA_REGISTRY_MODE:-enforce}
+      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST:-clickhouse}
+      CLICKHOUSE_DATABASE: fraud
     ports:
       - "8007:8007"
     depends_on:
@@ -210,7 +186,7 @@ services:
         condition: service_healthy
       nats:
         condition: service_started
-      decision-api:
+      core-api:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8007/v1/ready')"]
@@ -227,10 +203,10 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      - decision-api
-      - case-api
+      - core-api
       - integration-ingress
       - data-platform
+      - signal-api
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/"]
       interval: 10s

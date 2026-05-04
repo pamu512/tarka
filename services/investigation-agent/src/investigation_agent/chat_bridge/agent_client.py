@@ -36,6 +36,43 @@ def _agent_headers(settings: Settings, *, correlation_id: str | None = None) -> 
     return headers
 
 
+def _use_inproc(settings: Settings) -> bool:
+    return (settings.investigation_agent_url or "").strip() == ""
+
+
+def _asgi_header_items(headers: dict[str, str]) -> list[tuple[bytes, bytes]]:
+    out: list[tuple[bytes, bytes]] = []
+    for k, v in headers.items():
+        out.append((k.lower().encode("latin-1"), v.encode("utf-8")))
+    return out
+
+
+def _minimal_asgi_request(*, path: str, headers: dict[str, str]):
+    from investigation_agent.main import app as agent_app
+    from starlette.requests import Request
+
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.3"},
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": path,
+        "raw_path": path.encode("utf-8"),
+        "root_path": "",
+        "query_string": b"",
+        "headers": _asgi_header_items(headers),
+        "client": ("127.0.0.1", 0),
+        "server": ("127.0.0.1", 8006),
+        "app": agent_app,
+    }
+
+    async def receive():
+        return {"type": "http.disconnect"}
+
+    return Request(scope, receive)
+
+
 async def post_chat(
     settings: Settings,
     *,
@@ -80,6 +117,37 @@ async def post_chat(
         payload["playbook_id"] = str(playbook_id).strip()[:64]
     if batch_id and str(batch_id).strip():
         payload["batch_id"] = str(batch_id).strip()[:128]
+    if _use_inproc(settings):
+        from typing import cast
+
+        from investigation_agent.main import (
+            ChatMessage,
+            ChatRequest,
+            CopilotContextOptions,
+            _build_chat_response,
+        )
+        from investigation_agent.personas import CopilotPersona
+
+        persona_typed = cast(
+            CopilotPersona,
+            eff_persona if eff_persona in ("investigation", "orchestrator") else "investigation",
+        )
+        msgs = [ChatMessage(role=str(m["role"]), content=str(m["content"])) for m in eff_messages]
+        body = ChatRequest(
+            tenant_id=str(payload["tenant_id"]),
+            analyst_id=str(payload["analyst_id"]),
+            case_id=(str(payload["case_id"]) if payload.get("case_id") else None),
+            messages=msgs,
+            persona=persona_typed,
+            workflow_id=(str(payload["workflow_id"]) if payload.get("workflow_id") else None),
+            workflow_params=payload.get("workflow_params"),
+            playbook_id=(str(payload["playbook_id"]) if payload.get("playbook_id") else None),
+            batch_id=(str(payload["batch_id"]) if payload.get("batch_id") else None),
+            context_options=CopilotContextOptions(),
+        )
+        req = _minimal_asgi_request(path="/v1/chat", headers=_agent_headers(settings, correlation_id=correlation_id))
+        return await _build_chat_response(body, req)
+
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=15.0)) as client:
             r = await client.post(url, json=payload, headers=headers)
@@ -130,6 +198,29 @@ async def create_plugin_session(
         payload["origin"] = origin[:255]
     if ttl_seconds is not None:
         payload["ttl_seconds"] = int(ttl_seconds)
+    if _use_inproc(settings):
+        from starlette.responses import Response
+
+        from investigation_agent.main import PluginSessionBody, plugin_session
+
+        body = PluginSessionBody(
+            tenant_id=tenant_id[:128],
+            analyst_id=analyst_id[:128],
+            case_id=case_id[:128] if case_id else None,
+            external_case_id=external_case_id[:128] if external_case_id else None,
+            origin=origin[:255] if origin else None,
+            ttl_seconds=ttl_seconds,
+        )
+        req = _minimal_asgi_request(
+            path="/v1/plugin/session",
+            headers=_agent_headers(settings, correlation_id=correlation_id),
+        )
+        resp = Response()
+        out = await plugin_session(req, resp, body)
+        if not isinstance(out, dict):
+            raise AgentUpstreamError("invalid response from investigation-agent", status_code=502)
+        return out
+
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
             r = await client.post(url, json=payload, headers=_agent_headers(settings, correlation_id=correlation_id))
@@ -154,6 +245,22 @@ async def create_plugin_session(
 
 async def bootstrap_plugin_session(settings: Settings, *, token: str, correlation_id: str | None = None) -> dict[str, Any]:
     url = f"{settings.investigation_agent_url.rstrip('/')}/v1/plugin/bootstrap"
+    if _use_inproc(settings):
+        from starlette.responses import Response
+
+        from investigation_agent.main import PluginBootstrapBody, plugin_bootstrap
+
+        body = PluginBootstrapBody(token=token[:4096])
+        req = _minimal_asgi_request(
+            path="/v1/plugin/bootstrap",
+            headers=_agent_headers(settings, correlation_id=correlation_id),
+        )
+        resp = Response()
+        out = await plugin_bootstrap(req, resp, body)
+        if not isinstance(out, dict):
+            raise AgentUpstreamError("invalid response from investigation-agent", status_code=502)
+        return out
+
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
             r = await client.post(

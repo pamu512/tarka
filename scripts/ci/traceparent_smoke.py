@@ -9,8 +9,8 @@ import urllib.request
 
 
 TARGETS = [
-    ("decision-api", "http://127.0.0.1:8000/v1/health"),
-    ("case-api", "http://127.0.0.1:8002/v1/health"),
+    ("decision-api", "http://127.0.0.1:8000/decisions/v1/health"),
+    ("case-api", "http://127.0.0.1:8000/cases/v1/health"),
     ("investigation-agent", "http://127.0.0.1:8006/v1/health"),
 ]
 

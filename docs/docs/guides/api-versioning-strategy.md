@@ -23,4 +23,3 @@ Tarka uses **path-based major API versioning** for service contracts:
 - OpenAPI contract validation remains required in CI.
 - New major versions must include compatibility and migration tests.
 - Consumer-facing SDKs should pin and document supported API major versions.
-

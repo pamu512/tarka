@@ -21,15 +21,13 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 COMPOSE_FILE = REPO_ROOT / "deploy" / "docker-compose.yml"
 
 JSON_HEALTH = [
-    ("decision-api", "http://127.0.0.1:8000/v1/health"),
+    ("decision-api", "http://127.0.0.1:8000/decisions/v1/health"),
     ("graph-service", "http://127.0.0.1:8001/v1/health"),
-    ("case-api", "http://127.0.0.1:8002/v1/health"),
+    ("case-api", "http://127.0.0.1:8000/cases/v1/health"),
     ("integration-ingress", "http://127.0.0.1:8003/v1/health"),
-    ("feature-service", "http://127.0.0.1:8004/v1/health"),
-    ("ml-scoring", "http://127.0.0.1:8005/v1/health"),
+    ("signal-api", "http://127.0.0.1:8004/v1/health"),
     ("investigation-agent", "http://127.0.0.1:8006/v1/health"),
-    ("event-ingest", "http://127.0.0.1:8007/v1/health"),
-    ("analytics-sink", "http://127.0.0.1:8008/v1/health"),
+    ("data-plane", "http://127.0.0.1:8007/v1/health"),
     ("graphql-gateway", "http://127.0.0.1:8010/v1/health"),
 ]
 
@@ -129,7 +127,7 @@ def smoke_evaluate() -> None:
         }
     ).encode()
     req = urllib.request.Request(
-        "http://127.0.0.1:8000/v1/decisions/evaluate",
+        "http://127.0.0.1:8000/decisions/v1/decisions/evaluate",
         data=payload,
         headers={"Content-Type": "application/json"},
         method="POST",

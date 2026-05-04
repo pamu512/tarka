@@ -33,6 +33,7 @@ class Settings(BaseSettings):
         le=0.95,
         description="Fraction of the filing→deadline window treated as near-breach tail.",
     )
+    case_queue_routing_rules_json: str = ""
 
 
 settings = Settings()
