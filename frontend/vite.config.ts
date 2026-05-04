@@ -21,6 +21,9 @@ export default defineConfig({
           if (id.includes("vis-network") || id.includes("vis-data")) {
             return "vendor-graph";
           }
+          if (id.includes("@xyflow")) {
+            return "vendor-flow";
+          }
           return;
         },
       },

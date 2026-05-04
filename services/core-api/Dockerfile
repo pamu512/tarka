@@ -8,6 +8,8 @@ RUN apt-get update \
 WORKDIR /app
 RUN pip install --no-cache-dir pip -U
 COPY services/core-api/pyproject.toml /app/
+COPY services/core /app/core
+COPY services/analytics /app/analytics
 COPY services/rule-engine /app/rule-engine
 COPY services/shared /app/shared
 SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
@@ -28,7 +30,11 @@ COPY services/case-api/static /app/case-api/static
 COPY services/core-api/src/core_api /app/src/core_api
 COPY services/core-api/config/decision_alembic.ini /app/config/decision_alembic.ini
 COPY services/core-api/config/case_alembic.ini /app/config/case_alembic.ini
-RUN sed -i 's|file:../rule-engine|file:./rule-engine|g' /app/pyproject.toml \
+RUN sed -i \
+    -e 's|file:../rule-engine|file:./rule-engine|g' \
+    -e 's|file:../core|file:./core|g' \
+    -e 's|file:../analytics|file:./analytics|g' \
+    /app/pyproject.toml \
     && pip install --no-cache-dir -e .
 ENV PYTHONPATH=/app/src:/app/shared
 ENV RULES_PATH=/app/rules

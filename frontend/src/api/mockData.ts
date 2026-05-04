@@ -783,7 +783,41 @@ function safeParseRequestBody(init?: RequestInit): AnyObj {
   }
 }
 
+/** Mutable SAR intent rows for `GET /sar/intents` + approve / queue-sftp mocks. */
+const mockSarIntentStore: Record<string, AnyObj[]> = {};
+
+function ensureMockSarIntents(caseId: string): AnyObj[] {
+  if (!mockSarIntentStore[caseId]) {
+    const ts = nowIso();
+    const intentId = id("sar-intent");
+    mockSarIntentStore[caseId] = [
+      {
+        id: intentId,
+        status: "PENDING_REVIEW",
+        sar_artifact_id: id("sar-artifact"),
+        created_at: ts,
+        updated_at: ts,
+        audit_log: [
+          {
+            id: id("aud"),
+            from_status: null,
+            to_status: "PENDING_REVIEW",
+            actor: "analyst",
+            detail: { transport: "sftp_configured", note: "Awaiting compliance approval before SFTP queue." },
+            stack_trace: null,
+            created_at: ts,
+          },
+        ],
+      },
+    ];
+  }
+  return mockSarIntentStore[caseId]!;
+}
+
 export function getMockResponse(url: string, init?: RequestInit): unknown | null {
+  if (import.meta.env.PROD) {
+    throw new Error("getMockResponse must not run in production builds.");
+  }
   const method = (init?.method ?? "GET").toUpperCase();
   const path = parsePath(url);
   const body = safeParseRequestBody(init);
@@ -1162,6 +1196,61 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
         why_links: [{ from_factor_id: "velocity_burst", to_artifact_id: "tr-1001" }],
       },
     };
+  }
+  if (path.match(/\/api\/cases\/v1\/cases\/[^/]+\/sar\/intents(\?|$)/) && method === "GET") {
+    const m = path.match(/\/cases\/([^/]+)\/sar\/intents/);
+    const caseId = m?.[1] ?? "c1";
+    return { case_id: caseId, intents: ensureMockSarIntents(caseId) };
+  }
+  if (path.match(/\/sar\/intents\/[^/]+\/approve/) && method === "POST") {
+    const m = path.match(/\/cases\/([^/]+)\/sar\/intents\/([^/]+)\/approve/);
+    const caseId = m?.[1] ?? "c1";
+    const intentId = m?.[2] ?? "";
+    const intents = ensureMockSarIntents(caseId);
+    const intent = intents.find((x) => x.id === intentId) as AnyObj | undefined;
+    if (!intent) return { sar_filing_intent_id: intentId, status: "PENDING_REVIEW" };
+    if (intent.status === "APPROVED") return { sar_filing_intent_id: intentId, status: "APPROVED" };
+    if (intent.status === "PENDING_REVIEW") {
+      const ts = nowIso();
+      intent.status = "APPROVED";
+      intent.updated_at = ts;
+      const log = intent.audit_log as AnyObj[];
+      log.push({
+        id: id("aud"),
+        from_status: "PENDING_REVIEW",
+        to_status: "APPROVED",
+        actor: "analyst",
+        detail: { reason_code: "SAR_APPROVED" },
+        stack_trace: null,
+        created_at: ts,
+      });
+    }
+    return { sar_filing_intent_id: intentId, status: intent.status };
+  }
+  if (path.match(/\/sar\/intents\/[^/]+\/queue-sftp/) && method === "POST") {
+    const m = path.match(/\/cases\/([^/]+)\/sar\/intents\/([^/]+)\/queue-sftp/);
+    const caseId = m?.[1] ?? "c1";
+    const intentId = m?.[2] ?? "";
+    const intents = ensureMockSarIntents(caseId);
+    const intent = intents.find((x) => x.id === intentId) as AnyObj | undefined;
+    if (!intent) return { sar_filing_intent_id: intentId, status: "PENDING_REVIEW" };
+    if (intent.status === "SFTP_QUEUED") return { sar_filing_intent_id: intentId, status: "SFTP_QUEUED" };
+    if (intent.status === "APPROVED") {
+      const ts = nowIso();
+      intent.status = "SFTP_QUEUED";
+      intent.updated_at = ts;
+      const log = intent.audit_log as AnyObj[];
+      log.push({
+        id: id("aud"),
+        from_status: "APPROVED",
+        to_status: "SFTP_QUEUED",
+        actor: "analyst",
+        detail: { reason_code: "SAR_SFTP_QUEUED" },
+        stack_trace: null,
+        created_at: ts,
+      });
+    }
+    return { sar_filing_intent_id: intentId, status: intent.status };
   }
   if (path.includes("/api/cases/v1/cases") && method === "GET") {
     if (path.match(/\/api\/cases\/v1\/cases\/[^/]+$/)) return mockCases.find((c) => c.id === path.split("/").pop()) ?? mockCases[0];

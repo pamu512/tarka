@@ -41,8 +41,6 @@ async def client():
                     from decision_api.main import app
 
                     app.state.http = AsyncMock()
-                    app.state.nats_js = None
-                    app.state.nats_nc = None
                     app.dependency_overrides = {}
                     transport = httpx.ASGITransport(app=app)
                     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from typing import Any
@@ -26,7 +27,7 @@ _FROM_JOIN_TABLE = re.compile(r"(?is)\b(?:from|join)\s+([a-zA-Z0-9_]+)\b")
 
 class NaturalLanguageSqlRequest(BaseModel):
     tenant_id: str = Field(..., max_length=128)
-    question: str = Field(..., max_length=2000, description="Analyst question; server maps to a safe template.")
+    question: str = Field(..., max_length=2000, description="Analyst question; answered only via configured LLM SQL generation.")
 
 
 def _allowed_tables() -> set[str]:
@@ -61,9 +62,12 @@ def _validate_generated_sql(sql: str, allowed: set[str]) -> None:
 
 
 async def _llm_generate_sql(question: str, allowed: set[str]) -> str:
-    url = settings.reporting_nl_llm_url
+    url = (settings.reporting_nl_llm_url or "").strip()
     if not url:
-        raise HTTPException(status_code=503, detail="nl_sql_llm_unconfigured")
+        raise HTTPException(
+            status_code=503,
+            detail={"reason_code": "LLM_ENGINE_OFFLINE", "message": "TARKA_REPORTING_NL_LLM_URL is not set."},
+        )
     schema_hint = (
         "Allowed tables (ClickHouse): "
         + ", ".join(sorted(allowed))
@@ -81,73 +85,101 @@ async def _llm_generate_sql(question: str, allowed: set[str]) -> str:
     headers = {"Content-Type": "application/json"}
     if settings.reporting_nl_llm_api_key:
         headers["Authorization"] = f"Bearer {settings.reporting_nl_llm_api_key}"
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        r = await client.post(url, json=payload, headers=headers)
-        r.raise_for_status()
-        data = r.json()
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            r = await client.post(url, json=payload, headers=headers)
+            try:
+                r.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                log.warning("nl_sql LLM HTTP error: %s", e)
+                raise HTTPException(
+                    status_code=503,
+                    detail={
+                        "reason_code": "LLM_REQUEST_FAILED",
+                        "message": f"LLM provider returned HTTP {e.response.status_code}.",
+                    },
+                ) from e
+            try:
+                data = r.json()
+            except json.JSONDecodeError as e:
+                log.warning("nl_sql LLM non-JSON body: %s", e)
+                raise HTTPException(
+                    status_code=503,
+                    detail={
+                        "reason_code": "LLM_REQUEST_FAILED",
+                        "message": "LLM provider returned a non-JSON response.",
+                    },
+                ) from e
+    except httpx.TimeoutException as e:
+        log.warning("nl_sql LLM timeout: %s", e)
+        raise HTTPException(
+            status_code=503,
+            detail={"reason_code": "LLM_ENGINE_OFFLINE", "message": "LLM request timed out."},
+        ) from e
+    except httpx.ConnectError as e:
+        log.warning("nl_sql LLM connection failed: %s", e)
+        raise HTTPException(
+            status_code=503,
+            detail={"reason_code": "LLM_ENGINE_OFFLINE", "message": "Could not connect to LLM provider."},
+        ) from e
+    except httpx.RequestError as e:
+        log.warning("nl_sql LLM request error: %s", e)
+        raise HTTPException(
+            status_code=503,
+            detail={"reason_code": "LLM_ENGINE_OFFLINE", "message": "LLM transport failed."},
+        ) from e
     try:
         content = data["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as e:
         log.warning("nl_sql unexpected LLM payload: %s", e)
-        raise HTTPException(status_code=502, detail="nl_sql_llm_bad_response") from e
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "reason_code": "LLM_REQUEST_FAILED",
+                "message": "LLM response did not contain a usable message payload.",
+            },
+        ) from e
     if not isinstance(content, str):
-        raise HTTPException(status_code=502, detail="nl_sql_llm_bad_response")
-    return _extract_sql_block(content)
-
-
-def _template_sql(body: NaturalLanguageSqlRequest, allowed: set[str]) -> tuple[str, str, dict[str, str]]:
-    qlow = body.question.lower()
-    table = "fraud_decisions" if "fraud_decisions" in allowed else next(iter(allowed))
-    if "shadow" in qlow and "fraud_shadow_scores" in allowed:
-        table = "fraud_shadow_scores"
-    if "feature" in qlow and "fraud_features_offline" in allowed:
-        table = "fraud_features_offline"
-    if table not in allowed:
-        raise HTTPException(status_code=400, detail={"error": "table_not_allowlisted", "allowed": sorted(allowed)})
-    if any(k in qlow for k in ("count", "how many", "volume")):
-        sql = f"SELECT count() AS c FROM {table} WHERE tenant_id = {{tenant_id:String}}"
-    elif "deny" in qlow and "decision" in qlow:
-        sql = f"SELECT decision, count() AS c FROM {table} WHERE tenant_id = {{tenant_id:String}} GROUP BY decision"
-    else:
-        sql = (
-            f"SELECT trace_id, entity_id, decision, score, created_at FROM {table} "
-            f"WHERE tenant_id = {{tenant_id:String}} ORDER BY created_at DESC LIMIT 500"
+        raise HTTPException(
+            status_code=503,
+            detail={"reason_code": "LLM_REQUEST_FAILED", "message": "LLM message content was not a string."},
         )
-    return sql, table, {"tenant_id": body.tenant_id}
+    return _extract_sql_block(content)
 
 
 @router.post("/nl-to-sql")
 async def nl_to_sql(body: NaturalLanguageSqlRequest) -> dict[str, Any]:
-    """Return a parameterized ClickHouse template; execution is client-side or via BI."""
+    """Return validated, allowlisted ClickHouse SQL from the configured LLM; execution is client-side or via BI."""
     allowed = _allowed_tables()
     if not allowed:
-        raise HTTPException(status_code=503, detail="nl_sql_disabled")
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "reason_code": "NL_SQL_DISABLED",
+                "message": "No allowlisted tables configured for NL→SQL (NL_SQL_ALLOWED_TABLES empty or invalid).",
+            },
+        )
 
-    if settings.reporting_nl_llm_url:
-        sql = await _llm_generate_sql(body.question, allowed)
-        try:
-            _validate_generated_sql(sql, allowed)
-        except ValueError as e:
-            log.warning("nl_sql rejected LLM output: %s", e)
-            raise HTTPException(status_code=400, detail={"error": "sql_validation_failed", "reason": str(e)}) from e
-        tables_used = sorted({t for t in _FROM_JOIN_TABLE.findall(sql) if t in allowed})
-        primary = tables_used[0] if len(tables_used) == 1 else (tables_used[0] if tables_used else next(iter(allowed)))
-        return {
-            "tenant_id": body.tenant_id,
-            "table": primary,
-            "sql_template": sql,
-            "params": {"tenant_id": body.tenant_id},
-            "notes": "LLM-generated; validated (no DDL/DML; allowlisted tables only). Execute via ClickHouse client or BI.",
-            "source": "llm",
-            "tables": tables_used,
-        }
+    if not (settings.reporting_nl_llm_url or "").strip():
+        raise HTTPException(
+            status_code=503,
+            detail={"reason_code": "LLM_ENGINE_OFFLINE", "message": "TARKA_REPORTING_NL_LLM_URL is not set."},
+        )
 
-    sql, table, params = _template_sql(body, allowed)
+    sql = await _llm_generate_sql(body.question, allowed)
+    try:
+        _validate_generated_sql(sql, allowed)
+    except ValueError as e:
+        log.warning("nl_sql rejected LLM output: %s", e)
+        raise HTTPException(status_code=400, detail={"error": "sql_validation_failed", "reason": str(e)}) from e
+    tables_used = sorted({t for t in _FROM_JOIN_TABLE.findall(sql) if t in allowed})
+    primary = tables_used[0] if len(tables_used) == 1 else (tables_used[0] if tables_used else next(iter(allowed)))
     return {
         "tenant_id": body.tenant_id,
-        "table": table,
+        "table": primary,
         "sql_template": sql,
-        "params": params,
-        "notes": "Template fallback (set TARKA_REPORTING_NL_LLM_URL for LLM mode). Server does not run arbitrary SQL from raw NL.",
-        "source": "template",
+        "params": {"tenant_id": body.tenant_id},
+        "notes": "LLM-generated; validated (no DDL/DML; allowlisted tables only). Execute via ClickHouse client or BI.",
+        "source": "llm",
+        "tables": tables_used,
     }

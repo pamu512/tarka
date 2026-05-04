@@ -13,6 +13,7 @@ import redis.asyncio as aioredis
 
 from integration_ingress.config import settings
 from integration_ingress.osint import OsintConfig, full_osint_enrichment
+from tarka_core.tenant_config import tenant_config_from_mapping
 
 log = logging.getLogger(__name__)
 
@@ -50,6 +51,8 @@ async def _handle_enrichment_message(msg: Any, http: httpx.AsyncClient, redis: A
     if not any((email, phone, ip, domain)):
         return
     cfg = _osint_cfg()
+    dr = str(data.get("data_residency_region") or "").strip().upper()
+    tcfg = tenant_config_from_mapping({"data_residency_region": dr} if dr in ("EU", "US", "GLOBAL") else {})
     try:
         osint_result = await full_osint_enrichment(
             email=str(email).strip() if email else None,
@@ -58,6 +61,8 @@ async def _handle_enrichment_message(msg: Any, http: httpx.AsyncClient, redis: A
             domain=str(domain).strip() if domain else None,
             http=http,
             cfg=cfg,
+            tenant_id=tenant_id,
+            tenant_config=tcfg,
         )
     except Exception as e:
         log.warning("full_osint_enrichment failed tenant=%s entity=%s: %s", tenant_id, entity_id, e)

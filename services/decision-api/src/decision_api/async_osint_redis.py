@@ -55,13 +55,21 @@ async def merge_cached_async_osint(
         features.update(flatten_light_enrichment_response(enrich_block))
 
 
-async def publish_async_enrichment_request(app_state: Any, body: Any, trace_id: Any) -> None:
-    """Fire-and-forget NATS message so integration-ingress can refresh Redis OSINT (core NATS)."""
-    nc = getattr(app_state, "nats_nc", None)
-    if nc is None:
+async def publish_async_enrichment_request(
+    broker: Any,
+    body: Any,
+    trace_id: Any,
+    *,
+    tenant_flags: dict[str, Any] | None = None,
+) -> None:
+    """Fire-and-forget enrichment refresh via the configured :class:`tarka_core.messaging.MessageBroker`."""
+    if broker is None:
         return
+    from tarka_core.messaging import PublishDelivery
+
     payload = body.payload if isinstance(body.payload, dict) else {}
-    meta = body.metadata if isinstance(body.metadata, dict) else {}
+    tf = tenant_flags or {}
+    dr = str(tf.get("data_residency_region") or "").strip().upper()
     msg = {
         "schema": "tarka.enrichment.request/v1",
         "tenant_id": body.tenant_id,
@@ -72,12 +80,18 @@ async def publish_async_enrichment_request(app_state: Any, body: Any, trace_id: 
         "ip": (str(payload.get("ip") or payload.get("ip_address") or "").strip() or None),
         "domain": (str(payload.get("domain")).strip() if payload.get("domain") else None),
     }
+    if dr in ("EU", "US", "GLOBAL"):
+        msg["data_residency_region"] = dr
     # Drop empty-only messages
     if not any(msg.get(k) for k in ("email", "phone", "ip", "domain")):
         return
     try:
         import json as _json
 
-        await nc.publish("fraud.enrichment.request", _json.dumps(msg, default=str).encode("utf-8"))
+        await broker.publish(
+            "fraud.enrichment.request",
+            _json.dumps(msg, default=str).encode("utf-8"),
+            delivery=PublishDelivery.CORE,
+        )
     except Exception as e:  # pragma: no cover
         log.warning("enrichment request publish failed: %s", e)

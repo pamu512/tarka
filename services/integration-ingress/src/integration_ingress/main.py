@@ -7,12 +7,13 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import quote_plus, urlparse
 
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel
+from tarka_core.tenant_config import tenant_config_from_mapping
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -304,6 +305,8 @@ class OsintRequest(BaseModel):
     phone: str | None = None
     ip: str | None = None
     domain: str | None = None
+    tenant_id: str | None = None
+    data_residency_region: Literal["EU", "US", "GLOBAL"] | None = None
 
 
 class IntegrationInstallRequest(BaseModel):
@@ -726,6 +729,10 @@ async def osint_enrichment(body: OsintRequest, request: Request):
     Returns a composite risk score (0-100) with risk level classification.
     """
     http: httpx.AsyncClient = request.app.state.http
+    tid = (body.tenant_id or "").strip() or None
+    tcfg = tenant_config_from_mapping(
+        {"data_residency_region": body.data_residency_region} if body.data_residency_region else {}
+    )
     return await full_osint_enrichment(
         email=body.email,
         phone=body.phone,
@@ -733,6 +740,8 @@ async def osint_enrichment(body: OsintRequest, request: Request):
         domain=body.domain,
         http=http,
         cfg=_osint_cfg,
+        tenant_id=tid,
+        tenant_config=tcfg,
     )
 
 

@@ -36,13 +36,23 @@ from case_api.db import (
     using_local_fallback,
 )
 from case_api.dispute_api import router as dispute_router
+from case_api.ml_training_api import router as ml_training_router
 from case_api.investigation_label_drafts_api import router as investigation_label_drafts_router
 from case_api.investigation_templates_api import router as investigation_templates_router
-from case_api.models import Case, CaseComment, CaseView, SARFiling
+from case_api.models import Case, CaseComment, CaseView, SarAuditLog, SARFiling, SarFiling
 from case_api.ops_kpi_series import router as ops_kpi_series_router
 from case_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 from case_api.sar import SARGenerator
-from case_api.sar_filing_transport import SarSubmissionEnvelope, schedule_ack_poll, validate_pre_filing
+from case_api.sar_filing_transport import build_sar_filing_data, build_sftp_destination, validate_pre_filing
+from case_api.sar_transport import (
+    SAR_APPROVED,
+    SAR_FAILED,
+    SAR_PENDING_REVIEW,
+    SAR_SFTP_QUEUED,
+    record_sar_intent_initial_state,
+    transition_sar_intent,
+)
+from case_api.sar_transport_worker import SAR_TRANSPORT_RUN_SUBJECT, setup_sar_transport_worker, shutdown_sar_transport_worker
 from case_api.schemas import CaseOut, CommentIn, CreateCaseRequest, LabelsIn
 from case_api.template_apply import (
     apply_case_payload_to_case,
@@ -233,6 +243,7 @@ async def lifespan(application: FastAPI):
     await init_db()
     application.state.http = httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=3.0))
     application.state.webhook = WebhookSender(max_retries=5, http=application.state.http)
+    await setup_sar_transport_worker(application)
     load_workflows(os.environ.get("WORKFLOWS_PATH", "./workflows"))
 
     retention_task = None
@@ -243,6 +254,7 @@ async def lifespan(application: FastAPI):
 
     if retention_task:
         retention_task.cancel()
+    await shutdown_sar_transport_worker(application)
     await application.state.http.aclose()
 
 
@@ -259,6 +271,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(dispute_router)
+app.include_router(ml_training_router)
 app.include_router(investigation_label_drafts_router)
 app.include_router(investigation_templates_router)
 app.include_router(ops_kpi_series_router)
@@ -1230,6 +1243,30 @@ async def case_sla(
 
 # ---------- SAR generation ----------
 
+
+async def _sar_intent_for_tenant(
+    session: AsyncSession,
+    *,
+    intent_id: uuid.UUID,
+    case_id: uuid.UUID,
+    tenant_id: str,
+) -> SarFiling:
+    result = await session.execute(
+        select(SarFiling).where(
+            SarFiling.id == intent_id,
+            SarFiling.case_id == case_id,
+            SarFiling.tenant_id == tenant_id,
+        )
+    )
+    intent = result.scalar_one_or_none()
+    if intent is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"reason_code": "SAR_INTENT_NOT_FOUND", "message": "SAR filing intent not found for this case."},
+        )
+    return intent
+
+
 _sar_generator = SARGenerator()
 
 
@@ -1267,11 +1304,49 @@ async def generate_sar(
         filing_institution=filing_institution,
     )
 
-    sar_validation_errors: list[str] = []
-    if sar_format == "fincen_xml" and (report.xml_content or "").strip():
-        sar_validation_errors = validate_pre_filing(
-            report.xml_content or "",
-            ["Party", "Activity", "FilingInstitution"],
+    filing_data = build_sar_filing_data(body, report)
+    sar_validation_errors = validate_pre_filing(filing_data)
+    if sar_validation_errors:
+        actor = get_current_user(request).user_id
+        failed_intent = SarFiling(
+            tenant_id=case.tenant_id,
+            case_id=case_id,
+            status=SAR_FAILED,
+            filing_data=filing_data,
+            audit_trail={
+                "reason": "PREFILING_VALIDATION_FAILED",
+                "validation_errors": sar_validation_errors,
+            },
+        )
+        session.add(failed_intent)
+        try:
+            await session.flush()
+            await record_sar_intent_initial_state(
+                session,
+                failed_intent,
+                actor=actor,
+                detail={
+                    "reason_code": "SAR_PREFILING_INVALID",
+                    "validation_errors": sar_validation_errors,
+                },
+            )
+            await session.commit()
+        except SQLAlchemyError as e:
+            await session.rollback()
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "reason_code": "SAR_INTENT_PERSISTENCE_FAILED",
+                    "message": "Could not persist SAR filing intent after validation failure.",
+                },
+            ) from e
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "reason_code": "SAR_PREFILING_INVALID",
+                "validation_errors": sar_validation_errors,
+                "sar_filing_intent_id": str(failed_intent.id),
+            },
         )
 
     filing = SARFiling(
@@ -1290,8 +1365,15 @@ async def generate_sar(
         xml_content=report.xml_content,
     )
     session.add(filing)
-    await session.commit()
-    await session.refresh(filing)
+    try:
+        await session.commit()
+        await session.refresh(filing)
+    except SQLAlchemyError as e:
+        await session.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail={"reason_code": "SAR_ARTIFACT_PERSISTENCE_FAILED", "message": "Could not persist SAR artifact."},
+        ) from e
 
     user = get_current_user(request)
     await _trail.record(
@@ -1303,15 +1385,59 @@ async def generate_sar(
         changes={"sar_id": str(filing.id), "format": sar_format},
         tenant_id=case.tenant_id,
     )
-    await session.commit()
 
-    if sar_format == "fincen_xml" and (report.xml_content or "").strip():
-        schedule_ack_poll(
-            SarSubmissionEnvelope(
-                filing_id=str(filing.id),
-                xml_payload=report.xml_content or "",
-            )
+    sftp_host = build_sftp_destination()
+    if sftp_host:
+        transport_status = SAR_PENDING_REVIEW
+        transport_audit: dict[str, Any] = {
+            "transport": "sftp_configured",
+            "note": "Awaiting compliance approval before SFTP queue.",
+        }
+    else:
+        transport_status = SAR_FAILED
+        transport_audit = {
+            "reason": "SFTP_TRANSPORT_NOT_CONFIGURED",
+            "detail": "FINCEN_BSA_SFTP_HOST is not set; intent is FAILED (not left pending).",
+        }
+
+    transport_filing_data = {
+        **filing_data,
+        "sar_artifact_id": str(filing.id),
+        "xml_present": bool((report.xml_content or "").strip()),
+    }
+    intent = SarFiling(
+        tenant_id=case.tenant_id,
+        case_id=case_id,
+        sar_artifact_id=filing.id,
+        status=transport_status,
+        filing_data=transport_filing_data,
+        audit_trail=transport_audit,
+    )
+    session.add(intent)
+    try:
+        await session.flush()
+        await record_sar_intent_initial_state(
+            session,
+            intent,
+            actor=user.user_id,
+            detail={**transport_audit, "sar_artifact_id": str(filing.id)},
         )
+        await session.commit()
+    except SQLAlchemyError as e:
+        await session.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "reason_code": "SAR_TRANSPORT_INTENT_PERSISTENCE_FAILED",
+                "message": "SAR artifact was saved but transport intent could not be persisted.",
+            },
+        ) from e
+
+    if intent.status == SAR_PENDING_REVIEW:
+        try:
+            await request.app.state.message_broker.publish(SAR_TRANSPORT_RUN_SUBJECT, b"{}")
+        except Exception:
+            pass
 
     return {
         "id": str(filing.id),
@@ -1324,7 +1450,131 @@ async def generate_sar(
         "json_content": report.json_content,
         "created_at": filing.created_at.isoformat() if filing.created_at else None,
         "prefiling_validation_errors": sar_validation_errors,
+        "sar_filing_intent_id": str(intent.id),
+        "transport_status": intent.status,
     }
+
+
+@app.post("/v1/cases/{case_id}/sar/intents/{intent_id}/approve", status_code=200)
+async def approve_sar_filing_intent(
+    case_id: uuid.UUID,
+    intent_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    _=Depends(require_role("analyst")),
+) -> dict[str, object]:
+    """Compliance gate: ``PENDING_REVIEW`` → ``APPROVED`` (immutable audit row)."""
+    await _case_for_tenant(session, case_id, tenant_id)
+    intent = await _sar_intent_for_tenant(
+        session, intent_id=intent_id, case_id=case_id, tenant_id=tenant_id
+    )
+    if intent.status != SAR_PENDING_REVIEW:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "reason_code": "SAR_INTENT_INVALID_STATE",
+                "message": f"Intent must be PENDING_REVIEW (current={intent.status}).",
+            },
+        )
+    user = get_current_user(request)
+    await transition_sar_intent(
+        session,
+        intent,
+        to_status=SAR_APPROVED,
+        actor=user.user_id,
+        detail={"reason_code": "SAR_APPROVED"},
+    )
+    await session.commit()
+    try:
+        await request.app.state.message_broker.publish(SAR_TRANSPORT_RUN_SUBJECT, b"{}")
+    except Exception:
+        pass
+    return {"sar_filing_intent_id": str(intent.id), "status": intent.status}
+
+
+@app.post("/v1/cases/{case_id}/sar/intents/{intent_id}/queue-sftp", status_code=200)
+async def queue_sar_filing_sftp(
+    case_id: uuid.UUID,
+    intent_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    _=Depends(require_role("analyst")),
+) -> dict[str, object]:
+    """Queue for FinCEN SFTP worker: ``APPROVED`` → ``SFTP_QUEUED`` (publishes worker tick)."""
+    await _case_for_tenant(session, case_id, tenant_id)
+    intent = await _sar_intent_for_tenant(
+        session, intent_id=intent_id, case_id=case_id, tenant_id=tenant_id
+    )
+    if intent.status != SAR_APPROVED:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "reason_code": "SAR_INTENT_INVALID_STATE",
+                "message": f"Intent must be APPROVED (current={intent.status}).",
+            },
+        )
+    user = get_current_user(request)
+    await transition_sar_intent(
+        session,
+        intent,
+        to_status=SAR_SFTP_QUEUED,
+        actor=user.user_id,
+        detail={"reason_code": "SAR_SFTP_QUEUED"},
+    )
+    await session.commit()
+    try:
+        await request.app.state.message_broker.publish(SAR_TRANSPORT_RUN_SUBJECT, b"{}")
+    except Exception:
+        pass
+    return {"sar_filing_intent_id": str(intent.id), "status": intent.status}
+
+
+@app.get("/v1/cases/{case_id}/sar/intents")
+async def list_sar_filing_intents(
+    case_id: uuid.UUID,
+    tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """SAR transport intents for this case with immutable Postgres audit rows (SR-08)."""
+    await _case_for_tenant(session, case_id, tenant_id)
+    intents_res = await session.execute(
+        select(SarFiling)
+        .where(SarFiling.case_id == case_id, SarFiling.tenant_id == tenant_id)
+        .order_by(SarFiling.created_at.desc())
+    )
+    intents = intents_res.scalars().all()
+    out: list[dict[str, Any]] = []
+    for intent in intents:
+        audit_res = await session.execute(
+            select(SarAuditLog)
+            .where(SarAuditLog.sar_filing_intent_id == intent.id)
+            .order_by(SarAuditLog.created_at.asc())
+        )
+        rows = audit_res.scalars().all()
+        out.append(
+            {
+                "id": str(intent.id),
+                "status": intent.status,
+                "sar_artifact_id": str(intent.sar_artifact_id) if intent.sar_artifact_id else None,
+                "created_at": intent.created_at.isoformat() if intent.created_at else None,
+                "updated_at": intent.updated_at.isoformat() if intent.updated_at else None,
+                "audit_log": [
+                    {
+                        "id": str(a.id),
+                        "from_status": a.from_status,
+                        "to_status": a.to_status,
+                        "actor": a.actor,
+                        "detail": a.detail or {},
+                        "stack_trace": a.stack_trace,
+                        "created_at": a.created_at.isoformat() if a.created_at else None,
+                    }
+                    for a in rows
+                ],
+            }
+        )
+    return {"case_id": str(case_id), "intents": out}
 
 
 @app.get("/v1/cases/{case_id}/sar")

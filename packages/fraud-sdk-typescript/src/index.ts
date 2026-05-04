@@ -10,6 +10,20 @@ export {
 } from "./behavior.js";
 
 export {
+  b64urlEncodeUtf8,
+  buildTelemetrySealedPacket,
+  gatherWebRtcEntropy,
+  rasterCanvasDigest,
+  defaultCanvasDraw,
+  readHardwareEntropy,
+  verifyTelemetryInt,
+  sha256HexUtf8,
+  type WebRtcEntropyResult,
+  type CanvasEntropyResult,
+  type HardwareEntropySnapshot,
+} from "./telemetry.js";
+
+export {
   describeSdkCapabilities,
   getSdkRuntime,
   resolveCollectorTimeouts,
@@ -19,7 +33,14 @@ export {
   type SdkRuntime,
 } from "./runtime.js";
 
-import type { BehaviorCollector as BehaviorCollectorClass, BehaviorSignals } from "./behavior.js";
+import { BehaviorCollector, type BehaviorSignals } from "./behavior.js";
+import {
+  buildTelemetrySealedPacket,
+  defaultCanvasDraw,
+  gatherWebRtcEntropy,
+  rasterCanvasDigest,
+  readHardwareEntropy,
+} from "./telemetry.js";
 import type { CollectorTimeoutsMs, SdkCapabilityMatrix } from "./runtime.js";
 import {
   describeSdkCapabilities,
@@ -86,6 +107,13 @@ export interface DeviceSignals {
   geo_accuracy_m: number | null;
   geo_source: GeoSource;
   geo_ts: string | null;
+
+  /** Native passive entropy (WebRTC / canvas / HW); no third-party FP SDKs. */
+  entropy_webrtc_private_candidate?: boolean | null;
+  entropy_webrtc_candidate_digest?: string | null;
+  entropy_canvas_raster_digest?: string | null;
+  entropy_hardware_concurrency?: number | null;
+  entropy_device_memory_gb?: number | null;
 }
 
 export interface CaptchaResult {
@@ -104,12 +132,17 @@ export interface Attestation {
   provider: "play_integrity" | "app_attest" | "browser_challenge";
 }
 
+/** `behavior` plus optional sealed telemetry blob (integrity digest over base64url JSON). */
+export type DeviceBehaviorContext = BehaviorSignals & {
+  telemetry_packet?: { v: 1; enc: string; int: string };
+};
+
 export interface DeviceContext {
   device_id: string;
   platform: "web" | "android" | "ios" | "server";
   signals: DeviceSignals;
   attestation?: Attestation | null;
-  behavior?: BehaviorSignals | null;
+  behavior?: DeviceBehaviorContext | null;
 }
 
 export interface EvaluateRequest {
@@ -236,28 +269,6 @@ function detectAutomation(): boolean {
   return false;
 }
 
-function getCanvasFingerprint(): string | null {
-  if (typeof document === "undefined") return null;
-  try {
-    const canvas = document.createElement("canvas");
-    canvas.width = 200;
-    canvas.height = 50;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-    ctx.textBaseline = "alphabetic";
-    ctx.fillStyle = "#f60";
-    ctx.fillRect(125, 1, 62, 20);
-    ctx.fillStyle = "#069";
-    ctx.font = "14px Arial";
-    ctx.fillText("Tarka fp", 2, 15);
-    ctx.fillStyle = "rgba(102,204,0,0.7)";
-    ctx.fillText("Tarka fp", 4, 17);
-    return canvas.toDataURL();
-  } catch {
-    return null;
-  }
-}
-
 function getWebGLRenderer(): string | null {
   if (typeof document === "undefined") return null;
   try {
@@ -275,79 +286,6 @@ function getWebGLRenderer(): string | null {
   } catch {
     return null;
   }
-}
-
-function detectVpnWebRTC(timeoutMs: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (typeof RTCPeerConnection === "undefined") {
-      resolve(false);
-      return;
-    }
-    const timer = setTimeout(() => resolve(false), Math.max(1, timeoutMs));
-    try {
-      const pc = new RTCPeerConnection({
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-      });
-      const candidates: string[] = [];
-      pc.onicecandidate = (e) => {
-        if (!e.candidate) {
-          clearTimeout(timer);
-          pc.close();
-          const hasPrivate = candidates.some(
-            (c) =>
-              /10\.\d+\.\d+\.\d+/.test(c) ||
-              /192\.168\.\d+\.\d+/.test(c) ||
-              /172\.(1[6-9]|2\d|3[01])\.\d+\.\d+/.test(c)
-          );
-          resolve(hasPrivate);
-          return;
-        }
-        candidates.push(e.candidate.candidate);
-      };
-      pc.createDataChannel("");
-      pc.createOffer().then((o) => pc.setLocalDescription(o));
-    } catch {
-      clearTimeout(timer);
-      resolve(false);
-    }
-  });
-}
-
-interface SimpleBehaviorState {
-  hasInteraction: boolean;
-  moveCount: number;
-  keyCount: number;
-  destroy: () => void;
-}
-
-function createBehaviorCollector(): SimpleBehaviorState {
-  const state: SimpleBehaviorState = {
-    hasInteraction: false,
-    moveCount: 0,
-    keyCount: 0,
-    destroy: () => {},
-  };
-  if (typeof window === "undefined") return state;
-  const onMove = () => {
-    state.moveCount++;
-    state.hasInteraction = true;
-  };
-  const onKey = () => {
-    state.keyCount++;
-    state.hasInteraction = true;
-  };
-  const onTouch = () => {
-    state.hasInteraction = true;
-  };
-  window.addEventListener("mousemove", onMove, { passive: true });
-  window.addEventListener("keydown", onKey, { passive: true });
-  window.addEventListener("touchstart", onTouch, { passive: true });
-  state.destroy = () => {
-    window.removeEventListener("mousemove", onMove);
-    window.removeEventListener("keydown", onKey);
-    window.removeEventListener("touchstart", onTouch);
-  };
-  return state;
 }
 
 async function getAudioFingerprint(): Promise<string | null> {
@@ -461,21 +399,14 @@ export interface DeviceSignalCollectorOptions {
 }
 
 export class DeviceSignalCollector {
-  private behavior: SimpleBehaviorState;
-  private canvasRaw: string | null = null;
-  private behaviorCollector: BehaviorCollectorClass | null = null;
+  private readonly behaviorCollector: BehaviorCollector;
   private readonly enableGeo: boolean;
   private readonly caps: SdkCapabilityMatrix;
   private readonly timeouts: CollectorTimeoutsMs;
   private readonly failOpenLogTimeouts: boolean;
 
-  constructor(
-    behaviorCollector?: BehaviorCollectorClass,
-    opts?: DeviceSignalCollectorOptions,
-  ) {
-    this.behavior = createBehaviorCollector();
-    this.canvasRaw = getCanvasFingerprint();
-    this.behaviorCollector = behaviorCollector ?? null;
+  constructor(behaviorCollector?: BehaviorCollector, opts?: DeviceSignalCollectorOptions) {
+    this.behaviorCollector = behaviorCollector ?? new BehaviorCollector();
     this.enableGeo = opts?.enableGeo === true;
     this.caps = opts?.capabilities ?? describeSdkCapabilities();
     this.timeouts = resolveCollectorTimeouts(this.caps, opts?.collectorTimeouts);
@@ -491,24 +422,31 @@ export class DeviceSignalCollector {
     const webdriver = detectWebdriver();
     const headless = detectHeadless();
     const automation = detectAutomation();
-    const vpn =
+    const rtcFallback = { private_candidate_seen: false, candidate_digest_hex: null as string | null };
+    const rtcEntropy =
       this.timeouts.vpn > 0 && this.caps.has_rtc_peer_connection
         ? await withTimeoutFailOpen(
-            detectVpnWebRTC(this.timeouts.vpn),
+            gatherWebRtcEntropy(this.timeouts.vpn),
             this.timeouts.vpn,
-            false,
-            { collectorName: "vpn_webrtc", logTimeouts: this.failOpenLogTimeouts },
+            rtcFallback,
+            { collectorName: "webrtc_entropy", logTimeouts: this.failOpenLogTimeouts },
           )
-        : false;
-    const webglRenderer = getWebGLRenderer();
-    const canvasHash = this.canvasRaw
-      ? await sha256Hex(this.canvasRaw)
-      : null;
+        : rtcFallback;
+    const vpn = rtcEntropy.private_candidate_seen;
 
-    const isBot =
-      !this.behavior.hasInteraction &&
-      this.behavior.moveCount === 0 &&
-      this.behavior.keyCount === 0;
+    const webglRenderer = getWebGLRenderer();
+    const canvasDigest =
+      this.caps.has_dom && this.caps.has_subtle_crypto
+        ? await withTimeoutFailOpen(
+            rasterCanvasDigest(defaultCanvasDraw),
+            Math.max(800, Math.min(2200, this.timeouts.vpn + 400)),
+            null,
+            { collectorName: "canvas_entropy", logTimeouts: this.failOpenLogTimeouts },
+          )
+        : null;
+    const canvasHash = canvasDigest;
+
+    const hw = readHardwareEntropy();
 
     const screen_res =
       typeof screen !== "undefined"
@@ -542,6 +480,12 @@ export class DeviceSignalCollector {
         geo_source = "unknown";
       }
     }
+
+    const bh = this.behaviorCollector.getSignals();
+    const isBot =
+      bh.mouse.click_count + bh.typing.key_count + bh.touch.touch_count < 1 &&
+      bh.mouse.path_length_px === 0 &&
+      bh.mouse.samples_per_second_est < 0.01;
 
     return {
       is_emulator: headless && webdriver,
@@ -590,18 +534,46 @@ export class DeviceSignalCollector {
       geo_accuracy_m,
       geo_source,
       geo_ts,
+      entropy_webrtc_private_candidate: rtcEntropy.private_candidate_seen,
+      entropy_webrtc_candidate_digest: rtcEntropy.candidate_digest_hex,
+      entropy_canvas_raster_digest: canvasDigest,
+      entropy_hardware_concurrency: hw.hardware_concurrency,
+      entropy_device_memory_gb: hw.device_memory_gb,
     };
   }
 
-  async buildDeviceContext(): Promise<DeviceContext> {
+  async buildDeviceContext(opts?: { tenantId?: string }): Promise<DeviceContext> {
     const signals = await this.collect();
+    const behaviorRaw = this.behaviorCollector.getSignals();
+    const telemetryPayload: Record<string, unknown> = {
+      v: 1,
+      tenant_id: opts?.tenantId ?? null,
+      mouse: behaviorRaw.mouse,
+      typing: behaviorRaw.typing,
+      touch: behaviorRaw.touch,
+      scroll: behaviorRaw.scroll,
+      session: behaviorRaw.session,
+      bot_indicators: behaviorRaw.bot_indicators,
+      entropy: {
+        webrtc_private: signals.entropy_webrtc_private_candidate,
+        webrtc_digest: signals.entropy_webrtc_candidate_digest,
+        canvas_digest: signals.entropy_canvas_raster_digest,
+        hardware_concurrency: signals.entropy_hardware_concurrency,
+        device_memory_gb: signals.entropy_device_memory_gb,
+      },
+    };
+    const telemetry_packet = await buildTelemetrySealedPacket(telemetryPayload);
+    const behavior: DeviceBehaviorContext = { ...behaviorRaw, telemetry_packet };
+
     const components = [
       signals.canvas_fp_hash || "",
+      signals.entropy_canvas_raster_digest || "",
       signals.webgl_renderer || "",
       signals.audio_fp_hash || "",
       signals.screen_res || "",
       signals.language || "",
       String(signals.hardware_concurrency || ""),
+      String(signals.entropy_webrtc_candidate_digest || ""),
       String(signals.timezone_offset ?? ""),
     ].join("|");
     const device_id = await sha256Hex(components);
@@ -611,13 +583,12 @@ export class DeviceSignalCollector {
       platform: "web",
       signals,
       attestation: null,
-      behavior: this.behaviorCollector?.getSignals() ?? null,
+      behavior,
     };
   }
 
   destroy(): void {
-    this.behavior.destroy();
-    this.behaviorCollector?.destroy();
+    this.behaviorCollector.destroy();
   }
 }
 
@@ -716,7 +687,7 @@ export class DecisionClient {
 
   async evaluate(body: EvaluateRequest): Promise<EvaluateResponse> {
     if (this.collector && !body.device_context) {
-      const ctx = await this.collector.buildDeviceContext();
+      const ctx = await this.collector.buildDeviceContext({ tenantId: body.tenant_id });
 
       // browser challenge attestation
       try {
@@ -780,7 +751,7 @@ export class DecisionClient {
     const captchaResult = await this.verifyCaptcha(captchaProvider, captchaToken);
 
     if (this.collector && !body.device_context) {
-      const ctx = await this.collector.buildDeviceContext();
+      const ctx = await this.collector.buildDeviceContext({ tenantId: body.tenant_id });
       ctx.signals.captcha = captchaResult;
       body = { ...body, device_context: ctx };
     } else if (body.device_context) {
