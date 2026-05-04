@@ -1,0 +1,3 @@
+[submodule "tools/shadow"]
+	path = tools/shadow
+	url = https://github.com/pamu512/shadow.git
