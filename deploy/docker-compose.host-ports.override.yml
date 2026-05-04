@@ -10,10 +10,9 @@ services:
   postgres:
     ports: !override
       - "15432:5432"
-  neo4j:
+  janusgraph:
     ports: !override
-      - "17474:7474"
-      - "17687:7687"
+      - "18182:8182"
   decision-api:
     ports: !override
       - "18000:8000"

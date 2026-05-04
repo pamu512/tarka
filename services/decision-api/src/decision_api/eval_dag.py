@@ -15,7 +15,6 @@ from typing import Any
 STEP_DEPENDENCIES: dict[str, tuple[str, ...]] = {
     "counter_snapshot": ("feature_snapshot",),
     "location_eval": ("feature_snapshot",),
-    "external_signals": ("feature_snapshot",),
     "opa": ("feature_snapshot",),
     "ml_score": ("feature_snapshot",),
     "calibration_adjustment": ("opa", "ml_score"),

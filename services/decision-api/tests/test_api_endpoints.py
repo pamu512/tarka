@@ -17,6 +17,8 @@ def _patch_env(monkeypatch):
     monkeypatch.delenv("ALLOW_INSECURE_NO_AUTH", raising=False)
     monkeypatch.setenv("DATABASE_URL", "sqlite+aiosqlite:///")
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
+    # Use local snapshot fallback in tests (avoid AsyncMock httpx response quirks).
+    monkeypatch.setenv("FEATURE_SERVICE_URL", "")
 
 
 @pytest.fixture
@@ -76,7 +78,7 @@ class TestEvaluationPosture:
         assert "compliance_degraded" in body
         assert "dependencies" in body and isinstance(body["dependencies"], list)
         assert "dependency_resilience_policy" in body and isinstance(body["dependency_resilience_policy"], dict)
-        assert "external_signals" in body["dependency_resilience_policy"]
+        assert "async_osint_redis" in body["dependency_resilience_policy"]
         assert "typology_count" in body
         assert "predicate_registry_version" in body
         assert body.get("tenant_reliability_profile") in {"strict", "balanced", "permissive"}
