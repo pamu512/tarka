@@ -4,13 +4,14 @@ RUN apt-get update \
     && apt-get upgrade -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+WORKDIR /repo/services/case-api
 RUN pip install --no-cache-dir pip -U
-COPY services/case-api/pyproject.toml /app/
-COPY services/case-api/alembic.ini /app/
-COPY services/case-api/alembic /app/alembic
-COPY services/case-api/src /app/src
-COPY services/shared /app/shared
+COPY services/core /repo/services/core
+COPY services/case-api/pyproject.toml /repo/services/case-api/
+COPY services/case-api/alembic.ini /repo/services/case-api/
+COPY services/case-api/alembic /repo/services/case-api/alembic
+COPY services/case-api/src /repo/services/case-api/src
+COPY services/shared /repo/services/shared
 RUN pip install --no-cache-dir -e .
-ENV PYTHONPATH=/app/src:/app/shared
+ENV PYTHONPATH=/repo/services/case-api/src:/repo/services/shared
 CMD ["uvicorn", "case_api.main:app", "--host", "0.0.0.0", "--port", "8002"]

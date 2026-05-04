@@ -5,6 +5,7 @@ import io
 import json
 import os
 import re
+import tempfile
 import threading
 import time
 import uuid
@@ -12,7 +13,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-"""In-memory tabular batch jobs (CSV / JSON / Excel) for copilot analysis tools."""
+"""Disk-backed tabular batch jobs (CSV / JSON / Excel) for copilot analysis tools."""
 _MAX_FILE_BYTES = 15 * 1024 * 1024
 _MAX_ROWS = 8_000
 _MAX_COLS = 128
@@ -21,7 +22,7 @@ _MAX_STORE_BATCHES = 200
 
 
 def ttl_seconds() -> int:
-    """In-memory batch job retention (env **BATCH_TTL_SECONDS**); clamped 5m–24h."""
+    """Batch file retention on disk (env **BATCH_TTL_SECONDS**); clamped 5m–24h."""
     try:
         v = int(os.environ.get("BATCH_TTL_SECONDS", str(_DEFAULT_TTL_SECONDS)))
         return max(300, min(v, 86400))
@@ -40,36 +41,29 @@ def validate_batch_id(batch_id: str) -> str:
 
 
 _lock = threading.Lock()
-_store: dict[str, dict[str, Any]] = {}
 
 
 def storage_mode() -> str:
-    return "disk+memory" if (os.environ.get("BATCH_STORE_PATH", "").strip()) else "memory"
+    """Authoritative state is always on local disk (configured path or host temp dir)."""
+    return "disk"
 
 
-def _disk_store_dir() -> Path | None:
+def _batch_disk_root() -> Path:
     raw = os.environ.get("BATCH_STORE_PATH", "").strip()
-    if not raw:
-        return None
-    p = Path(raw).expanduser()
-    try:
-        p.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        return None
+    if raw:
+        p = Path(raw).expanduser()
+    else:
+        p = Path(tempfile.gettempdir()) / "tarka_investigation_batches"
+    p.mkdir(parents=True, exist_ok=True)
     return p
 
 
-def _disk_record_path(batch_id: str) -> Path | None:
-    root = _disk_store_dir()
-    if root is None:
-        return None
-    return root / f"{batch_id}.json"
+def _disk_record_path(batch_id: str) -> Path:
+    return _batch_disk_root() / f"{batch_id}.json"
 
 
 def _write_disk_record(rec: dict[str, Any]) -> None:
     p = _disk_record_path(str(rec.get("batch_id", "")))
-    if p is None:
-        return
     payload = {
         "batch_id": rec.get("batch_id"),
         "created_at": float(rec.get("created_at", time.time())),
@@ -86,7 +80,7 @@ def _write_disk_record(rec: dict[str, Any]) -> None:
 
 def _read_disk_record(batch_id: str) -> dict[str, Any] | None:
     p = _disk_record_path(batch_id)
-    if p is None or not p.exists():
+    if not p.exists():
         return None
     try:
         raw = json.loads(p.read_text(encoding="utf-8"))
@@ -112,8 +106,9 @@ def _read_disk_record(batch_id: str) -> dict[str, Any] | None:
 
 
 def _cleanup_disk(now: float) -> None:
-    root = _disk_store_dir()
-    if root is None:
+    try:
+        root = _batch_disk_root()
+    except Exception:
         return
     files = sorted(root.glob("*.json"), key=lambda p: p.stat().st_mtime if p.exists() else 0.0)
     ttl = ttl_seconds()
@@ -145,16 +140,7 @@ def _cleanup_disk(now: float) -> None:
 
 
 def _cleanup_unlocked(now: float) -> None:
-    dead = [bid for bid, rec in _store.items() if now - float(rec.get("created_at", 0)) > ttl_seconds()]
-    for bid in dead:
-        del _store[bid]
     _cleanup_disk(now)
-    if len(_store) <= _MAX_STORE_BATCHES:
-        return
-    # Drop oldest beyond cap
-    ordered = sorted(_store.items(), key=lambda x: float(x[1].get("created_at", 0)))
-    for bid, _ in ordered[: max(0, len(_store) - _MAX_STORE_BATCHES)]:
-        del _store[bid]
 
 
 def _normalize_key(k: str) -> str:
@@ -341,7 +327,6 @@ def store_batch(
             "rows": rows,
             "row_count": len(rows),
         }
-        _store[batch_id] = rec
         _write_disk_record(rec)
     return batch_id
 
@@ -354,11 +339,7 @@ def get_batch(batch_id: str, tenant_id: str, analyst_id: str) -> dict[str, Any] 
     now = time.time()
     with _lock:
         _cleanup_unlocked(now)
-        rec = _store.get(batch_id)
-        if not rec:
-            rec = _read_disk_record(batch_id)
-            if rec:
-                _store[batch_id] = rec
+        rec = _read_disk_record(batch_id)
         if not rec:
             return None
         if rec.get("tenant_id") != tenant_id or rec.get("analyst_id") != analyst_id:

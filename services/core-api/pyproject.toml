@@ -7,6 +7,8 @@ dependencies = [
   "fastapi>=0.135.3",
   "uvicorn[standard]>=0.44.0",
   "nats-py>=2.7.0",
+  "tarka-core @ file:../core",
+  "tarka-analytics @ file:../analytics",
   "tarka-rule-engine @ file:../rule-engine",
   "redis[hiredis]>=5.2.0",
   "sqlalchemy[asyncio]>=2.0.49",
@@ -15,8 +17,11 @@ dependencies = [
   "psycopg[binary]>=3.3.3",
   "alembic>=1.18.4",
   "httpx>=0.28.1",
+  "tenacity>=9.0.0",
   "pydantic-settings>=2.13.1",
   "pydantic>=2.13.0",
+  "clickhouse-connect>=0.8.0",
+  "pyarrow>=14.0.0",
 ]
 
 [project.optional-dependencies]

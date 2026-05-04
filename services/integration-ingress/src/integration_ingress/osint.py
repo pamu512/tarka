@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import hashlib
 import logging
 import re
 import socket
 import time
 from typing import Any
+from urllib.parse import quote
 
 import httpx
+
+from tarka_core.tenant_config import TenantConfig
+
+from integration_ingress.compliance_residency import guard_osint_before_http
 
 """OSINT enrichment framework — multi-source intelligence gathering.
 
@@ -40,6 +46,11 @@ Social/Identity:
   - GitHub profile       (free, username existence)
 """
 log = logging.getLogger(__name__)
+
+_osint_residency_ctx: contextvars.ContextVar[tuple[str | None, TenantConfig | None]] = contextvars.ContextVar(
+    "_osint_residency_ctx",
+    default=(None, None),
+)
 
 # ---------------------------------------------------------------------------
 # Configuration — keys loaded from env via Settings, passed at init
@@ -186,7 +197,16 @@ async def _safe_get(
     headers: dict[str, str] | None = None,
     timeout: float = 4.0,
     label: str = "",
+    vendor_key: str = "unknown",
 ) -> dict[str, Any] | None:
+    tenant_id, tenant_cfg = _osint_residency_ctx.get()
+    tr = tenant_cfg.data_residency_region if tenant_cfg else None
+    await guard_osint_before_http(
+        tenant_id=tenant_id,
+        tenant_region=tr,
+        vendor_key=vendor_key,
+        request_url=url,
+    )
     try:
         r = await http.get(url, headers=headers, timeout=timeout)
         if r.status_code == 200:
@@ -213,7 +233,7 @@ def _safe_float(val: Any, default: float = 0.0) -> float:
 async def osint_ip_shodan(ip: str, http: httpx.AsyncClient) -> dict[str, Any]:
     """Shodan InternetDB — open ports, CVEs, tags. No API key needed."""
     result: dict[str, Any] = {"source": "shodan_internetdb", "ip": ip}
-    data = await _safe_get(http, f"https://internetdb.shodan.io/{ip}", label="shodan")
+    data = await _safe_get(http, f"https://internetdb.shodan.io/{ip}", label="shodan", vendor_key="shodan")
     if data:
         result["ports"] = data.get("ports", [])
         result["hostnames"] = data.get("hostnames", [])
@@ -252,6 +272,7 @@ async def osint_ip_abuseipdb(
         f"https://api.abuseipdb.com/api/v2/check?ipAddress={ip}&maxAgeInDays=90",
         headers={"Key": cfg.abuseipdb_key, "Accept": "application/json"},
         label="abuseipdb",
+        vendor_key="abuseipdb",
     )
     if data and "data" in data:
         d = data["data"]
@@ -281,6 +302,7 @@ async def osint_ip_greynoise(
         f"https://api.greynoise.io/v3/community/{ip}",
         headers=headers,
         label="greynoise",
+        vendor_key="greynoise",
     )
     if data:
         result["noise"] = data.get("noise", False)
@@ -311,6 +333,7 @@ async def osint_ip_ipinfo(
         http,
         f"https://ipinfo.io/{ip}/json{token_param}",
         label="ipinfo",
+        vendor_key="ipinfo",
     )
     if data:
         result["city"] = data.get("city")
@@ -350,6 +373,7 @@ async def osint_ip_ipapi(ip: str, http: httpx.AsyncClient) -> dict[str, Any]:
         http,
         f"http://ip-api.com/json/{ip}?fields=status,country,countryCode,city,isp,org,as,proxy,hosting,mobile,lat,lon,timezone",
         label="ip-api",
+        vendor_key="ip_api",
     )
     if data and data.get("status") == "success":
         result["country"] = data.get("country")
@@ -470,6 +494,7 @@ async def osint_email_emailrep(
         f"https://emailrep.io/{email}",
         headers=headers,
         label="emailrep",
+        vendor_key="emailrep",
     )
     if data:
         result["reputation"] = data.get("reputation", "none")
@@ -514,8 +539,16 @@ async def osint_email_gravatar(email: str, http: httpx.AsyncClient) -> dict[str,
     """Gravatar — avatar existence check (social signal)."""
     result: dict[str, Any] = {"source": "gravatar", "email": email}
     email_hash = hashlib.md5(email.lower().strip().encode()).hexdigest()  # noqa: S324
+    url = f"https://gravatar.com/avatar/{email_hash}?d=404"
+    tid, tcfg = _osint_residency_ctx.get()
+    await guard_osint_before_http(
+        tenant_id=tid,
+        tenant_region=tcfg.data_residency_region if tcfg else None,
+        vendor_key="gravatar",
+        request_url=url,
+    )
     try:
-        r = await http.get(f"https://gravatar.com/avatar/{email_hash}?d=404", timeout=3.0)
+        r = await http.get(url, timeout=3.0)
         result["exists"] = r.status_code == 200
         result["risk_score"] = 0 if result["exists"] else 10
     except Exception:
@@ -526,9 +559,17 @@ async def osint_email_gravatar(email: str, http: httpx.AsyncClient) -> dict[str,
 async def osint_email_hibp(email: str, http: httpx.AsyncClient) -> dict[str, Any]:
     """Have I Been Pwned — k-anonymity breach check (no API key needed for passwords)."""
     result: dict[str, Any] = {"source": "hibp_breaches", "email": email}
+    url = f"https://haveibeenpwned.com/api/v3/breachedaccount/{quote(email, safe='')}"
+    tid, tcfg = _osint_residency_ctx.get()
+    await guard_osint_before_http(
+        tenant_id=tid,
+        tenant_region=tcfg.data_residency_region if tcfg else None,
+        vendor_key="hibp",
+        request_url=url,
+    )
     try:
         r = await http.get(
-            f"https://haveibeenpwned.com/api/v3/breachedaccount/{email}",
+            url,
             headers={
                 "User-Agent": "tarka-fraud-stack",
                 "Accept": "application/json",
@@ -688,6 +729,7 @@ async def osint_phone_numverify(
         http,
         f"http://apilayer.net/api/validate?access_key={cfg.numverify_key}&number={cleaned}",
         label="numverify",
+        vendor_key="numverify",
     )
     if data:
         result["valid"] = data.get("valid", False)
@@ -814,6 +856,7 @@ async def osint_domain_rdap(domain: str, http: httpx.AsyncClient) -> dict[str, A
         f"https://rdap.org/domain/{domain}",
         label="rdap",
         timeout=5.0,
+        vendor_key="rdap",
     )
     if data:
         events = data.get("events", [])
@@ -875,6 +918,7 @@ async def osint_github_profile(username: str, http: httpx.AsyncClient) -> dict[s
         http,
         f"https://api.github.com/users/{username}",
         label="github",
+        vendor_key="github",
     )
     if data and data.get("login"):
         result["exists"] = True
@@ -922,6 +966,8 @@ async def full_osint_enrichment(
     domain: str | None = None,
     http: httpx.AsyncClient,
     cfg: OsintConfig,
+    tenant_id: str | None = None,
+    tenant_config: TenantConfig | None = None,
 ) -> dict[str, Any]:
     """Run comprehensive OSINT enrichment across all provided signals."""
     t0 = time.monotonic()
@@ -944,40 +990,44 @@ async def full_osint_enrichment(
     if not tasks:
         return {"error": "At least one of email, phone, ip, or domain is required"}
 
+    tok = _osint_residency_ctx.set(((tenant_id or "").strip() or None, tenant_config))
     keys = list(tasks.keys())
-    results_list = await asyncio.gather(*tasks.values(), return_exceptions=True)
-    results: dict[str, Any] = {}
-    all_risk_scores: list[float] = []
+    try:
+        results_list = await asyncio.gather(*tasks.values(), return_exceptions=True)
+        results: dict[str, Any] = {}
+        all_risk_scores: list[float] = []
 
-    for key, val in zip(keys, results_list):
-        if isinstance(val, Exception):
-            results[key] = {"error": str(val)}
-            continue
-        results[key] = val
-        agg = val.get("aggregate_risk_score")
-        if agg is not None:
-            all_risk_scores.append(float(agg))
+        for key, val in zip(keys, results_list):
+            if isinstance(val, Exception):
+                results[key] = {"error": str(val)}
+                continue
+            results[key] = val
+            agg = val.get("aggregate_risk_score")
+            if agg is not None:
+                all_risk_scores.append(float(agg))
 
-    # Composite risk: weighted max
-    if all_risk_scores:
-        composite = max(all_risk_scores) * 0.7 + (sum(all_risk_scores) / len(all_risk_scores)) * 0.3
-    else:
-        composite = 0
+        # Composite risk: weighted max
+        if all_risk_scores:
+            composite = max(all_risk_scores) * 0.7 + (sum(all_risk_scores) / len(all_risk_scores)) * 0.3
+        else:
+            composite = 0
 
-    risk_level = "low"
-    if composite >= 70:
-        risk_level = "critical"
-    elif composite >= 50:
-        risk_level = "high"
-    elif composite >= 30:
-        risk_level = "medium"
+        risk_level = "low"
+        if composite >= 70:
+            risk_level = "critical"
+        elif composite >= 50:
+            risk_level = "high"
+        elif composite >= 30:
+            risk_level = "medium"
 
-    elapsed_ms = round((time.monotonic() - t0) * 1000, 1)
+        elapsed_ms = round((time.monotonic() - t0) * 1000, 1)
 
-    return {
-        "composite_risk_score": round(min(composite, 100), 1),
-        "risk_level": risk_level,
-        "enrichments": results,
-        "signals_queried": len(results),
-        "elapsed_ms": elapsed_ms,
-    }
+        return {
+            "composite_risk_score": round(min(composite, 100), 1),
+            "risk_level": risk_level,
+            "enrichments": results,
+            "signals_queried": len(results),
+            "elapsed_ms": elapsed_ms,
+        }
+    finally:
+        _osint_residency_ctx.reset(tok)

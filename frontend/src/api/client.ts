@@ -6,19 +6,36 @@ import {
   normalizeInferenceContext,
 } from "./inferenceContext";
 import { reportDataOutcome } from "./dataSourceState";
-import { getMockResponse } from "./mockData";
 
 export type { ConfidenceTier, InferenceContext, MlTopFactor };
 export { normalizeInferenceContext };
 
+const IS_PRODUCTION_BUILD = import.meta.env.PROD === true;
+
 const MOCK_MODE = ((import.meta.env.VITE_USE_API_MOCKS as string | undefined) ?? "auto").trim().toLowerCase();
+
+if (IS_PRODUCTION_BUILD && MOCK_MODE === "true") {
+  throw new Error("VITE_USE_API_MOCKS=true is forbidden in production builds.");
+}
+
 /**
- * Mock fallback policy:
- * - `VITE_USE_API_MOCKS=true`  -> always allow fallback
+ * Mock fallback policy (non-production bundles only):
+ * - `VITE_USE_API_MOCKS=true`  -> allow fallback when not a production build
  * - `VITE_USE_API_MOCKS=false` -> never allow fallback
- * - `VITE_USE_API_MOCKS=auto` (default) -> allow in dev, disable in production
+ * - `VITE_USE_API_MOCKS=auto` (default) -> allow in dev, never in production
+ *
+ * Production: mocks are disabled; mock helpers are loaded only via dynamic import so they are not in the main chunk.
  */
-const USE_API_MOCKS = MOCK_MODE === "true" || (MOCK_MODE !== "false" && import.meta.env.DEV);
+const USE_API_MOCKS =
+  !IS_PRODUCTION_BUILD && (MOCK_MODE === "true" || (MOCK_MODE !== "false" && import.meta.env.DEV));
+
+async function loadMockResponse(url: string, init?: RequestInit): Promise<unknown | null> {
+  if (IS_PRODUCTION_BUILD) {
+    return null;
+  }
+  const { getMockResponse } = await import("./mockData");
+  return getMockResponse(url, init);
+}
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -149,6 +166,39 @@ export interface CaseDecisionExplanationPayload {
   source: string;
   decision?: string;
   score?: number;
+}
+
+/** SAR filing intent regulatory status (case-api `sar_filing_intents`). */
+export type SarFilingIntentStatus =
+  | "PENDING_REVIEW"
+  | "APPROVED"
+  | "SFTP_QUEUED"
+  | "TRANSMITTED"
+  | "ACKNOWLEDGED"
+  | "FAILED";
+
+export interface SarAuditLogEntry {
+  id: string;
+  from_status: string | null;
+  to_status: string;
+  actor: string | null;
+  detail: Record<string, unknown>;
+  stack_trace: string | null;
+  created_at: string | null;
+}
+
+export interface SarFilingIntentDetail {
+  id: string;
+  status: SarFilingIntentStatus;
+  sar_artifact_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  audit_log: SarAuditLogEntry[];
+}
+
+export interface SarFilingIntentsResponse {
+  case_id: string;
+  intents: SarFilingIntentDetail[];
 }
 
 export interface CaseCreateRequest {
@@ -378,7 +428,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     const ct = res.headers.get("content-type") ?? "";
     if (!res.ok) {
       if (allowMockFallback) {
-        const mock = getMockResponse(url, init);
+        const mock = await loadMockResponse(url, init);
         if (mock !== null) {
           reportDataOutcome("mock");
           return mock as T;
@@ -389,7 +439,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     }
     if (!ct.includes("json") && !text.trimStart().startsWith("{") && !text.trimStart().startsWith("[")) {
       if (allowMockFallback) {
-        const mock = getMockResponse(url, init);
+        const mock = await loadMockResponse(url, init);
         if (mock !== null) {
           reportDataOutcome("mock");
           return mock as T;
@@ -406,7 +456,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
       return parsed;
     } catch {
       if (allowMockFallback) {
-        const mock = getMockResponse(url, init);
+        const mock = await loadMockResponse(url, init);
         if (mock !== null) {
           reportDataOutcome("mock");
           return mock as T;
@@ -419,7 +469,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     }
   } catch (err) {
     if (allowMockFallback) {
-      const mock = getMockResponse(url, init);
+      const mock = await loadMockResponse(url, init);
       if (mock !== null) {
         reportDataOutcome("mock");
         return mock as T;
@@ -727,6 +777,27 @@ export const cases = {
       method: "POST",
       body: JSON.stringify({ format }),
     });
+  },
+
+  listSarFilingIntents(caseId: string, tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<SarFilingIntentsResponse>(`/api/cases/v1/cases/${caseId}/sar/intents?${q}`);
+  },
+
+  approveSarFilingIntent(caseId: string, tenantId: string, intentId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<{ sar_filing_intent_id: string; status: string }>(
+      `/api/cases/v1/cases/${caseId}/sar/intents/${encodeURIComponent(intentId)}/approve?${q}`,
+      { method: "POST" },
+    );
+  },
+
+  queueSarFilingSftp(caseId: string, tenantId: string, intentId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<{ sar_filing_intent_id: string; status: string }>(
+      `/api/cases/v1/cases/${caseId}/sar/intents/${encodeURIComponent(intentId)}/queue-sftp?${q}`,
+      { method: "POST" },
+    );
   },
 
   bulkUpdate(data: {
@@ -1623,13 +1694,13 @@ export const investigation = {
         return JSON.parse(text) as InvestigationBatchIngestResponse;
       }
       if (USE_API_MOCKS) {
-        const mock = getMockResponse(url, { method: "POST" });
+        const mock = await loadMockResponse(url, { method: "POST" });
         if (mock !== null) return mock as InvestigationBatchIngestResponse;
       }
       throw new Error(parseHttpErrorMessage(res.status, res.statusText, text, res.headers));
     } catch (err) {
       if (USE_API_MOCKS) {
-        const mock = getMockResponse(url, { method: "POST" });
+        const mock = await loadMockResponse(url, { method: "POST" });
         if (mock !== null) return mock as InvestigationBatchIngestResponse;
       }
       throw err instanceof Error ? err : new Error("Batch ingest failed");

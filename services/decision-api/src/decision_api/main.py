@@ -10,11 +10,10 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 import httpx
-import nats
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -111,6 +110,7 @@ from decision_api.eval_dag import EvalDAGRuntime
 from decision_api.eval_load_guard import EvalLoadGuard, acquire_eval_capacity
 from decision_api.async_osint_redis import merge_cached_async_osint, publish_async_enrichment_request
 from decision_api.eval_steps import run_evaluation_step
+from decision_api.device_scoring import extract_device_entropy_tags
 from decision_api.fingerprint_store import fingerprint_store
 from decision_api.json_rules import (
     evaluate_json_rules,
@@ -819,9 +819,46 @@ async def require_api_key(request: Request) -> None:
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    from tarka_core.cache import LocalDictCache, RedisCache
+    from tarka_core.messaging import LocalAsyncBroker, NatsBroker, NullMessageBroker
+
+    application.state.message_broker = NullMessageBroker()
+    application.state.kv_cache = None
+
     await init_db()
     await open_analytics_infra(application)
-    await redis_tags.connect()
+
+    if settings.use_local_message_broker:
+        application.state.kv_cache = LocalDictCache()
+        await redis_tags.connect(kv_fallback=application.state.kv_cache)
+        mb = LocalAsyncBroker()
+        await mb.start()
+        application.state.message_broker = mb
+    else:
+        if (settings.redis_url or "").strip():
+            rc = RedisCache(settings.redis_url)
+            await rc.connect()
+            application.state.kv_cache = rc
+        else:
+            application.state.kv_cache = LocalDictCache()
+        if (settings.redis_url or "").strip():
+            await redis_tags.connect()
+        else:
+            await redis_tags.connect(kv_fallback=application.state.kv_cache)
+        if (settings.nats_url or "").strip():
+            try:
+                import nats
+
+                nc = await nats.connect(settings.nats_url)
+                application.state.message_broker = NatsBroker(nc, nc.jetstream())
+                log.info("Connected to NATS at %s", settings.nats_url)
+            except Exception as e:
+                log.warning("NATS connection failed (publishing disabled): %s", e)
+                application.state.message_broker = NullMessageBroker()
+        else:
+            application.state.message_broker = NullMessageBroker()
+
+    await maybe_hydrate_sandbox_plg_pack(application)
     load_rules()
     load_typology_definitions()
     _touch_rules_materialized()
@@ -847,18 +884,11 @@ async def lifespan(application: FastAPI):
         limits=httpx.Limits(max_connections=200, max_keepalive_connections=40),
     )
 
-    application.state.eval_load_guard = EvalLoadGuard(settings.tarka_max_concurrent_evaluations)
+    from decision_api.vendors.bootstrap import install_vendor_plugins_from_settings
 
-    application.state.nats_nc = None
-    application.state.nats_js = None
-    if settings.nats_url:
-        try:
-            nc = await nats.connect(settings.nats_url)
-            application.state.nats_nc = nc
-            application.state.nats_js = nc.jetstream()
-            log.info("Connected to NATS at %s", settings.nats_url)
-        except Exception as e:
-            log.warning("NATS connection failed (publishing disabled): %s", e)
+    install_vendor_plugins_from_settings()
+
+    application.state.eval_load_guard = EvalLoadGuard(settings.tarka_max_concurrent_evaluations)
 
     retention_task = None
     if DEFAULT_RETENTION_DAYS > 0:
@@ -870,8 +900,12 @@ async def lifespan(application: FastAPI):
         await application.state.list_store.close()
     if retention_task:
         retention_task.cancel()
-    if application.state.nats_nc:
-        await application.state.nats_nc.drain()
+    broker = getattr(application.state, "message_broker", None)
+    if broker is not None:
+        await broker.aclose()
+    kv = getattr(application.state, "kv_cache", None)
+    if kv is not None:
+        await kv.aclose()
     await application.state.http.aclose()
     await close_analytics_infra(application)
     await redis_tags.close()
@@ -899,6 +933,7 @@ if settings.request_signature_secret:
 
 from decision_api.analytics_dashboards import router as analytics_dashboards_router  # noqa: E402
 from decision_api.backtest_api import router as backtest_router  # noqa: E402
+from decision_api.ml_export_api import router as ml_export_router  # noqa: E402
 from decision_api.calibration_api import router as calibration_router  # noqa: E402
 from decision_api.captcha import router as captcha_router  # noqa: E402
 from decision_api.compliance_api import router as compliance_router  # noqa: E402
@@ -915,6 +950,7 @@ from decision_api.rule_compiler_api import router as rule_compiler_router  # noq
 from decision_api.rule_gitops_api import router as rule_gitops_router  # noqa: E402
 from decision_api.simulation_api import router as simulation_router  # noqa: E402
 from decision_api.vendor_marketplace_api import router as vendor_marketplace_router  # noqa: E402
+from decision_api.sandbox_bootstrap import maybe_hydrate_sandbox_plg_pack, router as sandbox_bootstrap_router  # noqa: E402
 
 app.include_router(rule_router)
 app.include_router(replay_router)
@@ -931,13 +967,21 @@ app.include_router(reporting_nl_router)
 app.include_router(rule_compiler_router)
 app.include_router(rule_gitops_router)
 app.include_router(backtest_router)
+app.include_router(ml_export_router)
 app.include_router(feature_store_router)
 app.include_router(analytics_dashboards_router)
 app.include_router(vendor_marketplace_router)
+app.include_router(sandbox_bootstrap_router)
 
 
 def _http(request: Request) -> httpx.AsyncClient:
     return request.app.state.http
+
+
+def _external_nats_connected(broker: Any) -> bool:
+    from tarka_core.messaging import NatsBroker
+
+    return isinstance(broker, NatsBroker) and broker.has_active_connection
 
 
 # ---------- health ----------
@@ -961,8 +1005,8 @@ async def slo_status():
         "targets_note": "Latency/availability measured vs your SLO stack (Prometheus/Grafana); this endpoint exposes in-process counters only.",
         "current": {
             **cur,
-            "redis_connected": redis_tags._client is not None,
-            "nats_connected": getattr(app.state, "nats_nc", None) is not None,
+            "redis_connected": redis_tags.is_tag_store_available,
+            "nats_connected": _external_nats_connected(getattr(app.state, "message_broker", None)),
             "evaluate_require_idempotency_key": settings.evaluate_require_idempotency_key,
         },
     }
@@ -1012,8 +1056,8 @@ async def evaluation_posture(request: Request):
     deps: list[dict[str, Any]] = [
         {
             "id": "redis",
-            "ok": redis_tags._client is not None,
-            "detail": "connected" if redis_tags._client else "not_connected",
+            "ok": redis_tags.is_tag_store_available,
+            "detail": "connected" if redis_tags.is_tag_store_available else "not_connected",
         },
         {
             "id": "graph_service_configured",
@@ -1269,20 +1313,21 @@ class TenantFlagsBody(BaseModel):
     disable_ml: bool | None = None
     disable_opa: bool | None = None
     disable_entity_lists: bool | None = None
+    data_residency_region: Literal["EU", "US", "GLOBAL"] | None = None
 
 
 @app.get("/v1/admin/tenants/{tenant_id}/flags")
 async def get_tenant_flags_admin(tenant_id: str, _=Depends(require_role("admin"))):
-    if not redis_tags._client:
-        raise HTTPException(503, detail="Redis not configured")
+    if not redis_tags.is_tag_store_available:
+        raise HTTPException(503, detail="Tag/flags store not configured")
     flags = await redis_tags.get_tenant_flags(tenant_id)
     return {"tenant_id": tenant_id, "flags": flags}
 
 
 @app.patch("/v1/admin/tenants/{tenant_id}/flags")
 async def patch_tenant_flags_admin(tenant_id: str, body: TenantFlagsBody, _=Depends(require_role("admin"))):
-    if not redis_tags._client:
-        raise HTTPException(503, detail="Redis not configured")
+    if not redis_tags.is_tag_store_available:
+        raise HTTPException(503, detail="Tag/flags store not configured")
     updates = body.model_dump(exclude_none=True)
     merged = await redis_tags.patch_tenant_flags(tenant_id, updates)
     return {"tenant_id": tenant_id, "flags": merged}
@@ -1720,20 +1765,22 @@ def _blend_scores(rule_score: float, ml_score: float | None) -> float:
     return max(0.0, min(100.0, (rule_score + ml_score) / 2))
 
 
-# ---------- NATS decision publishing ----------
+# ---------- decision / shadow message publishing ----------
 
 
 async def _publish_decision(app_state: Any, decision_data: dict) -> None:
-    js = app_state.nats_js
-    if not js:
+    from tarka_core.messaging import PublishDelivery
+
+    broker = getattr(app_state, "message_broker", None)
+    if broker is None:
         return
     tenant = decision_data.get("tenant_id", "unknown")
     etype = decision_data.get("event_type", "unknown")
     subject = f"fraud.decisions.{tenant}.{etype}"
     try:
-        await js.publish(subject, _json.dumps(decision_data, default=str).encode())
+        await broker.publish(subject, _json.dumps(decision_data, default=str).encode(), delivery=PublishDelivery.JETSTREAM)
     except Exception as e:
-        log.warning("Failed to publish decision to NATS: %s", e)
+        log.warning("Failed to publish decision: %s", e)
 
 
 # ---------- shadow evaluation ----------
@@ -1764,19 +1811,22 @@ async def _run_shadow_evaluation(
         {"decision": production_decision, "score": production_score},
         shadow_result,
     )
-    js = app_state.nats_js
-    if js:
-        subject = f"fraud.shadow.{tenant_id}"
-        payload = {
-            "trace_id": trace_id,
-            "tenant_id": tenant_id,
-            "production_decision": production_decision,
-            **shadow_result,
-        }
-        try:
-            await js.publish(subject, _json.dumps(payload, default=str).encode())
-        except Exception as e:
-            log.warning("Failed to publish shadow result to NATS: %s", e)
+    from tarka_core.messaging import PublishDelivery
+
+    broker = getattr(app_state, "message_broker", None)
+    if broker is None:
+        return
+    subject = f"fraud.shadow.{tenant_id}"
+    payload = {
+        "trace_id": trace_id,
+        "tenant_id": tenant_id,
+        "production_decision": production_decision,
+        **shadow_result,
+    }
+    try:
+        await broker.publish(subject, _json.dumps(payload, default=str).encode(), delivery=PublishDelivery.JETSTREAM)
+    except Exception as e:
+        log.warning("Failed to publish shadow result: %s", e)
 
 
 # ---------- main endpoint ----------
@@ -1805,7 +1855,7 @@ async def evaluate_decision(
     replay_ttl_seconds = int(os.environ.get("REPLAY_PAYLOAD_TTL_SECONDS", "300"))
     degrade_tags: list[str] = []
     tenant_flags: dict[str, Any] = {}
-    if redis_tags._client:
+    if redis_tags.is_tag_store_available:
         try:
             tenant_flags = await redis_tags.get_tenant_flags(body.tenant_id)
         except Exception:
@@ -1815,6 +1865,7 @@ async def evaluate_decision(
     dc_dump = body.device_context.model_dump() if body.device_context else None
     signal_tags = extract_signal_tags(dc_dump)
     signal_tags.extend(extract_behavior_tags(dc_dump))
+    signal_tags.extend(extract_device_entropy_tags(dc_dump))
     signal_tags.extend(extract_captcha_tags(dc_dump))
     consortium_delta = 0.0
     graph_delta = 0.0
@@ -2207,7 +2258,12 @@ async def evaluate_decision(
             fallback=None,
         )
         step_trace.append(async_osint_trace)
-        await publish_async_enrichment_request(request.app.state, body, trace_id)
+        await publish_async_enrichment_request(
+            getattr(request.app.state, "message_broker", None),
+            body,
+            trace_id,
+            tenant_flags=tenant_flags,
+        )
 
         # Platform integrity supplements (must run before JSON tag_rules so policy can match integrity:*)
         _plat_kw = _infer_ctx_kwargs(body, features)

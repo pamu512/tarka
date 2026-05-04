@@ -1,0 +1,21 @@
+[project]
+name = "tarka-shadow-copilot"
+version = "0.1.0"
+description = "Shadow Copilot runtime: hardware-aware Ollama model tiering for low-spec / VDI hosts"
+requires-python = ">=3.11"
+dependencies = [
+  "psutil>=6.0.0",
+  "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=75.0.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["shadow_copilot"]

@@ -30,6 +30,8 @@ spec:
                 secretKeyRef:
                   name: tarka-secrets
                   key: database-url
+            - name: TARKA_DB_ENGINE
+              value: postgres
             - name: REDIS_URL
               valueFrom:
                 secretKeyRef:

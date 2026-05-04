@@ -1699,7 +1699,7 @@ async def batch_ingest(
     analyst_id: str = Form(...),
     file: UploadFile = File(...),
 ):
-    """Upload CSV, JSON, NDJSON, or XLSX for copilot tabular tools (tenant + analyst scoped, in-memory TTL)."""
+    """Upload CSV, JSON, NDJSON, or XLSX for copilot tabular tools (tenant + analyst scoped, disk-backed TTL)."""
     _validate_scope_id("tenant_id", tenant_id)
     _validate_scope_id("analyst_id", analyst_id)
     if not is_analyst_allowed(analyst_id):

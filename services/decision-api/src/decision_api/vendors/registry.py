@@ -1,42 +1,15 @@
-"""Register built-in vendor stubs; production adds real HTTP clients + secrets."""
+"""Vendor adapter registry; production registers real HTTP-backed adapters (no built-in stubs)."""
 
 from __future__ import annotations
 
-from typing import Any
+from decision_api.vendors.base import VendorAdapter
 
-import httpx
-
-from decision_api.vendors.base import NormalizedVendorSignal, VendorAdapter, VendorTier
+_REGISTRY: dict[str, VendorAdapter] = {}
 
 
-class _EchoVendor(VendorAdapter):
-    vendor_id = "echo_stub"
-
-    def __init__(self) -> None:
-        self.tier = VendorTier.CHEAP
-
-    async def fetch_signal(
-        self,
-        _http: httpx.AsyncClient,
-        tenant_id: str,
-        entity_id: str,
-        features: dict[str, Any],
-        *,
-        budget_ms: float,
-    ) -> NormalizedVendorSignal:
-        _ = budget_ms
-        base = float(hash((tenant_id, entity_id)) % 37)
-        return NormalizedVendorSignal(
-            self.vendor_id,
-            score_0_100=base,
-            reason_codes=["stub:echo"],
-            raw_meta={"features_keys": list(features.keys())[:20]},
-        )
-
-
-_REGISTRY: dict[str, VendorAdapter] = {
-    "echo_stub": _EchoVendor(),
-}
+def register_adapter(vendor_id: str, adapter: VendorAdapter) -> None:
+    """Register or replace a vendor adapter (e.g. at application startup from config)."""
+    _REGISTRY[vendor_id] = adapter
 
 
 def list_registered_vendors() -> list[str]:

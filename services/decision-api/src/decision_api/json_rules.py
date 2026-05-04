@@ -41,6 +41,32 @@ _cached_packs: list[dict[str, Any]] = []
 _shadow_mode_packs: list[dict[str, Any]] = []
 _last_rust_sync_fingerprint: str | None = None
 
+# Optional PLG sandbox bundle (Postgres-backed); merged pack, not on disk.
+SANDBOX_PLG_INDUSTRY_SOURCE_FILE = "sandbox_plg_industry_starter.json"
+_plg_sandbox_runtime_pack: dict[str, Any] | None = None
+
+
+def _attach_plg_sandbox_pack(active: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Strip any stale sandbox artifact from disk list, then append runtime PLG pack if configured."""
+    filtered = [p for p in active if p.get("_source_file") != SANDBOX_PLG_INDUSTRY_SOURCE_FILE]
+    if _plg_sandbox_runtime_pack is None:
+        return filtered
+    merged = dict(_plg_sandbox_runtime_pack)
+    merged.setdefault("_source_file", SANDBOX_PLG_INDUSTRY_SOURCE_FILE)
+    return filtered + [merged]
+
+
+def preload_plg_sandbox_runtime_pack(pack: dict[str, Any] | None) -> None:
+    """Set the runtime PLG sandbox pack without reloading from disk (used before ``load_rules()``)."""
+    global _plg_sandbox_runtime_pack
+    _plg_sandbox_runtime_pack = None if pack is None else dict(pack)
+
+
+def set_plg_sandbox_runtime_pack(pack: dict[str, Any] | None) -> None:
+    """Replace (or clear) the in-memory PLG sandbox pack and reload disk rules + Rust sync."""
+    preload_plg_sandbox_runtime_pack(pack)
+    load_rules()
+
 
 def _telemetry_key(pack_file: str, rule_id: str, kind: str) -> str:
     pf = (pack_file or "unknown")[:160]
@@ -113,12 +139,13 @@ def load_rules() -> None:
     path = Path(settings.rules_path)
     if not path.is_dir():
         global _last_rust_sync_fingerprint
-        _cached_packs = []
+        _cached_packs = _attach_plg_sandbox_pack([])
         _shadow_mode_packs = []
         _last_rust_sync_fingerprint = None
         if _tarka_rule_engine is not None:
-            _tarka_rule_engine.sync_packs_json("[]")
-            _last_rust_sync_fingerprint = hashlib.sha256(b"[]").hexdigest()
+            payload = json.dumps(_cached_packs, default=str)
+            _tarka_rule_engine.sync_packs_json(payload)
+            _last_rust_sync_fingerprint = hashlib.sha256(payload.encode("utf-8")).hexdigest()
         return
     active: list[dict[str, Any]] = []
     shadow: list[dict[str, Any]] = []
@@ -137,9 +164,16 @@ def load_rules() -> None:
                 active.append(pack)
         except (json.JSONDecodeError, OSError) as e:
             log.warning("skipping rule file %s: %s", f, e)
-    _cached_packs = active
+    _cached_packs = _attach_plg_sandbox_pack(active)
     _shadow_mode_packs = shadow
-    log.info("loaded %d active + %d shadow rule packs from %s", len(active), len(shadow), path)
+    log.info(
+        "loaded %d disk-active + %d shadow rule packs from %s (runtime PLG sandbox=%s; engine_active=%d)",
+        len(active),
+        len(shadow),
+        path,
+        "yes" if _plg_sandbox_runtime_pack is not None else "no",
+        len(_cached_packs),
+    )
     if _tarka_rule_engine is not None:
         _sync_rust_active_packs()
 

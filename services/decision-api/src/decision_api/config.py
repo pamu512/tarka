@@ -165,6 +165,46 @@ class Settings(BaseSettings):
     reporting_nl_llm_api_key: str = os.environ.get("TARKA_REPORTING_NL_LLM_API_KEY", "").strip()
     reporting_nl_llm_model: str = os.environ.get("TARKA_REPORTING_NL_LLM_MODEL", "gpt-4o-mini").strip()
 
+    # ``micro`` selects in-process :class:`tarka_core.messaging.LocalAsyncBroker` and :class:`tarka_core.cache.LocalDictCache`.
+    tarka_env: str = Field(default="production")
+    # Compose / laptops: ``TARKA_BROKER=local`` uses :class:`tarka_core.messaging.LocalAsyncBroker` without NATS.
+    tarka_broker: str = Field(default="", description="Messaging backend; 'local' = in-process broker")
+
+    # Warehouse rule backtest: wall-clock circuit breaker (streaming OLAP + Rust per row).
+    backtest_job_timeout_seconds: float = Field(default=60.0, ge=1.0, le=3600.0)
+
+    # PIT ML export (POST /v1/ml/export/pit-parquet): case labels + warehouse payload_json snapshots.
+    case_api_url: str = Field(default="", description="Case Management API base URL for training labels")
+    ml_export_local_dir: str = Field(default="./data/ml_exports", description="Tarka Micro: Parquet write directory")
+    ml_export_s3_bucket: str = Field(default="", description="Production: S3 bucket for uploaded Parquet")
+    ml_export_s3_prefix: str = Field(default="pit-exports", max_length=256)
+    ml_export_presign_ttl_seconds: int = Field(default=3600, ge=60, le=86_400)
+    ml_export_max_rows: int = Field(default=500_000, ge=1_000, le=50_000_000)
+
+    # OSINT / vendor plugins (opt-in; reference: ip-api.com geolocation).
+    vendor_ipapi_enabled: bool = os.environ.get("TARKA_VENDOR_IPAPI_ENABLED", "false").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    vendor_ipapi_api_key: str = os.environ.get("TARKA_VENDOR_IPAPI_API_KEY", "").strip()
+    vendor_ipapi_base_url: str = os.environ.get("TARKA_VENDOR_IPAPI_BASE_URL", "http://ip-api.com").strip()
+    vendor_http_max_attempts: int = int(os.environ.get("TARKA_VENDOR_HTTP_MAX_ATTEMPTS", "3"))
+    vendor_http_retry_min_wait: float = float(os.environ.get("TARKA_VENDOR_HTTP_RETRY_MIN_WAIT", "0.2"))
+    vendor_http_retry_max_wait: float = float(os.environ.get("TARKA_VENDOR_HTTP_RETRY_MAX_WAIT", "2.0"))
+
+    @property
+    def is_tarka_micro(self) -> bool:
+        v = (self.tarka_env or "").strip().lower()
+        return v in ("micro", "tarka_micro", "local_micro")
+
+    @property
+    def use_local_message_broker(self) -> bool:
+        if self.is_tarka_micro:
+            return True
+        return (self.tarka_broker or "").strip().lower() in ("local", "inprocess", "memory")
+
 
 settings = Settings()
 

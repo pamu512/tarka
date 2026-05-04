@@ -1,25 +1,42 @@
 import os
 from collections.abc import AsyncGenerator
 from pathlib import Path
+from typing import Literal
 from urllib.parse import urlparse
 
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.sql import text
 
 from case_api.config import settings
+from tarka_core.database import (
+    build_async_database_url,
+    create_audit_async_engine,
+    resolve_tarka_db_engine,
+    sync_url_for_alembic,
+)
 
-_DEFAULT_LOCAL_DB_URL = "sqlite+aiosqlite:///./data/case-api-dev.db"
+
+def _app_root() -> Path:
+    return Path(__file__).resolve().parent.parent.parent
+
+
 _ALEMBIC_VERSION_TABLE = "alembic_version_case_api"
-_active_database_url = settings.database_url
 _fallback_activated = False
 _fallback_reason: str | None = None
 _bootstrap_mode = "unknown"
 
+_engine_kind: Literal["sqlite", "postgres"] = resolve_tarka_db_engine(database_url=settings.database_url)
+_active_database_url = build_async_database_url(
+    engine_kind=_engine_kind,
+    database_url=settings.database_url,
+    sqlite_database_path=_app_root() / "data" / "case-api-dev.db",
+)
+
 
 def _configure_engine(url: str):
-    return create_async_engine(url, echo=False, pool_pre_ping=True)
+    return create_audit_async_engine(url, engine_kind=_engine_kind)
 
 
 engine = _configure_engine(_active_database_url)
@@ -34,33 +51,25 @@ def _is_sqlite(url: str) -> bool:
     return "sqlite" in url.lower()
 
 
-def _sync_url_for_alembic(url: str) -> str:
-    if "+asyncpg" in url:
-        return url.replace("postgresql+asyncpg", "postgresql+psycopg")
-    if "sqlite+aiosqlite" in url:
-        return url.replace("sqlite+aiosqlite://", "sqlite://")
-    return url
-
-
 def _resolve_local_fallback_url() -> str:
     override = (os.environ.get("CASE_API_LOCAL_DB_URL") or "").strip()
     if override:
         return override
-    app_root = Path(__file__).resolve().parent.parent.parent
-    db_path = (app_root / "data" / "case-api-dev.db").resolve()
+    db_path = (_app_root() / "data" / "case-api-dev.db").resolve()
     db_path.parent.mkdir(parents=True, exist_ok=True)
     return f"sqlite+aiosqlite:///{db_path}"
 
 
 async def _activate_local_fallback() -> None:
-    global engine, SessionLocal, _active_database_url, _fallback_activated
+    global engine, SessionLocal, _active_database_url, _fallback_activated, _engine_kind
     fallback_url = _resolve_local_fallback_url()
     if _active_database_url == fallback_url:
         _fallback_activated = True
         return
     await engine.dispose()
+    _engine_kind = "sqlite"
     _active_database_url = fallback_url
-    engine = _configure_engine(_active_database_url)
+    engine = create_audit_async_engine(_active_database_url, engine_kind="sqlite")
     SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     _fallback_activated = True
 
@@ -70,7 +79,7 @@ def active_database_url() -> str:
 
 
 def active_database_backend() -> str:
-    return "sqlite" if _is_sqlite(_active_database_url) else "postgresql"
+    return "sqlite" if _engine_kind == "sqlite" else "postgresql"
 
 
 def using_local_fallback() -> bool:
@@ -100,10 +109,6 @@ def public_database_url() -> str:
     host = parsed.hostname or ""
     port = f":{parsed.port}" if parsed.port else ""
     return parsed._replace(netloc=f"{userinfo}{host}{port}", query="", fragment="").geturl()
-
-
-def _app_root() -> Path:
-    return Path(__file__).resolve().parent.parent.parent
 
 
 def expected_migration_heads() -> list[str]:
@@ -181,13 +186,13 @@ async def init_db() -> None:
     from case_api import models as _models  # noqa: F401
 
     try:
-        if _is_sqlite(_active_database_url):
+        if _engine_kind == "sqlite":
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
             _bootstrap_mode = "sqlite_direct"
             return
 
-        os.environ["ALEMBIC_SYNC_DATABASE_URL"] = _sync_url_for_alembic(_active_database_url)
+        os.environ["ALEMBIC_SYNC_DATABASE_URL"] = sync_url_for_alembic(_active_database_url)
         from alembic import command
         from alembic.config import Config
 
