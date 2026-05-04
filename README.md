@@ -164,14 +164,14 @@ docker compose -f https://raw.githubusercontent.com/pamu512/tarka/master/deploy/
 ```
 
 - `http://localhost:3000` — frontend  
-- `http://localhost:8000/v1/health` — decision-api  
+- `http://localhost:8000/decisions/v1/health` — decision plane (via **core-api**)  
 - `http://localhost:8003/v1/health` — integration-ingress
 
 ### GitHub Codespaces
 
 Use the badge at the top of this README, then in the terminal:  
 `docker compose -f deploy/docker-compose.lite.yml up -d --build`  
-(Ports **3000**, **8000**, **8002**, **8003** are forwarded from `.devcontainer/devcontainer.json`.)
+(Ports **3000**, **8000**, **8003**, **8004**, **8006**, **8010** are forwarded from `.devcontainer/devcontainer.json`.)
 
 ## Walkthrough video
 
@@ -244,19 +244,27 @@ python tarka.py info graph
 
 # Clean uninstall
 python tarka.py uninstall
+
+# Optional local forensic suite (Shadow — submodule tools/shadow)
+python tarka.py forensics              # Tauri desktop when Rust is installed, else web+API
+python tarka.py forensics --web        # Browser + FastAPI only
+python tarka.py forensics --init-only  # Clone submodule, .env, deps; do not launch
 ```
+
+See **[Local forensic suite (Shadow)](docs/docs/guides/local-forensics-suite.md)** for prerequisites, Postgres wiring, and data boundaries.
 
 ## Architecture
 
 ```
-SDK (Web/Android/iOS/Python) --> Decision API --> Redis (tags + scores)
+SDK (Web/Android/iOS/Python) --> Core API :8000 (/decisions, /cases) --> Redis (tags + scores)
                                      |
                    +-----------------+-----------------+
                    |                 |                 |
-              Rule Engine       ML Scoring        OPA (optional)
-              (no-code UI)    (ONNX + adaptive)
-              (shadow mode)   (drift detection)
-              (AI recommend)  (explainability)
+              Rule Engine       Signal API :8004   OPA (optional)
+              (no-code UI)    (/features, /ml, …)
+              (shadow mode)   (ONNX + adaptive)
+              (AI recommend)  (drift detection)
+              (explainability)
                    |
               OSINT Enrichment
               (Shodan, AbuseIPDB, GreyNoise,
@@ -266,11 +274,11 @@ SDK (Web/Android/iOS/Python) --> Decision API --> Redis (tags + scores)
               (community detection, fraud rings,
                risk propagation)
 
-Investigation UI --> Case API --> Graph Service
+Investigation UI --> Core API (/cases) --> Graph Service
                        |
                   AI Agent (LLM tool-use)
 
-Event Ingest --> NATS JetStream --> Analytics Sink --> ClickHouse *(full profile; Lite uses data-platform on Postgres)*
+Data plane :8007 --> NATS JetStream --> ClickHouse *(streaming + analytics profiles)*
 ```
 
 ## Components
@@ -278,20 +286,19 @@ Event Ingest --> NATS JetStream --> Analytics Sink --> ClickHouse *(full profile
 
 | Service               | Port | Description                                                                                                                         |
 | --------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `decision-api`        | 8000 | Fraud scoring, attestation, rule + ML orchestration, simulation, recommendations                                                    |
+| `core-api`            | 8000 | **Macroservice:** decision + case apps (`/decisions`, `/cases`); scoring, audit, workflows, SAR/STR                                 |
 | `graph-service`       | 8001 | Entity graph (Neo4j), GDS algorithms, tag storage on nodes                                                                          |
-| `case-api`            | 8002 | Investigation cases, workflow automation, SAR/STR generation                                                                        |
 | `integration-ingress` | 8003 | KYC webhooks, adapter registry, **OSINT enrichment (12 sources)**                                                                   |
-| `feature-service`     | 8004 | Feature engineering, enrichment, OSINT signal injection                                                                             |
-| `ml-scoring`          | 8005 | ONNX inference, adaptive autoencoder, drift detection, model registry                                                               |
+| `signal-api`          | 8004 | **Macroservice:** features, ML, calibration, counters, location (`/features`, `/ml`, …)                                            |
 | `investigation-agent` | 8006 | AI copilot with LLM tool-use loop **and embedded Slack/Teams/Lark chat bridge** (`chat_bridge`, former stand-alone service removed) |
-| `event-ingest`        | 8007 | NATS-based high-throughput event ingestion (`streaming` / `ingest` profiles; optional on **Lite** via `--profile ingest`)           |
-| `analytics-sink`      | 8008 | ClickHouse analytics writer                                                                                                         |
-| `graphql-gateway`     | 8010 | Unified GraphQL API                                                                                                                 |
+| `data-plane`          | 8007 | **Macroservice:** event ingest + analytics sink (same port; NATS + optional ClickHouse)                                            |
+| `graphql-gateway`     | 8010 | Unified GraphQL API (defaults target **core-api** mounts)                                                                         |
 | `frontend`            | 3000 | React dashboard (10 pages)                                                                                                          |
+| **Shadow (add-on)**   | 8742 (API) | Local forensic console — **Git submodule** [`tools/shadow`](tools/shadow); `python tarka.py forensics`; not in default Compose |
 
+Source modules under `services/decision-api`, `services/case-api`, `services/feature-service`, `services/ml-scoring`, etc. still power **core-api** / **signal-api**; CI and `tarka.py dev` can target either the macroservice or a single module.
 
-**Cross-service env alignment:** `case-api` uses `DECISION_API_URL` for downstream decision calls; `investigation-agent` uses `CASE_API_URL`, `DECISION_API_URL`, and optional `GRAPH_SERVICE_URL` / `UPSTREAM_API_KEY`. See [docs/docs/guides/deployment.md](docs/docs/guides/deployment.md) for defaults, [docs/docs/guides/service-ports.md](docs/docs/guides/service-ports.md) for ports and OpenAPI mapping, and `deploy/.env.example` for compose-oriented URLs.
+**Cross-service env alignment:** **core-api** sets in-process `DECISION_API_URL` for the case app; `investigation-agent` uses `CASE_API_URL` / `DECISION_API_URL` pointing at **`http://core-api:8000/{cases|decisions}`**, plus optional `GRAPH_SERVICE_URL` / `UPSTREAM_API_KEY`. See [docs/docs/guides/deployment.md](docs/docs/guides/deployment.md), [service-ports.md](docs/docs/guides/service-ports.md), and `deploy/.env.example`.
 
 
 | SDK                             | Platform                                                                                                                 |
