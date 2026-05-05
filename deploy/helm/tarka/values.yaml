@@ -1,0 +1,508 @@
+# Default values — override per environment (image registry, sizes, external endpoints).
+nameOverride: ""
+fullnameOverride: ""
+
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  podLabels: {}
+  podAnnotations: {}
+
+# Non-secret platform wiring (hosts, ports, stream names). Secrets live in `credentials`.
+platform:
+  nats:
+    host: nats
+    port: 4222
+    # Full URL built as nats://$(user):$(pass)@host:port when credentials.enabled; else nats://host:port
+    urlOverride: ""
+    decisionsStreamName: FRAUD_DECISIONS
+    decisionsSubjectPattern: "fraud.decisions.>"
+    eventsStreamName: FRAUD_EVENTS
+    eventsSubjectPrefix: fraud.events
+  clickhouse:
+    host: clickhouse
+    httpPort: 8123
+    nativePort: 9000
+    database: fraud
+  redis:
+    host: redis
+    port: 6379
+    database: "0"
+  postgres:
+    host: postgres
+    port: 5432
+    database: fraud
+    user: fraud
+
+credentials:
+  # When true, chart creates Secret `{{ include "tarka.fullname" . }}-credentials` (see templates/secret-credentials.yaml).
+  # Production: set false and set existingSecretName to a Secret managed by ExternalSecrets / Vault Agent.
+  create: false
+  existingSecretName: ""
+  clickhouseUser: default
+  clickhousePassword: ""
+  natsUsername: ""
+  natsPassword: ""
+  postgresPassword: ""
+  redisPassword: ""
+  apiKeys: ""
+  upstreamApiKey: ""
+
+imagePullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: ""
+
+# --- core-api (decision + case macroservice, port 8000) ---
+coreApi:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: tarka/core-api
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: "500m"
+      memory: 1Gi
+    limits:
+      cpu: "2000m"
+      memory: 2Gi
+  # Dockerfile runs Alembic before uvicorn — allow slow cold start.
+  startupProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    periodSeconds: 5
+    failureThreshold: 36
+    timeoutSeconds: 3
+  livenessProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /cases/v1/health
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  # Optional: set all three to skip Secret keys for local/CI (otherwise use credentials Secret).
+  databaseUrl: ""
+  redisUrl: ""
+  natsUrl: ""
+  env:
+    uvicornWorkers: "2"
+    rulesPath: /app/rules
+    rateLimitRpm: "1000"
+    rateLimitBurst: "60"
+    tenantBindingRequired: "false"
+    allowInsecureNoAuth: "false"
+    graphServiceUrl: ""
+    opaUrl: ""
+
+graphService:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: tarka/graph-service
+    tag: latest
+  service:
+    port: 8001
+  resources:
+    requests:
+      cpu: "250m"
+      memory: 512Mi
+    limits:
+      cpu: "1500m"
+      memory: 1536Mi
+  startupProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    periodSeconds: 5
+    failureThreshold: 24
+    timeoutSeconds: 3
+  livenessProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  env:
+    graphBackend: age
+    tenantBindingRequired: "false"
+
+integrationIngress:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: tarka/integration-ingress
+    tag: latest
+  service:
+    port: 8003
+  resources:
+    requests:
+      cpu: "200m"
+      memory: 384Mi
+    limits:
+      cpu: "1000m"
+      memory: 1Gi
+  startupProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    periodSeconds: 5
+    failureThreshold: 18
+    timeoutSeconds: 3
+  livenessProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  env:
+    tenantBindingRequired: "false"
+
+signalApi:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: tarka/signal-api
+    tag: latest
+  service:
+    port: 8004
+  resources:
+    requests:
+      cpu: "500m"
+      memory: 768Mi
+    limits:
+      cpu: "4000m"
+      memory: 4Gi
+  startupProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    periodSeconds: 5
+    failureThreshold: 30
+    timeoutSeconds: 3
+  livenessProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    initialDelaySeconds: 20
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  env:
+    disableMl: "false"
+    tritonUrl: http://triton:8020
+    tritonModelInput: X
+    tritonModelOutput: probabilities
+
+investigationAgent:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: tarka/investigation-agent
+    tag: latest
+  service:
+    port: 8006
+  resources:
+    requests:
+      cpu: "300m"
+      memory: 512Mi
+    limits:
+      cpu: "2000m"
+      memory: 2Gi
+  startupProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    periodSeconds: 5
+    failureThreshold: 30
+    timeoutSeconds: 3
+  livenessProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /v1/ready
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  env:
+    caseApiUrl: http://tarka-core-api:8000/cases
+    graphServiceUrl: http://tarka-graph-service:8001
+    decisionApiUrl: http://tarka-core-api:8000/decisions
+    llmProvider: openai
+    aiGovernanceProfile: global
+
+dataPlane:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: tarka/data-plane
+    tag: latest
+  service:
+    port: 8007
+  resources:
+    requests:
+      cpu: "400m"
+      memory: 768Mi
+    limits:
+      cpu: "2000m"
+      memory: 2Gi
+  startupProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    periodSeconds: 5
+    failureThreshold: 36
+    timeoutSeconds: 5
+  livenessProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    initialDelaySeconds: 20
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /v1/ready
+      port: http
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  env:
+    # When coreApi.enabled is false, set this to standalone decision-api (e.g. http://RELEASE-decision-api:8005).
+    decisionApiUrl: ""
+    ingestSchemaRegistryMode: enforce
+    allowInsecureNoAuth: "false"
+    decisionsStreamName: FRAUD_DECISIONS
+    decisionsSubjectPattern: "fraud.decisions.>"
+
+graphqlGateway:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: tarka/graphql-gateway
+    tag: latest
+  service:
+    port: 8010
+  resources:
+    requests:
+      cpu: "150m"
+      memory: 256Mi
+    limits:
+      cpu: "1000m"
+      memory: 1Gi
+  startupProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    periodSeconds: 5
+    failureThreshold: 18
+    timeoutSeconds: 3
+  livenessProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  env:
+    decisionApiUrl: http://tarka-core-api:8000/decisions
+    caseApiUrl: http://tarka-core-api:8000/cases
+    graphServiceUrl: http://tarka-graph-service:8001
+
+collaborationChatBridge:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: tarka/collaboration-chat-bridge
+    tag: latest
+  service:
+    port: 8009
+  resources:
+    requests:
+      cpu: "100m"
+      memory: 256Mi
+    limits:
+      cpu: "500m"
+      memory: 512Mi
+  startupProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    periodSeconds: 5
+    failureThreshold: 18
+    timeoutSeconds: 3
+  livenessProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  env:
+    investigationAgentUrl: ""
+
+# Standalone APIs (only when not using core-api macroservice).
+caseApiStandalone:
+  enabled: false
+  replicaCount: 2
+  # Optional: set to skip DATABASE_URL from the platform Secret (still use Secret for NATS_URL when configured).
+  databaseUrl: ""
+  natsUrl: ""
+  image:
+    repository: tarka/case-api
+    tag: latest
+  service:
+    port: 8002
+  resources:
+    requests:
+      cpu: "300m"
+      memory: 512Mi
+    limits:
+      cpu: "1500m"
+      memory: 1536Mi
+  startupProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    periodSeconds: 5
+    failureThreshold: 30
+    timeoutSeconds: 3
+  livenessProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  env:
+    decisionApiUrl: ""
+    graphServiceUrl: ""
+
+decisionApiStandalone:
+  enabled: false
+  replicaCount: 2
+  databaseUrl: ""
+  redisUrl: ""
+  natsUrl: ""
+  image:
+    repository: tarka/decision-api
+    tag: latest
+  service:
+    port: 8005
+  resources:
+    requests:
+      cpu: "500m"
+      memory: 1Gi
+    limits:
+      cpu: "2000m"
+      memory: 2Gi
+  startupProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    periodSeconds: 5
+    failureThreshold: 36
+    timeoutSeconds: 3
+  livenessProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /v1/health
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  env:
+    graphServiceUrl: ""
+    rulesPath: /app/rules
+    rateLimitRpm: "1000"
+    rateLimitBurst: "60"
+    tenantBindingRequired: "false"
+    allowInsecureNoAuth: "false"
+    opaUrl: ""

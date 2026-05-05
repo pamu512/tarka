@@ -1,0 +1,93 @@
+{{- $inlineCreds := and .Values.coreApi.databaseUrl .Values.coreApi.redisUrl .Values.coreApi.natsUrl }}
+{{- $useSecret := or .Values.credentials.create .Values.credentials.existingSecretName }}
+{{- if and .Values.signalApi.enabled (not $inlineCreds) (not $useSecret) }}
+{{- fail "signal-api: requires Secret with REDIS_URL (and optional API_KEYS) or coreApi inline credentials for REDIS_URL." }}
+{{- end }}
+{{- if .Values.signalApi.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-signal-api
+  labels:
+    {{- include "tarka.labels" . | nindent 4 }}
+    tarka.io/component: signal-api
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "tarka.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    tarka.io/component: signal-api
+  ports:
+    - name: http
+      port: {{ .Values.signalApi.service.port }}
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-signal-api
+  labels:
+    {{- include "tarka.labels" . | nindent 4 }}
+    tarka.io/component: signal-api
+spec:
+  replicas: {{ .Values.signalApi.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "tarka.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      tarka.io/component: signal-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "tarka.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        tarka.io/component: signal-api
+        {{- with .Values.global.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "tarka.serviceAccountName" . }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: signal-api
+          image: {{ include "tarka.containerImage" (dict "root" . "repository" .Values.signalApi.image.repository "tag" .Values.signalApi.image.tag) }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.signalApi.service.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "tarka.platformConfigMap" . }}
+          {{- if and $useSecret (not $inlineCreds) }}
+            - secretRef:
+                name: {{ include "tarka.credentialsSecret" . }}
+          {{- end }}
+          env:
+            {{- if $inlineCreds }}
+            - name: REDIS_URL
+              value: {{ .Values.coreApi.redisUrl | quote }}
+            - name: FEATURE_SERVICE_REDIS_URL
+              value: {{ .Values.coreApi.redisUrl | quote }}
+            - name: COUNTER_SERVICE_REDIS_URL
+              value: {{ .Values.coreApi.redisUrl | quote }}
+            {{- end }}
+            - name: DISABLE_ML
+              value: {{ .Values.signalApi.env.disableMl | quote }}
+            - name: TRITON_URL
+              value: {{ .Values.signalApi.env.tritonUrl | quote }}
+            - name: TRITON_MODEL_INPUT
+              value: {{ .Values.signalApi.env.tritonModelInput | quote }}
+            - name: TRITON_MODEL_OUTPUT
+              value: {{ .Values.signalApi.env.tritonModelOutput | quote }}
+          resources:
+            {{- toYaml .Values.signalApi.resources | nindent 12 }}
+          startupProbe:
+            {{- toYaml .Values.signalApi.startupProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.signalApi.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.signalApi.readinessProbe | nindent 12 }}
+{{- end }}

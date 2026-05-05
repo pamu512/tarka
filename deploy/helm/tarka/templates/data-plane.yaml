@@ -1,0 +1,129 @@
+{{- $inlineCreds := and .Values.coreApi.databaseUrl .Values.coreApi.redisUrl .Values.coreApi.natsUrl }}
+{{- $useSecret := or .Values.credentials.create .Values.credentials.existingSecretName }}
+{{- if and .Values.dataPlane.enabled (not $inlineCreds) (not $useSecret) }}
+{{- fail "data-plane: requires Secret (NATS_URL, REDIS_URL, CLICKHOUSE_*, UPSTREAM_API_KEY) or coreApi inline credentials." }}
+{{- end }}
+{{- if and .Values.dataPlane.enabled (not .Values.coreApi.enabled) (not .Values.dataPlane.env.decisionApiUrl) }}
+{{- fail "data-plane: when coreApi.enabled is false, set dataPlane.env.decisionApiUrl to the decision API base (e.g. http://RELEASE-decision-api:8005)." }}
+{{- end }}
+{{- if .Values.dataPlane.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-data-plane
+  labels:
+    {{- include "tarka.labels" . | nindent 4 }}
+    tarka.io/component: data-plane
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "tarka.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    tarka.io/component: data-plane
+  ports:
+    - name: http
+      port: {{ .Values.dataPlane.service.port }}
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-data-plane
+  labels:
+    {{- include "tarka.labels" . | nindent 4 }}
+    tarka.io/component: data-plane
+spec:
+  replicas: {{ .Values.dataPlane.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "tarka.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      tarka.io/component: data-plane
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "tarka.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        tarka.io/component: data-plane
+        {{- with .Values.global.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "tarka.serviceAccountName" . }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: data-plane
+          image: {{ include "tarka.containerImage" (dict "root" . "repository" .Values.dataPlane.image.repository "tag" .Values.dataPlane.image.tag) }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.dataPlane.service.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "tarka.platformConfigMap" . }}
+          {{- if and $useSecret (not $inlineCreds) }}
+            - secretRef:
+                name: {{ include "tarka.credentialsSecret" . }}
+          {{- end }}
+          env:
+            {{- if $inlineCreds }}
+            - name: NATS_URL
+              value: {{ .Values.coreApi.natsUrl | quote }}
+            - name: REDIS_URL
+              value: {{ .Values.coreApi.redisUrl | quote }}
+            {{- end }}
+            - name: CLICKHOUSE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tarka.platformConfigMap" . }}
+                  key: CLICKHOUSE_HOST
+            - name: CLICKHOUSE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tarka.platformConfigMap" . }}
+                  key: CLICKHOUSE_PORT
+            - name: CLICKHOUSE_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tarka.platformConfigMap" . }}
+                  key: CLICKHOUSE_DATABASE
+            {{- if and $useSecret (not $inlineCreds) }}
+            - name: CLICKHOUSE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tarka.credentialsSecret" . }}
+                  key: CLICKHOUSE_USER
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tarka.credentialsSecret" . }}
+                  key: CLICKHOUSE_PASSWORD
+            {{- end }}
+            - name: DECISION_API_URL
+              value: {{ coalesce .Values.dataPlane.env.decisionApiUrl (printf "http://%s-core-api:%v/decisions" (include "tarka.fullname" .) .Values.coreApi.service.port) | quote }}
+            - name: INGEST_SCHEMA_REGISTRY_MODE
+              value: {{ .Values.dataPlane.env.ingestSchemaRegistryMode | quote }}
+            - name: ALLOW_INSECURE_NO_AUTH
+              value: {{ .Values.dataPlane.env.allowInsecureNoAuth | quote }}
+            - name: DECISIONS_STREAM_NAME
+              value: {{ .Values.dataPlane.env.decisionsStreamName | quote }}
+            - name: DECISIONS_SUBJECT_PATTERN
+              value: {{ .Values.dataPlane.env.decisionsSubjectPattern | quote }}
+            {{- if $inlineCreds }}
+            - name: CLICKHOUSE_USER
+              value: {{ .Values.credentials.clickhouseUser | quote }}
+            - name: CLICKHOUSE_PASSWORD
+              value: {{ .Values.credentials.clickhousePassword | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.dataPlane.resources | nindent 12 }}
+          startupProbe:
+            {{- toYaml .Values.dataPlane.startupProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.dataPlane.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.dataPlane.readinessProbe | nindent 12 }}
+{{- end }}

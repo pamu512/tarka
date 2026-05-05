@@ -1,0 +1,92 @@
+{{- if and .Values.caseApiStandalone.enabled .Values.coreApi.enabled }}
+{{- fail "case-api-standalone: set coreApi.enabled false when deploying standalone case-api." }}
+{{- end }}
+{{- $useSecret := or .Values.credentials.create .Values.credentials.existingSecretName }}
+{{- $caseDbInline := .Values.caseApiStandalone.databaseUrl }}
+{{- if and .Values.caseApiStandalone.enabled (not $caseDbInline) (not $useSecret) }}
+{{- fail "case-api-standalone: set credentials.create or credentials.existingSecretName (DATABASE_URL), or set caseApiStandalone.databaseUrl." }}
+{{- end }}
+{{- if .Values.caseApiStandalone.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-case-api
+  labels:
+    {{- include "tarka.labels" . | nindent 4 }}
+    tarka.io/component: case-api
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "tarka.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    tarka.io/component: case-api
+  ports:
+    - name: http
+      port: {{ .Values.caseApiStandalone.service.port }}
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-case-api
+  labels:
+    {{- include "tarka.labels" . | nindent 4 }}
+    tarka.io/component: case-api
+spec:
+  replicas: {{ .Values.caseApiStandalone.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "tarka.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      tarka.io/component: case-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "tarka.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        tarka.io/component: case-api
+        {{- with .Values.global.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "tarka.serviceAccountName" . }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: case-api
+          image: {{ include "tarka.containerImage" (dict "root" . "repository" .Values.caseApiStandalone.image.repository "tag" .Values.caseApiStandalone.image.tag) }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.caseApiStandalone.service.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "tarka.platformConfigMap" . }}
+          {{- if $useSecret }}
+            - secretRef:
+                name: {{ include "tarka.credentialsSecret" . }}
+          {{- end }}
+          env:
+            {{- if $caseDbInline }}
+            - name: DATABASE_URL
+              value: {{ .Values.caseApiStandalone.databaseUrl | quote }}
+            {{- end }}
+            {{- if .Values.caseApiStandalone.natsUrl }}
+            - name: NATS_URL
+              value: {{ .Values.caseApiStandalone.natsUrl | quote }}
+            {{- end }}
+            - name: DECISION_API_URL
+              value: {{ coalesce .Values.caseApiStandalone.env.decisionApiUrl (printf "http://%s-decision-api:%v" (include "tarka.fullname" .) .Values.decisionApiStandalone.service.port) | quote }}
+            - name: GRAPH_SERVICE_URL
+              value: {{ coalesce .Values.caseApiStandalone.env.graphServiceUrl (printf "http://%s-graph-service:%v" (include "tarka.fullname" .) .Values.graphService.service.port) | quote }}
+          resources:
+            {{- toYaml .Values.caseApiStandalone.resources | nindent 12 }}
+          startupProbe:
+            {{- toYaml .Values.caseApiStandalone.startupProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.caseApiStandalone.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.caseApiStandalone.readinessProbe | nindent 12 }}
+{{- end }}

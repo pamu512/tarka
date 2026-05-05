@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tarka.platformConfigMap" . }}
+  labels:
+    {{- include "tarka.labels" . | nindent 4 }}
+data:
+  # --- NATS (JetStream consumer / producer wiring; passwords live in Secret as NATS_URL) ---
+  NATS_HOST: {{ .Values.platform.nats.host | quote }}
+  NATS_PORT: {{ .Values.platform.nats.port | toString | quote }}
+  DECISIONS_STREAM_NAME: {{ .Values.platform.nats.decisionsStreamName | quote }}
+  DECISIONS_SUBJECT_PATTERN: {{ .Values.platform.nats.decisionsSubjectPattern | quote }}
+  EVENTS_STREAM_NAME: {{ .Values.platform.nats.eventsStreamName | quote }}
+  EVENTS_SUBJECT_PREFIX: {{ .Values.platform.nats.eventsSubjectPrefix | quote }}
+  # --- ClickHouse (HTTP interface; auth in Secret) ---
+  CLICKHOUSE_HOST: {{ .Values.platform.clickhouse.host | quote }}
+  CLICKHOUSE_PORT: {{ .Values.platform.clickhouse.httpPort | toString | quote }}
+  CLICKHOUSE_HTTP_PORT: {{ .Values.platform.clickhouse.httpPort | toString | quote }}
+  CLICKHOUSE_NATIVE_PORT: {{ .Values.platform.clickhouse.nativePort | toString | quote }}
+  CLICKHOUSE_DATABASE: {{ .Values.platform.clickhouse.database | quote }}
+  # --- Redis (password in Secret REDIS_URL or inline coreApi.redisUrl) ---
+  REDIS_HOST: {{ .Values.platform.redis.host | quote }}
+  REDIS_PORT: {{ .Values.platform.redis.port | toString | quote }}
+  REDIS_DATABASE: {{ .Values.platform.redis.database | quote }}
+  # --- Postgres (non-secret fields; password only in Secret DATABASE_URL) ---
+  POSTGRES_HOST: {{ .Values.platform.postgres.host | quote }}
+  POSTGRES_PORT: {{ .Values.platform.postgres.port | toString | quote }}
+  POSTGRES_DATABASE: {{ .Values.platform.postgres.database | quote }}
+  POSTGRES_USER: {{ .Values.platform.postgres.user | quote }}
