@@ -1,0 +1,85 @@
+{{- $inlineCreds := and .Values.coreApi.databaseUrl .Values.coreApi.redisUrl .Values.coreApi.natsUrl }}
+{{- $useSecret := or .Values.credentials.create .Values.credentials.existingSecretName }}
+{{- if and .Values.graphService.enabled (not $inlineCreds) (not $useSecret) }}
+{{- fail "graph-service: requires the same Secret as core-api (DATABASE_URL) or set coreApi inline databaseUrl/redisUrl/natsUrl." }}
+{{- end }}
+{{- if .Values.graphService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-graph-service
+  labels:
+    {{- include "tarka.labels" . | nindent 4 }}
+    tarka.io/component: graph-service
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "tarka.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    tarka.io/component: graph-service
+  ports:
+    - name: http
+      port: {{ .Values.graphService.service.port }}
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-graph-service
+  labels:
+    {{- include "tarka.labels" . | nindent 4 }}
+    tarka.io/component: graph-service
+spec:
+  replicas: {{ .Values.graphService.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "tarka.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      tarka.io/component: graph-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "tarka.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        tarka.io/component: graph-service
+        {{- with .Values.global.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "tarka.serviceAccountName" . }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: graph-service
+          image: {{ include "tarka.containerImage" (dict "root" . "repository" .Values.graphService.image.repository "tag" .Values.graphService.image.tag) }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.graphService.service.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "tarka.platformConfigMap" . }}
+          {{- if and $useSecret (not $inlineCreds) }}
+            - secretRef:
+                name: {{ include "tarka.credentialsSecret" . }}
+          {{- end }}
+          env:
+            {{- if $inlineCreds }}
+            - name: DATABASE_URL
+              value: {{ .Values.coreApi.databaseUrl | quote }}
+            {{- end }}
+            - name: GRAPH_BACKEND
+              value: {{ .Values.graphService.env.graphBackend | quote }}
+            - name: TENANT_BINDING_REQUIRED
+              value: {{ .Values.graphService.env.tenantBindingRequired | quote }}
+          resources:
+            {{- toYaml .Values.graphService.resources | nindent 12 }}
+          startupProbe:
+            {{- toYaml .Values.graphService.startupProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.graphService.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.graphService.readinessProbe | nindent 12 }}
+{{- end }}

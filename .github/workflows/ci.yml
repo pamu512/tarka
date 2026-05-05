@@ -91,15 +91,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: services/decision-api/pyproject.toml
-      - name: Build Rust rule engine (PyO3)
-        run: pip install "maturin>=1.7,<2.0" && maturin develop --release
-        working-directory: services/rule-engine
       - name: Install dependencies
         run: pip install -e ".[dev]"
         working-directory: services/decision-api

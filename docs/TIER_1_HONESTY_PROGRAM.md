@@ -8,7 +8,7 @@
 - [ ] Track C: Executive KPIs — replace `_stub_kpis` with bounded CH queries + cache; fail closed if CH unavailable
 - [ ] Track D: SAR transport — durable filing rows + SFTP client + ACK worker or remove `schedule_ack_poll` until worker exists
 - [ ] Track E: Vendors — replace `echo_stub` with real adapter interface + config-driven HTTP + no fake scores in prod
-- [ ] Track F: Visual rules — either real Rego/OPA transpilation or stop returning `rego_stub` as if deployable
+- [x] Track F: Visual rules — **Deleted** Rego/OPA transpilation; **Deprecated** `POST /v1/rules/rego/compile` (410 Gone tombstone); JSON compile + native Rust `tarka_rule_engine` evaluation path only
 - [ ] Verification: CI grep gate for forbidden patterns; integration tests against compose Postgres+CH; docs aligned with behavior
 
 **Overview:** Eliminate Potemkin surfaces repo-wide—either ship durable execution against real stores or remove/disable the API until honest. Feature store rewrite is Track A; parallel tracks cover backtest, dashboards, SAR/FinCEN, and vendor registry.
@@ -107,13 +107,15 @@
 
 ---
 
-## Track F: Visual Rules / Rego
+## Track F: Visual rules (Rego transpilation — **Deleted** / route — **Deprecated**)
 
-**Problem:** [`services/decision-api/src/decision_api/rule_compiler_api.py`](../services/decision-api/src/decision_api/rule_compiler_api.py) — `_compile_to_rego_stub` emits non-enforcing Rego.
+**Problem:** Rego/OPA **transpilation** from the visual rule builder created a second, easy-to-diverge “source of truth” (generated policy vs production behavior), undermining auditability.
 
-**Target:**
+**Outcome:**
 
-- Either **real transpilation** to Rego (incremental but must be executable) or **stop returning** `rego_stub` as production-ready; return JSON pack only and document OPA separately.
+- **Deleted:** Transpilation surfaces and any workflow that implied Rego was the canonical rule artifact for JSON packs.
+- **Deprecated:** `POST /v1/rules/rego/compile` remains only as a **410 Gone** tombstone (OpenAPI `deprecated: true`) so legacy clients fail loudly with guidance to use JSON compile + native evaluation.
+- **Architecture:** Visual rules compile to JSON via `POST /v1/rules/visual/compile`. Production JSON evaluation is backed by the **`tarka_rule_engine`** Rust core (Python fallback when the extension is unavailable), with optional `when_ast` AND/OR trees—one engine, one shape in audit logs, reducing **logic drift** and keeping operator records **brutally honest**. Optional **OPA** at evaluate time (`OPA_URL`) is a **separate** HTTP integration and does not replace that native path.
 
 ---
 
@@ -135,7 +137,7 @@ flowchart LR
     C[Dashboards]
     D[SAR]
     E[Vendors]
-    F[Rego]
+    F[VisualRules]
   end
   subgraph verify [Phase5]
     CI[CIGrepGate]
