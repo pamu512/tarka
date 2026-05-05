@@ -1,6 +1,6 @@
 # Tarka: Audit-First Fraud Infrastructure
 
-> **Prove every signal and the story behind it.**
+> **Prove every signal.**
 
 Tarka — from Sanskrit तर्क (tarka), the method of logical hypothesis testing. **In Tarka, a fraud signal is a hypothesis. In our code, that hypothesis is only 'proven' once it is written to a durable audit log. If it isn't in the database, it didn't happen.**
 
