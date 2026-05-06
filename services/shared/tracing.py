@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import os
 import random
-from typing import Any
 
 from fastapi import FastAPI
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -40,7 +39,10 @@ def setup_tracing(app: FastAPI, service_name: str) -> None:
     try:
         from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor  # type: ignore
     except Exception:
-        log.info("OpenTelemetry not installed; running with traceparent middleware only (%s)", service_name)
+        log.info(
+            "OpenTelemetry not installed; running with traceparent middleware only (%s)",
+            service_name,
+        )
         return
 
     try:
@@ -48,4 +50,3 @@ def setup_tracing(app: FastAPI, service_name: str) -> None:
         log.info("OpenTelemetry FastAPI instrumentation enabled (%s)", service_name)
     except Exception as exc:
         log.warning("OpenTelemetry instrumentation failed (%s): %s", service_name, exc)
-

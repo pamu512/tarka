@@ -471,7 +471,7 @@ jobs:
         run: python -c "from data_plane.main import app; assert 'Data Plane' in app.title"
         working-directory: services/data-plane
         env:
-          PYTHONPATH: src:../shared
+          PYTHONPATH: src:../shared:../analytics-sink/src:../event-ingest/src
 
   test-chitragupta:
     needs: audit-stubs

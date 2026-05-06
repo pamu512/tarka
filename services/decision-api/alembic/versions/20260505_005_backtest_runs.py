@@ -23,20 +23,38 @@ def upgrade() -> None:
         "backtest_runs",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("tenant_id", sa.String(length=128), nullable=False),
-        sa.Column("status", sa.String(length=32), nullable=False, server_default="PENDING"),
+        sa.Column(
+            "status", sa.String(length=32), nullable=False, server_default="PENDING"
+        ),
         sa.Column("window_start", sa.String(length=32), nullable=False),
         sa.Column("window_end", sa.String(length=32), nullable=False),
         sa.Column("rule_pack_fingerprint_sha256", sa.String(length=64), nullable=False),
-        sa.Column("rule_pack_json", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column(
+            "rule_pack_json", postgresql.JSONB(astext_type=sa.Text()), nullable=False
+        ),
         sa.Column("analytics_table", sa.String(length=128), nullable=False),
         sa.Column("rows_processed", sa.Integer(), nullable=False, server_default="0"),
-        sa.Column("metrics_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column(
+            "metrics_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True
+        ),
         sa.Column("error_detail", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_backtest_runs_tenant_id"), "backtest_runs", ["tenant_id"], unique=False)
+    op.create_index(
+        op.f("ix_backtest_runs_tenant_id"), "backtest_runs", ["tenant_id"], unique=False
+    )
     op.create_index(
         op.f("ix_backtest_runs_rule_pack_fingerprint_sha256"),
         "backtest_runs",
@@ -46,6 +64,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_backtest_runs_rule_pack_fingerprint_sha256"), table_name="backtest_runs")
+    op.drop_index(
+        op.f("ix_backtest_runs_rule_pack_fingerprint_sha256"),
+        table_name="backtest_runs",
+    )
     op.drop_index(op.f("ix_backtest_runs_tenant_id"), table_name="backtest_runs")
     op.drop_table("backtest_runs")

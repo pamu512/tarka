@@ -97,7 +97,9 @@ class TestToolDispatch:
         assert TOOL_DISPATCH["get_entity_velocity"] is tool_get_entity_velocity
         assert TOOL_DISPATCH["get_decision_audit"] is tool_get_decision_audit
         assert TOOL_DISPATCH["subgraph_with_velocity"] is tool_subgraph_with_velocity
-        assert TOOL_DISPATCH["export_outcome_labeled_dataset"] is tool_export_outcome_labeled_dataset
+        assert (
+            TOOL_DISPATCH["export_outcome_labeled_dataset"] is tool_export_outcome_labeled_dataset
+        )
         assert TOOL_DISPATCH["ingest_labeled_rows"] is tool_ingest_labeled_rows
         assert TOOL_DISPATCH["get_stored_labeled_dataset"] is tool_get_stored_labeled_dataset
         assert TOOL_DISPATCH["run_replay_ab_comparison"] is tool_run_replay_ab_comparison
@@ -219,10 +221,20 @@ class TestIngestLabeledRows:
         tid = "12345678-1234-1234-1234-123456789abc"
         post_ok = MagicMock()
         post_ok.status_code = 200
-        post_ok.json.return_value = {"ok": True, "added": 1, "stored_total": 1, "max_per_analyst": 500}
+        post_ok.json.return_value = {
+            "ok": True,
+            "added": 1,
+            "stored_total": 1,
+            "max_per_analyst": 500,
+        }
         post_clear = MagicMock()
         post_clear.status_code = 200
-        post_clear.json.return_value = {"ok": True, "added": 0, "stored_total": 0, "max_per_analyst": 500}
+        post_clear.json.return_value = {
+            "ok": True,
+            "added": 0,
+            "stored_total": 0,
+            "max_per_analyst": 500,
+        }
         http = AsyncMock()
         http.post = AsyncMock(side_effect=[post_ok, post_clear])
 
@@ -249,8 +261,16 @@ class TestIngestLabeledRows:
 class TestReplayAbComparison:
     @pytest.mark.asyncio
     async def test_ab_calls_replay_twice(self):
-        rules_a = [{"id": "r1", "when": [{"field": "amount", "op": "gte", "value": 100}], "score_delta": 5}]
-        rules_b = [{"id": "r2", "when": [{"field": "amount", "op": "gte", "value": 200}], "score_delta": 10}]
+        rules_a = [
+            {"id": "r1", "when": [{"field": "amount", "op": "gte", "value": 100}], "score_delta": 5}
+        ]
+        rules_b = [
+            {
+                "id": "r2",
+                "when": [{"field": "amount", "op": "gte", "value": 200}],
+                "score_delta": 10,
+            }
+        ]
         replay_json = {
             "tenant_id": "t1",
             "events_evaluated": 3,
@@ -284,8 +304,12 @@ class TestReplayAbComparison:
 
     @pytest.mark.asyncio
     async def test_ab_sends_trace_ids_for_paired_replay(self):
-        rules_a = [{"id": "r1", "when": [{"field": "amount", "op": "gte", "value": 1}], "score_delta": 1}]
-        rules_b = [{"id": "r2", "when": [{"field": "amount", "op": "gte", "value": 2}], "score_delta": 2}]
+        rules_a = [
+            {"id": "r1", "when": [{"field": "amount", "op": "gte", "value": 1}], "score_delta": 1}
+        ]
+        rules_b = [
+            {"id": "r2", "when": [{"field": "amount", "op": "gte", "value": 2}], "score_delta": 2}
+        ]
         tid = "12345678-1234-1234-1234-123456789abc"
         replay_json = {
             "tenant_id": "t1",
@@ -311,7 +335,9 @@ class TestReplayAbComparison:
             mock_settings.allowed_analysts = "*"
             mock_settings.decision_api_url = "http://decision:8000"
             mock_settings.upstream_api_key = ""
-            out = await tool_run_replay_ab_comparison(http, "t1", "a1", rules_a, rules_b, limit=50, trace_ids=[tid])
+            out = await tool_run_replay_ab_comparison(
+                http, "t1", "a1", rules_a, rules_b, limit=50, trace_ids=[tid]
+            )
 
         body = http.post.call_args_list[0].kwargs["json"]
         assert body["trace_ids"] == [tid]

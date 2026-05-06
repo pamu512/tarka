@@ -2,7 +2,7 @@
 
 import json
 import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -41,11 +41,16 @@ class TestConditions:
 
     def test_contains_list(self):
         ctx = self._ctx(decision={"tags": ["sdk:bot", "sdk:vpn"]})
-        assert _evaluate_condition(ctx, {"field": "tags", "op": "contains", "value": "sdk:bot"}) is True
+        assert (
+            _evaluate_condition(ctx, {"field": "tags", "op": "contains", "value": "sdk:bot"})
+            is True
+        )
 
     def test_has_tag(self):
         ctx = self._ctx(case={"labels": ["high-risk"]})
-        assert _evaluate_condition(ctx, {"field": "", "op": "has_tag", "value": "high-risk"}) is True
+        assert (
+            _evaluate_condition(ctx, {"field": "", "op": "has_tag", "value": "high-risk"}) is True
+        )
 
 
 class TestActions:
@@ -86,7 +91,9 @@ class TestActions:
         mock_http = AsyncMock()
         mock_http.post = AsyncMock()
         ctx = WorkflowContext("test", {"id": "c1"})
-        await _execute_action(ctx, {"type": "send_webhook", "url": "https://example.com/hook"}, http=mock_http)
+        await _execute_action(
+            ctx, {"type": "send_webhook", "url": "https://example.com/hook"}, http=mock_http
+        )
         mock_http.post.assert_called_once()
         assert ctx.actions_executed[0]["status"] == "sent"
 
@@ -147,14 +154,26 @@ class TestEvaluateWorkflows:
 
 class TestLoadWorkflows:
     def test_load_from_dir(self):
-        wf = {"name": "test", "enabled": True, "triggers": ["case_created"], "conditions": [], "actions": []}
+        wf = {
+            "name": "test",
+            "enabled": True,
+            "triggers": ["case_created"],
+            "conditions": [],
+            "actions": [],
+        }
         with tempfile.TemporaryDirectory() as d:
             (Path(d) / "test.json").write_text(json.dumps(wf))
             load_workflows(d)
             assert len(get_workflows()) == 1
 
     def test_skip_disabled(self):
-        wf = {"name": "disabled", "enabled": False, "triggers": ["case_created"], "conditions": [], "actions": []}
+        wf = {
+            "name": "disabled",
+            "enabled": False,
+            "triggers": ["case_created"],
+            "conditions": [],
+            "actions": [],
+        }
         with tempfile.TemporaryDirectory() as d:
             (Path(d) / "disabled.json").write_text(json.dumps(wf))
             load_workflows(d)
@@ -167,29 +186,29 @@ class TestLoadWorkflows:
 
 class TestSLA:
     def test_sla_deadline_critical(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         deadline = compute_sla_deadline("critical", now)
         assert deadline == now + timedelta(hours=1)
 
     def test_sla_deadline_low(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         deadline = compute_sla_deadline("low", now)
         assert deadline == now + timedelta(hours=72)
 
     def test_breached(self):
-        old = datetime.now(timezone.utc) - timedelta(hours=25)
+        old = datetime.now(UTC) - timedelta(hours=25)
         assert is_sla_breached("medium", old) is True
 
     def test_not_breached(self):
-        recent = datetime.now(timezone.utc) - timedelta(minutes=5)
+        recent = datetime.now(UTC) - timedelta(minutes=5)
         assert is_sla_breached("medium", recent) is False
 
     def test_sla_deadline_override_hours(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         deadline = compute_sla_deadline("low", now, sla_hours_override=3)
         assert deadline == now + timedelta(hours=3)
 
     def test_breached_respects_override(self):
-        old = datetime.now(timezone.utc) - timedelta(hours=5)
+        old = datetime.now(UTC) - timedelta(hours=5)
         assert is_sla_breached("medium", old, sla_hours_override=2) is True
         assert is_sla_breached("medium", old, sla_hours_override=200) is False

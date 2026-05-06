@@ -23,10 +23,24 @@ def validate_rule_pack(pack: dict) -> list[str]:
         errors.append(f"Too many rules: {len(rules)} (max 200)")
     for i, rule in enumerate(rules):
         rid = rule.get("id", f"rule_{i}")
-        conditions = rule.get("when", [])
+        conditions = rule.get("when", []) or []
+        when_ast = rule.get("when_ast")
+        has_ast = when_ast is not None
+        has_flat = isinstance(conditions, list) and len(conditions) > 0
+        if has_ast and has_flat:
+            errors.append(
+                f"Rule {rid}: cannot set both non-empty when and when_ast (ambiguous)"
+            )
+        if not has_ast and (not conditions or len(conditions) == 0):
+            errors.append(f"Rule {rid}: requires non-empty when or when_ast")
         if len(conditions) > 20:
-            errors.append(f"Rule {rid}: too many conditions ({len(conditions)}, max 20)")
+            errors.append(
+                f"Rule {rid}: too many conditions ({len(conditions)}, max 20)"
+            )
         for j, c in enumerate(conditions):
+            if not isinstance(c, dict):
+                errors.append(f"Rule {rid}, condition {j}: must be an object")
+                continue
             if not c.get("field"):
                 errors.append(f"Rule {rid}, condition {j}: missing 'field'")
             if c.get("op") == "regex":

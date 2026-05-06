@@ -51,4 +51,3 @@ if __name__ == "__main__":
     except Exception as exc:
         print(f"service contract test failed: {exc}", file=sys.stderr)
         raise SystemExit(1)
-

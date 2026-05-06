@@ -12,8 +12,8 @@ import logging
 import os
 import re
 import sys
-from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from contextlib import asynccontextmanager, suppress
+from datetime import UTC, datetime
 from typing import Any
 
 import clickhouse_connect
@@ -22,7 +22,9 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request
 
 from analytics_sink.config import settings
 
-_shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
+_shared_dir = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared")
+)
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
 from observability import get_metrics, setup_observability  # noqa: E402
@@ -83,7 +85,12 @@ async def require_api_key(request: Request) -> None:
         return
     keys = _get_api_keys()
     if not keys:
-        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         if allow:
             return
         raise HTTPException(
@@ -94,7 +101,9 @@ async def require_api_key(request: Request) -> None:
     if header not in keys:
         raise HTTPException(status_code=401, detail="invalid or missing API key")
     tenant_map = parse_api_key_tenant_map()
-    await enforce_tenant_access(request, allowed_tenants=tenant_map.get(header, set()) if tenant_map else None)
+    await enforce_tenant_access(
+        request, allowed_tenants=tenant_map.get(header, set()) if tenant_map else None
+    )
 
 
 def _safe_db_name() -> str:
@@ -196,7 +205,9 @@ def _flush_batch(db: str, batch: list[dict[str, Any]]) -> None:
                 d.get("signal_tags", []),
                 d.get("ml_score"),
                 json.dumps(d.get("payload", {})),
-                datetime.fromisoformat(d["created_at"]) if d.get("created_at") else datetime.now(timezone.utc),
+                datetime.fromisoformat(d["created_at"])
+                if d.get("created_at")
+                else datetime.now(UTC),
             ]
         )
     try:
@@ -218,10 +229,8 @@ def _flush_batch(db: str, batch: list[dict[str, Any]]) -> None:
                 "created_at",
             ],
         )
-        try:
+        with suppress(Exception):
             get_metrics().inc("ch_rows_written", len(rows))
-        except Exception:
-            pass
     except Exception as e:
         log.error("ClickHouse insert failed: %s", e)
 
@@ -285,7 +294,10 @@ async def query_decisions(
         params["entity_id"] = entity_id
     q = f"SELECT * FROM {db}.decision_events WHERE {' AND '.join(where)} ORDER BY created_at DESC LIMIT %(limit)s"
     result = _ch_client.query(q, parameters=params)
-    return {"rows": [dict(zip(result.column_names, row)) for row in result.result_rows], "total": len(result.result_rows)}
+    return {
+        "rows": [dict(zip(result.column_names, row, strict=False)) for row in result.result_rows],
+        "total": len(result.result_rows),
+    }
 
 
 @app.get("/v1/analytics/hourly")
@@ -304,7 +316,9 @@ async def hourly_stats(
     ORDER BY hour DESC
     """
     result = _ch_client.query(q, parameters={"tenant_id": tenant_id, "days": days})
-    return {"rows": [dict(zip(result.column_names, row)) for row in result.result_rows]}
+    return {
+        "rows": [dict(zip(result.column_names, row, strict=False)) for row in result.result_rows]
+    }
 
 
 @app.get("/v1/analytics/entity/{entity_id}")
@@ -319,8 +333,13 @@ async def entity_history(entity_id: str, tenant_id: str, limit: int = 50):
     WHERE tenant_id = %(tenant_id)s AND entity_id = %(entity_id)s
     ORDER BY created_at DESC LIMIT %(limit)s
     """
-    result = _ch_client.query(q, parameters={"tenant_id": tenant_id, "entity_id": entity_id, "limit": limit})
-    return {"entity_id": entity_id, "events": [dict(zip(result.column_names, row)) for row in result.result_rows]}
+    result = _ch_client.query(
+        q, parameters={"tenant_id": tenant_id, "entity_id": entity_id, "limit": limit}
+    )
+    return {
+        "entity_id": entity_id,
+        "events": [dict(zip(result.column_names, row, strict=False)) for row in result.result_rows],
+    }
 
 
 @app.get("/v1/analytics/top-entities")
@@ -349,7 +368,12 @@ async def top_entities(
             "limit": limit,
         },
     )
-    return {"decision": decision, "entities": [dict(zip(result.column_names, row)) for row in result.result_rows]}
+    return {
+        "decision": decision,
+        "entities": [
+            dict(zip(result.column_names, row, strict=False)) for row in result.result_rows
+        ],
+    }
 
 
 @app.get("/v1/analytics/scorecard")
@@ -382,7 +406,7 @@ async def decision_scorecard(
     """
     base_params = {"tenant_id": tenant_id, "days": days}
     r_dec = _ch_client.query(q_decisions, parameters=base_params)
-    decision_rows = [dict(zip(r_dec.column_names, row)) for row in r_dec.result_rows]
+    decision_rows = [dict(zip(r_dec.column_names, row, strict=False)) for row in r_dec.result_rows]
     total_events = sum(int(row.get("event_count", 0)) for row in decision_rows) or 1
 
     decisions_summary = []
@@ -415,7 +439,9 @@ async def decision_scorecard(
     LIMIT 10
     """
     r_rules = _ch_client.query(q_rules, parameters=base_params)
-    rules_summary = [dict(zip(r_rules.column_names, row)) for row in r_rules.result_rows]
+    rules_summary = [
+        dict(zip(r_rules.column_names, row, strict=False)) for row in r_rules.result_rows
+    ]
 
     # Headline metrics.
     deny_rate = round((deny_count / total_events) * 100.0, 2) if total_events else 0.0

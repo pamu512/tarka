@@ -15,6 +15,7 @@ dependencies = [
   "pydantic-settings>=2.13.1",
   "pydantic>=2.13.0",
   "paramiko>=3.5.0",
+  "bleach>=6.2.0",
 ]
 
 [project.optional-dependencies]

@@ -43,7 +43,10 @@ def test_parse_evaluate_response_ok():
 
 def test_parse_accepts_optional_graph_decision_explanation():
     body = _minimal_evaluate_json()
-    body["graph_decision_explanation"] = {"schema_id": "tarka.graph_decision_explanation/v1", "factors": []}
+    body["graph_decision_explanation"] = {
+        "schema_id": "tarka.graph_decision_explanation/v1",
+        "factors": [],
+    }
     out = parse_evaluate_response(body)
     assert out["graph_decision_explanation"]["schema_id"] == "tarka.graph_decision_explanation/v1"
 

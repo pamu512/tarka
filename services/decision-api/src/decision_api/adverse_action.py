@@ -60,7 +60,9 @@ def adverse_action_codes_for_hits(rule_hits: list[str]) -> list[str]:
     for _, hit in indexed:
         code = mapping.get(hit)
         if not code:
-            log.warning("adverse_action: rule hit %r has no mapped adverse-action code", hit)
+            log.warning(
+                "adverse_action: rule hit %r has no mapped adverse-action code", hit
+            )
             continue
         if code in seen:
             continue
@@ -70,7 +72,9 @@ def adverse_action_codes_for_hits(rule_hits: list[str]) -> list[str]:
             break
 
     if not out:
-        log.warning("adverse_action: no mapped codes for non-empty rule_hits; using G99 fallback")
+        log.warning(
+            "adverse_action: no mapped codes for non-empty rule_hits; using G99 fallback"
+        )
         return [_G99_FALLBACK]
 
     return out

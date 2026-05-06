@@ -1,22 +1,26 @@
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field, model_validator
-
 from tarka_shared.observability import get_metrics
 
 router = APIRouter(prefix="/v1/calibrate", tags=["calibration"])
 
 
 def _data_dir() -> Path:
-    base = (os.environ.get("CALIBRATION_SERVICE_DATA_DIR") or os.environ.get("ML_SCORING_CALIBRATION_DATA_DIR") or "").strip()
+    base = (
+        os.environ.get("CALIBRATION_SERVICE_DATA_DIR")
+        or os.environ.get("ML_SCORING_CALIBRATION_DATA_DIR")
+        or ""
+    ).strip()
     p = Path(base) if base else (Path(__file__).resolve().parents[3] / "data" / "calibration")
     p.mkdir(parents=True, exist_ok=True)
     return p
@@ -54,7 +58,7 @@ class CalibrationBand(BaseModel):
     adjustment: float = Field(ge=-1.0, le=1.0)
 
     @model_validator(mode="after")
-    def _ordered(self) -> "CalibrationBand":
+    def _ordered(self) -> CalibrationBand:
         if self.max < self.min:
             raise ValueError("max must be >= min")
         return self
@@ -102,7 +106,9 @@ def _active_profile_for(tenant_id: str, profile_id: str) -> dict[str, Any]:
     for p in profiles:
         if int(p.get("version", 0)) == int(active):
             return p
-    raise HTTPException(404, f"active profile version missing for tenant={tenant_id} profile={profile_id}")
+    raise HTTPException(
+        404, f"active profile version missing for tenant={tenant_id} profile={profile_id}"
+    )
 
 
 def _append_snapshot(row: dict[str, Any]) -> str:
@@ -170,7 +176,7 @@ async def publish_profile(body: CalibrationProfileIn) -> dict[str, Any]:
         "expected_calibration_version": body.expected_calibration_version,
         "fallback": bool(body.fallback),
         "bands": [b.model_dump() for b in body.bands],
-        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(UTC).isoformat(),
     }
     bucket.append(payload)
     bucket.sort(key=lambda x: int(x.get("version", 0)))
@@ -203,7 +209,7 @@ async def activate_profile(tenant_id: str, profile_id: str, body: dict[str, int]
 @router.post("/snapshots", status_code=201)
 async def append_snapshot(body: CalibrationSnapshotIn) -> dict[str, Any]:
     row = {
-        "ts": datetime.now(timezone.utc).isoformat(),
+        "ts": datetime.now(UTC).isoformat(),
         "tenant_id": body.tenant_id,
         "profile_id": body.profile_id,
         "sample_count": body.sample_count,
@@ -291,10 +297,8 @@ async def score(body: CalibrationScoreRequest, request: Request) -> dict[str, An
         drift_penalty = -min(0.15, float(ds) * 0.25)
     delta = band_adj + velocity_penalty + drift_penalty
     calibrated = _clamp01(baseline + delta)
-    try:
+    with contextlib.suppress(Exception):
         get_metrics().inc("tarka_calibration_scores_total")
-    except Exception:
-        pass
     return {
         "baseline_confidence": round(baseline, 4),
         "calibrated_confidence": round(calibrated, 4),
@@ -311,4 +315,3 @@ async def score(body: CalibrationScoreRequest, request: Request) -> dict[str, An
             "band_adjustment": round(band_adj, 4),
         },
     }
-

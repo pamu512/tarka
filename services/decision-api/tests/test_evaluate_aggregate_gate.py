@@ -10,7 +10,7 @@ import pytest
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 
-from aggregate_fake_redis import FakeRedis
+from .aggregate_fake_redis import FakeRedis
 from decision_api.aggregates import AggregateStore
 
 """Evaluate path + AggregateStore: counters must reach rule features (parity / TPS guard)."""
@@ -60,28 +60,60 @@ async def aggregate_eval_client():
             mock_redis.check_consortium_signal = AsyncMock(return_value=None)
             with patch("decision_api.main.load_rules"):
                 with patch("decision_api.main.agg_store", store):
-                    with patch("decision_api.main.evaluate_json_rules", side_effect=capture_rules):
-                        with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
-                            with patch("decision_api.main._fetch_ml_score", new_callable=AsyncMock, return_value=(None, {})):
-                                with patch("decision_api.main._fetch_graph_risk", new_callable=AsyncMock, return_value=None):
-                                    with patch("decision_api.main._get_list_store", return_value=list_store):
-                                        with patch("decision_api.main.fingerprint_store") as fp:
+                    with patch(
+                        "decision_api.main.evaluate_json_rules",
+                        side_effect=capture_rules,
+                    ):
+                        with patch(
+                            "decision_api.main.evaluate_opa_or_raise",
+                            new_callable=AsyncMock,
+                            return_value=None,
+                        ):
+                            with patch(
+                                "decision_api.main._fetch_ml_score",
+                                new_callable=AsyncMock,
+                                return_value=(None, {}),
+                            ):
+                                with patch(
+                                    "decision_api.main._fetch_graph_risk",
+                                    new_callable=AsyncMock,
+                                    return_value=None,
+                                ):
+                                    with patch(
+                                        "decision_api.main._get_list_store",
+                                        return_value=list_store,
+                                    ):
+                                        with patch(
+                                            "decision_api.main.fingerprint_store"
+                                        ) as fp:
                                             fp._client = None
-                                            from decision_api.main import app, get_session
+                                            from decision_api.main import (
+                                                app,
+                                                get_session,
+                                            )
 
                                             app.state.http = AsyncMock()
                                             app.dependency_overrides = {}
-                                            app.dependency_overrides[get_session] = _session_override
+                                            app.dependency_overrides[get_session] = (
+                                                _session_override
+                                            )
                                             transport = httpx.ASGITransport(app=app)
-                                            async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+                                            async with httpx.AsyncClient(
+                                                transport=transport,
+                                                base_url="http://testserver",
+                                            ) as c:
                                                 c._captured = captured
                                                 c._mock_redis = mock_redis
                                                 yield c
-                                            app.dependency_overrides.pop(get_session, None)
+                                            app.dependency_overrides.pop(
+                                                get_session, None
+                                            )
 
 
 @pytest.mark.asyncio
-async def test_evaluate_second_request_sees_prior_aggregate_counts(aggregate_eval_client):
+async def test_evaluate_second_request_sees_prior_aggregate_counts(
+    aggregate_eval_client,
+):
     """After one evaluate, the next for same tenant/entity must inject event_count_* from AggregateStore."""
     c = aggregate_eval_client
     body = {
@@ -99,8 +131,12 @@ async def test_evaluate_second_request_sees_prior_aggregate_counts(aggregate_eva
     feats_first, _ = c._captured[0]
     feats_second, _ = c._captured[1]
 
-    assert feats_first.get("event_count_1h", 0) == 0, "first request should not see prior aggregates"
-    assert int(feats_second.get("event_count_1h", 0)) >= 1, "second request must see recorded event"
+    assert feats_first.get("event_count_1h", 0) == 0, (
+        "first request should not see prior aggregates"
+    )
+    assert int(feats_second.get("event_count_1h", 0)) >= 1, (
+        "second request must see recorded event"
+    )
 
 
 @pytest.mark.asyncio
@@ -108,7 +144,12 @@ async def test_evaluate_calls_redis_merge_and_cache_score(aggregate_eval_client)
     c = aggregate_eval_client
     r = await c.post(
         "/v1/decisions/evaluate",
-        json={"tenant_id": "t_redis", "event_type": "login", "entity_id": "e1", "payload": {}},
+        json={
+            "tenant_id": "t_redis",
+            "event_type": "login",
+            "entity_id": "e1",
+            "payload": {},
+        },
     )
     assert r.status_code == 200
     c._mock_redis.merge_tags.assert_awaited()

@@ -27,8 +27,8 @@ import datetime as _dt
 from collections.abc import Iterator
 from typing import Any
 
-from analytics.engine import BaseAnalyticsEngine
 from analytics import queries
+from analytics.engine import BaseAnalyticsEngine
 
 
 def _row_dict(columns: tuple[str, ...], row: tuple[Any, ...]) -> dict[str, Any]:
@@ -39,10 +39,7 @@ def _cursor_from_last_row(row: dict[str, Any]) -> tuple[str, str]:
     """Return (created_at_iso, trace_id_str) for the next keyset predicate."""
     ca = row.get("created_at")
     if isinstance(ca, _dt.datetime):
-        if ca.tzinfo is None:
-            ca = ca.replace(tzinfo=_dt.timezone.utc)
-        else:
-            ca = ca.astimezone(_dt.timezone.utc)
+        ca = ca.replace(tzinfo=_dt.UTC) if ca.tzinfo is None else ca.astimezone(_dt.UTC)
         ca_s = ca.strftime("%Y-%m-%d %H:%M:%S")
     else:
         ca_s = str(ca or "")
@@ -68,7 +65,9 @@ def iter_backtest_row_chunks(
     while True:
         has_cursor = last_ca is not None
         if engine.backend == "duckdb":
-            sql = queries.render_backtest_stream_page_duckdb(tbl, chunk_size=chunk_size, has_cursor=has_cursor)
+            sql = queries.render_backtest_stream_page_duckdb(
+                tbl, chunk_size=chunk_size, has_cursor=has_cursor
+            )
             binds: list[Any] = [tenant_id, window_start_s, window_end_s]
             if has_cursor:
                 binds.extend([last_ca, last_ca, last_tr or ""])

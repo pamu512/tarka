@@ -15,7 +15,16 @@ def test_validate_rejects_platform_custody_keys():
 
 
 def test_policy_document_shape():
-    doc = policy_document(providers=[{"id": "stripe_radar", "name": "Stripe", "category": "payments", "doc_url": "https://stripe.com/docs/radar"}])
+    doc = policy_document(
+        providers=[
+            {
+                "id": "stripe_radar",
+                "name": "Stripe",
+                "category": "payments",
+                "doc_url": "https://stripe.com/docs/radar",
+            }
+        ]
+    )
     assert doc["schema"] == "tarka.byok_policy/v1"
     assert doc["version"] == 1
     assert "secret_storage_rules" in doc
@@ -44,7 +53,9 @@ async def test_byok_policy_http():
 
         transport = httpx.ASGITransport(app=app)
         key = (os.environ.get("API_KEYS") or "").split(",")[0].strip()
-        async with httpx.AsyncClient(transport=transport, base_url="http://test", headers={"X-API-Key": key}) as c:
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://test", headers={"X-API-Key": key}
+        ) as c:
             r = await c.get("/v1/vault/byok-policy")
         app.dependency_overrides = {}
     assert r.status_code == 200

@@ -21,6 +21,32 @@ function mockRandomAlpha(length: number): string {
   return s;
 }
 
+/** Simulated poll counts for ``GET .../ml/export/pit-parquet/jobs/{id}`` in dev mocks. */
+const pitParquetMockJobPolls = new Map<string, number>();
+
+/** Stateful blocked cells for ``/api/ingress/v1/compliance/residency/matrix`` mocks (``tenant::vendor``). */
+const residencyMatrixMockCells: Record<string, boolean> = {};
+
+function mockResidencyMatrixPayload(): AnyObj {
+  return {
+    tenants: [
+      { id: "demo", label: "Demo / sandbox", residency_region: "GLOBAL" },
+      { id: "acme-corp", label: "Acme Corp", residency_region: "US" },
+      { id: "eu-financials", label: "EU Financials Ltd", residency_region: "EU" },
+    ],
+    vendors: [
+      { key: "shodan", label: "Shodan", processing_region: "US", source: "osint" },
+      { key: "rdap", label: "Rdap", processing_region: "GLOBAL", source: "osint" },
+      { key: "jira", label: "Jira", processing_region: "US", source: "connector" },
+    ],
+    cells: { ...residencyMatrixMockCells },
+    legend: {
+      toggle_on: "Outbound blocked (pre-socket)",
+      toggle_off: "Not administratively blocked (automatic residency rules still apply)",
+    },
+  };
+}
+
 let mockCases: AnyObj[] = [
   { id: "c1", title: "Velocity spike - fraud_frank", status: "open", priority: "critical", entity_id: "fraud_frank", tenant_id: "demo", trace_id: "tr-1001", assigned_team: "fraud-ops", labels: ["velocity", "ring"], queue_score: 92, recommended_action: "manual_review", created_at: nowIso(), updated_at: nowIso() },
   { id: "c2", title: "ATO attempt - user_bob", status: "investigating", priority: "high", entity_id: "user_bob", tenant_id: "demo", trace_id: "tr-1002", assigned_team: "ato", labels: ["ato", "vpn"], queue_score: 78, recommended_action: "step_up_auth", created_at: nowIso(), updated_at: nowIso() },
@@ -32,16 +58,16 @@ let mockListEntries: AnyObj[] = [
   { list_type: "blocklist", tenant_id: "demo", entity_id: "fraud_frank", reason: "Known fraud ring", created_by: "seed", expires_at: null, metadata: {}, created_at: nowIso() },
   { list_type: "watchlist", tenant_id: "demo", entity_id: "mule_ivan", reason: "Mule behavior", created_by: "seed", expires_at: null, metadata: {}, created_at: nowIso() },
 ];
-let mockInstalledIntegrations: AnyObj[] = [
+const mockInstalledIntegrations: AnyObj[] = [
   { provider_id: "sift", status: "active", category: "device_intelligence" },
   { provider_id: "ip_quality_score", status: "active", category: "ip_intelligence" },
   { provider_id: "jira", status: "active", category: "crm" },
 ];
 
 /** Pending / approved integration requests (GitHub ticket only after admin approve). */
-let mockIntegrationRequests: AnyObj[] = [];
+const mockIntegrationRequests: AnyObj[] = [];
 
-let mockAdminUsers: AnyObj[] = [
+const mockAdminUsers: AnyObj[] = [
   {
     user_id: "u-alex",
     name: "Alex Chen",
@@ -174,7 +200,7 @@ let mockAdminUsers: AnyObj[] = [
   },
 ];
 
-let mockAdminSessions: AnyObj[] = [
+const mockAdminSessions: AnyObj[] = [
   {
     session_id: "sess-alex-1",
     user_id: "u-alex",
@@ -242,7 +268,7 @@ let mockAdminSessions: AnyObj[] = [
   },
 ];
 
-let mockPlatformAudit: AnyObj[] = [
+const mockPlatformAudit: AnyObj[] = [
   {
     id: "ae-1",
     ts: new Date(Date.now() - 120_000).toISOString(),
@@ -355,7 +381,7 @@ let mockPlatformAudit: AnyObj[] = [
   },
 ];
 
-let mockAdminApprovals: AnyObj[] = [
+const mockAdminApprovals: AnyObj[] = [
   {
     id: "ap-pending-1",
     status: "pending",
@@ -797,6 +823,7 @@ function ensureMockSarIntents(caseId: string): AnyObj[] {
         sar_artifact_id: id("sar-artifact"),
         created_at: ts,
         updated_at: ts,
+        investigative_notes_html: "<p></p>",
         audit_log: [
           {
             id: id("aud"),
@@ -821,6 +848,35 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   const method = (init?.method ?? "GET").toUpperCase();
   const path = parsePath(url);
   const body = safeParseRequestBody(init);
+
+  if (path.includes("/api/core/v1/omni-search") && method === "GET") {
+    return {
+      entities: [
+        { entity_id: "ent_acme_1", tenant_id: "demo", label: "ent_acme_1", subtitle: "tenant demo" },
+      ],
+      cases: [
+        {
+          id: "550e8400-e29b-41d4-a716-446655440000",
+          tenant_id: "demo",
+          title: "Acme investigation",
+          entity_id: "ent_acme_1",
+          trace_id: "tr-001",
+          status: "open",
+          label: "Acme investigation",
+          subtitle: "ent_acme_1 · tr-001",
+        },
+      ],
+      rules: [
+        {
+          rule_id: "high_amount_payment",
+          pack_file: "default.json",
+          pack_name: "Default",
+          label: "high_amount_payment",
+          subtitle: "High amount",
+        },
+      ],
+    };
+  }
 
   if (path.includes("/api/investigation/v1/governance") && method === "GET") {
     return {
@@ -899,6 +955,102 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
     };
   }
 
+  if (path.includes("/api/decisions/v1/ml/export/pit-parquet/jobs/") && method === "GET") {
+    const parts = path.split("/").filter(Boolean);
+    const jobId = parts[parts.length - 1] ?? "unknown";
+    const prev = pitParquetMockJobPolls.get(jobId) ?? 0;
+    const n = prev + 1;
+    pitParquetMockJobPolls.set(jobId, n);
+    if (n >= 5) {
+      pitParquetMockJobPolls.delete(jobId);
+      return {
+        job_id: jobId,
+        status: "SUCCEEDED",
+        progress_pct: 100,
+        rows_written: 12_500,
+        chunks_processed: 5,
+        max_rows: 500_000,
+        error: null,
+        result: {
+          rows_written: 12_500,
+          chunks_processed: 5,
+          local_path: "/tmp/mock-pit-export.parquet",
+          artifact_uri: "file:///tmp/mock-pit-export.parquet",
+          presigned_get_url: null,
+          pit_note:
+            "Features are taken only from warehouse payload_json at ingest (evaluation_time = created_at). Labels come from case-api disputes / case labels by trace_id.",
+        },
+      };
+    }
+    return {
+      job_id: jobId,
+      status: n <= 1 ? "PENDING" : "RUNNING",
+      progress_pct: Math.min(95, n * 18),
+      rows_written: n * 2400,
+      chunks_processed: Math.max(0, n - 1),
+      max_rows: 500_000,
+      error: null,
+      result: null,
+    };
+  }
+
+  if (path.includes("/api/decisions/v1/ml/export/pit-parquet/jobs") && method === "POST") {
+    const jid = `mock-pit-${mockRandomAlpha(10)}`;
+    pitParquetMockJobPolls.set(jid, 0);
+    return { job_id: jid, status: "PENDING" };
+  }
+
+  if (path.includes("/api/ingress/v1/compliance/residency/audit/export.csv")) {
+    return [
+      "id,tenant_id,component,vendor_key,tenant_region,vendor_region,outcome,detail,request_url_preview,created_at",
+      `mock-row-1,demo,osint,shodan,EU,US,compliance_block,"Synthetic mock row",https://example.test/mock,${nowIso()}`,
+    ].join("\n");
+  }
+
+  if (path.includes("/api/ingress/v1/compliance/residency/audit") && method === "GET" && !path.includes("export.csv")) {
+    return {
+      items: [
+        {
+          id: "mock-row-1",
+          tenant_id: "demo",
+          component: "osint",
+          vendor_key: "shodan",
+          tenant_region: "EU",
+          vendor_region: "US",
+          outcome: "compliance_block",
+          detail: "Synthetic mock row (VITE_USE_API_MOCKS)",
+          request_url_preview: "https://example.test/mock",
+          created_at: nowIso(),
+        },
+      ],
+      total: 1,
+      page: 1,
+      page_size: 25,
+      has_more: false,
+    };
+  }
+
+  if (path.includes("/api/ingress/v1/compliance/residency/matrix")) {
+    if (method === "GET") {
+      return mockResidencyMatrixPayload();
+    }
+    if (method === "PUT") {
+      const tid = String((body as AnyObj).tenant_id ?? "").trim();
+      const vk = String((body as AnyObj).vendor_key ?? "").trim();
+      const blocked = Boolean((body as AnyObj).blocked);
+      if (!tid || !vk) {
+        return null;
+      }
+      const ck = `${tid}::${vk}`;
+      if (blocked) {
+        residencyMatrixMockCells[ck] = true;
+      } else {
+        delete residencyMatrixMockCells[ck];
+      }
+      return { ok: true, ...mockResidencyMatrixPayload() };
+    }
+  }
+
   if (path.includes("/api/decisions/v1/decisions/evaluate")) {
     return {
       trace_id: id("tr"),
@@ -952,6 +1104,20 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
         ],
       },
     };
+  }
+  if (path.includes("/api/decisions/v1/micro-dev/onboarding/status")) {
+    return {
+      lifecycle_state: "ready",
+      engine: "sqlite",
+      analytics_store: "clickhouse",
+      checks: [],
+    };
+  }
+  if (path.includes("/api/decisions/v1/micro-dev/onboarding/verify/sqlite")) {
+    return { status: "ok", check: "sqlite_permissions", detail: { scope: "mock" } };
+  }
+  if (path.includes("/api/decisions/v1/micro-dev/onboarding/verify/duckdb")) {
+    return { status: "ok", check: "duckdb_bindings", detail: { scope: "mock" } };
   }
   if (path.includes("/api/decisions/v1/challenge-policies")) {
     return {
@@ -1056,8 +1222,10 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
     };
   }
   if (path.includes("/api/decisions/v1/audit/")) {
+    const traceId = (path.split("/").pop() ?? "demo").split("?")[0] ?? "demo";
+    const malformedDemo = traceId === "tr-malformed-trace";
     return {
-      trace_id: path.split("/").pop(),
+      trace_id: traceId,
       entity_id: "demo_entity",
       tenant_id: "demo",
       event_type: "payment",
@@ -1066,6 +1234,17 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       tags: ["synthetic"],
       rule_hits: ["velocity_guard"],
       recommended_action: "manual_review",
+      fallback_reason: malformedDemo ? "partial_snapshot" : null,
+      step_trace: malformedDemo
+        ? ("not-a-json-array" as unknown)
+        : [
+            { step: "ingest_normalize", status: "ok", duration_ms: 1 },
+            { step: "list_checks", status: "ok", duration_ms: 0 },
+            { step: "sanctions_vendor", status: "skipped", reason: "routing: alternate path — primary vendor timeout" },
+            { step: "velocity_rules", status: "ok", duration_ms: 4 },
+            { step: "ml_host", status: "failed", reason: "http_error: upstream 503", duration_ms: 120 },
+            { step: "aggregate_decision", status: "skipped", reason: "downstream: ml_host failed" },
+          ],
       inference_context: {
         schema_version: "3",
         calibration_profile: "default",
@@ -1112,6 +1291,70 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
     };
   }
 
+  if (path.includes("/api/cases/v1/cases/ops/sar-transport/board")) {
+    const qs = path.includes("?") ? path.split("?")[1] : "";
+    const tid = new URLSearchParams(qs).get("tenant_id") ?? "demo";
+    const now = nowIso();
+    return {
+      schema: "tarka.sar_transport_board/v1",
+      tenant_id: tid,
+      status_mapping: {
+        pending_db_statuses: ["APPROVED"],
+        claimed_db_statuses: ["SFTP_QUEUED"],
+        uploaded_db_statuses: ["TRANSMITTED", "ACKNOWLEDGED"],
+        failed_db_statuses: ["FAILED"],
+        note: "Mock board for offline UI.",
+      },
+      columns: {
+        pending: {
+          count: 1,
+          items: [
+            {
+              id: "00000000-0000-4000-8000-000000000001",
+              tenant_id: tid,
+              case_id: "00000000-0000-4000-8000-000000000002",
+              status: "APPROVED",
+              sar_artifact_id: "00000000-0000-4000-8000-000000000003",
+              created_at: now,
+              updated_at: now,
+            },
+          ],
+        },
+        claimed: {
+          count: 1,
+          items: [
+            {
+              id: "00000000-0000-4000-8000-000000000011",
+              tenant_id: tid,
+              case_id: "00000000-0000-4000-8000-000000000012",
+              status: "SFTP_QUEUED",
+              sar_artifact_id: "00000000-0000-4000-8000-000000000013",
+              created_at: now,
+              updated_at: now,
+            },
+          ],
+        },
+        uploaded: {
+          count: 1,
+          items: [
+            {
+              id: "00000000-0000-4000-8000-000000000021",
+              tenant_id: tid,
+              case_id: "00000000-0000-4000-8000-000000000022",
+              status: "ACKNOWLEDGED",
+              sar_artifact_id: "00000000-0000-4000-8000-000000000023",
+              created_at: now,
+              updated_at: now,
+            },
+          ],
+        },
+      },
+      failed: { count: 0, items: [] },
+    };
+  }
+  if (path.includes("/api/cases/v1/cases/ops/sar-transport/force-sftp-sync") && method === "POST") {
+    return { ok: true, published: true, processed_one: false, cooldown_seconds: 60 };
+  }
   if (path.includes("/api/cases/v1/cases/ops/kpis")) {
     return {
       tenant_id: "demo",
@@ -1252,6 +1495,66 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
     }
     return { sar_filing_intent_id: intentId, status: intent.status };
   }
+  if (path.match(/\/cases\/([^/]+)\/sar\/intents\/([^/]+)\/detail(\?|$)/) && method === "GET") {
+    const m = path.match(/\/cases\/([^/]+)\/sar\/intents\/([^/]+)\/detail/);
+    const caseId = m?.[1] ?? "c1";
+    const intentId = m?.[2] ?? "";
+    const intents = ensureMockSarIntents(caseId);
+    const intent = intents.find((x) => x.id === intentId) as AnyObj | undefined;
+    if (!intent) {
+      return {
+        case_id: caseId,
+        intent_id: intentId,
+        status: "PENDING_REVIEW",
+        sar_artifact_id: null,
+        created_at: nowIso(),
+        updated_at: nowIso(),
+        investigative_notes_html: "",
+        notes_editor_locked: false,
+        fincen_submission_sha256_hex: null,
+        audit_log: [],
+      };
+    }
+    const locked = intent.status === "TRANSMITTED" || intent.status === "ACKNOWLEDGED";
+    const sha =
+      locked
+        ? "a".repeat(64)
+        : null;
+    return {
+      case_id: caseId,
+      intent_id: intentId,
+      status: intent.status,
+      sar_artifact_id: intent.sar_artifact_id ?? null,
+      created_at: intent.created_at ?? nowIso(),
+      updated_at: intent.updated_at ?? nowIso(),
+      investigative_notes_html: String(intent.investigative_notes_html ?? ""),
+      notes_editor_locked: locked,
+      fincen_submission_sha256_hex: sha,
+      audit_log: intent.audit_log ?? [],
+    };
+  }
+  if (path.match(/\/sar\/intents\/[^/]+\/investigative-notes/) && method === "PATCH") {
+    const m = path.match(/\/cases\/([^/]+)\/sar\/intents\/([^/]+)\/investigative-notes/);
+    const caseId = m?.[1] ?? "c1";
+    const intentId = m?.[2] ?? "";
+    const intents = ensureMockSarIntents(caseId);
+    const intent = intents.find((x) => x.id === intentId) as AnyObj | undefined;
+    if (!intent) {
+      return { ok: true, intent_id: intentId, notes_editor_locked: false, investigative_notes_html: "" };
+    }
+    if (intent.status === "TRANSMITTED" || intent.status === "ACKNOWLEDGED") {
+      return null;
+    }
+    const html = typeof body.notes_html === "string" ? body.notes_html : "";
+    intent.investigative_notes_html = html;
+    intent.updated_at = nowIso();
+    return {
+      ok: true,
+      intent_id: intentId,
+      notes_editor_locked: false,
+      investigative_notes_html: html,
+    };
+  }
   if (path.includes("/api/cases/v1/cases") && method === "GET") {
     if (path.match(/\/api\/cases\/v1\/cases\/[^/]+$/)) return mockCases.find((c) => c.id === path.split("/").pop()) ?? mockCases[0];
     return { items: mockCases };
@@ -1270,11 +1573,68 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   if (path.includes("/api/graph/v1/subgraph")) {
     return { nodes: [{ id: "fraud_frank", labels: ["User"], properties: { risk: "high" } }, { id: "dev_emulator_003", labels: ["Device"], properties: { is_emulator: true } }], edges: [{ from_id: "fraud_frank", to_id: "dev_emulator_003", type: "USED", properties: { shared: true } }] };
   }
+  if (path.includes("/api/graph/v1/entities/") && path.includes("/deep-context")) {
+    const m = path.match(/\/entities\/([^/]+)\/deep-context/);
+    const ext = m ? decodeURIComponent(m[1]) : "unknown";
+    if (ext === "__missing__") {
+      return { not_found: true };
+    }
+    const u = new URL(url, "http://localhost");
+    const tid = u.searchParams.get("tenant_id") ?? "demo";
+    return {
+      entity_id: ext,
+      tenant_id: tid,
+      historical_transactions: [
+        {
+          external_id: "pay_demo_1",
+          trace_id: "tr-1001",
+          amount: 49.99,
+          currency: "USD",
+          decision: "review",
+          ip: "198.51.100.2",
+          occurred_at: nowIso(),
+        },
+      ],
+      ip_addresses: [
+        { ip: "198.51.100.2", source: "property:client_ip", last_seen: nowIso(), event_count: 3 },
+        { ip: "203.0.113.9", source: "demo_neighbor", last_seen: null, event_count: 1 },
+      ],
+      risk_history: [
+        {
+          recorded_at: nowIso(),
+          risk_score: 0.88,
+          risk_factors: ["shared_device", "velocity"],
+          source: "current_entity_risk",
+        },
+      ],
+    };
+  }
   if (path.includes("/api/graph/v1/analytics/entity-risk")) {
     return { entity_id: "fraud_frank", risk_score: 0.94, risk_factors: ["shared_device", "velocity"], connected_flagged_count: 4, community_size: 6 };
   }
   if (path.includes("/api/graph/v1/analytics/communities")) return { communities: [{ community_id: 1, member_count: 6, member_ids: ["fraud_frank"], member_labels: ["User"], shared_attributes: ["device"] }] };
-  if (path.includes("/api/graph/v1/analytics/risk-propagation")) return { entities: [{ entity_id: "mule_ivan", entity_labels: ["User"], propagated_risk_score: 0.76, distance: 1, path_description: "fraud_frank -> mule_ivan" }] };
+  if (path.includes("/api/graph/v1/analytics/risk-propagation")) {
+    const u = new URL(url, "http://localhost");
+    const seed = u.searchParams.get("entity_id") ?? "fraud_frank";
+    return {
+      entities: [
+        {
+          entity_id: seed,
+          entity_labels: ["User"],
+          propagated_risk_score: 0.91,
+          distance: 0,
+          path_description: `${seed} (anchor)`,
+        },
+        {
+          entity_id: "dev_emulator_003",
+          entity_labels: ["Device"],
+          propagated_risk_score: 0.62,
+          distance: 1,
+          path_description: `${seed} -> dev_emulator_003`,
+        },
+      ],
+    };
+  }
   if (path.includes("/api/graph/v1/analytics/fraud-rings")) return { rings: [{ ring_members: ["fraud_frank", "fraud_gina"], ring_size: 2, relationships: ["COLLABORATES_WITH"], aggregate_tags: ["ring"] }] };
 
   if (path.includes("/api/analytics/v1/analytics/decisions")) return { rows: [{ decision: "deny", count: 28 }], total: 120 };
@@ -1518,8 +1878,17 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   if (path.includes("/api/ingress/v1/integrations/install") && method === "POST") return { ok: true, integration: body };
   if (path.includes("/api/ingress/v1/integrations/uninstall") && method === "POST") return { ok: true };
   if (path.includes("/api/ingress/v1/integrations/test-connectivity")) return { provider_id: body.provider_id ?? "demo", status: "pass", latency_ms: 110, missing_fields: [], required_config_fields: [] };
-  if (path.includes("/api/ingress/v1/integrations/config/")) return { tenant_id: "demo", provider_id: path.split("/").pop(), required_config_fields: ["api_key"], masked_config: { api_key: "****demo" } };
-  if (path.includes("/api/ingress/v1/integrations/configure")) return { ok: true, masked_config: { api_key: "****demo" } };
+  if (path.includes("/api/ingress/v1/integrations/config/")) {
+    return {
+      tenant_id: "demo",
+      provider_id: path.split("/").pop(),
+      required_config_fields: ["api_key"],
+      masked_config: { api_key: "••••9abc" },
+    };
+  }
+  if (path.includes("/api/ingress/v1/integrations/configure")) {
+    return { ok: true, masked_config: { api_key: "••••9abc", password: "••••wxyz" } };
+  }
   if (path.includes("/api/ingress/v1/vault/kms")) return { provider: "local", active_key_id: "kms-local-1", rotation_enabled: true, rotation_interval_seconds: 86400, config_valid: true, config_issues: [] };
   if (path.includes("/api/ingress/v1/vault/rotation-jobs")) return { jobs: [{ id: "job-1", status: "completed", old_key_id: "k1", new_key_id: "k2", processed: 150, rotated: 150, failed: 0 }] };
   if (path.includes("/api/ingress/v1/slo")) return { service: "integration-ingress", availability_target: 99.9, latency_target_ms_p95: 300, error_budget_window_days: 30, current: { kms_provider: "local", rotation_jobs: 1, rotation_failures: 0 } };

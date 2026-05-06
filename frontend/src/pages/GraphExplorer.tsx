@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   graph,
   type SubgraphResponse,
@@ -6,6 +7,7 @@ import {
   type FraudRingResult,
   type GraphNode,
 } from "../api/client";
+import { GraphContextPanel } from "../components/GraphContextPanel";
 import RiskScore from "../components/RiskScore";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
@@ -58,6 +60,7 @@ const GRAPH_OPTIONS: Options = {
 };
 
 export default function GraphExplorer() {
+  const [searchParams] = useSearchParams();
   const [entityId, setEntityId] = useState("");
   const [tenantId, setTenantId] = useState("");
   const [graphData, setGraphData] = useState<SubgraphResponse | null>(null);
@@ -73,29 +76,44 @@ export default function GraphExplorer() {
   const containerRef = useRef<HTMLDivElement>(null);
   const networkRef = useRef<Network | null>(null);
 
+  const loadSubgraph = useCallback(async (eid: string, tid: string) => {
+    const e = eid.trim();
+    const t = tid.trim();
+    if (!e || !t) return;
+    setLoading(true);
+    setError(null);
+    setGraphData(null);
+    setSelectedNode(null);
+    setRiskScore(null);
+    setCommunities([]);
+    setFraudRings([]);
+    setSidePanel(null);
+    try {
+      const data = await graph.subgraph(e, t, 2);
+      setGraphData(data);
+    } catch (err) {
+      setError(toUserFacingError(err, { subject: "Entity graph", action: "load graph exploration data" }));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const handleSearch = useCallback(
     async (e?: React.FormEvent) => {
       e?.preventDefault();
-      if (!entityId.trim() || !tenantId.trim()) return;
-      setLoading(true);
-      setError(null);
-      setGraphData(null);
-      setSelectedNode(null);
-      setRiskScore(null);
-      setCommunities([]);
-      setFraudRings([]);
-      setSidePanel(null);
-      try {
-        const data = await graph.subgraph(entityId.trim(), tenantId.trim(), 2);
-        setGraphData(data);
-      } catch (e) {
-        setError(toUserFacingError(e, { subject: "Entity graph", action: "load graph exploration data" }));
-      } finally {
-        setLoading(false);
-      }
+      await loadSubgraph(entityId, tenantId);
     },
-    [entityId, tenantId],
+    [entityId, tenantId, loadSubgraph],
   );
+
+  useEffect(() => {
+    const e = searchParams.get("entity_id")?.trim() ?? "";
+    const t = searchParams.get("tenant_id")?.trim() ?? "";
+    if (!e || !t) return;
+    setEntityId(e);
+    setTenantId(t);
+    void loadSubgraph(e, t);
+  }, [searchParams, loadSubgraph]);
 
   useEffect(() => {
     if (!graphData || !containerRef.current) return;
@@ -277,44 +295,6 @@ export default function GraphExplorer() {
               </div>
             )}
 
-            {/* Selected Node */}
-            {sidePanel === "node" && selectedNode && (
-              <div className="bg-surface-900 border border-surface-700 rounded-xl p-4 space-y-2">
-                <h3 className="text-sm font-semibold text-gray-200">
-                  Node Details
-                </h3>
-                <div>
-                  <span className="text-xs text-gray-500">ID</span>
-                  <p className="text-sm text-gray-200 font-mono break-all">
-                    {selectedNode.id}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-xs text-gray-500">Type</span>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full"
-                      style={{
-                        backgroundColor:
-                          NODE_COLORS[selectedNode.labels?.[0] ?? ""] ?? "#6b7280",
-                      }}
-                    />
-                    <span className="text-sm text-gray-200">
-                      {selectedNode.labels?.join(", ") ?? "Unknown"}
-                    </span>
-                  </div>
-                </div>
-                {Object.entries(selectedNode.properties).map(([k, v]) => (
-                  <div key={k}>
-                    <span className="text-xs text-gray-500">{k}</span>
-                    <p className="text-sm text-gray-300 break-all">
-                      {String(v)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-
             {/* Communities */}
             {communities.length > 0 && (
               <div className="bg-surface-900 border border-surface-700 rounded-xl p-4 space-y-2">
@@ -400,6 +380,17 @@ export default function GraphExplorer() {
           </div>
         )}
       </div>
+
+      <GraphContextPanel
+        open={sidePanel === "node" && Boolean(selectedNode)}
+        onClose={() => {
+          setSidePanel(null);
+          setSelectedNode(null);
+        }}
+        tenantId={tenantId.trim()}
+        entityId={selectedNode?.id ?? null}
+        nodeHint={selectedNode ?? undefined}
+      />
     </div>
   );
 }

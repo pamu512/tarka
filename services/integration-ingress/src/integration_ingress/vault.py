@@ -14,11 +14,13 @@ from integration_ingress.models import IntegrationSecret
 
 
 def _mask(value: str) -> str:
+    """UI-safe hint: never show full secret; only bullets + last four characters."""
     if not value:
         return ""
-    if len(value) <= 4:
-        return "*" * len(value)
-    return f"{value[:2]}{'*' * (len(value) - 4)}{value[-2:]}"
+    s = str(value)
+    if len(s) <= 4:
+        return "••••"
+    return f"••••{s[-4:]}"
 
 
 class InMemoryVault:
@@ -38,7 +40,9 @@ class InMemoryVault:
         return bytes(out)
 
     def _encrypt(self, config: dict[str, Any], *, key_id: str) -> tuple[str, str]:
-        payload = json.dumps({str(k): str(v) for k, v in config.items()}, sort_keys=True).encode("utf-8")
+        payload = json.dumps({str(k): str(v) for k, v in config.items()}, sort_keys=True).encode(
+            "utf-8"
+        )
         # Envelope style: generate a data key, wrap with KMS, encrypt payload locally.
         data_key = hashlib.sha256(os.urandom(32)).digest()
         self._encrypt_calls += 1
@@ -49,7 +53,9 @@ class InMemoryVault:
             base64.urlsafe_b64encode(wrapped).decode("utf-8"),
         )
 
-    def _decrypt(self, ciphertext: str, *, key_id: str, wrapped_key: str | None = None) -> dict[str, str]:
+    def _decrypt(
+        self, ciphertext: str, *, key_id: str, wrapped_key: str | None = None
+    ) -> dict[str, str]:
         try:
             raw_cipher = base64.urlsafe_b64decode(ciphertext.encode("utf-8"))
             if wrapped_key:
@@ -72,7 +78,9 @@ class InMemoryVault:
             return {}
         return {}
 
-    async def set_config(self, session: AsyncSession, tenant_id: str, provider_id: str, config: dict[str, Any]) -> None:
+    async def set_config(
+        self, session: AsyncSession, tenant_id: str, provider_id: str, config: dict[str, Any]
+    ) -> None:
         filtered = {str(k): str(v) for k, v in (config or {}).items() if str(v).strip()}
         encrypted, wrapped = self._encrypt(filtered, key_id=self.active_key_id)
         result = await session.execute(
@@ -97,7 +105,9 @@ class InMemoryVault:
                 )
             )
 
-    async def get_config(self, session: AsyncSession, tenant_id: str, provider_id: str) -> dict[str, str]:
+    async def get_config(
+        self, session: AsyncSession, tenant_id: str, provider_id: str
+    ) -> dict[str, str]:
         result = await session.execute(
             select(IntegrationSecret).where(
                 IntegrationSecret.tenant_id == tenant_id,
@@ -113,7 +123,9 @@ class InMemoryVault:
             wrapped_key=row.wrapped_key,
         )
 
-    async def get_masked_config(self, session: AsyncSession, tenant_id: str, provider_id: str) -> dict[str, str]:
+    async def get_masked_config(
+        self, session: AsyncSession, tenant_id: str, provider_id: str
+    ) -> dict[str, str]:
         plain = await self.get_config(session, tenant_id, provider_id)
         return {k: _mask(v) for k, v in plain.items()}
 
@@ -121,13 +133,17 @@ class InMemoryVault:
         self.active_key_id = key_id
         self._kms.set_key_material(key_id, material)
 
-    async def rotate_all_secrets(self, session: AsyncSession, new_key_id: str, new_key_material: str) -> int:
+    async def rotate_all_secrets(
+        self, session: AsyncSession, new_key_id: str, new_key_material: str
+    ) -> int:
         self.set_active_key(new_key_id, new_key_material)
         result = await session.execute(select(IntegrationSecret))
         rows = result.scalars().all()
         rotated = 0
         for row in rows:
-            plain = self._decrypt(row.ciphertext, key_id=row.key_id or new_key_id, wrapped_key=row.wrapped_key)
+            plain = self._decrypt(
+                row.ciphertext, key_id=row.key_id or new_key_id, wrapped_key=row.wrapped_key
+            )
             row.ciphertext, row.wrapped_key = self._encrypt(plain, key_id=new_key_id)
             row.key_id = new_key_id
             rotated += 1
@@ -143,13 +159,24 @@ class InMemoryVault:
         offset: int = 0,
     ) -> tuple[int, int, int]:
         self.set_active_key(new_key_id, new_key_material)
-        total = int((await session.execute(select(func.count()).select_from(IntegrationSecret))).scalar_one())
-        result = await session.execute(select(IntegrationSecret).order_by(IntegrationSecret.created_at.asc()).offset(offset).limit(batch_size))
+        total = int(
+            (
+                await session.execute(select(func.count()).select_from(IntegrationSecret))
+            ).scalar_one()
+        )
+        result = await session.execute(
+            select(IntegrationSecret)
+            .order_by(IntegrationSecret.created_at.asc())
+            .offset(offset)
+            .limit(batch_size)
+        )
         rows = result.scalars().all()
         processed = len(rows)
         rotated = 0
         for row in rows:
-            plain = self._decrypt(row.ciphertext, key_id=row.key_id or new_key_id, wrapped_key=row.wrapped_key)
+            plain = self._decrypt(
+                row.ciphertext, key_id=row.key_id or new_key_id, wrapped_key=row.wrapped_key
+            )
             row.ciphertext, row.wrapped_key = self._encrypt(plain, key_id=new_key_id)
             row.key_id = new_key_id
             rotated += 1

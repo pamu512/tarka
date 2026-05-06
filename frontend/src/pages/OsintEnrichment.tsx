@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { osint } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
@@ -422,6 +423,12 @@ export default function OsintEnrichment() {
         <PageTitle module="osint">OSINT Enrichment</PageTitle>
         <p className="text-sm text-gray-500 mt-1">
           Investigate entities with open-source intelligence signals
+        </p>
+        <p className="text-xs text-gray-600 mt-2">
+          <Link to="/integrations#secure-osint-plugin-hub" className="text-sky-400/90 hover:underline">
+            Secure OSINT plugin hub — configure vendor API keys
+          </Link>{" "}
+          (password fields, TLS in production, masked after save).
         </p>
       </div>
 

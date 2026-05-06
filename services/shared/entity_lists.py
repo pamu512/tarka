@@ -20,7 +20,7 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 log = logging.getLogger(__name__)
@@ -42,14 +42,14 @@ class ListEntry:
 
     def __post_init__(self):
         if not self.created_at:
-            self.created_at = datetime.now(timezone.utc).isoformat()
+            self.created_at = datetime.now(UTC).isoformat()
 
     def is_expired(self) -> bool:
         if not self.expires_at:
             return False
         try:
             exp = datetime.fromisoformat(self.expires_at)
-            return datetime.now(timezone.utc) > exp
+            return datetime.now(UTC) > exp
         except (ValueError, TypeError):
             return False
 
@@ -65,7 +65,9 @@ class ListEntry:
 class ListCheckResult:
     found: bool
     list_type: ListType | None = None
-    action: str = "evaluate"  # "allow", "deny", "evaluate" (test_bypass evaluates but overrides decision)
+    action: str = (
+        "evaluate"  # "allow", "deny", "evaluate" (test_bypass evaluates but overrides decision)
+    )
     reason: str = ""
     entry: ListEntry | None = None
 
@@ -80,7 +82,9 @@ class ListStore(ABC):
     async def close(self) -> None: ...
 
     @abstractmethod
-    async def add(self, list_type: ListType, tenant_id: str, entity_id: str, **kwargs) -> ListEntry: ...
+    async def add(
+        self, list_type: ListType, tenant_id: str, entity_id: str, **kwargs
+    ) -> ListEntry: ...
 
     @abstractmethod
     async def remove(self, list_type: ListType, tenant_id: str, entity_id: str) -> bool: ...
@@ -89,10 +93,14 @@ class ListStore(ABC):
     async def check(self, tenant_id: str, entity_id: str) -> ListCheckResult: ...
 
     @abstractmethod
-    async def get_all(self, list_type: ListType, tenant_id: str, limit: int = 200) -> list[ListEntry]: ...
+    async def get_all(
+        self, list_type: ListType, tenant_id: str, limit: int = 200
+    ) -> list[ListEntry]: ...
 
     @abstractmethod
-    async def get_entry(self, list_type: ListType, tenant_id: str, entity_id: str) -> ListEntry | None: ...
+    async def get_entry(
+        self, list_type: ListType, tenant_id: str, entity_id: str
+    ) -> ListEntry | None: ...
 
     @abstractmethod
     async def count(self, list_type: ListType, tenant_id: str) -> int: ...
@@ -145,12 +153,16 @@ class MemoryListStore(ListStore):
                 return self._build_result(entry)
         return ListCheckResult(found=False, action="evaluate")
 
-    async def get_all(self, list_type: ListType, tenant_id: str, limit: int = 200) -> list[ListEntry]:
+    async def get_all(
+        self, list_type: ListType, tenant_id: str, limit: int = 200
+    ) -> list[ListEntry]:
         prefix = f"{list_type}:{tenant_id}:"
         entries = [e for k, e in self._data.items() if k.startswith(prefix) and not e.is_expired()]
         return entries[:limit]
 
-    async def get_entry(self, list_type: ListType, tenant_id: str, entity_id: str) -> ListEntry | None:
+    async def get_entry(
+        self, list_type: ListType, tenant_id: str, entity_id: str
+    ) -> ListEntry | None:
         entry = self._data.get(self._key(list_type, tenant_id, entity_id))
         return entry if entry and not entry.is_expired() else None
 
@@ -184,7 +196,9 @@ class RedisListStore(ListStore):
     async def add(self, list_type: ListType, tenant_id: str, entity_id: str, **kwargs) -> ListEntry:
         await self.connect()
         entry = ListEntry(list_type=list_type, tenant_id=tenant_id, entity_id=entity_id, **kwargs)
-        await self._client.hset(self._key(list_type, tenant_id), entity_id, json.dumps(entry.to_dict()))
+        await self._client.hset(
+            self._key(list_type, tenant_id), entity_id, json.dumps(entry.to_dict())
+        )
         return entry
 
     async def remove(self, list_type: ListType, tenant_id: str, entity_id: str) -> bool:
@@ -203,7 +217,9 @@ class RedisListStore(ListStore):
                     await self._client.hdel(self._key(lt, tenant_id), entity_id)
         return ListCheckResult(found=False, action="evaluate")
 
-    async def get_all(self, list_type: ListType, tenant_id: str, limit: int = 200) -> list[ListEntry]:
+    async def get_all(
+        self, list_type: ListType, tenant_id: str, limit: int = 200
+    ) -> list[ListEntry]:
         await self.connect()
         all_raw = await self._client.hgetall(self._key(list_type, tenant_id))
         entries = []
@@ -214,7 +230,9 @@ class RedisListStore(ListStore):
         entries.sort(key=lambda e: e.created_at, reverse=True)
         return entries[:limit]
 
-    async def get_entry(self, list_type: ListType, tenant_id: str, entity_id: str) -> ListEntry | None:
+    async def get_entry(
+        self, list_type: ListType, tenant_id: str, entity_id: str
+    ) -> ListEntry | None:
         await self.connect()
         raw = await self._client.hget(self._key(list_type, tenant_id), entity_id)
         if not raw:
@@ -243,11 +261,13 @@ class FileListStore(ListStore):
         for lt in ALL_LIST_TYPES:
             path = self._path(lt)
             if os.path.exists(path):
-                with open(path, "r") as f:
+                with open(path) as f:
                     raw = json.load(f)
                 self._data[lt] = {}
                 for tid, entities in raw.items():
-                    self._data[lt][tid] = {eid: ListEntry.from_dict(e) for eid, e in entities.items()}
+                    self._data[lt][tid] = {
+                        eid: ListEntry.from_dict(e) for eid, e in entities.items()
+                    }
             else:
                 self._data[lt] = {}
 
@@ -282,17 +302,29 @@ class FileListStore(ListStore):
                 return self._build_result(entry)
         return ListCheckResult(found=False, action="evaluate")
 
-    async def get_all(self, list_type: ListType, tenant_id: str, limit: int = 200) -> list[ListEntry]:
-        entries = [e for e in self._data.get(list_type, {}).get(tenant_id, {}).values() if not e.is_expired()]
+    async def get_all(
+        self, list_type: ListType, tenant_id: str, limit: int = 200
+    ) -> list[ListEntry]:
+        entries = [
+            e
+            for e in self._data.get(list_type, {}).get(tenant_id, {}).values()
+            if not e.is_expired()
+        ]
         entries.sort(key=lambda e: e.created_at, reverse=True)
         return entries[:limit]
 
-    async def get_entry(self, list_type: ListType, tenant_id: str, entity_id: str) -> ListEntry | None:
+    async def get_entry(
+        self, list_type: ListType, tenant_id: str, entity_id: str
+    ) -> ListEntry | None:
         entry = self._data.get(list_type, {}).get(tenant_id, {}).get(entity_id)
         return entry if entry and not entry.is_expired() else None
 
     async def count(self, list_type: ListType, tenant_id: str) -> int:
-        return sum(1 for e in self._data.get(list_type, {}).get(tenant_id, {}).values() if not e.is_expired())
+        return sum(
+            1
+            for e in self._data.get(list_type, {}).get(tenant_id, {}).values()
+            if not e.is_expired()
+        )
 
 
 # ── API Backend ──────────────────────────────────────────────────────
@@ -349,7 +381,9 @@ class APIListStore(ListStore):
                 return self._build_result(entry)
         return ListCheckResult(found=False, action="evaluate")
 
-    async def get_all(self, list_type: ListType, tenant_id: str, limit: int = 200) -> list[ListEntry]:
+    async def get_all(
+        self, list_type: ListType, tenant_id: str, limit: int = 200
+    ) -> list[ListEntry]:
         r = await self._http.get(
             f"{self._base}/lists/{list_type}/{tenant_id}?limit={limit}",
             headers=self._headers(),
@@ -357,7 +391,9 @@ class APIListStore(ListStore):
         r.raise_for_status()
         return [ListEntry.from_dict(e) for e in r.json().get("entries", [])]
 
-    async def get_entry(self, list_type: ListType, tenant_id: str, entity_id: str) -> ListEntry | None:
+    async def get_entry(
+        self, list_type: ListType, tenant_id: str, entity_id: str
+    ) -> ListEntry | None:
         r = await self._http.get(
             f"{self._base}/lists/{list_type}/{tenant_id}/{entity_id}",
             headers=self._headers(),

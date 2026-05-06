@@ -172,7 +172,10 @@ class SanctionsScreener:
                         "id": obj.get("id", ""),
                         "schema": schema,
                         "names": [n.lower().strip() for n in names],
-                        "countries": [c.lower() for c in props.get("country", []) + props.get("nationality", [])],
+                        "countries": [
+                            c.lower()
+                            for c in props.get("country", []) + props.get("nationality", [])
+                        ],
                         "dobs": props.get("birthDate", []),
                         "topics": obj.get("datasets", []),
                         "caption": obj.get("caption", names[0] if names else ""),
@@ -216,9 +219,8 @@ class SanctionsScreener:
                 if ent["countries"] and c_low not in ent["countries"]:
                     best_score *= 0.8
 
-            if dob:
-                if ent["dobs"] and not any(dob in d for d in ent["dobs"]):
-                    best_score *= 0.9
+            if dob and ent["dobs"] and not any(dob in d for d in ent["dobs"]):
+                best_score *= 0.9
 
             if best_score >= self.score_threshold:
                 hits.append(

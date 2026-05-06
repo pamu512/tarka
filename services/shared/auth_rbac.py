@@ -8,7 +8,12 @@ from typing import Any
 import httpx
 from fastapi import FastAPI, HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
-from tenant_binding import enforce_tenant_access, parse_api_key_tenant_map, tenant_binding_required, tenants_from_claims
+from tenant_binding import (
+    enforce_tenant_access,
+    parse_api_key_tenant_map,
+    tenant_binding_required,
+    tenants_from_claims,
+)
 
 """Tarka shared SSO (OIDC/JWT) + RBAC middleware.
 
@@ -41,7 +46,12 @@ _jwks_fetched_at: float = 0
 
 
 def _allow_insecure_no_auth() -> bool:
-    return os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+    return os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 async def _fetch_jwks() -> dict[str, Any]:
@@ -51,7 +61,9 @@ async def _fetch_jwks() -> dict[str, Any]:
     jwks_url = OIDC_JWKS_URL
     if not jwks_url and OIDC_ISSUER:
         async with httpx.AsyncClient() as client:
-            disco = await client.get(f"{OIDC_ISSUER.rstrip('/')}/.well-known/openid-configuration", timeout=10)
+            disco = await client.get(
+                f"{OIDC_ISSUER.rstrip('/')}/.well-known/openid-configuration", timeout=10
+            )
             disco.raise_for_status()
             jwks_url = disco.json().get("jwks_uri", "")
     if not jwks_url:
@@ -131,19 +143,30 @@ async def _authenticate(request: Request) -> AuthUser:
     """Extract and validate credentials from request."""
     api_key = request.headers.get("x-api-key", "")
     api_keys_raw = os.environ.get("API_KEYS", "").strip()
-    valid_keys = frozenset(k.strip() for k in api_keys_raw.split(",") if k.strip()) if api_keys_raw else frozenset()
+    valid_keys = (
+        frozenset(k.strip() for k in api_keys_raw.split(",") if k.strip())
+        if api_keys_raw
+        else frozenset()
+    )
     key_tenant_map = parse_api_key_tenant_map()
 
-    allow_insecure = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+    allow_insecure = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
     if api_key:
         if valid_keys and api_key in valid_keys:
             role = os.environ.get("SERVICE_API_KEY_ROLE", "admin").strip().lower()
             if role not in ROLE_HIERARCHY:
                 role = "admin"
-            roles = sorted(set(["service", role]))
+            roles = sorted({"service", role})
             tenant_ids = key_tenant_map.get(api_key, set()) if key_tenant_map else {"*"}
-            return AuthUser(user_id="service", roles=roles, auth_type="api_key", tenant_ids=tenant_ids)
+            return AuthUser(
+                user_id="service", roles=roles, auth_type="api_key", tenant_ids=tenant_ids
+            )
         if valid_keys:
             raise HTTPException(401, "invalid API key")
 
@@ -156,11 +179,15 @@ async def _authenticate(request: Request) -> AuthUser:
         if isinstance(roles, str):
             roles = [roles]
         tenant_ids = tenants_from_claims(claims)
-        return AuthUser(user_id=user_id, roles=roles, auth_type="jwt", claims=claims, tenant_ids=tenant_ids)
+        return AuthUser(
+            user_id=user_id, roles=roles, auth_type="jwt", claims=claims, tenant_ids=tenant_ids
+        )
 
     if not valid_keys and not OIDC_ISSUER:
         if allow_insecure:
-            return AuthUser(user_id="anonymous", roles=["viewer"], auth_type="none", tenant_ids={"*"})
+            return AuthUser(
+                user_id="anonymous", roles=["viewer"], auth_type="none", tenant_ids={"*"}
+            )
         raise HTTPException(
             503,
             "authentication misconfigured: set API_KEYS or OIDC_ISSUER (or ALLOW_INSECURE_NO_AUTH=true for local development)",
@@ -214,7 +241,9 @@ def require_role(role: str):
 
 
 def get_current_user(request: Request) -> AuthUser:
-    return getattr(request.state, "auth_user", AuthUser("anonymous", ["viewer"], "none", tenant_ids=set()))
+    return getattr(
+        request.state, "auth_user", AuthUser("anonymous", ["viewer"], "none", tenant_ids=set())
+    )
 
 
 def setup_auth(app: FastAPI) -> None:

@@ -20,7 +20,10 @@ def _data_dir() -> str:
 
 
 def db_path() -> str:
-    name = os.environ.get("COPILOT_REVIEW_DB_NAME", "copilot_turn_reviews.sqlite3").strip() or "copilot_turn_reviews.sqlite3"
+    name = (
+        os.environ.get("COPILOT_REVIEW_DB_NAME", "copilot_turn_reviews.sqlite3").strip()
+        or "copilot_turn_reviews.sqlite3"
+    )
     return os.path.join(_data_dir(), name)
 
 
@@ -51,7 +54,9 @@ def _init_schema(c: sqlite3.Connection) -> None:
         """
     )
     c.execute("CREATE INDEX IF NOT EXISTS idx_reviews_turn ON copilot_turn_reviews (turn_id)")
-    c.execute("CREATE INDEX IF NOT EXISTS idx_reviews_tenant_time ON copilot_turn_reviews (tenant_id, created_at DESC)")
+    c.execute(
+        "CREATE INDEX IF NOT EXISTS idx_reviews_tenant_time ON copilot_turn_reviews (tenant_id, created_at DESC)"
+    )
     c.commit()
 
 

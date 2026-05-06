@@ -106,6 +106,8 @@ exclude = [
     "*.egg-info",
     "dist",
     "build",
+    # Cookiecutter/Jinja placeholders are not valid Python until rendered.
+    "templates",
 ]
 
 [tool.ruff.lint]
@@ -123,6 +125,18 @@ select = [
 ignore = [
     "E501",  # Line too long (handled by formatter)
     "E402",  # Module level import not at top (for shared imports)
+    # FastAPI / Pydantic patterns across services (Depends(), Query(), Field(), external JSON field names).
+    "B008",
+    "N815",
+    "N806",
+    # Large-repo pragmatics (exception chaining, sklearn `X`/`y`, graph one-liners, vendor schemas).
+    "B904",
+    "SIM102",
+    "SIM105",
+    "SIM117",
+    "N803",
+    "E701",
+    "N818",
 ]
 
 [tool.ruff.lint.pydocstyle]

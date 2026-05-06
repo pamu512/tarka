@@ -1,4 +1,4 @@
-"""Async warehouse backtest: keyset-stream OLAP → Rust ``tarka_rule_engine`` → Postgres aggregates."""
+"""Async warehouse backtest: keyset-stream OLAP → Python JSON rule engine → Postgres aggregates."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from analytics.engine import BaseAnalyticsEngine
 from analytics.historical_stream import iter_backtest_row_chunks
 
 from decision_api.config import settings
+from tarka_core.internal_monitor import InternalMonitor
 from decision_api.db import SessionLocal
 from decision_api.deps import run_analytics_sync
 from decision_api.json_rules import evaluate_adhoc_packs_json
@@ -46,8 +47,13 @@ def _row_to_features(row: dict[str, Any]) -> dict[str, Any]:
                     feats.update(obj)
             elif isinstance(raw, dict):
                 feats.update(raw)
-        except (json.JSONDecodeError, TypeError, ValueError):
-            pass
+        except (json.JSONDecodeError, TypeError, ValueError) as exc:
+            InternalMonitor.log_suppressed_error(
+                exc,
+                context="backtest_row_payload_json_parse",
+                domain="fraud_decisioning",
+                level=logging.DEBUG,
+            )
     eid = row.get("entity_id")
     if eid is not None:
         feats.setdefault("entity_id", str(eid))
@@ -65,7 +71,9 @@ async def run_backtest_job(job_id: uuid.UUID, engine: BaseAnalyticsEngine) -> No
     """Execute a persisted job; enforces a **wall-clock** budget (default 60s) across all chunks + Rust work."""
     wall_s = max(1.0, float(getattr(settings, "backtest_job_timeout_seconds", 60.0)))
     deadline = time.monotonic() + wall_s
-    ch_chunk_sec = max(5, min(45, int(settings.clickhouse_statement_timeout_ms) // 1000))
+    ch_chunk_sec = max(
+        5, min(45, int(settings.clickhouse_statement_timeout_ms) // 1000)
+    )
 
     async with SessionLocal() as session:
         job = await session.get(BacktestRun, job_id)
@@ -96,8 +104,10 @@ async def run_backtest_job(job_id: uuid.UUID, engine: BaseAnalyticsEngine) -> No
     rule_fired_rows = 0
     false_positives = 0
     false_negatives = 0
+    true_positives = 0
     historical_allows = 0
     decides_agree = 0
+    chart_series: list[dict[str, Any]] = []
 
     try:
         while True:
@@ -141,8 +151,27 @@ async def run_backtest_job(job_id: uuid.UUID, engine: BaseAnalyticsEngine) -> No
                         false_positives += 1
                 elif pred == "allow":
                     false_negatives += 1
+                else:
+                    # Historical decision is not allow and model predicts not allow (TP vs FN split).
+                    true_positives += 1
                 if pred == act:
                     decides_agree += 1
+
+            tp = true_positives
+            fp = false_positives
+            fn = false_negatives
+            precision = tp / max(1, tp + fp)
+            recall = tp / max(1, tp + fn)
+            fpr = fp / max(1, historical_allows)
+            chart_series.append(
+                {
+                    "chunk_index": len(chart_series),
+                    "rows_processed": rows_processed,
+                    "false_positive_rate": fpr,
+                    "precision": precision,
+                    "recall": recall,
+                }
+            )
 
             async with SessionLocal() as session:
                 job = await session.get(BacktestRun, job_id)
@@ -150,15 +179,24 @@ async def run_backtest_job(job_id: uuid.UUID, engine: BaseAnalyticsEngine) -> No
                     job.rows_processed = rows_processed
                     await session.commit()
 
+        tp = true_positives
+        fp = false_positives
+        fn = false_negatives
+        precision = tp / max(1, tp + fp)
+        recall = tp / max(1, tp + fn)
         metrics: dict[str, Any] = {
             "rows_processed": rows_processed,
             "rule_fired_rows": rule_fired_rows,
             "hit_rate": rule_fired_rows / max(1, rows_processed),
+            "true_positives": true_positives,
             "false_positives": false_positives,
             "false_negatives": false_negatives,
             "historical_allows": historical_allows,
-            "false_positive_rate": false_positives / max(1, historical_allows),
+            "false_positive_rate": fp / max(1, historical_allows),
+            "precision": precision,
+            "recall": recall,
             "decision_agreement_rate": decides_agree / max(1, rows_processed),
+            "chart_series": chart_series,
             "rule_pack_fingerprint_sha256": fp_sha,
             "analytics_table": tbl,
             "window_start": ws,
@@ -170,7 +208,7 @@ async def run_backtest_job(job_id: uuid.UUID, engine: BaseAnalyticsEngine) -> No
             },
             "scoring_note": (
                 "predicted_decision uses decision_from_rule_score(score_delta) from "
-                "evaluate_adhoc_packs_json (Rust, simulation mode)."
+                "evaluate_adhoc_packs_json (simulation mode)."
             ),
         }
         async with SessionLocal() as session:

@@ -11,10 +11,9 @@ Features:
 from __future__ import annotations
 
 import asyncio
-import json
 import time
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 import httpx
 
@@ -185,9 +184,7 @@ class LLMHealthMonitor:
         async with self._lock:
             existing = self._health.get(key)
             if existing:
-                consecutive_failures = (
-                    existing.consecutive_failures + 1 if not is_healthy else 0
-                )
+                consecutive_failures = existing.consecutive_failures + 1 if not is_healthy else 0
                 error_count = existing.error_count + (0 if is_healthy else 1)
                 success_count = existing.success_count + (1 if is_healthy else 0)
             else:
@@ -197,9 +194,7 @@ class LLMHealthMonitor:
 
             # Check if we should open circuit
             if consecutive_failures >= self.CIRCUIT_FAILURE_THRESHOLD:
-                self._circuit_open_until[provider] = (
-                    now + self.CIRCUIT_RECOVERY_SECONDS
-                )
+                self._circuit_open_until[provider] = now + self.CIRCUIT_RECOVERY_SECONDS
 
             health = ProviderHealth(
                 provider=provider,
@@ -228,9 +223,7 @@ class LLMHealthMonitor:
             # Check if we need to refresh health status
             last_check = self._last_check.get(key, 0)
             if time.time() - last_check > self.CHECK_INTERVAL_SECONDS:
-                await self.check_provider_health(
-                    provider, base_url, api_key, model, http
-                )
+                await self.check_provider_health(provider, base_url, api_key, model, http)
                 self._last_check[key] = time.time()
 
             health = self._health.get(key)
@@ -251,9 +244,7 @@ class LLMHealthMonitor:
             if provider in providers_config:
                 base_url, api_key, model = providers_config[provider]
                 check_tasks.append(
-                    self.check_provider_health(
-                        provider, base_url, api_key, model, http
-                    )
+                    self.check_provider_health(provider, base_url, api_key, model, http)
                 )
 
         if not check_tasks:
@@ -312,9 +303,7 @@ class LLMHealthMonitor:
         if len(self._costs) > 10000:
             self._costs = self._costs[-5000:]
 
-    def get_cost_summary(
-        self, hours: int = 24, provider: str | None = None
-    ) -> dict[str, Any]:
+    def get_cost_summary(self, hours: int = 24, provider: str | None = None) -> dict[str, Any]:
         """Get cost summary for the specified period."""
         cutoff = time.time() - (hours * 3600)
         filtered = [c for c in self._costs if c.timestamp >= cutoff]
@@ -385,16 +374,14 @@ class LLMHealthMonitor:
             "total_output_tokens": sum(c.output_tokens for c in filtered),
             "total_cost_usd": round(sum(c.estimated_cost_usd for c in filtered), 4),
             "avg_latency_ms": round(avg_latency, 2),
-            "error_rate": round(
-                sum(1 for c in filtered if c.is_error) / len(filtered), 4
-            ) if filtered else 0,
+            "error_rate": round(sum(1 for c in filtered if c.is_error) / len(filtered), 4)
+            if filtered
+            else 0,
             "by_provider": {
                 k: {
                     "total_calls": v.total_calls,
                     "error_calls": v.error_calls,
-                    "error_rate": round(v.error_calls / v.total_calls, 4)
-                    if v.total_calls
-                    else 0,
+                    "error_rate": round(v.error_calls / v.total_calls, 4) if v.total_calls else 0,
                     "input_tokens": v.total_input_tokens,
                     "output_tokens": v.total_output_tokens,
                     "cost_usd": round(v.total_cost_usd, 4),

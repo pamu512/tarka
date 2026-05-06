@@ -14,7 +14,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from chitragupta.config import settings
 from chitragupta.db import OrchestratorRun, configure_engine, get_session, init_db
 from chitragupta.emitters import canonical_input_hash, emit_with_retry, list_emitter_targets
-from chitragupta.plugin_sdk import PluginManifest, get_plugin, list_plugins, register_plugin, seed_builtin_plugins
+from chitragupta.plugin_sdk import (
+    PluginManifest,
+    get_plugin,
+    list_plugins,
+    register_plugin,
+    seed_builtin_plugins,
+)
 
 """HTTP surface: plugin discovery + multi-emitter orchestration runs."""
 log = logging.getLogger("chitragupta.main")
@@ -103,14 +109,18 @@ async def runs_create(body: RunCreate, session: AsyncSession = Depends(get_sessi
                 body.input,
                 max_attempts=settings.emitter_max_attempts,
                 base_delay=settings.emitter_base_delay_seconds,
-                simulate_failures=body.simulate_emitter_failures if target == body.emitters[0] else 0,
+                simulate_failures=body.simulate_emitter_failures
+                if target == body.emitters[0]
+                else 0,
             )
             sha = hashlib.sha256(data).hexdigest()
             artifacts[target] = {"sha256": sha, "bytes_len": len(data)}
             logs.append({"emitter": target, "attempts": elog})
         run.status = "completed"
     except Exception:
-        log.exception("runs_create failed for plugin_id=%s tenant_id=%s", body.plugin_id, body.tenant_id)
+        log.exception(
+            "runs_create failed for plugin_id=%s tenant_id=%s", body.plugin_id, body.tenant_id
+        )
         run.status = "failed"
         last_error = "internal_error"
         run.last_error = last_error

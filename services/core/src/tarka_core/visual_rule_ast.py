@@ -1,18 +1,23 @@
 """Typed contracts for the visual rule JSON AST v1 (mirrors ``decision_api.rule_compiler_api``).
 
-This module is **stdlib-only** so ``tarka_core`` stays free of optional heavy deps; services
-should still validate with Pydantic at the HTTP boundary.
+Uses :mod:`tarka_core.ast_definition` for ``custom_signal`` (same package; still no third-party deps).
+Services should validate with Pydantic at the HTTP boundary.
 """
 
 from __future__ import annotations
 
 from typing import Any, TypedDict
 
+from tarka_core.ast_definition import CustomSignalAstDict
+
 
 class VisualAstLeafDict(TypedDict):
     op: str
     field: str
     value: Any
+
+
+VisualAstWhenNodeDict = VisualAstLeafDict | CustomSignalAstDict
 
 
 class VisualAstRuleDict(TypedDict, total=False):

@@ -19,7 +19,10 @@ from auth_rbac import require_role  # noqa: E402
 
 from decision_api.db import get_session  # noqa: E402
 from decision_api.vendors.base import VendorTier  # noqa: E402
-from decision_api.vendors.cost_router import PREMIUM_COST_SCORE_THRESHOLD, maybe_invoke_vendor  # noqa: E402
+from decision_api.vendors.cost_router import (  # noqa: E402
+    PREMIUM_COST_SCORE_THRESHOLD,
+    maybe_invoke_vendor,
+)
 from decision_api.vendors.exceptions import (  # noqa: E402
     VendorAuditConfigurationError,
     VendorTimeoutError,
@@ -66,7 +69,10 @@ async def vendor_probe(
                 "registered_vendors": list_registered_vendors(),
             },
         )
-    if adapter.tier == VendorTier.PREMIUM and body.base_rule_score < PREMIUM_COST_SCORE_THRESHOLD:
+    if (
+        adapter.tier == VendorTier.PREMIUM
+        and body.base_rule_score < PREMIUM_COST_SCORE_THRESHOLD
+    ):
         raise HTTPException(
             status_code=503,
             detail={
@@ -98,7 +104,12 @@ async def vendor_probe(
     except VendorAuditConfigurationError as e:
         raise HTTPException(
             status_code=500,
-            detail={"reason_code": getattr(e, "reason_code", "VENDOR_AUDIT_CONTEXT_MISSING"), "message": str(e)},
+            detail={
+                "reason_code": getattr(
+                    e, "reason_code", "VENDOR_AUDIT_CONTEXT_MISSING"
+                ),
+                "message": str(e),
+            },
         ) from e
     except Exception as e:
         raise HTTPException(

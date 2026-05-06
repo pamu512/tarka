@@ -8,7 +8,11 @@ import unittest
 import httpx
 
 from adapters.biometrics.incognia.client import IncogniaClient, IncogniaClientSettings
-from adapters.biometrics.incognia.schemas import PostFeedbackRequestBody, PostSignupRequestBody, PostTransactionRequestBody
+from adapters.biometrics.incognia.schemas import (
+    PostFeedbackRequestBody,
+    PostSignupRequestBody,
+    PostTransactionRequestBody,
+)
 
 
 def _signup_body() -> dict:
@@ -74,7 +78,9 @@ class IncogniaClientMockTests(unittest.IsolatedAsyncioTestCase):
             max_retries=2,
             circuit_failure_threshold=50,
         )
-        async with IncogniaClient(settings, http_client=httpx.AsyncClient(transport=_make_transport())) as client:
+        async with IncogniaClient(
+            settings, http_client=httpx.AsyncClient(transport=_make_transport())
+        ) as client:
             out = await client.post_signup(PostSignupRequestBody(requestToken="rt"))
             assert str(out.id) == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
             assert out.riskAssessment == "low_risk"
@@ -89,7 +95,9 @@ class IncogniaClientMockTests(unittest.IsolatedAsyncioTestCase):
         )
         transport = _make_transport()
 
-        async with IncogniaClient(settings, http_client=httpx.AsyncClient(transport=transport)) as client:
+        async with IncogniaClient(
+            settings, http_client=httpx.AsyncClient(transport=transport)
+        ) as client:
             tx = PostTransactionRequestBody(accountId="acc", type="login")
             ass = await client.post_transaction(tx, evaluate_transaction=True)
             assert ass.riskAssessment == "high_risk"

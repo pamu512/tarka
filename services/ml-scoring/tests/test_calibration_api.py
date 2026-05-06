@@ -46,7 +46,9 @@ def test_calibration_publish_activate_score_flow(tmp_path: Path, monkeypatch) ->
             },
         )
         assert snap.status_code == 201
-        drift = client.get("/v1/calibrate/drift", params={"tenant_id": "t1", "profile_id": "default"})
+        drift = client.get(
+            "/v1/calibrate/drift", params={"tenant_id": "t1", "profile_id": "default"}
+        )
         assert drift.status_code == 200
         assert "hint" in drift.json()
 
@@ -64,4 +66,3 @@ def test_calibration_publish_activate_score_flow(tmp_path: Path, monkeypatch) ->
         assert data["profile_version"] == 2
         assert data["expected_calibration_version"] == 7
         assert 0 <= data["calibrated_confidence"] <= 1
-

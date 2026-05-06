@@ -40,7 +40,11 @@ async def test_emit_decision_log_appends_hash_chain(tmp_path, monkeypatch):
     await emit_decision_log(_record("trace-1", artifact_manifest={"ml_model": "m1"}))
     await emit_decision_log(_record("trace-2", artifact_manifest={"ml_model": "m2"}))
 
-    rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    rows = [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
     assert len(rows) == 2
     assert rows[0]["artifact_manifest"]["ml_model"] == "m1"
     assert isinstance(rows[0].get("record_hash"), str) and rows[0]["record_hash"]

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
+
+from tarka_core.internal_monitor import InternalMonitor
 
 from decision_api.integrity_policy import (
     adjust_integrity_confidence,
@@ -31,14 +34,26 @@ def _driver_explain_entry(reason: str) -> dict[str, str]:
         code = r[10:][:48]
         return {"reason": r, "category": "ml", "label": f"ML factor: {code}"}
     static = {
-        "device_tamper_or_emulator_signals": ("device_integrity", "Device tamper / emulator signals"),
+        "device_tamper_or_emulator_signals": (
+            "device_integrity",
+            "Device tamper / emulator signals",
+        ),
         "replay_or_duplicate_payload": ("replay", "Replay or duplicate payload"),
-        "hostile_or_anonymous_network_path": ("network", "VPN, proxy, or hostile network path"),
+        "hostile_or_anonymous_network_path": (
+            "network",
+            "VPN, proxy, or hostile network path",
+        ),
         "geo_or_timezone_inconsistency": ("geo", "Geo or timezone inconsistency"),
         "ml_score_elevated": ("ml", "ML score elevated"),
-        "device_seen_across_multiple_entities": ("velocity", "Shared device across entities"),
+        "device_seen_across_multiple_entities": (
+            "velocity",
+            "Shared device across entities",
+        ),
         "multi_session_velocity": ("velocity", "Multi-session velocity"),
-        "velocity_and_geo_suggest_impossible_travel": ("velocity", "Velocity + geo suggest impossible travel"),
+        "velocity_and_geo_suggest_impossible_travel": (
+            "velocity",
+            "Velocity + geo suggest impossible travel",
+        ),
     }
     if r in static:
         cat, lbl = static[r]
@@ -75,7 +90,12 @@ def build_inference_context(
     features = features or {}
     signal_set = set(signal_tags)
 
-    tamper_markers = ("sdk:repackaged", "sdk:automation", "sdk:emulator", "sdk:shared_device")
+    tamper_markers = (
+        "sdk:repackaged",
+        "sdk:automation",
+        "sdk:emulator",
+        "sdk:shared_device",
+    )
     network_markers = ("sdk:vpn", "sdk:proxy", "sdk:datacenter", "sdk:vpn_iface")
     geo_markers = (
         "sdk:spoofed_location",
@@ -101,7 +121,14 @@ def build_inference_context(
     score_factor = _clamp01(final_score / 100.0)
     model_factor = _clamp01((ml_score or 0.0) / 100.0)
     integrity_confidence = _clamp01(
-        1.0 - (0.35 * tamper_risk + 0.2 * network_risk + 0.15 * replay_risk + 0.15 * geo_consistency_risk) - (0.15 * max(score_factor, model_factor))
+        1.0
+        - (
+            0.35 * tamper_risk
+            + 0.2 * network_risk
+            + 0.15 * replay_risk
+            + 0.15 * geo_consistency_risk
+        )
+        - (0.15 * max(score_factor, model_factor))
     )
 
     integrity_confidence = adjust_integrity_confidence(
@@ -124,7 +151,9 @@ def build_inference_context(
     integrity_confidence = _clamp01(integrity_confidence + bias)
 
     cal_profile = features.get("calibration_profile")
-    cal_profile_s = str(cal_profile).strip()[:64] if cal_profile is not None else "default"
+    cal_profile_s = (
+        str(cal_profile).strip()[:64] if cal_profile is not None else "default"
+    )
     try:
         exp_cal_ver = int(features.get("expected_calibration_version") or 1)
     except (TypeError, ValueError):
@@ -142,19 +171,31 @@ def build_inference_context(
         try:
             if profile_ver is not None:
                 exp_cal_ver = max(1, min(999999, int(profile_ver)))
-        except (TypeError, ValueError):
-            pass
+        except (TypeError, ValueError) as exc:
+            InternalMonitor.log_suppressed_error(
+                exc,
+                context="inference_calibration_meta_expected_version",
+                domain="fraud_decisioning",
+                level=logging.DEBUG,
+            )
         runtime_profile_ver = calibration_meta.get("profile_version")
         try:
             if runtime_profile_ver is not None:
                 cal_profile_ver = max(1, min(999999, int(runtime_profile_ver)))
-        except (TypeError, ValueError):
-            pass
+        except (TypeError, ValueError) as exc:
+            InternalMonitor.log_suppressed_error(
+                exc,
+                context="inference_calibration_meta_profile_version",
+                domain="fraud_decisioning",
+                level=logging.DEBUG,
+            )
     # --- Epic E: shared-device / velocity heuristics (co-location & impossible travel proxies) ---
     colocation_risk = _clamp01(0.75 if "sdk:shared_device" in signal_set else 0.0)
     distinct_sess = int(features.get("distinct_session_id_24h") or 0)
     if distinct_sess >= 2:
-        colocation_risk = max(colocation_risk, _clamp01(0.35 + 0.1 * min(distinct_sess, 5)))
+        colocation_risk = max(
+            colocation_risk, _clamp01(0.35 + 0.1 * min(distinct_sess, 5))
+        )
 
     ev1h = int(features.get("event_count_1h") or 0)
     ev24 = int(features.get("event_count_24h") or 0)
@@ -180,7 +221,15 @@ def build_inference_context(
         pts_f = float(pts) if pts is not None else None
     except (TypeError, ValueError):
         pla_f, plo_f, pts_f = None, None, None
-    if la is not None and lo is not None and ts is not None and pla_f is not None and plo_f is not None and pts_f is not None and ts > pts_f:
+    if (
+        la is not None
+        and lo is not None
+        and ts is not None
+        and pla_f is not None
+        and plo_f is not None
+        and pts_f is not None
+        and ts > pts_f
+    ):
         dist_km = haversine_km(la, lo, pla_f, plo_f)
         dt_h = max((ts - pts_f) / 3600.0, 1e-6)
         speed = dist_km / dt_h
@@ -190,7 +239,12 @@ def build_inference_context(
             travel_boost += 0.25
 
     zones = features.get("trusted_zones")
-    if isinstance(zones, list) and la is not None and lo is not None and trusted_zone_hit(la, lo, zones):
+    if (
+        isinstance(zones, list)
+        and la is not None
+        and lo is not None
+        and trusted_zone_hit(la, lo, zones)
+    ):
         travel_boost = max(0.0, travel_boost - 0.35)
         geo_consistency_risk = max(0.0, geo_consistency_risk - 0.2)
 
@@ -201,21 +255,51 @@ def build_inference_context(
     if location_meta:
         location_source = "service"
         try:
-            geo_consistency_risk = _clamp01(float(location_meta.get("geo_consistency_risk", geo_consistency_risk)))
-        except (TypeError, ValueError):
-            pass
+            geo_consistency_risk = _clamp01(
+                float(location_meta.get("geo_consistency_risk", geo_consistency_risk))
+            )
+        except (TypeError, ValueError) as exc:
+            InternalMonitor.log_suppressed_error(
+                exc,
+                context="inference_location_geo_consistency",
+                domain="fraud_decisioning",
+                level=logging.DEBUG,
+            )
         try:
-            colocation_risk = _clamp01(float(location_meta.get("copresence_risk", colocation_risk)))
-        except (TypeError, ValueError):
-            pass
+            colocation_risk = _clamp01(
+                float(location_meta.get("copresence_risk", colocation_risk))
+            )
+        except (TypeError, ValueError) as exc:
+            InternalMonitor.log_suppressed_error(
+                exc,
+                context="inference_location_copresence",
+                domain="fraud_decisioning",
+                level=logging.DEBUG,
+            )
         try:
-            impossible_travel_risk = _clamp01(float(location_meta.get("impossible_travel_risk", impossible_travel_risk)))
-        except (TypeError, ValueError):
-            pass
+            impossible_travel_risk = _clamp01(
+                float(
+                    location_meta.get("impossible_travel_risk", impossible_travel_risk)
+                )
+            )
+        except (TypeError, ValueError) as exc:
+            InternalMonitor.log_suppressed_error(
+                exc,
+                context="inference_location_impossible_travel",
+                domain="fraud_decisioning",
+                level=logging.DEBUG,
+            )
         try:
-            location_confidence = _clamp01(float(location_meta.get("location_confidence", 0.0)))
-        except (TypeError, ValueError):
-            pass
+            location_confidence = _clamp01(
+                float(location_meta.get("location_confidence", 0.0))
+            )
+        except (TypeError, ValueError) as exc:
+            InternalMonitor.log_suppressed_error(
+                exc,
+                context="inference_location_confidence",
+                domain="fraud_decisioning",
+                level=logging.DEBUG,
+            )
 
     counter_source = "heuristic"
     if counter_meta:
@@ -228,31 +312,52 @@ def build_inference_context(
             try:
                 if ev5 is not None:
                     features["event_count_5m"] = int(ev5)
-            except (TypeError, ValueError):
-                pass
+            except (TypeError, ValueError) as exc:
+                InternalMonitor.log_suppressed_error(
+                    exc,
+                    context="inference_counter_ev5",
+                    domain="fraud_decisioning",
+                    level=logging.DEBUG,
+                )
             try:
                 if ev1 is not None:
                     features["event_count_1h"] = int(ev1)
-            except (TypeError, ValueError):
-                pass
+            except (TypeError, ValueError) as exc:
+                InternalMonitor.log_suppressed_error(
+                    exc,
+                    context="inference_counter_ev1",
+                    domain="fraud_decisioning",
+                    level=logging.DEBUG,
+                )
             try:
                 if ev24 is not None:
                     features["event_count_24h"] = int(ev24)
-            except (TypeError, ValueError):
-                pass
-    elif any(k in features for k in ("event_count_5m", "event_count_1h", "event_count_24h")):
+            except (TypeError, ValueError) as exc:
+                InternalMonitor.log_suppressed_error(
+                    exc,
+                    context="inference_counter_ev24",
+                    domain="fraud_decisioning",
+                    level=logging.DEBUG,
+                )
+    elif any(
+        k in features for k in ("event_count_5m", "event_count_1h", "event_count_24h")
+    ):
         counter_source = "local-fallback"
 
     graph_risk_score = 0.0
     graph_risk_reasons: list[str] = []
     if graph_meta:
         try:
-            graph_risk_score = _clamp01(float(graph_meta.get("risk_score", 0.0)) / 100.0)
+            graph_risk_score = _clamp01(
+                float(graph_meta.get("risk_score", 0.0)) / 100.0
+            )
         except (TypeError, ValueError):
             graph_risk_score = 0.0
         raw_graph_reasons = graph_meta.get("risk_factors")
         if isinstance(raw_graph_reasons, list):
-            graph_risk_reasons = [str(x).strip() for x in raw_graph_reasons if str(x).strip()][:8]
+            graph_risk_reasons = [
+                str(x).strip() for x in raw_graph_reasons if str(x).strip()
+            ][:8]
 
     external_signal_score = 0.0
     external_signal_providers: list[str] = []
@@ -266,7 +371,9 @@ def build_inference_context(
             external_signal_score = 0.0
         providers = external_signal_meta.get("providers")
         if isinstance(providers, list):
-            external_signal_providers = [str(x).strip() for x in providers if str(x).strip()]
+            external_signal_providers = [
+                str(x).strip() for x in providers if str(x).strip()
+            ]
 
     try:
         ev1h = int(features.get("event_count_1h") or ev1h)
@@ -313,7 +420,11 @@ def build_inference_context(
         raw_factors = ml_detail.get("top_factors")
         if isinstance(raw_factors, list):
             ml_top_factors = [x for x in raw_factors if isinstance(x, dict)][:5]
-        ml_summary = ml_detail.get("summary") if isinstance(ml_detail.get("summary"), str) else None
+        ml_summary = (
+            ml_detail.get("summary")
+            if isinstance(ml_detail.get("summary"), str)
+            else None
+        )
         m = ml_detail.get("model")
         ml_model = str(m).strip()[:256] if m else None
         for fac in ml_top_factors[:2]:
@@ -359,14 +470,18 @@ def build_inference_context(
         "graph_risk_reasons": graph_risk_reasons,
         "external_signal_score": round(external_signal_score, 4),
         "external_signal_providers": external_signal_providers,
-        "policy_experiment_id": policy_experiment_id.strip()[:128] if isinstance(policy_experiment_id, str) and policy_experiment_id.strip() else None,
+        "policy_experiment_id": policy_experiment_id.strip()[:128]
+        if isinstance(policy_experiment_id, str) and policy_experiment_id.strip()
+        else None,
         "ml_top_factors": ml_top_factors,
         "ml_summary": ml_summary,
         "ml_model": ml_model,
     }
 
 
-def derive_recommended_action(decision: str, signal_tags: list[str], inference: dict[str, Any]) -> str | None:
+def derive_recommended_action(
+    decision: str, signal_tags: list[str], inference: dict[str, Any]
+) -> str | None:
     """Epic D: low-friction-first hint for clients (not a substitute for policy engines)."""
     tags = set(signal_tags)
     tier = inference.get("confidence_tier", "medium")

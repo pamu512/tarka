@@ -17,21 +17,25 @@ for parent in Path(__file__).resolve().parents:
 else:
     sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "shared"))
 
-from observability import setup_observability  # noqa: E402
-
 import calibration_service.main as cal  # noqa: E402
 import counter_service.main as cnt  # noqa: E402
 import feature_service.main as feat  # noqa: E402
 import location_service.main as loc  # noqa: E402
 import ml_scoring.main as ml  # noqa: E402
 from fastapi import FastAPI  # noqa: E402
+from observability import setup_observability  # noqa: E402
+
+from signal_api.onnx_hot_reload import start_onnx_hot_reload_observer  # noqa: E402
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with feat.lifespan(feat.app):
-        async with ml.lifespan(ml.app):
+    async with feat.lifespan(feat.app), ml.lifespan(ml.app):
+        stop_onnx_watch = start_onnx_hot_reload_observer()
+        try:
             yield
+        finally:
+            stop_onnx_watch()
 
 
 def create_app() -> FastAPI:

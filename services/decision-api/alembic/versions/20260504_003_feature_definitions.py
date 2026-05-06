@@ -25,21 +25,47 @@ def upgrade() -> None:
         sa.Column("tenant_id", sa.String(length=128), nullable=False),
         sa.Column("name", sa.String(length=128), nullable=False),
         sa.Column("version", sa.Integer(), nullable=False),
-        sa.Column("definition", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("ddl_status", sa.String(length=16), server_default="pending", nullable=False),
+        sa.Column(
+            "definition", postgresql.JSONB(astext_type=sa.Text()), nullable=False
+        ),
+        sa.Column(
+            "ddl_status", sa.String(length=16), server_default="pending", nullable=False
+        ),
         sa.Column("clickhouse_error", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("tenant_id", "name", "version", name="uq_feature_definitions_tenant_name_version"),
+        sa.UniqueConstraint(
+            "tenant_id",
+            "name",
+            "version",
+            name="uq_feature_definitions_tenant_name_version",
+        ),
         sa.CheckConstraint(
             "ddl_status IN ('pending', 'applied', 'failed')",
             name="ck_feature_definitions_ddl_status",
         ),
     )
-    op.create_index(op.f("ix_feature_definitions_tenant_id"), "feature_definitions", ["tenant_id"], unique=False)
+    op.create_index(
+        op.f("ix_feature_definitions_tenant_id"),
+        "feature_definitions",
+        ["tenant_id"],
+        unique=False,
+    )
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_feature_definitions_tenant_id"), table_name="feature_definitions")
+    op.drop_index(
+        op.f("ix_feature_definitions_tenant_id"), table_name="feature_definitions"
+    )
     op.drop_table("feature_definitions")

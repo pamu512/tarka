@@ -12,7 +12,11 @@ from __future__ import annotations
 
 from typing import Final
 
-from tarka_core.templates import INDUSTRY_RULE_TEMPLATE_ASTS, INDUSTRY_TEMPLATE_KEYS, list_industry_template_items
+from tarka_core.templates import (
+    INDUSTRY_RULE_TEMPLATE_ASTS,
+    INDUSTRY_TEMPLATE_KEYS,
+    list_industry_template_items,
+)
 
 SANDBOX_BOOTSTRAP_PATH: Final[str] = "/v1/sandbox/bootstrap"
 

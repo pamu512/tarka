@@ -32,7 +32,9 @@ def test_ring_suspicion_endpoint_returns_mule_summary(monkeypatch):
         _rings,
     )
     with TestClient(app) as client:
-        res = client.get("/v1/analytics/ring-suspicion", params={"tenant_id": "demo", "entity_id": "acct-1"})
+        res = client.get(
+            "/v1/analytics/ring-suspicion", params={"tenant_id": "demo", "entity_id": "acct-1"}
+        )
     assert res.status_code == 200
     data = res.json()
     assert data["entity_id"] == "acct-1"

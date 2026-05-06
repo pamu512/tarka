@@ -4,6 +4,9 @@ version = "0.1.0"
 description = "Tarka OLAP analytics engines (ClickHouse / DuckDB) with dialect-safe query builders"
 requires-python = ">=3.11"
 dependencies = [
+  "tarka-core @ file:../core",
+  "anyio>=4.0",
+  "asyncpg>=0.30.0",
   "clickhouse-connect>=0.8.0",
   "duckdb>=1.1.0",
   "sqlglot>=26.0.0",
@@ -15,6 +18,7 @@ ml_export = [
 ]
 dev = [
   "pytest>=8.0",
+  "pytest-asyncio>=0.24.0",
   "pyarrow>=14.0.0",
 ]
 

@@ -115,7 +115,9 @@ class ModelRegistry:
         try:
             import onnxruntime as ort
 
-            mv.onnx_session = ort.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
+            mv.onnx_session = ort.InferenceSession(
+                str(onnx_path), providers=["CPUExecutionProvider"]
+            )
             mv.onnx_input_name = mv.onnx_session.get_inputs()[0].name
         except Exception as exc:
             log.warning("could not load ONNX for %s v%d: %s", mv.name, mv.version, exc)
@@ -161,8 +163,8 @@ class ModelRegistry:
 
     def list_models(self) -> list[dict[str, Any]]:
         result: list[dict[str, Any]] = []
-        for model_name, versions in sorted(self._versions.items()):
-            for ver, mv in sorted(versions.items()):
+        for _model_name, versions in sorted(self._versions.items()):
+            for _ver, mv in sorted(versions.items()):
                 result.append(
                     {
                         "model_name": mv.name,
@@ -171,7 +173,11 @@ class ModelRegistry:
                         "active": mv.active,
                         "has_onnx": mv.onnx_session is not None,
                         "total_inferences": mv.total_inferences,
-                        "avg_latency_ms": (round(mv.total_latency_ms / mv.total_inferences, 2) if mv.total_inferences else 0),
+                        "avg_latency_ms": (
+                            round(mv.total_latency_ms / mv.total_inferences, 2)
+                            if mv.total_inferences
+                            else 0
+                        ),
                         "metadata": mv.metadata,
                     }
                 )
@@ -211,7 +217,9 @@ class ModelRegistry:
         """Hot-reload policy file from disk (same path as at startup)."""
         self._promotion_policy = read_promotion_policy(self._models_dir)
 
-    def check_promotion_gate(self, model_name: str, version: int) -> tuple[bool, list[str], dict[str, Any]]:
+    def check_promotion_gate(
+        self, model_name: str, version: int
+    ) -> tuple[bool, list[str], dict[str, Any]]:
         """Evaluate shipped policy against version metadata (OSS #37)."""
         mv = self._versions.get(model_name, {}).get(version)
         if not mv:
@@ -225,12 +233,16 @@ class ModelRegistry:
             framework=fw,
         )
 
-    def activate_version(self, model_name: str, version: int, *, skip_promotion_gate: bool = False) -> bool:
+    def activate_version(
+        self, model_name: str, version: int, *, skip_promotion_gate: bool = False
+    ) -> bool:
         """Set *version* as the sole active version for *model_name*."""
         if not skip_promotion_gate:
             ok, reasons, _ = self.check_promotion_gate(model_name, version)
             if not ok:
-                log.warning("promotion gate blocked activate %s v%d: %s", model_name, version, reasons)
+                log.warning(
+                    "promotion gate blocked activate %s v%d: %s", model_name, version, reasons
+                )
                 return False
         versions = self._versions.get(model_name)
         if not versions or version not in versions:
@@ -242,7 +254,9 @@ class ModelRegistry:
         self._persist_metadata(model_name)
         return True
 
-    def set_traffic_split(self, model_name: str, weights: dict[int, int], *, skip_promotion_gate: bool = False) -> bool:
+    def set_traffic_split(
+        self, model_name: str, weights: dict[int, int], *, skip_promotion_gate: bool = False
+    ) -> bool:
         versions = self._versions.get(model_name)
         if not versions:
             return False
@@ -260,7 +274,9 @@ class ModelRegistry:
                     continue
                 ok, reasons, _ = self.check_promotion_gate(model_name, v)
                 if not ok:
-                    log.warning("promotion gate blocked traffic-split %s v%d: %s", model_name, v, reasons)
+                    log.warning(
+                        "promotion gate blocked traffic-split %s v%d: %s", model_name, v, reasons
+                    )
                     return False
         for v, mv in versions.items():
             mv.traffic_weight = int(weights.get(v, 0))
@@ -277,7 +293,7 @@ class ModelRegistry:
         if not active:
             return None
         current = max(active)
-        previous = [v for v in versions.keys() if v < current]
+        previous = [v for v in versions if v < current]
         if not previous:
             return None
         target = max(previous)
@@ -296,7 +312,11 @@ class ModelRegistry:
                 "active": mv.active,
                 "traffic_weight": mv.traffic_weight,
                 "total_inferences": mv.total_inferences,
-                "avg_latency_ms": (round(mv.total_latency_ms / mv.total_inferences, 2) if mv.total_inferences else 0),
+                "avg_latency_ms": (
+                    round(mv.total_latency_ms / mv.total_inferences, 2)
+                    if mv.total_inferences
+                    else 0
+                ),
                 "last_used": mv.last_used,
             }
             for mv in sorted(versions.values(), key=lambda x: x.version)
@@ -323,7 +343,9 @@ class ModelRegistry:
                 meta["active"] = mv.active
                 meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
             except OSError as exc:
-                log.warning("could not persist metadata for %s v%d: %s", model_name, mv.version, exc)
+                log.warning(
+                    "could not persist metadata for %s v%d: %s", model_name, mv.version, exc
+                )
 
     def lineage_signature(self, model_name: str, version: int) -> dict[str, Any] | None:
         mv = self._versions.get(model_name, {}).get(version)
@@ -335,6 +357,8 @@ class ModelRegistry:
             "metadata": mv.metadata,
             "path": str(mv.path),
         }
-        blob = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+        blob = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode(
+            "utf-8"
+        )
         digest = hashlib.sha256(blob).hexdigest()
         return {"sha256": digest, "signed_payload": payload}

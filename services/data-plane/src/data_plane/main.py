@@ -22,16 +22,19 @@ else:
     _fallback = Path(__file__).resolve().parents[3] / "shared"
     sys.path.insert(0, str(_fallback))
 
-from observability import setup_observability  # noqa: E402
-
 import analytics_sink.main as asink  # noqa: E402
 import event_ingest.main as ei  # noqa: E402
+from observability import setup_observability  # noqa: E402
 
 
 def _doc_path(path: str | None) -> bool:
     if not path:
         return False
-    return path in ("/docs", "/redoc", "/openapi.json") or path.startswith("/docs/") or path.startswith("/redoc/")
+    return (
+        path in ("/docs", "/redoc", "/openapi.json")
+        or path.startswith("/docs/")
+        or path.startswith("/redoc/")
+    )
 
 
 def _merge_routes(target: FastAPI, source: FastAPI, *, skip_paths: set[str]) -> None:
@@ -46,9 +49,8 @@ def _merge_routes(target: FastAPI, source: FastAPI, *, skip_paths: set[str]) -> 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with ei.lifespan(app):
-        async with asink.lifespan(app):
-            yield
+    async with ei.lifespan(app), asink.lifespan(app):
+        yield
 
 
 def create_app() -> FastAPI:

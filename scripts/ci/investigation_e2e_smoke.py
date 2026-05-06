@@ -7,12 +7,14 @@ import os
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 """Investigation smoke: decision evaluate -> case -> decision-explanation schema check."""
 
 
-def _json_request(url: str, *, method: str = "GET", body: dict | None = None, api_key: str = "") -> dict:
+def _json_request(
+    url: str, *, method: str = "GET", body: dict | None = None, api_key: str = ""
+) -> dict:
     data = None
     headers = {"Accept": "application/json"}
     if body is not None:
@@ -31,15 +33,22 @@ def _json_request(url: str, *, method: str = "GET", body: dict | None = None, ap
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Smoke check for investigation decision explanation chain.")
+    p = argparse.ArgumentParser(
+        description="Smoke check for investigation decision explanation chain."
+    )
     p.add_argument("--tenant-id", default=os.environ.get("SMOKE_TENANT_ID", "demo"))
-    p.add_argument("--decision-api-url", default=os.environ.get("SMOKE_DECISION_API_URL", "http://localhost:8000"))
-    p.add_argument("--case-api-url", default=os.environ.get("SMOKE_CASE_API_URL", "http://localhost:8002"))
+    p.add_argument(
+        "--decision-api-url",
+        default=os.environ.get("SMOKE_DECISION_API_URL", "http://localhost:8000"),
+    )
+    p.add_argument(
+        "--case-api-url", default=os.environ.get("SMOKE_CASE_API_URL", "http://localhost:8002")
+    )
     p.add_argument("--api-key", default=os.environ.get("SMOKE_API_KEY", ""))
     args = p.parse_args()
 
     tenant = args.tenant_id
-    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     entity_id = f"smoke-{tenant}-entity"
 
     eval_payload = {
@@ -85,7 +94,9 @@ def main() -> int:
     schema_id = graph_expl.get("schema_id") if isinstance(graph_expl, dict) else None
     if schema_id != "tarka.graph_decision_explanation/v1":
         source = explanation.get("source")
-        raise SystemExit(f"Decision explanation schema assertion failed: expected tarka.graph_decision_explanation/v1, got {schema_id!r} (source={source!r})")
+        raise SystemExit(
+            f"Decision explanation schema assertion failed: expected tarka.graph_decision_explanation/v1, got {schema_id!r} (source={source!r})"
+        )
 
     print(
         json.dumps(

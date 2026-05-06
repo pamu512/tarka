@@ -9,6 +9,10 @@ from pydantic import BaseModel, Field
 from decision_api.config import settings
 from decision_api.experiment_api import append_experiment_record
 from decision_api.json_rules import evaluate_json_rules
+from decision_api.rust_rule_engine_exceptions import (
+    RustRuleEngineCircuitOpenError,
+    RustRuleEngineInvocationFailed,
+)
 from decision_api.simulator import (
     SCENARIO_TEMPLATES,
     SyntheticProfile,
@@ -66,18 +70,31 @@ async def run_simulation(body: RunSimulationRequest, request: Request):
     elif body.scenario in SCENARIO_TEMPLATES:
         profile = SCENARIO_TEMPLATES[body.scenario]
     else:
-        raise HTTPException(400, f"Unknown scenario '{body.scenario}'. Available: {list(SCENARIO_TEMPLATES.keys())}")
+        raise HTTPException(
+            400,
+            f"Unknown scenario '{body.scenario}'. Available: {list(SCENARIO_TEMPLATES.keys())}",
+        )
 
     events = generate_scenario(profile)
     decisions = []
 
     for event in events:
         features = dict(event.get("payload", {}))
-        rule_hits, rule_tags, score_delta, _pack_files = evaluate_json_rules(
-            features,
-            [],
-            evaluation_mode="simulation",
-        )
+        try:
+            rule_hits, rule_tags, score_delta, _pack_files = evaluate_json_rules(
+                features,
+                [],
+                evaluation_mode="simulation",
+            )
+        except (RustRuleEngineCircuitOpenError, RustRuleEngineInvocationFailed) as e:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "error": "rust_rule_engine_unavailable",
+                    "message": "Simulation requires the JSON rule engine; Rust FFI circuit open or invocation failed.",
+                    "exc_type": type(e).__name__,
+                },
+            ) from e
         score = max(0.0, min(100.0, 10.0 + score_delta))
 
         if score >= settings.deny_threshold:
@@ -126,11 +143,18 @@ async def run_simulation(body: RunSimulationRequest, request: Request):
 class ABTestRequest(BaseModel):
     scenario: str = "baseline"
     custom_profile: SyntheticProfile | None = None
-    rule_set_a: list[dict] = Field(default_factory=list, description="Override rules for set A (empty = production)")
-    rule_set_b: list[dict] = Field(default_factory=list, description="Override rules for set B")
+    rule_set_a: list[dict] = Field(
+        default_factory=list,
+        description="Override rules for set A (empty = production)",
+    )
+    rule_set_b: list[dict] = Field(
+        default_factory=list, description="Override rules for set B"
+    )
 
 
-def _eval_with_override_rules(event: dict[str, Any], override_rules: list[dict[str, Any]]) -> dict[str, Any]:
+def _eval_with_override_rules(
+    event: dict[str, Any], override_rules: list[dict[str, Any]]
+) -> dict[str, Any]:
     features = dict(event.get("payload", {}))
     if override_rules:
         from decision_api.json_rules import _match_condition
@@ -146,7 +170,18 @@ def _eval_with_override_rules(event: dict[str, Any], override_rules: list[dict[s
                 delta += float(rule.get("score_delta", 0))
         score = max(0.0, min(100.0, 10.0 + delta))
     else:
-        hits, tags, delta, _pack_files = evaluate_json_rules(features, [], evaluation_mode="simulation")
+        try:
+            hits, tags, delta, _pack_files = evaluate_json_rules(
+                features, [], evaluation_mode="simulation"
+            )
+        except (RustRuleEngineCircuitOpenError, RustRuleEngineInvocationFailed) as e:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "error": "rust_rule_engine_unavailable",
+                    "exc_type": type(e).__name__,
+                },
+            ) from e
         score = max(0.0, min(100.0, 10.0 + delta))
 
     if score >= settings.deny_threshold:
@@ -223,7 +258,9 @@ async def benchmark_vertical_pack(body: VerticalBenchmarkRequest):
 
     events = generate_scenario(profile)
     baseline = [_eval_with_override_rules(e, []) for e in events]
-    vertical = [_eval_with_override_rules(e, vertical_pack.get("rules", [])) for e in events]
+    vertical = [
+        _eval_with_override_rules(e, vertical_pack.get("rules", [])) for e in events
+    ]
     result_base = analyze_simulation(events, baseline)
     result_vertical = analyze_simulation(events, vertical)
     n = len(events)
@@ -248,8 +285,12 @@ async def benchmark_vertical_pack(body: VerticalBenchmarkRequest):
             "precision": round(result_vertical.precision - result_base.precision, 4),
             "recall": round(result_vertical.recall - result_base.recall, 4),
             "f1_score": round(result_vertical.f1_score - result_base.f1_score, 4),
-            "score_separation": round(result_vertical.score_separation - result_base.score_separation, 2),
-            "false_positives": result_vertical.false_positives - result_base.false_positives,
-            "false_negatives": result_vertical.false_negatives - result_base.false_negatives,
+            "score_separation": round(
+                result_vertical.score_separation - result_base.score_separation, 2
+            ),
+            "false_positives": result_vertical.false_positives
+            - result_base.false_positives,
+            "false_negatives": result_vertical.false_negatives
+            - result_base.false_negatives,
         },
     }

@@ -24,7 +24,9 @@ class IncogniaAuthenticationError(IncogniaIntegrationError):
 class IncogniaClientError(IncogniaIntegrationError):
     """4xx responses other than auth/rate limit (validation, not found, etc.)."""
 
-    def __init__(self, message: str, *, http_status: int, payload: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self, message: str, *, http_status: int, payload: dict[str, Any] | None = None
+    ) -> None:
         super().__init__(message, code="incognia_client_error", http_status=http_status)
         self.payload = payload
 

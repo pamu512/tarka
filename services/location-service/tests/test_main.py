@@ -25,7 +25,12 @@ def test_resolve_and_evaluate_location():
             "/v1/resolve",
             json={
                 "tenant_id": "t1",
-                "device_geo": {"lat": 37.775, "lon": -122.419, "ts": 1_700_000_000, "source": "gps"},
+                "device_geo": {
+                    "lat": 37.775,
+                    "lon": -122.419,
+                    "ts": 1_700_000_000,
+                    "source": "gps",
+                },
                 "ip_geo": {"lat": 37.78, "lon": -122.41, "ts": 1_700_000_000, "source": "ip"},
                 "timezone": "America/Los_Angeles",
                 "ip_timezone": "America/Los_Angeles",

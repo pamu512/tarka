@@ -52,7 +52,9 @@ The console **trust/ops readiness** strip (`frontend/src/components/AnalystReadi
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/v1/rules/visual/compile` | Compile a visual-rule AST JSON payload into a deployable JSON rule pack (+ Rego stub) |
+| `POST` | `/v1/rules/visual/compile` | Compile a visual-rule AST JSON payload into a deployable JSON rule pack |
+| `POST` | `/v1/rules/visual/evaluate-dry-run` | Compile to JSON `when` rules, then evaluate the pack in **simulation** against caller-supplied features (no warehouse side effects) |
+| `POST` | `/v1/rules/rego/compile` | **Deprecated** — returns **410 Gone**; Rego/OPA export was removed. Use `/v1/rules/visual/compile` and the native Rust `tarka_rule_engine` evaluation path |
 | `POST` | `/v1/rules/gitops/approve` | Record maker/checker approval metadata for a rule pack (integrate with your SOX/Git workflow) |
 | `POST` | `/v1/rules/backtest/preview-sql` | Return bounded ClickHouse SQL for a 90-day window with point-in-time guidance in the response body |
 | `POST` | `/v1/rules/backtest/run` | Stub backtest metrics until a read-only ClickHouse role is wired server-side |
@@ -63,6 +65,10 @@ The console **trust/ops readiness** strip (`frontend/src/components/AnalystReadi
 | `POST` | `/v1/vendors/probe` | Admin probe of a vendor adapter |
 
 Guide: [competitor-parity.md](guides/competitor-parity.md). Env vars: [competitor-parity-env.md](../architecture/competitor-parity-env.md).
+
+#### Visual rules: native engine (no Rego transpilation)
+
+Tarka **does not** transpile canvas rules to Rego or ship a parallel “policy bundle” for JSON rules. **Authoritative evaluation** uses the **`tarka_rule_engine`** Rust implementation so GitOps-approved packs, runtime scoring, and audit payloads stay aligned—avoiding **logic drift** between a generated policy artifact and what actually executed. That posture supports **brutally honest** audit logs: the engine and rule shape in the record are what operators deployed. Optional **OPA** (when `OPA_URL` is set) may still run as a **separate** HTTP policy step during `/v1/decisions/evaluate`; it is not a replacement for native JSON rule evaluation and is unrelated to visual-rule compile.
 
 ### Replay
 

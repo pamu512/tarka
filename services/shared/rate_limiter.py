@@ -96,7 +96,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if request.url.path in SKIP_PATHS:
             return await call_next(request)
 
-        key = request.headers.get("x-api-key", "") or request.client.host if request.client else "unknown"
+        key = (
+            request.headers.get("x-api-key", "") or request.client.host
+            if request.client
+            else "unknown"
+        )
 
         if isinstance(self._limiter, RedisTokenBucket):
             allowed, headers = await self._limiter.allow(key)

@@ -15,62 +15,183 @@ from decision_api.json_rules import (
 
 
 class TestMatchCondition:
+    def test_contains_missing_field_maps_to_none_token_like_rust(self):
+        """Rust ``json_str_pythonish(Null)`` uses the literal letters ``None`` (not JSON ``null``)."""
+        assert (
+            _match_condition(
+                {}, {"field": "missing", "op": "contains", "value": "None"}
+            )
+            is True
+        )
+        assert (
+            _match_condition({}, {"field": "missing", "op": "contains", "value": "xyz"})
+            is False
+        )
+        assert (
+            _match_condition(
+                {"missing": None},
+                {"field": "missing", "op": "contains", "value": "None"},
+            )
+            is True
+        )
+
+    def test_starts_with_requires_string_actual(self):
+        assert (
+            _match_condition(
+                {"n": 123}, {"field": "n", "op": "starts_with", "value": "1"}
+            )
+            is False
+        )
+
+    def test_regex_subject_json_null(self):
+        assert (
+            _match_condition(
+                {"x": None}, {"field": "x", "op": "regex", "value": "null"}
+            )
+            is True
+        )
+
     def test_eq_match(self):
-        assert _match_condition({"country": "US"}, {"field": "country", "op": "eq", "value": "US"}) is True
+        assert (
+            _match_condition(
+                {"country": "US"}, {"field": "country", "op": "eq", "value": "US"}
+            )
+            is True
+        )
 
     def test_eq_mismatch(self):
-        assert _match_condition({"country": "UK"}, {"field": "country", "op": "eq", "value": "US"}) is False
+        assert (
+            _match_condition(
+                {"country": "UK"}, {"field": "country", "op": "eq", "value": "US"}
+            )
+            is False
+        )
 
     def test_eq_missing_field(self):
-        assert _match_condition({}, {"field": "country", "op": "eq", "value": "US"}) is False
+        assert (
+            _match_condition({}, {"field": "country", "op": "eq", "value": "US"})
+            is False
+        )
 
     def test_gte_match(self):
-        assert _match_condition({"amount": 5000}, {"field": "amount", "op": "gte", "value": 1000}) is True
+        assert (
+            _match_condition(
+                {"amount": 5000}, {"field": "amount", "op": "gte", "value": 1000}
+            )
+            is True
+        )
 
     def test_gte_equal(self):
-        assert _match_condition({"amount": 1000}, {"field": "amount", "op": "gte", "value": 1000}) is True
+        assert (
+            _match_condition(
+                {"amount": 1000}, {"field": "amount", "op": "gte", "value": 1000}
+            )
+            is True
+        )
 
     def test_gte_fail(self):
-        assert _match_condition({"amount": 500}, {"field": "amount", "op": "gte", "value": 1000}) is False
+        assert (
+            _match_condition(
+                {"amount": 500}, {"field": "amount", "op": "gte", "value": 1000}
+            )
+            is False
+        )
 
     def test_gte_none(self):
-        assert _match_condition({}, {"field": "amount", "op": "gte", "value": 1000}) is False
+        assert (
+            _match_condition({}, {"field": "amount", "op": "gte", "value": 1000})
+            is False
+        )
 
     def test_lte_match(self):
-        assert _match_condition({"amount": 500}, {"field": "amount", "op": "lte", "value": 1000}) is True
+        assert (
+            _match_condition(
+                {"amount": 500}, {"field": "amount", "op": "lte", "value": 1000}
+            )
+            is True
+        )
 
     def test_lte_fail(self):
-        assert _match_condition({"amount": 5000}, {"field": "amount", "op": "lte", "value": 1000}) is False
+        assert (
+            _match_condition(
+                {"amount": 5000}, {"field": "amount", "op": "lte", "value": 1000}
+            )
+            is False
+        )
 
     def test_in_match(self):
-        assert _match_condition({"country": "US"}, {"field": "country", "op": "in", "value": ["US", "UK"]}) is True
+        assert (
+            _match_condition(
+                {"country": "US"},
+                {"field": "country", "op": "in", "value": ["US", "UK"]},
+            )
+            is True
+        )
 
     def test_in_fail(self):
-        assert _match_condition({"country": "FR"}, {"field": "country", "op": "in", "value": ["US", "UK"]}) is False
+        assert (
+            _match_condition(
+                {"country": "FR"},
+                {"field": "country", "op": "in", "value": ["US", "UK"]},
+            )
+            is False
+        )
 
     def test_in_none_value(self):
-        assert _match_condition({"country": "US"}, {"field": "country", "op": "in", "value": None}) is False
+        assert (
+            _match_condition(
+                {"country": "US"}, {"field": "country", "op": "in", "value": None}
+            )
+            is False
+        )
 
     def test_contains_match(self):
-        assert _match_condition({"email": "user@test.com"}, {"field": "email", "op": "contains", "value": "test"}) is True
+        assert (
+            _match_condition(
+                {"email": "user@test.com"},
+                {"field": "email", "op": "contains", "value": "test"},
+            )
+            is True
+        )
 
     def test_contains_fail(self):
-        assert _match_condition({"email": "user@real.com"}, {"field": "email", "op": "contains", "value": "test"}) is False
+        assert (
+            _match_condition(
+                {"email": "user@real.com"},
+                {"field": "email", "op": "contains", "value": "test"},
+            )
+            is False
+        )
 
     def test_is_true(self):
-        assert _match_condition({"is_vpn": True}, {"field": "is_vpn", "op": "is_true"}) is True
+        assert (
+            _match_condition({"is_vpn": True}, {"field": "is_vpn", "op": "is_true"})
+            is True
+        )
 
     def test_is_true_false_value(self):
-        assert _match_condition({"is_vpn": False}, {"field": "is_vpn", "op": "is_true"}) is False
+        assert (
+            _match_condition({"is_vpn": False}, {"field": "is_vpn", "op": "is_true"})
+            is False
+        )
 
     def test_is_true_truthy_not_bool(self):
-        assert _match_condition({"is_vpn": 1}, {"field": "is_vpn", "op": "is_true"}) is False
+        assert (
+            _match_condition({"is_vpn": 1}, {"field": "is_vpn", "op": "is_true"})
+            is False
+        )
 
     def test_is_false(self):
-        assert _match_condition({"is_vpn": False}, {"field": "is_vpn", "op": "is_false"}) is True
+        assert (
+            _match_condition({"is_vpn": False}, {"field": "is_vpn", "op": "is_false"})
+            is True
+        )
 
     def test_unknown_op(self):
-        assert _match_condition({"x": 1}, {"field": "x", "op": "magic", "value": 1}) is False
+        assert (
+            _match_condition({"x": 1}, {"field": "x", "op": "magic", "value": 1})
+            is False
+        )
 
     def test_missing_field_key(self):
         assert _match_condition({"x": 1}, {"op": "eq", "value": 1}) is False
@@ -86,7 +207,14 @@ class TestLoadRules:
     def test_load_from_dir(self):
         pack = {
             "version": 1,
-            "rules": [{"id": "r1", "when": [{"field": "amount", "op": "gte", "value": 9000}], "tags": ["high_amount"], "score_delta": 20}],
+            "rules": [
+                {
+                    "id": "r1",
+                    "when": [{"field": "amount", "op": "gte", "value": 9000}],
+                    "tags": ["high_amount"],
+                    "score_delta": 20,
+                }
+            ],
             "tag_rules": [],
         }
         with tempfile.TemporaryDirectory() as d:
@@ -119,7 +247,9 @@ class TestLoadRules:
     def test_skip_bad_json(self):
         with tempfile.TemporaryDirectory() as d:
             (Path(d) / "bad.json").write_text("NOT JSON {{{")
-            (Path(d) / "good.json").write_text(json.dumps({"version": 1, "rules": [], "tag_rules": []}))
+            (Path(d) / "good.json").write_text(
+                json.dumps({"version": 1, "rules": [], "tag_rules": []})
+            )
             with patch("decision_api.json_rules.settings") as mock_settings:
                 mock_settings.rules_path = d
                 load_rules()
@@ -152,7 +282,14 @@ class TestEvaluateJsonRules:
             {
                 "_source_file": "rules_live.json",
                 "version": 1,
-                "rules": [{"id": "big_tx", "when": [{"field": "amount", "op": "gte", "value": 5000}], "tags": ["high_amount"], "score_delta": 20}],
+                "rules": [
+                    {
+                        "id": "big_tx",
+                        "when": [{"field": "amount", "op": "gte", "value": 5000}],
+                        "tags": ["high_amount"],
+                        "score_delta": 20,
+                    }
+                ],
                 "tag_rules": [],
             }
         )
@@ -171,7 +308,14 @@ class TestEvaluateJsonRules:
         self._load_pack(
             {
                 "version": 1,
-                "rules": [{"id": "big_tx", "when": [{"field": "amount", "op": "gte", "value": 5000}], "tags": ["high_amount"], "score_delta": 20}],
+                "rules": [
+                    {
+                        "id": "big_tx",
+                        "when": [{"field": "amount", "op": "gte", "value": 5000}],
+                        "tags": ["high_amount"],
+                        "score_delta": 20,
+                    }
+                ],
                 "tag_rules": [],
             }
         )
@@ -199,7 +343,9 @@ class TestEvaluateJsonRules:
                 "tag_rules": [],
             }
         )
-        hits, tags, delta, _contributing = evaluate_json_rules({"amount": 6000, "is_vpn": True}, [])
+        hits, tags, delta, _contributing = evaluate_json_rules(
+            {"amount": 6000, "is_vpn": True}, []
+        )
         assert hits == ["combo"]
 
     def test_multi_condition_partial_match(self):
@@ -220,7 +366,9 @@ class TestEvaluateJsonRules:
                 "tag_rules": [],
             }
         )
-        hits, tags, delta, _contributing = evaluate_json_rules({"amount": 6000, "is_vpn": False}, [])
+        hits, tags, delta, _contributing = evaluate_json_rules(
+            {"amount": 6000, "is_vpn": False}, []
+        )
         assert hits == []
 
     def test_tag_rules(self):
@@ -228,10 +376,19 @@ class TestEvaluateJsonRules:
             {
                 "version": 1,
                 "rules": [],
-                "tag_rules": [{"id": "escalate_vpn", "any_tag": ["sdk:vpn"], "tags": ["escalated"], "score_delta": 10}],
+                "tag_rules": [
+                    {
+                        "id": "escalate_vpn",
+                        "any_tag": ["sdk:vpn"],
+                        "tags": ["escalated"],
+                        "score_delta": 10,
+                    }
+                ],
             }
         )
-        hits, tags, delta, _contributing = evaluate_json_rules({}, ["sdk:vpn", "sdk:emulator"])
+        hits, tags, delta, _contributing = evaluate_json_rules(
+            {}, ["sdk:vpn", "sdk:emulator"]
+        )
         assert hits == ["escalate_vpn"]
         assert tags == ["escalated"]
         assert delta == 10.0
@@ -252,7 +409,9 @@ class TestEvaluateJsonRules:
                 ],
             }
         )
-        hits, tags, delta, _contributing = evaluate_json_rules({}, [], signal_tags=["ingress:replay_payload"])
+        hits, tags, delta, _contributing = evaluate_json_rules(
+            {}, [], signal_tags=["ingress:replay_payload"]
+        )
         assert hits == ["replay_escalation"]
         assert "policy:replay" in tags
         assert delta == 10.0
@@ -262,7 +421,14 @@ class TestEvaluateJsonRules:
             {
                 "version": 1,
                 "rules": [],
-                "tag_rules": [{"id": "escalate_vpn", "any_tag": ["sdk:vpn"], "tags": ["escalated"], "score_delta": 10}],
+                "tag_rules": [
+                    {
+                        "id": "escalate_vpn",
+                        "any_tag": ["sdk:vpn"],
+                        "tags": ["escalated"],
+                        "score_delta": 10,
+                    }
+                ],
             }
         )
         hits, tags, delta, _contributing = evaluate_json_rules({}, ["sdk:emulator"])
@@ -272,7 +438,9 @@ class TestEvaluateJsonRules:
         self._load_pack(
             {
                 "version": 1,
-                "rules": [{"id": "bad_rule", "when": [], "tags": ["x"], "score_delta": 5}],
+                "rules": [
+                    {"id": "bad_rule", "when": [], "tags": ["x"], "score_delta": 5}
+                ],
                 "tag_rules": [],
             }
         )
@@ -284,13 +452,25 @@ class TestEvaluateJsonRules:
             {
                 "version": 1,
                 "rules": [
-                    {"id": "r1", "when": [{"field": "is_bot", "op": "is_true"}], "tags": ["bot"], "score_delta": 40},
-                    {"id": "r2", "when": [{"field": "is_vpn", "op": "is_true"}], "tags": ["vpn"], "score_delta": 15},
+                    {
+                        "id": "r1",
+                        "when": [{"field": "is_bot", "op": "is_true"}],
+                        "tags": ["bot"],
+                        "score_delta": 40,
+                    },
+                    {
+                        "id": "r2",
+                        "when": [{"field": "is_vpn", "op": "is_true"}],
+                        "tags": ["vpn"],
+                        "score_delta": 15,
+                    },
                 ],
                 "tag_rules": [],
             }
         )
-        hits, tags, delta, _contributing = evaluate_json_rules({"is_bot": True, "is_vpn": True}, [])
+        hits, tags, delta, _contributing = evaluate_json_rules(
+            {"is_bot": True, "is_vpn": True}, []
+        )
         assert hits == ["r1", "r2"]
         assert sorted(tags) == ["bot", "vpn"]
         assert delta == 55.0
@@ -301,3 +481,12 @@ class TestEvaluateJsonRules:
         mod._cached_packs = []
         hits, tags, delta, _contributing = evaluate_json_rules({"amount": 999999}, [])
         assert hits == []
+
+
+def test_evaluate_packs_python_metadata_includes_fallback_flag():
+    from decision_api.pack_evaluator import evaluate_packs_python
+
+    out = evaluate_packs_python(
+        [], {}, [], "t", "e", "production", exclude_shadow=True, fallback_active=True
+    )
+    assert out["metadata"] == {"fallback_active": True, "engine": "python"}

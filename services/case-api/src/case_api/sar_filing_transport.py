@@ -19,7 +19,7 @@ def build_sftp_destination() -> str | None:
     return os.environ.get("FINCEN_BSA_SFTP_HOST", "").strip() or None
 
 
-def build_sar_transmission_package(intent: "SarFiling", artifact: "SARFiling") -> tuple[str, bytes]:
+def build_sar_transmission_package(intent: SarFiling, artifact: SARFiling) -> tuple[str, bytes]:
     """Build the exact on-the-wire artifact FinCEN BSA batch (XML) or structured JSON for non-XML formats.
 
     Returns ``(remote_filename, body_bytes)`` for SFTP placement.
@@ -29,7 +29,7 @@ def build_sar_transmission_package(intent: "SarFiling", artifact: "SARFiling") -
     if not isinstance(artifact, _SARFiling):
         raise TypeError("artifact must be SARFiling")
 
-    rid = str(artifact.report_data.get("report_id") or artifact.id)[:64]
+    str(artifact.report_data.get("report_id") or artifact.id)[:64]
     if (artifact.format or "").strip() == "fincen_xml" and (artifact.xml_content or "").strip():
         name = f"EFILING_BATCH_{artifact.id.hex[:16]}_{intent.id.hex[:8]}.xml"
         return name, artifact.xml_content.strip().encode("utf-8")
@@ -80,7 +80,9 @@ def upload_sar_bytes(
 
 def build_sar_filing_data(body: dict[str, Any], report: Any) -> dict[str, Any]:
     """Merge request overrides with generated report institution for mandatory-field checks."""
-    override = body.get("filing_institution") if isinstance(body.get("filing_institution"), dict) else {}
+    override = (
+        body.get("filing_institution") if isinstance(body.get("filing_institution"), dict) else {}
+    )
     inst = {**(getattr(report, "institution", None) or {}), **override}
     filer_tin = inst.get("filer_tin") or inst.get("tin") or inst.get("ein")
     fin_name = inst.get("financial_institution_name") or inst.get("name")

@@ -60,16 +60,25 @@ def _analytics_table_qualified() -> str:
 _KPI_MAX_EXECUTION_SECONDS = 5
 
 
-async def _count_events_for_tenant(engine: BaseAnalyticsEngine, tenant_id: str, table: str) -> int:
+async def _count_events_for_tenant(
+    engine: BaseAnalyticsEngine, tenant_id: str, table: str
+) -> int:
     def _run():
-        return engine.get_kpi(tenant_id, table, max_execution_seconds=_KPI_MAX_EXECUTION_SECONDS)
+        return engine.get_kpi(
+            tenant_id, table, max_execution_seconds=_KPI_MAX_EXECUTION_SECONDS
+        )
 
     try:
         payload = await run_analytics_sync(_run)
     except Exception as e:
         msg = str(e).lower()
         log.warning("Analytics KPI query failed: %s", e)
-        if "unknown table" in msg or "does not exist" in msg or "doesn't exist" in msg or "catalog error" in msg:
+        if (
+            "unknown table" in msg
+            or "does not exist" in msg
+            or "doesn't exist" in msg
+            or "catalog error" in msg
+        ):
             raise HTTPException(
                 status_code=503,
                 detail={
@@ -90,7 +99,10 @@ async def _count_events_for_tenant(engine: BaseAnalyticsEngine, tenant_id: str, 
     except (KeyError, TypeError, ValueError) as e:
         raise HTTPException(
             status_code=503,
-            detail={"reason_code": "ANALYTICS_BAD_SCALAR", "message": "KPI payload missing event_count."},
+            detail={
+                "reason_code": "ANALYTICS_BAD_SCALAR",
+                "message": "KPI payload missing event_count.",
+            },
         ) from e
 
 
@@ -107,7 +119,12 @@ async def get_dashboard_kpis(
     Uses ``require_analytics_engine`` (503 when offline). KPI queries run via ``run_analytics_sync``.
     """
     auth = getattr(request.state, "auth_user", None)
-    if auth and auth.tenant_ids and "*" not in auth.tenant_ids and tenant_id not in auth.tenant_ids:
+    if (
+        auth
+        and auth.tenant_ids
+        and "*" not in auth.tenant_ids
+        and tenant_id not in auth.tenant_ids
+    ):
         raise HTTPException(403, "tenant not permitted for this credential")
 
     table = _analytics_table_qualified()
@@ -117,7 +134,11 @@ async def get_dashboard_kpis(
         raw = await cache.get(key)
         if raw:
             cached = json.loads(raw)
-            if isinstance(cached, dict) and cached.get("source") == engine.backend and "event_count" in cached:
+            if (
+                isinstance(cached, dict)
+                and cached.get("source") == engine.backend
+                and "event_count" in cached
+            ):
                 return cached
     except (json.JSONDecodeError, TypeError, ValueError) as e:
         log.warning("Dashboard KPI cache read failed or invalid payload: %s", e)
@@ -144,9 +165,17 @@ async def get_dashboard_kpis(
 async def get_dashboard_summary(
     request: Request,
     tenant_id: str = Query(..., max_length=128),
-    period_start: str = Query(..., description="Inclusive local calendar date (YYYY-MM-DD) in ``timezone``."),
-    period_end: str = Query(..., description="Inclusive local calendar date (YYYY-MM-DD) in ``timezone``."),
-    timezone: str = Query("UTC", max_length=128, description="IANA timezone for interpreting ``period_*``."),
+    period_start: str = Query(
+        ..., description="Inclusive local calendar date (YYYY-MM-DD) in ``timezone``."
+    ),
+    period_end: str = Query(
+        ..., description="Inclusive local calendar date (YYYY-MM-DD) in ``timezone``."
+    ),
+    timezone: str = Query(
+        "UTC",
+        max_length=128,
+        description="IANA timezone for interpreting ``period_*``.",
+    ),
     engine: BaseAnalyticsEngine = Depends(require_analytics_engine),
     cache: KeyValueCache = Depends(get_kv_cache),
     _user=Depends(require_role("analyst")),
@@ -159,14 +188,22 @@ async def get_dashboard_summary(
     Responses are cached per ``tenant_id``, period, timezone, and analytics backend to avoid hammering OLAP.
     """
     auth = getattr(request.state, "auth_user", None)
-    if auth and auth.tenant_ids and "*" not in auth.tenant_ids and tenant_id not in auth.tenant_ids:
+    if (
+        auth
+        and auth.tenant_ids
+        and "*" not in auth.tenant_ids
+        and tenant_id not in auth.tenant_ids
+    ):
         raise HTTPException(403, "tenant not permitted for this credential")
 
     table = _analytics_table_qualified()
     try:
         utc_start, utc_end = parse_dashboard_period(period_start, period_end, timezone)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail={"reason_code": "BAD_DASHBOARD_WINDOW", "message": str(e)}) from e
+        raise HTTPException(
+            status_code=400,
+            detail={"reason_code": "BAD_DASHBOARD_WINDOW", "message": str(e)},
+        ) from e
 
     cache_key = dashboard_cache_key(
         tenant_id, period_start, period_end, timezone, engine.backend, table=table
@@ -204,7 +241,12 @@ async def get_dashboard_summary(
     except Exception as e:
         msg = str(e).lower()
         log.warning("Dashboard summary OLAP query failed: %s", e)
-        if "unknown table" in msg or "does not exist" in msg or "doesn't exist" in msg or "catalog error" in msg:
+        if (
+            "unknown table" in msg
+            or "does not exist" in msg
+            or "doesn't exist" in msg
+            or "catalog error" in msg
+        ):
             raise HTTPException(
                 status_code=503,
                 detail={

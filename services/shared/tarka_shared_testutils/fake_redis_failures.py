@@ -52,4 +52,3 @@ class FakeRedisWithFailures:
         await self._failures.maybe_fail()
         await asyncio.sleep(0)
         return True
-

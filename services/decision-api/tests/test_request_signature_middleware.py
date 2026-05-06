@@ -35,7 +35,9 @@ async def signed_echo_app():
 async def test_middleware_rejects_unsigned_post(signed_echo_app):
     r = await signed_echo_app.post(
         "/v1/decisions/evaluate",
-        content=json.dumps({"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}}).encode(),
+        content=json.dumps(
+            {"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}}
+        ).encode(),
         headers={"Content-Type": "application/json"},
     )
     assert r.status_code == 401
@@ -43,7 +45,9 @@ async def test_middleware_rejects_unsigned_post(signed_echo_app):
 
 @pytest.mark.asyncio
 async def test_middleware_accepts_signed_post(signed_echo_app):
-    raw = json.dumps({"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}}).encode()
+    raw = json.dumps(
+        {"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}}
+    ).encode()
     hdrs = build_signature_headers(raw, secret="mw-secret")
     r = await signed_echo_app.post(
         "/v1/decisions/evaluate",

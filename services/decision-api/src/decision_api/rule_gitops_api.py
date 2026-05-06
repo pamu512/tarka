@@ -69,7 +69,10 @@ async def record_maker_checker_approval(
     if row is None:
         raise HTTPException(
             status_code=503,
-            detail={"reason_code": "APPROVAL_PERSISTENCE_FAILED", "message": "Insert returned no row."},
+            detail={
+                "reason_code": "APPROVAL_PERSISTENCE_FAILED",
+                "message": "Insert returned no row.",
+            },
         )
     created_at: datetime = row["created_at"]
     return {

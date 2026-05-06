@@ -31,7 +31,9 @@ def test_get_clickhouse_503_when_host_empty(monkeypatch: pytest.MonkeyPatch) -> 
     assert excinfo.value.detail["reason_code"] == "ANALYTICS_ENGINE_OFFLINE"
 
 
-def test_get_clickhouse_503_when_client_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_clickhouse_503_when_client_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     prev = getattr(app.state, "clickhouse_client", None)
     prev_eng = getattr(app.state, "analytics_engine", None)
     monkeypatch.setattr(settings, "clickhouse_host", "clickhouse")

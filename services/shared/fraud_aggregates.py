@@ -35,7 +35,18 @@ def _agg_key_version_segment() -> str:
 
 
 NUMERIC_FIELDS = frozenset({"amount", "score", "price", "quantity", "original_amount"})
-DISTINCT_FIELDS = frozenset({"ip_address", "device_id", "session_id", "email", "phone", "card_hash", "country", "original_currency"})
+DISTINCT_FIELDS = frozenset(
+    {
+        "ip_address",
+        "device_id",
+        "session_id",
+        "email",
+        "phone",
+        "card_hash",
+        "country",
+        "original_currency",
+    }
+)
 
 
 class AggregateStore:
@@ -95,7 +106,9 @@ class AggregateStore:
         cutoff = self._clock() - min(window_seconds, MAX_WINDOW)
         return await self._client.zcount(key, cutoff, "+inf")
 
-    async def sum_field(self, tenant_id: str, entity_id: str, field: str, window_seconds: int) -> float:
+    async def sum_field(
+        self, tenant_id: str, entity_id: str, field: str, window_seconds: int
+    ) -> float:
         assert self._client
         key = self._key(tenant_id, entity_id, f"field:{field}")
         cutoff = self._clock() - min(window_seconds, MAX_WINDOW)
@@ -109,7 +122,9 @@ class AggregateStore:
                 continue
         return total
 
-    async def avg_field(self, tenant_id: str, entity_id: str, field: str, window_seconds: int) -> float | None:
+    async def avg_field(
+        self, tenant_id: str, entity_id: str, field: str, window_seconds: int
+    ) -> float | None:
         assert self._client
         key = self._key(tenant_id, entity_id, f"field:{field}")
         cutoff = self._clock() - min(window_seconds, MAX_WINDOW)
@@ -127,7 +142,9 @@ class AggregateStore:
                 continue
         return total / count if count else None
 
-    async def distinct_count(self, tenant_id: str, entity_id: str, field: str, window_seconds: int) -> int:
+    async def distinct_count(
+        self, tenant_id: str, entity_id: str, field: str, window_seconds: int
+    ) -> int:
         assert self._client
         key = self._key(tenant_id, entity_id, f"distinct:{field}")
         cutoff = self._clock() - min(window_seconds, MAX_WINDOW)
@@ -141,18 +158,31 @@ class AggregateStore:
     ) -> dict[str, Any]:
         """Compute standard aggregate features and return them as a dict."""
         features: dict[str, Any] = {}
-        for window_label, window_secs in [("5m", 300), ("1h", 3600), ("24h", 86400), ("7d", 604800)]:
-            features[f"event_count_{window_label}"] = await self.count(tenant_id, entity_id, window_secs)
+        for window_label, window_secs in [
+            ("5m", 300),
+            ("1h", 3600),
+            ("24h", 86400),
+            ("7d", 604800),
+        ]:
+            features[f"event_count_{window_label}"] = await self.count(
+                tenant_id, entity_id, window_secs
+            )
 
         for field in ("amount",):
             if field in fields:
                 for window_label, window_secs in [("1h", 3600), ("24h", 86400)]:
-                    features[f"sum_{field}_{window_label}"] = await self.sum_field(tenant_id, entity_id, field, window_secs)
-                    features[f"avg_{field}_{window_label}"] = await self.avg_field(tenant_id, entity_id, field, window_secs)
+                    features[f"sum_{field}_{window_label}"] = await self.sum_field(
+                        tenant_id, entity_id, field, window_secs
+                    )
+                    features[f"avg_{field}_{window_label}"] = await self.avg_field(
+                        tenant_id, entity_id, field, window_secs
+                    )
 
         for field in ("ip_address", "device_id", "session_id"):
             if fields.get(field):
-                features[f"distinct_{field}_24h"] = await self.distinct_count(tenant_id, entity_id, field, 86400)
+                features[f"distinct_{field}_24h"] = await self.distinct_count(
+                    tenant_id, entity_id, field, 86400
+                )
 
         return features
 

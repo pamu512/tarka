@@ -51,12 +51,19 @@ async def fire_case_brief(
     last_exc: Exception | None = None
     for attempt in range(_CASE_BRIEF_MAX_ATTEMPTS):
         try:
-            r = await http.post(url, json={"case": case_dict}, headers=_upstream_headers(), timeout=45.0)
+            r = await http.post(
+                url, json={"case": case_dict}, headers=_upstream_headers(), timeout=45.0
+            )
             r.raise_for_status()
             return
         except Exception as exc:
             last_exc = exc
-            log.warning("case brief hook attempt %s/%s failed: %s", attempt + 1, _CASE_BRIEF_MAX_ATTEMPTS, exc)
+            log.warning(
+                "case brief hook attempt %s/%s failed: %s",
+                attempt + 1,
+                _CASE_BRIEF_MAX_ATTEMPTS,
+                exc,
+            )
             if attempt < _CASE_BRIEF_MAX_ATTEMPTS - 1:
                 delay = _CASE_BRIEF_BACKOFF_BASE_S * (2**attempt)
                 await asyncio.sleep(delay)
@@ -75,10 +82,17 @@ async def fire_label_extraction(http: httpx.AsyncClient, case_dict: dict[str, An
     url = f"{_INVESTIGATION_AGENT_URL.rstrip('/')}/v1/internal/label-extract"
     for attempt in range(_CASE_BRIEF_MAX_ATTEMPTS):
         try:
-            r = await http.post(url, json={"case": case_dict}, headers=_upstream_headers(), timeout=60.0)
+            r = await http.post(
+                url, json={"case": case_dict}, headers=_upstream_headers(), timeout=60.0
+            )
             r.raise_for_status()
             return
         except Exception as exc:
-            log.warning("label extract hook attempt %s/%s failed: %s", attempt + 1, _CASE_BRIEF_MAX_ATTEMPTS, exc)
+            log.warning(
+                "label extract hook attempt %s/%s failed: %s",
+                attempt + 1,
+                _CASE_BRIEF_MAX_ATTEMPTS,
+                exc,
+            )
             if attempt < _CASE_BRIEF_MAX_ATTEMPTS - 1:
                 await asyncio.sleep(_CASE_BRIEF_BACKOFF_BASE_S * (2**attempt))

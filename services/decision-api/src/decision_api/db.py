@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from sqlalchemy.orm import DeclarativeBase
 
 from decision_api.config import settings
 from tarka_core.database import (
@@ -13,13 +12,18 @@ from tarka_core.database import (
     resolve_tarka_db_engine,
     sync_url_for_alembic,
 )
+from tarka_core.sqla_base import Base
 
 
 def _app_root() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
 
-_engine_kind: Literal["sqlite", "postgres"] = resolve_tarka_db_engine(database_url=settings.database_url)
+_engine_kind: Literal["sqlite", "postgres"] = resolve_tarka_db_engine(
+    database_url=settings.database_url
+)
+# Exposed for orchestration (e.g. Postgres-only audit ordering before Rust evaluation).
+ENGINE_KIND: Literal["sqlite", "postgres"] = _engine_kind
 _database_url = build_async_database_url(
     engine_kind=_engine_kind,
     database_url=settings.database_url,
@@ -28,10 +32,6 @@ _database_url = build_async_database_url(
 
 engine = create_audit_async_engine(_database_url, engine_kind=_engine_kind)
 SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-
-
-class Base(DeclarativeBase):
-    pass
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:

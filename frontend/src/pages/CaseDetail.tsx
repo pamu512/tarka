@@ -19,6 +19,7 @@ import {
 import StatusBadge from "../components/StatusBadge";
 import PriorityBadge from "../components/PriorityBadge";
 import { PageTitle } from "../components/PageTitle";
+import { GraphContextPanel } from "../components/GraphContextPanel";
 import { FraudScoreTrack } from "../components/FraudScoreTrack";
 import { InferenceMetricTrack } from "../components/InferenceMetricTrack";
 import { SarManagementPanel } from "../components/SarManagementPanel";
@@ -327,6 +328,14 @@ export default function CaseDetail() {
           >
             Open in Investigation Copilot
           </Link>
+          {caseData.trace_id ? (
+            <Link
+              to={`/investigation/dag-trace?trace_id=${encodeURIComponent(caseData.trace_id)}&tenant_id=${encodeURIComponent(caseData.tenant_id)}`}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-surface-700 text-gray-200 hover:bg-surface-600 transition-colors border border-surface-600"
+            >
+              DAG execution trace
+            </Link>
+          ) : null}
           <StatusBadge status={caseData.status} />
           <PriorityBadge priority={caseData.priority} />
           <span
@@ -1016,7 +1025,13 @@ function GraphTab({
           depth when supported.
         </p>
       ) : null}
-      <div className="flex flex-col lg:flex-row gap-4">
+      <div className="flex flex-col gap-2">
+        {!emptyGraph ? (
+          <p className="text-xs text-gray-500">
+            Click a node to open the <span className="text-gray-400">graph context</span> panel (transactions, IPs,
+            risk snapshot).
+          </p>
+        ) : null}
         {!emptyGraph ? (
           <div
             ref={containerRef}
@@ -1025,30 +1040,14 @@ function GraphTab({
             aria-label="Entity relationship graph"
           />
         ) : null}
-        {selectedNodeData && (
-          <div className="w-full lg:w-64 bg-surface-900 border border-surface-700 rounded-xl p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-gray-200">Node Details</h3>
-            <div>
-              <span className="text-xs text-gray-500">ID</span>
-              <p className="text-sm text-gray-200 font-mono break-all">
-                {selectedNodeData.id}
-              </p>
-            </div>
-            <div>
-              <span className="text-xs text-gray-500">Type</span>
-              <p className="text-sm text-gray-200">{selectedNodeData.labels?.join(", ") || "Unknown"}</p>
-            </div>
-            {Object.entries(selectedNodeData.properties).map(([k, v]) => (
-              <div key={k}>
-                <span className="text-xs text-gray-500">{k}</span>
-                <p className="text-sm text-gray-300 break-all">
-                  {String(v)}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
+      <GraphContextPanel
+        open={Boolean(selectedNode)}
+        onClose={() => setSelectedNode(null)}
+        tenantId={tenantId}
+        entityId={selectedNode}
+        nodeHint={selectedNodeData ?? undefined}
+      />
       <details open className="rounded-xl border border-surface-700 bg-surface-900/40 p-4">
         <summary className="cursor-pointer text-sm font-medium text-gray-300">
           Table view (nodes &amp; edges)

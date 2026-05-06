@@ -47,7 +47,9 @@ def test_fastapi_openapi_contains_evaluate_and_inference():
                 mock_redis.set_cached_score = AsyncMock()
                 mock_redis.store_nonce = AsyncMock()
                 mock_redis.consume_nonce = AsyncMock(return_value=True)
-                mock_redis.check_and_store_replay_signature = AsyncMock(return_value=False)
+                mock_redis.check_and_store_replay_signature = AsyncMock(
+                    return_value=False
+                )
                 with patch("decision_api.main.load_rules"):
                     with patch("decision_api.main.agg_store") as mock_agg:
                         mock_agg._client = None
@@ -55,8 +57,12 @@ def test_fastapi_openapi_contains_evaluate_and_inference():
 
                         schema = app.openapi()
                         paths = schema.get("paths", {})
-                        assert "/v1/decisions/evaluate" in paths, "FastAPI schema should expose POST evaluate"
-                        assert "/v1/challenge-policies" in paths, "FastAPI schema should expose GET challenge-policies"
+                        assert "/v1/decisions/evaluate" in paths, (
+                            "FastAPI schema should expose POST evaluate"
+                        )
+                        assert "/v1/challenge-policies" in paths, (
+                            "FastAPI schema should expose GET challenge-policies"
+                        )
                         assert "/v1/internal/counters/manifest" in paths
                         assert "/v1/internal/counters/catalog" in paths
                         assert "/v1/internal/counters/definitions" in paths
@@ -64,10 +70,16 @@ def test_fastapi_openapi_contains_evaluate_and_inference():
                         assert "/v1/internal/counters/replay/from-audit" in paths
                         assert "/v1/ops/calibration-status" in paths
                         assert "/v1/slo" in paths
-                        schemes = schema.get("components", {}).get("securitySchemes", {})
+                        schemes = schema.get("components", {}).get(
+                            "securitySchemes", {}
+                        )
                         assert "TarkaCounterReplayToken" in schemes
-                        replay_post = paths["/v1/internal/counters/replay"].get("post", {})
-                        assert replay_post.get("security") == [{"TarkaCounterReplayToken": []}]
+                        replay_post = paths["/v1/internal/counters/replay"].get(
+                            "post", {}
+                        )
+                        assert replay_post.get("security") == [
+                            {"TarkaCounterReplayToken": []}
+                        ]
                         blob = json.dumps(schema)
                         assert "inference_context" in blob.lower()
                         assert "calibration_profile_version" in blob

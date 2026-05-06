@@ -5,8 +5,6 @@ from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
-
-from integration_ingress.config import settings
 from tarka_core.database import (
     build_async_database_url,
     create_audit_async_engine,
@@ -14,12 +12,16 @@ from tarka_core.database import (
     sync_url_for_alembic,
 )
 
+from integration_ingress.config import settings
+
 
 def _app_root() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
 
-_engine_kind: Literal["sqlite", "postgres"] = resolve_tarka_db_engine(database_url=settings.database_url)
+_engine_kind: Literal["sqlite", "postgres"] = resolve_tarka_db_engine(
+    database_url=settings.database_url
+)
 _database_url = build_async_database_url(
     engine_kind=_engine_kind,
     database_url=settings.database_url,

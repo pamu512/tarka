@@ -80,11 +80,16 @@ async def open_analytics_infra(application: FastAPI) -> None:
             with anyio.fail_after(10.0):
                 await run_clickhouse_sync(client, lambda: client.query("SELECT 1"))
         except Exception as e:
-            log.warning("ClickHouse startup health check failed (routes will fail closed): %s", e)
+            log.warning(
+                "ClickHouse startup health check failed (routes will fail closed): %s",
+                e,
+            )
             try:
                 await run_clickhouse_sync(client, client.close)
             except Exception as close_exc:
-                log.warning("ClickHouse client close after failed health check: %s", close_exc)
+                log.warning(
+                    "ClickHouse client close after failed health check: %s", close_exc
+                )
             application.state.analytics_engine = None
             application.state.clickhouse_client = None
             return

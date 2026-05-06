@@ -9,7 +9,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 """
 N4.2 — weekly aggregate export with integrity metadata.
@@ -59,7 +59,9 @@ def upload_artifact(upload_url: str, payload: bytes, api_key: str) -> dict:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Export weekly decision scorecard JSON (analytics-sink).")
+    p = argparse.ArgumentParser(
+        description="Export weekly decision scorecard JSON (analytics-sink)."
+    )
     p.add_argument("--base-url", default=os.environ.get("SCORECARD_BASE_URL", "").strip())
     p.add_argument("--tenant-id", default=os.environ.get("SCORECARD_TENANT_ID", "demo"))
     p.add_argument("--days", type=int, default=int(os.environ.get("SCORECARD_DAYS", "7")))
@@ -86,8 +88,10 @@ def main() -> int:
         return 1
 
     fetched = fetch_scorecard(args.base_url, args.tenant_id, args.days, args.api_key)
-    exported_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    artifact_name = f"scorecard-{args.tenant_id}-{exported_at.replace(':', '').replace('-', '')}.json"
+    exported_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    artifact_name = (
+        f"scorecard-{args.tenant_id}-{exported_at.replace(':', '').replace('-', '')}.json"
+    )
     envelope = {
         "schema": "tarka_weekly_scorecard_export_v1",
         "exported_at": exported_at,

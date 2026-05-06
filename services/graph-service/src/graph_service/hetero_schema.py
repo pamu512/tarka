@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from graph_service.custom_schema import load_tenant_schema
 
@@ -27,7 +28,9 @@ def validate_typed_edge_or_raise(
 ) -> None:
     """Raise ValueError if relationship is constrained and endpoint labels violate all OR alternatives."""
     rel = _norm_rel(relationship)
-    specs = [s for s in typed_edge_specs(tenant_id) if _norm_rel(str(s.get("relationship", ""))) == rel]
+    specs = [
+        s for s in typed_edge_specs(tenant_id) if _norm_rel(str(s.get("relationship", ""))) == rel
+    ]
     if not specs:
         return
     from_set = {str(x) for x in from_labels if str(x).strip()}
@@ -39,4 +42,6 @@ def validate_typed_edge_or_raise(
             continue
         if (from_set & ft) and (to_set & tt):
             return
-    raise ValueError(f"typed edge {rel} not satisfied for endpoint labels {sorted(from_set)} -> {sorted(to_set)} (tenant hetero schema)")
+    raise ValueError(
+        f"typed edge {rel} not satisfied for endpoint labels {sorted(from_set)} -> {sorted(to_set)} (tenant hetero schema)"
+    )

@@ -5,20 +5,20 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from typing import Any
 
 import asyncpg
 import redis.asyncio as aioredis
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+from tarka_shared.config_validation import log_runtime_warnings
+from tarka_shared.observability import get_metrics, setup_observability
+from tarka_shared.tracing import setup_tracing
 
 from data_platform.analytics import ensure_schema, query_decisions, write_event
 from data_platform.config import settings
 from data_platform.streaming import ensure_group, parse_stream_event, publish_event
-from tarka_shared.config_validation import log_runtime_warnings
-from tarka_shared.observability import get_metrics, setup_observability
-from tarka_shared.tracing import setup_tracing
 
 log = logging.getLogger("data-platform")
 
@@ -43,7 +43,9 @@ async def require_api_key(request: Request) -> None:
         return
     keys = _get_api_keys()
     if not keys:
-        allow = settings.allow_insecure_no_auth or os.environ.get("ALLOW_INSECURE_NO_AUTH", "").lower() in {"1", "true", "yes", "on"}
+        allow = settings.allow_insecure_no_auth or os.environ.get(
+            "ALLOW_INSECURE_NO_AUTH", ""
+        ).lower() in {"1", "true", "yes", "on"}
         if allow:
             return
         raise HTTPException(status_code=503, detail="service auth misconfigured: API_KEYS is empty")
@@ -70,14 +72,16 @@ async def _consumer_loop(app: FastAPI) -> None:
                 for stream_id, fields in events:
                     parsed = parse_stream_event(fields)
                     if not parsed:
-                        await redis.xack(settings.redis_stream, settings.redis_consumer_group, stream_id)
+                        await redis.xack(
+                            settings.redis_stream, settings.redis_consumer_group, stream_id
+                        )
                         continue
                     await write_event(pool, stream_id, parsed)
-                    await redis.xack(settings.redis_stream, settings.redis_consumer_group, stream_id)
-                    try:
+                    await redis.xack(
+                        settings.redis_stream, settings.redis_consumer_group, stream_id
+                    )
+                    with suppress(Exception):
                         get_metrics().inc("data_platform_events_written_total")
-                    except Exception:
-                        pass
         except asyncio.CancelledError:
             raise
         except Exception as exc:
@@ -90,7 +94,9 @@ async def lifespan(app: FastAPI):
     log_runtime_warnings("data-platform")
     app.state.redis = aioredis.from_url(settings.redis_url, decode_responses=True)
     await app.state.redis.ping()
-    app.state.pg_pool = await asyncpg.create_pool(dsn=settings.database_url, min_size=1, max_size=10)
+    app.state.pg_pool = await asyncpg.create_pool(
+        dsn=settings.database_url, min_size=1, max_size=10
+    )
     await ensure_schema(app.state.pg_pool)
     app.state.consumer_task = None
     if settings.enable_consumer:
@@ -99,10 +105,8 @@ async def lifespan(app: FastAPI):
     task = app.state.consumer_task
     if task is not None:
         task.cancel()
-        try:
+        with suppress(asyncio.CancelledError):
             await task
-        except asyncio.CancelledError:
-            pass
     await app.state.redis.aclose()
     await app.state.pg_pool.close()
 
@@ -137,11 +141,11 @@ async def health(request: Request) -> dict[str, Any]:
 
 @app.post("/v1/events", dependencies=[Depends(require_api_key)])
 async def ingest_event(body: EventPayload, request: Request) -> dict[str, Any]:
-    stream_id = await publish_event(request.app.state.redis, settings.redis_stream, body.model_dump(mode="json"))
-    try:
+    stream_id = await publish_event(
+        request.app.state.redis, settings.redis_stream, body.model_dump(mode="json")
+    )
+    with suppress(Exception):
         get_metrics().inc("data_platform_events_ingested_total")
-    except Exception:
-        pass
     return {"accepted": True, "stream_id": stream_id}
 
 
@@ -153,12 +157,12 @@ async def ingest_batch(body: dict[str, Any], request: Request) -> dict[str, Any]
     results: list[str] = []
     for item in events:
         evt = EventPayload.model_validate(item)
-        sid = await publish_event(request.app.state.redis, settings.redis_stream, evt.model_dump(mode="json"))
+        sid = await publish_event(
+            request.app.state.redis, settings.redis_stream, evt.model_dump(mode="json")
+        )
         results.append(sid)
-    try:
+    with suppress(Exception):
         get_metrics().inc("data_platform_events_ingested_total", len(results))
-    except Exception:
-        pass
     return {"accepted": len(results), "results": results}
 
 
@@ -191,4 +195,3 @@ async def analytics_decisions(
         entity_id=entity_id,
     )
     return {"rows": rows, "total": len(rows), "backend": settings.analytics_backend}
-

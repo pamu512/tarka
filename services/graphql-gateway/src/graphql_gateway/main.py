@@ -21,7 +21,9 @@ def _get_api_keys() -> frozenset[str]:
     global _valid_api_keys
     if _valid_api_keys is None:
         raw = settings.api_keys.strip()
-        _valid_api_keys = frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
+        _valid_api_keys = (
+            frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
+        )
     return _valid_api_keys
 
 

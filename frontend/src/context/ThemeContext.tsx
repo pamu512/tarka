@@ -67,6 +67,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const effective: "light" | "dark" = useMemo(
     () => (resolveIsDark(preference) ? "dark" : "light"),
+    /* eslint-disable-next-line react-hooks/exhaustive-deps -- `mediaEpoch` bumps on system scheme change */
     [preference, mediaEpoch],
   );
 

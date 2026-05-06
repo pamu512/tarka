@@ -30,13 +30,32 @@ def upgrade() -> None:
         sa.Column("score", sa.Float(), nullable=False),
         sa.Column("tags", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("rule_hits", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("payload_snapshot", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "payload_snapshot", postgresql.JSONB(astext_type=sa.Text()), nullable=True
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_decision_audit_entity_id"), "decision_audit", ["entity_id"], unique=False)
-    op.create_index(op.f("ix_decision_audit_tenant_id"), "decision_audit", ["tenant_id"], unique=False)
-    op.create_index(op.f("ix_decision_audit_trace_id"), "decision_audit", ["trace_id"], unique=True)
+    op.create_index(
+        op.f("ix_decision_audit_entity_id"),
+        "decision_audit",
+        ["entity_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_decision_audit_tenant_id"),
+        "decision_audit",
+        ["tenant_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_decision_audit_trace_id"), "decision_audit", ["trace_id"], unique=True
+    )
 
 
 def downgrade() -> None:

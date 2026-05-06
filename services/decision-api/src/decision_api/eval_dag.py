@@ -52,7 +52,9 @@ def validate_evaluation_dag() -> tuple[str, ...]:
             if in_degree[v] == 0:
                 q.append(v)
     if len(order) != len(nodes):
-        raise ValueError("evaluation DAG cycle detected in STEP_DEPENDENCIES; fix eval_dag.py")
+        raise ValueError(
+            "evaluation DAG cycle detected in STEP_DEPENDENCIES; fix eval_dag.py"
+        )
     return tuple(order)
 
 
@@ -76,7 +78,9 @@ class EvalDAGRuntime:
             return False
         return feature_snapshot_trace.get("status") == "ok"
 
-    def include_calibration(self, opa_trace: dict[str, Any], ml_trace: dict[str, Any]) -> bool:
+    def include_calibration(
+        self, opa_trace: dict[str, Any], ml_trace: dict[str, Any]
+    ) -> bool:
         if self.load_shed:
             return False
         return opa_trace.get("status") == "ok" and ml_trace.get("status") == "ok"

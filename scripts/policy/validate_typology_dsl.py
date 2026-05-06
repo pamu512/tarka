@@ -41,7 +41,9 @@ def main() -> int:
     pin_int = int(pin) if pin is not None else reg_ver
     errors: list[str] = []
     if reg and reg_ver != pin_int:
-        errors.append(f"typology_definitions predicate_registry_pin ({pin_int}) != registry version ({reg_ver}) — bump pin or registry together")
+        errors.append(
+            f"typology_definitions predicate_registry_pin ({pin_int}) != registry version ({reg_ver}) — bump pin or registry together"
+        )
     for spec in typ.get("typologies") or []:
         tid = spec.get("id") or "?"
         for pred in spec.get("feature_predicates") or []:
@@ -53,7 +55,9 @@ def main() -> int:
                     errors.append(f"typology {tid}: unknown predicate_ref {ref!r}")
             else:
                 if not pred.get("field"):
-                    errors.append(f"typology {tid}: feature_predicate must have predicate_ref or inline field")
+                    errors.append(
+                        f"typology {tid}: feature_predicate must have predicate_ref or inline field"
+                    )
     if errors:
         for e in errors:
             print(e, file=sys.stderr)

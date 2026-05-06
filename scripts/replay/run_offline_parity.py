@@ -5,7 +5,7 @@ import argparse
 import json
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 """
@@ -34,7 +34,9 @@ def main() -> int:
     p.add_argument("--pattern", default="fraud:agg*", help="Key pattern for diff")
     p.add_argument("--limit", type=int, default=None)
     p.add_argument("--report", type=Path, default=None, help="Write JSON report path")
-    p.add_argument("--agg-key-version", default="", help="Set AGG_KEY_VERSION for replay subprocess")
+    p.add_argument(
+        "--agg-key-version", default="", help="Set AGG_KEY_VERSION for replay subprocess"
+    )
     args = p.parse_args()
 
     env = {**__import__("os").environ}
@@ -42,7 +44,14 @@ def main() -> int:
         env["AGG_KEY_VERSION"] = args.agg_key_version.strip()
 
     replay_py = _REPO / "scripts" / "replay" / "replay_aggregates.py"
-    cmd = [sys.executable, str(replay_py), "--input", str(args.input), "--redis-url", args.scratch_url]
+    cmd = [
+        sys.executable,
+        str(replay_py),
+        "--input",
+        str(args.input),
+        "--redis-url",
+        args.scratch_url,
+    ]
     if args.limit:
         cmd.extend(["--limit", str(args.limit)])
     r = subprocess.run(cmd, cwd=str(_REPO), env=env, capture_output=True, text=True)
@@ -68,7 +77,7 @@ def main() -> int:
         diff_out = (dr.stdout or "") + (dr.stderr or "")
 
     report = {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "input": str(args.input),
         "scratch_redis_url": args.scratch_url,
         "reference_redis_url": args.reference_url or None,

@@ -11,7 +11,9 @@ from decision_api.async_osint_redis import publish_async_enrichment_request
 
 
 @pytest.mark.asyncio
-async def test_publish_async_enrichment_request_includes_data_residency_region() -> None:
+async def test_publish_async_enrichment_request_includes_data_residency_region() -> (
+    None
+):
     broker = AsyncMock()
     body = MagicMock()
     body.tenant_id = "t1"

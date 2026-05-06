@@ -9,7 +9,6 @@ dependencies = [
   "nats-py>=2.7.0",
   "tarka-core @ file:../core",
   "tarka-analytics @ file:../analytics",
-  "tarka-rule-engine @ file:../rule-engine",
   "redis[hiredis]>=5.2.0",
   "sqlalchemy[asyncio]>=2.0.49",
   "aiosqlite>=0.21.0",

@@ -6,14 +6,16 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
+from integration_ingress.compliance_residency import set_residency_matrix_cell
+from integration_ingress.osint import _osint_residency_ctx, _safe_get
 from tarka_core.data_residency import DataResidencyViolationError
 from tarka_core.tenant_config import DataResidencyRegion, TenantConfig
 
-from integration_ingress.osint import _osint_residency_ctx, _safe_get
-
 
 @pytest.mark.asyncio
-async def test_safe_get_blocks_shodan_before_http_transport(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_safe_get_blocks_shodan_before_http_transport(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     record_mock = AsyncMock()
     monkeypatch.setattr(
         "integration_ingress.compliance_residency.record_residency_compliance_block",
@@ -38,3 +40,33 @@ async def test_safe_get_blocks_shodan_before_http_transport(monkeypatch: pytest.
         assert kw.get("component") == "osint"
     finally:
         _osint_residency_ctx.reset(tok)
+
+
+@pytest.mark.asyncio
+async def test_safe_get_honors_residency_matrix_block_for_global_tenant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """GLOBAL tenant normally may call GLOBAL-region RDAP; matrix policy can still block."""
+    record_mock = AsyncMock()
+    monkeypatch.setattr(
+        "integration_ingress.compliance_residency.record_residency_compliance_block",
+        record_mock,
+    )
+
+    def _boom(request: httpx.Request) -> httpx.Response:  # pragma: no cover
+        raise AssertionError("HTTP transport must not run for matrix-blocked vendor")
+
+    transport = httpx.MockTransport(_boom)
+    set_residency_matrix_cell(tenant_id="t-matrix-block", vendor_key="rdap", blocked=True)
+    tok = _osint_residency_ctx.set(
+        ("t-matrix-block", TenantConfig(data_residency_region=DataResidencyRegion.GLOBAL)),
+    )
+    try:
+        async with httpx.AsyncClient(transport=transport) as http:
+            with pytest.raises(DataResidencyViolationError):
+                await _safe_get(http, "https://rdap.example.test/domain/foo", vendor_key="rdap")
+        record_mock.assert_awaited_once()
+        assert record_mock.await_args.kwargs.get("outcome") == "policy_block"
+    finally:
+        _osint_residency_ctx.reset(tok)
+        set_residency_matrix_cell(tenant_id="t-matrix-block", vendor_key="rdap", blocked=False)

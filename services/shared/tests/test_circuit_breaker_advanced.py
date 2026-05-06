@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 
 from circuit import AsyncCircuitBreaker, CircuitOpenError
 
@@ -12,14 +13,10 @@ def test_circuit_opens_after_threshold_and_recovers() -> None:
         async def fail() -> None:
             raise RuntimeError("boom")
 
-        try:
+        with contextlib.suppress(RuntimeError):
             await cb.call(fail)
-        except RuntimeError:
-            pass
-        try:
+        with contextlib.suppress(RuntimeError):
             await cb.call(fail)
-        except RuntimeError:
-            pass
         try:
             await cb.call(fail)
             raise AssertionError("expected circuit to be open")
@@ -59,18 +56,13 @@ def test_success_resets_failure_counter() -> None:
         async def fail() -> None:
             raise RuntimeError("x")
 
-        try:
+        with contextlib.suppress(RuntimeError):
             await cb.call(fail)
-        except RuntimeError:
-            pass
         ok = await cb.call(lambda: asyncio.sleep(0, result=1))
         assert ok == 1
-        try:
+        with contextlib.suppress(RuntimeError):
             await cb.call(fail)
-        except RuntimeError:
-            pass
         # Not open yet because success reset the failure streak.
         assert await cb.is_open() is False
 
     asyncio.run(run())
-

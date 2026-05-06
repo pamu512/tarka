@@ -96,7 +96,14 @@ _PACKS: dict[str, dict[str, Any]] = {
 
 
 def list_vertical_packs() -> dict[str, dict[str, Any]]:
-    return {k: {"name": v["name"], "rules": len(v.get("rules", [])), "version": v.get("version", 1)} for k, v in _PACKS.items()}
+    return {
+        k: {
+            "name": v["name"],
+            "rules": len(v.get("rules", [])),
+            "version": v.get("version", 1),
+        }
+        for k, v in _PACKS.items()
+    }
 
 
 def get_vertical_pack(name: str) -> dict[str, Any] | None:

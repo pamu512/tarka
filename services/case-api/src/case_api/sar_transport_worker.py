@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import traceback
 from typing import Any
@@ -12,7 +13,7 @@ from sqlalchemy import select
 
 from case_api.config import settings
 from case_api.db import SessionLocal
-from case_api.models import SARFiling, SarFiling
+from case_api.models import SARFiling
 from case_api.sar_filing_transport import build_sar_transmission_package, upload_sar_bytes
 from case_api.sar_transport import (
     SAR_ACKNOWLEDGED,
@@ -45,7 +46,9 @@ async def process_sar_transport_once() -> bool:
                     stack_trace=None,
                 )
                 return True
-            res = await session.execute(select(SARFiling).where(SARFiling.id == intent.sar_artifact_id))
+            res = await session.execute(
+                select(SARFiling).where(SARFiling.id == intent.sar_artifact_id)
+            )
             art = res.scalar_one_or_none()
             if art is None:
                 await transition_sar_intent(
@@ -98,7 +101,11 @@ async def process_sar_transport_once() -> bool:
                 intent,
                 to_status=SAR_TRANSMITTED,
                 actor="sar_worker",
-                detail={"reason_code": "SAR_TRANSMITTED", "remote_filename": fname, "bytes": len(body)},
+                detail={
+                    "reason_code": "SAR_TRANSMITTED",
+                    "remote_filename": fname,
+                    "bytes": len(body),
+                },
             )
             if not settings.sar_transport_require_separate_ack:
                 await transition_sar_intent(
@@ -132,8 +139,10 @@ async def _tick_loop(broker: Any, stop: asyncio.Event) -> None:
             except Exception as e:
                 log.warning("sar transport publish tick failed: %s", e)
             try:
-                await asyncio.wait_for(stop.wait(), timeout=float(settings.sar_transport_tick_seconds))
-            except asyncio.TimeoutError:
+                await asyncio.wait_for(
+                    stop.wait(), timeout=float(settings.sar_transport_tick_seconds)
+                )
+            except TimeoutError:
                 continue
     except asyncio.CancelledError:
         return
@@ -161,7 +170,9 @@ async def setup_sar_transport_worker(application: FastAPI) -> None:
         log.info("SAR worker using LocalAsyncBroker (set NATS_URL for multi-pod dequeue fanout)")
 
     application.state.message_broker = broker
-    application.state._sar_transport_sub = await broker.subscribe(SAR_TRANSPORT_RUN_SUBJECT, handle_sar_transport_message)
+    application.state._sar_transport_sub = await broker.subscribe(
+        SAR_TRANSPORT_RUN_SUBJECT, handle_sar_transport_message
+    )
 
     stop = asyncio.Event()
     application.state._sar_transport_stop = stop
@@ -175,10 +186,8 @@ async def shutdown_sar_transport_worker(application: FastAPI) -> None:
     tick = getattr(application.state, "_sar_transport_tick_task", None)
     if tick is not None:
         tick.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await tick
-        except asyncio.CancelledError:
-            pass
     broker = getattr(application.state, "message_broker", None)
     if broker is None:
         return

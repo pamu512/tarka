@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import urlparse
@@ -58,7 +58,9 @@ async def test_catalog_contains_20(client):
 
 @pytest.mark.asyncio
 async def test_preflight_probes_returns_quality(client):
-    r = await client.post("/v1/integrations/preflight-probes", json={"provider_ids": ["stripe_radar"]})
+    r = await client.post(
+        "/v1/integrations/preflight-probes", json={"provider_ids": ["stripe_radar"]}
+    )
     assert r.status_code == 200
     data = r.json()
     assert data.get("connector_quality_version") == 1
@@ -117,7 +119,11 @@ async def test_test_connectivity_pass_with_user_credentials(client):
     session.execute.return_value = result
     r = await client.post(
         "/v1/integrations/test-connectivity",
-        json={"tenant_id": "t1", "provider_id": "jira", "config": {"username": "u", "password": "p"}},
+        json={
+            "tenant_id": "t1",
+            "provider_id": "jira",
+            "config": {"username": "u", "password": "p"},
+        },
     )
     assert r.status_code == 200
     assert r.json()["status"] == "pass"
@@ -233,7 +239,7 @@ async def test_scorecards_endpoint_shape(client):
             "missing_fields": [],
             "live_probe": {"ok": True, "latency_ms": 11.0, "error": ""},
         },
-        updated_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(UTC),
     )
     result = MagicMock()
     result.scalars.return_value.all.return_value = [row]

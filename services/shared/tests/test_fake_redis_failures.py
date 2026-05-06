@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-
 from tarka_shared_testutils.fake_redis_failures import FakeRedisWithFailures
 
 
@@ -35,4 +34,3 @@ def test_lua_eval_failure_injection() -> None:
             await redis.eval("return 1", 0)
 
     asyncio.run(run())
-

@@ -45,7 +45,13 @@ EPICS: list[tuple[str, str, str, str, str]] = [
     ("Q2-E01", "Unified analyst workbench composition", "L", "UX AI GRAPH", "Q2-2026"),
     ("Q2-E02", "Copilot confidence and citation quality framework", "M", "AI COMP", "Q2-2026"),
     ("Q2-E03", "Graph explainability and path reasoning surfaces", "M", "GRAPH UX", "Q2-2026"),
-    ("Q2-E04", "Entity resolution confidence and analyst override loop", "M", "GRAPH DATA", "Q2-2026"),
+    (
+        "Q2-E04",
+        "Entity resolution confidence and analyst override loop",
+        "M",
+        "GRAPH DATA",
+        "Q2-2026",
+    ),
     ("Q2-E05", "Drift and benchmark analytics dashboards", "M", "DATA AI SRE", "Q2-2026"),
     ("Q2-E06", "Counter catalog and operator transparency API/UI", "S", "DATA UX", "Q2-2026"),
     ("Q2-E07", "Cross-workflow navigation and state continuity", "S", "UX", "Q2-2026"),
@@ -65,7 +71,13 @@ EPICS: list[tuple[str, str, str, str, str]] = [
     ("Q4-E04", "Executive trust and compliance analytics pack", "M", "DATA UX", "Q4-2026"),
     ("Q4-E05", "Copilot persona and policy-controlled action framework", "M", "AI SEC", "Q4-2026"),
     ("Q4-E06", "Tenant-safe benchmarking and cohort exports", "M", "DATA COMP", "Q4-2026"),
-    ("Q4-E07", "Flight-recorder diagnostics for hosted/self-hosted support", "S", "SRE PLAT", "Q4-2026"),
+    (
+        "Q4-E07",
+        "Flight-recorder diagnostics for hosted/self-hosted support",
+        "S",
+        "SRE PLAT",
+        "Q4-2026",
+    ),
 ]
 
 

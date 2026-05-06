@@ -111,7 +111,10 @@ def test_required_envelope_rejects_flat(client, mock_js):
 
 
 def test_stats_after_reject(client, mock_js):
-    r = client.post("/v1/events", json={"tenant_id": "t1", "event_type": "bad_type", "entity_id": "u1", "payload": {}})
+    r = client.post(
+        "/v1/events",
+        json={"tenant_id": "t1", "event_type": "bad_type", "entity_id": "u1", "payload": {}},
+    )
     assert r.status_code == 422
     st = client.get("/v1/ingest/stats")
     assert st.status_code == 200

@@ -28,7 +28,7 @@ def client_with_http_mock():
                 class Resp:
                     status_code = 200
 
-                    def json(self_inner):
+                    def json(self):
                         if "/v1/audit/" in u:
                             return {
                                 "decision": "review",

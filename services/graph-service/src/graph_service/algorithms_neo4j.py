@@ -168,7 +168,9 @@ async def propagate_risk(
         dist = rec["distance"]
         score = round(100.0 * (decay**dist), 2)
         path_desc = " -> ".join(
-            f"({nid})" if i % 2 == 0 else f"-[{rec['rel_types'][i // 2] if i // 2 < len(rec['rel_types']) else '?'}]->"
+            f"({nid})"
+            if i % 2 == 0
+            else f"-[{rec['rel_types'][i // 2] if i // 2 < len(rec['rel_types']) else '?'}]->"
             for i, nid in enumerate(rec["node_chain"])
         )
 

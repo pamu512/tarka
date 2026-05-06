@@ -49,7 +49,9 @@ def export_for_decision_pipeline() -> dict[str, Any]:
 
 def registry_content_digest() -> str:
     """Deterministic digest over canonical feature definitions (backward-compat guardrails)."""
-    body = json.dumps(GRAPH_FEATURES, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+    body = json.dumps(GRAPH_FEATURES, sort_keys=True, separators=(",", ":"), default=str).encode(
+        "utf-8"
+    )
     return sha256(body).hexdigest()
 
 

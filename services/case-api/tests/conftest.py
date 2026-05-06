@@ -12,5 +12,8 @@ if not (os.environ.get("API_KEYS") or "").strip():
 os.environ.setdefault("CASE_RETENTION_DAYS", "0")
 
 # auth_rbac middleware requires API_KEYS, OIDC, or ALLOW_INSECURE_NO_AUTH.
-if not (os.environ.get("API_KEYS") or "").strip() and not (os.environ.get("OIDC_ISSUER") or "").strip():
+if (
+    not (os.environ.get("API_KEYS") or "").strip()
+    and not (os.environ.get("OIDC_ISSUER") or "").strip()
+):
     os.environ["ALLOW_INSECURE_NO_AUTH"] = "true"

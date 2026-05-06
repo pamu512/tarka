@@ -83,7 +83,7 @@ def _strip_leading_docstring(body: list[ast.stmt]) -> list[ast.stmt]:
 def _is_stub_status_dict(node: ast.expr) -> bool:
     if not isinstance(node, ast.Dict):
         return False
-    for key, val in zip(node.keys, node.values):
+    for key, val in zip(node.keys, node.values, strict=False):
         if key is None:
             continue
         if not (isinstance(key, ast.Constant) and key.value == "status"):
@@ -125,7 +125,10 @@ def _decorator_names(decs: list[ast.expr]) -> set[str]:
 
 def _skip_function_for_abstract_rules(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     decs = _decorator_names(node.decorator_list)
-    return bool(decs & {"abstractmethod", "abstractclassmethod", "abstractstaticmethod"}) or "overload" in decs
+    return (
+        bool(decs & {"abstractmethod", "abstractclassmethod", "abstractstaticmethod"})
+        or "overload" in decs
+    )
 
 
 def _class_has_protocol_base(class_node: ast.ClassDef) -> bool:
@@ -144,9 +147,7 @@ def _is_ellipsis_expr(node: ast.expr) -> bool:
 def _stmt_is_pass_or_ellipsis(stmt: ast.stmt) -> bool:
     if isinstance(stmt, ast.Pass):
         return True
-    if isinstance(stmt, ast.Expr) and _is_ellipsis_expr(stmt.value):
-        return True
-    return False
+    return bool(isinstance(stmt, ast.Expr) and _is_ellipsis_expr(stmt.value))
 
 
 def _function_body_is_empty_stub(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
@@ -198,7 +199,9 @@ def _scan_raise_notimplemented(
         _scan_raise_notimplemented(child, violations, path, repo_root, qualname, skip)
 
 
-def _scan_return_stub_dict(node: ast.AST, violations: list[Violation], path: Path, repo_root: Path, qualname: str) -> None:
+def _scan_return_stub_dict(
+    node: ast.AST, violations: list[Violation], path: Path, repo_root: Path, qualname: str
+) -> None:
     if isinstance(node, ast.Assign) and node.value and _expr_contains_stub_dict(node.value):
         ln = getattr(node, "lineno", 0) or 0
         violations.append(
@@ -219,7 +222,11 @@ def _scan_return_stub_dict(node: ast.AST, violations: list[Violation], path: Pat
                 f"{qualname}: annotated assignment value includes dict literal with status='stub'",
             )
         )
-    elif isinstance(node, ast.Return) and node.value is not None and _expr_contains_stub_dict(node.value):
+    elif (
+        isinstance(node, ast.Return)
+        and node.value is not None
+        and _expr_contains_stub_dict(node.value)
+    ):
         ln = getattr(node, "lineno", 0) or 0
         violations.append(
             Violation(
@@ -235,7 +242,9 @@ def _scan_return_stub_dict(node: ast.AST, violations: list[Violation], path: Pat
         _scan_return_stub_dict(child, violations, path, repo_root, qualname)
 
 
-def _empty_stub_violation_message(path: Path, repo_root: Path, lineno: int, qualname: str, kind: str) -> str:
+def _empty_stub_violation_message(
+    path: Path, repo_root: Path, lineno: int, qualname: str, kind: str
+) -> str:
     rel = _format_path(path, repo_root)
     return f"{rel}:{lineno}: {qualname}: function body is only {kind} (no implementation)"
 
@@ -276,7 +285,9 @@ def _scan_function(
             _scan_class(child, violations, path, repo_root, name)
 
 
-def _scan_class(node: ast.ClassDef, violations: list[Violation], path: Path, repo_root: Path, outer: str) -> None:
+def _scan_class(
+    node: ast.ClassDef, violations: list[Violation], path: Path, repo_root: Path, outer: str
+) -> None:
     name = f"{outer}.{node.name}" if outer else node.name
     is_protocol = _class_has_protocol_base(node)
     for child in node.body:
@@ -286,7 +297,9 @@ def _scan_class(node: ast.ClassDef, violations: list[Violation], path: Path, rep
             _scan_class(child, violations, path, repo_root, name)
 
 
-def _scan_module(tree: ast.Module, violations: list[Violation], path: Path, repo_root: Path) -> None:
+def _scan_module(
+    tree: ast.Module, violations: list[Violation], path: Path, repo_root: Path
+) -> None:
     for node in tree.body:
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             _scan_function(node, violations, path, repo_root, "", class_protocol=False)
@@ -294,7 +307,9 @@ def _scan_module(tree: ast.Module, violations: list[Violation], path: Path, repo
             _scan_class(node, violations, path, repo_root, "")
 
 
-def _scan_module_level_lambda_assignments(tree: ast.Module, violations: list[Violation], path: Path, repo_root: Path) -> None:
+def _scan_module_level_lambda_assignments(
+    tree: ast.Module, violations: list[Violation], path: Path, repo_root: Path
+) -> None:
     """Catch ``f = lambda: {"status": "stub"}`` at module level."""
 
     class V(ast.NodeVisitor):
@@ -372,7 +387,9 @@ def main(argv: list[str]) -> int:
         return 1
     violations = audit(root)
     if not violations:
-        print(f"audit_stubs: OK (AST-scanned Python under {root.relative_to(repo_root).as_posix()}/)")
+        print(
+            f"audit_stubs: OK (AST-scanned Python under {root.relative_to(repo_root).as_posix()}/)"
+        )
         return 0
     for v in sorted(violations, key=lambda x: (str(x.path), x.lineno, x.message)):
         # message already includes repo-relative path:line for primary findings

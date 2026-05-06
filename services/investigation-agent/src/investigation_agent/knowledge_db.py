@@ -43,7 +43,10 @@ def _data_dir() -> str:
 
 
 def db_path() -> str:
-    name = os.environ.get("COPILOT_RAG_DB_NAME", "knowledge_rag.sqlite3").strip() or "knowledge_rag.sqlite3"
+    name = (
+        os.environ.get("COPILOT_RAG_DB_NAME", "knowledge_rag.sqlite3").strip()
+        or "knowledge_rag.sqlite3"
+    )
     return os.path.join(_data_dir(), name)
 
 
@@ -76,8 +79,12 @@ def _init_schema(c: sqlite3.Connection) -> None:
         )
         """
     )
-    c.execute("CREATE INDEX IF NOT EXISTS idx_knowledge_scope ON knowledge_chunks (tenant_id, analyst_id, created_at)")
-    c.execute("CREATE INDEX IF NOT EXISTS idx_knowledge_doc ON knowledge_chunks (tenant_id, analyst_id, doc_id)")
+    c.execute(
+        "CREATE INDEX IF NOT EXISTS idx_knowledge_scope ON knowledge_chunks (tenant_id, analyst_id, created_at)"
+    )
+    c.execute(
+        "CREATE INDEX IF NOT EXISTS idx_knowledge_doc ON knowledge_chunks (tenant_id, analyst_id, doc_id)"
+    )
     c.commit()
 
 
@@ -280,7 +287,9 @@ def count_docs(tenant_id: str, analyst_id: str) -> int:
     return int(row[0] or 0) if row else 0
 
 
-def search_keyword_only(tenant_id: str, analyst_id: str, query: str, limit: int = 5) -> list[dict[str, Any]]:
+def search_keyword_only(
+    tenant_id: str, analyst_id: str, query: str, limit: int = 5
+) -> list[dict[str, Any]]:
     return _search_hybrid(tenant_id, analyst_id, query, limit, query_embedding=None)
 
 
@@ -293,7 +302,9 @@ def search_hybrid(
     *,
     hybrid_keyword_weight: float = 0.35,
 ) -> list[dict[str, Any]]:
-    return _search_hybrid(tenant_id, analyst_id, query, limit, query_embedding, hybrid_keyword_weight)
+    return _search_hybrid(
+        tenant_id, analyst_id, query, limit, query_embedding, hybrid_keyword_weight
+    )
 
 
 def _search_hybrid(
@@ -332,7 +343,9 @@ def _search_hybrid(
             except (json.JSONDecodeError, TypeError):
                 sem = 0.0
         if query_embedding and ej:
-            combined = (1.0 - hybrid_keyword_weight) * sem + hybrid_keyword_weight * min(1.0, kw / 5.0)
+            combined = (1.0 - hybrid_keyword_weight) * sem + hybrid_keyword_weight * min(
+                1.0, kw / 5.0
+            )
         else:
             combined = kw
         if combined <= 0:

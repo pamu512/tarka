@@ -12,7 +12,9 @@ from fraud_stack_sdk.request_signing import build_signature_headers
 
 def canonical_json_bytes(obj: dict[str, Any]) -> bytes:
     """Stable UTF-8 JSON for HMAC and retries (sorted keys, no extra whitespace)."""
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
+        "utf-8"
+    )
 
 
 def build_evaluate_envelope(
@@ -69,7 +71,9 @@ def build_evaluate_request_headers(
         headers["X-Tarka-Client-Timestamp"] = str(int(client_timestamp))
     if request_secret:
         headers.update(
-            build_signature_headers(body_bytes, secret=request_secret, timestamp=signature_timestamp),
+            build_signature_headers(
+                body_bytes, secret=request_secret, timestamp=signature_timestamp
+            ),
         )
     return headers
 

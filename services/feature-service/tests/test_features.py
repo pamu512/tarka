@@ -124,7 +124,15 @@ class TestBuildVector:
 class TestSnapshotEndpoint:
     @pytest.fixture
     def client(self):
-        with patch.dict("os.environ", {"API_KEYS": "", "ALLOW_INSECURE_NO_AUTH": "true", "ENRICHMENT_URL": "", "REDIS_TAGS_HTTP": ""}):
+        with patch.dict(
+            "os.environ",
+            {
+                "API_KEYS": "",
+                "ALLOW_INSECURE_NO_AUTH": "true",
+                "ENRICHMENT_URL": "",
+                "REDIS_TAGS_HTTP": "",
+            },
+        ):
             import feature_service.main as mod
             from feature_service.main import app
 
@@ -178,7 +186,15 @@ class TestSnapshotEndpoint:
 class TestVelocityQueryEndpoint:
     @pytest.fixture
     def client(self):
-        with patch.dict("os.environ", {"API_KEYS": "", "ALLOW_INSECURE_NO_AUTH": "true", "ENRICHMENT_URL": "", "REDIS_TAGS_HTTP": ""}):
+        with patch.dict(
+            "os.environ",
+            {
+                "API_KEYS": "",
+                "ALLOW_INSECURE_NO_AUTH": "true",
+                "ENRICHMENT_URL": "",
+                "REDIS_TAGS_HTTP": "",
+            },
+        ):
             import feature_service.main as mod
             from feature_service.main import app
 

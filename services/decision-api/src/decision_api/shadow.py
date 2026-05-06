@@ -39,12 +39,18 @@ def load_shadow_rules() -> None:
         except Exception as e:
             log.warning("Failed to load shadow rule pack %s: %s", fname, e)
     _shadow_enabled = len(_shadow_packs) > 0
-    log.info("Loaded %d shadow rule packs from %s", len(_shadow_packs), _shadow_rules_path)
+    log.info(
+        "Loaded %d shadow rule packs from %s", len(_shadow_packs), _shadow_rules_path
+    )
 
 
 def evaluate_shadow(features: dict[str, Any], tags: list[str]) -> dict[str, Any] | None:
     """Evaluate shadow rules against the same features. Returns comparison result or None if disabled."""
     from decision_api.json_rules import evaluate_adhoc_packs_json, get_shadow_packs
+    from decision_api.rust_rule_engine_exceptions import (
+        RustRuleEngineCircuitOpenError,
+        RustRuleEngineInvocationFailed,
+    )
 
     shadow_mode_packs = get_shadow_packs()
     has_file_packs = _shadow_enabled and bool(_shadow_packs)
@@ -57,13 +63,26 @@ def evaluate_shadow(features: dict[str, Any], tags: list[str]) -> dict[str, Any]
     if has_file_packs:
         packs.extend(_shadow_packs)
     packs.extend(shadow_mode_packs)
-    all_hits, all_tags, total_delta, _pf = evaluate_adhoc_packs_json(
-        packs,
-        features,
-        tags,
-        evaluation_mode="simulation",
-        record_telemetry=False,
-    )
+    try:
+        all_hits, all_tags, total_delta, _pf = evaluate_adhoc_packs_json(
+            packs,
+            features,
+            tags,
+            evaluation_mode="simulation",
+            record_telemetry=False,
+        )
+    except (RustRuleEngineCircuitOpenError, RustRuleEngineInvocationFailed) as e:
+        log.error(
+            "shadow_rules_evaluation_failed",
+            extra={
+                "rust_ffi": True,
+                "phase": "evaluate_shadow_adhoc",
+                "exc_type": type(e).__name__,
+                "exc_repr": repr(e),
+            },
+            exc_info=True,
+        )
+        return None
 
     shadow_score = max(0.0, min(100.0, 10.0 + total_delta))
 
@@ -132,10 +151,26 @@ def get_observation_stats() -> dict[str, Any]:
         prod_decisions[pd] = prod_decisions.get(pd, 0) + 1
         shadow_decisions[sd] = shadow_decisions.get(sd, 0) + 1
 
-    tp = sum(1 for o in obs if o.get("production_decision") == "deny" and o.get("shadow_decision") == "deny")
-    fp = sum(1 for o in obs if o.get("production_decision") != "deny" and o.get("shadow_decision") == "deny")
-    fn = sum(1 for o in obs if o.get("production_decision") == "deny" and o.get("shadow_decision") != "deny")
-    tn = sum(1 for o in obs if o.get("production_decision") != "deny" and o.get("shadow_decision") != "deny")
+    tp = sum(
+        1
+        for o in obs
+        if o.get("production_decision") == "deny" and o.get("shadow_decision") == "deny"
+    )
+    fp = sum(
+        1
+        for o in obs
+        if o.get("production_decision") != "deny" and o.get("shadow_decision") == "deny"
+    )
+    fn = sum(
+        1
+        for o in obs
+        if o.get("production_decision") == "deny" and o.get("shadow_decision") != "deny"
+    )
+    tn = sum(
+        1
+        for o in obs
+        if o.get("production_decision") != "deny" and o.get("shadow_decision") != "deny"
+    )
 
     score_diffs = [o.get("shadow_score", 0) - o.get("production_score", 0) for o in obs]
     avg_score_delta = sum(score_diffs) / len(score_diffs) if score_diffs else 0.0

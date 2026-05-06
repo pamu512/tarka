@@ -28,5 +28,6 @@ def test_no_orphaned_shared_path_fragments_in_core_files():
             if snippet in text:
                 offenders.append(f"{path}: {snippet}")
 
-    assert not offenders, "Found broken shared-import refactor fragments:\\n" + "\\n".join(offenders)
-
+    assert not offenders, "Found broken shared-import refactor fragments:\\n" + "\\n".join(
+        offenders
+    )

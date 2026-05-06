@@ -89,7 +89,10 @@ def test_check_signal_encodes_path():
 
 
 def test_ingest_json_lines_dry_run():
-    adapter = ConsortiumAdapter("http://x", http_client=httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(500))))
+    adapter = ConsortiumAdapter(
+        "http://x",
+        http_client=httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(500))),
+    )
     try:
         ok, err, errors = ingest_json_lines(
             adapter,

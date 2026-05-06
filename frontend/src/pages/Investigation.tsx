@@ -83,11 +83,6 @@ function normalizeSourceRefs(raw: unknown): InvestigationSourceRefCard[] {
     .filter((c) => c.tool.length > 0);
 }
 
-function normalizeConfidenceLabel(raw: unknown): string {
-  const v = String(raw ?? "").trim();
-  return v || "Unspecified";
-}
-
 interface Message {
   id: string;
   role: "user" | "assistant";

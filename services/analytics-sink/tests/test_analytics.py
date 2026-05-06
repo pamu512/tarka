@@ -66,7 +66,9 @@ class TestFlushBatch:
     def test_flush_batch_multiple_rows(self):
         mock_client = MagicMock()
         with patch("analytics_sink.main._ch_client", mock_client):
-            batch = [{"trace_id": f"tr{i}", "tenant_id": "t1", "score": float(i * 10)} for i in range(5)]
+            batch = [
+                {"trace_id": f"tr{i}", "tenant_id": "t1", "score": float(i * 10)} for i in range(5)
+            ]
             _flush_batch("fraud", batch)
 
         rows = mock_client.insert.call_args[0][1]
@@ -118,7 +120,10 @@ class TestQueryEndpoints:
         assert data["rows"][0]["trace_id"] == "tr1"
 
     def test_query_decisions_with_filters(self, client):
-        r = client.get("/v1/analytics/decisions", params={"tenant_id": "t1", "decision": "deny", "entity_id": "e1", "days": 30})
+        r = client.get(
+            "/v1/analytics/decisions",
+            params={"tenant_id": "t1", "decision": "deny", "entity_id": "e1", "days": 30},
+        )
         assert r.status_code == 200
 
     def test_hourly_stats(self, client):

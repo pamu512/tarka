@@ -122,7 +122,9 @@ def explain_score(
 _IMPACT_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 
 
-def top_factors_from_explanations(explanations: list[dict[str, Any]], *, limit: int = 3) -> list[dict[str, Any]]:
+def top_factors_from_explanations(
+    explanations: list[dict[str, Any]], *, limit: int = 3
+) -> list[dict[str, Any]]:
     """Pick top *limit* explanation rows for API consumers (FraudLens-style factor list, without SHAP)."""
     if not explanations:
         return []
@@ -144,7 +146,9 @@ def top_factors_from_explanations(explanations: list[dict[str, Any]], *, limit: 
     return out
 
 
-def ml_summary_from_factors(score: float, top_factors: list[dict[str, Any]], model_label: str, *, max_len: int = 480) -> str:
+def ml_summary_from_factors(
+    score: float, top_factors: list[dict[str, Any]], model_label: str, *, max_len: int = 480
+) -> str:
     """Single-line narrative for clients (regulatory-style readability; factors remain structured separately)."""
     label = (model_label or "ml-scoring").strip() or "ml-scoring"
     if not top_factors:

@@ -1,7 +1,7 @@
 """Refund Swatter #60: dispute deadline queue + idempotent external reprocess."""
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -16,11 +16,35 @@ def _headers() -> dict[str, str]:
 
 
 def test_alert_state_near_and_breached():
-    filed = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+    filed = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
     deadline = filed + timedelta(hours=10)
-    assert alert_state(deadline=deadline, reference_start=filed, now=filed + timedelta(hours=1), near_breach_ratio=0.2) == "ok"
-    assert alert_state(deadline=deadline, reference_start=filed, now=filed + timedelta(hours=9), near_breach_ratio=0.2) == "near_breach"
-    assert alert_state(deadline=deadline, reference_start=filed, now=deadline + timedelta(seconds=1), near_breach_ratio=0.2) == "breached"
+    assert (
+        alert_state(
+            deadline=deadline,
+            reference_start=filed,
+            now=filed + timedelta(hours=1),
+            near_breach_ratio=0.2,
+        )
+        == "ok"
+    )
+    assert (
+        alert_state(
+            deadline=deadline,
+            reference_start=filed,
+            now=filed + timedelta(hours=9),
+            near_breach_ratio=0.2,
+        )
+        == "near_breach"
+    )
+    assert (
+        alert_state(
+            deadline=deadline,
+            reference_start=filed,
+            now=deadline + timedelta(seconds=1),
+            near_breach_ratio=0.2,
+        )
+        == "breached"
+    )
 
 
 def test_queue_item_view_hooks():
@@ -29,12 +53,12 @@ def test_queue_item_view_hooks():
         tenant_id = "t1"
         status = "filed"
         dispute_type = "chargeback"
-        filed_at = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
-        provider_response_deadline_at = datetime(2026, 1, 1, 1, 0, 0, tzinfo=timezone.utc)
+        filed_at = datetime(2026, 1, 1, 0, 0, 0, tzinfo=UTC)
+        provider_response_deadline_at = datetime(2026, 1, 1, 1, 0, 0, tzinfo=UTC)
         external_reprocess_count = 0
         last_external_reprocess_at = None
 
-    now = datetime(2026, 1, 1, 0, 55, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 1, 1, 0, 55, 0, tzinfo=UTC)
     v = queue_item_view(D(), now=now, near_breach_ratio=0.2)
     assert v["alert_state"] == "near_breach"
     assert "reprocess-external" in "".join(v["suggested_alert_hooks"])
@@ -63,7 +87,9 @@ def test_reprocess_external_idempotent(dispute_client: TestClient) -> None:
     assert r.status_code == 201, r.text
     did = r.json()["id"]
 
-    q = dispute_client.get("/v1/disputes/ops/deadline-queue", params={"tenant_id": "acme-disp"}, headers=h)
+    q = dispute_client.get(
+        "/v1/disputes/ops/deadline-queue", params={"tenant_id": "acme-disp"}, headers=h
+    )
     assert q.status_code == 200
     body = q.json()
     assert body["schema"] == "tarka.dispute_deadline_queue/v1"

@@ -44,14 +44,20 @@ class ReplayEventIn(BaseModel):
 class CounterReplayRequest(BaseModel):
     """Replay events into a scratch Redis (isolated DB index recommended)."""
 
-    scratch_redis_url: str = Field(min_length=8, description="e.g. redis://localhost:6379/15")
-    events: list[ReplayEventIn] = Field(default_factory=list, max_length=MAX_REPLAY_EVENTS)
+    scratch_redis_url: str = Field(
+        min_length=8, description="e.g. redis://localhost:6379/15"
+    )
+    events: list[ReplayEventIn] = Field(
+        default_factory=list, max_length=MAX_REPLAY_EVENTS
+    )
 
 
 class CounterReplayFromAuditRequest(BaseModel):
     """Replay aggregates from stored audit rows (payload → counter fields) into scratch Redis."""
 
-    scratch_redis_url: str = Field(min_length=8, description="e.g. redis://localhost:6379/15")
+    scratch_redis_url: str = Field(
+        min_length=8, description="e.g. redis://localhost:6379/15"
+    )
     tenant_id: str = Field(min_length=1, max_length=128)
     entity_id: str = Field(min_length=1, max_length=512)
     limit: int = Field(default=2000, ge=1, le=MAX_REPLAY_FROM_AUDIT)
@@ -86,7 +92,9 @@ async def require_counter_replay_token(
             detail="counter replay disabled — set COUNTER_REPLAY_TOKEN in the environment",
         )
     if not token or token.strip() != expected:
-        raise HTTPException(status_code=401, detail="invalid or missing X-Tarka-Counter-Replay-Token")
+        raise HTTPException(
+            status_code=401, detail="invalid or missing X-Tarka-Counter-Replay-Token"
+        )
 
 
 # Secured sub-router: token dependency applies to all routes here (merged into main router for OpenAPI)
@@ -105,11 +113,15 @@ def _read_counter_catalog_file() -> dict[str, Any]:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
-async def apply_replay_events(store: AggregateStore, events: list[ReplayEventIn]) -> int:
+async def apply_replay_events(
+    store: AggregateStore, events: list[ReplayEventIn]
+) -> int:
     n = 0
     for ev in events:
         eid = ev.event_id or uuid.uuid4().hex
-        await store.record_event(ev.tenant_id, ev.entity_id, eid, dict(ev.fields), ts=ev.ts)
+        await store.record_event(
+            ev.tenant_id, ev.entity_id, eid, dict(ev.fields), ts=ev.ts
+        )
         n += 1
     return n
 
@@ -132,7 +144,11 @@ async def get_counter_catalog_merged() -> dict[str, Any]:
     ver = os.environ.get("AGG_KEY_VERSION", "").strip()
     if ver and all(c.isalnum() or c in "._:-" for c in ver):
         manifest["redis_key_version"] = ver
-    by_name = {str(x.get("name", "")): x for x in (cat.get("counters") or []) if isinstance(x, dict)}
+    by_name = {
+        str(x.get("name", "")): x
+        for x in (cat.get("counters") or [])
+        if isinstance(x, dict)
+    }
     feats = manifest.get("feature_outputs") or []
     merged: list[dict[str, Any]] = []
     for f in feats:

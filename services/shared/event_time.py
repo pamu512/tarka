@@ -38,7 +38,7 @@ def parse_event_time_to_unix(raw: Any) -> float | None:
         except ValueError:
             return None
         if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=dt.timezone.utc)
+            ts = ts.replace(tzinfo=dt.UTC)
         return ts.timestamp()
     return None
 

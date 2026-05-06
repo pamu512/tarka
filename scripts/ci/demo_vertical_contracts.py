@@ -28,4 +28,6 @@ def check_event_ingest_accepted(status_code: int) -> None:
 
 
 def check_frontend_reachable(status_code: int) -> None:
-    assert status_code in (200, 301, 302, 304), f"frontend health expected 2xx/3xx, got {status_code}"
+    assert status_code in (200, 301, 302, 304), (
+        f"frontend health expected 2xx/3xx, got {status_code}"
+    )

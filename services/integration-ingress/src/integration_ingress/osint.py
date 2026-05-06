@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import contextvars
 import hashlib
 import logging
 import re
 import socket
 import time
+from contextvars import Token
+from datetime import UTC
 from typing import Any
 from urllib.parse import quote
 
 import httpx
-
 from tarka_core.tenant_config import TenantConfig
 
 from integration_ingress.compliance_residency import guard_osint_before_http
@@ -47,10 +49,26 @@ Social/Identity:
 """
 log = logging.getLogger(__name__)
 
-_osint_residency_ctx: contextvars.ContextVar[tuple[str | None, TenantConfig | None]] = contextvars.ContextVar(
-    "_osint_residency_ctx",
-    default=(None, None),
+_osint_residency_ctx: contextvars.ContextVar[tuple[str | None, TenantConfig | None]] = (
+    contextvars.ContextVar(
+        "_osint_residency_ctx",
+        default=(None, None),
+    )
 )
+
+_finops_router_ctx: contextvars.ContextVar[Any | None] = contextvars.ContextVar(
+    "_finops_router_ctx", default=None
+)
+
+
+def osint_finops_router_set(router: Any | None) -> Token[Any | None]:
+    """Attach ``IntegrationRouter`` for the current async task (REST or enrichment consumer)."""
+    return _finops_router_ctx.set(router)
+
+
+def osint_finops_router_reset(token: Token[Any | None]) -> None:
+    _finops_router_ctx.reset(token)
+
 
 # ---------------------------------------------------------------------------
 # Configuration — keys loaded from env via Settings, passed at init
@@ -207,12 +225,53 @@ async def _safe_get(
         vendor_key=vendor_key,
         request_url=url,
     )
+    router = _finops_router_ctx.get()
+    if router is not None:
+        pf = await router.preflight_http_get(tenant_id=tenant_id, vendor_key=vendor_key, url=url)
+        if pf.short_circuit:
+            return pf.cached_json
     try:
         r = await http.get(url, headers=headers, timeout=timeout)
         if r.status_code == 200:
-            return r.json()
+            data = r.json()
+            if router is not None:
+                await router.record_successful_call(
+                    tenant_id=tenant_id,
+                    vendor_key=vendor_key,
+                    url=url,
+                    payload=data if isinstance(data, dict) else {"_raw": data},
+                )
+            return data
+        if router is not None:
+            if r.status_code == 404 or r.status_code >= 500 or r.status_code == 429:
+                await router.record_negative_outcome(
+                    tenant_id=tenant_id,
+                    vendor_key=vendor_key,
+                    url=url,
+                    status_code=r.status_code,
+                    error_class="HTTPStatusError",
+                    message=(r.text or "")[:512],
+                )
+            elif r.status_code >= 400:
+                await router.record_negative_outcome(
+                    tenant_id=tenant_id,
+                    vendor_key=vendor_key,
+                    url=url,
+                    status_code=r.status_code,
+                    error_class="HTTPClientError",
+                    message=(r.text or "")[:512],
+                )
     except Exception as exc:
         log.debug("OSINT %s failed: %s", label or url, exc)
+        if router is not None:
+            await router.record_negative_outcome(
+                tenant_id=tenant_id,
+                vendor_key=vendor_key,
+                url=url,
+                status_code=None,
+                error_class=type(exc).__name__,
+                message=str(exc)[:512],
+            )
     return None
 
 
@@ -233,7 +292,9 @@ def _safe_float(val: Any, default: float = 0.0) -> float:
 async def osint_ip_shodan(ip: str, http: httpx.AsyncClient) -> dict[str, Any]:
     """Shodan InternetDB — open ports, CVEs, tags. No API key needed."""
     result: dict[str, Any] = {"source": "shodan_internetdb", "ip": ip}
-    data = await _safe_get(http, f"https://internetdb.shodan.io/{ip}", label="shodan", vendor_key="shodan")
+    data = await _safe_get(
+        http, f"https://internetdb.shodan.io/{ip}", label="shodan", vendor_key="shodan"
+    )
     if data:
         result["ports"] = data.get("ports", [])
         result["hostnames"] = data.get("hostnames", [])
@@ -437,15 +498,11 @@ async def enrich_ip_full(
             geo["country"] = r.get("country")
             geo["city"] = r.get("city")
         if r.get("lat") is not None and geo.get("lat") is None:
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 geo["lat"] = float(r["lat"])
-            except (TypeError, ValueError):
-                pass
         if r.get("lon") is not None and geo.get("lon") is None:
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 geo["lon"] = float(r["lon"])
-            except (TypeError, ValueError):
-                pass
         if r.get("timezone") and not geo.get("timezone"):
             geo["timezone"] = r.get("timezone")
         for flag in flags:
@@ -547,12 +604,59 @@ async def osint_email_gravatar(email: str, http: httpx.AsyncClient) -> dict[str,
         vendor_key="gravatar",
         request_url=url,
     )
+    router = _finops_router_ctx.get()
+    if router is not None:
+        pf = await router.preflight_http_get(tenant_id=tid, vendor_key="gravatar", url=url)
+        if pf.short_circuit:
+            pl = pf.cached_json
+            if isinstance(pl, dict) and "exists" in pl:
+                result["exists"] = bool(pl.get("exists"))
+            else:
+                result["exists"] = False
+            result["risk_score"] = 0 if result.get("exists") else 10
+            result["_finops_short_circuit"] = pf.skip_reason
+            return result
     try:
         r = await http.get(url, timeout=3.0)
         result["exists"] = r.status_code == 200
         result["risk_score"] = 0 if result["exists"] else 10
-    except Exception:
+        if router is not None:
+            if r.status_code == 200:
+                await router.record_successful_call(
+                    tenant_id=tid,
+                    vendor_key="gravatar",
+                    url=url,
+                    payload={"source": "gravatar", "email": email, "exists": True},
+                )
+            elif r.status_code == 404:
+                await router.record_negative_outcome(
+                    tenant_id=tid,
+                    vendor_key="gravatar",
+                    url=url,
+                    status_code=404,
+                    error_class="HTTPNotFound",
+                    message="no gravatar",
+                )
+            else:
+                await router.record_negative_outcome(
+                    tenant_id=tid,
+                    vendor_key="gravatar",
+                    url=url,
+                    status_code=r.status_code,
+                    error_class="HTTPError",
+                    message=(r.text or "")[:256],
+                )
+    except Exception as exc:
         result["exists"] = None
+        if router is not None:
+            await router.record_negative_outcome(
+                tenant_id=tid,
+                vendor_key="gravatar",
+                url=url,
+                status_code=None,
+                error_class=type(exc).__name__,
+                message=str(exc)[:256],
+            )
     return result
 
 
@@ -567,6 +671,21 @@ async def osint_email_hibp(email: str, http: httpx.AsyncClient) -> dict[str, Any
         vendor_key="hibp",
         request_url=url,
     )
+    router = _finops_router_ctx.get()
+    if router is not None:
+        pf = await router.preflight_http_get(tenant_id=tid, vendor_key="hibp", url=url)
+        if pf.short_circuit:
+            if isinstance(pf.cached_json, dict):
+                cached = pf.cached_json
+                result["breach_count"] = cached.get("breach_count")
+                result["breach_names"] = cached.get("breach_names", [])
+                result["risk_score"] = cached.get("risk_score", 0)
+            else:
+                result["breach_count"] = None
+                result["breach_names"] = []
+                result["risk_score"] = 0
+            result["_finops_short_circuit"] = pf.skip_reason
+            return result
     try:
         r = await http.get(
             url,
@@ -581,15 +700,55 @@ async def osint_email_hibp(email: str, http: httpx.AsyncClient) -> dict[str, Any
             result["breach_count"] = len(breaches)
             result["breach_names"] = [b.get("Name", "") for b in breaches[:10]]
             result["risk_score"] = min(len(breaches) * 5, 40)
+            if router is not None:
+                await router.record_successful_call(
+                    tenant_id=tid,
+                    vendor_key="hibp",
+                    url=url,
+                    payload={
+                        "breach_count": result["breach_count"],
+                        "breach_names": result["breach_names"],
+                        "risk_score": result["risk_score"],
+                    },
+                )
         elif r.status_code == 404:
             result["breach_count"] = 0
             result["breach_names"] = []
             result["risk_score"] = 0
+            if router is not None:
+                await router.record_successful_call(
+                    tenant_id=tid,
+                    vendor_key="hibp",
+                    url=url,
+                    payload={
+                        "breach_count": 0,
+                        "breach_names": [],
+                        "risk_score": 0,
+                    },
+                )
         else:
             result["breach_count"] = None
             result["note"] = "API requires paid key for breach lookups"
-    except Exception:
+            if router is not None:
+                await router.record_negative_outcome(
+                    tenant_id=tid,
+                    vendor_key="hibp",
+                    url=url,
+                    status_code=r.status_code,
+                    error_class="HTTPError",
+                    message=(r.text or "")[:512],
+                )
+    except Exception as exc:
         result["breach_count"] = None
+        if router is not None:
+            await router.record_negative_outcome(
+                tenant_id=tid,
+                vendor_key="hibp",
+                url=url,
+                status_code=None,
+                error_class=type(exc).__name__,
+                message=str(exc)[:512],
+            )
     return result
 
 
@@ -830,7 +989,9 @@ async def enrich_phone_full(
         if rs is not None:
             risk_scores.append(float(rs))
 
-    agg_risk = max(risk_scores) * 0.6 + (sum(risk_scores) / len(risk_scores)) * 0.4 if risk_scores else 0
+    agg_risk = (
+        max(risk_scores) * 0.6 + (sum(risk_scores) / len(risk_scores)) * 0.4 if risk_scores else 0
+    )
 
     return {
         "phone": phone,
@@ -874,10 +1035,10 @@ async def osint_domain_rdap(domain: str, http: httpx.AsyncClient) -> dict[str, A
         risk = 0
         if result.get("registration_date"):
             try:
-                from datetime import datetime, timezone
+                from datetime import datetime
 
                 reg = datetime.fromisoformat(result["registration_date"].replace("Z", "+00:00"))
-                age_days = (datetime.now(timezone.utc) - reg).days
+                age_days = (datetime.now(UTC) - reg).days
                 result["age_days"] = age_days
                 if age_days < 30:
                     risk += 35
@@ -997,7 +1158,7 @@ async def full_osint_enrichment(
         results: dict[str, Any] = {}
         all_risk_scores: list[float] = []
 
-        for key, val in zip(keys, results_list):
+        for key, val in zip(keys, results_list, strict=False):
             if isinstance(val, Exception):
                 results[key] = {"error": str(val)}
                 continue
@@ -1008,7 +1169,9 @@ async def full_osint_enrichment(
 
         # Composite risk: weighted max
         if all_risk_scores:
-            composite = max(all_risk_scores) * 0.7 + (sum(all_risk_scores) / len(all_risk_scores)) * 0.3
+            composite = (
+                max(all_risk_scores) * 0.7 + (sum(all_risk_scores) / len(all_risk_scores)) * 0.3
+            )
         else:
             composite = 0
 

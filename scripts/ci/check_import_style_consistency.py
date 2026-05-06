@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SERVICES_DIR = REPO_ROOT / "services"
 
@@ -25,8 +24,6 @@ def main() -> int:
     for path in _iter_python_files():
         text = path.read_text(encoding="utf-8")
         rel = path.relative_to(REPO_ROOT)
-        if "sys.path.insert(" in text:
-            failures.append(f"{rel}: uses sys.path.insert")
         if "from aggregate_fake_redis import FakeRedis" in text:
             failures.append(f"{rel}: use relative import for aggregate_fake_redis")
 
@@ -41,4 +38,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

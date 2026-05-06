@@ -11,7 +11,9 @@ import urllib.request
 from typing import Any
 
 
-def _get_json(url: str, *, api_key: str | None = None, timeout: float = 10.0) -> tuple[int, dict[str, Any]]:
+def _get_json(
+    url: str, *, api_key: str | None = None, timeout: float = 10.0
+) -> tuple[int, dict[str, Any]]:
     headers: dict[str, str] = {}
     if api_key:
         headers["x-api-key"] = api_key
@@ -50,17 +52,32 @@ def _check_investigation_agent(base: str, api_key: str) -> None:
     ready_url = f"{base.rstrip('/')}/v1/ready"
     status, payload = _get_json(ready_url, api_key=api_key)
     _assert(status == 200, f"investigation-agent /v1/ready expected 200, got {status}: {payload}")
-    _assert(payload.get("status") == "ready", f"investigation-agent /v1/ready expected status=ready: {payload}")
+    _assert(
+        payload.get("status") == "ready",
+        f"investigation-agent /v1/ready expected status=ready: {payload}",
+    )
 
     health_url = f"{base.rstrip('/')}/v1/ops/llm-health"
     status, payload = _get_json(health_url, api_key=api_key)
-    _assert(status == 200, f"investigation-agent /v1/ops/llm-health expected 200, got {status}: {payload}")
-    _assert("providers" in payload, f"investigation-agent /v1/ops/llm-health missing providers: {payload}")
+    _assert(
+        status == 200,
+        f"investigation-agent /v1/ops/llm-health expected 200, got {status}: {payload}",
+    )
+    _assert(
+        "providers" in payload,
+        f"investigation-agent /v1/ops/llm-health missing providers: {payload}",
+    )
 
     cost_url = f"{base.rstrip('/')}/v1/ops/llm-costs?hours=24"
     status, payload = _get_json(cost_url, api_key=api_key)
-    _assert(status == 200, f"investigation-agent /v1/ops/llm-costs expected 200, got {status}: {payload}")
-    _assert("total_calls" in payload and "by_provider" in payload, f"investigation-agent /v1/ops/llm-costs shape invalid: {payload}")
+    _assert(
+        status == 200,
+        f"investigation-agent /v1/ops/llm-costs expected 200, got {status}: {payload}",
+    )
+    _assert(
+        "total_calls" in payload and "by_provider" in payload,
+        f"investigation-agent /v1/ops/llm-costs shape invalid: {payload}",
+    )
     print("[ok] investigation-agent ready + llm ops")
 
 
@@ -76,10 +93,18 @@ def _check_event_ingest(base: str, api_key: str) -> None:
 
     schema_url = f"{base.rstrip('/')}/v1/schema-registry/status"
     status, payload = _get_json(schema_url, api_key=api_key)
-    _assert(status == 200, f"event-ingest /v1/schema-registry/status expected 200, got {status}: {payload}")
-    _assert(payload.get("schema_id") == "fraud-event", f"event-ingest schema_id mismatch: {payload}")
+    _assert(
+        status == 200,
+        f"event-ingest /v1/schema-registry/status expected 200, got {status}: {payload}",
+    )
+    _assert(
+        payload.get("schema_id") == "fraud-event", f"event-ingest schema_id mismatch: {payload}"
+    )
     versions = payload.get("versions")
-    _assert(isinstance(versions, list) and len(versions) >= 1, f"event-ingest schema versions invalid: {payload}")
+    _assert(
+        isinstance(versions, list) and len(versions) >= 1,
+        f"event-ingest schema versions invalid: {payload}",
+    )
     print("[ok] event-ingest ready + schema registry")
 
 

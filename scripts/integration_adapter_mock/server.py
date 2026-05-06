@@ -93,7 +93,9 @@ class Handler(BaseHTTPRequestHandler):
             self._send(
                 200,
                 {
-                    "nodes": [{"id": "entity_demo_1", "properties": {"external_id": "entity_demo_1"}}],
+                    "nodes": [
+                        {"id": "entity_demo_1", "properties": {"external_id": "entity_demo_1"}}
+                    ],
                     "edges": [],
                 },
             )

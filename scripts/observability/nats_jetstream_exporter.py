@@ -37,7 +37,11 @@ async def _run() -> str:
         lines.append("# HELP nats_jetstream_messages_total Approximate stream message count")
         lines.append("# TYPE nats_jetstream_messages_total gauge")
         state = getattr(info, "state", None) or {}
-        msgs = getattr(state, "messages", None) if not isinstance(state, dict) else state.get("messages")
+        msgs = (
+            getattr(state, "messages", None)
+            if not isinstance(state, dict)
+            else state.get("messages")
+        )
         if msgs is None:
             msgs = 0
         lines.append(f'nats_jetstream_messages_total{{stream="{stream}"}} {int(msgs)}')
@@ -47,9 +51,13 @@ async def _run() -> str:
             pending = getattr(cinfo, "num_pending", None)
             if pending is None and isinstance(cinfo, dict):
                 pending = cinfo.get("num_pending", 0)
-            lines.append("# HELP nats_jetstream_consumer_pending_messages Pending messages for consumer")
+            lines.append(
+                "# HELP nats_jetstream_consumer_pending_messages Pending messages for consumer"
+            )
             lines.append("# TYPE nats_jetstream_consumer_pending_messages gauge")
-            lines.append(f'nats_jetstream_consumer_pending_messages{{stream="{stream}",consumer="{consumer}"}} {int(pending or 0)}')
+            lines.append(
+                f'nats_jetstream_consumer_pending_messages{{stream="{stream}",consumer="{consumer}"}} {int(pending or 0)}'
+            )
         return "\n".join(lines) + "\n"
     finally:
         await nc.drain()

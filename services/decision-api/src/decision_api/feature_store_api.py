@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -21,7 +22,7 @@ if str(_shared) not in sys.path:
 from auth_rbac import require_role  # noqa: E402
 
 from decision_api.config import settings  # noqa: E402
-from decision_api.deps import get_clickhouse, get_pg_pool  # noqa: E402
+from decision_api.deps import get_clickhouse, get_pg_pool, run_clickhouse_sync  # noqa: E402
 from decision_api.feature_store_engine import (  # noqa: E402
     FeatureMVInput,
     execute_feature_ddl,
@@ -31,6 +32,74 @@ from decision_api.feature_store_engine import (  # noqa: E402
 log = logging.getLogger("decision-api")
 
 router = APIRouter(prefix="/v1/feature-store", tags=["feature-store"])
+
+FEATURE_STORE_DDL_MAX_BYTES = 262_144
+
+_DANGEROUS_DDL = re.compile(
+    r"\b(SYSTEM|TRUNCATE|ATTACH\s+PART|DROP\s+DATABASE|EXCHANGE\s+TABLES|KILL\s+QUERY)\b",
+    re.IGNORECASE,
+)
+
+_ALLOWED_CLICKHOUSE_DDL_PREFIXES: tuple[str, ...] = (
+    "CREATE MATERIALIZED VIEW",
+    "CREATE TABLE",
+    "CREATE VIEW",
+    "ALTER TABLE",
+    "DROP TABLE",
+    "DROP VIEW",
+    "DROP DICTIONARY",
+)
+
+
+def _sql_leading_statement_upper(sql: str) -> str:
+    """Strip block/line comments so the DDL gate sees the real leading keyword."""
+    s = sql.strip()
+    while "/*" in s:
+        before, _, mid = s.partition("/*")
+        _, _, after = mid.partition("*/")
+        s = (before + after).strip()
+    lines: list[str] = []
+    for line in s.splitlines():
+        q = line.split("--", 1)[0]
+        q = q.split("#", 1)[0]
+        lines.append(q)
+    s = "\n".join(lines)
+    return " ".join(s.split()).upper()
+
+
+def _validate_admin_clickhouse_ddl(sql: str) -> str:
+    """Reject empty, oversized, multi-statement, or disallowed DDL before hitting ClickHouse."""
+    raw = sql.strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Empty SQL body.")
+    if len(raw.encode("utf-8")) > FEATURE_STORE_DDL_MAX_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"SQL exceeds maximum length ({FEATURE_STORE_DDL_MAX_BYTES} bytes).",
+        )
+    if _DANGEROUS_DDL.search(raw):
+        raise HTTPException(
+            status_code=400,
+            detail="Statement class not allowed in this console (blocked patterns include SYSTEM, TRUNCATE, DROP DATABASE).",
+        )
+    single = raw.rstrip().rstrip(";").rstrip()
+    if ";" in single:
+        raise HTTPException(
+            status_code=400,
+            detail="Multiple statements are not allowed; send exactly one DDL statement.",
+        )
+    head = _sql_leading_statement_upper(raw)
+    if not any(head.startswith(p) for p in _ALLOWED_CLICKHOUSE_DDL_PREFIXES):
+        raise HTTPException(
+            status_code=400,
+            detail="SQL must begin with one of: "
+            + ", ".join(_ALLOWED_CLICKHOUSE_DDL_PREFIXES),
+        )
+    return raw
+
+
+class FeatureStoreDdlExecuteBody(BaseModel):
+    sql: str = Field(..., max_length=FEATURE_STORE_DDL_MAX_BYTES)
 
 
 class FeatureDefinitionPayload(BaseModel):
@@ -111,7 +180,9 @@ async def create_definition(
         raise HTTPException(status_code=422, detail=str(e)) from e
 
     definition_json = body.model_dump()
-    fingerprint = hashlib.sha256(json.dumps(definition_json, sort_keys=True).encode()).hexdigest()
+    fingerprint = hashlib.sha256(
+        json.dumps(definition_json, sort_keys=True).encode()
+    ).hexdigest()
     row_id = None
     try:
         async with pool.acquire() as conn:
@@ -138,7 +209,11 @@ async def create_definition(
         await execute_feature_ddl(ch, ddl)
     except Exception as e:
         err_msg = str(e)[:8192]
-        log.warning("ClickHouse DDL execution failed for feature_definitions id=%s: %s", row_id, err_msg)
+        log.warning(
+            "ClickHouse DDL execution failed for feature_definitions id=%s: %s",
+            row_id,
+            err_msg,
+        )
         async with pool.acquire() as conn:
             await conn.execute(
                 """
@@ -199,6 +274,27 @@ async def list_definitions(
         )
     items = [_row_to_item(r, include_ddl=True) for r in rows]
     return {"items": items, "tenant_id": tenant_id}
+
+
+@router.post("/ddl/execute")
+async def execute_feature_store_ddl(
+    body: FeatureStoreDdlExecuteBody,
+    ch: Client = Depends(get_clickhouse),
+    _user=Depends(require_role("admin")),
+) -> dict[str, Any]:
+    """Run a single gated ClickHouse DDL statement; returns ClickHouse driver errors verbatim in HTTP 422."""
+    ddl = _validate_admin_clickhouse_ddl(body.sql)
+
+    def _run() -> None:
+        ch.command(ddl)
+
+    try:
+        await run_clickhouse_sync(ch, _run)
+    except Exception as e:
+        msg = str(e).strip() or repr(e)
+        log.warning("feature-store admin ddl failed: %s", msg[:500])
+        raise HTTPException(status_code=422, detail=msg[:65536]) from e
+    return {"ok": True, "executed": True}
 
 
 # Backward-compatible name for callers expecting the Pydantic request model symbol.

@@ -4,7 +4,7 @@ import hashlib
 import logging
 import re
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 """Region-aware privacy compliance framework.
@@ -30,7 +30,7 @@ log = logging.getLogger("tarka.privacy")
 # ---------------------------------------------------------------------------
 
 
-class Region(str, Enum):
+class Region(StrEnum):
     EU = "eu"  # GDPR
     US_CA = "us_ca"  # CCPA/CPRA
     US = "us"  # General US (no federal privacy law)
@@ -273,7 +273,7 @@ def get_profile(region: str | Region) -> PrivacyProfile:
 # ---------------------------------------------------------------------------
 
 
-class PIICategory(str, Enum):
+class PIICategory(StrEnum):
     DIRECT = "direct"  # Name, SSN, passport
     QUASI = "quasi"  # DOB, zip, gender (can re-identify in combination)
     SENSITIVE = "sensitive"  # Race, religion, health, biometric
@@ -483,7 +483,9 @@ def get_data_processing_record(
         },
         "cross_border_transfers": "Restricted" if profile.restrict_cross_border else "Permitted",
         "security_measures": [
-            "Encryption at rest (AES-256)" if profile.encrypt_pii_at_rest else "Standard database security",
+            "Encryption at rest (AES-256)"
+            if profile.encrypt_pii_at_rest
+            else "Standard database security",
             "TLS 1.3 in transit",
             "RBAC access control",
             "Field-level audit trail",

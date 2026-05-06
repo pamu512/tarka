@@ -1,8 +1,9 @@
 import json
 import math
 import os
+import re
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
@@ -34,6 +35,10 @@ def _load_trusted_places() -> dict[str, list[dict[str, Any]]]:
 
 
 _SAFE_TRUSTED_PLACE_KINDS = frozenset({"home", "work", "travel", "other"})
+# Drop analyst-supplied keys that must never be persisted (CodeQL: clear-text storage of credential-like fields).
+_SENSITIVE_PLACE_KEY = re.compile(
+    r"(?i)^(password|passwd|secret|token|api[_-]?key|authorization|bearer|cookie|set[_-]?cookie)$",
+)
 
 
 def _coerce_bounded_float(value: Any, *, min_v: float, max_v: float) -> float | None:
@@ -53,6 +58,8 @@ def _sanitize_place_entry(place: dict[str, Any]) -> dict[str, Any]:
     ``label`` is preserved as an analyst-facing hint for trusted-place round-trip UX,
     but bounded to a short safe string.
     """
+    if any(_SENSITIVE_PLACE_KEY.match(str(k)) for k in place):
+        return {}
     lat = _coerce_bounded_float(place.get("lat"), min_v=-90.0, max_v=90.0)
     lon = _coerce_bounded_float(place.get("lon"), min_v=-180.0, max_v=180.0)
     radius_km = _coerce_bounded_float(place.get("radius_km"), min_v=0.05, max_v=5000.0)
@@ -79,7 +86,8 @@ def _sanitize_place_entry(place: dict[str, Any]) -> dict[str, Any]:
 
 def _save_trusted_places(data: dict[str, list[dict[str, Any]]]) -> None:
     sanitized: dict[str, list[dict[str, Any]]] = {
-        k: [clean for p in v if isinstance(p, dict) and (clean := _sanitize_place_entry(dict(p)))] for k, v in data.items()
+        k: [clean for p in v if isinstance(p, dict) and (clean := _sanitize_place_entry(dict(p)))]
+        for k, v in data.items()
     }
     _trusted_places_path().write_text(
         json.dumps(sanitized, indent=2, sort_keys=True),
@@ -141,7 +149,7 @@ if os.environ.get("TARKA_SIGNAL_PLANE_SUBAPP", "").strip() != "1":
 
 def _trusted_key(tenant_id: str, entity_id: str) -> str:
     salt = (os.environ.get("LOCATION_SERVICE_TRUSTED_PLACES_SALT") or "local-dev-only").strip()
-    raw = f"{tenant_id}:{entity_id}".encode("utf-8")
+    raw = f"{tenant_id}:{entity_id}".encode()
     digest = sha256(salt.encode("utf-8") + b":" + raw).hexdigest()
     return f"v2:{digest}"
 
@@ -150,14 +158,18 @@ def _trusted_key_legacy(tenant_id: str, entity_id: str) -> str:
     return f"{tenant_id}:{entity_id}"
 
 
-def _trusted_places_for_entity(data: dict[str, list[dict[str, Any]]], tenant_id: str, entity_id: str) -> list[dict[str, Any]]:
+def _trusted_places_for_entity(
+    data: dict[str, list[dict[str, Any]]], tenant_id: str, entity_id: str
+) -> list[dict[str, Any]]:
     key = _trusted_key(tenant_id, entity_id)
     if key in data:
         return data.get(key, [])
     return data.get(_trusted_key_legacy(tenant_id, entity_id), [])
 
 
-def _resolve_location(req: LocationResolveRequest) -> tuple[GeoPoint, float, list[str], list[str], float | None]:
+def _resolve_location(
+    req: LocationResolveRequest,
+) -> tuple[GeoPoint, float, list[str], list[str], float | None]:
     provenance: list[str] = []
     tags: list[str] = []
     confidence = 0.0
@@ -177,7 +189,9 @@ def _resolve_location(req: LocationResolveRequest) -> tuple[GeoPoint, float, lis
         tags.append("location:missing")
 
     if req.device_geo and req.ip_geo:
-        distance_km = _haversine_km(req.device_geo.lat, req.device_geo.lon, req.ip_geo.lat, req.ip_geo.lon)
+        distance_km = _haversine_km(
+            req.device_geo.lat, req.device_geo.lon, req.ip_geo.lat, req.ip_geo.lon
+        )
         if distance_km > 500:
             tags.append("sdk:geo_ip_mismatch")
             confidence = max(0.0, confidence - 0.25)
@@ -233,7 +247,9 @@ def _copresence_risk(features: dict[str, Any]) -> float:
     return _clamp01(0.25 + min(0.6, 0.1 * distinct_sessions))
 
 
-def _impossible_travel_risk(current: GeoPoint | None, previous: GeoPoint | None) -> tuple[float, float | None]:
+def _impossible_travel_risk(
+    current: GeoPoint | None, previous: GeoPoint | None
+) -> tuple[float, float | None]:
     if not current or not previous or current.ts is None or previous.ts is None:
         return 0.0, None
     if current.ts <= previous.ts:
@@ -298,7 +314,7 @@ async def evaluate(req: LocationEvaluateRequest):
             "resolved_source": resolved.source or "derived",
             "estimated_speed_kmh": round(speed, 3) if speed is not None else None,
             "trusted_places_checked": len(trusted),
-            "evaluated_at": datetime.now(timezone.utc).isoformat(),
+            "evaluated_at": datetime.now(UTC).isoformat(),
         },
     }
 
@@ -306,7 +322,12 @@ async def evaluate(req: LocationEvaluateRequest):
 @app.put("/v1/trusted-places/{tenant_id}/{entity_id}")
 async def put_trusted_places(tenant_id: str, entity_id: str, body: TrustedPlacesRequest):
     data = _load_trusted_places()
-    data[_trusted_key(tenant_id, entity_id)] = list(body.places)
+    sanitized_places = [
+        clean
+        for p in body.places
+        if isinstance(p, dict) and (clean := _sanitize_place_entry(dict(p)))
+    ]
+    data[_trusted_key(tenant_id, entity_id)] = sanitized_places
     data.pop(_trusted_key_legacy(tenant_id, entity_id), None)
     _save_trusted_places(data)
     return {"ok": True, "tenant_id": tenant_id, "entity_id": entity_id, "count": len(body.places)}

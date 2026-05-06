@@ -20,41 +20,43 @@ import json
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from analytics import queries
 from analytics.engine import BaseAnalyticsEngine
 from analytics.historical_stream import iter_backtest_row_chunks
-from analytics import queries
 
 
 def _utc_evaluation_ts(value: Any) -> datetime:
     if isinstance(value, datetime):
         dt = value
         if dt.tzinfo is None:
-            return dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
+            return dt.replace(tzinfo=UTC)
+        return dt.astimezone(UTC)
     # DuckDB / drivers may return strings for TIMESTAMP
     s = str(value or "").strip()
     if not s:
-        return datetime(1970, 1, 1, tzinfo=timezone.utc)
+        return datetime(1970, 1, 1, tzinfo=UTC)
     if s.endswith("Z"):
         s = s[:-1] + "+00:00"
     try:
         dt = datetime.fromisoformat(s)
     except ValueError:
-        return datetime(1970, 1, 1, tzinfo=timezone.utc)
+        return datetime(1970, 1, 1, tzinfo=UTC)
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
 
 
 def _pit_schema():
     try:
         import pyarrow as pa
     except ImportError as e:  # pragma: no cover — exercised when optional dep missing
-        raise RuntimeError("ml export requires pyarrow; install tarka-analytics[ml_export] or pyarrow") from e
+        raise RuntimeError(
+            "ml export requires pyarrow; install tarka-analytics[ml_export] or pyarrow"
+        ) from e
 
     return pa.schema(
         [
@@ -98,14 +100,49 @@ def _coerce_label_row(raw: dict[str, Any] | str | None) -> dict[str, str]:
     return {k: str(v) for k, v in _empty_label_payload().items()}
 
 
+def _payload_as_dict(pj: Any) -> dict[str, Any] | None:
+    if isinstance(pj, dict):
+        return pj
+    if isinstance(pj, str) and pj.strip():
+        try:
+            parsed = json.loads(pj)
+        except json.JSONDecodeError:
+            return None
+        if isinstance(parsed, dict):
+            return parsed
+    return None
+
+
+def _serialize_feature_payload(
+    pj: Any,
+    *,
+    payload_json_keys: list[str] | None,
+) -> str:
+    """Serialize OLAP ``payload_json`` for Parquet; optional key subset for ML feature columns."""
+    if pj is None:
+        return ""
+    d = _payload_as_dict(pj)
+    if d is not None:
+        if payload_json_keys:
+            keys = [k.strip() for k in payload_json_keys if k and str(k).strip()]
+            sub = {k: d[k] for k in keys if k in d}
+            return json.dumps(sub, separators=(",", ":"), default=str)
+        return json.dumps(d, separators=(",", ":"), default=str)
+    if isinstance(pj, (dict, list)):
+        return json.dumps(pj, separators=(",", ":"), default=str)
+    return str(pj)
+
+
 def _build_batch_table(
     *,
     olap_page: list[dict[str, Any]],
     labels_by_trace: dict[str, Any],
+    payload_json_keys: list[str] | None = None,
+    dispute_outcome_allowlist: frozenset[str] | None = None,
 ) -> Any:
     import pyarrow as pa
 
-    n = len(olap_page)
+    len(olap_page)
     tenant_ids: list[str | None] = []
     trace_ids: list[str | None] = []
     entity_ids: list[str | None] = []
@@ -121,6 +158,12 @@ def _build_batch_table(
         tid = str(row.get("tenant_id") or "")
         tr = str(row.get("trace_id") or "")
         eid = str(row.get("entity_id") or "")
+        raw_l = labels_by_trace.get(tr)
+        coerced = _coerce_label_row(raw_l if isinstance(raw_l, (dict, str)) else None)
+        outcome = coerced["dispute_outcome"]
+        if dispute_outcome_allowlist is not None and len(dispute_outcome_allowlist) > 0:
+            if outcome not in dispute_outcome_allowlist:
+                continue
         tenant_ids.append(tid)
         trace_ids.append(tr)
         entity_ids.append(eid)
@@ -130,18 +173,11 @@ def _build_batch_table(
             scores.append(float(row.get("score") or 0.0))
         except (TypeError, ValueError):
             scores.append(0.0)
-        raw_l = labels_by_trace.get(tr)
-        coerced = _coerce_label_row(raw_l if isinstance(raw_l, (dict, str)) else None)
         cm_labels.append(coerced["case_management_label"])
         sources.append(coerced["case_label_source"])
-        outcomes.append(coerced["dispute_outcome"])
+        outcomes.append(outcome)
         pj = row.get("payload_json")
-        if pj is None:
-            payloads.append("")
-        elif isinstance(pj, (dict, list)):
-            payloads.append(json.dumps(pj, separators=(",", ":"), default=str))
-        else:
-            payloads.append(str(pj))
+        payloads.append(_serialize_feature_payload(pj, payload_json_keys=payload_json_keys))
 
     return pa.Table.from_arrays(
         [
@@ -180,6 +216,9 @@ def run_point_in_time_ml_export(
     chunk_size: int = 10_000,
     clickhouse_max_execution_seconds: int = 60,
     max_rows: int = 500_000,
+    payload_json_keys: list[str] | None = None,
+    dispute_outcome_allowlist: frozenset[str] | None = None,
+    on_progress: Callable[[PitMlExportStats], None] | None = None,
 ) -> PitMlExportStats:
     """Stream OLAP pages, join labels per page, append Parquet batches.
 
@@ -210,16 +249,33 @@ def run_point_in_time_ml_export(
             clickhouse_max_execution_seconds=clickhouse_max_execution_seconds,
         ):
             chunks += 1
-            tids = sorted({str(r.get("trace_id") or "") for r in page if str(r.get("trace_id") or "").strip()})
+            tids = sorted(
+                {str(r.get("trace_id") or "") for r in page if str(r.get("trace_id") or "").strip()}
+            )
             labels: dict[str, Any] = {}
             if tids:
                 labels = dict(label_fetcher(tids))
-            batch = _build_batch_table(olap_page=page, labels_by_trace=labels)
+            batch = _build_batch_table(
+                olap_page=page,
+                labels_by_trace=labels,
+                payload_json_keys=payload_json_keys,
+                dispute_outcome_allowlist=dispute_outcome_allowlist,
+            )
+            if batch.num_rows == 0:
+                if on_progress is not None:
+                    on_progress(
+                        PitMlExportStats(rows_written=rows_written, chunks_processed=chunks)
+                    )
+                if rows_written >= max_rows:
+                    break
+                continue
             if writer is None:
                 writer = pq.ParquetWriter(str(out_path), schema, compression="zstd")
             writer.write_table(batch)
             n = batch.num_rows
             rows_written += n
+            if on_progress is not None:
+                on_progress(PitMlExportStats(rows_written=rows_written, chunks_processed=chunks))
             if rows_written >= max_rows:
                 break
     finally:

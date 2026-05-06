@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 """Draft evidence-shaped payload for audit export (v0 legacy + optional v1)."""
@@ -81,12 +81,14 @@ def build_evidence_bundle_draft(
     narrative_reply = (reply or "")[:reply_cap]
 
     base: dict[str, Any] = {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "turn_id": turn_id,
         "prompt_version": prompt_version,
         "playbook_id": playbook_id,
         "narrative": {"reply": narrative_reply},
-        "structured_sections": {k: v for k, v in (answer_sections or {}).items() if k != "sections_found"},
+        "structured_sections": {
+            k: v for k, v in (answer_sections or {}).items() if k != "sections_found"
+        },
         "claims": (claims or [])[:claims_cap],
         "claims_analysis": (claims_analysis or [])[: claims_cap * 2],
         "source_refs": (source_refs or [])[:refs_cap],
@@ -112,7 +114,14 @@ def build_evidence_bundle_draft(
         )
 
     if bundle_format == "v0":
-        for k in ("schema_id", "contract_version", "agent_build", "redaction_level", "tool_trace_redacted", "content_sha256"):
+        for k in (
+            "schema_id",
+            "contract_version",
+            "agent_build",
+            "redaction_level",
+            "tool_trace_redacted",
+            "content_sha256",
+        ):
             base.pop(k, None)
 
     return base

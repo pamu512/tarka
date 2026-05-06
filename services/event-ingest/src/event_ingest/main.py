@@ -9,7 +9,7 @@ import os
 import sys
 import uuid
 from collections import defaultdict
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from typing import Any
 
 import httpx
@@ -21,7 +21,11 @@ from nats.js import JetStreamContext
 from pydantic import BaseModel, Field, ValidationError
 
 from event_ingest.config import settings
-from event_ingest.ingest_contract import IngestContractError, parse_batch_event_item, parse_ingest_event_body
+from event_ingest.ingest_contract import (
+    IngestContractError,
+    parse_batch_event_item,
+    parse_ingest_event_body,
+)
 
 """High-throughput event ingestion service.
 
@@ -41,7 +45,9 @@ def _idempotency_redis_key(tenant_id: str, idempotency_key: str) -> str:
     return f"{settings.idempotency_key_prefix}:{tenant_id}:{digest}"
 
 
-_shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
+_shared_dir = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared")
+)
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
 from observability import get_metrics, setup_observability  # noqa: E402
@@ -83,7 +89,12 @@ def _record_contract_reject(reason_codes: list[str]) -> None:
 async def require_api_key(request: Request) -> None:
     keys = _get_api_keys()
     if not keys:
-        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         if allow:
             return
         raise HTTPException(
@@ -157,14 +168,19 @@ async def _consumer_loop(js: JetStreamContext, http: httpx.AsyncClient) -> None:
                         continue
                     url = f"{settings.decision_api_url.rstrip('/')}/v1/decisions/evaluate"
                     eval_body = _payload_for_decision_api(payload)
-                    r = await http.post(url, json=eval_body, headers=_decision_api_headers(), timeout=10.0)
+                    r = await http.post(
+                        url, json=eval_body, headers=_decision_api_headers(), timeout=10.0
+                    )
                     if r.status_code < 400:
                         m.inc("ingest_consumer_evaluate_2xx_total")
                         await msg.ack()
                         m.inc("ingest_consumer_nats_ack_total")
                     elif r.status_code < 500:
                         m.inc("ingest_consumer_evaluate_4xx_total")
-                        if settings.ingest_dlq_publish_on_evaluate_4xx and settings.ingest_dlq_subject.strip():
+                        if (
+                            settings.ingest_dlq_publish_on_evaluate_4xx
+                            and settings.ingest_dlq_subject.strip()
+                        ):
                             try:
                                 await _publish_evaluate_dlq(
                                     js,
@@ -269,7 +285,7 @@ class BatchPayload(BaseModel):
 
 def _batch_idempotency_redis_key(idempotency_key: str, events: list[EventPayload]) -> str:
     canon = json.dumps([e.model_dump(mode="json") for e in events], sort_keys=True)
-    digest = hashlib.sha256(f"{idempotency_key}\n{canon}".encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(f"{idempotency_key}\n{canon}".encode()).hexdigest()
     return f"{settings.idempotency_key_prefix}:batch:{digest}"
 
 
@@ -281,7 +297,7 @@ async def ingest_stats():
     **contract_reject_by_reason** counts HTTP **422** contract violations since process boot
     (envelope mode, idempotency requirements, unknown ``event_type``, empty ids).
     """
-    by_reason = {k: v for k, v in sorted(_contract_reject_reason_counts.items())}
+    by_reason = dict(sorted(_contract_reject_reason_counts.items()))
     total = sum(by_reason.values())
     return {
         "service": "event-ingest",
@@ -318,7 +334,7 @@ async def slo_status(request: Request):
     cur = m.request_count_summary()
     r = getattr(request.app.state, "redis", None)
     redis_configured = r is not None
-    by_reason = {k: v for k, v in sorted(_contract_reject_reason_counts.items())}
+    by_reason = dict(sorted(_contract_reject_reason_counts.items()))
     total_rejects = sum(by_reason.values())
     return {
         "service": "event-ingest",
@@ -352,7 +368,10 @@ async def ingest_event(request: Request):
         _record_contract_reject(["ingest_body_not_object"])
         raise HTTPException(
             status_code=422,
-            detail={"error": "ingest_contract_violation", "reason_codes": ["ingest_body_not_object"]},
+            detail={
+                "error": "ingest_contract_violation",
+                "reason_codes": ["ingest_body_not_object"],
+            },
         )
 
     try:
@@ -362,7 +381,11 @@ async def ingest_event(request: Request):
         _record_contract_reject(e.reason_codes)
         raise HTTPException(
             status_code=422,
-            detail={"error": "ingest_contract_violation", "reason_codes": e.reason_codes, "message": e.message},
+            detail={
+                "error": "ingest_contract_violation",
+                "reason_codes": e.reason_codes,
+                "message": e.message,
+            },
         ) from e
     except ValidationError as e:
         _record_contract_reject(["ingest_model_validation"])
@@ -377,7 +400,9 @@ async def ingest_event(request: Request):
 
     redis = getattr(request.app.state, "redis", None)
     idem_header = request.headers.get("idempotency-key") or request.headers.get("Idempotency-Key")
-    idem_meta = (body.metadata or {}).get("idempotency_key") if isinstance(body.metadata, dict) else None
+    idem_meta = (
+        (body.metadata or {}).get("idempotency_key") if isinstance(body.metadata, dict) else None
+    )
     idem = (idem_header or idem_meta or "").strip() or None
 
     if settings.ingest_require_idempotency_key and not idem:
@@ -404,20 +429,16 @@ async def ingest_event(request: Request):
                 out = None
             if isinstance(out, dict) and "ingest_id" in out:
                 out = {**out, "duplicate": True}
-                try:
+                with suppress(Exception):
                     get_metrics().inc("ingest_idempotent_hits_total")
-                except Exception:
-                    pass
                 return out
 
     subject = f"{settings.subject_prefix}.{body.tenant_id}.{body.event_type}"
     data = body.model_dump(mode="json")
     data["_ingest_id"] = uuid.uuid4().hex
     ack = await _js.publish(subject, json.dumps(data).encode())
-    try:
+    with suppress(Exception):
         get_metrics().inc("events_ingested_total")
-    except Exception:
-        pass
     response = {"accepted": True, "stream_seq": ack.seq, "ingest_id": data["_ingest_id"]}
     if redis is not None and idem:
         rkey = _idempotency_redis_key(body.tenant_id, idem)
@@ -449,7 +470,10 @@ async def ingest_batch(request: Request):
         _record_contract_reject(["ingest_body_not_object"])
         raise HTTPException(
             status_code=422,
-            detail={"error": "ingest_contract_violation", "reason_codes": ["ingest_body_not_object"]},
+            detail={
+                "error": "ingest_contract_violation",
+                "reason_codes": ["ingest_body_not_object"],
+            },
         )
 
     events_in = raw.get("events")
@@ -457,7 +481,10 @@ async def ingest_batch(request: Request):
         _record_contract_reject(["ingest_batch_events_not_array"])
         raise HTTPException(
             status_code=422,
-            detail={"error": "ingest_contract_violation", "reason_codes": ["ingest_batch_events_not_array"]},
+            detail={
+                "error": "ingest_contract_violation",
+                "reason_codes": ["ingest_batch_events_not_array"],
+            },
         )
 
     parsed_events: list[EventPayload] = []
@@ -466,7 +493,10 @@ async def ingest_batch(request: Request):
             _record_contract_reject(["ingest_batch_item_not_object"])
             raise HTTPException(
                 status_code=422,
-                detail={"error": "ingest_contract_violation", "reason_codes": ["ingest_batch_item_not_object"]},
+                detail={
+                    "error": "ingest_contract_violation",
+                    "reason_codes": ["ingest_batch_item_not_object"],
+                },
             )
         try:
             flat = parse_batch_event_item(item, envelope_mode=settings.ingest_envelope_mode)
@@ -475,7 +505,11 @@ async def ingest_batch(request: Request):
             _record_contract_reject(e.reason_codes)
             raise HTTPException(
                 status_code=422,
-                detail={"error": "ingest_contract_violation", "reason_codes": e.reason_codes, "message": e.message},
+                detail={
+                    "error": "ingest_contract_violation",
+                    "reason_codes": e.reason_codes,
+                    "message": e.message,
+                },
             ) from e
         except ValidationError as e:
             _record_contract_reject(["ingest_model_validation"])
@@ -520,10 +554,8 @@ async def ingest_batch(request: Request):
                 out = None
             if isinstance(out, dict) and "results" in out:
                 out = {**out, "duplicate": True}
-                try:
+                with suppress(Exception):
                     get_metrics().inc("ingest_idempotent_hits_total")
-                except Exception:
-                    pass
                 return out
 
     results = []
@@ -533,10 +565,8 @@ async def ingest_batch(request: Request):
         data["_ingest_id"] = uuid.uuid4().hex
         ack = await _js.publish(subject, json.dumps(data).encode())
         results.append({"ingest_id": data["_ingest_id"], "seq": ack.seq})
-    try:
+    with suppress(Exception):
         get_metrics().inc("events_ingested_total", len(body.events))
-    except Exception:
-        pass
     response = {"accepted": len(results), "results": results}
     if redis is not None and idem:
         bkey = _batch_idempotency_redis_key(idem, body.events)
@@ -556,7 +586,12 @@ async def ws_ingest(ws: WebSocket):
     """WebSocket endpoint for continuous event streaming."""
     keys = _get_api_keys()
     if not keys:
-        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         if not allow:
             await ws.close(code=1011, reason="service auth misconfigured: API_KEYS is empty")
             return
@@ -574,10 +609,17 @@ async def ws_ingest(ws: WebSocket):
                     continue
                 if not isinstance(parsed, dict):
                     _record_contract_reject(["ingest_body_not_object"])
-                    await ws.send_json({"error": "ingest_contract_violation", "reason_codes": ["ingest_body_not_object"]})
+                    await ws.send_json(
+                        {
+                            "error": "ingest_contract_violation",
+                            "reason_codes": ["ingest_body_not_object"],
+                        }
+                    )
                     continue
                 try:
-                    flat = parse_ingest_event_body(parsed, envelope_mode=settings.ingest_envelope_mode)
+                    flat = parse_ingest_event_body(
+                        parsed, envelope_mode=settings.ingest_envelope_mode
+                    )
                     ep = EventPayload.model_validate(flat)
                 except IngestContractError as e:
                     _record_contract_reject(e.reason_codes)
@@ -603,7 +645,9 @@ async def ws_ingest(ws: WebSocket):
                 data["_ingest_id"] = uuid.uuid4().hex
                 subject = f"{settings.subject_prefix}.{data['tenant_id']}.{data['event_type']}"
                 ack = await _js.publish(subject, json.dumps(data).encode())
-                await ws.send_json({"accepted": True, "seq": ack.seq, "ingest_id": data["_ingest_id"]})
+                await ws.send_json(
+                    {"accepted": True, "seq": ack.seq, "ingest_id": data["_ingest_id"]}
+                )
             except json.JSONDecodeError:
                 await ws.send_json({"error": "invalid JSON"})
     except WebSocketDisconnect:

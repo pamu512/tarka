@@ -97,13 +97,13 @@ Legend: **Today** = where behavior exists now; **Extend** = natural place to dee
 |------|------|
 | **Today — JSON rules engine** | `services/decision-api/src/decision_api/json_rules.py` |
 | **Today — rule HTTP API** | `services/decision-api/src/decision_api/rule_api.py` |
-| **Today — OPA** | `deploy/opa/policy.rego`; `services/decision-api` — `evaluate_opa` usage in `main.py` |
+| **Today — optional OPA sidecar** | Compose/Helm samples under `deploy/opa/`; `evaluate_opa` in `services/decision-api/src/decision_api/main.py` — **separate** from visual JSON compile and **`tarka_rule_engine`** |
 | **Today — shadow mode API** | `services/decision-api/src/decision_api/main.py` + rule packs — shadow observations/stats |
 | **Today — simulation** | `services/decision-api/src/decision_api/simulation_api.py`, `simulator.py` |
 | **Today — vertical packs** | `services/decision-api/src/decision_api/vertical_packs.py` |
 | **Today — UI** | `frontend/src/pages/Rules.tsx`, `ShadowMode.tsx`, `Simulation.tsx` |
 | **Extend** | **Rule change approvals**, canary % rollout, **per-rule contribution** metrics, **break-glass** audit |
-| **Missing** | **Policy-as-code** CI gates (OPA + JSON schema) in default install path |
+| **Missing** | **Policy-as-code** CI gates (JSON rule packs + schema / lint) in default install path; optional OPA policies where you operate OPA yourself |
 
 ---
 
