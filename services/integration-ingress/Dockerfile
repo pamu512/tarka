@@ -8,6 +8,7 @@ RUN apt-get update \
 WORKDIR /repo/services/integration-ingress
 RUN pip install --no-cache-dir pip -U
 COPY services/core /repo/services/core
+COPY services/integration /repo/services/integration
 COPY services/integration-ingress/pyproject.toml /repo/services/integration-ingress/
 COPY services/integration-ingress/alembic.ini /repo/services/integration-ingress/
 COPY services/integration-ingress/alembic /repo/services/integration-ingress/alembic
