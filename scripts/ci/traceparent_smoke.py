@@ -7,7 +7,6 @@ import argparse
 import urllib.error
 import urllib.request
 
-
 TARGETS = [
     ("decision-api", "http://127.0.0.1:8000/decisions/v1/health"),
     ("case-api", "http://127.0.0.1:8000/cases/v1/health"),
@@ -62,4 +61,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

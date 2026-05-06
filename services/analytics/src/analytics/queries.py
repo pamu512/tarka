@@ -232,7 +232,9 @@ def render_backtest_stream_page_duckdb(
     return q.sql(dialect="duckdb", identify=True)
 
 
-def render_backtest_stream_page_clickhouse(table: str, *, chunk_size: int, has_cursor: bool, max_execution_seconds: int) -> str:
+def render_backtest_stream_page_clickhouse(
+    table: str, *, chunk_size: int, has_cursor: bool, max_execution_seconds: int
+) -> str:
     """Keyset page over historical rows (named params for clickhouse_connect).
 
     Params always include ``tid``, ``start_s``, ``end_s``. When ``has_cursor``, add ``lca``, ``ltr`` (ISO strings).
@@ -288,7 +290,7 @@ def build_insert_batch_plan(table: str, sample_row: dict[str, Any]) -> InsertBat
     t = validate_sql_identifier(table)
     if not sample_row:
         raise ValueError("insert_batch requires a non-empty sample row for column list")
-    cols = tuple(validate_sql_identifier(c) for c in sample_row.keys())
+    cols = tuple(validate_sql_identifier(c) for c in sample_row)
     t_sql = exp.to_identifier(t).sql(dialect="duckdb", identify=True)
     col_list = ", ".join(exp.to_identifier(c).sql(dialect="duckdb", identify=True) for c in cols)
     placeholders_duck = ", ".join("?" for _ in cols)

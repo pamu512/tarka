@@ -21,7 +21,9 @@ _FAILURE_REASONS = frozenset(
 _CONFIDENCE_TIERS = frozenset({"none", "low", "medium", "high"})
 
 
-def normalize_attestation_object(att: dict[str, Any] | None, *, platform: str) -> dict[str, Any] | None:
+def normalize_attestation_object(
+    att: dict[str, Any] | None, *, platform: str
+) -> dict[str, Any] | None:
     """Return a copy with canonical provider, status, confidence_tier, failure_reason, schema version."""
     if not att:
         return None

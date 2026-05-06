@@ -50,7 +50,9 @@ def adjust_integrity_confidence(
     return round(conf, 4)
 
 
-def parse_session_geo(features: dict[str, Any]) -> tuple[float | None, float | None, float | None]:
+def parse_session_geo(
+    features: dict[str, Any],
+) -> tuple[float | None, float | None, float | None]:
     """session_last_lat, session_last_lon, session_last_ts from evaluate payload/features."""
     lat = features.get("session_last_lat")
     lon = features.get("session_last_lon")

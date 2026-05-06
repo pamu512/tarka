@@ -3,7 +3,7 @@
  * Core HTTP methods live on {@link cases} in `./client`; this module adds UX-oriented utilities.
  */
 
-import type { SarAuditLogEntry, SarFilingIntentDetail, SarFilingIntentStatus } from "./client";
+import type { SarAuditLogEntry, SarFilingIntentStatus } from "./client";
 import { cases } from "./client";
 
 export type { SarAuditLogEntry, SarFilingIntentDetail, SarFilingIntentStatus, SarFilingIntentsResponse } from "./client";

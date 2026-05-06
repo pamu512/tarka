@@ -18,7 +18,9 @@ class Settings(BaseSettings):
         description="Optional x-api-key for investigation-agent.",
     )
 
-    slack_signing_secret: str = Field(default="", description="Slack app signing secret (verifies Events API).")
+    slack_signing_secret: str = Field(
+        default="", description="Slack app signing secret (verifies Events API)."
+    )
     slack_bot_token: str = Field(
         default="",
         description="Bot token (xoxb-...) for chat.postMessage and optional thread history.",
@@ -30,7 +32,9 @@ class Settings(BaseSettings):
     )
     bridge_plugin_secret: str = Field(
         default="",
-        description=("Shared secret for external plugin/embed endpoints (/v1/plugin/*). If empty, TEAMS_BRIDGE_SECRET is used as fallback."),
+        description=(
+            "Shared secret for external plugin/embed endpoints (/v1/plugin/*). If empty, TEAMS_BRIDGE_SECRET is used as fallback."
+        ),
     )
 
     lark_verification_token: str = Field(

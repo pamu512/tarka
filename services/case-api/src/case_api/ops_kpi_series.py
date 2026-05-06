@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query
@@ -32,12 +32,12 @@ def median_float(values: list[float]) -> float | None:
 
 def _parse_anchor(as_of: str | None) -> datetime:
     if not as_of or not str(as_of).strip():
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
     raw = str(as_of).strip().replace("Z", "+00:00")
     dt = datetime.fromisoformat(raw)
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
 
 
 def build_time_buckets(
@@ -48,7 +48,7 @@ def build_time_buckets(
 ) -> list[tuple[datetime, datetime]]:
     """Return ``periods`` half-open buckets ``[start, end)`` ending at the anchor day (daily) or week (weekly)."""
     if anchor.tzinfo is None:
-        anchor = anchor.replace(tzinfo=timezone.utc)
+        anchor = anchor.replace(tzinfo=UTC)
     end_day = anchor.replace(hour=0, minute=0, second=0, microsecond=0)
     out: list[tuple[datetime, datetime]] = []
     if granularity == "daily":
@@ -69,8 +69,8 @@ def _row_in_bucket(ts: datetime | None, start: datetime, end: datetime) -> bool:
     if ts is None:
         return False
     if ts.tzinfo is None:
-        ts = ts.replace(tzinfo=timezone.utc)
-    ts = ts.astimezone(timezone.utc)
+        ts = ts.replace(tzinfo=UTC)
+    ts = ts.astimezone(UTC)
     return start <= ts < end
 
 
@@ -101,9 +101,9 @@ def build_bucket_payloads(
                 closed_n += 1
                 if ca and ua:
                     if ca.tzinfo is None:
-                        ca = ca.replace(tzinfo=timezone.utc)
+                        ca = ca.replace(tzinfo=UTC)
                     if ua.tzinfo is None:
-                        ua = ua.replace(tzinfo=timezone.utc)
+                        ua = ua.replace(tzinfo=UTC)
                     handling_hours.append(max(0.0, (ua - ca).total_seconds() / 3600.0))
 
             if st in _OPENISH and ca and ca < period_end:
@@ -160,16 +160,18 @@ async def kpi_series(
         if st in _CLOSED and c.updated_at and c.created_at:
             ca, ua = c.created_at, c.updated_at
             if ca.tzinfo is None:
-                ca = ca.replace(tzinfo=timezone.utc)
+                ca = ca.replace(tzinfo=UTC)
             if ua.tzinfo is None:
-                ua = ua.replace(tzinfo=timezone.utc)
+                ua = ua.replace(tzinfo=UTC)
             if first <= ua < last:
                 all_handling.append(max(0.0, (ua - ca).total_seconds() / 3600.0))
 
     summary = {
         "cases_created_in_window": sum(b["cases_created"] for b in bucket_payloads),
         "cases_closed_in_window": sum(b["cases_closed"] for b in bucket_payloads),
-        "median_handling_hours_closed_window": None if not all_handling else round(median_float(all_handling) or 0.0, 4),
+        "median_handling_hours_closed_window": None
+        if not all_handling
+        else round(median_float(all_handling) or 0.0, 4),
     }
 
     return {

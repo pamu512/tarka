@@ -63,7 +63,7 @@ def extract_feature_vector(features: dict[str, Any]) -> list[float]:
         safe_float(features.get("distinct_countries_7d")),
         safe_float(features.get("account_age_days")),
     ]
-    return [v / d for v, d in zip(raw, NORM_DIVISORS)]
+    return [v / d for v, d in zip(raw, NORM_DIVISORS, strict=False)]
 
 
 def heuristic_score(features: dict[str, Any]) -> float:

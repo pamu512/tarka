@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -138,14 +138,16 @@ async def _execute_action(
                 "trigger": ctx.trigger,
                 "case": ctx.case,
                 "decision": ctx.decision,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
             try:
                 await http.post(url, json=payload, timeout=5.0)
                 ctx.actions_executed.append({"type": "send_webhook", "url": url, "status": "sent"})
             except Exception as e:
                 log.warning("webhook failed for %s: %s", url, e)
-                ctx.actions_executed.append({"type": "send_webhook", "url": url, "status": "failed", "error": str(e)})
+                ctx.actions_executed.append(
+                    {"type": "send_webhook", "url": url, "status": "failed", "error": str(e)}
+                )
     else:
         log.warning("unknown action type: %s", action_type)
 
@@ -181,9 +183,9 @@ def compute_sla_deadline(
     sla_hours_override: int | None = None,
 ) -> datetime:
     """Returns the SLA deadline based on priority, or ``sla_hours_override`` when set (1–8760)."""
-    base = created_at or datetime.now(timezone.utc)
+    base = created_at or datetime.now(UTC)
     if base.tzinfo is None:
-        base = base.replace(tzinfo=timezone.utc)
+        base = base.replace(tzinfo=UTC)
     if sla_hours_override is not None and int(sla_hours_override) > 0:
         hours = int(sla_hours_override)
     else:
@@ -201,11 +203,11 @@ def is_sla_breached_at(
 ) -> bool:
     """Whether SLA is breached as of ``as_of`` (default: current UTC time)."""
     if created_at.tzinfo is None:
-        created_at = created_at.replace(tzinfo=timezone.utc)
+        created_at = created_at.replace(tzinfo=UTC)
     deadline = compute_sla_deadline(priority, created_at, sla_hours_override=sla_hours_override)
-    ref = as_of or datetime.now(timezone.utc)
+    ref = as_of or datetime.now(UTC)
     if ref.tzinfo is None:
-        ref = ref.replace(tzinfo=timezone.utc)
+        ref = ref.replace(tzinfo=UTC)
     return ref > deadline
 
 
@@ -215,4 +217,6 @@ def is_sla_breached(
     *,
     sla_hours_override: int | None = None,
 ) -> bool:
-    return is_sla_breached_at(priority, created_at, sla_hours_override=sla_hours_override, as_of=None)
+    return is_sla_breached_at(
+        priority, created_at, sla_hours_override=sla_hours_override, as_of=None
+    )

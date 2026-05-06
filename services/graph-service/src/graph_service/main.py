@@ -3,6 +3,7 @@ import os
 import sys
 from collections import OrderedDict
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -30,6 +31,7 @@ from graph_service.graph_runtime import (
     close_graph_backend,
     create_link,
     get_tags,
+    query_entity_deep_context,
     query_subgraph,
     update_tags,
     upsert_entity,
@@ -68,7 +70,12 @@ async def require_api_key(request: Request) -> None:
         return
     keys = _get_api_keys()
     if not keys:
-        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         if allow:
             return
         raise HTTPException(
@@ -79,7 +86,9 @@ async def require_api_key(request: Request) -> None:
     if header not in keys:
         raise HTTPException(status_code=401, detail="invalid or missing API key")
     tenant_map = parse_api_key_tenant_map()
-    await enforce_tenant_access(request, allowed_tenants=tenant_map.get(header, set()) if tenant_map else None)
+    await enforce_tenant_access(
+        request, allowed_tenants=tenant_map.get(header, set()) if tenant_map else None
+    )
 
 
 @asynccontextmanager
@@ -172,6 +181,28 @@ async def update_entity_tags(external_id: str, body: TagsRequest):
 async def get_entity_tags(external_id: str, tenant_id: str):
     result = await get_tags(tenant_id, external_id)
     return {"tags": result}
+
+
+@app.get("/v1/entities/{external_id}/deep-context")
+async def entity_deep_context(external_id: str, tenant_id: str):
+    """Deep neighborhood context for analysts (transactions, IPs, risk snapshot).
+
+    Returns ``404`` when the entity is not present in the graph database for the tenant.
+    """
+    data = await query_entity_deep_context(tenant_id, external_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="entity_not_found")
+    risk = await compute_entity_risk(tenant_id, external_id)
+    factors = risk.get("risk_factors") if isinstance(risk.get("risk_factors"), list) else []
+    data["risk_history"] = [
+        {
+            "recorded_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            "risk_score": risk.get("risk_score"),
+            "risk_factors": factors,
+            "source": "current_entity_risk",
+        }
+    ]
+    return data
 
 
 @app.post("/v1/links")
@@ -308,7 +339,9 @@ async def ring_suspicion_endpoint(tenant_id: str, entity_id: str, min_ring_size:
     """Mule/ring heuristic summary combining entity risk and ring samples."""
     risk = await compute_entity_risk(tenant_id, entity_id)
     rings = await detect_fraud_rings(tenant_id, min_ring_size=min_ring_size)
-    ring_samples = [r for r in rings if entity_id in [str(x) for x in (r.get("ring_members") or [])]][:3]
+    ring_samples = [
+        r for r in rings if entity_id in [str(x) for x in (r.get("ring_members") or [])]
+    ][:3]
     reasons = [str(x) for x in (risk.get("risk_factors") or []) if str(x).strip()]
     if ring_samples:
         reasons.append("entity_present_in_detected_ring")
@@ -355,7 +388,10 @@ async def benchmark_datasets():
 
 @app.get("/v1/benchmark/features")
 async def benchmark_features_export():
-    from graph_service.benchmark.registry import export_for_decision_pipeline, registry_content_digest
+    from graph_service.benchmark.registry import (
+        export_for_decision_pipeline,
+        registry_content_digest,
+    )
 
     out = export_for_decision_pipeline()
     out["content_digest"] = registry_content_digest()

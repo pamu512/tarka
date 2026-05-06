@@ -16,7 +16,10 @@ def _seed():
 @pytest.mark.parametrize(
     "plugin_id,required",
     [
-        ("scorecard.json", {"input": "tabular", "output": "json_scorecard", "multi_tenant": "true"}),
+        (
+            "scorecard.json",
+            {"input": "tabular", "output": "json_scorecard", "multi_tenant": "true"},
+        ),
         ("bi.export", {"input": "tabular", "output": "warehouse_slice", "multi_tenant": "true"}),
     ],
 )

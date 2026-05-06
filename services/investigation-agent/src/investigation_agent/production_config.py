@@ -30,7 +30,7 @@ def runtime_readiness_errors() -> list[str]:
 
 
 def production_config_errors(
-    settings: "Settings",
+    settings: Settings,
     *,
     api_keys_raw: str | None = None,
 ) -> list[str]:
@@ -52,7 +52,7 @@ def production_config_errors(
     return errs
 
 
-def raise_if_production_invalid(settings: "Settings") -> None:
+def raise_if_production_invalid(settings: Settings) -> None:
     errs = production_config_errors(settings)
     if errs:
         raise RuntimeError(

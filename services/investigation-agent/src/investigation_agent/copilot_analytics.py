@@ -5,7 +5,7 @@ import hashlib
 import hmac
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -22,12 +22,14 @@ def _analyst_hash(settings: Settings, analyst_id: str) -> str | None:
     secret = (settings.copilot_analytics_hmac_secret or "").strip()
     if not secret:
         return None
-    return hmac.new(secret.encode("utf-8"), analyst_id.encode("utf-8"), hashlib.sha256).hexdigest()[:24]
+    return hmac.new(secret.encode("utf-8"), analyst_id.encode("utf-8"), hashlib.sha256).hexdigest()[
+        :24
+    ]
 
 
 def _base_payload(settings: Settings, tenant_id: str, analyst_id: str) -> dict[str, Any]:
     out: dict[str, Any] = {
-        "ts": datetime.now(timezone.utc).isoformat(),
+        "ts": datetime.now(UTC).isoformat(),
         "tenant_id": (tenant_id or "").strip()[:128],
     }
     ah = _analyst_hash(settings, analyst_id)

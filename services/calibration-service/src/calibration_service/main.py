@@ -2,7 +2,7 @@ import hashlib
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +10,8 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field, model_validator
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
+import contextlib
+
 from auth import require_api_key  # noqa: E402
 from observability import get_metrics, setup_observability  # noqa: E402
 
@@ -101,7 +103,9 @@ def _active_profile_for(tenant_id: str, profile_id: str) -> dict[str, Any]:
     for p in profiles:
         if int(p.get("version", 0)) == int(active):
             return p
-    raise HTTPException(404, f"active profile version missing for tenant={tenant_id} profile={profile_id}")
+    raise HTTPException(
+        404, f"active profile version missing for tenant={tenant_id} profile={profile_id}"
+    )
 
 
 def _append_snapshot(row: dict[str, Any]) -> str:
@@ -178,7 +182,7 @@ async def publish_profile(body: CalibrationProfileIn):
         "expected_calibration_version": body.expected_calibration_version,
         "fallback": bool(body.fallback),
         "bands": [b.model_dump() for b in body.bands],
-        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(UTC).isoformat(),
     }
     bucket.append(payload)
     bucket.sort(key=lambda x: int(x.get("version", 0)))
@@ -211,7 +215,7 @@ async def activate_profile(tenant_id: str, profile_id: str, body: dict[str, int]
 @app.post("/v1/snapshots", status_code=201)
 async def append_snapshot(body: CalibrationSnapshotIn):
     row = {
-        "ts": datetime.now(timezone.utc).isoformat(),
+        "ts": datetime.now(UTC).isoformat(),
         "tenant_id": body.tenant_id,
         "profile_id": body.profile_id,
         "sample_count": body.sample_count,
@@ -299,10 +303,8 @@ async def score(body: CalibrationScoreRequest, request: Request):
         drift_penalty = -min(0.15, float(ds) * 0.25)
     delta = band_adj + velocity_penalty + drift_penalty
     calibrated = _clamp01(baseline + delta)
-    try:
+    with contextlib.suppress(Exception):
         get_metrics().inc("tarka_calibration_scores_total")
-    except Exception:
-        pass
     return {
         "baseline_confidence": round(baseline, 4),
         "calibrated_confidence": round(calibrated, 4),

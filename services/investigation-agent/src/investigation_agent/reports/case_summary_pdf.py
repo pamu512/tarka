@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from io import BytesIO
 from typing import Any
 
@@ -36,7 +36,7 @@ def render_case_summary_pdf(
     pdf.set_font("Helvetica", "", 9)
     pdf.ln(2)
     meta_parts = [
-        f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
+        f"Generated: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
     ]
     if case_id:
         meta_parts.append(f"case_id: {case_id}")
@@ -90,7 +90,9 @@ def render_case_summary_pdf(
     pdf.multi_cell(
         col_w,
         4,
-        _safe_pdf_text("Draft for human review. Provenance: client-supplied chat fields; not a legal or regulatory attestation."),
+        _safe_pdf_text(
+            "Draft for human review. Provenance: client-supplied chat fields; not a legal or regulatory attestation."
+        ),
     )
     buf = BytesIO()
     pdf.output(buf)

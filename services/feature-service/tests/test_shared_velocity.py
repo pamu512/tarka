@@ -1,8 +1,9 @@
 """Velocity counters via shared fraud_aggregates (aligned with decision-api)."""
 
 import pytest
-from aggregate_fake_redis import FakeRedis
 from fraud_aggregates import AggregateStore, normalized_velocity_key_names
+
+from .aggregate_fake_redis import FakeRedis
 
 T0 = 1_700_000_000.0
 

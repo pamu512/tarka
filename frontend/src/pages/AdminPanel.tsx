@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   admin,
@@ -23,6 +23,8 @@ import { SupportIdHint } from "../components/SupportIdHint";
 import { safeExternalHref } from "../utils/externalLinks";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
+const FeatureStoreDdlEditorTab = lazy(() => import("../components/admin/FeatureStoreDdlEditorTab"));
+
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "policies", label: "Groups & policies" },
@@ -31,6 +33,7 @@ const TABS = [
   { id: "sessions", label: "Active users" },
   { id: "audit", label: "Audit log" },
   { id: "approvals", label: "Approvals" },
+  { id: "feature_ddl", label: "Feature Store DDL" },
 ] as const;
 
 const DEMO_TENANT = "demo";
@@ -353,6 +356,18 @@ export default function AdminPanel() {
 
       {tab === "approvals" && (
         <ApprovalsTab approvals={approvals} busy={busy} onApprove={doApprove} onReject={doReject} />
+      )}
+
+      {tab === "feature_ddl" && (
+        <Suspense
+          fallback={
+            <div className="rounded-xl border border-surface-700 bg-surface-900/40 px-6 py-16 text-center text-sm text-gray-500">
+              Loading Feature Store DDL editor…
+            </div>
+          }
+        >
+          <FeatureStoreDdlEditorTab />
+        </Suspense>
       )}
     </div>
   );

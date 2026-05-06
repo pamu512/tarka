@@ -94,8 +94,8 @@ def probe_http_200(url: str, timeout: float = 5.0) -> bool:
 
 
 def wait_for_stack(deadline_seconds: float = 1200.0, poll: float = 5.0) -> None:
-    pending_json = {name: url for name, url in JSON_HEALTH}
-    pending_200 = {name: url for name, url in HTTP200_ONLY}
+    pending_json = dict(JSON_HEALTH)
+    pending_200 = dict(HTTP200_ONLY)
     deadline = time.monotonic() + deadline_seconds
 
     while (pending_json or pending_200) and time.monotonic() < deadline:
@@ -189,7 +189,9 @@ def _assert_evaluate_contract_shape(body: dict[str, object]) -> None:
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Full Docker Compose stack smoke (CI).")
-    p.add_argument("--skip-up", action="store_true", help="Assume compose is already up; skip compose down")
+    p.add_argument(
+        "--skip-up", action="store_true", help="Assume compose is already up; skip compose down"
+    )
     p.add_argument("--down-only", action="store_true", help="Only run docker compose down -v")
     p.add_argument(
         "--wait-seconds",

@@ -53,7 +53,9 @@ async def create_link(
     if settings.graph_backend == "janusgraph":
         from graph_service import janusgraph_store as store
 
-        await store.create_link(tenant_id, from_external_id, to_external_id, relationship, properties)
+        await store.create_link(
+            tenant_id, from_external_id, to_external_id, relationship, properties
+        )
         return
     from graph_service import neo4j_client as store
 
@@ -68,6 +70,16 @@ async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str
     from graph_service import neo4j_client as store
 
     return await store.query_subgraph(tenant_id, entity_id, depth)
+
+
+async def query_entity_deep_context(tenant_id: str, external_id: str) -> dict[str, Any] | None:
+    if settings.graph_backend == "janusgraph":
+        from graph_service import janusgraph_store as store
+
+        return await store.query_entity_deep_context(tenant_id, external_id)
+    from graph_service import neo4j_client as store
+
+    return await store.query_entity_deep_context(tenant_id, external_id)
 
 
 async def close_graph_backend() -> None:

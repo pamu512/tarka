@@ -45,7 +45,10 @@ def test_chat_returns_read_only_summary_when_plain_chat_enabled(monkeypatch):
     monkeypatch.setattr(config.settings, "case_api_url", "http://case.test")
     monkeypatch.setattr(config.settings, "decision_api_url", "")
     monkeypatch.setattr(config.settings, "graph_service_url", "")
-    with patch("investigation_agent.main._llm_tool_loop", new=AsyncMock(return_value=("all good", [], {}, 1))):
+    with patch(
+        "investigation_agent.main._llm_tool_loop",
+        new=AsyncMock(return_value=("all good", [], {}, 1)),
+    ):
         with TestClient(app) as client:
             r = client.post("/v1/chat", json=payload)
     assert r.status_code == 200, r.text

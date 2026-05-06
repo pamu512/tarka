@@ -1,18 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { integrations, type IntegrationScorecardsPayload } from "../api/client";
+import { VendorIntegrationConfigModal, type VendorProvider } from "../components/integrations/VendorIntegrationConfigModal";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { safeExternalHref } from "../utils/externalLinks";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
-type Provider = {
-  id: string;
-  name: string;
-  category: string;
-  type: string;
-  required_config_fields?: string[];
-  doc_url: string;
-};
+type Provider = VendorProvider;
 
 const CATEGORY_LABELS: Record<string, string> = {
   kyc: "KYC",
@@ -53,9 +47,7 @@ export default function Integrations() {
   const [requestCategory, setRequestCategory] = useState("kyc");
   const [requestUseCase, setRequestUseCase] = useState("");
   const [requestGithubUser, setRequestGithubUser] = useState("");
-  const [configProviderId, setConfigProviderId] = useState<string>("");
-  const [configDraft, setConfigDraft] = useState<Record<string, string>>({});
-  const [configMask, setConfigMask] = useState<Record<string, string>>({});
+  const [configModalProvider, setConfigModalProvider] = useState<Provider | null>(null);
 
   async function refresh() {
     const [catalog, current, ready, health, kms, jobs, sloStatus] = await Promise.all([
@@ -194,35 +186,28 @@ export default function Integrations() {
     }
   }
 
-  async function openConfigWizard(provider: Provider) {
-    setConfigProviderId(provider.id);
-    setConfigDraft({});
-    try {
-      const cfg = await integrations.getConfig(tenantId, provider.id);
-      setConfigMask(cfg.masked_config ?? {});
-    } catch {
-      setConfigMask({});
-    }
-  }
-
-  async function saveConfig(provider: Provider) {
-    try {
-      await integrations.configure(tenantId, provider.id, configDraft);
-      setMessage(`Saved config for ${provider.name}`);
-      setConfigProviderId("");
-      setConfigDraft({});
-      await refresh();
-    } catch (e) {
-      setMessage(toUserFacingError(e, { subject: "Integration credentials", action: "save integration credentials" }));
-    }
-  }
-
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div>
+      <VendorIntegrationConfigModal
+        open={configModalProvider != null}
+        provider={configModalProvider}
+        tenantId={tenantId}
+        onClose={() => setConfigModalProvider(null)}
+        onSaved={async () => {
+          const label = configModalProvider?.name ?? "provider";
+          setMessage(`Saved credentials for ${label}`);
+          setConfigModalProvider(null);
+          await refresh();
+        }}
+      />
+
+      <div id="secure-osint-plugin-hub">
         <PageTitle module="integrations">Integrations</PageTitle>
         <p className="text-sm text-gray-400 mt-1">
-          One-click integrations for top enrichment providers, workflows, and CRMs.
+          One-click integrations for top enrichment providers, workflows, and CRMs. Use{" "}
+          <strong className="text-gray-300">Configure</strong> to open the secure OSINT plugin hub — API keys use
+          password fields, are sent over HTTPS in production, and are never displayed in full after save (only{" "}
+          <span className="font-mono text-gray-500">••••</span> plus last four characters).
         </p>
       </div>
 
@@ -376,7 +361,7 @@ export default function Integrations() {
                   })()}
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => openConfigWizard(p)}
+                      onClick={() => setConfigModalProvider(p)}
                       className="px-3 py-1.5 text-xs rounded bg-indigo-700 hover:bg-indigo-600 text-white"
                     >
                       Configure
@@ -402,64 +387,6 @@ export default function Integrations() {
                     {test.status === "pass"
                       ? `Connectivity OK (${test.latency_ms}ms)`
                       : `Missing config: ${test.missing_fields.join(", ") || "unknown"}`}
-                  </div>
-                )}
-                {configProviderId === p.id && (
-                  <div className="rounded border border-surface-600 bg-surface-800 p-2 space-y-2">
-                    <div className="text-xs text-gray-300 font-medium">Credential Wizard</div>
-                    <p className="text-[11px] text-gray-400">Use either `api_key` OR `username` + `password`.</p>
-                    <div>
-                      <label className="block text-[11px] text-gray-400 mb-1">
-                        api_key {configMask.api_key ? `(saved: ${configMask.api_key})` : ""}
-                      </label>
-                      <input
-                        type="password"
-                        placeholder="Enter api_key"
-                        value={configDraft.api_key ?? ""}
-                        onChange={(e) => setConfigDraft((prev) => ({ ...prev, api_key: e.target.value }))}
-                        className="w-full bg-surface-900 border border-surface-600 rounded px-2 py-1 text-xs text-gray-200"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[11px] text-gray-400 mb-1">
-                          username {configMask.username ? `(saved: ${configMask.username})` : ""}
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Enter username"
-                          value={configDraft.username ?? ""}
-                          onChange={(e) => setConfigDraft((prev) => ({ ...prev, username: e.target.value }))}
-                          className="w-full bg-surface-900 border border-surface-600 rounded px-2 py-1 text-xs text-gray-200"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] text-gray-400 mb-1">
-                          password {configMask.password ? `(saved: ${configMask.password})` : ""}
-                        </label>
-                        <input
-                          type="password"
-                          placeholder="Enter password"
-                          value={configDraft.password ?? ""}
-                          onChange={(e) => setConfigDraft((prev) => ({ ...prev, password: e.target.value }))}
-                          className="w-full bg-surface-900 border border-surface-600 rounded px-2 py-1 text-xs text-gray-200"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => setConfigProviderId("")}
-                        className="px-2 py-1 text-xs rounded bg-surface-700 text-gray-300"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => saveConfig(p)}
-                        className="px-2 py-1 text-xs rounded bg-brand-600 text-white"
-                      >
-                        Save
-                      </button>
-                    </div>
                   </div>
                 )}
               </div>

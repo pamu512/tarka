@@ -38,6 +38,24 @@
   --color-decision-allow: #22c55e;
   --color-decision-review: #f59e0b;
   --color-decision-deny: #ef4444;
+
+  /* Shadcn semantic tokens (Tailwind v4 @theme — used by `components/ui/button`) */
+  --radius: 0.5rem;
+  --color-background: var(--s-950);
+  --color-foreground: var(--g-100);
+  --color-primary: var(--color-brand-600);
+  --color-primary-foreground: #f8fafc;
+  --color-secondary: var(--s-700);
+  --color-secondary-foreground: var(--g-100);
+  --color-destructive: #b91c1c;
+  --color-destructive-foreground: #fef2f2;
+  --color-muted: var(--s-800);
+  --color-muted-foreground: var(--g-400);
+  --color-accent: var(--s-700);
+  --color-accent-foreground: var(--g-100);
+  --color-input: var(--s-600);
+  --color-border: var(--s-600);
+  --color-ring: var(--color-brand-500);
 }
 
 /* Dark theme (default when <html class="dark">) */
@@ -120,4 +138,40 @@ body {
 
 .animate-fade-in {
   animation: fade-in 0.3s ease-out;
+}
+
+/* TipTap / ProseMirror — SAR investigative notes */
+.sar-notes-prose p {
+  margin: 0.35em 0;
+}
+.sar-notes-prose ul,
+.sar-notes-prose ol {
+  margin: 0.35em 0;
+  padding-left: 1.25rem;
+}
+.sar-notes-prose ul {
+  list-style-type: disc;
+}
+.sar-notes-prose ol {
+  list-style-type: decimal;
+}
+.sar-notes-prose a {
+  color: #7dd3fc;
+  text-decoration: underline;
+}
+.sar-notes-prose h1,
+.sar-notes-prose h2,
+.sar-notes-prose h3 {
+  font-weight: 600;
+  margin: 0.5em 0 0.25em;
+}
+.sar-notes-prose pre,
+.sar-notes-prose code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.85em;
+}
+.sar-notes-prose.ProseMirror-focused {
+  outline: 2px solid rgba(96, 165, 250, 0.35);
+  outline-offset: 0;
+  border-radius: 0.25rem;
 }

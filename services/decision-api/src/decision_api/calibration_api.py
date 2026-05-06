@@ -35,7 +35,10 @@ def _references_path() -> Path:
 
 
 def _safe_profile(profile: str) -> str:
-    return "".join(c if c.isalnum() or c in "._-" else "_" for c in profile.strip())[:120] or "default"
+    return (
+        "".join(c if c.isalnum() or c in "._-" else "_" for c in profile.strip())[:120]
+        or "default"
+    )
 
 
 def _load_reference_map() -> dict[str, dict[str, Any]]:
@@ -56,7 +59,9 @@ def _load_reference_map() -> dict[str, dict[str, Any]]:
 
 
 def _save_reference_map(data: dict[str, dict[str, Any]]) -> None:
-    _references_path().write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+    _references_path().write_text(
+        json.dumps(data, indent=2, sort_keys=True), encoding="utf-8"
+    )
 
 
 class CalibrationSnapshotIn(BaseModel):
@@ -93,7 +98,10 @@ async def append_snapshot(body: CalibrationSnapshotIn):
     p = _snapshots_path()
     with p.open("a", encoding="utf-8") as f:
         f.write(json.dumps(rec, default=str) + "\n")
-    return {"ok": True, "id": hashlib.sha256(json.dumps(rec, sort_keys=True).encode()).hexdigest()[:16]}
+    return {
+        "ok": True,
+        "id": hashlib.sha256(json.dumps(rec, sort_keys=True).encode()).hexdigest()[:16],
+    }
 
 
 @router.post("/reference/{profile}")
@@ -155,11 +163,21 @@ def compute_drift_for_tenant(
     cur_hist = latest.get("integrity_histogram") or {}
     keys = sorted(set(ref_hist.keys()) | set(cur_hist.keys()))
     if not keys:
-        return {"tenant_id": tenant_id, "profile": safe_profile, "drift_score": None, "hint": "empty_histograms"}
+        return {
+            "tenant_id": tenant_id,
+            "profile": safe_profile,
+            "drift_score": None,
+            "hint": "empty_histograms",
+        }
     total_r = sum(int(ref_hist.get(k, 0)) for k in keys)
     total_c = sum(int(cur_hist.get(k, 0)) for k in keys)
     if total_r <= 0 or total_c <= 0:
-        return {"tenant_id": tenant_id, "profile": safe_profile, "drift_score": None, "hint": "insufficient_mass"}
+        return {
+            "tenant_id": tenant_id,
+            "profile": safe_profile,
+            "drift_score": None,
+            "hint": "insufficient_mass",
+        }
     drift = 0.0
     for k in keys:
         pr = ref_hist.get(k, 0) / total_r

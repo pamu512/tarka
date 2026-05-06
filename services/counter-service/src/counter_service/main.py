@@ -1,7 +1,7 @@
 import os
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import redis.asyncio as aioredis
@@ -86,7 +86,9 @@ if os.environ.get("TARKA_SIGNAL_PLANE_SUBAPP", "").strip() != "1":
 async def _startup():
     app.state.redis = None
     app.state.store = None
-    redis_url = (os.environ.get("COUNTER_SERVICE_REDIS_URL") or os.environ.get("REDIS_URL") or "").strip()
+    redis_url = (
+        os.environ.get("COUNTER_SERVICE_REDIS_URL") or os.environ.get("REDIS_URL") or ""
+    ).strip()
     if redis_url:
         try:
             rc = aioredis.from_url(redis_url, decode_responses=True)
@@ -176,7 +178,7 @@ async def record_and_query(body: CounterRecordAndQueryRequest):
         **queried,
         "recorded": True,
         "event_id": event_id,
-        "recorded_at": datetime.now(timezone.utc).isoformat(),
+        "recorded_at": datetime.now(UTC).isoformat(),
     }
 
 
@@ -239,5 +241,5 @@ async def parity_report(body: CounterParityRequest):
         "epsilon": eps,
         "checked_keys": list(body.expected.keys()),
         "drift": drift,
-        "live_sample": {k: counters.get(k) for k in body.expected.keys()},
+        "live_sample": {k: counters.get(k) for k in body.expected},
     }

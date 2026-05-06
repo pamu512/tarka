@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import csv
 import io
 import json
@@ -30,7 +31,9 @@ def ttl_seconds() -> int:
         return _DEFAULT_TTL_SECONDS
 
 
-_SAFE_BATCH_ID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
+_SAFE_BATCH_ID = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE
+)
 
 
 def validate_batch_id(batch_id: str) -> str:
@@ -55,11 +58,18 @@ def _batch_disk_root() -> Path:
     else:
         p = Path(tempfile.gettempdir()) / "tarka_investigation_batches"
     p.mkdir(parents=True, exist_ok=True)
-    return p
+    return p.resolve()
 
 
 def _disk_record_path(batch_id: str) -> Path:
-    return _batch_disk_root() / f"{batch_id}.json"
+    bid = validate_batch_id(batch_id)
+    root = _batch_disk_root()
+    target = (root / f"{bid}.json").resolve()
+    try:
+        target.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("batch path outside store root") from exc
+    return target
 
 
 def _write_disk_record(rec: dict[str, Any]) -> None:
@@ -118,25 +128,19 @@ def _cleanup_disk(now: float) -> None:
             rec = json.loads(p.read_text(encoding="utf-8"))
             created_at = float(rec.get("created_at") or p.stat().st_mtime)
         except Exception:
-            try:
+            with contextlib.suppress(Exception):
                 p.unlink(missing_ok=True)
-            except Exception:
-                pass
             continue
         if now - created_at > ttl:
-            try:
+            with contextlib.suppress(Exception):
                 p.unlink(missing_ok=True)
-            except Exception:
-                pass
             continue
         alive.append(p)
     if len(alive) <= _MAX_STORE_BATCHES:
         return
     for p in alive[: max(0, len(alive) - _MAX_STORE_BATCHES)]:
-        try:
+        with contextlib.suppress(Exception):
             p.unlink(missing_ok=True)
-        except Exception:
-            pass
 
 
 def _cleanup_unlocked(now: float) -> None:
@@ -191,18 +195,20 @@ def _parse_json(raw: bytes) -> tuple[list[str], list[dict[str, Any]], str]:
                 keys = [_normalize_key(k) for k, _ in lists[:_MAX_COLS]]
                 for i in range(n):
                     row = {}
-                    for (k, v), kn in zip(lists[:_MAX_COLS], keys):
+                    for (_, v), kn in zip(lists[:_MAX_COLS], keys, strict=False):
                         row[kn] = v[i]
                     rows_in.append(row)
 
     if not rows_in:
-        raise ValueError("JSON must be an array of objects, an object with items/data/rows, or column-oriented arrays")
+        raise ValueError(
+            "JSON must be an array of objects, an object with items/data/rows, or column-oriented arrays"
+        )
 
     rows_in = rows_in[:_MAX_ROWS]
     colset: list[str] = []
     seen: set[str] = set()
     for r in rows_in:
-        for k in r.keys():
+        for k in r:
             nk = _normalize_key(str(k))
             if nk not in seen:
                 seen.add(nk)
@@ -238,7 +244,9 @@ def _parse_xlsx(raw: bytes) -> tuple[list[str], list[dict[str, Any]], str]:
     try:
         from openpyxl import load_workbook  # type: ignore[import-untyped]
     except ImportError as e:
-        raise ValueError("Excel support requires openpyxl (install investigation-agent with excel extra)") from e
+        raise ValueError(
+            "Excel support requires openpyxl (install investigation-agent with excel extra)"
+        ) from e
 
     bio = io.BytesIO(raw)
     wb = load_workbook(bio, read_only=True, data_only=True)
@@ -390,7 +398,9 @@ def batch_profile(rec: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def batch_query_rows(rec: dict[str, Any], offset: int, limit: int, columns: list[str] | None) -> dict[str, Any]:
+def batch_query_rows(
+    rec: dict[str, Any], offset: int, limit: int, columns: list[str] | None
+) -> dict[str, Any]:
     rows: list[dict[str, Any]] = rec.get("rows") or []
     all_cols: list[str] = rec.get("columns") or []
     off = max(0, offset)

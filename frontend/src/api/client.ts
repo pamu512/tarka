@@ -6,6 +6,7 @@ import {
   normalizeInferenceContext,
 } from "./inferenceContext";
 import { reportDataOutcome } from "./dataSourceState";
+import { assertIntegrationSecretsTransportSecure } from "../utils/integrationSecretsTransport";
 
 export type { ConfidenceTier, InferenceContext, MlTopFactor };
 export { normalizeInferenceContext };
@@ -28,6 +29,73 @@ if (IS_PRODUCTION_BUILD && MOCK_MODE === "true") {
  */
 const USE_API_MOCKS =
   !IS_PRODUCTION_BUILD && (MOCK_MODE === "true" || (MOCK_MODE !== "false" && import.meta.env.DEV));
+
+/** ``GET /v1/entities/{id}/deep-context`` — JanusGraph neighborhood + current risk snapshot. */
+export interface GraphEntityDeepContext {
+  entity_id: string;
+  tenant_id: string;
+  historical_transactions: Array<{
+    external_id: string;
+    trace_id?: unknown;
+    amount?: unknown;
+    currency?: unknown;
+    decision?: unknown;
+    ip?: unknown;
+    occurred_at?: unknown;
+  }>;
+  ip_addresses: Array<{
+    ip: string;
+    source: string;
+    last_seen?: unknown;
+    event_count?: number;
+  }>;
+  risk_history: Array<{
+    recorded_at: string;
+    risk_score?: unknown;
+    risk_factors?: unknown;
+    source: string;
+  }>;
+}
+
+/**
+ * Fetches deep entity context; returns ``null`` on HTTP 404 (entity absent in graph DB).
+ * Uses ``fetch`` so 404 is not treated as a generic request failure when mocks are off.
+ */
+async function fetchGraphEntityDeepContext(entityId: string, tenantId: string): Promise<GraphEntityDeepContext | null> {
+  const q = new URLSearchParams({ tenant_id: tenantId });
+  const url = `/api/graph/v1/entities/${encodeURIComponent(entityId)}/deep-context?${q}`;
+  try {
+    const res = await fetch(url, {
+      headers: { "Content-Type": "application/json" },
+    });
+    const text = await res.text();
+    if (res.status === 404) {
+      return null;
+    }
+    if (!res.ok) {
+      if (USE_API_MOCKS) {
+        const mock = await loadMockResponse(url);
+        if (mock !== null) {
+          const m = mock as { not_found?: boolean };
+          if (m.not_found) return null;
+          return mock as GraphEntityDeepContext;
+        }
+      }
+      throw new Error(parseHttpErrorMessage(res.status, res.statusText, text, res.headers));
+    }
+    return JSON.parse(text) as GraphEntityDeepContext;
+  } catch (err) {
+    if (USE_API_MOCKS) {
+      const mock = await loadMockResponse(url);
+      if (mock !== null) {
+        const m = mock as { not_found?: boolean };
+        if (m.not_found) return null;
+        return mock as GraphEntityDeepContext;
+      }
+    }
+    throw err;
+  }
+}
 
 async function loadMockResponse(url: string, init?: RequestInit): Promise<unknown | null> {
   if (IS_PRODUCTION_BUILD) {
@@ -117,6 +185,9 @@ export interface AuditEntry {
   }>;
   recommended_action?: string | null;
   created_at: string;
+  /** Present when ``detail_level`` is ``analyst`` or ``full`` — evaluate DAG step rows. */
+  step_trace?: unknown[];
+  fallback_reason?: string | null;
 }
 
 export interface Case {
@@ -199,6 +270,64 @@ export interface SarFilingIntentDetail {
 export interface SarFilingIntentsResponse {
   case_id: string;
   intents: SarFilingIntentDetail[];
+}
+
+/** ``GET /v1/cases/ops/sar-transport/board`` — Kanban columns from ``sar_filing_intents``. */
+export interface SarTransportBoardCard {
+  id: string;
+  tenant_id: string;
+  case_id: string;
+  status: SarFilingIntentStatus;
+  sar_artifact_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface SarTransportBoardColumn {
+  count: number;
+  items: SarTransportBoardCard[];
+}
+
+export interface SarTransportBoardResponse {
+  schema: string;
+  tenant_id: string;
+  status_mapping: Record<string, unknown>;
+  columns: {
+    pending: SarTransportBoardColumn;
+    claimed: SarTransportBoardColumn;
+    uploaded: SarTransportBoardColumn;
+  };
+  failed: SarTransportBoardColumn;
+}
+
+export interface SarForceSftpSyncResponse {
+  ok: boolean;
+  published: boolean;
+  processed_one: boolean;
+  cooldown_seconds: number;
+}
+
+/** ``GET .../sar/intents/{id}/detail`` — specialized SAR workspace (notes lock + FinCEN digest). */
+export interface SarIntentDetailResponse {
+  case_id: string;
+  intent_id: string;
+  status: SarFilingIntentStatus;
+  sar_artifact_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  investigative_notes_html: string;
+  /** True when status is TRANSMITTED or ACKNOWLEDGED (Uploaded). */
+  notes_editor_locked: boolean;
+  /** Present only when locked: SHA-256 hex of wire payload bytes. */
+  fincen_submission_sha256_hex: string | null;
+  audit_log: SarAuditLogEntry[];
+}
+
+export interface SarInvestigativeNotesPatchResponse {
+  ok: boolean;
+  intent_id: string;
+  notes_editor_locked: boolean;
+  investigative_notes_html: string;
 }
 
 export interface CaseCreateRequest {
@@ -387,7 +516,7 @@ function parseErrorString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function parseHttpErrorMessage(status: number, statusText: string, text: string, headers: Headers): string {
+export function parseHttpErrorMessage(status: number, statusText: string, text: string, headers: Headers): string {
   let detail = text.trim() || statusText || "Request failed";
   let code: string | null = null;
   let supportId = parseErrorString(headers.get("x-correlation-id")) ?? parseErrorString(headers.get("x-request-id"));
@@ -490,9 +619,12 @@ export const decisions = {
     });
   },
 
-  getAudit(traceId: string, tenantId: string) {
+  getAudit(traceId: string, tenantId: string, opts?: { detail_level?: "minimal" | "analyst" | "full" }) {
     const q = new URLSearchParams({ tenant_id: tenantId });
-    return request<AuditEntry>(`/api/decisions/v1/audit/${traceId}?${q}`);
+    if (opts?.detail_level) {
+      q.set("detail_level", opts.detail_level);
+    }
+    return request<AuditEntry>(`/api/decisions/v1/audit/${encodeURIComponent(traceId)}?${q}`);
   },
 
   replay(body: { tenant_id: string; rules_override: unknown[]; limit?: number }) {
@@ -577,6 +709,56 @@ export const decisions = {
   slo() {
     return request<DecisionApiSloResponse>("/api/decisions/v1/slo");
   },
+};
+
+/** Headers for decision-api routes that require ``X-API-Key`` (same env as rule builder). */
+export function decisionServiceApiKeyHeaders(): HeadersInit {
+  const key = (import.meta.env.VITE_API_KEY as string | undefined)?.trim();
+  if (!key) return {};
+  return { "x-api-key": key };
+}
+
+/**
+ * Execute a single gated ClickHouse DDL via admin ``POST /v1/feature-store/ddl/execute``.
+ * Surfaces HTTP bodies and non-JSON success responses explicitly (no silent failures).
+ */
+export async function executeFeatureStoreDdl(sql: string): Promise<{ ok: boolean; executed: boolean }> {
+  const url = "/api/decisions/v1/feature-store/ddl/execute";
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...decisionServiceApiKeyHeaders(),
+    },
+    body: JSON.stringify({ sql }),
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    let detail = text.trim() || `HTTP ${res.status}`;
+    try {
+      const j = JSON.parse(text) as { detail?: unknown };
+      if (typeof j.detail === "string") detail = j.detail;
+      else if (Array.isArray(j.detail)) detail = JSON.stringify(j.detail, null, 2);
+      else if (j.detail && typeof j.detail === "object") detail = JSON.stringify(j.detail as Record<string, unknown>, null, 2);
+    } catch {
+      /* keep raw body */
+    }
+    throw new Error(detail);
+  }
+  let parsed: { ok?: boolean; executed?: boolean };
+  try {
+    parsed = JSON.parse(text) as { ok?: boolean; executed?: boolean };
+  } catch {
+    throw new Error(`Expected JSON success body; got non-JSON (starts with: ${text.slice(0, 160).replace(/\s+/g, " ")})`);
+  }
+  if (parsed.ok !== true) {
+    throw new Error(`Unexpected success payload (expected ok: true): ${text.slice(0, 400)}`);
+  }
+  return { ok: true, executed: Boolean(parsed.executed) };
+}
+
+export const featureStore = {
+  executeDdl: executeFeatureStoreDdl,
 };
 
 export interface DecisionApiSloResponse {
@@ -684,6 +866,52 @@ export const ingest = {
     }>("/api/ingest/v1/ingest/stats");
   },
 };
+
+// ── Omni search (core-api root ``/v1/omni-search``) ───────────────────
+
+export type OmniSearchEntity = {
+  entity_id: string;
+  tenant_id: string;
+  label: string;
+  subtitle?: string | null;
+};
+
+export type OmniSearchCase = {
+  id: string;
+  tenant_id: string;
+  title: string;
+  entity_id: string;
+  trace_id: string;
+  status: string;
+  label: string;
+  subtitle?: string | null;
+};
+
+export type OmniSearchRule = {
+  rule_id: string;
+  pack_file: string;
+  pack_name: string;
+  label: string;
+  subtitle?: string | null;
+};
+
+export type OmniSearchResponse = {
+  entities: OmniSearchEntity[];
+  cases: OmniSearchCase[];
+  rules: OmniSearchRule[];
+};
+
+/** Unified command-palette search (cases + entities + rules). */
+export function omniSearch(params: { q: string; tenant_id?: string | null }, signal?: AbortSignal) {
+  const q = new URLSearchParams();
+  const qq = params.q.trim();
+  if (qq) q.set("q", qq);
+  const tid = (params.tenant_id ?? "").trim();
+  if (tid) q.set("tenant_id", tid);
+  const qs = q.toString();
+  const url = qs ? `/api/core/v1/omni-search?${qs}` : `/api/core/v1/omni-search`;
+  return request<OmniSearchResponse>(url, signal ? { signal } : undefined);
+}
 
 // ── Cases (case-api :8002) ──────────────────────────────────────────
 
@@ -800,6 +1028,21 @@ export const cases = {
     );
   },
 
+  getSarIntentDetail(caseId: string, tenantId: string, intentId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<SarIntentDetailResponse>(
+      `/api/cases/v1/cases/${caseId}/sar/intents/${encodeURIComponent(intentId)}/detail?${q}`,
+    );
+  },
+
+  patchSarIntentInvestigativeNotes(caseId: string, tenantId: string, intentId: string, body: { notes_html: string }) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<SarInvestigativeNotesPatchResponse>(
+      `/api/cases/v1/cases/${caseId}/sar/intents/${encodeURIComponent(intentId)}/investigative-notes?${q}`,
+      { method: "PATCH", body: JSON.stringify(body) },
+    );
+  },
+
   bulkUpdate(data: {
     tenant_id: string;
     case_ids: string[];
@@ -870,6 +1113,18 @@ export const cases = {
     });
     return request<CaseDeskActivity>(`/api/cases/v1/cases/ops/desk-activity?${q}`);
   },
+
+  sarTransportBoard(tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<SarTransportBoardResponse>(`/api/cases/v1/cases/ops/sar-transport/board?${q}`);
+  },
+
+  forceSarTransportSftpSync() {
+    return request<SarForceSftpSyncResponse>("/api/cases/v1/cases/ops/sar-transport/force-sftp-sync", {
+      method: "POST",
+      body: "{}",
+    });
+  },
 };
 
 // ── Graph (graph-service :8001) ─────────────────────────────────────
@@ -921,6 +1176,11 @@ export const graph = {
     return request<RingSuspicionResult>(
       `/api/graph/v1/analytics/ring-suspicion?entity_id=${entityId}&tenant_id=${tenantId}&min_ring_size=${minRingSize}`,
     );
+  },
+
+  /** Deep neighborhood context; ``null`` when the graph DB has no vertex for this entity (404). */
+  entityDeepContext(entityId: string, tenantId: string) {
+    return fetchGraphEntityDeepContext(entityId, tenantId);
   },
 };
 
@@ -1159,7 +1419,211 @@ export const shadow = {
       },
     );
   },
+
+  /** Full pack JSON as stored under ``rules_path`` (includes ``_file``). */
+  getPack(filename: string) {
+    return request<RulePack & Record<string, unknown>>(
+      `/api/decisions/v1/rules/${encodeURIComponent(filename)}`,
+    );
+  },
 };
+
+/**
+ * ``BacktestRequest`` in decision-api ``backtest_api.py`` — persisted and executed by ``run_backtest_job``.
+ * Use ISO-8601 UTC strings for datetimes (e.g. ``2025-01-15T12:00:00.000Z``).
+ */
+export type BacktestJobRequestPayload = {
+  tenant_id: string;
+  start_time?: string | null;
+  end_time?: string | null;
+  rule_pack: Record<string, unknown>;
+  clickhouse_max_execution_seconds: number;
+};
+
+export type BacktestJobEnqueueResponse = {
+  job_id: string;
+  status: string;
+  tenant_id: string;
+  window_start: string;
+  window_end: string;
+  rule_pack_fingerprint_sha256: string;
+  analytics_table: string;
+  wall_timeout_seconds: number;
+  chunk_size: number;
+};
+
+/** ``metrics_json`` from ``run_backtest_job`` (final payload when job succeeds). */
+export type BacktestChartSeriesPoint = {
+  chunk_index: number;
+  rows_processed: number;
+  false_positive_rate: number;
+  precision: number;
+  recall: number;
+};
+
+export type BacktestJobMetrics = Record<string, unknown> & {
+  chart_series?: BacktestChartSeriesPoint[];
+  rows_processed?: number;
+  true_positives?: number;
+  false_positives?: number;
+  false_negatives?: number;
+  historical_allows?: number;
+  false_positive_rate?: number;
+  precision?: number;
+  recall?: number;
+  decision_agreement_rate?: number;
+  hit_rate?: number;
+  rule_fired_rows?: number;
+};
+
+export type BacktestJobStatusResponse = {
+  job_id: string;
+  tenant_id: string;
+  status: string;
+  window_start: string;
+  window_end: string;
+  analytics_table: string;
+  rows_processed: number;
+  rule_pack_fingerprint_sha256: string;
+  metrics: BacktestJobMetrics | null;
+  error_detail: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export const backtestJobs = {
+  enqueue(body: BacktestJobRequestPayload, opts?: { timeoutMs?: number }) {
+    const timeoutMs = opts?.timeoutMs ?? 60_000;
+    const ac = new AbortController();
+    const tid = window.setTimeout(() => ac.abort(), timeoutMs);
+    return request<BacktestJobEnqueueResponse>("/api/decisions/v1/rules/backtest/jobs", {
+      method: "POST",
+      body: JSON.stringify(body),
+      signal: ac.signal,
+    }).finally(() => window.clearTimeout(tid));
+  },
+
+  get(jobId: string) {
+    return request<BacktestJobStatusResponse>(
+      `/api/decisions/v1/rules/backtest/jobs/${encodeURIComponent(jobId)}`,
+    );
+  },
+};
+
+/** ``PitParquetExportRequest`` / job responses from ``decision_api/ml_export_api.py``. */
+export type PitParquetExportRequestPayload = {
+  tenant_id: string;
+  window_start: string;
+  window_end: string;
+  analytics_table?: string | null;
+  chunk_size?: number;
+  payload_json_keys?: string[] | null;
+  dispute_outcome_allowlist?: string[] | null;
+};
+
+export type PitParquetExportResponsePayload = {
+  rows_written: number;
+  chunks_processed: number;
+  local_path: string;
+  artifact_uri: string;
+  presigned_get_url?: string | null;
+  pit_note?: string;
+};
+
+export type PitParquetJobStartResponse = {
+  job_id: string;
+  status: "PENDING";
+};
+
+export type PitParquetJobStatusResponse = {
+  job_id: string;
+  status: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED";
+  progress_pct: number;
+  rows_written: number;
+  chunks_processed: number;
+  max_rows: number;
+  error?: string | null;
+  result?: PitParquetExportResponsePayload | null;
+};
+
+export const pitParquetMlExport = {
+  startJob(body: PitParquetExportRequestPayload) {
+    return request<PitParquetJobStartResponse>("/api/decisions/v1/ml/export/pit-parquet/jobs", {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json", ...decisionServiceApiKeyHeaders() },
+    });
+  },
+
+  getJob(jobId: string) {
+    return request<PitParquetJobStatusResponse>(
+      `/api/decisions/v1/ml/export/pit-parquet/jobs/${encodeURIComponent(jobId)}`,
+      { headers: { "Content-Type": "application/json", ...decisionServiceApiKeyHeaders() } },
+    );
+  },
+};
+
+// ── Shadow sidecar LLM (tools/shadow; Vite proxies /api/shadow-llm → :8742) ──
+
+export type ShadowSidecarChatMessage = { role: "system" | "user" | "assistant"; content: string };
+
+export type ShadowSidecarStreamEvent =
+  | { type: "delta"; payload?: { text?: string } }
+  | { type: "final"; payload?: Record<string, unknown> }
+  | { type: "error"; payload?: { message?: string; code?: string } };
+
+export const SHADOW_LLM_STREAM_URL = "/api/shadow-llm/chat/stream";
+
+/**
+ * POST SSE stream from the local Shadow sidecar (`text/event-stream`).
+ * Uses fetch + ReadableStream (not EventSource) so the body can be aborted via `signal` (Stop / disconnect).
+ */
+export async function streamShadowLLMChat(
+  body: {
+    messages: ShadowSidecarChatMessage[];
+    case_id?: string | null;
+    persona_id?: string | null;
+    thread_id?: string | null;
+    thread_reset?: boolean;
+  },
+  opts: {
+    signal?: AbortSignal;
+    onEvent: (ev: ShadowSidecarStreamEvent) => void;
+  },
+): Promise<void> {
+  const res = await fetch(SHADOW_LLM_STREAM_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal: opts.signal,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(parseHttpErrorMessage(res.status, res.statusText, text, res.headers));
+  }
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("No response body");
+  const dec = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const parts = buf.split("\n\n");
+    buf = parts.pop() ?? "";
+    for (const block of parts) {
+      const line = block.trim();
+      if (!line.startsWith("data:")) continue;
+      const raw = line.slice(5).trim();
+      try {
+        const msg = JSON.parse(raw) as ShadowSidecarStreamEvent;
+        opts.onEvent(msg);
+      } catch {
+        /* ignore malformed SSE line */
+      }
+    }
+  }
+}
 
 // ── Recommendations (decision-api :8000) ────────────────────────────
 
@@ -1850,6 +2314,34 @@ export interface IntegrationRequestRecord {
   rejection_reason?: string | null;
 }
 
+/** ``GET/PUT /v1/compliance/residency/matrix`` — integration-ingress ``compliance_residency.py``. */
+export type ResidencyMatrixTenantRow = {
+  id: string;
+  label?: string;
+  residency_region: string;
+};
+
+export type ResidencyMatrixVendorColumn = {
+  key: string;
+  label?: string;
+  processing_region: string;
+  source?: string;
+};
+
+export type ResidencyMatrixResponse = {
+  tenants: ResidencyMatrixTenantRow[];
+  vendors: ResidencyMatrixVendorColumn[];
+  cells: Record<string, boolean>;
+  ok?: boolean;
+  legend?: { toggle_on: string; toggle_off: string };
+};
+
+export type ResidencyMatrixPutBody = {
+  tenant_id: string;
+  vendor_key: string;
+  blocked: boolean;
+};
+
 export const integrations = {
   catalog() {
     return request<{
@@ -1882,9 +2374,13 @@ export const integrations = {
     }>(`/api/ingress/v1/integrations/readiness?tenant_id=${tenantId}`);
   },
   install(tenantId: string, providerId: string, config?: Record<string, unknown>) {
+    const c = config ?? {};
+    if (Object.keys(c).length > 0) {
+      assertIntegrationSecretsTransportSecure();
+    }
     return request<{ ok: boolean; integration: Record<string, unknown> }>("/api/ingress/v1/integrations/install", {
       method: "POST",
-      body: JSON.stringify({ tenant_id: tenantId, provider_id: providerId, config: config ?? {} }),
+      body: JSON.stringify({ tenant_id: tenantId, provider_id: providerId, config: c }),
     });
   },
   uninstall(tenantId: string, providerId: string) {
@@ -1894,6 +2390,9 @@ export const integrations = {
     });
   },
   testConnectivity(tenantId: string, providerId: string, config?: Record<string, unknown>) {
+    if (config && Object.keys(config).length > 0) {
+      assertIntegrationSecretsTransportSecure();
+    }
     return request<{
       provider_id: string;
       status: "pass" | "fail";
@@ -1906,6 +2405,7 @@ export const integrations = {
     });
   },
   getConfig(tenantId: string, providerId: string) {
+    assertIntegrationSecretsTransportSecure();
     return request<{
       tenant_id: string;
       provider_id: string;
@@ -1914,6 +2414,7 @@ export const integrations = {
     }>(`/api/ingress/v1/integrations/config/${providerId}?tenant_id=${tenantId}`);
   },
   configure(tenantId: string, providerId: string, config: Record<string, unknown>) {
+    assertIntegrationSecretsTransportSecure();
     return request<{ ok: boolean; masked_config: Record<string, string> }>("/api/ingress/v1/integrations/configure", {
       method: "POST",
       body: JSON.stringify({ tenant_id: tenantId, provider_id: providerId, config }),
@@ -2014,7 +2515,126 @@ export const integrations = {
       };
     }>("/api/ingress/v1/slo");
   },
+
+  residencyMatrix() {
+    const h = decisionServiceApiKeyHeaders();
+    return request<ResidencyMatrixResponse>("/api/ingress/v1/compliance/residency/matrix", {
+      headers: { "Content-Type": "application/json", ...h },
+    });
+  },
+
+  residencyMatrixPut(body: ResidencyMatrixPutBody) {
+    const h = decisionServiceApiKeyHeaders();
+    return request<ResidencyMatrixResponse>("/api/ingress/v1/compliance/residency/matrix", {
+      method: "PUT",
+      body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json", ...h },
+    });
+  },
+
+  residencyAuditList(filters: ResidencyAuditListParams) {
+    const h = decisionServiceApiKeyHeaders();
+    const q = buildResidencyAuditQuery(filters, { includePagination: true });
+    return request<ResidencyAuditListResponse>(`/api/ingress/v1/compliance/residency/audit?${q}`, {
+      headers: { "Content-Type": "application/json", ...h },
+    });
+  },
 };
+
+/** Query params for ``GET /v1/compliance/residency/audit`` (list + CSV export filters). */
+export type ResidencyAuditListParams = {
+  page?: number;
+  page_size?: number;
+  tenant_id?: string;
+  tenant_id_prefix?: string;
+  vendor_key_contains?: string;
+  outcome?: string;
+  component?: string;
+  created_after?: string;
+  created_before?: string;
+};
+
+export type ComplianceResidencyAuditRow = {
+  id: string;
+  tenant_id: string;
+  component: string;
+  vendor_key: string;
+  tenant_region: string;
+  vendor_region: string;
+  outcome: string;
+  detail: string | null;
+  request_url_preview: string | null;
+  created_at: string | null;
+};
+
+export type ResidencyAuditListResponse = {
+  items: ComplianceResidencyAuditRow[];
+  total: number;
+  page: number;
+  page_size: number;
+  has_more: boolean;
+};
+
+function buildResidencyAuditQuery(filters: ResidencyAuditListParams, opts: { includePagination: boolean }): string {
+  const q = new URLSearchParams();
+  if (opts.includePagination) {
+    q.set("page", String(filters.page ?? 1));
+    q.set("page_size", String(filters.page_size ?? 25));
+  }
+  const set = (k: keyof ResidencyAuditListParams, name: string) => {
+    const v = filters[k];
+    if (v !== undefined && v !== null && String(v).trim() !== "") q.set(name, String(v).trim());
+  };
+  set("tenant_id", "tenant_id");
+  set("tenant_id_prefix", "tenant_id_prefix");
+  set("vendor_key_contains", "vendor_key_contains");
+  set("outcome", "outcome");
+  set("component", "component");
+  set("created_after", "created_after");
+  set("created_before", "created_before");
+  return q.toString();
+}
+
+/**
+ * Download CSV from ``GET /v1/compliance/residency/audit/export.csv`` (server-streamed body; not DOM-derived).
+ * Uses ``fetch`` + Blob because the response is not JSON.
+ */
+export async function downloadComplianceResidencyAuditCsv(filters: ResidencyAuditListParams): Promise<void> {
+  const q = buildResidencyAuditQuery(filters, { includePagination: false });
+  const url = `/api/ingress/v1/compliance/residency/audit/export.csv?${q}`;
+  const res = await fetch(url, { headers: { ...decisionServiceApiKeyHeaders() } });
+  if (!res.ok && USE_API_MOCKS) {
+    const { getMockResponse } = await import("./mockData");
+    const mock = getMockResponse(url, { method: "GET" });
+    if (typeof mock === "string") {
+      triggerBrowserCsvDownload(mock, "compliance_residency_audit.csv");
+      reportDataOutcome("mock");
+      return;
+    }
+  }
+  if (!res.ok) {
+    const text = await res.text();
+    reportDataOutcome("offline");
+    throw new Error(parseHttpErrorMessage(res.status, res.statusText, text, res.headers));
+  }
+  const blob = await res.blob();
+  reportDataOutcome("live");
+  const cd = res.headers.get("content-disposition") ?? "";
+  const m = /filename="([^"]+)"/.exec(cd);
+  const filename = m?.[1] ?? "compliance_residency_audit.csv";
+  triggerBrowserCsvDownload(await blob.text(), filename);
+}
+
+function triggerBrowserCsvDownload(csvText: string, filename: string): void {
+  const blob = new Blob([csvText], { type: "text/csv;charset=utf-8" });
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = href;
+  a.download = filename;
+  a.rel = "noopener";
+  a.click();
+  URL.revokeObjectURL(href);
+}
 
 // ── Disputes (case-api :8002) ───────────────────────────────────────
 

@@ -34,4 +34,3 @@ def parse_stream_event(fields: dict[Any, Any]) -> dict[str, Any]:
         except json.JSONDecodeError:
             return {}
     return {}
-

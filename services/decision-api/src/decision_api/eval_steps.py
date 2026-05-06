@@ -10,6 +10,8 @@ from typing import Any, Literal
 
 import httpx
 
+from tarka_core.internal_monitor import InternalMonitor
+
 """Bounded evaluation steps: timeout, bounded retries, onFailure (SKIP | REJECT) + metrics (#32)."""
 log = logging.getLogger(__name__)
 
@@ -21,8 +23,10 @@ def _metrics_inc(name: str) -> None:
         from observability import get_metrics
 
         get_metrics().inc(name)
-    except Exception:
-        pass
+    except Exception as exc:
+        InternalMonitor.log_suppressed_error(
+            exc, context=f"eval_step_metrics:{name}", domain="observability"
+        )
 
 
 def _step_metric_suffix(step_id: str) -> str:
@@ -53,22 +57,32 @@ async def run_evaluation_step(
             trace["status"] = "ok"
             trace["duration_ms"] = round((time.perf_counter() - t0) * 1000, 2)
             _metrics_inc("tarka_eval_step_ok_total")
-            _metrics_inc(f"tarka_eval_step_ok_total_step_{_step_metric_suffix(step_id)}")
+            _metrics_inc(
+                f"tarka_eval_step_ok_total_step_{_step_metric_suffix(step_id)}"
+            )
             return val, trace
         except TimeoutError:
             last_err = "timeout"
             _metrics_inc("tarka_eval_step_timeout_total")
-            _metrics_inc(f"tarka_eval_step_timeout_total_step_{_step_metric_suffix(step_id)}")
-            log.warning("eval step %s timeout (attempt %s/%s)", step_id, attempt + 1, attempts)
+            _metrics_inc(
+                f"tarka_eval_step_timeout_total_step_{_step_metric_suffix(step_id)}"
+            )
+            log.warning(
+                "eval step %s timeout (attempt %s/%s)", step_id, attempt + 1, attempts
+            )
         except httpx.HTTPError as e:
             last_err = f"http_error:{type(e).__name__}"
             _metrics_inc("tarka_eval_step_http_error_total")
-            _metrics_inc(f"tarka_eval_step_http_error_total_step_{_step_metric_suffix(step_id)}")
+            _metrics_inc(
+                f"tarka_eval_step_http_error_total_step_{_step_metric_suffix(step_id)}"
+            )
             log.warning("eval step %s http error: %s", step_id, e)
         except Exception as e:
             last_err = f"error:{type(e).__name__}"
             _metrics_inc("tarka_eval_step_error_total")
-            _metrics_inc(f"tarka_eval_step_error_total_step_{_step_metric_suffix(step_id)}")
+            _metrics_inc(
+                f"tarka_eval_step_error_total_step_{_step_metric_suffix(step_id)}"
+            )
             log.warning("eval step %s failed: %s", step_id, e)
 
         if attempt < attempts - 1:

@@ -193,7 +193,7 @@ Data plane analytics path → ClickHouse
 | **ML runtime**     | ONNX Runtime               | Vendor-neutral model format, CPU inference, easy model swap           |
 | **Message broker** | NATS JetStream             | Lightweight, built-in persistence, at-least-once delivery             |
 | **Analytics**      | ClickHouse                 | Columnar storage optimized for aggregate queries on event data        |
-| **Policy engine**  | Open Policy Agent          | Optional, Rego language for complex compliance rules                  |
+| **Policy engine**  | Native JSON + optional OPA | **Authoritative** JSON rules run in **`tarka_rule_engine`** (Rust). **OPA** is an optional sidecar HTTP step when enabled—**not** a Rego export from the visual builder (transpilation removed to prevent logic drift vs audit logs). |
 | **Frontend**       | React + Vite + TailwindCSS | Fast dev iteration, TypeScript, modern component architecture         |
 | **Container**      | Docker + Compose profiles  | Profile-based composition lets you pick only what you need            |
 | **Orchestration**  | Helm charts for Kubernetes | Production-grade deployment with `values.yaml` toggles                |

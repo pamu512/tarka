@@ -6,16 +6,16 @@ Create Date: 2026-05-04
 
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "20260504_005"
-down_revision: Union[str, None] = "20260421_004"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "20260421_004"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -27,7 +27,12 @@ def upgrade() -> None:
         sa.Column("status", sa.String(length=32), nullable=False),
         sa.Column("filing_data", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("audit_trail", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["case_id"], ["investigation_cases.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.CheckConstraint(
@@ -35,8 +40,12 @@ def upgrade() -> None:
             name="ck_sar_filing_intents_status",
         ),
     )
-    op.create_index(op.f("ix_sar_filing_intents_tenant_id"), "sar_filing_intents", ["tenant_id"], unique=False)
-    op.create_index(op.f("ix_sar_filing_intents_case_id"), "sar_filing_intents", ["case_id"], unique=False)
+    op.create_index(
+        op.f("ix_sar_filing_intents_tenant_id"), "sar_filing_intents", ["tenant_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_sar_filing_intents_case_id"), "sar_filing_intents", ["case_id"], unique=False
+    )
 
 
 def downgrade() -> None:

@@ -12,6 +12,15 @@ class Settings(BaseSettings):
     redis_url: str = ""
     async_enrichment_redis_ttl_seconds: int = 3600
 
+    # OSINT FinOps (vendor cache + daily USD budget; audit skipped-call savings to Postgres)
+    osint_finops_enabled: bool = True
+    osint_daily_budget_usd: float = 250.0
+    osint_ttl_ip_seconds: int = 86_400  # 24h
+    osint_ttl_email_seconds: int = 604_800  # 7d
+    osint_ttl_phone_seconds: int = 86_400
+    osint_ttl_domain_seconds: int = 604_800
+    osint_ttl_identity_seconds: int = 604_800
+
     # OSINT API keys (all optional — sources without keys are skipped or use free tier)
     abuseipdb_key: str = ""
     greynoise_key: str = ""
@@ -33,6 +42,9 @@ class Settings(BaseSettings):
     azure_key_vault_url: str = ""
     azure_kms_key_name: str = ""
     azure_kms_credential_mode: str = "default"  # default | client_secret
+
+    # Optional JSON file backing the admin residency vendor block matrix (tenant × vendor).
+    residency_matrix_json_path: str = ""
 
 
 settings = Settings()

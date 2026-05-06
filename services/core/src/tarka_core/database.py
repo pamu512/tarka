@@ -92,7 +92,9 @@ def _max_overflow() -> int:
     return max(0, int(os.environ.get("TARKA_DB_MAX_OVERFLOW", "10")))
 
 
-def create_audit_async_engine(url: str, *, engine_kind: EngineKind, echo: bool = False) -> AsyncEngine:
+def create_audit_async_engine(
+    url: str, *, engine_kind: EngineKind, echo: bool = False
+) -> AsyncEngine:
     """Create a production-ready async engine for the audit plane."""
     if engine_kind == "sqlite":
         return create_async_engine(

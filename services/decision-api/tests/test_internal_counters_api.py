@@ -42,7 +42,9 @@ async def client():
                     app.state.http = AsyncMock()
                     app.dependency_overrides = {}
                     transport = httpx.ASGITransport(app=app)
-                    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+                    async with httpx.AsyncClient(
+                        transport=transport, base_url="http://testserver"
+                    ) as c:
                         yield c
                     app.dependency_overrides = {}
 
@@ -96,7 +98,7 @@ class TestInternalCountersReplay:
 
     @pytest.mark.asyncio
     async def test_replay_with_fake_redis(self, client, monkeypatch):
-        from aggregate_fake_redis import FakeRedis
+        from .aggregate_fake_redis import FakeRedis
 
         monkeypatch.setenv("COUNTER_REPLAY_TOKEN", "tok")
         from decision_api.config import settings
@@ -108,7 +110,9 @@ class TestInternalCountersReplay:
         def _from_url(url: str, **kwargs):
             return fake
 
-        with patch("decision_api.internal_counters_api.aioredis.from_url", new=_from_url):
+        with patch(
+            "decision_api.internal_counters_api.aioredis.from_url", new=_from_url
+        ):
             r = await client.post(
                 "/v1/internal/counters/replay",
                 json={
@@ -138,7 +142,10 @@ class TestReplayFromAudit:
         from datetime import datetime, timezone
         from unittest.mock import AsyncMock, MagicMock
 
-        from decision_api.internal_counters_api import CounterReplayFromAuditRequest, post_counter_replay_from_audit
+        from decision_api.internal_counters_api import (
+            CounterReplayFromAuditRequest,
+            post_counter_replay_from_audit,
+        )
 
         monkeypatch.setenv("COUNTER_REPLAY_TOKEN", "tok")
         from decision_api.config import settings
@@ -157,14 +164,16 @@ class TestReplayFromAudit:
         mock_session = AsyncMock()
         mock_session.execute = AsyncMock(return_value=exec_result)
 
-        from aggregate_fake_redis import FakeRedis
+        from .aggregate_fake_redis import FakeRedis
 
         fake = FakeRedis()
 
         def _from_url(url: str, **kwargs):
             return fake
 
-        with patch("decision_api.internal_counters_api.aioredis.from_url", new=_from_url):
+        with patch(
+            "decision_api.internal_counters_api.aioredis.from_url", new=_from_url
+        ):
             body = CounterReplayFromAuditRequest(
                 scratch_redis_url="redis://localhost:6379/15",
                 tenant_id="t_audit",
@@ -181,7 +190,10 @@ class TestReplayFromAudit:
     async def test_replay_from_audit_404(self, client, monkeypatch):
         from unittest.mock import AsyncMock, MagicMock
 
-        from decision_api.internal_counters_api import CounterReplayFromAuditRequest, post_counter_replay_from_audit
+        from decision_api.internal_counters_api import (
+            CounterReplayFromAuditRequest,
+            post_counter_replay_from_audit,
+        )
 
         monkeypatch.setenv("COUNTER_REPLAY_TOKEN", "tok")
         from decision_api.config import settings

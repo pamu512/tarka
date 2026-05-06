@@ -1,5 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { Routes, Route, NavLink, Navigate } from "react-router-dom";
+import { MicroDevOnboardingGate } from "./components/MicroDevOnboardingGate";
+import { RequireRole } from "./components/rbac/RequireRole";
 import { getDataSourceSnapshot, subscribeDataSource } from "./api/dataSourceState";
 import { AnalystCaseTabBar } from "./components/AnalystCaseTabBar";
 import { AppTopBar } from "./components/AppTopBar";
@@ -9,21 +11,29 @@ import { ModuleIcon, type ModuleId } from "./components/ModuleIcon";
 import { TarkaLogo } from "./components/TarkaLogo";
 import MlLifecycle from "./pages/MlLifecycle";
 import OpsCalibration from "./pages/OpsCalibration";
+import { TarkaRbacRole } from "./security/rbacConstants";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Cases = lazy(() => import("./pages/Cases"));
 const CaseDetail = lazy(() => import("./pages/CaseDetail"));
+const SarIntentDetailPage = lazy(() => import("./pages/SarIntentDetailPage"));
 const Disputes = lazy(() => import("./pages/Disputes"));
 const Rules = lazy(() => import("./pages/Rules"));
 const GraphExplorer = lazy(() => import("./pages/GraphExplorer"));
+const LinkAnalysisPage = lazy(() => import("./pages/LinkAnalysisPage"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const Investigation = lazy(() => import("./pages/Investigation"));
+const DagTracePage = lazy(() => import("./pages/DagTracePage"));
+const ShadowLlmForensics = lazy(() => import("./pages/ShadowLlmForensics"));
 const OsintEnrichment = lazy(() => import("./pages/OsintEnrichment"));
 const ShadowMode = lazy(() => import("./pages/ShadowMode"));
 const Simulation = lazy(() => import("./pages/Simulation"));
+const BacktestJobConfigurator = lazy(() => import("./pages/BacktestJobConfigurator"));
 const Compliance = lazy(() => import("./pages/Compliance"));
 const OpsCounters = lazy(() => import("./pages/OpsCounters"));
 const OpsPipelines = lazy(() => import("./pages/OpsPipelines"));
+const OpsSarTransportBoard = lazy(() => import("./pages/OpsSarTransportBoard"));
+const OpsInfraDashboard = lazy(() => import("./pages/OpsInfraDashboard"));
 const FeatureTools = lazy(() => import("./pages/FeatureTools"));
 const EntityLists = lazy(() => import("./pages/EntityLists"));
 const Integrations = lazy(() => import("./pages/Integrations"));
@@ -33,6 +43,9 @@ const Help = lazy(() => import("./pages/Help"));
 const AdminPanel = lazy(() => import("./pages/AdminPanel"));
 const VisualRuleBuilder = lazy(() => import("./pages/VisualRuleBuilder"));
 const ExecutiveDashboards = lazy(() => import("./pages/ExecutiveDashboards"));
+const ForbiddenUnauthorized = lazy(() => import("./pages/ForbiddenUnauthorized"));
+const TransactionsLiveGrid = lazy(() => import("./pages/TransactionsLiveGrid"));
+const PitMlParquetExport = lazy(() => import("./pages/PitMlParquetExport"));
 
 type NavBadge = { count: number; kind: "action" | "info" };
 
@@ -60,10 +73,15 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: "Investigation",
     items: [
       { to: "/graph", label: "Graph Explorer", module: "graph" },
+      { to: "/graph/link-analysis", label: "Link analysis (2D)", module: "graph" },
       { to: "/investigation", label: "Investigation Copilot", module: "investigation" },
+      { to: "/investigation/dag-trace", label: "DAG trace", module: "investigation" },
+      { to: "/investigation/shadow-llm", label: "Shadow LLM forensics", module: "investigation" },
       { to: "/osint", label: "OSINT", module: "osint" },
       { to: "/analytics", label: "Analytics", module: "analytics" },
+      { to: "/transactions/live", label: "Live transactions", module: "analytics" },
       { to: "/ops/ml-lifecycle", label: "ML lifecycle", module: "analytics" },
+      { to: "/ops/ml-parquet-export", label: "PIT Parquet export", module: "analytics" },
     ],
   },
   {
@@ -74,6 +92,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { to: "/entity-lists", label: "Entity Lists", module: "entity-lists" },
       { to: "/shadow", label: "Shadow Mode", module: "shadow" },
       { to: "/simulation", label: "Simulation", module: "simulation" },
+      { to: "/ops/backtest", label: "Backtest jobs", module: "rules" },
     ],
   },
   {
@@ -84,6 +103,8 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { to: "/ops/counters", label: "Counters catalog", module: "compliance" },
       { to: "/ops/features", label: "Feature tools", module: "compliance" },
       { to: "/ops/pipelines", label: "ETL / pipelines", module: "compliance" },
+      { to: "/ops/sar-transport", label: "SAR SFTP worker", module: "compliance" },
+      { to: "/ops/infra", label: "Infra & health", module: "compliance" },
       { to: "/integrations", label: "Integrations", module: "integrations" },
       { to: "/admin", label: "Admin Panel", module: "admin" },
     ],
@@ -142,6 +163,7 @@ export default function App() {
   );
 
   return (
+    <MicroDevOnboardingGate>
     <div className="flex h-screen overflow-hidden">
       <aside className="w-60 flex-shrink-0 bg-surface-900 border-r border-surface-700 flex flex-col">
         <div className="h-16 flex items-center px-5 border-b border-surface-700">
@@ -213,25 +235,42 @@ export default function App() {
         >
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/403-unauthorized" element={<ForbiddenUnauthorized />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/exec-dashboards" element={<ExecutiveDashboards />} />
             <Route path="/cases" element={<Cases />} />
+            <Route path="/cases/:caseId/sar-intent/:intentId" element={<SarIntentDetailPage />} />
             <Route path="/cases/:caseId" element={<CaseDetail />} />
             <Route path="/disputes" element={<Disputes />} />
             <Route path="/rules" element={<Rules />} />
-            <Route path="/rules/visual" element={<VisualRuleBuilder />} />
+            <Route
+              path="/rules/visual"
+              element={
+                <RequireRole allow={TarkaRbacRole.RiskArchitect}>
+                  <VisualRuleBuilder />
+                </RequireRole>
+              }
+            />
             <Route path="/entity-lists" element={<EntityLists />} />
             <Route path="/shadow" element={<ShadowMode />} />
             <Route path="/simulation" element={<Simulation />} />
+            <Route path="/ops/backtest" element={<BacktestJobConfigurator />} />
             <Route path="/graph" element={<GraphExplorer />} />
+            <Route path="/graph/link-analysis" element={<LinkAnalysisPage />} />
             <Route path="/analytics" element={<Analytics />} />
+            <Route path="/transactions/live" element={<TransactionsLiveGrid />} />
             <Route path="/ops/calibration" element={<OpsCalibration />} />
             <Route path="/ops/ml-lifecycle" element={<MlLifecycle />} />
+            <Route path="/ops/ml-parquet-export" element={<PitMlParquetExport />} />
             <Route path="/investigation" element={<Investigation />} />
+            <Route path="/investigation/dag-trace" element={<DagTracePage />} />
+            <Route path="/investigation/shadow-llm" element={<ShadowLlmForensics />} />
             <Route path="/osint" element={<OsintEnrichment />} />
             <Route path="/compliance" element={<Compliance />} />
             <Route path="/ops/counters" element={<OpsCounters />} />
             <Route path="/ops/pipelines" element={<OpsPipelines />} />
+            <Route path="/ops/sar-transport" element={<OpsSarTransportBoard />} />
+            <Route path="/ops/infra" element={<OpsInfraDashboard />} />
             <Route path="/ops/features" element={<FeatureTools />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/notifications" element={<Notifications />} />
@@ -243,5 +282,6 @@ export default function App() {
         </main>
       </div>
     </div>
+    </MicroDevOnboardingGate>
   );
 }

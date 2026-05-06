@@ -15,6 +15,9 @@ parking_lot = "0.12"
 chrono = { version = "0.4", features = ["serde"] }
 regex = "1"
 sha2 = "0.10"
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["registry", "std"] }
 
 [profile.release]
 lto = true

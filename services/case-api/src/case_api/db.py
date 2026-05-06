@@ -8,14 +8,14 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.sql import text
-
-from case_api.config import settings
 from tarka_core.database import (
     build_async_database_url,
     create_audit_async_engine,
     resolve_tarka_db_engine,
     sync_url_for_alembic,
 )
+
+from case_api.config import settings
 
 
 def _app_root() -> Path:
@@ -27,7 +27,9 @@ _fallback_activated = False
 _fallback_reason: str | None = None
 _bootstrap_mode = "unknown"
 
-_engine_kind: Literal["sqlite", "postgres"] = resolve_tarka_db_engine(database_url=settings.database_url)
+_engine_kind: Literal["sqlite", "postgres"] = resolve_tarka_db_engine(
+    database_url=settings.database_url
+)
 _active_database_url = build_async_database_url(
     engine_kind=_engine_kind,
     database_url=settings.database_url,

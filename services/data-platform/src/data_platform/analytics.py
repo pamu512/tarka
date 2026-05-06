@@ -8,7 +8,6 @@ from typing import Any
 
 import asyncpg
 
-
 CREATE_SCHEMA_SQL = "CREATE SCHEMA IF NOT EXISTS analytics;"
 
 CREATE_PARTITIONED_TABLE_SQL = """
@@ -187,11 +186,10 @@ async def query_decisions(
     q = f"""
       SELECT stream_id, tenant_id, entity_id, event_type, decision, score, payload, created_at
       FROM analytics.decision_events
-      WHERE {' AND '.join(where)}
+      WHERE {" AND ".join(where)}
       ORDER BY created_at DESC
       LIMIT ${idx}
     """
     async with pool.acquire() as conn:
         rows = await conn.fetch(q, *args)
     return [dict(r) for r in rows]
-

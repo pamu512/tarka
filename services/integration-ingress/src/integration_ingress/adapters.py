@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 """KYC adapter registry. Adapters are registered by name.
 Third-party adapters can be added by appending to ADAPTERS dict."""
 AdapterFn = Callable[[str, str, dict[str, Any] | None], Awaitable[dict[str, Any]]]
 
 
-async def verify_mock(tenant_id: str, subject_id: str, raw: dict[str, Any] | None) -> dict[str, Any]:
+async def verify_mock(
+    tenant_id: str, subject_id: str, raw: dict[str, Any] | None
+) -> dict[str, Any]:
     return {
         "status": "verified",
         "adapter": "mock",
@@ -34,7 +37,9 @@ def register_adapter(name: str, fn: AdapterFn) -> None:
     ADAPTERS[name] = fn
 
 
-async def verify(adapter: str, tenant_id: str, subject_id: str, raw: dict[str, Any] | None) -> dict[str, Any]:
+async def verify(
+    adapter: str, tenant_id: str, subject_id: str, raw: dict[str, Any] | None
+) -> dict[str, Any]:
     fn = ADAPTERS.get(adapter)
     if not fn:
         return {
@@ -46,6 +51,8 @@ async def verify(adapter: str, tenant_id: str, subject_id: str, raw: dict[str, A
             "pep_sanctions_match": None,
             "confidence": None,
             "raw_reference": None,
-            "details": {"error": f"unknown adapter '{adapter}'; registered: {list(ADAPTERS.keys())}"},
+            "details": {
+                "error": f"unknown adapter '{adapter}'; registered: {list(ADAPTERS.keys())}"
+            },
         }
     return await fn(tenant_id, subject_id, raw)

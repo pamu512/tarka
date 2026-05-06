@@ -82,11 +82,24 @@ def _iter_label_objects(text: str) -> list[dict[str, Any]]:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Build ML training matrix from labels + feature snapshots")
-    p.add_argument("--labels", type=Path, required=True, help="JSONL file; one label object per line")
-    p.add_argument("--features-dir", type=Path, required=True, help="Directory of {trace_id}.json feature snapshots")
+    p = argparse.ArgumentParser(
+        description="Build ML training matrix from labels + feature snapshots"
+    )
+    p.add_argument(
+        "--labels", type=Path, required=True, help="JSONL file; one label object per line"
+    )
+    p.add_argument(
+        "--features-dir",
+        type=Path,
+        required=True,
+        help="Directory of {trace_id}.json feature snapshots",
+    )
     p.add_argument("--out", type=Path, default=Path("training_out"), help="Output directory")
-    p.add_argument("--strict-labels", action="store_true", help="Require trace_id, tenant_id, label on each row")
+    p.add_argument(
+        "--strict-labels",
+        action="store_true",
+        help="Require trace_id, tenant_id, label on each row",
+    )
     args = p.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     order = _feature_order()

@@ -80,7 +80,9 @@ def _matches_when(
         return True
     if "decision" in when and str(when["decision"]) != decision:
         return False
-    if "confidence_tier" in when and str(when["confidence_tier"]) != str(inf_ctx.get("confidence_tier", "")):
+    if "confidence_tier" in when and str(when["confidence_tier"]) != str(
+        inf_ctx.get("confidence_tier", "")
+    ):
         return False
     for key, inf_key in (
         ("min_tamper_risk", "tamper_risk"),

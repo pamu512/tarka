@@ -6,7 +6,9 @@ def test_adverse_empty():
 
 
 def test_adverse_unmapped_fallback():
-    assert aa.adverse_action_codes_for_hits(["unknown_hit_xyz"]) == ["G99: Internal Policy"]
+    assert aa.adverse_action_codes_for_hits(["unknown_hit_xyz"]) == [
+        "G99: Internal Policy"
+    ]
 
 
 def test_adverse_respects_max_four_and_order():

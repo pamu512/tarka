@@ -48,9 +48,7 @@ def _canonical_http_url(parsed) -> str:
         raise WebFetchError("Host is not allowed for web fetch")
     netloc = host
     if parsed.port:
-        if scheme == "http" and parsed.port != 80:
-            netloc = f"{host}:{parsed.port}"
-        elif scheme == "https" and parsed.port != 443:
+        if scheme == "http" and parsed.port != 80 or scheme == "https" and parsed.port != 443:
             netloc = f"{host}:{parsed.port}"
     path = parsed.path or "/"
     return urlunparse((scheme, netloc, path, "", parsed.query, ""))

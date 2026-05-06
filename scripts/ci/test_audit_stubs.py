@@ -39,10 +39,10 @@ class TestAuditStubs(unittest.TestCase):
             _write(
                 svc,
                 "badapp/stub_api.py",
-                '''
+                """
                 def handler():
                     return {"status": "stub"}
-                ''',
+                """,
             )
             code, out = _run_audit(svc)
             self.assertEqual(code, 1, msg=out)
@@ -58,10 +58,10 @@ class TestAuditStubs(unittest.TestCase):
             _write(
                 svc,
                 "badapp/nope.py",
-                '''
+                """
                 def run():
                     raise NotImplementedError("later")
-                ''',
+                """,
             )
             code, out = _run_audit(svc)
             self.assertEqual(code, 1, msg=out)
@@ -77,10 +77,10 @@ class TestAuditStubs(unittest.TestCase):
             _write(
                 svc,
                 "badapp/empty.py",
-                '''
+                """
                 def todo():
                     pass
-                ''',
+                """,
             )
             code, out = _run_audit(svc)
             self.assertEqual(code, 1, msg=out)
@@ -96,7 +96,7 @@ class TestAuditStubs(unittest.TestCase):
             _write(
                 svc,
                 "goodapp/abc_ok.py",
-                '''
+                """
                 from abc import ABC, abstractmethod
 
                 class Base(ABC):
@@ -107,7 +107,7 @@ class TestAuditStubs(unittest.TestCase):
                     @abstractmethod
                     def p(self):
                         pass
-                ''',
+                """,
             )
             code, out = _run_audit(svc)
             self.assertEqual(code, 0, msg=out)
@@ -121,12 +121,12 @@ class TestAuditStubs(unittest.TestCase):
             _write(
                 svc,
                 "goodapp/proto.py",
-                '''
+                """
                 from typing import Protocol
 
                 class P(Protocol):
                     def f(self) -> int: ...
-                ''',
+                """,
             )
             code, out = _run_audit(svc)
             self.assertEqual(code, 0, msg=out)

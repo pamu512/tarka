@@ -3,28 +3,37 @@ import json
 import logging
 import re
 import time
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from decision_api.config import settings
+from tarka_core.internal_monitor import InternalMonitor
 
 log = logging.getLogger(__name__)
 
-try:
-    import tarka_rule_engine as _tarka_rule_engine
-except ImportError:  # pragma: no cover — CI builds the extension explicitly
-    _tarka_rule_engine = None  # type: ignore[assignment]
+# Last JSON rule engine metadata for audit/API (Rust vs Python, parity fallback flag).
+_JSON_RULE_ENGINE_META: ContextVar[dict[str, Any]] = ContextVar(
+    "json_rule_engine_metadata",
+    default={"engine": "unknown", "fallback_active": False},
+)
 
 
-def _require_rust_engine() -> Any:
-    if _tarka_rule_engine is None:
-        msg = (
-            "tarka_rule_engine (Rust/PyO3) is required for rule evaluation. "
-            "Build and install from services/rule-engine: pip install maturin && maturin develop --release"
-        )
-        raise RuntimeError(msg)
-    return _tarka_rule_engine
+def get_json_rule_engine_metadata() -> dict[str, Any]:
+    """Snapshot of engine used for the most recent evaluation in this async task."""
+    return dict(_JSON_RULE_ENGINE_META.get())
+
+
+def _set_json_rule_engine_metadata(meta: dict[str, Any]) -> None:
+    _JSON_RULE_ENGINE_META.set(dict(meta))
+
+
+def _configured_json_rules_engine_mode() -> str:
+    v = (getattr(settings, "json_rules_engine", None) or "auto").strip().lower()
+    if v in ("auto", "rust", "python"):
+        return v
+    return "auto"
 
 
 # N3/N4: in-process rule hit counts since process start (reset on restart).
@@ -39,7 +48,6 @@ _MAX_REGEX_PATTERN_LEN = 256
 
 _cached_packs: list[dict[str, Any]] = []
 _shadow_mode_packs: list[dict[str, Any]] = []
-_last_rust_sync_fingerprint: str | None = None
 
 # Optional PLG sandbox bundle (Postgres-backed); merged pack, not on disk.
 SANDBOX_PLG_INDUSTRY_SOURCE_FILE = "sandbox_plg_industry_starter.json"
@@ -48,7 +56,9 @@ _plg_sandbox_runtime_pack: dict[str, Any] | None = None
 
 def _attach_plg_sandbox_pack(active: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Strip any stale sandbox artifact from disk list, then append runtime PLG pack if configured."""
-    filtered = [p for p in active if p.get("_source_file") != SANDBOX_PLG_INDUSTRY_SOURCE_FILE]
+    filtered = [
+        p for p in active if p.get("_source_file") != SANDBOX_PLG_INDUSTRY_SOURCE_FILE
+    ]
     if _plg_sandbox_runtime_pack is None:
         return filtered
     merged = dict(_plg_sandbox_runtime_pack)
@@ -63,7 +73,7 @@ def preload_plg_sandbox_runtime_pack(pack: dict[str, Any] | None) -> None:
 
 
 def set_plg_sandbox_runtime_pack(pack: dict[str, Any] | None) -> None:
-    """Replace (or clear) the in-memory PLG sandbox pack and reload disk rules + Rust sync."""
+    """Replace (or clear) the in-memory PLG sandbox pack and reload disk rules."""
     preload_plg_sandbox_runtime_pack(pack)
     load_rules()
 
@@ -83,8 +93,10 @@ def record_rule_hit(pack_file: str, rule_id: str, kind: str = "rule") -> None:
         from observability import get_metrics
 
         get_metrics().inc("tarka_json_rule_hits_total")
-    except Exception:
-        pass
+    except Exception as exc:
+        InternalMonitor.log_suppressed_error(
+            exc, context="record_rule_hit_metrics", domain="observability"
+        )
 
 
 def get_rule_hit_telemetry() -> dict[str, Any]:
@@ -113,24 +125,57 @@ def get_rule_hit_telemetry() -> dict[str, Any]:
     }
 
 
-def _sync_rust_active_packs() -> None:
-    global _last_rust_sync_fingerprint
-    tre = _require_rust_engine()
-    payload = json.dumps(_cached_packs, default=str)
-    tre.sync_packs_json(payload)
-    _last_rust_sync_fingerprint = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+def merge_redis_tags_with_signals(
+    redis_tags: list[str], signal_tags: list[str] | None
+) -> list[str]:
+    """Append request-scoped signal tags to Redis-backed tags (deduplicated, order preserved)."""
+    out = list(redis_tags)
+    seen = set(out)
+    for t in signal_tags or []:
+        if t not in seen:
+            seen.add(t)
+            out.append(t)
+    return out
 
 
-def _ensure_rust_engine_has_current_packs() -> None:
-    """Sync active packs into the Rust engine when the in-memory list changed (including tests)."""
-    global _last_rust_sync_fingerprint
-    tre = _require_rust_engine()
-    payload = json.dumps(_cached_packs, default=str)
-    fp = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-    if fp == _last_rust_sync_fingerprint:
-        return
-    tre.sync_packs_json(payload)
-    _last_rust_sync_fingerprint = fp
+def _sync_rust_engine_packs() -> None:
+    try:
+        from decision_api.rust_rule_engine_ffi import sync_rust_packs_from_cache
+
+        sync_rust_packs_from_cache()
+    except Exception as e:
+        log.warning(
+            "rust_engine_pack_sync_failed",
+            extra={
+                "rust_ffi": True,
+                "phase": "sync_after_load_rules",
+                "exc_type": type(e).__name__,
+                "exc_repr": repr(e),
+            },
+            exc_info=True,
+        )
+
+
+def build_emergency_static_rule_tuple() -> tuple[
+    list[str], list[str], float, list[str]
+]:
+    """Fixed JSON-rule tuple when Rust FFI circuit is open and emergency policy is configured."""
+    hits = json.loads(settings.rust_ffi_emergency_rule_hits_json or "[]")
+    tags = json.loads(settings.rust_ffi_emergency_tags_json or "[]")
+    contrib = json.loads(
+        settings.rust_ffi_emergency_contributing_pack_files_json or "[]"
+    )
+    if not isinstance(hits, list):
+        hits = ["rust_circuit_open"]
+    if not isinstance(tags, list):
+        tags = ["rust_ffi_circuit"]
+    if not isinstance(contrib, list):
+        contrib = ["emergency_static_policy"]
+    hits_s = [str(x) for x in hits]
+    tags_s = [str(x) for x in tags]
+    contrib_s = [str(x) for x in contrib]
+    delta = float(getattr(settings, "rust_ffi_emergency_score_delta", 80.0))
+    return hits_s, tags_s, delta, contrib_s
 
 
 def load_rules() -> None:
@@ -138,14 +183,9 @@ def load_rules() -> None:
     global _cached_packs, _shadow_mode_packs
     path = Path(settings.rules_path)
     if not path.is_dir():
-        global _last_rust_sync_fingerprint
         _cached_packs = _attach_plg_sandbox_pack([])
         _shadow_mode_packs = []
-        _last_rust_sync_fingerprint = None
-        if _tarka_rule_engine is not None:
-            payload = json.dumps(_cached_packs, default=str)
-            _tarka_rule_engine.sync_packs_json(payload)
-            _last_rust_sync_fingerprint = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        _sync_rust_engine_packs()
         return
     active: list[dict[str, Any]] = []
     shadow: list[dict[str, Any]] = []
@@ -174,8 +214,7 @@ def load_rules() -> None:
         "yes" if _plg_sandbox_runtime_pack is not None else "no",
         len(_cached_packs),
     )
-    if _tarka_rule_engine is not None:
-        _sync_rust_active_packs()
+    _sync_rust_engine_packs()
 
 
 def get_shadow_packs() -> list[dict[str, Any]]:
@@ -205,7 +244,59 @@ def governance_summary() -> dict[str, Any]:
     }
 
 
+def _json_f64_py(v: Any) -> float | None:
+    """Parity with Rust ``json_f64`` (lib.rs): only JSON number scalars, not bool."""
+    if v is None or isinstance(v, bool):
+        return None
+    if isinstance(v, int) and not isinstance(v, bool):
+        return float(v)
+    if isinstance(v, float):
+        return v
+    return None
+
+
+def _json_str_pythonish_actual(expected: Any, actual: Any) -> tuple[str, str]:
+    """Parity with Rust ``json_str_pythonish`` + optional actual for ``contains``."""
+
+    def _one(val: Any) -> str:
+        if val is None:
+            return "None"
+        if isinstance(val, bool):
+            return "true" if val else "false"
+        if isinstance(val, int) and not isinstance(val, bool):
+            return str(val)
+        if isinstance(val, float):
+            return str(val)
+        if isinstance(val, str):
+            return val
+        try:
+            return json.dumps(val, separators=(",", ":"), ensure_ascii=False)
+        except (TypeError, ValueError):
+            return str(val)
+
+    return _one(expected), _one(actual)
+
+
+def _json_value_display_for_regex(v: Any) -> str:
+    """Subject string for ``regex`` op — serde_json ``Value`` ``Display`` / compact JSON."""
+    try:
+        return json.dumps(v, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    except (TypeError, ValueError):
+        return str(v)
+
+
+def _json_collection_equals(actual: Any, elem: Any) -> bool:
+    """Approximate ``serde_json::Value`` equality for ``in`` / ``not_in`` list membership."""
+    try:
+        return json.dumps(
+            actual, sort_keys=True, separators=(",", ":"), default=str
+        ) == json.dumps(elem, sort_keys=True, separators=(",", ":"), default=str)
+    except (TypeError, ValueError):
+        return actual == elem
+
+
 def _match_condition(features: dict[str, Any], condition: dict[str, Any]) -> bool:
+    """Flat ``when`` condition match — parity with Rust ``match_condition`` (lib.rs)."""
     op = condition.get("op", "eq")
     key = condition.get("field")
     if not key or len(str(key)) > _MAX_FIELD_LEN:
@@ -222,23 +313,40 @@ def _match_condition(features: dict[str, Any], condition: dict[str, Any]) -> boo
         if op == "not_eq":
             return actual != expected
         if op == "gte":
-            return actual is not None and float(actual) >= float(expected)
+            av = _json_f64_py(actual)
+            ev = _json_f64_py(expected)
+            return av is not None and ev is not None and av >= ev
         if op == "gt":
-            return actual is not None and float(actual) > float(expected)
+            av = _json_f64_py(actual)
+            ev = _json_f64_py(expected)
+            return av is not None and ev is not None and av > ev
         if op == "lte":
-            return actual is not None and float(actual) <= float(expected)
+            av = _json_f64_py(actual)
+            ev = _json_f64_py(expected)
+            return av is not None and ev is not None and av <= ev
         if op == "lt":
-            return actual is not None and float(actual) < float(expected)
+            av = _json_f64_py(actual)
+            ev = _json_f64_py(expected)
+            return av is not None and ev is not None and av < ev
         if op == "in":
-            return actual in (expected or [])
+            arr = expected if isinstance(expected, list) else None
+            if arr is None:
+                return False
+            return any(_json_collection_equals(actual, x) for x in arr)
         if op == "not_in":
-            return actual not in (expected or [])
+            arr = expected if isinstance(expected, list) else None
+            if arr is None:
+                return True
+            return not any(_json_collection_equals(actual, x) for x in arr)
         if op == "contains":
-            return str(expected) in str(actual or "")
+            exp_s, act_s = _json_str_pythonish_actual(expected, actual)
+            return bool(exp_s) and exp_s in act_s
         if op == "starts_with":
-            return str(actual or "").startswith(str(expected))
+            suf = expected if isinstance(expected, str) else ""
+            return isinstance(actual, str) and actual.startswith(suf)
         if op == "ends_with":
-            return str(actual or "").endswith(str(expected))
+            suf = expected if isinstance(expected, str) else ""
+            return isinstance(actual, str) and actual.endswith(suf)
         if op == "regex":
             if not expected:
                 return False
@@ -247,7 +355,8 @@ def _match_condition(features: dict[str, Any], condition: dict[str, Any]) -> boo
                 return False
             escaped = re.escape(pattern)
             safe_re = "^" + escaped.replace(r"\*", ".*").replace(r"\?", ".") + "$"
-            return bool(re.match(safe_re, str(actual or ""), re.IGNORECASE))
+            subj = _json_value_display_for_regex(actual if actual is not None else None)
+            return bool(re.match(safe_re, subj, re.IGNORECASE))
         if op == "is_true":
             return actual is True
         if op == "is_false":
@@ -269,6 +378,7 @@ def _pack_experiment_bucket(tenant_id: str, entity_id: str, pack_key: str) -> in
 
 
 def _parse_effective_at(raw: Any) -> datetime | None:
+    """RFC3339 / ISO-8601 parity with Rust ``parse_effective_at`` (lib.rs)."""
     if raw is None or raw == "":
         return None
     if not isinstance(raw, str):
@@ -282,7 +392,17 @@ def _parse_effective_at(raw: Any) -> datetime | None:
         dt = datetime.fromisoformat(s)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
-        return dt
+        return dt.astimezone(timezone.utc)
+    except ValueError as exc:
+        InternalMonitor.log_suppressed_error(
+            exc,
+            context="parse_effective_at_fromisoformat_fallback",
+            domain="fraud_decisioning",
+            level=logging.DEBUG,
+        )
+    try:
+        dtnaive = datetime.strptime(s, "%Y-%m-%dT%H:%M:%S")
+        return dtnaive.replace(tzinfo=timezone.utc)
     except ValueError:
         return None
 
@@ -330,7 +450,9 @@ def _pack_should_apply(
     return True, None
 
 
-def _rust_eval_to_tuple(out: dict[str, Any]) -> tuple[list[str], list[str], float, list[str]]:
+def _rust_eval_to_tuple(
+    out: dict[str, Any],
+) -> tuple[list[str], list[str], float, list[str]]:
     hits = [str(x) for x in (out.get("rule_hits") or [])]
     tags = [str(x) for x in (out.get("tags") or [])]
     delta = float(out.get("score_delta") or 0.0)
@@ -357,25 +479,56 @@ def evaluate_json_rules(
     evaluation_mode: str = "production",
     signal_tags: list[str] | None = None,
 ) -> tuple[list[str], list[str], float, list[str]]:
-    """Evaluate active JSON rule packs via the Rust engine (PyO3)."""
-    _ensure_rust_engine_has_current_packs()
-    tre = _require_rust_engine()
+    """Evaluate active JSON rule packs (Rust engine when available, else Python).
+
+    When ``TARKA_JSON_RULES_ENGINE`` selects Rust (``auto``/``rust`` with extension present),
+    failures do **not** fall back to Python — see FFI circuit breaker in ``rust_rule_engine_ffi``.
+    """
+    from decision_api.rust_rule_engine_ffi import (
+        evaluate_cached_packs_via_rust,
+        should_use_rust_json_engine,
+    )
+    from decision_api.pack_evaluator import evaluate_packs_python
+
+    cfg_mode = _configured_json_rules_engine_mode()
     tid = (tenant_id or "").strip() or "default"
     eid = (entity_id or "").strip() or "default"
-    mode = evaluation_mode if evaluation_mode in ("production", "simulation", "challenger") else "production"
-    st_json = json.dumps(list(signal_tags)) if signal_tags else None
-    raw = tre.evaluate_json_rules_rust(
-        json.dumps(features, default=str),
-        json.dumps(redis_tags),
+    mode = (
+        evaluation_mode
+        if evaluation_mode in ("production", "simulation", "challenger")
+        else "production"
+    )
+    merged = merge_redis_tags_with_signals(redis_tags, signal_tags)
+
+    if should_use_rust_json_engine():
+        out = evaluate_cached_packs_via_rust(
+            features,
+            redis_tags,
+            tenant_id,
+            entity_id,
+            evaluation_mode=mode,
+            signal_tags=signal_tags,
+        )
+        _apply_telemetry_from_rust(out)
+        _set_json_rule_engine_metadata({"engine": "rust", "fallback_active": False})
+        return _rust_eval_to_tuple(out)
+
+    fallback_active = cfg_mode != "python"
+    out = evaluate_packs_python(
+        _cached_packs,
+        features,
+        merged,
         tid,
         eid,
         mode,
-        st_json,
+        exclude_shadow=True,
+        fallback_active=fallback_active,
     )
-    out = json.loads(raw)
     _apply_telemetry_from_rust(out)
-    h, t, d, c = _rust_eval_to_tuple(out)
-    return h, t, d, c
+    _set_json_rule_engine_metadata(
+        {"engine": "python", "fallback_active": fallback_active}
+    )
+    return _rust_eval_to_tuple(out)
 
 
 def evaluate_adhoc_packs_json(
@@ -389,23 +542,106 @@ def evaluate_adhoc_packs_json(
     signal_tags: list[str] | None = None,
     record_telemetry: bool = False,
 ) -> tuple[list[str], list[str], float, list[str]]:
-    """Evaluate arbitrary pack JSON (shadow packs, recommendation preview) via Rust."""
-    tre = _require_rust_engine()
+    """Evaluate arbitrary pack JSON (shadow packs, recommendation preview)."""
+    from decision_api.rust_rule_engine_ffi import (
+        evaluate_json_rules_via_rust,
+        should_use_rust_json_engine,
+    )
+    from decision_api.pack_evaluator import evaluate_packs_python
+
+    cfg_mode = _configured_json_rules_engine_mode()
     tid = (tenant_id or "").strip() or "default"
     eid = (entity_id or "").strip() or "default"
-    mode = evaluation_mode if evaluation_mode in ("production", "simulation", "challenger") else "production"
-    st_json = json.dumps(list(signal_tags)) if signal_tags else None
-    raw = tre.evaluate_adhoc_packs_rust(
-        json.dumps(packs, default=str),
-        json.dumps(features, default=str),
-        json.dumps(redis_tags),
+    mode = (
+        evaluation_mode
+        if evaluation_mode in ("production", "simulation", "challenger")
+        else "production"
+    )
+    merged = merge_redis_tags_with_signals(redis_tags, signal_tags)
+
+    if should_use_rust_json_engine():
+        out = evaluate_json_rules_via_rust(
+            packs,
+            features,
+            redis_tags,
+            tenant_id,
+            entity_id,
+            evaluation_mode=mode,
+            signal_tags=signal_tags,
+        )
+        if record_telemetry:
+            _apply_telemetry_from_rust(out)
+        _set_json_rule_engine_metadata({"engine": "rust", "fallback_active": False})
+        return _rust_eval_to_tuple(out)
+
+    fallback_active = cfg_mode != "python"
+    out = evaluate_packs_python(
+        packs,
+        features,
+        merged,
         tid,
         eid,
         mode,
-        st_json,
+        exclude_shadow=False,
+        fallback_active=fallback_active,
     )
-    out = json.loads(raw)
     if record_telemetry:
         _apply_telemetry_from_rust(out)
-    h, t, d, c = _rust_eval_to_tuple(out)
-    return h, t, d, c
+    _set_json_rule_engine_metadata(
+        {"engine": "python", "fallback_active": fallback_active}
+    )
+    return _rust_eval_to_tuple(out)
+
+
+def search_omni_rules(query: str, limit: int = 24) -> list[dict[str, Any]]:
+    """Substring match over active pack metadata + rule ids/descriptions (command palette)."""
+    qn = (query or "").strip().lower()
+    if not qn or limit <= 0:
+        return []
+    out: list[dict[str, Any]] = []
+    for pack in _cached_packs:
+        src = str(pack.get("_source_file") or "unknown.json")
+        pname = str(pack.get("name") or "").strip() or (
+            src.removesuffix(".json") if src.lower().endswith(".json") else src
+        )
+        for rule in pack.get("rules") or []:
+            if not isinstance(rule, dict):
+                continue
+            rid = str(rule.get("id") or "")
+            desc = str(rule.get("description") or "")
+            blob = f"{rid} {desc} {pname} {src}".lower()
+            if qn not in blob:
+                continue
+            sub = desc if len(desc) <= 160 else f"{desc[:159]}…"
+            out.append(
+                {
+                    "rule_id": rid,
+                    "pack_file": src,
+                    "pack_name": pname,
+                    "label": rid or "(unnamed rule)",
+                    "subtitle": sub or None,
+                }
+            )
+            if len(out) >= limit:
+                return out
+        for rule in pack.get("tag_rules") or []:
+            if not isinstance(rule, dict):
+                continue
+            rid = str(rule.get("id") or "")
+            desc = str(rule.get("description") or "")
+            blob = f"{rid} {desc} {pname} {src} tag".lower()
+            if qn not in blob:
+                continue
+            sub = desc if len(desc) <= 160 else f"{desc[:159]}…"
+            out.append(
+                {
+                    "rule_id": rid,
+                    "pack_file": src,
+                    "pack_name": pname,
+                    "label": rid or "(tag rule)",
+                    "subtitle": (sub or "tag rule") + " · tag_rules",
+                }
+            )
+            if len(out) >= limit:
+                return out
+    return out

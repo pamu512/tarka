@@ -26,6 +26,8 @@ Usage::
         changes={"status": {"old": "open", "new": "escalated"}},
     )
 """
+
+
 class AuditEntry:
     """Mixin: add this to your Base to create the audit_trail table."""
 
@@ -88,7 +90,9 @@ class AuditTrail:
 
         q = (
             select(self._model)
-            .where(self._model.resource_type == resource_type, self._model.resource_id == resource_id)
+            .where(
+                self._model.resource_type == resource_type, self._model.resource_id == resource_id
+            )
             .order_by(self._model.created_at.desc())
             .limit(limit)
         )

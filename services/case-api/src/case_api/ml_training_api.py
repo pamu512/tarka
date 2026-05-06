@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -11,9 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from case_api.db import get_session
 from case_api.models import Case, Dispute
-
-import sys
-from pathlib import Path
 
 _shared = Path(__file__).resolve().parents[3] / "shared"
 if str(_shared) not in sys.path:
@@ -104,7 +103,9 @@ async def training_labels_by_trace(
     missing = [t for t in cleaned if not out[t]]
     if missing:
         cr = await session.execute(
-            select(Case.trace_id, Case.labels).where(Case.tenant_id == tid, Case.trace_id.in_(missing))
+            select(Case.trace_id, Case.labels).where(
+                Case.tenant_id == tid, Case.trace_id.in_(missing)
+            )
         )
         case_seen: set[str] = set()
         for trace_id, labels in cr.all():

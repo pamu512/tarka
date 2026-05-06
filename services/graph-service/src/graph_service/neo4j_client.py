@@ -5,12 +5,15 @@ from neo4j import AsyncDriver, AsyncGraphDatabase
 
 from graph_service.config import settings
 from graph_service.custom_schema import get_allowed_labels, get_allowed_rels
+from graph_service.entity_context_shape import shape_deep_context_from_nodes
 from graph_service.hetero_schema import validate_typed_edge_or_raise
 
 _driver: AsyncDriver | None = None
 
 ALLOWED_LABELS = frozenset({"Person", "Account", "Device", "Payment", "Document", "Custom"})
-ALLOWED_RELS = frozenset({"USED", "SHARED_WITH", "REFERRED", "KYC_VERIFIED_BY", "OWNS", "CUSTOM", "RELATED"})
+ALLOWED_RELS = frozenset(
+    {"USED", "SHARED_WITH", "REFERRED", "KYC_VERIFIED_BY", "OWNS", "CUSTOM", "RELATED"}
+)
 
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 
@@ -97,7 +100,9 @@ async def update_tags(
     """
     async with driver.session() as session:
         try:
-            result = await session.run(q, tenant_id=tenant_id, external_id=external_id, new_tags=tags)
+            result = await session.run(
+                q, tenant_id=tenant_id, external_id=external_id, new_tags=tags
+            )
             rec = await result.single()
             if rec:
                 return list(rec["tags"] or [])
@@ -164,7 +169,9 @@ async def create_link(
         )
         mrec = await meta.single()
         if mrec:
-            validate_typed_edge_or_raise(tenant_id, rel, list(mrec["la"] or []), list(mrec["lb"] or []))
+            validate_typed_edge_or_raise(
+                tenant_id, rel, list(mrec["la"] or []), list(mrec["lb"] or [])
+            )
         await session.run(
             q,
             tenant_id=tenant_id,
@@ -239,3 +246,12 @@ def _rel_to_dict(r: Any) -> dict[str, Any]:
         "type": r.type,
         "properties": dict(r),
     }
+
+
+async def query_entity_deep_context(tenant_id: str, external_id: str) -> dict[str, Any] | None:
+    """Reuse bounded subgraph expansion; ``None`` when the entity is not in the graph."""
+    sub = await query_subgraph(tenant_id, external_id, 2)
+    nodes = sub.get("nodes") or []
+    if not nodes or not any(n.get("id") == external_id for n in nodes):
+        return None
+    return shape_deep_context_from_nodes(external_id, tenant_id, nodes)

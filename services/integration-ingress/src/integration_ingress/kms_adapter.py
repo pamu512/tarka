@@ -90,11 +90,19 @@ class AzureKMSAdapter:
 
     def __init__(self, *, vault_url: str, key_name: str, credential_mode: str = "default") -> None:
         try:
-            from azure.identity import ClientSecretCredential, DefaultAzureCredential  # type: ignore
+            from azure.identity import (  # type: ignore
+                ClientSecretCredential,
+                DefaultAzureCredential,
+            )
             from azure.keyvault.keys import KeyClient  # type: ignore
-            from azure.keyvault.keys.crypto import CryptographyClient, EncryptionAlgorithm  # type: ignore
+            from azure.keyvault.keys.crypto import (  # type: ignore
+                CryptographyClient,
+                EncryptionAlgorithm,
+            )
         except Exception as exc:
-            raise RuntimeError("Azure KMS adapter requires azure-keyvault + azure-identity packages") from exc
+            raise RuntimeError(
+                "Azure KMS adapter requires azure-keyvault + azure-identity packages"
+            ) from exc
 
         if credential_mode == "client_secret":
             import os
@@ -102,7 +110,9 @@ class AzureKMSAdapter:
             tenant_id = os.environ.get("AZURE_TENANT_ID", "")
             client_id = os.environ.get("AZURE_CLIENT_ID", "")
             client_secret = os.environ.get("AZURE_CLIENT_SECRET", "")
-            cred = ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret)
+            cred = ClientSecretCredential(
+                tenant_id=tenant_id, client_id=client_id, client_secret=client_secret
+            )
         else:
             cred = DefaultAzureCredential()
         key_client = KeyClient(vault_url=vault_url, credential=cred)

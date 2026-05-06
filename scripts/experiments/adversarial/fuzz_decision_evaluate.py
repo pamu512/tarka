@@ -27,7 +27,10 @@ def _base_payload() -> dict[str, Any]:
         "device_context": {
             "device_id": _rand_id("dev"),
             "platform": "web",
-            "signals": {"is_vpn": random.choice([True, False]), "automation_detected": random.choice([True, False])},
+            "signals": {
+                "is_vpn": random.choice([True, False]),
+                "automation_detected": random.choice([True, False]),
+            },
         },
         "metadata": {},
     }
@@ -42,7 +45,10 @@ def _mutations() -> list[tuple[str, Any]]:
         ("null_payload", lambda p: p.__setitem__("payload", None)),
         ("nested_noise", lambda p: p["payload"].__setitem__("nested", {"noise": ["x" * 256] * 20})),
         ("negative_amount", lambda p: p["payload"].__setitem__("amount", -99999)),
-        ("bad_geo_values", lambda p: p["device_context"]["signals"].update({"geo_lat": "nan", "geo_lon": "oops"})),
+        (
+            "bad_geo_values",
+            lambda p: p["device_context"]["signals"].update({"geo_lat": "nan", "geo_lon": "oops"}),
+        ),
         ("oversized_metadata", lambda p: p.__setitem__("metadata", {"blob": "x" * 20_000})),
     ]
 
@@ -67,14 +73,23 @@ def main() -> int:
             if args.api_key:
                 headers["x-api-key"] = args.api_key
             try:
-                resp = client.post(f"{args.base_url.rstrip('/')}/v1/decisions/evaluate", headers=headers, content=json.dumps(payload))
+                resp = client.post(
+                    f"{args.base_url.rstrip('/')}/v1/decisions/evaluate",
+                    headers=headers,
+                    content=json.dumps(payload),
+                )
                 counters[f"status_{resp.status_code}"] += 1
             except Exception:
                 counters["request_exception"] += 1
             counters[f"mutation_{name}"] += 1
 
     elapsed = (time.perf_counter() - start) * 1000.0
-    print(json.dumps({"rounds": args.rounds, "elapsed_ms": round(elapsed, 2), "results": dict(counters)}, indent=2))
+    print(
+        json.dumps(
+            {"rounds": args.rounds, "elapsed_ms": round(elapsed, 2), "results": dict(counters)},
+            indent=2,
+        )
+    )
     return 0
 
 

@@ -9,7 +9,7 @@ class FakeRedis:
     def __init__(self) -> None:
         self._data: dict[str, dict[str, float]] = {}
 
-    def pipeline(self) -> "FakePipeline":
+    def pipeline(self) -> FakePipeline:
         return FakePipeline(self)
 
     async def zcount(self, key: str, min_score: float | str, max_score: float | str) -> int:
@@ -20,7 +20,9 @@ class FakeRedis:
             max_score = float("inf")
         return sum(1 for v in d.values() if float(min_score) <= v <= float(max_score))
 
-    async def zrangebyscore(self, key: str, min_score: float | str, max_score: float | str) -> list[str]:
+    async def zrangebyscore(
+        self, key: str, min_score: float | str, max_score: float | str
+    ) -> list[str]:
         d = self._data.get(key, {})
         if isinstance(min_score, str) and min_score == "-inf":
             min_score = float("-inf")
@@ -40,11 +42,11 @@ class FakePipeline:
         self._redis = redis
         self._ops: list[tuple[str, str, dict[str, float]]] = []
 
-    def zadd(self, key: str, mapping: dict[str, float]) -> "FakePipeline":
+    def zadd(self, key: str, mapping: dict[str, float]) -> FakePipeline:
         self._ops.append(("zadd", key, mapping))
         return self
 
-    def expire(self, key: str, ttl: int) -> "FakePipeline":
+    def expire(self, key: str, ttl: int) -> FakePipeline:
         _ = (key, ttl)
         return self
 
@@ -52,4 +54,3 @@ class FakePipeline:
         for op, key, mapping in self._ops:
             if op == "zadd":
                 self._redis._data.setdefault(key, {}).update(mapping)
-

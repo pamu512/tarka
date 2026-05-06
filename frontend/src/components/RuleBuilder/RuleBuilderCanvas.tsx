@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   addEdge,
   Background,
@@ -16,6 +16,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
+import { rules } from "../../api/client";
 import type { VisualAstPack } from "../../types/rules";
 import {
   compileToAST,
@@ -26,6 +27,9 @@ import {
   type OperatorNodeData,
   type RuleRootNodeData,
 } from "./compileToAST";
+import { connectionCreatesDirectedCycle } from "./graphCycle";
+import { defaultPackNameFromCanvas, readRuleRootMeta } from "./compileFlowToJsonAst";
+import { tryCompileFlowToJsonAst, validateCanvasForAstSave } from "./validateRuleBuilderCanvas";
 import { FeatureNode } from "./nodes/FeatureNode";
 import { LogicAndNode } from "./nodes/LogicAndNode";
 import { LogicOrNode } from "./nodes/LogicOrNode";
@@ -89,6 +93,13 @@ function CanvasInner() {
   const [serverCompile, setServerCompile] = useState<string>("");
   const [serverErr, setServerErr] = useState<string>("");
   const [testOpen, setTestOpen] = useState(false);
+  const [packName, setPackName] = useState("");
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [saveErr, setSaveErr] = useState("");
+  const [saveOk, setSaveOk] = useState("");
+
+  const saveReadiness = useMemo(() => validateCanvasForAstSave(nodes, edges), [nodes, edges]);
+  const astLive = useMemo(() => tryCompileFlowToJsonAst(nodes, edges), [nodes, edges]);
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -97,10 +108,14 @@ function CanvasInner() {
         setCompileErr("Invalid connection: connect Feature → Operator → (AND/OR) → Rule root only.");
         return;
       }
+      if (connectionCreatesDirectedCycle(nodes, edges, params)) {
+        setCompileErr("That connection would create a directed cycle in the graph.");
+        return;
+      }
       setCompileErr("");
       setEdges((eds) => addEdge({ ...params, animated: true }, eds));
     },
-    [getNodes, setEdges],
+    [edges, getNodes, nodes, setEdges],
   );
 
   const handleCompileLocal = useCallback(() => {
@@ -116,6 +131,51 @@ function CanvasInner() {
       setCompileErr(e instanceof Error ? e.message : String(e));
     }
   }, [edges, getNodes]);
+
+  const handleSaveAstPack = useCallback(async () => {
+    setSaveErr("");
+    setSaveOk("");
+    const v = validateCanvasForAstSave(nodes, edges);
+    if (!v.ok) {
+      setSaveErr(v.errors.join("\n"));
+      return;
+    }
+    const built = tryCompileFlowToJsonAst(nodes, edges);
+    if (!built.ok) {
+      setSaveErr(built.errors.join("\n"));
+      return;
+    }
+    let meta: ReturnType<typeof readRuleRootMeta>;
+    try {
+      meta = readRuleRootMeta(nodes);
+    } catch (e) {
+      setSaveErr(e instanceof Error ? e.message : String(e));
+      return;
+    }
+    const name = packName.trim() || defaultPackNameFromCanvas(nodes);
+    setSaveBusy(true);
+    try {
+      const out = (await rules.create({
+        name,
+        rules: [
+          {
+            id: meta.ruleId,
+            when: [],
+            tags: meta.tags,
+            score_delta: meta.scoreDelta,
+            description: meta.description,
+            when_ast: built.ast,
+          },
+        ],
+        tag_rules: [],
+      })) as { file?: string };
+      setSaveOk(`Pack created: ${out.file ?? "ok"}. Rules reload on the server.`);
+    } catch (e) {
+      setSaveErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaveBusy(false);
+    }
+  }, [edges, nodes, packName]);
 
   const handleCompileServer = useCallback(async () => {
     setServerErr("");
@@ -154,8 +214,38 @@ function CanvasInner() {
     [setNodes],
   );
 
+  const canSaveAst = saveReadiness.ok && !saveBusy;
+
   return (
     <div className="space-y-3">
+      <div className="flex flex-col sm:flex-row sm:items-end gap-2 max-w-xl">
+        <label className="flex flex-col gap-1 text-xs text-slate-400">
+          Pack name (POST /v1/rules)
+          <input
+            type="text"
+            value={packName}
+            onChange={(e) => setPackName(e.target.value)}
+            placeholder={defaultPackNameFromCanvas(nodes)}
+            className="rounded border border-surface-600 bg-surface-900 px-2 py-1.5 text-sm text-gray-200"
+          />
+        </label>
+        <button
+          type="button"
+          disabled={!canSaveAst}
+          title={!saveReadiness.ok ? saveReadiness.errors.join(" | ") : undefined}
+          className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium shrink-0"
+          onClick={() => void handleSaveAstPack()}
+        >
+          {saveBusy ? "Saving…" : "Save AST pack"}
+        </button>
+      </div>
+      {!saveReadiness.ok ? (
+        <p className="text-xs text-amber-500/90 whitespace-pre-wrap">{saveReadiness.errors.join("\n")}</p>
+      ) : null}
+      {saveErr ? (
+        <pre className="text-xs bg-red-950/50 border border-red-900/60 rounded p-2 text-red-200 overflow-auto whitespace-pre-wrap">{saveErr}</pre>
+      ) : null}
+      {saveOk ? <p className="text-xs text-emerald-400">{saveOk}</p> : null}
       <div className="flex flex-wrap gap-2 items-center text-xs">
         <span className="text-slate-500 mr-2">Add:</span>
         <button type="button" className="px-2 py-1 rounded bg-surface-800 border border-surface-600" onClick={() => addNode(NODE_TYPES.feature, { field: "new_field", featureKind: "number" })}>
@@ -211,9 +301,21 @@ function CanvasInner() {
           <Controls />
         </ReactFlow>
       </div>
+      <div>
+        <div className="text-xs text-slate-500 mb-1">
+          JSON AST (client) — must match <code className="text-slate-400">decision_api.ast_models.JsonAstNode</code>
+        </div>
+        {astLive.ok ? (
+          <pre className="text-xs bg-black/40 border border-surface-700 rounded p-3 overflow-auto text-cyan-200 max-h-48">
+            {JSON.stringify(astLive.ast, null, 2)}
+          </pre>
+        ) : (
+          <p className="text-xs text-amber-600/90 whitespace-pre-wrap">{astLive.errors.join("\n")}</p>
+        )}
+      </div>
       {compiledDeploy ? (
         <div>
-          <div className="text-xs text-slate-500 mb-1">Compiled JSON (Rust `when` shape — client mirror of decision-api)</div>
+          <div className="text-xs text-slate-500 mb-1">Legacy flat `when` JSON (dry-run / GitOps compile path)</div>
           <pre className="text-xs bg-black/40 border border-surface-700 rounded p-3 overflow-auto text-emerald-200 max-h-64">
             {compiledDeploy}
           </pre>

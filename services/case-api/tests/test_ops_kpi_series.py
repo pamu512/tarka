@@ -1,7 +1,7 @@
 """Marble #57: KPI time-series export, median handling regression guards."""
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -30,16 +30,16 @@ class TestMedianFloat:
 
 class TestBuildTimeBuckets:
     def test_daily_order_and_width(self):
-        anchor = datetime(2026, 4, 20, 15, 30, tzinfo=timezone.utc)
+        anchor = datetime(2026, 4, 20, 15, 30, tzinfo=UTC)
         buckets = build_time_buckets(granularity="daily", periods=3, anchor=anchor)
         assert len(buckets) == 3
-        assert buckets[0][0] == datetime(2026, 4, 18, tzinfo=timezone.utc)
-        assert buckets[0][1] == datetime(2026, 4, 19, tzinfo=timezone.utc)
-        assert buckets[2][0] == datetime(2026, 4, 20, tzinfo=timezone.utc)
-        assert buckets[2][1] == datetime(2026, 4, 21, tzinfo=timezone.utc)
+        assert buckets[0][0] == datetime(2026, 4, 18, tzinfo=UTC)
+        assert buckets[0][1] == datetime(2026, 4, 19, tzinfo=UTC)
+        assert buckets[2][0] == datetime(2026, 4, 20, tzinfo=UTC)
+        assert buckets[2][1] == datetime(2026, 4, 21, tzinfo=UTC)
 
     def test_weekly_starts_monday(self):
-        anchor = datetime(2026, 4, 20, 12, 0, tzinfo=timezone.utc)  # Monday
+        anchor = datetime(2026, 4, 20, 12, 0, tzinfo=UTC)  # Monday
         buckets = build_time_buckets(granularity="weekly", periods=2, anchor=anchor)
         assert buckets[0][0].weekday() == 0
         assert buckets[0][1] - buckets[0][0] == timedelta(weeks=1)
@@ -47,7 +47,7 @@ class TestBuildTimeBuckets:
 
 class TestBuildBucketPayloads:
     def test_median_handling_closed_same_bucket(self):
-        day0 = datetime(2026, 1, 10, tzinfo=timezone.utc)
+        day0 = datetime(2026, 1, 10, tzinfo=UTC)
         buckets = [(day0, day0 + timedelta(days=1))]
         cases = [
             SimpleNamespace(
@@ -77,7 +77,7 @@ class TestBuildBucketPayloads:
         assert out["median_handling_hours_closed"] == pytest.approx(12.0)
 
     def test_sla_breach_count_at_period_end(self):
-        day0 = datetime(2026, 1, 10, tzinfo=timezone.utc)
+        day0 = datetime(2026, 1, 10, tzinfo=UTC)
         buckets = [(day0, day0 + timedelta(days=1))]
         created = day0 + timedelta(hours=1)
         cases = [
@@ -107,12 +107,12 @@ class TestBuildBucketPayloads:
 
 class TestIsSlaBreachedAt:
     def test_not_breached_as_of_before_deadline(self):
-        created = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+        created = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
         as_of = created + timedelta(hours=12)
         assert is_sla_breached_at("medium", created, as_of=as_of) is False
 
     def test_breached_as_of_after_deadline(self):
-        created = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+        created = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
         as_of = created + timedelta(hours=48)
         assert is_sla_breached_at("medium", created, as_of=as_of) is True
 

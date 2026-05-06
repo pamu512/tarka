@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, Sequence
+from typing import Any, Literal
+
+from tarka_core.internal_monitor import InternalMonitor
 
 from . import queries
 
@@ -53,7 +57,9 @@ class BaseAnalyticsEngine(ABC):
     def insert_batch(self, table: str, rows: list[dict[str, Any]]) -> None:
         """Append rows to ``table`` (engine-specific typing)."""
 
-    def get_kpi(self, tenant_id: str, table: str, *, max_execution_seconds: float = 5.0) -> dict[str, Any]:
+    def get_kpi(
+        self, tenant_id: str, table: str, *, max_execution_seconds: float = 5.0
+    ) -> dict[str, Any]:
         """Default KPI bundle: ``event_count`` for the tenant within ``table``."""
         if self.backend == "duckdb":
             sql = queries.render_kpi_event_count_duckdb(table)
@@ -110,9 +116,16 @@ class DuckDBEngine(BaseAnalyticsEngine):
             """
         )
         try:
-            self._conn.execute('ALTER TABLE fraud_decisions ADD COLUMN IF NOT EXISTS rule_hits_json TEXT')
-        except Exception:
-            pass
+            self._conn.execute(
+                "ALTER TABLE fraud_decisions ADD COLUMN IF NOT EXISTS rule_hits_json TEXT"
+            )
+        except Exception as exc:
+            InternalMonitor.log_suppressed_error(
+                exc,
+                context="duckdb_alter_fraud_decisions_rule_hits_column",
+                domain="analytics_db",
+                level=logging.DEBUG,
+            )
 
     def execute_query(
         self,
@@ -178,9 +191,13 @@ class ClickHouseEngine(BaseAnalyticsEngine):
 
     @classmethod
     def from_env(cls) -> ClickHouseEngine:
-        host = (os.environ.get("CLICKHOUSE_HOST") or os.environ.get("CLICKHOUSE_HOSTNAME") or "").strip()
+        host = (
+            os.environ.get("CLICKHOUSE_HOST") or os.environ.get("CLICKHOUSE_HOSTNAME") or ""
+        ).strip()
         port = int(os.environ.get("CLICKHOUSE_PORT", "8123"))
-        user = (os.environ.get("CLICKHOUSE_USER") or os.environ.get("CLICKHOUSE_USERNAME") or "default").strip()
+        user = (
+            os.environ.get("CLICKHOUSE_USER") or os.environ.get("CLICKHOUSE_USERNAME") or "default"
+        ).strip()
         password = (os.environ.get("CLICKHOUSE_PASSWORD") or "").strip()
         database = (os.environ.get("CLICKHOUSE_DATABASE") or "default").strip()
         timeout_ms = int(os.environ.get("CLICKHOUSE_STATEMENT_TIMEOUT_MS", "5000"))
@@ -238,7 +255,11 @@ def get_analytics_engine(
     For ``clickhouse``, pass connection fields explicitly (e.g. from pydantic-settings); when
     the host is empty, returns ``None`` (analytics offline).
     """
-    raw = (store if store is not None else os.environ.get("TARKA_ANALYTICS_STORE") or "clickhouse").strip().lower()
+    raw = (
+        (store if store is not None else os.environ.get("TARKA_ANALYTICS_STORE") or "clickhouse")
+        .strip()
+        .lower()
+    )
     if raw in ("duck", "duckdb", "local"):
         return DuckDBEngine.from_env()
     if raw in ("clickhouse", "ch", ""):
@@ -258,7 +279,9 @@ def get_analytics_engine(
     raise ValueError(f"unsupported TARKA_ANALYTICS_STORE={raw!r}; use 'clickhouse' or 'duckdb'")
 
 
-def render_backtest_sql(backend: Literal["clickhouse", "duckdb"], table: str, max_execution_seconds: int) -> str:
+def render_backtest_sql(
+    backend: Literal["clickhouse", "duckdb"], table: str, max_execution_seconds: int
+) -> str:
     """Shared backtest window SQL for both engines (callers supply binds)."""
     if backend == "duckdb":
         return queries.render_backtest_window_metrics_duckdb(table)

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import type { SarFilingIntentDetail } from "../api/client";
 import {
   SAR_PIPELINE_STEP_LABELS,
@@ -177,6 +178,14 @@ export function SarManagementPanel({ caseId, tenantId }: Props) {
               Current state:{" "}
               <span className="font-mono font-semibold text-brand-200">{intent.status}</span>
             </div>
+            <p className="text-xs">
+              <Link
+                className="text-sky-400/90 hover:underline"
+                to={`/cases/${encodeURIComponent(caseId)}/sar-intent/${encodeURIComponent(intent.id)}?tenant_id=${encodeURIComponent(tenantId)}`}
+              >
+                SAR intent detail — investigative notes &amp; FinCEN digest
+              </Link>
+            </p>
             <ol className="flex flex-wrap items-center gap-0 list-none p-0 m-0" aria-label="SAR filing progress">
               {SAR_PIPELINE_STEP_LABELS.map((step, idx) => {
                 const isLast = idx === SAR_PIPELINE_STEP_LABELS.length - 1;

@@ -46,4 +46,3 @@ def test_cleanup_removes_stale_buckets() -> None:
 def test_health_and_metrics_paths_are_skipped() -> None:
     assert "/v1/health" in SKIP_PATHS
     assert "/metrics" in SKIP_PATHS
-

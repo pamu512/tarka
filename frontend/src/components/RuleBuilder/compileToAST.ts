@@ -111,7 +111,7 @@ export function validateOpForKind(kind: FeatureKind, op: string): void {
   }
 }
 
-function leafFromOperator(opNode: Node, nodes: Node[], edges: Edge[]): VisualAstLeaf {
+export function leafFromOperator(opNode: Node, nodes: Node[], edges: Edge[]): VisualAstLeaf {
   if (opNode.type !== NODE_TYPES.operator) {
     throw new CompileToAstError("Internal: leafFromOperator on non-operator", opNode.id);
   }
@@ -148,7 +148,7 @@ function flattenAnd(andId: string, nodes: Node[], edges: Edge[]): VisualAstLeaf[
       leaves.push(...flattenAnd(inc.id, nodes, edges));
     } else if (inc.type === NODE_TYPES.logicOr) {
       throw new CompileToAstError(
-        "Nested OR under AND is not supported for JSON export — pull OR above the AND or use the Rego compile route.",
+        "Nested OR under AND is not supported for JSON export — pull OR above the AND.",
         inc.id,
       );
     } else {
@@ -158,7 +158,7 @@ function flattenAnd(andId: string, nodes: Node[], edges: Edge[]): VisualAstLeaf[
   return leaves;
 }
 
-function ruleMetaFromRoot(rr: Node): Pick<VisualAstRule, "tags" | "score_delta" | "description"> & { baseId: string } {
+export function ruleMetaFromRoot(rr: Node): Pick<VisualAstRule, "tags" | "score_delta" | "description"> & { baseId: string } {
   const d = rr.data as RuleRootNodeData;
   const tags = d.tagsStr
     .split(",")

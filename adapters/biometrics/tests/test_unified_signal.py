@@ -5,9 +5,12 @@ from __future__ import annotations
 import unittest
 from uuid import UUID
 
-from adapters.biometrics.fingerprint.schemas import TarkaRiskSignal, TarkaVendorProvenance
+from adapters.biometrics.fingerprint.schemas import TarkaRiskSignal
 from adapters.biometrics.incognia.schemas import IncogniaTarkaProvenance, IncogniaTarkaRiskSignal
-from adapters.biometrics.unified_signal import dump_biometric_tarka_signal, parse_biometric_tarka_signal
+from adapters.biometrics.unified_signal import (
+    dump_biometric_tarka_signal,
+    parse_biometric_tarka_signal,
+)
 
 
 class UnifiedSignalTests(unittest.TestCase):

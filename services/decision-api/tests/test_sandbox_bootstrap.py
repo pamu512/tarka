@@ -81,7 +81,9 @@ def sb_client():
                     app.dependency_overrides[get_pg_pool] = _pool
 
                     transport = httpx.ASGITransport(app=app)
-                    with httpx.Client(transport=transport, base_url="http://testserver") as c:
+                    with httpx.Client(
+                        transport=transport, base_url="http://testserver"
+                    ) as c:
                         c.headers.update({"x-api-key": "test-key"})
                         c.tarka_fake_conn = fake_conn
                         c.tarka_app = app
@@ -95,7 +97,9 @@ def test_sandbox_bootstrap_idempotent(monkeypatch, sb_client):
     def _capture(pack):
         captured.append(pack)
 
-    monkeypatch.setattr("decision_api.sandbox_bootstrap.set_plg_sandbox_runtime_pack", _capture)
+    monkeypatch.setattr(
+        "decision_api.sandbox_bootstrap.set_plg_sandbox_runtime_pack", _capture
+    )
 
     r1 = sb_client.post("/v1/sandbox/bootstrap")
     assert r1.status_code == 200, r1.text

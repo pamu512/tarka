@@ -9,6 +9,7 @@ from gremlin_python.process.graph_traversal import __
 from gremlin_python.process.traversal import Cardinality
 
 from graph_service.custom_schema import get_allowed_labels, get_allowed_rels
+from graph_service.entity_context_shape import shape_deep_context_from_nodes
 from graph_service.hetero_schema import validate_typed_edge_or_raise
 from graph_service.janusgraph_gremlin import get_traversal_source, run_in_gremlin_thread
 
@@ -16,7 +17,9 @@ from graph_service.janusgraph_gremlin import get_traversal_source, run_in_gremli
 log = logging.getLogger("graph-service.janus")
 
 ALLOWED_LABELS = frozenset({"Person", "Account", "Device", "Payment", "Document", "Custom"})
-ALLOWED_RELS = frozenset({"USED", "SHARED_WITH", "REFERRED", "KYC_VERIFIED_BY", "OWNS", "CUSTOM", "RELATED"})
+ALLOWED_RELS = frozenset(
+    {"USED", "SHARED_WITH", "REFERRED", "KYC_VERIFIED_BY", "OWNS", "CUSTOM", "RELATED"}
+)
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 
 
@@ -102,7 +105,9 @@ def _upsert_entity_sync(
         return t
 
     # Merge by tenant + external_id (any label); same external_id is unique per tenant.
-    existing_list = g.V().has("tenant_id", tenant_id).has("external_id", external_id).limit(1).toList()
+    existing_list = (
+        g.V().has("tenant_id", tenant_id).has("external_id", external_id).limit(1).toList()
+    )
     if existing_list:
         v = existing_list[0]
         apply_props(g.V(v), drop_tags_first=True).iterate()
@@ -139,7 +144,9 @@ def _update_tags_sync(tenant_id: str, external_id: str, tags: list[str]) -> list
         cur = []
     merged = sorted(set(cur) | set(tags))
     enc = json.dumps(merged)
-    g.V(v).sideEffect(__.properties("tags").drop()).property(Cardinality.single, "tags", enc).iterate()
+    g.V(v).sideEffect(__.properties("tags").drop()).property(
+        Cardinality.single, "tags", enc
+    ).iterate()
     return merged
 
 
@@ -287,3 +294,48 @@ def _query_subgraph_sync(tenant_id: str, entity_id: str, depth: int) -> dict[str
 
 async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str, Any]:
     return await run_in_gremlin_thread(lambda: _query_subgraph_sync(tenant_id, entity_id, depth))
+
+
+def _query_entity_deep_context_sync(tenant_id: str, entity_id: str) -> dict[str, Any] | None:
+    """Collect 2-hop neighborhood maps; return ``None`` when the root vertex is absent."""
+    g = get_traversal_source()
+    root_list = g.V().has("tenant_id", tenant_id).has("external_id", entity_id).limit(1).toList()
+    if not root_list:
+        return None
+    root = root_list[0]
+    maps_by_eid: dict[str, dict[str, Any]] = {}
+
+    def capture(v: Any) -> None:
+        try:
+            omap = dict(g.V(v).elementMap().next())
+        except StopIteration:
+            return
+        eid = str(omap.get("external_id") or "").strip()
+        if eid:
+            maps_by_eid[eid] = omap
+
+    capture(root)
+    frontier: list[tuple[Any, int]] = [(root, 0)]
+    visited_vertex_ids = {root.id}
+
+    while frontier:
+        v, d = frontier.pop(0)
+        if d >= 2:
+            continue
+        for e in g.V(v).bothE().toList():
+            outv = e.outV().next()
+            inv = e.inV().next()
+            other = inv if outv.id == v.id else outv
+            if other.id not in visited_vertex_ids:
+                visited_vertex_ids.add(other.id)
+                frontier.append((other, d + 1))
+            capture(other)
+
+    api_nodes = [_vertex_to_node(m) for m in maps_by_eid.values()]
+    return shape_deep_context_from_nodes(entity_id, tenant_id, api_nodes)
+
+
+async def query_entity_deep_context(tenant_id: str, entity_id: str) -> dict[str, Any] | None:
+    return await run_in_gremlin_thread(
+        lambda: _query_entity_deep_context_sync(tenant_id, entity_id)
+    )

@@ -10,7 +10,12 @@ from fastapi import HTTPException, Request
 
 
 def tenant_binding_required() -> bool:
-    return os.environ.get("TENANT_BINDING_REQUIRED", "").strip().lower() in {"1", "true", "yes", "on"}
+    return os.environ.get("TENANT_BINDING_REQUIRED", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 def parse_api_key_tenant_map() -> dict[str, set[str]]:
@@ -103,6 +108,8 @@ async def enforce_tenant_access(
     if not tenant_id:
         return
     if allowed_tenants is None:
-        raise HTTPException(status_code=403, detail="tenant binding is required but caller has no tenant scope")
+        raise HTTPException(
+            status_code=403, detail="tenant binding is required but caller has no tenant scope"
+        )
     if not _is_tenant_allowed(allowed_tenants, tenant_id):
         raise HTTPException(status_code=403, detail=f"tenant '{tenant_id}' is outside caller scope")

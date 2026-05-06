@@ -48,8 +48,9 @@ def _asgi_header_items(headers: dict[str, str]) -> list[tuple[bytes, bytes]]:
 
 
 def _minimal_asgi_request(*, path: str, headers: dict[str, str]):
-    from investigation_agent.main import app as agent_app
     from starlette.requests import Request
+
+    from investigation_agent.main import app as agent_app
 
     scope = {
         "type": "http",
@@ -145,7 +146,9 @@ async def post_chat(
             batch_id=(str(payload["batch_id"]) if payload.get("batch_id") else None),
             context_options=CopilotContextOptions(),
         )
-        req = _minimal_asgi_request(path="/v1/chat", headers=_agent_headers(settings, correlation_id=correlation_id))
+        req = _minimal_asgi_request(
+            path="/v1/chat", headers=_agent_headers(settings, correlation_id=correlation_id)
+        )
         return await _build_chat_response(body, req)
 
     try:
@@ -223,13 +226,19 @@ async def create_plugin_session(
 
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
-            r = await client.post(url, json=payload, headers=_agent_headers(settings, correlation_id=correlation_id))
+            r = await client.post(
+                url, json=payload, headers=_agent_headers(settings, correlation_id=correlation_id)
+            )
             if r.status_code >= 400:
-                log.warning("investigation-agent plugin/session HTTP %s: %s", r.status_code, r.text[:500])
+                log.warning(
+                    "investigation-agent plugin/session HTTP %s: %s", r.status_code, r.text[:500]
+                )
             r.raise_for_status()
             data = r.json()
             if not isinstance(data, dict):
-                raise AgentUpstreamError("invalid response from investigation-agent", status_code=502)
+                raise AgentUpstreamError(
+                    "invalid response from investigation-agent", status_code=502
+                )
             return data
     except httpx.HTTPStatusError as e:
         resp = e.response
@@ -243,7 +252,9 @@ async def create_plugin_session(
         raise AgentUpstreamError("cannot reach investigation-agent", status_code=0) from e
 
 
-async def bootstrap_plugin_session(settings: Settings, *, token: str, correlation_id: str | None = None) -> dict[str, Any]:
+async def bootstrap_plugin_session(
+    settings: Settings, *, token: str, correlation_id: str | None = None
+) -> dict[str, Any]:
     url = f"{settings.investigation_agent_url.rstrip('/')}/v1/plugin/bootstrap"
     if _use_inproc(settings):
         from starlette.responses import Response
@@ -269,11 +280,15 @@ async def bootstrap_plugin_session(settings: Settings, *, token: str, correlatio
                 headers=_agent_headers(settings, correlation_id=correlation_id),
             )
             if r.status_code >= 400:
-                log.warning("investigation-agent plugin/bootstrap HTTP %s: %s", r.status_code, r.text[:500])
+                log.warning(
+                    "investigation-agent plugin/bootstrap HTTP %s: %s", r.status_code, r.text[:500]
+                )
             r.raise_for_status()
             data = r.json()
             if not isinstance(data, dict):
-                raise AgentUpstreamError("invalid response from investigation-agent", status_code=502)
+                raise AgentUpstreamError(
+                    "invalid response from investigation-agent", status_code=502
+                )
             return data
     except httpx.HTTPStatusError as e:
         resp = e.response

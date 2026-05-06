@@ -20,7 +20,9 @@ Optional headers for deployments that require x-api-key:
 
 def main() -> int:
     p = argparse.ArgumentParser(description="GET /v1/integration and validate shape")
-    p.add_argument("--base-url", default="http://localhost:8006", help="Agent base URL (no trailing slash)")
+    p.add_argument(
+        "--base-url", default="http://localhost:8006", help="Agent base URL (no trailing slash)"
+    )
     p.add_argument("--api-key", default="", help="Optional x-api-key header")
     args = p.parse_args()
     base = args.base_url.rstrip("/")
@@ -61,7 +63,15 @@ def main() -> int:
     if not isinstance(tools.get("enabled"), list) or len(tools["enabled"]) < 1:
         print("tools.enabled must be a non-empty list", file=sys.stderr)
         return 1
-    print(json.dumps({"ok": True, "contract_version": data["contract_version"], "profile_id": data["profile_id"]}))
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "contract_version": data["contract_version"],
+                "profile_id": data["profile_id"],
+            }
+        )
+    )
     return 0
 
 

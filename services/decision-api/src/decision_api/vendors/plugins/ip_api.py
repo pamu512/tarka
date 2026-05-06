@@ -13,7 +13,11 @@ from urllib.parse import quote, urlencode
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from decision_api.vendors.base import BaseVendorPlugin, NormalizedVendorSignal, VendorTier
+from decision_api.vendors.base import (
+    BaseVendorPlugin,
+    NormalizedVendorSignal,
+    VendorTier,
+)
 from decision_api.vendors.exceptions import VendorUpstreamError
 
 
@@ -98,7 +102,11 @@ class IpApiVendorPlugin(BaseVendorPlugin):
                 message=f"health_check upstream status={data.get('status')!r}: {data.get('message')!r}",
                 http_status=resp.status_code,
             )
-        return {"vendor_id": self.vendor_id, "ok": True, "probe_query": data.get("query")}
+        return {
+            "vendor_id": self.vendor_id,
+            "ok": True,
+            "probe_query": data.get("query"),
+        }
 
     def _parse_vendor_payload(
         self,

@@ -31,7 +31,9 @@ from demo_vertical_contracts import (
 )
 
 
-def _post_json(url: str, payload: dict[str, Any], *, api_key: str | None = None, timeout: float = 30.0) -> tuple[int, dict[str, Any] | str]:
+def _post_json(
+    url: str, payload: dict[str, Any], *, api_key: str | None = None, timeout: float = 30.0
+) -> tuple[int, dict[str, Any] | str]:
     headers = {"content-type": "application/json", "accept": "application/json"}
     if api_key:
         headers["x-api-key"] = api_key
@@ -69,8 +71,12 @@ def main() -> int:
         "--decision-api",
         default=os.environ.get("DEMO_DECISION_API", "http://127.0.0.1:8000/decisions"),
     )
-    p.add_argument("--case-api", default=os.environ.get("DEMO_CASE_API", "http://127.0.0.1:8000/cases"))
-    p.add_argument("--event-ingest", default=os.environ.get("DEMO_EVENT_INGEST", "http://127.0.0.1:8007"))
+    p.add_argument(
+        "--case-api", default=os.environ.get("DEMO_CASE_API", "http://127.0.0.1:8000/cases")
+    )
+    p.add_argument(
+        "--event-ingest", default=os.environ.get("DEMO_EVENT_INGEST", "http://127.0.0.1:8007")
+    )
     p.add_argument("--frontend", default=os.environ.get("DEMO_FRONTEND", "http://127.0.0.1:3000"))
     p.add_argument(
         "--api-key",
@@ -166,7 +172,10 @@ def main() -> int:
         try:
             check_frontend_reachable(f_st)
         except AssertionError:
-            print(f"[warn] frontend GET {args.frontend} -> {f_st} (use --skip-frontend to ignore)", file=sys.stderr)
+            print(
+                f"[warn] frontend GET {args.frontend} -> {f_st} (use --skip-frontend to ignore)",
+                file=sys.stderr,
+            )
         else:
             print(f"[ok] frontend reachable (status {f_st})")
 

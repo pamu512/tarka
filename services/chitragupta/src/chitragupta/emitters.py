@@ -6,7 +6,8 @@ import hashlib
 import io
 import json
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 """Emitter targets with retry/backoff and failure visibility (#63)."""
 log = logging.getLogger("chitragupta.emitters")
@@ -27,7 +28,7 @@ def emit_csv(payload: dict[str, Any]) -> bytes:
     if not isinstance(rows, list) or not rows:
         rows = [{"metric": "value", "v": json.dumps(payload, sort_keys=True, default=str)}]
     buf = io.StringIO()
-    fieldnames = sorted({k for r in rows if isinstance(r, dict) for k in r.keys()}) or ["col"]
+    fieldnames = sorted({k for r in rows if isinstance(r, dict) for k in r}) or ["col"]
     w = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore")
     w.writeheader()
     for r in rows:

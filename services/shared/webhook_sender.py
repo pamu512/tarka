@@ -4,7 +4,7 @@ import asyncio
 import logging
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -75,7 +75,7 @@ class WebhookSender:
             url=url,
             payload=payload,
             status="pending",
-            created_at=datetime.now(timezone.utc).isoformat(),
+            created_at=datetime.now(UTC).isoformat(),
         )
         self._pending[record.id] = record
         success = await self._attempt(record, headers)
@@ -101,7 +101,7 @@ class WebhookSender:
                     attempt=attempt_num,
                     status_code=r.status_code,
                     error=None,
-                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    timestamp=datetime.now(UTC).isoformat(),
                 )
             )
             return 200 <= r.status_code < 300
@@ -113,12 +113,14 @@ class WebhookSender:
                     attempt=attempt_num,
                     status_code=None,
                     error=str(e),
-                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    timestamp=datetime.now(UTC).isoformat(),
                 )
             )
             return False
 
-    async def _retry_loop(self, record: WebhookRecord, headers: dict[str, str] | None = None) -> None:
+    async def _retry_loop(
+        self, record: WebhookRecord, headers: dict[str, str] | None = None
+    ) -> None:
         for i in range(1, self._max_retries):
             delay = min(self._base_delay * (2**i), self._max_delay)
             await asyncio.sleep(delay)
@@ -160,4 +162,6 @@ class WebhookSender:
         return False
 
     def get_pending(self) -> list[dict[str, Any]]:
-        return [{"id": r.id, "url": r.url, "attempts": len(r.attempts)} for r in self._pending.values()]
+        return [
+            {"id": r.id, "url": r.url, "attempts": len(r.attempts)} for r in self._pending.values()
+        ]

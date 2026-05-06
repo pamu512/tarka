@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Self
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import sys
@@ -21,7 +21,10 @@ from auth_rbac import require_role  # noqa: E402
 from analytics import queries  # noqa: E402
 from analytics.engine import BaseAnalyticsEngine  # noqa: E402
 
-from decision_api.backtest_job_runner import rule_pack_fingerprint_sha256, run_backtest_job  # noqa: E402
+from decision_api.backtest_job_runner import (  # noqa: E402
+    rule_pack_fingerprint_sha256,
+    run_backtest_job,
+)
 from decision_api.config import settings  # noqa: E402
 from decision_api.db import get_session  # noqa: E402
 from decision_api.deps import require_analytics_engine  # noqa: E402
@@ -29,10 +32,19 @@ from decision_api.models import BacktestRun, BacktestRunStatus  # noqa: E402
 
 router = APIRouter(prefix="/v1/rules/backtest", tags=["backtest"])
 
+_MAX_BACKTEST_WINDOW = timedelta(days=90)
+
+
+def _ensure_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
 
 class BacktestRequest(BaseModel):
     tenant_id: str = Field(..., max_length=128)
-    """ISO end time (UTC); window is [end-90d, end)."""
+    """When ``start_time`` is omitted, window is ``[end_time - 90d, end_time)`` in UTC (legacy behavior)."""
+    start_time: datetime | None = None
     end_time: datetime | None = None
     rule_pack: dict[str, Any] = Field(
         ...,
@@ -40,10 +52,28 @@ class BacktestRequest(BaseModel):
     )
     clickhouse_max_execution_seconds: int = Field(default=60, ge=5, le=600)
 
+    @model_validator(mode="after")
+    def validate_window(self) -> Self:
+        if self.start_time is None:
+            return self
+        if self.end_time is None:
+            raise ValueError("end_time is required when start_time is set")
+        st = _ensure_utc(self.start_time)
+        en = _ensure_utc(self.end_time)
+        if en <= st:
+            raise ValueError("end_time must be after start_time")
+        if (en - st) > _MAX_BACKTEST_WINDOW:
+            raise ValueError("backtest window must not exceed 90 days")
+        return self
+
 
 def _window_bounds(req: BacktestRequest) -> tuple[str, str]:
     end = req.end_time or datetime.now(timezone.utc)
-    start = end - timedelta(days=90)
+    end = _ensure_utc(end)
+    if req.start_time is None:
+        start = end - _MAX_BACKTEST_WINDOW
+    else:
+        start = _ensure_utc(req.start_time)
     return start.strftime("%Y-%m-%d %H:%M:%S"), end.strftime("%Y-%m-%d %H:%M:%S")
 
 
@@ -54,7 +84,9 @@ async def backtest_preview_sql(
 ) -> dict[str, Any]:
     """Return dialect-specific parameterized SQL for ops (binds documented below)."""
     start_s, end_s = _window_bounds(body)
-    table = queries.validate_sql_identifier(settings.clickhouse_analytics_events_table.strip())
+    table = queries.validate_sql_identifier(
+        settings.clickhouse_analytics_events_table.strip()
+    )
     max_sec = max(5, min(int(body.clickhouse_max_execution_seconds), 600))
     ch_sql = queries.render_backtest_pit_decision_counts_clickhouse(table, max_sec)
     duck_sql = queries.render_backtest_pit_decision_counts_duckdb(table)
@@ -65,7 +97,11 @@ async def backtest_preview_sql(
         "clickhouse_sql": ch_sql,
         "duckdb_sql": duck_sql,
         "binds": {
-            "clickhouse_named": {"tid": body.tenant_id, "start_s": start_s, "end_s": end_s},
+            "clickhouse_named": {
+                "tid": body.tenant_id,
+                "start_s": start_s,
+                "end_s": end_s,
+            },
             "duckdb_positional": [body.tenant_id, start_s, end_s],
         },
         "rule_pack_fingerprint_sha256": rule_pack_fingerprint_sha256(body.rule_pack),
@@ -86,7 +122,9 @@ async def enqueue_backtest_job(
     if not body.rule_pack.get("rules"):
         raise HTTPException(status_code=400, detail="rule_pack.rules required")
     start_s, end_s = _window_bounds(body)
-    table = queries.validate_sql_identifier(settings.clickhouse_analytics_events_table.strip())
+    table = queries.validate_sql_identifier(
+        settings.clickhouse_analytics_events_table.strip()
+    )
     fp = rule_pack_fingerprint_sha256(body.rule_pack)
     job = BacktestRun(
         tenant_id=body.tenant_id,

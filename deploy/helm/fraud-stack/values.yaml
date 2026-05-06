@@ -76,6 +76,10 @@ redis:
   enabled: true
   image: redis:7-alpine
 
+# Optional streaming aggregation placeholder Job (templates/streaming-aggregation-job.yaml).
+streamingAggregations:
+  enabled: false
+
 coreApi:
   enabled: true
   image: tarka-core-api

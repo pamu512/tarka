@@ -10,7 +10,9 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
-_shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
+_shared_dir = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared")
+)
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
 from osint_flatten import flatten_light_enrichment_response, flatten_osint_response  # noqa: E402
@@ -77,8 +79,12 @@ async def publish_async_enrichment_request(
         "trace_id": str(trace_id),
         "email": (str(payload.get("email")).strip() if payload.get("email") else None),
         "phone": (str(payload.get("phone")).strip() if payload.get("phone") else None),
-        "ip": (str(payload.get("ip") or payload.get("ip_address") or "").strip() or None),
-        "domain": (str(payload.get("domain")).strip() if payload.get("domain") else None),
+        "ip": (
+            str(payload.get("ip") or payload.get("ip_address") or "").strip() or None
+        ),
+        "domain": (
+            str(payload.get("domain")).strip() if payload.get("domain") else None
+        ),
     }
     if dr in ("EU", "US", "GLOBAL"):
         msg["data_residency_region"] = dr

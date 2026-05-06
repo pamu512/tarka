@@ -1,6 +1,9 @@
 """Tenant kill-switch flags (R2.3) and fallback_reason helper (R2.4)."""
 
-from decision_api.main import _compute_fallback_reason, _shape_inference_context_for_tier
+from decision_api.main import (
+    _compute_fallback_reason,
+    _shape_inference_context_for_tier,
+)
 from decision_api.tenant_flags import tenant_flag_enabled
 
 
@@ -18,7 +21,9 @@ def test_compute_fallback_reason_from_tags():
 
 
 def test_compute_fallback_reason_covers_async_osint_and_counter_fallback():
-    r = _compute_fallback_reason(["async_osint:unavailable", "counter:fallback_local_agg"], [])
+    r = _compute_fallback_reason(
+        ["async_osint:unavailable", "counter:fallback_local_agg"], []
+    )
     assert r
     assert "async_osint_redis" in r
     assert "counter_local_aggregate_fallback" in r
@@ -35,7 +40,13 @@ def test_compute_fallback_reason_rules_only(monkeypatch):
 def test_shape_inference_context_minimal_redacts_high_signal_details():
     source = {
         "driver_reasons": ["rule:velocity_guard"],
-        "driver_explain": [{"reason": "rule:velocity_guard", "category": "rules", "label": "Rule hit: velocity_guard"}],
+        "driver_explain": [
+            {
+                "reason": "rule:velocity_guard",
+                "category": "rules",
+                "label": "Rule hit: velocity_guard",
+            }
+        ],
         "top_signals": ["sdk:vpn", "rule:velocity_guard"],
         "graph_risk_reasons": ["connected_flagged_3"],
         "ml_top_factors": [{"code": "HIGH_AMOUNT", "contribution": 0.2}],

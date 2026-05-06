@@ -13,7 +13,7 @@ def _normalize_name(name: str) -> str:
 
 
 def _cohort_percentage(feature: str, tenant_id: str) -> int:
-    digest = hashlib.sha256(f"{feature}:{tenant_id}".encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(f"{feature}:{tenant_id}".encode()).hexdigest()
     return int(digest[:8], 16) % 100
 
 
@@ -60,7 +60,9 @@ def _env_key_for_flag(name: str) -> str:
     return f"FEATURE_FLAG_{safe.upper()}"
 
 
-def is_feature_enabled(flag_name: str, *, tenant_id: str | None = None, default: bool = False) -> bool:
+def is_feature_enabled(
+    flag_name: str, *, tenant_id: str | None = None, default: bool = False
+) -> bool:
     """Return whether a feature is enabled for the given tenant context.
 
     Supports both:
@@ -103,7 +105,9 @@ def is_feature_enabled(flag_name: str, *, tenant_id: str | None = None, default:
     if tenant_id and tenant_id in deny_tenants:
         return False
 
-    allow_tenants = _normalize_tenants(cfg.get("tenants")) | _normalize_tenants(cfg.get("allow_tenants"))
+    allow_tenants = _normalize_tenants(cfg.get("tenants")) | _normalize_tenants(
+        cfg.get("allow_tenants")
+    )
     if tenant_id and tenant_id in allow_tenants:
         return True
 
@@ -120,4 +124,3 @@ def is_feature_enabled(flag_name: str, *, tenant_id: str | None = None, default:
 def feature_enabled(feature: str, *, tenant_id: str | None = None, default: bool = False) -> bool:
     """Alias helper with concise name used by service code."""
     return is_feature_enabled(feature, tenant_id=tenant_id, default=default)
-

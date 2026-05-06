@@ -40,6 +40,7 @@ export default function MlLifecycle() {
         setErr(toUserFacingError(e, { subject: "ML lifecycle", action: "load ML health and model registry" }));
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only bootstrap for ML models
   }, []);
 
   useEffect(() => {

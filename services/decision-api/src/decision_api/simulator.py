@@ -85,7 +85,9 @@ def generate_synthetic_event(
     idx: int,
 ) -> dict[str, Any]:
     """Generate a single synthetic transaction event."""
-    entity_id = f"synth-user-{random.randint(1, max(int(profile.total_events * 0.3), 10))}"
+    entity_id = (
+        f"synth-user-{random.randint(1, max(int(profile.total_events * 0.3), 10))}"
+    )
 
     if is_fraud:
         amount = abs(
@@ -106,8 +108,12 @@ def generate_synthetic_event(
     vpn_rate = profile.fraud_vpn_rate if is_fraud else profile.vpn_rate
     emu_rate = profile.fraud_emulator_rate if is_fraud else profile.emulator_rate
     bot_rate = profile.fraud_bot_rate if is_fraud else profile.bot_rate
-    new_acct_rate = profile.fraud_new_account_rate if is_fraud else profile.new_account_rate
-    vel_rate = profile.fraud_high_velocity_rate if is_fraud else profile.high_velocity_rate
+    new_acct_rate = (
+        profile.fraud_new_account_rate if is_fraud else profile.new_account_rate
+    )
+    vel_rate = (
+        profile.fraud_high_velocity_rate if is_fraud else profile.high_velocity_rate
+    )
 
     is_vpn = random.random() < vpn_rate
     is_emulator = random.random() < emu_rate
@@ -117,7 +123,11 @@ def generate_synthetic_event(
 
     account_age = random.randint(0, 5) if is_new else random.randint(30, 1000)
     tx_count = random.randint(15, 50) if high_vel else random.randint(0, 10)
-    countries = random.randint(2, 6) if is_fraud and random.random() < 0.3 else random.randint(1, 2)
+    countries = (
+        random.randint(2, 6)
+        if is_fraud and random.random() < 0.3
+        else random.randint(1, 2)
+    )
 
     return {
         "event_type": "payment",

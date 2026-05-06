@@ -6,16 +6,16 @@ Create Date: 2026-04-02
 
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "20260402_001"
-down_revision: Union[str, None] = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -30,12 +30,26 @@ def upgrade() -> None:
         sa.Column("priority", sa.String(length=16), nullable=False),
         sa.Column("assigned_team", sa.String(length=128), nullable=True),
         sa.Column("labels", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_investigation_cases_entity_id"), "investigation_cases", ["entity_id"], unique=False)
-    op.create_index(op.f("ix_investigation_cases_tenant_id"), "investigation_cases", ["tenant_id"], unique=False)
+    op.create_index(
+        op.f("ix_investigation_cases_entity_id"), "investigation_cases", ["entity_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_investigation_cases_tenant_id"), "investigation_cases", ["tenant_id"], unique=False
+    )
 
     op.create_table(
         "case_comments",
@@ -43,7 +57,12 @@ def upgrade() -> None:
         sa.Column("case_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("author", sa.String(length=256), nullable=False),
         sa.Column("body", sa.Text(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["case_id"], ["investigation_cases.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -58,7 +77,12 @@ def upgrade() -> None:
         sa.Column("report_data", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("xml_content", sa.Text(), nullable=True),
         sa.Column("filed_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["case_id"], ["investigation_cases.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -73,14 +97,44 @@ def upgrade() -> None:
         sa.Column("y_label", sa.String(length=32), nullable=False),
         sa.Column("source", sa.String(length=128), nullable=False),
         sa.Column("notes", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_investigation_label_drafts_analyst_id"), "investigation_label_drafts", ["analyst_id"], unique=False)
-    op.create_index(op.f("ix_investigation_label_drafts_entity_id"), "investigation_label_drafts", ["entity_id"], unique=False)
-    op.create_index(op.f("ix_investigation_label_drafts_tenant_id"), "investigation_label_drafts", ["tenant_id"], unique=False)
-    op.create_index(op.f("ix_investigation_label_drafts_trace_id"), "investigation_label_drafts", ["trace_id"], unique=False)
+    op.create_index(
+        op.f("ix_investigation_label_drafts_analyst_id"),
+        "investigation_label_drafts",
+        ["analyst_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_investigation_label_drafts_entity_id"),
+        "investigation_label_drafts",
+        ["entity_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_investigation_label_drafts_tenant_id"),
+        "investigation_label_drafts",
+        ["tenant_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_investigation_label_drafts_trace_id"),
+        "investigation_label_drafts",
+        ["trace_id"],
+        unique=False,
+    )
 
     op.create_table(
         "disputes",
@@ -102,10 +156,22 @@ def upgrade() -> None:
         sa.Column("original_ml_score", sa.Float(), nullable=True),
         sa.Column("outcome", sa.String(length=32), nullable=True),
         sa.Column("resolution_notes", sa.Text(), nullable=True),
-        sa.Column("filed_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "filed_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+        ),
         sa.Column("resolved_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["case_id"], ["investigation_cases.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -119,10 +185,18 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_disputes_tenant_id"), table_name="disputes")
     op.drop_index(op.f("ix_disputes_entity_id"), table_name="disputes")
     op.drop_table("disputes")
-    op.drop_index(op.f("ix_investigation_label_drafts_trace_id"), table_name="investigation_label_drafts")
-    op.drop_index(op.f("ix_investigation_label_drafts_tenant_id"), table_name="investigation_label_drafts")
-    op.drop_index(op.f("ix_investigation_label_drafts_entity_id"), table_name="investigation_label_drafts")
-    op.drop_index(op.f("ix_investigation_label_drafts_analyst_id"), table_name="investigation_label_drafts")
+    op.drop_index(
+        op.f("ix_investigation_label_drafts_trace_id"), table_name="investigation_label_drafts"
+    )
+    op.drop_index(
+        op.f("ix_investigation_label_drafts_tenant_id"), table_name="investigation_label_drafts"
+    )
+    op.drop_index(
+        op.f("ix_investigation_label_drafts_entity_id"), table_name="investigation_label_drafts"
+    )
+    op.drop_index(
+        op.f("ix_investigation_label_drafts_analyst_id"), table_name="investigation_label_drafts"
+    )
     op.drop_table("investigation_label_drafts")
     op.drop_table("sar_filings")
     op.drop_table("case_comments")

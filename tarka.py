@@ -194,7 +194,11 @@ class Colors:
         return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
 
 
-C = Colors if Colors.supports_color() else type("NoColor", (), {k: "" for k in dir(Colors) if k.isupper()})()
+C = (
+    Colors
+    if Colors.supports_color()
+    else type("NoColor", (), {k: "" for k in dir(Colors) if k.isupper()})()
+)
 
 
 def _module_line(key: str, mod: dict[str, Any]) -> str:
@@ -238,7 +242,9 @@ def _print_module(key: str, mod: dict, selected: bool = False, index: int | None
         deps = f" {C.DIM}(needs: {', '.join(mod['requires'])}){C.RESET}"
     port = f" {C.DIM}:{mod['port']}{C.RESET}" if mod.get("port") else ""
     saga = mod.get("codename")
-    title = f"{C.BOLD}{saga}{C.RESET} — {mod['name']}" if saga else f"{C.BOLD}{mod['name']}{C.RESET}"
+    title = (
+        f"{C.BOLD}{saga}{C.RESET} — {mod['name']}" if saga else f"{C.BOLD}{mod['name']}{C.RESET}"
+    )
     print(f"  {idx}{marker} {title}{C.DIM} ({key}){C.RESET}{port}{req}{deps}")
     print(f"       {C.DIM}{mod['description']}{C.RESET}")
 
@@ -357,7 +363,9 @@ def cmd_install(args):
     if not args.all and not args.lite and not args.modules and not args.skip_sdks:
         print(f"\n{C.BOLD}SDK Packages (optional):{C.RESET}")
         for i, (key, sdk) in enumerate(SDK_MODULES.items(), 1):
-            print(f"  {C.DIM}{i}.{C.RESET} {C.BOLD}{_sdk_line(key, sdk)}{C.RESET} — {C.DIM}{sdk['description']}{C.RESET}")
+            print(
+                f"  {C.DIM}{i}.{C.RESET} {C.BOLD}{_sdk_line(key, sdk)}{C.RESET} — {C.DIM}{sdk['description']}{C.RESET}"
+            )
         sdk_input = input("\n  Enter SDK numbers (comma-separated, or Enter to skip): ").strip()
         if sdk_input:
             sdk_keys = list(SDK_MODULES.keys())
@@ -428,7 +436,11 @@ def _interactive_picker() -> list[str]:
             _print_module(key, MODULES[key], selected=key in selected, index=i)
         print()
 
-        choice = input(f"  {C.CYAN}Toggle [1-{len(module_keys)}], (a)ll, (d)one, (q)uit: {C.RESET}").strip().lower()
+        choice = (
+            input(f"  {C.CYAN}Toggle [1-{len(module_keys)}], (a)ll, (d)one, (q)uit: {C.RESET}")
+            .strip()
+            .lower()
+        )
 
         if choice == "q":
             sys.exit(0)
@@ -441,7 +453,9 @@ def _interactive_picker() -> list[str]:
             if 0 <= idx < len(module_keys):
                 key = module_keys[idx]
                 if MODULES[key].get("required"):
-                    print(f"  {C.YELLOW}'{MODULES[key]['name']}' is required and cannot be deselected{C.RESET}")
+                    print(
+                        f"  {C.YELLOW}'{MODULES[key]['name']}' is required and cannot be deselected{C.RESET}"
+                    )
                 elif key in selected:
                     selected.discard(key)
                 else:
@@ -637,7 +651,9 @@ def cmd_dev(args):
 
     if not service_dir.exists():
         print(f"{C.RED}Service '{service}' not found at {service_dir}{C.RESET}")
-        print(f"Available: {', '.join(d.name for d in (ROOT / 'services').iterdir() if d.is_dir() and not d.name.startswith('.'))}")
+        print(
+            f"Available: {', '.join(d.name for d in (ROOT / 'services').iterdir() if d.is_dir() and not d.name.startswith('.'))}"
+        )
         sys.exit(1)
 
     pyproject = service_dir / "pyproject.toml"
@@ -649,7 +665,11 @@ def cmd_dev(args):
 
     # Install dependencies
     print(f"{C.DIM}Installing dependencies...{C.RESET}")
-    subprocess.run([sys.executable, "-m", "pip", "install", "-e", ".[dev]"], cwd=str(service_dir), capture_output=True)
+    subprocess.run(
+        [sys.executable, "-m", "pip", "install", "-e", ".[dev]"],
+        cwd=str(service_dir),
+        capture_output=True,
+    )
 
     # Determine the module name and port
     port_map = {
@@ -723,13 +743,29 @@ def cmd_uninstall(args):
     print(f"{C.BOLD}Uninstalling Tarka...{C.RESET}")
 
     if not args.yes:
-        confirm = input(f"  {C.YELLOW}This will remove all containers and data. Continue? [y/N]: {C.RESET}").strip().lower()
+        confirm = (
+            input(
+                f"  {C.YELLOW}This will remove all containers and data. Continue? [y/N]: {C.RESET}"
+            )
+            .strip()
+            .lower()
+        )
         if confirm != "y":
             print("Aborted.")
             return
 
     subprocess.run(
-        ["docker", "compose", "-f", str(COMPOSE_FILE), "--profile", "full", "down", "-v", "--remove-orphans"],
+        [
+            "docker",
+            "compose",
+            "-f",
+            str(COMPOSE_FILE),
+            "--profile",
+            "full",
+            "down",
+            "-v",
+            "--remove-orphans",
+        ],
         cwd=str(DEPLOY),
     )
 
@@ -828,11 +864,15 @@ def cmd_add(args):
 
     print(f"\n{C.BOLD}Building new services...{C.RESET}")
     subprocess.run(
-        ["docker", "compose", "-f", str(COMPOSE_FILE)] + _get_all_profile_args(resolved) + ["build"],
+        ["docker", "compose", "-f", str(COMPOSE_FILE)]
+        + _get_all_profile_args(resolved)
+        + ["build"],
         cwd=str(DEPLOY),
     )
 
-    print(f"\n{C.GREEN}Module(s) added. Run {C.CYAN}python tarka.py start{C.GREEN} to start.{C.RESET}")
+    print(
+        f"\n{C.GREEN}Module(s) added. Run {C.CYAN}python tarka.py start{C.GREEN} to start.{C.RESET}"
+    )
 
 
 def cmd_remove(args):
@@ -859,7 +899,9 @@ def cmd_remove(args):
         print(f"  {C.RED}−{C.RESET} {_module_line(m, MODULES[m])}")
 
     _save_state(resolved, state.get("sdks", []))
-    print(f"\n{C.GREEN}Module(s) removed. Restart with {C.CYAN}python tarka.py start{C.GREEN}.{C.RESET}")
+    print(
+        f"\n{C.GREEN}Module(s) removed. Restart with {C.CYAN}python tarka.py start{C.GREEN}.{C.RESET}"
+    )
 
 
 def _get_all_profile_args(modules: list[str]) -> list[str]:
@@ -897,7 +939,9 @@ def _shadow_venv_python(venv_dir: Path) -> Path:
 
 def _ensure_shadow_submodule() -> None:
     if not (ROOT / ".git").is_dir():
-        print(f"{C.RED}Not a git checkout — clone Tarka from GitHub to use the Shadow submodule.{C.RESET}")
+        print(
+            f"{C.RED}Not a git checkout — clone Tarka from GitHub to use the Shadow submodule.{C.RESET}"
+        )
         sys.exit(1)
     r = subprocess.run(
         ["git", "submodule", "update", "--init", "--recursive", "tools/shadow"],
@@ -963,9 +1007,13 @@ def cmd_forensics(args):
     if not env_file.is_file():
         if SHADOW_ENV_TEMPLATE.is_file():
             shutil.copy(SHADOW_ENV_TEMPLATE, env_file)
-            print(f"{C.GREEN}Created {env_file.relative_to(ROOT)} from tools/shadow.tarka.env.example{C.RESET}")
+            print(
+                f"{C.GREEN}Created {env_file.relative_to(ROOT)} from tools/shadow.tarka.env.example{C.RESET}"
+            )
         else:
-            print(f"{C.YELLOW}No template at {SHADOW_ENV_TEMPLATE}; create tools/shadow/.env manually.{C.RESET}")
+            print(
+                f"{C.YELLOW}No template at {SHADOW_ENV_TEMPLATE}; create tools/shadow/.env manually.{C.RESET}"
+            )
 
     if not shutil.which("npm"):
         print(f"{C.RED}npm not found — install Node.js LTS to run Shadow.{C.RESET}")
@@ -981,7 +1029,9 @@ def cmd_forensics(args):
             py = Path(sys.executable)
 
     if args.init_only:
-        print(f"{C.GREEN}Shadow add-on ready. Run: {C.CYAN}python tarka.py forensics{C.GREEN} to launch.{C.RESET}")
+        print(
+            f"{C.GREEN}Shadow add-on ready. Run: {C.CYAN}python tarka.py forensics{C.GREEN} to launch.{C.RESET}"
+        )
         return
 
     child_env = os.environ.copy()
@@ -1018,7 +1068,9 @@ def main():
     # install
     p_install = subparsers.add_parser("install", help="Install Tarka modules")
     p_install.add_argument("--all", action="store_true", help="Install all modules")
-    p_install.add_argument("--lite", action="store_true", help="Install lite mode (core + cases + frontend)")
+    p_install.add_argument(
+        "--lite", action="store_true", help="Install lite mode (core + cases + frontend)"
+    )
     p_install.add_argument("--modules", "-m", type=str, help="Comma-separated module list")
     p_install.add_argument("--skip-sdks", action="store_true", help="Skip SDK installation prompt")
     p_install.set_defaults(func=cmd_install)
@@ -1105,7 +1157,9 @@ def main():
         print(f"  {C.CYAN}python tarka.py install --all{C.RESET}    Full stack")
         print(f"  {C.CYAN}python tarka.py install --lite{C.RESET}   Minimal setup")
         print(f"  {C.CYAN}python tarka.py install{C.RESET}          Interactive picker")
-        print(f"  {C.CYAN}python tarka.py forensics{C.RESET}       Shadow local forensic suite (add-on)")
+        print(
+            f"  {C.CYAN}python tarka.py forensics{C.RESET}       Shadow local forensic suite (add-on)"
+        )
         sys.exit(0)
 
     args.func(args)

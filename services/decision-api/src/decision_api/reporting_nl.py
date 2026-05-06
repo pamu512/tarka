@@ -8,6 +8,14 @@ import re
 from typing import Any
 
 import httpx
+import sqlglot
+from sqlglot import exp
+from analytics.llm_validator import (
+    AnalyticsSqlUnsafeError,
+    ClickHouseSchemaRegistry,
+    default_analytics_registry,
+    validate_nl_sql_for_execution,
+)
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -18,21 +26,49 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/reporting", tags=["reporting"])
 
 _ALLOWED = re.compile(r"^[a-zA-Z0-9_]+$")
-_DANGEROUS_SQL = re.compile(
-    r"\b(DROP|ALTER|INSERT|DELETE|TRUNCATE|ATTACH|DETACH|OPTIMIZE|SYSTEM|GRANT|REVOKE|EXECUTE)\b",
-    re.IGNORECASE,
-)
-_FROM_JOIN_TABLE = re.compile(r"(?is)\b(?:from|join)\s+([a-zA-Z0-9_]+)\b")
 
 
 class NaturalLanguageSqlRequest(BaseModel):
     tenant_id: str = Field(..., max_length=128)
-    question: str = Field(..., max_length=2000, description="Analyst question; answered only via configured LLM SQL generation.")
+    question: str = Field(
+        ...,
+        max_length=2000,
+        description="Analyst question; answered only via configured LLM SQL generation.",
+    )
 
 
 def _allowed_tables() -> set[str]:
     raw = settings.nl_sql_allowed_tables or "fraud_decisions"
-    return {t.strip() for t in raw.split(",") if t.strip() and _ALLOWED.match(t.strip())}
+    return {
+        t.strip() for t in raw.split(",") if t.strip() and _ALLOWED.match(t.strip())
+    }
+
+
+def _join_allowlist() -> set[frozenset[str]] | None:
+    raw = (settings.nl_sql_allowed_joins or "").strip()
+    if not raw:
+        return None
+    out: set[frozenset[str]] = set()
+    for part in raw.split(","):
+        part = part.strip()
+        if "+" not in part:
+            continue
+        a, b = part.split("+", 1)
+        a, b = a.strip(), b.strip()
+        if a and b:
+            out.add(frozenset({a, b}))
+    return out or None
+
+
+def _registry_subset(allowed: set[str]) -> ClickHouseSchemaRegistry:
+    base = default_analytics_registry()
+    unknown = sorted(t for t in allowed if not base.has_table(t))
+    if unknown:
+        raise ValueError(f"table_no_schema_in_registry:{unknown}")
+    r = ClickHouseSchemaRegistry()
+    for t in allowed:
+        r.register_table(t, dict(base.tables[t]))
+    return r
 
 
 def _extract_sql_block(raw: str) -> str:
@@ -43,22 +79,12 @@ def _extract_sql_block(raw: str) -> str:
     return text
 
 
-def _validate_generated_sql(sql: str, allowed: set[str]) -> None:
-    s = sql.strip()
-    if not s:
-        raise ValueError("empty_sql")
-    if ";" in s.rstrip().rstrip(";"):
-        raise ValueError("multi_statement")
-    if _DANGEROUS_SQL.search(s):
-        raise ValueError("dangerous_keyword")
-    head = s.lstrip().lower()
-    if not (head.startswith("select") or head.startswith("with")):
-        raise ValueError("not_select")
-    for tbl in _FROM_JOIN_TABLE.findall(s):
-        if tbl.lower() in ("select", "where", "on", "as", "and", "or", "not", "group", "order", "limit", "having"):
-            continue
-        if tbl not in allowed:
-            raise ValueError(f"table_not_allowlisted:{tbl}")
+def _tables_in_sql(sql: str) -> list[str]:
+    try:
+        p = sqlglot.parse_one(sql, dialect="clickhouse")
+    except Exception:
+        return []
+    return sorted({t.name for t in p.find_all(exp.Table) if t.name})
 
 
 async def _llm_generate_sql(question: str, allowed: set[str]) -> str:
@@ -66,13 +92,18 @@ async def _llm_generate_sql(question: str, allowed: set[str]) -> str:
     if not url:
         raise HTTPException(
             status_code=503,
-            detail={"reason_code": "LLM_ENGINE_OFFLINE", "message": "TARKA_REPORTING_NL_LLM_URL is not set."},
+            detail={
+                "reason_code": "LLM_ENGINE_OFFLINE",
+                "message": "TARKA_REPORTING_NL_LLM_URL is not set.",
+            },
         )
     schema_hint = (
         "Allowed tables (ClickHouse): "
         + ", ".join(sorted(allowed))
-        + ". Emit a single read-only SELECT (WITH is allowed) using placeholder "
-        "{tenant_id:String} for tenant filter where appropriate. No DDL/DML."
+        + ". Emit a single read-only SELECT (WITH is allowed). "
+        "You MUST include ``WHERE tenant_id = {tenant_id:String}`` (or AND the same predicate) on every "
+        "query that reads those tables. No DDL/DML. Avoid JOIN unless instructed; JOIN is blocked unless "
+        "operator allow-lists the edge in NL_SQL_ALLOWED_JOINS."
     )
     payload: dict[str, Any] = {
         "model": settings.reporting_nl_llm_model or "gpt-4o-mini",
@@ -114,19 +145,28 @@ async def _llm_generate_sql(question: str, allowed: set[str]) -> str:
         log.warning("nl_sql LLM timeout: %s", e)
         raise HTTPException(
             status_code=503,
-            detail={"reason_code": "LLM_ENGINE_OFFLINE", "message": "LLM request timed out."},
+            detail={
+                "reason_code": "LLM_ENGINE_OFFLINE",
+                "message": "LLM request timed out.",
+            },
         ) from e
     except httpx.ConnectError as e:
         log.warning("nl_sql LLM connection failed: %s", e)
         raise HTTPException(
             status_code=503,
-            detail={"reason_code": "LLM_ENGINE_OFFLINE", "message": "Could not connect to LLM provider."},
+            detail={
+                "reason_code": "LLM_ENGINE_OFFLINE",
+                "message": "Could not connect to LLM provider.",
+            },
         ) from e
     except httpx.RequestError as e:
         log.warning("nl_sql LLM request error: %s", e)
         raise HTTPException(
             status_code=503,
-            detail={"reason_code": "LLM_ENGINE_OFFLINE", "message": "LLM transport failed."},
+            detail={
+                "reason_code": "LLM_ENGINE_OFFLINE",
+                "message": "LLM transport failed.",
+            },
         ) from e
     try:
         content = data["choices"][0]["message"]["content"]
@@ -142,7 +182,10 @@ async def _llm_generate_sql(question: str, allowed: set[str]) -> str:
     if not isinstance(content, str):
         raise HTTPException(
             status_code=503,
-            detail={"reason_code": "LLM_REQUEST_FAILED", "message": "LLM message content was not a string."},
+            detail={
+                "reason_code": "LLM_REQUEST_FAILED",
+                "message": "LLM message content was not a string.",
+            },
         )
     return _extract_sql_block(content)
 
@@ -163,23 +206,50 @@ async def nl_to_sql(body: NaturalLanguageSqlRequest) -> dict[str, Any]:
     if not (settings.reporting_nl_llm_url or "").strip():
         raise HTTPException(
             status_code=503,
-            detail={"reason_code": "LLM_ENGINE_OFFLINE", "message": "TARKA_REPORTING_NL_LLM_URL is not set."},
+            detail={
+                "reason_code": "LLM_ENGINE_OFFLINE",
+                "message": "TARKA_REPORTING_NL_LLM_URL is not set.",
+            },
         )
 
     sql = await _llm_generate_sql(body.question, allowed)
     try:
-        _validate_generated_sql(sql, allowed)
+        reg = _registry_subset(allowed)
     except ValueError as e:
-        log.warning("nl_sql rejected LLM output: %s", e)
-        raise HTTPException(status_code=400, detail={"error": "sql_validation_failed", "reason": str(e)}) from e
-    tables_used = sorted({t for t in _FROM_JOIN_TABLE.findall(sql) if t in allowed})
-    primary = tables_used[0] if len(tables_used) == 1 else (tables_used[0] if tables_used else next(iter(allowed)))
+        log.warning("nl_sql registry configuration error: %s", e)
+        raise HTTPException(
+            status_code=503,
+            detail={"reason_code": "NL_SQL_DISABLED", "message": str(e)},
+        ) from e
+
+    try:
+        hardened = validate_nl_sql_for_execution(
+            sql,
+            registry=reg,
+            allowed_join_pairs=_join_allowlist(),
+        )
+    except AnalyticsSqlUnsafeError as e:
+        log.warning("nl_sql unsafe after LLM: %s", e.errors)
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "reason_code": "ANALYTICS_QUERY_UNSAFE",
+                "message": e.errors[0] if e.errors else "unsafe_sql",
+                "errors": e.errors,
+            },
+        ) from e
+
+    tables_used = [t for t in _tables_in_sql(hardened) if t in allowed]
+    primary = tables_used[0] if tables_used else next(iter(allowed))
     return {
         "tenant_id": body.tenant_id,
         "table": primary,
-        "sql_template": sql,
+        "sql_template": hardened,
         "params": {"tenant_id": body.tenant_id},
-        "notes": "LLM-generated; validated (no DDL/DML; allowlisted tables only). Execute via ClickHouse client or BI.",
+        "notes": (
+            "LLM-generated; pre-execution lint (sqlglot), tenant_id bind enforced, "
+            "SETTINGS max_execution_time=5s, JOINs blocked unless NL_SQL_ALLOWED_JOINS allow-lists the edge."
+        ),
         "source": "llm",
-        "tables": tables_used,
+        "tables": sorted(set(tables_used)),
     }

@@ -285,7 +285,9 @@ def _reason_entries(reasons: list[Any]) -> list[str]:
             code = item.get("code")
             if isinstance(code, str) and code:
                 src = item.get("source")
-                codes.append(f"incognia:{code}" + (f":{src}" if isinstance(src, str) and src else ""))
+                codes.append(
+                    f"incognia:{code}" + (f":{src}" if isinstance(src, str) and src else "")
+                )
     return codes
 
 
@@ -367,7 +369,9 @@ def incognia_transaction_assessment_to_tarka(
     )
 
 
-def parse_assessment_json(data: dict[str, Any], *, kind: Literal["signup", "transaction"]) -> SignupAssessment | TransactionAssessment:
+def parse_assessment_json(
+    data: dict[str, Any], *, kind: Literal["signup", "transaction"]
+) -> SignupAssessment | TransactionAssessment:
     """Parse a successful JSON object into the appropriate assessment model."""
 
     try:
@@ -375,4 +379,6 @@ def parse_assessment_json(data: dict[str, Any], *, kind: Literal["signup", "tran
             return SignupAssessment.model_validate(data)
         return TransactionAssessment.model_validate(data)
     except Exception as e:
-        raise IncogniaMalformedPayloadError(f"Incognia assessment JSON failed validation: {e}") from e
+        raise IncogniaMalformedPayloadError(
+            f"Incognia assessment JSON failed validation: {e}"
+        ) from e

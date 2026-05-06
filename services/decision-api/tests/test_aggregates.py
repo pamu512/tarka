@@ -3,7 +3,7 @@
 import time
 
 import pytest
-from aggregate_fake_redis import FakeRedis
+from .aggregate_fake_redis import FakeRedis
 from decision_api.aggregates import AggregateStore
 
 
@@ -78,9 +78,15 @@ class TestComputeFeatures:
     async def test_compute(self, store):
         s, _ = store
         now = time.time()
-        await s.record_event("t1", "u1", "e1", {"amount": 100, "ip_address": "1.1.1.1"}, ts=now)
-        await s.record_event("t1", "u1", "e2", {"amount": 200, "ip_address": "2.2.2.2"}, ts=now)
-        features = await s.compute_features("t1", "u1", {"amount": 300, "ip_address": "3.3.3.3"})
+        await s.record_event(
+            "t1", "u1", "e1", {"amount": 100, "ip_address": "1.1.1.1"}, ts=now
+        )
+        await s.record_event(
+            "t1", "u1", "e2", {"amount": 200, "ip_address": "2.2.2.2"}, ts=now
+        )
+        features = await s.compute_features(
+            "t1", "u1", {"amount": 300, "ip_address": "3.3.3.3"}
+        )
         assert features["event_count_1h"] == 2
         assert features["sum_amount_1h"] == 300.0
         assert features["avg_amount_1h"] == 150.0

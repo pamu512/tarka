@@ -207,11 +207,11 @@ class IncogniaClient:
     def _token_valid(self) -> bool:
         if not self._access_token:
             return False
-        return time.time() < self._token_expires_wall - TOKEN_REFRESH_BEFORE_S
+        return time.time() < self._token_expires_wall - _TOKEN_REFRESH_BEFORE_S
 
     async def _fetch_token(self) -> None:
         client_id, client_secret = self._require_credentials()
-        basic = base64.b64encode(f"{client_id}:{client_secret}".encode("utf-8")).decode("ascii")
+        basic = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode("ascii")
         url = f"{self.api_base_url}/{_TOKEN_PATH}"
         self._circuit.before_call()
         t0 = time.perf_counter()
@@ -226,7 +226,9 @@ class IncogniaClient:
             )
         except (httpx.TimeoutException, httpx.TransportError) as e:
             self._circuit.record_failure()
-            raise IncogniaUpstreamError(f"token request transport failed: {e}", http_status=503) from e
+            raise IncogniaUpstreamError(
+                f"token request transport failed: {e}", http_status=503
+            ) from e
 
         elapsed_ms = int((time.perf_counter() - t0) * 1000)
         self._last_latency_ms = elapsed_ms
@@ -288,7 +290,9 @@ class IncogniaClient:
 
     def _auth_headers(self) -> dict[str, str]:
         if not self._access_token:
-            raise IncogniaAuthenticationError("internal error: missing access token", http_status=401)
+            raise IncogniaAuthenticationError(
+                "internal error: missing access token", http_status=401
+            )
         headers: dict[str, str] = {
             "Authorization": f"{self._token_type} {self._access_token}",
             "Content-Type": "application/json; charset=utf-8",
@@ -430,7 +434,9 @@ class IncogniaClient:
         """``POST api/v2/onboarding/signups`` — mobile or web signup body per API reference."""
 
         payload = _dump_model(body)
-        _status, text, _ = await self._request_json("POST", "api/v2/onboarding/signups", json_body=payload)
+        _status, text, _ = await self._request_json(
+            "POST", "api/v2/onboarding/signups", json_body=payload
+        )
         try:
             data = json.loads(text)
         except json.JSONDecodeError as e:
@@ -464,7 +470,9 @@ class IncogniaClient:
         try:
             return TransactionAssessment.model_validate(data)
         except Exception as e:
-            raise IncogniaMalformedPayloadError(f"transaction assessment validation failed: {e}") from e
+            raise IncogniaMalformedPayloadError(
+                f"transaction assessment validation failed: {e}"
+            ) from e
 
     async def post_feedback(self, body: PostFeedbackRequestBody, *, dry_run: bool = False) -> None:
         """``POST api/v2/feedbacks`` with ``dry_run`` query parameter (string ``true``/``false``)."""

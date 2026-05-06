@@ -1,5 +1,11 @@
 """Shared fixtures for graph-service tests."""
 
+import os
+
+# graph_service.algorithms imports Neo4j vs Janus implementation at module load time
+# (default settings.graph_backend is janusgraph). Unit tests mock Neo4j only.
+os.environ.setdefault("GRAPH_BACKEND", "neo4j")
+
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest

@@ -5,7 +5,9 @@ from observability import Metrics
 
 def test_http_requests_total_includes_tenant_query_label():
     m = Metrics("unit-test")
-    m.record_request("GET", "/v1/audit/{trace_id}", 200, 0.01, tenant_query_scope="present")
+    m.record_request(
+        "GET", "/v1/audit/{trace_id}", 200, 0.01, tenant_query_scope="present"
+    )
     m.record_request("GET", "/v1/health", 200, 0.02, tenant_query_scope="absent")
     text = m.to_prometheus()
     assert 'tenant_query="present"' in text

@@ -15,7 +15,11 @@ from pydantic import BaseModel, Field
 from decision_api.config import settings
 from decision_api.json_rules import get_rule_hit_telemetry, load_rules
 from decision_api.rule_pack_validation import validate_rule_pack as _validate_rule_pack
-from decision_api.shadow import get_observation_stats, get_observations, load_shadow_rules
+from decision_api.shadow import (
+    get_observation_stats,
+    get_observations,
+    load_shadow_rules,
+)
 from decision_api.vertical_packs import get_vertical_pack, list_vertical_packs
 
 """REST API for rule CRUD — serves the visual rule builder."""
@@ -38,6 +42,8 @@ class Condition(BaseModel):
 class RuleIn(BaseModel):
     id: str = ""
     when: list[Condition] = Field(default_factory=list)
+    """Optional native JSON AST (AND/OR + leaves). Mutually exclusive with non-empty ``when`` on evaluate."""
+    when_ast: dict[str, Any] | None = None
     tags: list[str] = Field(default_factory=list)
     score_delta: float = 0
     description: str = ""
@@ -194,7 +200,9 @@ async def install_vertical_pack(
     vertical_name: str,
     overwrite: bool = False,
     x_actor: str | None = Header(default=None, alias="X-Actor"),
-    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
 ):
     _require_rule_governance(x_rule_governance_secret)
     pack = get_vertical_pack(vertical_name)
@@ -213,7 +221,10 @@ async def install_vertical_pack(
             existing_file = name
             break
     if existing_path and not overwrite:
-        raise HTTPException(409, f"pack '{existing_file}' already exists; pass overwrite=true to replace")
+        raise HTTPException(
+            409,
+            f"pack '{existing_file}' already exists; pass overwrite=true to replace",
+        )
     errors = _validate_rule_pack(pack)
     if errors:
         raise HTTPException(422, detail={"validation_errors": errors})
@@ -228,7 +239,11 @@ async def install_vertical_pack(
         actor=_actor_from_headers(x_actor),
         detail={"vertical": vertical_name.lower(), "overwrite": overwrite},
     )
-    return {"installed": fpath.name, "vertical": vertical_name.lower(), "rules": len(pack.get("rules", []))}
+    return {
+        "installed": fpath.name,
+        "vertical": vertical_name.lower(),
+        "rules": len(pack.get("rules", [])),
+    }
 
 
 @router.get("/{filename}")
@@ -243,7 +258,9 @@ async def get_rule_pack(filename: str):
 async def create_rule_pack(
     body: RulePackIn,
     x_actor: str | None = Header(default=None, alias="X-Actor"),
-    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
 ):
     _require_rule_governance(x_rule_governance_secret)
     slug = _slugify_pack_name(body.name)
@@ -270,7 +287,12 @@ async def create_rule_pack(
     fpath = _new_pack_path("pack")
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()
-    _append_rule_change("create", fpath.name, actor=_actor_from_headers(x_actor), detail={"name": body.name})
+    _append_rule_change(
+        "create",
+        fpath.name,
+        actor=_actor_from_headers(x_actor),
+        detail={"name": body.name},
+    )
     return {"file": fpath.name, "pack": pack}
 
 
@@ -279,7 +301,9 @@ async def update_rule_pack(
     filename: str,
     body: RulePackIn,
     x_actor: str | None = Header(default=None, alias="X-Actor"),
-    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
 ):
     _require_rule_governance(x_rule_governance_secret)
     fpath = _existing_pack_path(filename)
@@ -310,7 +334,9 @@ async def update_rule_pack(
 async def delete_rule_pack(
     filename: str,
     x_actor: str | None = Header(default=None, alias="X-Actor"),
-    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
 ):
     _require_rule_governance(x_rule_governance_secret)
     fpath = _existing_pack_path(filename)
@@ -325,7 +351,9 @@ async def add_rule(
     filename: str,
     body: RuleIn,
     x_actor: str | None = Header(default=None, alias="X-Actor"),
-    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
 ):
     _require_rule_governance(x_rule_governance_secret)
     fpath = _existing_pack_path(filename)
@@ -335,7 +363,12 @@ async def add_rule(
     pack.setdefault("rules", []).append(_rule_to_dict(body))
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()
-    _append_rule_change("add_rule", filename, actor=_actor_from_headers(x_actor), detail={"rule_id": body.id})
+    _append_rule_change(
+        "add_rule",
+        filename,
+        actor=_actor_from_headers(x_actor),
+        detail={"rule_id": body.id},
+    )
     return {"added": body.id}
 
 
@@ -348,7 +381,9 @@ async def set_pack_mode(
     filename: str,
     body: RulePackMode,
     x_actor: str | None = Header(default=None, alias="X-Actor"),
-    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
 ):
     _require_rule_governance(x_rule_governance_secret)
     """Set a rule pack to active, shadow, or disabled mode."""
@@ -359,7 +394,12 @@ async def set_pack_mode(
     pack["mode"] = body.mode
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()
-    _append_rule_change("set_mode", filename, actor=_actor_from_headers(x_actor), detail={"mode": body.mode})
+    _append_rule_change(
+        "set_mode",
+        filename,
+        actor=_actor_from_headers(x_actor),
+        detail={"mode": body.mode},
+    )
     return {"file": filename, "mode": body.mode}
 
 
@@ -368,7 +408,9 @@ async def remove_rule(
     filename: str,
     rule_id: str,
     x_actor: str | None = Header(default=None, alias="X-Actor"),
-    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
 ):
     _require_rule_governance(x_rule_governance_secret)
     fpath = _existing_pack_path(filename)
@@ -379,7 +421,12 @@ async def remove_rule(
         raise HTTPException(404, f"rule '{rule_id}' not found")
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()
-    _append_rule_change("remove_rule", filename, actor=_actor_from_headers(x_actor), detail={"rule_id": rule_id})
+    _append_rule_change(
+        "remove_rule",
+        filename,
+        actor=_actor_from_headers(x_actor),
+        detail={"rule_id": rule_id},
+    )
     return {"deleted": rule_id}
 
 
@@ -400,13 +447,16 @@ async def shadow_stats():
 
 
 def _rule_to_dict(r: RuleIn) -> dict[str, Any]:
-    return {
+    out: dict[str, Any] = {
         "id": r.id or f"rule_{uuid.uuid4().hex[:8]}",
         "when": [{"field": c.field, "op": c.op, "value": c.value} for c in r.when],
         "tags": r.tags,
         "score_delta": r.score_delta,
         "description": r.description,
     }
+    if r.when_ast is not None:
+        out["when_ast"] = r.when_ast
+    return out
 
 
 def _tag_rule_to_dict(r: TagRuleIn) -> dict[str, Any]:

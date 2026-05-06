@@ -12,7 +12,10 @@ from pydantic import ValidationError
 
 from decision_api.models import VendorIntegrationAudit
 from decision_api.vendors.exceptions import VendorTimeoutError, VendorUpstreamError
-from decision_api.vendors.plugins.ip_api import IpApiVendorCredentials, IpApiVendorPlugin
+from decision_api.vendors.plugins.ip_api import (
+    IpApiVendorCredentials,
+    IpApiVendorPlugin,
+)
 
 
 def _success_json() -> str:
@@ -58,7 +61,9 @@ async def test_ip_api_plugin_persists_audit_then_returns_signal() -> None:
 
 
 @pytest.mark.asyncio
-async def test_ip_api_plugin_timeout_records_audit_and_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_ip_api_plugin_timeout_records_audit_and_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     plugin = IpApiVendorPlugin(IpApiVendorCredentials())
 
     async def slow_http(*_a: object, **_kw: object) -> httpx.Response:

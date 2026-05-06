@@ -25,7 +25,9 @@ class Settings(BaseSettings):
     )
 
     http_timeout: float = Field(default=10.0, validation_alias="GATEWAY_HTTP_TIMEOUT")
-    http_connect_timeout: float = Field(default=3.0, validation_alias="GATEWAY_HTTP_CONNECT_TIMEOUT")
+    http_connect_timeout: float = Field(
+        default=3.0, validation_alias="GATEWAY_HTTP_CONNECT_TIMEOUT"
+    )
     http_max_connections: int = Field(default=200, validation_alias="GATEWAY_HTTP_MAX_CONNECTIONS")
     http_max_keepalive: int = Field(default=40, validation_alias="GATEWAY_HTTP_MAX_KEEPALIVE")
 

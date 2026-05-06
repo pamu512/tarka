@@ -35,7 +35,9 @@ class Settings(BaseSettings):
     )
 
     # Optional GNN beta endpoint (non-blocking; heuristics remain source of truth).
-    graph_gnn_beta_url: str = Field(default="", description="Optional HTTP endpoint for experimental graph risk scoring.")
+    graph_gnn_beta_url: str = Field(
+        default="", description="Optional HTTP endpoint for experimental graph risk scoring."
+    )
     graph_gnn_beta_timeout_seconds: float = Field(default=0.6, ge=0.1, le=5.0)
 
 

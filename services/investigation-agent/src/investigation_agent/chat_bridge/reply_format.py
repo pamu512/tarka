@@ -57,9 +57,16 @@ def format_slack_blocks(
 ) -> list[dict[str, Any]]:
     """Build Slack Block Kit from investigation-agent /v1/chat response."""
     reply = escape_slack_mrkdwn(_trim(str(agent_json.get("reply") or ""), 2900))
-    sections = agent_json.get("answer_sections") if isinstance(agent_json.get("answer_sections"), dict) else {}
+    sections = (
+        agent_json.get("answer_sections")
+        if isinstance(agent_json.get("answer_sections"), dict)
+        else {}
+    )
     blocks: list[dict[str, Any]] = [
-        {"type": "section", "text": {"type": "mrkdwn", "text": f"*Copilot*\n{reply or '_No reply_'}"}},
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"*Copilot*\n{reply or '_No reply_'}"},
+        },
     ]
     blocks.extend(_section_blocks(sections, include_secondary=include_secondary_sections))
 
@@ -69,14 +76,20 @@ def format_slack_blocks(
         blocks.append(
             {
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": f"*INFERENCES*\n{escape_slack_mrkdwn(_trim(str(inf), 1500))}"},
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*INFERENCES*\n{escape_slack_mrkdwn(_trim(str(inf), 1500))}",
+                },
             }
         )
     if ns:
         blocks.append(
             {
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": f"*NEXT STEPS*\n{escape_slack_mrkdwn(_trim(str(ns), 1500))}"},
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*NEXT STEPS*\n{escape_slack_mrkdwn(_trim(str(ns), 1500))}",
+                },
             }
         )
     turn_id = agent_json.get("turn_id")
@@ -87,7 +100,9 @@ def format_slack_blocks(
     if turn_id:
         ctx_bits.append(f"`turn_id`: `{turn_id}`")
     if ctx_bits:
-        blocks.append({"type": "context", "elements": [{"type": "mrkdwn", "text": " · ".join(ctx_bits)}]})
+        blocks.append(
+            {"type": "context", "elements": [{"type": "mrkdwn", "text": " · ".join(ctx_bits)}]}
+        )
     return blocks
 
 
@@ -113,7 +128,11 @@ def format_teams_adaptive_card(
 ) -> dict[str, Any]:
     """Adaptive Card for Teams (connector / Bot HTTP post)."""
     reply = _trim(str(agent_json.get("reply") or ""), 4000)
-    sections = agent_json.get("answer_sections") if isinstance(agent_json.get("answer_sections"), dict) else {}
+    sections = (
+        agent_json.get("answer_sections")
+        if isinstance(agent_json.get("answer_sections"), dict)
+        else {}
+    )
     body: list[dict[str, Any]] = [
         {"type": "TextBlock", "text": "Copilot", "weight": "Bolder", "size": "Medium"},
         {"type": "TextBlock", "text": reply or "—", "wrap": True},
@@ -121,19 +140,41 @@ def format_teams_adaptive_card(
     if include_secondary_sections:
         facts = sections.get("facts_from_tools")
         if facts:
-            body.append({"type": "TextBlock", "text": "FACTS FROM TOOLS", "weight": "Bolder", "spacing": "Medium"})
-            body.append({"type": "TextBlock", "text": _trim(str(facts), 1800), "wrap": True, "isSubtle": True})
+            body.append(
+                {
+                    "type": "TextBlock",
+                    "text": "FACTS FROM TOOLS",
+                    "weight": "Bolder",
+                    "spacing": "Medium",
+                }
+            )
+            body.append(
+                {
+                    "type": "TextBlock",
+                    "text": _trim(str(facts), 1800),
+                    "wrap": True,
+                    "isSubtle": True,
+                }
+            )
         unk = sections.get("unknowns")
         if unk:
-            body.append({"type": "TextBlock", "text": "UNKNOWNS", "weight": "Bolder", "spacing": "Medium"})
-            body.append({"type": "TextBlock", "text": _trim(str(unk), 1800), "wrap": True, "isSubtle": True})
+            body.append(
+                {"type": "TextBlock", "text": "UNKNOWNS", "weight": "Bolder", "spacing": "Medium"}
+            )
+            body.append(
+                {"type": "TextBlock", "text": _trim(str(unk), 1800), "wrap": True, "isSubtle": True}
+            )
     inf = sections.get("inferences") if isinstance(sections, dict) else None
     ns = sections.get("next_steps") if isinstance(sections, dict) else None
     if inf:
-        body.append({"type": "TextBlock", "text": "INFERENCES", "weight": "Bolder", "spacing": "Medium"})
+        body.append(
+            {"type": "TextBlock", "text": "INFERENCES", "weight": "Bolder", "spacing": "Medium"}
+        )
         body.append({"type": "TextBlock", "text": _trim(str(inf), 2000), "wrap": True})
     if ns:
-        body.append({"type": "TextBlock", "text": "NEXT STEPS", "weight": "Bolder", "spacing": "Medium"})
+        body.append(
+            {"type": "TextBlock", "text": "NEXT STEPS", "weight": "Bolder", "spacing": "Medium"}
+        )
         body.append({"type": "TextBlock", "text": _trim(str(ns), 2000), "wrap": True})
     turn_id = agent_json.get("turn_id")
     persona = agent_json.get("persona")
@@ -165,7 +206,12 @@ def format_teams_error_card(title: str, detail: str = "") -> dict[str, Any]:
                 "color": "Attention",
                 "wrap": True,
             },
-            {"type": "TextBlock", "text": _trim(detail, 1500) or "—", "wrap": True, "isSubtle": True},
+            {
+                "type": "TextBlock",
+                "text": _trim(detail, 1500) or "—",
+                "wrap": True,
+                "isSubtle": True,
+            },
         ],
     }
 
@@ -173,7 +219,11 @@ def format_teams_error_card(title: str, detail: str = "") -> dict[str, Any]:
 def format_lark_card_text(agent_json: dict[str, Any]) -> str:
     """Plain text for Lark post message API."""
     reply = _trim(str(agent_json.get("reply") or ""), 3000)
-    sections = agent_json.get("answer_sections") if isinstance(agent_json.get("answer_sections"), dict) else {}
+    sections = (
+        agent_json.get("answer_sections")
+        if isinstance(agent_json.get("answer_sections"), dict)
+        else {}
+    )
     parts = ["**Copilot**", reply]
     facts = sections.get("facts_from_tools")
     unk = sections.get("unknowns")
@@ -197,7 +247,11 @@ def format_lark_card_text(agent_json: dict[str, Any]) -> str:
 
 
 def format_lark_error_text(message: str, detail: str = "") -> str:
-    return "**Copilot error**\n" + _trim(message, 800) + ("\n\n" + _trim(detail, 600) if detail else "")
+    return (
+        "**Copilot error**\n"
+        + _trim(message, 800)
+        + ("\n\n" + _trim(detail, 600) if detail else "")
+    )
 
 
 # Strip Slack mention tokens and link noise for cleaner user prompts.

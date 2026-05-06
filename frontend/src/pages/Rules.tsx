@@ -1,4 +1,5 @@
 import { useEffect, useState, type KeyboardEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   rules as rulesApi,
   simulation,
@@ -220,6 +221,7 @@ function normalizeRulePack(raw: RulePack, idx: number): RulePack {
 // ── Main Component ───────────────────────────────────────────────────
 
 export default function Rules() {
+  const [searchParams] = useSearchParams();
   const [packs, setPacks] = useState<RulePack[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -276,6 +278,20 @@ export default function Rules() {
   useEffect(() => {
     fetchPacks();
   }, []);
+
+  useEffect(() => {
+    const packQs = searchParams.get("pack");
+    if (!packQs || loading || packs.length === 0) return;
+    const match = packs.find((p) => packFile(p) === packQs);
+    if (!match) return;
+    const file = packFile(match);
+    if (dirty) return;
+    if (selectedFile === file) return;
+    setSelectedFile(file);
+    setEditingPack(structuredClone(match));
+    setDirty(false);
+    setTagInputs({});
+  }, [searchParams, packs, loading, dirty, selectedFile]);
 
   useEffect(() => {
     syncRuleGovernanceSecret(ruleGovSecret);

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+
 from graph_service.age_client import get_pool
 
 """
@@ -70,10 +71,7 @@ async def detect_communities(
     $$, %s) as (canonical_key agtype, member_ids agtype, all_labels agtype, all_tags_lists agtype, cnt agtype);
     """
 
-    params_json = json.dumps({
-        "tenant_id": tenant_id,
-        "min_size": min_community_size
-    })
+    params_json = json.dumps({"tenant_id": tenant_id, "min_size": min_community_size})
 
     seen_keys: set[str] = set()
     communities: list[dict] = []
@@ -81,18 +79,27 @@ async def detect_communities(
 
     async with pool.acquire() as conn:
         rows = await conn.fetch(q, params_json)
-        
+
         for row in rows:
-            if not row["member_ids"] or row["member_ids"] == 'null': continue
+            if not row["member_ids"] or row["member_ids"] == "null":
+                continue
             member_ids = json.loads(row["member_ids"])
             key = "|".join(sorted(member_ids))
             if key in seen_keys:
                 continue
             seen_keys.add(key)
 
-            all_labels = json.loads(row["all_labels"]) if row["all_labels"] and row["all_labels"] != 'null' else []
-            all_tags_lists = json.loads(row["all_tags_lists"]) if row["all_tags_lists"] and row["all_tags_lists"] != 'null' else []
-            
+            all_labels = (
+                json.loads(row["all_labels"])
+                if row["all_labels"] and row["all_labels"] != "null"
+                else []
+            )
+            all_tags_lists = (
+                json.loads(row["all_tags_lists"])
+                if row["all_tags_lists"] and row["all_tags_lists"] != "null"
+                else []
+            )
+
             flat_labels = {lbl for label_list in all_labels for lbl in label_list}
             flat_tags = {t for tag_list in all_tags_lists for t in tag_list}
 
@@ -149,19 +156,17 @@ async def propagate_risk(
     $$, %s) as (entity_id agtype, entity_labels agtype, distance agtype, rel_types agtype, node_chain agtype);
     """
 
-    params_json = json.dumps({
-        "tenant_id": tenant_id,
-        "entity_id": entity_id
-    })
+    params_json = json.dumps({"tenant_id": tenant_id, "entity_id": entity_id})
 
     seen: set[str] = set()
     entities: list[dict] = []
 
     async with pool.acquire() as conn:
         rows = await conn.fetch(q, params_json)
-        
+
         for row in rows:
-            if not row["entity_id"] or row["entity_id"] == 'null': continue
+            if not row["entity_id"] or row["entity_id"] == "null":
+                continue
             eid = json.loads(row["entity_id"])
             if eid in seen:
                 continue
@@ -169,18 +174,30 @@ async def propagate_risk(
 
             dist = json.loads(row["distance"])
             score = round(100.0 * (decay**dist), 2)
-            rel_types = json.loads(row["rel_types"]) if row["rel_types"] and row["rel_types"] != 'null' else []
-            node_chain = json.loads(row["node_chain"]) if row["node_chain"] and row["node_chain"] != 'null' else []
-            
+            rel_types = (
+                json.loads(row["rel_types"])
+                if row["rel_types"] and row["rel_types"] != "null"
+                else []
+            )
+            node_chain = (
+                json.loads(row["node_chain"])
+                if row["node_chain"] and row["node_chain"] != "null"
+                else []
+            )
+
             path_desc = " -> ".join(
-                f"({nid})" if i % 2 == 0 else f"-[{rel_types[i // 2] if i // 2 < len(rel_types) else '?'}]->"
+                f"({nid})"
+                if i % 2 == 0
+                else f"-[{rel_types[i // 2] if i // 2 < len(rel_types) else '?'}]->"
                 for i, nid in enumerate(node_chain)
             )
 
             entities.append(
                 {
                     "entity_id": eid,
-                    "entity_labels": json.loads(row["entity_labels"]) if row["entity_labels"] and row["entity_labels"] != 'null' else [],
+                    "entity_labels": json.loads(row["entity_labels"])
+                    if row["entity_labels"] and row["entity_labels"] != "null"
+                    else [],
                     "propagated_risk_score": score,
                     "distance": dist,
                     "path_description": path_desc,
@@ -221,22 +238,24 @@ async def find_shared_attributes(
     $$, %s) as (attr_value agtype, entities agtype, group_size agtype);
     """
 
-    params_json = json.dumps({
-        "tenant_id": tenant_id,
-        "min_shared": min_shared
-    })
+    params_json = json.dumps({"tenant_id": tenant_id, "min_shared": min_shared})
 
     results = []
     async with pool.acquire() as conn:
         rows = await conn.fetch(q, params_json)
         for row in rows:
-            if not row["attr_value"] or row["attr_value"] == 'null': continue
-            results.append({
-                "attribute": attribute,
-                "shared_value": str(json.loads(row["attr_value"])),
-                "entity_ids": json.loads(row["entities"]) if row["entities"] and row["entities"] != 'null' else [],
-                "group_size": json.loads(row["group_size"]),
-            })
+            if not row["attr_value"] or row["attr_value"] == "null":
+                continue
+            results.append(
+                {
+                    "attribute": attribute,
+                    "shared_value": str(json.loads(row["attr_value"])),
+                    "entity_ids": json.loads(row["entities"])
+                    if row["entities"] and row["entities"] != "null"
+                    else [],
+                    "group_size": json.loads(row["group_size"]),
+                }
+            )
 
     return results
 
@@ -279,9 +298,7 @@ async def detect_fraud_rings(
     $$, %s) as (node_ids agtype, rel_types agtype, ring_len agtype, all_tags agtype);
     """
 
-    params_json = json.dumps({
-        "tenant_id": tenant_id
-    })
+    params_json = json.dumps({"tenant_id": tenant_id})
 
     seen: set[str] = set()
     rings: list[dict] = []
@@ -289,7 +306,8 @@ async def detect_fraud_rings(
     async with pool.acquire() as conn:
         rows = await conn.fetch(q, params_json)
         for row in rows:
-            if not row["node_ids"] or row["node_ids"] == 'null': continue
+            if not row["node_ids"] or row["node_ids"] == "null":
+                continue
             ids = json.loads(row["node_ids"])
             canon = "|".join(sorted(set(ids)))
             if canon in seen:
@@ -300,8 +318,14 @@ async def detect_fraud_rings(
             if len(unique_ids) < min_ring_size:
                 continue
 
-            all_tags = json.loads(row["all_tags"]) if row["all_tags"] and row["all_tags"] != 'null' else []
-            rel_types = json.loads(row["rel_types"]) if row["rel_types"] and row["rel_types"] != 'null' else []
+            all_tags = (
+                json.loads(row["all_tags"]) if row["all_tags"] and row["all_tags"] != "null" else []
+            )
+            rel_types = (
+                json.loads(row["rel_types"])
+                if row["rel_types"] and row["rel_types"] != "null"
+                else []
+            )
 
             rings.append(
                 {
@@ -387,16 +411,14 @@ async def compute_entity_risk(
     $$, %s) as (tags agtype, conn_count agtype, flagged_neighbors agtype, community_size agtype, shared_device_count agtype);
     """
 
-    params_json = json.dumps({
-        "tenant_id": tenant_id,
-        "entity_id": entity_id,
-        "high_risk_tags": sorted(_HIGH_RISK_TAGS)
-    })
+    params_json = json.dumps(
+        {"tenant_id": tenant_id, "entity_id": entity_id, "high_risk_tags": sorted(_HIGH_RISK_TAGS)}
+    )
 
     async with pool.acquire() as conn:
         row = await conn.fetchrow(q, params_json)
 
-    if not row or not row["conn_count"] or row["conn_count"] == 'null':
+    if not row or not row["conn_count"] or row["conn_count"] == "null":
         return {
             "entity_id": entity_id,
             "risk_score": 0,
@@ -408,7 +430,7 @@ async def compute_entity_risk(
             "graph_profile_max_neighbor_hops": hop_depth,
         }
 
-    tags = json.loads(row["tags"]) if row["tags"] and row["tags"] != 'null' else []
+    tags = json.loads(row["tags"]) if row["tags"] and row["tags"] != "null" else []
     conn_count: int = json.loads(row["conn_count"])
     flagged: int = json.loads(row["flagged_neighbors"])
     community_size: int = json.loads(row["community_size"])

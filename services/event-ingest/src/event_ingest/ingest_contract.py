@@ -11,6 +11,12 @@ Supports optional v1 envelope ``{ "schema_version": "1", "event": { ... } }`` an
 # Keep aligned with decision_api.schemas.EventType
 VALID_EVENT_TYPES = frozenset({"login", "payment", "signup", "device", "session", "custom"})
 
+# Registry / schema gate (scripts/ci/schema_registry_compat.py parses these as frozenset(...) assignments).
+REGISTRY_SUPPORTED_EVENT_SCHEMA_VERSIONS = frozenset({"1"})
+_REGISTRY_ALLOWED_TOP_LEVEL_KEYS = frozenset(
+    {"tenant_id", "event_type", "entity_id", "session_id", "payload", "device_context", "metadata"}
+)
+
 # Epic X.2: optional envelope-level lineage (v1 envelope root; merged into event.metadata)
 _MAX_ETL_BATCH_ID_LEN = 256
 
@@ -84,11 +90,17 @@ def parse_ingest_event_body(
     et = flat.get("event_type")
 
     if tid is None or (isinstance(tid, str) and not tid.strip()):
-        raise IngestContractError(["ingest_tenant_id_empty"], "tenant_id is required and must be non-empty.")
+        raise IngestContractError(
+            ["ingest_tenant_id_empty"], "tenant_id is required and must be non-empty."
+        )
     if eid is None or (isinstance(eid, str) and not eid.strip()):
-        raise IngestContractError(["ingest_entity_id_empty"], "entity_id is required and must be non-empty.")
+        raise IngestContractError(
+            ["ingest_entity_id_empty"], "entity_id is required and must be non-empty."
+        )
     if et is None or (isinstance(et, str) and not str(et).strip()):
-        raise IngestContractError(["ingest_event_type_empty"], "event_type is required and must be non-empty.")
+        raise IngestContractError(
+            ["ingest_event_type_empty"], "event_type is required and must be non-empty."
+        )
 
     et_s = str(et).strip()
     if et_s not in VALID_EVENT_TYPES:
@@ -104,10 +116,7 @@ def parse_ingest_event_body(
 
     if "etl_batch_id" in env_extras:
         md = out.get("metadata")
-        if not isinstance(md, dict):
-            md = {}
-        else:
-            md = dict(md)
+        md = {} if not isinstance(md, dict) else dict(md)
         md["etl_batch_id"] = env_extras["etl_batch_id"]
         out["metadata"] = md
 

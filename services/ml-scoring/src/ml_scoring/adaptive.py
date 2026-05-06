@@ -11,7 +11,7 @@ import logging
 import math
 import os
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import numpy as np
@@ -99,7 +99,9 @@ class AdaptiveAutoencoder:
 
     def _update_running_stats(self, raw: np.ndarray, alpha: float = 0.01) -> None:
         self._running_mean = (1 - alpha) * self._running_mean + alpha * raw
-        self._running_var = (1 - alpha) * self._running_var + alpha * (raw - self._running_mean) ** 2
+        self._running_var = (1 - alpha) * self._running_var + alpha * (
+            raw - self._running_mean
+        ) ** 2
 
     # ------------------------------------------------------------------
     # Feature mapping
@@ -188,7 +190,9 @@ class AdaptiveAutoencoder:
                 self._recent_errors = self._recent_errors[-1000:]
             alpha_ema = 0.01
             self._error_ema = (1 - alpha_ema) * self._error_ema + alpha_ema * error
-            self._error_ema_var = (1 - alpha_ema) * self._error_ema_var + alpha_ema * (error - self._error_ema) ** 2
+            self._error_ema_var = (1 - alpha_ema) * self._error_ema_var + alpha_ema * (
+                error - self._error_ema
+            ) ** 2
 
             if self._drift.update(error):
                 self._boost_remaining = 200
@@ -221,7 +225,11 @@ class AdaptiveAutoencoder:
             score = max(0.0, min(100.0, 50.0 + z_score * 15.0))
 
             contributions: list[dict[str, Any]] = []
-            active_dims = [(name, self._feature_index[name]) for name in self._feature_names if name in features]
+            active_dims = [
+                (name, self._feature_index[name])
+                for name in self._feature_names
+                if name in features
+            ]
             for name, idx in active_dims:
                 err = float(per_feature_error[idx])
                 if err > self._error_ema * 1.5:
@@ -232,7 +240,8 @@ class AdaptiveAutoencoder:
                             "reconstruction_error": round(err, 6),
                             "expected_mean": round(float(self._running_mean[idx]), 4),
                             "z_score": round(
-                                abs(float(raw[idx]) - float(self._running_mean[idx])) / max(math.sqrt(float(self._running_var[idx])), 1e-8),
+                                abs(float(raw[idx]) - float(self._running_mean[idx]))
+                                / max(math.sqrt(float(self._running_var[idx])), 1e-8),
                                 2,
                             ),
                             "contribution": round(err / max(total_error, 1e-8) * 100, 1),
@@ -267,9 +276,13 @@ class AdaptiveAutoencoder:
             "alpha": self.lr,
             "avg_reconstruction_error": round(self._error_ema, 6),
             "error_std": round(math.sqrt(max(self._error_ema_var, 0)), 6),
-            "recent_errors_p50": round(float(np.median(self._recent_errors)) if self._recent_errors else 0, 6),
+            "recent_errors_p50": round(
+                float(np.median(self._recent_errors)) if self._recent_errors else 0, 6
+            ),
             "recent_errors_p99": round(
-                float(np.percentile(self._recent_errors, 99)) if len(self._recent_errors) > 10 else 0,
+                float(np.percentile(self._recent_errors, 99))
+                if len(self._recent_errors) > 10
+                else 0,
                 6,
             ),
             "feature_names": self._feature_names[:20],
@@ -318,7 +331,7 @@ class AdaptiveAutoencoder:
                 "drift_count": self._drift._drift_count,
                 "last_drift_at": self._drift._last_drift_at,
             },
-            "saved_at": datetime.now(timezone.utc).isoformat(),
+            "saved_at": datetime.now(UTC).isoformat(),
         }
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         with open(path, "w") as f:

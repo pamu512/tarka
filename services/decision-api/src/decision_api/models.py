@@ -3,7 +3,17 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, Float, Integer, String, Text, UniqueConstraint, Uuid, func
+from sqlalchemy import (
+    JSON,
+    DateTime,
+    Float,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    Uuid,
+    func,
+)
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,8 +29,12 @@ class FeatureDefinitionDdlStatus(StrEnum):
 class AuditRecord(Base):
     __tablename__ = "decision_audit"
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    trace_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), unique=True, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    trace_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), unique=True, index=True
+    )
     tenant_id: Mapped[str] = mapped_column(String(128), index=True)
     entity_id: Mapped[str] = mapped_column(String(512), index=True)
     event_type: Mapped[str] = mapped_column(String(64))
@@ -29,7 +43,9 @@ class AuditRecord(Base):
     tags: Mapped[list] = mapped_column(JSON, default=list)
     rule_hits: Mapped[list] = mapped_column(JSON, default=list)
     payload_snapshot: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class FeatureDefinition(Base):
@@ -38,11 +54,16 @@ class FeatureDefinition(Base):
     __tablename__ = "feature_definitions"
     __table_args__ = (
         UniqueConstraint(
-            "tenant_id", "name", "version", name="uq_feature_definitions_tenant_name_version"
+            "tenant_id",
+            "name",
+            "version",
+            name="uq_feature_definitions_tenant_name_version",
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     tenant_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -58,7 +79,10 @@ class FeatureDefinition(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
     )
 
 
@@ -75,7 +99,9 @@ class BacktestRun(Base):
 
     __tablename__ = "backtest_runs"
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     tenant_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     status: Mapped[BacktestRunStatus] = mapped_column(
         SAEnum(BacktestRunStatus, native_enum=False, length=32),
@@ -85,15 +111,24 @@ class BacktestRun(Base):
     )
     window_start: Mapped[str] = mapped_column(String(32), nullable=False)
     window_end: Mapped[str] = mapped_column(String(32), nullable=False)
-    rule_pack_fingerprint_sha256: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    rule_pack_fingerprint_sha256: Mapped[str] = mapped_column(
+        String(64), nullable=False, index=True
+    )
     rule_pack_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     analytics_table: Mapped[str] = mapped_column(String(128), nullable=False)
-    rows_processed: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    rows_processed: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
     metrics_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     error_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
     )
 
 
@@ -102,9 +137,13 @@ class RuleApproval(Base):
 
     __tablename__ = "rule_approvals"
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     pack_name: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
-    fingerprint_sha256: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    fingerprint_sha256: Mapped[str] = mapped_column(
+        String(64), nullable=False, index=True
+    )
     actor_user_id: Mapped[str] = mapped_column(String(256), nullable=False)
     audit_token: Mapped[str] = mapped_column(String(512), nullable=False, unique=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -117,8 +156,12 @@ class VendorIntegrationAudit(Base):
 
     __tablename__ = "vendor_integration_audit"
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    trace_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), index=True, nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    trace_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), index=True, nullable=False
+    )
     tenant_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     entity_id: Mapped[str] = mapped_column(String(512), nullable=False, index=True)
     vendor_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
@@ -128,4 +171,10 @@ class VendorIntegrationAudit(Base):
     raw_response: Mapped[str] = mapped_column(Text, nullable=False)
     outcome: Mapped[str] = mapped_column(String(32), nullable=False)
     error_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+# Inference audit rows mirrored to ClickHouse (``tarka_core.models.InferenceLog``).
+from tarka_core.models import InferenceLog  # noqa: E402, F401

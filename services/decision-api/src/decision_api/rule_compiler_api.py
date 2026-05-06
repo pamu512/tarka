@@ -1,4 +1,4 @@
-"""Compile visual-rule AST JSON into deployable JSON rule packs (Rego via dedicated sub-route; SR-05)."""
+"""Compile visual-rule AST JSON into deployable JSON rule packs (SR-05)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ from typing import Annotated, Any, Union
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
-from tarka_core.rule_compiler import TranspilationError, transpile_visual_pack
 
 import sys
 from pathlib import Path
@@ -20,6 +19,12 @@ if str(_shared) not in sys.path:
 from auth_rbac import require_role  # noqa: E402
 
 router = APIRouter(prefix="/v1/rules/visual", tags=["visual-rules"])
+rego_deprecation_router = APIRouter(prefix="/v1/rules/rego", tags=["rules"])
+
+_REGO_COMPILE_GONE_DETAIL = (
+    "Tarka evaluates rules natively via the Rust tarka_rule_engine. "
+    "OPA/Rego export is deprecated to ensure auditability and performance."
+)
 
 _SAFE_ID = re.compile(r"^[a-zA-Z0-9_-]{1,120}$")
 
@@ -28,7 +33,9 @@ class VisualAstLeaf(BaseModel):
     """Leaf: ``field`` / ``op`` / ``value``."""
 
     model_config = ConfigDict(extra="forbid")
-    op: str = Field(..., description="one of: eq, ne, gt, gte, lt, lte, in, not_in, ==, etc.")
+    op: str = Field(
+        ..., description="one of: eq, ne, gt, gte, lt, lte, in, not_in, ==, etc."
+    )
     field: str = Field(..., max_length=256)
     value: Any = None
 
@@ -65,7 +72,7 @@ class VisualAstPack(BaseModel):
 
 
 class VisualDryRunRequest(BaseModel):
-    """Dry-run a canvas pack against a feature map via Rust ``evaluate_adhoc_packs_json`` (no ML/OPA)."""
+    """Dry-run a canvas pack against a feature map via ``evaluate_adhoc_packs_json`` (no ML/OPA)."""
 
     model_config = ConfigDict(extra="forbid")
     visual_pack: VisualAstPack
@@ -102,11 +109,13 @@ def _compile_to_json_rules(pack: VisualAstPack) -> dict[str, Any]:
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    "json_compile_requires_flat_leaves: nested all_of/any_of is supported for "
-                    "POST /v1/rules/visual/compile/rego only"
+                    "json_compile_requires_flat_leaves: nested all_of/any_of is not supported for JSON export"
                 ),
             )
-        rid = r.id.strip() or f"visual_{hashlib.sha256(json.dumps(r.model_dump()).encode()).hexdigest()[:10]}"
+        rid = (
+            r.id.strip()
+            or f"visual_{hashlib.sha256(json.dumps(r.model_dump()).encode()).hexdigest()[:10]}"
+        )
         if not _SAFE_ID.match(rid):
             raise HTTPException(status_code=400, detail=f"invalid_rule_id:{rid}")
         when: list[dict[str, Any]] = []
@@ -151,50 +160,18 @@ def compile_visual_ast_pack_dict(body: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(str(detail)) from e
 
 
-def _visual_rule_dict_for_rego(r: VisualAstRule) -> dict[str, Any]:
-    rid = r.id.strip() or f"visual_{hashlib.sha256(json.dumps(r.model_dump()).encode()).hexdigest()[:10]}"
-    if not _SAFE_ID.match(rid):
-        raise HTTPException(status_code=400, detail=f"invalid_rule_id:{rid}")
-    return {
-        "id": rid,
-        "all_of": [c.model_dump() for c in r.all_of],
-        "any_of": [c.model_dump() for c in r.any_of],
-    }
-
-
-@router.post("/compile/rego")
-async def compile_visual_ast_rego(
-    body: VisualAstPack,
-    _user=Depends(require_role("analyst")),
-) -> dict[str, Any]:
-    """Transpile the visual AST into a Rego module (package ``tarka.visual``)."""
-    _static_check_regex_fields(body)
-    if not body.rules:
-        raise HTTPException(status_code=400, detail="pack.rules must be non-empty")
-    pack_dict = {
-        "name": body.name,
-        "rules": [_visual_rule_dict_for_rego(r) for r in body.rules],
-    }
-    try:
-        rego_module = transpile_visual_pack(pack_dict)
-    except TranspilationError as e:
-        raise HTTPException(
-            status_code=400,
-            detail={"error": "TRANSPILATION_ERROR", "message": str(e)},
-        ) from e
-    return {"package": "tarka.visual", "rego_module": rego_module}
-
-
 @router.post("/evaluate-dry-run")
 async def evaluate_visual_dry_run(
     body: VisualDryRunRequest,
     _user=Depends(require_role("analyst")),
 ) -> dict[str, Any]:
-    """Compile visual AST to JSON ``when`` rules, then evaluate ad-hoc pack in simulation (Rust)."""
+    """Compile visual AST to JSON ``when`` rules, then evaluate ad-hoc pack in simulation."""
     from decision_api.json_rules import evaluate_adhoc_packs_json
 
     if not body.visual_pack.rules:
-        raise HTTPException(status_code=400, detail="visual_pack.rules must be non-empty")
+        raise HTTPException(
+            status_code=400, detail="visual_pack.rules must be non-empty"
+        )
     _static_check_regex_fields(body.visual_pack)
     json_pack = _compile_to_json_rules(body.visual_pack)
     pack: dict[str, Any] = {
@@ -227,7 +204,7 @@ async def compile_visual_ast(
     body: VisualAstPack,
     _user=Depends(require_role("analyst")),
 ) -> dict[str, Any]:
-    """Compile AST → JSON rule pack (Rego: POST /v1/rules/visual/compile/rego)."""
+    """Compile AST → JSON rule pack."""
     _static_check_regex_fields(body)
     json_pack = _compile_to_json_rules(body)
     fp = hashlib.sha256(json.dumps(json_pack, sort_keys=True).encode()).hexdigest()
@@ -236,3 +213,14 @@ async def compile_visual_ast(
         "fingerprint_sha256": fp,
         "gitops_note": "Commit rule_pack JSON under rules/visual/ and open PR for peer approval before prod deploy.",
     }
+
+
+@rego_deprecation_router.post(
+    "/compile",
+    deprecated=True,
+    summary="OPA/Rego compile (removed)",
+    description="Returns 410 Gone. Rule compilation is JSON-only; use POST /v1/rules/visual/compile.",
+    response_model=None,
+)
+async def compile_rego_deprecated_410(_user=Depends(require_role("analyst"))) -> None:
+    raise HTTPException(status_code=410, detail=_REGO_COMPILE_GONE_DETAIL)

@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { compliance } from "../api/client";
+import { ComplianceResidencyAuditViewer } from "../components/compliance/ComplianceResidencyAuditViewer";
+import { DataResidencyMatrix } from "../components/compliance/DataResidencyMatrix";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { toUserFacingError } from "../utils/userFacingErrors";
@@ -54,19 +56,6 @@ function statusColor(status: string) {
       return "bg-orange-500/20 text-orange-400 border-orange-500/30";
     default:
       return "bg-gray-500/20 text-gray-400 border-gray-500/30";
-  }
-}
-
-function progressBarColor(status: string) {
-  switch (status) {
-    case "implemented":
-      return "bg-emerald-500";
-    case "configurable":
-      return "bg-yellow-500";
-    case "partial":
-      return "bg-orange-500";
-    default:
-      return "bg-gray-500";
   }
 }
 
@@ -299,6 +288,10 @@ export default function Compliance() {
           </select>
         </div>
       </div>
+
+      <DataResidencyMatrix />
+
+      <ComplianceResidencyAuditViewer />
 
       {/* Privacy Profile Card */}
       {profile && (

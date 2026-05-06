@@ -15,15 +15,26 @@ def test_challenger_mode_includes_canary_excluded_packs():
         "_source_file": "test.json",
         "name": "t",
         "canary_percent": 0,
-        "rules": [{"id": "always", "when": [{"field": "amount", "op": "gte", "value": 1}], "tags": ["x"], "score_delta": 5}],
+        "rules": [
+            {
+                "id": "always",
+                "when": [{"field": "amount", "op": "gte", "value": 1}],
+                "tags": ["x"],
+                "score_delta": 5,
+            }
+        ],
         "tag_rules": [],
     }
     import decision_api.json_rules as jr
 
     jr._cached_packs = [pack]
-    h, _, d, _pf = evaluate_json_rules({"amount": 100}, [], "t1", "e1", evaluation_mode="production")
+    h, _, d, _pf = evaluate_json_rules(
+        {"amount": 100}, [], "t1", "e1", evaluation_mode="production"
+    )
     assert h == [] and d == 0.0
-    h2, _, d2, _pf2 = evaluate_json_rules({"amount": 100}, [], "t1", "e1", evaluation_mode="challenger")
+    h2, _, d2, _pf2 = evaluate_json_rules(
+        {"amount": 100}, [], "t1", "e1", evaluation_mode="challenger"
+    )
     assert "always" in h2 and d2 == 5.0
 
 
@@ -33,15 +44,26 @@ def test_simulation_bypasses_canary():
         "_source_file": "test.json",
         "name": "t",
         "canary_percent": 0,
-        "rules": [{"id": "always", "when": [{"field": "amount", "op": "gte", "value": 1}], "tags": ["x"], "score_delta": 5}],
+        "rules": [
+            {
+                "id": "always",
+                "when": [{"field": "amount", "op": "gte", "value": 1}],
+                "tags": ["x"],
+                "score_delta": 5,
+            }
+        ],
         "tag_rules": [],
     }
     import decision_api.json_rules as jr
 
     jr._cached_packs = [pack]
-    h, t, d, _pfa = evaluate_json_rules({"amount": 100}, [], "t1", "e1", evaluation_mode="production")
+    h, t, d, _pfa = evaluate_json_rules(
+        {"amount": 100}, [], "t1", "e1", evaluation_mode="production"
+    )
     assert h == [] and d == 0.0
-    h2, t2, d2, _pfb = evaluate_json_rules({"amount": 100}, [], "t1", "e1", evaluation_mode="simulation")
+    h2, t2, d2, _pfb = evaluate_json_rules(
+        {"amount": 100}, [], "t1", "e1", evaluation_mode="simulation"
+    )
     assert "always" in h2 and d2 == 5.0
 
 
@@ -51,13 +73,22 @@ def test_effective_at_future_excludes_pack():
         "version": 1,
         "_source_file": "f.json",
         "effective_at": future,
-        "rules": [{"id": "late", "when": [{"field": "amount", "op": "gte", "value": 1}], "tags": ["y"], "score_delta": 3}],
+        "rules": [
+            {
+                "id": "late",
+                "when": [{"field": "amount", "op": "gte", "value": 1}],
+                "tags": ["y"],
+                "score_delta": 3,
+            }
+        ],
         "tag_rules": [],
     }
     import decision_api.json_rules as jr
 
     jr._cached_packs = [pack]
-    h, _, d, _pfc = evaluate_json_rules({"amount": 50}, [], "t", "e", evaluation_mode="production")
+    h, _, d, _pfc = evaluate_json_rules(
+        {"amount": 50}, [], "t", "e", evaluation_mode="production"
+    )
     assert h == [] and d == 0.0
 
 

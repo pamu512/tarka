@@ -3,13 +3,14 @@ import math
 import os
 import sys
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
 import redis.asyncio as aioredis
 from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
+from tarka_core.internal_monitor import InternalMonitor
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from fraud_aggregates import AggregateStore, normalized_velocity_key_names  # noqa: E402
@@ -28,7 +29,9 @@ def _get_api_keys() -> frozenset[str]:
     global _valid_api_keys
     if _valid_api_keys is None:
         raw = os.environ.get("API_KEYS", "").strip()
-        _valid_api_keys = frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
+        _valid_api_keys = (
+            frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
+        )
     return _valid_api_keys
 
 
@@ -37,7 +40,12 @@ async def require_api_key(request: Request) -> None:
         return
     keys = _get_api_keys()
     if not keys:
-        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         if allow:
             return
         raise HTTPException(
@@ -96,7 +104,9 @@ async def lifespan(application: FastAPI):
     application.state.http = httpx.AsyncClient(timeout=httpx.Timeout(3.0, connect=1.0))
     application.state.velocity_store = None
     application.state.redis_client = None
-    redis_url = (os.environ.get("FEATURE_SERVICE_REDIS_URL") or os.environ.get("REDIS_URL") or "").strip()
+    redis_url = (
+        os.environ.get("FEATURE_SERVICE_REDIS_URL") or os.environ.get("REDIS_URL") or ""
+    ).strip()
     if redis_url:
         try:
             rc = aioredis.from_url(redis_url, decode_responses=True)
@@ -185,7 +195,7 @@ def _compute_amount_features(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _compute_time_features() -> dict[str, Any]:
     """Derive time-based features from the current UTC time."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     hour = now.hour
     dow = now.weekday()
     return {
@@ -394,7 +404,7 @@ async def parity_verify(body: ParityVerifyRequest, request: Request):
         "epsilon": eps,
         "checked_keys": list(body.expected.keys()),
         "drift": drift,
-        "live_sample": {k: live.get(k) for k in body.expected.keys()},
+        "live_sample": {k: live.get(k) for k in body.expected},
     }
     if not ok:
         raise HTTPException(status_code=409, detail=out)
@@ -432,12 +442,18 @@ async def snapshot(body: SnapshotRequest, request: Request):
             )
             if r.status_code == 200:
                 redis_tags = list(r.json().get("tags", []))
-        except Exception:
-            pass
+        except Exception as exc:
+            InternalMonitor.log_suppressed_error(
+                exc,
+                context="feature_service_redis_tags_upstream",
+                domain="fraud_decisioning",
+            )
 
     vector = _build_vector(features)
 
-    velocity_counters = await _compute_velocity_counters(request, body.tenant_id, body.entity_id, features)
+    velocity_counters = await _compute_velocity_counters(
+        request, body.tenant_id, body.entity_id, features
+    )
 
     return {
         "tenant_id": body.tenant_id,

@@ -49,7 +49,9 @@ def test_evidence_summary_golden_fixtures(name: str) -> None:
         assert r2.json() == body
 
 
-def test_evidence_summary_automated_action_requires_allowlist(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_evidence_summary_automated_action_requires_allowlist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     payload = {
         "tenant_id": "demo",
         "analyst_id": "analyst-1",
@@ -72,7 +74,9 @@ def test_evidence_summary_automated_action_requires_allowlist(monkeypatch: pytes
     assert r.status_code == 200
     assert r.json().get("next_actions") == []
 
-    monkeypatch.setattr(main_mod.settings, "evidence_summary_automated_action_allowlist", "auto_escalate,other")
+    monkeypatch.setattr(
+        main_mod.settings, "evidence_summary_automated_action_allowlist", "auto_escalate,other"
+    )
     with TestClient(app) as client:
         r2 = client.post("/v1/evidence/summary", json=payload)
     assert r2.status_code == 200

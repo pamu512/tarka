@@ -3,6 +3,17 @@ type ErrorContext = {
   action: string;
 };
 
+/** True when ``fetch`` was aborted (manual stop or ``AbortSignal.timeout``). */
+export function isLikelyClientTimeoutOrAbort(error: unknown): boolean {
+  if (error instanceof DOMException) {
+    return error.name === "AbortError" || error.name === "TimeoutError";
+  }
+  if (error instanceof Error) {
+    return error.name === "AbortError" || error.name === "TimeoutError";
+  }
+  return false;
+}
+
 function extractStatusCode(message: string): number | null {
   const m = message.trim().match(/^(\d{3})\b/);
   if (!m) return null;
