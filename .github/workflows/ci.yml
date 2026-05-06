@@ -74,7 +74,16 @@ jobs:
           tokens = ("C" + "ursor", "A" + "nysphere")
           for token in tokens:
               r = subprocess.run(
-                  ["git", "grep", "-nF", token, "--", ".", ":(exclude).github/workflows/ci.yml"],
+                  [
+                      "git",
+                      "grep",
+                      "-nIF",
+                      token,
+                      "--",
+                      ".",
+                      ":(exclude).github/workflows/ci.yml",
+                      ":(exclude)**/target",
+                  ],
                   capture_output=True,
                   text=True,
               )
@@ -401,15 +410,11 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: packages/fraud-sdk-typescript/package-lock.json
+          cache-dependency-path: package-lock.json
       - run: npm ci
-        working-directory: packages/fraud-sdk-typescript
-      - run: npm test
-        working-directory: packages/fraud-sdk-typescript
-      - run: npm run test:contract
-        working-directory: packages/fraud-sdk-typescript
-      - run: npm run build
-        working-directory: packages/fraud-sdk-typescript
+      - run: npm test -w @tarka/sdk
+      - run: npm run test:contract -w @tarka/sdk
+      - run: npm run build -w @tarka/sdk
 
   test-graphql-gateway:
     needs: audit-stubs

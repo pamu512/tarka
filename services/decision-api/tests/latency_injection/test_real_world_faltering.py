@@ -21,7 +21,7 @@ from pytest_mock import MockerFixture
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 
-from ..aggregate_fake_redis import FakeRedis  # noqa: E402
+from tests.aggregate_fake_redis import FakeRedis  # noqa: E402
 from decision_api.aggregates import AggregateStore  # noqa: E402
 
 # Tier-1 synchronous evaluate budget: worst-case injected FFI delay + framework overhead (tests mock upstream deps).
