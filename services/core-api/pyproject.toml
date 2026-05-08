@@ -4,6 +4,7 @@ version = "1.0.0"
 description = "Consolidated decision + case APIs"
 requires-python = ">=3.11"
 dependencies = [
+  "structlog>=24.1.0",
   "fastapi>=0.135.3",
   "uvicorn[standard]>=0.44.0",
   "nats-py>=2.7.0",
@@ -19,6 +20,9 @@ dependencies = [
   "tenacity>=9.0.0",
   "pydantic-settings>=2.13.1",
   "pydantic>=2.13.0",
+  "opentelemetry-sdk>=1.27.0,<2",
+  "opentelemetry-instrumentation-fastapi>=0.48b0",
+  "opentelemetry-exporter-otlp>=1.27.0,<2",
   "clickhouse-connect>=0.8.0",
   "pyarrow>=14.0.0",
 ]

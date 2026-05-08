@@ -59,7 +59,7 @@ fn write_checkpoint(path: &PathBuf, line: u64) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
+    let _ = tarka_core::tracing_elk::try_install_elk_json_tracing();
     dotenvy::dotenv().ok();
     let args = Args::parse();
     let start_line = read_checkpoint(&args.checkpoint_path);

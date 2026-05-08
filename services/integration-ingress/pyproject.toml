@@ -3,6 +3,7 @@ name = "tarka-integration-ingress"
 version = "0.2.0"
 requires-python = ">=3.11"
 dependencies = [
+  "structlog>=24.1.0",
   "tarka-core @ file:../core",
   "tarka-vendor-finops @ file:../integration",
   "fastapi>=0.135.3",

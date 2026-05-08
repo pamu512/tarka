@@ -51,6 +51,19 @@ services:
       - fraud_ch:/var/lib/clickhouse
     profiles: [analytics, full]
 
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.120.1
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+      - "13133:13133" # health_check
+    depends_on:
+      - clickhouse
+    profiles: [analytics, full]
+
   opa:
     image: openpolicyagent/opa:0.70.0
     command: ["run", "--server", "/policies/policy.rego"]
@@ -74,6 +87,8 @@ services:
   # ---------- Core Services ----------
   core-api:
     build:
+      # Compose file lives in deploy/: parent directory is the git repo root.
+      # Required so services/core-api/Dockerfile can COPY services/core, services/analytics, …
       context: ..
       dockerfile: services/core-api/Dockerfile
     environment:

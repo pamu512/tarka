@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
+import pytest_asyncio
 
 
 @asynccontextmanager
@@ -46,8 +47,8 @@ class _FakePool:
         return _acquire_cm(self._conn)
 
 
-@pytest.fixture
-def sb_client():
+@pytest_asyncio.fixture
+async def sb_client():
     pytest.importorskip("asyncpg")
     import decision_api.main as _main_mod  # noqa: F401
 
@@ -81,7 +82,7 @@ def sb_client():
                     app.dependency_overrides[get_pg_pool] = _pool
 
                     transport = httpx.ASGITransport(app=app)
-                    with httpx.Client(
+                    async with httpx.AsyncClient(
                         transport=transport, base_url="http://testserver"
                     ) as c:
                         c.headers.update({"x-api-key": "test-key"})
@@ -91,7 +92,8 @@ def sb_client():
                     app.dependency_overrides = {}
 
 
-def test_sandbox_bootstrap_idempotent(monkeypatch, sb_client):
+@pytest.mark.asyncio
+async def test_sandbox_bootstrap_idempotent(monkeypatch, sb_client):
     captured: list[object] = []
 
     def _capture(pack):
@@ -101,7 +103,7 @@ def test_sandbox_bootstrap_idempotent(monkeypatch, sb_client):
         "decision_api.sandbox_bootstrap.set_plg_sandbox_runtime_pack", _capture
     )
 
-    r1 = sb_client.post("/v1/sandbox/bootstrap")
+    r1 = await sb_client.post("/v1/sandbox/bootstrap")
     assert r1.status_code == 200, r1.text
     body1 = r1.json()
     assert body1["merged_rule_count"] == 5
@@ -109,7 +111,7 @@ def test_sandbox_bootstrap_idempotent(monkeypatch, sb_client):
     assert len(captured) == 1
     assert len(captured[0]["rules"]) == 5
 
-    r2 = sb_client.post("/v1/sandbox/bootstrap")
+    r2 = await sb_client.post("/v1/sandbox/bootstrap")
     assert r2.status_code == 200
     body2 = r2.json()
     assert body2["rule_approval_inserted"] is False

@@ -158,21 +158,23 @@ class TarkaDecision:
 
     @property
     def manifest(self):
-        """Lazily decode protobuf — safe to skip when handlers only forward bytes."""
+        """Lazily decode wire protobuf — safe to skip when handlers only forward bytes."""
         if self._manifest is None:
-            from tarka.evidence.v1.evidence_pb2 import EvidenceManifest
+            from tarka.models import decode_wire_manifest
 
-            msg = EvidenceManifest()
-            msg.ParseFromString(self.manifest_proto_bytes())
-            self._manifest = msg
+            self._manifest = decode_wire_manifest(self.manifest_proto_bytes())
         return self._manifest
 
     @property
     def has_merkle_proof(self) -> bool:
-        return bool(self._inner.has_merkle_proof)
+        from tarka.verifier import manifest_has_merkle_proof_field
+
+        return manifest_has_merkle_proof_field(self.manifest)
 
     def merkle_proof_proto_bytes(self) -> Optional[bytes]:
-        if not self.has_merkle_proof:
+        from tarka.verifier import manifest_has_merkle_proof_field
+
+        if not manifest_has_merkle_proof_field(self.manifest):
             return None
         return bytes(self._inner.merkle_proof_proto_bytes())
 
@@ -201,7 +203,8 @@ def evaluate(
     ----------
     rule_content_id_hex
         64-character hex encoding of SHA-256(rule_json UTF-8 bytes). Must match exactly or the
-        engine raises ``RuntimeError`` (see Rust ``SecurityIntegrityViolation``).
+        engine raises :class:`tarka.verifier.ManifestIntegrityError` with
+        ``failure_reason=CANONICALIZATION_ERROR`` (Rust ``SecurityIntegrityViolation``).
     fast_path
         When ``True`` (default), Merkle tree construction and Ed25519 signing are **skipped**
         entirely on the Rust side for maximum throughput.

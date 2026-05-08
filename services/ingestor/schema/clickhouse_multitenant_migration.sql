@@ -1,0 +1,20 @@
+-- =============================================================================
+-- Migrating pre-multitenant `evidence_manifests` → tenant-partitioned layout
+-- =============================================================================
+-- ClickHouse cannot change PARTITION BY in-place on MergeTree. Typical approaches:
+--
+-- A) Blue/green table swap (recommended):
+--    1. CREATE TABLE tarka_audit.evidence_manifests_new AS evidence_manifests structure from clickhouse.sql
+--       (copy CREATE from clickhouse.sql; rename table to evidence_manifests_new).
+--    2. INSERT INTO evidence_manifests_new SELECT
+--         'legacy' AS tenant_id,
+--         manifest_id, engine_version, timestamp_ns, final_decision, total_execution_time_us,
+--         signals, trace_json, crypto_algorithm, crypto_signature_hex, crypto_key_id,
+--         raw_manifest_sha256, ingested_at
+--       FROM tarka_audit.evidence_manifests;
+--    3. EXCHANGE TABLES evidence_manifests AND evidence_manifests_new ON CLUSTER '<cluster>' 
+--       (or RENAME in single-node dev).
+--    4. Recreate materialized views (see clickhouse_audit_materialized_views.sql).
+--
+-- B) Fresh cluster: apply clickhouse.sql + MV SQL + clickhouse_row_policies.sql only.
+-- =============================================================================

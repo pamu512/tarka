@@ -7,10 +7,12 @@ RUN apt-get update \
 
 WORKDIR /app
 RUN pip install --no-cache-dir pip -U
-COPY services/core-api/pyproject.toml /app/
+# Local path deps in pyproject.toml (file:../core, file:../analytics) must exist before `pip install`;
+# sed below rewrites them to file:./core and file:./analytics under WORKDIR.
 COPY services/core /app/core
 COPY services/analytics /app/analytics
 COPY services/shared /app/shared
+COPY services/core-api/pyproject.toml /app/
 COPY services/decision-api/src/decision_api /app/src/decision_api
 COPY services/decision-api/alembic /app/decision_migrations
 COPY services/decision-api/rules /app/rules

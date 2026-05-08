@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package tarka.evidence.v1;
+
+// Top-level evidence envelope persisted or transmitted for audit and replay.
+message EvidenceManifest {
+  Header header = 1;
+  InputMap input_map = 2;
+  Trace trace = 3;
+  Metadata metadata = 4;
+  CryptoSignature crypto_signature = 5;
+}
+
+// Identity and provenance for a single manifest instance.
+message Header {
+  // Raw UUID bytes (16 octets). For v7 manifests, layout follows RFC 9562.
+  bytes manifest_id = 1;
+  // Repository revision embedded at build time (example: full git SHA-1).
+  string engine_version = 2;
+  // Wall-clock or logical instant in nanoseconds since Unix epoch unless otherwise specified by the engine.
+  uint64 timestamp_ns = 3;
+  // Node binding for audit: CPU identifiers, primary MAC (when readable), and SHA-256 of canonical material (see tarka-core engine_fingerprint).
+  string engine_fingerprint = 4;
+}
+
+// Raw decision inputs keyed by stable signal identifiers.
+message InputMap {
+  map<string, SignalValue> entries = 1;
+}
+
+// Serializable scalar or blob carried on the wire for a signal.
+message SignalValue {
+  oneof value {
+    bool bool_value = 1;
+    int64 int_value = 2;
+    double double_value = 3;
+    string string_value = 4;
+    bytes bytes_value = 5;
+  }
+}
+
+// Ordered evaluation trace for debugging, disputes, and replay.
+message Trace {
+  repeated Step steps = 1;
+}
+
+message Step {
+  string rule_id = 1;
+  string logic_operator = 2;
+  repeated string operands = 3;
+  bool result = 4;
+  map<string, string> state_snapshot = 5;
+  // OpenTelemetry W3C trace id (16 bytes as 32 lowercase hex chars). Empty when not propagated.
+  string otel_trace_id = 6;
+}
+
+message Metadata {
+  bool final_decision = 1;
+  uint64 total_execution_time_us = 2;
+}
+
+message CryptoSignature {
+  string algorithm = 1;
+  bytes signature = 2;
+  string key_id = 3;
+}

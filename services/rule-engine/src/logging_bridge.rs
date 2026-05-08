@@ -1,9 +1,18 @@
 //! Forwards `tracing` events to Python's `logging` module (when a bridge logger is installed).
+//! Each line is a single JSON object including mandatory `trace_id`, `rule_set_hash`, `tenant_id`,
+//! and `otel_trace_id` (W3C 128-bit trace id for Evidence Manifest correlation).
+//!
+//! When `SENTRY_DSN` or `TARKA_SENTRY_DSN` is set, [`sentry_tracing`] is layered so panics and span
+//! metadata reach Sentry with the same correlation fields.
+
+use std::borrow::Cow;
+use std::cell::RefCell;
+use std::io::Write;
+use std::sync::{Arc, LazyLock, Once, OnceLock};
 
 use parking_lot::Mutex;
 use pyo3::prelude::*;
-use std::sync::{Arc, LazyLock, Once};
-
+use serde_json::json;
 use tracing::{Event, Subscriber};
 use tracing_subscriber::layer::{Context, Layer};
 use tracing_subscriber::registry::LookupSpan;
@@ -15,15 +24,85 @@ pub type LoggerCell = Arc<Mutex<Option<Py<PyAny>>>>;
 pub static LOGGER_BRIDGE: LazyLock<LoggerCell> =
     LazyLock::new(|| Arc::new(Mutex::new(None)));
 
+thread_local! {
+    /// Mirrors FastAPI `structlog` context when Python calls [`set_tracing_log_context`].
+    static TRACE_TLS: RefCell<(String, String, String, String)> =
+        RefCell::new((String::new(), String::new(), String::new(), String::new()));
+}
+
 static TRACING_INIT: Once = Once::new();
+
+/// Keeps the Sentry client alive for the process lifetime (required when DSN is set).
+static SENTRY_GUARD: OnceLock<sentry::ClientInitGuard> = OnceLock::new();
+
+fn init_sentry_if_configured() {
+    let _ = SENTRY_GUARD.get_or_init(|| {
+        let dsn = std::env::var("SENTRY_DSN")
+            .or_else(|_| std::env::var("TARKA_SENTRY_DSN"))
+            .unwrap_or_default();
+        let trimmed = dsn.trim();
+        if trimmed.is_empty() {
+            return sentry::init(());
+        }
+        let release = option_env!("CARGO_PKG_VERSION").map(|v| {
+            Cow::Owned(format!("tarka_rule_engine@{v}"))
+        });
+        let environment = std::env::var("SENTRY_ENVIRONMENT")
+            .ok()
+            .map(|s| Cow::Owned(s));
+        sentry::init((
+            trimmed,
+            sentry::ClientOptions {
+                release,
+                environment,
+                ..Default::default()
+            },
+        ))
+    });
+}
+
+/// Thread-local trace correlation for Rust → Python log forwarding (same thread as the caller).
+#[pyfunction]
+#[pyo3(name = "set_tracing_log_context")]
+#[pyo3(signature = (trace_id, rule_set_hash, tenant_id, otel_trace_id=None))]
+pub fn set_tracing_log_context_py(
+    trace_id: String,
+    rule_set_hash: String,
+    tenant_id: String,
+    otel_trace_id: Option<String>,
+) {
+    let otel = otel_trace_id.unwrap_or_default();
+    TRACE_TLS.with(|c| {
+        *c.borrow_mut() = (trace_id, rule_set_hash, tenant_id, otel);
+    });
+}
+
+pub(crate) fn eval_context_span(tenant_for_log: &str) -> tracing::Span {
+    let (a, b, mut c, d) = TRACE_TLS.with(|x| x.borrow().clone());
+    if !tenant_for_log.is_empty() {
+        c = tenant_for_log.to_string();
+    }
+    tracing::info_span!(
+        "tarka_rule_engine_eval",
+        trace_id = %a,
+        rule_set_hash = %b,
+        tenant_id = %c,
+        otel_trace_id = %d
+    )
+}
 
 /// Install the global `tracing` subscriber once; subsequent calls are no-ops.
 pub fn ensure_tracing_installed() {
     TRACING_INIT.call_once(|| {
-        let layer = PythonLogBridge {
+        init_sentry_if_configured();
+        let sentry_layer = sentry_tracing::layer();
+        let python_layer = PythonLogBridge {
             logger: LOGGER_BRIDGE.clone(),
         };
-        let _ = tracing_subscriber::registry().with(layer).try_init();
+        let _ = tracing_subscriber::registry()
+            .with(sentry_layer)
+            .with(python_layer)
+            .try_init();
     });
 }
 
@@ -35,7 +114,6 @@ pub struct PythonLogBridge {
 #[derive(Default)]
 struct MessageRecorder {
     message: String,
-    /// Structured fields other than `message` (span metadata / key=value context).
     extras: Vec<(String, String)>,
 }
 
@@ -91,22 +169,35 @@ where
         let Some(logger) = guard.as_ref() else {
             return;
         };
+
         let mut rec = MessageRecorder::default();
         event.record(&mut rec);
-        let mut line = String::new();
-        line.push_str(event.metadata().target());
-        line.push_str(": ");
-        if rec.message.is_empty() {
-            line.push_str(event.metadata().name());
-        } else {
-            line.push_str(&rec.message);
-        }
+
+        let (tls_tid, tls_rsh, tls_ten, tls_otel) =
+            TRACE_TLS.with(|c| c.borrow().clone());
+
+        let mut fields = serde_json::Map::new();
         for (k, v) in rec.extras {
-            use std::fmt::Write;
-            let _ = write!(&mut line, " {k}={v}");
+            fields.insert(k, json!(v));
+        }
+        if !rec.message.is_empty() {
+            fields.insert("message".to_string(), json!(rec.message));
+        } else {
+            fields.insert(
+                "message".to_string(),
+                json!(event.metadata().name()),
+            );
         }
 
         let level = *event.metadata().level();
+        let level_str = match level {
+            tracing::Level::ERROR => "ERROR",
+            tracing::Level::WARN => "WARN",
+            tracing::Level::INFO => "INFO",
+            tracing::Level::DEBUG => "DEBUG",
+            tracing::Level::TRACE => "TRACE",
+        };
+
         let py_level = match level {
             tracing::Level::ERROR => 40_i32,
             tracing::Level::WARN => 30_i32,
@@ -115,6 +206,18 @@ where
             tracing::Level::TRACE => 5_i32,
         };
 
+        let line = json!({
+            "ts": chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            "level": level_str,
+            "trace_id": tls_tid,
+            "rule_set_hash": tls_rsh,
+            "tenant_id": tls_ten,
+            "otel_trace_id": tls_otel,
+            "target": event.metadata().target(),
+            "fields": serde_json::Value::Object(fields),
+        })
+        .to_string();
+
         Python::with_gil(|py| {
             let log_call = || -> PyResult<()> {
                 let lg = logger.bind(py);
@@ -122,7 +225,17 @@ where
                 Ok(())
             };
             if let Err(e) = log_call() {
-                eprintln!("tarka_rule_engine: python logging bridge failed: {e}");
+                let err_json = json!({
+                    "ts": chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+                    "level": "ERROR",
+                    "trace_id": "",
+                    "rule_set_hash": "",
+                    "tenant_id": "",
+                    "otel_trace_id": "",
+                    "target": "tarka_rule_engine.logging_bridge",
+                    "message": format!("python logging bridge failed: {e}"),
+                });
+                let _ = writeln!(std::io::stderr(), "{err_json}");
             }
         });
     }

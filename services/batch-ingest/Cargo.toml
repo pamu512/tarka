@@ -8,6 +8,7 @@ description = "High-throughput historical backfill to ClickHouse (no live NATS d
 tokio = { version = "1.36", features = ["full"] }
 anyhow = "1.0"
 tracing = "0.1"
+tarka-core = { path = "../../crates/tarka-core" }
 tracing-subscriber = "0.3"
 dotenvy = "0.15"
 serde = { version = "1.0", features = ["derive"] }

@@ -933,7 +933,7 @@ mod proptests {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
+    let _ = tarka_core::tracing_elk::try_install_elk_json_tracing();
     dotenvy::dotenv().ok();
 
     let nats_url = env::var("NATS_URL").unwrap_or_else(|_| "nats://localhost:4222".to_string());

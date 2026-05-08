@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tarka-test"
+version = "0.1.0"
+description = "JSON-driven integration tests for POST /v1/decisions/evaluate with decision and evidence trace assertions."
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.28.0",
+    "protobuf>=6.30.0",
+]
+
+[project.optional-dependencies]
+tarka = [
+    "tarka",
+]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+tarka-test = "tarka_test.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

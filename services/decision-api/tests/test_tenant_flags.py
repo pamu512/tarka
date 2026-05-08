@@ -2,7 +2,9 @@
 
 from decision_api.main import (
     _compute_fallback_reason,
+    _decision_runtime_status,
     _shape_inference_context_for_tier,
+    _signal_availability_notes_from_tags,
 )
 from decision_api.tenant_flags import tenant_flag_enabled
 
@@ -18,6 +20,27 @@ def test_compute_fallback_reason_from_tags():
     assert r
     assert "circuit_ml" in r
     assert "circuit_opa" in r
+
+
+def test_compute_fallback_reason_redis_and_consortium():
+    r = _compute_fallback_reason(
+        ["redis:tenant_flags_unavailable", "consortium:unavailable"], []
+    )
+    assert r
+    assert "circuit_redis_tenant_flags" in r
+    assert "circuit_consortium" in r
+
+
+def test_signal_availability_notes_and_decision_status():
+    tags = ["graph:unavailable", "ml:unavailable"]
+    notes = _signal_availability_notes_from_tags(tags)
+    assert "Signal Graph risk was unavailable" in notes
+    assert "Signal ML scoring was unavailable" in notes
+    assert _decision_runtime_status(tags, notes) == "Degraded"
+    assert _decision_runtime_status([], []) == "Healthy"
+    assert (
+        _decision_runtime_status(["load_shedding:active"], []) == "Degraded"
+    )
 
 
 def test_compute_fallback_reason_covers_async_osint_and_counter_fallback():

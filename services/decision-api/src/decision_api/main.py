@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import hashlib
 import hmac
 import json as _json
@@ -8,7 +9,7 @@ import re as _re
 import sys
 import time
 import uuid
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
 from typing import Any, Literal
 from uuid import UUID
@@ -25,7 +26,9 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
 )
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
+from starlette.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,6 +36,13 @@ from tarka_core.internal_monitor import InternalMonitor
 
 from decision_api.config import settings
 from decision_api.deps import close_analytics_infra, open_analytics_infra
+from decision_api.pii_redaction_proxy import (
+    deep_redact_mapping,
+    evidence_manifest_json_redact_input_map,
+    flatten_payload_to_entry_strings,
+    is_superuser,
+    redact_flat_payload_entries,
+)
 
 try:
     from decision_api.config import dependency_resilience_policy_table
@@ -145,6 +155,10 @@ from decision_api.json_rules import (
 from decision_api.models import AuditRecord
 from decision_api.opa_client import evaluate_opa_or_raise
 from decision_api.redis_store import redis_tags
+from decision_api.redis_signature_sync import (
+    persist_entity_signature_after_evaluate,
+    redis_signature_sync_loop,
+)
 from decision_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 
 sys.path.insert(
@@ -184,9 +198,15 @@ from decision_api.policy_routing import (
 )
 from decision_api.schemas import EvaluateRequest, EvaluateResponse
 from decision_api.shadow import evaluate_shadow, load_shadow_rules, record_observation
+from decision_api.shadow_evaluator import (
+    ShadowEvaluator,
+    candidate_rules_available,
+    load_candidate_rules,
+)
 from decision_api.tags import derive_contextual_tags
 from decision_api.tenant_flags import tenant_flag_enabled
 from decision_api.trusted_zones import load_trusted_zones_for_tenant
+from decision_api.health_deep import run_deep_health, run_unified_health
 from decision_api.typology import (
     evaluate_typologies,
     load_typology_definitions,
@@ -206,12 +226,27 @@ _shared_dir = os.path.normpath(
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
 from auth_rbac import require_role, setup_auth  # noqa: E402
-from observability import get_metrics, setup_observability  # noqa: E402
+from observability import get_metrics, setup_observability, setup_sentry_sdk  # noqa: E402
 from rate_limiter import setup_rate_limiter  # noqa: E402
 from security_headers import setup_security_headers  # noqa: E402
 from tenant_binding import parse_api_key_tenant_map  # noqa: E402
 
 log = logging.getLogger("decision-api")
+
+
+def _sanitize_validation_detail(obj: Any) -> Any:
+    """Make validation errors JSON-safe (FastAPI's default encoder assumes bytes are UTF-8 text)."""
+    if isinstance(obj, bytes):
+        try:
+            obj.decode("utf-8")
+        except UnicodeDecodeError:
+            return f"<binary {len(obj)} bytes (invalid utf-8)>"
+        return obj.decode("utf-8")
+    if isinstance(obj, dict):
+        return {k: _sanitize_validation_detail(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_validation_detail(v) for v in obj]
+    return obj
 
 
 def _upstream_headers() -> dict[str, str]:
@@ -263,6 +298,16 @@ _circuit_location = AsyncCircuitBreaker(
     "location",
     failure_threshold=settings.circuit_location_failure_threshold,
     recovery_seconds=settings.circuit_location_recovery_seconds,
+)
+_circuit_redis = AsyncCircuitBreaker(
+    "redis",
+    failure_threshold=settings.circuit_redis_failure_threshold,
+    recovery_seconds=settings.circuit_redis_recovery_seconds,
+)
+_circuit_consortium = AsyncCircuitBreaker(
+    "consortium",
+    failure_threshold=settings.circuit_external_failure_threshold,
+    recovery_seconds=settings.circuit_external_recovery_seconds,
 )
 _ANALYST_ENTITY_ID = _re.compile(r"^[a-zA-Z0-9._@:/-]{1,512}$")
 
@@ -703,6 +748,10 @@ def _compute_fallback_reason(
         "calibration:unavailable": "circuit_calibration",
         "counter:unavailable": "circuit_counter",
         "location:unavailable": "circuit_location",
+        "consortium:unavailable": "circuit_consortium",
+        "redis:tenant_flags_unavailable": "circuit_redis_tenant_flags",
+        "redis:entity_tags_unavailable": "circuit_redis_entity_tags",
+        "redis:tag_merge_unavailable": "circuit_redis_tag_merge",
         "async_osint:unavailable": "async_osint_redis",
         "counter:fallback_local_agg": "counter_local_aggregate_fallback",
         "lists:disabled_by_tenant": "tenant_disable_entity_lists",
@@ -728,6 +777,45 @@ def _compute_fallback_reason(
         parts.append("rules_only_blend")
         seen.add("rules_only_blend")
     return "; ".join(parts) if parts else None
+
+
+_SIGNAL_UNAVAILABLE_AUDIT: dict[str, str] = {
+    "lists:unavailable": "Signal Entity lists was unavailable",
+    "graph:unavailable": "Signal Graph risk was unavailable",
+    "enrichment:unavailable": "Signal Feature enrichment was unavailable",
+    "ml:unavailable": "Signal ML scoring was unavailable",
+    "opa:unavailable": "Signal Policy (OPA) was unavailable",
+    "calibration:unavailable": "Signal Calibration was unavailable",
+    "counter:unavailable": "Signal Counter service was unavailable",
+    "location:unavailable": "Signal Location intelligence was unavailable",
+    "redis:tag_merge_unavailable": "Signal Redis tag merge was unavailable",
+    "redis:tenant_flags_unavailable": "Signal Redis tenant flags was unavailable",
+    "redis:entity_tags_unavailable": "Signal Redis entity tags was unavailable",
+    "consortium:unavailable": "Signal Consortium cross-tenant signal was unavailable",
+    "async_osint:unavailable": "Signal Async OSINT cache was unavailable",
+}
+
+
+def _signal_availability_notes_from_tags(degrade_tags: list[str]) -> list[str]:
+    """Human-readable audit lines when external signal paths tripped or fell back."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for t in degrade_tags:
+        msg = _SIGNAL_UNAVAILABLE_AUDIT.get(t)
+        if msg and msg not in seen:
+            seen.add(msg)
+            out.append(msg)
+    return out
+
+
+def _decision_runtime_status(degrade_tags: list[str], notes: list[str]) -> str:
+    if notes:
+        return "Degraded"
+    if "load_shedding:active" in degrade_tags:
+        return "Degraded"
+    if "counter:fallback_local_agg" in degrade_tags:
+        return "Degraded"
+    return "Healthy"
 
 
 def _normalize_explainability_tier(raw: str | None) -> str:
@@ -1003,6 +1091,7 @@ async def lifespan(application: FastAPI):
     _touch_rules_materialized()
     load_challenge_policies(force=True)
     load_shadow_rules()
+    load_candidate_rules()
     if redis_tags._client:
         agg_store.set_client(redis_tags._client)
         fingerprint_store.set_client(redis_tags._client)
@@ -1035,8 +1124,21 @@ async def lifespan(application: FastAPI):
     if DEFAULT_RETENTION_DAYS > 0:
         retention_task = asyncio.create_task(retention_loop())
 
+    signature_sync_task = None
+    if settings.redis_signature_sync_enabled:
+        signature_sync_task = asyncio.create_task(redis_signature_sync_loop())
+
     yield
 
+    if os.environ.get("TARKA_CORE_API_SUBAPP", "").strip() != "1":
+        from decision_api.infrastructure.otel import shutdown_opentelemetry
+
+        shutdown_opentelemetry()
+
+    if signature_sync_task:
+        signature_sync_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await signature_sync_task
     if hasattr(application.state, "list_store") and application.state.list_store:
         await application.state.list_store.close()
     if retention_task:
@@ -1057,7 +1159,24 @@ app = FastAPI(
     version="4.0.0",
     lifespan=lifespan,
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def _safe_request_validation_handler(
+    _request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """Avoid 500 when validation references opaque bytes (protobuf-like bodies)."""
+    return JSONResponse(
+        status_code=422,
+        content={"detail": _sanitize_validation_detail(exc.errors())},
+    )
+
+
 if os.environ.get("TARKA_CORE_API_SUBAPP", "").strip() != "1":
+    from decision_api.infrastructure.otel import init_opentelemetry
+
+    setup_sentry_sdk("decision-api")
+    init_opentelemetry(app)
     setup_observability(app, "decision-api")
 setup_security_headers(app)
 setup_auth(app)
@@ -1073,6 +1192,8 @@ if settings.request_signature_secret:
     )
 
 from decision_api.analytics_dashboards import router as analytics_dashboards_router  # noqa: E402
+from decision_api.manifest_compare_api import router as manifest_compare_router  # noqa: E402
+from decision_api.manifest_visualize_api import router as manifest_visualize_router  # noqa: E402
 from decision_api.backtest_api import router as backtest_router  # noqa: E402
 from decision_api.ml_export_api import router as ml_export_router  # noqa: E402
 from decision_api.calibration_api import router as calibration_router  # noqa: E402
@@ -1121,6 +1242,8 @@ app.include_router(backtest_router)
 app.include_router(ml_export_router)
 app.include_router(feature_store_router)
 app.include_router(analytics_dashboards_router)
+app.include_router(manifest_visualize_router)
+app.include_router(manifest_compare_router)
 app.include_router(vendor_marketplace_router)
 app.include_router(sandbox_bootstrap_router)
 app.include_router(micro_dev_onboarding_router)
@@ -1142,6 +1265,24 @@ def _external_nats_connected(broker: Any) -> bool:
 @app.get("/v1/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/health")
+async def health_unified(request: Request):
+    """Unified readiness: Postgres, Redis ping, ClickHouse read/write, Rust rule engine + manifest ingest."""
+    return await run_unified_health(request)
+
+
+@app.get("/v1/health/deep")
+async def health_deep(request: Request):
+    """Deep readiness: Redis ping latency, ClickHouse probes, Rust ingest gate (503 when unhealthy)."""
+    return await run_deep_health(request)
+
+
+@app.get("/health/deep")
+async def health_deep_alias(request: Request):
+    """Alias for operators expecting `/health/deep` (same payload as `/v1/health/deep`)."""
+    return await run_deep_health(request)
 
 
 @app.get("/v1/slo")
@@ -1504,6 +1645,7 @@ async def list_challenge_policy_templates():
 @app.post("/v1/admin/shadow/reload")
 async def reload_shadow(_=Depends(require_role("admin"))):
     load_shadow_rules()
+    load_candidate_rules()
     return {"ok": True}
 
 
@@ -2163,7 +2305,15 @@ async def evaluate_decision(
     tenant_flags: dict[str, Any] = {}
     if redis_tags.is_tag_store_available:
         try:
-            tenant_flags = await redis_tags.get_tenant_flags(body.tenant_id)
+
+            async def _tenant_flags_call():
+                return await redis_tags.get_tenant_flags(body.tenant_id)
+
+            tenant_flags = await _circuit_redis.call(_tenant_flags_call)
+        except CircuitOpenError:
+            _circuit_metrics_inc("tarka_circuit_open_total_redis")
+            degrade_tags.append("redis:tenant_flags_unavailable")
+            tenant_flags = {}
         except Exception:
             tenant_flags = {}
 
@@ -2291,6 +2441,8 @@ async def evaluate_decision(
             )
             session.add(audit)
             await session.commit()
+            _sn_wl = _signal_availability_notes_from_tags(degrade_tags)
+            _ds_wl = _decision_runtime_status(degrade_tags, _sn_wl)
             return EvaluateResponse(
                 trace_id=trace_id,
                 decision="allow",
@@ -2300,6 +2452,8 @@ async def evaluate_decision(
                 reasons=[f"whitelist:{list_check.reason}"],
                 ml_score=None,
                 inference_context=_wl_inf,
+                decision_status=_ds_wl,
+                signal_availability_notes=_sn_wl,
                 recommended_action=_wl_rec,
                 challenge_policy_id=_wl_meta.get("policy_id"),
                 challenge_metadata=_wl_meta,
@@ -2357,6 +2511,8 @@ async def evaluate_decision(
             )
             session.add(audit)
             await session.commit()
+            _sn_bl = _signal_availability_notes_from_tags(degrade_tags)
+            _ds_bl = _decision_runtime_status(degrade_tags, _sn_bl)
             return EvaluateResponse(
                 trace_id=trace_id,
                 decision="deny",
@@ -2366,6 +2522,8 @@ async def evaluate_decision(
                 reasons=[f"blacklist:{list_check.reason}"],
                 ml_score=None,
                 inference_context=_bl_inf,
+                decision_status=_ds_bl,
+                signal_availability_notes=_sn_bl,
                 recommended_action=_bl_rec,
                 challenge_policy_id=_bl_meta.get("policy_id"),
                 challenge_metadata=_bl_meta,
@@ -2381,7 +2539,18 @@ async def evaluate_decision(
                 InternalMonitor.log_suppressed_error(
                     exc, context="load_shedding_eval_metrics", domain="observability"
                 )
-        existing_tags = await redis_tags.get_tags(body.tenant_id, body.entity_id)
+        try:
+
+            async def _existing_tags_call():
+                return await redis_tags.get_tags(body.tenant_id, body.entity_id)
+
+            existing_tags = await _circuit_redis.call(_existing_tags_call)
+        except CircuitOpenError:
+            _circuit_metrics_inc("tarka_circuit_open_total_redis")
+            degrade_tags.append("redis:entity_tags_unavailable")
+            existing_tags = []
+        except Exception:
+            existing_tags = []
 
         if settings.consortium_enabled:
             try:
@@ -2391,25 +2560,42 @@ async def evaluate_decision(
                     body.entity_id,
                     hash_scope=settings.consortium_hash_scope,
                 )
-                consortium_data = await redis_tags.check_consortium_signal(
-                    settings.consortium_id, signal_hash
-                )
-                consortium_delta = consortium_score_delta(
-                    consortium_data,
-                    min_tenants=settings.consortium_min_tenants,
-                    min_reports=settings.consortium_min_reports,
-                    trust_floor=settings.consortium_score_trust_floor,
-                    max_delta=settings.consortium_score_max_delta,
-                )
-                if consortium_delta > 0:
-                    signal_tags.append("consortium:cross_tenant_hit")
             except Exception as exc:
                 InternalMonitor.log_suppressed_error(
                     exc,
-                    context="consortium_signal_enrichment",
+                    context="consortium_signal_hash",
                     domain="fraud_decisioning",
                 )
-                consortium_delta = 0.0
+            else:
+
+                async def _consortium_call():
+                    return await redis_tags.check_consortium_signal(
+                        settings.consortium_id, signal_hash
+                    )
+
+                try:
+                    consortium_data = await _circuit_consortium.call(_consortium_call)
+                except CircuitOpenError:
+                    _circuit_metrics_inc("tarka_circuit_open_total_consortium")
+                    degrade_tags.append("consortium:unavailable")
+                    consortium_delta = 0.0
+                except Exception as exc:
+                    InternalMonitor.log_suppressed_error(
+                        exc,
+                        context="consortium_signal_enrichment",
+                        domain="fraud_decisioning",
+                    )
+                    consortium_delta = 0.0
+                else:
+                    consortium_delta = consortium_score_delta(
+                        consortium_data,
+                        min_tenants=settings.consortium_min_tenants,
+                        min_reports=settings.consortium_min_reports,
+                        trust_floor=settings.consortium_score_trust_floor,
+                        max_delta=settings.consortium_score_max_delta,
+                    )
+                    if consortium_delta > 0:
+                        signal_tags.append("consortium:cross_tenant_hit")
 
         # Graph routing (OSS #42): choose whether to call graph-service and which checkpoint to use.
         graph_checkpoint = _graph_checkpoint_from_body(body)
@@ -2698,20 +2884,39 @@ async def evaluate_decision(
                 pre_decision_audit_committed = True
 
         # Run rules + OPA + ML in parallel (OPA and ML don't need each other)
-        (
-            rule_hits,
-            rule_tags,
-            score_delta,
-            json_rule_pack_files,
-            json_rule_engine_audit,
-        ) = _evaluate_json_rules_http(
-            features,
-            redis_tag_list,
-            body.tenant_id,
-            body.entity_id,
-            evaluation_mode="production",
-            signal_tags=signal_tags,
-        )
+        dual_shadow_eval_ran = settings.shadow_evaluator_enabled and candidate_rules_available()
+        if dual_shadow_eval_ran:
+            _shadow_ev = ShadowEvaluator(settings)
+            (
+                rule_hits,
+                rule_tags,
+                score_delta,
+                json_rule_pack_files,
+                json_rule_engine_audit,
+            ) = await _shadow_ev.evaluate_parallel(
+                request=request,
+                features=features,
+                redis_tag_list=redis_tag_list,
+                tenant_id=body.tenant_id,
+                entity_id=body.entity_id,
+                signal_tags=signal_tags,
+                trace_id=str(trace_id),
+            )
+        else:
+            (
+                rule_hits,
+                rule_tags,
+                score_delta,
+                json_rule_pack_files,
+                json_rule_engine_audit,
+            ) = _evaluate_json_rules_http(
+                features,
+                redis_tag_list,
+                body.tenant_id,
+                body.entity_id,
+                evaluation_mode="production",
+                signal_tags=signal_tags,
+            )
 
         opa_task = run_evaluation_step(
             "opa",
@@ -2885,9 +3090,19 @@ async def evaluate_decision(
                 )
 
         try:
-            merged_tags = await redis_tags.merge_tags(
-                body.tenant_id, body.entity_id, all_new_tags
-            )
+
+            async def _merge_tags_call():
+                return await redis_tags.merge_tags(
+                    body.tenant_id, body.entity_id, all_new_tags
+                )
+
+            merged_tags = await _circuit_redis.call(_merge_tags_call)
+        except CircuitOpenError:
+            _circuit_metrics_inc("tarka_circuit_open_total_redis")
+            degrade_tags.append("redis:tag_merge_unavailable")
+            merged_tags = list(dict.fromkeys(str(t) for t in all_new_tags))
+            if "redis:tag_merge_unavailable" not in merged_tags:
+                merged_tags.append("redis:tag_merge_unavailable")
         except (ConnectionError, OSError, RedisError) as exc:
             InternalMonitor.log_suppressed_error(
                 exc,
@@ -2899,6 +3114,13 @@ async def evaluate_decision(
             merged_tags = list(dict.fromkeys(str(t) for t in all_new_tags))
             if "redis:tag_merge_unavailable" not in merged_tags:
                 merged_tags.append("redis:tag_merge_unavailable")
+        if settings.redis_signature_sync_persist_on_evaluate:
+            bg.add_task(
+                persist_entity_signature_after_evaluate,
+                body.tenant_id,
+                body.entity_id,
+                list(merged_tags),
+            )
         try:
             await redis_tags.set_cached_score(
                 body.tenant_id, body.entity_id, final_score
@@ -2987,6 +3209,10 @@ async def evaluate_decision(
             stored_snapshot = raw_snapshot
 
         fb_reason = _compute_fallback_reason(degrade_tags, step_trace)
+        signal_notes = _signal_availability_notes_from_tags(degrade_tags)
+        runtime_decision_status = _decision_runtime_status(
+            degrade_tags, signal_notes
+        )
         snap_extra: dict[str, Any] = {
             **stored_snapshot,
             "inference_context": inf_ctx,
@@ -3026,6 +3252,9 @@ async def evaluate_decision(
         _eb_snap = _metadata_etl_batch_id(body)
         if _eb_snap:
             snap_extra["etl_batch_id"] = _eb_snap
+
+        snap_extra["decision_status"] = runtime_decision_status
+        snap_extra["signal_availability_notes"] = signal_notes
 
         if pre_decision_audit_committed:
             from decision_api.decision_engine import finalize_audit_after_evaluation
@@ -3138,6 +3367,8 @@ async def evaluate_decision(
             reasons=reasons,
             ml_score=ml_score if isinstance(ml_score, float) else None,
             inference_context=response_inf_ctx,
+            decision_status=runtime_decision_status,
+            signal_availability_notes=signal_notes,
             recommended_action=recommended_action,
             challenge_policy_id=ch_meta.get("policy_id"),
             challenge_metadata=ch_meta,
@@ -3177,16 +3408,17 @@ async def evaluate_decision(
             },
         )
 
-        bg.add_task(
-            _run_shadow_evaluation,
-            request.app.state,
-            features,
-            redis_tag_list,
-            decision,
-            final_score,
-            body.tenant_id,
-            str(trace_id),
-        )
+        if not dual_shadow_eval_ran:
+            bg.add_task(
+                _run_shadow_evaluation,
+                request.app.state,
+                features,
+                redis_tag_list,
+                decision,
+                final_score,
+                body.tenant_id,
+                str(trace_id),
+            )
 
         # Test bypass: run full evaluation but override decision to allow
         if list_check and list_check.found and list_check.list_type == "test_bypass":
@@ -3223,6 +3455,8 @@ async def evaluate_decision(
                 reasons=reasons + [f"test_bypass:{list_check.reason}"],
                 ml_score=ml_score if isinstance(ml_score, float) else None,
                 inference_context=_tb_inf,
+                decision_status=runtime_decision_status,
+                signal_availability_notes=signal_notes,
                 recommended_action=_tb_rec,
                 challenge_policy_id=_tb_meta.get("policy_id"),
                 challenge_metadata=_tb_meta,
@@ -3339,6 +3573,9 @@ async def get_audit(
         "recommended_action": snap.get("recommended_action"),
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }
+    jre = snap.get("json_rule_engine")
+    if isinstance(jre, dict):
+        out["json_rule_engine"] = jre
     ge = snap.get("graph_decision_explanation")
     if isinstance(ge, dict):
         out["graph_decision_explanation"] = ge
@@ -3348,6 +3585,28 @@ async def get_audit(
         fr = snap.get("fallback_reason")
         if fr is not None:
             out["fallback_reason"] = fr
+        # Auditor UI: evaluate payload + protobuf-shaped input_map view with PII proxy for non-admins.
+        payload_src = snap.get("payload")
+        if isinstance(payload_src, dict):
+            flat = flatten_payload_to_entry_strings(payload_src)
+            if is_superuser(user):
+                out["evaluate_payload"] = copy.deepcopy(payload_src)
+                out["input_map"] = {
+                    "entries": {k: {"string_value": v} for k, v in flat.items()},
+                }
+            else:
+                out["evaluate_payload"] = deep_redact_mapping(payload_src)
+                out["input_map"] = {"entries": redact_flat_payload_entries(flat)}
+        else:
+            out["evaluate_payload"] = None
+            out["input_map"] = None
+        em = snap.get("evidence_manifest")
+        if isinstance(em, dict):
+            out["evidence_manifest"] = (
+                copy.deepcopy(em)
+                if is_superuser(user)
+                else evidence_manifest_json_redact_input_map(em)
+            )
     return out
 
 

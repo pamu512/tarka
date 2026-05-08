@@ -37,6 +37,8 @@ jobs:
         run: python3 scripts/audit_stubs.py
       - name: Tier-1 Honesty gate — audit_stubs self-test (stdlib unittest)
         run: python3 scripts/ci/test_audit_stubs.py
+      - name: No legacy wire protobuf split-brain (grep gate)
+        run: python3 scripts/ci/test_no_legacy_imports.py
 
   lint:
     needs: audit-stubs
@@ -389,15 +391,14 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
-        working-directory: frontend
-      - run: npm run test
-        working-directory: frontend
+          # Monorepo root lock: workspace install pulls Rollup optional native binaries for Linux CI.
+          cache-dependency-path: package-lock.json
+      - name: Install workspace (root)
+        run: npm ci
+      - run: npm run test -w tarka-ui
       - name: Guard production build mock mode
         run: python scripts/ci/check_frontend_mock_mode.py
-      - run: npm run build
-        working-directory: frontend
+      - run: npm run build -w tarka-ui
 
   build-sdk-typescript:
     needs: audit-stubs

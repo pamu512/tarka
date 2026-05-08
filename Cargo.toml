@@ -1,0 +1,16 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/tarka-core",
+    "crates/tarka-internal-comms",
+    "crates/tarka-py",
+    "crates/tarka-cli",
+    "crates/tarka-audit-cli",
+]
+exclude = [
+    "fuzz",
+    "services/rule-engine",
+    "services/event-ingest",
+    "services/analytics-sink",
+    "services/batch-ingest",
+]

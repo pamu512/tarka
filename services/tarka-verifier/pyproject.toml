@@ -1,0 +1,37 @@
+[project]
+name = "tarka-verifier"
+version = "0.1.0"
+description = "Independent EvidenceManifest Merkle + Ed25519ph auditor (system-of-record verification)"
+requires-python = ">=3.11"
+dependencies = [
+  "tarka @ file:../../crates/tarka-py",
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.32.0",
+  "pydantic-settings>=2.6.0",
+  "protobuf>=5.0",
+  "pynacl>=1.5.0",
+  "httpx>=0.28.0",
+  "tenacity>=9.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
+
+[project.scripts]
+tarka-verifier = "tarka_verifier.__main__:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+
+[tool.ruff.lint.per-file-ignores]
+"src/tarka_verifier/app.py" = ["B008"]

@@ -7,6 +7,11 @@ Vendored from ``services/tarka-verifier`` so ``tarka-py`` stays self-contained.
 from __future__ import annotations
 
 import hashlib
+import secrets
+from typing import Final
+
+# rs_merkle ``algorithms::Sha256`` hash width (``Hasher::hash_size``).
+_HASH_SIZE: Final[int] = 32
 
 
 def _u64_leading_zeros(n: int) -> int:
@@ -65,6 +70,35 @@ def parent_indices(indices: list[int]) -> list[int]:
     return out
 
 
+def _difference_preserve_order(a: list[int], b: list[int]) -> list[int]:
+    """``utils::collections::difference`` — elements in *a* not in *b*, order of *a* preserved."""
+    bset = set(b)
+    return [x for x in a if x not in bset]
+
+
+def proof_indices_by_layers(
+    sorted_leaf_indices: list[int], leaves_count: int
+) -> list[list[int]]:
+    """
+    Layered helper-node indices for inclusion proofs.
+
+    Matches ``rs_merkle::utils::indices::proof_indices_by_layers`` (rs_merkle 1.5).
+    """
+    depth = tree_depth(leaves_count)
+    uneven = uneven_layers(leaves_count)
+    layer_nodes = list(sorted_leaf_indices)
+    proof_indices: list[list[int]] = []
+    for layer_index in range(depth):
+        sibs = sibling_indices(layer_nodes)
+        if (leaves_count_uneven := uneven.get(layer_index)) is not None and layer_nodes:
+            if layer_nodes[-1] == leaves_count_uneven - 1:
+                sibs = sibs[:-1]
+        proof_nodes_indices = _difference_preserve_order(sibs, layer_nodes)
+        proof_indices.append(proof_nodes_indices)
+        layer_nodes = parent_indices(layer_nodes)
+    return proof_indices
+
+
 def concat_and_hash(left: bytes, right: bytes | None) -> bytes:
     if right is None:
         return left
@@ -95,6 +129,105 @@ def _build_tree_inner(
             current_layer.append((parent_node_index, h))
     partial_tree.append(list(current_layer))
     return partial_tree
+
+
+def parse_proof(proof_bytes: bytes) -> list[bytes]:
+    """
+    Deserialize ``MerkleProof::from_bytes`` / ``DirectHashesOrder`` wire format.
+
+    Proof hashes are concatenated left-to-right, bottom-to-top (same order as
+    ``MerkleProof::to_bytes`` in rs_merkle 1.5).
+    """
+    if len(proof_bytes) % _HASH_SIZE != 0:
+        raise ValueError(
+            f"proof bytes length {len(proof_bytes)} is not a multiple of hash size {_HASH_SIZE}"
+        )
+    out: list[bytes] = []
+    for i in range(0, len(proof_bytes), _HASH_SIZE):
+        out.append(proof_bytes[i : i + _HASH_SIZE])
+    return out
+
+
+def merkle_proof_root(
+    proof_bytes: bytes,
+    leaf_indices: list[int],
+    leaf_hashes: list[bytes],
+    total_leaves_count: int,
+) -> bytes:
+    """
+    Recompute the Merkle root from helper hashes and known leaves.
+
+    Semantically equivalent to ``rs_merkle::MerkleProof::root`` for ``Sha256`` /
+    ``DirectHashesOrder`` proofs.
+    """
+    if len(leaf_indices) != len(leaf_hashes):
+        raise ValueError("leaf_indices and leaf_hashes length mismatch")
+    proof_hashes = parse_proof(proof_bytes)
+    for lh in leaf_hashes:
+        if len(lh) != _HASH_SIZE:
+            raise ValueError("leaf hashes must be 32 bytes")
+
+    leaf_tuples: list[tuple[int, bytes]] = sorted(
+        zip(leaf_indices, leaf_hashes), key=lambda x: x[0]
+    )
+    sorted_indices = [t[0] for t in leaf_tuples]
+
+    bins = proof_indices_by_layers(sorted_indices, total_leaves_count)
+    proof_copy = list(proof_hashes)
+    proof_layers: list[list[tuple[int, bytes]]] = []
+    for proof_idx_layer in bins:
+        if len(proof_copy) < len(proof_idx_layer):
+            raise ValueError("not enough hashes to calculate Merkle root from proof")
+        chunk = [proof_copy.pop(0) for _ in range(len(proof_idx_layer))]
+        proof_layers.append(list(zip(proof_idx_layer, chunk)))
+
+    if proof_layers:
+        proof_layers[0].extend(leaf_tuples)
+        proof_layers[0].sort(key=lambda x: x[0])
+    else:
+        proof_layers.append(leaf_tuples)
+
+    td = tree_depth(total_leaves_count)
+    layers = _build_tree_inner(proof_layers, td)
+    root_layer = layers[-1]
+    if len(root_layer) != 1:
+        raise RuntimeError("could not derive single root from proof")
+    return root_layer[0][1]
+
+
+def proof_verify(
+    expected_merkle_root: bytes,
+    leaf_hash: bytes,
+    proof_bytes: bytes,
+    leaf_index: int,
+    total_leaves: int,
+) -> bool:
+    """
+    Verify a rs_merkle ``DirectHashesOrder`` inclusion proof for **one** leaf.
+
+    This mirrors ``MerkleProof::<Sha256>::verify(root, &[leaf_index], &[leaf_hash], total_leaves)``.
+    You must supply ``leaf_index`` and ``total_leaves``; they are not recoverable from the other
+    arguments alone.
+
+    Returns ``False`` on any decoding, arity, or root mismatch (same broad behavior as the Rust API).
+    """
+    if len(expected_merkle_root) != _HASH_SIZE:
+        return False
+    if len(leaf_hash) != _HASH_SIZE:
+        return False
+    if leaf_index < 0 or total_leaves < 0:
+        return False
+    if total_leaves == 0:
+        return False
+    if leaf_index >= total_leaves:
+        return False
+    try:
+        got = merkle_proof_root(
+            proof_bytes, [leaf_index], [leaf_hash], total_leaves
+        )
+    except (ValueError, RuntimeError):
+        return False
+    return secrets.compare_digest(got, expected_merkle_root)
 
 
 def merkle_root_rs_sha256(leaves: list[bytes]) -> bytes:

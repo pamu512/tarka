@@ -174,6 +174,14 @@ class EvaluateResponse(BaseModel):
     reasons: list[str] = Field(default_factory=list)
     ml_score: float | None = None
     inference_context: InferenceContext
+    decision_status: str = Field(
+        default="Healthy",
+        description='Application-level status: "Healthy" or "Degraded" (orchestration / external signal availability).',
+    )
+    signal_availability_notes: list[str] = Field(
+        default_factory=list,
+        description="Audit lines for humans, e.g. 'Signal Graph risk was unavailable' when a circuit tripped.",
+    )
     recommended_action: str | None = None
     challenge_policy_id: str | None = Field(
         default=None,

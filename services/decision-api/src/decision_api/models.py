@@ -176,5 +176,22 @@ class VendorIntegrationAudit(Base):
     )
 
 
+class EntitySignatureState(Base):
+    """Postgres source-of-truth for merged entity tags mirrored to Redis ``fraud:tags:{tenant}:{entity}``."""
+
+    __tablename__ = "entity_signature_state"
+
+    tenant_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    entity_id: Mapped[str] = mapped_column(String(512), primary_key=True)
+    tags_json: Mapped[list] = mapped_column(JSON, nullable=False)
+    content_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
 # Inference audit rows mirrored to ClickHouse (``tarka_core.models.InferenceLog``).
 from tarka_core.models import InferenceLog  # noqa: E402, F401

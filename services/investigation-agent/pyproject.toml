@@ -3,6 +3,7 @@ name = "tarka-investigation-agent"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
+  "structlog>=24.1.0",
   "fastapi>=0.135.3",
   "fpdf2>=2.8.0",
   "python-multipart>=0.0.26",

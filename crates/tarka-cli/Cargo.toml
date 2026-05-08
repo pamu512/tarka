@@ -1,0 +1,27 @@
+[package]
+name = "tarka-cli"
+version = "0.1.0"
+edition = "2021"
+description = "Forensic replay CLI: fetch evidence from ClickHouse, load immutable rules from a registry, re-evaluate locally."
+
+[[bin]]
+name = "tarka"
+path = "src/main.rs"
+
+[lib]
+name = "tarka_cli"
+path = "src/lib.rs"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive", "env"] }
+hex = "0.4"
+prost = "0.13"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tarka-core = { path = "../tarka-core" }
+thiserror = "1"
+tracing = "0.1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+url = "2"
+uuid = { version = "1", features = ["serde", "v4"] }
