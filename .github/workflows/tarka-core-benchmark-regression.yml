@@ -1,0 +1,96 @@
+# Criterion micro-benchmarks for `tarka-core`:
+# - Job 1: expanded p99 vs origin/main (ratio) — `scripts/ci/criterion_p99_regression.py`
+# - Job 2: Proposed vs Baseline rule sets — absolute delta — `scripts/ci/latency_violation_report.py`
+name: tarka-core benchmark regression
+
+on:
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: tarka-core-bench-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+
+jobs:
+  latency-guard-p99-delta:
+    name: Baseline vs Proposed p99 delta (max +100 µs)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry + workspace target
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: v1-tarka-core-latency-guard
+
+      - name: Run Baseline vs Proposed benchmarks + enforce absolute p99 delta
+        env:
+          CI: "true"
+          TARKA_LG_BASELINE_LEAVES: "120"
+          TARKA_LG_PROPOSED_LEAVES: "120"
+        run: |
+          set -euo pipefail
+          cargo bench -p tarka-core --bench rule_set_latency_guard --locked
+          python3 scripts/ci/latency_violation_report.py \
+            --group-dir target/criterion/rule_set_latency_guard \
+            --baseline-fn baseline_evaluate \
+            --proposed-fn proposed_evaluate \
+            --max-delta-us 100
+
+  criterion-p99:
+    name: Criterion p99 vs main (5% max)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry + workspace target
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: v1-tarka-core-bench
+
+      - name: Fetch main (baseline ref)
+        run: git fetch --no-tags --depth=1 origin +refs/heads/main:refs/remotes/origin/main
+
+      - name: Save PR SHA
+        run: echo "PR_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Benchmark baseline (origin/main)
+        env:
+          CI: "true"
+        run: |
+          set -euo pipefail
+          git checkout --detach origin/main
+          cargo bench -p tarka-core --bench standard_heavy_rule_set --locked -- --save-baseline main
+
+      - name: Benchmark PR branch + enforce p99 regression bound
+        env:
+          CI: "true"
+        run: |
+          set -euo pipefail
+          git checkout --detach "${PR_SHA}"
+          cargo bench -p tarka-core --bench standard_heavy_rule_set --locked
+          python3 scripts/ci/criterion_p99_regression.py \
+            --benchmark-dir target/criterion/standard_heavy_rule_set/evaluate_full_trace \
+            --baseline-label main \
+            --max-ratio 1.05

@@ -75,6 +75,7 @@ nav:
       - Investigation Agent: services/investigation-agent.md
   - Guides:
       - Rule Authoring: guides/rules.md
+      - "YAML logic reference (generated)": generated/logic-reference.md
       - Graph Analysis: guides/graph-analysis.md
       - Deployment: guides/deployment.md
       - "Deployment: AWS": guides/deployment-aws.md
@@ -114,6 +115,11 @@ nav:
       - Tarka scoring and comparison: analysis/tarka-scoring-and-comparison.md
       - Harsh reality assessment: analysis/tarka-harsh-reality-assessment.md
   - ADRs:
+      - "0001 Record architecture decisions": adr/0001-record-architecture-decisions.md
+      - "0002 Infrastructure for proof philosophy": adr/0002-infrastructure-for-proof-philosophy.md
+      - "0003 IaC via Pulumi (Python)": adr/0003-iac-via-pulumi.md
+      - "0004 Envoy sidecar (retries, mTLS)": adr/0004-envoy-sidecar-pattern.md
+      - "0005 Scaling roadmap (Platform vs Feature squads)": adr/0005-scaling-roadmap.md
       - ADR-0001 Shared Python packaging: adr/ADR-0001-shared-python-packaging.md
       - ADR-0002 Service observability baseline: adr/ADR-0002-service-observability-baseline.md
       - ADR-0003 API versioning policy: adr/ADR-0003-api-versioning-policy.md
@@ -141,7 +147,7 @@ nav:
       - TypeScript: sdks/typescript.md
   - API Reference: api-reference.md
   - Operations:
-      - Runbook: common failures: operations/runbook-common-failures.md
+      - "Runbook: common failures": operations/runbook-common-failures.md
       - On-call playbook: operations/oncall-playbook.md
 
 extra:

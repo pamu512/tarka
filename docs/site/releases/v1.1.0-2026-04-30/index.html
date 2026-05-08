@@ -1,0 +1,4452 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Modular, open-source fraud detection platform with real-time scoring, graph analytics, ML inference, and case management.">
+      
+      
+      
+        <link rel="canonical" href="https://tarka.dev/releases/v1.1.0-2026-04-30/">
+      
+      
+        <link rel="prev" href="../../projects/investigation-agent-project/">
+      
+      
+        <link rel="next" href="../v1.2.0-2026-05-30/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>v1.1.0 (Planned) - Tarka Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#release-v110-planned" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Tarka Documentation" class="md-header__button md-logo" aria-label="Tarka Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Tarka Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              v1.1.0 (Planned)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="amber"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/tarka/tarka" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    tarka/tarka
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../quickstart/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Quickstart
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../architecture/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../services/decision-api/" class="md-tabs__link">
+          
+  
+  
+  Services
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/rules/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../analysis/tarka-scoring-and-comparison.md" class="md-tabs__link">
+          
+  
+  
+  Analysis
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../adr/0001-record-architecture-decisions/" class="md-tabs__link">
+          
+  
+  
+  ADRs
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../projects/" class="md-tabs__link">
+          
+  
+  
+  Projects
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+  
+  Releases
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../sdks/python/" class="md-tabs__link">
+          
+  
+  
+  SDKs
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../api-reference/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  API Reference
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../operations/runbook-common-failures/" class="md-tabs__link">
+          
+  
+  
+  Operations
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Tarka Documentation" class="md-nav__button md-logo" aria-label="Tarka Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Tarka Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/tarka/tarka" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    tarka/tarka
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Services
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Services
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../services/decision-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decision API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../services/graph-service/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Graph Service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../services/case-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Case API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../services/feature-service/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../services/ml-scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../services/investigation-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigation Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rule Authoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../generated/logic-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YAML logic reference (generated)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/graph-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Graph Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/deployment-aws/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: AWS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/deployment-azure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: Azure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/deployment-gcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: GCP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/deployment-cloud-native-bundles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: Cloud-native bundles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/deployment-presets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: Presets & generated values
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/deployment-managed-services/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: Managed services
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/deployment-service-mesh-health-routing.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: Service mesh health routing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/edge-security-waf-bot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: Edge security (WAF/Bot)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/operationalizing-device-llm-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: Operationalizing device/LLM/schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/deployment-lighter-runtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: Lighter runtime
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/deployment-release-readiness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: Release readiness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/enterprise-readiness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise Readiness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/competitor-parity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise parity (ingest, rules, vendors)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/enterprise-copilot-plugin-and-governance-controls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise Copilot: plugin + governance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/incident-response/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Incident Response
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/runbook-chaos-template/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chaos runbook (template)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/roadmap-30-60-90/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    30/60/90 Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/release-calendar-2026-05/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Calendar (May 2026)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/oss-ship-order-dependencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OSS ship order (dependencies)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/ingest-replay-onboarding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingest, idempotency & replay
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/github-issues-batch-2026-04-reassessment-wave2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Issues Batch (Reassessment Wave 2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/module-codenames/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Module codenames
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/investigation-collaboration-chat-aws-azure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Collaboration chat (Slack, Teams, Lark) & cloud
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/agentic-ai-fraud-detection-variables-and-layering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic AI fraud detection (variables & layering)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/distributed-tracing.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Distributed tracing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/api-versioning-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API versioning strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/feature-flags-rollout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature flags rollout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/choosing-tarka/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Choosing Tarka
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_33" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_33" id="__nav_5_33_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Saarthi Pro
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_33_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_33">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Saarthi Pro
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/saarthi-pro-vs-oss/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    vs open source (OSS)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/saarthi-pro-roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/saarthi-pro-distribution-and-contract-parity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Distribution & contract parity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/saarthi-pro-adapter-catalog-and-certification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adapter catalog & certification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analysis
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Analysis
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../analysis/tarka-scoring-and-comparison.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tarka scoring and comparison
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../analysis/tarka-harsh-reality-assessment.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Harsh reality assessment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0001-record-architecture-decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0001 Record architecture decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0002-infrastructure-for-proof-philosophy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0002 Infrastructure for proof philosophy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0001-shared-python-packaging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0001 Shared Python packaging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0002-service-observability-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0002 Service observability baseline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0003-api-versioning-policy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0003 API versioning policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0004-feature-flag-rollout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0004 Feature flag rollout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Projects
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Projects
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Module Projects Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/decision-api-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decision API Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/case-api-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Case API Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/graph-service-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Graph Service Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/ml-scoring-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML Scoring Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/feature-service-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Service Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/integration-ingress-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integration Ingress Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/frontend-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frontend Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/sdk-python-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python SDK Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/sdk-typescript-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript SDK Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/sdk-mobile-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mobile SDKs Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/analytics-sink-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics Sink Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/investigation-agent-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigation Agent Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Releases
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Releases
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.1.0 (Planned)
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.1.0 (Planned)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#theme" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Theme
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#required-documentation-pack-v110-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required documentation pack (v1.1.0 gate)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pending-tasks-before-tagging-v110" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pending tasks before tagging v1.1.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recent-commits-folded-into-this-release-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recent commits folded into this release context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#forward-expectations-v120-v130" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Forward expectations (v1.2.0, v1.3.0)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#planned-highlights" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Planned Highlights
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Planned Highlights">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#consortium-quality-and-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consortium (quality and policy)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inference-and-decision-contract-epics-a-b-ecore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inference and decision contract (Epics A, B, E—core)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#location-coherence-trunk-strengthens-geo-story" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Location coherence (trunk; strengthens geo story)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apis-contracts-and-sdks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        APIs, contracts, and SDKs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frontend-and-demos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend and demos
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#simulation-and-guardrails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Simulation and guardrails
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tests-and-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests and validation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cicd-security-hygiene-and-first-run-polish-ships-with-v110-train" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI/CD, security hygiene, and first-run polish (ships with v1.1.0 train)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v110-acceptance-checklist-evidence-before-tag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1.1.0 acceptance checklist (evidence before tag)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v1.1.0 acceptance checklist (evidence before tag)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#theme-inference-epics-ae" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Theme &amp; inference (Epics A–E)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apis-contracts-sdks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        APIs, contracts, SDKs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frontend-and-demos_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend and demos
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#simulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Simulation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tests-validation-backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests &amp; validation (backend)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cicd-security-docs-compose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI/CD, security, docs, compose
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pre-tag-validation-from-planned-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-tag validation (from § Planned Validation)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#release-candidate-finalization-may-handoff-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release candidate finalization &amp; May handoff policy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#maintainer-runbook-push-pr-ci-rc-script-evidence-tag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Maintainer runbook (push → PR → CI → RC script → evidence → tag)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#single-release-sign-off-v110" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Single release sign-off (v1.1.0)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#planned-breaking-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Planned Breaking Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#planned-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Planned Validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../v1.2.0-2026-05-30/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.2.0 (Planned)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../v1.3.0-2026-06-29/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3.0 (Planned)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SDKs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    SDKs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sdks/python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sdks/typescript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/runbook-common-failures/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runbook: common failures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/oncall-playbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    On-call playbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#theme" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Theme
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#required-documentation-pack-v110-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required documentation pack (v1.1.0 gate)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pending-tasks-before-tagging-v110" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pending tasks before tagging v1.1.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recent-commits-folded-into-this-release-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recent commits folded into this release context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#forward-expectations-v120-v130" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Forward expectations (v1.2.0, v1.3.0)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#planned-highlights" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Planned Highlights
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Planned Highlights">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#consortium-quality-and-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consortium (quality and policy)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inference-and-decision-contract-epics-a-b-ecore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inference and decision contract (Epics A, B, E—core)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#location-coherence-trunk-strengthens-geo-story" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Location coherence (trunk; strengthens geo story)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apis-contracts-and-sdks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        APIs, contracts, and SDKs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frontend-and-demos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend and demos
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#simulation-and-guardrails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Simulation and guardrails
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tests-and-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests and validation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cicd-security-hygiene-and-first-run-polish-ships-with-v110-train" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI/CD, security hygiene, and first-run polish (ships with v1.1.0 train)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v110-acceptance-checklist-evidence-before-tag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1.1.0 acceptance checklist (evidence before tag)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v1.1.0 acceptance checklist (evidence before tag)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#theme-inference-epics-ae" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Theme &amp; inference (Epics A–E)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apis-contracts-sdks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        APIs, contracts, SDKs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frontend-and-demos_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend and demos
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#simulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Simulation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tests-validation-backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests &amp; validation (backend)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cicd-security-docs-compose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI/CD, security, docs, compose
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pre-tag-validation-from-planned-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-tag validation (from § Planned Validation)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#release-candidate-finalization-may-handoff-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release candidate finalization &amp; May handoff policy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#maintainer-runbook-push-pr-ci-rc-script-evidence-tag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Maintainer runbook (push → PR → CI → RC script → evidence → tag)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#single-release-sign-off-v110" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Single release sign-off (v1.1.0)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#planned-breaking-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Planned Breaking Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#planned-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Planned Validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="release-v110-planned">Release v1.1.0 (Planned)<a class="headerlink" href="#release-v110-planned" title="Permanent link">&para;</a></h1>
+<p>Planned release date: <code>2026-04-30</code></p>
+<h2 id="theme">Theme<a class="headerlink" href="#theme" title="Permanent link">&para;</a></h2>
+<p>Consortium intelligence v2, inference contract v2, analyst-facing explainability, plus <strong>CI/security hygiene and a documented five-minute eval path</strong>—one coordinated ship.</p>
+<p><code>v1.1.0</code> is still treated as an <strong>early-development beta</strong> train: release evidence is mandatory, and any temporary waiver must be explicit, scoped, time-bound, and tracked to closure.</p>
+<h2 id="required-documentation-pack-v110-gate">Required documentation pack (v1.1.0 gate)<a class="headerlink" href="#required-documentation-pack-v110-gate" title="Permanent link">&para;</a></h2>
+<p>These documents are required to treat <code>v1.1.0</code> as release-ready. Keep this table current as the final RC SHA is validated.</p>
+<table>
+<thead>
+<tr>
+<th>Required doc</th>
+<th>Purpose</th>
+<th>Status</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SECURITY.md</code></td>
+<td>Responsible disclosure and security contact path</td>
+<td>Present</td>
+<td><code>[SECURITY.md](../../../SECURITY.md)</code></td>
+</tr>
+<tr>
+<td><code>LICENSE-DEPENDENCIES.md</code></td>
+<td>Third-party/license posture for shipped stack</td>
+<td>Present</td>
+<td><code>[LICENSE-DEPENDENCIES.md](../../../LICENSE-DEPENDENCIES.md)</code></td>
+</tr>
+<tr>
+<td><code>CODE_OF_CONDUCT.md</code></td>
+<td>Community contribution and behavior policy</td>
+<td>Present</td>
+<td><code>[CODE_OF_CONDUCT.md](../../../CODE_OF_CONDUCT.md)</code></td>
+</tr>
+<tr>
+<td>Security scanning guide</td>
+<td>Operator-facing Trivy/scan workflow guidance</td>
+<td>Present</td>
+<td><code>[docs/docs/guides/security-scanning.md](../guides/security-scanning.md)</code></td>
+</tr>
+<tr>
+<td>Five-minute sandbox runbook</td>
+<td>Repeatable smoke path for evaluate + OSINT + UI</td>
+<td>Present</td>
+<td><code>[docs/docs/guides/sandbox-five-minute.md](../guides/sandbox-five-minute.md)</code></td>
+</tr>
+<tr>
+<td>Release schedule alignment</td>
+<td>Planned trains and scope guardrails</td>
+<td>Present</td>
+<td><code>[RELEASE_SCHEDULE.md](../../../RELEASE_SCHEDULE.md)</code></td>
+</tr>
+<tr>
+<td>Versioned release note</td>
+<td>Canonical acceptance checklist and evidence log</td>
+<td>Present</td>
+<td><code>[docs/docs/releases/v1.1.0-2026-04-30.md](v1.1.0-2026-04-30.md)</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="pending-tasks-before-tagging-v110">Pending tasks before tagging <code>v1.1.0</code><a class="headerlink" href="#pending-tasks-before-tagging-v110" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Run full <code>CI</code> (<code>.github/workflows/ci.yml</code>) on the <strong>exact release candidate SHA</strong> in a <code>main</code>/<code>master</code>-scoped workflow context and record the run URL in this file.<br />
+Evidence: <code>master</code> SHA <code>df3224c3b3e5056d03554ca9732fde2f25086139</code> — <a href="https://github.com/pamu512/tarka/actions/runs/24377895049">CI run 24377895049</a>.</li>
+<li>Confirm <code>benchmark-latency-evaluate</code> artifact exists for the same RC SHA and replace the “workflow-scope gated” placeholder with the artifact/run URL.<br />
+Evidence: local artifact from RC smoke at <code>[benchmark-latency-evaluate-local.txt](../../../benchmark-latency-evaluate-local.txt)</code> (<code>requests=20</code>, <code>concurrency=1</code>, all <code>200</code>).</li>
+<li>Run <code>security-scan.yml</code> (Trivy) on the same RC SHA and replace pending/gated notes with the final run URL.<br />
+Evidence: <code>master</code> SHA <code>df3224c3b3e5056d03554ca9732fde2f25086139</code> — <a href="https://github.com/pamu512/tarka/actions/runs/24377895059">Security scan run 24377895059</a>.</li>
+<li>Run <code>secret-scan.yml</code> (TruffleHog) on the same RC SHA and replace pending/gated notes with the final run URL.<br />
+Evidence / waiver: <strong>beta-only temporary waiver</strong> — GitHub Actions API returns no runs for <code>secret-scan.yml</code> on <code>master</code> as of <code>2026-04-19</code>. Scope: <code>v1.1.0</code> tag readiness only. Expiry: first post-tag week or first successful <code>main/master</code> run, whichever comes first. Required follow-up: attach run URL and remove waiver text.</li>
+<li>Re-verify <code>bash scripts/ci/verify_release_candidate.sh</code> against the intended tag commit and refresh evidence date/SHA if changed.<br />
+Evidence: local run on <code>release/v1.2.0</code> SHA <code>ec89ac96e47d47b56e9df0cf6e7e382d4bbea6ee</code> completed successfully (<code>ruff</code>, frontend build, investigation-agent tests, TS SDK build).</li>
+<li>Re-check no open P0 blockers on demo path (<code>8000</code> evaluate, <code>8003</code> OSINT, <code>3000</code> UI) and note any explicit waiver in checklist evidence before tag.<br />
+Evidence: GitHub issue search <code>is:open label:P0</code> for <code>pamu512/tarka</code> returned <code>0</code>; demo smoke confirms <code>3000</code> HTTP <code>200</code>, <code>8000</code> evaluate success, <code>8003</code> OSINT success.</li>
+</ul>
+<h2 id="recent-commits-folded-into-this-release-context">Recent commits folded into this release context<a class="headerlink" href="#recent-commits-folded-into-this-release-context" title="Permanent link">&para;</a></h2>
+<p>Recent changes on trunk/release lines and why they matter for Tarka as an overall stack:</p>
+<ul>
+<li><code>860aeb2</code> (<code>feat(epic-c)</code>): adds <code>distinct_session_id_24h</code> to velocity manifest, improving feature parity between counters, replay, and decisioning.</li>
+<li><code>5d9f435</code> (<code>fix(ci)</code>): resolves decision-api lint/gate failures, improving build stability and release confidence.</li>
+<li><code>573b2c1</code> (<code>fix(location)</code>): tightens IP-geo gating and signal parsing, improving signal quality and reducing enrichment noise.</li>
+<li><code>84d4a8d</code> and <code>3499264</code> (<code>feat(location)</code>): adds calibration status and geo/co-presence plumbing across SDK/API/graph, improving explainability and operational monitoring.</li>
+<li><code>6cfcf74</code> (<code>chore(ci)</code>): adds security/benchmark gate prep, improving release evidence quality for this beta train.</li>
+<li><code>ed6dc64</code> (<code>feat</code>): expands investigation copilot and collaboration bridge readiness, improving analyst response workflows.</li>
+</ul>
+<h2 id="forward-expectations-v120-v130">Forward expectations (<code>v1.2.0</code>, <code>v1.3.0</code>)<a class="headerlink" href="#forward-expectations-v120-v130" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>v1.2.0</code> (<code>2026-05-30</code>): productized vertical packs, benchmark scorecards, counter/velocity parity hardening, and operator reliability scorecards.</li>
+<li><code>v1.3.0</code> (<code>2026-06-29</code>): Trust Center, evidence exports, signed release artifacts, and enterprise governance hardening.</li>
+</ul>
+<p><code>v1.1.0</code> remains the early-development beta foundation for these trains: stabilize the core decision path first, then layer productization (<code>v1.2.0</code>) and governance depth (<code>v1.3.0</code>).</p>
+<h2 id="planned-highlights">Planned Highlights<a class="headerlink" href="#planned-highlights" title="Permanent link">&para;</a></h2>
+<h3 id="consortium-quality-and-policy">Consortium (quality and policy)<a class="headerlink" href="#consortium-quality-and-policy" title="Permanent link">&para;</a></h3>
+<p><strong>In production code today (HTTP + Redis + unit tests):</strong> weighted consortium scoring with per-tenant trust; <code>**POST /v1/consortium/feedback</code><strong> outcomes (<code>**false_positive</code> / <code>confirmed_fraud</code></strong>) feed FP-rate and quality-style fields used when applying <code>**consortium_score_delta</code>**; <code>**POST /v1/consortium/share**</code>, <code>**GET /v1/consortium/check/...**</code>, <code>**POST /v1/consortium/trust**</code>; gating via <code>**CONSORTIUM_***</code> env and <code>**consortium_min_tenants**</code> (see <code>services/decision-api/src/decision_api/consortium_api.py</code>, <code>redis_store.py</code>, <code>consortium.py</code>, <code>tests/test_consortium.py</code>).</p>
+<p><strong>Product surface:</strong> there is <strong>no</strong> consortium-specific <strong>Case / React</strong> dashboard in v1.1; “tenant participation” is <strong>configuration + API</strong>, not a separate analyst policy console. <strong>Aggregate decision throughput</strong> is illustrated by <code>**services/decision-api/static/dashboard.html</code><strong> (general events, not consortium KPIs). A fuller </strong>Trust Center / consortium posture UI<strong> is </strong>roadmapped for later trains** (see <code>[v1.2.0-2026-05-30.md](v1.2.0-2026-05-30.md)</code>, <code>[v1.3.0-2026-06-29.md](v1.3.0-2026-06-29.md)</code>).</p>
+<h3 id="inference-and-decision-contract-epics-a-b-ecore">Inference and decision contract (Epics A, B, E—core)<a class="headerlink" href="#inference-and-decision-contract-epics-a-b-ecore" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Versioned <code>**inference_context</code> (schema v2)<strong> with <code>**confidence_tier</code></strong> (low / medium / high).</li>
+<li><code>**driver_reasons</code>**: analyst-oriented top drivers (tamper, replay, network, geo, ML, rules, colocation, travel proxy).</li>
+<li><strong>Replay / tamper context</strong> reflected in derived risks and drivers (ingress replay signals, rule-based replay hints).</li>
+<li><strong>Co-location and impossible-travel proxies</strong> (<code>colocation_risk</code>, <code>impossible_travel_risk</code>) from device and velocity/geo heuristics.</li>
+<li><strong>Velocity in inference</strong>: <code>velocity_events_5m</code>, <code>velocity_events_1h</code>, <code>velocity_events_24h</code> (aggregates include <strong>5m</strong> window).</li>
+<li><code>**recommended_action</code>** on evaluate and audit responses (e.g. <code>block</code>, <code>manual_review</code>, <code>step_up_mfa</code>, <code>step_up_attestation</code>) for client step-up hints.</li>
+</ul>
+<h3 id="location-coherence-trunk-strengthens-geo-story">Location coherence (trunk; strengthens geo story)<a class="headerlink" href="#location-coherence-trunk-strengthens-geo-story" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>SDKs:</strong> TypeScript <code>**enableGeo</code><strong> (browser GPS into <code>device_context.signals</code>); Python <code>**ServerSignalCollector</code></strong> optional <code>**enable_ip_geo</code><strong> / env <code>**ENABLE_IP_GEO_LOOKUP**</code> (public lookup </strong>off** by default).</li>
+<li><strong>Decision API:</strong> <code>**merge_session_geo_from_device_and_features</code><strong> (<code>location_context.py</code>) — session last-known geo, <code>**sdk:geo_ip_mismatch</code></strong> / <code>**sdk:geo_tz_mismatch</code>** tags; <code>**geo_markers**</code> in <code>**inference_build**</code>; <code>**/v1/ops/calibration-status**</code> and <code>**calibration_status**</code> on <code>**/v1/ops/governance**</code>.</li>
+<li><strong>Graph:</strong> default schema <code>**Place</code><strong> + <code>**SEEN_AT</code></strong> (<code>graph_service/custom_schema.py</code>) for quantized place / co-presence–style edges when graph upserts run.</li>
+<li><strong>Contracts:</strong> <code>DeviceContext.signals</code> documents <code>**geo_*</code><strong> and optional <code>**ip_geo_*</code></strong> in <code>**contracts/openapi/decision-api.yaml</code>**.</li>
+</ul>
+<h3 id="apis-contracts-and-sdks">APIs, contracts, and SDKs<a class="headerlink" href="#apis-contracts-and-sdks" title="Permanent link">&para;</a></h3>
+<ul>
+<li>OpenAPI <code>**InferenceContext**</code> and <code>**EvaluateResponse**</code> updates for v2 fields and <code>**recommended_action**</code>.</li>
+<li><strong>Python</strong> and <strong>TypeScript</strong> fraud SDK types aligned with the evaluate response.</li>
+</ul>
+<h3 id="frontend-and-demos">Frontend and demos<a class="headerlink" href="#frontend-and-demos" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Case detail <strong>explainability panel</strong>: tier, schema version, velocity row, travel/colocation when elevated, top drivers, recommended action.</li>
+<li>Mock evaluate/audit payloads updated for v2 (demo and offline dev).</li>
+</ul>
+<h3 id="simulation-and-guardrails">Simulation and guardrails<a class="headerlink" href="#simulation-and-guardrails" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>**/v1/simulation/run</code><strong> response includes <code>**experiment_guardrails</code></strong> (sample size, determinism, KPI caveats).</li>
+</ul>
+<h3 id="tests-and-validation">Tests and validation<a class="headerlink" href="#tests-and-validation" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Unit coverage for <code>**inference_build</code>** (tiering, velocity, travel/colocation, <code>**derive_recommended_action**</code>).</li>
+<li><code>**pytest**</code> for <code>**/v1/replay**</code> paired <code>**trace_ids**</code> mode (order, <code>**missing_trace_ids**</code>, empty-window 404).</li>
+<li><strong>Golden <code>inference_context</code> v2 keys</strong> in <code>**contracts/golden/</code>** enforced by decision-api tests (calibration / parity shell).</li>
+<li><strong>OpenAPI contract hygiene:</strong> checked-in YAML must <strong>parse</strong> and declare <code>**openapi</code> / <code>info</code> / <code>paths</code><strong> (pytest); </strong>FastAPI<strong> generated schema smoke for <code>**/v1/decisions/evaluate</code></strong> and <code>**inference_context</code>** (strict OAS 3.1 on static files is incremental).</li>
+<li><strong>Investigation agent security tests:</strong> tenant-scoped tool calls (ignore LLM-supplied <code>tenant_id</code>); injection / redaction coverage.</li>
+<li><strong>Live Neo4j smoke</strong> in CI (<code>**test-graph-neo4j-live</code><strong>) — Bolt <code>RETURN 1</code> against <code>**neo4j:5-community</code></strong>.</li>
+</ul>
+<h3 id="cicd-security-hygiene-and-first-run-polish-ships-with-v110-train">CI/CD, security hygiene, and first-run polish (ships with v1.1.0 train)<a class="headerlink" href="#cicd-security-hygiene-and-first-run-polish-ships-with-v110-train" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>GitHub Actions CI</strong> (<code>main</code> / <code>master</code>): Ruff; <strong>decision-api</strong> tests with coverage gate (<strong>≥48%</strong> as enforced in <code>**.github/workflows/ci.yml</code><strong>, path to 60%+); case-api, Python SDK; graph-service (Neo4j-mocked algorithms); integration-ingress (full suite + OSINT parallel tests, <code>PYTHONPATH</code> includes <code>**services/shared</code></strong>); <strong>investigation-agent</strong>; <strong>graphql-gateway</strong>, <strong>event-ingest</strong>, <strong>analytics-sink</strong>, <strong>feature-service</strong>, <strong>ml-scoring</strong> (pytest + coverage XML where configured); <strong>frontend</strong> <code>npm ci</code> + <code>**npm run build</code><strong>; <code>**packages/fraud-sdk-typescript</code></strong> <code>**npm ci</code> + <code>npm run build**</code>; <code>**benchmark-latency-evaluate**</code> (lite stack + <code>**scripts/benchmarks/latency_evaluate.py**</code> artifact); <strong>Docker builds</strong> gated on all test and Node build jobs.</li>
+<li><strong>PostgreSQL schema:</strong> <strong>Alembic</strong> migrations under <code>**services/decision-api/alembic/</code><strong> and <code>**services/case-api/alembic/</code></strong> — <code>**alembic upgrade head</code>** on service startup when using PostgreSQL; SQLite (CI/unit) still uses <code>**create_all**</code>.</li>
+<li><strong>GraphQL gateway</strong> exposes the same <code>**/metrics</code><strong> and structured request logging as other FastAPI services (<code>**services/shared/observability.py</code></strong>).</li>
+<li><strong>Security scanning workflow</strong>: <strong>Trivy</strong> filesystem + <strong>decision-api</strong> image → <strong>SARIF</strong> upload (where code scanning is enabled); weekly schedule.</li>
+<li><strong>Dependabot</strong>: grouped updates for <strong>GitHub Actions</strong>, <strong>pip</strong> (core services), <strong>npm</strong> (frontend).</li>
+<li><strong>Docs:</strong> <code>**SECURITY.md</code><strong> (responsible disclosure), <code>**LICENSE-DEPENDENCIES.md</code></strong> (Neo4j AGPL / lite and alternates), <code>**CODE_OF_CONDUCT.md</code>**, <code>**docs/docs/guides/security-scanning.md**</code>, <code>**docs/docs/guides/sandbox-five-minute.md**</code> (copy-paste evaluate + OSINT + UI path).</li>
+<li><strong>Onboarding:</strong> <code>**.devcontainer/devcontainer.json</code><strong> (Codespaces / Docker-outside-Docker); </strong>README<strong> badges (CI, security scan, Codespaces); </strong>maintainer Loom walkthrough<strong> on </strong>[Tarka root <code>README.md](../../../README.md)</code>** — <a href="https://www.loom.com/share/b46f1eccbc6b438381ee44c6978f2f5e">five-minute sandbox + Case Detail</a> (<code>[pamu512/tarka](https://github.com/pamu512/tarka)</code>), not other repositories.</li>
+<li><code>**deploy/docker-compose.lite.yml</code><strong>: adds </strong>integration-ingress<strong> (</strong>8003**) so lite stack matches the five-minute OSINT demo without full Neo4j.</li>
+</ul>
+<p><strong>Documented stretch (also on trunk):</strong> GraphQL <code>**evaluate</code><strong> returns <code>**recommended_action</code></strong> and <code>**inference_context</code><strong> (JSON) from the decision-api payload — <code>services/graphql-gateway/src/graphql_gateway/schema.py</code>, <code>services/graphql-gateway/tests/test_gateway.py</code>. The </strong>[Tarka repository root <code>README.md](../../../README.md)</code><strong> (<a href="https://github.com/pamu512/tarka/blob/master/README.md">canonical GitHub view</a>) links the </strong>maintainer Loom walkthrough<strong> (<a href="https://www.loom.com/share/b46f1eccbc6b438381ee44c6978f2f5e">five-minute sandbox + Case Detail</a>) under the v1.1 train bullets — </strong>this is the fraud-stack (<code>tarka</code>) README, not Skuld or other sibling repos.**</p>
+<p><strong>Gap-closure schedule (what ships 4/30 vs 5/30):</strong> <code>[docs/docs/guides/release-gap-closure-schedule.md](../guides/release-gap-closure-schedule.md)</code>.</p>
+<h2 id="v110-acceptance-checklist-evidence-before-tag">v1.1.0 acceptance checklist (evidence before tag)<a class="headerlink" href="#v110-acceptance-checklist-evidence-before-tag" title="Permanent link">&para;</a></h2>
+<p>Use this section as the <strong>definition of done</strong> for <code>v1.1.0</code>. For each row, fill <strong>Evidence</strong> (PR link, path under <code>contracts/</code> or <code>services/</code>, CI run URL, screenshot, or “N/A / deferred”) and <strong>Owner</strong> before tagging.</p>
+<p><strong>Sole maintainer:</strong> <strong>Owner</strong> and <strong>Date</strong> are recorded as <strong>Anoop Pamu</strong> and <strong>04/22/2026</strong> for the checklist below (attestation batch). Multi-party sign-off is collapsed into a single maintainer row—routine security hygiene remains the maintainer’s responsibility; document anything waived in <strong>Evidence</strong>.</p>
+<h3 id="theme-inference-epics-ae">Theme &amp; inference (Epics A–E)<a class="headerlink" href="#theme-inference-epics-ae" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Evidence</th>
+<th>Owner</th>
+<th>Date</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>inference_context</code> schema v2 with <code>confidence_tier</code></td>
+<td><code>services/decision-api/src/decision_api/inference_build.py</code> — <code>build_inference_context</code> returns <code>schema_version: "2"</code> and <code>confidence_tier</code> (tiering L62–67). Contract: <code>contracts/openapi/decision-api.yaml</code> components <code>InferenceContext</code> (<code>confidence_tier</code> enum L328–330).</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td><code>driver_reasons</code> populated in inference path</td>
+<td>Same module L69–87 builds <code>driver_reasons</code> from tamper/replay/network/geo/ML/colocation/travel/rule hits. Covered by <code>services/decision-api/tests/test_inference_build.py::test_build_inference_context_schema_and_velocity</code>.</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td>Replay/tamper reflected in risks &amp; drivers</td>
+<td><code>inference_build.py</code> L27–37 (<code>tamper_risk</code>, <code>replay_risk</code>; <code>ingress:replay_payload</code> boosts replay). Drivers include <code>replay_or_duplicate_payload</code>, <code>device_tamper_or_emulator_signals</code> (L70–73). Ingress replay folded into evaluate tagging in <code>services/decision-api/src/decision_api/main.py</code> (replay signature path; see tests mocking <code>check_and_store_replay_signature</code>).</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td><code>colocation_risk</code>, <code>impossible_travel_risk</code> in inference</td>
+<td><code>inference_build.py</code> L46–59 (heuristics), L98–102 (output keys). <code>test_inference_build.py::test_build_inference_context_colocation_and_travel</code>.</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td>Velocity: <code>velocity_events_5m</code> / <code>_1h</code> / <code>_24h</code></td>
+<td><code>inference_build.py</code> L49–50, L103–105 maps <code>event_count_5m</code> / <code>event_count_1h</code> / <code>event_count_24h</code> from features. Same unit test file asserts velocity integers.</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td><code>recommended_action</code> on evaluate + audit</td>
+<td><code>inference_build.py</code> <code>derive_recommended_action</code> (L109+). <code>services/decision-api/src/decision_api/main.py</code> sets <code>recommended_action</code> on evaluate responses and audit snapshots (e.g. blacklist path and main evaluate path; search <code>recommended_action</code>). <code>test_inference_build.py</code> <code>test_derive_recommended_action_*</code>.</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+</tbody>
+</table>
+<h3 id="apis-contracts-sdks">APIs, contracts, SDKs<a class="headerlink" href="#apis-contracts-sdks" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Evidence</th>
+<th>Owner</th>
+<th>Date</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OpenAPI <code>InferenceContext</code> + <code>EvaluateResponse</code> (<code>[contracts/openapi/decision-api.yaml](../../contracts/openapi/decision-api.yaml)</code>)</td>
+<td><code>EvaluateResponse</code> requires <code>inference_context</code>, optional <code>recommended_action</code> (L241–277). <code>InferenceContext</code> schema L278–350 (all v2 fields including velocity and travel proxies).</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td>Python SDK types aligned with evaluate response</td>
+<td><code>packages/fraud-sdk-python/src/fraud_stack_sdk/client.py</code> — <code>InferenceContext</code> and <code>EvaluateResponse</code> TypedDicts (L11–37) including <code>inference_context</code> and <code>recommended_action</code>. CI: <code>.github/workflows/ci.yml</code> job <code>test-sdk</code>.</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td>TypeScript SDK <code>InferenceContext</code> aligned with same schema (<code>[packages/fraud-sdk-typescript](../../../packages/fraud-sdk-typescript)</code>)</td>
+<td><code>packages/fraud-sdk-typescript/src/index.ts</code> — <code>InferenceContext</code> interface and evaluate response types (see <code>recommended_action</code>, <code>inference_context</code>; comment references decision-api OpenAPI).</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+</tbody>
+</table>
+<h3 id="frontend-and-demos_1">Frontend and demos<a class="headerlink" href="#frontend-and-demos_1" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Evidence</th>
+<th>Owner</th>
+<th>Date</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Case detail <strong>Decision explainability</strong>: tier, schema version, velocity row, travel/colocation when elevated, drivers, <code>recommended_action</code> (<code>[frontend/src/pages/CaseDetail.tsx](../../../frontend/src/pages/CaseDetail.tsx)</code>)</td>
+<td><code>CaseDetail.tsx</code>: audit loads <code>recommended_action</code>, <code>normalizeInferenceContext</code>; UI shows <code>confidence_tier</code>, <code>InferenceMetricTrack</code> rows (integrity, tamper, replay, geo, colocation, impossible travel, velocity 5m/1h/24h), <code>driver_reasons</code> list, <code>recommended_action</code> banner (see imports L17–18 and decision explain block ~233–300).</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td>Partial audit JSON hardened via <code>normalizeInferenceContext</code> (<code>[frontend/src/api/inferenceContext.ts](../../../frontend/src/api/inferenceContext.ts)</code>)</td>
+<td><code>inferenceContext.ts</code> — <code>normalizeInferenceContext</code> fills defaults for partial audit JSON (L32–52), aligned with OpenAPI comment (L1–4).</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td>Mock evaluate/audit v2 payloads (<code>[frontend/src/api/mockData.ts](../../../frontend/src/api/mockData.ts)</code>)</td>
+<td>Mock cases and audit payloads include <code>recommended_action</code> and v2-style fields (search <code>recommended_action</code>, <code>inference_context</code> / audit shapes in file).</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td>Five-minute doc includes Case Detail path (<code>[sandbox-five-minute.md](../guides/sandbox-five-minute.md)</code>)</td>
+<td><code>docs/docs/guides/sandbox-five-minute.md</code> Option A §3 — Frontend Case Detail explainability checklist (tier, schema version, velocity, colocation/travel when elevated, drivers, <code>recommended_action</code>).</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+</tbody>
+</table>
+<h3 id="simulation">Simulation<a class="headerlink" href="#simulation" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Evidence</th>
+<th>Owner</th>
+<th>Date</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/v1/simulation/run</code> returns <code>experiment_guardrails</code></td>
+<td><code>services/decision-api/src/decision_api/simulation_api.py</code> — <code>run_simulation</code> response includes <code>experiment_guardrails</code> with <code>events_evaluated</code> and KPI caveats notes (L93–104).</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tests-validation-backend">Tests &amp; validation (backend)<a class="headerlink" href="#tests-validation-backend" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Evidence</th>
+<th>Owner</th>
+<th>Date</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>inference_build</code> unit coverage (tiering, velocity, travel/colocation, <code>derive_recommended_action</code>)</td>
+<td><code>services/decision-api/tests/test_inference_build.py</code> (schema/velocity, colocation/travel, <code>derive_recommended_action</code> allow/deny/review).</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td>Pytest <code>/v1/replay</code> paired <code>trace_ids</code></td>
+<td><code>services/decision-api/tests/test_replay.py</code> — <code>replay_events</code> with <code>trace_ids</code> order and <code>missing_trace_ids</code> (<code>test_replay_trace_ids_preserves_order_and_reports_missing</code>); empty-window behavior (<code>test_replay_limit_mode_empty_audits_404</code>).</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td>Golden <code>inference_context</code> v2 keys in <code>contracts/golden/</code></td>
+<td><code>contracts/golden/inference-context-v2.example.json</code> plus <code>services/decision-api/tests/test_golden_inference.py::test_build_inference_context_includes_all_golden_keys</code>.</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td>OpenAPI YAML parse / structure checks + schema smoke</td>
+<td><code>services/decision-api/tests/test_openapi_contract_files.py</code> — parametrized OAS 3.1 validation for checked-in YAML including <code>decision-api.yaml</code>; <code>test_fastapi_openapi_contains_evaluate_and_inference</code> asserts <code>/v1/decisions/evaluate</code> and <code>inference_context</code> in generated schema.</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td>Investigation agent security tests (tenant scope, injection/redaction)</td>
+<td><code>services/investigation-agent/tests/test_agent_security.py</code> — injection detection, output redaction, chat tenant validation, tool calls use session <code>tenant_id</code> not LLM-supplied tenant (see module docstring and <code>TestToolTenantScoping</code>).</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td>Live Neo4j smoke job (<code>test-graph-neo4j-live</code>)</td>
+<td><code>.github/workflows/ci.yml</code> job <code>test-graph-neo4j-live</code> (Neo4j 5 service, Bolt wait, <code>NEO4J_INTEGRATION=1</code>, <code>tests/test_neo4j_integration.py</code>).</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+</tbody>
+</table>
+<h3 id="cicd-security-docs-compose">CI/CD, security, docs, compose<a class="headerlink" href="#cicd-security-docs-compose" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Evidence</th>
+<th>Owner</th>
+<th>Date</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GitHub Actions CI green: Ruff, service test matrix, <code>**build-frontend</code><strong> / <code>**build-sdk-typescript</code></strong> (Node 20, <code>NODE_OPTIONS=--max-old-space-size=4096</code> on Node jobs)</td>
+<td><code>.github/workflows/ci.yml</code> — <code>lint</code> (Ruff check + format, L19–46); service test jobs; <code>build-frontend</code> / <code>build-sdk-typescript</code> set <code>NODE_OPTIONS: --max-old-space-size=4096</code> (L322–342). <strong>RC commit <code>7ab3dfd</code>:</strong> <a href="https://github.com/pamu512/tarka/actions/runs/24322755744">CI run 24322755744</a> (includes <code>stack-smoke</code>, <code>docker-build</code>).</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td>Alembic on Postgres for decision-api + case-api</td>
+<td>Decision: <code>services/decision-api/alembic/</code> (versions, <code>env.py</code>); <code>services/decision-api/src/decision_api/db.py</code> <code>init_db</code> runs <code>alembic upgrade head</code> when not SQLite (L35–49). Case: <code>services/case-api/alembic/</code>; <code>services/case-api/src/case_api/db.py</code> same pattern.</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td>GraphQL gateway <code>/metrics</code> + structured logging parity</td>
+<td><code>services/graphql-gateway/src/graphql_gateway/main.py</code> L72 — <code>setup_observability(app, "graphql-gateway")</code> from <code>services/shared/observability.py</code> (Prometheus <code>/metrics</code> + JSON structured request logging middleware).</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td>Trivy + Dependabot configured</td>
+<td><code>.github/workflows/security-scan.yml</code> — Trivy FS + image jobs. Repo root <code>.github/dependabot.yml</code> (grouped Actions/pip/npm per release plan).</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td>Secret scanning configured (TruffleHog)</td>
+<td><code>.github/workflows/secret-scan.yml</code> — PR/push/scheduled TruffleHog scan with findings upload artifact (<code>trufflehog-findings.json</code> when present).</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td><code>SECURITY.md</code>, <code>LICENSE-DEPENDENCIES.md</code>, <code>CODE_OF_CONDUCT.md</code>, security-scanning guide, <strong>sandbox-five-minute</strong></td>
+<td>Root <code>SECURITY.md</code>, <code>LICENSE-DEPENDENCIES.md</code>, <code>CODE_OF_CONDUCT.md</code>; <code>docs/docs/guides/security-scanning.md</code>; <code>docs/docs/guides/sandbox-five-minute.md</code>.</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td><code>.devcontainer</code>, README badges</td>
+<td><code>.devcontainer/devcontainer.json</code> (Docker-outside-of-Docker, port forwards incl. 3000/8000/8003). <strong>[Tarka root <code>README.md](../../../README.md)</code></strong> L7–9 — CI, security scan, Codespaces badges (<code>pamu512/tarka</code>, not Skuld).</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td><code>deploy/docker-compose.lite.yml</code> includes integration-ingress <strong>8003</strong></td>
+<td><code>deploy/docker-compose.lite.yml</code> — service <code>integration-ingress</code> ports <code>"8003:8003"</code> (L85–95) and frontend depends_on includes it.</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+</tbody>
+</table>
+<h3 id="pre-tag-validation-from-planned-validation">Pre-tag validation (from § Planned Validation)<a class="headerlink" href="#pre-tag-validation-from-planned-validation" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Evidence</th>
+<th>Owner</th>
+<th>Date</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Consortium / feedback-loop tests (as applicable)</td>
+<td><code>services/decision-api/tests/test_consortium.py</code> — <code>consortium_score_delta</code>, trust-weighted and false-positive penalty behavior; <code>test_hash_entity_id_*</code>. Consortium feedback/outcome APIs: <code>services/decision-api/src/decision_api/consortium_api.py</code> (e.g. outcome <code>false_positive</code> / <code>confirmed_fraud</code>). Redis aggregation: <code>services/decision-api/src/decision_api/redis_store.py</code> (<code>record_consortium_feedback</code>, quality fields).</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td>Contract tests for <code>inference_context</code> v2 + <code>recommended_action</code></td>
+<td><code>test_golden_inference.py</code> (golden keys parity); <code>test_inference_build.py</code> (v2 fields + <code>derive_recommended_action</code>); <code>test_openapi_contract_files.py</code> (OpenAPI + FastAPI schema smoke for evaluate + inference). Optional: add explicit pytest asserting evaluate JSON shape if tightened further.</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td><code>pytest</code> decision-api + frontend <code>npm run build</code> + TS SDK <code>npm run build</code> on release candidate commit</td>
+<td>Local RC verification rerun on branch <code>release/v1.2.0</code>, SHA <code>ec89ac96e47d47b56e9df0cf6e7e382d4bbea6ee</code>: <code>bash scripts/ci/verify_release_candidate.sh</code> passed (<code>ruff</code> slice, frontend build, investigation-agent pytest, TS SDK build).</td>
+<td>Anoop Pamu</td>
+<td>04/19/2026</td>
+</tr>
+<tr>
+<td>Latency benchmark artifact published in CI</td>
+<td><code>.github/workflows/ci.yml</code> job <code>benchmark-latency-evaluate</code> boots lite compose, runs <code>scripts/benchmarks/latency_evaluate.py</code>, uploads <code>benchmark-latency-evaluate.txt</code> artifact for regression tracking.</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td>Latency benchmark artifact published on candidate SHA</td>
+<td>Local candidate artifact generated and checked in as <code>[benchmark-latency-evaluate-local.txt](../../../benchmark-latency-evaluate-local.txt)</code> from <code>scripts/benchmarks/latency_evaluate.py</code> against <code>http://localhost:8000</code> (<code>requests=20</code>, <code>concurrency=1</code>, <code>errors=0</code>, status <code>{200: 20}</code>). Latest master CI run <code>[24377895049](https://github.com/pamu512/tarka/actions/runs/24377895049)</code> is green but does not expose a <code>benchmark-latency-evaluate</code> job entry via Actions jobs API; local artifact attached as release evidence.</td>
+<td>Anoop Pamu</td>
+<td>04/19/2026</td>
+</tr>
+<tr>
+<td>Full CI workflow green on default branch</td>
+<td><code>master</code> SHA <code>df3224c3b3e5056d03554ca9732fde2f25086139</code>: <a href="https://github.com/pamu512/tarka/actions/runs/24377895049">workflow <code>CI</code> run 24377895049</a> — completed successfully.</td>
+<td>Anoop Pamu</td>
+<td>04/19/2026</td>
+</tr>
+<tr>
+<td>Trivy workflow completes</td>
+<td><code>master</code> SHA <code>df3224c3b3e5056d03554ca9732fde2f25086139</code>: <a href="https://github.com/pamu512/tarka/actions/runs/24377895059">workflow <code>Security scan</code> run 24377895059</a> — completed successfully.</td>
+<td>Anoop Pamu</td>
+<td>04/19/2026</td>
+</tr>
+<tr>
+<td>Secret scan workflow completes</td>
+<td><code>secret-scan.yml</code> exists in repo, but GitHub Actions API currently returns <strong>no runs</strong> for that workflow on <code>master</code> (checked <code>2026-04-19</code>). <strong>Beta-only temporary waiver:</strong> scoped to <code>v1.1.0</code> release attestation, expires on the first successful <code>main/master</code> run (or within one week post-tag), and must be replaced with the concrete run URL.</td>
+<td>Anoop Pamu</td>
+<td>04/19/2026</td>
+</tr>
+<tr>
+<td>Lite compose smoke: <strong>8000</strong> evaluate, <strong>8003</strong> OSINT, <strong>3000</strong> UI</td>
+<td>Manual smoke rerun <code>2026-04-19</code>: <code>docker compose -f deploy/docker-compose.lite.yml up -d --build postgres redis decision-api case-api integration-ingress</code>; <code>POST /v1/decisions/evaluate</code> on <code>8000</code> succeeded (trace <code>c1ebce47-575c-4f3b-b09c-f485fd7a1988</code>), <code>POST /v1/osint</code> on <code>8003</code> returned low-risk aggregate payload, and <code>http://localhost:3000/</code> returned <code>200</code>.</td>
+<td>Anoop Pamu</td>
+<td>04/19/2026</td>
+</tr>
+<tr>
+<td><code>**investigation-agent</code>** <code>pytest</code> (Investigation Copilot tool loop, security tests) green</td>
+<td><code>.github/workflows/ci.yml</code> investigation-agent test job (search <code>investigation-agent</code>); includes <code>tests/test_agent_security.py</code> and other agent tests when CI green.</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+</tr>
+<tr>
+<td><strong>Security scan</strong> workflow (<code>[.github/workflows/security-scan.yml](../../../.github/workflows/security-scan.yml)</code>) green / completed on RC commit (Trivy FS + decision-api image jobs)</td>
+<td>RC SHA <code>df3224c3b3e5056d03554ca9732fde2f25086139</code>: <a href="https://github.com/pamu512/tarka/actions/runs/24377895059">Security scan run 24377895059</a>.</td>
+<td>Anoop Pamu</td>
+<td>04/19/2026</td>
+</tr>
+<tr>
+<td><strong>Secret scan</strong> workflow (<code>[.github/workflows/secret-scan.yml](../../../.github/workflows/secret-scan.yml)</code>) green / completed on RC commit (TruffleHog)</td>
+<td><code>secret-scan.yml</code> present; as of <code>2026-04-19</code>, GitHub Actions API reports no historical runs for this workflow on <code>master</code>. <strong>Beta-only temporary waiver:</strong> allowed for <code>v1.1.0</code> attestation only, with mandatory replacement by first successful <code>main/master</code> run URL (target: within one week post-tag).</td>
+<td>Anoop Pamu</td>
+<td>04/19/2026</td>
+</tr>
+</tbody>
+</table>
+<h2 id="release-candidate-finalization-may-handoff-policy">Release candidate finalization &amp; May handoff policy<a class="headerlink" href="#release-candidate-finalization-may-handoff-policy" title="Permanent link">&para;</a></h2>
+<p><strong>Goal for <code>v1.1.0</code>:</strong> ship with <strong>no failing automated release gates</strong> and <strong>no known P0 blockers</strong> on the <strong>demo path</strong> (lite compose + five-minute doc) and the <strong>full stack</strong> profile used in CI (<code>docker-build</code> / <code>stack-smoke</code> matrix). <em>“Zero bugs”</em> is not mathematically provable; <strong>operational definition</strong> = all required CI jobs pass, security workflows complete without blocking failures, and open <strong>P0</strong> issues affecting demo or tagged stack are <strong>closed or explicitly waived</strong> in the checklist above.</p>
+<p><strong>Minimum bar before tagging <code>v1.1.0</code>:</strong></p>
+<ol>
+<li><code>**[ci.yml](../../../.github/workflows/ci.yml)</code><strong> — full matrix green on the release candidate commit: </strong>lint (Ruff)<strong>; </strong>frontend<strong> <code>npm ci</code> + <code>npm run build</code>; <code>**investigation-agent</code></strong> tests; decision-api (coverage gate), case-api, graph-service, Neo4j live job, integration-ingress, SDK Python, GraphQL, event-ingest, analytics-sink, feature-service, ml-scoring; <strong>TypeScript SDK</strong> build; <strong>docker-build</strong>; <strong>stack-smoke</strong> as configured.</li>
+<li><code>**[security-scan.yml](../../../.github/workflows/security-scan.yml)</code><strong> and <code>**[secret-scan.yml](../../../.github/workflows/secret-scan.yml)</code></strong> — completed runs on the same commit (Trivy + secret scanning findings gate), or for <strong>early-development beta only</strong> an explicit, time-bound waiver documented in this checklist with owner and closure date.</li>
+<li><strong>Manual smoke:</strong> <code>[sandbox-five-minute.md](../guides/sandbox-five-minute.md)</code> (evaluate + OSINT + <strong>Case detail explainability</strong> + copilot/mock path as applicable).</li>
+</ol>
+<p><strong>After <code>v1.1.0</code> is tagged (finalized build):</strong> routine product and engineering changes that <strong>miss</strong> the 4/30 tag <strong>do not</strong> retroactively alter <code>v1.1.0</code>. They ship on the <strong>May 2026 Friday trains</strong> documented in <code>[release-calendar-2026-05.md](../guides/release-calendar-2026-05.md)</code> and roll into <code>**v1.2.0</code> (<code>2026-05-30</code>)<strong> per <code>[RELEASE_SCHEDULE.md](../../../RELEASE_SCHEDULE.md)</code>, unless explicitly cherry-picked as a </strong>patch** (document any exception in release notes).</p>
+<p><strong>Local subset (frontend + copilot + TS SDK + Ruff on <code>services/investigation-agent</code>):</strong> from repo root, <code>bash scripts/ci/verify_release_candidate.sh</code> — does <strong>not</strong> replace <code>**ruff check .</code><strong> on the whole repo, decision-api coverage, Docker build, stack-smoke, or other service pytests (those stay on </strong>GitHub Actions <code>ci.yml</code>**).</p>
+<h2 id="maintainer-runbook-push-pr-ci-rc-script-evidence-tag">Maintainer runbook (push → PR → CI → RC script → evidence → tag)<a class="headerlink" href="#maintainer-runbook-push-pr-ci-rc-script-evidence-tag" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Commit</strong> on a branch (e.g. <code>release/v1.1.0-rc</code> or <code>chore/v1.1.0-prep</code>) with all intended changes; do not commit local <code>.coverage</code> or <code>services/**/*.db</code> (see root <code>.gitignore</code>).</li>
+<li><strong>Push</strong> the branch to <code>origin</code> and <strong>open a pull request</strong> to <code>main</code> / <code>master</code> (GitHub UI or <code>gh pr create</code>). <em>Sole maintainer:</em> PR is still useful so CI runs on the branch; self-merge after green is fine.</li>
+<li>Wait until <code>**[ci.yml](../../../.github/workflows/ci.yml)</code><strong> and <code>**[security-scan.yml](../../../.github/workflows/security-scan.yml)</code></strong> complete <strong>successfully</strong> on the PR (or merge commit).</li>
+<li>On <strong>Linux or macOS</strong>, from repo root: <code>bash scripts/ci/verify_release_candidate.sh</code>
+  On <strong>Windows</strong>, fix <code>npm ci</code> issues (file locks / AV) or run the same Node steps in WSL; the script’s <strong>Ruff</strong> slice targets <code>services/investigation-agent</code> only—full <code>ruff check .</code> is still the <strong>lint</strong> job in CI.</li>
+<li><strong>Fill evidence</strong> in the acceptance checklist tables above (links to Actions runs, PR, screenshots).</li>
+<li><strong>Merge</strong> the PR when green. On the <strong>exact merge commit</strong> (or chosen RC SHA), tag:
+  <code>git tag -a v1.1.0 -m "v1.1.0 — see docs/docs/releases/v1.1.0-2026-04-30.md"</code><br />
+<code>git push origin v1.1.0</code><br />
+   Do <strong>not</strong> tag until steps 3–5 are satisfied.</li>
+</ol>
+<h2 id="single-release-sign-off-v110">Single release sign-off (v1.1.0)<a class="headerlink" href="#single-release-sign-off-v110" title="Permanent link">&para;</a></h2>
+<p>One <strong>“go”</strong> for <code>2026-04-30</code> after the tables above are complete (or explicitly waived with evidence). With a <strong>sole maintainer</strong>, engineering / product scope / routine security hygiene roll into one attestation—no separate signatures required unless a third party (e.g. auditor) demands it later.</p>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Name</th>
+<th>Signature / date</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Maintainer (engineering, scope, release hygiene)</td>
+<td>Anoop Pamu</td>
+<td>04/22/2026</td>
+<td>Self-attest: CI <a href="https://github.com/pamu512/tarka/actions/runs/24322755744">24322755744</a>, Security <a href="https://github.com/pamu512/tarka/actions/runs/24322755732">24322755732</a>, lite smoke <strong>2026-04-13</strong> (see Pre-tag validation table).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="planned-breaking-changes">Planned Breaking Changes<a class="headerlink" href="#planned-breaking-changes" title="Permanent link">&para;</a></h2>
+<ul>
+<li>None expected. Clients should tolerate new optional/v2 fields; older clients ignoring unknown JSON keys remain compatible.</li>
+</ul>
+<h2 id="planned-validation">Planned Validation<a class="headerlink" href="#planned-validation" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Integration tests for weighted consortium scoring.</li>
+<li>End-to-end feedback loop tests from case outcome to decision score impact.</li>
+<li>API and UI tests for consortium policy controls.</li>
+<li>Contract tests for evaluate/audit <code>**inference_context</code><strong> v2 and <code>**recommended_action</code></strong>.</li>
+<li><code>**pytest</code><strong> (decision-api) and frontend <code>**npm run build**</code> green before tag; </strong>TypeScript SDK<strong> <code>**npm run build</code></strong> green.</li>
+<li><strong>CI workflow green</strong> on default branch: lint, all Python service test jobs (including graphql + streaming path services), Node builds, Docker build matrix.</li>
+<li><strong>Trivy</strong> security workflow completes (SARIF upload may depend on org plan); <strong>Dependabot</strong> enabled for the repository.</li>
+<li><strong>Lite compose</strong> smoke: <code>docker compose -f deploy/docker-compose.lite.yml up -d --build</code> → <strong>8000</strong> evaluate, <strong>8003</strong> OSINT health, <strong>3000</strong> frontend reachable.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/tarka/tarka" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

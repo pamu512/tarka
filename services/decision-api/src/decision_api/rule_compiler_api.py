@@ -82,6 +82,21 @@ class VisualDryRunRequest(BaseModel):
     entity_id: str = Field(default="dry-run-entity", max_length=128)
 
 
+class RuleExprMermaidRequest(BaseModel):
+    """RuleExpr JSON (``kind``-tagged union) as serialized by the Rust ``tarka-core`` evaluator."""
+
+    model_config = ConfigDict(extra="forbid")
+    rule_expr: dict[str, Any] = Field(
+        ...,
+        description="Native rule tree: ``kind`` ∈ and | or | not | compare_leaf | …",
+    )
+
+
+class RuleExprMermaidResponse(BaseModel):
+    mermaid: str
+    format: str = Field(default="mermaid_flowchart_td_v1", max_length=64)
+
+
 VisualAstBranchAll.model_rebuild()
 VisualAstBranchAny.model_rebuild()
 VisualAstRule.model_rebuild()
@@ -197,6 +212,30 @@ async def evaluate_visual_dry_run(
         "score_delta": delta,
         "compiled_rules": json_pack["rules"],
     }
+
+
+@router.post("/mermaid")
+async def rule_expr_to_mermaid_diagram(
+    body: RuleExprMermaidRequest,
+    _user=Depends(require_role("analyst")),
+) -> RuleExprMermaidResponse:
+    """Turn a ``RuleExpr`` JSON tree into Mermaid flowchart text (Rust ``tarka-core`` renderer via ``tarka`` PyO3)."""
+    raw = json.dumps(body.rule_expr, separators=(",", ":"))
+    try:
+        from tarka.decision import rule_expr_mermaid_flowchart
+    except ImportError:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Install the `tarka` package (PyO3 bindings to tarka-core, built from crates/tarka-py) "
+                "to generate RuleExpr diagrams."
+            ),
+        ) from None
+    try:
+        diagram = rule_expr_mermaid_flowchart(raw)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return RuleExprMermaidResponse(mermaid=diagram)
 
 
 @router.post("/compile")

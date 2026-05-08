@@ -26,7 +26,12 @@ def _get_valid_keys() -> frozenset[str]:
 
 async def require_api_key(request: Request) -> None:
     # Orchestrators and scripts (e.g. scripts/ci/full_stack_smoke.py) probe these without X-API-Key.
-    if request.url.path in {"/v1/health", "/metrics"}:
+    if request.url.path in {
+        "/v1/health",
+        "/v1/health/deep",
+        "/health/deep",
+        "/metrics",
+    }:
         return
     keys = _get_valid_keys()
     tenant_map = parse_api_key_tenant_map()

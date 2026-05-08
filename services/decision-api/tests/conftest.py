@@ -4,6 +4,9 @@ import os
 import sys
 from pathlib import Path
 
+# OpenTelemetry: disable OTLP export in unit tests (avoids background export to a missing collector).
+os.environ.setdefault("OTEL_SDK_DISABLED", "1")
+
 # auth_rbac middleware fails closed when API_KEYS and OIDC are unset. CI often exports
 # API_KEYS="" (empty but present), so os.environ.setdefault("API_KEYS", ...) never runs.
 if (

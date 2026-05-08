@@ -1,0 +1,72 @@
+name: Bench
+
+on:
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "crates/tarka-core/**"
+      - "scripts/ci/criterion_p99_regression.py"
+      - ".github/workflows/bench.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: bench-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+  CI: "true"
+
+jobs:
+  tarka-core-regression:
+    name: tarka-core evaluate_full_trace p99 (max +5%)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry + workspace target
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: v1-tarka-core-bench-gate
+
+      - name: Save SHAs
+        run: |
+          set -euo pipefail
+          echo "HEAD_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            echo "BASE_SHA=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_ENV"
+          else
+            # workflow_dispatch fallback: compare against current default branch tip
+            DEFAULT_BRANCH="$(git remote show origin | sed -n '/HEAD branch/s/.*: //p')"
+            git fetch --no-tags --depth=1 origin "${DEFAULT_BRANCH}"
+            echo "BASE_SHA=$(git rev-parse origin/${DEFAULT_BRANCH})" >> "$GITHUB_ENV"
+          fi
+
+      - name: Benchmark baseline (PR base SHA)
+        run: |
+          set -euo pipefail
+          git checkout --detach "${BASE_SHA}"
+          cargo bench -p tarka-core --bench standard_heavy_rule_set --locked -- --save-baseline base
+
+      - name: Benchmark PR head and enforce 5% threshold
+        run: |
+          set -euo pipefail
+          git checkout --detach "${HEAD_SHA}"
+          cargo bench -p tarka-core --bench standard_heavy_rule_set --locked
+          python3 scripts/ci/criterion_p99_regression.py \
+            --benchmark-dir target/criterion/standard_heavy_rule_set/evaluate_full_trace \
+            --baseline-label base \
+            --max-ratio 1.05

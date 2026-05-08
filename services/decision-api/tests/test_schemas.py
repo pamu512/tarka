@@ -94,6 +94,8 @@ class TestEvaluateResponse:
         )
         assert r.decision == "allow"
         assert r.ml_score is None
+        assert r.decision_status == "Healthy"
+        assert r.signal_availability_notes == []
 
     def test_full(self):
         r = EvaluateResponse(

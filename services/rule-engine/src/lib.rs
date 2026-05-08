@@ -8,7 +8,7 @@ mod logging_bridge;
 
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use error::{json_parse_err, json_serialize_err, TarkaEngineError};
-use logging_bridge::ensure_tracing_installed;
+use logging_bridge::{ensure_tracing_installed, set_tracing_log_context_py};
 pub use logging_bridge::LOGGER_BRIDGE;
 use parking_lot::Mutex;
 use pyo3::create_exception;
@@ -588,6 +588,7 @@ fn get_cached_parsed(json: &Arc<String>) -> Result<Arc<Vec<Arc<ParsedPack>>>, Ta
 /// Replace cached JSON for active rule packs (same semantics as Python `_cached_packs` only).
 #[pyfunction]
 fn sync_packs_json(packs_json: String) -> PyResult<()> {
+    let _eval_span = logging_bridge::eval_context_span("").entered();
     let arr: Vec<Value> = serde_json::from_str(&packs_json)
         .map_err(|e| engine_err_to_py(&json_parse_err("sync_packs_json", e)))?;
     let active: Vec<Value> = arr
@@ -703,6 +704,8 @@ fn evaluate_json_rules_rust(
         _ => "production",
     };
 
+    let _eval_span = logging_bridge::eval_context_span(tid).entered();
+
     let out = evaluate_parsed_slice(&parsed, &fmap, &redis_tags, tid, eid, mode).map_err(|e| engine_err_to_py(&e))?;
     serde_json::to_string(&out).map_err(|e| engine_err_to_py(&json_serialize_err("evaluate_result", e)))
 }
@@ -737,6 +740,8 @@ fn evaluate_adhoc_packs_rust(
         "production" | "simulation" | "challenger" => evaluation_mode.as_str(),
         _ => "production",
     };
+
+    let _eval_span = logging_bridge::eval_context_span(tid).entered();
 
     let out = evaluate_parsed_slice(&parsed, &fmap, &redis_tags, tid, eid, mode).map_err(|e| engine_err_to_py(&e))?;
     serde_json::to_string(&out).map_err(|e| engine_err_to_py(&json_serialize_err("evaluate_adhoc_result", e)))
@@ -831,5 +836,6 @@ fn tarka_rule_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(validate_json_rule_ast, m)?)?;
     m.add_function(wrap_pyfunction!(evaluate_json_ast_strict, m)?)?;
     m.add_function(wrap_pyfunction!(install_tracing_python_bridge_py, m)?)?;
+    m.add_function(wrap_pyfunction!(set_tracing_log_context_py, m)?)?;
     Ok(())
 }

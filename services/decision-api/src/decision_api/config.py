@@ -22,7 +22,72 @@ class Settings(BaseSettings):
         max_length=128,
         pattern=r"^[a-zA-Z_][a-zA-Z0-9_]*$",
     )
+    #: Parallel Production vs Candidate rule evaluation; requires ``CANDIDATE_RULES_PATH`` packs.
+    shadow_evaluator_enabled: bool = os.environ.get(
+        "SHADOW_EVALUATOR_ENABLED", ""
+    ).strip().lower() in ("1", "true", "yes", "on")
+    shadow_evaluator_timeout_seconds: float = Field(
+        default=float(os.environ.get("SHADOW_EVALUATOR_TIMEOUT_SECONDS", "3.0")),
+        ge=0.25,
+        le=120.0,
+    )
+    candidate_rules_path: str = os.environ.get("CANDIDATE_RULES_PATH", "").strip()
+    clickhouse_shadow_evaluations_table: str = Field(
+        default=os.environ.get(
+            "CLICKHOUSE_SHADOW_EVALUATIONS_TABLE", "shadow_rule_evaluations"
+        ).strip()
+        or "shadow_rule_evaluations",
+        min_length=1,
+        max_length=128,
+        pattern=r"^[a-zA-Z_][a-zA-Z0-9_]*$",
+    )
+    #: Audit ingest sink :func:`~ingestor.manifest_row.decode_manifest_row` → ``trace_json``.
+    clickhouse_evidence_manifests_table: str = Field(
+        default=os.environ.get("CLICKHOUSE_EVIDENCE_MANIFESTS_TABLE", "evidence_manifests")
+        .strip()
+        or "evidence_manifests",
+        min_length=1,
+        max_length=128,
+        pattern=r"^[a-zA-Z_][a-zA-Z0-9_]*$",
+    )
+    #: When set, manifest SELECTs send ClickHouse session setting `tarka_tenant_id` (Row-Level Security).
+    clickhouse_row_policy_tenant_id: str = Field(
+        default=os.environ.get("CLICKHOUSE_ROW_POLICY_TENANT_ID", "").strip(),
+        max_length=256,
+    )
     redis_url: str = "redis://localhost:6379/0"
+
+    #: Persist merged entity tags to Postgres ``entity_signature_state`` after evaluate (SOT for Redis sync).
+    redis_signature_sync_persist_on_evaluate: bool = Field(
+        default=os.environ.get("REDIS_SIGNATURE_SYNC_PERSIST_ON_EVALUATE", "true")
+        .strip()
+        .lower()
+        in ("1", "true", "yes", "on"),
+    )
+    #: Background worker: scan Postgres and repopulate missing/stale ``fraud:tags`` keys in Redis.
+    redis_signature_sync_enabled: bool = Field(
+        default=os.environ.get("REDIS_SIGNATURE_SYNC_ENABLED", "false")
+        .strip()
+        .lower()
+        in ("1", "true", "yes", "on"),
+    )
+    redis_signature_sync_interval_seconds: float = Field(
+        default=float(os.environ.get("REDIS_SIGNATURE_SYNC_INTERVAL_SECONDS", "120")),
+        ge=5.0,
+        le=86400.0,
+    )
+    redis_signature_sync_batch_size: int = Field(
+        default=int(os.environ.get("REDIS_SIGNATURE_SYNC_BATCH_SIZE", "200")),
+        ge=1,
+        le=10_000,
+    )
+
+    # Deep readiness probe (/v1/health/deep): Redis latency, ClickHouse R/W, Rust ingest gate.
+    health_deep_redis_max_ping_ms: float = Field(default=50.0, ge=1.0, le=120_000.0)
+    #: When ClickHouse is configured, require `clickhouse_health_probe_insert_sql` for write probe.
+    health_deep_require_clickhouse_write: bool = Field(default=False)
+    #: Bounded INSERT validated to start with INSERT (fail-closed against accidental DDL/DROP).
+    clickhouse_health_probe_insert_sql: str = Field(default="", max_length=4096)
     # When true, merge_tags / consume_nonce require a live Redis client (no silent KV-only substitute for those ops).
     strict_consistency: bool = os.environ.get(
         "STRICT_CONSISTENCY", ""
@@ -205,6 +270,13 @@ class Settings(BaseSettings):
     )
     circuit_location_recovery_seconds: float = float(
         os.environ.get("CIRCUIT_LOCATION_RECOVERY_SECONDS", "30")
+    )
+    # Redis tag store (tenant flags, entity tags, merge) — shared breaker per evaluate path
+    circuit_redis_failure_threshold: int = int(
+        os.environ.get("CIRCUIT_REDIS_FAILURE_THRESHOLD", "5")
+    )
+    circuit_redis_recovery_seconds: float = float(
+        os.environ.get("CIRCUIT_REDIS_RECOVERY_SECONDS", "30")
     )
     circuit_external_failure_threshold: int = int(
         os.environ.get("CIRCUIT_EXTERNAL_FAILURE_THRESHOLD", "5")

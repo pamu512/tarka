@@ -12,6 +12,15 @@ Stretch: contract smoke / optional Schemathesis against a running Decision API.
 
 **Minimal smoke (no extra deps):** GET /v1/health and GET /openapi.json
 
+**Pytest suite (CI):** from ``services/decision-api``::
+
+  pip install -e ".[dev]"
+  pytest tests/contract -m contract
+
+Budget defaults to **≥100** generated Schemathesis calls (``operations × max_examples``); tune with
+``SCHEMATHESIS_CONTRACT_MIN_TOTAL``, ``SCHEMATHESIS_MAX_EXAMPLES``, ``SCHEMATHESIS_BINARY_MAX_EXAMPLES``
+(see ``tests/contract/schemathesis_config.py``).
+
 **Full fuzz:** install ``pip install schemathesis`` then use the CLI (recommended)::
 
   pip install schemathesis

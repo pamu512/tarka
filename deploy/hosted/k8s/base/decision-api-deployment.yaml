@@ -37,3 +37,9 @@ spec:
                 secretKeyRef:
                   name: tarka-secrets
                   key: redis-url
+            - name: TARKA_SIGNING_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tarka-engine-signing
+                  key: TARKA_SIGNING_KEY
+                  optional: true

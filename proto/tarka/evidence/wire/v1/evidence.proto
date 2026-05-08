@@ -1,0 +1,112 @@
+syntax = "proto3";
+
+// Distinct from legacy runtime schema in `crates/tarka-core/proto/evidence.proto` so both
+// schemas can be generated in one crate without duplicate message names.
+package tarka.evidence.wire.v1;
+
+// Canonical audit envelope for a single fraud-decision evaluation: binds identity, engine provenance,
+// captured signals, per-step rule execution, the final outcome, and cryptographic binding of the
+// decision trace (Merkle root + signature). Persisted for dispute resolution, regulatory inquiry,
+// and deterministic replay without trusting mutable application logs alone.
+
+message EvidenceManifest {
+  // Stable identifier for this manifest (typically UUID string; aligns with case tools and CH manifest_id).
+  string manifest_id = 1;
+
+  // Wall-clock instant when the evaluation completed or when evidence was sealed: nanoseconds since Unix epoch.
+  uint64 occurred_at_unix_ns = 2;
+
+  // Build-time and runtime provenance of the engine that produced this manifest (who ran which code where).
+  EngineMetadata engine = 3;
+
+  // Normalized feature/signal inputs and enrichments keyed by stable signal id at evaluation time.
+  map<string, SignalValue> signals = 4;
+
+  // Ordered rule-engine steps; proves how the verdict was reached for auditor and replay tooling.
+  repeated ExecutionStep trace = 5;
+
+  // Final orchestrated outcome: decision label, risk score, routing tags, and measured latency.
+  Verdict verdict = 6;
+
+  // SHA-256 Merkle root over canonicalized trace leaves (32 bytes). Links signature to evidence content.
+  bytes merkle_root = 7;
+
+  // Digital signature over the Merkle root (e.g. Ed25519ph over prehashed root). Proves integrity non-repudiation.
+  bytes signature = 8;
+
+  // rs_merkle inclusion proof over trace leaves (`MerkleProof::to_bytes`, DirectHashes order). Required
+  // whenever `signature` is populated (Triple-DB audit); may be zero-length when `trace` is empty.
+  optional bytes merkle_proof = 9;
+}
+
+// Identifies the software artifact and deployment context that executed the policy graph.
+message EngineMetadata {
+  // Semantic engine release (semver or internal label embedded at build).
+  string version = 1;
+
+  // Exact VCS revision used to build the engine binary (full git SHA preferred).
+  string git_hash = 2;
+
+  // Deployment slice: prod, staging, sandbox, or region-specific label for blast-radius analysis.
+  string environment = 3;
+
+  // Stable id for the running engine replica/pod (correlates with infra logs when investigating drift).
+  string engine_instance_id = 4;
+}
+
+// Typed scalar payload for a named signal; preserves numeric vs string vs opaque blob for faithful replay.
+message SignalValue {
+  // Exactly one payload variant; absent means “unset” for that signal key.
+  oneof value {
+    // UTF-8 string bucket (free-form categories, short codes, hashed ids where policy allows).
+    string str_val = 1;
+
+    // Floating scalar (scores, amounts, model probabilities).
+    double num_val = 2;
+
+    // Boolean flags from lists, velocity thresholds, or binary model outputs.
+    bool bool_val = 3;
+
+    // Opaque binary (serialized embeddings, protobuf submessages, or redacted blobs stored verbatim).
+    bytes raw_bytes = 4;
+  }
+
+  // Upstream label for audit: which connector, model version, or resolver produced this value.
+  string source = 5;
+}
+
+// One rule-evaluation step within the ordered trace; captures subtree evaluation for dispute debugging.
+message ExecutionStep {
+  // Monotonic position in the evaluation DAG traversal (reconstruct order even if logs interleave).
+  uint32 sequence = 1;
+
+  // Stable id of the rule or leaf node evaluated at this step (maps to policy repo definitions).
+  string rule_id = 2;
+
+  // Logical combinator or opcode for this node (e.g. AND, OR, GT, MATCH — engine-defined vocabulary).
+  string operator = 3;
+
+  // Operand references or literal handles fed to the operator (paths, constant ids, child rule ids).
+  repeated string operands = 4;
+
+  // Truth value of this step after applying the operator to operands under the current snapshot.
+  bool result = 5;
+
+  // Compact key/value snapshot of resolver state after the step (bounded strings for audit storage).
+  map<string, string> state_snapshot = 6;
+}
+
+// Final decision surface exposed to orchestration and downstream systems.
+message Verdict {
+  // Primary routing decision (e.g. allow, review, deny — product vocabulary; contract-level enum may wrap this).
+  string action = 1;
+
+  // Aggregated risk or confidence score used for thresholding and analytics.
+  double score = 2;
+
+  // Tags emitted for explainability, policy routing, or consortium exchange (dedup not guaranteed).
+  repeated string tags = 3;
+
+  // End-to-end evaluation latency in nanoseconds (SLI/SLO and latency forensics).
+  uint64 latency_ns = 4;
+}

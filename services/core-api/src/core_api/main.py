@@ -28,16 +28,24 @@ from sqlalchemy import String, cast, or_, select  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
 from core_api.demo_burst import register_demo_burst_route  # noqa: E402
+from core_api.infrastructure.otel import (  # noqa: E402
+    init_opentelemetry,
+    shutdown_opentelemetry,
+)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with dec.lifespan(dec.app), case.lifespan(case.app):
-        yield
+    try:
+        async with dec.lifespan(dec.app), case.lifespan(case.app):
+            yield
+    finally:
+        shutdown_opentelemetry()
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Tarka Core API", version="1.0.0", lifespan=lifespan)
+    init_opentelemetry(app, dec.app, case.app)
     setup_observability(app, "core-api")
     register_demo_burst_route(app)
 

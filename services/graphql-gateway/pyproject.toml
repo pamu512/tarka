@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Tarka — GraphQL gateway aggregating REST services"
 requires-python = ">=3.11"
 dependencies = [
+  "structlog>=24.1.0",
   "strawberry-graphql[fastapi]>=0.252.0",
   "httpx>=0.28.0",
   "pydantic-settings>=2.6.0",

@@ -1,0 +1,6 @@
+# Proof pipeline load tests (Locust + ClickHouse verification).
+locust>=2.32.0
+clickhouse-connect>=0.8.0
+redis[hiredis]>=5.2.0
+psycopg2-binary>=2.9.0
+sqlalchemy>=2.0.0

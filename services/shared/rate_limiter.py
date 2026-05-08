@@ -15,7 +15,12 @@ Usage::
     # Or with Redis:
     setup_rate_limiter(app, rpm=600, burst=50, redis_url="redis://localhost:6379/1")
 """
-SKIP_PATHS = {"/v1/health", "/metrics"}
+SKIP_PATHS = {
+    "/v1/health",
+    "/v1/health/deep",
+    "/health/deep",
+    "/metrics",
+}
 
 
 class TokenBucket:

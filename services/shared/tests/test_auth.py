@@ -39,19 +39,22 @@ def test_require_api_key_fails_closed_when_unconfigured(monkeypatch):
 
 
 def test_require_api_key_skips_health_for_probes(monkeypatch):
-    """Docker/K8s and scripts/ci/full_stack_smoke.py hit /v1/health without API keys."""
+    """Docker/K8s and scripts probe shallow/deep health without API keys."""
     monkeypatch.delenv("API_KEYS", raising=False)
     monkeypatch.delenv("ALLOW_INSECURE_NO_AUTH", raising=False)
     app = FastAPI(dependencies=[pytest.importorskip("fastapi").Depends(require_api_key)])
 
-    @app.get("/v1/health")
     async def health():
         return {"status": "ok"}
 
+    for path in ("/v1/health", "/v1/health/deep", "/health/deep"):
+        app.add_api_route(path, health, methods=["GET"])
+
     with TestClient(app) as client:
-        resp = client.get("/v1/health")
-    assert resp.status_code == 200
-    assert resp.json().get("status") == "ok"
+        for path in ("/v1/health", "/v1/health/deep", "/health/deep"):
+            resp = client.get(path)
+            assert resp.status_code == 200, path
+            assert resp.json().get("status") == "ok", path
 
 
 def test_require_api_key_allows_explicit_insecure_dev(monkeypatch):

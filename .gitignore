@@ -6,7 +6,12 @@ build/
 .eggs/
 *.egg
 .venv/
+.venv_pb2/
+.venv-internal-comms/
 venv/
+
+# Local-only Development CA + keys for Envoy mTLS (see infrastructure/envoy/scripts/gen-dev-mtls-certs.sh).
+infrastructure/envoy/certs/dev/
 .env
 *.onnx
 *.pkl

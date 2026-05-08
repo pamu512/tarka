@@ -1,0 +1,18 @@
+[project]
+name = "tarka-internal-comms-grpc"
+version = "0.1.0"
+description = "Betterproto-generated stubs for proto/internal_comms.proto (SignalService)."
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "betterproto>=2.0.0b6",
+    "grpclib>=0.4.7",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tarka*"]

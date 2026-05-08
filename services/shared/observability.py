@@ -1,3 +1,19 @@
+"""Shared observability: Prometheus metrics, structlog JSON logging, trace context.
+
+Usage in any FastAPI service::
+
+    from observability import setup_observability
+    setup_observability(app, service_name="decision-api")
+
+Optional error reporting (when ``SENTRY_DSN`` or ``TARKA_SENTRY_DSN`` is set)::
+
+    from observability import setup_sentry_sdk
+    setup_sentry_sdk(service_name="decision-api")  # before ``setup_observability``
+
+When ``TARKA_LOKI_PUSH_URL`` or ``LOKI_PUSH_URL`` is set (for example in the Nix devshell),
+structured JSON logs are also POSTed to Grafana Loki with retries and backpressure.
+"""
+
 from __future__ import annotations
 
 import json
@@ -8,45 +24,261 @@ import time
 import uuid
 from typing import Any
 
+import structlog
 from fastapi import FastAPI, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
+from structlog.contextvars import bind_contextvars, clear_contextvars, merge_contextvars
 
-"""Shared observability: Prometheus metrics, structured logging, trace context.
-
-Usage in any FastAPI service::
-
-    from observability import setup_observability
-    setup_observability(app, service_name="decision-api")
-"""
-# ---- Structured JSON logging ----
+from loki_push import attach_loki_logging_if_configured
 
 
-class JsonFormatter(logging.Formatter):
+def _ensure_trace_triplet(
+    _logger: Any, _method_name: str, event_dict: dict[str, Any]
+) -> dict[str, Any]:
+    """Guarantee correlation keys on every emitted record (ELK / Loki / Sentry)."""
+    event_dict.setdefault("trace_id", "")
+    event_dict.setdefault("rule_set_hash", "")
+    event_dict.setdefault("tenant_id", "")
+    event_dict.setdefault("otel_trace_id", "")
+    return event_dict
+
+
+def _bind_service_name(service: str):
+    def processor(_logger: Any, _method_name: str, event_dict: dict[str, Any]) -> dict[str, Any]:
+        event_dict.setdefault("service", service)
+        return event_dict
+
+    return processor
+
+
+class _PassthroughRustJsonFormatter(logging.Formatter):
+    """Rust rule-engine bridge emits one JSON object per line; avoid double-encoding."""
+
+    def __init__(self, inner: logging.Formatter) -> None:
+        super().__init__()
+        self._inner = inner
+
     def format(self, record: logging.LogRecord) -> str:
-        out: dict[str, Any] = {
-            "ts": self.formatTime(record),
-            "level": record.levelname,
-            "logger": record.name,
-            "msg": record.getMessage(),
-        }
-        if record.exc_info and record.exc_info[1]:
-            out["exception"] = self.formatException(record.exc_info)
-        extra_keys = {"trace_id", "service", "method", "path", "status", "duration_ms"}
-        for k in extra_keys:
-            if hasattr(record, k):
-                out[k] = getattr(record, k)
-        return json.dumps(out, default=str)
+        msg = record.getMessage()
+        if msg.startswith("{") and '"trace_id"' in msg:
+            try:
+                parsed = json.loads(msg)
+            except json.JSONDecodeError:
+                return self._inner.format(record)
+            if isinstance(parsed, dict):
+                for key in ("trace_id", "rule_set_hash", "tenant_id", "otel_trace_id"):
+                    parsed.setdefault(key, getattr(record, key, "") or "")
+                return json.dumps(parsed, default=str)
+        return self._inner.format(record)
 
 
 def setup_logging(service_name: str, level: str = "") -> None:
-    log_level = (level or os.environ.get("LOG_LEVEL", "INFO")).upper()
+    log_level = getattr(logging, (level or os.environ.get("LOG_LEVEL", "INFO")).upper(), logging.INFO)
+
+    shared_pre = [
+        structlog.stdlib.filter_by_level,
+        merge_contextvars,
+        _ensure_trace_triplet,
+        _bind_service_name(service_name),
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.TimeStamper(fmt="iso", key="ts", utc=True),
+        structlog.processors.UnicodeDecoder(),
+    ]
+
+    structlog.configure(
+        processors=shared_pre + [structlog.stdlib.render_to_log_kwargs],
+        wrapper_class=structlog.stdlib.BoundLogger,
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        cache_logger_on_first_use=True,
+    )
+
+    foreign_pre = [
+        merge_contextvars,
+        _ensure_trace_triplet,
+        _bind_service_name(service_name),
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.TimeStamper(fmt="iso", key="ts", utc=True),
+        structlog.processors.UnicodeDecoder(),
+    ]
+
+    inner = structlog.stdlib.ProcessorFormatter(
+        processor=structlog.processors.JSONRenderer(),
+        foreign_pre_chain=foreign_pre,
+    )
+
     root = logging.getLogger()
-    root.setLevel(log_level)
     root.handlers.clear()
     handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(JsonFormatter())
+    passthrough = _PassthroughRustJsonFormatter(inner)
+    handler.setFormatter(passthrough)
     root.addHandler(handler)
+    root.setLevel(log_level)
+
+    attach_loki_logging_if_configured(
+        service_name=service_name,
+        json_formatter=passthrough,
+        root=root,
+    )
+
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+
+
+def sync_rule_engine_tracing_bridge() -> None:
+    """Mirror contextvars into the optional Rust rule-engine TLS sink (same-thread calls)."""
+    try:
+        from tarka_rule_engine import set_tracing_log_context  # type: ignore[import-not-found]
+    except ImportError:
+        return
+    ctx = structlog.contextvars.get_contextvars()
+    set_tracing_log_context(
+        str(ctx.get("trace_id") or ""),
+        str(ctx.get("rule_set_hash") or ""),
+        str(ctx.get("tenant_id") or ""),
+        str(ctx.get("otel_trace_id") or ""),
+    )
+
+
+def _parse_w3c_trace_id_from_traceparent(header: str | None) -> str:
+    """Return lowercase 32-hex trace id from W3C ``traceparent``, or ``\"\"``."""
+    if not header:
+        return ""
+    parts = header.strip().split("-")
+    if len(parts) >= 2 and len(parts[1]) == 32:
+        tid = parts[1]
+        if all(c in "0123456789abcdefABCDEF" for c in tid):
+            return tid.lower()
+    return ""
+
+
+_SENTRY_INITIALIZED = False
+
+
+def setup_sentry_sdk(service_name: str) -> None:
+    """Initialize Sentry when ``SENTRY_DSN`` or ``TARKA_SENTRY_DSN`` is set.
+
+    Tags each HTTP request with ``trace_id`` (API correlation) and ``otel_trace_id``
+    (W3C / Evidence Manifest ``otel_trace_id`` on spans) once :class:`ObservabilityMiddleware`
+    binds context — see ``before_send_transaction`` / scope updates in middleware for live tags.
+
+    Safe to call once per process; subsequent calls are ignored.
+    """
+    global _SENTRY_INITIALIZED
+    if _SENTRY_INITIALIZED:
+        return
+
+    dsn = (os.environ.get("SENTRY_DSN") or os.environ.get("TARKA_SENTRY_DSN") or "").strip()
+    if not dsn:
+        return
+
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.starlette import StarletteIntegration
+    except ImportError:
+        logging.getLogger(__name__).warning(
+            "sentry_sdk not installed; skipping Sentry initialization"
+        )
+        return
+
+    traces_sample_raw = (os.environ.get("SENTRY_TRACES_SAMPLE_RATE") or "").strip()
+    traces_sample = float(traces_sample_raw) if traces_sample_raw else 0.0
+    if traces_sample < 0.0:
+        traces_sample = 0.0
+    if traces_sample > 1.0:
+        traces_sample = 1.0
+
+    def _enrich_event_with_trace_context(event: dict[str, Any]) -> None:
+        """Attach log correlation from structlog contextvars."""
+        ctx = structlog.contextvars.get_contextvars()
+        tid = str(ctx.get("trace_id") or "").strip()
+        otel = str(ctx.get("otel_trace_id") or "").strip()
+        tags = event.setdefault("tags", {})
+        if isinstance(tags, dict):
+            if tid:
+                tags.setdefault("trace_id", tid)
+            if otel:
+                tags.setdefault("otel_trace_id", otel)
+        contexts = event.setdefault("contexts", {})
+        if otel and isinstance(contexts, dict):
+            ev_ctx = contexts.setdefault("tarka_evidence", {})
+            if isinstance(ev_ctx, dict):
+                ev_ctx.setdefault("otel_trace_id", otel)
+
+    def _before_send(event: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any] | None:
+        try:
+            _enrich_event_with_trace_context(event)
+        except Exception:
+            logging.getLogger(__name__).debug(
+                "sentry_before_send_context_failed", exc_info=True
+            )
+        return event
+
+    def _before_send_transaction(
+        event: dict[str, Any], hint: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        try:
+            _enrich_event_with_trace_context(event)
+        except Exception:
+            logging.getLogger(__name__).debug(
+                "sentry_before_send_transaction_context_failed", exc_info=True
+            )
+        return event
+
+    try:
+        sentry_sdk.init(
+            dsn=dsn,
+            integrations=[
+                StarletteIntegration(transaction_style="endpoint"),
+                FastApiIntegration(transaction_style="endpoint"),
+            ],
+            traces_sample_rate=traces_sample,
+            environment=(os.environ.get("SENTRY_ENVIRONMENT") or "").strip() or None,
+            release=(os.environ.get("SENTRY_RELEASE") or "").strip() or None,
+            before_send=_before_send,
+            before_send_transaction=_before_send_transaction,
+        )
+    except Exception as exc:
+        logging.getLogger(__name__).warning(
+            "sentry_sdk init failed: %s", exc, exc_info=True
+        )
+        return
+    _SENTRY_INITIALIZED = True
+    logging.getLogger(__name__).info(
+        "sentry_sdk initialized for service=%s traces_sample_rate=%s",
+        service_name,
+        traces_sample,
+    )
+
+
+def _bind_sentry_http_scope(trace_id: str, otel_trace_id: str) -> None:
+    """Apply correlation tags to the active Sentry scope (HTTP request thread/task)."""
+    if not _SENTRY_INITIALIZED:
+        return
+    try:
+        import sentry_sdk
+    except ImportError:
+        return
+    try:
+        scope = sentry_sdk.get_current_scope()
+        scope.set_tag("trace_id", trace_id)
+        if otel_trace_id:
+            scope.set_tag("otel_trace_id", otel_trace_id)
+            scope.set_context(
+                "tarka_evidence",
+                {"otel_trace_id": otel_trace_id},
+            )
+    except Exception:
+        logging.getLogger(__name__).debug(
+            "sentry_scope_bind_failed", exc_info=True
+        )
 
 
 # ---- Prometheus metrics (lightweight, no external deps) ----
@@ -162,14 +394,63 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self._metrics = metrics
         self._service = service
-        self._log = logging.getLogger(f"{service}.http")
 
     async def dispatch(self, request: Request, call_next: Any) -> Response:
-        trace_id = request.headers.get("x-trace-id", uuid.uuid4().hex[:16])
+        hdr_tid = (request.headers.get("x-trace-id") or "").strip()
+        trace_id = hdr_tid if hdr_tid else uuid.uuid4().hex[:16]
+
+        rule_set_hash = (
+            request.headers.get("x-rule-set-hash")
+            or request.headers.get("X-Rule-Set-Hash")
+            or ""
+        ).strip()
+
+        tenant_query = (request.query_params.get("tenant_id") or "").strip()
+        tenant_hdr = (
+            request.headers.get("x-tenant-id") or request.headers.get("X-Tenant-Id") or ""
+        ).strip()
+        tenant_id = tenant_query or tenant_hdr
+
+        otel_trace_id = _parse_w3c_trace_id_from_traceparent(
+            request.headers.get("traceparent")
+        )
+        if not otel_trace_id:
+            raw_otel = (
+                request.headers.get("x-otel-trace-id")
+                or request.headers.get("X-Otel-Trace-Id")
+                or ""
+            ).strip()
+            if len(raw_otel) == 32 and all(
+                c in "0123456789abcdefABCDEF" for c in raw_otel
+            ):
+                otel_trace_id = raw_otel.lower()
+        if not otel_trace_id and len(hdr_tid) == 32 and all(
+            c in "0123456789abcdefABCDEF" for c in hdr_tid
+        ):
+            otel_trace_id = hdr_tid.lower()
+
+        clear_contextvars()
+        bind_contextvars(
+            trace_id=trace_id,
+            rule_set_hash=rule_set_hash,
+            tenant_id=tenant_id,
+            otel_trace_id=otel_trace_id,
+        )
+        sync_rule_engine_tracing_bridge()
+        _bind_sentry_http_scope(trace_id, otel_trace_id)
+
         request.state.trace_id = trace_id
+        request.state.rule_set_hash = rule_set_hash
+        request.state.tenant_id = tenant_id
+        request.state.otel_trace_id = otel_trace_id
 
         start = time.perf_counter()
-        response: Response = await call_next(request)
+        try:
+            response: Response = await call_next(request)
+        except BaseException:
+            clear_contextvars()
+            raise
+
         duration = time.perf_counter() - start
 
         path = request.url.path
@@ -195,21 +476,15 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
         )
         response.headers["X-Trace-Id"] = trace_id
 
-        self._log.info(
-            "%s %s %d %.3fs",
-            request.method,
-            request.url.path,
-            response.status_code,
-            duration,
-            extra={
-                "trace_id": trace_id,
-                "service": self._service,
-                "method": request.method,
-                "path": request.url.path,
-                "status": response.status_code,
-                "duration_ms": round(duration * 1000, 2),
-            },
+        log = structlog.get_logger(f"{self._service}.http")
+        log.info(
+            "request_completed",
+            method=request.method,
+            path=request.url.path,
+            status=response.status_code,
+            duration_ms=round(duration * 1000, 2),
         )
+        clear_contextvars()
         return response
 
 

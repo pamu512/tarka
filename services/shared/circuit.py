@@ -5,10 +5,12 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
-"""Lightweight async circuit breaker for outbound HTTP-style calls (R2).
+"""Lightweight async circuit breaker for outbound HTTP / Redis / Postgres-adjacent calls (R2).
 
-After ``failure_threshold`` consecutive failures, block new calls until ``recovery_seconds`` elapse,
-then the next attempt is allowed (half-open). Success resets; failure reopens.
+Matches common **resilience4j**-style semantics for the COUNTING strategy: after
+``failure_threshold`` **consecutive** failures, the breaker opens and rejects new calls until
+``recovery_seconds`` elapse (wait in open state), then one probe is allowed; success **closes**
+and resets the counter, failure **re-opens** the circuit.
 """
 T = TypeVar("T")
 

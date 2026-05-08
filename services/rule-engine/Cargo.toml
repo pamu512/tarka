@@ -18,6 +18,8 @@ sha2 = "0.10"
 thiserror = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["registry", "std"] }
+sentry = { version = "0.35", default-features = false, features = ["backtrace", "contexts", "panic", "tracing"] }
+sentry-tracing = "0.35"
 
 [profile.release]
 lto = true
