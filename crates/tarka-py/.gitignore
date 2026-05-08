@@ -1,0 +1,3 @@
+python/tarka/_tarka*.so
+python/tarka/*.so
+/target/
