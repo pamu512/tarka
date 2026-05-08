@@ -1,0 +1,22 @@
+[package]
+name = "tarka-py"
+version = "0.1.0"
+edition = "2021"
+description = "PyO3 bindings for Tarka evidence manifests and rule evaluation."
+
+[lib]
+name = "_tarka"
+crate-type = ["cdylib"]
+
+[dependencies]
+governor = "0.8"
+hex = "0.4.3"
+opentelemetry = { version = "0.31", default-features = false, features = ["trace"] }
+serde = { version = "1", features = ["derive"] }
+prost = "0.13"
+pyo3 = { version = "0.23", features = ["extension-module", "abi3-py311"] }
+serde_json = "1"
+tarka-core = { path = "../tarka-core" }
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "signal", "time"] }
+tracing = "0.1"
+tracing-opentelemetry = "0.32"
