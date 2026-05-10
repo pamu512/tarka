@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  scrollbar-gutter: stable;
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100%;
+}

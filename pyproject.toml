@@ -21,6 +21,7 @@ classifiers = [
 # Core: just the CLI installer + shared utilities
 dependencies = [
     "httpx>=0.28.0",
+    "tenacity>=9.0.0",
 ]
 
 [project.optional-dependencies]
@@ -82,6 +83,13 @@ observability = [
 micro = [
     "duckdb>=1.1.0",
     "aiosqlite>=0.21.0",
+]
+
+# High-concurrency scripts (e.g. scripts/stress_test_ingestion.py).
+stress = [
+    "aiohttp>=3.9.0",
+    "psutil>=6.0.0",
+    "psycopg[binary]>=3.2.0",
 ]
 
 # Bundles — common combinations

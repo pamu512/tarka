@@ -1,4 +1,4 @@
-# Build the tarka-py PyO3 extension with maturin and run Rust/Python integrity parity tests.
+# Build the tarka-py PyO3 extension via pip (PEP 517 / maturin backend) in a local venv, then run parity tests.
 name: tarka-py CI
 
 on:
@@ -28,9 +28,13 @@ jobs:
   maturin-and-parity:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v6
-
+        with:
+          fetch-depth: 0
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
@@ -43,20 +47,28 @@ jobs:
       - name: Cache Cargo registry and build
         uses: Swatinem/rust-cache@v2
 
-      - name: Install maturin
-        run: pip install --upgrade pip maturin
+      - name: Create virtualenv
+        run: python -m venv "${GITHUB_WORKSPACE}/.venv"
 
-      - name: Build native extension (maturin develop, includes dev extras)
-        run: maturin develop --extras dev -v
-        working-directory: crates/tarka-py
+      - name: Install tarka-py (path install + CI dev tools)
+        run: |
+          source "${GITHUB_WORKSPACE}/.venv/bin/activate"
+          pip install --upgrade pip
+          pip install ./crates/tarka-py
+          pip install "pytest>=8" "grpcio-tools==1.80.0" "mypy-protobuf==3.6.0"
 
       - name: Verify Proto Codegen
         run: |
+          source "${GITHUB_WORKSPACE}/.venv/bin/activate"
+          export PROTOC_PYTHON="$(command -v python)"
           bash scripts/generate_protos.sh
           git diff --exit-code -- crates/tarka-py/python
 
       - name: Run integrity parity pytest (fail on Parity Violation / assertion errors)
-        run: pytest tests/test_integrity_parity.py -v --tb=short
         working-directory: crates/tarka-py
+        run: |
+          source "${GITHUB_WORKSPACE}/.venv/bin/activate"
+          python -m pytest tests/test_integrity_parity.py -v --tb=short
         env:
+          # Generated wire stubs live under python/tarka/...
           PYTHONPATH: python
