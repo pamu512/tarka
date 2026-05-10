@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Any, Literal, Self, TypeAlias, Union
+from typing import Annotated, Any, Literal, Self, TypeAlias
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -74,7 +74,9 @@ class ConditionNode(BaseModel):
 
         if op in (Operator.GT, Operator.LT):
             if isinstance(v, bool):
-                raise ValueError("GT and LT do not accept boolean values (ambiguous with integers).")
+                raise ValueError(
+                    "GT and LT do not accept boolean values (ambiguous with integers)."
+                )
             if isinstance(v, str):
                 raise ValueError("GT and LT require a numeric or datetime literal, not a string.")
             if not isinstance(v, (int, float, datetime)):
@@ -98,8 +100,10 @@ class AndNode(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     children: Annotated[
-        list[Union["ConditionNode", "AndNode", "OrNode"]],
-        Field(min_length=2, description="Conjuncts; may nest ``AndNode`` / ``OrNode`` arbitrarily."),
+        list[ConditionNode | AndNode | OrNode],
+        Field(
+            min_length=2, description="Conjuncts; may nest ``AndNode`` / ``OrNode`` arbitrarily."
+        ),
     ]
 
 
@@ -109,8 +113,10 @@ class OrNode(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     children: Annotated[
-        list[Union["ConditionNode", "AndNode", "OrNode"]],
-        Field(min_length=2, description="Disjuncts; may nest ``AndNode`` / ``OrNode`` arbitrarily."),
+        list[ConditionNode | AndNode | OrNode],
+        Field(
+            min_length=2, description="Disjuncts; may nest ``AndNode`` / ``OrNode`` arbitrarily."
+        ),
     ]
 
 

@@ -73,6 +73,12 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: () => "/v1/internal/demo-burst",
       },
+      /** Orchestrator demo simulation (``POST /v1/demo/simulate_attack``). Default: local uvicorn port 8790. */
+      "/api/v1/demo/simulate_attack": {
+        target: "http://127.0.0.1:8790",
+        changeOrigin: true,
+        rewrite: () => "/v1/demo/simulate_attack",
+      },
       "/api/graph": {
         target: "http://localhost:8001",
         changeOrigin: true,

@@ -15,7 +15,7 @@ for _p in (_SRC_RULE, _SRC_INGESTOR):
         sys.path.insert(0, str(_p))
 
 from ingestor.manifest_schema import TransactionSchema  # noqa: E402
-
+from rule_engine import evaluator as evaluator_module  # noqa: E402
 from rule_engine.ast_schemas import (  # noqa: E402
     Action,
     AndNode,
@@ -25,7 +25,6 @@ from rule_engine.ast_schemas import (  # noqa: E402
     OrNode,
     Rule,
 )
-from rule_engine import evaluator as evaluator_module  # noqa: E402
 from rule_engine.evaluator import evaluate_node, evaluate_ruleset  # noqa: E402
 
 
@@ -91,7 +90,9 @@ def test_and_node_short_circuits_first_false_skips_later_children() -> None:
             return False
         raise RuntimeError("second conjunct must not be evaluated")
 
-    with mock.patch.object(evaluator_module, "_evaluate_condition", side_effect=_condition_side_effect):
+    with mock.patch.object(
+        evaluator_module, "_evaluate_condition", side_effect=_condition_side_effect
+    ):
         assert evaluate_node(node, tx) is False
 
     assert len(calls) == 1
@@ -127,7 +128,9 @@ def test_or_node_short_circuits_first_true_skips_later_children() -> None:
             return True
         raise RuntimeError("second disjunct must not be evaluated")
 
-    with mock.patch.object(evaluator_module, "_evaluate_condition", side_effect=_condition_side_effect):
+    with mock.patch.object(
+        evaluator_module, "_evaluate_condition", side_effect=_condition_side_effect
+    ):
         assert evaluate_node(node, tx) is True
 
     assert len(calls) == 1

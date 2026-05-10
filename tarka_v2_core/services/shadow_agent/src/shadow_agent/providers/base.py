@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Type
 
 from pydantic import BaseModel
 
@@ -16,7 +15,7 @@ class BaseLLMProvider(ABC):
     """
 
     @abstractmethod
-    async def generate_decision(self, prompt: str, schema: Type[BaseModel]) -> BaseModel:
+    async def generate_decision(self, prompt: str, schema: type[BaseModel]) -> BaseModel:
         """
         Run the model against ``prompt`` and parse the result into ``schema``.
 

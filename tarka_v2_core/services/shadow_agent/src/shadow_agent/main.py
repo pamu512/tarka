@@ -258,6 +258,7 @@ def build_app(
             engine_kw["connect_args"] = {"check_same_thread": False}
         engine: AsyncEngine = create_async_engine(db_url, **engine_kw)
         import tarka_shared.audit_trail  # noqa: F401, PLC0415 — register ORM mappers on ``Base``
+        import tarka_shared.engine_rules  # noqa: F401 — ``engine_rules`` DDL with Shadow DB
 
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)

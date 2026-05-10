@@ -29,7 +29,7 @@ from fastapi import (
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
 from starlette.responses import JSONResponse
-from sqlalchemy import select
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tarka_core.internal_monitor import InternalMonitor
@@ -152,6 +152,7 @@ from decision_api.json_rules import (
     governance_summary as rules_governance_summary,
     load_rules,
 )
+from decision_api.audit_recent import shape_audit_recent_item
 from decision_api.models import AuditRecord
 from decision_api.opa_client import evaluate_opa_or_raise
 from decision_api.redis_store import redis_tags
@@ -3524,6 +3525,23 @@ if _STATIC_DIR.is_dir():
     @app.get("/dashboard", include_in_schema=False)
     async def dashboard_ui():
         return FileResponse(_STATIC_DIR / "dashboard.html")
+
+
+@app.get("/v1/audit/recent")
+async def get_audit_recent(
+    tenant_id: str = Query(..., min_length=1, max_length=128),
+    limit: int = Query(50, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+):
+    """Recent decision audits for live ticker / ops views (compact, tenant-scoped)."""
+    result = await session.execute(
+        select(AuditRecord)
+        .where(AuditRecord.tenant_id == tenant_id)
+        .order_by(desc(AuditRecord.created_at))
+        .limit(limit),
+    )
+    rows = result.scalars().all()
+    return {"tenant_id": tenant_id, "items": [shape_audit_recent_item(r) for r in rows]}
 
 
 @app.get("/v1/audit/{trace_id}")

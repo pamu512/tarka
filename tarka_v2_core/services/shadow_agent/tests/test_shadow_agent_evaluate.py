@@ -13,16 +13,15 @@ from uuid import UUID
 import httpx
 import pytest
 import tarka_shared.audit_trail  # noqa: F401 — register ORM mappers
+from ingestor.schemas import TransactionSchema
+from shadow_agent.agent import ShadowAgent, _ensure_case_for_shadow_audit
+from shadow_agent.llm_client import OllamaLLMClient
+from shadow_agent.schemas import ShadowDecision
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 from tarka_shared.audit_trail import AuditLog
 from tarka_shared.database.session import Base
-
-from ingestor.schemas import TransactionSchema
-from shadow_agent.agent import ShadowAgent, _ensure_case_for_shadow_audit
-from shadow_agent.llm_client import OllamaLLMClient
-from shadow_agent.schemas import ShadowDecision
 
 
 class _StubLlmClient:

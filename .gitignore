@@ -56,3 +56,6 @@ services/investigation-agent/var/
 
 # Rust build trees (never commit; TruffleHog/CodeQL noise if tracked)
 **/target/
+
+# Local gate / benchmark CSV dumps (not source)
+artifacts/

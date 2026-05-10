@@ -7,7 +7,6 @@ from collections.abc import Sequence
 from typing import Final
 
 from ingestor.schemas import TransactionSchema
-
 from shadow_agent.history import RecentEntityTransaction
 from shadow_agent.schemas import ShadowDecision
 
@@ -68,7 +67,9 @@ def _history_payload_dicts(records: Sequence[RecentEntityTransaction]) -> list[d
     ]
 
 
-def _history_section(core_len: int, records: Sequence[RecentEntityTransaction], char_budget: int) -> str:
+def _history_section(
+    core_len: int, records: Sequence[RecentEntityTransaction], char_budget: int
+) -> str:
     """Build ``Entity History: …`` suffix, dropping trailing (oldest) rows until within ``char_budget``."""
     min_suffix = len(_HISTORY_PREFIX) + len("[]") + len(_HISTORY_SUFFIX)
     if core_len + min_suffix > char_budget:
@@ -97,7 +98,9 @@ def _history_section(core_len: int, records: Sequence[RecentEntityTransaction], 
             tiny_section = f"{_HISTORY_PREFIX}{tiny}{_HISTORY_SUFFIX}"
             if core_len + len(tiny_section) <= char_budget:
                 return tiny_section
-            bare = json.dumps([{"is_fraud": r0.is_fraud}], separators=(",", ":"), ensure_ascii=False)
+            bare = json.dumps(
+                [{"is_fraud": r0.is_fraud}], separators=(",", ":"), ensure_ascii=False
+            )
             bare_section = f"{_HISTORY_PREFIX}{bare}{_HISTORY_SUFFIX}"
             if core_len + len(bare_section) <= char_budget:
                 return bare_section

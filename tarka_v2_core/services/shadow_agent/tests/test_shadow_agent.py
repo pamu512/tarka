@@ -6,7 +6,6 @@ import asyncio
 import logging
 import sys
 from pathlib import Path
-from typing import Type
 
 import pytest
 from pydantic import BaseModel
@@ -20,7 +19,7 @@ from shadow_agent.providers.base import BaseLLMProvider  # noqa: E402
 
 
 class _StubOllamaLikeProvider(BaseLLMProvider):
-    async def generate_decision(self, prompt: str, schema: Type[BaseModel]) -> BaseModel:
+    async def generate_decision(self, prompt: str, schema: type[BaseModel]) -> BaseModel:
         assert schema is TransactionAnalysis
         return TransactionAnalysis(
             risk_level="LOW",

@@ -15,9 +15,9 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from shadow_agent.llm_client import (  # noqa: E402
+    _JSON_FIX_USER_PROMPT,
     OllamaLLMClient,
     ShadowLLMError,
-    _JSON_FIX_USER_PROMPT,
 )
 
 

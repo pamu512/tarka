@@ -1,0 +1,15 @@
+{
+  "rules": [
+    {
+      "id": "33333333-3333-3333-3333-333333333333",
+      "name": "cli_import_flag_marker",
+      "root_node": {
+        "field": { "field": "metadata" },
+        "operator": "CONTAINS",
+        "value": "CLI_IMPORT_FLAG_MARKER"
+      },
+      "action": "FLAG",
+      "priority": 1
+    }
+  ]
+}

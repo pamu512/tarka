@@ -188,6 +188,28 @@ export interface AuditEntry {
   /** Present when ``detail_level`` is ``analyst`` or ``full`` — evaluate DAG step rows. */
   step_trace?: unknown[];
   fallback_reason?: string | null;
+  /** Present when ``detail_level`` is ``analyst`` or ``full`` — normalized evaluate body (transaction envelope). */
+  evaluate_payload?: Record<string, unknown> | null;
+  input_map?: Record<string, unknown> | null;
+}
+
+/** Compact row from ``GET /v1/audit/recent`` (decision-api / core mount). */
+export type AuditRuleResult = "ALLOW" | "DENY" | "REVIEW" | "SHADOW_REVIEW";
+
+export interface AuditRecentItem {
+  trace_id: string;
+  short_id: string;
+  amount: number | null;
+  currency: string | null;
+  rule_result: AuditRuleResult;
+  /** Model / integrity confidence in ``0..1`` when present. */
+  ai_confidence: number | null;
+  created_at: string | null;
+}
+
+export interface AuditRecentResponse {
+  tenant_id: string;
+  items: AuditRecentItem[];
 }
 
 export interface Case {
@@ -625,6 +647,11 @@ export const decisions = {
       q.set("detail_level", opts.detail_level);
     }
     return request<AuditEntry>(`/api/decisions/v1/audit/${encodeURIComponent(traceId)}?${q}`);
+  },
+
+  recentAudit(tenantId: string, limit: number = 50) {
+    const q = new URLSearchParams({ tenant_id: tenantId, limit: String(limit) });
+    return request<AuditRecentResponse>(`/api/decisions/v1/audit/recent?${q}`);
   },
 
   replay(body: { tenant_id: string; rules_override: unknown[]; limit?: number }) {
