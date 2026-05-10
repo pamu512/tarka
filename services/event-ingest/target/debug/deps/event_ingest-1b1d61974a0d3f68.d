@@ -1,5 +1,0 @@
-/Users/pamu/Documents/Documents - Anoop’s MacBook Pro/GitHub/tarka/services/event-ingest/target/debug/deps/event_ingest-1b1d61974a0d3f68.d: src/main.rs
-
-/Users/pamu/Documents/Documents - Anoop’s MacBook Pro/GitHub/tarka/services/event-ingest/target/debug/deps/event_ingest-1b1d61974a0d3f68: src/main.rs
-
-src/main.rs:

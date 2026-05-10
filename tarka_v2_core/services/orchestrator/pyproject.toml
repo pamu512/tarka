@@ -1,0 +1,18 @@
+[project]
+name = "tarka-orchestrator"
+version = "0.1.0"
+description = "Ingestion gateway: orchestrates rule engine and downstream sidecars."
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.13.0",
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.32.0",
+  "httpx>=0.28.0",
+]
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

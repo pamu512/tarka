@@ -1,1 +1,0 @@
-/Users/pamu/Documents/Documents\ -\ Anoop’s\ MacBook\ Pro/GitHub/tarka/services/analytics-sink/target/debug/analytics-sink: /Users/pamu/Documents/Documents\ -\ Anoop’s\ MacBook\ Pro/GitHub/tarka/services/analytics-sink/src/main.rs
