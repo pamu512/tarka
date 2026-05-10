@@ -1,349 +1,103 @@
 # Contributing to Tarka
 
-Thank you for your interest in contributing to Tarka! This document covers everything you need to get started.
+Thank you for helping improve Tarka. This guide is written for **beta testers** and **external contributors** who report bugs or open pull requests.
 
-## Vendor-neutral repository
+---
 
-- **Do not** commit local editor or assistant metadata under the **`.cur` + `sor/`** directory name (that path is gitignored; it is the default config folder for one popular AI-assisted editor).
-- **Do not** name proprietary editors or coding assistants in **user-facing** docs (`README`, `docs/`, release notes, root policies). Use generic wording (“your editor”, “IDE”, “local LLM tooling”).
-- **CI** rejects two vendor-specific tokens in tracked files so releases stay tooling–vendor neutral: capital **C** followed by **ursor**, and capital **A** followed by **nysphere** (maintainer company for the same product family). Lowercase CSS such as Tailwind’s **`cursor`-pointer** / **`cursor`-not-allowed** is unaffected.
+## Reporting bugs
 
-## Project Overview
+1. **Search existing issues** on GitHub ([Issues](https://github.com/pamu512/tarka/issues)) for duplicates.
+2. **Open a new issue** with a clear title and a description that includes:
+   - **What you expected** vs **what happened**
+   - **How to reproduce** (commands, API payload, or UI steps)
+   - **Environment**: OS, Docker version (if using compose), branch or release tag, relevant service ports
+   - **Logs or screenshots** (redact secrets, tokens, and PII)
+3. For **security-sensitive** findings (authentication bypass, remote code execution, credential leakage), do **not** file a public issue until coordinated disclosure; contact the maintainers through a **private** channel if one is published in the repository security policy.
 
-Tarka is an open-source, modular fraud detection platform. The system follows a microservices architecture where each service is independently deployable and communicates over HTTP/REST.
+Maintainers may label issues, request more detail, or close duplicates.
 
-### Architecture
+---
 
-```
-SDK (Web/Android/iOS/Python) --> Core API :8000 (/decisions, /cases) --> Redis (tags + scores)
-                                     |                |
-                                     +--> Rule Engine  |
-                                     +--> Signal API :8004 (/features, /ml, …)
-                                     +--> OPA (optional)
-                                     +--> Graph Service --> Neo4j
-                                     +--> Integration Ingress (KYC adapters)
+## Submitting pull requests
 
-Investigation UI --> Core API (/cases) --> Graph Service
-                       |
-                  AI Agent (LLM tool-use)
-```
+### 1. One logical change per PR
 
-### Services
+Keep each pull request focused on a single concern (one bug, one feature, or one docs/tooling update). Split unrelated edits into separate PRs.
 
-| Service | Port | Description |
-|---------|------|-------------|
-| `services/core-api` | 8000 | **Macroservice image:** mounts `decision_api` + `case_api` at `/decisions` and `/cases` |
-| `services/signal-api` | 8004 | **Macroservice image:** feature, ML, calibration, counter, location sub-apps |
-| `services/data-plane` | 8007 | **Macroservice image:** ingest + analytics (single port) |
-| `services/decision-api` | *(module)* | Scoring engine; tested standalone; packaged into **core-api** |
-| `services/graph-service` | 8001 | Entity graph (Neo4j), tag storage on nodes, `/v1/benchmark/*` harness |
-| `services/case-api` | *(module)* | Cases, workflows; packaged into **core-api** |
-| `services/integration-ingress` | 8003 | KYC webhooks, adapter registry |
-| `services/feature-service` | *(module)* | Feature snapshots; packaged into **signal-api** |
-| `services/ml-scoring` | *(module)* | ML inference; packaged into **signal-api** |
-| `services/investigation-agent` | 8006 | AI copilot + embedded Slack/Teams/Lark bridge (`investigation_agent.chat_bridge`) |
-| `services/event-ingest` | *(module)* | Ingest handlers; Rust crate + Python app paths; packaged into **data-plane** |
-| `services/analytics-sink` | *(module)* | ClickHouse writer; packaged into **data-plane** |
-| `services/chitragupta` | 8012 | Plugin registry, emitter orchestration, run metadata |
-| `services/graphql-gateway` | 8010 | GraphQL API aggregating all services |
+### 2. Branch from the correct base
 
-### Shared Utilities
+- **Beta / release testing:** branch from the **release branch** or tag your beta build tracks (for example `1.3.0-beta`), unless maintainers direct you to `main`.
+- **General contributions:** branch from **`main`** unless an issue says otherwise.
 
-The `services/shared/` directory contains cross-cutting concerns used by multiple services:
+### 3. Local checks before you push
 
-- **`auth.py` / `auth_rbac.py`** — API key validation and role-based access control
-- **`observability.py`** — Structured logging and metrics setup
-- **`rate_limiter.py`** — Per-tenant rate limiting middleware
-- **`audit_trail.py`** — Immutable audit log for compliance
-- **`webhook_sender.py`** — Outbound webhook delivery with retries and DLQ
+Run the checks your change touches (examples—adjust paths to match the service you edited):
 
-## Development Setup
+- **Tests:** `pytest` for the affected package or `tarka_v2_core` subtree.
+- **Lint:** **`ruff check`** (and format if the project uses `ruff format`) on changed Python trees.
 
-### Prerequisites
+CI failures on Ruff or tests block merge.
 
-- **Python 3.12+**
-- **Docker** and **Docker Compose** (for running infrastructure and full-stack tests)
-- **Git**
+### 4. Open the PR on GitHub
 
-### Clone and Install
+1. Push your branch to **your fork** (or to the upstream repo if you have write access).
+2. On GitHub, choose **Compare & pull request** (or use [`gh pr create`](https://cli.github.com/manual/gh_pr_create)).
+3. **Pull request description:** GitHub **automatically pre-fills** the body from [`.github/pull_request_template.md`](.github/pull_request_template.md). Do not delete the **Review checklist**; complete every item honestly (use the **AuditLog schema N/A** line only when no audit persistence changed).
+
+If you use the GitHub CLI and the editor does not open the default template, pass it explicitly:
 
 ```bash
-git clone https://github.com/your-org/tarka.git
-cd tarka
-
-# Install a specific service in development mode
-cd services/decision-api
-pip install -e ".[dev]"
+gh pr create --template .github/pull_request_template.md
 ```
 
-Each service has its own `pyproject.toml` with a `[dev]` extras group containing test and lint dependencies.
+### 5. Review checklist (required)
 
-### Running Infrastructure
+Every PR must reflect the template checklist:
+
+| Item | Meaning |
+|------|--------|
+| **Has tests?** | New behavior is covered by automated tests; existing suites still pass. |
+| **Passes Ruff?** | `ruff check` is clean for the touched code (CI enforces this). |
+| **Updates AuditLog schema?** | If you change audit persistence (`AuditLog`, migrations, or related ORM), migrations and docs are included; otherwise mark **N/A** per the template. |
+
+### 6. Deterministic AST policy (non-negotiable)
+
+Any PR that **breaks** or **introduces nondeterminism** into **JSON rule AST** evaluation—how `when_ast` / leaf operators combine, ordering guarantees, or parity with the shipped evaluator contract—**will be rejected** unless maintainers have approved a **written spec change** and you ship **full regression tests** proving behavior. Do not “simplify” or reorder evaluation for convenience without that review.
+
+---
+
+## Gate check (for maintainers): verify the PR template on GitHub
+
+GitHub loads the default template from [`.github/pull_request_template.md`](.github/pull_request_template.md) on the repository’s **default branch** (this repo: `master`). Until that file exists on `master`, the web UI will not inject it.
+
+**Web UI (authoritative “automatic inject” check):**
+
+1. Merge or cherry-pick the template file to `master` (or open a PR that adds it and merge).
+2. On **github.com**: **Pull requests → New pull request** → choose a **feature branch** that is **not** already tied to an open PR (GitHub only shows the template when composing a **new** PR).
+3. Confirm the description field opens with this repo’s template, including the three unchecked checklist lines: `Has tests?`, `Passes Ruff?`, `Updates AuditLog schema?`
+
+**CLI (same markdown as the template body):**
+
+Non-interactive `gh pr create` requires `--body` or `--body-file`; it does not merge the default template unless you pass `--template` **and** satisfy `gh`’s title/body flags. To dry-run the exact checklist text:
 
 ```bash
-cd deploy
-
-# Core only (core-api + signal-api + Redis + Postgres)
-docker compose --profile core up -d
-
-# Full stack (all services)
-cp .env.example .env
-docker compose --profile full up -d
+gh pr create --dry-run --draft \
+  --title "chore: verify PR template (dummy)" \
+  --body-file .github/pull_request_template.md
 ```
 
-## Running Tests
+Use a branch that does not already have an open PR, or add `--head youruser:your-branch`.
 
-**Contracts:** From the repo root, `pip install pyyaml && python scripts/ci/validate_openapi_yaml.py` must pass (same check as the **lint** job on `contracts/openapi/*.yaml`). Other script entrypoints are indexed in [`scripts/README.md`](scripts/README.md).
-
-**CI:** GitHub Actions runs lint (Ruff); Python tests for decision-api, case-api, graph-service, integration-ingress, investigation-agent (including golden integration profiles), graphql-gateway, event-ingest, analytics-sink, chitragupta, feature-service, ml-scoring, and the Python SDK; **`npm run test`** then **`npm run build`** for the **frontend** (Vitest + production bundle) and **`npm run build`** for **`packages/fraud-sdk-typescript`**; then Docker image builds for each `services/*/Dockerfile` (see `.github/workflows/ci.yml`), including **`investigation-agent`**. **Saarthi Pro** commercial images are **not** built here; they ship from the private **Saarthi-pro** repo. Security scanning (Trivy + SARIF upload) runs in `.github/workflows/security-scan.yml`.
-
-Each service has a `tests/` directory. Run tests from the service root:
+**Local sanity check (no GitHub API):**
 
 ```bash
-# Decision API (set sqlite + redis env for unit/integration-style tests without Docker)
-cd services/decision-api
-pip install -e ".[dev]"
-set PYTHONPATH=src;../shared   # Windows: $env:PYTHONPATH="src;../shared"
-set DATABASE_URL=sqlite+aiosqlite:///
-set REDIS_URL=redis://localhost:6379/0
-pytest --cov=decision_api tests/
-
-# Case API
-cd services/case-api
-pip install -e ".[dev]"
-pytest --cov=case_api tests/
-
-# Graph service (Neo4j mocked in unit tests)
-cd services/graph-service
-pip install -e ".[dev]"
-set PYTHONPATH=src
-pytest --cov=graph_service tests/
-
-# Integration ingress (OSINT parallel enrichment, KMS paths)
-cd services/integration-ingress
-pip install -e ".[dev]"
-set PYTHONPATH=src;../shared
-pytest tests/
-
-# Investigation agent
-cd services/investigation-agent
-pip install -e ".[dev]"
-set PYTHONPATH=src;../shared
-pytest tests/
-
-# Python SDK
-cd packages/fraud-sdk-python
-pip install -e ".[dev]"
-pytest --cov=fraud_stack_sdk tests/
-
-# GraphQL gateway
-cd services/graphql-gateway
-pip install -e ".[dev]"
-export PYTHONPATH=src:../shared   # Windows: set PYTHONPATH=src;../shared
-pytest tests/
-
-# Event ingest, analytics sink (shared observability on PYTHONPATH)
-cd services/event-ingest
-pip install -e ".[dev]"
-export PYTHONPATH=src:../shared
-pytest tests/
-
-cd services/analytics-sink
-pip install -e ".[dev]"
-export PYTHONPATH=src:../shared
-pytest tests/
-
-# Feature service, ML scoring
-cd services/feature-service
-pip install -e ".[dev]"
-export PYTHONPATH=src
-pytest tests/
-
-cd services/ml-scoring
-pip install -e ".[dev]"
-export PYTHONPATH=src:../shared
-pytest tests/
-
-# Frontend (Vitest + TypeScript check + Vite production build)
-cd frontend
-npm ci
-npm run test
-npm run build
-
-# TypeScript fraud SDK
-cd packages/fraud-sdk-typescript
-npm install
-npm run build
+grep -E '^- \\[ \\] (Has tests\\?|Passes Ruff\\?|Updates AuditLog schema\\?)$' .github/pull_request_template.md
 ```
 
-On Linux/macOS, use `export PYTHONPATH=src:../shared` (decision-api, case-api, **core-api**, **signal-api**, **data-plane**, investigation-agent, **integration-ingress**, graphql-gateway, event-ingest, analytics-sink, ml-scoring) or `export PYTHONPATH=src` (graph service, feature-service, chitragupta only).
+All three lines must match.
 
-### Database migrations (decision / case)
+---
 
-The **core-api** Docker image runs **both** Alembic stacks sequentially before Uvicorn. For manual runs, use each module’s `alembic.ini` under `services/core-api/config/` or the legacy service directories:
+## Questions
 
-```bash
-cd services/decision-api
-export DATABASE_URL=postgresql+psycopg://user:pass@host:5432/fraud   # sync driver for Alembic CLI
-alembic upgrade head
-```
-
-Use the same pattern under `services/case-api` with the case database URL. For `postgresql+asyncpg` URLs, replace `+asyncpg` with `+psycopg` for the sync Alembic driver.
-
-## Extension guides
-
-| Topic | Guide |
-|--------|--------|
-| Add an OSINT provider | [docs/docs/guides/adding-osint-source.md](docs/docs/guides/adding-osint-source.md) |
-| Plug in an ONNX model | [docs/docs/guides/onnx-model-integration.md](docs/docs/guides/onnx-model-integration.md) |
-| Borrow OSS patterns safely | [docs/docs/guides/borrowed-oss-adoption.md](docs/docs/guides/borrowed-oss-adoption.md) |
-| Simulation / A-B / shadow | [docs/docs/guides/shadow-and-ab-testing.md](docs/docs/guides/shadow-and-ab-testing.md) |
-| Regional AI governance (US / EU+UK / global builds) | [docs/docs/guides/ai-governance-regional-builds.md](docs/docs/guides/ai-governance-regional-builds.md) · [deploy/profiles/ai-governance/README.md](deploy/profiles/ai-governance/README.md) |
-| Prometheus + Grafana | [deploy/observability/README.md](deploy/observability/README.md) |
-| Latency smoke benchmark | [scripts/benchmarks/README.md](scripts/benchmarks/README.md) |
-
-## How to Add a New Service
-
-1. Create a directory under `services/<your-service>/` with this layout:
-
-   ```
-   services/your-service/
-   ├── pyproject.toml
-   ├── Dockerfile
-   └── src/
-       └── your_service/
-           ├── __init__.py
-           ├── config.py
-           └── main.py
-   ```
-
-2. In `pyproject.toml`, follow the existing pattern:
-
-   ```toml
-   [project]
-   name = "tarka-your-service"
-   version = "0.1.0"
-   requires-python = ">=3.11"
-   dependencies = [
-     "fastapi>=0.115.0",
-     "uvicorn[standard]>=0.32.0",
-     "pydantic-settings>=2.6.0",
-   ]
-
-   [project.optional-dependencies]
-   dev = ["pytest>=8.0", "pytest-asyncio>=0.24.0", "httpx>=0.28.0"]
-
-   [build-system]
-   requires = ["setuptools>=61"]
-   build-backend = "setuptools.build_meta"
-
-   [tool.setuptools.packages.find]
-   where = ["src"]
-   ```
-
-3. In the `Dockerfile`, use the repo root as build context and copy `services/shared`:
-
-   ```dockerfile
-   FROM python:3.12-slim
-   WORKDIR /app
-   COPY services/your-service/pyproject.toml /app/
-   COPY services/your-service/src /app/src
-   COPY services/shared /app/shared
-   RUN pip install --no-cache-dir -e .
-   ENV PYTHONPATH=/app/src
-   CMD ["uvicorn", "your_service.main:app", "--host", "0.0.0.0", "--port", "80XX"]
-   ```
-
-4. Add the service to the Docker Compose profiles in `deploy/`.
-5. Add the service to the CI matrix in `.github/workflows/ci.yml`.
-
-## How to Add a New Rule Pack
-
-Rules live in `services/decision-api/rules/` as JSON files. Each file contains an array of rule objects:
-
-```json
-[
-  {
-    "id": "my_rule_001",
-    "description": "Flag high-value transactions from new accounts",
-    "conditions": {
-      "amount": { "$gt": 5000 },
-      "account_age_days": { "$lt": 7 }
-    },
-    "score_delta": 30,
-    "tags": ["high_value_new_account"]
-  }
-]
-```
-
-1. Create a new JSON file in `services/decision-api/rules/`.
-2. The rule engine loads all `*.json` files from the `RULES_PATH` directory at startup.
-3. Hot-reload rules via `POST /v1/admin/rules/reload` without restarting the service.
-
-## How to Add a New KYC Adapter
-
-KYC adapters live in `services/integration-ingress/`. To add a new provider:
-
-1. Create an adapter module in `src/integration_ingress/adapters/your_provider.py`.
-2. Implement the adapter interface:
-   - Parse the incoming webhook payload
-   - Normalize the result into the standard `KYCResult` schema
-   - Return `approved`, `denied`, or `pending` with extracted entity data
-3. Register the adapter in the adapter registry so it maps the provider name to your handler.
-4. Add webhook endpoint configuration for the new provider.
-
-## How to Add a New Workflow
-
-Workflows live in `services/case-api/workflows/` as JSON files. They automate case management based on triggers:
-
-```json
-{
-  "name": "auto_escalate_high_score",
-  "trigger": "case_created",
-  "conditions": {
-    "priority": "critical"
-  },
-  "actions": [
-    { "type": "set_field", "field": "assigned_team", "value": "fraud-ops" },
-    { "type": "add_comment", "author": "workflow-engine", "body": "Auto-assigned to fraud-ops due to critical priority" }
-  ]
-}
-```
-
-1. Create a JSON file in `services/case-api/workflows/`.
-2. Workflows are loaded at startup from the `WORKFLOWS_PATH` directory.
-3. Hot-reload via `POST /v1/workflows/reload`.
-4. Supported triggers: `case_created`, `case_updated`, `decision_deny`, `decision_review`.
-
-## Code Style
-
-- **Linter/formatter**: [Ruff](https://docs.astral.sh/ruff/) — run `ruff check .` and `ruff format --check .` (settings are in the root `pyproject.toml`; CI enforces both commands on every PR).
-- **Git hooks (optional)**: `pip install pre-commit && pre-commit install` — runs Ruff before each commit via `.pre-commit-config.yaml`.
-- **Type hints**: Required on all function signatures. Use `from __future__ import annotations` where needed.
-- **Async**: All I/O-bound operations must be async. Use `httpx.AsyncClient` for HTTP calls.
-- **Pydantic**: Use Pydantic v2 models for all request/response schemas. Use `pydantic-settings` for configuration.
-- **Imports**: Keep imports sorted. Ruff handles this automatically.
-
-## Pull Request Process
-
-1. **Branch**: Create a feature branch from `main` (`feature/your-change` or `fix/your-bug`).
-2. **Scope**: Keep PRs focused — one feature or fix per PR.
-3. **Tests**: Add or update tests for any changed behavior. All tests must pass.
-4. **Lint**: Ensure `ruff check .` and `ruff format --check .` pass with no errors.
-5. **Description**: Write a clear PR description explaining *what* changed and *why*.
-6. **Review**: At least one approval is required before merging.
-7. **CI**: All CI checks (lint, test, Docker build) must be green.
-
-### Commit Messages
-
-Use concise, imperative-mood messages:
-
-```
-Add velocity-based rule pack for payment events
-Fix race condition in tag merge when APOC unavailable
-Update ML scoring to support ONNX Runtime 1.19
-```
-
-## License
-
-This project is licensed under **AGPL-3.0**. By contributing, you agree that your contributions will be licensed under the same terms. See [LICENSE](LICENSE) for details.
+Open a [Discussion](https://github.com/pamu512/tarka/discussions) or comment on an existing issue if you are unsure whether a change fits the AST or audit rules.

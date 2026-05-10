@@ -10,18 +10,18 @@ from typing import Any
 import httpx
 from ingestor.schemas import TransactionSchema
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from shadow_agent.history import get_recent_entity_transactions
+from shadow_agent.llm_client import OllamaLLMClient
+from shadow_agent.prompt_sanitize import sanitize_transaction_for_prompt
+from shadow_agent.prompts import FraudAnalystPrompt
+from shadow_agent.providers.base import BaseLLMProvider
+from shadow_agent.schemas import ShadowDecision
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from tarka_shared.audit_trail import AuditLog, Case
 from tarka_shared.case_status import DEFAULT_CASE_STATUS
 from tarka_shared.data.tenant_constants import DEFAULT_TENANT_ID
-
-from shadow_agent.history import get_recent_entity_transactions
-from shadow_agent.llm_client import OllamaLLMClient
-from shadow_agent.prompts import FraudAnalystPrompt
-from shadow_agent.providers.base import BaseLLMProvider
-from shadow_agent.schemas import ShadowDecision
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +119,9 @@ class ShadowAgent:
         Requires ``llm_client`` to be configured on this agent.
         """
         if self._llm_client is None:
-            raise RuntimeError("ShadowAgent.evaluate requires llm_client=OllamaLLMClient in constructor")
+            raise RuntimeError(
+                "ShadowAgent.evaluate requires llm_client=OllamaLLMClient in constructor"
+            )
 
         entity_s = str(tx.entity_id)
         logger.info(
@@ -130,7 +132,8 @@ class ShadowAgent:
 
         # Sequential await (not concurrent) so history is fully loaded before prompt build + Ollama.
         history = await get_recent_entity_transactions(session, entity_s, 5)
-        system_prompt = FraudAnalystPrompt.build(tx, history_records=history)
+        tx_prompt = sanitize_transaction_for_prompt(tx)
+        system_prompt = FraudAnalystPrompt.build(tx_prompt, history_records=history)
         logger.info(
             "shadow_evaluate_prompt_generated entity_id=%s prompt_char_count=%s",
             entity_s,

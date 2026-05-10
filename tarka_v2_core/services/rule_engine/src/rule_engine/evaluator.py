@@ -7,14 +7,22 @@ from __future__ import annotations
 
 import json
 import operator
-from datetime import datetime
 from collections.abc import Sequence
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
 from ingestor.manifest_schema import TransactionSchema
 
-from rule_engine.ast_schemas import Action, AndNode, ConditionNode, LogicalNode, Operator, OrNode, Rule
+from rule_engine.ast_schemas import (
+    Action,
+    AndNode,
+    ConditionNode,
+    LogicalNode,
+    Operator,
+    OrNode,
+    Rule,
+)
 
 _OPERATOR_FUNCS: dict[Operator, Any] = {
     Operator.EQ: operator.eq,
@@ -96,15 +104,9 @@ def evaluate_node(node: LogicalNode, transaction: TransactionSchema) -> bool:
     if isinstance(node, ConditionNode):
         return _evaluate_condition(node, transaction)
     if isinstance(node, AndNode):
-        for child in node.children:
-            if not evaluate_node(child, transaction):
-                return False
-        return True
+        return all(evaluate_node(child, transaction) for child in node.children)
     if isinstance(node, OrNode):
-        for child in node.children:
-            if evaluate_node(child, transaction):
-                return True
-        return False
+        return any(evaluate_node(child, transaction) for child in node.children)
     raise TypeError(f"unsupported AST node type: {type(node).__name__}")
 
 

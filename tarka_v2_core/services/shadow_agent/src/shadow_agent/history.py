@@ -9,7 +9,6 @@ from typing import Any
 from sqlalchemy import Float, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import ColumnElement
-
 from tarka_shared.audit_trail import AuditLog
 
 

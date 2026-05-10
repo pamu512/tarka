@@ -15,6 +15,24 @@ from rule_engine.main import create_app  # noqa: E402
 from starlette.testclient import TestClient  # noqa: E402
 
 
+def test_v1_rules_reload_returns_count() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        r = client.post("/v1/rules/reload")
+    assert r.status_code == 200
+    data = r.json()
+    assert data.get("ok") is True
+    assert isinstance(data.get("count"), int)
+
+
+def test_health_returns_ok() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
 def test_v1_evaluate_returns_shadow_review_when_amount_exceeds_demo_threshold() -> None:
     app = create_app()
     body = {

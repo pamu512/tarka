@@ -1,0 +1,14 @@
+# Shrink build context for v2 sidecar images (context: this directory).
+.git
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/*.pyc
+**/*.pyo
+**/tests
+**/test_*.py
+*_test.py
+.env
+.venv
+venv

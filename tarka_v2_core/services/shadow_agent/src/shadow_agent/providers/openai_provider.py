@@ -6,11 +6,10 @@ import json
 import logging
 import os
 import re
-from typing import Any, Type
+from typing import Any
 
 from openai import APIStatusError, AsyncOpenAI
 from pydantic import BaseModel, ValidationError
-
 from shadow_agent.providers.base import BaseLLMProvider
 
 logger = logging.getLogger(__name__)
@@ -71,10 +70,14 @@ class OpenAIProvider(BaseLLMProvider):
                 "OPENAI_API_KEY is required when no AsyncOpenAI client is injected",
             )
 
-        retries_raw = max_json_retries if max_json_retries is not None else os.environ.get(
-            "OPENAI_JSON_MAX_RETRIES", "4"
+        retries_raw = (
+            max_json_retries
+            if max_json_retries is not None
+            else os.environ.get("OPENAI_JSON_MAX_RETRIES", "4")
         )
-        self._max_json_retries = int(retries_raw) if isinstance(retries_raw, str) else int(retries_raw)
+        self._max_json_retries = (
+            int(retries_raw) if isinstance(retries_raw, str) else int(retries_raw)
+        )
         if self._max_json_retries < 1:
             raise ValueError("max_json_retries must be >= 1")
 
@@ -92,7 +95,7 @@ class OpenAIProvider(BaseLLMProvider):
             await self._client.close()
             self._client = None  # type: ignore[assignment]
 
-    def _structured_response_format(self, schema: Type[BaseModel]) -> dict[str, Any]:
+    def _structured_response_format(self, schema: type[BaseModel]) -> dict[str, Any]:
         return {
             "type": "json_schema",
             "json_schema": {
@@ -102,7 +105,9 @@ class OpenAIProvider(BaseLLMProvider):
             },
         }
 
-    def _messages(self, prompt: str, schema: Type[BaseModel], *, json_object_mode: bool) -> list[dict[str, str]]:
+    def _messages(
+        self, prompt: str, schema: type[BaseModel], *, json_object_mode: bool
+    ) -> list[dict[str, str]]:
         if json_object_mode:
             schema_hint = json.dumps(schema.model_json_schema(), separators=(",", ":"))
             if len(schema_hint) > 14_000:
@@ -135,7 +140,7 @@ class OpenAIProvider(BaseLLMProvider):
             response_format=response_format,  # type: ignore[arg-type]
         )
 
-    async def generate_decision(self, prompt: str, schema: Type[BaseModel]) -> BaseModel:
+    async def generate_decision(self, prompt: str, schema: type[BaseModel]) -> BaseModel:
         if not issubclass(schema, BaseModel):
             raise TypeError("schema must be a subclass of pydantic.BaseModel")
 
@@ -160,11 +165,7 @@ class OpenAIProvider(BaseLLMProvider):
                 completion = await self._create_completion(messages=messages, response_format=rf)
             except APIStatusError as exc:
                 last_exc = exc
-                if (
-                    use_structured
-                    and exc.status_code == 400
-                    and not fell_back_from_schema
-                ):
+                if use_structured and exc.status_code == 400 and not fell_back_from_schema:
                     body_excerpt = ""
                     try:
                         if exc.response is not None and exc.response.text:
@@ -180,7 +181,13 @@ class OpenAIProvider(BaseLLMProvider):
                     use_structured = False
                     fell_back_from_schema = True
                     continue
-                if attempt < self._max_json_retries and exc.status_code in (429, 500, 502, 503, 504):
+                if attempt < self._max_json_retries and exc.status_code in (
+                    429,
+                    500,
+                    502,
+                    503,
+                    504,
+                ):
                     logger.warning(
                         "openai_chat_completion_retryable_http attempt=%s/%s err=%s",
                         attempt,
@@ -216,7 +223,9 @@ class OpenAIProvider(BaseLLMProvider):
                 cleaned = _strip_json_fences(str(raw))
                 parsed = json.loads(cleaned)
                 if not isinstance(parsed, dict):
-                    raise TypeError(f"top-level JSON must be an object, got {type(parsed).__name__}")
+                    raise TypeError(
+                        f"top-level JSON must be an object, got {type(parsed).__name__}"
+                    )
                 return schema.model_validate(parsed)
             except (json.JSONDecodeError, TypeError, ValidationError) as exc:
                 last_exc = exc

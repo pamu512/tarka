@@ -11,11 +11,10 @@ import json
 import logging
 import os
 import re
-from typing import Any, Type
+from typing import Any
 
 import httpx
 from pydantic import BaseModel, ValidationError
-
 from shadow_agent.providers.base import BaseLLMProvider
 
 logger = logging.getLogger(__name__)
@@ -65,13 +64,19 @@ class OllamaProvider(BaseLLMProvider):
         raw_base = (base_url or os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")).strip()
         self._base_url = raw_base.rstrip("/")
         self._model = (model or os.environ.get("OLLAMA_MODEL", "llama3.2")).strip()
-        self._api_key = (api_key if api_key is not None else os.environ.get("OLLAMA_API_KEY", "")).strip()
+        self._api_key = (
+            api_key if api_key is not None else os.environ.get("OLLAMA_API_KEY", "")
+        ).strip()
 
         self._own_client = client is None
-        retries_raw = max_json_retries if max_json_retries is not None else os.environ.get(
-            "OLLAMA_JSON_MAX_RETRIES", "4"
+        retries_raw = (
+            max_json_retries
+            if max_json_retries is not None
+            else os.environ.get("OLLAMA_JSON_MAX_RETRIES", "4")
         )
-        self._max_json_retries = int(retries_raw) if isinstance(retries_raw, str) else int(retries_raw)
+        self._max_json_retries = (
+            int(retries_raw) if isinstance(retries_raw, str) else int(retries_raw)
+        )
         if self._max_json_retries < 1:
             raise ValueError("max_json_retries must be >= 1")
 
@@ -89,7 +94,7 @@ class OllamaProvider(BaseLLMProvider):
             await self._client.aclose()
             self._client = None
 
-    async def generate_decision(self, prompt: str, schema: Type[BaseModel]) -> BaseModel:
+    async def generate_decision(self, prompt: str, schema: type[BaseModel]) -> BaseModel:
         if not issubclass(schema, BaseModel):
             raise TypeError("schema must be a subclass of pydantic.BaseModel")
 
@@ -125,7 +130,9 @@ class OllamaProvider(BaseLLMProvider):
                 cleaned = _strip_json_fences(raw_text)
                 parsed = json.loads(cleaned)
                 if not isinstance(parsed, dict):
-                    raise TypeError(f"top-level JSON must be an object, got {type(parsed).__name__}")
+                    raise TypeError(
+                        f"top-level JSON must be an object, got {type(parsed).__name__}"
+                    )
                 return schema.model_validate(parsed)
             except (json.JSONDecodeError, KeyError, TypeError, ValidationError) as exc:
                 last_exc = exc

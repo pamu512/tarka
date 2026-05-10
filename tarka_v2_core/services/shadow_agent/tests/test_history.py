@@ -7,14 +7,13 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import tarka_shared.audit_trail  # noqa: F401 — register ORM mappers
+from shadow_agent.history import RecentEntityTransaction, get_recent_entity_transactions
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 from tarka_shared.audit_trail import AuditLog, Case
 from tarka_shared.case_status import DEFAULT_CASE_STATUS
 from tarka_shared.data.tenant_constants import DEFAULT_TENANT_ID
 from tarka_shared.database.session import Base
-
-from shadow_agent.history import RecentEntityTransaction, get_recent_entity_transactions
 
 
 def test_get_recent_entity_transactions_returns_three_for_a123() -> None:

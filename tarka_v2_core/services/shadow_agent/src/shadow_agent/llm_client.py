@@ -19,8 +19,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, TypeVar
 
 import httpx
-from tenacity import RetryCallState, retry_if_exception, stop_after_attempt
-from tenacity import wait_exponential_jitter
+from tenacity import RetryCallState, retry_if_exception, stop_after_attempt, wait_exponential_jitter
 from tenacity.asyncio import AsyncRetrying
 
 logger = logging.getLogger(__name__)
@@ -149,7 +148,9 @@ class OllamaLLMClient:
         raw_base = (base_url or os.environ.get("OLLAMA_HOST", self.DEFAULT_BASE_URL)).strip()
         self._base_url = raw_base.rstrip("/")
         self._default_model = (model or os.environ.get("OLLAMA_MODEL", self.DEFAULT_MODEL)).strip()
-        self._api_key = (api_key if api_key is not None else os.environ.get("OLLAMA_API_KEY", "")).strip()
+        self._api_key = (
+            api_key if api_key is not None else os.environ.get("OLLAMA_API_KEY", "")
+        ).strip()
 
         if max_retries < 1:
             raise ValueError("max_retries must be >= 1")
@@ -201,7 +202,9 @@ class OllamaLLMClient:
             await self._client.aclose()
             self._client = None
 
-    async def _execute_with_retries(self, operation: str, coro_factory: Callable[[], Awaitable[T]]) -> T:
+    async def _execute_with_retries(
+        self, operation: str, coro_factory: Callable[[], Awaitable[T]]
+    ) -> T:
         def _before_sleep(retry_state: RetryCallState) -> None:
             _log_before_retry(retry_state, operation)
 

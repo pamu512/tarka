@@ -18,10 +18,12 @@ classifiers = [
     "Topic :: Office/Business :: Financial",
 ]
 
-# Core: just the CLI installer + shared utilities
+# Core: HTTP utilities + ``tarka`` CLI (``tarka_v2_core/cli.py``).
 dependencies = [
     "httpx>=0.28.0",
     "tenacity>=9.0.0",
+    "typer>=0.12.0",
+    "sqlalchemy>=2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -102,6 +104,21 @@ standard = [
 full = [
     "tarka[core,graph,ml,cases,streaming,analytics,agent,osint,gateway]",
 ]
+
+[project.scripts]
+tarka = "tarka_v2_core.cli:main"
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tarka_v2_core*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
 
 [tool.ruff]
 line-length = 100

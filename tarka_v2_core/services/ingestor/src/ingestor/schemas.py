@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .manifest_schema import TransactionSchema
+from .manifest_schema import TransactionSchema  # noqa: F401 — public re-export for shadow_agent
 
 CaseStatus = Literal["INVESTIGATING", "FLAGGED", "CLEARED"]
 LeadWorkflowStatus = Literal["OPEN", "VERIFIED", "DISMISSED", "ESCALATED"]

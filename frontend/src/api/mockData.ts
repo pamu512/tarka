@@ -849,6 +849,21 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   const path = parsePath(url);
   const body = safeParseRequestBody(init);
 
+  if (path === "/api/v1/demo/simulate_attack" && method === "POST") {
+    const n = 4;
+    const results = Array.from({ length: n }, (_, i) => ({
+      pattern_index: i,
+      total: n,
+      transaction_id: `sim-${mockRandomAlpha(12)}`,
+      amount: 10 + i * 5,
+      currency: "USD",
+      channel: "card_not_present",
+      shadow_verdict: i % 2 === 0 ? "FLAG" : "ALLOW",
+      integrity_confidence: Math.min(0.95, 0.5 + i * 0.11),
+    }));
+    return { total: n, results };
+  }
+
   if (path.includes("/api/core/v1/omni-search") && method === "GET") {
     return {
       entities: [
@@ -1221,9 +1236,128 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       signing_key_id: "mock",
     };
   }
+  if (path === "/api/decisions/v1/audit/recent") {
+    const t = Date.now();
+    const cycle = ["ALLOW", "DENY", "REVIEW", "SHADOW_REVIEW"] as const;
+    const demoDeterministic: Record<string, unknown> = {
+      trace_id: "deterministic-ai-bypass-demo",
+      short_id: "DETERMIN",
+      amount: 100,
+      currency: "USD",
+      rule_result: "DENY",
+      ai_confidence: null,
+      created_at: new Date(t - 60_000).toISOString(),
+    };
+    const items = Array.from({ length: 20 }, (_, i) => {
+      const trace_id = `a${(t + i).toString(16).padStart(7, "0")}-b00${i}-4000-8000-${((t + i * 7919) >>> 0).toString(16).padStart(12, "0")}`;
+      const hex = trace_id.replace(/-/g, "");
+      const short_id = hex.slice(0, 8).toUpperCase();
+      const rr = cycle[i % cycle.length]!;
+      return {
+        trace_id,
+        short_id,
+        amount: Math.round((12.5 + i * 3.17 + (t % 97)) * 100) / 100,
+        currency: "USD",
+        rule_result: rr,
+        ai_confidence: Math.min(0.99, 0.35 + ((i * 17 + t) % 60) / 100),
+        created_at: new Date(t - i * 1500).toISOString(),
+      };
+    });
+    return { tenant_id: "demo", items: [demoDeterministic, ...items] };
+  }
   if (path.includes("/api/decisions/v1/audit/")) {
     const traceId = (path.split("/").pop() ?? "demo").split("?")[0] ?? "demo";
+    let detailLevel = "minimal";
+    try {
+      detailLevel = new URL(url, "http://mock.local").searchParams.get("detail_level") ?? "minimal";
+    } catch {
+      detailLevel = "minimal";
+    }
+    const analystPayload =
+      detailLevel === "analyst" || detailLevel === "full"
+        ? {
+            schema_version: "1",
+            transaction_id: traceId,
+            amount_cents: 12999,
+            currency: "USD",
+            channel: "card_not_present",
+            merchant_id: "merch_demo",
+            instrument_fingerprint: "fp_demo_redacted",
+            ip_asn: "AS13335",
+            geo_country: "US",
+            mcc: "5999",
+            velocity_window_minutes: 60,
+            prior_declines_24h: 0,
+            metadata: { source: "mock_audit_evaluate_payload" },
+          }
+        : undefined;
     const malformedDemo = traceId === "tr-malformed-trace";
+    if (traceId === "deterministic-ai-bypass-demo") {
+      return {
+        trace_id: traceId,
+        entity_id: "demo_entity",
+        tenant_id: "demo",
+        event_type: "payment",
+        decision: "deny",
+        score: 99,
+        tags: ["synthetic", "rules_only_path"],
+        rule_hits: ["hard_velocity_cap"],
+        recommended_action: null,
+        fallback_reason: "rules_only",
+        step_trace: [
+          { step: "velocity_rules", status: "ok", duration_ms: 2 },
+          { step: "aggregate_decision", status: "ok", duration_ms: 0 },
+        ],
+        inference_context: {
+          schema_version: "3",
+          calibration_profile: "default",
+          expected_calibration_version: 1,
+          integrity_confidence: 0,
+          tamper_risk: 0,
+          network_trust: 0,
+          replay_risk: 0,
+          geo_consistency_risk: 0,
+          top_signals: [],
+          confidence_tier: "low",
+          driver_reasons: ["rule:hard_velocity_cap"],
+          driver_explain: [],
+          colocation_risk: 0,
+          copresence_risk: 0,
+          impossible_travel_risk: 0,
+          velocity_events_5m: 0,
+          velocity_events_1h: 0,
+          velocity_events_24h: 0,
+          calibration_profile_version: 1,
+          location_confidence: 0,
+          confidence_sources: { calibration: "skipped", counter: "skipped", location: "skipped" },
+          graph_risk_score: 0,
+          graph_risk_reasons: [],
+          external_signal_score: 0,
+          external_signal_providers: [],
+          policy_experiment_id: null,
+          ml_model: null,
+          ml_summary: null,
+          ml_top_factors: [],
+        },
+        explanation_drivers: [],
+        evaluate_payload: analystPayload ?? {
+          schema_version: "1",
+          transaction_id: traceId,
+          amount_cents: 100,
+          currency: "USD",
+          channel: "ach",
+          merchant_id: "merch_x",
+          instrument_fingerprint: "fp_x",
+          ip_asn: "AS64500",
+          geo_country: "US",
+          mcc: "4829",
+          velocity_window_minutes: 30,
+          prior_declines_24h: 9,
+          metadata: {},
+        },
+        created_at: nowIso(),
+      };
+    }
     return {
       trace_id: traceId,
       entity_id: "demo_entity",
@@ -1245,6 +1379,23 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
             { step: "ml_host", status: "failed", reason: "http_error: upstream 503", duration_ms: 120 },
             { step: "aggregate_decision", status: "skipped", reason: "downstream: ml_host failed" },
           ],
+      explanation_drivers: [
+        {
+          reason: "rule:velocity_guard",
+          category: "rules",
+          label: "Velocity guard",
+          rank: 1,
+          source: "driver_reasons",
+        },
+        {
+          reason: "hostile_or_anonymous_network_path",
+          category: "network",
+          label: "VPN / hostile path",
+          rank: 2,
+          source: "driver_explain",
+        },
+      ],
+      evaluate_payload: analystPayload,
       inference_context: {
         schema_version: "3",
         calibration_profile: "default",
@@ -1257,6 +1408,13 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
         top_signals: ["sdk:vpn", "sdk:automation"],
         confidence_tier: "medium",
         driver_reasons: ["hostile_or_anonymous_network_path", "rule:velocity_guard"],
+        driver_explain: [
+          {
+            reason: "hostile_or_anonymous_network_path",
+            category: "network",
+            label: "VPN, proxy, or hostile network path",
+          },
+        ],
         colocation_risk: 0,
         copresence_risk: 0,
         impossible_travel_risk: 0.1,
