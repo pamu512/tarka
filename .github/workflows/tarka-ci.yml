@@ -44,30 +44,38 @@ jobs:
           cache-dependency-path: |
             tarka_v2_core/services/orchestrator/pyproject.toml
             tarka_v2_core/services/rule_engine/pyproject.toml
+            tarka_v2_core/services/shadow/pyproject.toml
+            tarka_v2_core/services/saarthi/pyproject.toml
             tarka_v2_core/services/shadow_agent/pyproject.toml
 
       - name: Install tooling and editable sidecars
         run: |
           python -m pip install --upgrade pip
-          pip install ruff black pytest openai
-          pip install -e ./tarka_v2_core/services/orchestrator
+          pip install ruff black pytest openai psutil
+          pip install -e "./tarka_v2_core/services/shadow[dev]"
           pip install -e ./tarka_v2_core/services/rule_engine
+          pip install -e ./tarka_v2_core/services/orchestrator
+          pip install -e "./tarka_v2_core/services/saarthi[dev]"
           pip install -e ./tarka_v2_core/services/shadow_agent
 
       - name: Ruff (sidecars + ingestor)
         run: |
           ruff check \
             tarka_v2_core/services/rule_engine \
+            tarka_v2_core/services/shadow \
             tarka_v2_core/services/shadow_agent \
             tarka_v2_core/services/orchestrator \
+            tarka_v2_core/services/saarthi \
             tarka_v2_core/services/ingestor
 
       - name: Black
         run: |
           black --check --line-length 100 \
             tarka_v2_core/services/rule_engine \
+            tarka_v2_core/services/shadow \
             tarka_v2_core/services/shadow_agent \
             tarka_v2_core/services/orchestrator \
+            tarka_v2_core/services/saarthi \
             tarka_v2_core/services/ingestor
 
       - name: Pytest — Rule Engine
@@ -78,8 +86,18 @@ jobs:
         working-directory: tarka_v2_core/services/orchestrator
         run: pytest tests -q
 
+      - name: Pytest — Shadow (hooks + NATS tools)
+        working-directory: tarka_v2_core/services/shadow
+        env:
+          PYTHONPATH: ${{ github.workspace }}/tarka_v2_core/services
+        run: pytest tests -q
+
       - name: Pytest — Shadow Agent
         working-directory: tarka_v2_core/services/shadow_agent
+        run: pytest tests -q
+
+      - name: Pytest — Saarthi (SAR PDF)
+        working-directory: tarka_v2_core/services/saarthi
         run: pytest tests -q
 
   # Multi-stage Dockerfiles under tarka_v2_core/services/*/Dockerfile — scan after lint+tests pass.

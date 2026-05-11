@@ -76,7 +76,8 @@ fn collect_compare_leaf_bindings(expr: &RuleExpr, m: &mut Map<String, Value>) {
         RuleExpr::RedisCompareLeaf { .. }
         | RuleExpr::ListContainsLeaf { .. }
         | RuleExpr::CustomLeaf { .. }
-        | RuleExpr::WasmCustomLeaf { .. } => {}
+        | RuleExpr::WasmCustomLeaf { .. }
+        | RuleExpr::GraphMatch { .. } => {}
     }
 }
 

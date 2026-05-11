@@ -54,6 +54,9 @@ services/**/*.db
 # Investigation agent local data dir (feedback, RAG, review DB paths in dev)
 services/investigation-agent/var/
 
+# Orchestrator local AI feedback export (``POST /v1/ai/feedback`` JSONL sink)
+**/ai_rejection_feedback.jsonl
+
 # Rust build trees (never commit; TruffleHog/CodeQL noise if tracked)
 **/target/
 

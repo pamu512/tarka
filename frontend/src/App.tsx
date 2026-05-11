@@ -18,6 +18,7 @@ const Cases = lazy(() => import("./pages/Cases"));
 const CaseDetail = lazy(() => import("./pages/CaseDetail"));
 const SarIntentDetailPage = lazy(() => import("./pages/SarIntentDetailPage"));
 const Disputes = lazy(() => import("./pages/Disputes"));
+const DisputeReviewByIdPage = lazy(() => import("./pages/disputes/[id]"));
 const Rules = lazy(() => import("./pages/Rules"));
 const GraphExplorer = lazy(() => import("./pages/GraphExplorer"));
 const LinkAnalysisPage = lazy(() => import("./pages/LinkAnalysisPage"));
@@ -241,6 +242,7 @@ export default function App() {
             <Route path="/cases" element={<Cases />} />
             <Route path="/cases/:caseId/sar-intent/:intentId" element={<SarIntentDetailPage />} />
             <Route path="/cases/:caseId" element={<CaseDetail />} />
+            <Route path="/disputes/:id" element={<DisputeReviewByIdPage />} />
             <Route path="/disputes" element={<Disputes />} />
             <Route path="/rules" element={<Rules />} />
             <Route

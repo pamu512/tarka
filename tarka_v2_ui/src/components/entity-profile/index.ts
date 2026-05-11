@@ -1,0 +1,1 @@
+export { EntityProfileView } from "./EntityProfileView";

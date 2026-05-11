@@ -48,18 +48,25 @@ export type JsonAstOr = {
   children: JsonAstNode[];
 };
 
-export type JsonAstNode = JsonAstCondition | JsonAstAnd | JsonAstOr;
+/** Graph / LFFI risk: matches Rust ``RuleExpr::GraphMatch`` (``context.graph_score`` > threshold). */
+export type JsonAstGraphCondition = {
+  type: "graph_condition";
+  operator: "gt";
+  threshold: number;
+};
+
+export type JsonAstNode = JsonAstCondition | JsonAstGraphCondition | JsonAstAnd | JsonAstOr;
 
 export function isConditionOpName(s: string): s is ConditionOpName {
   return (CONDITION_OPS as readonly string[]).includes(s);
 }
 
 export function astDepth(node: JsonAstNode): number {
-  if (node.type === "condition") return 1;
+  if (node.type === "condition" || node.type === "graph_condition") return 1;
   return 1 + Math.max(0, ...node.children.map(astDepth));
 }
 
 export function astNodeCount(node: JsonAstNode): number {
-  if (node.type === "condition") return 1;
+  if (node.type === "condition" || node.type === "graph_condition") return 1;
   return 1 + node.children.reduce((a, c) => a + astNodeCount(c), 0);
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { cases, type SarIntentDetailResponse } from "../api/client";
+import { SarApproveForFilingControls } from "../components/SarApproveForFilingControls";
 import { SarInvestigativeNotesEditor } from "../components/SarInvestigativeNotesEditor";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
@@ -119,6 +120,16 @@ export default function SarIntentDetailPage() {
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200/90 space-y-1">
           <p>{saveErr}</p>
         </div>
+      ) : null}
+
+      {detail ? (
+        <SarApproveForFilingControls
+          caseId={caseId}
+          tenantId={tenantId}
+          intentId={intentId}
+          status={detail.status}
+          onFiled={load}
+        />
       ) : null}
 
       {detail && shaDisplay ? (

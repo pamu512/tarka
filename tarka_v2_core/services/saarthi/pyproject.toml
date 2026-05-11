@@ -1,0 +1,21 @@
+[project]
+name = "tarka-saarthi"
+version = "0.1.0"
+description = "Saarthi SAR PDF generation from Shadow structured JSON."
+requires-python = ">=3.11"
+dependencies = [
+  "reportlab>=4.2.0,<5",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0", "pypdf>=5.0.0"]
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

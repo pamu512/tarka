@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { disputes, type DisputeEntry, type DisputeStats } from "../api/client";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { PageTitle } from "../components/PageTitle";
@@ -127,7 +128,17 @@ export default function Disputes() {
                   </td>
                   <td className="px-4 py-3 text-gray-400 text-xs">{d.filed_at ? new Date(d.filed_at).toLocaleDateString() : "-"}</td>
                   <td className="px-4 py-3">
-                    <button onClick={() => setSelected(d)} className="text-brand-400 hover:text-brand-300 text-xs font-medium">View</button>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        to={`/disputes/${d.id}`}
+                        className="text-brand-400 hover:text-brand-300 text-xs font-medium"
+                      >
+                        Review
+                      </Link>
+                      <button type="button" onClick={() => setSelected(d)} className="text-gray-400 hover:text-gray-300 text-xs">
+                        Quick view
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -1,8 +1,9 @@
 //! Hot-reload compiled [`crate::compiler::RuleSet`] protobuf bundles from a watched directory (`.bin`).
 //!
-//! Requests call [`RuleManager::active_snapshot`] and hold the returned [`std::sync::Arc`] for their
-//! duration. [`ArcSwap`] swaps the active snapshot atomically; in-flight requests keep the previous
-//! [`Arc`] alive until they finish (RCU-style, no torn reads).
+//! The merged rules live in [`LoadedRuleSnapshot::merged`] as `Arc<RwLock<RuleSet>>`. All
+//! [`RuleManager::active_snapshot`] handles share that lock; reloads update the [`RuleSet`] in place.
+//! For a stable view for one evaluation, take [`LoadedRuleSnapshot::merged_read`] at the start of the
+//! request and keep the read guard until evaluation completes (writers block until readers drop).
 //!
 //! # Dead-man's switch (fail-over)
 //!
@@ -11,11 +12,11 @@
 //! - **Partial `.bin` corruption**: decodable bundles are merged; undecodable files are skipped.
 //!   A **CRITICAL** alert records each failure (structured tracing + optional hook).
 //! - **Total load failure** while a previous **audited** snapshot exists: the engine **retains**
-//!   the last-known-good snapshot (no swap).
+//!   the last-known-good rules (reload does not overwrite the shared [`RuleSet`]).
 //! - **Total load failure** with **no** audited history (cold start): the engine activates a
 //!   **fail-safe** snapshot — empty rule list with [`RuleAuditMode::FailSafeUnAudited`]. Downstream
 //!   must treat decisions as permissive and **flag as un-audited** (contractual; see
-//!   [`LoadedRuleSnapshot::audit_mode`]).
+//!   [`SnapshotMeta::audit_mode`]).
 //!
 //! CRITICAL alerts are emitted via `tracing` (`target = "tarka.rule_manager.critical"`,
 //! field `alert_severity = "CRITICAL"`) and optionally through [`RuleManagerOptions::on_critical_alert`].
@@ -23,11 +24,10 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use arc_swap::ArcSwap;
 use notify::Watcher;
 use prost::Message;
 use thiserror::Error;
@@ -46,15 +46,22 @@ pub enum RuleAuditMode {
     FailSafeUnAudited,
 }
 
-/// Immutable snapshot of all merged `*.bin` rule sets in the watched directory.
-#[derive(Clone, Debug, PartialEq)]
-pub struct LoadedRuleSnapshot {
-    /// Single merged [`RuleSet`] (rules combined from every successfully decoded `.bin`, last writer wins on duplicate `id`).
-    pub merged: RuleSet,
+/// Paths and audit posture updated together with [`LoadedRuleSnapshot::merged`] on each reload.
+#[derive(Clone, Debug)]
+pub struct SnapshotMeta {
     /// Sorted paths that contributed to `merged` (for audit).
     pub source_paths: Vec<PathBuf>,
     /// Audit posture for downstream enforcement / reporting.
     pub audit_mode: RuleAuditMode,
+}
+
+/// Shared view of merged `*.bin` rule sets in the watched directory (thread-safe hot reload).
+#[derive(Clone, Debug)]
+pub struct LoadedRuleSnapshot {
+    /// Single merged [`RuleSet`] (rules combined from every successfully decoded `.bin`, last writer wins on duplicate `id`).
+    pub merged: Arc<RwLock<RuleSet>>,
+    /// Sorted paths and audit mode; updated under the same reload discipline as `merged`.
+    pub meta: Arc<RwLock<SnapshotMeta>>,
 }
 
 impl LoadedRuleSnapshot {
@@ -62,22 +69,43 @@ impl LoadedRuleSnapshot {
     /// Embedders should interpret “no blocking rules” plus un-audited as **allow with escalation**.
     pub fn fail_safe_unaudited() -> Self {
         Self {
-            merged: RuleSet {
+            merged: Arc::new(RwLock::new(RuleSet {
                 version: 0,
                 rules: Vec::new(),
-            },
-            source_paths: Vec::new(),
-            audit_mode: RuleAuditMode::FailSafeUnAudited,
+            })),
+            meta: Arc::new(RwLock::new(SnapshotMeta {
+                source_paths: Vec::new(),
+                audit_mode: RuleAuditMode::FailSafeUnAudited,
+            })),
         }
+    }
+
+    /// Pins the active [`RuleSet`] for one evaluation; hold the guard until the evaluation finishes.
+    pub fn merged_read(&self) -> std::sync::RwLockReadGuard<'_, RuleSet> {
+        self.merged.read().expect("merged rules lock poisoned")
     }
 
     fn audited(merged: RuleSet, source_paths: Vec<PathBuf>) -> Self {
         Self {
-            merged,
-            source_paths,
-            audit_mode: RuleAuditMode::Audited,
+            merged: Arc::new(RwLock::new(merged)),
+            meta: Arc::new(RwLock::new(SnapshotMeta {
+                source_paths,
+                audit_mode: RuleAuditMode::Audited,
+            })),
         }
     }
+}
+
+fn apply_to_state(
+    state: &LoadedRuleSnapshot,
+    merged: RuleSet,
+    contributing_paths: Vec<PathBuf>,
+    audit_mode: RuleAuditMode,
+) {
+    *state.merged.write().expect("merged rules lock poisoned") = merged;
+    let mut meta = state.meta.write().expect("snapshot meta lock poisoned");
+    meta.source_paths = contributing_paths;
+    meta.audit_mode = audit_mode;
 }
 
 #[derive(Debug, Error)]
@@ -162,10 +190,10 @@ impl RuleManagerOptions {
     }
 }
 
-/// Watches a directory for `*.bin` files and atomically publishes merged [`LoadedRuleSnapshot`] values.
+/// Watches a directory for `*.bin` files and publishes merged rules via [`LoadedRuleSnapshot`].
 pub struct RuleManager {
     dir: PathBuf,
-    swap: Arc<ArcSwap<LoadedRuleSnapshot>>,
+    state: Arc<LoadedRuleSnapshot>,
     /// Last snapshot that was stored with [`RuleAuditMode::Audited`] (for dead-man's retention).
     last_audited: Arc<Mutex<Option<Arc<LoadedRuleSnapshot>>>>,
     on_critical_alert: Option<Arc<dyn Fn(CriticalRuleLoadAlert) + Send + Sync>>,
@@ -190,15 +218,14 @@ impl RuleManager {
         let last_audited: Arc<Mutex<Option<Arc<LoadedRuleSnapshot>>>> =
             Arc::new(Mutex::new(None));
 
-        let swap: Arc<ArcSwap<LoadedRuleSnapshot>> =
-            Arc::new(ArcSwap::new(initial_snapshot(
-                &dir,
-                Arc::clone(&last_audited),
-                &options.on_critical_alert,
-            )));
+        let state: Arc<LoadedRuleSnapshot> = initial_snapshot(
+            &dir,
+            Arc::clone(&last_audited),
+            &options.on_critical_alert,
+        );
 
         let stop = Arc::new(AtomicBool::new(false));
-        let swap_thread = Arc::clone(&swap);
+        let state_thread = Arc::clone(&state);
         let dir_thread = dir.clone();
         let stop_thread = Arc::clone(&stop);
         let last_thread = Arc::clone(&last_audited);
@@ -207,7 +234,7 @@ impl RuleManager {
         let join = Some(std::thread::spawn(move || {
             watch_loop(
                 dir_thread,
-                swap_thread,
+                state_thread,
                 last_thread,
                 hook_thread,
                 stop_thread,
@@ -216,7 +243,7 @@ impl RuleManager {
 
         Ok(Self {
             dir,
-            swap,
+            state,
             last_audited,
             on_critical_alert: options.on_critical_alert,
             stop,
@@ -224,11 +251,11 @@ impl RuleManager {
         })
     }
 
-    /// Snapshot at request start — hold this [`Arc`] until the request completes so reloads cannot
-    /// invalidate in-flight evaluation state.
+    /// Snapshot handle — clone counts toward the same [`LoadedRuleSnapshot`]. For stable rules during
+    /// one evaluation, call [`LoadedRuleSnapshot::merged_read`] and keep the returned guard.
     #[must_use]
     pub fn active_snapshot(&self) -> Arc<LoadedRuleSnapshot> {
-        self.swap.load_full()
+        Arc::clone(&self.state)
     }
 
     /// Directory whose `.bin` files are merged.
@@ -249,16 +276,25 @@ impl RuleManager {
                 let last_guard = self.last_audited.lock().unwrap();
                 let last_ref = last_guard.as_ref().map(|x| x.as_ref());
                 match resolve_scan(&self.dir, scan, last_ref, &self.on_critical_alert) {
-                    ScanResolution::Store(arc) => {
+                    ScanResolution::Store {
+                        merged,
+                        contributing_paths,
+                        audit_mode,
+                    } => {
                         drop(last_guard);
-                        if arc.audit_mode == RuleAuditMode::Audited {
-                            *self.last_audited.lock().unwrap() = Some(Arc::clone(&arc));
+                        apply_to_state(
+                            self.state.as_ref(),
+                            merged,
+                            contributing_paths,
+                            audit_mode,
+                        );
+                        if audit_mode == RuleAuditMode::Audited {
+                            *self.last_audited.lock().unwrap() = Some(Arc::clone(&self.state));
                         }
-                        self.swap.store(Arc::clone(&arc));
-                        ReloadOutcome::Applied(arc)
+                        ReloadOutcome::Applied(Arc::clone(&self.state))
                     }
                     ScanResolution::Retain(alert) => {
-                        let prev = self.swap.load_full();
+                        let prev = Arc::clone(&self.state);
                         drop(last_guard);
                         ReloadOutcome::Retained {
                             previous: prev,
@@ -277,7 +313,7 @@ impl RuleManager {
                 };
                 emit_critical_alert(&self.on_critical_alert, &alert);
                 ReloadOutcome::Retained {
-                    previous: self.swap.load_full(),
+                    previous: Arc::clone(&self.state),
                     alert,
                 }
             }
@@ -303,7 +339,11 @@ impl Drop for RuleManager {
 }
 
 enum ScanResolution {
-    Store(Arc<LoadedRuleSnapshot>),
+    Store {
+        merged: RuleSet,
+        contributing_paths: Vec<PathBuf>,
+        audit_mode: RuleAuditMode,
+    },
     Retain(CriticalRuleLoadAlert),
 }
 
@@ -312,16 +352,22 @@ fn initial_snapshot(
     last_audited: Arc<Mutex<Option<Arc<LoadedRuleSnapshot>>>>,
     hook: &Option<Arc<dyn Fn(CriticalRuleLoadAlert) + Send + Sync>>,
 ) -> Arc<LoadedRuleSnapshot> {
+    let state = Arc::new(LoadedRuleSnapshot::fail_safe_unaudited());
     match scan_merge_directory(dir) {
         Ok(scan) => match resolve_scan(dir, scan, None, hook) {
-            ScanResolution::Store(arc) => {
-                if arc.audit_mode == RuleAuditMode::Audited {
-                    *last_audited.lock().unwrap() = Some(Arc::clone(&arc));
+            ScanResolution::Store {
+                merged,
+                contributing_paths,
+                audit_mode,
+            } => {
+                apply_to_state(state.as_ref(), merged, contributing_paths, audit_mode);
+                if audit_mode == RuleAuditMode::Audited {
+                    *last_audited.lock().unwrap() = Some(Arc::clone(&state));
                 }
-                arc
+                state
             }
             // Defensive: initial load has no retention baseline; resolve_scan should only Store.
-            ScanResolution::Retain(_) => Arc::new(LoadedRuleSnapshot::fail_safe_unaudited()),
+            ScanResolution::Retain(_) => state,
         },
         Err(e) => {
             let alert = CriticalRuleLoadAlert {
@@ -332,7 +378,7 @@ fn initial_snapshot(
                 },
             };
             emit_critical_alert(hook, &alert);
-            Arc::new(LoadedRuleSnapshot::fail_safe_unaudited())
+            state
         }
     }
 }
@@ -358,8 +404,11 @@ fn resolve_scan(
             };
             emit_critical_alert(hook, &alert);
         }
-        let snap = Arc::new(LoadedRuleSnapshot::audited(scan.merged, scan.contributing_paths));
-        return ScanResolution::Store(snap);
+        return ScanResolution::Store {
+            merged: scan.merged,
+            contributing_paths: scan.contributing_paths,
+            audit_mode: RuleAuditMode::Audited,
+        };
     }
 
     let detail = summarize_scan_failure(&scan);
@@ -381,7 +430,14 @@ fn resolve_scan(
         reason: CriticalAlertReason::FailSafeActivated { detail },
     };
     emit_critical_alert(hook, &alert);
-    ScanResolution::Store(Arc::new(LoadedRuleSnapshot::fail_safe_unaudited()))
+    ScanResolution::Store {
+        merged: RuleSet {
+            version: 0,
+            rules: Vec::new(),
+        },
+        contributing_paths: Vec::new(),
+        audit_mode: RuleAuditMode::FailSafeUnAudited,
+    }
 }
 
 fn is_audited_load(scan: &DirectoryScanResult) -> bool {
@@ -420,7 +476,7 @@ fn emit_critical_alert(
 
 fn watch_loop(
     dir: PathBuf,
-    swap: Arc<ArcSwap<LoadedRuleSnapshot>>,
+    state: Arc<LoadedRuleSnapshot>,
     last_audited: Arc<Mutex<Option<Arc<LoadedRuleSnapshot>>>>,
     hook: Option<Arc<dyn Fn(CriticalRuleLoadAlert) + Send + Sync>>,
     stop: Arc<AtomicBool>,
@@ -458,15 +514,24 @@ fn watch_loop(
                         let last_ref = last_audited.lock().unwrap();
                         let last_good = last_ref.as_ref().map(|x| x.as_ref());
                         match resolve_scan(&dir, scan, last_good, &hook) {
-                            ScanResolution::Store(arc) => {
+                            ScanResolution::Store {
+                                merged,
+                                contributing_paths,
+                                audit_mode,
+                            } => {
                                 drop(last_ref);
-                                if arc.audit_mode == RuleAuditMode::Audited {
-                                    *last_audited.lock().unwrap() = Some(Arc::clone(&arc));
+                                apply_to_state(
+                                    state.as_ref(),
+                                    merged,
+                                    contributing_paths,
+                                    audit_mode,
+                                );
+                                if audit_mode == RuleAuditMode::Audited {
+                                    *last_audited.lock().unwrap() = Some(Arc::clone(&state));
                                 }
-                                swap.store(arc);
                             }
                             ScanResolution::Retain(_) => {
-                                // swap unchanged; alert already emitted inside resolve_scan
+                                // state unchanged; alert already emitted inside resolve_scan
                             }
                         }
                     }
@@ -643,8 +708,8 @@ mod tests {
         let scan = scan_merge_directory(dir.path()).unwrap();
         let hook: Option<Arc<dyn Fn(CriticalRuleLoadAlert) + Send + Sync>> = None;
         match resolve_scan(dir.path(), scan, None, &hook) {
-            ScanResolution::Store(arc) => {
-                assert_eq!(arc.audit_mode, RuleAuditMode::FailSafeUnAudited);
+            ScanResolution::Store { audit_mode, .. } => {
+                assert_eq!(audit_mode, RuleAuditMode::FailSafeUnAudited);
             }
             _ => panic!("expected fail-safe store"),
         }
@@ -663,8 +728,8 @@ mod tests {
                 c2.fetch_add(1, Ordering::SeqCst);
             });
         match resolve_scan(dir.path(), scan, None, &Some(hook)) {
-            ScanResolution::Store(arc) => {
-                assert_eq!(arc.audit_mode, RuleAuditMode::Audited);
+            ScanResolution::Store { audit_mode, .. } => {
+                assert_eq!(audit_mode, RuleAuditMode::Audited);
             }
             _ => panic!("expected store"),
         }
@@ -672,57 +737,56 @@ mod tests {
     }
 
     #[test]
-    fn active_snapshot_survives_swap() {
+    fn hot_reload_same_handle_next_read_sees_new_version() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("r.bin"), encode_rs("only", 1)).unwrap();
 
-        let swap: Arc<ArcSwap<LoadedRuleSnapshot>> = Arc::new(ArcSwap::new(Arc::new(
-            LoadedRuleSnapshot::audited(scan_merge_directory(dir.path()).unwrap().merged, vec![]),
-        )));
-
-        let old = swap.load_full();
-        assert_eq!(old.merged.rules.len(), 1);
+        let rm = RuleManager::watch_directory(dir.path()).unwrap();
+        let handle = rm.active_snapshot();
+        assert_eq!(handle.merged_read().rules.len(), 1);
 
         std::fs::write(dir.path().join("r.bin"), encode_rs("only", 99)).unwrap();
-        let scan = scan_merge_directory(dir.path()).unwrap();
-        swap.store(Arc::new(LoadedRuleSnapshot::audited(scan.merged, scan.contributing_paths)));
+        match rm.reload_now() {
+            ReloadOutcome::Applied(_) => {}
+            other => panic!("expected Applied, got {other:?}"),
+        }
 
-        assert_eq!(old.merged.version, 1);
-        let new = swap.load_full();
-        assert_eq!(new.merged.version, 99);
+        assert_eq!(handle.merged_read().version, 99);
+        assert_eq!(rm.active_snapshot().merged_read().version, 99);
+        rm.shutdown();
     }
 
+    /// Gate: a reader holding `merged_read` across a reload keeps the old `RuleSet` until the guard
+    /// drops; the next read after reload sees the new version.
     #[test]
-    fn concurrent_readers_hold_old_arc() {
-        let swap: Arc<ArcSwap<LoadedRuleSnapshot>> = Arc::new(ArcSwap::new(Arc::new(
-            LoadedRuleSnapshot::audited(
-                RuleSet {
-                    version: 0,
-                    rules: vec![],
-                },
-                vec![],
-            ),
-        )));
+    fn concurrent_read_guard_pins_rule_set_across_reload() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("r.bin"), encode_rs("only", 0)).unwrap();
+        let rm = RuleManager::watch_directory(dir.path()).unwrap();
+        let state = rm.active_snapshot();
+
         let barrier = Arc::new(Barrier::new(2));
         let b2 = Arc::clone(&barrier);
-        let swap_t = Arc::clone(&swap);
+        let state_t = Arc::clone(&state);
+        let dir_p = dir.path().to_path_buf();
         let h = std::thread::spawn(move || {
-            let snap = swap_t.load_full();
+            let guard = state_t.merged_read();
+            assert_eq!(guard.version, 0);
             b2.wait();
             std::thread::sleep(Duration::from_millis(50));
-            assert_eq!(snap.merged.version, 0);
+            assert_eq!(guard.version, 0);
+            drop(guard);
         });
 
         barrier.wait();
-        swap.store(Arc::new(LoadedRuleSnapshot::audited(
-            RuleSet {
-                version: 42,
-                rules: vec![],
-            },
-            vec![],
-        )));
+        std::fs::write(dir_p.join("r.bin"), encode_rs("only", 42)).unwrap();
+        match rm.reload_now() {
+            ReloadOutcome::Applied(_) => {}
+            other => panic!("expected Applied, got {other:?}"),
+        }
 
         h.join().unwrap();
-        assert_eq!(swap.load_full().merged.version, 42);
+        assert_eq!(rm.active_snapshot().merged_read().version, 42);
+        rm.shutdown();
     }
 }

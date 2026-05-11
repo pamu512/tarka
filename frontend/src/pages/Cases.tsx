@@ -562,7 +562,18 @@ export default function Cases() {
                       {c.id.length > 8 ? c.id.slice(0, 8) + "\u2026" : c.id}
                     </td>
                     <td className="py-3 px-4 text-gray-200 font-medium">
-                      {c.title}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span>{c.title}</span>
+                        {(c.labels ?? []).map((lb) => (
+                          <span
+                            key={`${c.id}-${lb}`}
+                            data-testid={`case-label-${lb.toLowerCase().replace(/\s+/g, "-")}`}
+                            className="inline-flex rounded border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200/95"
+                          >
+                            {lb}
+                          </span>
+                        ))}
+                      </div>
                     </td>
                     <td className="py-3 px-4">
                       <StatusBadge status={c.status} />

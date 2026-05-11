@@ -35,7 +35,7 @@ pub use otel_trace::{
 pub use rule_manager::{
     scan_merge_directory, CriticalAlertReason, CriticalRuleLoadAlert, DirectoryScanResult,
     LoadedRuleSnapshot, ReloadOutcome, RuleAuditMode, RuleManager, RuleManagerError,
-    RuleManagerOptions,
+    RuleManagerOptions, SnapshotMeta,
 };
 pub use trace::{LogicFingerprint, TraceContext, TraceContextRegistry, TraceError, TraceStep};
 pub use runtime::{

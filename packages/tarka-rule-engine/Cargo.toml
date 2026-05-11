@@ -1,0 +1,12 @@
+[package]
+name = "tarka-rule-engine"
+version = "0.1.0"
+edition = "2021"
+description = "LFFI rule evaluation context (PyO3)."
+
+[lib]
+name = "tarka_rule_engine"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.23", features = ["extension-module", "abi3-py311"] }

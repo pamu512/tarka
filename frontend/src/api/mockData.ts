@@ -50,9 +50,55 @@ function mockResidencyMatrixPayload(): AnyObj {
 let mockCases: AnyObj[] = [
   { id: "c1", title: "Velocity spike - fraud_frank", status: "open", priority: "critical", entity_id: "fraud_frank", tenant_id: "demo", trace_id: "tr-1001", assigned_team: "fraud-ops", labels: ["velocity", "ring"], queue_score: 92, recommended_action: "manual_review", created_at: nowIso(), updated_at: nowIso() },
   { id: "c2", title: "ATO attempt - user_bob", status: "investigating", priority: "high", entity_id: "user_bob", tenant_id: "demo", trace_id: "tr-1002", assigned_team: "ato", labels: ["ato", "vpn"], queue_score: 78, recommended_action: "step_up_auth", created_at: nowIso(), updated_at: nowIso() },
+  {
+    id: "c-chargeback-gate",
+    title: "Chargeback — duplicate auth",
+    status: "open",
+    priority: "high",
+    entity_id: "ent_chargeback_demo",
+    tenant_id: "demo",
+    trace_id: "tr-chargeback-gate",
+    assigned_team: "disputes",
+    labels: ["Dispute"],
+    queue_score: 81,
+    recommended_action: "manual_review",
+    created_at: nowIso(),
+    updated_at: nowIso(),
+  },
 ];
 let mockDisputes: AnyObj[] = [
-  { id: "d1", case_id: "c1", tenant_id: "demo", entity_id: "fraud_frank", trace_id: "tr-1001", dispute_type: "chargeback", status: "open", reason_code: "fraudulent", amount: 1499.99, currency: "USD", merchant_id: "CryptoExchange", card_network: "visa", original_decision: "deny", original_score: 92, original_rule_hits: ["velocity"], original_ml_score: 0.86, outcome: null, resolution_notes: null, filed_at: nowIso(), resolved_at: null, created_at: nowIso(), updated_at: nowIso() },
+  {
+    id: "d1",
+    case_id: "c1",
+    tenant_id: "demo",
+    entity_id: "fraud_frank",
+    trace_id: "tr-1001",
+    dispute_type: "chargeback",
+    status: "open",
+    reason_code: "fraudulent",
+    amount: 1499.99,
+    currency: "USD",
+    merchant_id: "CryptoExchange",
+    card_network: "visa",
+    original_decision: "deny",
+    original_score: 92,
+    original_rule_hits: ["velocity"],
+    original_ml_score: 0.86,
+    outcome: null,
+    resolution_notes: null,
+    filed_at: nowIso(),
+    resolved_at: null,
+    created_at: nowIso(),
+    updated_at: nowIso(),
+    evidence_pdf_url: "https://www.w3.org/WAI/WCAG21/working-examples/pdf-note/note.pdf",
+    shadow_evidence_report_markdown:
+      "## Shadow AI evidence report (sample)\n\n" +
+      "- **Ingress IP:** `198.51.100.77`\n" +
+      "- **Device hash:** `deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef`\n" +
+      "- **Authorization:** 3DS2 frictionless + e-sign `ESIGN-127-GATE`\n\n" +
+      "### Cryptographic event anchor\n\n" +
+      "SHA-256 event digest (hex): `bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbcccccccccccccccccccccccccccccccc`\n",
+  },
 ];
 let mockListEntries: AnyObj[] = [
   { list_type: "blocklist", tenant_id: "demo", entity_id: "fraud_frank", reason: "Known fraud ring", created_by: "seed", expires_at: null, metadata: {}, created_at: nowIso() },
@@ -809,6 +855,23 @@ function safeParseRequestBody(init?: RequestInit): AnyObj {
   }
 }
 
+const SAR_FILING_AUTOMATED_ACTOR_IDS = new Set(["sar_worker", "system", "automation", "bot"]);
+
+/**
+ * Validates JSON body for ``POST .../sar/intents/{id}/approve`` (human gate before ``FILED``).
+ * Exported for unit tests.
+ */
+export function assertHumanActorIdForSarFiling(body: AnyObj): string {
+  const raw = body.actor_id;
+  const id = typeof raw === "string" ? raw.trim() : "";
+  if (!id || SAR_FILING_AUTOMATED_ACTOR_IDS.has(id)) {
+    throw new Error(
+      `422 SAR_FILING_REQUIRES_HUMAN_ACTOR: Approve for filing requires a human actor_id in the JSON body (non-empty string; automated actor ids are rejected).`,
+    );
+  }
+  return id;
+}
+
 /** Mutable SAR intent rows for `GET /sar/intents` + approve / queue-sftp mocks. */
 const mockSarIntentStore: Record<string, AnyObj[]> = {};
 
@@ -1457,7 +1520,7 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       schema: "tarka.sar_transport_board/v1",
       tenant_id: tid,
       status_mapping: {
-        pending_db_statuses: ["APPROVED"],
+        pending_db_statuses: ["FILED", "APPROVED"],
         claimed_db_statuses: ["SFTP_QUEUED"],
         uploaded_db_statuses: ["TRANSMITTED", "ACKNOWLEDGED"],
         failed_db_statuses: ["FAILED"],
@@ -1471,7 +1534,7 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
               id: "00000000-0000-4000-8000-000000000001",
               tenant_id: tid,
               case_id: "00000000-0000-4000-8000-000000000002",
-              status: "APPROVED",
+              status: "FILED",
               sar_artifact_id: "00000000-0000-4000-8000-000000000003",
               created_at: now,
               updated_at: now,
@@ -1607,21 +1670,23 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
     const m = path.match(/\/cases\/([^/]+)\/sar\/intents\/([^/]+)\/approve/);
     const caseId = m?.[1] ?? "c1";
     const intentId = m?.[2] ?? "";
+    const humanActor = assertHumanActorIdForSarFiling(body);
     const intents = ensureMockSarIntents(caseId);
     const intent = intents.find((x) => x.id === intentId) as AnyObj | undefined;
     if (!intent) return { sar_filing_intent_id: intentId, status: "PENDING_REVIEW" };
+    if (intent.status === "FILED") return { sar_filing_intent_id: intentId, status: "FILED" };
     if (intent.status === "APPROVED") return { sar_filing_intent_id: intentId, status: "APPROVED" };
     if (intent.status === "PENDING_REVIEW") {
       const ts = nowIso();
-      intent.status = "APPROVED";
+      intent.status = "FILED";
       intent.updated_at = ts;
       const log = intent.audit_log as AnyObj[];
       log.push({
         id: id("aud"),
         from_status: "PENDING_REVIEW",
-        to_status: "APPROVED",
-        actor: "analyst",
-        detail: { reason_code: "SAR_APPROVED" },
+        to_status: "FILED",
+        actor: humanActor,
+        detail: { reason_code: "SAR_APPROVED_FOR_FILING" },
         stack_trace: null,
         created_at: ts,
       });
@@ -1636,14 +1701,15 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
     const intent = intents.find((x) => x.id === intentId) as AnyObj | undefined;
     if (!intent) return { sar_filing_intent_id: intentId, status: "PENDING_REVIEW" };
     if (intent.status === "SFTP_QUEUED") return { sar_filing_intent_id: intentId, status: "SFTP_QUEUED" };
-    if (intent.status === "APPROVED") {
+    if (intent.status === "FILED" || intent.status === "APPROVED") {
       const ts = nowIso();
+      const fromStatus = intent.status as string;
       intent.status = "SFTP_QUEUED";
       intent.updated_at = ts;
       const log = intent.audit_log as AnyObj[];
       log.push({
         id: id("aud"),
-        from_status: "APPROVED",
+        from_status: fromStatus,
         to_status: "SFTP_QUEUED",
         actor: "analyst",
         detail: { reason_code: "SAR_SFTP_QUEUED" },
@@ -2054,7 +2120,11 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   if (path.includes("/api/cases/v1/disputes/stats")) return { total: mockDisputes.length, by_status: { open: 1 }, by_type: { chargeback: 1 }, by_outcome: {}, total_amount: 1499.99, win_rate: 0.62 };
   if (path.includes("/api/cases/v1/disputes/entity/")) return { entity_id: "fraud_frank", total_disputes: 1, fraud_confirmed_count: 1, false_positive_count: 0, total_disputed_amount: 1499.99, risk_indicator: "high", disputes: mockDisputes };
   if (path.includes("/api/cases/v1/disputes") && method === "GET") {
-    if (path.match(/\/api\/cases\/v1\/disputes\/[^/]+$/)) return mockDisputes[0];
+    const single = path.match(/\/api\/cases\/v1\/disputes\/([^/?]+)$/);
+    if (single && single[1] !== "stats") {
+      const found = mockDisputes.find((d) => String(d.id) === single[1]);
+      return found ?? mockDisputes[0];
+    }
     return { items: mockDisputes };
   }
   if (path.includes("/api/cases/v1/disputes") && method === "POST") {

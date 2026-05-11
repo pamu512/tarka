@@ -19,6 +19,7 @@ import {
 import StatusBadge from "../components/StatusBadge";
 import PriorityBadge from "../components/PriorityBadge";
 import { PageTitle } from "../components/PageTitle";
+import { SnapshotGraph } from "../components/CaseView/SnapshotGraph";
 import { GraphContextPanel } from "../components/GraphContextPanel";
 import { FraudScoreTrack } from "../components/FraudScoreTrack";
 import { InferenceMetricTrack } from "../components/InferenceMetricTrack";
@@ -727,7 +728,11 @@ export default function CaseDetail() {
       )}
       {activeTab === "graph" && (
         <div role="tabpanel" id="case-panel-graph" aria-labelledby="case-tab-graph">
-          <GraphTab entityId={caseData.entity_id} tenantId={caseData.tenant_id} />
+          <GraphTab
+            entityId={caseData.entity_id}
+            tenantId={caseData.tenant_id}
+            graphSnapshot={caseData.graph_snapshot ?? null}
+          />
         </div>
       )}
     </div>
@@ -915,9 +920,11 @@ const GRAPH_OPTIONS: Options = {
 function GraphTab({
   entityId,
   tenantId,
+  graphSnapshot,
 }: {
   entityId: string;
   tenantId: string;
+  graphSnapshot?: Record<string, unknown> | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const networkRef = useRef<Network | null>(null);
@@ -987,10 +994,24 @@ function GraphTab({
 
   const selectedNodeData = graphData?.nodes.find((n) => n.id === selectedNode);
 
+  const snapshotPanel =
+    graphSnapshot != null && typeof graphSnapshot === "object" ? (
+      <div className="space-y-2" data-testid="case-graph-snapshot-panel">
+        <h3 className="text-sm font-semibold text-gray-300">Saved graph snapshot</h3>
+        <p className="text-xs text-gray-500">
+          Immutable evidence-locker topology (React Flow). Live entity graph from the API follows below.
+        </p>
+        <SnapshotGraph snapshot={graphSnapshot} height={300} />
+      </div>
+    ) : null;
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
+      <div className="space-y-6">
+        {snapshotPanel}
+        <div className="flex items-center justify-center py-20">
+          <div className="w-8 h-8 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
+        </div>
       </div>
     );
   }
@@ -998,6 +1019,7 @@ function GraphTab({
   if (error) {
     return (
       <div className="space-y-4">
+        {snapshotPanel}
         <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm space-y-1">
           <p>{error}</p>
           <SupportIdHint
@@ -1019,6 +1041,7 @@ function GraphTab({
 
   return (
     <div className="space-y-4">
+      {snapshotPanel}
       {emptyGraph ? (
         <p className="text-sm text-gray-500 border border-surface-700 rounded-lg px-4 py-3 bg-surface-900/60">
           No graph nodes returned for this entity. Use the table below if the API returned partial data, or widen subgraph

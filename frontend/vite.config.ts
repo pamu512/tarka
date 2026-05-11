@@ -79,6 +79,12 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: () => "/v1/demo/simulate_attack",
       },
+      /** Orchestrator AI feedback JSONL (``POST /v1/ai/feedback``). */
+      "/api/v1/ai": {
+        target: "http://127.0.0.1:8790",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ""),
+      },
       "/api/graph": {
         target: "http://localhost:8001",
         changeOrigin: true,

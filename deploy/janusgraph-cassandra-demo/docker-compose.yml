@@ -1,0 +1,62 @@
+# Prompt 81 — JanusGraph + Cassandra local demo (CQL storage, bounded JVMs, DB cache).
+#
+# Start:
+#   docker compose -f deploy/janusgraph-cassandra-demo/docker-compose.yml up -d
+#
+# Gremlin WebSocket: ws://localhost:8182/gremlin
+#
+# Gate (combined RSS-style usage for the two services < 5GiB):
+#   ./deploy/janusgraph-cassandra-demo/scripts/verify-combined-memory-under-5g.sh
+
+name: janus-cassandra-demo
+
+services:
+  cassandra:
+    image: cassandra:4.1
+    container_name: jcd-cassandra
+    hostname: cassandra
+    environment:
+      # Cassandra JVM heap cap (DataStax / official image convention)
+      MAX_HEAP_SIZE: 2G
+      HEAP_NEWSIZE: 256M
+      # Keep gossip happy on single-node demo
+      JVM_OPTS: "-Dcassandra.skip_wait_for_gossip_to_settle=0"
+    ports:
+      - "9042:9042"
+    volumes:
+      - jcd_cassandra_data:/var/lib/cassandra
+    healthcheck:
+      test: ["CMD-SHELL", "nodetool status | grep -E '^UN'"]
+      interval: 15s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+
+  janusgraph:
+    image: docker.io/janusgraph/janusgraph:1.0.0
+    container_name: jcd-janusgraph
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    environment:
+      # JanusGraph JVM heap (Gremlin Server + embedded graph): 2 GiB
+      JAVA_OPTS: "-Xms2048m -Xmx2048m"
+      # Wait for CQL backend before starting Gremlin Server
+      JANUS_STORAGE_TIMEOUT: "120"
+    ports:
+      - "8182:8182"
+    volumes:
+      # Canonical properties for this demo (storage.backend=cql, cache.db-cache, etc.)
+      - ./janusgraph.properties:/etc/opt/janusgraph/janusgraph.properties:ro
+      - jcd_janusgraph_var:/var/lib/janusgraph
+    healthcheck:
+      # Gremlin Server listens on 8182; bash /dev/tcp avoids extra packages in the image.
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8182'"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 120s
+
+volumes:
+  jcd_cassandra_data:
+  jcd_janusgraph_var:

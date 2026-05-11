@@ -141,6 +141,11 @@ pub enum RuleExpr {
         #[serde(default = "default_wasm_eval_export")]
         export: String,
     },
+    /// Graph / LFFI proximity: true when ``context.graph_score`` (or top-level ``graph_score``) is **strictly greater than** ``threshold``.
+    GraphMatch {
+        id: String,
+        threshold: f64,
+    },
 }
 
 /// External integrations invoked from leaf rules (Redis, curated lists, bespoke logic).
@@ -459,7 +464,53 @@ impl<D: ExternalDataSource> Evaluator<D> {
                 name,
                 export,
             } => self.eval_wasm_custom_leaf(id, wasm_content_id_hex, export, name.as_deref(), data),
+            RuleExpr::GraphMatch { id, threshold } => self.eval_graph_match(id, *threshold, data),
         }
+    }
+
+    fn eval_graph_match(
+        &self,
+        rule_id: &str,
+        threshold: f64,
+        data: &Value,
+    ) -> Result<bool, EvalFatalError> {
+        let score_opt = graph_score_from_payload(data);
+        let score_str = match score_opt {
+            Some(s) => s.to_string(),
+            None => "null".to_string(),
+        };
+
+        let mut scope: BTreeMap<Box<str>, Box<str>> = BTreeMap::new();
+        scope.insert("context.graph_score".into(), score_str.into_boxed_str());
+        scope.insert(
+            "graph_match.threshold".into(),
+            format!("{threshold}").into_boxed_str(),
+        );
+
+        let pass = match score_opt {
+            Some(score) if score.is_finite() => score > threshold,
+            _ => false,
+        };
+        scope.insert(
+            "graph_match.result".into(),
+            pass.to_string().into_boxed_str(),
+        );
+
+        let operands: SmallVec<[Box<str>; 8]> = smallvec![
+            format!("threshold={threshold}").into_boxed_str(),
+        ];
+
+        self.trace
+            .record_step(
+                rule_id,
+                "GRAPH_MATCH",
+                operands.iter().map(|s| s.as_ref()),
+                pass,
+                &scope,
+            )
+            .map_err(|_| EvalFatalError::rule(rule_id, RuleFail::TracePoisoned))?;
+
+        Ok(pass)
     }
 
     fn eval_compare_leaf(
@@ -722,6 +773,19 @@ impl<D: ExternalDataSource> Evaluator<D> {
             .map_err(|_| EvalFatalError::rule(rule_id, RuleFail::TracePoisoned))?;
 
         Ok(pass)
+    }
+}
+
+/// Resolve ``context.graph_score`` then top-level ``graph_score`` for [`RuleExpr::GraphMatch`].
+fn graph_score_from_payload(data: &Value) -> Option<f64> {
+    let v = data
+        .pointer("/context/graph_score")
+        .or_else(|| data.pointer("/graph_score"))?;
+    match v {
+        Value::Number(n) => n.as_f64(),
+        Value::String(s) => s.parse().ok(),
+        Value::Bool(b) => Some(if *b { 1.0 } else { 0.0 }),
+        _ => None,
     }
 }
 
@@ -1324,5 +1388,91 @@ mod tests {
                 crate::engine::rule_address::SecurityIntegrityViolation::ContentHashMismatch { .. }
             )),
         }
+    }
+
+    #[test]
+    fn graph_match_triggers_block_when_context_graph_score_exceeds_threshold() {
+        let rule = RuleExpr::GraphMatch {
+            id: "graph-risk".into(),
+            threshold: 0.8,
+        };
+        let mut eval = Evaluator::new(rule, TraceContext::new(), MockExternal::default(), "test");
+        let (decision, manifest) = eval.evaluate(&json!({"context": {"graph_score": 0.85}}));
+        assert!(
+            decision,
+            "graph_score 0.85 > 0.8 ⇒ rule passes (decision true / block path)"
+        );
+        let m = manifest.expect("manifest");
+        let step = &m.trace.expect("trace").steps[0];
+        assert_eq!(step.logic_operator, "GRAPH_MATCH");
+        assert!(step.result);
+    }
+
+    #[test]
+    fn graph_match_no_block_when_score_not_above_threshold() {
+        let rule = RuleExpr::GraphMatch {
+            id: "g".into(),
+            threshold: 0.8,
+        };
+        let mut eval = Evaluator::new(rule, TraceContext::new(), MockExternal::default(), "test");
+        let (decision, _) = eval.evaluate(&json!({"context": {"graph_score": 0.79}}));
+        assert!(!decision);
+    }
+
+    #[derive(serde::Deserialize)]
+    struct FlatGraphScoreRule {
+        op: String,
+        field: String,
+        val: serde_json::Number,
+    }
+
+    fn rule_expr_from_flat_graph_score_gate(
+        cond: FlatGraphScoreRule,
+        id: impl Into<String>,
+    ) -> Option<RuleExpr> {
+        if cond.op == "gt" && cond.field == "graph_score" {
+            let threshold = cond.val.as_f64()?;
+            Some(RuleExpr::GraphMatch {
+                id: id.into(),
+                threshold,
+            })
+        } else {
+            None
+        }
+    }
+
+    /// Gate: rule shape ``{ "op": "gt", "field": "graph_score", "val": 0.8 }`` blocks when score is high enough.
+    #[test]
+    fn flat_json_op_gt_field_graph_score_val_triggers_block() {
+        let flat = json!({"op": "gt", "field": "graph_score", "val": 0.8});
+        let cond: FlatGraphScoreRule = serde_json::from_value(flat).expect("deserialize flat rule");
+        let rule = rule_expr_from_flat_graph_score_gate(cond, "leaf.graph").expect("map to GraphMatch");
+        let mut eval = Evaluator::new(rule, TraceContext::new(), MockExternal::default(), "test");
+        let (decision, manifest) = eval.evaluate(&json!({"context": {"graph_score": 0.81}}));
+        assert!(decision);
+        let step = &manifest.expect("manifest").trace.expect("trace").steps[0];
+        assert_eq!(step.rule_id, "leaf.graph");
+        assert!(step.result);
+    }
+
+    #[test]
+    fn verified_rule_json_accepts_graph_match_kind() {
+        let raw = br#"{"kind":"graph_match","id":"gm","threshold":0.5}"#;
+        let hex_id = hex::encode(rule_content_sha256(raw));
+        let expr = parse_verified_rule_json(raw, &hex_id).expect("parse graph_match");
+        let RuleExpr::GraphMatch { threshold, .. } = expr else {
+            panic!("expected GraphMatch");
+        };
+        assert!((threshold - 0.5).abs() < f64::EPSILON);
+        let mut eval = Evaluator::try_from_verified_rule_json(
+            raw,
+            &hex_id,
+            TraceContext::new(),
+            MockExternal::default(),
+            "test",
+        )
+        .expect("evaluator");
+        let (decision, _) = eval.evaluate(&json!({"context": {"graph_score": 0.6}}));
+        assert!(decision);
     }
 }

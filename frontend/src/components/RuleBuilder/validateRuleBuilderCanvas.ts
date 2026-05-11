@@ -25,6 +25,15 @@ export function validateJsonAstPayload(ast: JsonAstNode): CanvasValidationResult
       }
       return;
     }
+    if (n.type === "graph_condition") {
+      if (n.operator !== "gt") {
+        push(errors, "graph_condition.operator must be gt");
+      }
+      if (typeof n.threshold !== "number" || !Number.isFinite(n.threshold)) {
+        push(errors, "graph_condition.threshold must be a finite number");
+      }
+      return;
+    }
     for (const c of n.children) walk(c);
   };
 

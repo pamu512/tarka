@@ -3,9 +3,12 @@ import { getIncomers, type Connection, type Edge, type Node } from "@xyflow/reac
 import type { CompiledRulePack, FeatureKind, VisualAstLeaf, VisualAstPack, VisualAstRule } from "../../types/rules";
 import { BOOLEAN_OPS, NUMERIC_OPS, STRING_OPS } from "../../types/rules";
 
+import { GRAPH_RISK_NODE_TYPE, graphRiskToVisualAstLeaf, type GraphRiskNodeData } from "./compiler";
+
 export const NODE_TYPES = {
   feature: "feature",
   operator: "operator",
+  graphRisk: GRAPH_RISK_NODE_TYPE,
   logicAnd: "logicAnd",
   logicOr: "logicOr",
   ruleRoot: "ruleRoot",
@@ -28,6 +31,8 @@ export type RuleRootNodeData = {
   scoreDeltaStr: string;
   description: string;
 };
+
+export type { GraphRiskNodeData } from "./compiler";
 
 export class CompileToAstError extends Error {
   constructor(
@@ -130,6 +135,18 @@ export function leafFromOperator(opNode: Node, nodes: Node[], edges: Edge[]): Vi
   return { field: fd.field.trim(), op: normalizeOp(od.op), value };
 }
 
+function leafFromGraphRiskNode(node: Node): VisualAstLeaf {
+  if (node.type !== NODE_TYPES.graphRisk) {
+    throw new CompileToAstError("Internal: leafFromGraphRiskNode on non-graphRisk", node.id);
+  }
+  try {
+    return graphRiskToVisualAstLeaf(node.id, node.data as GraphRiskNodeData);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new CompileToAstError(msg, node.id);
+  }
+}
+
 /** Collect leaf conditions under an AND node (flatten nested AND). */
 function flattenAnd(andId: string, nodes: Node[], edges: Edge[]): VisualAstLeaf[] {
   const node = nodes.find((n) => n.id === andId);
@@ -144,6 +161,8 @@ function flattenAnd(andId: string, nodes: Node[], edges: Edge[]): VisualAstLeaf[
   for (const inc of incomers) {
     if (inc.type === NODE_TYPES.operator) {
       leaves.push(leafFromOperator(inc, nodes, edges));
+    } else if (inc.type === NODE_TYPES.graphRisk) {
+      leaves.push(leafFromGraphRiskNode(inc));
     } else if (inc.type === NODE_TYPES.logicAnd) {
       leaves.push(...flattenAnd(inc.id, nodes, edges));
     } else if (inc.type === NODE_TYPES.logicOr) {
@@ -192,7 +211,7 @@ export function compileToAST(nodes: Node[], edges: Edge[]): VisualAstPack {
   const rr = roots[0];
   const incomers = getIncomers(rr, nodes, edges);
   if (incomers.length !== 1) {
-    throw new CompileToAstError("Rule root must have exactly one incoming edge from AND, OR, or Operator.");
+    throw new CompileToAstError("Rule root must have exactly one incoming edge from AND, OR, Operator, or Graph risk.");
   }
   const top = incomers[0];
   const meta = ruleMetaFromRoot(rr);
@@ -202,6 +221,15 @@ export function compileToAST(nodes: Node[], edges: Edge[]): VisualAstPack {
     rules.push({
       id: meta.baseId,
       all_of: [leafFromOperator(top, nodes, edges)],
+      any_of: [],
+      tags: meta.tags,
+      score_delta: meta.score_delta,
+      description: meta.description,
+    });
+  } else if (top.type === NODE_TYPES.graphRisk) {
+    rules.push({
+      id: meta.baseId,
+      all_of: [leafFromGraphRiskNode(top)],
       any_of: [],
       tags: meta.tags,
       score_delta: meta.score_delta,
@@ -225,6 +253,8 @@ export function compileToAST(nodes: Node[], edges: Edge[]): VisualAstPack {
       let leaves: VisualAstLeaf[];
       if (br.type === NODE_TYPES.operator) {
         leaves = [leafFromOperator(br, nodes, edges)];
+      } else if (br.type === NODE_TYPES.graphRisk) {
+        leaves = [leafFromGraphRiskNode(br)];
       } else if (br.type === NODE_TYPES.logicAnd) {
         leaves = flattenAnd(br.id, nodes, edges);
       } else {
@@ -278,6 +308,13 @@ export function isValidRuleConnection(conn: Connection, nodes: Node[]): boolean 
 
   if (s.type === NODE_TYPES.feature && t.type === NODE_TYPES.operator) {
     return conn.sourceHandle === "f-out" && conn.targetHandle === "f-in";
+  }
+  if (s.type === NODE_TYPES.graphRisk) {
+    if (conn.sourceHandle !== "gr-out") return false;
+    if (t.type === NODE_TYPES.logicAnd) return conn.targetHandle === "a-in";
+    if (t.type === NODE_TYPES.logicOr) return conn.targetHandle === "o-in";
+    if (t.type === NODE_TYPES.ruleRoot) return conn.targetHandle === "r-in";
+    return false;
   }
   if (s.type === NODE_TYPES.operator) {
     if (conn.sourceHandle !== "o-out") return false;

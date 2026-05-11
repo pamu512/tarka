@@ -43,6 +43,13 @@ class TransactionSchema(BaseModel):
             "Extra keys are allowed inside `metadata`; the top-level envelope rejects unknown fields."
         ),
     )
+    country: str | None = Field(
+        default=None,
+        description=(
+            "Optional ISO-like country code used by the rule-engine ``country`` field ref "
+            "(derived or mirrored from metadata in production pipelines)."
+        ),
+    )
 
     @field_validator("amount")
     @classmethod

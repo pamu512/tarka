@@ -22,6 +22,22 @@ from shadow_agent.prompts import (  # noqa: E402
 )
 
 
+def test_fraud_analyst_prompt_includes_graph_topology_block() -> None:
+    tx = TransactionSchema(
+        entity_id=UUID("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+        amount=199.99,
+        timestamp=datetime(2026, 1, 15, 12, 30, 45, tzinfo=UTC),
+        metadata={"channel": "card_not_present"},
+    )
+    text = FraudAnalystPrompt.build(
+        tx,
+        graph_context={"device_hardware_graph": {"linked_to_blocked_node": True}},
+    )
+    assert "GRAPH CONTEXT" in text
+    assert "linked_to_blocked_node" in text
+    assert "High Degree Centrality" in text
+
+
 def test_fraud_analyst_prompt_print_and_interpolation(capsys) -> None:
     tx = TransactionSchema(
         entity_id=UUID("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
@@ -104,9 +120,10 @@ def test_fraud_analyst_prompt_history_truncates_when_over_budget(monkeypatch) ->
         )
         for i in range(40)
     ]
-    monkeypatch.setattr("shadow_agent.prompts.PROMPT_CHAR_BUDGET", 2200)
+    # Core contract + embedded JSON schema grew; keep headroom for Entity History truncation.
+    monkeypatch.setattr("shadow_agent.prompts.PROMPT_CHAR_BUDGET", 2800)
     text = FraudAnalystPrompt.build(tx, history_records=many)
-    assert len(text) <= 2200
+    assert len(text) <= 2800
     assert "Entity History: " in text
     start = text.index("Entity History: ") + len("Entity History: ")
     end = text.index(". Consider velocity and previous fraud flags.", start)

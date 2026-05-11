@@ -41,17 +41,57 @@ class _StubLlmEchoEntity:
         if not match:
             raise RuntimeError("stub expected entity_id line in system prompt")
         uid = match.group(1)
+        compact = system.replace(" ", "").lower()
+        linked = "linked_to_blocked_node" in compact and "true" in compact
         return {
             "transaction_id": uid,
-            "risk_score": 12.5,
-            "is_fraud": False,
-            "reasoning": ["stub gate"],
+            "risk_score": 88.0 if linked else 12.5,
+            "is_fraud": True if linked else False,
+            "reasoning": (
+                ["Linked to Blocked Node", "device_id overlaps blocked account"]
+                if linked
+                else ["stub gate"]
+            ),
             "confidence_metrics": {"stub": True},
+            "ai_reasoning": (
+                "Linked to Blocked Node: this device_id was previously linked to a blocked account."
+                if linked
+                else "stub gate narrative"
+            ),
         }
 
 
 def _auth_headers() -> dict[str, str]:
     return {"X-Shadow-Token": _TEST_SHADOW_API_KEY}
+
+
+def test_analyze_envelope_graph_context_linked_blocked_phrase_in_ai_reasoning() -> None:
+    """Gate: graph_context marks shared hardware with blocked account → stub LLM cites Linked to Blocked Node."""
+    app = build_app(
+        shadow_agent=ShadowAgent(llm_client=_StubLlmEchoEntity()),
+        shadow_api_key=_TEST_SHADOW_API_KEY,
+    )
+    tx_id = UUID("f0f0f0f0-f0f0-f0f0-f0f0-f0f0f0f0f0f0")
+    body = {
+        "transaction": {
+            "entity_id": str(tx_id),
+            "amount": 99.0,
+            "timestamp": "2026-05-09T12:00:00+00:00",
+            "metadata": {"user_id": "new_user", "device_id": "dev_shared"},
+        },
+        "graph_context": {
+            "device_hardware_graph": {
+                "device_id": "dev_shared",
+                "linked_to_blocked_node": True,
+                "blocked_user_count_on_device": 1,
+            },
+        },
+    }
+    with TestClient(app) as client:
+        response = client.post("/v1/analyze", json=body, headers=_auth_headers())
+    assert response.status_code == 200
+    data = response.json()
+    assert "Linked to Blocked Node" in data.get("ai_reasoning", "")
 
 
 def test_post_v1_analyze_returns_200_and_shadow_decision() -> None:
@@ -227,3 +267,51 @@ def test_analyze_without_x_shadow_token_returns_401() -> None:
         response = client.post("/v1/analyze", json=body)
     assert response.status_code == 401
     assert response.json() == {"detail": "Unauthorized"}
+
+
+def test_post_check_review_integrity_returns_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def _fake_check(listing_id: str, _drv: object) -> dict[str, Any]:
+        return {
+            "listing_id": listing_id,
+            "reviewer_count": 2,
+            "review_ring_likely": False,
+            "risk_summary": "stub",
+        }
+
+    class _FakeDriver:
+        async def close(self) -> None:
+            return None
+
+    monkeypatch.setattr("shadow_agent.main.check_review_integrity", _fake_check)
+    monkeypatch.setattr("shadow_agent.main.neo4j_driver_from_env", lambda: _FakeDriver())
+
+    app = build_app(
+        shadow_agent=ShadowAgent(llm_client=_StubLlmEchoEntity()),
+        shadow_api_key=_TEST_SHADOW_API_KEY,
+    )
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/tools/check-review-integrity",
+            json={"listing_id": "L-99"},
+            headers=_auth_headers(),
+        )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["listing_id"] == "L-99"
+    assert data["reviewer_count"] == 2
+
+
+def test_post_check_review_integrity_requires_listing_id() -> None:
+    app = build_app(
+        shadow_agent=ShadowAgent(llm_client=_StubLlmEchoEntity()),
+        shadow_api_key=_TEST_SHADOW_API_KEY,
+    )
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/tools/check-review-integrity",
+            json={},
+            headers=_auth_headers(),
+        )
+    assert response.status_code == 422

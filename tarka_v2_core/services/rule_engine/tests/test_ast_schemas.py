@@ -8,7 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 _SRC = Path(__file__).resolve().parents[1] / "src"
 if str(_SRC) not in sys.path:
@@ -19,6 +19,7 @@ from rule_engine.ast_schemas import (  # noqa: E402
     AndNode,
     ConditionNode,
     FieldRef,
+    LogicalNode,
     Operator,
     OrNode,
     Rule,
@@ -54,6 +55,15 @@ def test_condition_node_gt_with_string_value_raises_validation_error() -> None:
             value="apple",
         )
     assert "GT and LT" in str(excinfo.value) or "string" in str(excinfo.value).lower()
+
+
+def test_condition_node_ne_with_string_construct_cleanly() -> None:
+    node = ConditionNode(
+        field=FieldRef(field="country"),
+        operator=Operator.NE,
+        value="US",
+    )
+    assert node.operator == Operator.NE
 
 
 def test_condition_node_gt_with_float_construct_cleanly() -> None:
@@ -154,3 +164,32 @@ def test_rule_construct_and_print_model_dump_json(capsys: pytest.CaptureFixture[
     assert parsed["action"] == "FLAG"
     assert parsed["priority"] == 100
     assert parsed["root_node"]["children"][0]["children"][0]["operator"] == "GT"
+
+
+def test_rule_builder_gate_json_round_trips_logical_node() -> None:
+    """Gate (Prompt 16–19): ``amount > 500 AND country != 'US'`` as ``AndNode`` JSON."""
+    payload = {
+        "children": [
+            {
+                "field": {"field": "amount"},
+                "operator": "GT",
+                "value": 500,
+            },
+            {
+                "field": {"field": "country"},
+                "operator": "NE",
+                "value": "US",
+            },
+        ],
+    }
+    ta = TypeAdapter(LogicalNode)
+    node = ta.validate_python(payload)
+    assert isinstance(node, AndNode)
+    assert len(node.children) == 2
+    c0, c1 = node.children
+    assert isinstance(c0, ConditionNode)
+    assert isinstance(c1, ConditionNode)
+    assert c0.operator == Operator.GT
+    assert c1.operator == Operator.NE
+    dumped = node.model_dump(mode="json")
+    assert dumped == payload

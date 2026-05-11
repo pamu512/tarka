@@ -133,6 +133,13 @@ fn leaf_label(expr: &RuleExpr) -> String {
                 escape_label(id)
             )
         }
+        RuleExpr::GraphMatch { threshold, id } => {
+            format!(
+                "graph_score > {} · {}",
+                escape_label(&threshold.to_string()),
+                escape_label(id)
+            )
+        }
         RuleExpr::And { .. }
         | RuleExpr::Or { .. }
         | RuleExpr::Not { .. } => "(unexpected composite)".to_string(),
@@ -226,7 +233,8 @@ fn walk(
         | RuleExpr::RedisCompareLeaf { .. }
         | RuleExpr::ListContainsLeaf { .. }
         | RuleExpr::CustomLeaf { .. }
-        | RuleExpr::WasmCustomLeaf { .. }) => {
+        | RuleExpr::WasmCustomLeaf { .. }
+        | RuleExpr::GraphMatch { .. }) => {
             let nid = emit_leaf_rect(ctx, leaf)?;
             if let Some(p) = parent_id {
                 link(p, &nid, ctx.lines);
