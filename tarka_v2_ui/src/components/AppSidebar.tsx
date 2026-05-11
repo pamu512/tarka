@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Archive, HeartPulse } from "lucide-react";
+import { Activity, Archive, Blocks, HeartPulse, Orbit } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/", label: "Live Ingestion", icon: Activity },
   { href: "/audit-vault", label: "Audit Vault", icon: Archive },
+  { href: "/rule-builder", label: "Rule Builder", icon: Blocks },
+  { href: "/entities/u_market_entity_gate", label: "Entity Explorer", icon: Orbit },
   { href: "/system-health", label: "System Health", icon: HeartPulse },
 ] as const;
 

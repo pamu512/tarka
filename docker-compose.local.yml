@@ -1,0 +1,34 @@
+# Local demo overlay — laptop-safe Ollama parallelism + optional single-flight Shadow gateway.
+#
+# Compose does not merge this file automatically; use:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up
+#
+# Or export the same variables into your shell / IDE when running Ollama natively.
+#
+# Deployment runtime (TTLs, graph hops, JVM hints): validated by ``tarka-deploy-settings``
+# (see deploy/env/runtime-demo.env.example). Demo-friendly defaults:
+#   TARKA_DEPLOY_PROFILE=demo
+#   REDIS_VELOCITY_TTL=86400
+#   GRAPH_MAX_HOPS=2
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    environment:
+      # Caps belong here (Prompt 134+) — not forced by Python ``ollama_resource_guard``.
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+    volumes:
+      - ollama_models:/root/.ollama
+
+  # When you add a shadow-agent container to your stack, throttle concurrent LLM calls on constrained hosts:
+  # shadow_agent:
+  #   environment:
+  #     AI_GATEWAY_MAX_CONCURRENT: "1"
+  #     AI_GATEWAY_MODE: demo
+  #     AI_GATEWAY_OLLAMA_URL: http://ollama:11434
+
+volumes:
+  ollama_models:

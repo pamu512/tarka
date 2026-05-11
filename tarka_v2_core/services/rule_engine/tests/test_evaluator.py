@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from typing import Any
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest import mock
@@ -25,7 +26,7 @@ from rule_engine.ast_schemas import (  # noqa: E402
     OrNode,
     Rule,
 )
-from rule_engine.evaluator import evaluate_node, evaluate_ruleset  # noqa: E402
+from rule_engine.evaluator import evaluate_node, evaluate_ruleset, evaluate_ruleset_detailed  # noqa: E402
 
 
 def test_evaluate_condition_amount_gt_returns_true_when_amount_exceeds_threshold() -> None:
@@ -84,7 +85,9 @@ def test_and_node_short_circuits_first_false_skips_later_children() -> None:
     def _condition_side_effect(
         n: ConditionNode,
         t: TransactionSchema,
+        graph_context: dict[str, Any] | None = None,
     ) -> bool:
+        _ = graph_context
         calls.append(1)
         if len(calls) == 1:
             return False
@@ -122,7 +125,9 @@ def test_or_node_short_circuits_first_true_skips_later_children() -> None:
     def _condition_side_effect(
         n: ConditionNode,
         t: TransactionSchema,
+        graph_context: dict[str, Any] | None = None,
     ) -> bool:
+        _ = graph_context
         calls.append(1)
         if len(calls) == 1:
             return True
@@ -191,6 +196,65 @@ def test_evaluate_ruleset_block_from_middle_priority_skips_lower_priority() -> N
 
     assert out == [Action.BLOCK]
     assert ev_mock.call_count == 2
+
+    detail = evaluate_ruleset_detailed(shuffled, tx)
+    assert detail.actions == [Action.BLOCK]
+    assert detail.blocking_rule_id == "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+    assert len(detail.trace) == 2
+    assert detail.trace[0]["priority"] == 10
+    assert detail.trace[0]["matched"] is False
+    assert detail.trace[1]["rule_id"] == "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+    assert detail.trace[1]["matched"] is True
+
+
+def test_evaluate_country_ne_true_when_differs_from_literal() -> None:
+    node = ConditionNode(
+        field=FieldRef(field="country"),
+        operator=Operator.NE,
+        value="US",
+    )
+    tx = TransactionSchema(
+        entity_id=UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+        amount=10.0,
+        timestamp=datetime(2026, 1, 1, 0, 0, 0, tzinfo=UTC),
+        metadata={},
+        country="CA",
+    )
+    assert evaluate_node(node, tx) is True
+
+
+def test_evaluate_country_ne_false_when_matches_literal() -> None:
+    node = ConditionNode(
+        field=FieldRef(field="country"),
+        operator=Operator.NE,
+        value="US",
+    )
+    tx = TransactionSchema(
+        entity_id=UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+        amount=10.0,
+        timestamp=datetime(2026, 1, 1, 0, 0, 0, tzinfo=UTC),
+        metadata={},
+        country="US",
+    )
+    assert evaluate_node(node, tx) is False
+
+
+def test_graph_linked_to_blocked_count_uses_injected_context() -> None:
+    """Gate: GRAPH_LINKED_TO_BLOCKED_COUNT compares against evaluator graph_context."""
+    node = ConditionNode(
+        field=FieldRef(field="graph_linked_to_blocked_count"),
+        operator=Operator.GT,
+        value=0,
+    )
+    tx = TransactionSchema(
+        entity_id=UUID("99999999-9999-9999-9999-999999999999"),
+        amount=150.0,
+        timestamp=datetime(2026, 1, 1, 0, 0, 0, tzinfo=UTC),
+        metadata={"user_id": "u1", "ip": "10.0.0.1"},
+    )
+    assert evaluate_node(node, tx, None) is False
+    assert evaluate_node(node, tx, {"graph_linked_to_blocked_count": 0}) is False
+    assert evaluate_node(node, tx, {"graph_linked_to_blocked_count": 1}) is True
 
 
 def test_evaluate_eq_uses_operator_eq() -> None:

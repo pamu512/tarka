@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import Any
 
@@ -13,6 +14,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    Uuid,
     func,
     text,
 )
@@ -42,6 +44,8 @@ class Case(Base):
         default=DEFAULT_CASE_STATUS,
         server_default=text(f"'{DEFAULT_CASE_STATUS}'"),
     )
+    #: Analyst / owner assignment (one of two columns mutable under ``triggers/immutable_cases.sql``).
+    assigned_to: Mapped[str | None] = mapped_column(String(128), nullable=True)
     last_optimization_manifest: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     duckdb_path: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     schema_summary: Mapped[dict | None] = mapped_column(JSON, nullable=True)
@@ -49,6 +53,12 @@ class Case(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+    #: Janus/Neo4j (or derived) topology snapshot for immutable evidence views.
+    graph_snapshot: Mapped[dict[str, Any] | list[Any] | None] = mapped_column(JSON, nullable=True)
+    #: Serialized agent reasoning / tool trace for audit.
+    ai_trace: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: Pointer to raw signal blob (object store row, bundle id, etc.).
+    raw_signals_ref: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
 
     leads: Mapped[list[Lead]] = relationship(
         "Lead", back_populates="case", cascade="all, delete-orphan"

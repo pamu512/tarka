@@ -10,11 +10,27 @@ from typing import Any
 import httpx
 from ingestor.schemas import TransactionSchema
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from shadow_agent.friendly_fraud import (
+    apply_friendly_fraud_post_rules,
+    build_friendly_fraud_signals,
+)
+from shadow_agent.graph_hints import listing_id_from_transaction
+from shadow_agent.graph_tool import (
+    find_linked_entities,
+    neo4j_driver_from_env,
+    should_invoke_find_linked_entities,
+    wants_find_linked_entities,
+)
 from shadow_agent.history import get_recent_entity_transactions
 from shadow_agent.llm_client import OllamaLLMClient
 from shadow_agent.prompt_sanitize import sanitize_transaction_for_prompt
 from shadow_agent.prompts import FraudAnalystPrompt
 from shadow_agent.providers.base import BaseLLMProvider
+from shadow_agent.review_integrity_tool import (
+    check_review_integrity,
+    should_invoke_check_review_integrity,
+    wants_check_review_integrity,
+)
 from shadow_agent.schemas import ShadowDecision
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -99,6 +115,8 @@ class ShadowAgent:
         self,
         tx: TransactionSchema,
         session: AsyncSession,
+        *,
+        graph_context: dict[str, Any] | None = None,
     ) -> tuple[ShadowDecision, AuditLog]:
         """
         Forensic path: prompt → Ollama ``chat_json_validated`` → :class:`~shadow_agent.schemas.ShadowDecision`.
@@ -132,8 +150,77 @@ class ShadowAgent:
 
         # Sequential await (not concurrent) so history is fully loaded before prompt build + Ollama.
         history = await get_recent_entity_transactions(session, entity_s, 5)
+        merged_ctx: dict[str, Any] = dict(graph_context) if graph_context else {}
+        ff_signals = await build_friendly_fraud_signals(session, tx, graph_context=graph_context)
+        _inject_ff = bool(graph_context) or int(ff_signals.get("prior_successful_orders_same_ip") or 0) >= 10 or bool(
+            ff_signals.get("delivery_confirmation_hash_seen_in_audit"),
+        ) or bool(ff_signals.get("delivery_confirmation_timestamp_aligned_with_dispute"))
+        if _inject_ff:
+            merged_ctx["friendly_fraud_signals"] = ff_signals
+        drv: Any | None = None
+        try:
+            wants_linked = wants_find_linked_entities(tx, merged_ctx)
+            wants_review = wants_check_review_integrity(tx, merged_ctx)
+            drv = neo4j_driver_from_env()
+            if wants_linked and drv is None:
+                logger.warning(
+                    "shadow_tool_find_linked_entities_skipped_driver_unavailable entity_id=%s",
+                    entity_s,
+                )
+            if wants_review and drv is None:
+                logger.warning(
+                    "shadow_tool_check_review_integrity_skipped_driver_unavailable entity_id=%s",
+                    entity_s,
+                )
+            if drv is not None:
+                if should_invoke_find_linked_entities(
+                    tx,
+                    merged_ctx,
+                    driver_available=True,
+                ):
+                    logger.info(
+                        "shadow_tool_find_linked_entities entity_id=%s tool=find_linked_entities "
+                        "hops=2 graph_probe=shared_ip_2hop",
+                        entity_s,
+                    )
+                    summary = await find_linked_entities(entity_s, tx, drv)
+                    merged_ctx["find_linked_entities"] = summary
+                    logger.info(
+                        "shadow_tool_find_linked_entities_complete entity_id=%s summary_chars=%s",
+                        entity_s,
+                        len(summary),
+                    )
+                if should_invoke_check_review_integrity(
+                    tx,
+                    merged_ctx,
+                    driver_available=True,
+                ):
+                    lid = listing_id_from_transaction(tx)
+                    if lid:
+                        logger.info(
+                            "shadow_tool_check_review_integrity entity_id=%s listing_id=%s",
+                            entity_s,
+                            lid,
+                        )
+                        review_payload = await check_review_integrity(lid, drv)
+                        merged_ctx["check_review_integrity"] = review_payload
+                        logger.info(
+                            "shadow_tool_check_review_integrity_complete entity_id=%s "
+                            "review_ring_likely=%s reviewers=%s",
+                            entity_s,
+                            review_payload.get("review_ring_likely"),
+                            review_payload.get("reviewer_count"),
+                        )
+        finally:
+            if drv is not None:
+                await drv.close()
+
         tx_prompt = sanitize_transaction_for_prompt(tx)
-        system_prompt = FraudAnalystPrompt.build(tx_prompt, history_records=history)
+        system_prompt = FraudAnalystPrompt.build(
+            tx_prompt,
+            history_records=history,
+            graph_context=merged_ctx if merged_ctx else None,
+        )
         logger.info(
             "shadow_evaluate_prompt_generated entity_id=%s prompt_char_count=%s",
             entity_s,
@@ -169,7 +256,9 @@ class ShadowAgent:
                 is_fraud=False,
                 reasoning=["TIMEOUT_FALLBACK"],
                 confidence_metrics={},
+                ai_reasoning="TIMEOUT_FALLBACK",
             )
+            decision = apply_friendly_fraud_post_rules(decision, ff_signals)
             raw_response_text = json.dumps(
                 {
                     "timeout_fallback": True,
@@ -192,6 +281,7 @@ class ShadowAgent:
                     entity_s,
                 )
                 raise
+            decision = apply_friendly_fraud_post_rules(decision, ff_signals)
             raw_response_text = json.dumps(raw_obj, ensure_ascii=False, default=str)
 
         if decision.transaction_id != tx.entity_id:
@@ -201,6 +291,14 @@ class ShadowAgent:
                 decision.transaction_id,
             )
 
+        _meta: dict[str, Any] = tx.metadata if isinstance(tx.metadata, dict) else {}
+        _inv = _meta.get("investigation_case_number")
+        if _inv is None:
+            _inv = _meta.get("case_number")
+        _outcome_raw = _meta.get("case_outcome")
+        _outcome = str(_outcome_raw).strip().upper() if _outcome_raw is not None else "UNKNOWN"
+        _device = _meta.get("device_id") if _meta.get("device_id") is not None else _meta.get("deviceId")
+        _ip = _meta.get("ip_address") if _meta.get("ip_address") is not None else _meta.get("ipAddress")
         audit_log = AuditLog(
             case_id=str(decision.transaction_id),
             action_taken=json.dumps(
@@ -208,9 +306,14 @@ class ShadowAgent:
                     "transaction_id": str(decision.transaction_id),
                     "amount": float(tx.amount),
                     "is_fraud": decision.is_fraud,
+                    "device_id": _device,
+                    "ip_address": _ip,
+                    "investigation_case_number": _inv,
+                    "case_outcome": _outcome,
                 },
                 separators=(",", ":"),
                 ensure_ascii=False,
+                default=str,
             ),
             code_executed=raw_prompt_text,
             agent_notes=raw_response_text,

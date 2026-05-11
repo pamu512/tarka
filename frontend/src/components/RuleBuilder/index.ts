@@ -12,7 +12,20 @@ export { RuleBuilderCanvas } from "./RuleBuilderCanvas";
 export { TestRuleModal } from "./TestRuleModal";
 export { tryCompileFlowToJsonAst, validateCanvasForAstSave, validateJsonAstPayload } from "./validateRuleBuilderCanvas";
 export type { CanvasValidationResult } from "./validateRuleBuilderCanvas";
-export type { ConditionOpName, JsonAstAnd, JsonAstCondition, JsonAstNode, JsonAstOr } from "../../types/jsonAst";
+export type {
+  ConditionOpName,
+  JsonAstAnd,
+  JsonAstCondition,
+  JsonAstGraphCondition,
+  JsonAstNode,
+  JsonAstOr,
+} from "../../types/jsonAst";
+export {
+  GRAPH_RISK_NODE_TYPE,
+  graphRiskToJsonAstGraphCondition,
+  graphRiskToVisualAstLeaf,
+} from "./compiler";
+export type { GraphRiskNodeData } from "./compiler";
 export {
   astDepth,
   astNodeCount,

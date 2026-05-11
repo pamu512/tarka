@@ -6,7 +6,8 @@ import {
   type JsonAstNode,
   isConditionOpName,
 } from "../../types/jsonAst";
-import { CompileToAstError, NODE_TYPES, leafFromOperator, normalizeOp, ruleMetaFromRoot, type RuleRootNodeData } from "./compileToAST";
+import { graphRiskToJsonAstGraphCondition } from "./compiler";
+import { CompileToAstError, NODE_TYPES, leafFromOperator, normalizeOp, ruleMetaFromRoot, type GraphRiskNodeData, type RuleRootNodeData } from "./compileToAST";
 
 function coerceConditionOp(op: string): ConditionOpName {
   const n = normalizeOp(op);
@@ -35,6 +36,14 @@ function buildAstNode(n: Node, nodes: Node[], edges: Edge[], path: Set<string>):
         value: leaf.value,
       };
     }
+    if (n.type === NODE_TYPES.graphRisk) {
+      try {
+        return graphRiskToJsonAstGraphCondition(n.id, n.data as GraphRiskNodeData);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        throw new CompileToAstError(msg, n.id);
+      }
+    }
     if (n.type === NODE_TYPES.logicAnd || n.type === NODE_TYPES.logicOr) {
       const incomers = getIncomers(n, nodes, edges);
       if (incomers.length === 0) {
@@ -46,7 +55,7 @@ function buildAstNode(n: Node, nodes: Node[], edges: Edge[], path: Set<string>):
       const children = incomers.map((c) => buildAstNode(c, nodes, edges, path));
       return n.type === NODE_TYPES.logicAnd ? { type: "and", children } : { type: "or", children };
     }
-    throw new CompileToAstError(`Invalid node type in expression tree: ${n.type}`, n.id);
+    throw new CompileToAstError(`Invalid node type in expression tree: ${String(n.type)}`, n.id);
   } finally {
     path.delete(n.id);
   }
@@ -64,7 +73,7 @@ export function compileFlowToJsonAst(nodes: Node[], edges: Edge[]): JsonAstNode 
   const rr = roots[0];
   const incomers = getIncomers(rr, nodes, edges);
   if (incomers.length !== 1) {
-    throw new CompileToAstError("Rule root must have exactly one incoming edge from AND, OR, or Operator.");
+    throw new CompileToAstError("Rule root must have exactly one incoming edge from AND, OR, Operator, or Graph risk.");
   }
   const top = incomers[0];
   return buildAstNode(top, nodes, edges, new Set());

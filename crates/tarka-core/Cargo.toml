@@ -10,7 +10,6 @@ prometheus = ["dep:metrics-exporter-prometheus"]
 
 [dependencies]
 anyhow = "1"
-arc-swap = "1.7"
 aws-config = "1.8.16"
 aws-sdk-kms = "1.106.0"
 crossbeam-queue = "0.3"

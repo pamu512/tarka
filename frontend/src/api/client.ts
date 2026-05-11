@@ -228,6 +228,8 @@ export interface Case {
   sla_deadline?: string;
   created_at: string;
   updated_at: string;
+  /** Optional evidence-locker graph (nodes + links) when case-api forwards Postgres ``graph_snapshot`` JSONB. */
+  graph_snapshot?: Record<string, unknown> | null;
 }
 
 export interface CaseComment {
@@ -265,6 +267,7 @@ export interface CaseDecisionExplanationPayload {
 export type SarFilingIntentStatus =
   | "PENDING_REVIEW"
   | "APPROVED"
+  | "FILED"
   | "SFTP_QUEUED"
   | "TRANSMITTED"
   | "ACKNOWLEDGED"
@@ -1039,11 +1042,11 @@ export const cases = {
     return request<SarFilingIntentsResponse>(`/api/cases/v1/cases/${caseId}/sar/intents?${q}`);
   },
 
-  approveSarFilingIntent(caseId: string, tenantId: string, intentId: string) {
+  approveSarFilingIntent(caseId: string, tenantId: string, intentId: string, opts: { actor_id: string }) {
     const q = new URLSearchParams({ tenant_id: tenantId });
     return request<{ sar_filing_intent_id: string; status: string }>(
       `/api/cases/v1/cases/${caseId}/sar/intents/${encodeURIComponent(intentId)}/approve?${q}`,
-      { method: "POST" },
+      { method: "POST", body: JSON.stringify({ actor_id: opts.actor_id }) },
     );
   },
 
@@ -2688,6 +2691,10 @@ export interface DisputeEntry {
   resolved_at: string | null;
   created_at: string | null;
   updated_at: string | null;
+  /** Signed URL or HTTPS path to the chargeback / representment PDF uploaded for review. */
+  evidence_pdf_url?: string | null;
+  /** Markdown narrative from Shadow (device/IP/signature + cryptographic event hash). */
+  shadow_evidence_report_markdown?: string | null;
 }
 
 export interface DisputeStats {

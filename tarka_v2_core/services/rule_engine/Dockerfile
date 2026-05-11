@@ -14,6 +14,7 @@ RUN apk add --no-cache build-base
 COPY services/rule_engine/pyproject.toml services/rule_engine/README.md ./services/rule_engine/
 COPY services/rule_engine/src ./services/rule_engine/src
 COPY services/ingestor/src ./services/ingestor/src
+COPY services/shared/tarka_shared ./services/shared/tarka_shared
 
 RUN python -m pip install --upgrade pip setuptools wheel \
     && python -m pip install --prefix=/install --no-cache-dir ./services/rule_engine
@@ -22,7 +23,7 @@ FROM python:3.12-alpine AS runtime
 
 WORKDIR /app
 
-ENV PYTHONPATH=/app/services/ingestor/src \
+ENV PYTHONPATH=/app/services/ingestor/src:/app/services/shared \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
@@ -34,10 +35,11 @@ COPY --from=builder /install/lib/python3.12/site-packages \
     /usr/local/lib/python3.12/site-packages
 
 COPY services/ingestor/src ./services/ingestor/src
+COPY services/shared/tarka_shared ./services/shared/tarka_shared
 
 USER tarka
 
 EXPOSE 8778
 
 ENTRYPOINT ["/usr/local/bin/python3", "-m", "uvicorn"]
-CMD ["rule_engine.main:app", "--host", "0.0.0.0", "--port", "8778"]
+CMD ["rule_engine.main:create_app", "--host", "0.0.0.0", "--port", "8778", "--factory"]

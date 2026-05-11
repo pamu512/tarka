@@ -179,7 +179,7 @@ export default function OpsSarTransportBoard() {
         <div className="grid gap-4 md:grid-cols-3">
           <KanbanColumn
             title="Pending"
-            subtitle="DB: APPROVED — approved, not yet on the SFTP queue."
+            subtitle="DB: FILED or APPROVED — analyst-cleared, not yet on the SFTP queue."
             accentClass="bg-violet-500/10 border-violet-500/20"
             column={board.columns.pending}
           />

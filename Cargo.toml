@@ -6,6 +6,7 @@ members = [
     "crates/tarka-py",
     "crates/tarka-cli",
     "crates/tarka-audit-cli",
+    "packages/tarka-rule-engine",
 ]
 exclude = [
     "fuzz",

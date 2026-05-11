@@ -22,6 +22,9 @@ import httpx
 from tenacity import RetryCallState, retry_if_exception, stop_after_attempt, wait_exponential_jitter
 from tenacity.asyncio import AsyncRetrying
 
+from shadow_agent.ai_gateway.base import AIGateway
+from shadow_agent.ai_gateway.factory import build_ai_gateway
+
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
@@ -144,9 +147,20 @@ class OllamaLLMClient:
         retry_wait_max_sec: float = 30.0,
         limits: httpx.Limits | None = None,
         client: httpx.AsyncClient | None = None,
+        ai_gateway: AIGateway | None = None,
     ) -> None:
-        raw_base = (base_url or os.environ.get("OLLAMA_HOST", self.DEFAULT_BASE_URL)).strip()
-        self._base_url = raw_base.rstrip("/")
+        self._ai_gateway = ai_gateway if ai_gateway is not None else build_ai_gateway()
+
+        if client is not None:
+            self._base_url = str(client.base_url).rstrip("/")
+        elif base_url is not None:
+            self._base_url = base_url.strip().rstrip("/")
+        else:
+            self._base_url = (
+                (os.environ.get("OLLAMA_HOST") or "").strip()
+                or self._ai_gateway.shadow_investigate_base_url.strip()
+                or self.DEFAULT_BASE_URL
+            ).rstrip("/")
         self._default_model = (model or os.environ.get("OLLAMA_MODEL", self.DEFAULT_MODEL)).strip()
         self._api_key = (
             api_key if api_key is not None else os.environ.get("OLLAMA_API_KEY", "")
@@ -264,7 +278,10 @@ class OllamaLLMClient:
             response.raise_for_status()
             return response.json()
 
-        return await self._execute_with_retries("chat", _post_chat)
+        async def _chat_pipeline() -> dict[str, Any]:
+            return await self._execute_with_retries("chat", _post_chat)
+
+        return await self._ai_gateway.run_shadow_investigate_inference(_chat_pipeline)
 
     async def chat_json_validated(
         self,

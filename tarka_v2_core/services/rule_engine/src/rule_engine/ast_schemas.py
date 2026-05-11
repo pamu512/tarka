@@ -15,9 +15,10 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class Operator(StrEnum):
-    """Wire-stable string enum for rule operators (values are exactly ``EQ``, ``GT``, …)."""
+    """Wire-stable Phase-3 operator enum (values are exactly ``EQ``, ``NE``, ``GT``, …)."""
 
     EQ = "EQ"
+    NE = "NE"
     GT = "GT"
     LT = "LT"
     CONTAINS = "CONTAINS"
@@ -29,6 +30,8 @@ TransactionSchemaField: TypeAlias = Literal[
     "timestamp",
     "metadata",
     "country",
+    # Graph extension (hydrated by the rule-engine sidecar via Neo4j when configured).
+    "graph_linked_to_blocked_count",
 ]
 
 
@@ -83,6 +86,10 @@ class ConditionNode(BaseModel):
                 raise ValueError(
                     "GT and LT only accept int, float, or datetime literals on the right-hand side.",
                 )
+            return self
+
+        if op == Operator.NE:
+            # Same structural freedom as ``EQ`` (scalar / UUID / datetime wire forms).
             return self
 
         if op == Operator.CONTAINS:

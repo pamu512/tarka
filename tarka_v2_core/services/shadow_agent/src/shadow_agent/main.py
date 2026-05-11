@@ -20,7 +20,12 @@ from fastapi.responses import JSONResponse
 from ingestor.schemas import TransactionSchema
 from pydantic import ValidationError
 from shadow_agent.agent import ShadowAgent, _ensure_case_for_shadow_audit
+from shadow_agent.dispute_letter import RepresentmentLetterIn, generate_dispute_letter
+from shadow_agent.graph_tool import find_linked_entities, neo4j_driver_from_env
+from shadow_agent.review_integrity_tool import check_review_integrity
 from shadow_agent.llm_client import OllamaLLMClient, ShadowLLMError
+from shadow_agent.schemas import ShadowAnalyzeEnvelope
+from shadow_agent.timeline import TimelineResponse, build_transaction_timeline
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import (
@@ -132,6 +137,8 @@ def _ingestion_reject_audit_case_id(exc: RequestValidationError) -> str:
     except (json.JSONDecodeError, UnicodeDecodeError, TypeError):
         return _SENTINEL_INGESTION_REJECT_CASE_ID
     eid = data.get("entity_id")
+    if eid is None and isinstance(data.get("transaction"), dict):
+        eid = data["transaction"].get("entity_id")
     if eid is None:
         return _SENTINEL_INGESTION_REJECT_CASE_ID
     try:
@@ -259,6 +266,7 @@ def build_app(
         engine: AsyncEngine = create_async_engine(db_url, **engine_kw)
         import tarka_shared.audit_trail  # noqa: F401, PLC0415 — register ORM mappers on ``Base``
         import tarka_shared.engine_rules  # noqa: F401 — ``engine_rules`` DDL with Shadow DB
+        import tarka_shared.fraud_rules  # noqa: F401 — ``fraud_rules`` versioned rulesets
 
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -389,20 +397,182 @@ def build_app(
         await session.commit()
         return {"status": "ok"}
 
+    @application.get(
+        "/v1/transactions/{entity_id}/timeline",
+        response_model=TimelineResponse,
+    )
+    async def get_transaction_timeline(
+        _auth: Annotated[None, Depends(require_shadow_api_token)],
+        entity_id: str,
+        session: Annotated[AsyncSession, Depends(get_db_session)],
+    ) -> TimelineResponse:
+        """Return all audit-linked events for this transaction plus cross-case device/IP matches."""
+        try:
+            UUID(entity_id)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "invalid_entity_id", "entity_id": entity_id},
+            ) from exc
+        try:
+            out = await build_transaction_timeline(session, entity_id)
+        except NotImplementedError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail={"error": "timeline_unsupported_db", "message": str(exc)},
+            ) from exc
+        return out
+
+    @application.post("/v1/tools/find-linked-entities")
+    async def http_find_linked_entities(
+        _auth: Annotated[None, Depends(require_shadow_api_token)],
+        request: Request,
+    ) -> JSONResponse:
+        """Run ``find_linked_entities`` for a single transaction body (manual graph probe / ops)."""
+        try:
+            raw = await request.json()
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "invalid_json", "message": str(exc)},
+            ) from exc
+        if not isinstance(raw, dict):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"error": "expected_json_object"},
+            )
+        try:
+            if isinstance(raw.get("transaction"), dict):
+                env = ShadowAnalyzeEnvelope.model_validate(raw)
+                tx = env.transaction
+            else:
+                tx = TransactionSchema.model_validate(raw)
+        except ValidationError as exc:
+            raise RequestValidationError(exc.errors(), body=raw) from exc
+
+        drv = neo4j_driver_from_env()
+        if drv is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={"error": "neo4j_not_configured"},
+            )
+        try:
+            summary = await find_linked_entities(str(tx.entity_id), tx, drv)
+        finally:
+            await drv.close()
+        return JSONResponse(
+            content={"entity_id": str(tx.entity_id), "summary": summary},
+        )
+
+    @application.post("/v1/tools/check-review-integrity")
+    async def http_check_review_integrity(
+        _auth: Annotated[None, Depends(require_shadow_api_token)],
+        request: Request,
+    ) -> JSONResponse:
+        """Run ``check_review_integrity`` for ``listing_id`` (manual graph + optional DuckDB probe)."""
+        try:
+            raw = await request.json()
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "invalid_json", "message": str(exc)},
+            ) from exc
+        if not isinstance(raw, dict):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"error": "expected_json_object"},
+            )
+        listing_id = raw.get("listing_id")
+        if listing_id is None or not str(listing_id).strip():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"error": "listing_id_required"},
+            )
+
+        drv = neo4j_driver_from_env()
+        if drv is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={"error": "neo4j_not_configured"},
+            )
+        try:
+            payload = await check_review_integrity(str(listing_id).strip(), drv)
+        finally:
+            await drv.close()
+        return JSONResponse(content=payload)
+
+    @application.post("/v1/tools/generate-dispute-letter")
+    async def http_generate_dispute_letter(
+        _auth: Annotated[None, Depends(require_shadow_api_token)],
+        request: Request,
+    ) -> JSONResponse:
+        """Assemble a Markdown representment draft with IP, device hash, signature evidence, and event hash."""
+        try:
+            raw = await request.json()
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "invalid_json", "message": str(exc)},
+            ) from exc
+        if not isinstance(raw, dict):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"error": "expected_json_object"},
+            )
+        try:
+            evidence = RepresentmentLetterIn.model_validate(raw)
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"error": "representment_letter_validation", "errors": exc.errors()},
+            ) from exc
+        try:
+            out = generate_dispute_letter(evidence)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"error": "representment_letter_value_error", "message": str(exc)},
+            ) from exc
+        return JSONResponse(content=out.model_dump(mode="json"))
+
     @application.post("/v1/analyze")
     async def analyze_transaction(
         _auth: Annotated[None, Depends(require_shadow_api_token)],
-        tx: TransactionSchema,
+        request: Request,
         agent: Annotated[ShadowAgent, Depends(get_shadow_agent)],
         session: Annotated[AsyncSession, Depends(get_db_session)],
     ) -> JSONResponse:
+        try:
+            raw = await request.json()
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "invalid_json", "message": str(exc)},
+            ) from exc
+        if not isinstance(raw, dict):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"error": "expected_json_object"},
+            )
+        try:
+            if isinstance(raw.get("transaction"), dict):
+                env = ShadowAnalyzeEnvelope.model_validate(raw)
+                tx = env.transaction
+                graph_ctx = env.graph_context
+            else:
+                tx = TransactionSchema.model_validate(raw)
+                graph_ctx = None
+        except ValidationError as exc:
+            raise RequestValidationError(exc.errors(), body=raw) from exc
+
         logger.info(
-            "shadow_sidecar_analyze_start entity_id=%s amount=%s",
+            "shadow_sidecar_analyze_start entity_id=%s amount=%s graph_context=%s",
             tx.entity_id,
             tx.amount,
+            graph_ctx is not None,
         )
         try:
-            decision, audit_log = await agent.evaluate(tx, session)
+            decision, audit_log = await agent.evaluate(tx, session, graph_context=graph_ctx)
         except ShadowLLMError as exc:
             logger.exception(
                 "shadow_sidecar_analyze_shadow_llm_error entity_id=%s reason=%s",

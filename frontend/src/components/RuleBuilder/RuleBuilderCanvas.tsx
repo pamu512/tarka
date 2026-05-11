@@ -31,6 +31,7 @@ import { connectionCreatesDirectedCycle } from "./graphCycle";
 import { defaultPackNameFromCanvas, readRuleRootMeta } from "./compileFlowToJsonAst";
 import { tryCompileFlowToJsonAst, validateCanvasForAstSave } from "./validateRuleBuilderCanvas";
 import { FeatureNode } from "./nodes/FeatureNode";
+import { GraphRiskNode } from "./nodes/GraphRiskNode";
 import { LogicAndNode } from "./nodes/LogicAndNode";
 import { LogicOrNode } from "./nodes/LogicOrNode";
 import { OperatorNode } from "./nodes/OperatorNode";
@@ -78,6 +79,7 @@ const initialEdges: Edge[] = [
 const nodeTypes = {
   [NODE_TYPES.feature]: FeatureNode,
   [NODE_TYPES.operator]: OperatorNode,
+  [NODE_TYPES.graphRisk]: GraphRiskNode,
   [NODE_TYPES.logicAnd]: LogicAndNode,
   [NODE_TYPES.logicOr]: LogicOrNode,
   [NODE_TYPES.ruleRoot]: RuleRootNode,
@@ -253,6 +255,13 @@ function CanvasInner() {
         </button>
         <button type="button" className="px-2 py-1 rounded bg-surface-800 border border-surface-600" onClick={() => addNode(NODE_TYPES.operator, { op: "eq", valueStr: "" })}>
           Operator
+        </button>
+        <button
+          type="button"
+          className="px-2 py-1 rounded bg-surface-800 border border-surface-600"
+          onClick={() => addNode(NODE_TYPES.graphRisk, { thresholdStr: "0.8" })}
+        >
+          Graph risk
         </button>
         <button type="button" className="px-2 py-1 rounded bg-surface-800 border border-surface-600" onClick={() => addNode(NODE_TYPES.logicAnd, {})}>
           AND
