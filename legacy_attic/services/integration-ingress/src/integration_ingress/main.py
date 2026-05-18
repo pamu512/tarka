@@ -1925,6 +1925,7 @@ async def integration_scorecards(tenant_id: str, session: AsyncSession = Depends
         if providers
         else 0.0
     )
+    degraded = [p for p in providers if p["status"] in ("degraded", "down")]
     return {
         "tenant_id": tenant_id,
         "connector_quality_version": CONNECTOR_QUALITY_VERSION,

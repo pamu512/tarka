@@ -9,20 +9,20 @@ WORKDIR /app
 RUN pip install --no-cache-dir pip -U
 # Local path deps in pyproject.toml (file:../core, file:../analytics) must exist before `pip install`;
 # sed below rewrites them to file:./core and file:./analytics under WORKDIR.
-COPY services/core /app/core
-COPY services/analytics /app/analytics
-COPY services/shared /app/shared
-COPY services/core-api/pyproject.toml /app/
-COPY services/decision-api/src/decision_api /app/src/decision_api
-COPY services/decision-api/alembic /app/decision_migrations
-COPY services/decision-api/rules /app/rules
-COPY services/decision-api/static /app/static
-COPY services/case-api/src/case_api /app/src/case_api
-COPY services/case-api/static /app/case-api/static
-COPY services/case-api/alembic /app/case_migrations
-COPY services/core-api/src/core_api /app/src/core_api
-COPY services/core-api/config/decision_alembic.ini /app/config/decision_alembic.ini
-COPY services/core-api/config/case_alembic.ini /app/config/case_alembic.ini
+COPY legacy_attic/services/core /app/core
+COPY legacy_attic/services/analytics /app/analytics
+COPY legacy_attic/services/shared /app/shared
+COPY legacy_attic/services/core-api/pyproject.toml /app/
+COPY legacy_attic/services/legacy_v1_decision_api/src/decision_api /app/src/decision_api
+COPY legacy_attic/services/legacy_v1_decision_api/alembic /app/decision_migrations
+COPY legacy_attic/services/legacy_v1_decision_api/rules /app/rules
+COPY legacy_attic/services/legacy_v1_decision_api/static /app/static
+COPY legacy_attic/services/case-api/src/case_api /app/src/case_api
+COPY legacy_attic/services/case-api/static /app/case-api/static
+COPY legacy_attic/services/case-api/alembic /app/case_migrations
+COPY legacy_attic/services/core-api/src/core_api /app/src/core_api
+COPY legacy_attic/services/core-api/config/decision_alembic.ini /app/config/decision_alembic.ini
+COPY legacy_attic/services/core-api/config/case_alembic.ini /app/config/case_alembic.ini
 RUN sed -i \
     -e 's|file:../core|file:./core|g' \
     -e 's|file:../analytics|file:./analytics|g' \

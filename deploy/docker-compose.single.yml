@@ -18,7 +18,7 @@ services:
   core-fraud-api:
     build:
       context: ..
-      dockerfile: services/decision-api/Dockerfile
+      dockerfile: legacy_attic/services/legacy_v1_decision_api/Dockerfile
     environment:
       DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
       REDIS_URL: redis://redis:6379/0
@@ -35,7 +35,7 @@ services:
   data-platform:
     build:
       context: ..
-      dockerfile: services/data-platform/Dockerfile
+      dockerfile: legacy_attic/services/data-platform/Dockerfile
     environment:
       DATABASE_URL: postgresql://fraud:fraud@postgres:5432/fraud
       REDIS_URL: redis://redis:6379/0
@@ -49,7 +49,7 @@ services:
   investigation-agent:
     build:
       context: ..
-      dockerfile: services/investigation-agent/Dockerfile
+      dockerfile: legacy_attic/services/investigation-agent/Dockerfile
     environment:
       DECISION_API_URL: http://core-fraud-api:8000
       AI_GOVERNANCE_PROFILE: global
@@ -61,7 +61,7 @@ services:
   ml-scoring:
     build:
       context: ..
-      dockerfile: services/ml-scoring/Dockerfile
+      dockerfile: legacy_attic/services/ml-scoring/Dockerfile
     ports:
       - "8005:8005"
 

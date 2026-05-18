@@ -328,7 +328,7 @@ def _persist_trusted_places_for_entity(
     data = _load_trusted_places()
     sanitized_places = [
         clean
-        for p in body.places
+        for p in places
         if isinstance(p, dict) and (clean := _sanitize_place_entry(dict(p)))
     ]
     data[_trusted_key(tenant_id, entity_id)] = sanitized_places

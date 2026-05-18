@@ -45,7 +45,7 @@ def _ensure_graph_service_path() -> None:
         sys.path.insert(0, p)
 
 
-def _gremlin_T() -> Any:
+def _gremlin_t() -> Any:
     from gremlin_python.process.traversal import T
 
     return T
@@ -53,7 +53,7 @@ def _gremlin_T() -> Any:
 
 def element_map_to_public(em: dict[Any, Any]) -> dict[str, Any]:
     """Turn a Gremlin ``elementMap()`` row into JSON-safe ``{id, label, properties}``."""
-    T = _gremlin_T()
+    T = _gremlin_t()
     vid = em.get(T.id)
     lbl = em.get(T.label)
     props: dict[str, Any] = {}
@@ -70,7 +70,7 @@ def element_map_to_public(em: dict[Any, Any]) -> dict[str, Any]:
 
 def edge_element_map_to_public(em: dict[Any, Any]) -> dict[str, Any]:
     """JSON-safe edge description from ``bothE().elementMap()``."""
-    T = _gremlin_T()
+    T = _gremlin_t()
     eid = em.get(T.id)
     lbl = em.get(T.label)
     props: dict[str, Any] = {}
@@ -123,7 +123,7 @@ def build_neighborhood_tree_from_gremlin_maps(
     }
     if not uid or anchor_em is None:
         return out
-    T = _gremlin_T()
+    T = _gremlin_t()
     anchor_tid = anchor_em.get(T.id)
     out["found"] = True
     out["anchor"] = element_map_to_public(anchor_em)
@@ -171,7 +171,7 @@ def fetch_two_hop_neighborhood_snapshot_sync(
     """
     from gremlin_python.process.graph_traversal import __
 
-    T = _gremlin_T()
+    T = _gremlin_t()
     uid = (user_id or "").strip()
     if not uid:
         return build_neighborhood_tree_from_gremlin_maps(

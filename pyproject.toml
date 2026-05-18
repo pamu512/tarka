@@ -136,6 +136,8 @@ exclude = [
 ]
 extend-exclude = [
     "templates/cookiecutter-investigation-integration-adapter",
+    # Protobuf / gRPC generated stubs (Google naming conventions).
+    "crates/tarka-py/python",
 ]
 
 [tool.ruff.lint]
