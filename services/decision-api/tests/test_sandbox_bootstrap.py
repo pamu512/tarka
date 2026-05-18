@@ -75,7 +75,7 @@ async def sb_client():
 
                     fake_conn = _FakeConn()
 
-                    def _pool(_: object) -> _FakePool:
+                    def _pool(_request: object) -> _FakePool:
                         return _FakePool(fake_conn)
 
                     app.dependency_overrides[get_pg_pool] = _pool
