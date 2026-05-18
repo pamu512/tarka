@@ -45,8 +45,8 @@ def validate_tool_arguments(name: str, raw: Any) -> tuple[dict[str, Any] | None,
             return None, "get_case requires non-empty case_id"
         try:
             return {"case_id": _validate_case_id(str(cid))}, None
-        except ValueError as e:
-            return None, str(e)
+        except ValueError:
+            return None, "invalid case_id"
 
     if name == "list_cases":
         lim = raw.get("limit", 20)
@@ -62,8 +62,8 @@ def validate_tool_arguments(name: str, raw: Any) -> tuple[dict[str, Any] | None,
             return None, f"{name} requires non-empty entity_id"
         try:
             eid_v = _validate_entity_id(str(eid))
-        except ValueError as e:
-            return None, str(e)
+        except ValueError:
+            return None, "invalid entity_id"
         if name != "subgraph":
             return {"entity_id": eid_v}, None
         d = raw.get("depth", 2)
@@ -79,8 +79,8 @@ def validate_tool_arguments(name: str, raw: Any) -> tuple[dict[str, Any] | None,
             return None, "get_decision_audit requires trace_id"
         try:
             return {"trace_id": _validate_trace_id(str(tid).strip())}, None
-        except ValueError as e:
-            return None, str(e)
+        except ValueError:
+            return None, "invalid trace_id"
 
     if name == "subgraph_with_velocity":
         eid = raw.get("entity_id")
@@ -88,8 +88,8 @@ def validate_tool_arguments(name: str, raw: Any) -> tuple[dict[str, Any] | None,
             return None, "subgraph_with_velocity requires entity_id"
         try:
             eid_v = _validate_entity_id(str(eid))
-        except ValueError as e:
-            return None, str(e)
+        except ValueError:
+            return None, "invalid entity_id"
         d = raw.get("depth", 2)
         try:
             di = int(d)
@@ -144,7 +144,7 @@ def validate_tool_arguments(name: str, raw: Any) -> tuple[dict[str, Any] | None,
         try:
             return {"batch_id": batch_store.validate_batch_id(str(bid))}, None
         except ValueError as e:
-            return None, str(e)
+            return None, "invalid tool arguments"
 
     if name == "query_batch_rows":
         bid = raw.get("batch_id")
@@ -153,7 +153,7 @@ def validate_tool_arguments(name: str, raw: Any) -> tuple[dict[str, Any] | None,
         try:
             bid_v = batch_store.validate_batch_id(str(bid))
         except ValueError as e:
-            return None, str(e)
+            return None, "invalid tool arguments"
         off = raw.get("offset", 0)
         lim = raw.get("limit", 25)
         try:
@@ -186,7 +186,7 @@ def validate_tool_arguments(name: str, raw: Any) -> tuple[dict[str, Any] | None,
         try:
             bid_v = batch_store.validate_batch_id(str(bid))
         except ValueError as e:
-            return None, str(e)
+            return None, "invalid tool arguments"
         mode = str(raw.get("mode", "value_counts") or "value_counts").lower()
         if mode not in ("value_counts", "numeric_summary"):
             return None, "mode must be value_counts or numeric_summary"
@@ -235,7 +235,7 @@ def validate_tool_arguments(name: str, raw: Any) -> tuple[dict[str, Any] | None,
         try:
             eid_v = _validate_entity_id(str(eid))
         except ValueError as e:
-            return None, str(e)
+            return None, "invalid tool arguments"
         ll = raw.get("list_limit", 80)
         try:
             li = int(ll)
@@ -250,7 +250,7 @@ def validate_tool_arguments(name: str, raw: Any) -> tuple[dict[str, Any] | None,
         try:
             q_name_v = _validate_subject_name(str(q_name))
         except ValueError as e:
-            return None, str(e)
+            return None, "invalid tool arguments"
         out = {
             "name": q_name_v,
             "subject_id": str(raw.get("subject_id", "")).strip()[:128] or None,
@@ -291,7 +291,7 @@ def validate_tool_arguments(name: str, raw: Any) -> tuple[dict[str, Any] | None,
         try:
             eid_v = _validate_entity_id(str(eid))
         except ValueError as e:
-            return None, str(e)
+            return None, "invalid tool arguments"
         try:
             depth = int(raw.get("depth", 2))
             max_nodes = int(raw.get("max_velocity_nodes", 10))

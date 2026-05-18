@@ -57,6 +57,7 @@ def get_policy_summaries() -> list[dict[str, Any]]:
                 "policy_id": pid,
                 "version": int(p.get("version", 1)),
                 "description": str(p.get("description", "")),
+                "escalation_ladder": list(p.get("escalation_ladder", [])),
             }
         )
     return rows

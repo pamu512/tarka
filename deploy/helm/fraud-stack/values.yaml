@@ -76,10 +76,6 @@ redis:
   enabled: true
   image: redis:7-alpine
 
-# Optional streaming aggregation placeholder Job (templates/streaming-aggregation-job.yaml).
-streamingAggregations:
-  enabled: false
-
 coreApi:
   enabled: true
   image: tarka-core-api
@@ -208,3 +204,6 @@ opa:
   enabled: false
   image: openpolicyagent/opa:0.70.0
   port: 8181
+
+streamingAggregations:
+  enabled: false

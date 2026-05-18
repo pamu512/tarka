@@ -3,7 +3,6 @@
 from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
 import pytest
 import pytest_asyncio
 
@@ -76,7 +75,7 @@ async def sb_client():
 
                     fake_conn = _FakeConn()
 
-                    def _pool(_: object) -> _FakePool:
+                    def _pool(request: Request) -> _FakePool:
                         return _FakePool(fake_conn)
 
                     app.dependency_overrides[get_pg_pool] = _pool

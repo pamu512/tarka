@@ -73,7 +73,8 @@ def _disk_record_path(batch_id: str) -> Path:
 
 
 def _write_disk_record(rec: dict[str, Any]) -> None:
-    p = _disk_record_path(str(rec.get("batch_id", "")))
+    bid = validate_batch_id(str(rec.get("batch_id", "")))
+    p = _disk_record_path(bid)
     payload = {
         "batch_id": rec.get("batch_id"),
         "created_at": float(rec.get("created_at", time.time())),

@@ -23,7 +23,7 @@ class KeyValueCache(ABC):
     async def delete(self, key: str) -> None:
         """Remove key if present."""
 
-    async def aclose(self) -> None:
+    async def aclose(self) -> None:  # noqa: B027
         """Release network resources (no-op for in-process caches)."""
         return None
 

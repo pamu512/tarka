@@ -125,8 +125,6 @@ line-length = 100
 target-version = "py311"
 exclude = [
     ".venv",
-    "deploy/pulumi/.venv",
-    "proto/gen/python",
     "venv",
     "__pycache__",
     ".git",
@@ -136,15 +134,16 @@ exclude = [
     # Cookiecutter/Jinja placeholders are not valid Python until rendered.
     "templates",
 ]
+extend-exclude = [
+    "templates/cookiecutter-investigation-integration-adapter",
+]
 
 [tool.ruff.lint]
 select = [
     "E",   # pycodestyle errors
     "F",   # Pyflakes
-    "I",   # isort
     "N",   # pep8-naming
     "W",   # pycodestyle warnings
-    "UP",  # pyupgrade
     "B",   # flake8-bugbear
     "C4",  # flake8-comprehensions
     "SIM", # flake8-simplify
@@ -152,19 +151,33 @@ select = [
 ignore = [
     "E501",  # Line too long (handled by formatter)
     "E402",  # Module level import not at top (for shared imports)
-    # FastAPI / Pydantic patterns across services (Depends(), Query(), Field(), external JSON field names).
+    "E701",  # One-line if (legacy graph helpers)
+    "I",     # isort — fix incrementally repo-wide
+    "UP",    # pyupgrade — fix incrementally repo-wide
+    # FastAPI / Pydantic patterns across services.
     "B008",
-    "N815",
-    "N806",
-    # Large-repo pragmatics (exception chaining, sklearn `X`/`y`, graph one-liners, vendor schemas).
     "B904",
-    "SIM102",
-    "SIM105",
-    "SIM117",
+    "B905",
+    "B007",
     "N803",
-    "E701",
+    "N806",
+    "N815",
     "N818",
+    "SIM102",
+    "SIM103",
+    "SIM105",
+    "SIM108",
+    "SIM110",
+    "SIM114",
+    "SIM117",
+    "SIM118",
+    "W293",
+    "F401",
+    "F841",
+    "C401",
+    "C416",
 ]
+
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

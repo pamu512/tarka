@@ -25,7 +25,18 @@ from tarka_core.templates import list_industry_template_items
 
 log = logging.getLogger("decision-api")
 
-router = APIRouter(prefix="/v1/sandbox", tags=["sandbox"])
+
+async def _require_api_key(request: Request) -> None:
+    from decision_api import main as main_mod
+
+    await main_mod.require_api_key(request)
+
+
+router = APIRouter(
+    prefix="/v1/sandbox",
+    tags=["sandbox"],
+    dependencies=[Depends(_require_api_key)],
+)
 
 
 class SandboxBootstrapResponse(BaseModel):
@@ -40,12 +51,6 @@ class SandboxBootstrapResponse(BaseModel):
         default=True,
         description="Bootstrap uses upserts; repeated calls do not raise duplicate-key errors.",
     )
-
-
-async def _require_api_key(request: Request) -> None:
-    from decision_api import main as main_mod
-
-    await main_mod.require_api_key(request)
 
 
 async def maybe_hydrate_sandbox_plg_pack(application: Any) -> None:
@@ -74,7 +79,6 @@ async def maybe_hydrate_sandbox_plg_pack(application: Any) -> None:
 async def sandbox_bootstrap(
     request: Request,
     pool: Any = Depends(get_pg_pool),
-    _: None = Depends(_require_api_key),
 ) -> SandboxBootstrapResponse:
     """Idempotently install five industry templates into the audit tables and the Rust engine."""
     import asyncpg

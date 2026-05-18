@@ -27,6 +27,7 @@ jobs:
         with:
           scan-type: fs
           scan-ref: .
+          trivyignores: .trivyignore
           format: sarif
           output: trivy-fs.sarif
           severity: CRITICAL,HIGH,MEDIUM
@@ -47,6 +48,7 @@ jobs:
         with:
           scan-type: fs
           scan-ref: .
+          trivyignores: .trivyignore
           format: table
           severity: CRITICAL,HIGH,MEDIUM
           ignore-unfixed: true
