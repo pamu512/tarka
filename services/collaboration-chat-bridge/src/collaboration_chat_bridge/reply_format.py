@@ -197,7 +197,9 @@ def format_lark_card_text(agent_json: dict[str, Any]) -> str:
 
 
 def format_lark_error_text(message: str, detail: str = "") -> str:
-    return "**Copilot error**\n" + _trim(message, 800) + ("\n\n" + _trim(detail, 600) if detail else "")
+    """User-visible Lark error copy — never include upstream stack traces or raw HTTP bodies."""
+    safe_msg = _trim(message, 800) if message else "Copilot is temporarily unavailable."
+    return "**Copilot error**\n" + safe_msg
 
 
 # Strip Slack mention tokens and link noise for cleaner user prompts.

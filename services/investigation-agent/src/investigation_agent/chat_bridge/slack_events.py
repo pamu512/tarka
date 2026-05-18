@@ -172,7 +172,7 @@ async def run_slack_turn(settings: Settings, meta: dict[str, Any]) -> dict[str, 
         blocks = format_slack_blocks(agent_out)
     except AgentChatError as e:
         log.warning("slack turn agent error: %s", e)
-        blocks = format_slack_error_blocks(str(e), detail=e.body_snippet)
+        blocks = format_slack_error_blocks("Copilot is temporarily unavailable.", detail="")
         outcome = "unavailable"
         upstream_status = int(e.status_code or 0) or None
         reason = "agent_unavailable"
