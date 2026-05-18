@@ -48,7 +48,9 @@ class LineageScanResult:
     scan_summary: dict[str, Any]
 
 
-def _should_skip_path(path: Path, *, rules_root: Path, excluded_globs: tuple[str, ...]) -> bool | str:
+def _should_skip_path(
+    path: Path, *, rules_root: Path, excluded_globs: tuple[str, ...]
+) -> bool | str:
     """Return skip reason string if path should be skipped, else False."""
     try:
         rel = path.relative_to(rules_root)
@@ -83,7 +85,9 @@ def _signals_from_expression(
         )
         return []
     if not isinstance(expr, dict):
-        errors.append(f"{source_file} rule {rule_id!r}: expected mapping at {path}, got {type(expr).__name__}")
+        errors.append(
+            f"{source_file} rule {rule_id!r}: expected mapping at {path}, got {type(expr).__name__}"
+        )
         return []
 
     kind = str(expr.get("kind", "")).strip().lower()
@@ -128,9 +132,7 @@ def _signals_from_expression(
             depth=depth + 1,
         )
 
-    errors.append(
-        f"{source_file} rule {rule_id!r}: unknown expression kind {kind!r} at {path}"
-    )
+    errors.append(f"{source_file} rule {rule_id!r}: unknown expression kind {kind!r} at {path}")
     return []
 
 
@@ -180,9 +182,7 @@ def _parse_yaml_rule_document(
             depth=1,
         )
         uniq = tuple(sorted({s for s in sigs}))
-        bindings.append(
-            RuleSignalBinding(rule_id=rid_clean, source_file=source_file, signals=uniq)
-        )
+        bindings.append(RuleSignalBinding(rule_id=rid_clean, source_file=source_file, signals=uniq))
 
     return bindings
 

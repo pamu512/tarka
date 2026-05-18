@@ -184,7 +184,7 @@ async def rank_feature_importance_saarthi(body: dict[str, Any]) -> dict[str, Any
 
     system = (
         "You are Saarthi, a fraud analyst assistant. Given a decision audit JSON, return ONLY valid JSON "
-        'with keys: items (array of {signal_id, label, importance 0-100, category}), lead_rationale (string). '
+        "with keys: items (array of {signal_id, label, importance 0-100, category}), lead_rationale (string). "
         "Rank 4-8 signals that best explain the risk_score. importance values should sum to approximately 100. "
         "Prefer velocity, graph, integrity/geo, rules, and ML drivers present in inference_context."
     )
@@ -207,11 +207,7 @@ async def rank_feature_importance_saarthi(body: dict[str, Any]) -> dict[str, Any
         res.raise_for_status()
         data = res.json()
         candidates = data.get("candidates") or []
-        parts = (
-            (candidates[0] or {}).get("content", {}).get("parts", [])
-            if candidates
-            else []
-        )
+        parts = (candidates[0] or {}).get("content", {}).get("parts", []) if candidates else []
         text = ""
         if parts and isinstance(parts[0], dict):
             text = str(parts[0].get("text") or "")

@@ -38,9 +38,7 @@ def test_signal_availability_notes_and_decision_status():
     assert "Signal ML scoring was unavailable" in notes
     assert _decision_runtime_status(tags, notes) == "Degraded"
     assert _decision_runtime_status([], []) == "Healthy"
-    assert (
-        _decision_runtime_status(["load_shedding:active"], []) == "Degraded"
-    )
+    assert _decision_runtime_status(["load_shedding:active"], []) == "Degraded"
 
 
 def test_compute_fallback_reason_covers_async_osint_and_counter_fallback():

@@ -146,7 +146,9 @@ async def _probe_ollama(http: httpx.AsyncClient, base_raw: str) -> dict[str, Any
             if isinstance(models, list):
                 depth = len(models)
                 if models and isinstance(models[0], dict):
-                    model_loaded = str(models[0].get("name") or models[0].get("model") or "") or None
+                    model_loaded = (
+                        str(models[0].get("name") or models[0].get("model") or "") or None
+                    )
             pending = data.get("pending") if isinstance(data, dict) else None
             if isinstance(pending, (int, float)) and pending >= 0:
                 depth = int(pending)

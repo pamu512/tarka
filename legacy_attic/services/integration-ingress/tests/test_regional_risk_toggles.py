@@ -6,7 +6,9 @@ import importlib.util
 import sys
 from pathlib import Path
 
-_MOD_PATH = Path(__file__).resolve().parents[1] / "src" / "integration_ingress" / "regional_risk_toggles.py"
+_MOD_PATH = (
+    Path(__file__).resolve().parents[1] / "src" / "integration_ingress" / "regional_risk_toggles.py"
+)
 _spec = importlib.util.spec_from_file_location("regional_risk_toggles", _MOD_PATH)
 assert _spec and _spec.loader
 _mod = importlib.util.module_from_spec(_spec)
@@ -36,4 +38,9 @@ def test_blacklist_toggle() -> None:
 
 
 def test_unknown_region_returns_none() -> None:
-    assert _mod.set_sub_region_blacklist(tenant_id="demo", sub_region_id="xx-unknown", blacklisted=True) is None
+    assert (
+        _mod.set_sub_region_blacklist(
+            tenant_id="demo", sub_region_id="xx-unknown", blacklisted=True
+        )
+        is None
+    )

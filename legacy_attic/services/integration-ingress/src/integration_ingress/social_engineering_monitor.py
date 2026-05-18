@@ -40,7 +40,9 @@ def update_social_engineering_config(
     if high_value_listing_usd is not None:
         cfg["high_value_listing_usd"] = max(500, min(int(high_value_listing_usd), 5_000_000))
     if credential_change_window_minutes is not None:
-        cfg["credential_change_window_minutes"] = max(1, min(int(credential_change_window_minutes), 120))
+        cfg["credential_change_window_minutes"] = max(
+            1, min(int(credential_change_window_minutes), 120)
+        )
     _CONFIG_BY_TENANT[tid] = cfg
     return dict(cfg)
 
@@ -59,8 +61,12 @@ def _is_flagged(
     if listing_value_usd < threshold:
         return False, signals
 
-    email_ok = minutes_email_after_listing is not None and 0 <= minutes_email_after_listing <= window
-    password_ok = minutes_password_after_listing is not None and 0 <= minutes_password_after_listing <= window
+    email_ok = (
+        minutes_email_after_listing is not None and 0 <= minutes_email_after_listing <= window
+    )
+    password_ok = (
+        minutes_password_after_listing is not None and 0 <= minutes_password_after_listing <= window
+    )
 
     if email_ok:
         signals.append("email_change_within_window_of_high_value_listing")
@@ -96,7 +102,9 @@ def _account_row(index: int, *, tenant_id: str, cfg: dict[str, Any]) -> dict[str
         password_delta = 25.0
 
     email_at = listing_at + timedelta(minutes=email_delta) if email_delta is not None else None
-    password_at = listing_at + timedelta(minutes=password_delta) if password_delta is not None else None
+    password_at = (
+        listing_at + timedelta(minutes=password_delta) if password_delta is not None else None
+    )
 
     flagged, signals = _is_flagged(
         listing_value_usd=float(listing_value),

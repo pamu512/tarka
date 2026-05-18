@@ -36,12 +36,22 @@ def build_command_center_payload(*, tenant_id: str) -> dict[str, Any]:
     """Aggregate high-signal KPIs and module deep-links for the analyst landing cockpit."""
     tid = (tenant_id or "demo").strip() or "demo"
 
-    promo = _load_sibling("promo_abuse_tracking").build_promo_abuse_payload(tenant_id=tid, coupon_code="NEWUSER50")
-    syn = _load_sibling("synthetic_identity_detectors").build_synthetic_identity_payload(tenant_id=tid, limit=50)
-    social = _load_sibling("social_engineering_monitor").build_social_engineering_payload(tenant_id=tid, limit=40)
+    promo = _load_sibling("promo_abuse_tracking").build_promo_abuse_payload(
+        tenant_id=tid, coupon_code="NEWUSER50"
+    )
+    syn = _load_sibling("synthetic_identity_detectors").build_synthetic_identity_payload(
+        tenant_id=tid, limit=50
+    )
+    social = _load_sibling("social_engineering_monitor").build_social_engineering_payload(
+        tenant_id=tid, limit=40
+    )
     rings = _load_sibling("review_ring_clusters").build_review_ring_payload(tenant_id=tid, limit=12)
-    seller = _load_sibling("seller_integrity").build_seller_integrity_payload(tenant_id=tid, limit=40)
-    payout = _load_sibling("payout_delay_automation").build_payout_delay_payload(tenant_id=tid, limit=35)
+    seller = _load_sibling("seller_integrity").build_seller_integrity_payload(
+        tenant_id=tid, limit=40
+    )
+    payout = _load_sibling("payout_delay_automation").build_payout_delay_payload(
+        tenant_id=tid, limit=35
+    )
     kyc = _load_sibling("kyc_handover").build_kyc_handover_board(tenant_id=tid)
     regional = _load_sibling("regional_risk_toggles").build_regional_risk_payload(tenant_id=tid)
 
@@ -136,9 +146,25 @@ def build_command_center_payload(*, tenant_id: str) -> dict[str, Any]:
 
     modules: list[dict[str, Any]] = [
         _mod("cases", "Cases queue", "/cases", "cases", "Open triage", "3", "amber"),
-        _mod("investigation", "Investigation Copilot", "/investigation", "investigation", "Saarthi", "Ready", "normal"),
+        _mod(
+            "investigation",
+            "Investigation Copilot",
+            "/investigation",
+            "investigation",
+            "Saarthi",
+            "Ready",
+            "normal",
+        ),
         _mod("graph", "Graph Explorer", "/graph", "graph", "Entity risk", "Live", "normal"),
-        _mod("mule_path", "Mule path", "/graph/mule-path", "graph", "Fund flows", "Demo paths", "normal"),
+        _mod(
+            "mule_path",
+            "Mule path",
+            "/graph/mule-path",
+            "graph",
+            "Fund flows",
+            "Demo paths",
+            "normal",
+        ),
         _mod(
             "synthetic_identity",
             "Synthetic identity",
@@ -211,11 +237,51 @@ def build_command_center_payload(*, tenant_id: str) -> dict[str, Any]:
             str(regional["summary"]["blacklisted_count"]),
             "rose" if regional["summary"]["blacklisted_count"] else "normal",
         ),
-        _mod("webhook_logs", "Webhook logs", "/integrations/webhook-logs", "integrations", "Block signals", "Live", "normal"),
-        _mod("rate_limits", "Rate limit shields", "/integrations/rate-limit-shields", "integrations", "API keys", "Shields", "normal"),
-        _mod("system_health", "System health HUD", "/ops/system-health", "compliance", "Planes", "Monitor", "normal"),
-        _mod("failover", "Failover toggles", "/ops/failover-toggles", "compliance", "Graph / AI", "Toggles", "normal"),
-        _mod("audit_log", "Audit log", "/analytics/audit-log", "analytics", "Decisions", "Search", "normal"),
+        _mod(
+            "webhook_logs",
+            "Webhook logs",
+            "/integrations/webhook-logs",
+            "integrations",
+            "Block signals",
+            "Live",
+            "normal",
+        ),
+        _mod(
+            "rate_limits",
+            "Rate limit shields",
+            "/integrations/rate-limit-shields",
+            "integrations",
+            "API keys",
+            "Shields",
+            "normal",
+        ),
+        _mod(
+            "system_health",
+            "System health HUD",
+            "/ops/system-health",
+            "compliance",
+            "Planes",
+            "Monitor",
+            "normal",
+        ),
+        _mod(
+            "failover",
+            "Failover toggles",
+            "/ops/failover-toggles",
+            "compliance",
+            "Graph / AI",
+            "Toggles",
+            "normal",
+        ),
+        _mod(
+            "audit_log",
+            "Audit log",
+            "/analytics/audit-log",
+            "analytics",
+            "Decisions",
+            "Search",
+            "normal",
+        ),
         _mod("rules", "Rules", "/rules", "rules", "Policy", "Edit", "normal"),
     ]
 
@@ -229,8 +295,16 @@ def build_command_center_payload(*, tenant_id: str) -> dict[str, Any]:
         "quick_links": [
             {"label": "Live transactions", "route": "/transactions/live", "module": "analytics"},
             {"label": "Command palette", "route": "#palette", "module": "dashboard", "hint": "⌘K"},
-            {"label": "Encrypted fields", "route": "/compliance/encrypted-fields", "module": "compliance"},
-            {"label": "System benchmarking", "route": "/ops/system-benchmarking", "module": "compliance"},
+            {
+                "label": "Encrypted fields",
+                "route": "/compliance/encrypted-fields",
+                "module": "compliance",
+            },
+            {
+                "label": "System benchmarking",
+                "route": "/ops/system-benchmarking",
+                "module": "compliance",
+            },
         ],
     }
 
