@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import Request
 from httpx import ASGITransport, AsyncClient
 
 
@@ -75,7 +76,7 @@ async def sb_client():
 
                     fake_conn = _FakeConn()
 
-                    def _pool(_request: object) -> _FakePool:
+                    def _pool(request: Request) -> _FakePool:
                         return _FakePool(fake_conn)
 
                     app.dependency_overrides[get_pg_pool] = _pool
