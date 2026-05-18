@@ -124,7 +124,7 @@ async def update_tags(
         if row and row["tags"] and row["tags"] != 'null':
             existing_tags = json.loads(row["tags"])
             
-        merged_tags = sorted(list(set(existing_tags) | set(tags)))
+        merged_tags = sorted(set(existing_tags) | set(tags))
         
         q_update = """
         SELECT * FROM cypher('tarka', $$

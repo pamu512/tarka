@@ -53,7 +53,7 @@ def extract_device_entropy_tags(device_context: dict[str, Any] | None) -> list[s
 
     mouse = behavior.get("mouse") or {}
     typing = behavior.get("typing") or {}
-    touch = behavior.get("touch") or {}
+    _touch = behavior.get("touch") or {}
 
     jitter = _safe_float(mouse.get("path_jitter_px"))
     sps = _safe_float(mouse.get("samples_per_second_est"))

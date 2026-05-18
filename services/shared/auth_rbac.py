@@ -141,7 +141,7 @@ async def _authenticate(request: Request) -> AuthUser:
             role = os.environ.get("SERVICE_API_KEY_ROLE", "admin").strip().lower()
             if role not in ROLE_HIERARCHY:
                 role = "admin"
-            roles = sorted(set(["service", role]))
+            roles = sorted({"service", role})
             tenant_ids = key_tenant_map.get(api_key, set()) if key_tenant_map else {"*"}
             return AuthUser(user_id="service", roles=roles, auth_type="api_key", tenant_ids=tenant_ids)
         if valid_keys:

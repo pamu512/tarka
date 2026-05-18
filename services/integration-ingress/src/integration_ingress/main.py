@@ -260,7 +260,7 @@ async def lifespan(application: FastAPI):
         application.state._enrichment_task = asyncio.create_task(
             run_enrichment_consumer(nc=nc, http=application.state.http)
         )
-        log.info("async enrichment consumer started (NATS + Redis)")
+        logger.info("async enrichment consumer started (NATS + Redis)")
     yield
     et = getattr(application.state, "_enrichment_task", None)
     if et:
@@ -1109,13 +1109,46 @@ async def integration_scorecards(tenant_id: str, session: AsyncSession = Depends
         )
     overall_score = round(sum(p["provider_score"] for p in providers) / max(len(providers), 1), 1) if providers else 0.0
     overall_cq = round(sum(p["connector_quality"]["score"] for p in providers) / max(len(providers), 1), 1) if providers else 0.0
+    degraded = [p for p in providers if p["status"] in ("degraded", "down")]
     return {
         "tenant_id": tenant_id,
         "connector_quality_version": CONNECTOR_QUALITY_VERSION,
         "overall_score": overall_score,
         "overall_connector_quality": overall_cq,
+        "sla": {
+            "availability_target_pct": 99.5,
+            "latency_target_ms_p95": 500,
+            "trend_window_days": 7,
+        },
+        "trend_note": (
+            "Scores reflect the latest connectivity snapshot per provider. "
+            "Historical time-series trends are planned via analytics-sink; "
+            "use GET /v1/integrations/health-matrix for per-provider last probe."
+        ),
+        "remediation_hints": [
+            {
+                "provider_id": p["provider_id"],
+                "status": p["status"],
+                "actions": _scorecard_remediation_actions(p),
+            }
+            for p in degraded
+        ],
         "providers": providers,
     }
+
+
+def _scorecard_remediation_actions(provider_row: dict[str, Any]) -> list[str]:
+    actions: list[str] = []
+    reasons = provider_row.get("reasons") or []
+    if provider_row.get("status") == "down":
+        actions.append("Re-run connectivity test from Integrations UI or POST /v1/integrations/{id}/test")
+    if any("connection_error_status" in str(r) for r in reasons):
+        actions.append("Review provider credentials and region in tenant config")
+    if any("missing" in str(r).lower() for r in reasons):
+        actions.append("Complete required_config_fields per provider catalog")
+    if not actions:
+        actions.append("Inspect last_connectivity_test and integration-ingress logs")
+    return actions
 
 
 @app.post("/v1/integrations/install")

@@ -1869,7 +1869,7 @@ async def evaluate_decision(
     signal_tags.extend(extract_captcha_tags(dc_dump))
     consortium_delta = 0.0
     graph_delta = 0.0
-    external_signal_delta = 0.0
+    _external_signal_delta = 0.0
     external_signal_meta: dict[str, Any] | None = None
     replay_rule_hits: list[str] = []
 
