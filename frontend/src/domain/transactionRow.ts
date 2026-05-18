@@ -2,6 +2,8 @@
  * Live transaction row — decision surface maps fraud ops language to policy outcomes.
  */
 
+import { extractHardwareSignalsFromPayload, type HardwareSignalMap } from "./hardwareSignals";
+
 export type DecisionSurface = "Block" | "Allow" | "Challenge";
 
 export interface TransactionRow {
@@ -13,6 +15,8 @@ export interface TransactionRow {
   readonly currency: string;
   readonly status: DecisionSurface;
   readonly channel: string;
+  /** Flattened hardware / device instrumentation for visual diffing (optional). */
+  readonly hardwareSignals?: HardwareSignalMap;
 }
 
 export function normalizeDecisionSurface(raw: string): DecisionSurface {
@@ -69,6 +73,7 @@ export function parseTransactionRowPayload(data: unknown): TransactionRow | null
   if (!id || !traceId || !entityId || !timestamp || amountCents === null) {
     return null;
   }
+  const hw = extractHardwareSignalsFromPayload(o);
   return {
     id,
     traceId,
@@ -78,5 +83,6 @@ export function parseTransactionRowPayload(data: unknown): TransactionRow | null
     currency,
     channel,
     status: normalizeDecisionSurface(statusRaw),
+    ...(Object.keys(hw).length > 0 ? { hardwareSignals: hw } : {}),
   };
 }

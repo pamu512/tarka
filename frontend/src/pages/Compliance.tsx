@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { compliance } from "../api/client";
 import { ComplianceResidencyAuditViewer } from "../components/compliance/ComplianceResidencyAuditViewer";
 import { DataResidencyMatrix } from "../components/compliance/DataResidencyMatrix";
@@ -273,7 +274,13 @@ export default function Compliance() {
       <div className="flex items-center justify-between">
         <div>
           <PageTitle module="compliance">Compliance</PageTitle>
-          <p className="text-sm text-gray-400 mt-1">Privacy regulations, DSAR handling, and certification readiness</p>
+          <p className="text-sm text-gray-400 mt-1">
+            Privacy regulations, DSAR handling, and certification readiness.{" "}
+            <Link to="/compliance/encrypted-fields" className="text-brand-400 hover:text-brand-300 font-medium">
+              Encrypted field toggles
+            </Link>{" "}
+            audit every PII reveal in the UI.
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <label className="text-sm text-gray-400">Region:</label>

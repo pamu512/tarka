@@ -48,6 +48,8 @@ export interface InferenceContext {
   velocity_events_5m: number;
   velocity_events_1h: number;
   velocity_events_24h: number;
+  /** Optional UTC histogram from decision-api / analytics (24 entries, hour 0 = 00:00 UTC). */
+  velocity_events_by_hour_utc?: number[] | null;
   ml_top_factors: MlTopFactor[];
   ml_summary: string | null;
   ml_model: string | null;
@@ -166,6 +168,14 @@ export function normalizeInferenceContext(raw: unknown): InferenceContext | null
     velocity_events_5m: typeof r.velocity_events_5m === "number" ? r.velocity_events_5m : 0,
     velocity_events_1h: typeof r.velocity_events_1h === "number" ? r.velocity_events_1h : 0,
     velocity_events_24h: typeof r.velocity_events_24h === "number" ? r.velocity_events_24h : 0,
+    velocity_events_by_hour_utc: (() => {
+      const h = (r as { velocity_events_by_hour_utc?: unknown }).velocity_events_by_hour_utc;
+      if (!Array.isArray(h) || h.length !== 24) return undefined;
+      const nums = h.map((x) =>
+        typeof x === "number" && Number.isFinite(x) ? Math.max(0, Math.round(x)) : 0,
+      );
+      return nums;
+    })(),
     ml_top_factors: Array.isArray(r.ml_top_factors)
       ? r.ml_top_factors.filter(
           (x): x is MlTopFactor =>

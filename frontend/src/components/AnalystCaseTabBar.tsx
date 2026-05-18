@@ -23,7 +23,11 @@ export function AnalystCaseTabBar() {
     if (!path.startsWith("/cases/") || path === "/cases") {
       return { activeCaseId: null as string | null, activeTenantId: null as string | null };
     }
-    const id = decodeURIComponent(path.slice("/cases/".length));
+    const rest = decodeURIComponent(path.slice("/cases/".length));
+    if (rest === "bulk-triage" || rest === "compare") {
+      return { activeCaseId: null as string | null, activeTenantId: null as string | null };
+    }
+    const id = rest;
     const tenant = searchParams.get("tenant_id") ?? "demo";
     return { activeCaseId: id || null, activeTenantId: tenant };
   }, [location.pathname, searchParams]);

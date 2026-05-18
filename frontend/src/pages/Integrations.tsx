@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { integrations, type IntegrationScorecardsPayload } from "../api/client";
 import { VendorIntegrationConfigModal, type VendorProvider } from "../components/integrations/VendorIntegrationConfigModal";
 import { PageTitle } from "../components/PageTitle";
@@ -207,7 +208,15 @@ export default function Integrations() {
           One-click integrations for top enrichment providers, workflows, and CRMs. Use{" "}
           <strong className="text-gray-300">Configure</strong> to open the secure OSINT plugin hub — API keys use
           password fields, are sent over HTTPS in production, and are never displayed in full after save (only{" "}
-          <span className="font-mono text-gray-500">••••</span> plus last four characters).
+          <span className="font-mono text-gray-500">••••</span> plus last four characters). Monitor outgoing{" "}
+          <Link to="/integrations/webhook-logs" className="text-brand-400 hover:text-brand-300 font-medium">
+            Block webhook logs
+          </Link>{" "}
+          sent to marketplace clients. Tune per-key{" "}
+          <Link to="/integrations/rate-limit-shields" className="text-brand-400 hover:text-brand-300 font-medium">
+            rate limit shields
+          </Link>{" "}
+          for SDK API traffic.
         </p>
       </div>
 

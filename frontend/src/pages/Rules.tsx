@@ -1,5 +1,6 @@
 import { useEffect, useState, type KeyboardEvent } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import {
   rules as rulesApi,
   simulation,
@@ -11,6 +12,7 @@ import {
   type DecisionResponse,
 } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
+import { RuleSandboxPanel } from "../components/RuleSandboxPanel";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
@@ -222,6 +224,7 @@ function normalizeRulePack(raw: RulePack, idx: number): RulePack {
 
 export default function Rules() {
   const [searchParams] = useSearchParams();
+  const { tenantId: workspaceTenantId } = useTenantEnvironment();
   const [packs, setPacks] = useState<RulePack[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -274,6 +277,18 @@ export default function Rules() {
   >([]);
   const [telemetryMeta, setTelemetryMeta] = useState<{ total_hits: number; since_unix: number } | null>(null);
   const [telemetryLoading, setTelemetryLoading] = useState(false);
+
+  const sandboxTenantDefault =
+    searchParams.get("tenant_id")?.trim() || workspaceTenantId?.trim() || "demo";
+  const sandboxPrefilledTrace = searchParams.get("trace_id")?.trim() || null;
+
+  useEffect(() => {
+    if (!sandboxPrefilledTrace) return;
+    const t = window.setTimeout(() => {
+      document.getElementById("rule-sandbox")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 300);
+    return () => window.clearTimeout(t);
+  }, [sandboxPrefilledTrace]);
 
   useEffect(() => {
     fetchPacks();
@@ -646,7 +661,15 @@ export default function Rules() {
     <div className="h-full flex flex-col animate-fade-in">
       {/* ── Top bar ─────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-surface-700 shrink-0 gap-4">
-        <PageTitle module="rules">Rule Builder</PageTitle>
+        <div>
+          <PageTitle module="rules">Rule Builder</PageTitle>
+          <Link
+            to="/rules/version-control"
+            className="text-[11px] text-brand-400 hover:text-brand-300 mt-1 inline-block"
+          >
+            Versioned rule control →
+          </Link>
+        </div>
         <div className="flex items-center gap-2 shrink-0">
           {dirty && (
             <span className="text-xs text-amber-400 font-medium mr-1">
@@ -1057,6 +1080,12 @@ export default function Rules() {
                 simError={simError}
                 simulating={simulating}
                 onSimulate={handleSimulate}
+              />
+
+              <RuleSandboxPanel
+                draftRules={editingPack.rules}
+                defaultTenantId={sandboxTenantDefault}
+                prefilledTraceId={sandboxPrefilledTrace}
               />
             </div>
           ) : (

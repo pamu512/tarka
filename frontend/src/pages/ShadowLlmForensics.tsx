@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   SHADOW_LLM_STREAM_URL,
   streamShadowLLMChat,
@@ -29,6 +30,7 @@ function normalizeFinalMessages(raw: unknown): ShadowSidecarChatMessage[] {
 }
 
 export default function ShadowLlmForensics() {
+  const [searchParams] = useSearchParams();
   const [forensicNotes, setForensicNotes] = useState("");
   const [caseId, setCaseId] = useState("");
   const [messages, setMessages] = useState<ShadowSidecarChatMessage[]>([]);
@@ -47,6 +49,11 @@ export default function ShadowLlmForensics() {
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
+
+  useEffect(() => {
+    const fromUrl = searchParams.get("case_id")?.trim();
+    if (fromUrl) setCaseId(fromUrl);
+  }, [searchParams]);
 
   const stopGeneration = useCallback(() => {
     abortRef.current?.abort();

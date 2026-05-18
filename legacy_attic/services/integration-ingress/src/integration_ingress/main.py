@@ -819,6 +819,673 @@ async def osint_enrichment(body: OsintRequest, request: Request):
         osint_finops_router_reset(tok)
 
 
+@app.get("/v1/osint/nats-setu-monitor")
+async def osint_nats_setu_monitor(request: Request, tenant_id: str = "demo"):
+    """Lane health for NATS Setu-style OSINT (VPN/IP, email, phone) — used by analyst NATS Setu monitor UI."""
+    from integration_ingress.nats_setu_monitor import build_nats_setu_monitor_payload
+
+    nc = getattr(request.app.state, "nats_nc", None)
+    return await build_nats_setu_monitor_payload(
+        tenant_id=tenant_id,
+        nats_nc=nc,
+    )
+
+
+@app.get("/v1/ops/failover-toggles")
+async def ops_failover_toggles_get(request: Request):
+    """Read graph/AI plane kill-switches and latest dependency latency probes."""
+    from integration_ingress.failover_toggles import build_failover_toggles_payload
+
+    http: httpx.AsyncClient = request.app.state.http
+    redis_client = getattr(request.app.state, "redis_client", None)
+    return await build_failover_toggles_payload(http=http, redis_client=redis_client)
+
+
+@app.put("/v1/ops/failover-toggles")
+async def ops_failover_toggles_put(request: Request):
+    """Persist analyst failover toggles (Redis when configured)."""
+    from integration_ingress.failover_toggles import apply_failover_toggles, build_failover_toggles_payload
+
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="JSON object required")
+    redis_client = getattr(request.app.state, "redis_client", None)
+    await apply_failover_toggles(
+        redis_client=redis_client,
+        graph_plane_disabled=bool(body.get("graph_plane_disabled")),
+        ai_plane_disabled=bool(body.get("ai_plane_disabled")),
+        actor_id=str(body.get("actor_id") or "") or None,
+        reason=str(body.get("reason") or "") or None,
+    )
+    http: httpx.AsyncClient = request.app.state.http
+    return await build_failover_toggles_payload(http=http, redis_client=redis_client)
+
+
+class MarketplaceSdkApiKeyCreateBody(BaseModel):
+    tenant_id: str = "demo"
+    platform: str
+    label: str = ""
+    scopes: list[str] | None = None
+
+
+@app.get("/v1/marketplace/sdk-api-keys/catalog")
+async def marketplace_sdk_api_keys_catalog(_user=Depends(require_role("analyst"))):
+    """SDK platform catalog and allowed scopes for API key issuance (Prompt 174)."""
+    from integration_ingress.marketplace_sdk_api_keys import catalog_payload
+
+    return catalog_payload()
+
+
+@app.get("/v1/marketplace/sdk-api-keys")
+async def marketplace_sdk_api_keys_list(
+    tenant_id: str = "demo",
+    session: AsyncSession = Depends(get_session),
+    _user=Depends(require_role("analyst")),
+):
+    from integration_ingress.marketplace_sdk_api_keys import list_sdk_api_keys
+
+    keys = await list_sdk_api_keys(session, tenant_id=tenant_id)
+    return {"tenant_id": tenant_id, "keys": keys, "count": len(keys)}
+
+
+@app.post("/v1/marketplace/sdk-api-keys")
+async def marketplace_sdk_api_keys_create(
+    body: MarketplaceSdkApiKeyCreateBody,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_role("admin")),
+):
+    from integration_ingress.marketplace_sdk_api_keys import create_sdk_api_key
+
+    actor = str(getattr(user, "user_id", None) or getattr(user, "sub", None) or "admin")
+    try:
+        row, secret = await create_sdk_api_key(
+            session,
+            tenant_id=body.tenant_id,
+            platform=body.platform,
+            label=body.label,
+            scopes=body.scopes,
+            created_by=actor,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True, "key": row, "secret": secret, "warning": "Copy the secret now — it will not be shown again."}
+
+
+@app.post("/v1/marketplace/sdk-api-keys/{key_id}/revoke")
+async def marketplace_sdk_api_keys_revoke(
+    key_id: str,
+    tenant_id: str = "demo",
+    session: AsyncSession = Depends(get_session),
+    _user=Depends(require_role("admin")),
+):
+    from integration_ingress.marketplace_sdk_api_keys import revoke_sdk_api_key
+
+    row = await revoke_sdk_api_key(session, tenant_id=tenant_id, key_id=key_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="key not found")
+    return {"ok": True, "key": row}
+
+
+class MarketplaceRateLimitShieldPatchBody(BaseModel):
+    tenant_id: str = "demo"
+    enabled: bool | None = None
+    requests_per_minute: int | None = None
+    burst: int | None = None
+
+
+@app.get("/v1/marketplace/rate-limit-shields")
+async def marketplace_rate_limit_shields_list(
+    tenant_id: str = "demo",
+    session: AsyncSession = Depends(get_session),
+    _user=Depends(require_role("analyst")),
+):
+    """Per SDK API key rate limit shields with live throttle stats (Prompt 176)."""
+    from integration_ingress.marketplace_rate_limit_shields import list_rate_limit_shields
+
+    items = await list_rate_limit_shields(session, tenant_id=tenant_id)
+    throttled = sum(1 for i in items if i.get("live", {}).get("throttled"))
+    enabled = sum(1 for i in items if i.get("shield", {}).get("enabled"))
+    return {
+        "tenant_id": tenant_id,
+        "items": items,
+        "count": len(items),
+        "summary": {"throttled": throttled, "shields_enabled": enabled},
+    }
+
+
+@app.patch("/v1/marketplace/rate-limit-shields/{key_id}")
+async def marketplace_rate_limit_shields_patch(
+    key_id: str,
+    body: MarketplaceRateLimitShieldPatchBody,
+    session: AsyncSession = Depends(get_session),
+    _user=Depends(require_role("admin")),
+):
+    from integration_ingress.marketplace_rate_limit_shields import update_rate_limit_shield
+
+    row = await update_rate_limit_shield(
+        session,
+        tenant_id=body.tenant_id,
+        key_id=key_id,
+        enabled=body.enabled,
+        requests_per_minute=body.requests_per_minute,
+        burst=body.burst,
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="key not found")
+    return {"ok": True, "shield": row}
+
+
+class PiiFieldRevealEventBody(BaseModel):
+    tenant_id: str = "demo"
+    action: str
+    field_kind: str = "generic"
+    field_path: str
+    context_type: str = "ui"
+    context_id: str | None = None
+    value_fingerprint: str
+    masked_preview: str | None = None
+
+
+@app.post("/v1/compliance/pii-field-reveal")
+async def compliance_pii_field_reveal(
+    body: PiiFieldRevealEventBody,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_role("analyst")),
+):
+    """Record analyst reveal/hide of a masked PII field (Prompt 177). Never stores plaintext."""
+    from integration_ingress.pii_field_reveal_audit import record_pii_field_reveal_event
+
+    actor = str(getattr(user, "user_id", None) or getattr(user, "sub", None) or "analyst")
+    preview = body.masked_preview or "****"
+    try:
+        row = await record_pii_field_reveal_event(
+            session,
+            tenant_id=body.tenant_id,
+            actor_id=actor,
+            action=body.action,
+            field_kind=body.field_kind,
+            field_path=body.field_path,
+            context_type=body.context_type,
+            context_id=body.context_id,
+            value_fingerprint=body.value_fingerprint,
+            masked_preview_value=preview,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True, "event": row}
+
+
+@app.get("/v1/compliance/pii-field-reveal/audit")
+async def compliance_pii_field_reveal_audit_list(
+    tenant_id: str = "demo",
+    limit: int = 100,
+    session: AsyncSession = Depends(get_session),
+    _user=Depends(require_role("analyst")),
+):
+    from integration_ingress.pii_field_reveal_audit import list_pii_field_reveal_audit
+
+    items = await list_pii_field_reveal_audit(session, tenant_id=tenant_id, limit=limit)
+    reveals = sum(1 for i in items if i.get("action") == "reveal")
+    return {"tenant_id": tenant_id, "items": items, "count": len(items), "summary": {"reveals": reveals}}
+
+
+@app.get("/v1/investigation/mule-path")
+async def investigation_mule_path(
+    tenant_id: str = "demo",
+    origin_entity_id: str | None = None,
+    mule_entity_id: str | None = None,
+    payout_entity_id: str | None = None,
+    _user=Depends(require_role("analyst")),
+):
+    """Trace fund flow User A → mule (User B) → external payout (Prompt 179)."""
+    from integration_ingress.mule_path_visualizer import build_mule_path_payload
+
+    return build_mule_path_payload(
+        tenant_id=tenant_id,
+        origin_entity_id=origin_entity_id,
+        mule_entity_id=mule_entity_id,
+        payout_entity_id=payout_entity_id,
+    )
+
+
+@app.get("/v1/analytics/promo-abuse")
+async def analytics_promo_abuse(
+    tenant_id: str = "demo",
+    coupon_code: str = "NEWUSER50",
+    window_days: int = 7,
+    _user=Depends(require_role("analyst")),
+):
+    """Unique users redeeming a single coupon — promo abuse dashboard (Prompt 180)."""
+    from integration_ingress.promo_abuse_tracking import build_promo_abuse_payload
+
+    return build_promo_abuse_payload(
+        tenant_id=tenant_id,
+        coupon_code=coupon_code,
+        window_days=window_days,
+    )
+
+
+@app.get("/v1/investigation/synthetic-identity-detectors")
+async def investigation_synthetic_identity_detectors(
+    tenant_id: str = "demo",
+    limit: int = 50,
+    flag_score: int = 70,
+    _user=Depends(require_role("analyst")),
+):
+    """High-risk IP / browser / email combinations — synthetic identity flags (Prompt 181)."""
+    from integration_ingress.synthetic_identity_detectors import build_synthetic_identity_payload
+
+    return build_synthetic_identity_payload(
+        tenant_id=tenant_id,
+        limit=limit,
+        flag_score=flag_score,
+    )
+
+
+class SocialEngineeringConfigPatchBody(BaseModel):
+    tenant_id: str = "demo"
+    high_value_listing_usd: int | None = None
+    credential_change_window_minutes: int | None = None
+
+
+@app.get("/v1/investigation/social-engineering-monitor")
+async def investigation_social_engineering_monitor(
+    tenant_id: str = "demo",
+    limit: int = 40,
+    only_flagged: bool = False,
+    _user=Depends(require_role("analyst")),
+):
+    """Flag accounts with email+password changes within minutes of high-value listings (Prompt 184)."""
+    from integration_ingress.social_engineering_monitor import build_social_engineering_payload
+
+    return build_social_engineering_payload(
+        tenant_id=tenant_id,
+        limit=limit,
+        only_flagged=only_flagged,
+    )
+
+
+@app.patch("/v1/investigation/social-engineering-monitor/config")
+async def investigation_social_engineering_config_patch(
+    body: SocialEngineeringConfigPatchBody,
+    _user=Depends(require_role("analyst")),
+):
+    from integration_ingress.social_engineering_monitor import (
+        build_social_engineering_payload,
+        update_social_engineering_config,
+    )
+
+    update_social_engineering_config(
+        tenant_id=body.tenant_id,
+        high_value_listing_usd=body.high_value_listing_usd,
+        credential_change_window_minutes=body.credential_change_window_minutes,
+    )
+    return build_social_engineering_payload(tenant_id=body.tenant_id)
+
+
+@app.get("/v1/analytics/review-rings")
+async def analytics_review_rings(
+    tenant_id: str = "demo",
+    min_ring_size: int = 3,
+    limit: int = 12,
+    _user=Depends(require_role("analyst")),
+):
+    """Review ring clusters — users who all reviewed the same five products (Prompt 185)."""
+    from integration_ingress.review_ring_clusters import build_review_ring_payload
+
+    return build_review_ring_payload(
+        tenant_id=tenant_id,
+        min_ring_size=min_ring_size,
+        limit=limit,
+    )
+
+
+class KycHandoverSendBody(BaseModel):
+    tenant_id: str = "demo"
+    analyst_note: str | None = None
+
+
+@app.get("/v1/compliance/kyc-handover")
+async def compliance_kyc_handover_board(
+    tenant_id: str = "demo",
+    case_id: str | None = None,
+    _user=Depends(require_role("analyst")),
+):
+    """KYC handover queue — cases needing additional ID (Prompt 186)."""
+    from integration_ingress.kyc_handover import build_kyc_handover_board
+
+    return build_kyc_handover_board(tenant_id=tenant_id, case_id=case_id)
+
+
+@app.post("/v1/compliance/kyc-handover/{case_id}/send-id-email")
+async def compliance_kyc_handover_send_email(
+    case_id: str,
+    body: KycHandoverSendBody,
+    _user=Depends(require_role("analyst")),
+):
+    """Trigger automated email requesting additional identity documents."""
+    from integration_ingress.kyc_handover import send_kyc_id_request_email
+
+    return send_kyc_id_request_email(
+        tenant_id=body.tenant_id,
+        case_id=case_id,
+        analyst_note=body.analyst_note,
+    )
+
+
+class RegionalRiskTogglePatchBody(BaseModel):
+    tenant_id: str = "demo"
+    blacklisted: bool
+    updated_by: str = "analyst"
+
+
+@app.get("/v1/compliance/regional-risk-toggles")
+async def compliance_regional_risk_toggles(
+    tenant_id: str = "demo",
+    _user=Depends(require_role("analyst")),
+):
+    """Sub-region blacklist toggles during geographic attack waves (Prompt 187)."""
+    from integration_ingress.regional_risk_toggles import build_regional_risk_payload
+
+    return build_regional_risk_payload(tenant_id=tenant_id)
+
+
+@app.patch("/v1/compliance/regional-risk-toggles/{sub_region_id}")
+async def compliance_regional_risk_toggle_patch(
+    sub_region_id: str,
+    body: RegionalRiskTogglePatchBody,
+    _user=Depends(require_role("analyst")),
+):
+    from integration_ingress.regional_risk_toggles import (
+        build_regional_risk_payload,
+        set_sub_region_blacklist,
+    )
+
+    row = set_sub_region_blacklist(
+        tenant_id=body.tenant_id,
+        sub_region_id=sub_region_id,
+        blacklisted=body.blacklisted,
+        updated_by=body.updated_by,
+    )
+    if row is None:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="sub_region_not_found")
+    return {
+        "ok": True,
+        "sub_region": row,
+        "board": build_regional_risk_payload(tenant_id=body.tenant_id),
+    }
+
+
+@app.get("/v1/ops/command-center")
+async def ops_command_center(
+    tenant_id: str = "demo",
+    _user=Depends(require_role("analyst")),
+):
+    """Tarka Command Center — unified analyst cockpit aggregate (Prompt 188)."""
+    from integration_ingress.command_center import build_command_center_payload
+
+    return build_command_center_payload(tenant_id=tenant_id)
+
+
+@app.get("/v1/marketplace/seller-integrity")
+async def marketplace_seller_integrity(
+    tenant_id: str = "demo",
+    window_days: int = 30,
+    limit: int = 40,
+    _user=Depends(require_role("analyst")),
+):
+    """Seller integrity — review-to-successful-delivery ratio monitoring (Prompt 182)."""
+    from integration_ingress.seller_integrity import build_seller_integrity_payload
+
+    return build_seller_integrity_payload(
+        tenant_id=tenant_id,
+        window_days=window_days,
+        limit=limit,
+    )
+
+
+class PayoutDelayConfigPatchBody(BaseModel):
+    tenant_id: str = "demo"
+    automation_enabled: bool | None = None
+    mule_score_hold_threshold: int | None = None
+
+
+@app.get("/v1/marketplace/payout-delay")
+async def marketplace_payout_delay_list(
+    tenant_id: str = "demo",
+    limit: int = 35,
+    _user=Depends(require_role("analyst")),
+):
+    """Payout delay automation — holds when JanusGraph mule_score exceeds threshold (Prompt 183)."""
+    from integration_ingress.payout_delay_automation import build_payout_delay_payload
+
+    return build_payout_delay_payload(tenant_id=tenant_id, limit=limit)
+
+
+@app.patch("/v1/marketplace/payout-delay/config")
+async def marketplace_payout_delay_config_patch(
+    body: PayoutDelayConfigPatchBody,
+    _user=Depends(require_role("analyst")),
+):
+    from integration_ingress.payout_delay_automation import (
+        build_payout_delay_payload,
+        update_payout_delay_config,
+    )
+
+    update_payout_delay_config(
+        tenant_id=body.tenant_id,
+        automation_enabled=body.automation_enabled,
+        mule_score_hold_threshold=body.mule_score_hold_threshold,
+    )
+    return build_payout_delay_payload(tenant_id=body.tenant_id)
+
+
+@app.post("/v1/marketplace/payout-delay/{payout_id}/release")
+async def marketplace_payout_delay_release(
+    payout_id: str,
+    tenant_id: str = "demo",
+    _user=Depends(require_role("analyst")),
+):
+    from integration_ingress.payout_delay_automation import (
+        build_payout_delay_payload,
+        release_payout_hold,
+    )
+
+    release = release_payout_hold(tenant_id=tenant_id, payout_id=payout_id)
+    return {
+        "ok": True,
+        "release": release,
+        "board": build_payout_delay_payload(tenant_id=tenant_id),
+    }
+
+
+class MarketplaceBlockWebhookDispatchBody(BaseModel):
+    tenant_id: str = "demo"
+    callback_url: str
+    entity_id: str | None = None
+    user_id: str | None = None
+    trace_id: str | None = None
+    blocking_rule_id: str | None = None
+    payload: dict[str, Any] | None = None
+
+
+@app.get("/v1/marketplace/webhook-logs")
+async def marketplace_webhook_logs_list(
+    tenant_id: str = "demo",
+    status: str | None = None,
+    signal: str = "block",
+    limit: int = 200,
+    session: AsyncSession = Depends(get_session),
+    _user=Depends(require_role("analyst")),
+):
+    from integration_ingress.marketplace_webhook_logs import list_marketplace_webhook_logs
+
+    items = await list_marketplace_webhook_logs(
+        session,
+        tenant_id=tenant_id,
+        status=status,
+        signal=signal,
+        limit=limit,
+    )
+    delivered = sum(1 for i in items if i.get("status") == "delivered")
+    failed = sum(1 for i in items if i.get("status") in ("failed", "dlq"))
+    return {
+        "tenant_id": tenant_id,
+        "items": items,
+        "count": len(items),
+        "summary": {"delivered": delivered, "failed": failed, "pending": len(items) - delivered - failed},
+    }
+
+
+@app.get("/v1/marketplace/webhook-logs/{log_id}")
+async def marketplace_webhook_logs_detail(
+    log_id: str,
+    session: AsyncSession = Depends(get_session),
+    _user=Depends(require_role("analyst")),
+):
+    from integration_ingress.marketplace_webhook_logs import get_marketplace_webhook_log
+
+    row = await get_marketplace_webhook_log(session, log_id=log_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="log not found")
+    return row
+
+
+@app.post("/v1/marketplace/webhook-logs/{log_id}/retry")
+async def marketplace_webhook_logs_retry(
+    log_id: str,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    _user=Depends(require_role("admin")),
+):
+    from integration_ingress.marketplace_webhook_logs import deliver_marketplace_block_webhook
+
+    http: httpx.AsyncClient = request.app.state.http
+    try:
+        row = await deliver_marketplace_block_webhook(session, http, log_id=log_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="log not found") from None
+    return {"ok": True, "log": row}
+
+
+@app.post("/v1/marketplace/webhook-logs/dispatch")
+async def marketplace_webhook_logs_dispatch(
+    body: MarketplaceBlockWebhookDispatchBody,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    _user=Depends(require_role("admin")),
+):
+    """Record and immediately deliver a Block signal to a marketplace client callback URL."""
+    from integration_ingress.marketplace_webhook_logs import (
+        deliver_marketplace_block_webhook,
+        record_marketplace_block_webhook,
+    )
+
+    payload = dict(body.payload or {})
+    payload.setdefault("signal", "block")
+    payload.setdefault("decision", "BLOCK")
+    payload.setdefault("tenant_id", body.tenant_id)
+    if body.entity_id:
+        payload["entity_id"] = body.entity_id
+    if body.user_id:
+        payload["user_id"] = body.user_id
+    if body.trace_id:
+        payload["trace_id"] = body.trace_id
+    if body.blocking_rule_id:
+        payload["blocking_rule_id"] = body.blocking_rule_id
+    row = await record_marketplace_block_webhook(
+        session,
+        tenant_id=body.tenant_id,
+        callback_url=body.callback_url,
+        payload=payload,
+        entity_id=body.entity_id,
+        user_id=body.user_id,
+        trace_id=body.trace_id,
+    )
+    http: httpx.AsyncClient = request.app.state.http
+    delivered = await deliver_marketplace_block_webhook(session, http, log_id=row["id"])
+    return {"ok": True, "log": delivered}
+
+
+@app.get("/v1/ops/automated-backup-indicators")
+async def ops_automated_backup_indicators(request: Request):
+    """Last successful Postgres / JanusGraph snapshot times for ops dashboards."""
+    from integration_ingress.automated_backup_indicators import build_automated_backup_indicators_payload
+    from integration_ingress.config import settings
+
+    redis_client = getattr(request.app.state, "redis_client", None)
+    payload = await build_automated_backup_indicators_payload(
+        redis_client=redis_client,
+        backup_dir=settings.tarka_backup_dir,
+        ok_hours=settings.backup_ok_max_age_hours,
+        warn_hours=settings.backup_warn_max_age_hours,
+    )
+    payload["schedule_hints"] = {
+        "postgres": settings.backup_postgres_schedule_hint,
+        "janusgraph": settings.backup_janusgraph_schedule_hint,
+    }
+    return payload
+
+
+@app.get("/v1/ops/nats-dead-letter-office")
+async def ops_nats_dead_letter_office(
+    request: Request,
+    limit: int = 100,
+    kind: str | None = None,
+    tenant_id: str | None = None,
+):
+    """Peek failed ingest NATS messages on the JetStream DLQ subject (non-destructive NAK)."""
+    from integration_ingress.nats_dead_letter_office import build_nats_dead_letter_office_payload
+
+    nc = getattr(request.app.state, "nats_nc", None)
+    return await build_nats_dead_letter_office_payload(
+        nats_nc=nc,
+        limit=limit,
+        kind_filter=kind,
+        tenant_filter=tenant_id,
+    )
+
+
+@app.get("/v1/ops/system-health-hud")
+async def ops_system_health_hud(request: Request):
+    """Edge HUD: M5 Pro RAM, Redis PING RTT, Ollama queue / loaded-model proxy."""
+    from integration_ingress.system_health_hud import build_system_health_hud_payload
+
+    http: httpx.AsyncClient = request.app.state.http
+    redis_client = getattr(request.app.state, "redis_client", None)
+    ollama = (
+        (os.environ.get("OLLAMA_BASE_URL") or os.environ.get("SHADOW_OLLAMA_BASE_URL") or settings.ollama_base_url)
+        .strip()
+    )
+    return await build_system_health_hud_payload(
+        http=http,
+        redis_client=redis_client,
+        redis_url=(settings.redis_url or "").strip(),
+        ollama_base_url=ollama,
+    )
+
+
+@app.get("/v1/ops/system-benchmarking")
+async def ops_system_benchmarking(
+    request: Request,
+    sample_rounds: int = 7,
+    _user=Depends(require_role("analyst")),
+):
+    """Live latency probes vs sub-millisecond p95 target (Prompt 178)."""
+    from integration_ingress.system_benchmarking import build_system_benchmarking_payload
+
+    http: httpx.AsyncClient = request.app.state.http
+    redis_client = getattr(request.app.state, "redis_client", None)
+    return await build_system_benchmarking_payload(
+        http=http,
+        redis_client=redis_client,
+        redis_url=(settings.redis_url or "").strip(),
+        sample_rounds=sample_rounds,
+    )
+
+
 @app.get("/v1/osint/sources")
 async def osint_sources():
     """List available OSINT sources and their configuration status."""

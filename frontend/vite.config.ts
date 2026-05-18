@@ -43,6 +43,13 @@ export default defineConfig({
           if (id.includes("@xyflow")) {
             return "vendor-flow";
           }
+          if (
+            id.includes("maplibre-gl") ||
+            id.includes("react-map-gl") ||
+            id.includes("@vis.gl/react-maplibre")
+          ) {
+            return "vendor-map";
+          }
           return;
         },
       },
@@ -78,6 +85,18 @@ export default defineConfig({
         target: "http://127.0.0.1:8790",
         changeOrigin: true,
         rewrite: () => "/v1/demo/simulate_attack",
+      },
+      /** Orchestrator DuckDB / ClickHouse analytics (``GET /v1/analytics/transactions``). */
+      "/api/orchestrator": {
+        target: "http://127.0.0.1:8790",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/orchestrator/, ""),
+      },
+      /** v2 rule engine — versioned AST snapshots (``GET/POST /v1/rules/versions``). Default: :8778. */
+      "/api/rule-engine": {
+        target: "http://127.0.0.1:8778",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/rule-engine/, ""),
       },
       /** Orchestrator AI feedback JSONL (``POST /v1/ai/feedback``). */
       "/api/v1/ai": {

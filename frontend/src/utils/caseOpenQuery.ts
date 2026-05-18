@@ -34,6 +34,7 @@ export function parseCaseDetailRoute(pathname: string): { caseId: string } | nul
   if (!rest || rest.includes("/")) return null;
   try {
     const caseId = decodeURIComponent(rest);
+    if (caseId === "bulk-triage" || caseId === "compare") return null;
     return caseId ? { caseId } : null;
   } catch {
     return null;

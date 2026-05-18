@@ -22,8 +22,22 @@ class AnalyticsProvider(ABC):
         """Append one normalized ingest envelope to the analytical store."""
 
     @abstractmethod
-    def list_analytics_transactions(self, *, limit: int = 500) -> list[dict[str, Any]]:
-        """Recent rows from the unified analytical transaction projection (newest first)."""
+    def list_analytics_transactions(
+        self,
+        *,
+        limit: int = 500,
+        cursor: str | None = None,
+    ) -> tuple[list[dict[str, Any]], str | None, float]:
+        """
+        Keyset-paged rows from the unified analytical projection (newest first).
+
+        Returns ``(rows, next_cursor, query_ms)``.
+        """
+
+    def list_analytics_transactions_legacy(self, *, limit: int = 500) -> list[dict[str, Any]]:
+        """Backward-compatible helper — rows only."""
+        rows, _, _ = self.list_analytics_transactions(limit=limit, cursor=None)
+        return rows
 
     @abstractmethod
     def transactions_per_minute_by_country(self) -> list[dict[str, Any]]:

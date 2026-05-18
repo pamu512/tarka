@@ -34,4 +34,9 @@ export type ShadowDecision = {
 export type DecisionDetailResponse = {
   transaction_schema: TransactionSchema;
   shadow_decision: ShadowDecision;
+  /**
+   * Raw rule-engine ``evaluation_trace`` (Rust-backed evaluator rows) when the orchestrator
+   * attaches audit payload — fed to ``AstTranslator``.
+   */
+  evaluation_trace?: unknown;
 };

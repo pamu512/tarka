@@ -14,6 +14,7 @@ from typing import Any
 from ingestor.manifest_schema import TransactionSchema
 
 from orchestrator.analytics.provider import AnalyticsProvider
+from orchestrator.analytics.transaction_cursor import decode_transaction_cursor, encode_transaction_cursor
 
 logger = logging.getLogger(__name__)
 
@@ -107,18 +108,40 @@ class CloudAnalytics(AnalyticsProvider):
                 column_names=["ts", "country", "amount", "entity_id", "metadata"],
             )
 
-    def list_analytics_transactions(self, *, limit: int = 500) -> list[dict[str, Any]]:
+    def list_analytics_transactions(
+        self,
+        *,
+        limit: int = 500,
+        cursor: str | None = None,
+    ) -> tuple[list[dict[str, Any]], str | None, float]:
         if self._client is None:
-            return []
+            return [], None, 0.0
         lim = max(1, min(int(limit), 10_000))
-        q = f"""
-        SELECT ts, country, amount, entity_id, metadata
-        FROM {self._TABLE}
-        ORDER BY ts DESC
-        LIMIT {lim}
-        """
+        decoded = decode_transaction_cursor(cursor)
+        t0 = time.perf_counter()
+        if decoded is None:
+            q = f"""
+            SELECT ts, country, amount, entity_id, metadata
+            FROM {self._TABLE}
+            ORDER BY ts DESC, entity_id DESC, amount DESC
+            LIMIT {lim}
+            """
+            params: list[Any] = []
+        else:
+            ts_c, eid_c, amt_c = decoded
+            q = f"""
+            SELECT ts, country, amount, entity_id, metadata
+            FROM {self._TABLE}
+            WHERE (ts < toDateTime64(%(ts)s, 3))
+               OR (ts = toDateTime64(%(ts)s, 3) AND entity_id < %(eid)s)
+               OR (ts = toDateTime64(%(ts)s, 3) AND entity_id = %(eid)s AND amount < %(amt)s)
+            ORDER BY ts DESC, entity_id DESC, amount DESC
+            LIMIT {lim}
+            """
+            params = {"ts": ts_c, "eid": eid_c, "amt": amt_c}
         with self._lock:
-            result = self._client.query(q)
+            result = self._client.query(q, parameters=params) if params else self._client.query(q)
+        ms = (time.perf_counter() - t0) * 1000.0
         rows: list[dict[str, Any]] = []
         for tup in result.result_rows:
             ts, country, amount, entity_id, metadata = tup
@@ -131,7 +154,15 @@ class CloudAnalytics(AnalyticsProvider):
                     "metadata": metadata,
                 },
             )
-        return rows
+        next_cursor: str | None = None
+        if len(rows) >= lim:
+            last = rows[-1]
+            ts_s = str(last.get("ts") or "")
+            eid_s = str(last.get("entity_id") or "")
+            amt_v = last.get("amount")
+            if ts_s and eid_s and isinstance(amt_v, (int, float)):
+                next_cursor = encode_transaction_cursor(ts=ts_s, entity_id=eid_s, amount=float(amt_v))
+        return rows, next_cursor, ms
 
     def transactions_per_minute_by_country(self) -> list[dict[str, Any]]:
         if self._client is None:

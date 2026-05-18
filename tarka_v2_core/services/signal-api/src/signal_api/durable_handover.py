@@ -65,6 +65,7 @@ async def persist_audit_log(
     raw_payload: dict[str, Any],
     integrity_signature: str,
     decision: str | None = None,
+    shadow_matches: list[dict[str, Any]] | None = None,
 ) -> None:
     if decision is None:
         decision = (os.environ.get("SIGNAL_AUDIT_DECISION") or "unified_signal.ingested").strip()[
@@ -72,15 +73,19 @@ async def persist_audit_log(
         ]
     else:
         decision = decision.strip()[:512]
+    matches = shadow_matches if shadow_matches is not None else []
     await conn.execute(
         """
-        INSERT INTO audit_logs (id, entity_id, raw_payload, decision, integrity_signature)
-        VALUES (gen_random_uuid(), $1::uuid, $2::jsonb, $3, $4)
+        INSERT INTO audit_logs (
+            id, entity_id, raw_payload, decision, integrity_signature, shadow_matches
+        )
+        VALUES (gen_random_uuid(), $1::uuid, $2::jsonb, $3, $4, $5::jsonb)
         """,
         entity_id,
         raw_payload,
         decision,
         integrity_signature,
+        matches,
     )
 
 
@@ -97,6 +102,7 @@ async def durable_intent_handover(
     canonical_bytes: bytes,
     integrity_hex: str,
     audit_decision: str | None = None,
+    shadow_matches: list[dict[str, Any]] | None = None,
     circuit: AuditPostgresCircuitBreaker | None = None,
 ) -> None:
     """Background task: Postgres row + JetStream publish (errors logged, do not fail HTTP)."""
@@ -120,6 +126,7 @@ async def durable_intent_handover(
                             raw_payload=raw_payload,
                             integrity_signature=integrity_hex,
                             decision=audit_decision,
+                            shadow_matches=shadow_matches,
                         )
 
                 tout = circuit.effective_execute_timeout_sec() if circuit is not None else 0.0

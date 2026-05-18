@@ -83,15 +83,15 @@ async def persist_orchestrator_audit_log(
     actions: list[str],
     rule_data: dict[str, Any],
     shadow_data: dict[str, Any] | None,
-) -> int | None:
+    shadow_matches: list[dict[str, Any]] | None = None,
+) -> int:
     """
-    Insert a marker ``AuditLog`` row when policy actions warrant a lifecycle case.
+    Insert an ``AuditLog`` row for every processed transaction.
 
-    Returns the new ``audit_logs.id``, or ``None`` when no triggering action is present.
+    ``shadow_matches`` records every active shadow hypothesis rule that fired (promotion evidence).
+    Lifecycle case materialization still keys off ``actions`` intersecting ``TRIGGER_ACTIONS_FOR_LIFECYCLE``.
     """
     hits = [a for a in actions if a in TRIGGER_ACTIONS_FOR_LIFECYCLE]
-    if not hits:
-        return None
 
     await _ensure_shadow_case_row(session, entity_id)
     user_key = _user_link_key(metadata, entity_id)
@@ -132,6 +132,7 @@ async def persist_orchestrator_audit_log(
         action_taken=json.dumps(payload, separators=(",", ":"), ensure_ascii=False),
         code_executed=None,
         agent_notes=None,
+        shadow_matches=list(shadow_matches) if shadow_matches else [],
     )
     session.add(log)
     await session.flush()

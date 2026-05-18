@@ -17,6 +17,7 @@ from orchestrator.audit_case_worker import (
 from orchestrator.enforcement.log_decision import persist_lekh_decision
 from orchestrator.queues.shadow_dispatch import dispatch_shadow_investigate_if_review
 from orchestrator.shadow_graph_payload import build_shadow_analyze_payload
+from orchestrator.shadow_hypothesis_audit import evaluate_transaction_shadow_matches
 
 logger = logging.getLogger(__name__)
 
@@ -167,21 +168,27 @@ async def execute_transaction_ingest(
             detail={"error": "upstream_unreachable", "message": str(exc)},
         ) from exc
 
+    shadow_matches: list[dict[str, Any]] = []
+    try:
+        shadow_matches = await evaluate_transaction_shadow_matches(request.app.state, transaction)
+    except Exception:
+        logger.exception("orchestrator_shadow_hypothesis_eval_failed transaction_id=%s", tid)
+
     fac = getattr(request.app.state, "audit_session_factory", None)
     if fac is not None:
         try:
             async with fac() as session:
                 async with session.begin():
                     await persist_lekh_decision(session, entity_id=tid, rule_data=rule_data)
-                    if TRIGGER_ACTIONS_FOR_LIFECYCLE.intersection(set(actions)):
-                        await persist_orchestrator_audit_log(
-                            session,
-                            entity_id=tid,
-                            metadata=dict(transaction.metadata),
-                            actions=actions,
-                            rule_data=rule_data,
-                            shadow_data=shadow_data,
-                        )
+                    await persist_orchestrator_audit_log(
+                        session,
+                        entity_id=tid,
+                        metadata=dict(transaction.metadata),
+                        actions=actions,
+                        rule_data=rule_data,
+                        shadow_data=shadow_data,
+                        shadow_matches=shadow_matches,
+                    )
         except Exception:
             logger.exception(
                 "orchestrator_lekh_or_audit_persist_failed transaction_id=%s",

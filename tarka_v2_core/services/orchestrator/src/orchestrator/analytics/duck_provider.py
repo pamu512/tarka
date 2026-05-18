@@ -29,6 +29,7 @@ import duckdb
 from ingestor.manifest_schema import TransactionSchema
 
 from orchestrator.analytics.provider import AnalyticsProvider
+from orchestrator.analytics.transaction_cursor import decode_transaction_cursor, encode_transaction_cursor
 
 logger = logging.getLogger(__name__)
 
@@ -267,14 +268,44 @@ class LocalAnalytics(AnalyticsProvider):
                 [ts, country, amount, entity_id, meta_s],
             )
 
-    def list_analytics_transactions(self, *, limit: int = 500) -> list[dict[str, Any]]:
-        """Return recent rows from ``v_analytics_transactions`` (newest ``ts`` first)."""
+    def list_analytics_transactions(
+        self,
+        *,
+        limit: int = 500,
+        cursor: str | None = None,
+    ) -> tuple[list[dict[str, Any]], str | None, float]:
+        """Keyset page over ``v_analytics_transactions`` (newest ``ts`` first)."""
         lim = max(1, min(int(limit), 10_000))
-        q = f"SELECT * FROM v_analytics_transactions ORDER BY ts DESC LIMIT {lim}"
+        decoded = decode_transaction_cursor(cursor)
+        t0 = time.perf_counter()
         with self._lock:
-            cur = self._con.execute(q)
+            if decoded is None:
+                cur = self._con.execute(
+                    """
+                    SELECT ts, country, amount, entity_id, metadata
+                    FROM v_analytics_transactions
+                    ORDER BY ts DESC, entity_id DESC, amount DESC
+                    LIMIT ?
+                    """,
+                    [lim],
+                )
+            else:
+                ts_c, eid_c, amt_c = decoded
+                cur = self._con.execute(
+                    """
+                    SELECT ts, country, amount, entity_id, metadata
+                    FROM v_analytics_transactions
+                    WHERE (ts < ?)
+                       OR (ts = ? AND entity_id < ?)
+                       OR (ts = ? AND entity_id = ? AND amount < ?)
+                    ORDER BY ts DESC, entity_id DESC, amount DESC
+                    LIMIT ?
+                    """,
+                    [ts_c, ts_c, eid_c, ts_c, eid_c, amt_c, lim],
+                )
             colnames = [d[0] for d in (cur.description or ())]
             tuples = cur.fetchall()
+        ms = (time.perf_counter() - t0) * 1000.0
         rows: list[dict[str, Any]] = []
         for tup in tuples:
             out = dict(zip(colnames, tup))
@@ -282,7 +313,15 @@ class LocalAnalytics(AnalyticsProvider):
                 if hasattr(v, "isoformat"):
                     out[k] = v.isoformat()
             rows.append(out)
-        return rows
+        next_cursor: str | None = None
+        if len(rows) >= lim:
+            last = rows[-1]
+            ts_s = str(last.get("ts") or "")
+            eid_s = str(last.get("entity_id") or "")
+            amt_v = last.get("amount")
+            if ts_s and eid_s and isinstance(amt_v, (int, float)):
+                next_cursor = encode_transaction_cursor(ts=ts_s, entity_id=eid_s, amount=float(amt_v))
+        return rows, next_cursor, ms
 
     def transactions_per_minute_by_country(self) -> list[dict[str, Any]]:
         """Return rows: ``minute_bucket`` (ISO), ``country``, ``txn_count``."""

@@ -1,3 +1,4 @@
+import { deriveShortId, syntheticConfidence } from "@/lib/audit-recent-display";
 import { pushAttackOutcome } from "@/lib/recent-audit-store";
 import type { AuditRecentItem, AuditRecentStatus } from "@/types/audit-recent";
 
@@ -10,11 +11,16 @@ const STATUSES: readonly AuditRecentStatus[] = [
 
 function buildAttackItem(patternIndex: number, batchId: number): AuditRecentItem {
   const now = Date.now();
+  const status = STATUSES[patternIndex % STATUSES.length];
+  const transaction_id = `txn_attack_${batchId}_p${patternIndex}_${Math.random().toString(36).slice(2, 10)}`;
   return {
     timestamp: new Date(now).toISOString(),
-    transaction_id: `txn_attack_${batchId}_p${patternIndex}_${Math.random().toString(36).slice(2, 10)}`,
+    transaction_id,
     amount_cents: 25_000 + patternIndex * 4_321,
-    status: STATUSES[patternIndex % STATUSES.length],
+    status,
+    short_id: deriveShortId(transaction_id),
+    rule_result: status,
+    ai_confidence: syntheticConfidence(status, transaction_id),
   };
 }
 

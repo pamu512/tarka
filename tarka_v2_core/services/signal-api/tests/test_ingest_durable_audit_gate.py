@@ -96,7 +96,8 @@ async def test_audit_background_hmac_matches_canonical_payload(ingester_audit: A
 
     assert _AuditCapture.last_execute is not None
     _q, args = _AuditCapture.last_execute
-    entity_id, raw_payload, decision, integrity_hex = args
+    entity_id, raw_payload, decision, integrity_hex, shadow_matches = args
+    assert shadow_matches == []
     assert isinstance(entity_id, UUID)
     assert decision == "unified_signal.ingested"
     assert isinstance(integrity_hex, str) and len(integrity_hex) == 64
@@ -140,7 +141,8 @@ async def test_postgres_audit_row_matches_hmac_optional_live_pg(
                 raw_payload JSONB NOT NULL,
                 decision VARCHAR(512) NOT NULL,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-                integrity_signature VARCHAR(128)
+                integrity_signature VARCHAR(128),
+                shadow_matches JSONB
             )
             """
         )

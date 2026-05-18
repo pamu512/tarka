@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 import { PageTitle } from "../components/PageTitle";
 import { RuleBuilderCanvas } from "../components/RuleBuilder";
 
@@ -10,6 +12,12 @@ export default function VisualRuleBuilder() {
     <div className="p-6 max-w-7xl mx-auto space-y-4">
       <PageTitle module="rules">
         Visual rule builder
+        <Link
+          to="/rules/version-control"
+          className="block text-xs font-normal text-brand-400 hover:text-brand-300 mt-1 w-fit"
+        >
+          Versioned rule control — rollback AST snapshots →
+        </Link>
         <span className="block text-xs font-normal text-gray-500 mt-1">
           Drag from handles to wire <strong>Feature</strong> → <strong>Operator</strong> → <strong>AND / OR</strong> →{" "}
           <strong>Rule root</strong>. Cycles and empty logic nodes block <strong>Save AST pack</strong> (

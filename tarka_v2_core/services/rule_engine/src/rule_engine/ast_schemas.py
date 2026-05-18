@@ -158,3 +158,10 @@ class Rule(BaseModel):
         int,
         Field(description="Relative ordering vs other rules (semantics defined by the engine)."),
     ]
+    metadata: Annotated[
+        dict[str, Any] | None,
+        Field(
+            default=None,
+            description="Optional engine metadata (shadow flags, promotion provenance, display ids).",
+        ),
+    ] = None

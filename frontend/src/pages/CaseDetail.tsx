@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { lazy, Suspense, useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useAnalystWorkspace } from "../context/AnalystWorkspaceContext";
 import { useRegisterPageMeta } from "../context/PageMetaContext";
@@ -19,17 +19,63 @@ import {
 import StatusBadge from "../components/StatusBadge";
 import PriorityBadge from "../components/PriorityBadge";
 import { PageTitle } from "../components/PageTitle";
-import { SnapshotGraph } from "../components/CaseView/SnapshotGraph";
+import { parseGraphSnapshot, SnapshotGraph } from "../components/CaseView/SnapshotGraph";
+import { clusterSubgraphByDeviceHash, DEVICE_CLUSTER_GRAPH_LABEL } from "../utils/entityDeviceClustering";
+import { TimeTravelSlider } from "../components/CaseView/TimeTravelSlider";
+import { TuneRuleModal } from "../components/CaseView/TuneRuleModal";
+import { TriageHeader, type TriageFlashCard } from "../components/CaseView/TriageHeader";
+import {
+  ExternalSignalHoverBody,
+  GeoHoverBody,
+  GraphMetricHoverBody,
+  InferenceColocationHoverBody,
+  InferenceGeoConsistencyHoverBody,
+  InferenceImpossibleTravelHoverBody,
+  InferenceIntegrityHoverBody,
+  InferenceNetworkTrustHoverBody,
+  InferenceReplayHoverBody,
+  InferenceTamperHoverBody,
+  QueueScoreHoverBody,
+  VelocityHoverBody,
+} from "../components/CaseView/MetricHoverPanels";
+import { InfoHover } from "../components/InfoHover";
 import { GraphContextPanel } from "../components/GraphContextPanel";
 import { FraudScoreTrack } from "../components/FraudScoreTrack";
 import { InferenceMetricTrack } from "../components/InferenceMetricTrack";
 import { SarManagementPanel } from "../components/SarManagementPanel";
+import { KycHandoverPanel } from "../components/compliance/KycHandoverPanel";
+import { EntityProfileSparklines } from "../components/CaseView/EntityProfileSparklines";
+import { SaarthiFeatureImportancePanel } from "../components/CaseView/SaarthiFeatureImportancePanel";
+import { buildSaarthiFeatureImportanceRequest } from "../lib/saarthi/featureImportance";
+import { VelocityHeatmap } from "../components/CaseView/VelocityHeatmap";
+
+const GeographicCollisionMap = lazy(() =>
+  import("../components/CaseView/GeographicCollisionMap").then((m) => ({ default: m.GeographicCollisionMap })),
+);
 import { SupportIdHint } from "../components/SupportIdHint";
+import { buildCaseComparisonHref } from "../utils/caseComparisonUrl";
 import { toUserFacingError } from "../utils/userFacingErrors";
+import {
+  buildCaseWorkspaceEvidencePdfBlob,
+  buildCaseWorkspaceEvidenceSnapshot,
+  caseEvidenceExportPdfFilename,
+} from "../utils/evidenceExportPdf";
+import { loadGraphAnnotations, setGraphNodeAnnotation } from "../utils/graphNodeAnnotations";
+import { GraphAnnotationPopover } from "../components/CaseView/GraphAnnotationPopover";
+import {
+  KnowledgeGraphDesktopRail,
+  KnowledgeGraphMobilePanel,
+  useKnowledgeGraphSidebarState,
+} from "../components/CaseView/KnowledgeGraphSidebar";
+import { ShadowChatSidebar } from "../components/CaseView/ShadowChatSidebar";
+import { isHeroHotkeyEventIgnored } from "../utils/heroHotkeys";
 import { Network, type Options } from "vis-network";
 import { DataSet } from "vis-data";
 
 const CASE_DETAIL_TABS = ["timeline", "audit", "graph"] as const;
+
+/** Re-fetch decision audit + graph risk for velocity sparklines (Prompt 164). */
+const VELOCITY_SPARKLINE_POLL_MS = 15_000;
 type Tab = (typeof CASE_DETAIL_TABS)[number];
 
 function isCaseDetailTab(v: string | null): v is Tab {
@@ -51,6 +97,58 @@ function humanizeRecommendedAction(code: string): string {
   return RECOMMENDED_ACTION_LABELS[c] ?? c.replace(/_/g, " ");
 }
 
+/** First clause for the sight-layer “why” line (Saarthi / ML summary). */
+function firstSightSentence(text: string): string {
+  const t = text.trim();
+  if (!t) return "";
+  const split = t.split(/(?<=[.!?])\s+/);
+  const one = (split[0] ?? t).trim();
+  return one.length > 220 ? `${one.slice(0, 217)}…` : one;
+}
+
+/** Scan-layer flash cards: Velocity, Graph, Geo-inconsistency proxy. */
+function buildTriageFlashCards(
+  ctx: InferenceContext | null,
+  graphRisk: EntityRiskResult | null,
+): [TriageFlashCard, TriageFlashCard, TriageFlashCard] {
+  const velocity: TriageFlashCard = !ctx
+    ? { title: "Velocity", value: "—", tone: "neutral" }
+    : ctx.velocity_events_24h >= 40
+      ? { title: "Velocity", value: "High", tone: "critical" }
+      : ctx.velocity_events_24h >= 12
+        ? { title: "Velocity", value: "Elevated", tone: "warn" }
+        : { title: "Velocity", value: "Normal", tone: "ok" };
+
+  let graph: TriageFlashCard;
+  if (!graphRisk) {
+    graph = { title: "Graph", value: "—", tone: "neutral" };
+  } else {
+    const rs = graphRisk.risk_score;
+    const factorHit = graphRisk.risk_factors?.find((f) => /mule|ring|sybil|farm/i.test(f)) ?? null;
+    if (rs >= 0.65) {
+      graph = {
+        title: "Graph",
+        value: factorHit ?? "Mule ring",
+        tone: "critical",
+      };
+    } else if (rs >= 0.35) {
+      graph = { title: "Graph", value: "Elevated", tone: "warn" };
+    } else {
+      graph = { title: "Graph", value: "Low linkage", tone: "ok" };
+    }
+  }
+
+  const geo: TriageFlashCard = !ctx
+    ? { title: "Geo", value: "—", tone: "neutral" }
+    : ctx.impossible_travel_risk > 0.35 || ctx.geo_consistency_risk > 0.55
+      ? { title: "Geo", value: "Inconsistent", tone: "critical" }
+      : ctx.geo_consistency_risk > 0.22
+        ? { title: "Geo", value: "Suspect", tone: "warn" }
+        : { title: "Geo", value: "Consistent", tone: "ok" };
+
+  return [velocity, graph, geo];
+}
+
 type DecisionExplain = {
   score: number;
   decision: string;
@@ -59,7 +157,35 @@ type DecisionExplain = {
   rule_hits: string[];
   recommended_action?: string | null;
   inference_context: InferenceContext | null;
+  /** Present when audit is loaded with analyst/full detail — transaction envelope for exposure hints. */
+  evaluate_payload?: Record<string, unknown> | null;
 };
+
+/** Best-effort parse of evaluate payload / nested envelopes for triage financial hints (DuckDB cohort rolls up same trace keys when wired). */
+function extractTransactionMoney(payload: Record<string, unknown> | null | undefined): {
+  amount: number;
+  currency: string;
+} | null {
+  if (!payload || typeof payload !== "object") return null;
+  const tryAmount = (obj: Record<string, unknown>): { amount: number; currency: string } | null => {
+    const currency = String(obj.currency ?? obj.currency_code ?? obj.asset ?? "USD");
+    for (const key of ["amount", "transaction_amount", "usd_amount", "value", "notional"]) {
+      const v = obj[key];
+      if (typeof v === "number" && Number.isFinite(v)) return { amount: v, currency };
+    }
+    return null;
+  };
+  const direct = tryAmount(payload);
+  if (direct) return direct;
+  for (const nk of ["transaction", "payload", "event", "body"]) {
+    const inner = payload[nk];
+    if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+      const got = tryAmount(inner as Record<string, unknown>);
+      if (got) return got;
+    }
+  }
+  return null;
+}
 
 export default function CaseDetail() {
   const { caseId } = useParams<{ caseId: string }>();
@@ -69,7 +195,8 @@ export default function CaseDetail() {
   const navigate = useNavigate();
   const { pinCase } = useAnalystWorkspace();
   const { toast } = useToast();
-  const [showTechnicalDecision, setShowTechnicalDecision] = useState(false);
+  const [advancedDevView, setAdvancedDevView] = useState(false);
+  const [shadowChatOpen, setShadowChatOpen] = useState(false);
   const [caseData, setCaseData] = useState<Case | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +225,9 @@ export default function CaseDetail() {
   const [decisionExplain, setDecisionExplain] = useState<DecisionExplain | null>(null);
   const [graphRisk, setGraphRisk] = useState<EntityRiskResult | null>(null);
   const [bundleBusy, setBundleBusy] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [tuneRuleOpen, setTuneRuleOpen] = useState(false);
+  const [velocityArtifactsUpdatedAt, setVelocityArtifactsUpdatedAt] = useState<string | null>(null);
 
   const fetchCase = useCallback(async () => {
     if (!caseId) return;
@@ -134,35 +264,57 @@ export default function CaseDetail() {
     });
   }, [caseData, pinCase]);
 
-  useEffect(() => {
+  const refreshVelocityArtifacts = useCallback(async () => {
     if (!caseData) return;
-    (async () => {
-      try {
-        if (caseData.trace_id) {
-          const audit = await decisions.getAudit(caseData.trace_id, caseData.tenant_id);
-          setDecisionExplain({
-            score: audit.score,
-            decision: audit.decision,
-            reasons: [],
-            tags: audit.tags || [],
-            rule_hits: audit.rule_hits || [],
-            recommended_action: audit.recommended_action ?? null,
-            inference_context: normalizeInferenceContext(audit.inference_context),
-          });
-        } else {
-          setDecisionExplain(null);
-        }
-      } catch {
+    try {
+      if (caseData.trace_id) {
+        const audit = await decisions.getAudit(caseData.trace_id, caseData.tenant_id, {
+          detail_level: "analyst",
+        });
+        setDecisionExplain({
+          score: audit.score,
+          decision: audit.decision,
+          reasons: [],
+          tags: audit.tags || [],
+          rule_hits: audit.rule_hits || [],
+          recommended_action: audit.recommended_action ?? null,
+          inference_context: normalizeInferenceContext(audit.inference_context),
+          evaluate_payload: audit.evaluate_payload ?? null,
+        });
+        setVelocityArtifactsUpdatedAt(new Date().toISOString());
+      } else {
         setDecisionExplain(null);
+        setVelocityArtifactsUpdatedAt(null);
       }
-      try {
-        const risk = await graph.entityRisk(caseData.entity_id, caseData.tenant_id);
-        setGraphRisk(risk);
-      } catch {
-        setGraphRisk(null);
-      }
-    })();
+    } catch {
+      setDecisionExplain(null);
+    }
+    try {
+      const risk = await graph.entityRisk(caseData.entity_id, caseData.tenant_id);
+      setGraphRisk(risk);
+    } catch {
+      setGraphRisk(null);
+    }
   }, [caseData]);
+
+  useEffect(() => {
+    void refreshVelocityArtifacts();
+  }, [refreshVelocityArtifacts]);
+
+  useEffect(() => {
+    if (!caseData?.trace_id) return undefined;
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refreshVelocityArtifacts();
+    }, VELOCITY_SPARKLINE_POLL_MS);
+    const onVis = () => {
+      if (document.visibilityState === "visible") void refreshVelocityArtifacts();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [caseData?.trace_id, refreshVelocityArtifacts]);
 
   const handleStatusChange = async (newStatus: string) => {
     if (!caseId || !caseData || statusUpdating) return;
@@ -222,6 +374,85 @@ export default function CaseDetail() {
     }
   };
 
+  const handleEvidenceExportPdf = useCallback(() => {
+    if (!caseData) return;
+    setPdfBusy(true);
+    try {
+      const ctx = decisionExplain?.inference_context ?? null;
+      const [v, g, geo] = buildTriageFlashCards(ctx, graphRisk);
+      const flashPlain = [
+        { title: v.title, value: v.value },
+        { title: g.title, value: g.value },
+        { title: geo.title, value: geo.value },
+      ];
+      const fm = extractTransactionMoney(decisionExplain?.evaluate_payload ?? undefined);
+      let financialLine: string | null = null;
+      if (fm) {
+        financialLine = `Exposure (audit envelope): ${new Intl.NumberFormat(undefined, {
+          style: "currency",
+          currency: fm.currency,
+          maximumFractionDigits: 2,
+        }).format(fm.amount)}`;
+      }
+      const vel =
+        ctx != null && Number.isFinite(ctx.velocity_events_24h) ? ctx.velocity_events_24h : null;
+      const qs =
+        caseData.queue_score != null && Number.isFinite(caseData.queue_score)
+          ? caseData.queue_score
+          : null;
+      const rawGr =
+        graphRisk != null ? graphRisk.risk_score : ctx != null ? ctx.graph_risk_score : null;
+      const graphRiskDisplay =
+        rawGr != null && Number.isFinite(rawGr) ? rawGr.toFixed(3) : null;
+
+      const sightForPdf = (() => {
+        const ml = decisionExplain?.inference_context?.ml_summary?.trim();
+        if (ml) return firstSightSentence(ml);
+        const ra = decisionExplain?.recommended_action?.trim();
+        if (ra) return humanizeRecommendedAction(ra);
+        return null;
+      })();
+
+      const slaDeadlinePdf = new Date(caseData.sla_deadline ?? caseData.created_at);
+      const slaOnTrackPdf = slaDeadlinePdf >= new Date();
+
+      const snapshot = buildCaseWorkspaceEvidenceSnapshot({
+        caseData,
+        activeTab,
+        slaOnTrack: slaOnTrackPdf,
+        sightLine: sightForPdf,
+        flashCardsPlain: flashPlain,
+        financialLine,
+        velocity24h: vel,
+        queueScore: qs,
+        graphRiskDisplay,
+        decisionExplain: decisionExplain
+          ? {
+              score: decisionExplain.score,
+              decision: decisionExplain.decision,
+              tags: decisionExplain.tags,
+              rule_hits: decisionExplain.rule_hits,
+              recommended_action: decisionExplain.recommended_action,
+              inference_context: decisionExplain.inference_context,
+            }
+          : null,
+        graphRisk,
+      });
+      const blob = buildCaseWorkspaceEvidencePdfBlob(snapshot);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = caseEvidenceExportPdfFilename(caseData.id);
+      a.click();
+      URL.revokeObjectURL(url);
+      toast("Evidence PDF downloaded", "success");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Could not build evidence PDF", "error");
+    } finally {
+      setPdfBusy(false);
+    }
+  }, [caseData, activeTab, decisionExplain, graphRisk, toast]);
+
   const handleAddLabel = async () => {
     if (!caseId || !caseData || !labelInput.trim()) return;
     try {
@@ -232,6 +463,72 @@ export default function CaseDetail() {
       toast(toUserFacingError(e, { subject: "Case label", action: "add a case label" }), "error");
     }
   };
+
+  const heroApprove = useCallback(async () => {
+    if (!caseId || !caseData || statusUpdating) return;
+    if (caseData.status !== "open") {
+      toast("A · Approve moves Open cases to Investigating.", "info");
+      return;
+    }
+    setStatusUpdating(true);
+    try {
+      const updated = await cases.update(caseId, caseData.tenant_id, { status: "investigating" });
+      setCaseData(updated);
+      toast("Approved — Investigating.", "success");
+    } catch (e) {
+      setError(toUserFacingError(e, { subject: "Case status", action: "approve case" }));
+    } finally {
+      setStatusUpdating(false);
+    }
+  }, [caseId, caseData, statusUpdating, toast]);
+
+  const heroReject = useCallback(async () => {
+    if (!caseId || !caseData || statusUpdating) return;
+    if (caseData.status === "closed") {
+      toast("Case is already closed.", "info");
+      return;
+    }
+    setStatusUpdating(true);
+    try {
+      const updated = await cases.update(caseId, caseData.tenant_id, { status: "closed" });
+      setCaseData(updated);
+      toast("Rejected — case closed.", "success");
+    } catch (e) {
+      setError(toUserFacingError(e, { subject: "Case status", action: "close case" }));
+    } finally {
+      setStatusUpdating(false);
+    }
+  }, [caseId, caseData, statusUpdating, toast]);
+
+  const heroGoShadow = useCallback(() => {
+    if (!caseData) return;
+    pinCase({
+      caseId: caseData.id,
+      tenantId: caseData.tenant_id,
+      title: caseData.title || "Case",
+    });
+    setShadowChatOpen(true);
+  }, [caseData, pinCase]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (isHeroHotkeyEventIgnored(e)) return;
+      const k = e.key.toLowerCase();
+      if (k !== "a" && k !== "r" && k !== "s") return;
+      e.preventDefault();
+      if (k === "s") heroGoShadow();
+      else if (k === "a") void heroApprove();
+      else void heroReject();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [heroApprove, heroReject, heroGoShadow]);
+
+  const knowledgeGraphState = useKnowledgeGraphSidebarState(
+    caseData?.entity_id ?? "",
+    caseData?.tenant_id ?? "",
+    Boolean(caseData?.entity_id && caseData?.tenant_id),
+  );
 
   if (loading) {
     return (
@@ -269,8 +566,55 @@ export default function CaseDetail() {
 
   const casesListHref = `/cases?tenant_id=${encodeURIComponent(caseData.tenant_id)}`;
 
+  const financialMoney = useMemo(
+    () => extractTransactionMoney(decisionExplain?.evaluate_payload ?? undefined),
+    [decisionExplain?.evaluate_payload],
+  );
+
+  const saarthiFeatureImportancePayload = useMemo(() => {
+    if (!caseData?.trace_id || !decisionExplain) return null;
+    return buildSaarthiFeatureImportanceRequest({
+      traceId: caseData.trace_id,
+      tenantId: caseData.tenant_id,
+      entityId: caseData.entity_id,
+      score: decisionExplain.score,
+      decision: decisionExplain.decision,
+      inference: decisionExplain.inference_context,
+      ruleHits: decisionExplain.rule_hits,
+      tags: decisionExplain.tags,
+    });
+  }, [caseData, decisionExplain]);
+
+  const saarthiFeatureImportanceKey = useMemo(() => {
+    if (!caseData?.trace_id || !decisionExplain) return "";
+    return `${caseData.trace_id}:${decisionExplain.score}:${decisionExplain.decision}:${velocityArtifactsUpdatedAt ?? ""}`;
+  }, [caseData?.trace_id, decisionExplain, velocityArtifactsUpdatedAt]);
+
+  const triageFlashCards = useMemo((): [
+    TriageFlashCard,
+    TriageFlashCard,
+    TriageFlashCard,
+  ] => {
+    const ctx = decisionExplain?.inference_context ?? null;
+    const [velocity, graph, geo] = buildTriageFlashCards(ctx, graphRisk);
+    return [
+      { ...velocity, hoverDetail: <VelocityHoverBody ctx={ctx} /> },
+      { ...graph, hoverDetail: <GraphMetricHoverBody risk={graphRisk} inference={ctx} /> },
+      { ...geo, hoverDetail: <GeoHoverBody ctx={ctx} /> },
+    ];
+  }, [decisionExplain?.inference_context, graphRisk]);
+
+  const sightLine = useMemo(() => {
+    const ml = decisionExplain?.inference_context?.ml_summary?.trim();
+    if (ml) return firstSightSentence(ml);
+    const ra = decisionExplain?.recommended_action?.trim();
+    if (ra) return humanizeRecommendedAction(ra);
+    return null;
+  }, [decisionExplain?.inference_context?.ml_summary, decisionExplain?.recommended_action]);
+
   return (
-    <div className="p-6 space-y-6 animate-fade-in">
+    <div className="flex min-h-0 w-full flex-col xl:flex-row xl:items-stretch xl:min-h-[calc(100vh-10rem)]">
+      <div className="min-w-0 flex-1 space-y-6 animate-fade-in p-6">
       <nav className="text-sm text-gray-500 flex flex-wrap items-center gap-2" aria-label="Breadcrumb">
         <Link to={casesListHref} className="text-brand-400 hover:text-brand-300">
           Cases
@@ -278,6 +622,12 @@ export default function CaseDetail() {
         <span aria-hidden>/</span>
         <span className="text-gray-300 truncate min-w-0 max-w-[min(100%,32rem)]">{caseData.title}</span>
       </nav>
+
+      <KnowledgeGraphMobilePanel
+        entityId={caseData.entity_id}
+        tenantId={caseData.tenant_id}
+        state={knowledgeGraphState}
+      />
 
       {error ? (
         <div className="rounded-lg border border-rose-500/35 bg-rose-500/10 px-3 py-2 text-sm text-rose-300 space-y-1">
@@ -290,31 +640,369 @@ export default function CaseDetail() {
         </div>
       ) : null}
 
-      {decisionExplain?.recommended_action ? (
-        <div className="sticky top-0 z-10 rounded-xl border border-amber-500/40 bg-amber-500/[0.12] backdrop-blur-sm px-4 py-3 shadow-lg shadow-black/20">
-          <div className="text-xs font-semibold uppercase tracking-wide text-amber-200/90">
-            Recommended next step
-          </div>
-          <p className="text-lg sm:text-xl font-semibold text-gray-50 mt-1 leading-snug">
-            {humanizeRecommendedAction(decisionExplain.recommended_action)}
-          </p>
-          <details className="mt-2 text-sm">
-            <summary className="cursor-pointer text-amber-200/80 hover:text-amber-100 select-none">
-              Policy code
-            </summary>
-            <code className="mt-1 block text-xs text-gray-400 font-mono bg-surface-950/50 rounded px-2 py-1">
-              {decisionExplain.recommended_action}
-            </code>
-          </details>
-        </div>
-      ) : null}
-
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
-        <div className="space-y-1 min-w-0">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-2 min-w-0 flex-1">
           <PageTitle module="cases">{caseData.title}</PageTitle>
-          <p className="text-sm text-gray-400 font-mono">{caseData.id}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-gray-400 font-mono">{caseData.id}</span>
+            <StatusBadge status={caseData.status} />
+            <PriorityBadge priority={caseData.priority} />
+            <span
+              className={`text-xs font-medium px-2 py-1 rounded-full ${
+                slaPassed ? "bg-red-500/20 text-red-400" : "bg-green-500/20 text-green-400"
+              }`}
+            >
+              SLA: {slaPassed ? "Breached" : "On Track"}
+            </span>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 self-start">
+          <Link
+            to={buildCaseComparisonHref({ tenantId: caseData.tenant_id, caseA: caseData.id })}
+            className="shrink-0 text-xs font-semibold px-3 py-2 rounded-lg border border-brand-500/35 bg-brand-600/15 text-brand-200 hover:bg-brand-600/25 transition-colors"
+          >
+            Compare cases
+          </Link>
+          <button
+            type="button"
+            disabled={pdfBusy}
+            onClick={() => handleEvidenceExportPdf()}
+            title="Download a sanitized PDF snapshot of this case workspace (active tab, triage, and comments) for legal or compliance"
+            className="shrink-0 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors border-emerald-500/35 bg-emerald-950/35 text-emerald-100 hover:bg-emerald-950/55 disabled:opacity-45 disabled:cursor-wait"
+          >
+            {pdfBusy ? "Preparing PDF…" : "Evidence export (PDF)"}
+          </button>
+          <button
+            type="button"
+            aria-pressed={shadowChatOpen}
+            onClick={() => setShadowChatOpen((v) => !v)}
+            className={`shrink-0 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors ${
+              shadowChatOpen
+                ? "border-brand-500/50 bg-brand-500/15 text-brand-200"
+                : "border-surface-600 bg-surface-800 text-gray-300 hover:bg-surface-700"
+            }`}
+          >
+            {shadowChatOpen ? "Shadow AI: open" : "Shadow AI"}
+          </button>
+          <button
+            type="button"
+            aria-pressed={advancedDevView}
+            onClick={() => setAdvancedDevView((v) => !v)}
+            className={`shrink-0 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors ${
+              advancedDevView
+                ? "border-brand-500/50 bg-brand-500/15 text-brand-200"
+                : "border-surface-600 bg-surface-800 text-gray-300 hover:bg-surface-700"
+            }`}
+          >
+            {advancedDevView ? "Advanced / Dev View: on" : "Advanced / Dev View"}
+          </button>
+        </div>
+      </div>
+
+      <p className="text-[11px] text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="Keyboard shortcuts">
+        <span className="text-gray-600 uppercase tracking-wide font-semibold">Hero keys</span>
+        <span>
+          <kbd className="px-1.5 py-0.5 rounded border border-surface-600 bg-surface-900 font-mono text-[10px] text-gray-300">
+            A
+          </kbd>{" "}
+          Approve (Open → Investigating)
+        </span>
+        <span>
+          <kbd className="px-1.5 py-0.5 rounded border border-surface-600 bg-surface-900 font-mono text-[10px] text-gray-300">
+            R
+          </kbd>{" "}
+          Reject (Close case)
+        </span>
+        <span>
+          <kbd className="px-1.5 py-0.5 rounded border border-surface-600 bg-surface-900 font-mono text-[10px] text-gray-300">
+            S
+          </kbd>{" "}
+          Shadow AI chat (sidebar)
+        </span>
+      </p>
+
+      <p className="text-[11px] text-gray-500">
+        <Link
+          to={`/rules?tenant_id=${encodeURIComponent(caseData.tenant_id)}&trace_id=${encodeURIComponent(caseData.trace_id)}`}
+          className="text-brand-400 hover:text-brand-300 font-medium"
+        >
+          Rule Sandbox
+        </Link>
+        <span className="text-gray-600">
+          {" "}
+          — dry-run draft JSON rules against this case&apos;s stored audit payload before deploying to Rust.
+        </span>
+      </p>
+
+      <TriageHeader
+        verdict={decisionExplain?.decision ?? "review"}
+        riskScore={decisionExplain?.score ?? 0}
+        flashCards={triageFlashCards}
+        saarthiLine={sightLine}
+      />
+
+      <EntityProfileSparklines
+        entityId={caseData.entity_id}
+        inference={decisionExplain?.inference_context ?? null}
+        anchorIso={caseData.updated_at ?? caseData.created_at}
+        cohortSpend={financialMoney}
+        lastUpdatedIso={velocityArtifactsUpdatedAt}
+      />
+
+      <VelocityHeatmap
+        inference={decisionExplain?.inference_context ?? null}
+        anchorIso={caseData.updated_at ?? caseData.created_at}
+      />
+
+      <SaarthiFeatureImportancePanel
+        requestKey={saarthiFeatureImportanceKey}
+        payload={saarthiFeatureImportancePayload}
+      />
+
+      <Suspense
+        fallback={
+          <div
+            className="rounded-xl border border-surface-700 bg-surface-950/50 min-h-[320px] animate-pulse"
+            aria-busy
+            aria-label="Loading geographic map"
+          />
+        }
+      >
+        <GeographicCollisionMap evaluatePayload={decisionExplain?.evaluate_payload ?? null} />
+      </Suspense>
+
+      {/* Triage workspace — rigid 12-column-style grid (collapses to single column < xl) */}
+      <section
+        aria-label="Case triage workspace"
+        className="grid gap-4 grid-cols-1 min-w-0 xl:grid-cols-12 xl:gap-x-4 xl:gap-y-0"
+      >
+        {/* Financial impact (DuckDB / analytics plane) */}
+        <div className="xl:col-span-3 bg-surface-900 border border-surface-700 rounded-xl p-4 flex flex-col min-h-[8rem]">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+            Financial impact (DuckDB cohort)
+          </h3>
+          {financialMoney ? (
+            <p className="text-2xl font-semibold text-gray-100 tabular-nums">
+              {new Intl.NumberFormat(undefined, {
+                style: "currency",
+                currency: financialMoney.currency,
+                maximumFractionDigits: 2,
+              }).format(financialMoney.amount)}
+            </p>
+          ) : (
+            <p className="text-sm text-gray-400 leading-snug">
+              No transaction amount on the audit envelope. Rollups appear when the analytics plane attaches DuckDB cohort
+              metrics for this trace.
+            </p>
+          )}
+          <dl className="mt-auto pt-4 grid grid-cols-2 gap-x-3 gap-y-2 text-xs border-t border-surface-700">
+            <div>
+              <dt className="text-gray-500">Velocity (24h events)</dt>
+              <dd className="text-gray-200 font-mono tabular-nums">
+                {decisionExplain?.inference_context != null ? (
+                  <InfoHover
+                    heading="Velocity (24h events)"
+                    detail={<VelocityHoverBody ctx={decisionExplain.inference_context} />}
+                  >
+                    {decisionExplain.inference_context.velocity_events_24h}
+                  </InfoHover>
+                ) : (
+                  "—"
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">Queue score</dt>
+              <dd className="text-gray-200 font-mono tabular-nums">
+                <InfoHover heading="Queue score" detail={<QueueScoreHoverBody score={caseData.queue_score} />}>
+                  {caseData.queue_score != null ? caseData.queue_score.toFixed(1) : "—"}
+                </InfoHover>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">Graph risk (0–1)</dt>
+              <dd className="text-gray-200 font-mono tabular-nums">
+                {(() => {
+                  const raw =
+                    graphRisk != null
+                      ? graphRisk.risk_score
+                      : decisionExplain?.inference_context != null
+                        ? decisionExplain.inference_context.graph_risk_score
+                        : null;
+                  if (raw == null || !Number.isFinite(raw)) return "—";
+                  return (
+                    <InfoHover
+                      heading="Graph risk (0–1)"
+                      detail={
+                        <GraphMetricHoverBody
+                          risk={graphRisk}
+                          inference={decisionExplain?.inference_context ?? null}
+                        />
+                      }
+                    >
+                      {raw.toFixed(3)}
+                    </InfoHover>
+                  );
+                })()}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">Community size</dt>
+              <dd className="text-gray-200 font-mono tabular-nums">
+                {graphRisk ? (
+                  <InfoHover
+                    heading="Community size"
+                    detail={
+                      <GraphMetricHoverBody
+                        risk={graphRisk}
+                        inference={decisionExplain?.inference_context ?? null}
+                      />
+                    }
+                  >
+                    {graphRisk.community_size}
+                  </InfoHover>
+                ) : (
+                  "—"
+                )}
+              </dd>
+            </div>
+          </dl>
+        </div>
+
+        {/* AI summary — analyst-readable only */}
+        <div className="xl:col-span-6 bg-surface-900 border border-surface-700 rounded-xl p-4 flex flex-col min-h-[8rem]">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">AI summary</h3>
+          {decisionExplain?.recommended_action ? (
+            <div className="rounded-lg border border-amber-500/35 bg-amber-500/[0.08] px-3 py-2 mb-3">
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-amber-200/90">
+                Recommended next step
+              </div>
+              <p className="text-base font-semibold text-gray-50 leading-snug">
+                {humanizeRecommendedAction(decisionExplain.recommended_action)}
+              </p>
+              {advancedDevView ? (
+                <code className="mt-2 block text-[11px] text-gray-400 font-mono bg-surface-950/50 rounded px-2 py-1">
+                  {decisionExplain.recommended_action}
+                </code>
+              ) : null}
+            </div>
+          ) : null}
+          {decisionExplain ? (
+            <>
+              <div className="rounded-lg border border-surface-700/80 bg-surface-800/40 p-3 space-y-2 flex-1 min-h-0">
+                <div className="text-sm text-gray-200">
+                  <span className="text-gray-500">Outcome </span>
+                  <span className="font-semibold capitalize">{decisionExplain.decision}</span>
+                  <span className="text-gray-500"> · Score </span>
+                  <span className="font-mono tabular-nums">{decisionExplain.score.toFixed(1)}</span>
+                  <span className="text-gray-500">/100</span>
+                </div>
+                {decisionExplain.inference_context &&
+                (decisionExplain.inference_context.driver_explain?.length ?? 0) > 0 ? (
+                  <div>
+                    <div className="text-xs font-medium text-gray-500 mb-1">Top drivers</div>
+                    <ul className="text-sm text-gray-200 space-y-1">
+                      {decisionExplain.inference_context.driver_explain!.slice(0, 3).map((d) => (
+                        <li key={d.reason} className="flex flex-wrap gap-x-2 gap-y-0.5">
+                          <span className="text-[10px] uppercase tracking-wide text-gray-500 px-1.5 py-0.5 rounded bg-surface-700">
+                            {d.category}
+                          </span>
+                          <span>{d.label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : decisionExplain.inference_context && decisionExplain.inference_context.driver_reasons.length > 0 ? (
+                  <div>
+                    <div className="text-xs font-medium text-gray-500 mb-1">Top drivers</div>
+                    <ul className="text-sm text-gray-300 list-disc list-inside space-y-0.5">
+                      {decisionExplain.inference_context.driver_reasons.slice(0, 3).map((d) => (
+                        <li key={d} className="text-xs">
+                          {d}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {decisionExplain.inference_context?.ml_summary ? (
+                  <p className="text-sm text-gray-300 leading-snug border-t border-surface-700 pt-2">
+                    {decisionExplain.inference_context.ml_summary}
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-500 italic">No ML narrative attached to this audit.</p>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-gray-500">No decision audit available for this trace.</p>
+          )}
+        </div>
+
+        {/* Decision controls */}
+        <div className="xl:col-span-3 bg-surface-900 border border-surface-700 rounded-xl p-4 flex flex-col gap-4 min-h-[8rem]">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Decisions</h3>
+          <div className="space-y-3 flex-1">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1" htmlFor="case-status-select">
+                Status
+              </label>
+              <select
+                id="case-status-select"
+                value={caseData.status}
+                onChange={(e) => handleStatusChange(e.target.value)}
+                disabled={statusUpdating}
+                className="w-full bg-surface-800 border border-surface-600 text-gray-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              >
+                <option value="open">Open</option>
+                <option value="investigating">Investigating</option>
+                <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1" htmlFor="case-priority-select">
+                Priority
+              </label>
+              <select
+                id="case-priority-select"
+                value={caseData.priority}
+                onChange={(e) => handlePriorityChange(e.target.value)}
+                className="w-full bg-surface-800 border border-surface-600 text-gray-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              >
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 mt-1">
+            <Link
+              to={`/investigation?case_id=${encodeURIComponent(caseData.id)}&tenant_id=${encodeURIComponent(caseData.tenant_id)}`}
+              className="block text-center text-xs font-medium px-3 py-2.5 rounded-lg bg-brand-600/20 text-brand-300 hover:bg-brand-600/30 transition-colors border border-brand-500/30"
+            >
+              Open in Investigation Copilot
+            </Link>
+            <button
+              type="button"
+              disabled={!decisionExplain?.rule_hits?.length}
+              title={
+                decisionExplain?.rule_hits?.length
+                  ? "Open the visual rule builder with the rule that fired on this audit"
+                  : "No rule hits on this trace — tune is unavailable"
+              }
+              onClick={() => setTuneRuleOpen(true)}
+              className="w-full text-center text-xs font-medium px-3 py-2.5 rounded-lg bg-surface-800 text-gray-200 hover:bg-surface-700 transition-colors border border-surface-600 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Tune rule
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {advancedDevView ? (
+        <div className="flex flex-wrap gap-2 items-center rounded-lg border border-surface-700 bg-surface-900/60 px-3 py-2">
+          <span className="text-xs text-gray-500 mr-1">Dev tools</span>
           <button
             type="button"
             disabled={bundleBusy}
@@ -323,12 +1011,6 @@ export default function CaseDetail() {
           >
             {bundleBusy ? "Preparing bundle…" : "Download evidence bundle (JSON)"}
           </button>
-          <Link
-            to={`/investigation?case_id=${encodeURIComponent(caseData.id)}&tenant_id=${encodeURIComponent(caseData.tenant_id)}`}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-brand-600/20 text-brand-300 hover:bg-brand-600/30 transition-colors border border-brand-500/30"
-          >
-            Open in Investigation Copilot
-          </Link>
           {caseData.trace_id ? (
             <Link
               to={`/investigation/dag-trace?trace_id=${encodeURIComponent(caseData.trace_id)}&tenant_id=${encodeURIComponent(caseData.tenant_id)}`}
@@ -337,19 +1019,12 @@ export default function CaseDetail() {
               DAG execution trace
             </Link>
           ) : null}
-          <StatusBadge status={caseData.status} />
-          <PriorityBadge priority={caseData.priority} />
-          <span
-            className={`text-xs font-medium px-2 py-1 rounded-full ${
-              slaPassed
-                ? "bg-red-500/20 text-red-400"
-                : "bg-green-500/20 text-green-400"
-            }`}
-          >
-            SLA: {slaPassed ? "Breached" : "On Track"}
-          </span>
         </div>
-      </div>
+      ) : null}
+
+      <SarManagementPanel caseId={caseData.id} tenantId={caseData.tenant_id} />
+
+      <KycHandoverPanel caseId={caseData.id} tenantId={caseData.tenant_id} />
 
       {/* Info Panel */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -358,23 +1033,11 @@ export default function CaseDetail() {
         <InfoCard label="Assigned Team" value={caseData.assigned_team || "Unassigned"} />
       </div>
 
-      <SarManagementPanel caseId={caseData.id} tenantId={caseData.tenant_id} />
-
-      {/* Explainability — summary first; full metrics behind toggle */}
+      {advancedDevView ? (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-surface-900 border border-surface-700 rounded-xl p-4 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-gray-300">Decision explainability</h3>
-            {decisionExplain ? (
-              <button
-                type="button"
-                aria-expanded={showTechnicalDecision}
-                onClick={() => setShowTechnicalDecision((v) => !v)}
-                className="text-xs font-medium text-brand-400 hover:text-brand-300"
-              >
-                {showTechnicalDecision ? "Hide technical detail" : "Show technical detail"}
-              </button>
-            ) : null}
+            <h3 className="text-sm font-semibold text-gray-300">Decision explainability (technical)</h3>
           </div>
           {decisionExplain ? (
             <>
@@ -452,11 +1115,10 @@ export default function CaseDetail() {
                   </p>
                 ) : null}
                 <p className="text-xs text-gray-500 leading-snug">
-                  Review and block thresholds are defined in your org policy. Expand technical detail for every signal.
+                  Review and block thresholds are defined in your org policy.
                 </p>
               </div>
 
-              {showTechnicalDecision ? (
                 <div className="space-y-3 border-t border-surface-700 pt-3">
                   {decisionExplain.inference_context ? (
                     <>
@@ -465,32 +1127,46 @@ export default function CaseDetail() {
                           label="Integrity confidence"
                           value={decisionExplain.inference_context.integrity_confidence}
                           variant="trust"
+                          hoverDetail={
+                            <InferenceIntegrityHoverBody ctx={decisionExplain.inference_context} />
+                          }
                         />
                         <InferenceMetricTrack
                           label="Tamper risk"
                           value={decisionExplain.inference_context.tamper_risk}
                           variant="risk"
+                          hoverDetail={<InferenceTamperHoverBody ctx={decisionExplain.inference_context} />}
                         />
                         <InferenceMetricTrack
                           label="Replay risk"
                           value={decisionExplain.inference_context.replay_risk}
                           variant="risk"
+                          hoverDetail={<InferenceReplayHoverBody ctx={decisionExplain.inference_context} />}
                         />
                         <InferenceMetricTrack
                           label="Network trust"
                           value={decisionExplain.inference_context.network_trust}
                           variant="trust"
+                          hoverDetail={
+                            <InferenceNetworkTrustHoverBody ctx={decisionExplain.inference_context} />
+                          }
                         />
                         <InferenceMetricTrack
                           label="Geo consistency risk"
                           value={decisionExplain.inference_context.geo_consistency_risk}
                           variant="risk"
+                          hoverDetail={
+                            <InferenceGeoConsistencyHoverBody ctx={decisionExplain.inference_context} />
+                          }
                         />
                         {decisionExplain.inference_context.colocation_risk > 0 && (
                           <InferenceMetricTrack
                             label="Colocation risk"
                             value={decisionExplain.inference_context.colocation_risk}
                             variant="risk"
+                            hoverDetail={
+                              <InferenceColocationHoverBody ctx={decisionExplain.inference_context} />
+                            }
                           />
                         )}
                         {decisionExplain.inference_context.impossible_travel_risk > 0 && (
@@ -498,23 +1174,38 @@ export default function CaseDetail() {
                             label="Impossible travel (proxy)"
                             value={decisionExplain.inference_context.impossible_travel_risk}
                             variant="risk"
+                            hoverDetail={
+                              <InferenceImpossibleTravelHoverBody ctx={decisionExplain.inference_context} />
+                            }
                           />
                         )}
                       </div>
                       <div className="text-xs text-gray-500">
                         Velocity (5m / 1h / 24h):{" "}
-                        <span className="text-gray-300 font-mono tabular-nums">
-                          {decisionExplain.inference_context.velocity_events_5m} /{" "}
-                          {decisionExplain.inference_context.velocity_events_1h} /{" "}
-                          {decisionExplain.inference_context.velocity_events_24h}
-                        </span>
+                        <InfoHover
+                          heading="Velocity ladder"
+                          detail={<VelocityHoverBody ctx={decisionExplain.inference_context} />}
+                          className="inline-flex"
+                        >
+                          <span className="text-gray-300 font-mono tabular-nums">
+                            {decisionExplain.inference_context.velocity_events_5m} /{" "}
+                            {decisionExplain.inference_context.velocity_events_1h} /{" "}
+                            {decisionExplain.inference_context.velocity_events_24h}
+                          </span>
+                        </InfoHover>
                       </div>
                       {decisionExplain.inference_context.external_signal_score > 0 && (
                         <div className="text-xs text-gray-500">
                           External signal score:{" "}
-                          <span className="text-gray-300 font-mono tabular-nums">
-                            {(decisionExplain.inference_context.external_signal_score * 100).toFixed(1)}%
-                          </span>
+                          <InfoHover
+                            heading="External signal"
+                            detail={<ExternalSignalHoverBody ctx={decisionExplain.inference_context} />}
+                            className="inline-flex"
+                          >
+                            <span className="text-gray-300 font-mono tabular-nums">
+                              {(decisionExplain.inference_context.external_signal_score * 100).toFixed(1)}%
+                            </span>
+                          </InfoHover>
                           {decisionExplain.inference_context.external_signal_providers.length > 0 && (
                             <>
                               {" · providers "}
@@ -583,11 +1274,20 @@ export default function CaseDetail() {
                     </div>
                   ) : null}
                 </div>
-              ) : null}
             </>
           ) : (
             <span className="text-xs text-gray-500">No decision audit available</span>
           )}
+          {decisionExplain?.evaluate_payload ? (
+            <details className="rounded-lg border border-surface-700 bg-surface-950/40 p-3">
+              <summary className="cursor-pointer text-xs font-medium text-gray-400 select-none">
+                Raw audit envelope (evaluate_payload JSON)
+              </summary>
+              <pre className="mt-2 max-h-48 overflow-auto text-[11px] text-gray-400 font-mono whitespace-pre-wrap break-all">
+                {JSON.stringify(decisionExplain.evaluate_payload, null, 2)}
+              </pre>
+            </details>
+          ) : null}
         </div>
         <div className="bg-surface-900 border border-surface-700 rounded-xl p-4 space-y-2">
           <h3 className="text-sm font-semibold text-gray-300">Graph Risk Context</h3>
@@ -597,9 +1297,27 @@ export default function CaseDetail() {
                 label="Graph risk score (0–1)"
                 value={graphRisk.risk_score}
                 variant="risk"
+                hoverDetail={
+                  <GraphMetricHoverBody
+                    risk={graphRisk}
+                    inference={decisionExplain?.inference_context ?? null}
+                  />
+                }
               />
               <div className="text-xs text-gray-400 pt-1">
-                Community size: <span className="text-gray-200 font-mono tabular-nums">{graphRisk.community_size}</span>
+                Community size:{" "}
+                <InfoHover
+                  heading="Community size"
+                  detail={
+                    <GraphMetricHoverBody
+                      risk={graphRisk}
+                      inference={decisionExplain?.inference_context ?? null}
+                    />
+                  }
+                  className="inline-flex"
+                >
+                  <span className="text-gray-200 font-mono tabular-nums">{graphRisk.community_size}</span>
+                </InfoHover>
               </div>
               <div className="flex flex-wrap gap-2">
                 {graphRisk.risk_factors.map((f) => (
@@ -612,6 +1330,7 @@ export default function CaseDetail() {
           )}
         </div>
       </div>
+      ) : null}
 
       {/* Labels */}
       <div className="bg-surface-900 border border-surface-700 rounded-xl p-4">
@@ -644,41 +1363,6 @@ export default function CaseDetail() {
           >
             Add
           </button>
-        </div>
-      </div>
-
-      {/* Actions */}
-      <div className="flex flex-wrap gap-3">
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">
-            Change Status
-          </label>
-          <select
-            value={caseData.status}
-            onChange={(e) => handleStatusChange(e.target.value)}
-            disabled={statusUpdating}
-            className="bg-surface-800 border border-surface-600 text-gray-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-500"
-          >
-            <option value="open">Open</option>
-            <option value="investigating">Investigating</option>
-            <option value="resolved">Resolved</option>
-            <option value="closed">Closed</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">
-            Change Priority
-          </label>
-          <select
-            value={caseData.priority}
-            onChange={(e) => handlePriorityChange(e.target.value)}
-            className="bg-surface-800 border border-surface-600 text-gray-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-500"
-          >
-            <option value="critical">Critical</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
         </div>
       </div>
 
@@ -729,12 +1413,34 @@ export default function CaseDetail() {
       {activeTab === "graph" && (
         <div role="tabpanel" id="case-panel-graph" aria-labelledby="case-tab-graph">
           <GraphTab
+            caseId={caseData.id}
             entityId={caseData.entity_id}
             tenantId={caseData.tenant_id}
             graphSnapshot={caseData.graph_snapshot ?? null}
+            eventTimeIso={caseData.created_at}
+            showRawDevTables={advancedDevView}
           />
         </div>
       )}
+
+      <TuneRuleModal
+        open={tuneRuleOpen}
+        onClose={() => setTuneRuleOpen(false)}
+        ruleHits={decisionExplain?.rule_hits ?? []}
+      />
+      </div>
+      <KnowledgeGraphDesktopRail
+        entityId={caseData.entity_id}
+        tenantId={caseData.tenant_id}
+        state={knowledgeGraphState}
+      />
+      <ShadowChatSidebar
+        caseId={caseData.id}
+        tenantId={caseData.tenant_id}
+        caseTitle={caseData.title ?? undefined}
+        open={shadowChatOpen}
+        onOpenChange={setShadowChatOpen}
+      />
     </div>
   );
 }
@@ -882,6 +1588,7 @@ const NODE_COLORS: Record<string, string> = {
   Person: "#3b82f6",
   Account: "#22c55e",
   Device: "#f97316",
+  DeviceCluster: "#7c3aed",
   Payment: "#a855f7",
   Email: "#06b6d4",
   IP: "#ec4899",
@@ -918,13 +1625,21 @@ const GRAPH_OPTIONS: Options = {
 };
 
 function GraphTab({
+  caseId,
   entityId,
   tenantId,
   graphSnapshot,
+  eventTimeIso,
+  showRawDevTables = true,
 }: {
+  caseId: string;
   entityId: string;
   tenantId: string;
   graphSnapshot?: Record<string, unknown> | null;
+  /** Case/trace time shown on the “At event” side of the slider. */
+  eventTimeIso?: string | null;
+  /** When false, hide the raw node/edge table (Advanced / Dev View). */
+  showRawDevTables?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const networkRef = useRef<Network | null>(null);
@@ -932,6 +1647,47 @@ function GraphTab({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  /** 0 = decision-time snapshot, 100 = live subgraph */
+  const [timeTravel, setTimeTravel] = useState(100);
+  /** Right-click Janus/local subgraph node annotations (browser-local per case). */
+  const [nodeAnnotations, setNodeAnnotations] = useState<Record<string, string>>({});
+  const [showAnnotationLayer, setShowAnnotationLayer] = useState(true);
+  /** Collapse vertices that share ``device_hash`` (live vis-network + evidence snapshot). */
+  const [entityClustering, setEntityClustering] = useState(true);
+  const [annotationPopover, setAnnotationPopover] = useState<{
+    clientX: number;
+    clientY: number;
+    nodeId: string;
+  } | null>(null);
+
+  const snapshotParsed = useMemo(() => {
+    if (!graphSnapshot || typeof graphSnapshot !== "object") return null;
+    return parseGraphSnapshot(graphSnapshot, { clusterByDeviceHash: entityClustering });
+  }, [graphSnapshot, entityClustering]);
+
+  const displayGraph = useMemo(() => {
+    if (!graphData) return null;
+    if (!entityClustering) return graphData;
+    return clusterSubgraphByDeviceHash(graphData.nodes, graphData.edges);
+  }, [graphData, entityClustering]);
+
+  const hasSnapshot = (snapshotParsed?.nodes.length ?? 0) > 0;
+  const showEventView = hasSnapshot && timeTravel < 50;
+
+  useEffect(() => {
+    if (showEventView) setSelectedNode(null);
+  }, [showEventView]);
+
+  useEffect(() => {
+    setNodeAnnotations(loadGraphAnnotations(tenantId, caseId));
+  }, [tenantId, caseId]);
+
+  useEffect(() => {
+    if (!selectedNode || !displayGraph) return;
+    if (!displayGraph.nodes.some((n) => n.id === selectedNode)) {
+      setSelectedNode(null);
+    }
+  }, [displayGraph, selectedNode]);
 
   useEffect(() => {
     (async () => {
@@ -947,27 +1703,51 @@ function GraphTab({
   }, [entityId, tenantId]);
 
   useEffect(() => {
-    if (!graphData || !containerRef.current) return;
-    if (graphData.nodes.length === 0) return;
+    if (!displayGraph || !containerRef.current || showEventView) return;
+    if (displayGraph.nodes.length === 0) return;
 
     const nodes = new DataSet(
-      graphData.nodes.map((n) => ({
-        id: n.id,
-        label: n.id.length > 20 ? n.id.slice(0, 20) + "\u2026" : n.id,
-        title: `${n.labels?.[0] ?? "Node"}: ${n.id}`,
-        color: {
-          background: NODE_COLORS[n.labels?.[0] ?? ""] ?? "#6b7280",
-          border: NODE_COLORS[n.labels?.[0] ?? ""] ?? "#6b7280",
-          highlight: {
-            background: "#60a5fa",
-            border: "#3b82f6",
+      displayGraph.nodes.map((n) => {
+        const primaryLabel = n.labels?.[0] ?? "Node";
+        const baseBg =
+          NODE_COLORS[primaryLabel === DEVICE_CLUSTER_GRAPH_LABEL ? "DeviceCluster" : primaryLabel] ??
+          "#6b7280";
+        const note = nodeAnnotations[n.id];
+        const ring = Boolean(showAnnotationLayer && note);
+        const memberCount =
+          typeof n.properties?.cluster_member_count === "number" ? n.properties.cluster_member_count : null;
+        const shortLabel =
+          primaryLabel === DEVICE_CLUSTER_GRAPH_LABEL && memberCount != null
+            ? `${memberCount} · shared device`
+            : n.id.length > 20
+              ? n.id.slice(0, 20) + "\u2026"
+              : n.id;
+        const titleBase =
+          primaryLabel === DEVICE_CLUSTER_GRAPH_LABEL &&
+          typeof n.properties?.device_hash === "string" &&
+          typeof n.properties?.cluster_member_ids === "string"
+            ? `${primaryLabel}\ndevice_hash: ${n.properties.device_hash}\nmembers: ${n.properties.cluster_member_ids}`
+            : `${primaryLabel}: ${n.id}`;
+        const title = note ? `${titleBase}\n\nAnnotation:\n${note}` : titleBase;
+        return {
+          id: n.id,
+          label: shortLabel,
+          title,
+          color: {
+            background: baseBg,
+            border: ring ? "#f59e0b" : baseBg,
+            highlight: {
+              background: "#60a5fa",
+              border: "#3b82f6",
+            },
           },
-        },
-      })),
+          borderWidth: ring ? 3 : 2,
+        };
+      }),
     );
 
     const edges = new DataSet(
-      graphData.edges.map((e, i) => ({
+      displayGraph.edges.map((e, i) => ({
         id: i,
         from: e.from_id,
         to: e.to_id,
@@ -986,32 +1766,69 @@ function GraphTab({
       }
     });
 
+    net.on("oncontext", (params: { event?: MouseEvent; nodes?: string[] }) => {
+      params.event?.preventDefault();
+      const nid = params.nodes?.[0];
+      const ev = params.event;
+      if (!nid || !ev) return;
+      setAnnotationPopover({ clientX: ev.clientX, clientY: ev.clientY, nodeId: nid });
+      setSelectedNode(nid);
+    });
+
     return () => {
       net.destroy();
       networkRef.current = null;
     };
-  }, [graphData]);
+  }, [displayGraph, showEventView, nodeAnnotations, showAnnotationLayer]);
 
-  const selectedNodeData = graphData?.nodes.find((n) => n.id === selectedNode);
+  const selectedNodeData = displayGraph?.nodes.find((n) => n.id === selectedNode);
 
-  const snapshotPanel =
-    graphSnapshot != null && typeof graphSnapshot === "object" ? (
-      <div className="space-y-2" data-testid="case-graph-snapshot-panel">
-        <h3 className="text-sm font-semibold text-gray-300">Saved graph snapshot</h3>
+  const liveCounts = displayGraph
+    ? { nodes: displayGraph.nodes.length, edges: displayGraph.edges.length }
+    : null;
+
+  const timeTravelChrome = hasSnapshot ? (
+    <TimeTravelSlider
+      value={timeTravel}
+      onChange={setTimeTravel}
+      eventTimeIso={eventTimeIso ?? undefined}
+      snapshotNodeCount={snapshotParsed?.nodes.length ?? null}
+      liveNodeCount={liveCounts?.nodes ?? null}
+    />
+  ) : (
+    <p className="text-xs text-gray-500 border border-dashed border-surface-600 rounded-lg px-3 py-2 bg-surface-950/40 leading-snug">
+      No evidence-locker <span className="font-mono text-gray-400">graph_snapshot</span> on this case — time travel
+      needs a persisted topology. Only the live subgraph is shown.
+    </p>
+  );
+
+  const eventCaption =
+    eventTimeIso != null && eventTimeIso !== ""
+      ? new Date(eventTimeIso).toLocaleString()
+      : "decision time";
+
+  const snapshotViewport =
+    hasSnapshot && graphSnapshot ? (
+      <div className="space-y-2" data-testid="case-graph-event-view">
         <p className="text-xs text-gray-500">
-          Immutable evidence-locker topology (React Flow). Live entity graph from the API follows below.
+          Topology frozen in the evidence bundle at <span className="text-gray-400">{eventCaption}</span> (immutable
+          React Flow snapshot).
         </p>
-        <SnapshotGraph snapshot={graphSnapshot} height={300} />
+        <SnapshotGraph snapshot={graphSnapshot} height={420} clusterByDeviceHash={entityClustering} />
       </div>
     ) : null;
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        {snapshotPanel}
-        <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
-        </div>
+      <div className="space-y-4">
+        {timeTravelChrome}
+        {showEventView && snapshotViewport ? (
+          snapshotViewport
+        ) : (
+          <div className="flex items-center justify-center py-20">
+            <div className="w-8 h-8 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
       </div>
     );
   }
@@ -1019,66 +1836,153 @@ function GraphTab({
   if (error) {
     return (
       <div className="space-y-4">
-        {snapshotPanel}
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm space-y-1">
-          <p>{error}</p>
-          <SupportIdHint
-            message={error}
-            className="flex flex-wrap items-center gap-2 text-[11px] text-red-300/85"
-            buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
-          />
-        </div>
-        {graphData ? <GraphDataTable nodes={graphData.nodes} edges={graphData.edges} /> : null}
+        {timeTravelChrome}
+        {showEventView && snapshotViewport ? (
+          snapshotViewport
+        ) : (
+          <>
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm space-y-1">
+              <p>{error}</p>
+              <SupportIdHint
+                message={error}
+                className="flex flex-wrap items-center gap-2 text-[11px] text-red-300/85"
+                buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+              />
+            </div>
+            {graphData && showRawDevTables ? (
+              <GraphDataTable nodes={graphData.nodes} edges={graphData.edges} />
+            ) : null}
+          </>
+        )}
       </div>
     );
   }
 
   if (!graphData) {
-    return <p className="text-sm text-gray-500">No graph data loaded.</p>;
+    return (
+      <div className="space-y-4">
+        {timeTravelChrome}
+        <p className="text-sm text-gray-500">No graph data loaded.</p>
+      </div>
+    );
   }
 
-  const emptyGraph = graphData.nodes.length === 0 && graphData.edges.length === 0;
+  const emptyGraph =
+    displayGraph != null && displayGraph.nodes.length === 0 && displayGraph.edges.length === 0;
 
   return (
     <div className="space-y-4">
-      {snapshotPanel}
-      {emptyGraph ? (
-        <p className="text-sm text-gray-500 border border-surface-700 rounded-lg px-4 py-3 bg-surface-900/60">
-          No graph nodes returned for this entity. Use the table below if the API returned partial data, or widen subgraph
-          depth when supported.
-        </p>
-      ) : null}
-      <div className="flex flex-col gap-2">
-        {!emptyGraph ? (
-          <p className="text-xs text-gray-500">
-            Click a node to open the <span className="text-gray-400">graph context</span> panel (transactions, IPs,
-            risk snapshot).
-          </p>
-        ) : null}
-        {!emptyGraph ? (
-          <div
-            ref={containerRef}
-            className="flex-1 bg-surface-900 border border-surface-700 rounded-xl min-h-[320px]"
-            style={{ height: 420 }}
-            aria-label="Entity relationship graph"
+      {timeTravelChrome}
+      {showEventView && snapshotViewport ? (
+        snapshotViewport
+      ) : (
+        <>
+          {emptyGraph ? (
+            <p className="text-sm text-gray-500 border border-surface-700 rounded-lg px-4 py-3 bg-surface-900/60">
+              No graph nodes returned for this entity.
+              {showRawDevTables
+                ? " Use the table below if the API returned partial data, or widen subgraph depth when supported."
+                : " Enable Advanced / Dev View for the raw node and edge table."}
+            </p>
+          ) : null}
+          <div className="flex flex-col gap-2">
+            {!emptyGraph ? (
+              <p className="text-xs text-gray-500">
+                Live subgraph — click a node for <span className="text-gray-400">graph context</span>;{" "}
+                <span className="text-amber-200/90">right-click</span> a node to add an annotation (Janus / neighborhood
+                vertex).
+              </p>
+            ) : null}
+            {!emptyGraph ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <label className="flex items-center gap-2 text-gray-400 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={entityClustering}
+                      onChange={(e) => setEntityClustering(e.target.checked)}
+                      className="rounded border-surface-600"
+                    />
+                    Cluster by <span className="font-mono text-gray-500">device_hash</span> (botnets)
+                  </label>
+                  <label className="flex items-center gap-2 text-gray-400 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={showAnnotationLayer}
+                      onChange={(e) => setShowAnnotationLayer(e.target.checked)}
+                      className="rounded border-surface-600"
+                    />
+                    Show annotation layer (amber ring + tooltip)
+                  </label>
+                </div>
+                <span className="text-gray-600">Annotations stored in this browser for this case.</span>
+              </div>
+            ) : null}
+            {!emptyGraph ? (
+              <div
+                ref={containerRef}
+                className="flex-1 bg-surface-900 border border-surface-700 rounded-xl min-h-[320px]"
+                style={{ height: 420 }}
+                aria-label="Entity relationship graph"
+              />
+            ) : null}
+          </div>
+          {Object.keys(nodeAnnotations).length > 0 ? (
+            <details className="rounded-xl border border-amber-500/25 bg-amber-950/15 px-3 py-2">
+              <summary className="cursor-pointer text-xs font-medium text-amber-200/90 select-none">
+                Annotation layer ({Object.keys(nodeAnnotations).length})
+              </summary>
+              <ul className="mt-2 space-y-2 max-h-40 overflow-y-auto text-xs">
+                {Object.entries(nodeAnnotations).map(([nid, text]) => (
+                  <li key={nid} className="border-b border-surface-800 pb-2 last:border-0">
+                    <div className="font-mono text-[10px] text-gray-500 truncate" title={nid}>
+                      {nid}
+                    </div>
+                    <div className="text-gray-300 whitespace-pre-wrap">{text}</div>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+          <GraphContextPanel
+            open={Boolean(selectedNode)}
+            onClose={() => setSelectedNode(null)}
+            tenantId={tenantId}
+            entityId={selectedNode}
+            nodeHint={selectedNodeData ?? undefined}
           />
-        ) : null}
-      </div>
-      <GraphContextPanel
-        open={Boolean(selectedNode)}
-        onClose={() => setSelectedNode(null)}
-        tenantId={tenantId}
-        entityId={selectedNode}
-        nodeHint={selectedNodeData ?? undefined}
-      />
-      <details open className="rounded-xl border border-surface-700 bg-surface-900/40 p-4">
-        <summary className="cursor-pointer text-sm font-medium text-gray-300">
-          Table view (nodes &amp; edges)
-        </summary>
-        <div className="mt-3 pt-3 border-t border-surface-700">
-          <GraphDataTable nodes={graphData.nodes} edges={graphData.edges} />
-        </div>
-      </details>
+          {showRawDevTables ? (
+            <details open className="rounded-xl border border-surface-700 bg-surface-900/40 p-4">
+              <summary className="cursor-pointer text-sm font-medium text-gray-300">
+                Table view (nodes &amp; edges)
+              </summary>
+              <div className="mt-3 pt-3 border-t border-surface-700">
+                <GraphDataTable nodes={graphData.nodes} edges={graphData.edges} />
+              </div>
+            </details>
+          ) : null}
+          {annotationPopover ? (
+            <GraphAnnotationPopover
+              open
+              clientX={annotationPopover.clientX}
+              clientY={annotationPopover.clientY}
+              nodeId={annotationPopover.nodeId}
+              initialText={nodeAnnotations[annotationPopover.nodeId] ?? ""}
+              onSave={(text) => {
+                const next = setGraphNodeAnnotation(tenantId, caseId, annotationPopover.nodeId, text);
+                setNodeAnnotations(next);
+                setAnnotationPopover(null);
+              }}
+              onRemove={() => {
+                const next = setGraphNodeAnnotation(tenantId, caseId, annotationPopover.nodeId, null);
+                setNodeAnnotations(next);
+                setAnnotationPopover(null);
+              }}
+              onClose={() => setAnnotationPopover(null)}
+            />
+          ) : null}
+        </>
+      )}
     </div>
   );
 }

@@ -26,4 +26,4 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src", "../ingestor/src", "../shared"]
+pythonpath = ["src", "../ingestor/src", "../shared", "../saarthi/src", "../../../../services/research"]

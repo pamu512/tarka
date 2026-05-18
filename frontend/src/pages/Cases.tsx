@@ -8,7 +8,9 @@ import StatusBadge from "../components/StatusBadge";
 import PriorityBadge from "../components/PriorityBadge";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
+import { buildCaseComparisonHref } from "../utils/caseComparisonUrl";
 import { toUserFacingError } from "../utils/userFacingErrors";
+import { isHeroHotkeyEventIgnored } from "../utils/heroHotkeys";
 
 function insertCaseSortedByQueue(list: Case[], row: Case): Case[] {
   const next = [...list, row];
@@ -222,6 +224,88 @@ export default function Cases() {
     [statusFilter, tenantId, toast],
   );
 
+  const heroListApprove = useCallback(() => {
+    if (selectedIds.size !== 1) {
+      toast("Select exactly one case (checkbox) for hero keys A / R / S.", "info");
+      return;
+    }
+    const id = [...selectedIds][0];
+    const row = caseList.find((c) => c.id === id);
+    if (!row) return;
+    if (row.status !== "open") {
+      toast("A · Only open cases can be approved into investigation.", "info");
+      return;
+    }
+    approveOpenCase(row);
+  }, [selectedIds, caseList, approveOpenCase, toast]);
+
+  const heroListReject = useCallback(async () => {
+    if (selectedIds.size !== 1) {
+      toast("Select exactly one case (checkbox) for hero keys A / R / S.", "info");
+      return;
+    }
+    const id = [...selectedIds][0];
+    const row = caseList.find((c) => c.id === id);
+    if (!row) return;
+    if (row.status === "closed") {
+      toast("Case is already closed.", "info");
+      return;
+    }
+    try {
+      await cases.update(row.id, row.tenant_id, { status: "closed" });
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(row.id);
+        return next;
+      });
+      await fetchCases();
+      toast("Rejected — case closed.", "success");
+    } catch (e) {
+      setError(toUserFacingError(e, { subject: "Case status", action: "close case" }));
+    }
+  }, [selectedIds, caseList, fetchCases, toast]);
+
+  const heroListShadow = useCallback(() => {
+    if (selectedIds.size !== 1) {
+      toast("Select exactly one case (checkbox) for hero keys A / R / S.", "info");
+      return;
+    }
+    const id = [...selectedIds][0];
+    const row = caseList.find((c) => c.id === id);
+    if (!row) return;
+    pinCase({
+      caseId: row.id,
+      tenantId: row.tenant_id,
+      title: row.title || "Case",
+    });
+    navigate(
+      `/investigation/shadow-llm?case_id=${encodeURIComponent(row.id)}&tenant_id=${encodeURIComponent(row.tenant_id)}`,
+    );
+  }, [selectedIds, caseList, navigate, pinCase, toast]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (isHeroHotkeyEventIgnored(e)) return;
+      const k = e.key.toLowerCase();
+      if (k !== "a" && k !== "r" && k !== "s") return;
+      e.preventDefault();
+      if (k === "s") heroListShadow();
+      else if (k === "a") heroListApprove();
+      else void heroListReject();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [heroListApprove, heroListReject, heroListShadow]);
+
+  const openComparisonForSelection = useCallback(() => {
+    if (selectedIds.size !== 2) {
+      toast("Select exactly two cases to compare side-by-side.", "info");
+      return;
+    }
+    const [a, b] = Array.from(selectedIds);
+    navigate(buildCaseComparisonHref({ tenantId, caseA: a, caseB: b }));
+  }, [navigate, selectedIds, tenantId, toast]);
+
   const applySavedView = (name: string) => {
     const view = savedViews.find((v) => v.name === name);
     if (!view) return;
@@ -235,17 +319,54 @@ export default function Cases() {
 
   return (
     <div className="p-6 space-y-5 animate-fade-in">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <PageTitle module="cases">Cases</PageTitle>
-        <button
-          type="button"
-          onClick={() => setShowCreate(true)}
-          aria-haspopup="dialog"
-          className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg transition-colors"
-        >
-          + New Case
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to={buildCaseComparisonHref({ tenantId })}
+            className="px-4 py-2 border border-surface-600 bg-surface-800 hover:bg-surface-700 text-gray-200 text-sm font-medium rounded-lg transition-colors"
+          >
+            Comparison mode
+          </Link>
+          <Link
+            to={`/cases/bulk-triage?tenant_id=${encodeURIComponent(tenantId)}`}
+            className="px-4 py-2 border border-surface-600 bg-surface-800 hover:bg-surface-700 text-gray-200 text-sm font-medium rounded-lg transition-colors"
+          >
+            Bulk triage
+          </Link>
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            aria-haspopup="dialog"
+            className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            + New Case
+          </button>
+        </div>
       </div>
+
+      <p className="text-[11px] text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="Keyboard shortcuts">
+        <span className="text-gray-600 uppercase tracking-wide font-semibold">Hero keys</span>
+        <span>Select one row</span>
+        <span>
+          <kbd className="px-1.5 py-0.5 rounded border border-surface-600 bg-surface-900 font-mono text-[10px] text-gray-300">
+            A
+          </kbd>{" "}
+          Approve
+        </span>
+        <span>
+          <kbd className="px-1.5 py-0.5 rounded border border-surface-600 bg-surface-900 font-mono text-[10px] text-gray-300">
+            R
+          </kbd>{" "}
+          Close
+        </span>
+        <span>
+          <kbd className="px-1.5 py-0.5 rounded border border-surface-600 bg-surface-900 font-mono text-[10px] text-gray-300">
+            S
+          </kbd>{" "}
+          Shadow LLM
+        </span>
+      </p>
 
       {opsKpis && (
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
@@ -450,6 +571,15 @@ export default function Cases() {
       {selectedIds.size > 0 && (
       <div className="flex flex-wrap gap-2 items-center rounded-lg border border-brand-500/20 bg-brand-500/5 px-3 py-2">
         <span className="text-xs text-gray-400">Selected: {selectedIds.size}</span>
+        <button
+          type="button"
+          disabled={selectedIds.size !== 2}
+          onClick={openComparisonForSelection}
+          title={selectedIds.size === 2 ? "Open comparison mode for the two selected cases" : "Select exactly two cases"}
+          className="px-3 py-1.5 bg-brand-700 hover:bg-brand-600 disabled:opacity-40 text-white text-xs rounded"
+        >
+          Compare side-by-side
+        </button>
         <button
           disabled={bulkBusy}
           onClick={() => void applyBulk({ status: "investigating" })}

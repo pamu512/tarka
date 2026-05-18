@@ -2568,6 +2568,30 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
     return out
 
 
+class SaarthiFeatureImportanceBody(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    trace_id: str = ""
+    tenant_id: str = "demo"
+    entity_id: str = ""
+    risk_score: float = 0.0
+    decision: str = "review"
+    inference_context: dict[str, Any] | None = None
+    rule_hits: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+
+
+@app.post("/v1/saarthi/feature-importance")
+async def saarthi_feature_importance(body: SaarthiFeatureImportanceBody):
+    """Rank audit signals by relative influence on risk_score (Saarthi / Gemini with heuristic fallback)."""
+    from investigation_agent.saarthi_feature_importance import rank_feature_importance_saarthi
+
+    payload = body.model_dump()
+    result = await rank_feature_importance_saarthi(payload)
+    result.pop("_tags", None)
+    return result
+
+
 # ── Collaboration (Slack / Teams / Lark) mounted under /collab (see frontend nginx /api/collab/) ──
 os.environ.setdefault("TARKA_CHAT_BRIDGE_SUBAPP", "1")
 from investigation_agent.chat_bridge.main import app as _collaboration_subapp  # noqa: E402

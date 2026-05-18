@@ -1,9 +1,10 @@
 import { useEffect, useId, useState } from "react";
 
 import { graph, type GraphEntityDeepContext, type GraphNode } from "../api/client";
+import { DEVICE_CLUSTER_GRAPH_LABEL } from "../utils/entityDeviceClustering";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
-type LoadState = "idle" | "loading" | "ready" | "not_found" | "error";
+type LoadState = "idle" | "loading" | "ready" | "not_found" | "error" | "cluster";
 
 function GraphContextPanelSkeleton() {
   return (
@@ -63,6 +64,13 @@ export function GraphContextPanel({ open, onClose, tenantId, entityId, nodeHint 
 
   useEffect(() => {
     if (!open || !entityId || !tenantId) return;
+    const isCluster = Boolean(nodeHint?.labels?.includes(DEVICE_CLUSTER_GRAPH_LABEL));
+    if (isCluster) {
+      setState("cluster");
+      setData(null);
+      setErrMsg("");
+      return;
+    }
     let cancelled = false;
     setState("loading");
     setData(null);
@@ -86,7 +94,7 @@ export function GraphContextPanel({ open, onClose, tenantId, entityId, nodeHint 
     return () => {
       cancelled = true;
     };
-  }, [open, entityId, tenantId]);
+  }, [open, entityId, tenantId, nodeHint?.labels]);
 
   useEffect(() => {
     if (!open) return;
@@ -116,7 +124,7 @@ export function GraphContextPanel({ open, onClose, tenantId, entityId, nodeHint 
         <header className="shrink-0 border-b border-surface-800 px-4 py-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 id={titleId} className="text-sm font-semibold text-gray-100 truncate">
-              Entity context
+              {state === "cluster" ? "Shared device cluster" : "Entity context"}
             </h2>
             <p className="text-xs text-gray-500 font-mono truncate mt-0.5" title={entityId}>
               {entityId}
@@ -139,6 +147,54 @@ export function GraphContextPanel({ open, onClose, tenantId, entityId, nodeHint 
 
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
           {state === "loading" ? <GraphContextPanelSkeleton /> : null}
+
+          {state === "cluster" && nodeHint ? (
+            <div className="rounded-lg border border-violet-500/35 bg-violet-950/25 px-4 py-4 text-sm text-gray-300 space-y-4">
+              <p className="text-xs text-gray-500">
+                Vertices merged by identical <span className="font-mono text-gray-400">device_hash</span> to surface
+                coordinated activity (for example botnets or device farms).
+              </p>
+              <dl className="space-y-2 text-xs">
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500 shrink-0">Members</dt>
+                  <dd className="text-gray-200 font-mono text-right break-all">
+                    {typeof nodeHint.properties?.cluster_member_count === "number"
+                      ? String(nodeHint.properties.cluster_member_count)
+                      : "—"}
+                  </dd>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <dt className="text-gray-500">device_hash</dt>
+                  <dd className="font-mono text-[11px] text-violet-200/90 break-all">
+                    {typeof nodeHint.properties?.device_hash === "string"
+                      ? nodeHint.properties.device_hash
+                      : typeof nodeHint.properties?.cluster_member_ids === "string"
+                        ? "(see vertex ids below)"
+                        : "—"}
+                  </dd>
+                </div>
+              </dl>
+              {typeof nodeHint.properties?.cluster_member_ids === "string" &&
+              nodeHint.properties.cluster_member_ids.trim() !== "" ? (
+                <div>
+                  <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                    Vertex ids in cluster
+                  </h3>
+                  <ul className="max-h-56 overflow-y-auto space-y-1.5 text-[11px] font-mono text-gray-400">
+                    {nodeHint.properties.cluster_member_ids
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                      .map((id) => (
+                        <li key={id} className="rounded border border-surface-800 px-2 py-1">
+                          {id}
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {state === "not_found" ? (
             <div className="rounded-lg border border-surface-700 bg-surface-900/60 px-4 py-5 text-sm text-gray-400 space-y-2">

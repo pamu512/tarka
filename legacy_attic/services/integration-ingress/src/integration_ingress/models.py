@@ -49,6 +49,53 @@ class IntegrationConnection(Base):
     )
 
 
+class MarketplaceWebhookLog(Base):
+    """Outgoing Block (and related) signals POSTed to marketplace client callback URLs."""
+
+    __tablename__ = "marketplace_webhook_logs"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[str] = mapped_column(String(128), index=True)
+    signal: Mapped[str] = mapped_column(String(32), default="block", index=True)
+    decision: Mapped[str] = mapped_column(String(32), default="BLOCK", index=True)
+    entity_id: Mapped[str | None] = mapped_column(String(256), nullable=True, index=True)
+    user_id: Mapped[str | None] = mapped_column(String(256), nullable=True, index=True)
+    trace_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    callback_url: Mapped[str] = mapped_column(String(2048))
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    http_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    payload_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    payload_preview: Mapped[str] = mapped_column(Text, default="")
+    attempts_json: Mapped[list[dict]] = mapped_column(JSON, default=list)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class MarketplaceSdkApiKey(Base):
+    """Tenant-scoped API keys for Marketplace SDK packages (evaluate / ingest / attestation)."""
+
+    __tablename__ = "marketplace_sdk_api_keys"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[str] = mapped_column(String(128), index=True)
+    platform: Mapped[str] = mapped_column(String(64), index=True)
+    label: Mapped[str] = mapped_column(String(128), default="")
+    key_prefix: Mapped[str] = mapped_column(String(64), index=True)
+    secret_hash: Mapped[str] = mapped_column(String(64), index=True)
+    scopes: Mapped[list[str]] = mapped_column(JSON, default=list)
+    status: Mapped[str] = mapped_column(String(32), default="active", index=True)
+    created_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    rate_limit_enabled: Mapped[bool] = mapped_column(Boolean(), default=True)
+    rate_limit_rpm: Mapped[int] = mapped_column(Integer(), default=600)
+    rate_limit_burst: Mapped[int] = mapped_column(Integer(), default=50)
+
+
 class IntegrationSecret(Base):
     __tablename__ = "integration_secrets"
     __table_args__ = (
@@ -144,6 +191,26 @@ class OsintFinopsAudit(Base):
     skip_reason: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
     estimated_savings_usd: Mapped[float] = mapped_column(Float(), nullable=False)
     detail_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
+class PiiFieldRevealAudit(Base):
+    """Immutable audit row when an analyst reveals or hides a masked PII field in the UI."""
+
+    __tablename__ = "pii_field_reveal_audit"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[str] = mapped_column(String(128), index=True)
+    actor_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    action: Mapped[str] = mapped_column(String(16), index=True)
+    field_kind: Mapped[str] = mapped_column(String(32))
+    field_path: Mapped[str] = mapped_column(String(256))
+    context_type: Mapped[str] = mapped_column(String(64))
+    context_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    value_fingerprint: Mapped[str] = mapped_column(String(64))
+    masked_preview: Mapped[str] = mapped_column(String(128))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )

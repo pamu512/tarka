@@ -4,8 +4,8 @@ Fast-path **UnifiedSignalSchema** ingestion: Redis session dedup + atomic veloci
 **Durable intent handover** (when configured):
 
 * **Postgres** ``audit_logs``: append-only row with ``raw_payload``, ``integrity_signature`` (HMAC-SHA256
-  of canonical signal JSON via ``SYSTEM_SECRET``), dispatched via **FastAPI ``BackgroundTasks``** so the
-  HTTP response is not blocked.
+  of canonical signal JSON via ``SYSTEM_SECRET``), ``shadow_matches`` JSONB (hypothesis rules that fired),
+  dispatched via **FastAPI ``BackgroundTasks``** so the HTTP response is not blocked.
 * **NATS JetStream**: publish canonical signal bytes to ``signals.raw`` for downstream JanusGraph / DuckDB.
 
 Environment:
@@ -22,6 +22,9 @@ Postgres audit write; Redis ingest + NATS unchanged). Responses may include ``X-
 **Dedup**: ``SET seen:{session_id} NX`` — replays return **204** (no audit/NATS/velocity updates).
 
 **Velocity** (first-seen only): ``INCR`` + ``EXPIRE`` for ``velocity:ip:{ip}:1m`` and ``velocity:device:{canvas_hash}:5m``.
+
+**Shadow hypothesis counters** (first-seen only): for each **active** shadow rule in Redis ``shadow:rules:active`` that
+matches the signal, ``INCR stats:shadow:{rule_id}:matches`` (see :mod:`signal_api.shadow_counter_sync`).
 
 **Hiredis**: ``redis[hiredis]`` for parser throughput.
 
@@ -53,6 +56,8 @@ from signal_api.durable_handover import (
     integrity_hmac_sha256_hex,
 )
 from signal_api.middleware.audit_circuit import AuditPostgresCircuitBreaker
+from signal_api.shadow_counter_sync import sync_shadow_match_counters
+from tarka_v2_core.shadow_hypothesis import build_shadow_matches_audit_records
 from signal_api.transit_integrity import transit_audit_decision, verify_in_transit_integrity
 from signal_api.utils.geo_local import build_geo_provider_from_env
 from starlette.requests import Request
@@ -131,6 +136,9 @@ async def ingest_unified_signals(
     pipe.expire(dev_key, int(os.environ.get("SIGNAL_INGEST_VEL_DEVICE_TTL_SEC", "900")))
     await pipe.execute()
 
+    matched_shadow_ids = await sync_shadow_match_counters(redis, body, app_state=request.app.state)
+    shadow_matches = build_shadow_matches_audit_records(matched_shadow_ids)
+
     logger.info(
         "signal_ingest_accepted session_id=%s ip_key=%s device_key=%s",
         sid,
@@ -177,6 +185,7 @@ async def ingest_unified_signals(
         canonical_bytes=canonical_bytes,
         integrity_hex=integrity_hex,
         audit_decision=audit_decision,
+        shadow_matches=shadow_matches,
         circuit=circuit,
     )
     return Response(status_code=status.HTTP_201_CREATED)

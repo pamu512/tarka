@@ -464,6 +464,144 @@ def build_app(
             content={"entity_id": str(tx.entity_id), "summary": summary},
         )
 
+    @application.post("/v1/scout/coordinated-bursts")
+    async def http_scout_coordinated_bursts(
+        _auth: Annotated[None, Depends(require_shadow_api_token)],
+    ) -> JSONResponse:
+        """DuckDB Scout: detect shared canvas_hash / webgl_vendor bursts (>5 acc_ids / 4h)."""
+        from shadow_agent.scout_coordinated_burst import run_scout_coordinated_burst_probe
+
+        payload = run_scout_coordinated_burst_probe()
+        return JSONResponse(content=payload)
+
+    @application.post("/v1/hypotheses/backtest-blocks")
+    async def http_hypothesis_backtest_blocks(
+        _auth: Annotated[None, Depends(require_shadow_api_token)],
+        request: Request,
+    ) -> JSONResponse:
+        """Prompt 198: hourly production vs shadow block counts for visual backtest overlay."""
+        try:
+            raw = await request.json()
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "invalid_json", "message": str(exc)},
+            ) from exc
+        if not isinstance(raw, dict):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"error": "expected_json_object"},
+            )
+        rule = raw.get("rule") or raw.get("suggested_rule")
+        if not isinstance(rule, dict):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"error": "rule_required"},
+            )
+        try:
+            from shadow_agent.hypothesis_backtest_client import build_block_overlay_timeseries_for_rule
+
+            duck_path = raw.get("duckdb_path")
+            lookback = raw.get("lookback_days")
+            series = build_block_overlay_timeseries_for_rule(
+                rule,
+                duckdb_path=str(duck_path).strip() if duck_path else None,
+                lookback_days=int(lookback) if lookback is not None else None,
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={"error": "backtest_blocks_unavailable", "message": str(exc)},
+            ) from exc
+        return JSONResponse(
+            content={
+                "lookback_days": lookback if lookback is not None else 7,
+                "series": series,
+            },
+        )
+
+    @application.post("/v1/hypotheses/validate-backtest")
+    async def http_validate_hypothesis_backtest(
+        _auth: Annotated[None, Depends(require_shadow_api_token)],
+        request: Request,
+    ) -> JSONResponse:
+        """Prompt 196: DuckDB 7-day backtest gate (FPR must be < 0.1% for analyst suggestion)."""
+        try:
+            raw = await request.json()
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "invalid_json", "message": str(exc)},
+            ) from exc
+        if not isinstance(raw, dict):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"error": "expected_json_object"},
+            )
+        rule = raw.get("rule") or raw.get("suggested_rule")
+        if not isinstance(rule, dict):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"error": "rule_required"},
+            )
+        try:
+            from shadow_agent.hypothesis_backtest_client import validate_suggested_rule_for_analyst
+
+            duck_path = raw.get("duckdb_path")
+            pg_url = raw.get("postgres_url")
+            out = validate_suggested_rule_for_analyst(
+                rule,
+                duckdb_path=str(duck_path).strip() if duck_path else None,
+                postgres_url=str(pg_url).strip() if pg_url else None,
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={"error": "backtest_gate_unavailable", "message": str(exc)},
+            ) from exc
+        return JSONResponse(content=out)
+
+    @application.post("/v1/saarthi/hypothesis-narrative")
+    async def http_saarthi_hypothesis_narrative(
+        _auth: Annotated[None, Depends(require_shadow_api_token)],
+        request: Request,
+    ) -> JSONResponse:
+        """Saarthi (Gemini): two-sentence narrative for DuckDB Scout burst evidence."""
+        try:
+            raw = await request.json()
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "invalid_json", "message": str(exc)},
+            ) from exc
+        if not isinstance(raw, dict):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"error": "expected_json_object"},
+            )
+        try:
+            from saarthi.hypothesis_narrative import generate_hypothesis_narrative
+        except ImportError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={"error": "saarthi_package_unavailable"},
+            ) from exc
+        scout_payload = raw.get("scout_result") if isinstance(raw.get("scout_result"), dict) else raw
+        hypothesis_report = (
+            raw.get("hypothesis_report") if isinstance(raw.get("hypothesis_report"), dict) else None
+        )
+        try:
+            out = generate_hypothesis_narrative(
+                scout_payload if isinstance(scout_payload, dict) else {},
+                hypothesis_report=hypothesis_report,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "invalid_scout_payload", "message": str(exc)},
+            ) from exc
+        return JSONResponse(content=out)
+
     @application.post("/v1/tools/check-review-integrity")
     async def http_check_review_integrity(
         _auth: Annotated[None, Depends(require_shadow_api_token)],

@@ -8,6 +8,7 @@ import { PageMetaProvider } from "./context/PageMetaContext";
 import { TenantEnvironmentProvider } from "./context/TenantEnvironmentContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { ToastProvider } from "./context/ToastContext";
+import { FailoverPlaneProvider } from "./context/FailoverPlaneContext";
 import { DataCachesProvider } from "./providers/DataCachesProvider";
 import { GlobalErrorShell } from "./components/errors/GlobalErrorShell";
 import App from "./App";
@@ -22,9 +23,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <TenantEnvironmentProvider>
               <PageMetaProvider>
                 <ToastProvider>
-                  <DataCachesProvider>
-                    <App />
-                  </DataCachesProvider>
+                  <FailoverPlaneProvider>
+                    <DataCachesProvider>
+                      <App />
+                    </DataCachesProvider>
+                  </FailoverPlaneProvider>
                 </ToastProvider>
               </PageMetaProvider>
             </TenantEnvironmentProvider>
