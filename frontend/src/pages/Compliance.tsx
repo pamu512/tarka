@@ -1,5 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { compliance } from "../api/client";
+import { ComplianceResidencyAuditViewer } from "../components/compliance/ComplianceResidencyAuditViewer";
+import { DataResidencyMatrix } from "../components/compliance/DataResidencyMatrix";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { toUserFacingError } from "../utils/userFacingErrors";
@@ -54,19 +57,6 @@ function statusColor(status: string) {
       return "bg-orange-500/20 text-orange-400 border-orange-500/30";
     default:
       return "bg-gray-500/20 text-gray-400 border-gray-500/30";
-  }
-}
-
-function progressBarColor(status: string) {
-  switch (status) {
-    case "implemented":
-      return "bg-emerald-500";
-    case "configurable":
-      return "bg-yellow-500";
-    case "partial":
-      return "bg-orange-500";
-    default:
-      return "bg-gray-500";
   }
 }
 
@@ -284,7 +274,13 @@ export default function Compliance() {
       <div className="flex items-center justify-between">
         <div>
           <PageTitle module="compliance">Compliance</PageTitle>
-          <p className="text-sm text-gray-400 mt-1">Privacy regulations, DSAR handling, and certification readiness</p>
+          <p className="text-sm text-gray-400 mt-1">
+            Privacy regulations, DSAR handling, and certification readiness.{" "}
+            <Link to="/compliance/encrypted-fields" className="text-brand-400 hover:text-brand-300 font-medium">
+              Encrypted field toggles
+            </Link>{" "}
+            audit every PII reveal in the UI.
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <label className="text-sm text-gray-400">Region:</label>
@@ -299,6 +295,10 @@ export default function Compliance() {
           </select>
         </div>
       </div>
+
+      <DataResidencyMatrix />
+
+      <ComplianceResidencyAuditViewer />
 
       {/* Privacy Profile Card */}
       {profile && (

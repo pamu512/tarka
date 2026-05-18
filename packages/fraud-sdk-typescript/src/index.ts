@@ -856,3 +856,20 @@ export class EventIngestClient {
     return (await r.json()) as IngestBatchResponse;
   }
 }
+
+export {
+  buildBrowserTelemetryIngestJson,
+  flushDeviceContextToAnumana,
+  postBrowserTelemetryIngest,
+  type AnumanaIngestDevice,
+  type BrowserTelemetryIngestJson,
+  type PostBrowserTelemetryIngestOptions,
+  type TelemetryPacketV1,
+} from "./anumana_ingest.js";
+
+export {
+  attachInTransitIntegrityFields,
+  canonicalUnifiedSignalJsonExcludingNonce,
+  computeInTransitIntegrityHash,
+  type UnifiedSignalWireForHash,
+} from "./integrity.js";

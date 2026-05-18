@@ -57,11 +57,7 @@ _CANONICAL_TO_ALIAS = {v: k for k, v in _ALIAS_TO_CANONICAL.items()}
 # Rule ``field`` → DuckDB json path (canonical names resolve to wire aliases).
 _FIELD_JSON_PATHS: dict[str, str] = {
     **{alias: f"$.{alias}" for alias in _ALIAS_TO_CANONICAL},
-    **{
-        canon: f"$.{_CANONICAL_TO_ALIAS[canon]}"
-        for canon in _CANONICAL_TO_ALIAS
-        if canon in _CANONICAL_TO_ALIAS
-    },
+    **{canon: f"$.{_CANONICAL_TO_ALIAS[canon]}" for canon in _CANONICAL_TO_ALIAS if canon in _CANONICAL_TO_ALIAS},
     # Common decision-api / enrichment fields (may appear in metadata merges).
     "amount": "$.amount",
     "currency": "$.currency",
@@ -365,14 +361,18 @@ def _rule_matches_python(rule: dict[str, Any], features: dict[str, Any]) -> bool
             return False
         from tarka_v2_core.shadow_hypothesis import match_flat_condition
 
-        return all(isinstance(c, dict) and match_flat_condition(features, c) for c in when)
+        return all(
+            isinstance(c, dict) and match_flat_condition(features, c) for c in when
+        )
 
 
 def _lookback_filter_sql(lookback_days: int | None) -> str:
     if lookback_days is None or lookback_days <= 0:
         return ""
     days = int(lookback_days)
-    return f" WHERE ingested_at >= (CURRENT_TIMESTAMP - INTERVAL '{days}' DAY)"
+    return (
+        f" WHERE ingested_at >= (CURRENT_TIMESTAMP - INTERVAL '{days}' DAY)"
+    )
 
 
 def compute_false_positive_rate(cm: ConfusionMatrix) -> float:
@@ -443,7 +443,7 @@ def _population_and_matches(
         if ukey not in population:
             population[ukey] = features
 
-    matched: dict[str, bool] = dict.fromkeys(population, False)
+    matched: dict[str, bool] = {k: False for k in population}
 
     if sql_predicate and rule.get("when_ast") is None:
         if lookback_days is not None and lookback_days > 0:
@@ -506,10 +506,10 @@ def run_what_if_simulation(
     lookback_days: int | None = None,
 ) -> SimulationReport:
     """
-      Run the what-if simulation and return a structured report.
+    Run the what-if simulation and return a structured report.
 
-    ``labels`` may be supplied for tests; otherwise ``postgres_url`` (or
-      ``ORCHESTRATOR_AUDIT_DATABASE_URL`` / ``DATABASE_URL``) is required.
+  ``labels`` may be supplied for tests; otherwise ``postgres_url`` (or
+    ``ORCHESTRATOR_AUDIT_DATABASE_URL`` / ``DATABASE_URL``) is required.
     """
     import duckdb
 
@@ -622,12 +622,8 @@ def build_block_overlay_timeseries(
     """
     import duckdb
 
-    days = (
-        lookback_days
-        if lookback_days is not None
-        else int(
-            os.environ.get("HYPOTHESIS_BACKTEST_LOOKBACK_DAYS", DEFAULT_BACKTEST_LOOKBACK_DAYS),
-        )
+    days = lookback_days if lookback_days is not None else int(
+        os.environ.get("HYPOTHESIS_BACKTEST_LOOKBACK_DAYS", DEFAULT_BACKTEST_LOOKBACK_DAYS),
     )
     sql_predicate = rule_flat_when_to_sql(rule)
     use_sql_shadow = bool(sql_predicate) and rule.get("when_ast") is None
@@ -723,12 +719,8 @@ def validate_hypothesis_backtest(
     DuckDB backtest FPR is strictly below ``max_false_positive_rate`` (default 0.1%)
     over the last ``lookback_days`` (default 7).
     """
-    days = (
-        lookback_days
-        if lookback_days is not None
-        else int(
-            os.environ.get("HYPOTHESIS_BACKTEST_LOOKBACK_DAYS", DEFAULT_BACKTEST_LOOKBACK_DAYS),
-        )
+    days = lookback_days if lookback_days is not None else int(
+        os.environ.get("HYPOTHESIS_BACKTEST_LOOKBACK_DAYS", DEFAULT_BACKTEST_LOOKBACK_DAYS),
     )
     max_fpr = max_false_positive_rate
     if max_fpr is None:

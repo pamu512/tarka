@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "signals": {
+    "payment.amount": {
+      "type": "integer",
+      "description": "Transaction amount in minor units or USD depending on tenant configuration"
+    },
+    "device.is_emulator": {
+      "type": "boolean",
+      "description": "True when the SDK reports an emulator/hostile runtime"
+    },
+    "risk.score": {
+      "type": "float",
+      "description": "Precomputed risk score from upstream models"
+    }
+  }
+}

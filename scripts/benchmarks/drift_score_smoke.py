@@ -72,17 +72,29 @@ def _scores_http(base_url: str, features_list: list[dict[str, Any]], timeout: fl
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 payload = json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
-            raise RuntimeError(f"HTTP {e.code} on /v1/score: {e.read().decode('utf-8', errors='replace')}") from e
+            raise RuntimeError(
+                f"HTTP {e.code} on /v1/score: {e.read().decode('utf-8', errors='replace')}"
+            ) from e
         out.append(float(payload.get("score", 0)))
     return out
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Drift smoke: baseline vs shifted heuristic score separation")
-    p.add_argument("--baseline", type=Path, default=Path("scripts/benchmarks/fixtures/drift_baseline.json"))
-    p.add_argument("--shifted", type=Path, default=Path("scripts/benchmarks/fixtures/drift_shifted.json"))
-    p.add_argument("--min-delta", type=float, default=8.0, help="Minimum mean(shifted) - mean(baseline)")
-    p.add_argument("--max-delta", type=float, default=95.0, help="Maximum allowed separation (sanity cap)")
+    p = argparse.ArgumentParser(
+        description="Drift smoke: baseline vs shifted heuristic score separation"
+    )
+    p.add_argument(
+        "--baseline", type=Path, default=Path("scripts/benchmarks/fixtures/drift_baseline.json")
+    )
+    p.add_argument(
+        "--shifted", type=Path, default=Path("scripts/benchmarks/fixtures/drift_shifted.json")
+    )
+    p.add_argument(
+        "--min-delta", type=float, default=8.0, help="Minimum mean(shifted) - mean(baseline)"
+    )
+    p.add_argument(
+        "--max-delta", type=float, default=95.0, help="Maximum allowed separation (sanity cap)"
+    )
     p.add_argument("--local", action="store_true", help="Use in-process heuristic_score (no HTTP)")
     p.add_argument("--url", default="", help="ml-scoring base URL (e.g. http://127.0.0.1:8005)")
     p.add_argument("--timeout", type=float, default=30.0)
@@ -107,7 +119,18 @@ def main() -> int:
     ms = statistics.mean(s_scores)
     delta = ms - mb
 
-    print(json.dumps({"mean_baseline": mb, "mean_shifted": ms, "delta": delta, "n_baseline": len(b), "n_shifted": len(s)}, indent=2))
+    print(
+        json.dumps(
+            {
+                "mean_baseline": mb,
+                "mean_shifted": ms,
+                "delta": delta,
+                "n_baseline": len(b),
+                "n_shifted": len(s),
+            },
+            indent=2,
+        )
+    )
 
     if delta < args.min_delta:
         print(
@@ -116,7 +139,10 @@ def main() -> int:
         )
         return 1
     if delta > args.max_delta:
-        print(f"FAIL: delta {delta:.4f} > max-delta {args.max_delta} (unexpected gap)", file=sys.stderr)
+        print(
+            f"FAIL: delta {delta:.4f} > max-delta {args.max_delta} (unexpected gap)",
+            file=sys.stderr,
+        )
         return 1
     return 0
 

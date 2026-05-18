@@ -111,7 +111,9 @@ def wait_decision_health_ok(deadline_seconds: float = 900.0, poll: float = 5.0) 
                     return
             except json.JSONDecodeError:
                 pass
-        print(f"[wait] decision-api health status={status} ({int(deadline - time.monotonic())}s left)")
+        print(
+            f"[wait] decision-api health status={status} ({int(deadline - time.monotonic())}s left)"
+        )
         time.sleep(poll)
     raise TimeoutError("decision-api health did not become ok")
 
@@ -195,10 +197,14 @@ def run_dependency_fallback_checks(profile: str, wait_health_seconds: float) -> 
         time.sleep(4)
         status, body = evaluate_any_status()
         if status != 200:
-            raise RuntimeError(f"{service}: evaluate expected 200 under degrade path, got {status} body={body[:240]}")
+            raise RuntimeError(
+                f"{service}: evaluate expected 200 under degrade path, got {status} body={body[:240]}"
+            )
         fallback_reason = _extract_fallback_reason(body)
         if expected_fragment not in fallback_reason:
-            raise RuntimeError(f"{service}: fallback_reason missing '{expected_fragment}'. got={fallback_reason!r} body={body[:240]}")
+            raise RuntimeError(
+                f"{service}: fallback_reason missing '{expected_fragment}'. got={fallback_reason!r} body={body[:240]}"
+            )
         print(f"[ok] {service} fallback_reason={fallback_reason!r}")
 
         compose_start(profile, service)
@@ -208,8 +214,12 @@ def run_dependency_fallback_checks(profile: str, wait_health_seconds: float) -> 
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Chaos smoke: stop a dependency, probe health + evaluate, recover.")
-    p.add_argument("--skip-up", action="store_true", help="Assume compose already up; skip compose down at end")
+    p = argparse.ArgumentParser(
+        description="Chaos smoke: stop a dependency, probe health + evaluate, recover."
+    )
+    p.add_argument(
+        "--skip-up", action="store_true", help="Assume compose already up; skip compose down at end"
+    )
     p.add_argument(
         "--fault",
         choices=("redis", "postgres"),

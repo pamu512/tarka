@@ -42,7 +42,9 @@ export default function ShadowMode() {
         shadow.stats(),
         shadow.observations(200),
       ]);
-      if (packsRes.status === "fulfilled") setPacks(packsRes.value.packs ?? packsRes.value as any);
+      if (packsRes.status === "fulfilled") {
+        setPacks(packsRes.value.packs ?? []);
+      }
       if (statsRes.status === "fulfilled") setStats(statsRes.value);
       if (obsRes.status === "fulfilled") setObservations((obsRes.value.observations ?? []) as Observation[]);
       setError(null);
@@ -157,8 +159,8 @@ export default function ShadowMode() {
         ) : (
           <div className="space-y-3">
             {packs.map((pack) => {
-              const file = (pack as any)._file ?? (pack as any).file ?? "";
-              const currentMode: PackMode = (pack as any).mode ?? "active";
+              const file = pack._file || "";
+              const currentMode: PackMode = pack.mode ?? "active";
               const isBusy = togglingPack === file;
               return (
                 <div

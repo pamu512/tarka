@@ -124,6 +124,12 @@ paths:
                 add_labels:
                   type: array
                   items: { type: string }
+                comment_body:
+                  type: string
+                  description: When set, the same comment is added to every updated case
+                comment_author:
+                  type: string
+                  default: analyst
       responses:
         "200":
           description: OK

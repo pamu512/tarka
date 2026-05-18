@@ -1,0 +1,26 @@
+[package]
+name = "event-ingest"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.36", features = ["full"] }
+async-nats = "0.33"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+rustls-webpki = "0.103.12"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+tracing = "0.1"
+tarka-core = { path = "../../crates/tarka-core" }
+dotenvy = "0.15"
+axum = "0.7"
+futures = "0.3"
+uuid = { version = "1.8", features = ["v4"] }
+bytes = "1"
+sha2 = "0.10"
+dashmap = "5.5"
+redis = { version = "0.25", features = ["tokio-comp", "connection-manager"] }
+
+[dev-dependencies]
+proptest = "1.4"

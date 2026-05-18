@@ -1,0 +1,86 @@
+{{- $useSecret := or .Values.credentials.create .Values.credentials.existingSecretName }}
+{{- if and .Values.investigationAgent.enabled (not .Values.coreApi.enabled) }}
+{{- fail "investigation-agent: requires coreApi.enabled for default CASE/DECISION URLs, or disable investigationAgent when running split APIs." }}
+{{- end }}
+{{- if .Values.investigationAgent.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-investigation-agent
+  labels:
+    {{- include "tarka.labels" . | nindent 4 }}
+    tarka.io/component: investigation-agent
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "tarka.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    tarka.io/component: investigation-agent
+  ports:
+    - name: http
+      port: {{ .Values.investigationAgent.service.port }}
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-investigation-agent
+  labels:
+    {{- include "tarka.labels" . | nindent 4 }}
+    tarka.io/component: investigation-agent
+spec:
+  replicas: {{ .Values.investigationAgent.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "tarka.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      tarka.io/component: investigation-agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "tarka.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        tarka.io/component: investigation-agent
+        {{- with .Values.global.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "tarka.serviceAccountName" . }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: investigation-agent
+          image: {{ include "tarka.containerImage" (dict "root" . "repository" .Values.investigationAgent.image.repository "tag" .Values.investigationAgent.image.tag) }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.investigationAgent.service.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "tarka.platformConfigMap" . }}
+          {{- if $useSecret }}
+            - secretRef:
+                name: {{ include "tarka.credentialsSecret" . }}
+          {{- end }}
+          env:
+            - name: CASE_API_URL
+              value: "http://{{ include "tarka.fullname" . }}-core-api:{{ .Values.coreApi.service.port }}/cases"
+            - name: GRAPH_SERVICE_URL
+              value: "http://{{ include "tarka.fullname" . }}-graph-service:{{ .Values.graphService.service.port }}"
+            - name: DECISION_API_URL
+              value: "http://{{ include "tarka.fullname" . }}-core-api:{{ .Values.coreApi.service.port }}/decisions"
+            - name: LLM_PROVIDER
+              value: {{ .Values.investigationAgent.env.llmProvider | quote }}
+            - name: AI_GOVERNANCE_PROFILE
+              value: {{ .Values.investigationAgent.env.aiGovernanceProfile | quote }}
+          resources:
+            {{- toYaml .Values.investigationAgent.resources | nindent 12 }}
+          startupProbe:
+            {{- toYaml .Values.investigationAgent.startupProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.investigationAgent.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.investigationAgent.readinessProbe | nindent 12 }}
+{{- end }}

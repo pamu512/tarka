@@ -7,8 +7,9 @@ import datetime as dt
 import json
 import sys
 import uuid
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 """
 Replay JSONL audit/export rows into a scratch Redis so aggregate keys can be diffed against prod.
@@ -57,7 +58,7 @@ def parse_time_bound(raw: str) -> float:
         s = s[:-1] + "+00:00"
     ts = dt.datetime.fromisoformat(s)
     if ts.tzinfo is None:
-        ts = ts.replace(tzinfo=dt.timezone.utc)
+        ts = ts.replace(tzinfo=dt.UTC)
     return ts.timestamp()
 
 
@@ -83,12 +84,20 @@ def row_timestamp_seconds(row: dict[str, Any]) -> float | None:
     return None
 
 
-def row_to_record_args(row: dict[str, Any]) -> tuple[str, str, str, dict[str, Any], float | None] | None:
+def row_to_record_args(
+    row: dict[str, Any],
+) -> tuple[str, str, str, dict[str, Any], float | None] | None:
     tenant_id = row.get("tenant_id")
     entity_id = row.get("entity_id")
     if not tenant_id or not entity_id:
         return None
-    event_id = row.get("event_id") or row.get("trace_id") or row.get("ingest_id") or row.get("_ingest_id") or uuid.uuid4().hex
+    event_id = (
+        row.get("event_id")
+        or row.get("trace_id")
+        or row.get("ingest_id")
+        or row.get("_ingest_id")
+        or uuid.uuid4().hex
+    )
     fields = row.get("fields")
     if fields is None:
         payload = row.get("payload") or row.get("request_body") or {}
@@ -151,7 +160,9 @@ async def replay_to_redis(
 
     prefix_note = f"Keys use prefix {AGG_PREFIX!r} on the target Redis."
     if dry_run:
-        print(f"Dry-run: parsed {count} row(s), skipped {skipped} (missing tenant/entity). {prefix_note}")
+        print(
+            f"Dry-run: parsed {count} row(s), skipped {skipped} (missing tenant/entity). {prefix_note}"
+        )
     else:
         print(f"Replayed {count} event(s) into Redis, skipped {skipped}. {prefix_note}")
     if count == 0 and skipped > 0:
@@ -160,7 +171,9 @@ async def replay_to_redis(
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="Replay JSONL rows into Redis-backed AggregateStore (offline parity / v1.2).")
+    p = argparse.ArgumentParser(
+        description="Replay JSONL rows into Redis-backed AggregateStore (offline parity / v1.2)."
+    )
     p.add_argument("--input", type=Path, help="JSONL file (one JSON object per line)")
     p.add_argument(
         "--redis-url",
@@ -194,7 +207,15 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     if args.manifest_info:
-        mp = _REPO_ROOT / "services" / "decision-api" / "src" / "decision_api" / "data" / "counter_manifest_v1.json"
+        mp = (
+            _REPO_ROOT
+            / "services"
+            / "decision-api"
+            / "src"
+            / "decision_api"
+            / "data"
+            / "counter_manifest_v1.json"
+        )
         if not mp.is_file():
             print(f"Manifest not found: {mp}", file=sys.stderr)
             return 1

@@ -4,9 +4,9 @@ from __future__ import annotations
 import argparse
 import json
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 """Inventory lightweight implementations and emit a hardening matrix.
 
@@ -172,7 +172,9 @@ def _markdown(rows: Iterable[dict[str, object]]) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Inventory lightweight implementations for hardening.")
+    parser = argparse.ArgumentParser(
+        description="Inventory lightweight implementations for hardening."
+    )
     parser.add_argument("--json", action="store_true", help="Print JSON instead of Markdown")
     parser.add_argument("--write", default="", help="Write output to file path")
     args = parser.parse_args()
@@ -182,7 +184,9 @@ def main() -> int:
     if args.write:
         out_path = (_repo_root() / args.write).resolve()
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(payload + ("\n" if not payload.endswith("\n") else ""), encoding="utf-8")
+        out_path.write_text(
+            payload + ("\n" if not payload.endswith("\n") else ""), encoding="utf-8"
+        )
         print(str(out_path.relative_to(_repo_root())))
         return 0
     print(payload)

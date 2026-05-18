@@ -113,6 +113,18 @@ This document turns **“Missing”** and **large “Extend”** rows in [tarka-
 
 ---
 
+## Phase 9 — Local v2 ingest stack bootstrap
+
+**Goal:** One reproducible path to build and run the **orchestrator → rule engine → shadow** slice on a laptop or CI agent with Docker, without hand-copied `uvicorn` flags.
+
+| Step | Deliverable | Where | Acceptance |
+| ---- | ----------- | ----- | ---------- |
+| 9.1 | **Compose file** for the three sidecars (pinned Dockerfiles under `tarka_v2_core/`) | `deploy/docker-compose.v2-ingest.yml` | `docker compose … config` succeeds |
+| 9.2 | **Three shell entrypoints**: build, up, verify | `scripts/phase9/*.sh` | From repo root, scripts exit 0 when Docker is healthy; verify hits `GET /health/full` on **:8790** |
+| 9.3 | **Root README** documents hardware + the exact three commands | `README.md` | New engineers can copy-paste the block verbatim |
+
+---
+
 ## Cross-cutting — SLOs and ops (ongoing)
 
 - Per-tenant **scorecard export** JSON from `analytics-sink` or decision audit aggregates.
@@ -130,6 +142,7 @@ This document turns **“Missing”** and **large “Extend”** rows in [tarka-
 6. **Phase 4** (analyst)
 7. **Phase 6** (orchestration)
 8. **Phase 8** (integrity matrix)
+9. **Phase 9** (local v2 ingest Docker bootstrap — operator ergonomics, parallel to other phases)
 
 Adjust order if product prioritizes **analyst evidence (4)** over **location (3)** for a given release train.
 

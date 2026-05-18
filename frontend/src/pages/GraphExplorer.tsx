@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   graph,
   type SubgraphResponse,
@@ -6,8 +7,10 @@ import {
   type FraudRingResult,
   type GraphNode,
 } from "../api/client";
+import { GraphContextPanel } from "../components/GraphContextPanel";
 import RiskScore from "../components/RiskScore";
 import { PageTitle } from "../components/PageTitle";
+import { useFailoverPlanes } from "../context/FailoverPlaneContext";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { toUserFacingError } from "../utils/userFacingErrors";
 import { Network, type Options } from "vis-network";
@@ -58,6 +61,8 @@ const GRAPH_OPTIONS: Options = {
 };
 
 export default function GraphExplorer() {
+  const { graphPlaneDisabled } = useFailoverPlanes();
+  const [searchParams] = useSearchParams();
   const [entityId, setEntityId] = useState("");
   const [tenantId, setTenantId] = useState("");
   const [graphData, setGraphData] = useState<SubgraphResponse | null>(null);
@@ -73,29 +78,48 @@ export default function GraphExplorer() {
   const containerRef = useRef<HTMLDivElement>(null);
   const networkRef = useRef<Network | null>(null);
 
+  const loadSubgraph = useCallback(async (eid: string, tid: string) => {
+    const e = eid.trim();
+    const t = tid.trim();
+    if (!e || !t) return;
+    if (graphPlaneDisabled) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setGraphData(null);
+    setSelectedNode(null);
+    setRiskScore(null);
+    setCommunities([]);
+    setFraudRings([]);
+    setSidePanel(null);
+    try {
+      const data = await graph.subgraph(e, t, 2);
+      setGraphData(data);
+    } catch (err) {
+      setError(toUserFacingError(err, { subject: "Entity graph", action: "load graph exploration data" }));
+    } finally {
+      setLoading(false);
+    }
+  }, [graphPlaneDisabled]);
+
   const handleSearch = useCallback(
     async (e?: React.FormEvent) => {
       e?.preventDefault();
-      if (!entityId.trim() || !tenantId.trim()) return;
-      setLoading(true);
-      setError(null);
-      setGraphData(null);
-      setSelectedNode(null);
-      setRiskScore(null);
-      setCommunities([]);
-      setFraudRings([]);
-      setSidePanel(null);
-      try {
-        const data = await graph.subgraph(entityId.trim(), tenantId.trim(), 2);
-        setGraphData(data);
-      } catch (e) {
-        setError(toUserFacingError(e, { subject: "Entity graph", action: "load graph exploration data" }));
-      } finally {
-        setLoading(false);
-      }
+      await loadSubgraph(entityId, tenantId);
     },
-    [entityId, tenantId],
+    [entityId, tenantId, loadSubgraph],
   );
+
+  useEffect(() => {
+    const e = searchParams.get("entity_id")?.trim() ?? "";
+    const t = searchParams.get("tenant_id")?.trim() ?? "";
+    if (!e || !t || graphPlaneDisabled) return;
+    setEntityId(e);
+    setTenantId(t);
+    void loadSubgraph(e, t);
+  }, [searchParams, loadSubgraph, graphPlaneDisabled]);
 
   useEffect(() => {
     if (!graphData || !containerRef.current) return;
@@ -148,7 +172,7 @@ export default function GraphExplorer() {
   }, [graphData]);
 
   const handleAnalyze = async () => {
-    if (!entityId.trim() || !tenantId.trim()) return;
+    if (graphPlaneDisabled || !entityId.trim() || !tenantId.trim()) return;
     setAnalyzing(true);
     try {
       const [rp, comm, rings] = await Promise.allSettled([
@@ -179,12 +203,34 @@ export default function GraphExplorer() {
     <div className="p-6 h-full flex flex-col gap-5 animate-fade-in">
       <div className="flex items-center justify-between">
         <PageTitle module="graph">Graph Explorer</PageTitle>
+        <p className="text-sm text-gray-500 mt-1">
+          Trace layered payouts in{" "}
+          <Link to="/graph/mule-path" className="text-brand-400 hover:text-brand-300 font-medium">
+            Mule path
+          </Link>{" "}
+          (User A → mule → cash-out).
+        </p>
       </div>
       <p className="text-xs text-amber-200/90 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2">
         Super-node safety: production graphs should use server-side clustering / top-N expansion (see{" "}
         <code className="text-amber-100">graph-service/docs/DECISION_STREAM_INDEXER.md</code>) so shared ISP nodes do
         not overwhelm the browser.
       </p>
+
+      {graphPlaneDisabled ? (
+        <div className="text-sm text-rose-100/95 bg-rose-950/40 border border-rose-500/35 rounded-lg px-3 py-2.5 space-y-1">
+          <p>
+            <strong className="text-rose-200">Graph plane disabled</strong> — subgraph and graph analytics requests are
+            paused (failover toggle). Re-enable when JanusGraph / graph-service latency recovers.
+          </p>
+          <Link
+            to="/ops/failover-toggles"
+            className="text-xs font-semibold text-brand-300 hover:text-brand-200 underline-offset-2 hover:underline"
+          >
+            Open failover toggles
+          </Link>
+        </div>
+      ) : null}
 
       {/* Search Bar */}
       <form onSubmit={handleSearch} className="flex flex-wrap gap-3">
@@ -193,18 +239,20 @@ export default function GraphExplorer() {
           placeholder="Entity ID"
           value={entityId}
           onChange={(e) => setEntityId(e.target.value)}
-          className="bg-surface-800 border border-surface-600 text-gray-300 text-sm rounded-lg px-4 py-2.5 flex-1 min-w-[180px] focus:outline-none focus:ring-1 focus:ring-brand-500"
+          disabled={graphPlaneDisabled}
+          className="bg-surface-800 border border-surface-600 text-gray-300 text-sm rounded-lg px-4 py-2.5 flex-1 min-w-[180px] focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-50"
         />
         <input
           type="text"
           placeholder="Tenant ID"
           value={tenantId}
           onChange={(e) => setTenantId(e.target.value)}
-          className="bg-surface-800 border border-surface-600 text-gray-300 text-sm rounded-lg px-4 py-2.5 w-40 focus:outline-none focus:ring-1 focus:ring-brand-500"
+          disabled={graphPlaneDisabled}
+          className="bg-surface-800 border border-surface-600 text-gray-300 text-sm rounded-lg px-4 py-2.5 w-40 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-50"
         />
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || graphPlaneDisabled}
           className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
         >
           {loading ? "Loading..." : "Search"}
@@ -213,7 +261,7 @@ export default function GraphExplorer() {
           <button
             type="button"
             onClick={handleAnalyze}
-            disabled={analyzing}
+            disabled={analyzing || graphPlaneDisabled}
             className="px-5 py-2.5 bg-amber-600/80 hover:bg-amber-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
           >
             {analyzing ? "Analyzing..." : "Analyze"}
@@ -274,44 +322,6 @@ export default function GraphExplorer() {
                   Entity Risk Score
                 </h3>
                 <RiskScore score={riskScore} size={100} />
-              </div>
-            )}
-
-            {/* Selected Node */}
-            {sidePanel === "node" && selectedNode && (
-              <div className="bg-surface-900 border border-surface-700 rounded-xl p-4 space-y-2">
-                <h3 className="text-sm font-semibold text-gray-200">
-                  Node Details
-                </h3>
-                <div>
-                  <span className="text-xs text-gray-500">ID</span>
-                  <p className="text-sm text-gray-200 font-mono break-all">
-                    {selectedNode.id}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-xs text-gray-500">Type</span>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full"
-                      style={{
-                        backgroundColor:
-                          NODE_COLORS[selectedNode.labels?.[0] ?? ""] ?? "#6b7280",
-                      }}
-                    />
-                    <span className="text-sm text-gray-200">
-                      {selectedNode.labels?.join(", ") ?? "Unknown"}
-                    </span>
-                  </div>
-                </div>
-                {Object.entries(selectedNode.properties).map(([k, v]) => (
-                  <div key={k}>
-                    <span className="text-xs text-gray-500">{k}</span>
-                    <p className="text-sm text-gray-300 break-all">
-                      {String(v)}
-                    </p>
-                  </div>
-                ))}
               </div>
             )}
 
@@ -400,6 +410,17 @@ export default function GraphExplorer() {
           </div>
         )}
       </div>
+
+      <GraphContextPanel
+        open={sidePanel === "node" && Boolean(selectedNode)}
+        onClose={() => {
+          setSidePanel(null);
+          setSelectedNode(null);
+        }}
+        tenantId={tenantId.trim()}
+        entityId={selectedNode?.id ?? null}
+        nodeHint={selectedNode ?? undefined}
+      />
     </div>
   );
 }

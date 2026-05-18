@@ -1,0 +1,38 @@
+[package]
+name = "tarka-rule-engine"
+version = "0.1.0"
+edition = "2021"
+description = "JSON rule evaluation (PyO3) with optional NATS hot-reload orchestrator."
+
+[lib]
+name = "tarka_rule_engine"
+path = "src/lib.rs"
+crate-type = ["rlib", "cdylib"]
+
+[[bin]]
+name = "tarka-rule-engine-watcher"
+path = "src/bin/hot_reload_daemon.rs"
+required-features = ["hot-reload"]
+
+[features]
+default = ["python"]
+python = ["dep:pyo3"]
+hot-reload = [
+  "dep:async-nats",
+  "dep:redis",
+  "dep:tracing",
+  "dep:tracing-subscriber",
+  "dep:futures-util",
+]
+
+[dependencies]
+pyo3 = { version = "0.23", features = ["extension-module", "abi3-py311"], optional = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+regex = "1"
+tokio = { version = "1.36", features = ["rt-multi-thread", "macros", "sync", "signal"] }
+async-nats = { version = "0.33", optional = true }
+redis = { version = "0.25", features = ["tokio-comp"], optional = true }
+tracing = { version = "0.1", optional = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
+futures-util = { version = "0.3", optional = true }

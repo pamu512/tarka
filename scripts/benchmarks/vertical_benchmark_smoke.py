@@ -60,7 +60,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run vertical benchmark smoke checks.")
     parser.add_argument("--url", default="http://127.0.0.1:8000", help="Decision API base URL")
     parser.add_argument("--scenario", default="baseline", help="Simulation scenario")
-    parser.add_argument("--verticals", default="fintech,ecommerce,gaming", help="Comma-separated vertical pack ids")
+    parser.add_argument(
+        "--verticals", default="fintech,ecommerce,gaming", help="Comma-separated vertical pack ids"
+    )
     parser.add_argument("--timeout", type=float, default=30.0, help="Per-request timeout seconds")
     args = parser.parse_args()
 

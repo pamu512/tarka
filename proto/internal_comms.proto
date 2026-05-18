@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package tarka.internal.v1;
+
+// Internal gRPC surface for signal resolution between Tarka microservices.
+// Rust: `tarka-internal-comms` (tonic). Python: `proto/gen/python` (betterproto; regenerate via scripts/gen_internal_comms_py.py).
+
+option java_multiple_files = true;
+option java_package = "com.tarka.internal.v1";
+
+// ---------------------------------------------------------------------------
+// SignalService — unary resolution plus a cheap liveness/metadata ping.
+// ---------------------------------------------------------------------------
+
+message SignalResolutionRequest {
+  // Correlates downstream logs with decision/evaluation traces (W3C trace id hex, etc.).
+  string trace_id = 1;
+  // Tenant / realm identifier for isolation and routing.
+  string tenant_id = 2;
+  // Logical signal identifiers (e.g. feature store keys) to resolve in one round-trip.
+  repeated string signal_names = 3;
+  // Opaque JSON blob: evaluation payload slice the provider may need (bounded by policy at callers).
+  bytes evaluation_context_json = 4;
+}
+
+message ResolvedSignal {
+  string name = 1;
+  bool ok = 2;
+  // JSON-encoded value when ok; empty when not ok unless partial payloads are contractually allowed.
+  bytes payload_json = 3;
+  // Stable machine-readable reason when ok is false (e.g. SIGNAL_NOT_FOUND, UPSTREAM_TIMEOUT).
+  string error_code = 4;
+  string error_detail = 5;
+}
+
+message SignalResolutionResponse {
+  repeated ResolvedSignal signals = 1;
+  // Optional hint: provider-side processing time excluding network to caller.
+  uint32 provider_latency_ms = 2;
+}
+
+message PingRequest {
+  // Calling service name for debugging (e.g. decision-api).
+  string caller_service = 1;
+}
+
+message PongResponse {
+  string callee_service = 1;
+  string build_version = 2;
+}
+
+service SignalService {
+  // Batch-resolve named signals for one evaluation context.
+  rpc ResolveSignals(SignalResolutionRequest) returns (SignalResolutionResponse);
+
+  // Liveness and version metadata; must remain cheap.
+  rpc Ping(PingRequest) returns (PongResponse);
+}

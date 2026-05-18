@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import type { SarFilingIntentDetail } from "../api/client";
 import {
   SAR_PIPELINE_STEP_LABELS,
@@ -6,6 +7,8 @@ import {
   sarStatusStepIndex,
   sarTransport,
 } from "../api/cases";
+import { SarApproveForFilingControls } from "./SarApproveForFilingControls";
+import { SarRegulatoryProgressBar } from "./SarRegulatoryProgressBar";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
 type Props = {
@@ -14,7 +17,8 @@ type Props = {
 };
 
 function indexOfPipelineStep(s: string): number {
-  return SAR_PIPELINE_STEP_LABELS.findIndex((x) => x.status === s);
+  const norm = s === "APPROVED" ? "FILED" : s;
+  return SAR_PIPELINE_STEP_LABELS.findIndex((x) => x.status === norm);
 }
 
 function formatDetailPreview(detail: Record<string, unknown>): string {
@@ -78,22 +82,7 @@ export function SarManagementPanel({ caseId, tenantId }: Props) {
       })()
     : -1;
 
-  const canApprove = status === "PENDING_REVIEW";
-  const canQueueTransmit = status === "APPROVED";
-
-  const handleApprove = async () => {
-    if (!intent || !canApprove || actionBusy) return;
-    setActionBusy(true);
-    setError(null);
-    try {
-      await sarTransport.approveIntent(caseId, tenantId, intent.id);
-      await load();
-    } catch (e) {
-      setError(toUserFacingError(e, { subject: "SAR approval", action: "approve this SAR filing" }));
-    } finally {
-      setActionBusy(false);
-    }
-  };
+  const canQueueTransmit = status === "FILED" || status === "APPROVED";
 
   const handleQueueTransmit = async () => {
     if (!intent || !canQueueTransmit || actionBusy) return;
@@ -171,18 +160,34 @@ export function SarManagementPanel({ caseId, tenantId }: Props) {
             </div>
           ) : null}
 
+          <SarRegulatoryProgressBar
+            variant="case_summary"
+            intent={intent}
+            workspaceHref={`/cases/${encodeURIComponent(caseId)}/sar-intent/${encodeURIComponent(intent.id)}?tenant_id=${encodeURIComponent(tenantId)}`}
+          />
+
           <div className="space-y-2">
             <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pipeline status</div>
             <div className="text-sm text-gray-200">
               Current state:{" "}
               <span className="font-mono font-semibold text-brand-200">{intent.status}</span>
             </div>
+            <p className="text-xs">
+              <Link
+                className="text-sky-400/90 hover:underline"
+                to={`/cases/${encodeURIComponent(caseId)}/sar-intent/${encodeURIComponent(intent.id)}?tenant_id=${encodeURIComponent(tenantId)}`}
+              >
+                SAR intent detail — investigative notes &amp; FinCEN digest
+              </Link>
+            </p>
             <ol className="flex flex-wrap items-center gap-0 list-none p-0 m-0" aria-label="SAR filing progress">
               {SAR_PIPELINE_STEP_LABELS.map((step, idx) => {
                 const isLast = idx === SAR_PIPELINE_STEP_LABELS.length - 1;
                 const failedHere = failed && failAtPipelineIndex === idx;
                 const done = failed ? idx < failAtPipelineIndex : stepDoneIndex >= idx;
-                const current = !failed && status === step.status;
+                const current =
+                  !failed &&
+                  (status === step.status || (step.status === "FILED" && status === "APPROVED"));
                 let circleClass =
                   "border-surface-600 bg-surface-800 text-gray-500";
                 if (failedHere) {
@@ -218,22 +223,24 @@ export function SarManagementPanel({ caseId, tenantId }: Props) {
             </ol>
           </div>
 
+          {intent ? (
+            <SarApproveForFilingControls
+              caseId={caseId}
+              tenantId={tenantId}
+              intentId={intent.id}
+              status={intent.status}
+              onFiled={load}
+            />
+          ) : null}
+
           <div className="flex flex-wrap gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => void handleApprove()}
-              disabled={!canApprove || actionBusy}
-              className="text-xs font-medium px-3 py-2 rounded-lg bg-brand-600/25 text-brand-200 border border-brand-500/40 hover:bg-brand-600/35 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              {actionBusy && canApprove ? "Approving…" : "Approve SAR"}
-            </button>
             <button
               type="button"
               onClick={() => void handleQueueTransmit()}
               disabled={!canQueueTransmit || actionBusy}
               title={
                 !canQueueTransmit
-                  ? "Queue for transmit is only available after compliance approval (APPROVED)."
+                  ? "Queue for transmit is only available after the intent is filed (FILED) or legacy APPROVED."
                   : undefined
               }
               className="text-xs font-medium px-3 py-2 rounded-lg bg-surface-700 text-gray-200 border border-surface-600 hover:bg-surface-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"

@@ -1,0 +1,24 @@
+[project]
+name = "tarka-vendor-finops"
+version = "0.1.0"
+description = "OSINT vendor Redis cache, cost registry, and pre-flight budget guard"
+requires-python = ">=3.11"
+dependencies = [
+  "redis[hiredis]>=5.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-asyncio>=0.24.0",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["cache", "router"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

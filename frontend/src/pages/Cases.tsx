@@ -1,19 +1,34 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useId } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { cases, type Case, type CaseCreateRequest, type CaseDeskActivity, type CaseOpsKpis } from "../api/client";
 import { useAnalystWorkspace } from "../context/AnalystWorkspaceContext";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
+import { useToast } from "../context/ToastContext";
 import StatusBadge from "../components/StatusBadge";
 import PriorityBadge from "../components/PriorityBadge";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
+import { buildCaseComparisonHref } from "../utils/caseComparisonUrl";
 import { toUserFacingError } from "../utils/userFacingErrors";
+import { isHeroHotkeyEventIgnored } from "../utils/heroHotkeys";
+
+function insertCaseSortedByQueue(list: Case[], row: Case): Case[] {
+  const next = [...list, row];
+  next.sort((a, b) => {
+    const qa = typeof a.queue_score === "number" ? a.queue_score : 0;
+    const qb = typeof b.queue_score === "number" ? b.queue_score : 0;
+    if (qb !== qa) return qb - qa;
+    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+  });
+  return next;
+}
 
 export default function Cases() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { tenantId, setTenantId } = useTenantEnvironment();
   const { pinCase } = useAnalystWorkspace();
+  const { toast } = useToast();
   const [caseList, setCaseList] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -162,6 +177,135 @@ export default function Cases() {
     }
   };
 
+  /** Manual review: optimistic remove, PATCH in background, rollback + toast on failure. */
+  const approveOpenCase = useCallback(
+    (row: Case) => {
+      let insertIndex = 0;
+      setCaseList((prev) => {
+        insertIndex = prev.findIndex((x) => x.id === row.id);
+        if (insertIndex < 0) insertIndex = 0;
+        return prev.filter((x) => x.id !== row.id);
+      });
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(row.id);
+        return next;
+      });
+
+      void (async () => {
+        try {
+          const updated = await cases.update(row.id, row.tenant_id, { status: "investigating" });
+          if (statusFilter !== "open") {
+            setCaseList((prev) => insertCaseSortedByQueue(prev, updated));
+          }
+          try {
+            const kpis = await cases.opsKpis(tenantId);
+            setOpsKpis(kpis);
+          } catch {
+            /* optional */
+          }
+        } catch (e) {
+          setCaseList((prev) => {
+            const copy = [...prev];
+            const at = Math.min(Math.max(0, insertIndex), copy.length);
+            copy.splice(at, 0, row);
+            return copy;
+          });
+          toast(
+            toUserFacingError(e, {
+              subject: "Case approval",
+              action: "approve this case for investigation",
+            }),
+            "error",
+          );
+        }
+      })();
+    },
+    [statusFilter, tenantId, toast],
+  );
+
+  const heroListApprove = useCallback(() => {
+    if (selectedIds.size !== 1) {
+      toast("Select exactly one case (checkbox) for hero keys A / R / S.", "info");
+      return;
+    }
+    const id = [...selectedIds][0];
+    const row = caseList.find((c) => c.id === id);
+    if (!row) return;
+    if (row.status !== "open") {
+      toast("A · Only open cases can be approved into investigation.", "info");
+      return;
+    }
+    approveOpenCase(row);
+  }, [selectedIds, caseList, approveOpenCase, toast]);
+
+  const heroListReject = useCallback(async () => {
+    if (selectedIds.size !== 1) {
+      toast("Select exactly one case (checkbox) for hero keys A / R / S.", "info");
+      return;
+    }
+    const id = [...selectedIds][0];
+    const row = caseList.find((c) => c.id === id);
+    if (!row) return;
+    if (row.status === "closed") {
+      toast("Case is already closed.", "info");
+      return;
+    }
+    try {
+      await cases.update(row.id, row.tenant_id, { status: "closed" });
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(row.id);
+        return next;
+      });
+      await fetchCases();
+      toast("Rejected — case closed.", "success");
+    } catch (e) {
+      setError(toUserFacingError(e, { subject: "Case status", action: "close case" }));
+    }
+  }, [selectedIds, caseList, fetchCases, toast]);
+
+  const heroListShadow = useCallback(() => {
+    if (selectedIds.size !== 1) {
+      toast("Select exactly one case (checkbox) for hero keys A / R / S.", "info");
+      return;
+    }
+    const id = [...selectedIds][0];
+    const row = caseList.find((c) => c.id === id);
+    if (!row) return;
+    pinCase({
+      caseId: row.id,
+      tenantId: row.tenant_id,
+      title: row.title || "Case",
+    });
+    navigate(
+      `/investigation/shadow-llm?case_id=${encodeURIComponent(row.id)}&tenant_id=${encodeURIComponent(row.tenant_id)}`,
+    );
+  }, [selectedIds, caseList, navigate, pinCase, toast]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (isHeroHotkeyEventIgnored(e)) return;
+      const k = e.key.toLowerCase();
+      if (k !== "a" && k !== "r" && k !== "s") return;
+      e.preventDefault();
+      if (k === "s") heroListShadow();
+      else if (k === "a") heroListApprove();
+      else void heroListReject();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [heroListApprove, heroListReject, heroListShadow]);
+
+  const openComparisonForSelection = useCallback(() => {
+    if (selectedIds.size !== 2) {
+      toast("Select exactly two cases to compare side-by-side.", "info");
+      return;
+    }
+    const [a, b] = Array.from(selectedIds);
+    navigate(buildCaseComparisonHref({ tenantId, caseA: a, caseB: b }));
+  }, [navigate, selectedIds, tenantId, toast]);
+
   const applySavedView = (name: string) => {
     const view = savedViews.find((v) => v.name === name);
     if (!view) return;
@@ -175,17 +319,54 @@ export default function Cases() {
 
   return (
     <div className="p-6 space-y-5 animate-fade-in">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <PageTitle module="cases">Cases</PageTitle>
-        <button
-          type="button"
-          onClick={() => setShowCreate(true)}
-          aria-haspopup="dialog"
-          className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg transition-colors"
-        >
-          + New Case
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to={buildCaseComparisonHref({ tenantId })}
+            className="px-4 py-2 border border-surface-600 bg-surface-800 hover:bg-surface-700 text-gray-200 text-sm font-medium rounded-lg transition-colors"
+          >
+            Comparison mode
+          </Link>
+          <Link
+            to={`/cases/bulk-triage?tenant_id=${encodeURIComponent(tenantId)}`}
+            className="px-4 py-2 border border-surface-600 bg-surface-800 hover:bg-surface-700 text-gray-200 text-sm font-medium rounded-lg transition-colors"
+          >
+            Bulk triage
+          </Link>
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            aria-haspopup="dialog"
+            className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            + New Case
+          </button>
+        </div>
       </div>
+
+      <p className="text-[11px] text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="Keyboard shortcuts">
+        <span className="text-gray-600 uppercase tracking-wide font-semibold">Hero keys</span>
+        <span>Select one row</span>
+        <span>
+          <kbd className="px-1.5 py-0.5 rounded border border-surface-600 bg-surface-900 font-mono text-[10px] text-gray-300">
+            A
+          </kbd>{" "}
+          Approve
+        </span>
+        <span>
+          <kbd className="px-1.5 py-0.5 rounded border border-surface-600 bg-surface-900 font-mono text-[10px] text-gray-300">
+            R
+          </kbd>{" "}
+          Close
+        </span>
+        <span>
+          <kbd className="px-1.5 py-0.5 rounded border border-surface-600 bg-surface-900 font-mono text-[10px] text-gray-300">
+            S
+          </kbd>{" "}
+          Shadow LLM
+        </span>
+      </p>
 
       {opsKpis && (
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
@@ -212,6 +393,18 @@ export default function Cases() {
           ) : null}
         </div>
       )}
+
+      {caseList.some((c) => c.status === "open") ? (
+        <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 px-4 py-3 text-sm text-gray-300 space-y-1">
+          <div className="font-medium text-amber-200/95">Manual review queue</div>
+          <p className="text-xs text-gray-500 leading-relaxed">
+            Open cases appear here for triage. Use{" "}
+            <span className="text-gray-300 font-medium">Approve</span> to accept a case into investigation without
+            opening the detail view — the row disappears immediately while the update runs in the background. If the
+            request fails, the case is restored and an error toast explains why.
+          </p>
+        </div>
+      ) : null}
 
       {deskActivity && deskActivity.touch_actions_total > 0 ? (
         <div className="rounded-xl border border-surface-700 bg-surface-900/40 p-4 space-y-3">
@@ -379,6 +572,15 @@ export default function Cases() {
       <div className="flex flex-wrap gap-2 items-center rounded-lg border border-brand-500/20 bg-brand-500/5 px-3 py-2">
         <span className="text-xs text-gray-400">Selected: {selectedIds.size}</span>
         <button
+          type="button"
+          disabled={selectedIds.size !== 2}
+          onClick={openComparisonForSelection}
+          title={selectedIds.size === 2 ? "Open comparison mode for the two selected cases" : "Select exactly two cases"}
+          className="px-3 py-1.5 bg-brand-700 hover:bg-brand-600 disabled:opacity-40 text-white text-xs rounded"
+        >
+          Compare side-by-side
+        </button>
+        <button
           disabled={bulkBusy}
           onClick={() => void applyBulk({ status: "investigating" })}
           className="px-3 py-1.5 bg-brand-700 hover:bg-brand-600 disabled:opacity-50 text-white text-xs rounded"
@@ -455,6 +657,7 @@ export default function Cases() {
                   <th className="text-left py-3 px-4 font-medium">Team</th>
                   <th className="text-left py-3 px-4 font-medium">Created</th>
                   <th className="text-left py-3 px-4 font-medium">Queue</th>
+                  <th className="text-left py-3 px-3 font-medium w-28">Review</th>
                   <th className="text-left py-3 px-3 font-medium w-24">Open</th>
                 </tr>
               </thead>
@@ -489,7 +692,18 @@ export default function Cases() {
                       {c.id.length > 8 ? c.id.slice(0, 8) + "\u2026" : c.id}
                     </td>
                     <td className="py-3 px-4 text-gray-200 font-medium">
-                      {c.title}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span>{c.title}</span>
+                        {(c.labels ?? []).map((lb) => (
+                          <span
+                            key={`${c.id}-${lb}`}
+                            data-testid={`case-label-${lb.toLowerCase().replace(/\s+/g, "-")}`}
+                            className="inline-flex rounded border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200/95"
+                          >
+                            {lb}
+                          </span>
+                        ))}
+                      </div>
                     </td>
                     <td className="py-3 px-4">
                       <StatusBadge status={c.status} />
@@ -516,6 +730,22 @@ export default function Cases() {
                         {c.recommended_action || "n/a"}
                       </div>
                     </td>
+                    <td className="py-3 px-3" onClick={(e) => e.stopPropagation()}>
+                      {c.status === "open" ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            approveOpenCase(c);
+                          }}
+                          className="text-xs font-medium px-2.5 py-1 rounded-md bg-emerald-700/90 hover:bg-emerald-600 text-white transition-colors"
+                        >
+                          Approve
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-600">—</span>
+                      )}
+                    </td>
                     <td className="py-3 px-3">
                       <Link
                         to={`/cases/${encodeURIComponent(c.id)}?tenant_id=${encodeURIComponent(c.tenant_id)}`}
@@ -537,7 +767,7 @@ export default function Cases() {
                 {caseList.length === 0 && !loading && (
                   <tr>
                     <td
-                      colSpan={10}
+                      colSpan={11}
                       className="py-12 text-center text-gray-500"
                     >
                       No cases found
@@ -723,6 +953,12 @@ function CreateCaseModal({
               required
             />
           </div>
+          <Field
+            label="Trace ID"
+            value={form.trace_id}
+            onChange={(v) => setForm({ ...form, trace_id: v })}
+            required
+          />
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-gray-400 mb-1">
@@ -794,13 +1030,17 @@ function Field({
   required?: boolean;
   multiline?: boolean;
 }) {
+  const id = useId();
   const cls =
     "w-full bg-surface-800 border border-surface-600 text-gray-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-500";
   return (
     <div>
-      <label className="block text-xs text-gray-400 mb-1">{label}</label>
+      <label htmlFor={id} className="block text-xs text-gray-400 mb-1">
+        {label}
+      </label>
       {multiline ? (
         <textarea
+          id={id}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           required={required}
@@ -809,6 +1049,7 @@ function Field({
         />
       ) : (
         <input
+          id={id}
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}

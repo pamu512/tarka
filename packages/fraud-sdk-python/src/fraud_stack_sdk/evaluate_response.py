@@ -109,6 +109,8 @@ def parse_evaluate_response(data: dict[str, Any]) -> EvaluateResponse:
     if data.get("graph_decision_explanation") is not None:
         ge = data["graph_decision_explanation"]
         if not isinstance(ge, dict):
-            raise EvaluateResponseValidationError("graph_decision_explanation must be object or absent")
+            raise EvaluateResponseValidationError(
+                "graph_decision_explanation must be object or absent"
+            )
         out["graph_decision_explanation"] = ge
     return out

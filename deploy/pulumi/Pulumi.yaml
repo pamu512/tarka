@@ -1,0 +1,8 @@
+name: triple-db
+description: |
+  Tarka Triple-DB stack (Postgres, ClickHouse, Redis) — Pulumi Python runtime.
+  See docs/docs/adr/0003-iac-via-pulumi.md.
+runtime:
+  name: python
+  options:
+    virtualenv: .venv

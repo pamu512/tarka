@@ -28,6 +28,7 @@ import {
 import { PageTitle } from "../components/PageTitle";
 import { ModuleIcon } from "../components/ModuleIcon";
 import { SupportIdHint } from "../components/SupportIdHint";
+import { useFailoverPlanes } from "../context/FailoverPlaneContext";
 
 interface ToolCall {
   name: string;
@@ -83,11 +84,6 @@ function normalizeSourceRefs(raw: unknown): InvestigationSourceRefCard[] {
     .filter((c) => c.tool.length > 0);
 }
 
-function normalizeConfidenceLabel(raw: unknown): string {
-  const v = String(raw ?? "").trim();
-  return v || "Unspecified";
-}
-
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -120,6 +116,7 @@ export default function Investigation() {
   const [searchParams] = useSearchParams();
   const contextCaseId = searchParams.get("case_id") ?? undefined;
   const contextTenantId = searchParams.get("tenant_id") ?? DEFAULT_TENANT;
+  const { aiPlaneDisabled, aiLatencyMsP95 } = useFailoverPlanes();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -350,7 +347,7 @@ export default function Investigation() {
 
   const sendMessage = async (rawText: string) => {
     const text = rawText.trim();
-    if (!text || sending) return;
+    if (!text || sending || aiPlaneDisabled) return;
 
     const skillCmd = parseSkillCommand(text);
     if (skillCmd.isSkillCommand) {
@@ -529,6 +526,24 @@ export default function Investigation() {
           </button>
         </div>
 
+        {aiPlaneDisabled ? (
+          <div className="mx-5 mb-2 rounded-lg border border-amber-500/35 bg-amber-950/25 px-3 py-2 text-xs text-amber-100/95 flex flex-wrap items-center justify-between gap-2">
+            <span>
+              AI plane paused (failover toggle)
+              {aiLatencyMsP95 != null ? (
+                <>
+                  {" "}
+                  — last probe p95 <span className="font-mono tabular-nums">{Math.round(aiLatencyMsP95)} ms</span>
+                </>
+              ) : null}
+              . Copilot sends are blocked until you re-enable the plane.
+            </span>
+            <Link to="/ops/failover-toggles" className="font-semibold text-brand-300 hover:text-brand-200 shrink-0">
+              Failover toggles
+            </Link>
+          </div>
+        ) : null}
+
         <div className="px-5 pb-3 flex flex-col gap-2 border-t border-surface-800/60">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <input
@@ -540,7 +555,7 @@ export default function Investigation() {
             />
             <button
               type="button"
-              disabled={batchUploadBusy || sending}
+              disabled={batchUploadBusy || sending || aiPlaneDisabled}
               onClick={() => batchFileRef.current?.click()}
               className="text-[11px] px-2.5 py-1 rounded-md bg-surface-800/90 hover:bg-surface-700 text-gray-300 border border-surface-700/70 disabled:opacity-50"
               title="CSV, JSON, Excel — attaches batch_id to messages"
@@ -1108,12 +1123,12 @@ export default function Investigation() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Message or /skill …"
-            disabled={sending}
+            disabled={sending || aiPlaneDisabled}
             className="flex-1 min-w-0 bg-surface-900 border border-surface-700 text-gray-200 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-brand-500/60 disabled:opacity-50 placeholder-gray-600"
           />
           <button
             type="submit"
-            disabled={sending || !input.trim()}
+            disabled={sending || aiPlaneDisabled || !input.trim()}
             className="shrink-0 px-5 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors"
           >
             Send

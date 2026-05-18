@@ -1,0 +1,6 @@
+# Optional pins layered after ``pyproject.toml`` installs (Docker builder stage).
+# Leave comment-only for production images.
+#
+# Gate (Trivy): temporarily uncomment a known-vulnerable pin, push a branch, confirm the
+# ``container-scan`` job fails. Re-comment before merge.
+# urllib3==1.25.11

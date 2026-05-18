@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package tarka.compiler.v1;
+
+// Canonical compiled rule bundle produced from YAML (or other DSLs) for distribution and audit.
+message RuleSet {
+  uint32 version = 1;
+  repeated CompiledRule rules = 2;
+}
+
+message CompiledRule {
+  string id = 1;
+  RuleExpression expression = 2;
+}
+
+// Boolean expression tree with signal-based comparison leaves.
+message RuleExpression {
+  oneof expr {
+    AndExpr and = 1;
+    OrExpr or = 2;
+    NotExpr not = 3;
+    SignalCompareLeaf compare_signal = 4;
+  }
+}
+
+message AndExpr {
+  repeated RuleExpression children = 1;
+}
+
+message OrExpr {
+  repeated RuleExpression children = 1;
+}
+
+message NotExpr {
+  RuleExpression child = 1;
+}
+
+// Compare an input signal (looked up at evaluation time) against a constant scalar.
+message SignalCompareLeaf {
+  string signal_name = 1;
+  string op = 2;
+  ScalarValue expected = 3;
+}
+
+message ScalarValue {
+  oneof value {
+    bool bool_value = 1;
+    int64 int_value = 2;
+    double double_value = 3;
+    string string_value = 4;
+  }
+}

@@ -1,0 +1,61 @@
+[package]
+name = "tarka-core"
+version = "0.1.0"
+edition = "2021"
+description = "Core types for Tarka (evidence manifests and related protobuf models)."
+
+[features]
+default = []
+prometheus = ["dep:metrics-exporter-prometheus"]
+
+[dependencies]
+anyhow = "1"
+aws-config = "1.8.16"
+aws-sdk-kms = "1.106.0"
+crossbeam-queue = "0.3"
+dashmap = "6.1"
+ed25519-dalek = { version = "2.2.0", features = ["digest"] }
+hex = "0.4.3"
+prost = "0.13"
+prost-types = "0.13"
+rs_merkle = "1.5.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+sha2 = "0.10"
+smallvec = { version = "1", features = ["serde"] }
+subtle = "2.6"
+metrics = "0.24"
+metrics-exporter-prometheus = { version = "0.16", optional = true }
+thiserror = "1"
+tracing = "0.1"
+tracing-serde = "0.2"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "json", "registry", "std", "time", "env-filter"] }
+tokio = { version = "1.52.2", features = ["rt-multi-thread", "macros", "time"] }
+notify = "7"
+uuid = { version = "1", features = ["serde", "v4", "v7"] }
+sysinfo = { version = "0.32", default-features = false, features = ["system", "network"] }
+wasmtime = { version = "26", default-features = true, features = ["runtime", "cranelift"] }
+wasmparser = "0.218"
+opentelemetry = "0.31"
+opentelemetry_sdk = { version = "0.31", features = ["trace", "rt-tokio"] }
+opentelemetry-otlp = { version = "0.31", features = ["trace", "grpc-tonic"] }
+tracing-opentelemetry = "0.32"
+ureq = { version = "2.9", default-features = false, features = ["tls"] }
+
+[build-dependencies]
+prost-build = "0.13"
+protobuf-src = "2"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+tempfile = "3"
+wat = "1"
+
+[[bench]]
+name = "standard_heavy_rule_set"
+harness = false
+
+[[bench]]
+name = "rule_set_latency_guard"
+harness = false

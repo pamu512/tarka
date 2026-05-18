@@ -20,7 +20,9 @@ VALID_EVENT_TYPES = frozenset({"login", "payment", "signup", "device", "session"
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Check JSONL silver feature rows.")
-    p.add_argument("--input", type=Path, required=True, help="JSONL file (one JSON object per line)")
+    p.add_argument(
+        "--input", type=Path, required=True, help="JSONL file (one JSON object per line)"
+    )
     p.add_argument(
         "--max-violation-rate",
         type=float,

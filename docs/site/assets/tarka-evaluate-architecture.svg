@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="420" viewBox="0 0 1040 420" role="img" aria-labelledby="title desc">
+  <title id="title">Tarka evaluate flow: SDK to Decision API to structured response</title>
+  <desc id="desc">SDK sends requests to Decision API, which optionally uses Graph and ML services, then returns decision, inference_context, and tags; Case UI consumes the response for review.</desc>
+  <defs>
+    <marker id="arrow-solid" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#334155"/>
+    </marker>
+    <marker id="arrow-dashed" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#64748b"/>
+    </marker>
+    <filter id="soft" x="-2%" y="-2%" width="104%" height="104%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <rect width="1040" height="420" fill="#f8fafc" rx="8"/>
+
+  <text x="520" y="36" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#0f172a">Evaluate path: structured proof, not a black-box score</text>
+  <text x="520" y="56" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" fill="#64748b">Solid: request / response. Dashed: optional orchestration and review.</text>
+
+  <g filter="url(#soft)">
+    <rect x="48" y="168" width="120" height="72" rx="10" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+    <text x="108" y="200" text-anchor="middle" font-family="ui-monospace, Consolas, monospace" font-size="13" font-weight="600" fill="#1e293b">SDK</text>
+    <text x="108" y="220" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10" fill="#64748b">Web / Mobile / TS / Py</text>
+  </g>
+
+  <line x1="172" y1="204" x2="248" y2="204" stroke="#334155" stroke-width="2" marker-end="url(#arrow-solid)"/>
+
+  <g filter="url(#soft)">
+    <rect x="252" y="148" width="168" height="112" rx="12" fill="#ffffff" stroke="#0d9488" stroke-width="2.5"/>
+    <text x="336" y="188" text-anchor="middle" font-family="ui-monospace, Consolas, monospace" font-size="13" font-weight="700" fill="#0f766e">Decision API</text>
+    <text x="336" y="208" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10" fill="#475569">Hetu, rules, orchestration</text>
+    <text x="336" y="232" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#94a3b8">POST /v1/decisions/evaluate</text>
+  </g>
+
+  <line x1="424" y1="204" x2="492" y2="204" stroke="#334155" stroke-width="2" marker-end="url(#arrow-solid)"/>
+
+  <g filter="url(#soft)">
+    <rect x="496" y="132" width="496" height="144" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+    <text x="744" y="156" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10" font-weight="600" fill="#64748b" letter-spacing="0.04em">RESPONSE</text>
+
+    <rect x="512" y="168" width="148" height="92" rx="8" fill="#f0fdfa" stroke="#14b8a6" stroke-width="1.5"/>
+    <text x="586" y="198" text-anchor="middle" font-family="ui-monospace, Consolas, monospace" font-size="11" font-weight="600" fill="#0f766e">decision</text>
+    <text x="586" y="218" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#475569">allow / review / deny</text>
+    <text x="586" y="240" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" fill="#64748b">+ score, trace_id</text>
+
+    <rect x="670" y="168" width="188" height="92" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+    <text x="764" y="198" text-anchor="middle" font-family="ui-monospace, Consolas, monospace" font-size="11" font-weight="600" fill="#1d4ed8">inference_context</text>
+    <text x="764" y="218" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#475569">replay, network, geo,</text>
+    <text x="764" y="232" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#475569">velocity, top_signals, ...</text>
+
+    <rect x="868" y="168" width="108" height="92" rx="8" fill="#faf5ff" stroke="#a855f7" stroke-width="1.5"/>
+    <text x="922" y="198" text-anchor="middle" font-family="ui-monospace, Consolas, monospace" font-size="11" font-weight="600" fill="#7c3aed">tags</text>
+    <text x="922" y="222" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#475569">rule_hits,</text>
+    <text x="922" y="236" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#475569">attribution</text>
+  </g>
+
+  <g filter="url(#soft)">
+    <rect x="220" y="300" width="112" height="56" rx="8" fill="#ffffff" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <text x="276" y="326" text-anchor="middle" font-family="ui-monospace, Consolas, monospace" font-size="11" font-weight="600" fill="#334155">Graph</text>
+    <text x="276" y="342" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">Jaala (Neo4j)</text>
+  </g>
+  <line x1="292" y1="260" x2="268" y2="296" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrow-dashed)"/>
+
+  <g filter="url(#soft)">
+    <rect x="360" y="300" width="112" height="56" rx="8" fill="#ffffff" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <text x="416" y="326" text-anchor="middle" font-family="ui-monospace, Consolas, monospace" font-size="11" font-weight="600" fill="#334155">ML</text>
+    <text x="416" y="342" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">Anumana (ONNX)</text>
+  </g>
+  <line x1="380" y1="260" x2="404" y2="296" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrow-dashed)"/>
+
+  <g filter="url(#soft)">
+    <rect x="640" y="300" width="208" height="56" rx="8" fill="#ffffff" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <text x="744" y="326" text-anchor="middle" font-family="ui-monospace, Consolas, monospace" font-size="11" font-weight="600" fill="#334155">Case UI</text>
+    <text x="744" y="342" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">explainability, investigations</text>
+  </g>
+  <line x1="744" y1="278" x2="744" y2="294" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrow-dashed)"/>
+  <text x="756" y="288" font-family="system-ui, sans-serif" font-size="8" fill="#94a3b8">optional</text>
+  <text x="320" y="288" font-family="system-ui, sans-serif" font-size="8" fill="#94a3b8">optional</text>
+  <text x="430" y="288" font-family="system-ui, sans-serif" font-size="8" fill="#94a3b8">optional</text>
+
+  <rect x="48" y="378" width="300" height="28" rx="6" fill="#f1f5f9" stroke="none"/>
+  <line x1="64" y1="392" x2="88" y2="392" stroke="#334155" stroke-width="2" marker-end="url(#arrow-solid)"/>
+  <text x="96" y="396" font-family="system-ui, sans-serif" font-size="10" fill="#475569">Primary evaluate flow</text>
+  <line x1="210" y1="392" x2="230" y2="392" stroke="#64748b" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="238" y="396" font-family="system-ui, sans-serif" font-size="10" fill="#475569">Optional services / UI</text>
+</svg>

@@ -1,0 +1,119 @@
+{{- if and .Values.decisionApiStandalone.enabled .Values.coreApi.enabled }}
+{{- fail "decision-api-standalone: set coreApi.enabled false when deploying standalone decision-api." }}
+{{- end }}
+{{- if and .Values.decisionApiStandalone.enabled (not .Values.signalApi.enabled) }}
+{{- fail "decision-api-standalone: requires signal-api.enabled true (FEATURE_SERVICE_URL and related URLs target Signal)." }}
+{{- end }}
+{{- $useSecret := or .Values.credentials.create .Values.credentials.existingSecretName }}
+{{- $decInline := and .Values.decisionApiStandalone.databaseUrl .Values.decisionApiStandalone.redisUrl .Values.decisionApiStandalone.natsUrl }}
+{{- if and .Values.decisionApiStandalone.enabled (not $decInline) (not $useSecret) }}
+{{- fail "decision-api-standalone: enable credentials Secret (DATABASE_URL, REDIS_URL, NATS_URL, ClickHouse keys) or set decisionApiStandalone.databaseUrl, redisUrl, and natsUrl." }}
+{{- end }}
+{{- if .Values.decisionApiStandalone.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-decision-api
+  labels:
+    {{- include "tarka.labels" . | nindent 4 }}
+    tarka.io/component: decision-api
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "tarka.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    tarka.io/component: decision-api
+  ports:
+    - name: http
+      port: {{ .Values.decisionApiStandalone.service.port }}
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-decision-api
+  labels:
+    {{- include "tarka.labels" . | nindent 4 }}
+    tarka.io/component: decision-api
+spec:
+  replicas: {{ .Values.decisionApiStandalone.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "tarka.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      tarka.io/component: decision-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "tarka.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        tarka.io/component: decision-api
+        {{- with .Values.global.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "tarka.serviceAccountName" . }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: decision-api
+          image: {{ include "tarka.containerImage" (dict "root" . "repository" .Values.decisionApiStandalone.image.repository "tag" .Values.decisionApiStandalone.image.tag) }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.decisionApiStandalone.service.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "tarka.platformConfigMap" . }}
+          {{- if and $useSecret (not $decInline) }}
+            - secretRef:
+                name: {{ include "tarka.credentialsSecret" . }}
+          {{- end }}
+          env:
+            {{- if $decInline }}
+            - name: DATABASE_URL
+              value: {{ .Values.decisionApiStandalone.databaseUrl | quote }}
+            - name: REDIS_URL
+              value: {{ .Values.decisionApiStandalone.redisUrl | quote }}
+            - name: NATS_URL
+              value: {{ .Values.decisionApiStandalone.natsUrl | quote }}
+            - name: CLICKHOUSE_USER
+              value: {{ .Values.credentials.clickhouseUser | quote }}
+            - name: CLICKHOUSE_PASSWORD
+              value: {{ .Values.credentials.clickhousePassword | quote }}
+            {{- end }}
+            - name: FEATURE_SERVICE_URL
+              value: "http://{{ include "tarka.fullname" . }}-signal-api:{{ .Values.signalApi.service.port }}/features"
+            - name: ML_SCORING_URL
+              value: "http://{{ include "tarka.fullname" . }}-signal-api:{{ .Values.signalApi.service.port }}/ml"
+            - name: CALIBRATION_SERVICE_URL
+              value: "http://{{ include "tarka.fullname" . }}-signal-api:{{ .Values.signalApi.service.port }}/calibration"
+            - name: COUNTER_SERVICE_URL
+              value: "http://{{ include "tarka.fullname" . }}-signal-api:{{ .Values.signalApi.service.port }}/counters"
+            - name: LOCATION_SERVICE_URL
+              value: "http://{{ include "tarka.fullname" . }}-signal-api:{{ .Values.signalApi.service.port }}/location"
+            - name: GRAPH_SERVICE_URL
+              value: {{ coalesce .Values.decisionApiStandalone.env.graphServiceUrl (printf "http://%s-graph-service:%v" (include "tarka.fullname" .) .Values.graphService.service.port) | quote }}
+            - name: RULES_PATH
+              value: {{ .Values.decisionApiStandalone.env.rulesPath | quote }}
+            - name: RATE_LIMIT_RPM
+              value: {{ .Values.decisionApiStandalone.env.rateLimitRpm | quote }}
+            - name: RATE_LIMIT_BURST
+              value: {{ .Values.decisionApiStandalone.env.rateLimitBurst | quote }}
+            - name: TENANT_BINDING_REQUIRED
+              value: {{ .Values.decisionApiStandalone.env.tenantBindingRequired | quote }}
+            - name: ALLOW_INSECURE_NO_AUTH
+              value: {{ .Values.decisionApiStandalone.env.allowInsecureNoAuth | quote }}
+            - name: OPA_URL
+              value: {{ .Values.decisionApiStandalone.env.opaUrl | quote }}
+          resources:
+            {{- toYaml .Values.decisionApiStandalone.resources | nindent 12 }}
+          startupProbe:
+            {{- toYaml .Values.decisionApiStandalone.startupProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.decisionApiStandalone.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.decisionApiStandalone.readinessProbe | nindent 12 }}
+{{- end }}

@@ -1,0 +1,23 @@
+# Example compiler-style YAML rules (same shape as `tarka-core` / Management lineage scanner).
+# Copy into your own `rules/` tree; run `scripts/docs/generate_rule_logic_docs.py` to refresh MkDocs.
+
+version: 1
+rules:
+  - id: high_value_wire
+    expression:
+      kind: and
+      children:
+        - kind: compare_signal
+          signal_name: payment_amount_usd
+          op: gte
+          expected: 5000
+        - kind: compare_signal
+          signal_name: payment_risk_score
+          op: gte
+          expected: 70
+  - id: geo_block
+    expression:
+      kind: compare_signal
+      signal_name: ip_country
+      op: eq
+      expected: "XX"

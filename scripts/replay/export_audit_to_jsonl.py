@@ -43,7 +43,9 @@ def _sync_database_url() -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="Export decision_audit rows to JSONL for replay_aggregates.py")
+    p = argparse.ArgumentParser(
+        description="Export decision_audit rows to JSONL for replay_aggregates.py"
+    )
     p.add_argument("--tenant-id", required=True)
     p.add_argument("--entity-id", required=True)
     p.add_argument("--out", type=Path, required=True)
@@ -84,7 +86,11 @@ def main(argv: list[str] | None = None) -> int:
                 im = payload_snapshot.get("metadata")
                 if isinstance(im, dict):
                     meta_out = dict(im)
-            logical_ts: float | None = event_time_unix_from_payload_snapshot(payload_snapshot) if isinstance(payload_snapshot, dict) else None
+            logical_ts: float | None = (
+                event_time_unix_from_payload_snapshot(payload_snapshot)
+                if isinstance(payload_snapshot, dict)
+                else None
+            )
             ts: float | None = logical_ts
             if ts is None and created_at is not None:
                 ts = created_at.timestamp()

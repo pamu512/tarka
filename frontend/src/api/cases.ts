@@ -3,29 +3,35 @@
  * Core HTTP methods live on {@link cases} in `./client`; this module adds UX-oriented utilities.
  */
 
-import type { SarAuditLogEntry, SarFilingIntentDetail, SarFilingIntentStatus } from "./client";
+import type { SarAuditLogEntry, SarFilingIntentStatus } from "./client";
 import { cases } from "./client";
 
 export type { SarAuditLogEntry, SarFilingIntentDetail, SarFilingIntentStatus, SarFilingIntentsResponse } from "./client";
 
 export const sarTransport = {
   listIntents: (caseId: string, tenantId: string) => cases.listSarFilingIntents(caseId, tenantId),
-  approveIntent: (caseId: string, tenantId: string, intentId: string) =>
-    cases.approveSarFilingIntent(caseId, tenantId, intentId),
+  approveIntent: (caseId: string, tenantId: string, intentId: string, actorId: string) =>
+    cases.approveSarFilingIntent(caseId, tenantId, intentId, { actor_id: actorId }),
   queueTransmit: (caseId: string, tenantId: string, intentId: string) =>
     cases.queueSarFilingSftp(caseId, tenantId, intentId),
 };
 
 const ORDERED_STATUSES: readonly SarFilingIntentStatus[] = [
   "PENDING_REVIEW",
-  "APPROVED",
+  "FILED",
   "SFTP_QUEUED",
   "TRANSMITTED",
   "ACKNOWLEDGED",
 ];
 
+/** Legacy intents may still report ``APPROVED`` before transmit; treat as filed for pipeline indexing. */
+function normalizePipelineStatus(s: string): SarFilingIntentStatus {
+  if (s === "APPROVED") return "FILED";
+  return s as SarFilingIntentStatus;
+}
+
 function indexOfStatus(s: string): number {
-  return ORDERED_STATUSES.indexOf(s as SarFilingIntentStatus);
+  return ORDERED_STATUSES.indexOf(normalizePipelineStatus(s));
 }
 
 /**
@@ -79,7 +85,7 @@ export function sarStatusStepIndex(status: SarFilingIntentStatus, auditLog: SarA
 
 export const SAR_PIPELINE_STEP_LABELS: { status: SarFilingIntentStatus; label: string }[] = [
   { status: "PENDING_REVIEW", label: "Pending review" },
-  { status: "APPROVED", label: "Approved" },
+  { status: "FILED", label: "Approved for filing" },
   { status: "SFTP_QUEUED", label: "Queued for transmit" },
   { status: "TRANSMITTED", label: "Transmitted" },
   { status: "ACKNOWLEDGED", label: "Acknowledged" },

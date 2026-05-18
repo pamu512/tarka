@@ -1,0 +1,32 @@
+[project]
+name = "tarka-management"
+version = "0.1.0"
+description = "Management plane services (immutable rule registry, forensic replay)"
+requires-python = ">=3.11"
+dependencies = [
+  "sqlalchemy>=2.0.36",
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.32.0",
+  "pydantic-settings>=2.6.0",
+  "pyyaml>=6.0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "httpx>=0.28.0",
+]
+
+[project.scripts]
+tarka-management-serve = "tarka_management.__main__:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+asyncio_mode = "auto"

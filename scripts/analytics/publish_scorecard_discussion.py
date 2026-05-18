@@ -69,7 +69,10 @@ def build_markdown(data: dict[str, Any]) -> str:
         [
             "",
             "---",
-            "_Published by `scripts/analytics/publish_scorecard_discussion.py`" + (f" · {run_url}" if run_url else "") + (f" · `{sha}`" if sha else "") + "_",
+            "_Published by `scripts/analytics/publish_scorecard_discussion.py`"
+            + (f" · {run_url}" if run_url else "")
+            + (f" · `{sha}`" if sha else "")
+            + "_",
         ]
     )
     return "\n".join(lines)
@@ -106,7 +109,9 @@ def graphql(token: str, query: str, variables: dict[str, Any]) -> dict[str, Any]
     return out["data"]
 
 
-def resolve_repo_and_category(token: str, owner: str, name: str, category_name: str) -> tuple[str, str]:
+def resolve_repo_and_category(
+    token: str, owner: str, name: str, category_name: str
+) -> tuple[str, str]:
     q = """
     query($owner: String!, $name: String!) {
       repository(owner: $owner, name: $name) {
@@ -162,7 +167,9 @@ def main() -> int:
     p.add_argument("--tenant-id", default=os.environ.get("SCORECARD_TENANT_ID", "demo"))
     p.add_argument("--days", type=int, default=int(os.environ.get("SCORECARD_DAYS", "7")))
     p.add_argument("--api-key", default=os.environ.get("SCORECARD_API_KEY", ""))
-    p.add_argument("--discussion-category", default=os.environ.get("DISCUSSION_CATEGORY", "General"))
+    p.add_argument(
+        "--discussion-category", default=os.environ.get("DISCUSSION_CATEGORY", "General")
+    )
     p.add_argument("--dry-run", action="store_true")
     args = p.parse_args()
 

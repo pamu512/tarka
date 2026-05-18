@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "default_url": "https://github.com/tarka/tarka/blob/main/.github/workflows/tarka-core-benchmark-regression.yml",
+  "default_label": "tarka-core Criterion regression (CI workflow)",
+  "per_rule": {
+    "high_value_wire": "https://github.com/tarka/tarka/actions/workflows/tarka-core-benchmark-regression.yml"
+  }
+}

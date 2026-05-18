@@ -1,10 +1,15 @@
 /** 0–1 inference metric with fill bar; risk = higher is worse, trust = higher is better. */
 
+import type { ReactNode } from "react";
+import { InfoHover } from "./InfoHover";
+
 interface InferenceMetricTrackProps {
   label: string;
   value: number;
   variant: "risk" | "trust";
   className?: string;
+  /** Brutal facts behind the scalar — progressive disclosure on hover/focus. */
+  hoverDetail?: ReactNode;
 }
 
 export function InferenceMetricTrack({
@@ -12,6 +17,7 @@ export function InferenceMetricTrack({
   value,
   variant,
   className = "",
+  hoverDetail,
 }: InferenceMetricTrackProps) {
   const clamped = Math.max(0, Math.min(1, value));
   const pct = clamped * 100;
@@ -30,7 +36,15 @@ export function InferenceMetricTrack({
     <div className={`space-y-1 ${className}`}>
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs text-gray-400">{label}</span>
-        <span className="text-xs font-mono text-gray-200 tabular-nums">{clamped.toFixed(2)}</span>
+        <span className="text-xs font-mono text-gray-200 tabular-nums shrink-0">
+          {hoverDetail ? (
+            <InfoHover heading={label} detail={hoverDetail}>
+              {clamped.toFixed(2)}
+            </InfoHover>
+          ) : (
+            clamped.toFixed(2)
+          )}
+        </span>
       </div>
       <div className="relative h-2 rounded-full bg-surface-800 border border-surface-600 overflow-hidden">
         <div

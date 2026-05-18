@@ -26,12 +26,7 @@ def test_topology_linear_chain_anchor_device_user() -> None:
         "tenant_id": "t1",
     }
     e_anchor_device = {T.id: 501, T.label: "USED_DEVICE", "transaction_id": "tx-1"}
-    device = {
-        T.id: 200,
-        T.label: snapshot_tool.LABEL_DEVICE,
-        "device_id": "dev-1",
-        "tenant_id": "t1",
-    }
+    device = {T.id: 200, T.label: snapshot_tool.LABEL_DEVICE, "device_id": "dev-1", "tenant_id": "t1"}
     e_device_user = {T.id: 502, T.label: "RELATED", "role": "shared"}
     user2 = {T.id: 300, T.label: snapshot_tool.LABEL_USER, "user_id": "u2", "tenant_id": "t1"}
 

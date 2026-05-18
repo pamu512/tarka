@@ -1,0 +1,3811 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Modular, open-source fraud detection platform with real-time scoring, graph analytics, ML inference, and case management.">
+      
+      
+      
+        <link rel="canonical" href="https://tarka.dev/releases/v1.2.0-2026-05-30/">
+      
+      
+        <link rel="prev" href="../v1.1.0-2026-04-30/">
+      
+      
+        <link rel="next" href="../v1.3.0-2026-06-29/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>v1.2.0 (Planned) - Tarka Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#release-v120-planned" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Tarka Documentation" class="md-header__button md-logo" aria-label="Tarka Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Tarka Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              v1.2.0 (Planned)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="amber"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/tarka/tarka" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    tarka/tarka
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../quickstart/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Quickstart
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../architecture/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../services/decision-api/" class="md-tabs__link">
+          
+  
+  
+  Services
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/rules/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../analysis/tarka-scoring-and-comparison.md" class="md-tabs__link">
+          
+  
+  
+  Analysis
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../adr/0001-record-architecture-decisions/" class="md-tabs__link">
+          
+  
+  
+  ADRs
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../projects/" class="md-tabs__link">
+          
+  
+  
+  Projects
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../v1.1.0-2026-04-30/" class="md-tabs__link">
+          
+  
+  
+  Releases
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../sdks/python/" class="md-tabs__link">
+          
+  
+  
+  SDKs
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../api-reference/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  API Reference
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../operations/runbook-common-failures/" class="md-tabs__link">
+          
+  
+  
+  Operations
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Tarka Documentation" class="md-nav__button md-logo" aria-label="Tarka Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Tarka Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/tarka/tarka" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    tarka/tarka
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Services
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Services
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../services/decision-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decision API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../services/graph-service/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Graph Service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../services/case-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Case API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../services/feature-service/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../services/ml-scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../services/investigation-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigation Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rule Authoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../generated/logic-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YAML logic reference (generated)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/graph-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Graph Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/deployment-aws/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: AWS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/deployment-azure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: Azure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/deployment-gcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: GCP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/deployment-cloud-native-bundles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: Cloud-native bundles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/deployment-presets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: Presets & generated values
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/deployment-managed-services/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: Managed services
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/deployment-service-mesh-health-routing.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: Service mesh health routing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/edge-security-waf-bot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: Edge security (WAF/Bot)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/operationalizing-device-llm-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: Operationalizing device/LLM/schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/deployment-lighter-runtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: Lighter runtime
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/deployment-release-readiness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment: Release readiness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/enterprise-readiness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise Readiness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/competitor-parity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise parity (ingest, rules, vendors)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/enterprise-copilot-plugin-and-governance-controls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise Copilot: plugin + governance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/incident-response/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Incident Response
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/runbook-chaos-template/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chaos runbook (template)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/roadmap-30-60-90/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    30/60/90 Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/release-calendar-2026-05/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Calendar (May 2026)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/oss-ship-order-dependencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OSS ship order (dependencies)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/ingest-replay-onboarding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingest, idempotency & replay
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/github-issues-batch-2026-04-reassessment-wave2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Issues Batch (Reassessment Wave 2)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/module-codenames/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Module codenames
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/investigation-collaboration-chat-aws-azure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Collaboration chat (Slack, Teams, Lark) & cloud
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/agentic-ai-fraud-detection-variables-and-layering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic AI fraud detection (variables & layering)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/distributed-tracing.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Distributed tracing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/api-versioning-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API versioning strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/feature-flags-rollout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature flags rollout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/choosing-tarka/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Choosing Tarka
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_33" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_33" id="__nav_5_33_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Saarthi Pro
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_33_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_33">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Saarthi Pro
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/saarthi-pro-vs-oss/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    vs open source (OSS)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/saarthi-pro-roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/saarthi-pro-distribution-and-contract-parity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Distribution & contract parity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/saarthi-pro-adapter-catalog-and-certification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adapter catalog & certification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analysis
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Analysis
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../analysis/tarka-scoring-and-comparison.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tarka scoring and comparison
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../analysis/tarka-harsh-reality-assessment.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Harsh reality assessment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ADRs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0001-record-architecture-decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0001 Record architecture decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0002-infrastructure-for-proof-philosophy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0002 Infrastructure for proof philosophy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0001-shared-python-packaging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0001 Shared Python packaging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0002-service-observability-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0002 Service observability baseline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0003-api-versioning-policy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0003 API versioning policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-0004-feature-flag-rollout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-0004 Feature flag rollout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Projects
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Projects
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Module Projects Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/decision-api-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decision API Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/case-api-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Case API Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/graph-service-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Graph Service Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/ml-scoring-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML Scoring Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/feature-service-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Service Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/integration-ingress-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integration Ingress Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/frontend-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frontend Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/sdk-python-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python SDK Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/sdk-typescript-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript SDK Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/sdk-mobile-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mobile SDKs Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/analytics-sink-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics Sink Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../projects/investigation-agent-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Investigation Agent Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Releases
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Releases
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../v1.1.0-2026-04-30/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.1.0 (Planned)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.2.0 (Planned)
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.2.0 (Planned)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#theme" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Theme
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#strategic-concentration-530-train" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strategic concentration (5/30 train)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Strategic concentration (5/30 train)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#graph-service-neo4j-janusgraph-530" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Graph service: Neo4j ↔ JanusGraph (5/30)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#journey-coverage-j1j5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Journey coverage (J1–J5)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dao-integration-scope-for-530" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DAO integration (scope for 5/30)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#planned-highlights" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Planned Highlights
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Planned Highlights">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ml-explainability-shipping-on-the-530-train" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ML explainability (shipping on the 5/30 train)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#documentation-vs-code-rolling-tracker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation vs code (rolling tracker)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Documentation vs code (rolling tracker)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#suggested-build-order-engineering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Suggested build order (engineering)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#planned-breaking-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Planned Breaking Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#planned-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Planned Validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../v1.3.0-2026-06-29/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3.0 (Planned)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SDKs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    SDKs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sdks/python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sdks/typescript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/runbook-common-failures/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runbook: common failures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/oncall-playbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    On-call playbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#theme" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Theme
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#strategic-concentration-530-train" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strategic concentration (5/30 train)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Strategic concentration (5/30 train)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#graph-service-neo4j-janusgraph-530" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Graph service: Neo4j ↔ JanusGraph (5/30)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#journey-coverage-j1j5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Journey coverage (J1–J5)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dao-integration-scope-for-530" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DAO integration (scope for 5/30)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#planned-highlights" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Planned Highlights
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Planned Highlights">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ml-explainability-shipping-on-the-530-train" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ML explainability (shipping on the 5/30 train)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#documentation-vs-code-rolling-tracker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation vs code (rolling tracker)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Documentation vs code (rolling tracker)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#suggested-build-order-engineering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Suggested build order (engineering)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#planned-breaking-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Planned Breaking Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#planned-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Planned Validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="release-v120-planned">Release v1.2.0 (Planned)<a class="headerlink" href="#release-v120-planned" title="Permanent link">&para;</a></h1>
+<p>Planned release date: <code>2026-05-30</code></p>
+<p><strong>Ship hold:</strong> <strong><code>v1.2.0</code> is not finalized</strong> (no publishable tag/release) until <strong><a href="../../guides/counter-replay-parity/#epic-c-completion-10x-bar">Epic C completion (10x bar)</a></strong> is met. See <a href="../../../RELEASE_SCHEDULE.md"><code>RELEASE_SCHEDULE.md</code></a> § <em>v1.2.0 — ship hold until Epic C “10x”</em>.</p>
+<h2 id="theme">Theme<a class="headerlink" href="#theme" title="Permanent link">&para;</a></h2>
+<p>Vertical intelligence starter packs and benchmarkability—<strong>with explicit concentration</strong> on closing competitive gaps called out in <a href="../../guides/competitive-critical-review-2026-04/"><code>competitive-critical-review-2026-04.md</code></a>.</p>
+<h2 id="strategic-concentration-530-train">Strategic concentration (5/30 train)<a class="headerlink" href="#strategic-concentration-530-train" title="Permanent link">&para;</a></h2>
+<p>Engineering and product work for <strong><code>v1.2.0</code> prioritizes these seven pillars</strong> (maps to Day 60 scope in <a href="../../guides/roadmap-30-60-90/"><code>roadmap-30-60-90.md</code></a> and <a href="../../guides/release-gap-closure-schedule/"><code>release-gap-closure-schedule.md</code></a>):</p>
+<table>
+<thead>
+<tr>
+<th>Pillar</th>
+<th>Intent for 5/30</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Productized quality</strong></td>
+<td>Opinionated vertical packs, deterministic benchmarks, preset governance profiles—fewer raw knobs, clearer outcomes.</td>
+</tr>
+<tr>
+<td><strong>Device / session / integrity</strong></td>
+<td>Stronger packaged tamper/replay/MitM and session signal story across SDKs and inference; consistency controls.</td>
+</tr>
+<tr>
+<td><strong>Location &amp; co-presence</strong></td>
+<td>Richer location/co-presence signals and rule-facing keys; documented confidence semantics where not covered by inference proxies alone. <strong>Trunk already has:</strong> optional browser GPS + opt-in IP geo (<code>ENABLE_IP_GEO_LOOKUP</code>), <code>location_context</code> merge + geo mismatch tags, graph <strong><code>Place</code> / <code>SEEN_AT</code></strong> — v1.2 acceptance should cite tests + operator docs, not re-implement from scratch.</td>
+</tr>
+<tr>
+<td><strong>Counters / velocity as a platform</strong></td>
+<td><code>feature-service</code> multi-window counters, normalized velocity keys, <strong>online/offline parity</strong> per <a href="../../guides/counter-replay-parity/"><code>counter-replay-parity.md</code></a>.</td>
+</tr>
+<tr>
+<td><strong>Analyst workflows</strong></td>
+<td>Templates, reason-code mappings, tighter decision→review loops; extends v1.1.0 explainability.</td>
+</tr>
+<tr>
+<td><strong>Network / consortium effects</strong></td>
+<td>Deepen consortium-weighted intelligence and tenant policy surfaces where they improve collective signal <strong>without</strong> sacrificing tenant isolation.</td>
+</tr>
+<tr>
+<td><strong>Operations &amp; lock-in inverse</strong></td>
+<td>Connector reliability scorecards, ingress SLA-style fields, documented deploy profiles and graph-backend alternates—<strong>reduce</strong> operational and legal friction vs closed vendors.</td>
+</tr>
+</tbody>
+</table>
+<p>Deliverables below (starter packs, benchmarks, counters, ingress reliability) <strong>roll up into these pillars</strong>; issue ordering still follows <a href="../../guides/oss-ship-order-dependencies/"><code>oss-ship-order-dependencies.md</code></a>.</p>
+<h3 id="graph-service-neo4j-janusgraph-530">Graph service: Neo4j ↔ JanusGraph (5/30)<a class="headerlink" href="#graph-service-neo4j-janusgraph-530" title="Permanent link">&para;</a></h3>
+<p><strong>Ship:</strong> <code>services/graph-service</code> can run against <strong>Neo4j</strong> (default) or <strong>JanusGraph</strong> via Gremlin Server by setting <code>GRAPH_BACKEND</code> and <code>JANUSGRAPH_*</code> env vars. The <strong>HTTP API is unchanged</strong>—Decision API, case flows, and investigation / copilot clients keep the same <code>GRAPH_SERVICE_URL</code> contract.</p>
+<ul>
+<li>Operator guide: <a href="../../../services/graph-service/docs/janusgraph-adapter.md"><code>services/graph-service/docs/janusgraph-adapter.md</code></a>.</li>
+<li><strong>Analytics:</strong> Janus mode uses Gremlin + in-process algorithms; fraud-ring detection is documented as an <strong>approximation</strong> vs Neo4j Cypher (same response shape, not guaranteed identical rings).</li>
+</ul>
+<h2 id="journey-coverage-j1j5">Journey coverage (J1–J5)<a class="headerlink" href="#journey-coverage-j1j5" title="Permanent link">&para;</a></h2>
+<p>How this release advances <a href="../../guides/journey-ship-bundles/">user journeys</a> (see that guide for full issue/release mapping):</p>
+<table>
+<thead>
+<tr>
+<th>Journey</th>
+<th>Role</th>
+<th>Planned emphasis in v1.2.0</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>J1 — Integrate</strong></td>
+<td>Integrations / platform</td>
+<td>Deeper connector reliability and ingress-facing surfaces (aligned with integration health and probe-style controls).</td>
+</tr>
+<tr>
+<td><strong>J2 — Decide</strong></td>
+<td>Risk / automation</td>
+<td><strong>Primary:</strong> vertical starter packs, benchmark harness, preset profiles for model/rule governance—typology- and promotion-aligned shipping.</td>
+</tr>
+<tr>
+<td><strong>J3 — Investigate</strong></td>
+<td>Analyst</td>
+<td>Workflow templates and reason-code mappings that tie decisions to review behavior; explainability surfaces as capacity allows.</td>
+</tr>
+<tr>
+<td><strong>J4 — Govern</strong></td>
+<td>Compliance / leadership</td>
+<td>Light prep only where packs and benchmarks produce auditable artifacts; heavy <strong>J4</strong> is <strong>v1.3.0</strong>.</td>
+</tr>
+<tr>
+<td><strong>J5 — Operate</strong></td>
+<td>SRE / platform</td>
+<td>Deterministic benchmarks and regression passes as operational guardrails; scorecard-oriented outcomes where shipped.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="dao-integration-scope-for-530">DAO integration (scope for 5/30)<a class="headerlink" href="#dao-integration-scope-for-530" title="Permanent link">&para;</a></h2>
+<p><strong>DAO</strong> here means <em>decentralized community or consortium governance</em> that should <strong>influence risk signal sharing</strong>, not the in-app “governance” of model promotion (that stays YAML/CI-first in v1.2).</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Fit with Tarka today</th>
+<th>v1.2.0 (5/30)</th>
+<th>Later (e.g. v1.3+ / J4)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Off-chain DAO → operational policy</strong></td>
+<td>Decisions already support <strong>preset profiles</strong> and <strong>consortium</strong> hooks (<code>consortium_api</code>, Redis <code>fraud:consortium:*</code>).</td>
+<td><strong>Document</strong> how a DAO’s off-chain votes map to env/config (<code>CONSORTIUM_*</code>, trust scores, opt-in participation). Optional <strong>OpenAPI + guide</strong> for <code>consortium</code> HTTP APIs.</td>
+<td>UI / Trust Center surfacing of consortium posture.</td>
+</tr>
+<tr>
+<td><strong>On-chain attestations → consortium signals</strong></td>
+<td><code>record_consortium_signal</code> / <code>add_consortium_feedback</code> can carry <strong>provenance</strong> if callers attach signed metadata.</td>
+<td><strong>Spike or thin adapter</strong>: e.g. a small <strong>ingest worker</strong> (or documented <code>curl</code> recipe) that turns <strong>signed DAO payloads</strong> (IPFS snapshot, EIP-191 message, or org-specific format) into <strong>consortium API</strong> calls—no chain dependency in core services.</td>
+<td>Hardened identity, replay protection, and audit exports (aligns with <strong>v1.3</strong> evidence story).</td>
+</tr>
+<tr>
+<td><strong>Token voting inside the product</strong></td>
+<td>No wallet or chain coupling in core stack today.</td>
+<td><strong>Out of scope</strong> for v1.2 unless explicitly prioritized; treat as separate product track.</td>
+<td>Revisit if J4 requires on-chain evidence bundles.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Dependencies:</strong> stays aligned with the <strong>Network / consortium effects</strong> pillar and <a href="../../guides/competitive-critical-review-2026-04/"><code>competitive-critical-review-2026-04.md</code></a> “collective signal without sacrificing tenant isolation.” <strong>Tenant isolation</strong> remains non-negotiable: DAO-fed signals are <strong>opt-in</strong> per deployment and must not imply cross-tenant PII leakage.</p>
+<p><strong>Exit criteria for v1.2 DAO slice (pick one or two):</strong></p>
+<ol>
+<li>Published <strong>integration guide</strong> under <code>docs/docs/guides/</code> describing how DAO outcomes map to consortium APIs (sequence: DAO outcome → consortium endpoints → evaluate behavior) — <strong><a href="../../guides/dao-to-consortium-integration/"><code>dao-to-consortium-integration.md</code></a></strong>.</li>
+<li><strong>Reference adapter</strong> under <a href="../../../scripts/consortium_adapter/README.md"><code>scripts/consortium_adapter/</code></a>: CLI + JSON Lines ingest + Python client (<code>httpx</code>).</li>
+<li>If a chain attestation format is chosen, document <strong>one</strong> canonical example (versioned) in <code>contracts/</code> or <code>docs/docs/guides/examples/</code> — <strong><a href="../../contracts/examples/dao-attestation-v1.example.json"><code>contracts/examples/dao-attestation-v1.example.json</code></a></strong>.</li>
+</ol>
+<p><strong>Reference (factual pattern only, no vendor endorsement):</strong> <a href="../../guides/joinsonar-query-feedback-vs-consortium-api/"><code>joinsonar-query-feedback-vs-consortium-api.md</code></a> and <a href="../../guides/unit21-fraud-dao-vs-consortium-api/"><code>unit21-fraud-dao-vs-consortium-api.md</code></a> compare public consortium-style flows to Tarka’s <code>consortium_api</code>.</p>
+<p>Heavy <strong>J4</strong> (Trust Center, signed release governance) remains <strong>v1.3.0</strong> per <a href="../v1.3.0-2026-06-29/"><code>v1.3.0-2026-06-29.md</code></a>.</p>
+<h2 id="planned-highlights">Planned Highlights<a class="headerlink" href="#planned-highlights" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Fintech, e-commerce, and gaming starter packs.</li>
+<li>Vertical workflow templates and reason-code mappings.</li>
+<li>Benchmark harness for baseline vs vertical-pack lift.</li>
+<li>Preset profile selection in model/rule governance workflows.</li>
+<li><strong>Publishable numbers:</strong> document standard hardware + compose profile for <a href="../../../scripts/benchmarks/README.md"><code>scripts/benchmarks/latency_evaluate.py</code></a> and simulation KPIs; extend with optional k6/hey recipes if needed.</li>
+<li><strong>Examples index</strong> maintained under <a href="../../guides/examples/"><code>docs/docs/guides/examples/</code></a> aligned with shipped vertical packs.</li>
+<li><strong>Counter replay / online-offline parity</strong> implementation per <a href="../../guides/counter-replay-parity/"><code>counter-replay-parity.md</code></a> (worker + CI golden counters).</li>
+<li><strong>Load recipes:</strong> optional <strong><code>hey</code></strong> script <a href="../../../scripts/benchmarks/load-hey-evaluate.sh"><code>scripts/benchmarks/load-hey-evaluate.sh</code></a> for publishable RPS/latency; extend to k6 if needed.</li>
+</ul>
+<h3 id="ml-explainability-shipping-on-the-530-train">ML explainability (shipping on the 5/30 train)<a class="headerlink" href="#ml-explainability-shipping-on-the-530-train" title="Permanent link">&para;</a></h3>
+<p><strong>Shipped (trunk target for v1.2.0):</strong></p>
+<ul>
+<li><strong><code>ml-scoring</code> <code>POST /v1/score</code></strong> returns structured <strong><code>ml_top_factors</code></strong> (ranked codes + descriptions + impact) and a single-line <strong><code>ml_summary</code></strong>, derived from existing heuristic / ONNX / adaptive explanations (FraudLens-style <em>factor list + narrative</em>, without a runtime dependency on external demos).</li>
+<li><strong><code>decision-api</code></strong> passes that slice through <strong><code>_fetch_ml_score</code></strong> into <strong><code>inference_context</code></strong>: optional <strong><code>ml_top_factors</code></strong>, <strong><code>ml_summary</code></strong>, <strong><code>ml_model</code></strong> (plus <strong><code>driver_reasons</code></strong> entries <code>ml_factor:&lt;CODE&gt;</code> for the top factors).</li>
+<li><strong>Contracts:</strong> OpenAPI <strong><code>InferenceContext</code></strong> in <a href="../../contracts/openapi/decision-api.yaml"><code>contracts/openapi/decision-api.yaml</code></a>; golden example <a href="../../contracts/golden/inference-context-v2.example.json"><code>contracts/golden/inference-context-v2.example.json</code></a>; Python + TypeScript SDK types; Case Detail <strong>ML explanation</strong> block in the frontend.</li>
+</ul>
+<p><strong>Stretch (implemented; optional at runtime, behind extras / env):</strong></p>
+<ul>
+<li><strong>TreeSHAP + LightGBM:</strong> <code>pip install -e "services/ml-scoring[shap]"</code> (or <code>tarka-ml-scoring[shap]</code> from the package), then set <strong><code>ML_SHAP_ENABLED=1</code></strong> and <strong><code>ML_LGBM_MODEL_PATH</code></strong> to a <strong><code>joblib</code></strong>-pickled <strong><code>LGBMClassifier</code> / <code>LGBMRegressor</code></strong> using the same 9-feature order as <a href="../../../services/ml-scoring/src/ml_scoring/main.py"><code>services/ml-scoring/src/ml_scoring/main.py</code></a>. When active, <strong><code>POST /v1/score</code></strong> uses the tree model score for the adaptive blend base and <strong><code>ml_top_factors</code></strong> from TreeSHAP. Health JSON includes <strong><code>shap_stretch_enabled</code></strong>.</li>
+<li><strong>Batch scoring CLI:</strong> <a href="../../../scripts/ml_batch_score.py"><code>scripts/ml_batch_score.py</code></a> (CSV → <strong><code>POST /v1/score</code></strong>); documented in <a href="../../../scripts/benchmarks/README.md"><code>scripts/benchmarks/README.md</code></a>.</li>
+<li><strong>DAO → consortium:</strong> integration guide <a href="../../guides/dao-to-consortium-integration/"><code>docs/docs/guides/dao-to-consortium-integration.md</code></a>; attestation example <a href="../../contracts/examples/dao-attestation-v1.example.json"><code>contracts/examples/dao-attestation-v1.example.json</code></a>.</li>
+</ul>
+<h2 id="documentation-vs-code-rolling-tracker">Documentation vs code (rolling tracker)<a class="headerlink" href="#documentation-vs-code-rolling-tracker" title="Permanent link">&para;</a></h2>
+<p>Use this table to <strong>close gaps between marketing language and the repo</strong>. Update it as work merges to <code>master</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>v1.1 consortium bullets</strong></td>
+<td>Doc aligned</td>
+<td><a href="../v1.1.0-2026-04-30/">v1.1.0-2026-04-30.md</a> § Consortium now distinguishes <strong>API/Redis</strong> vs <strong>Case UI</strong> (no consortium dashboard in React for v1.1).</td>
+</tr>
+<tr>
+<td><strong>DAO → consortium guide</strong></td>
+<td>Living</td>
+<td><a href="../../guides/dao-to-consortium-integration/"><code>dao-to-consortium-integration.md</code></a> — HTTP paths must match <strong><code>POST /v1/consortium/share</code></strong> (not <code>/signal</code>).</td>
+</tr>
+<tr>
+<td><strong>Graph: Neo4j vs JanusGraph</strong></td>
+<td>Shipped</td>
+<td><code>GRAPH_BACKEND</code> / Gremlin path documented in <a href="../../../services/graph-service/docs/janusgraph-adapter.md"><code>services/graph-service/docs/janusgraph-adapter.md</code></a>.</td>
+</tr>
+<tr>
+<td><strong>Counter replay / golden counters</strong></td>
+<td>Partial</td>
+<td><strong>Manifest v1</strong> + <strong><code>GET /v1/internal/counters/manifest</code></strong>; <strong><code>POST /v1/internal/counters/replay</code></strong> / <strong><code>POST /v1/internal/counters/replay/from-audit</code></strong> (token: <code>COUNTER_REPLAY_TOKEN</code> / <code>X-Tarka-Counter-Replay-Token</code>); OpenAPI paths in <a href="../../contracts/openapi/decision-api.yaml"><code>contracts/openapi/decision-api.yaml</code></a>; scripts <a href="../../../scripts/replay/replay_aggregates.py"><code>replay_aggregates.py</code></a>, <a href="../../../scripts/replay/export_audit_to_jsonl.py"><code>export_audit_to_jsonl.py</code></a>, <a href="../../../scripts/replay/diff_aggregate_redis.py"><code>diff_aggregate_redis.py</code></a>; operator playbook <a href="../../guides/redis-agg-key-version-migration/"><code>redis-agg-key-version-migration.md</code></a>; CI <a href="../../../services/decision-api/tests/test_golden_counters.py"><code>test_golden_counters.py</code></a>, <a href="../../../.github/workflows/counter-parity-smoke.yml"><code>counter-parity-smoke.yml</code></a>. Remaining: production cutover evidence per playbook.</td>
+</tr>
+<tr>
+<td><strong>ML top factors / summary in <code>inference_context</code></strong></td>
+<td>Shipped on trunk</td>
+<td><code>decision_api</code> + <code>ml-scoring</code> + <strong>Case Detail</strong> UI (<code>CaseDetail.tsx</code>); keep golden keys + integration tests green per § <em>Planned Validation</em> below.</td>
+</tr>
+<tr>
+<td><strong>Vertical packs + benchmark harness</strong></td>
+<td>Partial</td>
+<td><code>decision-api</code> exposes and documents <code>GET /v1/rules/vertical-packs</code>, <code>POST /v1/rules/vertical-packs/{vertical_name}/install</code>, and <code>POST /v1/simulation/benchmark/vertical</code>; tests cover list/install/benchmark flows; benchmark smoke adds <a href="../../../scripts/benchmarks/vertical_benchmark_smoke.py"><code>vertical_benchmark_smoke.py</code></a> and CI job in <a href="../../../.github/workflows/benchmark-smoke.yml"><code>.github/workflows/benchmark-smoke.yml</code></a>. Remaining: publishable scorecards + acceptance thresholds.</td>
+</tr>
+<tr>
+<td><strong>Feature-service multi-window counters</strong></td>
+<td>Partial</td>
+<td>Shared module <a href="../../../services/shared/fraud_aggregates.py"><code>fraud_aggregates.py</code></a>; <strong><code>normalized_velocity_key_names()</code></strong> includes <strong><code>distinct_session_id_24h</code></strong> when <strong><code>session_id</code></strong> is present in the payload (same pattern as <strong><code>device_id</code></strong>); feature-service reads <strong><code>velocity_counters</code></strong> on <strong><code>POST /v1/snapshot</code></strong> and <strong><code>POST /v1/velocity/query</code></strong> when <strong><code>REDIS_URL</code></strong> or <strong><code>FEATURE_SERVICE_REDIS_URL</code></strong> is set (same Redis / <code>fraud:agg:*</code> keys as decision-api). Remaining: richer rule-pack docs + optional compose env wiring.</td>
+</tr>
+<tr>
+<td><strong>Challenge policy templates</strong></td>
+<td>Partial</td>
+<td>JSON in <strong><code>rules/challenge_policies/</code></strong> (<code>default_v1</code>, <code>strict_review_v1</code>, <code>payments_high_value_v1</code>); optional <strong><code>challenge_policy_id</code></strong> on evaluate; response <strong><code>challenge_metadata</code></strong> + <strong><code>GET /v1/challenge-policies</code></strong>; env <strong><code>CHALLENGE_POLICY_DEFAULT</code></strong>.</td>
+</tr>
+<tr>
+<td><strong>Ingress reliability scorecards</strong></td>
+<td>Partial</td>
+<td>API-first reliability surfaces documented in <a href="../../contracts/openapi/integration-ingress.yaml"><code>contracts/openapi/integration-ingress.yaml</code></a> (<code>/v1/slo</code>, readiness, health-matrix, connectivity, vault endpoints) plus new <code>GET /v1/integrations/scorecards</code>; scorecards derived from installed-provider connectivity snapshots (<code>last_connectivity_test</code>) with normalized status (<code>healthy/degraded/down/unknown</code>) and overall score. Remaining: historical trend windows + UI panel polish.</td>
+</tr>
+<tr>
+<td><strong>Location SDK + graph coherence (GPS / IP / Place)</strong></td>
+<td>Shipped on trunk</td>
+<td><code>packages/fraud-sdk-typescript</code> (<code>enableGeo</code>), <code>packages/fraud-sdk-python</code> (<code>enable_ip_geo</code>), <code>decision_api/location_context.py</code>, graph <strong><code>Place</code>/<code>SEEN_AT</code></strong>, OpenAPI <code>DeviceContext.signals</code> — keep <strong><code>.github/workflows/ci.yml</code></strong> + decision-api tests green; document env flags in SDK guides.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="suggested-build-order-engineering">Suggested build order (engineering)<a class="headerlink" href="#suggested-build-order-engineering" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Lock parity docs:</strong> keep DAO/consortium paths and examples aligned with <code>consortium_api.py</code> (this pass fixed <code>/share</code>).</li>
+<li><strong>Counter platform (Epic C):</strong> manifest v1 + token-gated <code>POST /v1/internal/counters/replay</code> + <code>GET .../manifest</code> shipped; next: Redis key-prefix versioning, audit-export batch job — see <a href="../../guides/counter-replay-parity/"><code>counter-replay-parity.md</code></a>.</li>
+<li><strong>Feature-service:</strong> shared <strong><code>fraud_aggregates</code></strong> + snapshot / <strong><code>/v1/velocity/query</code></strong> wired — extend rule-pack examples and compose defaults (see Day 60 in <a href="../../guides/roadmap-30-60-90/"><code>roadmap-30-60-90.md</code></a>).</li>
+<li><strong>Policy templates (Epic D):</strong> challenge orchestration configs in decision-api; frontend panels when APIs exist.</li>
+<li><strong>Vertical packs + benchmarks:</strong> wire <a href="../../../scripts/benchmarks/README.md"><code>scripts/benchmarks/</code></a> to reproducible scorecards; maintain <a href="../../guides/examples/"><code>docs/docs/guides/examples/</code></a>.</li>
+<li><strong>Ingress:</strong> reliability fields and scorecards on integration-ingress as APIs stabilize.</li>
+</ol>
+<h2 id="planned-breaking-changes">Planned Breaking Changes<a class="headerlink" href="#planned-breaking-changes" title="Permanent link">&para;</a></h2>
+<ul>
+<li>None expected.</li>
+</ul>
+<h2 id="planned-validation">Planned Validation<a class="headerlink" href="#planned-validation" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Pack installation and activation tests for all verticals.</li>
+<li>Deterministic benchmark output with fixed seeds.</li>
+<li>Regression test pass across decision, case, and analytics services.</li>
+<li><strong><code>inference_context</code></strong> golden keys include <strong><code>ml_top_factors</code> / <code>ml_summary</code> / <code>ml_model</code></strong>; decision-api + <strong><code>ml-scoring</code></strong> unit tests green when <code>ML_SCORING_URL</code> is set in integration profiles.</li>
+<li>UI smoke: Case Detail shows <strong>ML explanation</strong> when <code>ml_summary</code> or factors are present; backward compatible when <code>ml-scoring</code> is off (empty factors, null summary).</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/tarka/tarka" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
