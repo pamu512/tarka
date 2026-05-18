@@ -204,3 +204,6 @@ opa:
   enabled: false
   image: openpolicyagent/opa:0.70.0
   port: 8181
+
+streamingAggregations:
+  enabled: false
