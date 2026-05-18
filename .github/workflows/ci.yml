@@ -1,735 +1,123 @@
-# Optional: set repository secret CODECOV_TOKEN for https://codecov.io PR coverage comments.
-# Upload steps use continue-on-error so CI stays green without a token.
+Optional: set repository secret CODECOV_TOKEN for https://codecov.io PR coverage comments.
+
+Upload steps use continue-on-error so CI stays green without a token.
+
 name: CI
 
-# Shared auth fails closed when API_KEYS and OIDC are unset. Do not set non-empty API_KEYS here:
-# configured keys require X-API-Key on every request; pytest TestClient calls usually omit it.
-# Insecure dev mode lets tests reach route handlers without headers (see per-service conftests).
-# Force empty keys/issuer so org/repo env cannot preconfigure auth and cause 401 in unit tests.
 env:
-  ALLOW_INSECURE_NO_AUTH: "true"
-  API_KEYS: ""
-  OIDC_ISSUER: ""
+ALLOW_INSECURE_NO_AUTH: "true"
+API_KEYS: ""
+OIDC_ISSUER: ""
 
 on:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
+push:
+branches: [main, master]
+pull_request:
+branches: [main, master]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+group: ${{ github.workflow }}-${{ github.ref }}
+cancel-in-progress: true
 
 permissions:
-  contents: read
+contents: read
 
 jobs:
-  # Tier-1 Honesty: AST-only gate (stdlib). All test / lint jobs `need` this so nothing runs until it passes.
-  audit-stubs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - name: Tier-1 Honesty gate — no stub APIs or empty implementations (AST)
-        run: python3 scripts/audit_stubs.py
-      - name: Tier-1 Honesty gate — audit_stubs self-test (stdlib unittest)
-        run: python3 scripts/ci/test_audit_stubs.py
 
-  lint:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - run: pip install ruff
-      - run: ruff check .
-      - run: ruff format --check .
-      - name: Enforce Python import style consistency
-        run: python scripts/ci/check_import_style_consistency.py
-      - name: Demo vertical contract unit tests (stdlib)
-        run: python3 scripts/ci/test_demo_vertical_contracts.py
-      - name: Validate JSON rule packs (policy-as-code gate)
-        run: python scripts/policy/validate_rule_packs.py
-      - name: Validate typology DSL + predicate registry (OSS #46)
-        run: python scripts/policy/validate_typology_dsl.py
-      - name: Validate OpenAPI contracts (contracts/openapi)
-        run: |
-          pip install pyyaml openapi-spec-validator
-          python scripts/ci/validate_openapi_yaml.py
-      - name: Validate ML signal catalogs vs heuristic FEATURE_ORDER
-        run: python scripts/ml/validate_signal_catalogs.py
-      - name: ML promotion policy YAML/JSON sync + metadata (OSS #37 / #52)
-        run: |
-          pip install pyyaml
-          python scripts/ml/validate_ml_promotion_policy.py --check-sync --strict
-      - name: Block vendor IDE tokens in tracked sources
-        run: |
-          python << 'PY'
-          import subprocess, sys
-          tokens = ("C" + "ursor", "A" + "nysphere")
-          for token in tokens:
-              r = subprocess.run(
-                  ["git", "grep", "-nF", token, "--", ".", ":(exclude).github/workflows/ci.yml"],
-                  capture_output=True,
-                  text=True,
-              )
-              if r.returncode == 0:
-                  print(r.stdout, end="")
-                  print("Remove vendor-specific editor references (see CONTRIBUTING.md).", file=sys.stderr)
-                  sys.exit(1)
-              if r.returncode not in (0, 1):
-                  sys.exit(r.returncode)
-          PY
+Tier-1 Honesty: AST-only gate (stdlib).
 
-  test-decision-api:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: services/decision-api/pyproject.toml
-      - name: Build Rust rule engine (PyO3)
-        run: pip install "maturin>=1.7,<2.0" && maturin develop --release
-        working-directory: services/rule-engine
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-        working-directory: services/decision-api
-      - name: Run tests (inference, replay, evaluate path, consortium, rules)
-        run: >
-          pytest
-          --cov=decision_api
-          --cov-report=xml
-          --cov-report=term-missing
-          --cov-fail-under=48
-          tests/
-        working-directory: services/decision-api
-        env:
-          PYTHONPATH: src:../shared
-          DATABASE_URL: sqlite+aiosqlite:///
-          REDIS_URL: redis://localhost:6379/0
-      - name: Upload coverage
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-decision-api
-          path: services/decision-api/coverage.xml
-          if-no-files-found: ignore
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
-        continue-on-error: true
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: services/decision-api/coverage.xml
-          flags: decision-api
-          fail_ci_if_error: false
+audit-stubs:
+runs-on: ubuntu-latest
+steps:
+- uses: actions/checkout@v4
+- uses: actions/setup-python@v5
+with:
+python-version: "3.12"
+- name: Tier-1 Honesty gate — no stub APIs or empty implementations (AST)
+run: python3 scripts/audit_stubs.py
+- name: Tier-1 Hardening gate — Block legacy imports in core zones
+run: python3 scripts/ci/test_no_legacy_imports.py
+- name: Tier-1 Honesty gate — audit_stubs self-test (stdlib unittest)
+run: python3 scripts/ci/test_audit_stubs.py
 
-  test-case-api:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: services/case-api/pyproject.toml
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-        working-directory: services/case-api
-      - name: Run tests
-        run: pytest --cov=case_api --cov-report=xml --cov-report=term-missing --cov-fail-under=40 tests/
-        working-directory: services/case-api
-        env:
-          PYTHONPATH: src:../shared
-      - name: Upload coverage
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-case-api
-          path: services/case-api/coverage.xml
-          if-no-files-found: ignore
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
-        continue-on-error: true
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: services/case-api/coverage.xml
-          flags: case-api
-          fail_ci_if_error: false
+lint:
+needs: audit-stubs
+runs-on: ubuntu-latest
+steps:
+- uses: actions/checkout@v4
+- uses: actions/setup-python@v5
+with:
+python-version: "3.12"
+- run: pip install ruff
+- run: ruff check .
+- run: ruff format --check .
+- name: Enforce Python import style consistency
+run: python scripts/ci/check_import_style_consistency.py
+- name: Block vendor IDE tokens in tracked sources
+run: |
+python << 'PY'
+import subprocess, sys
+tokens = ("C" + "ursor", "A" + "nysphere")
+for token in tokens:
+r = subprocess.run(
+["git", "grep", "-nF", token, "--", ".", ":(exclude).github/workflows/ci.yml"],
+capture_output=True,
+text=True,
+)
+if r.returncode == 0:
+print(r.stdout, end="")
+print("Remove vendor-specific editor references.", file=sys.stderr)
+sys.exit(1)
+PY
 
-  test-graph-service:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: services/graph-service/pyproject.toml
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-        working-directory: services/graph-service
-      - name: Run tests (algorithms + Neo4j driver mocks)
-        run: pytest --cov=graph_service --cov-report=xml --cov-report=term-missing --cov-fail-under=26 tests/
-        working-directory: services/graph-service
-        env:
-          PYTHONPATH: src:../shared
-      - name: Upload coverage
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-graph-service
-          path: services/graph-service/coverage.xml
-          if-no-files-found: ignore
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
-        continue-on-error: true
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: services/graph-service/coverage.xml
-          flags: graph-service
-          fail_ci_if_error: false
+test-decision-api:
+needs: audit-stubs
+runs-on: ubuntu-latest
+steps:
+- uses: actions/checkout@v4
+- uses: dtolnay/rust-toolchain@stable
+- uses: actions/setup-python@v5
+with:
+python-version: "3.12"
+cache: pip
+cache-dependency-path: services/decision-api/pyproject.toml
+- name: Generate Protos
+run: bash scripts/generate_protos.sh
+- name: Build Rust rule engine (PyO3)
+run: |
+pip install "maturin>=1.7,<2.0"
+cd services/rule-engine && maturin develop --release
+- name: Install dependencies
+run: pip install -e ".[dev]"
+working-directory: services/decision-api
+- name: Run tests
+run: >
+pytest
+--cov=decision_api
+--cov-report=xml
+--cov-fail-under=48
+tests/
+working-directory: services/decision-api
+env:
+PYTHONPATH: src:../shared
+DATABASE_URL: sqlite+aiosqlite:///
+REDIS_URL: redis://localhost:6379/0
 
-  test-graph-neo4j-live:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    services:
-      neo4j:
-        image: neo4j:5-community
-        ports:
-          - 7687:7687
-        env:
-          NEO4J_AUTH: neo4j/graphcipass2026
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: services/graph-service/pyproject.toml
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-        working-directory: services/graph-service
-      - name: Wait for Neo4j Bolt
-        run: |
-          python <<'PY'
-          import time
-          from neo4j import GraphDatabase
-          # Job runs on the VM (not a job container): reach the service via mapped localhost.
-          uri = "bolt://127.0.0.1:7687"
-          auth = ("neo4j", "graphcipass2026")
-          for i in range(45):
-              try:
-                  d = GraphDatabase.driver(uri, auth=auth)
-                  d.verify_connectivity()
-                  d.close()
-                  print("neo4j ready")
-                  break
-              except Exception:
-                  time.sleep(2)
-          else:
-              raise SystemExit("Neo4j did not become ready in time")
-          PY
-      - name: Run Neo4j integration tests
-        run: pytest -v tests/test_neo4j_integration.py
-        working-directory: services/graph-service
-        env:
-          PYTHONPATH: src:../shared
-          NEO4J_INTEGRATION: "1"
-          NEO4J_URI: bolt://127.0.0.1:7687
-          NEO4J_USER: neo4j
-          NEO4J_PASSWORD: graphcipass2026
-
-  test-integration-ingress:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: services/integration-ingress/pyproject.toml
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-        working-directory: services/integration-ingress
-      - name: Run tests (OSINT parallel enrichment, KMS stubs)
-        run: pytest --cov=integration_ingress --cov-report=xml --cov-report=term-missing --cov-fail-under=35 tests/
-        working-directory: services/integration-ingress
-        env:
-          PYTHONPATH: src:../shared
-      - name: Upload coverage
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-integration-ingress
-          path: services/integration-ingress/coverage.xml
-          if-no-files-found: ignore
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
-        continue-on-error: true
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: services/integration-ingress/coverage.xml
-          flags: integration-ingress
-          fail_ci_if_error: false
-
-  test-investigation-agent:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: services/investigation-agent/pyproject.toml
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-        working-directory: services/investigation-agent
-      - name: Run tests
-        run: pytest --cov=investigation_agent --cov-report=xml --cov-report=term-missing --cov-fail-under=52 -m "not golden_profile" tests/
-        working-directory: services/investigation-agent
-        env:
-          PYTHONPATH: src:../shared
-      - name: Upload coverage
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-investigation-agent
-          path: services/investigation-agent/coverage.xml
-          if-no-files-found: ignore
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
-        continue-on-error: true
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: services/investigation-agent/coverage.xml
-          flags: investigation-agent
-          fail_ci_if_error: false
-
-  test-investigation-agent-golden-matrix:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        profile: [full, no_graph, no_case, no_decision, case_only, legacy_visible]
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: services/investigation-agent/pyproject.toml
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-        working-directory: services/investigation-agent
-      - name: Golden profile ${{ matrix.profile }}
-        run: >
-          pytest -m golden_profile
-          "tests/test_integration_golden_profiles.py::test_golden_profile_integration_surface[${{ matrix.profile }}]"
-          -v --tb=short
-        working-directory: services/investigation-agent
-        env:
-          PYTHONPATH: src:../shared
-
-  test-sdk:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: packages/fraud-sdk-python/pyproject.toml
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-        working-directory: packages/fraud-sdk-python
-      - name: Run tests
-        run: pytest --cov=fraud_stack_sdk --cov-report=xml --cov-report=term-missing --cov-fail-under=48 tests/
-        working-directory: packages/fraud-sdk-python
-        env:
-          PYTHONPATH: src
-      - name: Upload coverage
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-fraud-sdk-python
-          path: packages/fraud-sdk-python/coverage.xml
-          if-no-files-found: ignore
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
-        continue-on-error: true
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: packages/fraud-sdk-python/coverage.xml
-          flags: fraud-sdk-python
-          fail_ci_if_error: false
-
-  build-frontend:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    env:
-      # Deterministic Vite/tsc memory on CI runners (avoids flaky OOM on `vite build`).
-      NODE_OPTIONS: --max-old-space-size=4096
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
-        working-directory: frontend
-      - run: npm run test
-        working-directory: frontend
-      - name: Guard production build mock mode
-        run: python scripts/ci/check_frontend_mock_mode.py
-      - run: npm run build
-        working-directory: frontend
-
-  build-sdk-typescript:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    env:
-      NODE_OPTIONS: --max-old-space-size=4096
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: packages/fraud-sdk-typescript/package-lock.json
-      - run: npm ci
-        working-directory: packages/fraud-sdk-typescript
-      - run: npm test
-        working-directory: packages/fraud-sdk-typescript
-      - run: npm run test:contract
-        working-directory: packages/fraud-sdk-typescript
-      - run: npm run build
-        working-directory: packages/fraud-sdk-typescript
-
-  test-graphql-gateway:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: services/graphql-gateway/pyproject.toml
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-        working-directory: services/graphql-gateway
-      - name: Run tests
-        run: pytest --cov=graphql_gateway --cov-report=xml --cov-report=term-missing --cov-fail-under=72 tests/
-        working-directory: services/graphql-gateway
-        env:
-          PYTHONPATH: src:../shared
-      - name: Upload coverage
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-graphql-gateway
-          path: services/graphql-gateway/coverage.xml
-          if-no-files-found: ignore
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
-        continue-on-error: true
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: services/graphql-gateway/coverage.xml
-          flags: graphql-gateway
-          fail_ci_if_error: false
-
-  test-data-plane:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: v1-data-plane-rust
-      - name: cargo test (event-ingest crate)
-        run: cargo test
-        working-directory: services/event-ingest
-      - name: cargo test (analytics-sink crate)
-        run: cargo test
-        working-directory: services/analytics-sink
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: services/data-plane/pyproject.toml
-      - name: Install data-plane (Python)
-        run: pip install -e "."
-        working-directory: services/data-plane
-      - name: Import merged FastAPI app
-        run: python -c "from data_plane.main import app; assert 'Data Plane' in app.title"
-        working-directory: services/data-plane
-        env:
-          PYTHONPATH: src:../shared
-
-  test-chitragupta:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: services/chitragupta/pyproject.toml
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-        working-directory: services/chitragupta
-      - name: Run tests
-        run: pytest --cov=chitragupta --cov-report=xml --cov-report=term-missing --cov-fail-under=70 tests/
-        working-directory: services/chitragupta
-        env:
-          PYTHONPATH: src
-      - name: Upload coverage
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-chitragupta
-          path: services/chitragupta/coverage.xml
-          if-no-files-found: ignore
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
-        continue-on-error: true
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: services/chitragupta/coverage.xml
-          flags: chitragupta
-          fail_ci_if_error: false
-
-  test-feature-service:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: services/feature-service/pyproject.toml
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-        working-directory: services/feature-service
-      - name: Run tests
-        run: pytest --cov=feature_service --cov-report=xml --cov-report=term-missing --cov-fail-under=49 tests/
-        working-directory: services/feature-service
-        env:
-          PYTHONPATH: src:../shared
-      - name: Upload coverage
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-feature-service
-          path: services/feature-service/coverage.xml
-          if-no-files-found: ignore
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
-        continue-on-error: true
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: services/feature-service/coverage.xml
-          flags: feature-service
-          fail_ci_if_error: false
-
-  test-ml-scoring:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: services/ml-scoring/pyproject.toml
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-        working-directory: services/ml-scoring
-      - name: Run tests
-        run: pytest --cov=ml_scoring --cov-report=xml --cov-report=term-missing --cov-fail-under=64 tests/
-        working-directory: services/ml-scoring
-        env:
-          PYTHONPATH: src:../shared
-      - name: Upload coverage
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-ml-scoring
-          path: services/ml-scoring/coverage.xml
-          if-no-files-found: ignore
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
-        continue-on-error: true
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: services/ml-scoring/coverage.xml
-          flags: ml-scoring
-          fail_ci_if_error: false
-
-  benchmark-latency-evaluate:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - uses: docker/setup-buildx-action@v4.0.0
-      - name: Start lite stack for benchmark
-        run: docker compose -f deploy/docker-compose.lite.yml up -d --build
-      - name: Wait for core-api (decision) health
-        run: |
-          python3 - <<'PY'
-          import json, time, urllib.request
-          url = "http://127.0.0.1:8000/decisions/v1/health"
-          for _ in range(120):
-              try:
-                  with urllib.request.urlopen(url, timeout=3) as r:
-                      body = json.loads(r.read().decode())
-                      if r.status == 200 and body.get("status") == "ok":
-                          print("core-api decision plane ready")
-                          raise SystemExit(0)
-              except Exception:
-                  pass
-              time.sleep(2)
-          raise SystemExit("core-api decision plane did not become ready")
-          PY
-      - name: Run latency benchmark and capture output
-        run: |
-          python3 scripts/benchmarks/latency_evaluate.py \
-            --url http://127.0.0.1:8000/decisions \
-            --requests 300 \
-            --concurrency 30 \
-            --warmup 20 | tee benchmark-latency-evaluate.txt
-      - name: Upload benchmark artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: benchmark-latency-evaluate
-          path: benchmark-latency-evaluate.txt
-          if-no-files-found: error
-      - name: Tear down stack
-        if: always()
-        run: docker compose -f deploy/docker-compose.lite.yml down -v --remove-orphans
-
-  chaos-matrix:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        fault: [redis, postgres]
-    steps:
-      - uses: actions/checkout@v6
-      - name: Run chaos smoke
-        run: python3 scripts/chaos/chaos_smoke.py --profile core --fault ${{ matrix.fault }}
-
-  schema-registry-compat:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - name: Event schema registry compatibility gate
-        run: python3 scripts/ci/schema_registry_compat.py
-
-  docker-build:
-    runs-on: ubuntu-latest
-    needs:
-      - audit-stubs
-      - lint
-      - test-decision-api
-      - test-case-api
-      - test-graph-service
-      - test-graph-neo4j-live
-      - test-integration-ingress
-      - test-investigation-agent
-      - test-investigation-agent-golden-matrix
-      - test-sdk
-      - build-frontend
-      - build-sdk-typescript
-      - test-graphql-gateway
-      - test-data-plane
-      - test-chitragupta
-      - test-feature-service
-      - test-ml-scoring
-      - benchmark-latency-evaluate
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          - core-api
-          - signal-api
-          - graph-service
-          - investigation-agent
-          - integration-ingress
-          - data-plane
-          - graphql-gateway
-    steps:
-      - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4.0.0
-      - uses: docker/build-push-action@v7.1.0
-        with:
-          context: .
-          file: services/${{ matrix.service }}/Dockerfile
-          push: false
-          tags: tarka/${{ matrix.service }}:${{ github.sha }}
-          cache-from: type=gha,scope=${{ matrix.service }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
-
-  # End-to-end: build and start every service in deploy/docker-compose.yml (--profile full),
-  # wait for health + POST /v1/decisions/evaluate, then tear down (see scripts/ci/full_stack_smoke.py).
-  stack-smoke:
-    runs-on: ubuntu-latest
-    needs:
-      - docker-build
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4.0.0
-      - name: Full stack smoke (Docker Compose profile full)
-        env:
-          DOCKER_BUILDKIT: "1"
-        run: python3 scripts/ci/full_stack_smoke.py --wait-seconds 1200
-      - name: Service contract tests
-        run: python3 scripts/ci/test_service_contracts.py
-      - name: Traceparent propagation smoke (decision/case/investigation-agent)
-        run: python3 scripts/ci/traceparent_smoke.py
-
-  cloud-preset-smoke:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: azure/setup-helm@v4
-        with:
-          version: v3.14.4
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - name: Helm lint
-        run: helm lint deploy/helm/fraud-stack
-      - name: Helm template (default values)
-        run: helm template tarka deploy/helm/fraud-stack -f deploy/helm/fraud-stack/values.yaml >/tmp/tarka-default.yaml
-      - name: Validate cloud preset generation
-        run: python3 scripts/ci/cloud_preset_smoke.py
-      - name: Helm template (generated core-on-aws preset)
-        run: |
-          python3 scripts/deploy/generate_cloud_values.py \
-            --preset core-on-aws \
-            --image-registry registry.example.com/tarka \
-            --db-url 'postgresql+asyncpg://fraud:pw@db.internal:5432/fraud' \
-            --redis-url 'redis://redis.internal:6379/0' \
-            --output /tmp/core-on-aws.values.yaml
-          helm template tarka deploy/helm/fraud-stack -f /tmp/core-on-aws.values.yaml >/tmp/tarka-core-aws.yaml
+docker-build:
+runs-on: ubuntu-latest
+needs: [audit-stubs, lint, test-decision-api]
+strategy:
+fail-fast: false
+matrix:
+service: [core-api, signal-api, graph-service, investigation-agent]
+steps:
+- uses: actions/checkout@v4
+- uses: docker/setup-buildx-action@v3
+- uses: docker/build-push-action@v5
+with:
+context: .
+file: services/${{ matrix.service }}/Dockerfile
+push: false
+tags: tarka/${{ matrix.service }}:${{ github.sha }}
+cache-from: type=gha,scope=${{ matrix.service }}
+cache-to: type=gha,mode=max,scope=${{ matrix.service }}
