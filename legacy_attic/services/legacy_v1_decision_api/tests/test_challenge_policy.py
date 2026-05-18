@@ -67,6 +67,24 @@ def test_unknown_policy_falls_back_to_default():
     assert meta.get("default_policy_id") == "default_v1"
 
 
+def test_escalation_ladder_in_metadata_for_payments_policy():
+    inf = {"confidence_tier": "high"}
+    _, meta = apply_challenge_policy(
+        "payments_high_value_v1",
+        None,
+        "allow",
+        inf,
+        [],
+        {"amount": 6000},
+    )
+    assert meta.get("escalation_ladder") == [
+        "step_up_attestation",
+        "manual_review",
+        "block",
+    ]
+    assert meta.get("matched_rule_id") == "high_value_allow"
+
+
 def test_matches_has_tag():
     from decision_api.challenge_policy import _matches_when
 
