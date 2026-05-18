@@ -13,7 +13,12 @@ from clickhouse_connect.driver.client import Client
 from clickhouse_connect.driver.exceptions import DatabaseError
 from fastapi import APIRouter, Depends, HTTPException
 from google.protobuf.json_format import ParseDict, ParseError
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_random_exponential
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_random_exponential,
+)
 
 from analytics.queries import validate_sql_identifier
 
@@ -139,7 +144,9 @@ def _normalize_step(raw: Any, step_index: int) -> dict[str, Any]:
         )
     snap_str: dict[str, str] = {}
     for sk, sv in snap_raw.items():
-        snap_str[str(sk)] = sv if isinstance(sv, str) else json.dumps(sv, sort_keys=True)
+        snap_str[str(sk)] = (
+            sv if isinstance(sv, str) else json.dumps(sv, sort_keys=True)
+        )
 
     return {
         "rule_id": str(rule_id),
@@ -275,9 +282,9 @@ def _build_mermaid_structure(steps: list[dict[str, Any]]) -> dict[str, Any]:
         esc = _mermaid_escape_label(str(e["label"]), max_len=80)
         arrow = e.get("arrow", "-->")
         if arrow == ".->":
-            lines.append(f'  {e["from"]} -.->|{esc}| {e["to"]}')
+            lines.append(f"  {e['from']} -.->|{esc}| {e['to']}")
         else:
-            lines.append(f'  {e["from"]} -->|{esc}| {e["to"]}')
+            lines.append(f"  {e['from']} -->|{esc}| {e['to']}")
 
     return {
         "version": 1,
@@ -316,9 +323,7 @@ def _query_manifest_row_sync(
     return client.query(sql, parameters=parameters)
 
 
-async def _fetch_manifest_bundle(
-    ch: Client, manifest_id: uuid.UUID
-) -> dict[str, Any]:
+async def _fetch_manifest_bundle(ch: Client, manifest_id: uuid.UUID) -> dict[str, Any]:
     table_ref = _qualified_manifest_table()
     sql = (
         f"SELECT trace_json, signals, engine_version, timestamp_ns, "
@@ -410,7 +415,11 @@ async def visualize_manifest(
         signals = {}
 
     final_u8 = bundle["final_decision"]
-    final_bool = bool(int(final_u8)) if isinstance(final_u8, (int, float)) else _normalize_bool(final_u8)
+    final_bool = (
+        bool(int(final_u8))
+        if isinstance(final_u8, (int, float))
+        else _normalize_bool(final_u8)
+    )
 
     return {
         "manifest_id": str(manifest_id),

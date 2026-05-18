@@ -22,7 +22,16 @@ _LANES: tuple[dict[str, Any], ...] = (
         "kind": "vpn_ip",
         "label": "VPN / IP intelligence",
         "vendor_keys": frozenset(
-            {"shodan", "abuseipdb", "greynoise", "ipinfo", "ip-api", "ipapi", "ip_osint", "nats_setu"},
+            {
+                "shodan",
+                "abuseipdb",
+                "greynoise",
+                "ipinfo",
+                "ip-api",
+                "ipapi",
+                "ip_osint",
+                "nats_setu",
+            },
         ),
     },
     {

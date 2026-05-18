@@ -23,15 +23,28 @@ def upgrade() -> None:
         sa.Column("scopes", sa.JSON(), nullable=False),
         sa.Column("status", sa.String(length=32), nullable=False),
         sa.Column("created_by", sa.String(length=128), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.Column("last_used_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_marketplace_sdk_api_keys_tenant_id", "marketplace_sdk_api_keys", ["tenant_id"])
-    op.create_index("ix_marketplace_sdk_api_keys_platform", "marketplace_sdk_api_keys", ["platform"])
-    op.create_index("ix_marketplace_sdk_api_keys_key_prefix", "marketplace_sdk_api_keys", ["key_prefix"])
-    op.create_index("ix_marketplace_sdk_api_keys_secret_hash", "marketplace_sdk_api_keys", ["secret_hash"])
+    op.create_index(
+        "ix_marketplace_sdk_api_keys_tenant_id", "marketplace_sdk_api_keys", ["tenant_id"]
+    )
+    op.create_index(
+        "ix_marketplace_sdk_api_keys_platform", "marketplace_sdk_api_keys", ["platform"]
+    )
+    op.create_index(
+        "ix_marketplace_sdk_api_keys_key_prefix", "marketplace_sdk_api_keys", ["key_prefix"]
+    )
+    op.create_index(
+        "ix_marketplace_sdk_api_keys_secret_hash", "marketplace_sdk_api_keys", ["secret_hash"]
+    )
     op.create_index("ix_marketplace_sdk_api_keys_status", "marketplace_sdk_api_keys", ["status"])
 
 

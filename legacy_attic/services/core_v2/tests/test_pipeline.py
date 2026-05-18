@@ -92,7 +92,9 @@ async def test_decide_returns_200_and_persists_audit_row(pipeline_client):
     assert row.raw_payload["entity_id"] == payload["entity_id"]
 
 
-async def _audit_log_row_count(session_factory: async_sessionmaker[AsyncSession]) -> int:
+async def _audit_log_row_count(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> int:
     async with session_factory() as session:
         result = await session.execute(select(db.AuditLog))
         return len(result.scalars().all())
@@ -168,7 +170,9 @@ async def test_hostile_amount_string_returns_422_and_no_db_writes(pipeline_clien
 
 
 @pytest.mark.asyncio
-async def test_hostile_deep_metadata_rust_serde_fails_returns_400_empty_db(pipeline_client):
+async def test_hostile_deep_metadata_rust_serde_fails_returns_400_empty_db(
+    pipeline_client,
+):
     """Deep nested metadata: passes FastAPI/Pydantic, fails Rust serde_json parse; must be 400 not 500."""
     client, session_factory = pipeline_client
 

@@ -22,7 +22,9 @@ def test_board_lists_needs_more_id() -> None:
 
 def test_send_email_updates_handover() -> None:
     _mod._SENT_BY_CASE.clear()
-    result = _mod.send_kyc_id_request_email(tenant_id="demo", case_id="c1", analyst_note="Please upload ID")
+    result = _mod.send_kyc_id_request_email(
+        tenant_id="demo", case_id="c1", analyst_note="Please upload ID"
+    )
     assert result["ok"] is True
     assert result["email"]["to"]
     assert result["handover"]["handover_status"] == "email_sent"

@@ -88,7 +88,9 @@ async def test_production_http_exception_propagates(candidate_enabled: None) -> 
 
 
 @pytest.mark.asyncio
-async def test_wait_for_timeout_fallback_production_only(candidate_enabled: None) -> None:
+async def test_wait_for_timeout_fallback_production_only(
+    candidate_enabled: None,
+) -> None:
     from decision_api import shadow_evaluator as se_mod
     from decision_api.shadow_evaluator import ShadowEvaluator
 

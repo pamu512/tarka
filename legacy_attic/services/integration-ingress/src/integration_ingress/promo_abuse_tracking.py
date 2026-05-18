@@ -58,7 +58,9 @@ def _demo_users_for_coupon(coupon_code: str, count: int) -> list[dict[str, Any]]
 
 
 def _daily_series(users: list[dict[str, Any]], days: int = 7) -> list[dict[str, Any]]:
-    start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days - 1)
+    start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(
+        days=days - 1
+    )
     buckets: list[dict[str, set[str] | int]] = [
         {"date": (start + timedelta(days=d)).date().isoformat(), "users": set(), "redemptions": 0}
         for d in range(days)
@@ -105,16 +107,16 @@ def build_promo_abuse_payload(
     users = _demo_users_for_coupon(code, user_count)
     total_redemptions = sum(int(u.get("redemption_count") or 0) for u in users)
     devices = {str(u.get("device_id")) for u in users if u.get("device_id")}
-    shared_device_users = sum(
-        1 for u in users if "shared_device_cluster" in (u.get("flags") or [])
-    )
+    shared_device_users = sum(1 for u in users if "shared_device_cluster" in (u.get("flags") or []))
     warn = DEFAULT_WARN_UNIQUE_USERS
     critical = DEFAULT_CRITICAL_UNIQUE_USERS
     risk = _risk_level(len(users), warn=warn, critical=critical)
 
     signals: list[str] = []
     if len(users) >= warn:
-        signals.append(f"{len(users)} unique accounts redeemed {code} in {days}d (above {warn} warn threshold)")
+        signals.append(
+            f"{len(users)} unique accounts redeemed {code} in {days}d (above {warn} warn threshold)"
+        )
     if shared_device_users >= 5:
         signals.append(f"{shared_device_users} users map to high-overlap device clusters")
     if total_redemptions > len(users) + 3:

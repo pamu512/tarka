@@ -54,7 +54,9 @@ def test_find_divergence_boolean_result() -> None:
             "state_snapshot_decoded": {},
         },
     ]
-    out = find_divergence_explanation(sa, sb, final_decision_a=True, final_decision_b=False)
+    out = find_divergence_explanation(
+        sa, sb, final_decision_a=True, final_decision_b=False
+    )
     assert out["first_divergence_step_index"] == 1
     assert out["divergence_category"] == "rule_boolean_result"
     assert out["culprit_rule_id"] == "r2"
@@ -81,7 +83,9 @@ def test_find_divergence_length() -> None:
             "state_snapshot_decoded": {},
         }
     ]
-    out = find_divergence_explanation(sa, sb, final_decision_a=False, final_decision_b=False)
+    out = find_divergence_explanation(
+        sa, sb, final_decision_a=False, final_decision_b=False
+    )
     assert out["first_divergence_step_index"] == 1
     assert out["divergence_category"] == "execution_path_length"
     assert out["culprit_rule_id"] == "extra"

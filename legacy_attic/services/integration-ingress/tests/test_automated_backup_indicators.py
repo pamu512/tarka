@@ -7,7 +7,10 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 _MOD_PATH = (
-    Path(__file__).resolve().parents[1] / "src" / "integration_ingress" / "automated_backup_indicators.py"
+    Path(__file__).resolve().parents[1]
+    / "src"
+    / "integration_ingress"
+    / "automated_backup_indicators.py"
 )
 _spec = importlib.util.spec_from_file_location("automated_backup_indicators", _MOD_PATH)
 assert _spec and _spec.loader

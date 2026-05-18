@@ -90,7 +90,10 @@ def test_startup_pin_mismatch_raises() -> None:
 
 
 def test_startup_pin_matches_current_descriptor_set() -> None:
-    from ingestor.descriptor_pin import MANIFEST_DESCRIPTOR_SET_SHA256, manifest_descriptor_set_sha256
+    from ingestor.descriptor_pin import (
+        MANIFEST_DESCRIPTOR_SET_SHA256,
+        manifest_descriptor_set_sha256,
+    )
     from ingestor.manifest_schema import assert_ingestor_descriptor_matches_pin
 
     assert manifest_descriptor_set_sha256() == MANIFEST_DESCRIPTOR_SET_SHA256

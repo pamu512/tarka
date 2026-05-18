@@ -194,7 +194,9 @@ async def list_marketplace_webhook_logs(
     return [_row_to_dict(r) for r in rows]
 
 
-async def get_marketplace_webhook_log(session: AsyncSession, *, log_id: str) -> dict[str, Any] | None:
+async def get_marketplace_webhook_log(
+    session: AsyncSession, *, log_id: str
+) -> dict[str, Any] | None:
     from integration_ingress.models import MarketplaceWebhookLog
 
     try:

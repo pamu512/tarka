@@ -64,7 +64,15 @@ async def test_rule_expr_mermaid_503_when_tarka_missing(
     monkeypatch.delitem(sys.modules, "tarka", raising=False)
     monkeypatch.delitem(sys.modules, "tarka.decision", raising=False)
 
-    body = {"rule_expr": {"kind": "compare_leaf", "id": "x", "path": "/a", "op": "eq", "expected": 1}}
+    body = {
+        "rule_expr": {
+            "kind": "compare_leaf",
+            "id": "x",
+            "path": "/a",
+            "op": "eq",
+            "expected": 1,
+        }
+    }
     r = await asgi_client.post(
         "/v1/rules/visual/mermaid",
         headers={"x-api-key": "k"},

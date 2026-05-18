@@ -55,9 +55,7 @@ async def insert_failed_manifest(
     return int(row_id)
 
 
-async def fetch_pending_batch(
-    pool: asyncpg.Pool, *, limit: int
-) -> list[asyncpg.Record]:
+async def fetch_pending_batch(pool: asyncpg.Pool, *, limit: int) -> list[asyncpg.Record]:
     """Oldest pending rows. Intended for a single replay worker (no row-level lock)."""
     async with pool.acquire() as conn:
         return await conn.fetch(

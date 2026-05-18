@@ -30,9 +30,7 @@ _ALEMBIC_VERSION_TABLE = "alembic_version_case_api"
 
 def _to_sync_url(url: str) -> str:
     if not url:
-        raise RuntimeError(
-            "DATABASE_URL or ALEMBIC_SYNC_DATABASE_URL must be set for migrations"
-        )
+        raise RuntimeError("DATABASE_URL or ALEMBIC_SYNC_DATABASE_URL must be set for migrations")
     if "+asyncpg" in url:
         return url.replace("postgresql+asyncpg", "postgresql+psycopg")
     if "sqlite+aiosqlite" in url:

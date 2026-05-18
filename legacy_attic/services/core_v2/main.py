@@ -145,7 +145,9 @@ class TransactionPayload(BaseModel):
 
     @field_validator("metadata")
     @classmethod
-    def validate_metadata_is_string_keyed_mapping(cls, value: Dict[str, Any]) -> Dict[str, Any]:
+    def validate_metadata_is_string_keyed_mapping(
+        cls, value: Dict[str, Any]
+    ) -> Dict[str, Any]:
         if not isinstance(value, dict):
             raise ValueError("metadata must be a dictionary")
         for key in value:

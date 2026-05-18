@@ -51,7 +51,12 @@ def release_payout_hold(*, tenant_id: str, payout_id: str) -> dict[str, Any] | N
     tid = (tenant_id or "demo").strip() or "demo"
     key = f"{tid}:{payout_id.strip()}"
     _RELEASED_PAYOUT_IDS.add(key)
-    return {"tenant_id": tid, "payout_id": payout_id, "released_at": _now_iso(), "released_by": "analyst"}
+    return {
+        "tenant_id": tid,
+        "payout_id": payout_id,
+        "released_at": _now_iso(),
+        "released_by": "analyst",
+    }
 
 
 def _payout_row(index: int, *, tenant_id: str) -> dict[str, Any]:
@@ -83,7 +88,9 @@ def _payout_row(index: int, *, tenant_id: str) -> dict[str, Any]:
     }
 
 
-def _apply_automation(payout: dict[str, Any], cfg: dict[str, Any], *, tenant_id: str) -> dict[str, Any]:
+def _apply_automation(
+    payout: dict[str, Any], cfg: dict[str, Any], *, tenant_id: str
+) -> dict[str, Any]:
     tid = tenant_id
     pid = str(payout["payout_id"])
     release_key = f"{tid}:{pid}"

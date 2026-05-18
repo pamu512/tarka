@@ -330,9 +330,7 @@ def find_divergence_explanation(
 
     if category in ("logic_operator", "operands", "state_snapshot_raw"):
         culprit_rule_id = sa["rule_id"]
-        human = (
-            f"Rule '{culprit_rule_id}' at step {first_idx} differs on {category.replace('_', ' ')}."
-        )
+        human = f"Rule '{culprit_rule_id}' at step {first_idx} differs on {category.replace('_', ' ')}."
         return {
             "decisions_match": decisions_match,
             "paths_structurally_identical": False,
@@ -389,7 +387,15 @@ def build_full_manifest_comparison(
                     "manifest_b": {
                         k: v
                         for k, v in steps_b[i].items()
-                        if k in ("rule_id", "logic_operator", "operands", "result", "state_snapshot", "state_snapshot_decoded")
+                        if k
+                        in (
+                            "rule_id",
+                            "logic_operator",
+                            "operands",
+                            "result",
+                            "state_snapshot",
+                            "state_snapshot_decoded",
+                        )
                     },
                 }
             )
@@ -402,7 +408,15 @@ def build_full_manifest_comparison(
                     "manifest_a": {
                         k: v
                         for k, v in steps_a[i].items()
-                        if k in ("rule_id", "logic_operator", "operands", "result", "state_snapshot", "state_snapshot_decoded")
+                        if k
+                        in (
+                            "rule_id",
+                            "logic_operator",
+                            "operands",
+                            "result",
+                            "state_snapshot",
+                            "state_snapshot_decoded",
+                        )
                     },
                     "manifest_b": None,
                 }
