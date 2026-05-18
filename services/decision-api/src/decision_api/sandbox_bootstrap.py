@@ -67,7 +67,7 @@ async def maybe_hydrate_sandbox_plg_pack(application: Any) -> None:
 async def sandbox_bootstrap(
     request: Request,
     pool: Any = Depends(get_pg_pool),
-    _: None = Depends(_require_api_key),
+    _auth: None = Depends(_require_api_key),
 ) -> SandboxBootstrapResponse:
     """Idempotently install five industry templates into the audit tables and the Rust engine."""
     import asyncpg
