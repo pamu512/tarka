@@ -11,6 +11,20 @@ Supports optional v1 envelope ``{ "schema_version": "1", "event": { ... } }`` an
 # Keep aligned with decision_api.schemas.EventType
 VALID_EVENT_TYPES = frozenset({"login", "payment", "signup", "device", "session", "custom"})
 
+# Schema registry gate (scripts/ci/schema_registry_compat.py) — keep in sync with contracts/json-schema/fraud-event.json
+REGISTRY_SUPPORTED_EVENT_SCHEMA_VERSIONS = frozenset({"1"})
+_REGISTRY_ALLOWED_TOP_LEVEL_KEYS = frozenset(
+    {
+        "tenant_id",
+        "event_type",
+        "entity_id",
+        "payload",
+        "session_id",
+        "device_context",
+        "metadata",
+    }
+)
+
 # Epic X.2: optional envelope-level lineage (v1 envelope root; merged into event.metadata)
 _MAX_ETL_BATCH_ID_LEN = 256
 
