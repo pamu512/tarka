@@ -6,7 +6,9 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-INGEST_CONTRACT = ROOT / "services/event-ingest/src/event_ingest/ingest_contract.py"
+INGEST_CONTRACT = (
+    ROOT / "legacy_attic/services/event-ingest/src/event_ingest/ingest_contract.py"
+)
 FRAUD_EVENT_SCHEMA = ROOT / "contracts/json-schema/fraud-event.json"
 
 

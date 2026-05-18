@@ -443,7 +443,7 @@ def _population_and_matches(
         if ukey not in population:
             population[ukey] = features
 
-    matched: dict[str, bool] = {k: False for k in population}
+    matched: dict[str, bool] = dict.fromkeys(population, False)
 
     if sql_predicate and rule.get("when_ast") is None:
         if lookback_days is not None and lookback_days > 0:

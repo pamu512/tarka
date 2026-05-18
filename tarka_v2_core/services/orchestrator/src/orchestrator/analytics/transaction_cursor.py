@@ -31,6 +31,6 @@ def decode_transaction_cursor(cursor: str | None) -> tuple[str, str, float] | No
         return None
     if not isinstance(eid, str) or not eid.strip():
         return None
-    if not isinstance(amt, (int, float)) or not float(amt) == float(amt):
+    if not isinstance(amt, (int, float)) or float(amt) != float(amt):
         return None
     return ts.strip(), eid.strip(), float(amt)

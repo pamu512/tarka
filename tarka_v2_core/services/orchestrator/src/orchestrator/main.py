@@ -1238,7 +1238,7 @@ def create_app(
             record["source"] = body.source
         if body.context is not None:
             record["context"] = body.context
-        path: Path = getattr(request.app.state, "ai_feedback_jsonl_path")
+        path: Path = request.app.state.ai_feedback_jsonl_path
         await asyncio.to_thread(append_feedback_jsonl, path, record)
         return {
             "ok": True,

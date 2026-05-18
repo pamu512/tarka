@@ -46,7 +46,7 @@ class _StubLlmEchoEntity:
         return {
             "transaction_id": uid,
             "risk_score": 88.0 if linked else 12.5,
-            "is_fraud": True if linked else False,
+            "is_fraud": bool(linked),
             "reasoning": (
                 ["Linked to Blocked Node", "device_id overlaps blocked account"]
                 if linked

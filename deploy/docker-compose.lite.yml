@@ -58,7 +58,7 @@ services:
     build:
       # Repo root (compose file is under deploy/) — matches Dockerfile COPY services/... paths.
       context: ..
-      dockerfile: services/core-api/Dockerfile
+      dockerfile: legacy_attic/services/core-api/Dockerfile
     environment:
       DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
       REDIS_URL: redis://redis:6379/0
@@ -93,7 +93,7 @@ services:
   graph-service:
     build:
       context: ..
-      dockerfile: services/graph-service/Dockerfile
+      dockerfile: legacy_attic/services/graph-service/Dockerfile
     environment:
       GRAPH_BACKEND: janusgraph
       JANUSGRAPH_GREMLIN_URL: ws://janusgraph:8182/gremlin
@@ -106,7 +106,7 @@ services:
   signal-api:
     build:
       context: ..
-      dockerfile: services/signal-api/Dockerfile
+      dockerfile: legacy_attic/services/signal-api/Dockerfile
     environment:
       REDIS_URL: redis://redis:6379/0
       FEATURE_SERVICE_REDIS_URL: redis://redis:6379/0
@@ -121,7 +121,7 @@ services:
   integration-ingress:
     build:
       context: ..
-      dockerfile: services/integration-ingress/Dockerfile
+      dockerfile: legacy_attic/services/integration-ingress/Dockerfile
     environment:
       DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
       KMS_PROVIDER: local
@@ -148,7 +148,7 @@ services:
   data-platform:
     build:
       context: ..
-      dockerfile: services/data-platform/Dockerfile
+      dockerfile: legacy_attic/services/data-platform/Dockerfile
     environment:
       DATABASE_URL: postgresql://fraud:fraud@postgres:5432/fraud
       REDIS_URL: redis://redis:6379/0
@@ -170,7 +170,7 @@ services:
   data-plane:
     build:
       context: ..
-      dockerfile: services/data-plane/Dockerfile
+      dockerfile: legacy_attic/services/data-plane/Dockerfile
     environment:
       NATS_URL: nats://nats:4222
       DECISION_API_URL: http://core-api:8000/decisions
