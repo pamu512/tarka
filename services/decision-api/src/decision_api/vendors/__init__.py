@@ -12,7 +12,11 @@ from decision_api.vendors.exceptions import (
     VendorTimeoutError,
     VendorUpstreamError,
 )
-from decision_api.vendors.registry import get_adapter, list_registered_vendors, register_adapter
+from decision_api.vendors.registry import (
+    get_adapter,
+    list_registered_vendors,
+    register_adapter,
+)
 
 __all__ = [
     "BaseVendorPlugin",

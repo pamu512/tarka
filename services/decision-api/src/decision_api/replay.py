@@ -90,7 +90,10 @@ def _evaluate_override_rules(
         conditions = rule.when
         if not conditions:
             continue
-        if all(_match_condition(features, {"field": c.field, "op": c.op, "value": c.value}) for c in conditions):
+        if all(
+            _match_condition(features, {"field": c.field, "op": c.op, "value": c.value})
+            for c in conditions
+        ):
             hits.append(rid)
             tags.extend(rule.tags)
             delta += rule.score_delta
@@ -127,13 +130,17 @@ async def replay_events(
     missing_trace_ids: list[str] = []
     if body.trace_ids:
         if len(body.trace_ids) > 200:
-            raise HTTPException(status_code=400, detail="trace_ids must contain at most 200 entries")
+            raise HTTPException(
+                status_code=400, detail="trace_ids must contain at most 200 entries"
+            )
         parsed: list[uuid_lib.UUID] = []
         for raw in body.trace_ids:
             try:
                 parsed.append(uuid_lib.UUID(str(raw).strip()))
             except (ValueError, AttributeError, TypeError):
-                raise HTTPException(status_code=400, detail=f"invalid trace_id: {raw!r}")
+                raise HTTPException(
+                    status_code=400, detail=f"invalid trace_id: {raw!r}"
+                )
         stmt = select(AuditRecord).where(
             AuditRecord.tenant_id == body.tenant_id,
             AuditRecord.trace_id.in_(parsed),
@@ -148,7 +155,12 @@ async def replay_events(
             else:
                 missing_trace_ids.append(str(u))
     else:
-        stmt = select(AuditRecord).where(AuditRecord.tenant_id == body.tenant_id).order_by(AuditRecord.created_at.desc()).limit(body.limit)
+        stmt = (
+            select(AuditRecord)
+            .where(AuditRecord.tenant_id == body.tenant_id)
+            .order_by(AuditRecord.created_at.desc())
+            .limit(body.limit)
+        )
         result = await session.execute(stmt)
         records = list(result.scalars().all())
 
@@ -168,7 +180,9 @@ async def replay_events(
             **snapshot.get("metadata", {}),
         }
 
-        new_hits, new_tags, score_delta = _evaluate_override_rules(features, body.rules_override)
+        new_hits, new_tags, score_delta = _evaluate_override_rules(
+            features, body.rules_override
+        )
         new_score = max(0.0, min(100.0, rec.score + score_delta))
         new_decision = _decide(new_score)
         changed = new_decision != rec.decision

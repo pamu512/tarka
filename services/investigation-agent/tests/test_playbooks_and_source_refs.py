@@ -1,7 +1,10 @@
 """Playbooks API and source reference cards."""
 
 from fastapi.testclient import TestClient
-from investigation_agent.copilot_hardening import build_source_reference_cards, collect_grounding_tokens
+from investigation_agent.copilot_hardening import (
+    build_source_reference_cards,
+    collect_grounding_tokens,
+)
 from investigation_agent.main import app
 from investigation_agent.personas import build_copilot_system_prompt, list_personas
 from investigation_agent.playbooks import playbooks_catalog_fingerprint
@@ -102,7 +105,11 @@ def test_source_refs_shape():
             "args": {"case_id": "abc-123"},
             "result": {"case": {"id": "abc-123", "entity_id": "e1"}},
         },
-        {"tool": "get_decision_audit", "args": {"trace_id": "12345678-1234-5678-9012-123456789abc"}, "result": {"error": "not_found"}},
+        {
+            "tool": "get_decision_audit",
+            "args": {"trace_id": "12345678-1234-5678-9012-123456789abc"},
+            "result": {"error": "not_found"},
+        },
     ]
     cards = build_source_reference_cards(tcs)
     assert len(cards) == 2
@@ -117,7 +124,13 @@ def test_grounding_includes_nested_entity_id():
         {
             "tool": "get_case",
             "args": {},
-            "result": {"case": {"id": "c1", "entity_id": "fraud_frank", "trace_id": "12345678-1234-5678-9012-123456789def"}},
+            "result": {
+                "case": {
+                    "id": "c1",
+                    "entity_id": "fraud_frank",
+                    "trace_id": "12345678-1234-5678-9012-123456789def",
+                }
+            },
         }
     ]
     g = collect_grounding_tokens(tcs)

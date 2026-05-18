@@ -483,7 +483,9 @@ def get_data_processing_record(
         },
         "cross_border_transfers": "Restricted" if profile.restrict_cross_border else "Permitted",
         "security_measures": [
-            "Encryption at rest (AES-256)" if profile.encrypt_pii_at_rest else "Standard database security",
+            "Encryption at rest (AES-256)"
+            if profile.encrypt_pii_at_rest
+            else "Standard database security",
             "TLS 1.3 in transit",
             "RBAC access control",
             "Field-level audit trail",

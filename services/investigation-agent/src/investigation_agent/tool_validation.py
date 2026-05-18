@@ -164,7 +164,11 @@ def validate_tool_arguments(name: str, raw: Any) -> tuple[dict[str, Any] | None,
         cols = raw.get("columns")
         if cols is not None and not isinstance(cols, list):
             return None, "columns must be an array or omitted"
-        col_list = [str(c).strip() for c in cols if str(c).strip()][:128] if isinstance(cols, list) else None
+        col_list = (
+            [str(c).strip() for c in cols if str(c).strip()][:128]
+            if isinstance(cols, list)
+            else None
+        )
         return {
             "batch_id": bid_v,
             "offset": max(0, oi),
@@ -275,7 +279,9 @@ def validate_tool_arguments(name: str, raw: Any) -> tuple[dict[str, Any] | None,
             }, None
         return {
             **out,
-            "include_profile_enrichment": _as_bool(raw.get("include_profile_enrichment", True), True),
+            "include_profile_enrichment": _as_bool(
+                raw.get("include_profile_enrichment", True), True
+            ),
         }, None
 
     if name == "graph_risk_narrative":

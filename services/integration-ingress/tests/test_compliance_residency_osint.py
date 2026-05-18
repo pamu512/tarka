@@ -13,7 +13,9 @@ from integration_ingress.osint import _osint_residency_ctx, _safe_get
 
 
 @pytest.mark.asyncio
-async def test_safe_get_blocks_shodan_before_http_transport(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_safe_get_blocks_shodan_before_http_transport(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     record_mock = AsyncMock()
     monkeypatch.setattr(
         "integration_ingress.compliance_residency.record_residency_compliance_block",

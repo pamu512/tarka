@@ -18,4 +18,3 @@ def build_http_client(
             max_keepalive_connections=max_keepalive_connections,
         ),
     )
-

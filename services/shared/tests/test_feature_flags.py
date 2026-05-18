@@ -24,8 +24,14 @@ def test_feature_enabled_tenant_override(monkeypatch):
             }
         ),
     )
-    assert feature_enabled("decision_api_external_signals", tenant_id="tenant-a", default=False) is True
-    assert feature_enabled("decision_api_external_signals", tenant_id="tenant-b", default=False) is False
+    assert (
+        feature_enabled("decision_api_external_signals", tenant_id="tenant-a", default=False)
+        is True
+    )
+    assert (
+        feature_enabled("decision_api_external_signals", tenant_id="tenant-b", default=False)
+        is False
+    )
 
 
 def test_feature_enabled_rollout_deterministic(monkeypatch):
@@ -43,4 +49,3 @@ def test_feature_enabled_rollout_deterministic(monkeypatch):
     a = feature_enabled("decision_api_shadow_eval_async", tenant_id="tenant-z", default=False)
     b = feature_enabled("decision_api_shadow_eval_async", tenant_id="tenant-z", default=False)
     assert a is b
-

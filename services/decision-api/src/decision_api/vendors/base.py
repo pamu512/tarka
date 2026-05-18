@@ -83,7 +83,11 @@ class VendorAdapter(ABC):
         """Fetch and normalize; plugins require ``audit_session`` + ``trace_id`` for Postgres audit."""
 
     def cost_weight(self) -> float:
-        return {VendorTier.CHEAP: 1.0, VendorTier.STANDARD: 2.0, VendorTier.PREMIUM: 4.0}[self.tier]
+        return {
+            VendorTier.CHEAP: 1.0,
+            VendorTier.STANDARD: 2.0,
+            VendorTier.PREMIUM: 4.0,
+        }[self.tier]
 
 
 class BaseVendorPlugin(VendorAdapter):
@@ -123,7 +127,10 @@ class BaseVendorPlugin(VendorAdapter):
         return max(1, min(8, int(settings.vendor_http_max_attempts)))
 
     def _retry_wait(self) -> tuple[float, float]:
-        return (float(settings.vendor_http_retry_min_wait), float(settings.vendor_http_retry_max_wait))
+        return (
+            float(settings.vendor_http_retry_min_wait),
+            float(settings.vendor_http_retry_max_wait),
+        )
 
     async def fetch_signal(
         self,
@@ -158,7 +165,9 @@ class BaseVendorPlugin(VendorAdapter):
             )
         return signals[0]
 
-    async def fetch_signals(self, ctx: VendorFetchContext) -> list[NormalizedVendorSignal]:
+    async def fetch_signals(
+        self, ctx: VendorFetchContext
+    ) -> list[NormalizedVendorSignal]:
         """HTTP GET with tenacity + overall budget, audit raw body + latency, then parse (no silent empty)."""
         url = self._build_get_url(ctx.features)
         budget_s = ctx.budget_ms / 1000.0
@@ -168,7 +177,9 @@ class BaseVendorPlugin(VendorAdapter):
         http_status: int | None = None
 
         try:
-            resp = await asyncio.wait_for(self._resilient_get(ctx.http, url, ctx.budget_ms), timeout=budget_s)
+            resp = await asyncio.wait_for(
+                self._resilient_get(ctx.http, url, ctx.budget_ms), timeout=budget_s
+            )
             raw_text = resp.text
             http_status = resp.status_code
         except asyncio.TimeoutError:
@@ -243,7 +254,9 @@ class BaseVendorPlugin(VendorAdapter):
             trace_id=ctx.trace_id,
         )
 
-    async def _resilient_get(self, http: httpx.AsyncClient, url: str, budget_ms: float) -> httpx.Response:
+    async def _resilient_get(
+        self, http: httpx.AsyncClient, url: str, budget_ms: float
+    ) -> httpx.Response:
         attempts = self._max_http_attempts()
         wmin, wmax = self._retry_wait()
         per_read = max(0.25, min(8.0, (budget_ms / 1000.0) / float(attempts)))
@@ -267,7 +280,9 @@ class BaseVendorPlugin(VendorAdapter):
                 return await http.get(
                     url,
                     follow_redirects=True,
-                    timeout=httpx.Timeout(per_read, connect=min(2.0, per_read), pool=min(2.0, per_read)),
+                    timeout=httpx.Timeout(
+                        per_read, connect=min(2.0, per_read), pool=min(2.0, per_read)
+                    ),
                 )
         raise RuntimeError("unreachable: AsyncRetrying must return or raise")
 

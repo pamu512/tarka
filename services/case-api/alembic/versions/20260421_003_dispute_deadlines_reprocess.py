@@ -38,12 +38,24 @@ def upgrade() -> None:
         sa.Column("tenant_id", sa.String(length=128), nullable=False),
         sa.Column("idempotency_key", sa.String(length=256), nullable=False),
         sa.Column("response_snapshot", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["dispute_id"], ["disputes.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("dispute_id", "idempotency_key", name="uq_dispute_reprocess_idempotency"),
+        sa.UniqueConstraint(
+            "dispute_id", "idempotency_key", name="uq_dispute_reprocess_idempotency"
+        ),
     )
-    op.create_index("ix_dispute_reprocess_ledger_tenant_id", "dispute_reprocess_ledger", ["tenant_id"], unique=False)
+    op.create_index(
+        "ix_dispute_reprocess_ledger_tenant_id",
+        "dispute_reprocess_ledger",
+        ["tenant_id"],
+        unique=False,
+    )
 
 
 def downgrade() -> None:

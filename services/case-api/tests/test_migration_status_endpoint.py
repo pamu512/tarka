@@ -23,7 +23,9 @@ def test_admin_migration_status_endpoint():
     with patch("case_api.main.init_db", new_callable=AsyncMock):
         from case_api.main import app
 
-        with patch("case_api.main.migration_status", new_callable=AsyncMock, return_value=expected_payload):
+        with patch(
+            "case_api.main.migration_status", new_callable=AsyncMock, return_value=expected_payload
+        ):
             keys = [k.strip() for k in (os.environ.get("API_KEYS") or "").split(",") if k.strip()]
             headers = {"X-API-Key": keys[0]} if keys else {}
             with TestClient(app) as client:

@@ -137,7 +137,9 @@ async def _raise_for_status(resp: httpx.Response) -> httpx.Response:
         resp = await resp
     if resp.status_code >= 400:
         body = resp.text
-        raise Exception(f"Upstream {resp.request.method} {resp.request.url} returned {resp.status_code}: {body[:500]}")
+        raise Exception(
+            f"Upstream {resp.request.method} {resp.request.url} returned {resp.status_code}: {body[:500]}"
+        )
     return resp
 
 

@@ -184,7 +184,10 @@ _PLAYBOOKS: dict[str, dict[str, str]] = {
 
 
 def list_playbooks() -> list[dict[str, str]]:
-    return [{"id": k, "title": v["title"], "vertical": v["vertical"]} for k, v in sorted(_PLAYBOOKS.items(), key=lambda x: x[0])]
+    return [
+        {"id": k, "title": v["title"], "vertical": v["vertical"]}
+        for k, v in sorted(_PLAYBOOKS.items(), key=lambda x: x[0])
+    ]
 
 
 def playbooks_catalog_fingerprint() -> str:

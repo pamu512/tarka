@@ -160,7 +160,9 @@ class TestBatchIdempotency:
 
         app.state.redis = fake_aioredis.FakeRedis(decode_responses=True)
         batch = {
-            "events": [{"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}}],
+            "events": [
+                {"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}}
+            ],
             "idempotency_key": "json-batch-key",
         }
         r1 = client.post("/v1/events/batch", json=batch)

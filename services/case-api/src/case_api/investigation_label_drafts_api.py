@@ -87,7 +87,9 @@ async def batch_append(
         )
         ids = list(subq.scalars().all())
         if ids:
-            await session.execute(delete(InvestigationLabelDraft).where(InvestigationLabelDraft.id.in_(ids)))
+            await session.execute(
+                delete(InvestigationLabelDraft).where(InvestigationLabelDraft.id.in_(ids))
+            )
             await session.flush()
 
     added = 0

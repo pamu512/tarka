@@ -7,7 +7,9 @@ def _as_binary_labels(y: list[int]) -> list[int]:
     return [1 if int(x) >= 1 else 0 for x in y]
 
 
-def precision_recall(y_true: list[int], y_score: list[float], *, threshold: float = 0.5) -> tuple[float, float]:
+def precision_recall(
+    y_true: list[int], y_score: list[float], *, threshold: float = 0.5
+) -> tuple[float, float]:
     yt = _as_binary_labels(y_true)
     yp = [1 if float(s) >= threshold else 0 for s in y_score]
     tp = sum(1 for a, b in zip(yt, yp) if a == 1 and b == 1)

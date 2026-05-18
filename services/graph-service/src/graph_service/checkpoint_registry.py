@@ -9,7 +9,9 @@ from typing import Any
 log = logging.getLogger(__name__)
 
 _registry: dict[str, Any] | None = None
-_REGISTRY_PATH = Path(__file__).resolve().parent.parent.parent / "rules" / "checkpoint_profiles_v1.json"
+_REGISTRY_PATH = (
+    Path(__file__).resolve().parent.parent.parent / "rules" / "checkpoint_profiles_v1.json"
+)
 
 
 def load_checkpoint_registry() -> dict[str, Any]:
@@ -62,5 +64,8 @@ def registry_public_view() -> dict[str, Any]:
     return {
         "version": data.get("version", 1),
         "default_profile": data.get("default_profile", "standard"),
-        "profiles": {k: {kk: vv for kk, vv in v.items() if not str(kk).startswith("_")} for k, v in (data.get("profiles") or {}).items()},
+        "profiles": {
+            k: {kk: vv for kk, vv in v.items() if not str(kk).startswith("_")}
+            for k, v in (data.get("profiles") or {}).items()
+        },
     }

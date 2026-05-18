@@ -33,7 +33,9 @@ __all__ = [
 
 def ingest_document(tenant_id: str, analyst_id: str, title: str, body: str) -> str:
     """Sync ingest without embeddings (tests / fallback)."""
-    return ingest_document_sync(tenant_id, analyst_id, title, body, embeddings=None, embedding_model=None)
+    return ingest_document_sync(
+        tenant_id, analyst_id, title, body, embeddings=None, embedding_model=None
+    )
 
 
 def search(tenant_id: str, analyst_id: str, query: str, limit: int = 5) -> list[dict[str, Any]]:

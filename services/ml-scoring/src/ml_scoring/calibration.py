@@ -16,7 +16,11 @@ router = APIRouter(prefix="/v1/calibrate", tags=["calibration"])
 
 
 def _data_dir() -> Path:
-    base = (os.environ.get("CALIBRATION_SERVICE_DATA_DIR") or os.environ.get("ML_SCORING_CALIBRATION_DATA_DIR") or "").strip()
+    base = (
+        os.environ.get("CALIBRATION_SERVICE_DATA_DIR")
+        or os.environ.get("ML_SCORING_CALIBRATION_DATA_DIR")
+        or ""
+    ).strip()
     p = Path(base) if base else (Path(__file__).resolve().parents[3] / "data" / "calibration")
     p.mkdir(parents=True, exist_ok=True)
     return p
@@ -102,7 +106,9 @@ def _active_profile_for(tenant_id: str, profile_id: str) -> dict[str, Any]:
     for p in profiles:
         if int(p.get("version", 0)) == int(active):
             return p
-    raise HTTPException(404, f"active profile version missing for tenant={tenant_id} profile={profile_id}")
+    raise HTTPException(
+        404, f"active profile version missing for tenant={tenant_id} profile={profile_id}"
+    )
 
 
 def _append_snapshot(row: dict[str, Any]) -> str:
@@ -311,4 +317,3 @@ async def score(body: CalibrationScoreRequest, request: Request) -> dict[str, An
             "band_adjustment": round(band_adj, 4),
         },
     }
-

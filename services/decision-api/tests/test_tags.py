@@ -10,7 +10,10 @@ def test_derive_contextual_tags_includes_velocity_geo_graph_and_external():
             "geo_ip_mismatch": True,
         },
         signal_tags=["sdk:shared_device", "sdk:geo_tz_mismatch"],
-        graph_risk={"risk_score": 81, "risk_factors": ["shared_devices_4", "large_community_9"]},
+        graph_risk={
+            "risk_score": 81,
+            "risk_factors": ["shared_devices_4", "large_community_9"],
+        },
         external_signal_meta={"risk_score": 72, "providers": ["scameter"]},
     )
     assert "velocity_high_5m" in tags

@@ -37,4 +37,3 @@ def test_setup_tracing_preserves_incoming_traceparent():
         resp = client.get("/ping", headers={"traceparent": incoming})
     assert resp.status_code == 200
     assert resp.headers.get("traceparent") == incoming
-

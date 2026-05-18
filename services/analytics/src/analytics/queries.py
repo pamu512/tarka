@@ -232,7 +232,9 @@ def render_backtest_stream_page_duckdb(
     return q.sql(dialect="duckdb", identify=True)
 
 
-def render_backtest_stream_page_clickhouse(table: str, *, chunk_size: int, has_cursor: bool, max_execution_seconds: int) -> str:
+def render_backtest_stream_page_clickhouse(
+    table: str, *, chunk_size: int, has_cursor: bool, max_execution_seconds: int
+) -> str:
     """Keyset page over historical rows (named params for clickhouse_connect).
 
     Params always include ``tid``, ``start_s``, ``end_s``. When ``has_cursor``, add ``lca``, ``ltr`` (ISO strings).

@@ -30,7 +30,9 @@ def ttl_seconds() -> int:
         return _DEFAULT_TTL_SECONDS
 
 
-_SAFE_BATCH_ID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
+_SAFE_BATCH_ID = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE
+)
 
 
 def validate_batch_id(batch_id: str) -> str:
@@ -197,7 +199,9 @@ def _parse_json(raw: bytes) -> tuple[list[str], list[dict[str, Any]], str]:
                     rows_in.append(row)
 
     if not rows_in:
-        raise ValueError("JSON must be an array of objects, an object with items/data/rows, or column-oriented arrays")
+        raise ValueError(
+            "JSON must be an array of objects, an object with items/data/rows, or column-oriented arrays"
+        )
 
     rows_in = rows_in[:_MAX_ROWS]
     colset: list[str] = []
@@ -239,7 +243,9 @@ def _parse_xlsx(raw: bytes) -> tuple[list[str], list[dict[str, Any]], str]:
     try:
         from openpyxl import load_workbook  # type: ignore[import-untyped]
     except ImportError as e:
-        raise ValueError("Excel support requires openpyxl (install investigation-agent with excel extra)") from e
+        raise ValueError(
+            "Excel support requires openpyxl (install investigation-agent with excel extra)"
+        ) from e
 
     bio = io.BytesIO(raw)
     wb = load_workbook(bio, read_only=True, data_only=True)
@@ -391,7 +397,9 @@ def batch_profile(rec: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def batch_query_rows(rec: dict[str, Any], offset: int, limit: int, columns: list[str] | None) -> dict[str, Any]:
+def batch_query_rows(
+    rec: dict[str, Any], offset: int, limit: int, columns: list[str] | None
+) -> dict[str, Any]:
     rows: list[dict[str, Any]] = rec.get("rows") or []
     all_cols: list[str] = rec.get("columns") or []
     off = max(0, offset)

@@ -19,8 +19,17 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Upload
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from investigation_agent import batch_store, copilot_analytics, feedback_store, knowledge_store, review_store
-from investigation_agent.answer_structure import parse_structured_sections, structured_sections_prompt_block
+from investigation_agent import (
+    batch_store,
+    copilot_analytics,
+    feedback_store,
+    knowledge_store,
+    review_store,
+)
+from investigation_agent.answer_structure import (
+    parse_structured_sections,
+    structured_sections_prompt_block,
+)
 from investigation_agent.config import (
     effective_embedding_api_key,
     effective_embedding_base_url,
@@ -71,7 +80,12 @@ from investigation_agent.production_config import (
 from investigation_agent.rate_limit import MinuteRateLimiter
 from investigation_agent.reports.case_summary_pdf import render_case_summary_pdf
 from investigation_agent.tool_validation import validate_tool_arguments
-from investigation_agent.tools import TOOL_DEFINITIONS, TOOL_DISPATCH, is_analyst_allowed, normalize_tool_error_shape
+from investigation_agent.tools import (
+    TOOL_DEFINITIONS,
+    TOOL_DISPATCH,
+    is_analyst_allowed,
+    normalize_tool_error_shape,
+)
 from investigation_agent.workflows.registry import (
     format_workflow_system_append,
     list_workflows,
@@ -107,7 +121,9 @@ def _get_api_keys() -> frozenset[str]:
     global _valid_api_keys
     if _valid_api_keys is None:
         raw = os.environ.get("API_KEYS", "").strip()
-        _valid_api_keys = frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
+        _valid_api_keys = (
+            frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
+        )
     return _valid_api_keys
 
 
@@ -142,7 +158,11 @@ async def lifespan(application: FastAPI):
             "investigation-agent: COPILOT_INCLUDE_PLATFORM_AUDIT_IN_PROMPT=true in production — "
             "client-supplied platform_audit is an injection/supply-chain surface; prefer false unless required.",
         )
-    application.state.rate_limiter = MinuteRateLimiter(settings.copilot_rate_limit_per_minute) if settings.copilot_rate_limit_per_minute > 0 else None
+    application.state.rate_limiter = (
+        MinuteRateLimiter(settings.copilot_rate_limit_per_minute)
+        if settings.copilot_rate_limit_per_minute > 0
+        else None
+    )
     application.state.http = httpx.AsyncClient(
         timeout=httpx.Timeout(30.0, connect=5.0),
         limits=httpx.Limits(max_connections=50, max_keepalive_connections=10),
@@ -292,7 +312,9 @@ REFERENCE_MODE_SYSTEM_APPEND = (
 )
 
 
-def _summary_confidence_label(claims: list[dict[str, str]], support_rows: list[dict[str, Any]]) -> tuple[str, float]:
+def _summary_confidence_label(
+    claims: list[dict[str, str]], support_rows: list[dict[str, Any]]
+) -> tuple[str, float]:
     if not claims:
         return "medium", 0.5
     total = max(len(claims), 1)
@@ -414,7 +436,9 @@ async def _execute_tool(
 ) -> dict[str, Any]:
     fn = TOOL_DISPATCH.get(name)
     if not fn:
-        return normalize_tool_error_shape(name, {"error": f"unknown_tool:{name}", "detail": f"unknown tool: {name}"})
+        return normalize_tool_error_shape(
+            name, {"error": f"unknown_tool:{name}", "detail": f"unknown tool: {name}"}
+        )
     norm, verr = validate_tool_arguments(name, arguments)
     if verr:
         return normalize_tool_error_shape(name, {"error": "invalid_tool_arguments", "detail": verr})
@@ -637,21 +661,41 @@ async def _deterministic_tools_only_fallback(
             if isinstance(c, dict):
                 cid = str(c.get("id") or case_id)
                 status = str(c.get("status") or "unknown")
-                claims.append({"text": f"Case {cid} fetched deterministically (status={status}).", "source": "tool"})
+                claims.append(
+                    {
+                        "text": f"Case {cid} fetched deterministically (status={status}).",
+                        "source": "tool",
+                    }
+                )
                 eid = str(c.get("entity_id") or "").strip()
                 if eid:
-                    graph_result = await _run("subgraph_with_velocity", {"entity_id": eid, "depth": 2, "max_velocity_nodes": 10})
+                    graph_result = await _run(
+                        "subgraph_with_velocity",
+                        {"entity_id": eid, "depth": 2, "max_velocity_nodes": 10},
+                    )
                     if isinstance(graph_result, dict):
                         nodes = graph_result.get("nodes")
                         if isinstance(nodes, list):
-                            claims.append({"text": f"Graph context fetched for entity {eid} ({len(nodes)} nodes).", "source": "tool"})
+                            claims.append(
+                                {
+                                    "text": f"Graph context fetched for entity {eid} ({len(nodes)} nodes).",
+                                    "source": "tool",
+                                }
+                            )
                 trace_id = str(c.get("trace_id") or "").strip()
                 if trace_id:
                     try:
                         uuid.UUID(trace_id)
                         audit_result = await _run("get_decision_audit", {"trace_id": trace_id})
-                        if isinstance(audit_result, dict) and isinstance(audit_result.get("audit"), dict):
-                            claims.append({"text": f"Decision audit fetched for trace {trace_id}.", "source": "tool"})
+                        if isinstance(audit_result, dict) and isinstance(
+                            audit_result.get("audit"), dict
+                        ):
+                            claims.append(
+                                {
+                                    "text": f"Decision audit fetched for trace {trace_id}.",
+                                    "source": "tool",
+                                }
+                            )
                     except ValueError:
                         pass
     else:
@@ -659,7 +703,12 @@ async def _deterministic_tools_only_fallback(
         if isinstance(cases_result, dict):
             items = cases_result.get("items")
             if isinstance(items, list):
-                claims.append({"text": f"Queue snapshot fetched deterministically ({len(items)} cases).", "source": "tool"})
+                claims.append(
+                    {
+                        "text": f"Queue snapshot fetched deterministically ({len(items)} cases).",
+                        "source": "tool",
+                    }
+                )
 
     if not claims:
         claims = [
@@ -826,11 +875,18 @@ async def _llm_tool_loop(
         else:
             return str(msg.get("content", "")), all_tool_calls, _merge_usage(usages), len(usages)
 
-    return "Reached maximum tool iterations. Please refine your question.", all_tool_calls, _merge_usage(usages), len(usages)
+    return (
+        "Reached maximum tool iterations. Please refine your question.",
+        all_tool_calls,
+        _merge_usage(usages),
+        len(usages),
+    )
 
 
 _INJECTION_PATTERNS = [
-    re.compile(r"ignore\s+(all\s+)?(previous|above|prior)\s+(instructions|prompts|rules)", re.IGNORECASE),
+    re.compile(
+        r"ignore\s+(all\s+)?(previous|above|prior)\s+(instructions|prompts|rules)", re.IGNORECASE
+    ),
     re.compile(r"(system|assistant)\s*:\s*", re.IGNORECASE),
     re.compile(r"you\s+are\s+now\s+", re.IGNORECASE),
     re.compile(r"pretend\s+(to\s+be|you\s+are)", re.IGNORECASE),
@@ -887,7 +943,9 @@ def _validate_scope_id(label: str, value: str) -> None:
 
 
 def _request_correlation_id(request: Request) -> str:
-    rid = (request.headers.get("x-request-id") or request.headers.get("x-correlation-id") or "").strip()
+    rid = (
+        request.headers.get("x-request-id") or request.headers.get("x-correlation-id") or ""
+    ).strip()
     if rid:
         return rid[:128]
     return f"agent-{uuid.uuid4().hex}"
@@ -1043,7 +1101,9 @@ def _filter_session_noise_audit(events: list[dict[str, Any]]) -> list[dict[str, 
     return out
 
 
-def _format_platform_audit_for_prompt(events: list[dict[str, Any]] | None, max_items: int = 25) -> str:
+def _format_platform_audit_for_prompt(
+    events: list[dict[str, Any]] | None, max_items: int = 25
+) -> str:
     if not events:
         return ""
     lines: list[str] = []
@@ -1090,22 +1150,38 @@ def _parse_tarka_claims_reply(raw_reply: str) -> tuple[str, list[dict[str, str]]
     """
     fallback = "Assistant did not emit a valid TARKA_CLAIMS_JSON trailer; treat the narrative as unverified (source=unknown)."
     if _TARKA_CLAIMS_MARKER not in raw_reply:
-        return raw_reply.strip(), [{"text": fallback, "source": "unknown"}], "claims_trailer_missing"
+        return (
+            raw_reply.strip(),
+            [{"text": fallback, "source": "unknown"}],
+            "claims_trailer_missing",
+        )
 
     prose, _, rest = raw_reply.rpartition(_TARKA_CLAIMS_MARKER)
     prose = prose.strip()
     rest = rest.strip()
     if not rest:
-        return prose or raw_reply.strip(), [{"text": "Empty TARKA_CLAIMS_JSON payload.", "source": "unknown"}], "claims_empty_json"
+        return (
+            prose or raw_reply.strip(),
+            [{"text": "Empty TARKA_CLAIMS_JSON payload.", "source": "unknown"}],
+            "claims_empty_json",
+        )
 
     try:
         data = json.loads(rest)
     except json.JSONDecodeError:
-        return raw_reply.strip(), [{"text": "Invalid JSON after TARKA_CLAIMS_JSON.", "source": "unknown"}], "claims_json_invalid"
+        return (
+            raw_reply.strip(),
+            [{"text": "Invalid JSON after TARKA_CLAIMS_JSON.", "source": "unknown"}],
+            "claims_json_invalid",
+        )
 
     claims_in = data.get("claims") if isinstance(data, dict) else None
     if not isinstance(claims_in, list):
-        return prose or raw_reply.strip(), [{"text": "claims must be a JSON array.", "source": "unknown"}], "claims_not_array"
+        return (
+            prose or raw_reply.strip(),
+            [{"text": "claims must be a JSON array.", "source": "unknown"}],
+            "claims_not_array",
+        )
 
     out: list[dict[str, str]] = []
     for c in claims_in[:_MAX_PARSED_CLAIMS]:
@@ -1119,7 +1195,11 @@ def _parse_tarka_claims_reply(raw_reply: str) -> tuple[str, list[dict[str, str]]
             out.append({"text": text, "source": src})
 
     if not out:
-        return prose, [{"text": "No valid claims after parsing trailer.", "source": "unknown"}], "claims_empty_list"
+        return (
+            prose,
+            [{"text": "No valid claims after parsing trailer.", "source": "unknown"}],
+            "claims_empty_list",
+        )
 
     return prose, out, None
 
@@ -1203,7 +1283,9 @@ async def health():
             "reference_mode": settings.copilot_reference_mode,
             "plain_chat": settings.copilot_plain_chat,
             "plain_prefetch_rag": settings.copilot_plain_prefetch_rag,
-            "embedding_base_url_override": bool((settings.copilot_embedding_base_url or "").strip()),
+            "embedding_base_url_override": bool(
+                (settings.copilot_embedding_base_url or "").strip()
+            ),
             "feedback_persistence": True,
             "maker_checker": bool((settings.copilot_reviewer_secret or "").strip()),
             "assurance_mode": settings.copilot_assurance_mode,
@@ -1215,7 +1297,9 @@ async def health():
             "evidence_bundle_format": settings.copilot_evidence_bundle_format,
             "evidence_bundle_v1": settings.copilot_evidence_bundle_format in ("v1", "dual"),
             "analytics_enabled": settings.copilot_analytics_enabled,
-            "analytics_sink": settings.copilot_analytics_sink if settings.copilot_analytics_enabled else None,
+            "analytics_sink": settings.copilot_analytics_sink
+            if settings.copilot_analytics_enabled
+            else None,
             "playbooks_fingerprint": playbooks_catalog_fingerprint(),
             "copilot_personas": [p["id"] for p in list_personas()],
             "workflows_fingerprint": workflows_catalog_fingerprint(),
@@ -1256,7 +1340,9 @@ async def setup_diagnostics():
         {
             "id": "upstream_integrations",
             "ok": bool(
-                (settings.case_api_url or "").strip() or (settings.decision_api_url or "").strip() or (settings.graph_service_url or "").strip(),
+                (settings.case_api_url or "").strip()
+                or (settings.decision_api_url or "").strip()
+                or (settings.graph_service_url or "").strip(),
             ),
             "detail": "Optional: CASE_API_URL, DECISION_API_URL, GRAPH_SERVICE_URL for live investigation tools.",
         },
@@ -1281,7 +1367,9 @@ async def setup_diagnostics():
             "hybrid_rag_configured": bool(settings.copilot_knowledge_embeddings and eff),
         },
         "checklist": checklist,
-        "integration": build_integration_snapshot(settings, disabled_tools=effective_disabled_tools(settings)),
+        "integration": build_integration_snapshot(
+            settings, disabled_tools=effective_disabled_tools(settings)
+        ),
     }
 
 
@@ -1356,7 +1444,9 @@ def _decision_audit_resolution_refs(audit: dict[str, Any]) -> list[dict[str, str
     return _merge_resolution_refs(out)
 
 
-def _claim_resolution_refs(claim: dict[str, Any], trace_id: str | None, case_id: str | None) -> list[dict[str, str]]:
+def _claim_resolution_refs(
+    claim: dict[str, Any], trace_id: str | None, case_id: str | None
+) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     if trace_id and str(trace_id).strip():
         rows.append({"artifact": "decision_trace", "id": str(trace_id).strip()})
@@ -1371,7 +1461,9 @@ def _claim_resolution_refs(claim: dict[str, Any], trace_id: str | None, case_id:
     return _merge_resolution_refs(rows)
 
 
-def _typology_breakdown_next_actions(breakdown: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+def _typology_breakdown_next_actions(
+    breakdown: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for row in breakdown or []:
         if not isinstance(row, dict):
@@ -1420,7 +1512,11 @@ def _filter_proposed_next_actions(
         resolves: list[dict[str, str]] = []
         if isinstance(resolves_in, list):
             for x in resolves_in:
-                if isinstance(x, dict) and str(x.get("artifact") or "").strip() and str(x.get("id") or "").strip():
+                if (
+                    isinstance(x, dict)
+                    and str(x.get("artifact") or "").strip()
+                    and str(x.get("id") or "").strip()
+                ):
                     resolves.append(
                         {"artifact": str(x["artifact"]).strip(), "id": str(x["id"]).strip()},
                     )
@@ -1466,8 +1562,16 @@ async def evidence_summary(body: EvidenceSummaryRequest, request: Request):
         if isinstance(idx, int) and isinstance(ok, bool):
             supports_by_idx[idx] = ok
 
-    audit_refs: list[dict[str, str]] = _decision_audit_resolution_refs(body.decision_audit) if isinstance(body.decision_audit, dict) else []
-    allow_ids = {x.strip() for x in (settings.evidence_summary_automated_action_allowlist or "").split(",") if x.strip()}
+    audit_refs: list[dict[str, str]] = (
+        _decision_audit_resolution_refs(body.decision_audit)
+        if isinstance(body.decision_audit, dict)
+        else []
+    )
+    allow_ids = {
+        x.strip()
+        for x in (settings.evidence_summary_automated_action_allowlist or "").split(",")
+        if x.strip()
+    }
     next_actions: list[dict[str, Any]] = []
     next_actions.extend(_typology_breakdown_next_actions(body.typology_breakdown))
     next_actions.extend(_filter_proposed_next_actions(body.proposed_next_actions, allow_ids))
@@ -1523,7 +1627,11 @@ async def evidence_summary(body: EvidenceSummaryRequest, request: Request):
         "confidence_label": summary_conf,
         "summary_confidence": {
             "level": summary_conf,
-            "score": round(sum(1 for c in citations if c.get("supported") is True) / max(len(citations), 1), 3) if citations else 0.0,
+            "score": round(
+                sum(1 for c in citations if c.get("supported") is True) / max(len(citations), 1), 3
+            )
+            if citations
+            else 0.0,
             "notes": notes,
         },
         "claim_confidence_summary": {
@@ -1603,7 +1711,9 @@ async def governance_info():
             "maker_checker_required": bool(settings.copilot_maker_checker_required),
             "sensitive_tool_gate": bool((settings.copilot_reviewer_secret or "").strip()),
         },
-        "disclaimer": ("Reference list is illustrative. Validate deployment against your counsel, DPA, and sector rules."),
+        "disclaimer": (
+            "Reference list is illustrative. Validate deployment against your counsel, DPA, and sector rules."
+        ),
     }
 
 
@@ -1673,7 +1783,9 @@ async def plugin_bootstrap(request: Request, response: Response, body: PluginBoo
         raise _plugin_http_exc(403, "Analyst not permitted for this deployment", correlation_id)
 
     gov = await governance_info()
-    integration = build_integration_snapshot(settings, disabled_tools=effective_disabled_tools(settings))
+    integration = build_integration_snapshot(
+        settings, disabled_tools=effective_disabled_tools(settings)
+    )
     response.headers["X-Correlation-Id"] = correlation_id
     return {
         "ok": True,
@@ -1721,7 +1833,9 @@ async def batch_ingest(
     assert rec is not None
     prof = batch_store.batch_profile(rec)
     created_at = float(rec.get("created_at") or time.time())
-    durable_until = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(created_at + batch_store.ttl_seconds()))
+    durable_until = time.strftime(
+        "%Y-%m-%dT%H:%M:%SZ", time.gmtime(created_at + batch_store.ttl_seconds())
+    )
     return {
         "batch_id": batch_id,
         "filename": prof.get("filename"),
@@ -1839,7 +1953,9 @@ async def turn_review_save(rv: TurnReviewBody):
         raise HTTPException(status_code=400, detail="turn_id does not match tenant scope")
     turn_author_id = (str(meta.get("analyst_id", "")) if meta else "").strip() or None
     if settings.copilot_maker_checker_required and turn_author_id and reviewer_id == turn_author_id:
-        raise HTTPException(status_code=400, detail="maker-checker requires reviewer different from turn author")
+        raise HTTPException(
+            status_code=400, detail="maker-checker requires reviewer different from turn author"
+        )
     row_id = review_store.save_review(
         turn_id=tid,
         tenant_id=rv.tenant_id.strip(),
@@ -1941,8 +2057,12 @@ async def chat(body: ChatRequest, request: Request):
 
 
 async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str, Any]:
-    trusted_tenant = (request.headers.get("x-tenant-id") or request.headers.get("x-tarka-tenant-id") or "").strip()
-    trusted_analyst = (request.headers.get("x-analyst-id") or request.headers.get("x-tarka-analyst-id") or "").strip()
+    trusted_tenant = (
+        request.headers.get("x-tenant-id") or request.headers.get("x-tarka-tenant-id") or ""
+    ).strip()
+    trusted_analyst = (
+        request.headers.get("x-analyst-id") or request.headers.get("x-tarka-analyst-id") or ""
+    ).strip()
     if settings.copilot_trusted_scope_headers_required:
         if not trusted_tenant or not trusted_analyst:
             raise HTTPException(
@@ -2012,9 +2132,13 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             "Analyst UI scoped platform audit to the current browser session window (since session start); older tenant activity may be omitted from the slice."
         )
     if opts.track_historical_actions and opts.skip_session_actions:
-        ctx_notes.append("Copilot/session-navigation noise rows were excluded from the audit slice where applicable.")
+        ctx_notes.append(
+            "Copilot/session-navigation noise rows were excluded from the audit slice where applicable."
+        )
     if ctx_notes:
-        system += "\n\nCONTEXT OPTIONS (analyst preferences; audit slice may be filtered accordingly):\n"
+        system += (
+            "\n\nCONTEXT OPTIONS (analyst preferences; audit slice may be filtered accordingly):\n"
+        )
         system += "\n".join(f"- {n}" for n in ctx_notes)
 
     audit_block = ""
@@ -2039,7 +2163,8 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
     if settings.copilot_structured_sections:
         system = system.replace(
             "CLAIMS TRAILER (REQUIRED for every assistant turn):",
-            structured_sections_prompt_block() + "CLAIMS TRAILER (REQUIRED for every assistant turn):",
+            structured_sections_prompt_block()
+            + "CLAIMS TRAILER (REQUIRED for every assistant turn):",
         )
 
     messages = []
@@ -2087,7 +2212,9 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             persona=body.persona,
         )
         return {
-            "reply": ("I detected a potential prompt injection attempt. I can only assist with fraud investigations using my available tools."),
+            "reply": (
+                "I detected a potential prompt injection attempt. I can only assist with fraud investigations using my available tools."
+            ),
             "tool_calls": [],
             "claims": blk_claims,
             "source_refs": [],
@@ -2131,7 +2258,9 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
     if body.case_id and messages:
         messages[-1]["content"] += f"\n\n[Context: current case_id is {body.case_id}]"
     if body.batch_id and messages:
-        messages[-1]["content"] += f"\n\n[Context: active batch_id for tabular tools is {body.batch_id.strip()}]"
+        messages[-1]["content"] += (
+            f"\n\n[Context: active batch_id for tabular tools is {body.batch_id.strip()}]"
+        )
 
     disabled = effective_disabled_tools(settings)
     reviewer_secret = (settings.copilot_reviewer_secret or "").strip()
@@ -2213,7 +2342,11 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             turn_id=turn_id,
             tool_invocation_count=len(tool_calls),
             assurance_mode=settings.copilot_assurance_mode,
-            had_tool_error=any(isinstance(t.get("result"), dict) and (t.get("result") or {}).get("error") for t in tool_calls if isinstance(t, dict)),
+            had_tool_error=any(
+                isinstance(t.get("result"), dict) and (t.get("result") or {}).get("error")
+                for t in tool_calls
+                if isinstance(t, dict)
+            ),
             assurance_refused=False,
             persona=body.persona,
         )
@@ -2257,7 +2390,13 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         claims, grounding_adj = enforce_tool_claim_grounding(claims, tool_calls)
 
     tool_names = [t.get("tool") for t in tool_calls if isinstance(t, dict)]
-    tool_errors = sum(1 for t in tool_calls if isinstance(t, dict) and isinstance(t.get("result"), dict) and (t.get("result") or {}).get("error"))
+    tool_errors = sum(
+        1
+        for t in tool_calls
+        if isinstance(t, dict)
+        and isinstance(t.get("result"), dict)
+        and (t.get("result") or {}).get("error")
+    )
     tn_non_null = [str(x) for x in tool_names if x]
     distinct_tools = len(set(tn_non_null))
     tool_repeat_count = max(0, len(tn_non_null) - distinct_tools)
@@ -2266,7 +2405,9 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         m.inc("investigation_agent_chats_total")
         m.inc("investigation_agent_tool_calls_total", len(tool_calls))
         m.inc("investigation_agent_tool_error_results_total", tool_errors)
-        pkey = body.persona if body.persona in ("investigation", "orchestrator") else "investigation"
+        pkey = (
+            body.persona if body.persona in ("investigation", "orchestrator") else "investigation"
+        )
         m.inc(f"investigation_agent_chats_persona_{pkey}_total")
     except Exception:
         pass

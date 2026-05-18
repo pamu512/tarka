@@ -33,7 +33,9 @@ router = APIRouter(prefix="/v1/compliance", tags=["compliance"])
 # ---------------------------------------------------------------------------
 # Shared privacy module import helper
 # ---------------------------------------------------------------------------
-_shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
+_shared_dir = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared")
+)
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
 
@@ -56,17 +58,31 @@ def _bundle_hash(payload: dict[str, Any]) -> str:
 def _hash_chain(records: list[dict[str, Any]]) -> str:
     current = ""
     for item in records:
-        current = hashlib.sha256(f"{current}:{_canonical_json(item)}".encode("utf-8")).hexdigest()
+        current = hashlib.sha256(
+            f"{current}:{_canonical_json(item)}".encode("utf-8")
+        ).hexdigest()
     return current
 
 
 def _bundle_signature(payload: dict[str, Any]) -> str:
-    key = (settings.evidence_signing_secret or settings.consortium_secret or settings.attestation_hmac_secret or "tarka-evidence-dev-secret").encode("utf-8")
-    return hmac.new(key, _canonical_json(payload).encode("utf-8"), hashlib.sha256).hexdigest()
+    key = (
+        settings.evidence_signing_secret
+        or settings.consortium_secret
+        or settings.attestation_hmac_secret
+        or "tarka-evidence-dev-secret"
+    ).encode("utf-8")
+    return hmac.new(
+        key, _canonical_json(payload).encode("utf-8"), hashlib.sha256
+    ).hexdigest()
 
 
 def _signing_key_id() -> str:
-    key = settings.evidence_signing_secret or settings.consortium_secret or settings.attestation_hmac_secret or "tarka-evidence-dev-secret"
+    key = (
+        settings.evidence_signing_secret
+        or settings.consortium_secret
+        or settings.attestation_hmac_secret
+        or "tarka-evidence-dev-secret"
+    )
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
 
 
@@ -144,7 +160,9 @@ async def dsar_access(
     """Right to Access — export all data held about an entity."""
     profile = get_profile(body.region)
     if not profile.right_to_access:
-        raise HTTPException(400, f"Right to access not applicable under {profile.regulation_name}")
+        raise HTTPException(
+            400, f"Right to access not applicable under {profile.regulation_name}"
+        )
 
     stmt = (
         select(AuditRecord)
@@ -194,20 +212,32 @@ async def dsar_erasure(
     """Right to Erasure — delete all data for an entity."""
     profile = get_profile(body.region)
     if not profile.right_to_erasure:
-        raise HTTPException(400, f"Right to erasure not applicable under {profile.regulation_name}")
+        raise HTTPException(
+            400, f"Right to erasure not applicable under {profile.regulation_name}"
+        )
 
-    count_stmt = select(AuditRecord).where(AuditRecord.tenant_id == body.tenant_id).where(AuditRecord.entity_id == body.entity_id)
+    count_stmt = (
+        select(AuditRecord)
+        .where(AuditRecord.tenant_id == body.tenant_id)
+        .where(AuditRecord.entity_id == body.entity_id)
+    )
     result = await session.execute(count_stmt)
     records = list(result.scalars().all())
 
     if not records:
-        return {"entity_id": body.entity_id, "records_deleted": 0, "status": "no_data_found"}
+        return {
+            "entity_id": body.entity_id,
+            "records_deleted": 0,
+            "status": "no_data_found",
+        }
 
     anonymized_count = 0
     for rec in records:
         if rec.payload_snapshot:
             rec.payload_snapshot = anonymize_record(rec.payload_snapshot)
-        rec.entity_id = f"erased:{hashlib.sha256(body.entity_id.encode()).hexdigest()[:12]}"
+        rec.entity_id = (
+            f"erased:{hashlib.sha256(body.entity_id.encode()).hexdigest()[:12]}"
+        )
         anonymized_count += 1
 
     await session.commit()
@@ -243,7 +273,9 @@ async def dsar_portability(
     """Right to Data Portability — export in machine-readable JSON."""
     profile = get_profile(body.region)
     if not profile.right_to_portability:
-        raise HTTPException(400, f"Data portability not applicable under {profile.regulation_name}")
+        raise HTTPException(
+            400, f"Data portability not applicable under {profile.regulation_name}"
+        )
 
     stmt = (
         select(AuditRecord)
@@ -309,31 +341,103 @@ async def certification_checklist():
     return {
         "soc2_type2": {
             "security": [
-                {"control": "Access Control (CC6.1)", "status": "implemented", "detail": "RBAC + JWT/OIDC via auth_rbac.py"},
-                {"control": "Logical Access (CC6.2)", "status": "implemented", "detail": "API key + role-based middleware"},
-                {"control": "Encryption in Transit (CC6.7)", "status": "configurable", "detail": "TLS termination at load balancer/ingress"},
-                {"control": "Encryption at Rest (CC6.1)", "status": "configurable", "detail": "PostgreSQL TDE + Redis encryption"},
-                {"control": "Change Management (CC8.1)", "status": "implemented", "detail": "Field-level audit trail on all mutations"},
-                {"control": "Risk Assessment (CC3.2)", "status": "implemented", "detail": "Real-time fraud scoring with explainability"},
-                {"control": "Monitoring (CC7.2)", "status": "implemented", "detail": "Prometheus metrics + structured logging"},
-                {"control": "Incident Response (CC7.3)", "status": "partial", "detail": "Webhook alerts; formal IR plan needed"},
-                {"control": "Vendor Management (CC9.2)", "status": "partial", "detail": "OSINT API keys configurable; DPA templates needed"},
+                {
+                    "control": "Access Control (CC6.1)",
+                    "status": "implemented",
+                    "detail": "RBAC + JWT/OIDC via auth_rbac.py",
+                },
+                {
+                    "control": "Logical Access (CC6.2)",
+                    "status": "implemented",
+                    "detail": "API key + role-based middleware",
+                },
+                {
+                    "control": "Encryption in Transit (CC6.7)",
+                    "status": "configurable",
+                    "detail": "TLS termination at load balancer/ingress",
+                },
+                {
+                    "control": "Encryption at Rest (CC6.1)",
+                    "status": "configurable",
+                    "detail": "PostgreSQL TDE + Redis encryption",
+                },
+                {
+                    "control": "Change Management (CC8.1)",
+                    "status": "implemented",
+                    "detail": "Field-level audit trail on all mutations",
+                },
+                {
+                    "control": "Risk Assessment (CC3.2)",
+                    "status": "implemented",
+                    "detail": "Real-time fraud scoring with explainability",
+                },
+                {
+                    "control": "Monitoring (CC7.2)",
+                    "status": "implemented",
+                    "detail": "Prometheus metrics + structured logging",
+                },
+                {
+                    "control": "Incident Response (CC7.3)",
+                    "status": "partial",
+                    "detail": "Webhook alerts; formal IR plan needed",
+                },
+                {
+                    "control": "Vendor Management (CC9.2)",
+                    "status": "partial",
+                    "detail": "OSINT API keys configurable; DPA templates needed",
+                },
             ],
             "availability": [
-                {"control": "System Recovery (A1.2)", "status": "configurable", "detail": "Docker/K8s health checks + auto-restart"},
-                {"control": "Backup (A1.2)", "status": "configurable", "detail": "PostgreSQL pg_dump; ClickHouse backup"},
+                {
+                    "control": "System Recovery (A1.2)",
+                    "status": "configurable",
+                    "detail": "Docker/K8s health checks + auto-restart",
+                },
+                {
+                    "control": "Backup (A1.2)",
+                    "status": "configurable",
+                    "detail": "PostgreSQL pg_dump; ClickHouse backup",
+                },
             ],
             "confidentiality": [
-                {"control": "Data Classification (C1.1)", "status": "implemented", "detail": "PII field classification in privacy.py"},
-                {"control": "Data Retention (C1.2)", "status": "implemented", "detail": "Configurable per-region retention policies"},
+                {
+                    "control": "Data Classification (C1.1)",
+                    "status": "implemented",
+                    "detail": "PII field classification in privacy.py",
+                },
+                {
+                    "control": "Data Retention (C1.2)",
+                    "status": "implemented",
+                    "detail": "Configurable per-region retention policies",
+                },
             ],
         },
         "pci_dss_v4": [
-            {"requirement": "3.4 - Render PAN unreadable", "status": "implemented", "detail": "PII masking engine masks card numbers"},
-            {"requirement": "3.5 - Protect stored account data", "status": "configurable", "detail": "Encryption at rest when enabled"},
-            {"requirement": "8.3 - MFA", "status": "configurable", "detail": "OIDC SSO supports MFA at IdP level"},
-            {"requirement": "10.1 - Audit trails", "status": "implemented", "detail": "Immutable audit_trail table"},
-            {"requirement": "11.3 - Vulnerability scanning", "status": "partial", "detail": "CI/CD includes linting; needs DAST/SAST tools"},
+            {
+                "requirement": "3.4 - Render PAN unreadable",
+                "status": "implemented",
+                "detail": "PII masking engine masks card numbers",
+            },
+            {
+                "requirement": "3.5 - Protect stored account data",
+                "status": "configurable",
+                "detail": "Encryption at rest when enabled",
+            },
+            {
+                "requirement": "8.3 - MFA",
+                "status": "configurable",
+                "detail": "OIDC SSO supports MFA at IdP level",
+            },
+            {
+                "requirement": "10.1 - Audit trails",
+                "status": "implemented",
+                "detail": "Immutable audit_trail table",
+            },
+            {
+                "requirement": "11.3 - Vulnerability scanning",
+                "status": "partial",
+                "detail": "CI/CD includes linting; needs DAST/SAST tools",
+            },
         ],
         "iso_27001": [
             {
@@ -341,9 +445,21 @@ async def certification_checklist():
                 "status": "implemented",
                 "detail": "PII categorization (direct/quasi/sensitive/contact/financial/device)",
             },
-            {"control": "A.8.10 - Information Deletion", "status": "implemented", "detail": "DSAR erasure + retention cleanup"},
-            {"control": "A.8.24 - Cryptography", "status": "configurable", "detail": "AES-256 at rest when privacy profile requires it"},
-            {"control": "A.5.34 - Privacy/PII Protection", "status": "implemented", "detail": "Region-aware privacy profiles (12 jurisdictions)"},
+            {
+                "control": "A.8.10 - Information Deletion",
+                "status": "implemented",
+                "detail": "DSAR erasure + retention cleanup",
+            },
+            {
+                "control": "A.8.24 - Cryptography",
+                "status": "configurable",
+                "detail": "AES-256 at rest when privacy profile requires it",
+            },
+            {
+                "control": "A.5.34 - Privacy/PII Protection",
+                "status": "implemented",
+                "detail": "Region-aware privacy profiles (12 jurisdictions)",
+            },
         ],
     }
 
@@ -355,11 +471,18 @@ async def control_evidence_export(
     limit: int = 200,
 ):
     """Export control evidence bundle for audits and trust-center views."""
-    q = select(AuditRecord).where(AuditRecord.tenant_id == tenant_id).order_by(AuditRecord.created_at.desc()).limit(max(1, min(limit, 2000)))
+    q = (
+        select(AuditRecord)
+        .where(AuditRecord.tenant_id == tenant_id)
+        .order_by(AuditRecord.created_at.desc())
+        .limit(max(1, min(limit, 2000)))
+    )
     rows = (await session.execute(q)).scalars().all()
 
     decision_counts_rows = await session.execute(
-        select(AuditRecord.decision, func.count()).where(AuditRecord.tenant_id == tenant_id).group_by(AuditRecord.decision)
+        select(AuditRecord.decision, func.count())
+        .where(AuditRecord.tenant_id == tenant_id)
+        .group_by(AuditRecord.decision)
     )
     decision_counts = {str(r[0]): int(r[1]) for r in decision_counts_rows.all()}
 
@@ -380,7 +503,11 @@ async def control_evidence_export(
         "tenant_id": tenant_id,
         "exported_at": datetime.now(timezone.utc).isoformat(),
         "controls": [
-            {"id": "CC8.1", "name": "Change Management Auditability", "status": "implemented"},
+            {
+                "id": "CC8.1",
+                "name": "Change Management Auditability",
+                "status": "implemented",
+            },
             {"id": "CC7.2", "name": "Continuous Monitoring", "status": "implemented"},
             {"id": "PCI-10.1", "name": "Audit Trail Coverage", "status": "implemented"},
         ],
@@ -422,12 +549,18 @@ async def verify_evidence(body: EvidenceVerifyRequest):
         bundle["integrity"] = integrity_copy
     expected_hash = _bundle_hash(bundle)
     bundle["integrity"] = {
-        **(bundle.get("integrity") if isinstance(bundle.get("integrity"), dict) else {}),
+        **(
+            bundle.get("integrity") if isinstance(bundle.get("integrity"), dict) else {}
+        ),
         "bundle_hash": expected_hash,
     }
     expected_sig = _bundle_signature(bundle)
     return {
-        "valid": bool(provided_sig and hmac.compare_digest(provided_sig, expected_sig) and provided_hash == expected_hash),
+        "valid": bool(
+            provided_sig
+            and hmac.compare_digest(provided_sig, expected_sig)
+            and provided_hash == expected_hash
+        ),
         "expected_signature": expected_sig,
         "provided_signature": provided_sig,
         "expected_hash": expected_hash,

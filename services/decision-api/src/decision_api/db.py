@@ -19,7 +19,9 @@ def _app_root() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
 
-_engine_kind: Literal["sqlite", "postgres"] = resolve_tarka_db_engine(database_url=settings.database_url)
+_engine_kind: Literal["sqlite", "postgres"] = resolve_tarka_db_engine(
+    database_url=settings.database_url
+)
 _database_url = build_async_database_url(
     engine_kind=_engine_kind,
     database_url=settings.database_url,

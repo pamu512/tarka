@@ -165,11 +165,15 @@ def _emit_expr(node: Any) -> str:
     _reject_macro_keys(node, ctx="expr")
     if "all_of" in node:
         if "field" in node or "any_of" in node:
-            raise TranspilationError("node cannot mix all_of with field/any_of at the same object level")
+            raise TranspilationError(
+                "node cannot mix all_of with field/any_of at the same object level"
+            )
         return _emit_group(node, kind="all")
     if "any_of" in node:
         if "field" in node or "all_of" in node:
-            raise TranspilationError("node cannot mix any_of with field/all_of at the same object level")
+            raise TranspilationError(
+                "node cannot mix any_of with field/all_of at the same object level"
+            )
         return _emit_group(node, kind="any")
     return _emit_leaf(node)
 

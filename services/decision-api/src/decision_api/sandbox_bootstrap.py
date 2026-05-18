@@ -12,13 +12,31 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from decision_api.deps import get_pg_pool
-from decision_api.json_rules import preload_plg_sandbox_runtime_pack, set_plg_sandbox_runtime_pack
-from decision_api.sandbox_plg_pack import PLG_BUNDLE_KEY, build_merged_plg_industry_pack, merged_pack_fingerprint
+from decision_api.json_rules import (
+    preload_plg_sandbox_runtime_pack,
+    set_plg_sandbox_runtime_pack,
+)
+from decision_api.sandbox_plg_pack import (
+    PLG_BUNDLE_KEY,
+    build_merged_plg_industry_pack,
+    merged_pack_fingerprint,
+)
 from tarka_core.templates import list_industry_template_items
 
 log = logging.getLogger("decision-api")
 
-router = APIRouter(prefix="/v1/sandbox", tags=["sandbox"])
+
+async def _require_api_key(request: Request) -> None:
+    from decision_api import main as main_mod
+
+    await main_mod.require_api_key(request)
+
+
+router = APIRouter(
+    prefix="/v1/sandbox",
+    tags=["sandbox"],
+    dependencies=[Depends(_require_api_key)],
+)
 
 
 class SandboxBootstrapResponse(BaseModel):
@@ -33,12 +51,6 @@ class SandboxBootstrapResponse(BaseModel):
         default=True,
         description="Bootstrap uses upserts; repeated calls do not raise duplicate-key errors.",
     )
-
-
-async def _require_api_key(request: Request) -> None:
-    from decision_api import main as main_mod
-
-    await main_mod.require_api_key(request)
 
 
 async def maybe_hydrate_sandbox_plg_pack(application: Any) -> None:
@@ -67,7 +79,6 @@ async def maybe_hydrate_sandbox_plg_pack(application: Any) -> None:
 async def sandbox_bootstrap(
     request: Request,
     pool: Any = Depends(get_pg_pool),
-    _auth: None = Depends(_require_api_key),
 ) -> SandboxBootstrapResponse:
     """Idempotently install five industry templates into the audit tables and the Rust engine."""
     import asyncpg
@@ -75,7 +86,10 @@ async def sandbox_bootstrap(
     try:
         merged, per_compiled, template_keys = build_merged_plg_industry_pack()
     except ValueError as e:
-        raise HTTPException(status_code=500, detail={"reason_code": "SANDBOOT_COMPILE_FAILED", "message": str(e)}) from e
+        raise HTTPException(
+            status_code=500,
+            detail={"reason_code": "SANDBOOT_COMPILE_FAILED", "message": str(e)},
+        ) from e
 
     fp = merged_pack_fingerprint(merged)
     rule_approval_inserted = False

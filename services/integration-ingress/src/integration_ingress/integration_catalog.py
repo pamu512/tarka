@@ -38,7 +38,12 @@ PROVIDER_CATALOG: list[dict[str, Any]] = [
         "device_intelligence",
         doc_url="https://risk.lexisnexis.com/products/threatmetrix",
     ),
-    _p("maxmind", "MaxMind minFraud", "ip_intelligence", doc_url="https://dev.maxmind.com/minfraud/"),
+    _p(
+        "maxmind",
+        "MaxMind minFraud",
+        "ip_intelligence",
+        doc_url="https://dev.maxmind.com/minfraud/",
+    ),
     _p(
         "ipqs",
         "IPQualityScore",

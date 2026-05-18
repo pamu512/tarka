@@ -7,7 +7,9 @@ from investigation_agent import config, copilot_analytics
 
 
 @pytest.mark.asyncio
-async def test_emit_turn_completed_log_sink(caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_emit_turn_completed_log_sink(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     caplog.set_level(logging.INFO)
     monkeypatch.setattr(config.settings, "copilot_analytics_enabled", True)
     monkeypatch.setattr(config.settings, "copilot_analytics_sink", "log")

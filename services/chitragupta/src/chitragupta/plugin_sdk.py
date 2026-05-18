@@ -12,7 +12,9 @@ from chitragupta.contract_compat import assert_contract_compatible
 
 class PluginManifest(BaseModel):
     plugin_id: str = Field(min_length=2, max_length=128, pattern=r"^[a-z0-9][a-z0-9_.-]*$")
-    contract_version: str = Field(default="1.0.0", description="Semantic contract version for this plugin surface.")
+    contract_version: str = Field(
+        default="1.0.0", description="Semantic contract version for this plugin surface."
+    )
     display_name: str = ""
     capabilities: dict[str, str] = Field(default_factory=dict)
     emitter_targets_supported: list[str] = Field(default_factory=list)

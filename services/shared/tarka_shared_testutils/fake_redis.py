@@ -20,7 +20,9 @@ class FakeRedis:
             max_score = float("inf")
         return sum(1 for v in d.values() if float(min_score) <= v <= float(max_score))
 
-    async def zrangebyscore(self, key: str, min_score: float | str, max_score: float | str) -> list[str]:
+    async def zrangebyscore(
+        self, key: str, min_score: float | str, max_score: float | str
+    ) -> list[str]:
         d = self._data.get(key, {})
         if isinstance(min_score, str) and min_score == "-inf":
             min_score = float("-inf")
@@ -52,4 +54,3 @@ class FakePipeline:
         for op, key, mapping in self._ops:
             if op == "zadd":
                 self._redis._data.setdefault(key, {}).update(mapping)
-

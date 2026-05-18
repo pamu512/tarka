@@ -5,7 +5,9 @@ import hmac
 import time
 
 
-def verify_slack_signature(signing_secret: str, timestamp: str, body: bytes, signature: str) -> bool:
+def verify_slack_signature(
+    signing_secret: str, timestamp: str, body: bytes, signature: str
+) -> bool:
     """Slack signing secret verification (v0 = HMAC-SHA256)."""
     if not signing_secret or not signature or not timestamp:
         return False

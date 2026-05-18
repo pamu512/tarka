@@ -2,7 +2,11 @@
 
 import pytest
 
-from tarka_core.rule_compiler import TranspilationError, transpile_visual_pack, transpile_visual_rule
+from tarka_core.rule_compiler import (
+    TranspilationError,
+    transpile_visual_pack,
+    transpile_visual_rule,
+)
 
 
 def test_transpile_simple_eq() -> None:
@@ -29,10 +33,7 @@ def test_transpile_gt_lt_combined_with_or() -> None:
         }
     )
     assert rid == "r_cmp"
-    assert (
-        expr
-        == '(input.amount > 100 and (input.amount < 500 or input.tier == "trusted"))'
-    )
+    assert expr == '(input.amount > 100 and (input.amount < 500 or input.tier == "trusted"))'
 
 
 def test_transpile_in_not_in_nested() -> None:
@@ -47,10 +48,7 @@ def test_transpile_in_not_in_nested() -> None:
         }
     )
     assert rid == "r_sets"
-    assert (
-        expr
-        == '(input.region in {"US", "CA"} and not (input.status in {"blocked", "frozen"}))'
-    )
+    assert expr == '(input.region in {"US", "CA"} and not (input.status in {"blocked", "frozen"}))'
 
 
 def test_transpile_deep_nested_and_or() -> None:

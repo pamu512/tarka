@@ -56,7 +56,9 @@ async def share_signal(body: ConsortiumShareRequest) -> dict[str, Any]:
 
 
 @router.get("/check/{tenant_id}/{entity_id}")
-async def check_signal(tenant_id: str, entity_id: str, consortium_id: str | None = None) -> dict[str, Any]:
+async def check_signal(
+    tenant_id: str, entity_id: str, consortium_id: str | None = None
+) -> dict[str, Any]:
     if not settings.consortium_enabled:
         return {"enabled": False, "consortium": {}}
     cid = (consortium_id or settings.consortium_id).strip()
@@ -75,7 +77,9 @@ async def set_tenant_trust(body: ConsortiumTrustRequest) -> dict[str, Any]:
     if not settings.consortium_enabled:
         raise HTTPException(status_code=403, detail="consortium disabled")
     cid = (body.consortium_id or settings.consortium_id).strip()
-    data = await redis_tags.set_consortium_tenant_trust(cid, body.tenant_id.strip(), body.trust_score)
+    data = await redis_tags.set_consortium_tenant_trust(
+        cid, body.tenant_id.strip(), body.trust_score
+    )
     return {"ok": True, "trust": data}
 
 

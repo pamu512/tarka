@@ -145,7 +145,9 @@ async def _execute_action(
                 ctx.actions_executed.append({"type": "send_webhook", "url": url, "status": "sent"})
             except Exception as e:
                 log.warning("webhook failed for %s: %s", url, e)
-                ctx.actions_executed.append({"type": "send_webhook", "url": url, "status": "failed", "error": str(e)})
+                ctx.actions_executed.append(
+                    {"type": "send_webhook", "url": url, "status": "failed", "error": str(e)}
+                )
     else:
         log.warning("unknown action type: %s", action_type)
 
@@ -215,4 +217,6 @@ def is_sla_breached(
     *,
     sla_hours_override: int | None = None,
 ) -> bool:
-    return is_sla_breached_at(priority, created_at, sla_hours_override=sla_hours_override, as_of=None)
+    return is_sla_breached_at(
+        priority, created_at, sla_hours_override=sla_hours_override, as_of=None
+    )

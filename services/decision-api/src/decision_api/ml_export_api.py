@@ -37,14 +37,20 @@ router = APIRouter(prefix="/v1/ml/export", tags=["ml-export"])
 def _upstream_headers() -> dict[str, str]:
     key = settings.upstream_api_key.strip() if settings.upstream_api_key.strip() else ""
     if not key:
-        key = settings.api_keys.split(",")[0].strip() if settings.api_keys.strip() else ""
+        key = (
+            settings.api_keys.split(",")[0].strip() if settings.api_keys.strip() else ""
+        )
     return {"x-api-key": key} if key else {}
 
 
 class PitParquetExportRequest(BaseModel):
     tenant_id: str = Field(..., min_length=1, max_length=128)
-    window_start: str = Field(..., description="ISO-8601 UTC inclusive lower bound for evaluation_time")
-    window_end: str = Field(..., description="ISO-8601 UTC exclusive upper bound for evaluation_time")
+    window_start: str = Field(
+        ..., description="ISO-8601 UTC inclusive lower bound for evaluation_time"
+    )
+    window_end: str = Field(
+        ..., description="ISO-8601 UTC exclusive upper bound for evaluation_time"
+    )
     analytics_table: str | None = Field(
         default=None,
         max_length=128,
@@ -65,8 +71,12 @@ class PitParquetExportResponse(BaseModel):
     )
 
 
-def _sync_run_export(req: PitParquetExportRequest, engine: BaseAnalyticsEngine) -> dict[str, Any]:
-    tbl = (req.analytics_table or settings.clickhouse_analytics_events_table or "").strip()
+def _sync_run_export(
+    req: PitParquetExportRequest, engine: BaseAnalyticsEngine
+) -> dict[str, Any]:
+    tbl = (
+        req.analytics_table or settings.clickhouse_analytics_events_table or ""
+    ).strip()
     if not tbl:
         raise RuntimeError("analytics_table is empty")
     base = Path(settings.ml_export_local_dir).expanduser()
@@ -95,7 +105,9 @@ def _sync_run_export(req: PitParquetExportRequest, engine: BaseAnalyticsEngine) 
         out_path=out_path,
         label_fetcher=label_fetch,
         chunk_size=int(req.chunk_size),
-        clickhouse_max_execution_seconds=max(30, settings.clickhouse_statement_timeout_ms // 1000),
+        clickhouse_max_execution_seconds=max(
+            30, settings.clickhouse_statement_timeout_ms // 1000
+        ),
         max_rows=int(settings.ml_export_max_rows),
     )
     if stats.rows_written == 0:
@@ -106,7 +118,10 @@ def _sync_run_export(req: PitParquetExportRequest, engine: BaseAnalyticsEngine) 
         raise RuntimeError("no evaluation rows in window for export")
 
     prefix = (settings.ml_export_s3_prefix or "pit-exports").strip().strip("/")
-    safe_tenant = "".join(c for c in req.tenant_id if c.isalnum() or c in ("_", "-"))[:80] or "tenant"
+    safe_tenant = (
+        "".join(c for c in req.tenant_id if c.isalnum() or c in ("_", "-"))[:80]
+        or "tenant"
+    )
     object_key = f"{prefix}/{safe_tenant}/pit_ml_{uuid.uuid4().hex[:16]}.parquet"
     uri, presigned = pit_export_uri_for_sink(
         local_path=out_path,

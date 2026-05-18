@@ -21,7 +21,10 @@ from auth_rbac import require_role  # noqa: E402
 from analytics import queries  # noqa: E402
 from analytics.engine import BaseAnalyticsEngine  # noqa: E402
 
-from decision_api.backtest_job_runner import rule_pack_fingerprint_sha256, run_backtest_job  # noqa: E402
+from decision_api.backtest_job_runner import (
+    rule_pack_fingerprint_sha256,
+    run_backtest_job,
+)  # noqa: E402
 from decision_api.config import settings  # noqa: E402
 from decision_api.db import get_session  # noqa: E402
 from decision_api.deps import require_analytics_engine  # noqa: E402
@@ -54,7 +57,9 @@ async def backtest_preview_sql(
 ) -> dict[str, Any]:
     """Return dialect-specific parameterized SQL for ops (binds documented below)."""
     start_s, end_s = _window_bounds(body)
-    table = queries.validate_sql_identifier(settings.clickhouse_analytics_events_table.strip())
+    table = queries.validate_sql_identifier(
+        settings.clickhouse_analytics_events_table.strip()
+    )
     max_sec = max(5, min(int(body.clickhouse_max_execution_seconds), 600))
     ch_sql = queries.render_backtest_pit_decision_counts_clickhouse(table, max_sec)
     duck_sql = queries.render_backtest_pit_decision_counts_duckdb(table)
@@ -65,7 +70,11 @@ async def backtest_preview_sql(
         "clickhouse_sql": ch_sql,
         "duckdb_sql": duck_sql,
         "binds": {
-            "clickhouse_named": {"tid": body.tenant_id, "start_s": start_s, "end_s": end_s},
+            "clickhouse_named": {
+                "tid": body.tenant_id,
+                "start_s": start_s,
+                "end_s": end_s,
+            },
             "duckdb_positional": [body.tenant_id, start_s, end_s],
         },
         "rule_pack_fingerprint_sha256": rule_pack_fingerprint_sha256(body.rule_pack),
@@ -86,7 +95,9 @@ async def enqueue_backtest_job(
     if not body.rule_pack.get("rules"):
         raise HTTPException(status_code=400, detail="rule_pack.rules required")
     start_s, end_s = _window_bounds(body)
-    table = queries.validate_sql_identifier(settings.clickhouse_analytics_events_table.strip())
+    table = queries.validate_sql_identifier(
+        settings.clickhouse_analytics_events_table.strip()
+    )
     fp = rule_pack_fingerprint_sha256(body.rule_pack)
     job = BacktestRun(
         tenant_id=body.tenant_id,

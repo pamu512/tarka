@@ -31,7 +31,10 @@ async def maybe_invoke_vendor(
     adapter = get_adapter(vendor_id)
     if adapter is None:
         return None
-    if adapter.tier == VendorTier.PREMIUM and base_rule_score < PREMIUM_COST_SCORE_THRESHOLD:
+    if (
+        adapter.tier == VendorTier.PREMIUM
+        and base_rule_score < PREMIUM_COST_SCORE_THRESHOLD
+    ):
         return None
     return await adapter.fetch_signal(
         http,

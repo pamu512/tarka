@@ -30,7 +30,12 @@ def upgrade() -> None:
         sa.Column("outcome", sa.String(length=32), nullable=False),
         sa.Column("detail", sa.Text(), nullable=True),
         sa.Column("request_url_preview", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
@@ -60,8 +65,16 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_compliance_residency_audit_created_at"), table_name="compliance_residency_audit")
-    op.drop_index(op.f("ix_compliance_residency_audit_outcome"), table_name="compliance_residency_audit")
-    op.drop_index(op.f("ix_compliance_residency_audit_vendor_key"), table_name="compliance_residency_audit")
-    op.drop_index(op.f("ix_compliance_residency_audit_tenant_id"), table_name="compliance_residency_audit")
+    op.drop_index(
+        op.f("ix_compliance_residency_audit_created_at"), table_name="compliance_residency_audit"
+    )
+    op.drop_index(
+        op.f("ix_compliance_residency_audit_outcome"), table_name="compliance_residency_audit"
+    )
+    op.drop_index(
+        op.f("ix_compliance_residency_audit_vendor_key"), table_name="compliance_residency_audit"
+    )
+    op.drop_index(
+        op.f("ix_compliance_residency_audit_tenant_id"), table_name="compliance_residency_audit"
+    )
     op.drop_table("compliance_residency_audit")

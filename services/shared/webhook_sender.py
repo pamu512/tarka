@@ -118,7 +118,9 @@ class WebhookSender:
             )
             return False
 
-    async def _retry_loop(self, record: WebhookRecord, headers: dict[str, str] | None = None) -> None:
+    async def _retry_loop(
+        self, record: WebhookRecord, headers: dict[str, str] | None = None
+    ) -> None:
         for i in range(1, self._max_retries):
             delay = min(self._base_delay * (2**i), self._max_delay)
             await asyncio.sleep(delay)
@@ -160,4 +162,6 @@ class WebhookSender:
         return False
 
     def get_pending(self) -> list[dict[str, Any]]:
-        return [{"id": r.id, "url": r.url, "attempts": len(r.attempts)} for r in self._pending.values()]
+        return [
+            {"id": r.id, "url": r.url, "attempts": len(r.attempts)} for r in self._pending.values()
+        ]

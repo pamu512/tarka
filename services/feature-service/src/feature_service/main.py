@@ -28,7 +28,9 @@ def _get_api_keys() -> frozenset[str]:
     global _valid_api_keys
     if _valid_api_keys is None:
         raw = os.environ.get("API_KEYS", "").strip()
-        _valid_api_keys = frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
+        _valid_api_keys = (
+            frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
+        )
     return _valid_api_keys
 
 
@@ -37,7 +39,12 @@ async def require_api_key(request: Request) -> None:
         return
     keys = _get_api_keys()
     if not keys:
-        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         if allow:
             return
         raise HTTPException(
@@ -96,7 +103,9 @@ async def lifespan(application: FastAPI):
     application.state.http = httpx.AsyncClient(timeout=httpx.Timeout(3.0, connect=1.0))
     application.state.velocity_store = None
     application.state.redis_client = None
-    redis_url = (os.environ.get("FEATURE_SERVICE_REDIS_URL") or os.environ.get("REDIS_URL") or "").strip()
+    redis_url = (
+        os.environ.get("FEATURE_SERVICE_REDIS_URL") or os.environ.get("REDIS_URL") or ""
+    ).strip()
     if redis_url:
         try:
             rc = aioredis.from_url(redis_url, decode_responses=True)
@@ -437,7 +446,9 @@ async def snapshot(body: SnapshotRequest, request: Request):
 
     vector = _build_vector(features)
 
-    velocity_counters = await _compute_velocity_counters(request, body.tenant_id, body.entity_id, features)
+    velocity_counters = await _compute_velocity_counters(
+        request, body.tenant_id, body.entity_id, features
+    )
 
     return {
         "tenant_id": body.tenant_id,

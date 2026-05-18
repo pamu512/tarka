@@ -100,7 +100,9 @@ def analyze_features(
 
         for key, val in features.items():
             try:
-                fval = float(val) if not isinstance(val, bool) else (1.0 if val else 0.0)
+                fval = (
+                    float(val) if not isinstance(val, bool) else (1.0 if val else 0.0)
+                )
             except (TypeError, ValueError):
                 continue
             if is_fraud:
@@ -120,8 +122,16 @@ def analyze_features(
 
         f_mean = sum(f_vals) / len(f_vals)
         l_mean = sum(l_vals) / len(l_vals)
-        f_std = math.sqrt(sum((v - f_mean) ** 2 for v in f_vals) / len(f_vals)) if len(f_vals) > 1 else 0
-        l_std = math.sqrt(sum((v - l_mean) ** 2 for v in l_vals) / len(l_vals)) if len(l_vals) > 1 else 0
+        f_std = (
+            math.sqrt(sum((v - f_mean) ** 2 for v in f_vals) / len(f_vals))
+            if len(f_vals) > 1
+            else 0
+        )
+        l_std = (
+            math.sqrt(sum((v - l_mean) ** 2 for v in l_vals) / len(l_vals))
+            if len(l_vals) > 1
+            else 0
+        )
 
         pooled_std = math.sqrt((f_std**2 + l_std**2) / 2) if (f_std + l_std) > 0 else 1
         effect_size = abs(f_mean - l_mean) / max(pooled_std, 1e-8)
@@ -134,7 +144,13 @@ def analyze_features(
         best_threshold = None
 
         percentiles = [10, 25, 50, 75, 90]
-        thresholds = list(set(sorted(all_vals)[int(len(all_vals) * p / 100)] for p in percentiles if int(len(all_vals) * p / 100) < len(all_vals)))
+        thresholds = list(
+            set(
+                sorted(all_vals)[int(len(all_vals) * p / 100)]
+                for p in percentiles
+                if int(len(all_vals) * p / 100) < len(all_vals)
+            )
+        )
 
         for t in thresholds:
             ig = _information_gain(all_vals, labels, t)
@@ -144,7 +160,9 @@ def analyze_features(
 
         op = "gte" if f_mean > l_mean else "lte"
 
-        desc = f"{'Higher' if f_mean > l_mean else 'Lower'} {feat} correlates with fraud"
+        desc = (
+            f"{'Higher' if f_mean > l_mean else 'Lower'} {feat} correlates with fraud"
+        )
         if best_threshold is not None:
             desc += f" (threshold: {best_threshold:.2f})"
 
@@ -156,7 +174,9 @@ def analyze_features(
                 legit_mean=round(l_mean, 4),
                 fraud_std=round(f_std, 4),
                 legit_std=round(l_std, 4),
-                suggested_threshold=round(best_threshold, 4) if best_threshold is not None else None,
+                suggested_threshold=round(best_threshold, 4)
+                if best_threshold is not None
+                else None,
                 suggested_op=op,
                 description=desc,
             )
@@ -197,7 +217,9 @@ def generate_recommendations(
             if val is None:
                 continue
             try:
-                fval = float(val) if not isinstance(val, bool) else (1.0 if val else 0.0)
+                fval = (
+                    float(val) if not isinstance(val, bool) else (1.0 if val else 0.0)
+                )
             except (TypeError, ValueError):
                 continue
 
@@ -216,7 +238,9 @@ def generate_recommendations(
         precision = fraud_matches / max(matches, 1)
         recall = fraud_matches / max(fraud_count, 1)
         lift = precision / max(base_fraud_rate, 1e-8)
-        confidence = min(1.0, (precision * 0.5 + min(1.0, lift / 5) * 0.3 + insight.importance * 0.2))
+        confidence = min(
+            1.0, (precision * 0.5 + min(1.0, lift / 5) * 0.3 + insight.importance * 0.2)
+        )
 
         if confidence < min_confidence:
             continue
@@ -259,7 +283,10 @@ def generate_recommendations(
 
             for rec in records:
                 snapshot = rec.get("payload_snapshot") or {}
-                features = {**snapshot.get("payload", {}), **snapshot.get("metadata", {})}
+                features = {
+                    **snapshot.get("payload", {}),
+                    **snapshot.get("metadata", {}),
+                }
 
                 v1 = features.get(f1.feature)
                 v2 = features.get(f2.feature)
@@ -267,13 +294,25 @@ def generate_recommendations(
                     continue
 
                 try:
-                    fv1 = float(v1) if not isinstance(v1, bool) else (1.0 if v1 else 0.0)
-                    fv2 = float(v2) if not isinstance(v2, bool) else (1.0 if v2 else 0.0)
+                    fv1 = (
+                        float(v1) if not isinstance(v1, bool) else (1.0 if v1 else 0.0)
+                    )
+                    fv2 = (
+                        float(v2) if not isinstance(v2, bool) else (1.0 if v2 else 0.0)
+                    )
                 except (TypeError, ValueError):
                     continue
 
-                match1 = fv1 >= f1.suggested_threshold if f1.suggested_op == "gte" else fv1 <= f1.suggested_threshold
-                match2 = fv2 >= f2.suggested_threshold if f2.suggested_op == "gte" else fv2 <= f2.suggested_threshold
+                match1 = (
+                    fv1 >= f1.suggested_threshold
+                    if f1.suggested_op == "gte"
+                    else fv1 <= f1.suggested_threshold
+                )
+                match2 = (
+                    fv2 >= f2.suggested_threshold
+                    if f2.suggested_op == "gte"
+                    else fv2 <= f2.suggested_threshold
+                )
 
                 if match1 and match2:
                     matches += 1
@@ -286,7 +325,14 @@ def generate_recommendations(
             precision = fraud_matches / max(matches, 1)
             recall = fraud_matches / max(fraud_count, 1)
             lift = precision / max(base_fraud_rate, 1e-8)
-            confidence = min(1.0, (precision * 0.5 + min(1.0, lift / 5) * 0.3 + (f1.importance + f2.importance) / 2 * 0.2))
+            confidence = min(
+                1.0,
+                (
+                    precision * 0.5
+                    + min(1.0, lift / 5) * 0.3
+                    + (f1.importance + f2.importance) / 2 * 0.2
+                ),
+            )
 
             if confidence < min_confidence:
                 continue
@@ -298,8 +344,16 @@ def generate_recommendations(
                     rule_id=f"ai_rec_combo_{f1.feature}_{f2.feature}",
                     description=f"Auto-detected combination: {f1.feature} + {f2.feature}",
                     conditions=[
-                        {"field": f1.feature, "op": f1.suggested_op, "value": f1.suggested_threshold},
-                        {"field": f2.feature, "op": f2.suggested_op, "value": f2.suggested_threshold},
+                        {
+                            "field": f1.feature,
+                            "op": f1.suggested_op,
+                            "value": f1.suggested_threshold,
+                        },
+                        {
+                            "field": f2.feature,
+                            "op": f2.suggested_op,
+                            "value": f2.suggested_threshold,
+                        },
                     ],
                     suggested_score_delta=score_delta,
                     suggested_tags=[f"ai:{f1.feature}+{f2.feature}"],
@@ -328,11 +382,21 @@ class RuleRecommender:
     def ingest(self, records: list[dict[str, Any]]) -> None:
         self._observations.extend(records)
 
-    def analyze(self, min_support: int = 10, min_precision: float = 0.6) -> list[dict[str, Any]]:
+    def analyze(
+        self, min_support: int = 10, min_precision: float = 0.6
+    ) -> list[dict[str, Any]]:
         if len(self._observations) < 20:
-            return [{"error": "insufficient_data", "required": 20, "have": len(self._observations)}]
+            return [
+                {
+                    "error": "insufficient_data",
+                    "required": 20,
+                    "have": len(self._observations),
+                }
+            ]
 
-        positive = [o for o in self._observations if o.get("decision") in ("deny", "review")]
+        positive = [
+            o for o in self._observations if o.get("decision") in ("deny", "review")
+        ]
         negative = [o for o in self._observations if o.get("decision") == "allow"]
 
         if not positive or not negative:
@@ -348,7 +412,9 @@ class RuleRecommender:
         ]
 
         analyze_features(records)
-        recs = generate_recommendations(records, max_rules=20, min_confidence=0.2, min_support=min_support)
+        recs = generate_recommendations(
+            records, max_rules=20, min_confidence=0.2, min_support=min_support
+        )
 
         results: list[dict[str, Any]] = []
         for rec in recs:
@@ -369,7 +435,9 @@ class RuleRecommender:
                     "precision": round(precision, 3),
                     "coverage": round(coverage, 3),
                     "support": rec.support,
-                    "quality_score": round(precision * coverage * math.log(max(rec.support, 2)), 3),
+                    "quality_score": round(
+                        precision * coverage * math.log(max(rec.support, 2)), 3
+                    ),
                 }
             )
 

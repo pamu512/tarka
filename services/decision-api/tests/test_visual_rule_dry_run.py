@@ -14,7 +14,9 @@ async def asgi_client():
 
 
 @pytest.mark.asyncio
-async def test_evaluate_visual_dry_run_rule_hit(asgi_client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_evaluate_visual_dry_run_rule_hit(
+    asgi_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("API_KEYS", "k")
     monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "false")
     body = {
@@ -23,7 +25,9 @@ async def test_evaluate_visual_dry_run_rule_hit(asgi_client: AsyncClient, monkey
             "rules": [
                 {
                     "id": "high_amount",
-                    "all_of": [{"field": "transaction_amount", "op": "gte", "value": 5000}],
+                    "all_of": [
+                        {"field": "transaction_amount", "op": "gte", "value": 5000}
+                    ],
                     "any_of": [],
                     "tags": ["t:hit"],
                     "score_delta": 12,
@@ -35,7 +39,9 @@ async def test_evaluate_visual_dry_run_rule_hit(asgi_client: AsyncClient, monkey
         "features": {"transaction_amount": 9000},
         "redis_tags": [],
     }
-    r = await asgi_client.post("/v1/rules/visual/evaluate-dry-run", headers={"x-api-key": "k"}, json=body)
+    r = await asgi_client.post(
+        "/v1/rules/visual/evaluate-dry-run", headers={"x-api-key": "k"}, json=body
+    )
     assert r.status_code == 200, r.text
     data = r.json()
     assert "high_amount" in data["rule_hits"]

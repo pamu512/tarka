@@ -5,7 +5,10 @@ from __future__ import annotations
 import logging
 
 from decision_api.config import settings
-from decision_api.vendors.plugins.ip_api import IpApiVendorCredentials, IpApiVendorPlugin
+from decision_api.vendors.plugins.ip_api import (
+    IpApiVendorCredentials,
+    IpApiVendorPlugin,
+)
 from decision_api.vendors.registry import register_adapter
 
 log = logging.getLogger("decision-api.vendors")

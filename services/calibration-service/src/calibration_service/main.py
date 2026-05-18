@@ -101,7 +101,9 @@ def _active_profile_for(tenant_id: str, profile_id: str) -> dict[str, Any]:
     for p in profiles:
         if int(p.get("version", 0)) == int(active):
             return p
-    raise HTTPException(404, f"active profile version missing for tenant={tenant_id} profile={profile_id}")
+    raise HTTPException(
+        404, f"active profile version missing for tenant={tenant_id} profile={profile_id}"
+    )
 
 
 def _append_snapshot(row: dict[str, Any]) -> str:

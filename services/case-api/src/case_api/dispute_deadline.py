@@ -45,13 +45,17 @@ def queue_item_view(
 ) -> dict[str, Any]:
     dl = getattr(dispute, "provider_response_deadline_at", None)
     filed = getattr(dispute, "filed_at", None) or getattr(dispute, "created_at", None)
-    st = alert_state(deadline=dl, reference_start=filed, now=now, near_breach_ratio=near_breach_ratio)
+    st = alert_state(
+        deadline=dl, reference_start=filed, now=now, near_breach_ratio=near_breach_ratio
+    )
     seconds_remaining: int | None = None
     if dl is not None:
         seconds_remaining = max(0, int((_aware(dl) - _aware(now)).total_seconds()))
     hooks: list[str] = []
     if st in ("near_breach", "breached"):
-        hooks.append("POST /v1/disputes/{dispute_id}/reprocess-external?tenant_id=... with Idempotency-Key")
+        hooks.append(
+            "POST /v1/disputes/{dispute_id}/reprocess-external?tenant_id=... with Idempotency-Key"
+        )
     if st == "breached":
         hooks.append("notify: provider_response_deadline_breached")
     if st == "near_breach":
@@ -67,5 +71,7 @@ def queue_item_view(
         "alert_state": st,
         "suggested_alert_hooks": hooks,
         "external_reprocess_count": int(getattr(dispute, "external_reprocess_count", 0) or 0),
-        "last_external_reprocess_at": dispute.last_external_reprocess_at.isoformat() if getattr(dispute, "last_external_reprocess_at", None) else None,
+        "last_external_reprocess_at": dispute.last_external_reprocess_at.isoformat()
+        if getattr(dispute, "last_external_reprocess_at", None)
+        else None,
     }

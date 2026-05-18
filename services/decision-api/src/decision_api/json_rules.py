@@ -48,7 +48,9 @@ _plg_sandbox_runtime_pack: dict[str, Any] | None = None
 
 def _attach_plg_sandbox_pack(active: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Strip any stale sandbox artifact from disk list, then append runtime PLG pack if configured."""
-    filtered = [p for p in active if p.get("_source_file") != SANDBOX_PLG_INDUSTRY_SOURCE_FILE]
+    filtered = [
+        p for p in active if p.get("_source_file") != SANDBOX_PLG_INDUSTRY_SOURCE_FILE
+    ]
     if _plg_sandbox_runtime_pack is None:
         return filtered
     merged = dict(_plg_sandbox_runtime_pack)
@@ -145,7 +147,9 @@ def load_rules() -> None:
         if _tarka_rule_engine is not None:
             payload = json.dumps(_cached_packs, default=str)
             _tarka_rule_engine.sync_packs_json(payload)
-            _last_rust_sync_fingerprint = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+            _last_rust_sync_fingerprint = hashlib.sha256(
+                payload.encode("utf-8")
+            ).hexdigest()
         return
     active: list[dict[str, Any]] = []
     shadow: list[dict[str, Any]] = []
@@ -330,7 +334,9 @@ def _pack_should_apply(
     return True, None
 
 
-def _rust_eval_to_tuple(out: dict[str, Any]) -> tuple[list[str], list[str], float, list[str]]:
+def _rust_eval_to_tuple(
+    out: dict[str, Any],
+) -> tuple[list[str], list[str], float, list[str]]:
     hits = [str(x) for x in (out.get("rule_hits") or [])]
     tags = [str(x) for x in (out.get("tags") or [])]
     delta = float(out.get("score_delta") or 0.0)
@@ -362,7 +368,11 @@ def evaluate_json_rules(
     tre = _require_rust_engine()
     tid = (tenant_id or "").strip() or "default"
     eid = (entity_id or "").strip() or "default"
-    mode = evaluation_mode if evaluation_mode in ("production", "simulation", "challenger") else "production"
+    mode = (
+        evaluation_mode
+        if evaluation_mode in ("production", "simulation", "challenger")
+        else "production"
+    )
     st_json = json.dumps(list(signal_tags)) if signal_tags else None
     raw = tre.evaluate_json_rules_rust(
         json.dumps(features, default=str),
@@ -393,7 +403,11 @@ def evaluate_adhoc_packs_json(
     tre = _require_rust_engine()
     tid = (tenant_id or "").strip() or "default"
     eid = (entity_id or "").strip() or "default"
-    mode = evaluation_mode if evaluation_mode in ("production", "simulation", "challenger") else "production"
+    mode = (
+        evaluation_mode
+        if evaluation_mode in ("production", "simulation", "challenger")
+        else "production"
+    )
     st_json = json.dumps(list(signal_tags)) if signal_tags else None
     raw = tre.evaluate_adhoc_packs_rust(
         json.dumps(packs, default=str),

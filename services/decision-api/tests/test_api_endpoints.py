@@ -43,7 +43,9 @@ async def client():
                     app.state.http = AsyncMock()
                     app.dependency_overrides = {}
                     transport = httpx.ASGITransport(app=app)
-                    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+                    async with httpx.AsyncClient(
+                        transport=transport, base_url="http://testserver"
+                    ) as c:
                         c.headers.update({"x-api-key": "test-key"})
                         c.tarka_app = app
                         yield c
@@ -75,11 +77,17 @@ class TestEvaluationPosture:
         assert body.get("evaluation_mode") in {"detection", "compliance"}
         assert "compliance_degraded" in body
         assert "dependencies" in body and isinstance(body["dependencies"], list)
-        assert "dependency_resilience_policy" in body and isinstance(body["dependency_resilience_policy"], dict)
+        assert "dependency_resilience_policy" in body and isinstance(
+            body["dependency_resilience_policy"], dict
+        )
         assert "async_osint_redis" in body["dependency_resilience_policy"]
         assert "typology_count" in body
         assert "predicate_registry_version" in body
-        assert body.get("tenant_reliability_profile") in {"strict", "balanced", "permissive"}
+        assert body.get("tenant_reliability_profile") in {
+            "strict",
+            "balanced",
+            "permissive",
+        }
 
 
 class TestAttestationChallenge:
@@ -96,7 +104,10 @@ class TestAttestationChallenge:
 class TestAttestationVerify:
     @pytest.mark.asyncio
     async def test_verify_browser(self, client):
-        r = await client.post("/v1/attestation/verify", json={"nonce": "abc123", "token": "tok", "provider": "browser_challenge"})
+        r = await client.post(
+            "/v1/attestation/verify",
+            json={"nonce": "abc123", "token": "tok", "provider": "browser_challenge"},
+        )
         assert r.status_code == 200
         assert r.json()["valid"] is True
 
@@ -104,7 +115,14 @@ class TestAttestationVerify:
     async def test_verify_expired_nonce(self, client):
         with patch("decision_api.main.redis_tags") as mock_redis:
             mock_redis.consume_nonce = AsyncMock(return_value=False)
-            r = await client.post("/v1/attestation/verify", json={"nonce": "expired", "token": "tok", "provider": "browser_challenge"})
+            r = await client.post(
+                "/v1/attestation/verify",
+                json={
+                    "nonce": "expired",
+                    "token": "tok",
+                    "provider": "browser_challenge",
+                },
+            )
             assert r.status_code == 400
 
 
@@ -121,11 +139,31 @@ class TestEvaluateDecision:
         mock_session.commit = AsyncMock()
         from decision_api.main import get_session
 
-        with patch("decision_api.main.evaluate_json_rules", return_value=([], [], 0.0, [])):
-            with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
-                with patch("decision_api.main._fetch_ml_score_wrapped", new_callable=AsyncMock, return_value=(None, {})):
-                    client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
-                    r = await client.post("/v1/decisions/evaluate", json={"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}})
+        with patch(
+            "decision_api.main.evaluate_json_rules", return_value=([], [], 0.0, [])
+        ):
+            with patch(
+                "decision_api.main.evaluate_opa_or_raise",
+                new_callable=AsyncMock,
+                return_value=None,
+            ):
+                with patch(
+                    "decision_api.main._fetch_ml_score_wrapped",
+                    new_callable=AsyncMock,
+                    return_value=(None, {}),
+                ):
+                    client.tarka_app.dependency_overrides[get_session] = (
+                        _override_session_factory(mock_session)
+                    )
+                    r = await client.post(
+                        "/v1/decisions/evaluate",
+                        json={
+                            "tenant_id": "t1",
+                            "event_type": "login",
+                            "entity_id": "u1",
+                            "payload": {},
+                        },
+                    )
                     client.tarka_app.dependency_overrides.pop(get_session, None)
                     assert r.status_code == 200
                     data = r.json()
@@ -149,10 +187,23 @@ class TestEvaluateDecision:
         mock_session.commit = AsyncMock()
         from decision_api.main import get_session
 
-        with patch("decision_api.main.evaluate_json_rules", return_value=(["sdk_bot"], ["sdk:bot"], 40.0, [])):
-            with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
-                with patch("decision_api.main._fetch_ml_score_wrapped", new_callable=AsyncMock, return_value=(None, {})):
-                    client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
+        with patch(
+            "decision_api.main.evaluate_json_rules",
+            return_value=(["sdk_bot"], ["sdk:bot"], 40.0, []),
+        ):
+            with patch(
+                "decision_api.main.evaluate_opa_or_raise",
+                new_callable=AsyncMock,
+                return_value=None,
+            ):
+                with patch(
+                    "decision_api.main._fetch_ml_score_wrapped",
+                    new_callable=AsyncMock,
+                    return_value=(None, {}),
+                ):
+                    client.tarka_app.dependency_overrides[get_session] = (
+                        _override_session_factory(mock_session)
+                    )
                     r = await client.post(
                         "/v1/decisions/evaluate",
                         json={
@@ -188,12 +239,25 @@ class TestEvaluateDecision:
             return ([], [], 0.0, [])
 
         with patch("decision_api.main.evaluate_json_rules", side_effect=_capture_rules):
-            with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
-                with patch("decision_api.main._fetch_ml_score_wrapped", new_callable=AsyncMock, return_value=(None, {})):
-                    client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
+            with patch(
+                "decision_api.main.evaluate_opa_or_raise",
+                new_callable=AsyncMock,
+                return_value=None,
+            ):
+                with patch(
+                    "decision_api.main._fetch_ml_score_wrapped",
+                    new_callable=AsyncMock,
+                    return_value=(None, {}),
+                ):
+                    client.tarka_app.dependency_overrides[get_session] = (
+                        _override_session_factory(mock_session)
+                    )
                     ac = {
                         "agent_session_id": "asess-test",
-                        "agent_client": {"oauth_client_id": "reg-client-1", "client_type": "mcp"},
+                        "agent_client": {
+                            "oauth_client_id": "reg-client-1",
+                            "client_type": "mcp",
+                        },
                         "integrity": {"prompt_injection_heuristic_flag": False},
                     }
                     r = await client.post(
@@ -209,31 +273,64 @@ class TestEvaluateDecision:
                     )
                     client.tarka_app.dependency_overrides.pop(get_session, None)
                     assert r.status_code == 200
-                    assert captured_features.get("agent_context", {}).get("agent_client", {}).get("oauth_client_id") == "reg-client-1"
+                    assert (
+                        captured_features.get("agent_context", {})
+                        .get("agent_client", {})
+                        .get("oauth_client_id")
+                        == "reg-client-1"
+                    )
                     audit = mock_session.add.call_args[0][0]
                     snap = audit.payload_snapshot or {}
-                    assert snap.get("agent_context", {}).get("agent_session_id") == "asess-test"
+                    assert (
+                        snap.get("agent_context", {}).get("agent_session_id")
+                        == "asess-test"
+                    )
 
     @pytest.mark.asyncio
-    async def test_explainability_tier_downgrades_for_viewer_role(self, client, monkeypatch):
+    async def test_explainability_tier_downgrades_for_viewer_role(
+        self, client, monkeypatch
+    ):
         monkeypatch.setenv("SERVICE_API_KEY_ROLE", "viewer")
         mock_session = AsyncMock()
         mock_session.add = MagicMock()
         mock_session.commit = AsyncMock()
         from decision_api.main import get_session
 
-        with patch("decision_api.main.evaluate_json_rules", return_value=(["rule:velocity_guard"], ["rule:velocity_guard"], 40.0, [])):
-            with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "decision_api.main.evaluate_json_rules",
+            return_value=(["rule:velocity_guard"], ["rule:velocity_guard"], 40.0, []),
+        ):
+            with patch(
+                "decision_api.main.evaluate_opa_or_raise",
+                new_callable=AsyncMock,
+                return_value=None,
+            ):
                 with patch(
                     "decision_api.main._fetch_ml_score_wrapped",
                     new_callable=AsyncMock,
-                    return_value=(71.0, {"top_factors": [{"code": "HIGH_AMOUNT", "contribution": 0.3}], "summary": "high amount", "model": "m1"}),
+                    return_value=(
+                        71.0,
+                        {
+                            "top_factors": [
+                                {"code": "HIGH_AMOUNT", "contribution": 0.3}
+                            ],
+                            "summary": "high amount",
+                            "model": "m1",
+                        },
+                    ),
                 ):
-                    client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
+                    client.tarka_app.dependency_overrides[get_session] = (
+                        _override_session_factory(mock_session)
+                    )
                     r = await client.post(
                         "/v1/decisions/evaluate",
                         headers={"x-tarka-explainability-tier": "analyst"},
-                        json={"tenant_id": "t1", "event_type": "payment", "entity_id": "u1", "payload": {"amount": 500}},
+                        json={
+                            "tenant_id": "t1",
+                            "event_type": "payment",
+                            "entity_id": "u1",
+                            "payload": {"amount": 500},
+                        },
                     )
                     client.tarka_app.dependency_overrides.pop(get_session, None)
 
@@ -243,25 +340,50 @@ class TestEvaluateDecision:
         assert inf["ml_summary"] is None
 
     @pytest.mark.asyncio
-    async def test_explainability_tier_full_allowed_for_analyst_role(self, client, monkeypatch):
+    async def test_explainability_tier_full_allowed_for_analyst_role(
+        self, client, monkeypatch
+    ):
         monkeypatch.setenv("SERVICE_API_KEY_ROLE", "analyst")
         mock_session = AsyncMock()
         mock_session.add = MagicMock()
         mock_session.commit = AsyncMock()
         from decision_api.main import get_session
 
-        with patch("decision_api.main.evaluate_json_rules", return_value=(["rule:velocity_guard"], ["rule:velocity_guard"], 40.0, [])):
-            with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "decision_api.main.evaluate_json_rules",
+            return_value=(["rule:velocity_guard"], ["rule:velocity_guard"], 40.0, []),
+        ):
+            with patch(
+                "decision_api.main.evaluate_opa_or_raise",
+                new_callable=AsyncMock,
+                return_value=None,
+            ):
                 with patch(
                     "decision_api.main._fetch_ml_score_wrapped",
                     new_callable=AsyncMock,
-                    return_value=(71.0, {"top_factors": [{"code": "HIGH_AMOUNT", "contribution": 0.3}], "summary": "high amount", "model": "m1"}),
+                    return_value=(
+                        71.0,
+                        {
+                            "top_factors": [
+                                {"code": "HIGH_AMOUNT", "contribution": 0.3}
+                            ],
+                            "summary": "high amount",
+                            "model": "m1",
+                        },
+                    ),
                 ):
-                    client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
+                    client.tarka_app.dependency_overrides[get_session] = (
+                        _override_session_factory(mock_session)
+                    )
                     r = await client.post(
                         "/v1/decisions/evaluate",
                         headers={"x-tarka-explainability-tier": "full"},
-                        json={"tenant_id": "t1", "event_type": "payment", "entity_id": "u1", "payload": {"amount": 500}},
+                        json={
+                            "tenant_id": "t1",
+                            "event_type": "payment",
+                            "entity_id": "u1",
+                            "payload": {"amount": 500},
+                        },
                     )
                     client.tarka_app.dependency_overrides.pop(get_session, None)
 
@@ -276,20 +398,29 @@ class TestEvaluateDecision:
         assert r.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_evaluate_idempotency_header_required_when_configured(self, client, monkeypatch):
+    async def test_evaluate_idempotency_header_required_when_configured(
+        self, client, monkeypatch
+    ):
         from decision_api.config import settings
 
         monkeypatch.setattr(settings, "evaluate_require_idempotency_key", True)
         r = await client.post(
             "/v1/decisions/evaluate",
-            json={"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}},
+            json={
+                "tenant_id": "t1",
+                "event_type": "login",
+                "entity_id": "u1",
+                "payload": {},
+            },
         )
         assert r.status_code == 422
         d = r.json()["detail"]
         assert d.get("error") == "evaluate_idempotency_required"
 
     @pytest.mark.asyncio
-    async def test_evaluate_idempotency_header_satisfies_requirement(self, client, monkeypatch):
+    async def test_evaluate_idempotency_header_satisfies_requirement(
+        self, client, monkeypatch
+    ):
         from decision_api.config import settings
 
         monkeypatch.setattr(settings, "evaluate_require_idempotency_key", True)
@@ -298,14 +429,31 @@ class TestEvaluateDecision:
         mock_session.commit = AsyncMock()
         from decision_api.main import get_session
 
-        with patch("decision_api.main.evaluate_json_rules", return_value=([], [], 0.0, [])):
-            with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
-                with patch("decision_api.main._fetch_ml_score_wrapped", new_callable=AsyncMock, return_value=(None, {})):
-                    client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
+        with patch(
+            "decision_api.main.evaluate_json_rules", return_value=([], [], 0.0, [])
+        ):
+            with patch(
+                "decision_api.main.evaluate_opa_or_raise",
+                new_callable=AsyncMock,
+                return_value=None,
+            ):
+                with patch(
+                    "decision_api.main._fetch_ml_score_wrapped",
+                    new_callable=AsyncMock,
+                    return_value=(None, {}),
+                ):
+                    client.tarka_app.dependency_overrides[get_session] = (
+                        _override_session_factory(mock_session)
+                    )
                     r = await client.post(
                         "/v1/decisions/evaluate",
                         headers={"Idempotency-Key": "idem-eval-1"},
-                        json={"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}},
+                        json={
+                            "tenant_id": "t1",
+                            "event_type": "login",
+                            "entity_id": "u1",
+                            "payload": {},
+                        },
                     )
                     client.tarka_app.dependency_overrides.pop(get_session, None)
         assert r.status_code == 200
@@ -342,7 +490,9 @@ class TestOpsEndpoints:
         data = r.json()
         assert "calibration_status" in data
         assert "mobile_attestation_taxonomy" in data
-        assert data["mobile_attestation_taxonomy"].get("attestation_schema_version") == 1
+        assert (
+            data["mobile_attestation_taxonomy"].get("attestation_schema_version") == 1
+        )
 
     @pytest.mark.asyncio
     async def test_ops_calibration_status(self, client):
@@ -364,7 +514,9 @@ class TestVerticalPacks:
         assert "gaming" in packs
 
     @pytest.mark.asyncio
-    async def test_install_vertical_pack_and_conflict(self, client, tmp_path, monkeypatch):
+    async def test_install_vertical_pack_and_conflict(
+        self, client, tmp_path, monkeypatch
+    ):
         monkeypatch.setattr("decision_api.rule_api.settings.rules_path", str(tmp_path))
         with patch("decision_api.rule_api.load_rules"):
             first = await client.post("/v1/rules/vertical-packs/fintech/install")
@@ -376,7 +528,9 @@ class TestVerticalPacks:
             second = await client.post("/v1/rules/vertical-packs/fintech/install")
             assert second.status_code == 409
 
-            overwrite = await client.post("/v1/rules/vertical-packs/fintech/install", params={"overwrite": "true"})
+            overwrite = await client.post(
+                "/v1/rules/vertical-packs/fintech/install", params={"overwrite": "true"}
+            )
             assert overwrite.status_code == 201
 
     @pytest.mark.asyncio
@@ -396,7 +550,20 @@ class TestVerticalPacks:
         assert "baseline" in data
         assert "vertical_pack" in data
         assert "delta" in data
-        assert {"precision", "recall", "f1_score", "score_separation"} <= set(data["delta"].keys())
+        assert {"precision", "recall", "f1_score", "score_separation"} <= set(
+            data["delta"].keys()
+        )
+
+    @pytest.mark.asyncio
+    async def test_benchmark_vertical_pack_reproducible_with_seed(self, client):
+        payload = {"scenario": "baseline", "vertical": "gaming", "seed": 42}
+        r1 = await client.post("/v1/simulation/benchmark/vertical", json=payload)
+        r2 = await client.post("/v1/simulation/benchmark/vertical", json=payload)
+        assert r1.status_code == 200
+        assert r2.status_code == 200
+        assert r1.json()["delta"] == r2.json()["delta"]
+        assert r1.json()["seed"] == 42
+        assert r1.json()["events_evaluated"] == r2.json()["events_evaluated"]
 
 
 class TestChampionChallengerPolicyRouting:
@@ -418,18 +585,40 @@ class TestChampionChallengerPolicyRouting:
         mock_session.commit = AsyncMock()
         from decision_api.main import get_session
 
-        def _fake_eval(features, redis_tags, tenant_id, entity_id, evaluation_mode="production", signal_tags=None):
+        def _fake_eval(
+            features,
+            redis_tags,
+            tenant_id,
+            entity_id,
+            evaluation_mode="production",
+            signal_tags=None,
+        ):
             if evaluation_mode == "challenger":
                 return ([], [], 50.0, [])
             return ([], [], 0.0, [])
 
         with patch("decision_api.main.evaluate_json_rules", side_effect=_fake_eval):
-            with patch("decision_api.main.evaluate_opa_or_raise", new_callable=AsyncMock, return_value=None):
-                with patch("decision_api.main._fetch_ml_score_wrapped", new_callable=AsyncMock, return_value=(None, {})):
-                    client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
+            with patch(
+                "decision_api.main.evaluate_opa_or_raise",
+                new_callable=AsyncMock,
+                return_value=None,
+            ):
+                with patch(
+                    "decision_api.main._fetch_ml_score_wrapped",
+                    new_callable=AsyncMock,
+                    return_value=(None, {}),
+                ):
+                    client.tarka_app.dependency_overrides[get_session] = (
+                        _override_session_factory(mock_session)
+                    )
                     r = await client.post(
                         "/v1/decisions/evaluate",
-                        json={"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}},
+                        json={
+                            "tenant_id": "t1",
+                            "event_type": "login",
+                            "entity_id": "u1",
+                            "payload": {},
+                        },
                     )
                     client.tarka_app.dependency_overrides.pop(get_session, None)
         assert r.status_code == 200
@@ -454,7 +643,9 @@ class TestAudit:
         mock_session.execute = AsyncMock(return_value=mock_result)
         from decision_api.main import get_session
 
-        client.tarka_app.dependency_overrides[get_session] = _override_session_factory(mock_session)
+        client.tarka_app.dependency_overrides[get_session] = _override_session_factory(
+            mock_session
+        )
         r = await client.get(
             "/v1/audit/00000000-0000-0000-0000-000000000001",
             params={"tenant_id": "t1"},

@@ -29,7 +29,9 @@ class DeviceContextIn(BaseModel):
     def _normalize_attestation(self) -> DeviceContextIn:
         if self.attestation is None:
             return self
-        normalized = normalize_attestation_object(self.attestation, platform=self.platform)
+        normalized = normalize_attestation_object(
+            self.attestation, platform=self.platform
+        )
         if normalized is None:
             object.__setattr__(self, "attestation", None)
         else:
@@ -46,7 +48,9 @@ class AgentClientIn(BaseModel):
     )
     oauth_client_id: str | None = None
     mcp_server_ids: list[str] = Field(default_factory=list)
-    manifest_hash: str | None = Field(default=None, description="Hash of capability manifest / config")
+    manifest_hash: str | None = Field(
+        default=None, description="Hash of capability manifest / config"
+    )
     tool_allowlist_hash: str | None = None
     sdk_version: str | None = None
 
@@ -144,7 +148,13 @@ class InferenceContext(BaseModel):
     velocity_events_24h: int = 0
     calibration_profile_version: int = 1
     location_confidence: float = 0.0
-    confidence_sources: dict[str, str] = Field(default_factory=lambda: {"calibration": "heuristic", "counter": "heuristic", "location": "heuristic"})
+    confidence_sources: dict[str, str] = Field(
+        default_factory=lambda: {
+            "calibration": "heuristic",
+            "counter": "heuristic",
+            "location": "heuristic",
+        }
+    )
     graph_risk_score: float = 0.0
     graph_risk_reasons: list[str] = Field(default_factory=list)
     external_signal_score: float = 0.0

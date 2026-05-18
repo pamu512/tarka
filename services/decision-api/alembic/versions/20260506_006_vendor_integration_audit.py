@@ -32,18 +32,55 @@ def upgrade() -> None:
         sa.Column("raw_response", sa.Text(), nullable=False),
         sa.Column("outcome", sa.String(length=32), nullable=False),
         sa.Column("error_detail", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_vendor_integration_audit_trace_id"), "vendor_integration_audit", ["trace_id"], unique=False)
-    op.create_index(op.f("ix_vendor_integration_audit_tenant_id"), "vendor_integration_audit", ["tenant_id"], unique=False)
-    op.create_index(op.f("ix_vendor_integration_audit_entity_id"), "vendor_integration_audit", ["entity_id"], unique=False)
-    op.create_index(op.f("ix_vendor_integration_audit_vendor_id"), "vendor_integration_audit", ["vendor_id"], unique=False)
+    op.create_index(
+        op.f("ix_vendor_integration_audit_trace_id"),
+        "vendor_integration_audit",
+        ["trace_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_vendor_integration_audit_tenant_id"),
+        "vendor_integration_audit",
+        ["tenant_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_vendor_integration_audit_entity_id"),
+        "vendor_integration_audit",
+        ["entity_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_vendor_integration_audit_vendor_id"),
+        "vendor_integration_audit",
+        ["vendor_id"],
+        unique=False,
+    )
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_vendor_integration_audit_vendor_id"), table_name="vendor_integration_audit")
-    op.drop_index(op.f("ix_vendor_integration_audit_entity_id"), table_name="vendor_integration_audit")
-    op.drop_index(op.f("ix_vendor_integration_audit_tenant_id"), table_name="vendor_integration_audit")
-    op.drop_index(op.f("ix_vendor_integration_audit_trace_id"), table_name="vendor_integration_audit")
+    op.drop_index(
+        op.f("ix_vendor_integration_audit_vendor_id"),
+        table_name="vendor_integration_audit",
+    )
+    op.drop_index(
+        op.f("ix_vendor_integration_audit_entity_id"),
+        table_name="vendor_integration_audit",
+    )
+    op.drop_index(
+        op.f("ix_vendor_integration_audit_tenant_id"),
+        table_name="vendor_integration_audit",
+    )
+    op.drop_index(
+        op.f("ix_vendor_integration_audit_trace_id"),
+        table_name="vendor_integration_audit",
+    )
     op.drop_table("vendor_integration_audit")

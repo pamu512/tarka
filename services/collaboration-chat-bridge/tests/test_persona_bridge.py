@@ -21,9 +21,13 @@ def test_strip_persona_variants():
 
 def test_resolve_default_and_prefix():
     s = Settings()
-    p, m = resolve_copilot_persona_for_bridge(s.default_copilot_persona, [{"role": "user", "content": "plain"}])
+    p, m = resolve_copilot_persona_for_bridge(
+        s.default_copilot_persona, [{"role": "user", "content": "plain"}]
+    )
     assert p == "investigation"
-    p2, m2 = resolve_copilot_persona_for_bridge("investigation", [{"role": "user", "content": "!orch Go"}])
+    p2, m2 = resolve_copilot_persona_for_bridge(
+        "investigation", [{"role": "user", "content": "!orch Go"}]
+    )
     assert p2 == "orchestrator"
     assert m2[0]["content"] == "Go"
 

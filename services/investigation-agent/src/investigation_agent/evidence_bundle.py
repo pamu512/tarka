@@ -86,7 +86,9 @@ def build_evidence_bundle_draft(
         "prompt_version": prompt_version,
         "playbook_id": playbook_id,
         "narrative": {"reply": narrative_reply},
-        "structured_sections": {k: v for k, v in (answer_sections or {}).items() if k != "sections_found"},
+        "structured_sections": {
+            k: v for k, v in (answer_sections or {}).items() if k != "sections_found"
+        },
         "claims": (claims or [])[:claims_cap],
         "claims_analysis": (claims_analysis or [])[: claims_cap * 2],
         "source_refs": (source_refs or [])[:refs_cap],
@@ -112,7 +114,14 @@ def build_evidence_bundle_draft(
         )
 
     if bundle_format == "v0":
-        for k in ("schema_id", "contract_version", "agent_build", "redaction_level", "tool_trace_redacted", "content_sha256"):
+        for k in (
+            "schema_id",
+            "contract_version",
+            "agent_build",
+            "redaction_level",
+            "tool_trace_redacted",
+            "content_sha256",
+        ):
             base.pop(k, None)
 
     return base

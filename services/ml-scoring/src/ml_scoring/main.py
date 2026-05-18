@@ -25,7 +25,11 @@ from ml_scoring.shap_explainer import lgbm_score_and_shap_factors  # noqa: E402
 
 DISABLE_ML = os.environ.get("DISABLE_ML", "").lower() in ("1", "true", "yes")
 # OSS #37: when true (default), activate/traffic-split require passing ml_promotion_policy_v1.json gates
-PROMOTION_GATE_ENFORCE = os.environ.get("PROMOTION_GATE_ENFORCE", "true").lower() in ("1", "true", "yes")
+PROMOTION_GATE_ENFORCE = os.environ.get("PROMOTION_GATE_ENFORCE", "true").lower() in (
+    "1",
+    "true",
+    "yes",
+)
 ML_PROMOTION_OVERRIDE_SECRET = os.environ.get("ML_PROMOTION_OVERRIDE_SECRET", "").strip()
 MODEL_VERSION = os.environ.get("ML_MODEL_VERSION", "heuristic-v1")
 ONNX_PATH = os.environ.get("ONNX_MODEL_PATH", "")
@@ -40,7 +44,10 @@ registry = ModelRegistry(MODELS_DIR)
 def _promotion_skip(request: Request) -> bool:
     if not PROMOTION_GATE_ENFORCE:
         return True
-    if ML_PROMOTION_OVERRIDE_SECRET and request.headers.get("x-ml-promotion-override", "") == ML_PROMOTION_OVERRIDE_SECRET:
+    if (
+        ML_PROMOTION_OVERRIDE_SECRET
+        and request.headers.get("x-ml-promotion-override", "") == ML_PROMOTION_OVERRIDE_SECRET
+    ):
         return True
     return False
 
@@ -57,7 +64,9 @@ def _get_api_keys() -> frozenset[str]:
     global _valid_api_keys
     if _valid_api_keys is None:
         raw = os.environ.get("API_KEYS", "").strip()
-        _valid_api_keys = frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
+        _valid_api_keys = (
+            frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
+        )
     return _valid_api_keys
 
 
@@ -66,7 +75,12 @@ async def require_api_key(request: Request) -> None:
         return
     keys = _get_api_keys()
     if not keys:
-        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         if allow:
             return
         raise HTTPException(
@@ -296,12 +310,16 @@ async def score(body: ScoreRequest, bg: BackgroundTasks):
     blended = round((1 - ADAPTIVE_WEIGHT) * base_score + ADAPTIVE_WEIGHT * adaptive_score, 2)
     blended = max(0.0, min(100.0, blended))
 
-    mt = "lgbm" if "lgbm-shap" in model_label else ("onnx" if "onnx" in model_label else "heuristic")
+    mt = (
+        "lgbm" if "lgbm-shap" in model_label else ("onnx" if "onnx" in model_label else "heuristic")
+    )
     explanations = explain_score(
         blended,
         body.features,
         model_type=mt,
-        adaptive_contributions=contributions if contributions and contributions[0].get("feature") != "insufficient_data" else None,
+        adaptive_contributions=contributions
+        if contributions and contributions[0].get("feature") != "insufficient_data"
+        else None,
     )
 
     if shap_factors:

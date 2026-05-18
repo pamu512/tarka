@@ -172,7 +172,10 @@ class SanctionsScreener:
                         "id": obj.get("id", ""),
                         "schema": schema,
                         "names": [n.lower().strip() for n in names],
-                        "countries": [c.lower() for c in props.get("country", []) + props.get("nationality", [])],
+                        "countries": [
+                            c.lower()
+                            for c in props.get("country", []) + props.get("nationality", [])
+                        ],
                         "dobs": props.get("birthDate", []),
                         "topics": obj.get("datasets", []),
                         "caption": obj.get("caption", names[0] if names else ""),

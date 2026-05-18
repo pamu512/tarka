@@ -12,7 +12,9 @@ from pydantic import ValidationError
 
 class TestEvaluateRequest:
     def test_minimal_valid(self):
-        r = EvaluateRequest(tenant_id="t1", event_type="login", entity_id="u1", payload={})
+        r = EvaluateRequest(
+            tenant_id="t1", event_type="login", entity_id="u1", payload={}
+        )
         assert r.tenant_id == "t1"
         assert r.event_type == EventType.login
         assert r.device_context is None
@@ -23,7 +25,11 @@ class TestEvaluateRequest:
             event_type="payment",
             entity_id="u1",
             payload={"amount": 100},
-            device_context={"device_id": "abc", "platform": "web", "signals": {"is_vpn": True}},
+            device_context={
+                "device_id": "abc",
+                "platform": "web",
+                "signals": {"is_vpn": True},
+            },
         )
         assert r.device_context is not None
         assert r.device_context.device_id == "abc"
@@ -31,7 +37,9 @@ class TestEvaluateRequest:
 
     def test_invalid_event_type(self):
         with pytest.raises(ValidationError):
-            EvaluateRequest(tenant_id="t1", event_type="invalid_type", entity_id="u1", payload={})
+            EvaluateRequest(
+                tenant_id="t1", event_type="invalid_type", entity_id="u1", payload={}
+            )
 
     def test_missing_required(self):
         with pytest.raises(ValidationError):
@@ -77,7 +85,11 @@ class TestEvaluateResponse:
                 "confidence_tier": "high",
                 "calibration_profile_version": 1,
                 "location_confidence": 0.8,
-                "confidence_sources": {"calibration": "heuristic", "counter": "local-fallback", "location": "heuristic"},
+                "confidence_sources": {
+                    "calibration": "heuristic",
+                    "counter": "local-fallback",
+                    "location": "heuristic",
+                },
             },
         )
         assert r.decision == "allow"
@@ -102,7 +114,11 @@ class TestEvaluateResponse:
                 "confidence_tier": "low",
                 "calibration_profile_version": 3,
                 "location_confidence": 0.35,
-                "confidence_sources": {"calibration": "service", "counter": "service", "location": "service"},
+                "confidence_sources": {
+                    "calibration": "service",
+                    "counter": "service",
+                    "location": "service",
+                },
             },
         )
         assert r.ml_score == 88.0
@@ -118,5 +134,7 @@ class TestDeviceContextIn:
         assert d.attestation is None
 
     def test_with_signals(self):
-        d = DeviceContextIn(device_id="abc", signals={"is_vpn": True, "canvas_fp_hash": "abc123"})
+        d = DeviceContextIn(
+            device_id="abc", signals={"is_vpn": True, "canvas_fp_hash": "abc123"}
+        )
         assert d.signals["is_vpn"] is True

@@ -17,7 +17,9 @@ class Settings(BaseSettings):
     )
     ml_scoring_url: str = os.environ.get("ML_SCORING_URL", "")
     evidence_signing_secret: str = os.environ.get("EVIDENCE_SIGNING_SECRET", "")
-    case_api_production_mode: bool = os.environ.get("CASE_API_PRODUCTION_MODE", "false").strip().lower() in (
+    case_api_production_mode: bool = os.environ.get(
+        "CASE_API_PRODUCTION_MODE", "false"
+    ).strip().lower() in (
         "1",
         "true",
         "yes",
@@ -40,7 +42,9 @@ class Settings(BaseSettings):
     fincen_bsa_sftp_port: int = int(os.environ.get("FINCEN_BSA_SFTP_PORT", "22"))
     fincen_bsa_sftp_user: str = os.environ.get("FINCEN_BSA_SFTP_USER", "").strip()
     fincen_bsa_sftp_password: str = os.environ.get("FINCEN_BSA_SFTP_PASSWORD", "").strip()
-    fincen_bsa_sftp_remote_dir: str = os.environ.get("FINCEN_BSA_SFTP_REMOTE_DIR", "/incoming").strip() or "/incoming"
+    fincen_bsa_sftp_remote_dir: str = (
+        os.environ.get("FINCEN_BSA_SFTP_REMOTE_DIR", "/incoming").strip() or "/incoming"
+    )
 
     # Messaging-driven SAR worker (tarka_core.MessageBroker).
     nats_url: str = os.environ.get("NATS_URL", "").strip()

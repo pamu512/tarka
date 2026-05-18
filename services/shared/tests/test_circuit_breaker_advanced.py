@@ -73,4 +73,3 @@ def test_success_resets_failure_counter() -> None:
         assert await cb.is_open() is False
 
     asyncio.run(run())
-

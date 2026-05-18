@@ -13,7 +13,9 @@ from collaboration_chat_bridge.workflow_bridge import resolve_workflow_from_mess
 log = logging.getLogger(__name__)
 
 
-def append_to_last_user_content(messages: list[dict[str, str]], appendix: str) -> list[dict[str, str]]:
+def append_to_last_user_content(
+    messages: list[dict[str, str]], appendix: str
+) -> list[dict[str, str]]:
     if not appendix.strip():
         return messages
     import copy

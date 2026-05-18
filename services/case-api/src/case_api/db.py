@@ -27,7 +27,9 @@ _fallback_activated = False
 _fallback_reason: str | None = None
 _bootstrap_mode = "unknown"
 
-_engine_kind: Literal["sqlite", "postgres"] = resolve_tarka_db_engine(database_url=settings.database_url)
+_engine_kind: Literal["sqlite", "postgres"] = resolve_tarka_db_engine(
+    database_url=settings.database_url
+)
 _active_database_url = build_async_database_url(
     engine_kind=_engine_kind,
     database_url=settings.database_url,

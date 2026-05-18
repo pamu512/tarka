@@ -104,7 +104,9 @@ async def training_labels_by_trace(
     missing = [t for t in cleaned if not out[t]]
     if missing:
         cr = await session.execute(
-            select(Case.trace_id, Case.labels).where(Case.tenant_id == tid, Case.trace_id.in_(missing))
+            select(Case.trace_id, Case.labels).where(
+                Case.tenant_id == tid, Case.trace_id.in_(missing)
+            )
         )
         case_seen: set[str] = set()
         for trace_id, labels in cr.all():

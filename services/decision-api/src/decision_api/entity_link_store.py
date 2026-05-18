@@ -40,7 +40,9 @@ class EntityLinkStore:
     def _vendor_key(self, tenant_id: str, vendor_type: str, vendor_id: str) -> str:
         return f"{LINK_VENDOR_PREFIX}{tenant_id}:{vendor_type}:{vendor_id}"
 
-    async def record_device_entity_link(self, tenant_id: str, device_id: str, entity_id: str) -> None:
+    async def record_device_entity_link(
+        self, tenant_id: str, device_id: str, entity_id: str
+    ) -> None:
         client = _require_client(self._client)
         now = time.time()
         key = self._device_entity_key(tenant_id, device_id)
@@ -75,14 +77,18 @@ class EntityLinkStore:
             pipe.setex(vk, LINK_TTL, entity_id)
         await pipe.execute()
 
-    async def get_entities_for_device(self, tenant_id: str, device_id: str, limit: int = 50) -> list[str]:
+    async def get_entities_for_device(
+        self, tenant_id: str, device_id: str, limit: int = 50
+    ) -> list[str]:
         client = _require_client(self._client)
         key = self._device_entity_key(tenant_id, device_id)
         # Most recent first
         raw = await client.zrevrange(key, 0, max(0, limit - 1))
         return [str(x) for x in raw]
 
-    async def get_entity_for_vendor(self, tenant_id: str, vendor_type: str, vendor_id: str) -> str | None:
+    async def get_entity_for_vendor(
+        self, tenant_id: str, vendor_type: str, vendor_id: str
+    ) -> str | None:
         client = _require_client(self._client)
         vk = self._vendor_key(tenant_id, vendor_type, vendor_id)
         val = await client.get(vk)

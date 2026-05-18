@@ -24,4 +24,3 @@ def test_investigation_agent_wiring_present():
     text = _read("services/investigation-agent/src/investigation_agent/main.py")
     assert "from tarka_shared.tracing import setup_tracing" in text
     assert 'setup_tracing(app, "investigation-agent")' in text
-

@@ -44,7 +44,9 @@ def duck_with_decisions(tmp_path: Path) -> DuckDBEngine:
     return eng
 
 
-def test_run_point_in_time_ml_export_writes_parquet_in_batches(tmp_path: Path, duck_with_decisions: DuckDBEngine) -> None:
+def test_run_point_in_time_ml_export_writes_parquet_in_batches(
+    tmp_path: Path, duck_with_decisions: DuckDBEngine
+) -> None:
     out = tmp_path / "out.parquet"
 
     def labels(trace_ids: list[str]) -> dict[str, dict[str, str]]:

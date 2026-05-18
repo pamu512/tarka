@@ -25,7 +25,9 @@ def validate_rule_pack(pack: dict) -> list[str]:
         rid = rule.get("id", f"rule_{i}")
         conditions = rule.get("when", [])
         if len(conditions) > 20:
-            errors.append(f"Rule {rid}: too many conditions ({len(conditions)}, max 20)")
+            errors.append(
+                f"Rule {rid}: too many conditions ({len(conditions)}, max 20)"
+            )
         for j, c in enumerate(conditions):
             if not c.get("field"):
                 errors.append(f"Rule {rid}, condition {j}: missing 'field'")

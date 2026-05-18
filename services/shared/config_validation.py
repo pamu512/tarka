@@ -31,4 +31,3 @@ def validate_runtime_auth_config(service_name: str) -> list[str]:
 def log_runtime_warnings(service_name: str) -> None:
     for msg in validate_runtime_auth_config(service_name):
         log.warning(msg)
-

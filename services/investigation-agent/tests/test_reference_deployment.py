@@ -40,7 +40,13 @@ def test_turn_bundle_export():
 
 
 def test_golden_prompts_pack_exists():
-    root = Path(__file__).resolve().parents[1] / "src" / "investigation_agent" / "resources" / "golden_prompts_v1.json"
+    root = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "investigation_agent"
+        / "resources"
+        / "golden_prompts_v1.json"
+    )
     data = json.loads(root.read_text(encoding="utf-8"))
     assert data.get("schema") == "saarthi_golden_prompts_v1"
     assert len(data.get("prompts") or []) >= 1

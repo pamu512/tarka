@@ -98,11 +98,17 @@ def parse_ingest_event_body(
     et = flat.get("event_type")
 
     if tid is None or (isinstance(tid, str) and not tid.strip()):
-        raise IngestContractError(["ingest_tenant_id_empty"], "tenant_id is required and must be non-empty.")
+        raise IngestContractError(
+            ["ingest_tenant_id_empty"], "tenant_id is required and must be non-empty."
+        )
     if eid is None or (isinstance(eid, str) and not eid.strip()):
-        raise IngestContractError(["ingest_entity_id_empty"], "entity_id is required and must be non-empty.")
+        raise IngestContractError(
+            ["ingest_entity_id_empty"], "entity_id is required and must be non-empty."
+        )
     if et is None or (isinstance(et, str) and not str(et).strip()):
-        raise IngestContractError(["ingest_event_type_empty"], "event_type is required and must be non-empty.")
+        raise IngestContractError(
+            ["ingest_event_type_empty"], "event_type is required and must be non-empty."
+        )
 
     et_s = str(et).strip()
     if et_s not in VALID_EVENT_TYPES:

@@ -68,7 +68,12 @@ async def require_api_key(request: Request) -> None:
         return
     keys = _get_api_keys()
     if not keys:
-        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         if allow:
             return
         raise HTTPException(
@@ -79,7 +84,9 @@ async def require_api_key(request: Request) -> None:
     if header not in keys:
         raise HTTPException(status_code=401, detail="invalid or missing API key")
     tenant_map = parse_api_key_tenant_map()
-    await enforce_tenant_access(request, allowed_tenants=tenant_map.get(header, set()) if tenant_map else None)
+    await enforce_tenant_access(
+        request, allowed_tenants=tenant_map.get(header, set()) if tenant_map else None
+    )
 
 
 @asynccontextmanager
@@ -308,7 +315,9 @@ async def ring_suspicion_endpoint(tenant_id: str, entity_id: str, min_ring_size:
     """Mule/ring heuristic summary combining entity risk and ring samples."""
     risk = await compute_entity_risk(tenant_id, entity_id)
     rings = await detect_fraud_rings(tenant_id, min_ring_size=min_ring_size)
-    ring_samples = [r for r in rings if entity_id in [str(x) for x in (r.get("ring_members") or [])]][:3]
+    ring_samples = [
+        r for r in rings if entity_id in [str(x) for x in (r.get("ring_members") or [])]
+    ][:3]
     reasons = [str(x) for x in (risk.get("risk_factors") or []) if str(x).strip()]
     if ring_samples:
         reasons.append("entity_present_in_detected_ring")
@@ -355,7 +364,10 @@ async def benchmark_datasets():
 
 @app.get("/v1/benchmark/features")
 async def benchmark_features_export():
-    from graph_service.benchmark.registry import export_for_decision_pipeline, registry_content_digest
+    from graph_service.benchmark.registry import (
+        export_for_decision_pipeline,
+        registry_content_digest,
+    )
 
     out = export_for_decision_pipeline()
     out["content_digest"] = registry_content_digest()

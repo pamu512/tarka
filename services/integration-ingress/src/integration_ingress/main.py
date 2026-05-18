@@ -23,7 +23,12 @@ from integration_ingress.config import settings
 from integration_ingress.db import get_session, init_db
 from integration_ingress.enrichment import enrich_email, enrich_ip, enrich_phone
 from integration_ingress.integration_catalog import PROVIDER_CATALOG, get_provider, list_categories
-from integration_ingress.kms_adapter import AwsKMSAdapter, AzureKMSAdapter, GcpKMSAdapter, LocalKMSAdapter
+from integration_ingress.kms_adapter import (
+    AwsKMSAdapter,
+    AzureKMSAdapter,
+    GcpKMSAdapter,
+    LocalKMSAdapter,
+)
 from integration_ingress.models import (
     IntegrationConnection,
     IntegrationOperation,
@@ -68,7 +73,9 @@ if settings.kms_active_key_id not in _keyring:
     _keyring[settings.kms_active_key_id] = settings.integration_vault_key
 
 if settings.kms_provider == "aws":
-    _kms = AwsKMSAdapter(region_name=settings.aws_kms_region, endpoint_url=settings.aws_kms_endpoint_url)
+    _kms = AwsKMSAdapter(
+        region_name=settings.aws_kms_region, endpoint_url=settings.aws_kms_endpoint_url
+    )
     _active_key_ref = settings.kms_active_key_id
 elif settings.kms_provider == "gcp":
     _kms = GcpKMSAdapter()
@@ -355,12 +362,16 @@ class VaultRotateResumeRequest(BaseModel):
     job_id: str
 
 
-def _integration_connectivity_result(provider: dict[str, Any], config: dict[str, Any] | None) -> dict[str, Any]:
+def _integration_connectivity_result(
+    provider: dict[str, Any], config: dict[str, Any] | None
+) -> dict[str, Any]:
     t0 = time.perf_counter()
     cfg = config or {}
     required = ["api_key OR (username + password)"]
     has_api_key = bool(str(cfg.get("api_key", "")).strip())
-    has_user_creds = bool(str(cfg.get("username", "")).strip() and str(cfg.get("password", "")).strip())
+    has_user_creds = bool(
+        str(cfg.get("username", "")).strip() and str(cfg.get("password", "")).strip()
+    )
     passed = has_api_key or has_user_creds
     missing: list[str] = [] if passed else ["api_key", "username", "password"]
     status = "pass" if passed else "fail"
@@ -383,7 +394,9 @@ def _integration_connectivity_result(provider: dict[str, Any], config: dict[str,
     }
 
 
-def _normalize_provider_status(connection_status: str, connectivity_status: str, missing_fields: list[str]) -> str:
+def _normalize_provider_status(
+    connection_status: str, connectivity_status: str, missing_fields: list[str]
+) -> str:
     conn = (connection_status or "").strip().lower()
     check = (connectivity_status or "").strip().lower()
     if conn == "disabled":
@@ -455,7 +468,12 @@ async def vault_kms_self_check(_user=Depends(require_role("admin"))):
         cipher = _kms.encrypt(probe, key_id=probe_key)
         plain = _kms.decrypt(cipher, key_id=probe_key)
         elapsed = round((time.perf_counter() - t0) * 1000, 2)
-        return {"ok": plain == probe, "latency_ms": elapsed, "provider": _vault.provider, "key_id": probe_key}
+        return {
+            "ok": plain == probe,
+            "latency_ms": elapsed,
+            "provider": _vault.provider,
+            "key_id": probe_key,
+        }
     except Exception:
         logger.exception("KMS self-check encrypt/decrypt round-trip failed")
         return {
@@ -499,8 +517,18 @@ async def _audit_vault_crypto_event(
 
 
 @app.get("/v1/vault/rotation-jobs")
-async def vault_rotation_jobs(session: AsyncSession = Depends(get_session), _user=Depends(require_role("admin"))):
-    rows = (await session.execute(select(KMSRotationJob).order_by(KMSRotationJob.created_at.desc()).limit(20))).scalars().all()
+async def vault_rotation_jobs(
+    session: AsyncSession = Depends(get_session), _user=Depends(require_role("admin"))
+):
+    rows = (
+        (
+            await session.execute(
+                select(KMSRotationJob).order_by(KMSRotationJob.created_at.desc()).limit(20)
+            )
+        )
+        .scalars()
+        .all()
+    )
     return {
         "jobs": [
             {
@@ -533,7 +561,9 @@ async def rotate_vault_key(
     if issues:
         raise HTTPException(status_code=400, detail="; ".join(issues))
     new_key_id = (body.new_key_id or f"v{int(time.time())}").strip()
-    new_key_material = (body.new_key_material or f"{settings.integration_vault_key}:{new_key_id}").strip()
+    new_key_material = (
+        body.new_key_material or f"{settings.integration_vault_key}:{new_key_id}"
+    ).strip()
     batch_size = max(10, min(1000, int(body.batch_size or 100)))
     job = KMSRotationJob(
         provider=_vault.provider,
@@ -652,7 +682,12 @@ async def resume_vault_rotate(
             )
             break
     await session.commit()
-    return {"ok": job.status == "completed", "status": job.status, "job_id": str(job.id), "processed": job.processed}
+    return {
+        "ok": job.status == "completed",
+        "status": job.status,
+        "job_id": str(job.id),
+        "processed": job.processed,
+    }
 
 
 @app.get("/v1/adapters")
@@ -688,7 +723,12 @@ async def kyc_webhook(
             record.status = "normalization_failed"
 
     await session.commit()
-    return {"event_id": str(event_id), "provider": provider, "accepted": True, "normalized": normalized is not None}
+    return {
+        "event_id": str(event_id),
+        "provider": provider,
+        "accepted": True,
+        "normalized": normalized is not None,
+    }
 
 
 @app.post("/v1/kyc/verify")
@@ -752,20 +792,48 @@ async def osint_sources():
         "sources": {
             "ip": [
                 {"name": "Shodan InternetDB", "requires_key": False, "configured": True},
-                {"name": "AbuseIPDB", "requires_key": True, "configured": bool(_osint_cfg.abuseipdb_key)},
-                {"name": "GreyNoise Community", "requires_key": False, "configured": True, "note": "API key optional for higher limits"},
-                {"name": "IPinfo Lite", "requires_key": False, "configured": True, "note": "Token optional for higher limits"},
+                {
+                    "name": "AbuseIPDB",
+                    "requires_key": True,
+                    "configured": bool(_osint_cfg.abuseipdb_key),
+                },
+                {
+                    "name": "GreyNoise Community",
+                    "requires_key": False,
+                    "configured": True,
+                    "note": "API key optional for higher limits",
+                },
+                {
+                    "name": "IPinfo Lite",
+                    "requires_key": False,
+                    "configured": True,
+                    "note": "Token optional for higher limits",
+                },
                 {"name": "ip-api.com", "requires_key": False, "configured": True},
             ],
             "email": [
-                {"name": "EmailRep.io", "requires_key": False, "configured": True, "note": "API key optional for higher limits"},
+                {
+                    "name": "EmailRep.io",
+                    "requires_key": False,
+                    "configured": True,
+                    "note": "API key optional for higher limits",
+                },
                 {"name": "Gravatar", "requires_key": False, "configured": True},
-                {"name": "Have I Been Pwned", "requires_key": False, "configured": True, "note": "Paid key needed for full breach data"},
+                {
+                    "name": "Have I Been Pwned",
+                    "requires_key": False,
+                    "configured": True,
+                    "note": "Paid key needed for full breach data",
+                },
                 {"name": "DNS MX", "requires_key": False, "configured": True},
                 {"name": "Local Heuristics", "requires_key": False, "configured": True},
             ],
             "phone": [
-                {"name": "NumVerify", "requires_key": True, "configured": bool(_osint_cfg.numverify_key)},
+                {
+                    "name": "NumVerify",
+                    "requires_key": True,
+                    "configured": bool(_osint_cfg.numverify_key),
+                },
                 {"name": "Local Heuristics", "requires_key": False, "configured": True},
             ],
             "domain": [
@@ -830,7 +898,11 @@ async def preflight_integration_probes(body: PreflightProbesRequest, request: Re
             }
         )
     ok_n = sum(1 for r in results if r["live_probe"]["ok"])
-    avg_score = round(sum(r["connector_quality"]["score"] for r in results) / max(len(results), 1), 1) if results else 0.0
+    avg_score = (
+        round(sum(r["connector_quality"]["score"] for r in results) / max(len(results), 1), 1)
+        if results
+        else 0.0
+    )
     return {
         "connector_quality_version": CONNECTOR_QUALITY_VERSION,
         "probed": len(results),
@@ -841,7 +913,12 @@ async def preflight_integration_probes(body: PreflightProbesRequest, request: Re
 
 
 async def _get_operation_snapshot(
-    session: AsyncSession, *, tenant_id: str, provider_id: str, action: str, idempotency_key: str | None
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    provider_id: str,
+    action: str,
+    idempotency_key: str | None,
 ) -> dict[str, Any] | None:
     if not idempotency_key:
         return None
@@ -858,7 +935,13 @@ async def _get_operation_snapshot(
 
 
 async def _save_operation_snapshot(
-    session: AsyncSession, *, tenant_id: str, provider_id: str, action: str, idempotency_key: str | None, snapshot: dict[str, Any]
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    provider_id: str,
+    action: str,
+    idempotency_key: str | None,
+    snapshot: dict[str, Any],
 ) -> None:
     if not idempotency_key:
         return
@@ -901,7 +984,9 @@ def _host_matches_expected(hostname: str, expected: str) -> bool:
     return host == exp or host.endswith("." + exp)
 
 
-async def _live_provider_probe(provider: dict[str, Any], http: httpx.AsyncClient) -> tuple[bool, float, str]:
+async def _live_provider_probe(
+    provider: dict[str, Any], http: httpx.AsyncClient
+) -> tuple[bool, float, str]:
     t0 = time.perf_counter()
     url = str(provider.get("doc_url", "")).strip()
     if not url:
@@ -934,7 +1019,9 @@ async def _live_provider_probe(provider: dict[str, Any], http: httpx.AsyncClient
 
 @app.get("/v1/integrations/installed")
 async def integrations_installed(tenant_id: str, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(select(IntegrationConnection).where(IntegrationConnection.tenant_id == tenant_id))
+    result = await session.execute(
+        select(IntegrationConnection).where(IntegrationConnection.tenant_id == tenant_id)
+    )
     rows = result.scalars().all()
     items = []
     for row in rows:
@@ -946,7 +1033,9 @@ async def integrations_installed(tenant_id: str, session: AsyncSession = Depends
             "configured": row.configured,
             "version": row.version,
             "last_connectivity_test": row.last_connectivity_test,
-            "masked_config": await _vault.get_masked_config(session, row.tenant_id, row.provider_id),
+            "masked_config": await _vault.get_masked_config(
+                session, row.tenant_id, row.provider_id
+            ),
         }
         provider = get_provider(row.provider_id) or {}
         item["name"] = provider.get("name", row.provider_id)
@@ -960,7 +1049,9 @@ async def integrations_installed(tenant_id: str, session: AsyncSession = Depends
 
 @app.get("/v1/integrations/readiness")
 async def integrations_readiness(tenant_id: str, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(select(IntegrationConnection.category).where(IntegrationConnection.tenant_id == tenant_id))
+    result = await session.execute(
+        select(IntegrationConnection.category).where(IntegrationConnection.tenant_id == tenant_id)
+    )
     installed_categories = {str(r[0]) for r in result.all()}
     all_categories = set(list_categories())
     coverage = {}
@@ -1002,10 +1093,20 @@ async def test_integration_connectivity(
     else:
         effective_config = body.config
     result = _integration_connectivity_result(provider, effective_config)
-    probe_ok, probe_latency, probe_error = await _live_provider_probe(provider, request.app.state.http)
+    probe_ok, probe_latency, probe_error = await _live_provider_probe(
+        provider, request.app.state.http
+    )
     result["live_probe"] = {"ok": probe_ok, "latency_ms": probe_latency, "error": probe_error}
-    hard_probe_failures = {"host_hint_mismatch", "sandbox_semantic_check_failed", "live_probe_error"}
-    if not probe_ok and (probe_error in hard_probe_failures or str(probe_error).startswith("http_4") or str(probe_error).startswith("http_5")):
+    hard_probe_failures = {
+        "host_hint_mismatch",
+        "sandbox_semantic_check_failed",
+        "live_probe_error",
+    }
+    if not probe_ok and (
+        probe_error in hard_probe_failures
+        or str(probe_error).startswith("http_4")
+        or str(probe_error).startswith("http_5")
+    ):
         result["status"] = "fail"
     q = await session.execute(
         select(IntegrationConnection).where(
@@ -1032,7 +1133,9 @@ async def test_integration_connectivity(
 
 @app.get("/v1/integrations/health-matrix")
 async def integration_health_matrix(tenant_id: str, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(select(IntegrationConnection).where(IntegrationConnection.tenant_id == tenant_id))
+    result = await session.execute(
+        select(IntegrationConnection).where(IntegrationConnection.tenant_id == tenant_id)
+    )
     connections = result.scalars().all()
     rows: list[dict[str, Any]] = []
     for item in connections:
@@ -1068,7 +1171,9 @@ async def integration_health_matrix(tenant_id: str, session: AsyncSession = Depe
 
 @app.get("/v1/integrations/scorecards")
 async def integration_scorecards(tenant_id: str, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(select(IntegrationConnection).where(IntegrationConnection.tenant_id == tenant_id))
+    result = await session.execute(
+        select(IntegrationConnection).where(IntegrationConnection.tenant_id == tenant_id)
+    )
     connections = result.scalars().all()
     providers: list[dict[str, Any]] = []
     for item in connections:
@@ -1089,7 +1194,9 @@ async def integration_scorecards(tenant_id: str, session: AsyncSession = Depends
         required_fields = provider.get("required_config_fields", [])
         required_count = len(required_fields) if isinstance(required_fields, list) else 0
         status = _normalize_provider_status(str(item.status), check_status, missing_fields)
-        connectivity_score = 100.0 if check_status == "pass" else (35.0 if check_status == "fail" else 50.0)
+        connectivity_score = (
+            100.0 if check_status == "pass" else (35.0 if check_status == "fail" else 50.0)
+        )
         config_completeness = _config_completeness(required_count, len(missing_fields))
         provider_score = round((connectivity_score * 0.7) + (config_completeness * 0.3), 1)
         cq = _connector_quality_v1_installed(provider, last if isinstance(last, dict) else {})
@@ -1107,8 +1214,16 @@ async def integration_scorecards(tenant_id: str, session: AsyncSession = Depends
                 "connector_quality": cq,
             }
         )
-    overall_score = round(sum(p["provider_score"] for p in providers) / max(len(providers), 1), 1) if providers else 0.0
-    overall_cq = round(sum(p["connector_quality"]["score"] for p in providers) / max(len(providers), 1), 1) if providers else 0.0
+    overall_score = (
+        round(sum(p["provider_score"] for p in providers) / max(len(providers), 1), 1)
+        if providers
+        else 0.0
+    )
+    overall_cq = (
+        round(sum(p["connector_quality"]["score"] for p in providers) / max(len(providers), 1), 1)
+        if providers
+        else 0.0
+    )
     degraded = [p for p in providers if p["status"] in ("degraded", "down")]
     return {
         "tenant_id": tenant_id,
@@ -1141,7 +1256,9 @@ def _scorecard_remediation_actions(provider_row: dict[str, Any]) -> list[str]:
     actions: list[str] = []
     reasons = provider_row.get("reasons") or []
     if provider_row.get("status") == "down":
-        actions.append("Re-run connectivity test from Integrations UI or POST /v1/integrations/{id}/test")
+        actions.append(
+            "Re-run connectivity test from Integrations UI or POST /v1/integrations/{id}/test"
+        )
     if any("connection_error_status" in str(r) for r in reasons):
         actions.append("Review provider credentials and region in tenant config")
     if any("missing" in str(r).lower() for r in reasons):
@@ -1162,7 +1279,13 @@ async def install_integration(
     provider = get_provider(body.provider_id)
     if not provider:
         raise HTTPException(status_code=404, detail=f"provider '{body.provider_id}' not found")
-    snap = await _get_operation_snapshot(session, tenant_id=body.tenant_id, provider_id=body.provider_id, action="install", idempotency_key=idempotency_key)
+    snap = await _get_operation_snapshot(
+        session,
+        tenant_id=body.tenant_id,
+        provider_id=body.provider_id,
+        action="install",
+        idempotency_key=idempotency_key,
+    )
     if snap:
         return snap
     _enforce_policy_for_install(provider, (body.config or {}).get("region"))
@@ -1206,7 +1329,9 @@ async def install_integration(
         "category": provider["category"],
         "status": "enabled",
         "configured": bool(config) or bool(row.configured),
-        "masked_config": await _vault.get_masked_config(session, body.tenant_id, str(provider["id"])),
+        "masked_config": await _vault.get_masked_config(
+            session, body.tenant_id, str(provider["id"])
+        ),
     }
     await _trail.record(
         session,
@@ -1264,7 +1389,12 @@ async def uninstall_integration(
 
 
 @app.get("/v1/integrations/config/{provider_id}")
-async def get_integration_config(provider_id: str, tenant_id: str, session: AsyncSession = Depends(get_session), _user=Depends(require_role("analyst"))):
+async def get_integration_config(
+    provider_id: str,
+    tenant_id: str,
+    session: AsyncSession = Depends(get_session),
+    _user=Depends(require_role("analyst")),
+):
     provider = get_provider(provider_id)
     if not provider:
         raise HTTPException(status_code=404, detail=f"provider '{provider_id}' not found")
@@ -1287,7 +1417,13 @@ async def configure_integration(
     provider = get_provider(body.provider_id)
     if not provider:
         raise HTTPException(status_code=404, detail=f"provider '{body.provider_id}' not found")
-    snap = await _get_operation_snapshot(session, tenant_id=body.tenant_id, provider_id=body.provider_id, action="configure", idempotency_key=idempotency_key)
+    snap = await _get_operation_snapshot(
+        session,
+        tenant_id=body.tenant_id,
+        provider_id=body.provider_id,
+        action="configure",
+        idempotency_key=idempotency_key,
+    )
     if snap:
         return snap
     validate_install_config(body.config or {})

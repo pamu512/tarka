@@ -26,10 +26,22 @@ def upgrade() -> None:
         sa.Column("from_status", sa.String(length=32), nullable=True),
         sa.Column("to_status", sa.String(length=32), nullable=False),
         sa.Column("actor", sa.String(length=256), nullable=True),
-        sa.Column("detail", postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'{}'::jsonb")),
+        sa.Column(
+            "detail",
+            postgresql.JSONB(astext_type=sa.Text()),
+            nullable=False,
+            server_default=sa.text("'{}'::jsonb"),
+        ),
         sa.Column("stack_trace", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.ForeignKeyConstraint(["sar_filing_intent_id"], ["sar_filing_intents.id"], ondelete="RESTRICT"),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.ForeignKeyConstraint(
+            ["sar_filing_intent_id"], ["sar_filing_intents.id"], ondelete="RESTRICT"
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
@@ -38,7 +50,9 @@ def upgrade() -> None:
         ["sar_filing_intent_id"],
         unique=False,
     )
-    op.create_index(op.f("ix_sar_audit_log_created_at"), "sar_audit_log", ["created_at"], unique=False)
+    op.create_index(
+        op.f("ix_sar_audit_log_created_at"), "sar_audit_log", ["created_at"], unique=False
+    )
 
     op.drop_constraint("ck_sar_filing_intents_status", "sar_filing_intents", type_="check")
     op.execute(
@@ -57,7 +71,12 @@ def upgrade() -> None:
     )
     op.add_column(
         "sar_filing_intents",
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
     )
     op.create_foreign_key(
         "fk_sar_filing_intents_sar_artifact",
@@ -78,7 +97,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_constraint("ck_sar_filing_intents_status_v2", "sar_filing_intents", type_="check")
-    op.drop_constraint("fk_sar_filing_intents_sar_artifact", "sar_filing_intents", type_="foreignkey")
+    op.drop_constraint(
+        "fk_sar_filing_intents_sar_artifact", "sar_filing_intents", type_="foreignkey"
+    )
     op.drop_column("sar_filing_intents", "updated_at")
     op.drop_column("sar_filing_intents", "sar_artifact_id")
     op.execute(

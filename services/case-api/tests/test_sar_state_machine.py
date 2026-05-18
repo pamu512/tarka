@@ -61,7 +61,9 @@ async def test_sar_intent_transition_writes_audit_log() -> None:
             )
             session.add(intent)
             await session.flush()
-            await record_sar_intent_initial_state(session, intent, actor="analyst", detail={"note": "created"})
+            await record_sar_intent_initial_state(
+                session, intent, actor="analyst", detail={"note": "created"}
+            )
 
     async with SessionLocal() as session:
         intent = await session.get(SarFiling, intent_id)
@@ -126,9 +128,15 @@ async def test_worker_fails_sftp_queued_when_host_missing(monkeypatch: pytest.Mo
             )
             session.add(intent)
             await session.flush()
-            await record_sar_intent_initial_state(session, intent, actor="test", detail={"bootstrap": True})
-            await transition_sar_intent(session, intent, to_status=SAR_APPROVED, actor="test", detail={})
-            await transition_sar_intent(session, intent, to_status=SAR_SFTP_QUEUED, actor="test", detail={})
+            await record_sar_intent_initial_state(
+                session, intent, actor="test", detail={"bootstrap": True}
+            )
+            await transition_sar_intent(
+                session, intent, to_status=SAR_APPROVED, actor="test", detail={}
+            )
+            await transition_sar_intent(
+                session, intent, to_status=SAR_SFTP_QUEUED, actor="test", detail={}
+            )
 
     processed = await process_sar_transport_once()
     assert processed is True

@@ -7,7 +7,11 @@ from typing import Any
 import httpx
 
 from investigation_agent import batch_store, knowledge_store
-from investigation_agent.config import effective_embedding_api_key, effective_embedding_base_url, settings
+from investigation_agent.config import (
+    effective_embedding_api_key,
+    effective_embedding_base_url,
+    settings,
+)
 
 """Tool definitions and execution for the investigation agent."""
 _MAX_RULES_OVERRIDE = 15
@@ -89,9 +93,18 @@ def normalize_tool_error_shape(tool_name: str, payload: dict[str, Any]) -> dict[
             upstream = "graph_service"
         elif tool_name in {"get_entity_velocity", "get_decision_audit", "run_replay_ab_comparison"}:
             upstream = "decision_api"
-        elif tool_name in {"screen_sanctions_pep", "summarize_adverse_media", "consolidate_entity_profile"}:
+        elif tool_name in {
+            "screen_sanctions_pep",
+            "summarize_adverse_media",
+            "consolidate_entity_profile",
+        }:
             upstream = "integration_ingress"
-        elif tool_name in {"get_case", "list_cases", "compare_entity_queue_snapshot", "export_outcome_labeled_dataset"}:
+        elif tool_name in {
+            "get_case",
+            "list_cases",
+            "compare_entity_queue_snapshot",
+            "export_outcome_labeled_dataset",
+        }:
             upstream = "case_api"
         elif tool_name in {"get_batch_profile", "query_batch_rows", "aggregate_batch_column"}:
             upstream = "local_batch_store"
@@ -212,7 +225,9 @@ def _sanitize_rules_override(raw: Any) -> list[dict[str, Any]]:
             sd = 0.0
         sd = max(-50.0, min(50.0, sd))
         desc = str(r.get("description", ""))[:256]
-        out.append({"id": rid, "when": when_out, "tags": tags, "score_delta": sd, "description": desc})
+        out.append(
+            {"id": rid, "when": when_out, "tags": tags, "score_delta": sd, "description": desc}
+        )
     return out
 
 
@@ -285,7 +300,9 @@ def is_analyst_allowed(analyst_id: str) -> bool:
 # ---------- Tool implementations ----------
 
 
-async def tool_get_case(http: httpx.AsyncClient, case_id: str, tenant_id: str, analyst_id: str) -> dict[str, Any]:
+async def tool_get_case(
+    http: httpx.AsyncClient, case_id: str, tenant_id: str, analyst_id: str
+) -> dict[str, Any]:
     if not _analyst_allowed(analyst_id):
         return {"error": "forbidden"}
     try:
@@ -304,12 +321,16 @@ async def tool_get_case(http: httpx.AsyncClient, case_id: str, tenant_id: str, a
     return _limit_result({"case": r.json()})
 
 
-async def tool_list_cases(http: httpx.AsyncClient, tenant_id: str, analyst_id: str, limit: int = 20) -> dict[str, Any]:
+async def tool_list_cases(
+    http: httpx.AsyncClient, tenant_id: str, analyst_id: str, limit: int = 20
+) -> dict[str, Any]:
     if not _analyst_allowed(analyst_id):
         return {"error": "forbidden"}
     limit = _validate_limit(limit)
     base = settings.case_api_url.rstrip("/")
-    r = await http.get(f"{base}/v1/cases", params={"tenant_id": tenant_id, "limit": limit}, headers=_auth_headers())
+    r = await http.get(
+        f"{base}/v1/cases", params={"tenant_id": tenant_id, "limit": limit}, headers=_auth_headers()
+    )
     r.raise_for_status()
     return _limit_result(r.json())
 
@@ -355,12 +376,18 @@ async def tool_get_entity_tags(
     if not settings.graph_service_url:
         return {"error": "graph_disabled"}
     base = settings.graph_service_url.rstrip("/")
-    r = await http.get(f"{base}/v1/entities/{entity_id}/tags", params={"tenant_id": tenant_id}, headers=_auth_headers())
+    r = await http.get(
+        f"{base}/v1/entities/{entity_id}/tags",
+        params={"tenant_id": tenant_id},
+        headers=_auth_headers(),
+    )
     r.raise_for_status()
     return _limit_result(r.json())
 
 
-async def tool_get_entity_velocity(http: httpx.AsyncClient, entity_id: str, tenant_id: str, analyst_id: str) -> dict[str, Any]:
+async def tool_get_entity_velocity(
+    http: httpx.AsyncClient, entity_id: str, tenant_id: str, analyst_id: str
+) -> dict[str, Any]:
     if not _analyst_allowed(analyst_id):
         return {"error": "forbidden"}
     try:
@@ -381,7 +408,9 @@ async def tool_get_entity_velocity(http: httpx.AsyncClient, entity_id: str, tena
     return _limit_result(r.json())
 
 
-async def tool_get_decision_audit(http: httpx.AsyncClient, trace_id: str, tenant_id: str, analyst_id: str) -> dict[str, Any]:
+async def tool_get_decision_audit(
+    http: httpx.AsyncClient, trace_id: str, tenant_id: str, analyst_id: str
+) -> dict[str, Any]:
     if not _analyst_allowed(analyst_id):
         return {"error": "forbidden"}
     try:
@@ -469,7 +498,9 @@ async def tool_subgraph_with_velocity(
                 enriched.append(n)
         except Exception:
             enriched.append(n)
-    return _limit_result({"nodes": enriched, "edges": sg.get("edges", []), "center_entity_id": entity_id})
+    return _limit_result(
+        {"nodes": enriched, "edges": sg.get("edges", []), "center_entity_id": entity_id}
+    )
 
 
 async def tool_export_outcome_labeled_dataset(
@@ -631,7 +662,11 @@ async def tool_ingest_labeled_rows(
             headers=_auth_headers(),
         )
         if r.status_code >= 400:
-            return {"error": "label_drafts_batch_failed", "status": r.status_code, "detail": r.text[:500]}
+            return {
+                "error": "label_drafts_batch_failed",
+                "status": r.status_code,
+                "detail": r.text[:500],
+            }
         return _limit_result({**r.json(), "storage": "case_api_investigation_label_drafts"})
     except Exception as e:
         return {"error": "label_drafts_batch_failed", "detail": str(e)[:500]}
@@ -652,7 +687,11 @@ async def tool_get_stored_labeled_dataset(
             headers=_auth_headers(),
         )
         if r.status_code >= 400:
-            return {"error": "label_drafts_list_failed", "status": r.status_code, "detail": r.text[:500]}
+            return {
+                "error": "label_drafts_list_failed",
+                "status": r.status_code,
+                "detail": r.text[:500],
+            }
         data = r.json()
         items = data.get("items") or []
         normalized = [
@@ -720,7 +759,9 @@ async def tool_run_replay_ab_comparison(
     rb = _sanitize_rules_override(rules_variant_b)
     if not ra or not rb:
         return {
-            "error": ("both rules_variant_a and rules_variant_b must contain at least one valid rule after sanitization"),
+            "error": (
+                "both rules_variant_a and rules_variant_b must contain at least one valid rule after sanitization"
+            ),
         }
     lim = _validate_replay_limit(limit)
     tid_list, tid_err = _coerce_replay_trace_ids(trace_ids)
@@ -741,10 +782,20 @@ async def tool_run_replay_ab_comparison(
 
     va = await _post(ra)
     if va.get("error"):
-        return {"variant_a": va, "variant_b": None, "comparison": None, "trace_ids_mode": bool(tid_list)}
+        return {
+            "variant_a": va,
+            "variant_b": None,
+            "comparison": None,
+            "trace_ids_mode": bool(tid_list),
+        }
     vb = await _post(rb)
     if vb.get("error"):
-        return {"variant_a": _replay_summary(va), "variant_b": vb, "comparison": None, "trace_ids_mode": bool(tid_list)}
+        return {
+            "variant_a": _replay_summary(va),
+            "variant_b": vb,
+            "comparison": None,
+            "trace_ids_mode": bool(tid_list),
+        }
 
     sa = _replay_summary(va)
     sb = _replay_summary(vb)
@@ -799,7 +850,10 @@ async def tool_get_batch_profile(
         return {"error": str(e)}
     rec = batch_store.get_batch(bid, tenant_id, analyst_id)
     if not rec:
-        return {"error": "batch_not_found", "detail": "Upload via POST /v1/batch/ingest or check batch_id / tenant."}
+        return {
+            "error": "batch_not_found",
+            "detail": "Upload via POST /v1/batch/ingest or check batch_id / tenant.",
+        }
     prof = batch_store.batch_profile(rec)
     return _limit_result(prof)
 
@@ -909,7 +963,12 @@ async def tool_compare_entity_queue_snapshot(
         velocity_block = vel
     qc = await tool_list_cases(http, tenant_id, analyst_id, lim)
     if isinstance(qc, dict) and qc.get("error"):
-        return {"error": "list_cases_failed", "detail": qc.get("error"), "entity_id": eid, "velocity": velocity_block}
+        return {
+            "error": "list_cases_failed",
+            "detail": qc.get("error"),
+            "entity_id": eid,
+            "velocity": velocity_block,
+        }
     cases = qc.get("items") if isinstance(qc, dict) else None
     if not isinstance(cases, list):
         cases = qc.get("cases") if isinstance(qc, dict) else None
@@ -1017,7 +1076,11 @@ async def tool_summarize_adverse_media(
             headers={**_auth_headers(), "Content-Type": "application/json"},
         )
         if r.status_code >= 400:
-            return {"error": "adverse_media_failed", "status": r.status_code, "detail": r.text[:500]}
+            return {
+                "error": "adverse_media_failed",
+                "status": r.status_code,
+                "detail": r.text[:500],
+            }
         return _limit_result(r.json())
     except Exception as e:
         return {"error": "adverse_media_failed", "detail": str(e)[:500]}
@@ -1066,7 +1129,11 @@ async def tool_consolidate_entity_profile(
             headers={**_auth_headers(), "Content-Type": "application/json"},
         )
         if r.status_code >= 400:
-            return {"error": "entity_profile_failed", "status": r.status_code, "detail": r.text[:500]}
+            return {
+                "error": "entity_profile_failed",
+                "status": r.status_code,
+                "detail": r.text[:500],
+            }
         return _limit_result(r.json())
     except Exception as e:
         return {"error": "entity_profile_failed", "detail": str(e)[:500]}
@@ -1103,18 +1170,27 @@ async def tool_graph_risk_narrative(
         nid = str(n.get("id") or "")[:128]
         vv = n.get("velocity_and_inference")
         if isinstance(vv, dict):
-            v24 = ((vv.get("velocity") or {}).get("events_24h")) if isinstance(vv.get("velocity"), dict) else None
+            v24 = (
+                ((vv.get("velocity") or {}).get("events_24h"))
+                if isinstance(vv.get("velocity"), dict)
+                else None
+            )
             try:
                 if v24 is not None and float(v24) >= 25:
                     high_velocity_nodes.append(nid)
             except Exception:
                 pass
         sig = n.get("sdk_signals_on_node")
-        if isinstance(sig, dict) and any(bool(sig.get(k)) for k in ("is_vpn", "is_proxy", "ip_is_proxy", "is_bot", "automation_detected")):
+        if isinstance(sig, dict) and any(
+            bool(sig.get(k))
+            for k in ("is_vpn", "is_proxy", "ip_is_proxy", "is_bot", "automation_detected")
+        ):
             proxy_like_nodes.append(nid)
     narrative_lines = [
         f"Flow of funds graph includes {len(nodes)} nodes and {len(edges)} relationships at depth {depth}.",
-        f"{len(high_velocity_nodes)} nodes show elevated 24h velocity signals." if high_velocity_nodes else "No nodes exceed elevated 24h velocity threshold.",
+        f"{len(high_velocity_nodes)} nodes show elevated 24h velocity signals."
+        if high_velocity_nodes
+        else "No nodes exceed elevated 24h velocity threshold.",
         (
             f"{len(proxy_like_nodes)} nodes carry proxy/automation indicators."
             if proxy_like_nodes
@@ -1175,7 +1251,11 @@ TOOL_DEFINITIONS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "limit": {"type": "integer", "default": 20, "description": "Max cases to return"},
+                    "limit": {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Max cases to return",
+                    },
                 },
             },
         },
@@ -1189,8 +1269,15 @@ TOOL_DEFINITIONS = [
                 "type": "object",
                 "required": ["entity_id"],
                 "properties": {
-                    "entity_id": {"type": "string", "description": "External ID of the entity to query around"},
-                    "depth": {"type": "integer", "default": 2, "description": "Graph traversal depth (1-5)"},
+                    "entity_id": {
+                        "type": "string",
+                        "description": "External ID of the entity to query around",
+                    },
+                    "depth": {
+                        "type": "integer",
+                        "default": 2,
+                        "description": "Graph traversal depth (1-5)",
+                    },
                 },
             },
         },
@@ -1243,7 +1330,10 @@ TOOL_DEFINITIONS = [
                 "type": "object",
                 "required": ["trace_id"],
                 "properties": {
-                    "trace_id": {"type": "string", "description": "UUID trace from decision evaluate / case"},
+                    "trace_id": {
+                        "type": "string",
+                        "description": "UUID trace from decision evaluate / case",
+                    },
                 },
             },
         },
@@ -1285,8 +1375,16 @@ TOOL_DEFINITIONS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "case_limit": {"type": "integer", "default": 50, "description": "Max cases (cap 100)"},
-                    "dispute_limit": {"type": "integer", "default": 50, "description": "Max disputes (cap 100)"},
+                    "case_limit": {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Max cases (cap 100)",
+                    },
+                    "dispute_limit": {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Max disputes (cap 100)",
+                    },
                     "resolved_disputes_only": {
                         "type": "boolean",
                         "default": True,
@@ -1342,7 +1440,10 @@ TOOL_DEFINITIONS = [
                 "type": "object",
                 "required": ["batch_id"],
                 "properties": {
-                    "batch_id": {"type": "string", "description": "UUID returned by /v1/batch/ingest"},
+                    "batch_id": {
+                        "type": "string",
+                        "description": "UUID returned by /v1/batch/ingest",
+                    },
                 },
             },
         },
@@ -1351,7 +1452,9 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "query_batch_rows",
-            "description": ("Read a slice of rows from an ingested CSV/JSON/Excel batch. Max 100 rows per call; use offset paging for large files."),
+            "description": (
+                "Read a slice of rows from an ingested CSV/JSON/Excel batch. Max 100 rows per call; use offset paging for large files."
+            ),
             "parameters": {
                 "type": "object",
                 "required": ["batch_id"],
@@ -1372,7 +1475,9 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "aggregate_batch_column",
-            "description": ("Aggregate one column of an ingested batch: value_counts (top 25) or numeric_summary (min/max/mean when values parse as numbers)."),
+            "description": (
+                "Aggregate one column of an ingested batch: value_counts (top 25) or numeric_summary (min/max/mean when values parse as numbers)."
+            ),
             "parameters": {
                 "type": "object",
                 "required": ["batch_id", "column"],
@@ -1471,7 +1576,9 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "screen_sanctions_pep",
-            "description": ("Run sanctions/PEP screening through integration-ingress and return match buckets with source citations."),
+            "description": (
+                "Run sanctions/PEP screening through integration-ingress and return match buckets with source citations."
+            ),
             "parameters": {
                 "type": "object",
                 "required": ["name"],
@@ -1479,7 +1586,10 @@ TOOL_DEFINITIONS = [
                     "name": {"type": "string", "description": "Subject or entity name to screen"},
                     "subject_id": {"type": "string", "description": "Optional external subject id"},
                     "country": {"type": "string"},
-                    "dob": {"type": "string", "description": "Date of birth (YYYY-MM-DD) when available"},
+                    "dob": {
+                        "type": "string",
+                        "description": "Date of birth (YYYY-MM-DD) when available",
+                    },
                 },
             },
         },
@@ -1488,7 +1598,9 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "summarize_adverse_media",
-            "description": ("Build adverse-media style summary using OSINT enrichment with citation links and risk observations."),
+            "description": (
+                "Build adverse-media style summary using OSINT enrichment with citation links and risk observations."
+            ),
             "parameters": {
                 "type": "object",
                 "required": ["name"],
@@ -1507,7 +1619,9 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "consolidate_entity_profile",
-            "description": ("Consolidate sanctions/PEP and adverse-media checks into a single profile recommendation."),
+            "description": (
+                "Consolidate sanctions/PEP and adverse-media checks into a single profile recommendation."
+            ),
             "parameters": {
                 "type": "object",
                 "required": ["name"],
@@ -1529,7 +1643,9 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "graph_risk_narrative",
-            "description": ("Generate deterministic flow-of-funds and risk narrative from graph topology plus velocity overlay."),
+            "description": (
+                "Generate deterministic flow-of-funds and risk narrative from graph topology plus velocity overlay."
+            ),
             "parameters": {
                 "type": "object",
                 "required": ["entity_id"],

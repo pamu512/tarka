@@ -165,7 +165,9 @@ class LocalAsyncBroker(MessageBroker):
         self._started = True
         self._closing.clear()
         for i in range(self._num_workers):
-            self._workers.append(asyncio.create_task(self._worker_loop(i), name=f"tarka-local-broker-{i}"))
+            self._workers.append(
+                asyncio.create_task(self._worker_loop(i), name=f"tarka-local-broker-{i}")
+            )
 
     async def publish(
         self,

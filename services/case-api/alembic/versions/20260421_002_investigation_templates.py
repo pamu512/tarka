@@ -26,15 +26,34 @@ def upgrade() -> None:
         sa.Column("slug", sa.String(length=128), nullable=False),
         sa.Column("name", sa.String(length=256), nullable=False),
         sa.Column("apply_config", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("tenant_id", "slug", name="uq_investigation_templates_tenant_slug"),
     )
-    op.create_index("ix_investigation_templates_tenant_id", "investigation_templates", ["tenant_id"], unique=False)
+    op.create_index(
+        "ix_investigation_templates_tenant_id",
+        "investigation_templates",
+        ["tenant_id"],
+        unique=False,
+    )
 
-    op.add_column("investigation_cases", sa.Column("default_owner", sa.String(length=256), nullable=True))
-    op.add_column("investigation_cases", sa.Column("sla_hours_override", sa.Integer(), nullable=True))
+    op.add_column(
+        "investigation_cases", sa.Column("default_owner", sa.String(length=256), nullable=True)
+    )
+    op.add_column(
+        "investigation_cases", sa.Column("sla_hours_override", sa.Integer(), nullable=True)
+    )
     op.add_column(
         "investigation_cases",
         sa.Column("applied_template_id", postgresql.UUID(as_uuid=True), nullable=True),
