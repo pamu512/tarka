@@ -11,3 +11,5 @@
 name: Tarka CodeQL config
 paths-ignore:
   - packages/fraud-sdk-android
+  - "**/.cache/**"
+  - root/.cache

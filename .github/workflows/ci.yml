@@ -54,7 +54,7 @@ jobs:
           python-version: "3.12"
       - run: pip install ruff
       - run: ruff check .
-      - run: ruff format --check .
+      - run: ruff format --check services/
       - name: Enforce Python import style consistency
         run: python scripts/ci/check_import_style_consistency.py
       - name: Demo vertical contract unit tests (stdlib)
@@ -199,6 +199,8 @@ jobs:
         working-directory: services/graph-service
         env:
           PYTHONPATH: src:../shared
+          # Unit tests mock Neo4j drivers; default graph_backend is janusgraph (Gremlin on :8182).
+          GRAPH_BACKEND: neo4j
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:

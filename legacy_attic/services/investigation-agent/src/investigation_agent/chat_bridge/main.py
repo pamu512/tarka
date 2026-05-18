@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import httpx
-from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Request, Response
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -36,6 +36,7 @@ from investigation_agent.chat_bridge.reply_format import (
     format_teams_error_card,
 )
 from investigation_agent.chat_bridge.secrets_util import constant_time_string_equals
+from investigation_agent.chat_bridge.trusted_scope import trusted_scope_headers
 from investigation_agent.chat_bridge.slack_events import process_slack_event_payload, run_slack_turn
 from investigation_agent.chat_bridge.slack_verify import verify_slack_signature
 
@@ -279,6 +280,16 @@ def _plugin_secret_ok(x_bridge_secret: str | None) -> bool:
     if not expected:
         return False
     return constant_time_string_equals(expected, x_bridge_secret)
+
+
+async def require_teams_bridge_secret(
+    request: Request,
+    x_bridge_secret: str | None = Header(default=None, alias="X-Bridge-Secret"),
+) -> None:
+    if _teams_secret_ok(x_bridge_secret):
+        return
+    correlation_id = _request_correlation_id(request)
+    raise _ingress_http_exc(401, "invalid X-Bridge-Secret", correlation_id)
 
 
 def _rate_limit_bridge_key(request: Request, prefix: str) -> None:
@@ -552,7 +563,7 @@ async def teams_messages(
     request: Request,
     response: Response,
     body: TeamsBridgeBody,
-    x_bridge_secret: str | None = Header(default=None, alias="X-Bridge-Secret"),
+    _: None = Depends(require_teams_bridge_secret),
 ):
     correlation_id = _request_correlation_id(request)
     response.headers["X-Correlation-Id"] = correlation_id
@@ -825,7 +836,7 @@ async def teams_activity(
     request: Request,
     response: Response,
     body: TeamsActivityBody,
-    x_bridge_secret: str | None = Header(default=None, alias="X-Bridge-Secret"),
+    _: None = Depends(require_teams_bridge_secret),
 ):
     """
     Accept a Bot Framework–shaped **message** activity from a gateway you trust.

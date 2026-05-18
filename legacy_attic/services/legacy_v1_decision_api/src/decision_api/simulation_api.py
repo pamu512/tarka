@@ -241,10 +241,17 @@ class VerticalBenchmarkRequest(BaseModel):
     scenario: str = "baseline"
     vertical: str = "fintech"
     custom_profile: SyntheticProfile | None = None
+    seed: int = Field(
+        42,
+        description="RNG seed for reproducible simulation events (publishable scorecards)",
+    )
 
 
 @router.post("/benchmark/vertical")
 async def benchmark_vertical_pack(body: VerticalBenchmarkRequest):
+    import random
+
+    random.seed(body.seed)
     if body.custom_profile:
         profile = body.custom_profile
     elif body.scenario in SCENARIO_TEMPLATES:
@@ -275,6 +282,8 @@ async def benchmark_vertical_pack(body: VerticalBenchmarkRequest):
     return {
         "scenario": profile.name,
         "vertical": body.vertical.lower(),
+        "seed": body.seed,
+        "events_evaluated": n,
         "baseline": result_base.model_dump(),
         "vertical_pack": result_vertical.model_dump(),
         "experiment_guardrails": {

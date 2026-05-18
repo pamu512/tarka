@@ -1,0 +1,3 @@
+# Ephemeral CI/local caches (not shipped artifacts).
+**/.cache/**
+root/.cache/**
