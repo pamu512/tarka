@@ -1,0 +1,22 @@
+[project]
+name = "tarka-graphql-gateway"
+version = "0.1.0"
+description = "Tarka — GraphQL gateway aggregating REST services"
+requires-python = ">=3.11"
+dependencies = [
+  "structlog>=24.1.0",
+  "strawberry-graphql[fastapi]>=0.252.0",
+  "httpx>=0.28.0",
+  "pydantic-settings>=2.6.0",
+  "uvicorn[standard]>=0.32.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.24.0", "httpx>=0.28.0", "pytest-cov>=5.0"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

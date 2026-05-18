@@ -40,7 +40,9 @@ def main() -> int:
 
     repo = Path(__file__).resolve().parents[2]
     frontend = repo / "frontend"
-    candidates = sorted(frontend.glob(".env.production*")) + sorted(frontend.glob(".env*.production*"))
+    candidates = sorted(frontend.glob(".env.production*")) + sorted(
+        frontend.glob(".env*.production*")
+    )
     bad = [str(p.relative_to(repo)) for p in candidates if _scan_env_file(p)]
     if bad:
         print("ERROR: VITE_USE_API_MOCKS=true found in production env files:", file=sys.stderr)

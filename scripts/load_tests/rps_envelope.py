@@ -61,7 +61,9 @@ def _parse_concurrency_csv(raw: str) -> list[int]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Measure max-safe success RPS envelope for decision-api.")
+    parser = argparse.ArgumentParser(
+        description="Measure max-safe success RPS envelope for decision-api."
+    )
     parser.add_argument("--base-url", default="http://127.0.0.1:18000")
     parser.add_argument("--api-key", default=None)
     parser.add_argument("--duration-seconds", type=int, default=8)

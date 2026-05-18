@@ -34,7 +34,11 @@ SCENARIOS: list[Scenario] = [
                 "url": "https://suspicious.example/checkout",
                 "ip_address": "203.0.113.44",
             },
-            "device_context": {"device_id": "dev-scam-1", "platform": "web", "signals": {"is_bot": True}},
+            "device_context": {
+                "device_id": "dev-scam-1",
+                "platform": "web",
+                "signals": {"is_bot": True},
+            },
         },
     ),
     Scenario(
@@ -52,7 +56,11 @@ SCENARIOS: list[Scenario] = [
                 "url": "https://fraud-link.example/pay",
                 "ip_address": "198.51.100.77",
             },
-            "device_context": {"device_id": "dev-scam-2", "platform": "web", "signals": {"is_bot": True}},
+            "device_context": {
+                "device_id": "dev-scam-2",
+                "platform": "web",
+                "signals": {"is_bot": True},
+            },
         },
     ),
     Scenario(
@@ -70,7 +78,11 @@ SCENARIOS: list[Scenario] = [
                 "url": "https://merchant.example/checkout",
                 "ip_address": "198.51.100.18",
             },
-            "device_context": {"device_id": "dev-legit-1", "platform": "web", "signals": {"is_bot": False}},
+            "device_context": {
+                "device_id": "dev-legit-1",
+                "platform": "web",
+                "signals": {"is_bot": False},
+            },
         },
     ),
     Scenario(
@@ -87,13 +99,19 @@ SCENARIOS: list[Scenario] = [
                 "phone": "+85216660002",
                 "ip_address": "203.0.113.8",
             },
-            "device_context": {"device_id": "dev-legit-2", "platform": "web", "signals": {"is_bot": False}},
+            "device_context": {
+                "device_id": "dev-legit-2",
+                "platform": "web",
+                "signals": {"is_bot": False},
+            },
         },
     ),
 ]
 
 
-def _post_json(url: str, payload: dict[str, Any], *, api_key: str | None = None, timeout: float = 8.0) -> tuple[int, dict[str, Any]]:
+def _post_json(
+    url: str, payload: dict[str, Any], *, api_key: str | None = None, timeout: float = 8.0
+) -> tuple[int, dict[str, Any]]:
     headers = {"content-type": "application/json"}
     if api_key:
         headers["x-api-key"] = api_key
@@ -161,7 +179,9 @@ def run(base_url: str, api_key: str | None) -> dict[str, Any]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Replay labeled Scameter-oriented scenarios against decision-api.")
+    parser = argparse.ArgumentParser(
+        description="Replay labeled Scameter-oriented scenarios against decision-api."
+    )
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--api-key", default=None)
     args = parser.parse_args()

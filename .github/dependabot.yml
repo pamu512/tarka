@@ -20,6 +20,24 @@ updates:
           - "*"
 
   - package-ecosystem: pip
+    directory: /services/core
+    schedule:
+      interval: weekly
+    groups:
+      pip-core:
+        patterns:
+          - "*"
+
+  - package-ecosystem: pip
+    directory: /services/analytics
+    schedule:
+      interval: weekly
+    groups:
+      pip-analytics:
+        patterns:
+          - "*"
+
+  - package-ecosystem: pip
     directory: /services/case-api
     schedule:
       interval: weekly

@@ -1,0 +1,121 @@
+{{- $inlineCreds := and .Values.coreApi.databaseUrl .Values.coreApi.redisUrl .Values.coreApi.natsUrl }}
+{{- $useSecret := or .Values.credentials.create .Values.credentials.existingSecretName }}
+{{- if and .Values.coreApi.enabled (not $inlineCreds) (not $useSecret) }}
+{{- fail "core-api: enable credentials.create, set credentials.existingSecretName to a Secret with DATABASE_URL/REDIS_URL/NATS_URL (and optional API_KEYS), or set coreApi.databaseUrl + coreApi.redisUrl + coreApi.natsUrl." }}
+{{- end }}
+{{- if and .Values.coreApi.enabled (not .Values.signalApi.enabled) }}
+{{- fail "core-api: requires signal-api.enabled true (plane URLs are wired to the in-cluster Signal service)." }}
+{{- end }}
+{{- if .Values.coreApi.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-core-api
+  labels:
+    {{- include "tarka.labels" . | nindent 4 }}
+    tarka.io/component: core-api
+spec:
+  type: {{ .Values.coreApi.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "tarka.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    tarka.io/component: core-api
+  ports:
+    - name: http
+      port: {{ .Values.coreApi.service.port }}
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-core-api
+  labels:
+    {{- include "tarka.labels" . | nindent 4 }}
+    tarka.io/component: core-api
+spec:
+  replicas: {{ .Values.coreApi.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "tarka.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      tarka.io/component: core-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "tarka.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        tarka.io/component: core-api
+        {{- with .Values.global.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- with .Values.global.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "tarka.serviceAccountName" . }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: core-api
+          image: {{ include "tarka.containerImage" (dict "root" . "repository" .Values.coreApi.image.repository "tag" .Values.coreApi.image.tag) }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.coreApi.service.port }}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "tarka.platformConfigMap" . }}
+          {{- if and $useSecret (not $inlineCreds) }}
+            - secretRef:
+                name: {{ include "tarka.credentialsSecret" . }}
+          {{- end }}
+          env:
+            {{- if $inlineCreds }}
+            - name: DATABASE_URL
+              value: {{ .Values.coreApi.databaseUrl | quote }}
+            - name: REDIS_URL
+              value: {{ .Values.coreApi.redisUrl | quote }}
+            - name: NATS_URL
+              value: {{ .Values.coreApi.natsUrl | quote }}
+            {{- end }}
+            - name: RULES_PATH
+              value: {{ .Values.coreApi.env.rulesPath | quote }}
+            - name: UVICORN_WORKERS
+              value: {{ .Values.coreApi.env.uvicornWorkers | quote }}
+            - name: RATE_LIMIT_RPM
+              value: {{ .Values.coreApi.env.rateLimitRpm | quote }}
+            - name: RATE_LIMIT_BURST
+              value: {{ .Values.coreApi.env.rateLimitBurst | quote }}
+            - name: TENANT_BINDING_REQUIRED
+              value: {{ .Values.coreApi.env.tenantBindingRequired | quote }}
+            - name: ALLOW_INSECURE_NO_AUTH
+              value: {{ .Values.coreApi.env.allowInsecureNoAuth | quote }}
+            - name: FEATURE_SERVICE_URL
+              value: "http://{{ include "tarka.fullname" . }}-signal-api:{{ .Values.signalApi.service.port }}/features"
+            - name: ML_SCORING_URL
+              value: "http://{{ include "tarka.fullname" . }}-signal-api:{{ .Values.signalApi.service.port }}/ml"
+            - name: CALIBRATION_SERVICE_URL
+              value: "http://{{ include "tarka.fullname" . }}-signal-api:{{ .Values.signalApi.service.port }}/calibration"
+            - name: COUNTER_SERVICE_URL
+              value: "http://{{ include "tarka.fullname" . }}-signal-api:{{ .Values.signalApi.service.port }}/counters"
+            - name: LOCATION_SERVICE_URL
+              value: "http://{{ include "tarka.fullname" . }}-signal-api:{{ .Values.signalApi.service.port }}/location"
+            - name: GRAPH_SERVICE_URL
+              value: {{ .Values.coreApi.env.graphServiceUrl | quote }}
+            - name: OPA_URL
+              value: {{ .Values.coreApi.env.opaUrl | quote }}
+            - name: DECISION_API_URL
+              value: "http://127.0.0.1:{{ .Values.coreApi.service.port }}/decisions"
+          resources:
+            {{- toYaml .Values.coreApi.resources | nindent 12 }}
+          startupProbe:
+            {{- toYaml .Values.coreApi.startupProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.coreApi.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.coreApi.readinessProbe | nindent 12 }}
+{{- end }}

@@ -45,7 +45,7 @@ def _ensure_graph_service_path() -> None:
         sys.path.insert(0, p)
 
 
-def _gremlin_T() -> Any:  # noqa: N802
+def _gremlin_T() -> Any:
     from gremlin_python.process.traversal import T
 
     return T
@@ -220,11 +220,19 @@ def fetch_two_hop_neighborhood_snapshot_sync(
     def _two_hop(nid: Any, anchor_id: Any) -> list[dict[str, Any]]:
         try:
             raw_v = (
-                g.V().hasId(nid).both().dedup().limit(max_two_hop_per_branch).elementMap().toList()
+                g.V()
+                .hasId(nid)
+                .both()
+                .dedup()
+                .limit(max_two_hop_per_branch)
+                .elementMap()
+                .toList()
             )
-            verts = [v for v in raw_v if isinstance(v, dict) and v.get(T.id) != anchor_id][
-                :max_two_hop_per_branch
-            ]
+            verts = [
+                v
+                for v in raw_v
+                if isinstance(v, dict) and v.get(T.id) != anchor_id
+            ][:max_two_hop_per_branch]
         except Exception:
             logger.exception("snapshot_two_hop_branch_failed neighbor_id=%s", nid)
             return []
@@ -259,9 +267,7 @@ def fetch_two_hop_neighborhood_snapshot_sync(
     )
 
 
-async def fetch_two_hop_neighborhood_snapshot(
-    user_id: str, *, g: Any | None = None
-) -> dict[str, Any]:
+async def fetch_two_hop_neighborhood_snapshot(user_id: str, *, g: Any | None = None) -> dict[str, Any]:
     """Async wrapper; builds ``g`` from env when omitted (closes connection when created here)."""
     import asyncio
 
@@ -284,9 +290,7 @@ async def fetch_two_hop_neighborhood_snapshot(
 def snapshot_json(user_id: str, *, g: Any | None = None, indent: int | None = 2) -> str:
     """Return pretty-printed JSON (sync path uses injected ``g`` only)."""
     if g is None:
-        raise ValueError(
-            "Pass traversal source g=... or use fetch_two_hop_neighborhood_snapshot async"
-        )
+        raise ValueError("Pass traversal source g=... or use fetch_two_hop_neighborhood_snapshot async")
     tree = fetch_two_hop_neighborhood_snapshot_sync(g, user_id)
     return json.dumps(tree, indent=indent)
 

@@ -9,6 +9,7 @@ Usage::
 
 CSV columns: tenant_id,entity_id,region (header required).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -25,7 +26,9 @@ def main() -> None:
     ap.add_argument("--input", required=True, help="CSV with tenant_id,entity_id,region")
     args = ap.parse_args()
     base = (os.environ.get("DECISION_API_URL") or "http://localhost:8000").rstrip("/")
-    key = (os.environ.get("TARKA_API_KEY") or "").strip() or os.environ.get("API_KEYS", "").split(",")[0].strip()
+    key = (os.environ.get("TARKA_API_KEY") or "").strip() or os.environ.get("API_KEYS", "").split(
+        ","
+    )[0].strip()
     if not key:
         print("Set TARKA_API_KEY or API_KEYS", file=sys.stderr)
         raise SystemExit(2)

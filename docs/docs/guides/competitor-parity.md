@@ -28,7 +28,7 @@ This guide documents **shipping surfaces** that align Tarka with enterprise frau
 
 | Prefix | Role |
 |--------|------|
-| `/v1/rules/visual/compile` | Compile a **visual AST** JSON payload into a deployable JSON rule pack + Rego stub. |
+| `/v1/rules/visual/compile` | Compile a **visual AST** JSON payload into a deployable JSON rule pack. |
 | `/v1/rules/gitops/approve` | Record **maker/checker** approval metadata (integrate with your SOX/Git system). |
 | `/v1/rules/backtest/preview-sql` | Return **ClickHouse SQL** for a 90-day window with **PIT** guidance in the payload. |
 | `/v1/rules/backtest/run` | Stub metrics until a read-only ClickHouse role is wired server-side. |

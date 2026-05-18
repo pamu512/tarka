@@ -1,35 +1,32 @@
 {
-  "name": "Tarka (Docker + Python)",
-  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
-  "features": {
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
-      "moby": true
-    },
-    "ghcr.io/devcontainers/features/python:1": {
-      "version": "3.12"
-    }
+  "name": "Tarka (Nix flake)",
+  "build": {
+    "context": "..",
+    "dockerfile": "Dockerfile"
   },
-  "postCreateCommand": "python3 -m pip install -U pip ruff pytest pytest-asyncio && echo 'Ready. Start stack: docker compose -f deploy/docker-compose.lite.yml up -d --build'",
-  "forwardPorts": [3000, 8000, 8003, 8004, 8006, 8010],
+  "remoteUser": "root",
+  "containerEnv": {
+    "NIX_CONFIG": "accept-flake-config = true experimental-features = nix-command flakes"
+  },
+  "forwardPorts": [8000, 8123, 6379, 5432],
   "portsAttributes": {
-    "3000": { "label": "Frontend", "onAutoForward": "notify" },
-    "8000": { "label": "Core API (decisions + cases)" },
-    "8003": { "label": "Integration / OSINT" },
-    "8004": { "label": "Signal API (features + ML + …)" },
-    "8006": { "label": "Investigation agent + /v1/chat (optional)" },
-    "8010": { "label": "GraphQL gateway (gateway profile)" }
-  },
-  "customizations": {
-    "vscode": {
-      "extensions": ["ms-python.python", "charliermarsh.ruff"],
-      "settings": {
-        "python.defaultInterpreterPath": "/usr/local/python/current/bin/python"
-      }
+    "8000": {
+      "label": "FastAPI (e.g. Core API / decision stack)",
+      "onAutoForward": "notify"
+    },
+    "8123": {
+      "label": "ClickHouse HTTP",
+      "onAutoForward": "notify"
+    },
+    "6379": {
+      "label": "Redis",
+      "onAutoForward": "notify"
+    },
+    "5432": {
+      "label": "PostgreSQL",
+      "onAutoForward": "notify"
     }
   },
-  "hostRequirements": {
-    "cpus": 4,
-    "memory": "8gb",
-    "storage": "32gb"
-  }
+  "postStartCommand": "bash -lc 'if ! pgrep nix-daemon >/dev/null 2>&1; then . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh && nohup nix-daemon >/tmp/nix-daemon.log 2>&1 & fi'",
+  "postCreateCommand": "bash -lc 'cd \"${containerWorkspaceFolder}\" && nix develop --accept-flake-config -c true'"
 }

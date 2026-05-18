@@ -1,148 +1,132 @@
-# Tarka: Audit-First Fraud Infrastructure
+# Tarka: The Graph-Powered Fraud Operating System
 
-> **Prove every signal.**
+**Version 1.3.0-beta** · **Category: Local-First Fraud Intelligence (LFFI)**
 
-Tarka — from Sanskrit तर्क (tarka), the method of logical hypothesis testing. **In Tarka, a fraud signal is a hypothesis. In our code, that hypothesis is only 'proven' once it is written to a durable audit log. If it isn't in the database, it didn't happen.**
+**Vision:** End the **black box**—every material claim must be **inspectable** (rules, graph topology, local agent output), not a vendor scorecard you cannot replay.
 
-Tarka is an open-source, modular fraud detection platform. Pick the components you need or run the full stack. 
+**Prove every signal.** Not as a slogan—as a constraint: every risk claim must trace to **durable evidence** (relational audit rows, rule-engine payloads, and **graph edges you can re-walk**). If you cannot point to the vertex, the relationship type, and the observation timestamp, the signal does not ship.
 
-***
+**Vision (root):** [`VISION.md`](VISION.md) — paradox hook, **Tarka Triad**, market gap, **hardware as moat**.  
+**Strategy narrative (extended):** [`docs/LFFI_VISION.md`](docs/LFFI_VISION.md) — LFFI, **event → identity** shift, **fraud OS** roadmap (disputes, federated signatures, ZK research).
 
-### 🛡️ The Philosophy: Brutally Honest Infrastructure
+---
 
-Tarka is built on a simple premise: **AI is flaky, and silently failing open is a great way to get sued.** 
+## Why this exists
 
-Instead of treating LLMs and ML models as magic black boxes that autonomously run your risk operations, Tarka treats them as unreliable dependencies. We prioritize boring, durable database logs and strict execution limits over marketing-driven autonomy. If you need to explain to a regulator exactly why a transaction was blocked, backed by a relational database record and a fail-closed execution log, this is for you.
+Legacy fraud stacks treat each transaction as a **flat record**. They miss what fraud actually is: **coordination across identities**—shared hardware, IP convergence, review rings, velocity subgraphs. Tarka is built for **relationship topology** first.
 
-***
+**LFFI framing:** cloud LLMs force a trade—**intelligence vs. PII residency**. Tarka breaks that by defaulting **Shadow** to **on-host inference** (Ollama) so agentic reasoning can run over the **full transaction graph** inside the VPC when you keep models local.
 
-### 🏗️ Architecture: The Durable Data Plane
+- **Deterministic policy** — rules that replay the same way tomorrow (Rust core, manifest capture, `tarka replay` for audit-grade diffs).
+- **Graph intelligence** — JanusGraph (Gremlin) as the **fraud graph**: each ingest can materialize **vertices and typed edges** (users, devices, IPs, listings, reviews—not just rows).
+- **Local-first forensics** — **Shadow** runs **on-host** inference (Ollama: **Llama 3.2** / **Qwen3-VL** class models) so cluster narratives and borderline triage can happen **without shipping raw PII to a vendor API** when you keep the model local.
 
-Tarka separates the Decision Plane (Fast/Stateless) from the Audit Plane (Durable/Immutable). We don't believe in authoritative in-memory state.
+---
 
-*   **Decision Plane (Hetu):** Stateless FastAPI workers that evaluate rules in real-time.
-*   **Audit Plane (Lekh):** Every rule change, SAR intent, and sanctions screening is durably persisted to PostgreSQL via Alembic-managed migrations *before* a 200 OK is returned.
-*   **Analytics Plane (Kala):** Historical decisioning data is synced to ClickHouse. All analytical queries are server-side execution-bounded (`max_execution_time`) to prevent warehouse latency from cascading into the API.
-*   **Forensic Plane (Shadow):** Tarka is fully integrated with [Shadow](https://github.com/pamu512/shadow), a local-first agentic AI designed for deep fraud forensics. While Tarka manages the durable audit plane and real-time signals, Shadow allows investigators to run intensive, air-gapped analysis using local LLMs (Llama 3.2, Qwen3-VL) via Ollama.
+## The graph moat
 
-#### Evaluation, signals, and graph backends
+JanusGraph is not a dashboard decoration. The orchestrator’s graph client treats ingestion as **graph writes**: MERGE entities, attach **observed_at** + **transaction_id** on edges, then derive **topological signals** (degree, 2-hop neighborhoods, device overlap, IP velocity, review integrity probes).
 
-The audit story above sits on top of concrete services—not vaporware directories.
+**Implication:** a “fraud score” backed only by a scalar feature store is weak evidence. A **Gremlin-traversable** explanation path—same device across five reviewers on one listing—is **auditable**. That is the moat: **edges are the receipts**.
 
-*   **Signal plane (Anumana):** [`services/signal-api/`](services/signal-api/) runs one Uvicorn process that mounts **feature-service**, ML scoring, calibration, counters, and location. The feature sub-app lives in [`services/feature-service/`](services/feature-service/) and uses **Redis** (`redis[hiredis]`) for real-time temporal aggregates, velocity-style context, and parity checks—this is the bounded “fast features” path, not authoritative audit storage.
-*   **Rust rule engine (mandatory evaluate path):** [`services/rule-engine/`](services/rule-engine/) is a **`tarka_rule_engine`** Rust crate exposed as a **PyO3** extension module (`cdylib`, abi3). **Production JSON rule evaluation runs only through this Rust core**; `services/decision-api` syncs active packs into the extension at load/reload time. Build: `pip install maturin && cd services/rule-engine && maturin develop --release`.
-*   **Graph service (Jaala):** [`services/graph-service/`](services/graph-service/) defaults to **Gremlin Server** (`GRAPH_BACKEND=janusgraph`, `JANUSGRAPH_GREMLIN_URL`)—Apache-2.0 friendly. **Neo4j** (Bolt + Cypher) remains available as an explicit operator choice (`GRAPH_BACKEND=neo4j`) when you accept its **AGPL-3.0** obligations. Same HTTP API either way. Operator guide: [`services/graph-service/docs/janusgraph-adapter.md`](services/graph-service/docs/janusgraph-adapter.md).
+Configure graph backend via deployment env (JanusGraph remote / Gremlin; Neo4j remains available in some paths—see `deploy/janusgraph-cassandra-demo/` and orchestrator `GRAPH_BACKEND` docs in code).
 
-***
+---
 
-### 🚦 Resilience & Observability
+## Local-first agentic AI (Shadow)
 
-Tarka is designed for production environments where dependencies are expected to fail.
+Shadow is a **sidecar**, not a black box in someone else’s region:
 
-*   **Fail-Closed Logic:** If ClickHouse or your LLM provider is down, Tarka returns a `503 Service Unavailable`. 
-*   **Structured Reason Codes:** All 5xx errors include a `reason_code` to allow for granular alerting and automated remediation in your SOC. 
-*   **Deterministic Fallbacks:** We explicitly disabled "template-based" SQL fallbacks. If the logic can't be proved, the system fails-closed to protect the integrity of your data.
+- **Input:** the same **TransactionSchema** contract as the rest of the ingest rail.
+- **Inference:** **Ollama** by default (`SHADOW_LLM_BACKEND=ollama`); optional remote backends exist, but **1.3.0-beta** assumes you care about **VPC / laptop containment**.
+- **Output:** structured **ShadowDecision** JSON + **AuditLog** persistence when the rule path demands human-grade review (`SHADOW_REVIEW` and related actions).
 
-```json
-// Example Fail-Closed Response
-{
-  "error": "Service Unavailable",
-  "reason_code": "LLM_ENGINE_OFFLINE",
-  "message": "Transaction blocked: Integrity check failed due to upstream timeout."
-}
-```
+**Operational fact:** if the model never leaves your metal, your **cluster forensics** stay inside your trust boundary. You still own retention, redaction, and export policy.
 
-***
+---
 
-### 🚥 What's Actually Shipping (The Reality Check)
+## System of record: from events to investigations
 
-Tarka is modular. CLI slugs stay stable; the Sanskrit codenames represent the product story. Here is the brutal truth about the integrity status of each module on `master` today:
+Tarka **1.3.0-beta** moves the operator mental model from “another alert fired” to **an investigation with a state machine**:
 
-| Slug | Codename | Integrity Status |
-| :--- | :--- | :--- |
-| `core` | **Hetu** | **Audit-Ready:** JSON/SQL evaluation with durable GitOps approval tokens. |
-| `analytics` | **Kala** | **Bounded:** Real ClickHouse OLAP with 5s execution caps. |
-| `integration` | **Setu** | **Verified:** 12-source OSINT with Postgres-backed Screening Logs. |
-| `cases` | **Lekh** | **Durable Intent:** SAR generation with persistent filing state machines. |
-| `ml` | **Anumana** | **Redis + ONNX:** `signal-api` mounts feature-service (Redis temporal aggregates) and ML scoring; not a second mystery “AI box.” |
-| `graph` | **Jaala** | **Durable graph:** **Gremlin / JanusGraph-compatible** default (`GRAPH_BACKEND=janusgraph`); optional **Neo4j** (`GRAPH_BACKEND=neo4j`, AGPL)—see `services/graph-service/docs/janusgraph-adapter.md`. |
-| `agent` | **Saarthi** | **Tool-Use Loop:** AI investigation copilot with strict execution boundaries. |
-| `forensics` | **Shadow** | **Local-First:** Agentic forensics and logic stress-testing via Ollama. |
+- **Lifecycle cases** (`lifecycle_cases`) anchor to **audit log** rows—disposition without a durable row is incomplete.
+- **States** (orchestrator `CaseStatus`): `OPEN` → `UNDER_REVIEW` → `PENDING_ACTION` → `RESOLVED_FRAUD` / `RESOLVED_LEGIT`, with **explicit reopen rules** when you walk back from a terminal state (non-empty `reopen_reason` where required).
 
-#### OSS vs. Saarthi Pro
-We are transparent about the commercial model. The core investigation agent ships here in OSS.
-*   **OSS (`investigation-agent`):** Best for teams who want the full stack and self-hosted ops. You own the upgrades, uptime, and compliance mapping.
-*   **Saarthi Pro:** Best for enterprise procurement. Includes SLAs, governance roadmaps, vendor support, and commercial terms.
+Shadow’s `cases` table remains the forensic anchor for sidecar work; product **case management** is the **investigation** layer on top of committed audit evidence—not a stream of disposable events.
 
-***
+---
 
-### 🕵️ Local Forensics & Stress Testing
+## Hardware baseline (full stack)
 
-For high-sensitivity investigations, Tarka integrates with **[Shadow](https://github.com/pamu512/shadow)**. Shadow is a specialized, local tool-use interface that pulls data from Tarka's `inference_context` and runs it through local models for forensic data reconstruction.
+Target machine for **Gremlin + local LLM + rule evaluation + Postgres/Redis sidecars**:
 
-*   **Logic Stress-Testing:** Use Shadow to find edge cases in your existing Tarka rule sets before they hit production.
-*   **Hardware-Aware:** Designed to run efficiently on consumer-grade hardware supporting Llama 3.2 or Qwen3-vl:30b through Ollama. Optimized for 16GB+ Unified Memory systems. We don't just blindly call the OpenAI API.
-*   **Air-Gapped Analysis:** Perform entity resolution and link analysis without sending sensitive PII to a third-party LLM provider. Sensitive case data stays on your machine during deep-dive forensics.
+| Baseline | Spec |
+|----------|------|
+| **SoC** | **Apple M5 Pro** (or equivalent many-core host) |
+| **RAM** | **24 GB** minimum for the **full** beta profile (JanusGraph-adjacent services, Ollama with **Llama 3.2** / **Qwen3-VL:30b-class** weights, Rust engine + Python orchestration). |
+| **Disk** | **SSD**, **≥ 40 GB** free once you count container layers + model weights. |
+| **Software** | **Docker Compose v2**, **Python ≥ 3.11**, **Ollama** on `127.0.0.1:11434` (override with `OLLAMA_BASE` in bootstrap). |
 
-***
+Smaller hosts run **subgraphs** of the stack; do not expect comfortable local inference below **24 GB**.
 
-### 📡 The Signals We Actually Collect
+---
 
-#### 1. OSINT Enrichment (Integration Ingress)
-**Evaluate path:** `decision-api` does **not** block on outbound OSINT HTTP during `/v1/decisions/evaluate`. It merges the latest materialized OSINT from **Redis** (written asynchronously by integration-ingress from **NATS** `fraud.enrichment.request`) and publishes a refresh request each evaluation so the worker can update the cache.
+## Technical stack (1.3.0-beta)
 
-**Worker path:** Built-in OSINT enrichment queries 12 sources in parallel (9 work without API keys):
-*   **IP Data:** Shodan InternetDB (Open ports/CVEs), AbuseIPDB, GreyNoise, IPinfo Lite, ip-api.com.
-*   **Email Data:** EmailRep.io, Gravatar, Have I Been Pwned, DNS MX validation.
-*   **Phone/Domain/Identity:** NumVerify, RDAP, GitHub profile discovery.
+| Layer | What ships |
+|--------|------------|
+| **Decision engine** | **Rust `tarka-core`** — deterministic evaluation, WASM leaf hooks, forensic **replay** (`crates/tarka-cli`, `tarka replay`). Python integration uses **PyO3** where the `tarka` / `tarka-py` bindings are installed (compiler / flowchart / advanced paths). **HTTP policy seam:** `tarka_v2_core/services/rule_engine` (FastAPI evaluator on the ingest rail). |
+| **Intelligence graph** | **JanusGraph** (Gremlin) for topological signals; demo compose under `deploy/janusgraph-cassandra-demo/`. |
+| **Forensics AI** | **Shadow** — FastAPI sidecar `tarka_v2_core/services/shadow_agent`; local **Ollama** models (**Llama 3.2**, **Qwen3-VL** per `scripts/bootstrap_beta.sh` baseline checks). |
+| **Visualizer** | **Next.js** (`tarka_v2_ui/`) — **Knowledge Drop Zone** in decision views: upload priming documents, forward to `POST /v1/investigation/prime`, merge **graph snippet + cluster analysis** into analyst-facing UI (`DecisionDetail`, `KnowledgeDropInsight`). |
+| **Persistence** | **Postgres** (async SQLAlchemy), Redis where configured; **AuditLog** as the non-negotiable write-ahead for automated decisions. |
 
-#### 2. SDK Device Signals
-All SDKs collect device signals and send them as `device_context` with each evaluation:
-*   **Evasion Detection:** Emulator/simulator detection, VPN detection (WebRTC leaks, utun interfaces), Location spoofing.
-*   **Bot & Automation:** Behavioral entropy, bot User-Agents, typing cadence, mouse dynamics.
-*   **App Integrity:** Certificate hash verification, Play Integrity (Android), App Attest (iOS).
+---
 
-***
+## Install and run (beta)
 
-### 🛠️ Install & Run
-
-Tarka is built to run locally via Docker Compose or be installed via our Python CLI.
+From the **repository root** with Docker running:
 
 ```bash
-# Clone the repository
-git clone https://github.com/pamu512/tarka.git
-cd tarka
+# 1) Strict preflight: Docker, Compose, Python 3.11+, RAM sanity, Ollama baseline model
+./scripts/bootstrap_beta.sh
 
-# Option 1: Minimal setup (Decision + Case + OSINT + UI + Postgres Audit; no graph profile)
-python tarka.py install --lite
-
-# Option 2: Interactive installer (pick your modules)
-python tarka.py install
-
-# Option 3: Install as a Python library
-pip install tarka[lite]      # Core + cases
-pip install tarka[standard]  # Core + graph + ML + cases + OSINT
+# 2) Bring up the compose stack (repo-root docker-compose.yml unless DOCKER_COMPOSE_FILE overrides)
+./scripts/bootstrap_beta.sh --launch
 ```
 
-**Managing Services:**
+**Unified Python operator CLI** (module install / multi-profile compose)—this is the **`tarka start` path** people mean in ops docs today (`tarka.py` is the entrypoint):
+
 ```bash
-python tarka.py start              # Start all installed modules
-python tarka.py logs -f            # Follow all logs
-python tarka.py status             # Show running services & health
+python tarka.py install --lite    # or --all / --modules …
+python tarka.py start              # start what you installed
+python tarka.py status
 ```
 
-**Prebuilt Sandbox (Docker Compose):**
+**Rust operator CLI** (`tarka` binary: forensic replay today—not `start`; use bootstrap or `tarka.py` for compose lifecycle):
+
 ```bash
-docker compose -f https://raw.githubusercontent.com/pamu512/tarka/master/deploy/docker-compose.sandbox.yml up -d
+cargo build --release -p tarka-cli
+./target/release/tarka replay <MANIFEST_UUID>   # ClickHouse + registry + diff vs captured audit
 ```
-*   Frontend: `http://localhost:3000`
-*   Decision API: `http://localhost:8000/v1/health`
-*   Integration Ingress: `http://localhost:8003/v1/health`
 
-***
+**Deep links:** [`docs/SYSTEM_DESIGN.md`](docs/SYSTEM_DESIGN.md) (ingest / Shadow bypass), [`docs/onboarding.md`](docs/onboarding.md) (broader platform), [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-### 🔒 Security, Compliance & Licensing
+---
 
-*   **Security Hygiene:** We run strict CI/CD gates. GitHub Actions enforces Ruff linting, pytest coverage (≥48% gate), Trivy filesystem/image scanning, and TruffleHog secret scanning on every PR.
-*   **License:** Application code in this repository is **Apache-2.0**. 
-*   **Graph licensing:** The **default** sandbox and `graph-service` settings target **Gremlin Server** (JanusGraph-compatible, Apache-2.0 stack in [`deploy/docker-compose.lite.yml`](deploy/docker-compose.lite.yml)). If you opt into **Neo4j** (`GRAPH_BACKEND=neo4j`), review **AGPL-3.0** obligations in **`LICENSE-DEPENDENCIES.md`**.
+## Repository map (short)
+
+| Path | Role |
+|------|------|
+| [`tarka_v2_core/`](tarka_v2_core/) | Ingestor schema, orchestrator, **rule_engine**, **shadow_agent**, shared models. |
+| [`tarka_v2_ui/`](tarka_v2_ui/) | Next.js operator UI + Knowledge Drop / prime API routes. |
+| [`crates/tarka-core/`](crates/tarka-core/) | Rust decision DAG / determinism. |
+| [`crates/tarka-cli/`](crates/tarka-cli/) | `tarka replay` and operator tooling. |
+| [`scripts/bootstrap_beta.sh`](scripts/bootstrap_beta.sh) | **1.3.0-beta** gate + `--launch`. |
+| [`legacy_attic/`](legacy_attic/) | Archived monolith-era trees—reference only. |
+
+---
+
+## License
+
+Application code is **Apache-2.0** unless a subdirectory states otherwise. Third-party graph/database runtimes carry their own licenses—see **`LICENSE-DEPENDENCIES.md`** when you enable them.

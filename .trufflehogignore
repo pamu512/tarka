@@ -1,0 +1,4 @@
+# Build outputs (slow to scan; noisy FTP/URL false positives inside Rust deps)
+**/target/
+**/node_modules/
+**/.venv/

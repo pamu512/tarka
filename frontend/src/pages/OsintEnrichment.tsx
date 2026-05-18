@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { osint } from "../api/client";
+import { EncryptedFieldToggle } from "../components/compliance/EncryptedFieldToggle";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { toUserFacingError } from "../utils/userFacingErrors";
@@ -385,6 +387,8 @@ export default function OsintEnrichment() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<OsintResult | null>(null);
+  const [queriedEmail, setQueriedEmail] = useState("");
+  const [queriedPhone, setQueriedPhone] = useState("");
 
   const canSubmit = !loading && (email || phone || ip || domain);
 
@@ -405,6 +409,8 @@ export default function OsintEnrichment() {
     try {
       const data = await osint.enrich(body);
       setResult(data);
+      setQueriedEmail(email.trim());
+      setQueriedPhone(phone.trim());
     } catch (err) {
       setError(toUserFacingError(err, { subject: "OSINT enrichment", action: "run OSINT enrichment" }));
     } finally {
@@ -422,6 +428,16 @@ export default function OsintEnrichment() {
         <PageTitle module="osint">OSINT Enrichment</PageTitle>
         <p className="text-sm text-gray-500 mt-1">
           Investigate entities with open-source intelligence signals
+        </p>
+        <p className="text-xs text-gray-600 mt-2">
+          <Link to="/osint/nats-setu-monitor" className="text-emerald-400/90 hover:underline font-medium">
+            NATS Setu monitor
+          </Link>
+          <span className="text-gray-600"> · </span>
+          <Link to="/integrations#secure-osint-plugin-hub" className="text-sky-400/90 hover:underline">
+            Secure OSINT plugin hub — configure vendor API keys
+          </Link>{" "}
+          (password fields, TLS in production, masked after save).
         </p>
       </div>
 
@@ -527,6 +543,36 @@ export default function OsintEnrichment() {
               </div>
             </div>
           </div>
+
+          {(queriedEmail || queriedPhone) && (
+            <div className="rounded-xl border border-surface-700 bg-surface-900/60 px-4 py-3 space-y-2">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Queried identifiers</p>
+              <div className="flex flex-wrap gap-4 text-sm">
+                {queriedEmail ? (
+                  <div className="flex items-center gap-2 min-w-[240px]">
+                    <span className="text-gray-500 text-xs w-12">Email</span>
+                    <EncryptedFieldToggle
+                      value={queriedEmail}
+                      kind="email"
+                      fieldPath="osint.enrichment.email"
+                      contextType="osint_enrichment"
+                    />
+                  </div>
+                ) : null}
+                {queriedPhone ? (
+                  <div className="flex items-center gap-2 min-w-[240px]">
+                    <span className="text-gray-500 text-xs w-12">Phone</span>
+                    <EncryptedFieldToggle
+                      value={queriedPhone}
+                      kind="phone"
+                      fieldPath="osint.enrichment.phone"
+                      contextType="osint_enrichment"
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          )}
 
           {/* Enrichment Sections */}
           {availableSections.length > 0 && (

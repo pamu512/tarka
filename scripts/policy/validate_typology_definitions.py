@@ -81,7 +81,9 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
-    print(f"OK: typology member_rule_ids resolve against {len(rule_ids)} rule/tag_rule ids in {rules_dir}")
+    print(
+        f"OK: typology member_rule_ids resolve against {len(rule_ids)} rule/tag_rule ids in {rules_dir}"
+    )
     return 0
 
 

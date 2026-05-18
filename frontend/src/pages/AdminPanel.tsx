@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   admin,
@@ -11,6 +11,7 @@ import {
   type PlatformAuditEvent,
   type PlatformAuditFlag,
 } from "../api/client";
+import { EncryptedFieldToggle } from "../components/compliance/EncryptedFieldToggle";
 import { PageTitle } from "../components/PageTitle";
 import type { AccessModuleId } from "../config/accessModuleCatalog";
 import {
@@ -23,6 +24,8 @@ import { SupportIdHint } from "../components/SupportIdHint";
 import { safeExternalHref } from "../utils/externalLinks";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
+const FeatureStoreDdlEditorTab = lazy(() => import("../components/admin/FeatureStoreDdlEditorTab"));
+
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "policies", label: "Groups & policies" },
@@ -31,6 +34,7 @@ const TABS = [
   { id: "sessions", label: "Active users" },
   { id: "audit", label: "Audit log" },
   { id: "approvals", label: "Approvals" },
+  { id: "feature_ddl", label: "Feature Store DDL" },
 ] as const;
 
 const DEMO_TENANT = "demo";
@@ -354,6 +358,18 @@ export default function AdminPanel() {
       {tab === "approvals" && (
         <ApprovalsTab approvals={approvals} busy={busy} onApprove={doApprove} onReject={doReject} />
       )}
+
+      {tab === "feature_ddl" && (
+        <Suspense
+          fallback={
+            <div className="rounded-xl border border-surface-700 bg-surface-900/40 px-6 py-16 text-center text-sm text-gray-500">
+              Loading Feature Store DDL editor…
+            </div>
+          }
+        >
+          <FeatureStoreDdlEditorTab />
+        </Suspense>
+      )}
     </div>
   );
 }
@@ -578,7 +594,14 @@ function AccessTab({
                     {policyBadgeForUser(u)}
                   </span>
                 </div>
-                <div className="text-[11px] text-gray-500 truncate">{u.email}</div>
+                <EncryptedFieldToggle
+                  value={u.email}
+                  kind="email"
+                  fieldPath="admin.users.email"
+                  contextType="admin_user"
+                  contextId={u.user_id}
+                  className="text-[11px] w-full"
+                />
                 <div className="text-[10px] text-gray-600 mt-0.5">{u.role.replace(/_/g, " ")}</div>
               </button>
             </li>
@@ -695,7 +718,14 @@ function SessionsTab({ sessions }: { sessions: AdminActiveSession[] }) {
               <tr key={s.session_id} className="text-gray-300">
                 <td className="px-4 py-3">
                   <div className="font-medium text-gray-200">{s.user_name}</div>
-                  <div className="text-[11px] text-gray-500">{s.email}</div>
+                  <EncryptedFieldToggle
+                    value={s.email}
+                    kind="email"
+                    fieldPath="admin.sessions.email"
+                    contextType="admin_session"
+                    contextId={s.session_id}
+                    className="text-[11px]"
+                  />
                 </td>
                 <td className="px-4 py-3 font-mono text-xs text-brand-300/90">{s.current_route}</td>
                 <td className="px-4 py-3 font-mono text-xs">{s.ip}</td>

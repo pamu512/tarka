@@ -1,0 +1,83 @@
+{{- if .Values.collaborationChatBridge.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-collaboration-chat-bridge
+  labels:
+    {{- include "tarka.labels" . | nindent 4 }}
+    tarka.io/component: collaboration-chat-bridge
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "tarka.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    tarka.io/component: collaboration-chat-bridge
+  ports:
+    - name: http
+      port: {{ .Values.collaborationChatBridge.service.port }}
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-collaboration-chat-bridge
+  labels:
+    {{- include "tarka.labels" . | nindent 4 }}
+    tarka.io/component: collaboration-chat-bridge
+spec:
+  replicas: {{ .Values.collaborationChatBridge.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "tarka.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      tarka.io/component: collaboration-chat-bridge
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "tarka.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        tarka.io/component: collaboration-chat-bridge
+        {{- with .Values.global.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "tarka.serviceAccountName" . }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: collaboration-chat-bridge
+          image: {{ include "tarka.containerImage" (dict "root" . "repository" .Values.collaborationChatBridge.image.repository "tag" .Values.collaborationChatBridge.image.tag) }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.collaborationChatBridge.service.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "tarka.platformConfigMap" . }}
+          {{- $useSecret := or .Values.credentials.create .Values.credentials.existingSecretName }}
+          {{- if $useSecret }}
+            - secretRef:
+                name: {{ include "tarka.credentialsSecret" . }}
+          {{- end }}
+          env:
+            - name: INVESTIGATION_AGENT_URL
+              value: {{ coalesce .Values.collaborationChatBridge.env.investigationAgentUrl (printf "http://%s-investigation-agent:%v" (include "tarka.fullname" .) .Values.investigationAgent.service.port) | quote }}
+            {{- if $useSecret }}
+            - name: INVESTIGATION_AGENT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tarka.credentialsSecret" . }}
+                  key: UPSTREAM_API_KEY
+                  optional: true
+            {{- end }}
+          resources:
+            {{- toYaml .Values.collaborationChatBridge.resources | nindent 12 }}
+          startupProbe:
+            {{- toYaml .Values.collaborationChatBridge.startupProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.collaborationChatBridge.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.collaborationChatBridge.readinessProbe | nindent 12 }}
+{{- end }}

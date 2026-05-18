@@ -23,7 +23,10 @@ def main() -> int:
     jdoc = json.loads(_JSON.read_text(encoding="utf-8"))
     ydoc = yaml.safe_load(_YAML.read_text(encoding="utf-8"))
     if jdoc != ydoc:
-        print("ml_promotion_policy_v1.json and ml_promotion_policy_v1.yaml differ when parsed.", file=sys.stderr)
+        print(
+            "ml_promotion_policy_v1.json and ml_promotion_policy_v1.yaml differ when parsed.",
+            file=sys.stderr,
+        )
         print("Update one to match the other.", file=sys.stderr)
         return 1
     print("OK: ML promotion policy JSON and YAML are in sync")

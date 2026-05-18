@@ -55,7 +55,10 @@ async def _run(
                 try:
                     data = json.loads(msg.data.decode())
                 except json.JSONDecodeError:
-                    print(f"skip: invalid JSON seq={getattr(msg.metadata, 'sequence', '?')}", file=sys.stderr)
+                    print(
+                        f"skip: invalid JSON seq={getattr(msg.metadata, 'sequence', '?')}",
+                        file=sys.stderr,
+                    )
                     await msg.ack()
                     continue
 
@@ -74,7 +77,9 @@ async def _run(
                     print(json.dumps({"dry_run": True, "would_post": body}, default=str)[:2000])
                 else:
                     async with httpx.AsyncClient(timeout=30.0) as http:
-                        r = await http.post(f"{decision_url.rstrip('/')}/v1/decisions/evaluate", json=body)
+                        r = await http.post(
+                            f"{decision_url.rstrip('/')}/v1/decisions/evaluate", json=body
+                        )
                     print(f"evaluate {r.status_code} seq={getattr(msg.metadata, 'sequence', '?')}")
                 await msg.ack()
 

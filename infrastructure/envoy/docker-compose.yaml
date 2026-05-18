@@ -1,0 +1,87 @@
+# Local Envoy sidecar + core-api in one network namespace.
+#
+# - `api` binds Uvicorn to 127.0.0.1:8000 only, so nothing on the Docker bridge can reach the app port.
+# - `envoy` uses network_mode: service:api, so it shares that namespace and may connect to 127.0.0.1:8000.
+# - Only port 10000 (Envoy) is published to the host; use http://localhost:10000/...
+# - Envoy writes NDJSON access logs to /tmp/tarka-envoy-access.ndjson for Promtail/Loki.
+#   Bind-mount the same path on the host (touch the file first) so host Promtail can tail it.
+#
+# From repo root (compose project dir defaults to this file's directory: infrastructure/envoy):
+#   bash infrastructure/envoy/scripts/gen-dev-mtls-certs.sh
+#   export TARKA_ENVOY_SIDECAR_DATA_DIR="$PWD/.tarka-envoy-sidecar/data"
+#   mkdir -p "$TARKA_ENVOY_SIDECAR_DATA_DIR"
+#   docker compose -f infrastructure/envoy/docker-compose.yaml up --build
+
+name: tarka-envoy-sidecar
+
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: services/core-api/Dockerfile
+    # Published on the primary container: Envoy (same netns) listens on 10000.
+    ports:
+      - "${TARKA_ENVOY_INGRESS_PORT:-10000}:10000"
+      - "${TARKA_ENVOY_MESH_TLS_PORT:-10443}:10443"
+    environment:
+      TARKA_DB_ENGINE: "sqlite"
+      DATABASE_URL: "sqlite+aiosqlite:////data/tarka.sqlite"
+      TARKA_ANALYTICS_STORE: "duckdb"
+      TARKA_ANALYTICS_DUCKDB_PATH: "/data/tarka-analytics.duckdb"
+      TARKA_BROKER: "local"
+      TARKA_ENV: "micro"
+      REDIS_URL: ""
+      NATS_URL: ""
+      CLICKHOUSE_HOST: ""
+      LIST_STORE_BACKEND: "file"
+      LIST_STORE_FILE_DIR: "/data/lists"
+      DECISION_LOG_PATH: "/data/decision_logs/decision-log.jsonl"
+      ML_EXPORT_LOCAL_DIR: "/data/ml_exports"
+      RULES_PATH: "/app/rules"
+      ALLOW_INSECURE_NO_AUTH: "true"
+      DECISION_API_URL: "http://127.0.0.1:8000/decisions"
+      FEATURE_SERVICE_URL: ""
+      ML_SCORING_URL: ""
+      GRAPH_SERVICE_URL: ""
+      CALIBRATION_SERVICE_URL: ""
+      COUNTER_SERVICE_URL: ""
+      LOCATION_SERVICE_URL: ""
+      OPA_URL: ""
+    volumes:
+      - type: bind
+        source: ${TARKA_ENVOY_SIDECAR_DATA_DIR:?Set TARKA_ENVOY_SIDECAR_DATA_DIR to an absolute host path for SQLite/DuckDB state}
+        target: /data
+    # Loopback bind: only same-network-namespace peers (the Envoy sidecar) may connect to :8000.
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        alembic -c /app/config/decision_alembic.ini upgrade head &&
+        alembic -c /app/config/case_alembic.ini upgrade head &&
+        exec uvicorn core_api.main:app --host 127.0.0.1 --port 8000
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/v1/health >/dev/null"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+      start_period: 45s
+
+  envoy:
+    image: envoyproxy/envoy:v1.31-latest
+    network_mode: "service:api"
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ./envoy.yaml
+        target: /etc/envoy/envoy.yaml
+        read_only: true
+      - type: bind
+        source: ./certs/dev
+        target: /etc/envoy/certs
+        read_only: true
+      - type: bind
+        source: ${TARKA_ENVOY_ACCESS_LOG_HOST:-/tmp/tarka-envoy-access.ndjson}
+        target: /tmp/tarka-envoy-access.ndjson
+    command: ["/usr/local/bin/envoy", "-c", "/etc/envoy/envoy.yaml", "--log-level", "info"]

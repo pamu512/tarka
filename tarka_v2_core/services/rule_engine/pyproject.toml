@@ -1,0 +1,25 @@
+[project]
+name = "tarka-rule-engine"
+version = "0.1.0"
+description = "Transaction rule engine AST (Pydantic)."
+requires-python = ">=3.11"
+dependencies = [
+  "tarka-deploy-settings @ file:../../../packages/tarka-deploy-settings",
+  "pydantic>=2.13.0",
+  "pydantic-settings>=2.6.0",
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.32.0",
+  "sqlalchemy>=2.0.0",
+  "neo4j>=5.26.0,<6",
+  "redis>=5.0.0",
+]
+
+[project.optional-dependencies]
+hot-reload = ["nats-py>=2.7.0"]
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,9 @@
+fastapi==0.136.1
+uvicorn[standard]==0.46.0
+pydantic>=2.0
+sqlalchemy>=2.0
+asyncpg==0.31.0
+alembic==1.18.4
+maturin==1.13.1
+structlog==25.5.0
+redis>=5.0.0

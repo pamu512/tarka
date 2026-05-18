@@ -125,9 +125,7 @@ async def warm_proximity_cache_for_blocked_user(
 
     ``redis`` must be ``redis.asyncio.Redis`` (decode_responses recommended). Gremlin calls run in a thread.
     """
-    ids = await asyncio.to_thread(
-        gremlin_collect_one_hop_neighbor_ids, g, blocked_user_id=blocked_user_id
-    )
+    ids = await asyncio.to_thread(gremlin_collect_one_hop_neighbor_ids, g, blocked_user_id=blocked_user_id)
     if not ids:
         return []
     ttl = ttl_seconds
@@ -179,9 +177,7 @@ async def warm_proximity_cache_after_block_from_env(blocked_user_id: str) -> lis
     redis = Redis.from_url(rurl, decode_responses=True)
     g, conn = traversal_source_from_env()
     try:
-        return await warm_proximity_cache_for_blocked_user(
-            redis, g, blocked_user_id=blocked_user_id
-        )
+        return await warm_proximity_cache_for_blocked_user(redis, g, blocked_user_id=blocked_user_id)
     finally:
         try:
             await redis.aclose()

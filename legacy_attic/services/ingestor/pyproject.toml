@@ -1,0 +1,41 @@
+[project]
+name = "tarka-ingestor"
+version = "0.1.0"
+description = "ClickHouse sink for EvidenceManifest with async queue and batch anchoring"
+requires-python = ">=3.11"
+dependencies = [
+  "tarka @ file:../../crates/tarka-py",
+  "clickhouse-connect>=0.8.0",
+  "protobuf>=5.26",
+  "pydantic-settings>=2.6.0",
+  "redis[hiredis]>=5.2.0",
+  "arq>=0.26.0",
+  "tenacity>=9.0.0",
+  "asyncpg>=0.30.0",
+  "anyio>=4.0",
+]
+
+[project.optional-dependencies]
+api = [
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.32.0",
+]
+dev = [
+  "ruff>=0.8.0",
+  "pytest>=8.0",
+  "pytest-asyncio>=0.24.0",
+]
+
+[project.scripts]
+tarka-ingestor-worker = "ingestor.cli:run_worker"
+tarka-ingestor-replay = "ingestor.replay_worker:run_replay_worker"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

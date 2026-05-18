@@ -1,0 +1,40 @@
+# Stack: dev — local development defaults for Triple-DB connectivity.
+# Create/select the stack once: `pulumi stack init dev` (or `pulumi stack select dev`).
+#
+# Override per machine: `pulumi config set triple-db:postgresHost 10.0.0.5`
+config:
+  triple-db:environment: dev
+  triple-db:postgresHost: localhost
+  triple-db:postgresPort: "5432"
+  triple-db:postgresDatabase: tarka
+  triple-db:postgresUser: tarka
+  triple-db:postgresSslmode: prefer
+  triple-db:postgresSuperuser: "true"
+  # triple-db:postgresPassword — set locally (secret): pulumi config set --secret triple-db:postgresPassword '<password>'
+  # Optional: triple-db:redisPassword — secret when Redis requires AUTH
+  # Stack outputs (secrets): fastapiDatabaseUrl, fastapiRedisUrl, tripleDbDotenv — see deploy/pulumi/__main__.py
+  triple-db:clickhouseHost: localhost
+  triple-db:clickhouseHttpPort: "8123"
+  triple-db:clickhouseNativePort: "9000"
+  triple-db:clickhouseDatabase: default
+  triple-db:clickhouseApplyDdl: "true"
+  triple-db:clickhouseSecure: "false"
+  triple-db:clickhouseAdminUser: default
+  # triple-db:clickhousePassword — optional; set as secret if ClickHouse requires auth
+  triple-db:redisHost: localhost
+  triple-db:redisPort: "6379"
+  triple-db:redisDb: "0"
+  triple-db:redisBackend: kubernetes
+  triple-db:redisNamespace: tarka
+  triple-db:redisMaxmemory: 256mb
+  triple-db:redisImage: redis:7-alpine
+  triple-db:redisReplicas: "1"
+  # AWS ElastiCache (set triple-db:redisBackend: aws and fill the following):
+  # triple-db:redisVpcId: vpc-0123456789abcdef0
+  # triple-db:redisElasticacheSubnetIds: subnet-aaa,subnet-bbb
+  # triple-db:redisReplicationGroupId: tarka-redis-dev
+  # triple-db:redisAllowedCidrBlocks: 10.0.0.0/16
+  # triple-db:redisNodeType: cache.t4g.micro
+  # triple-db:tarkaSigningKey — Pulumi secret (64 hex chars = Ed25519 seed); becomes TARKA_SIGNING_KEY in-cluster
+  #   pulumi config set --secret triple-db:tarkaSigningKey '<hex>'
+  # triple-db:createEngineSigningKubernetesSecret: "false"  # skip Secret; inject TARKA_SIGNING_KEY elsewhere

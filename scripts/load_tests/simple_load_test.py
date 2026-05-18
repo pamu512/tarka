@@ -11,10 +11,12 @@ from typing import Any
 import httpx
 
 
-async def run_once(client: httpx.AsyncClient, url: str, idx: int, *, api_key: str | None = None) -> tuple[bool, float, int | None]:
+async def run_once(
+    client: httpx.AsyncClient, url: str, idx: int, *, api_key: str | None = None
+) -> tuple[bool, float, int | None]:
     payload = {
         "tenant_id": "loadtest",
-        "entity_id": f"entity-{idx%1000}",
+        "entity_id": f"entity-{idx % 1000}",
         "event_type": "login",
         "payload": {"amount": 10.0, "currency": "USD"},
     }
@@ -92,8 +94,12 @@ async def run_profile(
     api_key: str | None = None,
     pace_ms: int = 0,
 ) -> dict[str, Any]:
-    sustained = await run_load(base_url, sustained_duration, sustained_concurrency, api_key=api_key, pace_ms=pace_ms)
-    burst = await run_load(base_url, burst_duration, burst_concurrency, api_key=api_key, pace_ms=pace_ms)
+    sustained = await run_load(
+        base_url, sustained_duration, sustained_concurrency, api_key=api_key, pace_ms=pace_ms
+    )
+    burst = await run_load(
+        base_url, burst_duration, burst_concurrency, api_key=api_key, pace_ms=pace_ms
+    )
     return {"sustained": sustained, "burst": burst}
 
 
@@ -151,4 +157,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -1,0 +1,26 @@
+# Stack: ci — GitHub Actions `pulumi preview` (PR validation).
+# Secrets such as triple-db:postgresPassword are set in the workflow (not committed).
+config:
+  triple-db:environment: ci
+  triple-db:postgresHost: localhost
+  triple-db:postgresPort: "5432"
+  triple-db:postgresDatabase: tarka
+  triple-db:postgresUser: tarka
+  triple-db:postgresSslmode: prefer
+  triple-db:postgresSuperuser: "true"
+  triple-db:clickhouseHost: localhost
+  triple-db:clickhouseHttpPort: "8123"
+  triple-db:clickhouseNativePort: "9000"
+  triple-db:clickhouseDatabase: default
+  triple-db:clickhouseApplyDdl: "true"
+  triple-db:clickhouseSecure: "false"
+  triple-db:clickhouseAdminUser: default
+  triple-db:redisHost: localhost
+  triple-db:redisPort: "6379"
+  triple-db:redisDb: "0"
+  triple-db:redisBackend: kubernetes
+  triple-db:redisNamespace: tarka
+  triple-db:redisMaxmemory: 256mb
+  triple-db:redisImage: redis:7-alpine
+  triple-db:redisReplicas: "1"
+  triple-db:createEngineSigningKubernetesSecret: "false"

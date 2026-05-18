@@ -76,7 +76,9 @@ def main(argv: list[str] | None = None) -> int:
 
     diffs = diff_snapshots(snap_l, snap_r)
     if not diffs:
-        print(f"No differences for pattern {args.pattern!r} ({len(snap_l)} keys left, {len(snap_r)} keys right).")
+        print(
+            f"No differences for pattern {args.pattern!r} ({len(snap_l)} keys left, {len(snap_r)} keys right)."
+        )
         return 0
 
     print(f"Found {len(diffs)} difference(s) for pattern {args.pattern!r}:")

@@ -8,6 +8,7 @@ Example::
   DATABASE_URL=postgresql://user:pass@localhost:5432/fraud \\
     python3 scripts/benchmarks/age_graph_bench.py --repeat 50
 """
+
 from __future__ import annotations
 
 import argparse
@@ -45,7 +46,9 @@ def main() -> None:
                 cur.fetchall()
             lat.append((time.perf_counter() - t0) * 1000.0)
 
-    print(f"runs={args.repeat} p50_ms={statistics.median(lat):.3f} p95_ms={statistics.quantiles(lat, n=20)[18]:.3f}")
+    print(
+        f"runs={args.repeat} p50_ms={statistics.median(lat):.3f} p95_ms={statistics.quantiles(lat, n=20)[18]:.3f}"
+    )
 
 
 if __name__ == "__main__":

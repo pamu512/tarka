@@ -1,0 +1,30 @@
+[project]
+name = "tarka-signal-api"
+version = "0.1.0"
+description = "Fast-path unified signal ingestion (Redis velocity + session dedup)."
+requires-python = ">=3.11"
+dependencies = [
+  "asyncpg>=0.29.0",
+  "duckdb>=1.1.0",
+  "fastapi>=0.115.0",
+  "geoip2>=4.8.0",
+  "nats-py>=2.7.0",
+  "pydantic>=2.13.0",
+  "redis[hiredis]>=5.2.0",
+  "uvicorn[standard]>=0.32.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "httpx>=0.28.0", "fakeredis>=2.23.0"]
+load = ["locust>=2.29.0", "psutil>=6.0.0"]
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "../../.."]
+testpaths = ["tests"]

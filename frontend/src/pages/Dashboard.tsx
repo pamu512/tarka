@@ -19,10 +19,14 @@ import {
   type HourlyStat,
   type TopEntity,
   type AuditEntry,
+  type AuditRecentItem,
 } from "../api/client";
+import { ControlPanel } from "../components/ControlPanel";
+import { DecisionInspector } from "../components/DecisionInspector";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
+import { TransactionTicker } from "../components/TransactionTicker";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
 const DECISION_COLORS = {
@@ -81,7 +85,19 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [dataWarnings, setDataWarnings] = useState<string[]>([]);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [inspectorTraceId, setInspectorTraceId] = useState<string | null>(null);
+  const [inspectorShortId, setInspectorShortId] = useState<string | null>(null);
   const firstLoadRef = useRef(true);
+
+  const onTickerRow = useCallback((row: AuditRecentItem) => {
+    setInspectorTraceId(row.trace_id);
+    setInspectorShortId(row.short_id);
+  }, []);
+
+  const closeInspector = useCallback(() => {
+    setInspectorTraceId(null);
+    setInspectorShortId(null);
+  }, []);
 
   const fetchData = useCallback(async () => {
     const isFirst = firstLoadRef.current;
@@ -224,6 +240,16 @@ export default function Dashboard() {
           <p className="text-amber-100/80">{dataWarnings.join(" · ")}</p>
         </div>
       )}
+
+      <ControlPanel className="max-w-4xl" />
+
+      <div className="rounded-xl border border-surface-700 bg-surface-900 p-5 space-y-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-semibold text-gray-300">Live audit ticker</h2>
+          <span className="text-[11px] text-gray-500 font-mono">GET /v1/audit/recent</span>
+        </div>
+        <TransactionTicker tenantId={tenantId} pollIntervalMs={5000} limit={30} onRowSelect={onTickerRow} />
+      </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -443,6 +469,14 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      <DecisionInspector
+        tenantId={tenantId}
+        traceId={inspectorTraceId}
+        subtitle={inspectorShortId}
+        open={inspectorTraceId != null}
+        onClose={closeInspector}
+      />
     </div>
   );
 }

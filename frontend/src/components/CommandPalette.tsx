@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { omniSearch, type OmniSearchResponse } from "../api/client";
 import { useAnalystWorkspace } from "../context/AnalystWorkspaceContext";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { parseCaseDetailRoute, parseCaseOpenInput } from "../utils/caseOpenQuery";
@@ -14,20 +15,177 @@ type CommandItem = {
   run: () => void;
 };
 
-const MODULE_ROUTES: Array<{ to: string; label: string; module: ModuleId; keywords: string }> = [
-  { to: "/dashboard", label: "Dashboard", module: "dashboard", keywords: "home overview" },
+type PaletteSection = { title: string; items: CommandItem[] };
+
+const MODULE_ROUTES: Array<{ to: string; label: string; module: ModuleId; keywords: string; tenantQuery?: boolean }> = [
+  {
+    to: "/command-center",
+    label: "Tarka Command Center",
+    module: "dashboard",
+    keywords: "home cockpit landing unified command center overview",
+  },
+  { to: "/dashboard", label: "Classic dashboard", module: "dashboard", keywords: "charts metrics overview" },
   { to: "/cases", label: "Cases queue", module: "cases", keywords: "list triage" },
+  { to: "/ops/workload", label: "Workload Balancer", module: "cases", keywords: "team time resolve ttr queue balance" },
+  {
+    to: "/cases/bulk-triage",
+    label: "Bulk triage",
+    module: "cases",
+    keywords: "batch multi select resolve scam fifty comment",
+    tenantQuery: true,
+  },
+  {
+    to: "/cases/compare",
+    label: "Case comparison mode",
+    module: "cases",
+    keywords: "compare side by side marketplace coordinated attack pattern ring",
+    tenantQuery: true,
+  },
   { to: "/disputes", label: "Disputes", module: "disputes", keywords: "chargeback" },
   { to: "/graph", label: "Graph Explorer", module: "graph", keywords: "network neo4j" },
+  {
+    to: "/graph/mule-path",
+    label: "Mule path",
+    module: "graph",
+    keywords: "fund flow mule payout layering user a user b",
+  },
   { to: "/investigation", label: "Investigation Copilot", module: "investigation", keywords: "chat saarthi llm" },
+  {
+    to: "/investigation/synthetic-identity",
+    label: "Synthetic identity detectors",
+    module: "investigation",
+    keywords: "syn id ip browser email fingerprint disposable vpn headless flag",
+  },
+  {
+    to: "/investigation/social-engineering",
+    label: "Social engineering monitor",
+    module: "investigation",
+    keywords: "email password change high value listing account takeover scam",
+  },
+  {
+    to: "/investigation/shadow-llm",
+    label: "Shadow LLM forensics",
+    module: "investigation",
+    keywords: "sidecar sse stream ollama shadow copilot",
+  },
   { to: "/osint", label: "OSINT enrichment", module: "osint", keywords: "intel" },
+  {
+    to: "/osint/nats-setu-monitor",
+    label: "NATS Setu monitor",
+    module: "osint",
+    keywords: "vpn email phone nats setu osint fetch",
+  },
   { to: "/analytics", label: "Analytics", module: "analytics", keywords: "metrics charts" },
+  {
+    to: "/analytics/rule-performance",
+    label: "Rule performance",
+    module: "analytics",
+    keywords: "rules deny review fraud rust audit",
+  },
+  {
+    to: "/analytics/promo-abuse",
+    label: "Promo abuse",
+    module: "analytics",
+    keywords: "coupon newuser50 promo code abuse unique users redemption",
+  },
+  {
+    to: "/analytics/review-rings",
+    label: "Review ring clusters",
+    module: "analytics",
+    keywords: "fake reviews astroturfing same five products review ring cluster",
+  },
+  {
+    to: "/analytics/audit-log",
+    label: "Audit Log Explorer",
+    module: "analytics",
+    keywords: "audit log warehouse decisions millions virtual scroll search trace",
+  },
   { to: "/rules", label: "Rules", module: "rules", keywords: "policy" },
+  {
+    to: "/rules/version-control",
+    label: "Versioned rule control",
+    module: "rules",
+    keywords: "rollback ast snapshot rust engine fraud_rules version deploy",
+  },
   { to: "/entity-lists", label: "Entity lists", module: "entity-lists", keywords: "block allow" },
   { to: "/shadow", label: "Shadow mode", module: "shadow", keywords: "dry run" },
   { to: "/simulation", label: "Simulation", module: "simulation", keywords: "ab test" },
+  { to: "/ops/backtest", label: "Backtest jobs", module: "rules", keywords: "warehouse olap streaming" },
+  { to: "/ops/infra", label: "Infra & health", module: "compliance", keywords: "prometheus metrics monitoring signal" },
+  {
+    to: "/ops/system-health",
+    label: "System health HUD",
+    module: "compliance",
+    keywords: "m5 pro ram redis latency ollama queue edge workstation",
+  },
+  {
+    to: "/ops/system-benchmarking",
+    label: "System benchmarking",
+    module: "compliance",
+    keywords: "latency sub-millisecond p95 benchmark redis rule engine",
+  },
+  {
+    to: "/ops/failover-toggles",
+    label: "Failover toggles",
+    module: "compliance",
+    keywords: "graph ai plane disable latency spike kill switch shed load",
+  },
+  {
+    to: "/ops/dead-letter",
+    label: "Dead Letter Office",
+    module: "compliance",
+    keywords: "nats dlq dead letter jetstream ingest failed poison replay",
+  },
+  {
+    to: "/ops/backups",
+    label: "Automated backup",
+    module: "compliance",
+    keywords: "postgres janusgraph snapshot pg_dump backup restore dr",
+  },
   { to: "/compliance", label: "Compliance", module: "compliance", keywords: "audit" },
+  {
+    to: "/compliance/encrypted-fields",
+    label: "Encrypted field toggles",
+    module: "compliance",
+    keywords: "pii reveal hide mask email audit encrypted",
+  },
+  {
+    to: "/compliance/kyc-handover",
+    label: "KYC handover",
+    module: "compliance",
+    keywords: "kyc identity id document email upload verification handover",
+  },
+  {
+    to: "/compliance/regional-risk",
+    label: "Regional risk toggles",
+    module: "compliance",
+    keywords: "blacklist sub-region attack wave geo block country regional",
+  },
   { to: "/integrations", label: "Integrations", module: "integrations", keywords: "connectors" },
+  {
+    to: "/integrations/webhook-logs",
+    label: "Webhook logs",
+    module: "integrations",
+    keywords: "marketplace block callback outgoing delivery retry dlq",
+  },
+  {
+    to: "/integrations/rate-limit-shields",
+    label: "Rate limit shields",
+    module: "integrations",
+    keywords: "api key throttle rpm burst 429 marketplace sdk",
+  },
+  {
+    to: "/integrations/seller-integrity",
+    label: "Seller integrity",
+    module: "integrations",
+    keywords: "marketplace seller reviews deliveries ratio fake store integrity score",
+  },
+  {
+    to: "/integrations/payout-delay",
+    label: "Payout delay automation",
+    module: "integrations",
+    keywords: "payout hold mule score janusgraph funds release automation",
+  },
   { to: "/admin", label: "Admin panel", module: "admin", keywords: "platform" },
   { to: "/notifications", label: "Notifications", module: "notifications", keywords: "alerts" },
   { to: "/settings", label: "Settings", module: "settings", keywords: "theme appearance" },
@@ -52,9 +210,15 @@ function copilotUrl(caseId: string, tenantId: string) {
   return `/investigation?case_id=${encodeURIComponent(caseId)}&tenant_id=${encodeURIComponent(tenantId)}`;
 }
 
+const EMPTY_OMNI: OmniSearchResponse = { entities: [], cases: [], rules: [] };
+
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [omni, setOmni] = useState<OmniSearchResponse | null>(null);
+  const [omniLoading, setOmniLoading] = useState(false);
+  const [omniError, setOmniError] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -66,6 +230,10 @@ export function CommandPalette() {
   const close = useCallback(() => {
     setOpen(false);
     setQuery("");
+    setDebouncedQuery("");
+    setOmni(null);
+    setOmniLoading(false);
+    setOmniError(null);
     setSelectedIndex(0);
   }, []);
 
@@ -99,8 +267,42 @@ export function CommandPalette() {
   }, [open]);
 
   useEffect(() => {
+    if (!open) return;
+    const t = window.setTimeout(() => setDebouncedQuery(query), 300);
+    return () => window.clearTimeout(t);
+  }, [query, open]);
+
+  useEffect(() => {
     setSelectedIndex(0);
   }, [query, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const q = debouncedQuery.trim();
+    if (!q) {
+      setOmni(null);
+      setOmniError(null);
+      setOmniLoading(false);
+      return;
+    }
+    const ac = new AbortController();
+    setOmniLoading(true);
+    setOmniError(null);
+    (async () => {
+      try {
+        const data = await omniSearch({ q, tenant_id: workspaceTenantId }, ac.signal);
+        setOmni(data);
+      } catch (e: unknown) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        if (e instanceof Error && e.name === "AbortError") return;
+        setOmni(null);
+        setOmniError(e instanceof Error ? e.message : "Search failed");
+      } finally {
+        if (!ac.signal.aborted) setOmniLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, [debouncedQuery, open, workspaceTenantId]);
 
   const routeCase = useMemo(
     () => parseCaseDetailRoute(location.pathname),
@@ -111,9 +313,71 @@ export function CommandPalette() {
     return sp.get("tenant_id") ?? workspaceTenantId;
   }, [location.search, workspaceTenantId]);
 
-  const items = useMemo(() => {
-    const out: CommandItem[] = [];
+  const paletteSections = useMemo((): PaletteSection[] => {
     const q = query.trim();
+    const sections: PaletteSection[] = [];
+    const remoteQ = debouncedQuery.trim();
+    const data = omni ?? EMPTY_OMNI;
+
+    if (remoteQ) {
+      if (data.entities.length > 0) {
+        sections.push({
+          title: "Entities",
+          items: data.entities.map((e) => ({
+            id: `omni:entity:${e.tenant_id}:${e.entity_id}`,
+            label: e.label,
+            hint: e.subtitle ?? undefined,
+            module: "graph" as ModuleId,
+            keywords: `${e.entity_id} ${e.tenant_id}`,
+            run: () => {
+              navigate(
+                `/graph?entity_id=${encodeURIComponent(e.entity_id)}&tenant_id=${encodeURIComponent(e.tenant_id)}`,
+              );
+              close();
+            },
+          })),
+        });
+      }
+      if (data.cases.length > 0) {
+        sections.push({
+          title: "Cases",
+          items: data.cases.map((c) => ({
+            id: `omni:case:${c.tenant_id}:${c.id}`,
+            label: c.label || c.title,
+            hint: c.subtitle ?? `${c.entity_id} · ${c.status}`,
+            module: "cases" as ModuleId,
+            keywords: `${c.id} ${c.title} ${c.entity_id} ${c.trace_id}`,
+            run: () => {
+              pinCase({ caseId: c.id, tenantId: c.tenant_id, title: c.title });
+              navigate(`/cases/${encodeURIComponent(c.id)}?tenant_id=${encodeURIComponent(c.tenant_id)}`);
+              close();
+            },
+          })),
+        });
+      }
+      if (data.rules.length > 0) {
+        sections.push({
+          title: "Rules",
+          items: data.rules.map((r) => ({
+            id: `omni:rule:${r.pack_file}:${r.rule_id}`,
+            label: r.label,
+            hint: r.subtitle ? `${r.pack_name} · ${r.subtitle}` : r.pack_name,
+            module: "rules" as ModuleId,
+            keywords: `${r.rule_id} ${r.pack_file} ${r.pack_name}`,
+            run: () => {
+              const qs = new URLSearchParams({
+                pack: r.pack_file,
+                rule_id: r.rule_id,
+              });
+              navigate(`/rules?${qs}`);
+              close();
+            },
+          })),
+        });
+      }
+    }
+
+    const local: CommandItem[] = [];
 
     const contextual: CommandItem[] = [];
     if (routeCase) {
@@ -144,7 +408,7 @@ export function CommandPalette() {
     }
 
     for (const c of contextual) {
-      if (matchesQuery(c, q)) out.push(c);
+      if (matchesQuery(c, q)) local.push(c);
     }
 
     for (const m of MODULE_ROUTES) {
@@ -155,11 +419,15 @@ export function CommandPalette() {
         module: m.module,
         keywords: m.keywords,
         run: () => {
-          navigate(m.to);
+          if (m.tenantQuery) {
+            navigate(`${m.to}?tenant_id=${encodeURIComponent(workspaceTenantId)}`);
+          } else {
+            navigate(m.to);
+          }
           close();
         },
       };
-      if (matchesQuery(item, q)) out.push(item);
+      if (matchesQuery(item, q)) local.push(item);
     }
 
     for (const tab of openCases) {
@@ -176,7 +444,7 @@ export function CommandPalette() {
           close();
         },
       };
-      if (matchesQuery(item, q)) out.push(item);
+      if (matchesQuery(item, q)) local.push(item);
     }
 
     const parsed = parseCaseOpenInput(q, workspaceTenantId);
@@ -186,7 +454,7 @@ export function CommandPalette() {
       );
       const showOpenRow = !alreadyOpen || q.includes("/");
       if (showOpenRow) {
-        out.unshift({
+        local.unshift({
           id: `open-id:${parsed.tenantId}:${parsed.caseId}`,
           label: q.includes("/") ? "Open case (tenant / id)" : "Open case by ID",
           hint: `${parsed.tenantId} · ${parsed.caseId}`,
@@ -207,9 +475,15 @@ export function CommandPalette() {
       }
     }
 
-    return out;
+    if (local.length > 0) {
+      sections.push({ title: "Workspace", items: local });
+    }
+
+    return sections;
   }, [
     query,
+    debouncedQuery,
+    omni,
     openCases,
     navigate,
     close,
@@ -219,34 +493,47 @@ export function CommandPalette() {
     tenantOnCasePage,
   ]);
 
+  const flatItems = useMemo(() => paletteSections.flatMap((s) => s.items), [paletteSections]);
+
+  const sectionsWithBase = useMemo(() => {
+    let base = 0;
+    return paletteSections.map((s) => {
+      const row = { title: s.title, items: s.items, baseIndex: base };
+      base += s.items.length;
+      return row;
+    });
+  }, [paletteSections]);
+
   useEffect(() => {
     setSelectedIndex((i) => {
-      if (items.length === 0) return 0;
-      return Math.min(i, items.length - 1);
+      if (flatItems.length === 0) return 0;
+      return Math.min(i, flatItems.length - 1);
     });
-  }, [items.length]);
+  }, [flatItems.length]);
 
   useLayoutEffect(() => {
-    if (!listRef.current || items.length === 0) return;
+    if (!listRef.current || flatItems.length === 0) return;
     listRef.current
       .querySelector(`[data-cmd-index="${selectedIndex}"]`)
       ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [selectedIndex, items.length, open]);
+  }, [selectedIndex, flatItems.length, open]);
 
   const onInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setSelectedIndex((i) => Math.min(items.length - 1, i + 1));
+      if (flatItems.length === 0) return;
+      setSelectedIndex((i) => Math.min(flatItems.length - 1, i + 1));
       return;
     }
     if (e.key === "ArrowUp") {
       e.preventDefault();
+      if (flatItems.length === 0) return;
       setSelectedIndex((i) => Math.max(0, i - 1));
       return;
     }
-    if (e.key === "Enter" && items.length > 0) {
+    if (e.key === "Enter" && flatItems.length > 0) {
       e.preventDefault();
-      items[selectedIndex]?.run();
+      flatItems[selectedIndex]?.run();
     }
   };
 
@@ -276,12 +563,12 @@ export function CommandPalette() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onInputKeyDown}
-            placeholder="Modules, case title… or tenant/case-id"
+            placeholder="Search entities, cases, rules, modules…"
             className="flex-1 min-w-0 bg-transparent text-sm text-gray-100 placeholder:text-gray-600 focus:outline-none py-2"
             aria-label="Search commands"
             aria-controls="command-palette-listbox"
             aria-activedescendant={
-              items.length > 0 ? `cmd-opt-${selectedIndex}` : undefined
+              flatItems.length > 0 ? `cmd-opt-${selectedIndex}` : undefined
             }
           />
           <kbd className="hidden sm:inline text-[10px] text-gray-600 border border-surface-600 rounded px-1.5 py-0.5 shrink-0">
@@ -295,57 +582,75 @@ export function CommandPalette() {
           role="listbox"
           aria-label="Commands"
         >
-          {items.length === 0 ? (
-            <li className="px-4 py-8 text-center text-sm text-gray-500">No matches</li>
+          {flatItems.length === 0 ? (
+            <li className="px-4 py-8 text-center text-sm text-gray-500">
+              {omniLoading ? "Searching…" : "No matches"}
+            </li>
           ) : (
-            items.map((item, idx) => {
-              const active = idx === selectedIndex;
-              const domId = `cmd-opt-${idx}`;
-              return (
-                <li key={item.id} role="presentation">
-                  <button
-                    id={domId}
-                    data-cmd-index={idx}
-                    type="button"
-                    role="option"
-                    aria-selected={active}
-                    onMouseEnter={() => setSelectedIndex(idx)}
-                    onClick={() => item.run()}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-left focus:outline-none ${
-                      active ? "bg-brand-600/20 text-gray-100" : "hover:bg-surface-800/90 text-gray-200"
-                    }`}
-                  >
-                    {item.module ? (
-                      <ModuleIcon
-                        module={item.module}
-                        className="w-4 h-4 shrink-0 text-gray-500"
-                        aria-hidden
-                      />
-                    ) : (
-                      <span className="w-4 h-4 shrink-0" />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm truncate">{item.label}</div>
-                      {item.hint ? (
-                        <div className="text-xs text-gray-500 truncate">{item.hint}</div>
-                      ) : null}
-                    </div>
-                  </button>
+            sectionsWithBase.map((sec) => (
+              <Fragment key={sec.title}>
+                <li
+                  role="presentation"
+                  className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 list-none"
+                >
+                  {sec.title}
                 </li>
-              );
-            })
+                {sec.items.map((item, idx) => {
+                  const globalIdx = sec.baseIndex + idx;
+                  const active = globalIdx === selectedIndex;
+                  const domId = `cmd-opt-${globalIdx}`;
+                  return (
+                    <li key={item.id} role="presentation">
+                      <button
+                        id={domId}
+                        data-cmd-index={globalIdx}
+                        type="button"
+                        role="option"
+                        aria-selected={active}
+                        onMouseEnter={() => setSelectedIndex(globalIdx)}
+                        onClick={() => item.run()}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 text-left focus:outline-none ${
+                          active ? "bg-brand-600/20 text-gray-100" : "hover:bg-surface-800/90 text-gray-200"
+                        }`}
+                      >
+                        {item.module ? (
+                          <ModuleIcon
+                            module={item.module}
+                            className="w-4 h-4 shrink-0 text-gray-500"
+                            aria-hidden
+                          />
+                        ) : (
+                          <span className="w-4 h-4 shrink-0" />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm truncate">{item.label}</div>
+                          {item.hint ? (
+                            <div className="text-xs text-gray-500 truncate">{item.hint}</div>
+                          ) : null}
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </Fragment>
+            ))
           )}
         </ul>
         <div className="border-t border-surface-800 px-3 py-2 text-[11px] text-gray-600 flex flex-wrap gap-x-3 gap-y-1">
           <span>
             <kbd className="font-mono text-gray-500">↑</kbd>{" "}
             <kbd className="font-mono text-gray-500">↓</kbd> move ·{" "}
-            <kbd className="font-mono text-gray-500">↵</kbd> run
+            <kbd className="font-mono text-gray-500">↵</kbd> open
           </span>
           <span>
             <kbd className="font-mono text-gray-500">⌘K</kbd> toggle
           </span>
-          <span className="hidden sm:inline">Use tenant/id for cross-tenant case opens</span>
+          {query.trim() !== debouncedQuery.trim() ? (
+            <span className="text-gray-500">Debouncing…</span>
+          ) : null}
+          {omniLoading ? <span className="text-gray-500">Searching API…</span> : null}
+          {omniError ? <span className="text-amber-600/90 truncate max-w-[220px]">{omniError}</span> : null}
+          <span className="hidden sm:inline">Unified search (300ms debounce)</span>
         </div>
       </div>
     </div>

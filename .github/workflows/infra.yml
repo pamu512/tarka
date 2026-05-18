@@ -1,0 +1,142 @@
+# Infrastructure — Pulumi preview on PRs that touch Triple-DB IaC.
+#
+# Shows planned changes for Postgres bootstrap DDL (postgresql.Function body +
+# triple-db-exec-bootstrap Command), ClickHouse evidence DDL (triple-db-clickhouse-evidence-ddl
+# Command triggers), Redis K8s/AWS resources, and stack outputs.
+#
+# Secrets (repository settings → Secrets and variables → Actions):
+#   PULUMI_ACCESS_TOKEN      — optional on branches of this repo; omit to use `pulumi login --local`.
+#                            Not available to workflows triggered from fork PRs → preview is skipped.
+#   PULUMI_CI_POSTGRES_PASSWORD — optional; dummy default used if unset (preview-only).
+#
+name: Infrastructure
+
+on:
+  pull_request:
+    paths:
+      - "deploy/**"
+      - ".github/workflows/infra.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: infra-preview-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pulumi-preview:
+    name: Pulumi preview (triple-db/ci)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: deploy/pulumi
+
+    env:
+      PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+      PULUMI_SKIP_UPDATE_CHECK: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Fork PRs never receive base-repo secrets; skip early instead of a confusing partial failure.
+      - name: Decide whether to run Pulumi preview
+        id: pulumi_gate
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ]; then
+            echo "run=false" >> "${GITHUB_OUTPUT}"
+            echo "::notice::Skipping Pulumi preview: workflows triggered from fork PRs do not receive repository secrets (for example PULUMI_ACCESS_TOKEN). Push a branch on the base repository or use workflow_dispatch here with secrets configured."
+          else
+            echo "run=true" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Set up Python
+        if: steps.pulumi_gate.outputs.run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: deploy/pulumi/requirements.txt
+
+      # Install-only (omit `command`) — replaces deprecated pulumi/setup-pulumi; see pulumi/actions README.
+      - name: Install Pulumi CLI
+        if: steps.pulumi_gate.outputs.run == 'true'
+        uses: pulumi/actions@v4
+        with:
+          pulumi-version: "^3"
+
+      - name: Pulumi token visibility (non-fork runs)
+        if: steps.pulumi_gate.outputs.run == 'true'
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+        run: |
+          if [ -n "${PULUMI_ACCESS_TOKEN:-}" ]; then
+            echo "::notice::PULUMI_ACCESS_TOKEN is present; subsequent login uses Pulumi Cloud (or configured backend)."
+          else
+            echo "::notice::PULUMI_ACCESS_TOKEN is not set; the next step uses \`pulumi login --local\` (no cloud token). This is expected in some CI setups; fork PRs are skipped earlier and never reach this step."
+          fi
+
+      - name: Synthetic kubeconfig (Kubernetes provider preview)
+        if: steps.pulumi_gate.outputs.run == 'true'
+        run: |
+          mkdir -p ~/.kube
+          cat > ~/.kube/config <<'EOF'
+          apiVersion: v1
+          kind: Config
+          clusters:
+            - name: pulumi-preview
+              cluster:
+                server: https://127.0.0.1:6443
+                insecure-skip-tls-verify: true
+          contexts:
+            - name: pulumi-preview
+              context:
+                cluster: pulumi-preview
+                user: pulumi-preview
+          current-context: pulumi-preview
+          users:
+            - name: pulumi-preview
+              user: {}
+          EOF
+
+      - name: Install Python dependencies
+        if: steps.pulumi_gate.outputs.run == 'true'
+        run: |
+          python -m venv .venv
+          ./.venv/bin/pip install -U pip
+          ./.venv/bin/pip install -r requirements.txt
+
+      - name: Pulumi login
+        if: steps.pulumi_gate.outputs.run == 'true'
+        run: |
+          set -eu
+          set -o pipefail
+          if [ -n "${PULUMI_ACCESS_TOKEN:-}" ]; then
+            pulumi login
+          else
+            pulumi login --local
+          fi
+
+      - name: Configure stack secrets and preview
+        if: steps.pulumi_gate.outputs.run == 'true'
+        env:
+          POSTGRES_PREVIEW_SECRET: ${{ secrets.PULUMI_CI_POSTGRES_PASSWORD }}
+        run: |
+          set -eu
+          set -o pipefail
+          source .venv/bin/activate
+          PW="${POSTGRES_PREVIEW_SECRET:-pulumi-ci-preview-placeholder-not-for-production}"
+          pulumi stack select ci --create
+          pulumi config set --secret triple-db:postgresPassword "${PW}"
+          echo "### Pulumi preview (\`triple-db/ci\`)" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "Diff highlights **Postgres** bootstrap function / \`psql\` Command and **ClickHouse** DDL Command when \`deploy/postgres.py\` or \`deploy/clickhouse.py\` change." >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo '```text' >> "${GITHUB_STEP_SUMMARY}"
+          pulumi preview --diff --non-interactive --color never 2>&1 | tee -a "${GITHUB_STEP_SUMMARY}"
+          echo '```' >> "${GITHUB_STEP_SUMMARY}"

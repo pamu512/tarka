@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import random
 import sys
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from urllib.parse import quote_plus
 
 import httpx
@@ -83,7 +84,7 @@ ACCOUNTS = [
 
 
 def _ts(hours_ago: float) -> str:
-    return (datetime.now(timezone.utc) - timedelta(hours=hours_ago)).isoformat()
+    return (datetime.now(UTC) - timedelta(hours=hours_ago)).isoformat()
 
 
 def _legit_transactions() -> list[dict]:
@@ -182,7 +183,7 @@ def _fraudster_transactions() -> list[dict]:
 def _velocity_spike_transactions() -> list[dict]:
     """Rapid-fire transactions from Frank within a 2-minute window."""
     txns: list[dict] = []
-    base_time = datetime.now(timezone.utc) - timedelta(hours=2)
+    base_time = datetime.now(UTC) - timedelta(hours=2)
     device = next(d for d in DEVICES if d["id"] == "dev_emulator_003")
 
     for i in range(8):
@@ -480,8 +481,14 @@ CASES = [
         "target_status": "open",
         "labels": ["velocity", "fraud_ring", "high_amount"],
         "comments": [
-            {"author": "system", "body": "Auto-created: 8 transactions detected within a 2-minute window totalling $3,400+."},
-            {"author": "analyst_maria", "body": "Confirmed emulator usage with VPN. Escalating to fraud ring investigation."},
+            {
+                "author": "system",
+                "body": "Auto-created: 8 transactions detected within a 2-minute window totalling $3,400+.",
+            },
+            {
+                "author": "analyst_maria",
+                "body": "Confirmed emulator usage with VPN. Escalating to fraud ring investigation.",
+            },
         ],
     },
     {
@@ -492,9 +499,18 @@ CASES = [
         "target_status": "open",
         "labels": ["shared_device", "emulator", "fraud_ring"],
         "comments": [
-            {"author": "system", "body": "Auto-created: Device dev_emulator_003 shared by fraud_frank and fraud_gina."},
-            {"author": "analyst_james", "body": "Same device fingerprint across two supposedly unrelated accounts. Classic ring pattern."},
-            {"author": "analyst_maria", "body": "Linked to velocity case on fraud_frank. Recommending coordinated takedown."},
+            {
+                "author": "system",
+                "body": "Auto-created: Device dev_emulator_003 shared by fraud_frank and fraud_gina.",
+            },
+            {
+                "author": "analyst_james",
+                "body": "Same device fingerprint across two supposedly unrelated accounts. Classic ring pattern.",
+            },
+            {
+                "author": "analyst_maria",
+                "body": "Linked to velocity case on fraud_frank. Recommending coordinated takedown.",
+            },
         ],
     },
     {
@@ -505,8 +521,14 @@ CASES = [
         "target_status": "investigating",
         "labels": ["ato", "vpn", "geo_mismatch"],
         "comments": [
-            {"author": "system", "body": "Login from new device with VPN detected. Geo-IP mismatch with known location."},
-            {"author": "analyst_james", "body": "Contacted customer — confirms they did NOT log in. Resetting credentials."},
+            {
+                "author": "system",
+                "body": "Login from new device with VPN detected. Geo-IP mismatch with known location.",
+            },
+            {
+                "author": "analyst_james",
+                "body": "Contacted customer — confirms they did NOT log in. Resetting credentials.",
+            },
         ],
     },
     {
@@ -518,8 +540,14 @@ CASES = [
         "labels": ["confirmed_fraud", "wire_transfer", "social_engineering"],
         "comments": [
             {"author": "system", "body": "Multiple high-value wire transfers from VPN-masked IP."},
-            {"author": "analyst_maria", "body": "Traced to social engineering ring. Account frozen. SAR filed."},
-            {"author": "analyst_james", "body": "Resolution: Account permanently blocked. Funds recovered: $12,400."},
+            {
+                "author": "analyst_maria",
+                "body": "Traced to social engineering ring. Account frozen. SAR filed.",
+            },
+            {
+                "author": "analyst_james",
+                "body": "Resolution: Account permanently blocked. Funds recovered: $12,400.",
+            },
         ],
     },
     {
@@ -530,8 +558,14 @@ CASES = [
         "target_status": "closed",
         "labels": ["false_positive", "high_amount"],
         "comments": [
-            {"author": "system", "body": "Flagged: $1,200 purchase at ElectronicsStore — unusual for this customer."},
-            {"author": "analyst_james", "body": "Customer confirmed purchase (new laptop). Closing as false positive."},
+            {
+                "author": "system",
+                "body": "Flagged: $1,200 purchase at ElectronicsStore — unusual for this customer.",
+            },
+            {
+                "author": "analyst_james",
+                "body": "Customer confirmed purchase (new laptop). Closing as false positive.",
+            },
         ],
     },
     {
@@ -542,7 +576,10 @@ CASES = [
         "target_status": "open",
         "labels": ["mule", "wire_transfer", "fraud_ring"],
         "comments": [
-            {"author": "system", "body": "Multiple incoming transfers from fraud_frank flagged account."},
+            {
+                "author": "system",
+                "body": "Multiple incoming transfers from fraud_frank flagged account.",
+            },
         ],
     },
 ]
@@ -573,7 +610,13 @@ async def _already_seeded(client: httpx.AsyncClient, case_url: str) -> bool:
 
 async def seed_decisions(client: httpx.AsyncClient, decision_url: str) -> list[str]:
     """Send evaluate requests and collect trace_ids."""
-    all_txns = _legit_transactions() + _fraudster_transactions() + _velocity_spike_transactions() + _mule_transactions() + _login_transactions()
+    all_txns = (
+        _legit_transactions()
+        + _fraudster_transactions()
+        + _velocity_spike_transactions()
+        + _mule_transactions()
+        + _login_transactions()
+    )
     print(f"  Sending {len(all_txns)} decision evaluations ...")
     trace_ids: list[str] = []
     ok = 0
@@ -603,17 +646,13 @@ async def seed_graph(client: httpx.AsyncClient, graph_url: str) -> None:
 
     print(f"  Creating {len(entities)} graph entities ...")
     for ent in entities:
-        try:
+        with contextlib.suppress(httpx.HTTPError):
             await client.post(f"{graph_url}/v1/entities", json=ent)
-        except httpx.HTTPError:
-            pass
 
     print(f"  Creating {len(links)} graph links ...")
     for link in links:
-        try:
+        with contextlib.suppress(httpx.HTTPError):
             await client.post(f"{graph_url}/v1/links", json=link)
-        except httpx.HTTPError:
-            pass
 
 
 async def seed_cases(client: httpx.AsyncClient, case_url: str, trace_ids: list[str]) -> None:
@@ -646,35 +685,29 @@ async def seed_cases(client: httpx.AsyncClient, case_url: str, trace_ids: list[s
 
         # Add comments
         for comment in case_def.get("comments", []):
-            try:
+            with contextlib.suppress(httpx.HTTPError):
                 await client.post(
                     f"{case_url}/v1/cases/{case_id}/comments?tenant_id={tid_q}",
                     json={"author": comment["author"], "body": comment["body"]},
                 )
-            except httpx.HTTPError:
-                pass
 
         # Add labels
         labels = case_def.get("labels", [])
         if labels:
-            try:
+            with contextlib.suppress(httpx.HTTPError):
                 await client.post(
                     f"{case_url}/v1/cases/{case_id}/labels?tenant_id={tid_q}",
                     json={"labels": labels},
                 )
-            except httpx.HTTPError:
-                pass
 
         # Transition to target status
         target = case_def.get("target_status", "open")
         if target != "open":
-            try:
+            with contextlib.suppress(httpx.HTTPError):
                 await client.patch(
                     f"{case_url}/v1/cases/{case_id}?tenant_id={tid_q}",
                     json={"status": target},
                 )
-            except httpx.HTTPError:
-                pass
 
         print(f"    Case '{case_def['title'][:50]}...' → {target}")
 
@@ -858,7 +891,9 @@ async def main(
         # ── Idempotency ──────────────────────────────────────────────
         if not force:
             if await _already_seeded(client, case_url):
-                print("\nDemo data already exists for tenant 'demo'. Use --force to re-seed (additive).")
+                print(
+                    "\nDemo data already exists for tenant 'demo'. Use --force to re-seed (additive)."
+                )
                 return
 
         print()
@@ -934,7 +969,9 @@ def cli() -> None:
         help="Re-seed even if demo data already exists (additive)",
     )
     args = parser.parse_args()
-    asyncio.run(main(args.decision_url, args.case_url, args.graph_url, args.ingress_url, args.force))
+    asyncio.run(
+        main(args.decision_url, args.case_url, args.graph_url, args.ingress_url, args.force)
+    )
 
 
 if __name__ == "__main__":

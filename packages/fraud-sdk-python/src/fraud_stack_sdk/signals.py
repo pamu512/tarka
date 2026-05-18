@@ -97,7 +97,10 @@ class ServerSignalCollector:
         is_datacenter = (asn or "").upper() in _DATACENTER_ASNS
         is_proxy = has_proxy_headers and not _is_private_ip(ip)
         ua = headers.get("user-agent", "")
-        bot_ua = any(kw in ua.lower() for kw in ("bot", "crawler", "spider", "curl", "wget", "python-requests"))
+        bot_ua = any(
+            kw in ua.lower()
+            for kw in ("bot", "crawler", "spider", "curl", "wget", "python-requests")
+        )
 
         out: dict[str, Any] = {
             "ip_address": ip,
@@ -136,7 +139,9 @@ class ServerSignalCollector:
                 "signals": merged_signals,
             }
 
-        device_id = hashlib.sha256(f"{ip}|{headers.get('user-agent', '') if headers else ''}".encode()).hexdigest()
+        device_id = hashlib.sha256(
+            f"{ip}|{headers.get('user-agent', '') if headers else ''}".encode()
+        ).hexdigest()
         return {
             "device_id": device_id,
             "platform": "server",

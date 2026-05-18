@@ -66,18 +66,29 @@ def _inference_slice(ctx: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _dependency_related_change(old_tags: set[str], new_tags: set[str], old_fallback: str, new_fallback: str) -> bool:
-    dep_prefixes = ("graph:", "ml:", "opa:", "location:", "counter:", "external:", "enrichment:", "lists:")
+def _dependency_related_change(
+    old_tags: set[str], new_tags: set[str], old_fallback: str, new_fallback: str
+) -> bool:
+    dep_prefixes = (
+        "graph:",
+        "ml:",
+        "opa:",
+        "location:",
+        "counter:",
+        "external:",
+        "enrichment:",
+        "lists:",
+    )
     old_dep = {x for x in old_tags if x.startswith(dep_prefixes)}
     new_dep = {x for x in new_tags if x.startswith(dep_prefixes)}
     if old_dep != new_dep:
         return True
-    if old_fallback != new_fallback:
-        return True
-    return False
+    return old_fallback != new_fallback
 
 
-def _classify_drift(row: dict[str, Any], fresh: dict[str, Any], score_delta_threshold: float) -> tuple[list[str], dict[str, Any]]:
+def _classify_drift(
+    row: dict[str, Any], fresh: dict[str, Any], score_delta_threshold: float
+) -> tuple[list[str], dict[str, Any]]:
     old_decision = str(row.get("decision"))
     new_decision = str(fresh.get("decision"))
     old_score = float(row.get("score", 0.0) or 0.0)
@@ -87,7 +98,9 @@ def _classify_drift(row: dict[str, Any], fresh: dict[str, Any], score_delta_thre
     old_hits = set(_as_str_list(row.get("rule_hits")))
     new_hits = set(_as_str_list(fresh.get("rule_hits")))
     old_ctx = row.get("inference_context") if isinstance(row.get("inference_context"), dict) else {}
-    new_ctx = fresh.get("inference_context") if isinstance(fresh.get("inference_context"), dict) else {}
+    new_ctx = (
+        fresh.get("inference_context") if isinstance(fresh.get("inference_context"), dict) else {}
+    )
     old_slice = _inference_slice(old_ctx)
     new_slice = _inference_slice(new_ctx)
     old_fallback = str(row.get("fallback_reason") or "")
@@ -106,7 +119,9 @@ def _classify_drift(row: dict[str, Any], fresh: dict[str, Any], score_delta_thre
     score_delta = abs(new_score - old_score)
     decision_changed = old_decision != new_decision
     inference_changed = old_slice != new_slice
-    if (decision_changed or inference_changed or score_delta >= score_delta_threshold) and not categories:
+    if (
+        decision_changed or inference_changed or score_delta >= score_delta_threshold
+    ) and not categories:
         categories.add("data_drift")
 
     detail = {
@@ -130,9 +145,20 @@ def main() -> int:
     parser.add_argument("--base-url", default="http://localhost:8000")
     parser.add_argument("--api-key", default="")
     parser.add_argument("--limit", type=int, default=200)
-    parser.add_argument("--allow-http-errors", action="store_true", help="Do not fail process when replay requests return non-200")
-    parser.add_argument("--score-delta-threshold", type=float, default=5.0, help="Absolute score delta threshold for data drift classification")
-    parser.add_argument("--sample-limit", type=int, default=20, help="Max drift samples included in output")
+    parser.add_argument(
+        "--allow-http-errors",
+        action="store_true",
+        help="Do not fail process when replay requests return non-200",
+    )
+    parser.add_argument(
+        "--score-delta-threshold",
+        type=float,
+        default=5.0,
+        help="Absolute score delta threshold for data drift classification",
+    )
+    parser.add_argument(
+        "--sample-limit", type=int, default=20, help="Max drift samples included in output"
+    )
     parser.add_argument(
         "--max-allowed-decision-change-rate",
         type=float,
@@ -166,7 +192,9 @@ def main() -> int:
             headers = {"content-type": "application/json"}
             if args.api_key:
                 headers["x-api-key"] = args.api_key
-            response = client.post(f"{args.base_url.rstrip('/')}/v1/decisions/evaluate", headers=headers, json=req)
+            response = client.post(
+                f"{args.base_url.rstrip('/')}/v1/decisions/evaluate", headers=headers, json=req
+            )
             if response.status_code != 200:
                 http_errors += 1
                 continue
@@ -217,11 +245,15 @@ def main() -> int:
     decision_budget = float(args.max_allowed_decision_change_rate)
     drift_budget = float(args.max_allowed_drift_rate)
     if decision_budget >= 0.0 and out["decision_change_rate"] > decision_budget:
-        budget_failures.append(f"decision_change_rate={out['decision_change_rate']} > max_allowed_decision_change_rate={decision_budget}")
+        budget_failures.append(
+            f"decision_change_rate={out['decision_change_rate']} > max_allowed_decision_change_rate={decision_budget}"
+        )
     if drift_budget >= 0.0:
         max_drift_rate = max(drift_rates.values()) if drift_rates else 0.0
         if max_drift_rate > drift_budget:
-            budget_failures.append(f"max_drift_rate={max_drift_rate} > max_allowed_drift_rate={drift_budget}")
+            budget_failures.append(
+                f"max_drift_rate={max_drift_rate} > max_allowed_drift_rate={drift_budget}"
+            )
     out["budget_failures"] = budget_failures
 
     print(json.dumps(out, indent=2))

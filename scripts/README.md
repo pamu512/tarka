@@ -27,6 +27,12 @@ Automation, **CI gates**, benchmarks, ETL helpers, and release tooling. Many sub
 |--------|---------|
 | [`run-batch-ingest.sh`](run-batch-ingest.sh) | Wrapper for **`services/batch-ingest`** — CSV → ClickHouse `fraud_features_offline` (checkpoints; no NATS). See [`services/batch-ingest/README.md`](../services/batch-ingest/README.md). |
 
+## Documentation generation
+
+| Script | Purpose |
+|--------|---------|
+| [`docs/generate_rule_logic_docs.py`](docs/generate_rule_logic_docs.py) | Scan compiler-style YAML rules and regenerate [`docs/docs/generated/logic-reference.md`](../docs/docs/generated/logic-reference.md) for MkDocs. Requires PyYAML (`pip install -r docs/requirements.txt`). Run before `mkdocs build` when rules change. |
+
 ## Documented elsewhere
 
 | Area | README |

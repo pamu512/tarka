@@ -1,0 +1,50 @@
+# OpenTelemetry Collector (contrib) — OTLP in, ClickHouse native export for forensic trace SQL.
+#
+# Prerequisites:
+#   1. ClickHouse has database `tarka_audit` (see services/ingestor/schema/clickhouse.sql).
+#   2. Apply services/ingestor/schema/clickhouse_otel_spans.sql so `otel_spans` (+ lookup MV) exist.
+#   3. Run with create_schema: false so schema is owned by migrations (avoids startup DDL races).
+#
+# References: https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/clickhouseexporter
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+
+exporters:
+  clickhouse:
+    endpoint: tcp://clickhouse:9000?dial_timeout=15s
+    database: tarka_audit
+    username: default
+    password: ""
+    traces_table_name: otel_spans
+    create_schema: false
+    async_insert: true
+    compress: lz4
+    timeout: 15s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [clickhouse]

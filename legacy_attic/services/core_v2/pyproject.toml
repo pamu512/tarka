@@ -1,0 +1,5 @@
+[tool.ruff]
+exclude = [".venv"]
+
+[tool.ruff.lint.per-file-ignores]
+"main.py" = ["E402"]

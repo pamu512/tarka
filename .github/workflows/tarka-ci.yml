@@ -1,0 +1,155 @@
+# V2 ingestion sidecars: Rule Engine, Shadow Agent, Orchestrator (+ shared ingestor).
+# Lint runs before tests so a deliberate ruff violation fails the job before pytest starts.
+#
+# Gate (manual): on a throwaway branch, introduce a ruff error (e.g. unused import) under
+# tarka_v2_core/services/{rule_engine,shadow_agent,orchestrator,ingestor}/, push, open PR —
+# the "Ruff" step must fail; pytest steps must not run (skipped after failure).
+#
+# Trivy gate: uncomment ``urllib3==1.25.11`` in ``services/orchestrator/requirements.txt``,
+# push to a branch — the container-scan job must fail before merge.
+name: Tarka V2 Sidecars CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: tarka-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Shadow main.py requires a non-empty key at import time for some tests; others inject their own.
+  SHADOW_API_KEY: ci-placeholder-not-for-production
+
+jobs:
+  v2-sidecars:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            tarka_v2_core/services/orchestrator/pyproject.toml
+            tarka_v2_core/services/rule_engine/pyproject.toml
+            tarka_v2_core/services/shadow/pyproject.toml
+            tarka_v2_core/services/saarthi/pyproject.toml
+            tarka_v2_core/services/shadow_agent/pyproject.toml
+
+      - name: Install tooling and editable sidecars
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff black pytest openai psutil
+          pip install -e "./tarka_v2_core/services/shadow[dev]"
+          pip install -e ./tarka_v2_core/services/rule_engine
+          pip install -e ./tarka_v2_core/services/orchestrator
+          pip install -e "./tarka_v2_core/services/saarthi[dev]"
+          pip install -e ./tarka_v2_core/services/shadow_agent
+
+      - name: Ruff (sidecars + ingestor)
+        run: |
+          ruff check \
+            tarka_v2_core/services/rule_engine \
+            tarka_v2_core/services/shadow \
+            tarka_v2_core/services/shadow_agent \
+            tarka_v2_core/services/orchestrator \
+            tarka_v2_core/services/saarthi \
+            tarka_v2_core/services/ingestor
+
+      - name: Black
+        run: |
+          black --check --line-length 100 \
+            tarka_v2_core/services/rule_engine \
+            tarka_v2_core/services/shadow \
+            tarka_v2_core/services/shadow_agent \
+            tarka_v2_core/services/orchestrator \
+            tarka_v2_core/services/saarthi \
+            tarka_v2_core/services/ingestor
+
+      - name: Pytest — Rule Engine
+        working-directory: tarka_v2_core/services/rule_engine
+        run: pytest tests -q
+
+      - name: Pytest — Orchestrator
+        working-directory: tarka_v2_core/services/orchestrator
+        run: pytest tests -q
+
+      - name: Pytest — Shadow (hooks + NATS tools)
+        working-directory: tarka_v2_core/services/shadow
+        env:
+          PYTHONPATH: ${{ github.workspace }}/tarka_v2_core/services
+        run: pytest tests -q
+
+      - name: Pytest — Shadow Agent
+        working-directory: tarka_v2_core/services/shadow_agent
+        run: pytest tests -q
+
+      - name: Pytest — Saarthi (SAR PDF)
+        working-directory: tarka_v2_core/services/saarthi
+        run: pytest tests -q
+
+  # Multi-stage Dockerfiles under tarka_v2_core/services/*/Dockerfile — scan after lint+tests pass.
+  container-scan:
+    name: Container images (Trivy)
+    runs-on: ubuntu-latest
+    needs: v2-sidecars
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build sidecar images
+        working-directory: tarka_v2_core
+        run: |
+          set -eux
+          docker build -f services/orchestrator/Dockerfile -t tarka-orchestrator:ci .
+          docker build -f services/rule_engine/Dockerfile -t tarka-rule-engine:ci .
+          docker build -f services/shadow_agent/Dockerfile -t tarka-shadow-agent:ci .
+
+      - name: Trivy — Orchestrator
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: tarka-orchestrator:ci
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: "false"
+          hide-progress: "true"
+
+      - name: Trivy — Rule Engine
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: tarka-rule-engine:ci
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: "false"
+          hide-progress: "true"
+
+      - name: Trivy — Shadow Agent
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: tarka-shadow-agent:ci
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: "false"
+          hide-progress: "true"

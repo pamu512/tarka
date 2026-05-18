@@ -1,0 +1,12 @@
+# Optional overlay for Playwright / local E2E against Tarka Micro.
+# Usage (from repo root):
+#   export E2E_API_KEY="playwright-e2e-micro-key"
+#   docker compose -f deploy/docker-compose.micro.yml -f deploy/docker-compose.micro.e2e.yml up -d --build
+#
+# Grants case-api / SAR mutating routes (analyst+) via X-API-Key without changing ALLOW_INSECURE_NO_AUTH.
+
+services:
+  core-api:
+    environment:
+      API_KEYS: "${E2E_API_KEY:-playwright-e2e-micro-key}"
+      SERVICE_API_KEY_ROLE: "admin"

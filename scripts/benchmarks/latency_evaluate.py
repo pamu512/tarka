@@ -114,7 +114,9 @@ def main() -> int:
             f"p95={percentile(latencies, 95):.2f} p99={percentile(latencies, 99):.2f} "
             f"max={latencies[-1]:.2f}"
         )
-        print(f"mean_ms={statistics.mean(latencies):.2f} stdev_ms={statistics.pstdev(latencies):.2f}")
+        print(
+            f"mean_ms={statistics.mean(latencies):.2f} stdev_ms={statistics.pstdev(latencies):.2f}"
+        )
     if codes:
         from collections import Counter
 

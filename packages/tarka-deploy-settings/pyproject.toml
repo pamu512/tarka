@@ -1,0 +1,16 @@
+[project]
+name = "tarka-deploy-settings"
+version = "0.1.0"
+description = "Validated deployment/runtime settings (TTLs, graph hops, JVM hints) for Tarka."
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.13.0",
+  "pydantic-settings>=2.6.0",
+]
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

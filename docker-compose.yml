@@ -1,0 +1,81 @@
+# Root stack: Postgres + Redis + Core API + ML sidecar + batch copilot.
+# Usage: docker compose up --build
+
+name: tarka
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tarka_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: tarka
+    ports:
+      - "5432:5432"
+    volumes:
+      - tarka_pg:/var/lib/postgresql/data
+      - ./deploy/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: tarka_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  core_api:
+    build:
+      context: .
+      dockerfile: services/core_v2/Dockerfile
+    container_name: tarka_core_api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/tarka
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+
+  ml_sidecar:
+    build:
+      context: .
+      dockerfile: services/ml_sidecar/Dockerfile
+    container_name: tarka_ml_sidecar
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./services/ml_sidecar/models:/app/models:ro
+
+  copilot_batch:
+    build:
+      context: .
+      dockerfile: services/copilot_batch/Dockerfile
+    container_name: tarka_copilot_batch
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/tarka
+
+volumes:
+  tarka_pg:

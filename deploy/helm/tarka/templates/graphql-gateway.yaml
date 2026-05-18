@@ -1,0 +1,85 @@
+{{- if and .Values.graphqlGateway.enabled (not .Values.coreApi.enabled) }}
+  {{- $gw := .Values.graphqlGateway.env }}
+  {{- if not (and $gw.caseApiUrl $gw.decisionApiUrl $gw.graphServiceUrl) }}
+{{- fail "graphql-gateway: when coreApi.enabled is false, set graphqlGateway.env.caseApiUrl, decisionApiUrl, and graphServiceUrl to reachable service URLs." }}
+  {{- end }}
+{{- end }}
+{{- if .Values.graphqlGateway.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-graphql-gateway
+  labels:
+    {{- include "tarka.labels" . | nindent 4 }}
+    tarka.io/component: graphql-gateway
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "tarka.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    tarka.io/component: graphql-gateway
+  ports:
+    - name: http
+      port: {{ .Values.graphqlGateway.service.port }}
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-graphql-gateway
+  labels:
+    {{- include "tarka.labels" . | nindent 4 }}
+    tarka.io/component: graphql-gateway
+spec:
+  replicas: {{ .Values.graphqlGateway.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "tarka.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      tarka.io/component: graphql-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "tarka.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        tarka.io/component: graphql-gateway
+        {{- with .Values.global.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "tarka.serviceAccountName" . }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: graphql-gateway
+          image: {{ include "tarka.containerImage" (dict "root" . "repository" .Values.graphqlGateway.image.repository "tag" .Values.graphqlGateway.image.tag) }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.graphqlGateway.service.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "tarka.platformConfigMap" . }}
+          {{- $useSecret := or .Values.credentials.create .Values.credentials.existingSecretName }}
+          {{- if $useSecret }}
+            - secretRef:
+                name: {{ include "tarka.credentialsSecret" . }}
+          {{- end }}
+          env:
+            - name: DECISION_API_URL
+              value: {{ coalesce .Values.graphqlGateway.env.decisionApiUrl (printf "http://%s-core-api:%v/decisions" (include "tarka.fullname" .) .Values.coreApi.service.port) | quote }}
+            - name: CASE_API_URL
+              value: {{ coalesce .Values.graphqlGateway.env.caseApiUrl (printf "http://%s-core-api:%v/cases" (include "tarka.fullname" .) .Values.coreApi.service.port) | quote }}
+            - name: GRAPH_SERVICE_URL
+              value: {{ coalesce .Values.graphqlGateway.env.graphServiceUrl (printf "http://%s-graph-service:%v" (include "tarka.fullname" .) .Values.graphService.service.port) | quote }}
+          resources:
+            {{- toYaml .Values.graphqlGateway.resources | nindent 12 }}
+          startupProbe:
+            {{- toYaml .Values.graphqlGateway.startupProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.graphqlGateway.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.graphqlGateway.readinessProbe | nindent 12 }}
+{{- end }}

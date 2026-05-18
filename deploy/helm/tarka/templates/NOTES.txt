@@ -1,0 +1,26 @@
+Tarka platform chart installed in namespace {{ .Release.Namespace }} as release {{ .Release.Name }}.
+
+## Platform Secret (when credentials.create=false)
+
+Create an Opaque Secret named `{{ include "tarka.credentialsSecret" . }}` with the keys your enabled workloads need:
+
+- DATABASE_URL — async Postgres URL (e.g. postgresql+asyncpg://user:pass@host:5432/db) for core-api, graph-service, integration-ingress, case-api (standalone), decision-api (standalone).
+- REDIS_URL — redis://… for core-api, signal-api, decision-api (standalone), data-plane ingest paths.
+- NATS_URL — nats://[user:pass@]host:4222 for NATS JetStream producers/consumers (core-api, decision-api, data-plane, case SAR worker when configured).
+- CLICKHOUSE_USER / CLICKHOUSE_PASSWORD — ClickHouse HTTP/native auth (decision-api analytics, data-plane sink, analytics paths).
+- API_KEYS — optional comma-separated keys for X-Api-Key (graphql-gateway, ingress surfaces that enforce keys).
+- UPSTREAM_API_KEY — optional outbound key; collaboration-chat-bridge maps it to INVESTIGATION_AGENT_API_KEY when present.
+
+Non-secret NATS/ClickHouse/Redis/Postgres host wiring is in ConfigMap `{{ include "tarka.platformConfigMap" . }}` (see templates/configmap-platform.yaml).
+
+## Topology guards
+
+- core-api requires signal-api.enabled=true.
+- Standalone case-api / decision-api require coreApi.enabled=false.
+- graphql-gateway with coreApi.enabled=false requires graphqlGateway.env.caseApiUrl, decisionApiUrl, and graphServiceUrl.
+- data-plane with coreApi.enabled=false requires dataPlane.env.decisionApiUrl (decision API base URL).
+- investigation-agent requires coreApi.enabled (defaults target the macroservice).
+
+## Health probes
+
+Each FastAPI workload uses HTTP probes against real routes (see values.yaml), e.g. /v1/health, core-api readiness /cases/v1/health, investigation-agent and data-plane readiness /v1/ready.

@@ -1,0 +1,65 @@
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    database_url: str = "postgresql+asyncpg://fraud:fraud@localhost:5432/fraud"
+    api_keys: str = ""
+
+    # Async OSINT fan-in (decision-api publishes; this service consumes and writes Redis)
+    nats_url: str = ""
+    redis_url: str = ""
+    async_enrichment_redis_ttl_seconds: int = 3600
+
+    # OSINT FinOps (vendor cache + daily USD budget; audit skipped-call savings to Postgres)
+    osint_finops_enabled: bool = True
+    osint_daily_budget_usd: float = 250.0
+    osint_ttl_ip_seconds: int = 86_400  # 24h
+    osint_ttl_email_seconds: int = 604_800  # 7d
+    osint_ttl_phone_seconds: int = 86_400
+    osint_ttl_domain_seconds: int = 604_800
+    osint_ttl_identity_seconds: int = 604_800
+
+    # OSINT API keys (all optional — sources without keys are skipped or use free tier)
+    abuseipdb_key: str = ""
+    greynoise_key: str = ""
+    emailrep_key: str = ""
+    numverify_key: str = ""
+    ipinfo_token: str = ""
+
+    # Vault KMS settings
+    integration_vault_key: str = "tarka-integration-vault-dev-key"
+    kms_provider: str = "local"  # local | aws | gcp | azure
+    kms_active_key_id: str = "v1"
+    kms_keyring_json: str = ""  # optional JSON map {"v1":"secret","v2":"secret2"}
+    kms_rotation_enabled: bool = False
+    kms_rotation_interval_seconds: int = 86400
+    kms_startup_self_check: bool = False
+    aws_kms_region: str = "us-east-1"
+    aws_kms_endpoint_url: str = ""
+    gcp_kms_key_resource: str = ""
+    azure_key_vault_url: str = ""
+    azure_kms_key_name: str = ""
+    azure_kms_credential_mode: str = "default"  # default | client_secret
+
+    # Optional JSON file backing the admin residency vendor block matrix (tenant × vendor).
+    residency_matrix_json_path: str = ""
+
+    # System health HUD (Prompt 169) — edge workstation probes.
+    ollama_base_url: str = "http://127.0.0.1:11434/v1"
+
+    # Dead Letter Office (Prompt 171) — JetStream ingest DLQ peek.
+    nats_dlq_subject: str = "fraud.events.dlq"
+    nats_stream_name: str = "FRAUD_EVENTS"
+    ingest_subject_prefix: str = "fraud.events"
+
+    # Automated backup indicators (Prompt 173).
+    tarka_backup_dir: str = "data/backups"
+    backup_ok_max_age_hours: float = 26.0
+    backup_warn_max_age_hours: float = 50.0
+    backup_postgres_schedule_hint: str = "Daily 02:00 UTC (pg_dump)"
+    backup_janusgraph_schedule_hint: str = "Daily 03:30 UTC (gremlin backup)"
+
+
+settings = Settings()
