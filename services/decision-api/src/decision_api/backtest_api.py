@@ -21,10 +21,10 @@ from auth_rbac import require_role  # noqa: E402
 from analytics import queries  # noqa: E402
 from analytics.engine import BaseAnalyticsEngine  # noqa: E402
 
-from decision_api.backtest_job_runner import (
+from decision_api.backtest_job_runner import (  # noqa: E402
     rule_pack_fingerprint_sha256,
     run_backtest_job,
-)  # noqa: E402
+)
 from decision_api.config import settings  # noqa: E402
 from decision_api.db import get_session  # noqa: E402
 from decision_api.deps import require_analytics_engine  # noqa: E402

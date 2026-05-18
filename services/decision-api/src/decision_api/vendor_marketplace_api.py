@@ -19,10 +19,10 @@ from auth_rbac import require_role  # noqa: E402
 
 from decision_api.db import get_session  # noqa: E402
 from decision_api.vendors.base import VendorTier  # noqa: E402
-from decision_api.vendors.cost_router import (
+from decision_api.vendors.cost_router import (  # noqa: E402
     PREMIUM_COST_SCORE_THRESHOLD,
     maybe_invoke_vendor,
-)  # noqa: E402
+)
 from decision_api.vendors.exceptions import (  # noqa: E402
     VendorAuditConfigurationError,
     VendorTimeoutError,

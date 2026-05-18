@@ -1076,10 +1076,10 @@ from decision_api.rule_compiler_api import router as rule_compiler_router  # noq
 from decision_api.rule_gitops_api import router as rule_gitops_router  # noqa: E402
 from decision_api.simulation_api import router as simulation_router  # noqa: E402
 from decision_api.vendor_marketplace_api import router as vendor_marketplace_router  # noqa: E402
-from decision_api.sandbox_bootstrap import (
+from decision_api.sandbox_bootstrap import (  # noqa: E402
     maybe_hydrate_sandbox_plg_pack,
     router as sandbox_bootstrap_router,
-)  # noqa: E402
+)
 
 app.include_router(rule_router)
 app.include_router(replay_router)

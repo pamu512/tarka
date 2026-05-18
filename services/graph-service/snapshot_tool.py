@@ -45,7 +45,7 @@ def _ensure_graph_service_path() -> None:
         sys.path.insert(0, p)
 
 
-def _gremlin_T() -> Any:
+def _gremlin_T() -> Any:  # noqa: N802
     from gremlin_python.process.traversal import T
 
     return T
