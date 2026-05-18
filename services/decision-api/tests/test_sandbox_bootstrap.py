@@ -3,7 +3,6 @@
 from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
 import pytest
 from httpx import ASGITransport, AsyncClient
 

@@ -15,7 +15,7 @@ if context.config.config_file_name:
 _app_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_app_root / "src"))
 
-from tarka_core.database import install_sqlite_migration_compilers
+from tarka_core.database import install_sqlite_migration_compilers  # noqa: E402
 
 install_sqlite_migration_compilers()
 
