@@ -303,13 +303,27 @@ async def evaluate(req: LocationEvaluateRequest):
     }
 
 
-@app.put("/v1/trusted-places/{tenant_id}/{entity_id}")
-async def put_trusted_places(tenant_id: str, entity_id: str, body: TrustedPlacesRequest):
+def _persist_trusted_places_for_entity(
+    tenant_id: str,
+    entity_id: str,
+    places: list[dict[str, Any]],
+) -> int:
+    """Write sanitized trusted-place geometry only (no credentials or API material)."""
     data = _load_trusted_places()
-    data[_trusted_key(tenant_id, entity_id)] = list(body.places)
+    data[_trusted_key(tenant_id, entity_id)] = places
     data.pop(_trusted_key_legacy(tenant_id, entity_id), None)
     _save_trusted_places(data)
-    return {"ok": True, "tenant_id": tenant_id, "entity_id": entity_id, "count": len(body.places)}
+    return len(data[_trusted_key(tenant_id, entity_id)])
+
+
+@app.put("/v1/trusted-places/{tenant_id}/{entity_id}")
+async def put_trusted_places(tenant_id: str, entity_id: str, body: TrustedPlacesRequest):
+    count = _persist_trusted_places_for_entity(
+        tenant_id,
+        entity_id,
+        [dict(p) for p in body.places if isinstance(p, dict)],
+    )
+    return {"ok": True, "tenant_id": tenant_id, "entity_id": entity_id, "count": count}
 
 
 @app.get("/v1/trusted-places/{tenant_id}/{entity_id}")

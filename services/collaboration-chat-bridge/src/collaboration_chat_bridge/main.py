@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from typing import Any, Literal
 
 import httpx
-from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Request, Response
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -28,6 +28,7 @@ from collaboration_chat_bridge.reply_format import (
     format_teams_error_card,
 )
 from collaboration_chat_bridge.secrets_util import constant_time_string_equals
+from collaboration_chat_bridge.trusted_scope import trusted_scope_headers
 from collaboration_chat_bridge.slack_events import process_slack_event_payload, run_slack_turn
 from collaboration_chat_bridge.slack_verify import verify_slack_signature
 
@@ -248,6 +249,16 @@ def _plugin_secret_ok(x_bridge_secret: str | None) -> bool:
     if not expected:
         return False
     return constant_time_string_equals(expected, x_bridge_secret)
+
+
+async def require_teams_bridge_secret(
+    request: Request,
+    x_bridge_secret: str | None = Header(default=None, alias="X-Bridge-Secret"),
+) -> None:
+    if _teams_secret_ok(x_bridge_secret):
+        return
+    correlation_id = _request_correlation_id(request)
+    raise _ingress_http_exc(401, "invalid X-Bridge-Secret", correlation_id)
 
 
 def _rate_limit_bridge_key(request: Request, prefix: str) -> None:
@@ -493,7 +504,6 @@ async def _teams_chat_result(
     return {
         "ok": True,
         "adaptive_card": format_teams_adaptive_card(agent_out),
-        "raw": agent_out,
     }
 
 
@@ -502,22 +512,10 @@ async def teams_messages(
     request: Request,
     response: Response,
     body: TeamsBridgeBody,
-    x_bridge_secret: str | None = Header(default=None, alias="X-Bridge-Secret"),
+    _: None = Depends(require_teams_bridge_secret),
 ):
     correlation_id = _request_correlation_id(request)
     response.headers["X-Correlation-Id"] = correlation_id
-    if not _teams_secret_ok(x_bridge_secret):
-        _audit_ingress_event(
-            route="teams_messages",
-            outcome="unauthorized",
-            correlation_id=correlation_id,
-            status_code=401,
-            request=request,
-            tenant_id=body.tenant_id or settings.default_tenant_id,
-            analyst_id=body.analyst_id or "teams_user",
-            reason="invalid_bridge_secret",
-        )
-        raise _ingress_http_exc(401, "invalid X-Bridge-Secret", correlation_id)
     if settings.bridge_rate_limit_per_minute > 0:
         lim = getattr(request.app.state, "bridge_rate_limiter", None)
         if lim:
@@ -533,8 +531,7 @@ async def teams_messages(
                     analyst_id=body.analyst_id or "teams_user",
                 )
                 raise _ingress_http_exc(429, "rate limit exceeded", correlation_id)
-    trusted_tenant = (request.headers.get("X-Tenant-Id") or request.headers.get("X-Tarka-Tenant-Id") or "").strip()
-    trusted_analyst = (request.headers.get("X-Analyst-Id") or request.headers.get("X-Tarka-Analyst-Id") or "").strip()
+    trusted_tenant, trusted_analyst = trusted_scope_headers(request)
     if settings.bridge_trusted_scope_headers_required and (not trusted_tenant or not trusted_analyst):
         _audit_ingress_event(
             route="teams_messages",
@@ -765,7 +762,7 @@ async def teams_activity(
     request: Request,
     response: Response,
     body: TeamsActivityBody,
-    x_bridge_secret: str | None = Header(default=None, alias="X-Bridge-Secret"),
+    _: None = Depends(require_teams_bridge_secret),
 ):
     """
     Accept a Bot Framework–shaped **message** activity from a gateway you trust.
@@ -773,17 +770,6 @@ async def teams_activity(
     """
     correlation_id = _request_correlation_id(request)
     response.headers["X-Correlation-Id"] = correlation_id
-    if not _teams_secret_ok(x_bridge_secret):
-        _audit_ingress_event(
-            route="teams_activity",
-            outcome="unauthorized",
-            correlation_id=correlation_id,
-            status_code=401,
-            request=request,
-            tenant_id=settings.default_tenant_id,
-            reason="invalid_bridge_secret",
-        )
-        raise _ingress_http_exc(401, "invalid X-Bridge-Secret", correlation_id)
     if settings.bridge_rate_limit_per_minute > 0:
         lim = getattr(request.app.state, "bridge_rate_limiter", None)
         if lim:
@@ -1001,7 +987,7 @@ async def _lark_reply_task(
         out_text = format_lark_card_text(agent_out)
     except AgentChatError as e:
         log.warning("lark turn agent error: %s", e)
-        out_text = format_lark_error_text(str(e), e.body_snippet)
+        out_text = format_lark_error_text("Copilot is temporarily unavailable.", "")
         outcome = "unavailable"
         upstream_status = int(e.status_code or 0) or None
         reason = "agent_unavailable"
