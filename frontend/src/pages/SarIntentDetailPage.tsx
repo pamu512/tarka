@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { cases, type SarIntentDetailResponse } from "../api/client";
 import { SarApproveForFilingControls } from "../components/SarApproveForFilingControls";
 import { SarInvestigativeNotesEditor } from "../components/SarInvestigativeNotesEditor";
+import { SarRegulatoryProgressBar } from "../components/SarRegulatoryProgressBar";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
@@ -120,6 +121,10 @@ export default function SarIntentDetailPage() {
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200/90 space-y-1">
           <p>{saveErr}</p>
         </div>
+      ) : null}
+
+      {detail ? (
+        <SarRegulatoryProgressBar variant="workspace" detail={detail} draftNotesHtml={draftHtml} />
       ) : null}
 
       {detail ? (

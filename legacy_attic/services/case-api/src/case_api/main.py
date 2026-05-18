@@ -206,6 +206,12 @@ class BulkCaseUpdateRequest(BaseModel):
     priority: str | None = None
     assigned_team: str | None = None
     add_labels: list[str] = Field(default_factory=list)
+    comment_body: str | None = Field(
+        default=None,
+        max_length=16_000,
+        description="When set, the same analyst comment is appended to every case in the bulk update.",
+    )
+    comment_author: str = Field(default="analyst", max_length=128)
 
 
 class SaveViewRequest(BaseModel):
@@ -385,6 +391,7 @@ async def list_cases(
     limit: int = 50,
     sort_by: str = "queue",
 ):
+    lim = max(1, min(int(limit), 500))
     q = select(Case).where(Case.tenant_id == tenant_id)
     if status:
         q = q.where(Case.status == status)
@@ -394,7 +401,7 @@ async def list_cases(
         q = q.order_by(Case.priority.asc(), Case.updated_at.desc())
     else:
         q = q.order_by(Case.updated_at.desc())
-    q = q.limit(limit)
+    q = q.limit(lim)
     try:
         result = await session.execute(q)
         rows = result.scalars().all()
@@ -715,6 +722,8 @@ async def bulk_update_cases(
     if not body.case_ids:
         return {"updated": 0, "items": []}
     user = get_current_user(request)
+    comment_text = (body.comment_body or "").strip()
+    author_for_comment = (body.comment_author or "analyst").strip() or "analyst"
     q = select(Case).where(Case.id.in_(body.case_ids), Case.tenant_id == body.tenant_id)
     result = await session.execute(q)
     rows = result.scalars().all()
@@ -738,6 +747,17 @@ async def bulk_update_cases(
                 resource_type="case",
                 resource_id=str(case.id),
                 changes=diff,
+                tenant_id=case.tenant_id,
+            )
+        if comment_text:
+            session.add(CaseComment(case_id=case.id, author=author_for_comment, body=comment_text))
+            await _trail.record(
+                session,
+                actor=user.user_id,
+                action="add_comment",
+                resource_type="case",
+                resource_id=str(case.id),
+                changes={"comment": {"author": author_for_comment, "body": comment_text[:200]}},
                 tenant_id=case.tenant_id,
             )
         updated.append(new_state)

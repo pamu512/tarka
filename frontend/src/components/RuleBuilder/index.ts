@@ -9,6 +9,9 @@ export {
 export { compileFlowToJsonAst, defaultPackNameFromCanvas, readRuleRootMeta } from "./compileFlowToJsonAst";
 export { connectionCreatesDirectedCycle, graphHasDirectedCycle } from "./graphCycle";
 export { RuleBuilderCanvas } from "./RuleBuilderCanvas";
+export type { RuleBuilderCanvasProps } from "./RuleBuilderCanvas";
+export { jsonAstToReactFlow, legacyWhenToJsonAst, packRuleRecordToFlow } from "./jsonAstToReactFlow";
+export type { RuleRootMeta } from "./jsonAstToReactFlow";
 export { TestRuleModal } from "./TestRuleModal";
 export { tryCompileFlowToJsonAst, validateCanvasForAstSave, validateJsonAstPayload } from "./validateRuleBuilderCanvas";
 export type { CanvasValidationResult } from "./validateRuleBuilderCanvas";

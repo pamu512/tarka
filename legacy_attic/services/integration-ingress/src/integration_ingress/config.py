@@ -46,5 +46,20 @@ class Settings(BaseSettings):
     # Optional JSON file backing the admin residency vendor block matrix (tenant × vendor).
     residency_matrix_json_path: str = ""
 
+    # System health HUD (Prompt 169) — edge workstation probes.
+    ollama_base_url: str = "http://127.0.0.1:11434/v1"
+
+    # Dead Letter Office (Prompt 171) — JetStream ingest DLQ peek.
+    nats_dlq_subject: str = "fraud.events.dlq"
+    nats_stream_name: str = "FRAUD_EVENTS"
+    ingest_subject_prefix: str = "fraud.events"
+
+    # Automated backup indicators (Prompt 173).
+    tarka_backup_dir: str = "data/backups"
+    backup_ok_max_age_hours: float = 26.0
+    backup_warn_max_age_hours: float = 50.0
+    backup_postgres_schedule_hint: str = "Daily 02:00 UTC (pg_dump)"
+    backup_janusgraph_schedule_hint: str = "Daily 03:30 UTC (gremlin backup)"
+
 
 settings = Settings()

@@ -598,8 +598,8 @@ def create_app(
                 detail={"error": "unsupported_file_type", "message": str(exc)},
             ) from exc
         except RuntimeError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        raise HTTPException(
+                            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail={"error": "pdf_parser_unavailable", "message": str(exc)},
             ) from exc
         gc: GraphClient = request.app.state.graph_client
@@ -649,7 +649,7 @@ def create_app(
                     r = await client.post(
                         f"{str(shadow_base).rstrip('/')}/v1/analyze",
                         json=body,
-                        headers=headers or None,
+                            headers=headers or None,
                     )
                     r.raise_for_status()
                     cluster_analysis = r.json()
@@ -1023,10 +1023,14 @@ def create_app(
         _request: Request,
         analytics: Annotated[AnalyticsProvider | None, Depends(get_analytics)],
         limit: int = Query(
-            500,
+            200,
             ge=1,
             le=10_000,
             description="Maximum rows to return (newest ``ts`` first).",
+        ),
+        cursor: str | None = Query(
+            None,
+            description="Opaque keyset cursor from a prior response ``next_cursor``.",
         ),
     ) -> AnalyticsTransactionsSnapshot:
         """Expose the analytical stream backing ingest append + seed data."""
@@ -1039,8 +1043,18 @@ def create_app(
                 },
             )
 
-        rows = await asyncio.to_thread(analytics.list_analytics_transactions, limit=limit)
-        return AnalyticsTransactionsSnapshot(rows=rows)
+        backend = "duckdb" if type(analytics).__name__ in ("LocalAnalytics", "DuckAnalyticsProvider") else "clickhouse"
+
+        def _run() -> tuple[list[dict[str, Any]], str | None, float]:
+            return analytics.list_analytics_transactions(limit=limit, cursor=cursor)
+
+        rows, next_cursor, query_ms = await asyncio.to_thread(_run)
+        return AnalyticsTransactionsSnapshot(
+            rows=rows,
+            next_cursor=next_cursor,
+            query_ms=round(query_ms, 4),
+            backend=backend,
+        )
 
     @application.get(
         "/health/full",
@@ -1177,7 +1191,7 @@ def create_app(
                 {
                     "pattern_index": i,
                     "total": n,
-                    "transaction_id": tid,
+            "transaction_id": tid,
                     "amount": round(50.0 + i * 12.5, 2),
                     "currency": "USD",
                     "channel": "card_not_present",

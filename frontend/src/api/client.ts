@@ -5,6 +5,10 @@ import {
   type MlTopFactor,
   normalizeInferenceContext,
 } from "./inferenceContext";
+import {
+  type SaarthiFeatureImportanceRequestBody,
+  type SaarthiFeatureImportanceResponse,
+} from "../lib/saarthi/featureImportance";
 import { reportDataOutcome } from "./dataSourceState";
 import { assertIntegrationSecretsTransportSecure } from "../utils/integrationSecretsTransport";
 
@@ -164,6 +168,47 @@ export interface DecisionResponse {
   recommended_action?: string | null;
 }
 
+/** POST `/v1/replay` — re-score stored audit payloads with ad-hoc rules (Python matcher on decision-api). */
+export type RuleReplayConditionPayload = { field: string; op?: string; value?: unknown };
+
+export type RuleReplayRulePayload = {
+  id?: string;
+  when: RuleReplayConditionPayload[];
+  tags?: string[];
+  score_delta?: number;
+  description?: string;
+};
+
+export type RuleReplayRequestPayload = {
+  tenant_id: string;
+  rules_override: RuleReplayRulePayload[];
+  limit?: number;
+  trace_ids?: string[];
+};
+
+export type RuleReplayResultRow = {
+  trace_id: string;
+  entity_id: string;
+  event_type: string;
+  original_decision: string;
+  original_score: number;
+  original_rule_hits: string[];
+  new_decision: string;
+  new_score: number;
+  new_rule_hits: string[];
+  new_tags: string[];
+  score_diff: number;
+  decision_changed: boolean;
+};
+
+export type RuleReplayResponse = {
+  tenant_id: string;
+  events_evaluated: number;
+  decisions_changed: number;
+  results: RuleReplayResultRow[];
+  missing_trace_ids: string[];
+};
+
 export interface AuditEntry {
   trace_id: string;
   entity_id: string;
@@ -212,6 +257,19 @@ export interface AuditRecentResponse {
   items: AuditRecentItem[];
 }
 
+/**
+ * Cursor-paged decision audit slice for the explorer UI (`GET /v1/audit/explorer`).
+ * Designed for keyset / opaque cursor semantics against ClickHouse or Postgres replicas.
+ */
+export interface AuditExplorerResponse {
+  tenant_id: string;
+  items: AuditRecentItem[];
+  /** Pass to the next request until null (end of stream or scan budget exhausted). */
+  next_cursor: string | null;
+  /** Optional planner estimate — omit when unknown (billions of rows). */
+  approx_total_rows?: number | null;
+}
+
 export interface Case {
   id: string;
   title: string;
@@ -221,6 +279,8 @@ export interface Case {
   tenant_id: string;
   trace_id: string;
   assigned_team: string | null;
+  /** Optional taxonomy for routing / workload analytics (when case-api persists it). */
+  case_type?: string | null;
   labels: string[];
   queue_score?: number;
   recommended_action?: string;
@@ -378,6 +438,452 @@ export interface GraphEdge {
   properties?: Record<string, unknown>;
 }
 
+export type MulePathHop = {
+  role: "origin" | "mule" | "payout" | string;
+  entity_id: string;
+  label: string;
+  node_type: string;
+  account_id?: string | null;
+  description?: string;
+  referred_by?: string;
+  beneficiary?: string;
+  channel?: string;
+  tags?: string[];
+};
+
+export type MulePathTransfer = {
+  id: string;
+  from_role: string;
+  to_role: string;
+  from_entity_id: string;
+  to_entity_id: string;
+  amount: number;
+  currency: string;
+  trace_id: string;
+  timestamp: string;
+  channel: string;
+  status: string;
+};
+
+export type MulePathResponse = {
+  tenant_id: string;
+  path_id: string;
+  updated_at: string;
+  source?: string;
+  hops: MulePathHop[];
+  transfers: MulePathTransfer[];
+  summary: {
+    hop_count: number;
+    total_outflow: number;
+    payout_amount: number;
+    mule_retained: number;
+    currency: string;
+    elapsed_hours: number;
+    risk_flags: string[];
+  };
+};
+
+export type PromoAbuseUserRow = {
+  user_id: string;
+  display_name: string;
+  redemption_count: number;
+  first_redeemed_at: string;
+  last_redeemed_at: string;
+  device_id: string;
+  ip_hint?: string;
+  order_total_usd?: number;
+  flags?: string[];
+};
+
+export type PromoAbuseDailyPoint = {
+  date: string;
+  unique_users: number;
+  redemptions: number;
+};
+
+export type PromoAbuseResponse = {
+  tenant_id: string;
+  coupon_code: string;
+  updated_at: string;
+  source?: string;
+  window_days: number;
+  summary: {
+    unique_users: number;
+    total_redemptions: number;
+    distinct_devices: number;
+    users_with_shared_device_flags: number;
+    abuse_risk: "normal" | "elevated" | "critical" | string;
+  };
+  thresholds: {
+    warn_unique_users: number;
+    critical_unique_users: number;
+  };
+  signals: string[];
+  daily_series: PromoAbuseDailyPoint[];
+  users: PromoAbuseUserRow[];
+};
+
+export type SyntheticIdentitySignal = {
+  risk: "low" | "medium" | "high" | string;
+  label: string;
+  detail: string;
+  score: number;
+};
+
+export type SyntheticIdentityUserRow = {
+  user_id: string;
+  entity_id: string;
+  display_name: string;
+  email: string;
+  risk_score: number;
+  is_synthetic_identity: boolean;
+  signals: {
+    ip: SyntheticIdentitySignal;
+    browser: SyntheticIdentitySignal;
+    email: SyntheticIdentitySignal;
+  };
+  combo_flags: string[];
+  detected_at: string;
+};
+
+export type SyntheticIdentityDetectorsResponse = {
+  tenant_id: string;
+  updated_at: string;
+  source?: string;
+  thresholds: { flag_score: number };
+  summary: {
+    scanned_users: number;
+    flagged_users: number;
+    triple_high_combos: number;
+    avg_risk_score: number;
+  };
+  users: SyntheticIdentityUserRow[];
+};
+
+export type SellerIntegrityRow = {
+  seller_id: string;
+  display_name: string;
+  store_slug: string;
+  category: string;
+  window_days: number;
+  successful_deliveries: number;
+  review_count: number;
+  review_to_delivery_ratio: number;
+  integrity_score: number;
+  integrity_tier: "trusted" | "normal" | "warning" | "critical" | string;
+  signals: string[];
+  avg_rating: number;
+  updated_at: string;
+};
+
+export type SellerIntegrityResponse = {
+  tenant_id: string;
+  updated_at: string;
+  source?: string;
+  window_days: number;
+  thresholds: {
+    healthy_ratio_min: number;
+    healthy_ratio_max: number;
+    warn_ratio_above: number;
+    critical_ratio_above: number;
+  };
+  summary: {
+    seller_count: number;
+    at_risk_sellers: number;
+    trusted_sellers: number;
+    avg_integrity_score: number;
+    median_review_to_delivery_ratio: number;
+    total_deliveries: number;
+    total_reviews: number;
+  };
+  signals: string[];
+  sellers: SellerIntegrityRow[];
+};
+
+export type PayoutDelayConfig = {
+  automation_enabled: boolean;
+  mule_score_hold_threshold: number;
+  janusgraph_property: string;
+  hold_duration_hours_default: number;
+};
+
+export type PayoutDelayPayoutRow = {
+  payout_id: string;
+  tenant_id: string;
+  entity_id: string;
+  beneficiary_label: string;
+  amount_usd: number;
+  currency: string;
+  channel: string;
+  mule_score: number;
+  mule_score_source: string;
+  janusgraph_vertex_id: string;
+  status: "pending" | "held" | "released" | string;
+  hold_reason: string | null;
+  held_at: string | null;
+  held_by: string | null;
+  created_at: string;
+  scheduled_release_at: string | null;
+};
+
+export type PayoutDelayEvent = {
+  event_id: string;
+  event_type: string;
+  payout_id: string;
+  mule_score: number;
+  threshold: number;
+  timestamp: string;
+  detail: string;
+};
+
+export type PayoutDelayResponse = {
+  tenant_id: string;
+  updated_at: string;
+  source?: string;
+  config: PayoutDelayConfig;
+  summary: {
+    pending_count: number;
+    held_count: number;
+    released_count: number;
+    held_amount_usd: number;
+    automation_active: boolean;
+  };
+  events: PayoutDelayEvent[];
+  payouts: PayoutDelayPayoutRow[];
+};
+
+export type PayoutDelayReleaseResponse = {
+  ok: boolean;
+  release: { tenant_id: string; payout_id: string; released_at: string; released_by: string };
+  board: PayoutDelayResponse;
+};
+
+export type SocialEngineeringAccountRow = {
+  account_id: string;
+  user_id: string;
+  display_name: string;
+  listing_id: string;
+  listing_title: string;
+  listing_value_usd: number;
+  listing_posted_at: string;
+  email_changed_at: string | null;
+  password_changed_at: string | null;
+  minutes_listing_to_email_change: number | null;
+  minutes_listing_to_password_change: number | null;
+  is_social_engineering_flag: boolean;
+  signals: string[];
+  risk_score: number;
+};
+
+export type SocialEngineeringMonitorResponse = {
+  tenant_id: string;
+  updated_at: string;
+  source?: string;
+  config: {
+    high_value_listing_usd: number;
+    credential_change_window_minutes: number;
+    require_email_and_password_change: boolean;
+  };
+  summary: {
+    scanned_accounts: number;
+    flagged_accounts: number;
+    high_value_threshold_usd: number;
+    credential_window_minutes: number;
+  };
+  signals: string[];
+  accounts: SocialEngineeringAccountRow[];
+};
+
+export type ReviewRingProduct = {
+  product_id: string;
+  title: string;
+  category: string;
+  seller_id: string;
+};
+
+export type ReviewRingMemberReview = {
+  product_id: string;
+  rating: number;
+  reviewed_at: string;
+};
+
+export type ReviewRingMember = {
+  user_id: string;
+  display_name: string;
+  shared_product_count: number;
+  avg_rating_given: number;
+  reviews: ReviewRingMemberReview[];
+  first_shared_review_at: string;
+  last_shared_review_at: string;
+  device_id: string;
+};
+
+export type ReviewRingCluster = {
+  cluster_id: string;
+  shared_products: ReviewRingProduct[];
+  shared_product_ids: string[];
+  member_count: number;
+  members: ReviewRingMember[];
+  suspicion_score: number;
+  signals: string[];
+  detected_at: string;
+};
+
+export type ReviewRingClustersResponse = {
+  tenant_id: string;
+  updated_at: string;
+  source?: string;
+  rules: { shared_product_count: number; min_ring_size: number };
+  summary: {
+    cluster_count: number;
+    users_in_rings: number;
+    high_suspicion_clusters: number;
+    largest_ring_size: number;
+  };
+  signals: string[];
+  clusters: ReviewRingCluster[];
+};
+
+export type KycHandoverCaseRow = {
+  case_id: string;
+  tenant_id: string;
+  subject_user_id: string;
+  subject_email: string;
+  display_name: string;
+  case_title: string;
+  kyc_status: string;
+  documents_requested: string[];
+  handover_status: string;
+  email_sent_at: string | null;
+  email_message_id: string | null;
+  email_template_id: string | null;
+  email_subject: string | null;
+  amount_usd: number;
+  priority: string;
+};
+
+export type KycHandoverBoardResponse = {
+  tenant_id: string;
+  updated_at: string;
+  source?: string;
+  email_template_id: string;
+  default_documents_requested: string[];
+  summary: {
+    needs_more_id_count: number;
+    pending_email_count: number;
+    email_sent_count: number;
+  };
+  cases: KycHandoverCaseRow[];
+};
+
+export type KycHandoverSendResponse = {
+  ok: boolean;
+  error?: string;
+  case_id?: string;
+  tenant_id?: string;
+  kyc_status?: string;
+  email?: {
+    message_id: string;
+    sent_at: string;
+    to: string;
+    template_id: string;
+    subject: string;
+    analyst_note: string | null;
+    documents_requested: string[];
+    upload_deadline_hours: number;
+  };
+  handover?: KycHandoverCaseRow;
+};
+
+export type RegionalRiskSubRegion = {
+  sub_region_id: string;
+  country_code: string;
+  country_name: string;
+  label: string;
+  attack_wave_score: number;
+  attack_tier: string;
+  signals: string[];
+  incidents_24h: number;
+  blacklisted: boolean;
+  updated_at: string | null;
+  updated_by: string | null;
+  policy_effect: string;
+};
+
+export type RegionalRiskCountryGroup = {
+  country_code: string;
+  country_name: string;
+  sub_regions: RegionalRiskSubRegion[];
+  blacklisted_count: number;
+};
+
+export type RegionalRiskTogglesResponse = {
+  tenant_id: string;
+  updated_at: string;
+  source?: string;
+  thresholds: { attack_wave_warn: number; attack_wave_critical: number };
+  summary: {
+    sub_region_count: number;
+    blacklisted_count: number;
+    elevated_wave_count: number;
+    critical_wave_count: number;
+  };
+  signals: string[];
+  sub_regions: RegionalRiskSubRegion[];
+  country_groups: RegionalRiskCountryGroup[];
+};
+
+export type RegionalRiskTogglePatchResponse = {
+  ok: boolean;
+  sub_region: RegionalRiskSubRegion;
+  board: RegionalRiskTogglesResponse;
+};
+
+export type CommandCenterKpi = {
+  id: string;
+  label: string;
+  value: number | string;
+  delta: string;
+  tone: string;
+  route: string;
+};
+
+export type CommandCenterActionItem = {
+  id: string;
+  title: string;
+  description: string;
+  route: string;
+  priority: string;
+  module: string;
+};
+
+export type CommandCenterModuleTile = {
+  id: string;
+  title: string;
+  route: string;
+  module: string;
+  metric_label: string;
+  metric_value: string;
+  tone: string;
+};
+
+export type CommandCenterQuickLink = {
+  label: string;
+  route: string;
+  module: string;
+  hint?: string;
+};
+
+export type CommandCenterResponse = {
+  tenant_id: string;
+  updated_at: string;
+  source?: string;
+  hero_kpis: CommandCenterKpi[];
+  action_queue: CommandCenterActionItem[];
+  modules: CommandCenterModuleTile[];
+  quick_links: CommandCenterQuickLink[];
+};
+
 export interface SubgraphResponse {
   nodes: GraphNode[];
   edges: GraphEdge[];
@@ -405,6 +911,10 @@ export interface EntityRiskResult {
   connected_flagged_count: number;
   community_size: number;
   gnn_beta?: Record<string, unknown> | null;
+  /** JanusGraph / graph-service: explicit 1-hop degree when exposed (else parse risk_factors connectivity strings). */
+  neighbors_1hop?: number;
+  /** Wall-clock traversal timing when the API publishes it (ms). */
+  graph_traversal_ms?: number;
 }
 
 export interface RingSuspicionResult {
@@ -657,13 +1167,25 @@ export const decisions = {
     return request<AuditRecentResponse>(`/api/decisions/v1/audit/recent?${q}`);
   },
 
-  replay(body: { tenant_id: string; rules_override: unknown[]; limit?: number }) {
-    return request<{
-      tenant_id: string;
-      events_evaluated: number;
-      decisions_changed: number;
-      results: unknown[];
-    }>("/api/decisions/v1/replay", {
+  /**
+   * High-volume audit explorer — cursor-based paging + optional substring filter on trace / short id.
+   * Backend should avoid OFFSET scans at scale (use keyset on `(created_at, trace_id)`).
+   */
+  auditExplorer(opts: {
+    tenant_id: string;
+    limit?: number;
+    cursor?: string | null;
+    q?: string;
+  }) {
+    const q = new URLSearchParams({ tenant_id: opts.tenant_id });
+    q.set("limit", String(Math.min(500, Math.max(1, opts.limit ?? 200))));
+    if (opts.cursor) q.set("cursor", opts.cursor);
+    if (opts.q?.trim()) q.set("q", opts.q.trim());
+    return request<AuditExplorerResponse>(`/api/decisions/v1/audit/explorer?${q}`);
+  },
+
+  replay(body: RuleReplayRequestPayload) {
+    return request<RuleReplayResponse>("/api/decisions/v1/replay", {
       method: "POST",
       body: JSON.stringify(body),
     });
@@ -953,7 +1475,7 @@ export const cases = {
   list(params: { tenant_id: string; status?: string; limit?: number; sort_by?: "queue" | "updated" | "priority" }) {
     const q = new URLSearchParams({ tenant_id: params.tenant_id });
     if (params.status) q.set("status", params.status);
-    if (params.limit) q.set("limit", String(params.limit));
+    if (params.limit != null) q.set("limit", String(params.limit));
     if (params.sort_by) q.set("sort_by", params.sort_by);
     return request<{ items: Case[] }>(`/api/cases/v1/cases?${q}`);
   },
@@ -1080,6 +1602,9 @@ export const cases = {
     priority?: string;
     assigned_team?: string;
     add_labels?: string[];
+    /** Appended to every case in the batch (same text, one write per case on the server). */
+    comment_body?: string;
+    comment_author?: string;
   }) {
     return request<{ updated: number; items: Case[] }>("/api/cases/v1/cases/bulk-update", {
       method: "POST",
@@ -1211,6 +1736,20 @@ export const graph = {
   /** Deep neighborhood context; ``null`` when the graph DB has no vertex for this entity (404). */
   entityDeepContext(entityId: string, tenantId: string) {
     return fetchGraphEntityDeepContext(entityId, tenantId);
+  },
+
+  /** ``GET /v1/investigation/mule-path`` — User A → mule → payout fund flow (Prompt 179). */
+  mulePath(params: {
+    tenant_id: string;
+    origin_entity_id?: string;
+    mule_entity_id?: string;
+    payout_entity_id?: string;
+  }) {
+    const q = new URLSearchParams({ tenant_id: params.tenant_id });
+    if (params.origin_entity_id) q.set("origin_entity_id", params.origin_entity_id);
+    if (params.mule_entity_id) q.set("mule_entity_id", params.mule_entity_id);
+    if (params.payout_entity_id) q.set("payout_entity_id", params.payout_entity_id);
+    return request<MulePathResponse>(`/api/ingress/v1/investigation/mule-path?${q}`);
   },
 };
 
@@ -1414,6 +1953,54 @@ export const rules = {
       `/api/decisions/v1/rules/vertical-packs/${verticalName}/install?overwrite=${overwrite ? "true" : "false"}`,
       { method: "POST", headers: _ruleActorHeaders() },
     );
+  },
+};
+
+/** v2 rule engine — immutable ``fraud_rules`` AST snapshots (Rust-backed evaluate path). */
+export type RuleAstVersionSummary = {
+  version: number;
+  is_active: boolean;
+  rule_count: number;
+  created_at: string | null;
+  ast_hash: string;
+};
+
+export type RuleAstVersionsResponse = {
+  versions: RuleAstVersionSummary[];
+  active_version: number | null;
+  source?: string;
+};
+
+export type RuleAstVersionDetail = RuleAstVersionSummary & {
+  rules_payload: unknown[];
+};
+
+export type RuleAstRollbackResponse = {
+  ok: boolean;
+  active_version: number;
+  rule_count: number;
+  reloaded?: boolean;
+};
+
+export const ruleEngine = {
+  listVersions() {
+    return request<RuleAstVersionsResponse>("/api/rule-engine/v1/rules/versions");
+  },
+
+  versionDetail(version: number) {
+    return request<RuleAstVersionDetail>(`/api/rule-engine/v1/rules/versions/${version}`);
+  },
+
+  rollback(version: number) {
+    return request<RuleAstRollbackResponse>(`/api/rule-engine/v1/rules/rollback/${version}`, {
+      method: "POST",
+    });
+  },
+
+  reload() {
+    return request<{ ok: boolean; count?: number }>("/api/rule-engine/v1/rules/reload", {
+      method: "POST",
+    });
   },
 };
 
@@ -2283,7 +2870,325 @@ export const compliance = {
   },
 };
 
+// ── Saarthi (investigation-agent :8006, /v1/saarthi) ─────────────────
+
+export type {
+  SaarthiFeatureImportanceItem,
+  SaarthiFeatureImportanceRequestBody,
+  SaarthiFeatureImportanceResponse,
+} from "../lib/saarthi/featureImportance";
+export { buildSaarthiFeatureImportanceRequest } from "../lib/saarthi/featureImportance";
+
+export const saarthi = {
+  featureImportance(body: SaarthiFeatureImportanceRequestBody, init?: RequestInit) {
+    return request<SaarthiFeatureImportanceResponse>("/api/investigation/v1/saarthi/feature-importance", {
+      method: "POST",
+      body: JSON.stringify(body),
+      ...init,
+    });
+  },
+};
+
 // ── OSINT (integration-ingress :8000, /v1/osint) ────────────────────
+
+export type NatsSetuChannelHealth = "healthy" | "degraded" | "offline" | "unknown";
+
+export type NatsSetuMonitorChannel = {
+  kind: string;
+  label: string;
+  status: NatsSetuChannelHealth;
+  last_latency_ms: number | null;
+  jetstream_pending: number | null;
+  requests_24h: number;
+  errors_24h: number;
+  last_error: string | null;
+};
+
+/** ``GET /v1/osint/nats-setu-monitor`` — VPN / email / phone OSINT lanes over NATS Setu. */
+export type NatsSetuMonitorResponse = {
+  tenant_id: string;
+  updated_at: string;
+  nats_connected: boolean;
+  jetstream_enabled: boolean;
+  setu_query_subject?: string;
+  nats_url_hint?: string | null;
+  channels: NatsSetuMonitorChannel[];
+};
+
+/** ``GET/PUT /v1/ops/failover-toggles`` — analyst graph/AI plane kill-switches. */
+export type FailoverTogglesState = {
+  graph_plane_disabled: boolean;
+  ai_plane_disabled: boolean;
+  graph_latency_ms_p95: number | null;
+  ai_latency_ms_p95: number | null;
+  updated_at: string;
+  updated_by?: string | null;
+  source?: string;
+};
+
+export type FailoverTogglesPayload = {
+  graph_plane_disabled: boolean;
+  ai_plane_disabled: boolean;
+  actor_id?: string;
+  reason?: string;
+};
+
+/** ``GET /v1/ops/system-benchmarking`` — latency probes vs sub-millisecond target (Prompt 178). */
+export type SystemBenchmarkProbe = {
+  id: string;
+  label: string;
+  plane: string;
+  critical: boolean;
+  target_ms: number;
+  samples_ms: number[];
+  sample_count: number;
+  min_ms: number | null;
+  p50_ms: number | null;
+  p95_ms: number | null;
+  max_ms: number | null;
+  mean_ms: number | null;
+  delta_p95_vs_target_ms: number | null;
+  meets_sub_ms_target: boolean;
+  status: "on_target" | "near_target" | "over_target" | "unavailable" | string;
+  detail: string | null;
+};
+
+export type SystemBenchmarkingResponse = {
+  updated_at: string;
+  source?: string;
+  target: {
+    name: string;
+    description: string;
+    p95_target_ms: number;
+    near_target_multiplier: number;
+  };
+  methodology: {
+    sample_rounds: number;
+    primary_metric: string;
+    comparison: string;
+  };
+  probes: SystemBenchmarkProbe[];
+  summary: {
+    critical_probe_count: number;
+    on_target_count: number;
+    over_target_count: number;
+    all_critical_on_target: boolean;
+    worst_probe_id: string | null;
+    worst_p95_ms: number | null;
+  };
+};
+
+/** ``GET /v1/ops/system-health-hud`` — edge workstation RAM, Redis RTT, Ollama queue. */
+export type SystemHealthHudResponse = {
+  updated_at: string;
+  source?: "live" | "mock" | string;
+  host: {
+    chip_model: string;
+    ram_total_gb: number;
+    ram_used_gb: number;
+    ram_used_pct: number;
+    memory_pressure: number | null;
+  };
+  redis: {
+    reachable: boolean;
+    latency_ms: number | null;
+    endpoint_hint: string | null;
+  };
+  ollama: {
+    reachable: boolean;
+    queue_depth: number;
+    model_loaded: string | null;
+    base_url_hint?: string | null;
+  };
+};
+
+/** ``GET /v1/ops/nats-dead-letter-office`` — peek JetStream ingest DLQ (non-destructive). */
+export type NatsDeadLetterItem = {
+  id: string;
+  sequence: number;
+  subject: string;
+  received_at: string | null;
+  kind: string;
+  status_code: number | null;
+  tenant_id: string | null;
+  entity_id: string | null;
+  event_type: string | null;
+  nats_source_subject: string | null;
+  preview: string;
+  envelope: Record<string, unknown>;
+};
+
+/** ``GET /v1/ops/automated-backup-indicators`` — Postgres / JanusGraph last snapshot times. */
+export type BackupStoreIndicator = {
+  store: "postgres" | "janusgraph" | string;
+  label: string;
+  last_snapshot_at: string | null;
+  age_seconds: number | null;
+  status: "ok" | "warn" | "stale" | "unknown" | "missing";
+  artifact_hint: string | null;
+  size_bytes: number | null;
+  source: string;
+  schedule_hint: string;
+};
+
+export type MarketplaceSdkPlatform = {
+  id: string;
+  name: string;
+  codename: string;
+  description: string;
+  default_scopes: string[];
+  env_var: string;
+};
+
+export type MarketplaceSdkApiKeysCatalogResponse = {
+  platforms: MarketplaceSdkPlatform[];
+  allowed_scopes: string[];
+};
+
+export type MarketplaceSdkApiKeyRecord = {
+  id: string;
+  tenant_id: string;
+  platform: string;
+  label: string;
+  key_prefix: string;
+  scopes: string[];
+  status: "active" | "revoked" | string;
+  created_at: string | null;
+  last_used_at: string | null;
+  created_by: string | null;
+  rate_limit?: {
+    enabled: boolean;
+    requests_per_minute: number;
+    burst: number;
+  };
+};
+
+/** ``GET /v1/marketplace/rate-limit-shields`` — per SDK API key throttle config (Prompt 176). */
+export type MarketplaceRateLimitShieldConfig = {
+  enabled: boolean;
+  requests_per_minute: number;
+  burst: number;
+};
+
+export type MarketplaceRateLimitShieldLive = {
+  requests_in_window: number;
+  remaining: number;
+  throttled: boolean;
+  throttled_until: string | null;
+  rejected_total: number;
+};
+
+export type MarketplaceRateLimitShieldItem = {
+  key_id: string;
+  tenant_id: string;
+  platform: string;
+  label: string;
+  key_prefix: string;
+  status: string;
+  shield: MarketplaceRateLimitShieldConfig;
+  live: MarketplaceRateLimitShieldLive;
+};
+
+export type MarketplaceRateLimitShieldsResponse = {
+  tenant_id: string;
+  items: MarketplaceRateLimitShieldItem[];
+  count: number;
+  summary: { throttled: number; shields_enabled: number };
+};
+
+/** ``POST /v1/compliance/pii-field-reveal`` — audit-logged PII reveal/hide (Prompt 177). */
+export type PiiFieldRevealAuditItem = {
+  id: string;
+  tenant_id: string;
+  actor_id: string | null;
+  action: "reveal" | "hide" | string;
+  field_kind: string;
+  field_path: string;
+  context_type: string;
+  context_id: string | null;
+  value_fingerprint: string;
+  masked_preview: string;
+  created_at: string | null;
+};
+
+export type PiiFieldRevealAuditResponse = {
+  tenant_id: string;
+  items: PiiFieldRevealAuditItem[];
+  count: number;
+  summary: { reveals: number };
+};
+
+export type MarketplaceSdkApiKeysListResponse = {
+  tenant_id: string;
+  keys: MarketplaceSdkApiKeyRecord[];
+  count: number;
+};
+
+export type MarketplaceSdkApiKeyCreateResponse = {
+  ok: boolean;
+  key: MarketplaceSdkApiKeyRecord;
+  secret: string;
+  warning?: string;
+};
+
+/** ``GET /v1/marketplace/webhook-logs`` — outgoing Block callbacks to marketplace clients. */
+export type MarketplaceWebhookLogItem = {
+  id: string;
+  tenant_id: string;
+  signal: string;
+  decision: string;
+  entity_id: string | null;
+  user_id: string | null;
+  trace_id: string | null;
+  callback_url: string;
+  status: string;
+  http_status: number | null;
+  attempt_count: number;
+  latency_ms: number | null;
+  payload_preview: string;
+  last_error: string | null;
+  created_at: string | null;
+  delivered_at: string | null;
+};
+
+export type MarketplaceWebhookLogDetail = MarketplaceWebhookLogItem & {
+  payload?: Record<string, unknown>;
+  attempts?: Array<{
+    attempt: number;
+    status_code: number | null;
+    error: string | null;
+    latency_ms: number | null;
+    timestamp: string;
+  }>;
+};
+
+export type MarketplaceWebhookLogsResponse = {
+  tenant_id: string;
+  items: MarketplaceWebhookLogItem[];
+  count: number;
+  summary: { delivered: number; failed: number; pending: number };
+};
+
+export type AutomatedBackupIndicatorsResponse = {
+  updated_at: string;
+  backup_dir: string;
+  thresholds_hours: { ok: number; warn: number };
+  stores: BackupStoreIndicator[];
+  schedule_hints?: { postgres: string; janusgraph: string };
+};
+
+export type NatsDeadLetterOfficeResponse = {
+  stream_name: string;
+  dlq_subject: string;
+  subject_prefix: string;
+  nats_connected: boolean;
+  jetstream_enabled: boolean;
+  pending_estimate: number | null;
+  items: NatsDeadLetterItem[];
+  peeked_at: string;
+  source?: string;
+  error?: string;
+};
 
 export const osint = {
   enrich(body: { email?: string; phone?: string; ip?: string; domain?: string }) {
@@ -2300,6 +3205,10 @@ export const osint = {
   },
   sources() {
     return request<{ sources: Record<string, unknown[]>; total_sources: number }>("/api/ingress/v1/osint/sources");
+  },
+  natsSetuMonitor(tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<NatsSetuMonitorResponse>(`/api/ingress/v1/osint/nats-setu-monitor?${q}`);
   },
 };
 
@@ -2546,6 +3455,136 @@ export const integrations = {
     }>("/api/ingress/v1/slo");
   },
 
+  systemHealthHud() {
+    return request<SystemHealthHudResponse>("/api/ingress/v1/ops/system-health-hud");
+  },
+
+  systemBenchmarking(sampleRounds?: number) {
+    const q = sampleRounds != null ? `?sample_rounds=${sampleRounds}` : "";
+    return request<SystemBenchmarkingResponse>(`/api/ingress/v1/ops/system-benchmarking${q}`);
+  },
+
+  failoverToggles() {
+    return request<FailoverTogglesState>("/api/ingress/v1/ops/failover-toggles");
+  },
+
+  automatedBackupIndicators() {
+    return request<AutomatedBackupIndicatorsResponse>("/api/ingress/v1/ops/automated-backup-indicators");
+  },
+
+  marketplaceSdkApiKeysCatalog() {
+    return request<MarketplaceSdkApiKeysCatalogResponse>("/api/ingress/v1/marketplace/sdk-api-keys/catalog");
+  },
+
+  marketplaceSdkApiKeysList(tenantId: string) {
+    return request<MarketplaceSdkApiKeysListResponse>(
+      `/api/ingress/v1/marketplace/sdk-api-keys?tenant_id=${encodeURIComponent(tenantId)}`,
+    );
+  },
+
+  marketplaceSdkApiKeysCreate(body: {
+    tenant_id: string;
+    platform: string;
+    label?: string;
+    scopes?: string[];
+  }) {
+    return request<MarketplaceSdkApiKeyCreateResponse>("/api/ingress/v1/marketplace/sdk-api-keys", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+
+  marketplaceSdkApiKeysRevoke(keyId: string, tenantId: string) {
+    return request<{ ok: boolean; key: MarketplaceSdkApiKeyRecord }>(
+      `/api/ingress/v1/marketplace/sdk-api-keys/${encodeURIComponent(keyId)}/revoke?tenant_id=${encodeURIComponent(tenantId)}`,
+      { method: "POST" },
+    );
+  },
+
+  marketplaceRateLimitShields(tenantId: string) {
+    return request<MarketplaceRateLimitShieldsResponse>(
+      `/api/ingress/v1/marketplace/rate-limit-shields?tenant_id=${encodeURIComponent(tenantId)}`,
+    );
+  },
+
+  marketplaceRateLimitShieldUpdate(
+    keyId: string,
+    body: {
+      tenant_id: string;
+      enabled?: boolean;
+      requests_per_minute?: number;
+      burst?: number;
+    },
+  ) {
+    return request<{ ok: boolean; shield: MarketplaceRateLimitShieldItem }>(
+      `/api/ingress/v1/marketplace/rate-limit-shields/${encodeURIComponent(keyId)}`,
+      { method: "PATCH", body: JSON.stringify(body) },
+    );
+  },
+
+  piiFieldReveal(body: {
+    tenant_id: string;
+    action: "reveal" | "hide";
+    field_kind: string;
+    field_path: string;
+    context_type?: string;
+    context_id?: string;
+    value_fingerprint: string;
+    masked_preview?: string;
+  }) {
+    return request<{ ok: boolean; event: PiiFieldRevealAuditItem }>(
+      "/api/ingress/v1/compliance/pii-field-reveal",
+      { method: "POST", body: JSON.stringify(body) },
+    );
+  },
+
+  piiFieldRevealAudit(tenantId: string, limit = 100) {
+    return request<PiiFieldRevealAuditResponse>(
+      `/api/ingress/v1/compliance/pii-field-reveal/audit?tenant_id=${encodeURIComponent(tenantId)}&limit=${limit}`,
+    );
+  },
+
+  marketplaceWebhookLogs(params?: { tenant_id?: string; status?: string; signal?: string; limit?: number }) {
+    const q = new URLSearchParams();
+    if (params?.tenant_id) q.set("tenant_id", params.tenant_id);
+    if (params?.status) q.set("status", params.status);
+    if (params?.signal) q.set("signal", params.signal);
+    if (params?.limit != null) q.set("limit", String(params.limit));
+    const qs = q.toString();
+    return request<MarketplaceWebhookLogsResponse>(
+      `/api/ingress/v1/marketplace/webhook-logs${qs ? `?${qs}` : ""}`,
+    );
+  },
+
+  marketplaceWebhookLogDetail(logId: string) {
+    return request<MarketplaceWebhookLogDetail>(`/api/ingress/v1/marketplace/webhook-logs/${encodeURIComponent(logId)}`);
+  },
+
+  marketplaceWebhookLogRetry(logId: string) {
+    return request<{ ok: boolean; log: MarketplaceWebhookLogDetail }>(
+      `/api/ingress/v1/marketplace/webhook-logs/${encodeURIComponent(logId)}/retry`,
+      { method: "POST" },
+    );
+  },
+
+  natsDeadLetterOffice(params?: { limit?: number; kind?: string; tenant_id?: string }) {
+    const q = new URLSearchParams();
+    if (params?.limit != null) q.set("limit", String(params.limit));
+    if (params?.kind) q.set("kind", params.kind);
+    if (params?.tenant_id) q.set("tenant_id", params.tenant_id);
+    const qs = q.toString();
+    return request<NatsDeadLetterOfficeResponse>(
+      `/api/ingress/v1/ops/nats-dead-letter-office${qs ? `?${qs}` : ""}`,
+    );
+  },
+
+  setFailoverToggles(body: FailoverTogglesPayload) {
+    return request<FailoverTogglesState>("/api/ingress/v1/ops/failover-toggles", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+  },
+
   residencyMatrix() {
     const h = decisionServiceApiKeyHeaders();
     return request<ResidencyMatrixResponse>("/api/ingress/v1/compliance/residency/matrix", {
@@ -2568,6 +3607,130 @@ export const integrations = {
     return request<ResidencyAuditListResponse>(`/api/ingress/v1/compliance/residency/audit?${q}`, {
       headers: { "Content-Type": "application/json", ...h },
     });
+  },
+
+  /** ``GET /v1/analytics/promo-abuse`` — unique users per coupon code (Prompt 180). */
+  promoAbuse(params: { tenant_id: string; coupon_code?: string; window_days?: number }) {
+    const q = new URLSearchParams({ tenant_id: params.tenant_id });
+    if (params.coupon_code) q.set("coupon_code", params.coupon_code);
+    if (params.window_days != null) q.set("window_days", String(params.window_days));
+    return request<PromoAbuseResponse>(`/api/ingress/v1/analytics/promo-abuse?${q}`);
+  },
+
+  /** ``GET /v1/investigation/synthetic-identity-detectors`` — IP/browser/email risk flags (Prompt 181). */
+  syntheticIdentityDetectors(params: { tenant_id: string; limit?: number; flag_score?: number }) {
+    const q = new URLSearchParams({ tenant_id: params.tenant_id });
+    if (params.limit != null) q.set("limit", String(params.limit));
+    if (params.flag_score != null) q.set("flag_score", String(params.flag_score));
+    return request<SyntheticIdentityDetectorsResponse>(
+      `/api/ingress/v1/investigation/synthetic-identity-detectors?${q}`,
+    );
+  },
+
+  /** ``GET /v1/marketplace/seller-integrity`` — review-to-delivery integrity scores (Prompt 182). */
+  sellerIntegrity(params: { tenant_id: string; window_days?: number; limit?: number }) {
+    const q = new URLSearchParams({ tenant_id: params.tenant_id });
+    if (params.window_days != null) q.set("window_days", String(params.window_days));
+    if (params.limit != null) q.set("limit", String(params.limit));
+    return request<SellerIntegrityResponse>(`/api/ingress/v1/marketplace/seller-integrity?${q}`);
+  },
+
+  /** ``GET /v1/marketplace/payout-delay`` — JanusGraph mule_score payout holds (Prompt 183). */
+  payoutDelay(params: { tenant_id: string; limit?: number }) {
+    const q = new URLSearchParams({ tenant_id: params.tenant_id });
+    if (params.limit != null) q.set("limit", String(params.limit));
+    return request<PayoutDelayResponse>(`/api/ingress/v1/marketplace/payout-delay?${q}`);
+  },
+
+  payoutDelayUpdateConfig(body: {
+    tenant_id: string;
+    automation_enabled?: boolean;
+    mule_score_hold_threshold?: number;
+  }) {
+    return request<PayoutDelayResponse>("/api/ingress/v1/marketplace/payout-delay/config", {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+  },
+
+  payoutDelayRelease(params: { tenant_id: string; payout_id: string }) {
+    const q = new URLSearchParams({ tenant_id: params.tenant_id });
+    return request<PayoutDelayReleaseResponse>(
+      `/api/ingress/v1/marketplace/payout-delay/${encodeURIComponent(params.payout_id)}/release?${q}`,
+      { method: "POST", body: "{}" },
+    );
+  },
+
+  /** ``GET /v1/investigation/social-engineering-monitor`` — credential burst after listings (Prompt 184). */
+  socialEngineeringMonitor(params: {
+    tenant_id: string;
+    limit?: number;
+    only_flagged?: boolean;
+  }) {
+    const q = new URLSearchParams({ tenant_id: params.tenant_id });
+    if (params.limit != null) q.set("limit", String(params.limit));
+    if (params.only_flagged) q.set("only_flagged", "true");
+    return request<SocialEngineeringMonitorResponse>(
+      `/api/ingress/v1/investigation/social-engineering-monitor?${q}`,
+    );
+  },
+
+  socialEngineeringUpdateConfig(body: {
+    tenant_id: string;
+    high_value_listing_usd?: number;
+    credential_change_window_minutes?: number;
+  }) {
+    return request<SocialEngineeringMonitorResponse>(
+      "/api/ingress/v1/investigation/social-engineering-monitor/config",
+      { method: "PATCH", body: JSON.stringify(body) },
+    );
+  },
+
+  /** ``GET /v1/analytics/review-rings`` — users who reviewed the same 5 products (Prompt 185). */
+  reviewRings(params: { tenant_id: string; min_ring_size?: number; limit?: number }) {
+    const q = new URLSearchParams({ tenant_id: params.tenant_id });
+    if (params.min_ring_size != null) q.set("min_ring_size", String(params.min_ring_size));
+    if (params.limit != null) q.set("limit", String(params.limit));
+    return request<ReviewRingClustersResponse>(`/api/ingress/v1/analytics/review-rings?${q}`);
+  },
+
+  /** ``GET /v1/compliance/kyc-handover`` — cases needing additional ID (Prompt 186). */
+  kycHandover(params: { tenant_id: string; case_id?: string }) {
+    const q = new URLSearchParams({ tenant_id: params.tenant_id });
+    if (params.case_id) q.set("case_id", params.case_id);
+    return request<KycHandoverBoardResponse>(`/api/ingress/v1/compliance/kyc-handover?${q}`);
+  },
+
+  kycHandoverSendEmail(body: { tenant_id: string; case_id: string; analyst_note?: string }) {
+    return request<KycHandoverSendResponse>(
+      `/api/ingress/v1/compliance/kyc-handover/${encodeURIComponent(body.case_id)}/send-id-email`,
+      { method: "POST", body: JSON.stringify({ tenant_id: body.tenant_id, analyst_note: body.analyst_note }) },
+    );
+  },
+
+  /** ``GET /v1/compliance/regional-risk-toggles`` — sub-region attack-wave blacklists (Prompt 187). */
+  regionalRiskToggles(params: { tenant_id: string }) {
+    const q = new URLSearchParams({ tenant_id: params.tenant_id });
+    return request<RegionalRiskTogglesResponse>(`/api/ingress/v1/compliance/regional-risk-toggles?${q}`);
+  },
+
+  regionalRiskToggle(body: { tenant_id: string; sub_region_id: string; blacklisted: boolean }) {
+    return request<RegionalRiskTogglePatchResponse>(
+      `/api/ingress/v1/compliance/regional-risk-toggles/${encodeURIComponent(body.sub_region_id)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          tenant_id: body.tenant_id,
+          blacklisted: body.blacklisted,
+        }),
+      },
+    );
+  },
+
+  /** ``GET /v1/ops/command-center`` — unified analyst cockpit (Prompt 188). */
+  commandCenter(params: { tenant_id: string }) {
+    const q = new URLSearchParams({ tenant_id: params.tenant_id });
+    return request<CommandCenterResponse>(`/api/ingress/v1/ops/command-center?${q}`);
   },
 };
 

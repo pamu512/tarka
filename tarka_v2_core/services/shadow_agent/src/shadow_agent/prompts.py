@@ -38,6 +38,16 @@ _GRAPH_TOPOLOGY_INSTRUCTIONS: Final[str] = (
     "plus optional DuckDB signup burst. For questions about whether reviews look **organic**, "
     "cite ``risk_summary`` and ``review_ring_likely``; mention shared hardware or IP explicitly when "
     "``reviewers_sharing_device_or_ip_count`` is 2 or higher.\n\n"
+    "When ``scout_coordinated_bursts`` is present, it is a **trusted DuckDB Scout** probe for "
+    "**coordinated hardware bursts**: more than five distinct ``acc_id`` values sharing the same "
+    "``canvas_hash`` or ``webgl_vendor`` inside a four-hour window on ``raw_signals``. For each "
+    "entry in ``hypothesis_reports``, cite ``narrative``, ``fingerprint_kind``, "
+    "``distinct_account_count``, and ``confidence`` in ``ai_reasoning``; when bursts are found, "
+    "elevate ``risk_score`` / ``is_fraud`` unless contradictory transaction facts exist. "
+    "Reference ``suggested_rule`` only as a hypothesis—not as deployed policy. "
+    "Prefer ``saarthi_narrative`` (two-sentence Saarthi summary) in ``ai_reasoning`` when present. "
+    "Only treat bursts with ``analyst_suggestion_allowed: true`` as promotion-ready—entries blocked "
+    "by the 7-day DuckDB backtest (FPR ≥ 0.1%) must not be escalated to analysts.\n\n"
 )
 _GRAPH_CONTEXT_PREFIX: Final[str] = "GRAPH CONTEXT (trusted infrastructure JSON):\n"
 

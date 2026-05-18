@@ -285,6 +285,18 @@ class AnalyticsTransactionsSnapshot(BaseModel):
         ...,
         description="Newest-first rows from the unified analytical view (JSON-serializable values).",
     )
+    next_cursor: str | None = Field(
+        None,
+        description="Opaque keyset cursor — pass as ``cursor`` on the next request until null.",
+    )
+    query_ms: float | None = Field(
+        None,
+        description="Wall-clock time for the analytical fetch in this worker (milliseconds).",
+    )
+    backend: str | None = Field(
+        None,
+        description="Analytics plane label (e.g. ``duckdb``, ``clickhouse``).",
+    )
 
 
 class AnalyticsVelocityResponse(BaseModel):

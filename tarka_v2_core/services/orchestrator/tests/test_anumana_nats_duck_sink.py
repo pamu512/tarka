@@ -95,7 +95,7 @@ def test_flush_redis_to_duck_writes_ingested_raw(tmp_path: Path) -> None:
         stats = await flush_redis_to_analytics(r, duck, redis_key=key, max_items=50)
         assert stats == {"popped": 1, "written": 1, "dropped": 0}
 
-        rows = duck.list_analytics_transactions(limit=50)
+        rows, _next, _ms = duck.list_analytics_transactions(limit=50)
         assert len(rows) >= 2
         assert any("sdk_source" in str(row.get("metadata") or "") for row in rows)
 

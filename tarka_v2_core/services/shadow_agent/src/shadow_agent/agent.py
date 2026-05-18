@@ -31,6 +31,10 @@ from shadow_agent.review_integrity_tool import (
     should_invoke_check_review_integrity,
     wants_check_review_integrity,
 )
+from shadow_agent.scout_coordinated_burst import (
+    run_scout_coordinated_burst_probe,
+    wants_scout_coordinated_burst,
+)
 from shadow_agent.schemas import ShadowDecision
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -214,6 +218,16 @@ class ShadowAgent:
         finally:
             if drv is not None:
                 await drv.close()
+
+        if wants_scout_coordinated_burst(merged_ctx):
+            logger.info("shadow_scout_coordinated_burst_start entity_id=%s", entity_s)
+            scout_payload = run_scout_coordinated_burst_probe()
+            merged_ctx["scout_coordinated_bursts"] = scout_payload
+            logger.info(
+                "shadow_scout_coordinated_burst_complete entity_id=%s bursts_found=%s",
+                entity_s,
+                scout_payload.get("bursts_found"),
+            )
 
         tx_prompt = sanitize_transaction_for_prompt(tx)
         system_prompt = FraudAnalystPrompt.build(

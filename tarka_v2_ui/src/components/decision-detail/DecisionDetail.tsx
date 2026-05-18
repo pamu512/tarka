@@ -12,6 +12,7 @@ import {
   KnowledgeDropInsight,
   type KnowledgeResolution,
 } from "@/components/decision-detail/KnowledgeDropInsight";
+import { AstTranslator } from "@/components/decision-detail/AstTranslator";
 
 export type DecisionDetailProps = {
   transactionId: string;
@@ -261,6 +262,9 @@ export function DecisionDetail({ transactionId, onClose }: DecisionDetailProps) 
           ) : data ? (
             <div className="flex min-h-0 flex-col gap-6">
               <TimelineView transactionId={transactionId} />
+              {data.evaluation_trace != null ? (
+                <AstTranslator trace={data.evaluation_trace} />
+              ) : null}
               <div className="grid min-h-0 gap-6 lg:grid-cols-2">
               <section className="flex min-h-0 flex-col gap-2">
                 <h3 className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">

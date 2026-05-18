@@ -14,6 +14,7 @@ test = ["httpx>=0.28.0", "pytest>=8.0.0", "fastapi>=0.115.0"]
 
 [tool.maturin]
 module-name = "tarka_rule_engine._native"
+features = ["python"]
 python-source = "python"
 
 [tool.pytest.ini_options]

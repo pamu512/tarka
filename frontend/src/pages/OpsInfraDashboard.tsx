@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { PageTitle } from "../components/PageTitle";
 import { parsePrometheusText, type PrometheusDigest } from "../utils/parsePrometheusText";
 
@@ -240,7 +241,23 @@ export default function OpsInfraDashboard() {
           Live probes every {POLL_MS / 1000}s: JSON <code className="text-gray-400">/v1/health</code> and Prometheus{" "}
           <code className="text-gray-400">/metrics</code> per service. RSS and worker hint are exposed for the Core API
           process only. Queue-style signals are parsed from counter names (ingest, shedding, NATS, Redis, …) when present
-          in metrics.
+          in metrics. For the edge workstation snapshot (M5 Pro RAM, Redis RTT, Ollama queue), open the{" "}
+          <Link to="/ops/system-health" className="text-brand-400 hover:text-brand-300 font-medium">
+            System health HUD
+          </Link>{" "}
+          or{" "}
+          <Link to="/ops/failover-toggles" className="text-brand-400 hover:text-brand-300 font-medium">
+            failover toggles
+          </Link>{" "}
+          to shed graph or AI load during latency spikes, or inspect failed ingest payloads in the{" "}
+          <Link to="/ops/dead-letter" className="text-brand-400 hover:text-brand-300 font-medium">
+            Dead Letter Office
+          </Link>
+          , or verify{" "}
+          <Link to="/ops/backups" className="text-brand-400 hover:text-brand-300 font-medium">
+            automated backup
+          </Link>{" "}
+          snapshot times for Postgres and JanusGraph.
         </p>
         <p className="text-xs text-gray-600 mt-1">
           Last poll completed:{" "}

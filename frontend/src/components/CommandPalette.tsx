@@ -17,12 +17,51 @@ type CommandItem = {
 
 type PaletteSection = { title: string; items: CommandItem[] };
 
-const MODULE_ROUTES: Array<{ to: string; label: string; module: ModuleId; keywords: string }> = [
-  { to: "/dashboard", label: "Dashboard", module: "dashboard", keywords: "home overview" },
+const MODULE_ROUTES: Array<{ to: string; label: string; module: ModuleId; keywords: string; tenantQuery?: boolean }> = [
+  {
+    to: "/command-center",
+    label: "Tarka Command Center",
+    module: "dashboard",
+    keywords: "home cockpit landing unified command center overview",
+  },
+  { to: "/dashboard", label: "Classic dashboard", module: "dashboard", keywords: "charts metrics overview" },
   { to: "/cases", label: "Cases queue", module: "cases", keywords: "list triage" },
+  { to: "/ops/workload", label: "Workload Balancer", module: "cases", keywords: "team time resolve ttr queue balance" },
+  {
+    to: "/cases/bulk-triage",
+    label: "Bulk triage",
+    module: "cases",
+    keywords: "batch multi select resolve scam fifty comment",
+    tenantQuery: true,
+  },
+  {
+    to: "/cases/compare",
+    label: "Case comparison mode",
+    module: "cases",
+    keywords: "compare side by side marketplace coordinated attack pattern ring",
+    tenantQuery: true,
+  },
   { to: "/disputes", label: "Disputes", module: "disputes", keywords: "chargeback" },
   { to: "/graph", label: "Graph Explorer", module: "graph", keywords: "network neo4j" },
+  {
+    to: "/graph/mule-path",
+    label: "Mule path",
+    module: "graph",
+    keywords: "fund flow mule payout layering user a user b",
+  },
   { to: "/investigation", label: "Investigation Copilot", module: "investigation", keywords: "chat saarthi llm" },
+  {
+    to: "/investigation/synthetic-identity",
+    label: "Synthetic identity detectors",
+    module: "investigation",
+    keywords: "syn id ip browser email fingerprint disposable vpn headless flag",
+  },
+  {
+    to: "/investigation/social-engineering",
+    label: "Social engineering monitor",
+    module: "investigation",
+    keywords: "email password change high value listing account takeover scam",
+  },
   {
     to: "/investigation/shadow-llm",
     label: "Shadow LLM forensics",
@@ -30,15 +69,123 @@ const MODULE_ROUTES: Array<{ to: string; label: string; module: ModuleId; keywor
     keywords: "sidecar sse stream ollama shadow copilot",
   },
   { to: "/osint", label: "OSINT enrichment", module: "osint", keywords: "intel" },
+  {
+    to: "/osint/nats-setu-monitor",
+    label: "NATS Setu monitor",
+    module: "osint",
+    keywords: "vpn email phone nats setu osint fetch",
+  },
   { to: "/analytics", label: "Analytics", module: "analytics", keywords: "metrics charts" },
+  {
+    to: "/analytics/rule-performance",
+    label: "Rule performance",
+    module: "analytics",
+    keywords: "rules deny review fraud rust audit",
+  },
+  {
+    to: "/analytics/promo-abuse",
+    label: "Promo abuse",
+    module: "analytics",
+    keywords: "coupon newuser50 promo code abuse unique users redemption",
+  },
+  {
+    to: "/analytics/review-rings",
+    label: "Review ring clusters",
+    module: "analytics",
+    keywords: "fake reviews astroturfing same five products review ring cluster",
+  },
+  {
+    to: "/analytics/audit-log",
+    label: "Audit Log Explorer",
+    module: "analytics",
+    keywords: "audit log warehouse decisions millions virtual scroll search trace",
+  },
   { to: "/rules", label: "Rules", module: "rules", keywords: "policy" },
+  {
+    to: "/rules/version-control",
+    label: "Versioned rule control",
+    module: "rules",
+    keywords: "rollback ast snapshot rust engine fraud_rules version deploy",
+  },
   { to: "/entity-lists", label: "Entity lists", module: "entity-lists", keywords: "block allow" },
   { to: "/shadow", label: "Shadow mode", module: "shadow", keywords: "dry run" },
   { to: "/simulation", label: "Simulation", module: "simulation", keywords: "ab test" },
   { to: "/ops/backtest", label: "Backtest jobs", module: "rules", keywords: "warehouse olap streaming" },
   { to: "/ops/infra", label: "Infra & health", module: "compliance", keywords: "prometheus metrics monitoring signal" },
+  {
+    to: "/ops/system-health",
+    label: "System health HUD",
+    module: "compliance",
+    keywords: "m5 pro ram redis latency ollama queue edge workstation",
+  },
+  {
+    to: "/ops/system-benchmarking",
+    label: "System benchmarking",
+    module: "compliance",
+    keywords: "latency sub-millisecond p95 benchmark redis rule engine",
+  },
+  {
+    to: "/ops/failover-toggles",
+    label: "Failover toggles",
+    module: "compliance",
+    keywords: "graph ai plane disable latency spike kill switch shed load",
+  },
+  {
+    to: "/ops/dead-letter",
+    label: "Dead Letter Office",
+    module: "compliance",
+    keywords: "nats dlq dead letter jetstream ingest failed poison replay",
+  },
+  {
+    to: "/ops/backups",
+    label: "Automated backup",
+    module: "compliance",
+    keywords: "postgres janusgraph snapshot pg_dump backup restore dr",
+  },
   { to: "/compliance", label: "Compliance", module: "compliance", keywords: "audit" },
+  {
+    to: "/compliance/encrypted-fields",
+    label: "Encrypted field toggles",
+    module: "compliance",
+    keywords: "pii reveal hide mask email audit encrypted",
+  },
+  {
+    to: "/compliance/kyc-handover",
+    label: "KYC handover",
+    module: "compliance",
+    keywords: "kyc identity id document email upload verification handover",
+  },
+  {
+    to: "/compliance/regional-risk",
+    label: "Regional risk toggles",
+    module: "compliance",
+    keywords: "blacklist sub-region attack wave geo block country regional",
+  },
   { to: "/integrations", label: "Integrations", module: "integrations", keywords: "connectors" },
+  {
+    to: "/integrations/webhook-logs",
+    label: "Webhook logs",
+    module: "integrations",
+    keywords: "marketplace block callback outgoing delivery retry dlq",
+  },
+  {
+    to: "/integrations/rate-limit-shields",
+    label: "Rate limit shields",
+    module: "integrations",
+    keywords: "api key throttle rpm burst 429 marketplace sdk",
+  },
+  {
+    to: "/integrations/seller-integrity",
+    label: "Seller integrity",
+    module: "integrations",
+    keywords: "marketplace seller reviews deliveries ratio fake store integrity score",
+  },
+  {
+    to: "/integrations/payout-delay",
+    label: "Payout delay automation",
+    module: "integrations",
+    keywords: "payout hold mule score janusgraph funds release automation",
+  },
   { to: "/admin", label: "Admin panel", module: "admin", keywords: "platform" },
   { to: "/notifications", label: "Notifications", module: "notifications", keywords: "alerts" },
   { to: "/settings", label: "Settings", module: "settings", keywords: "theme appearance" },
@@ -272,7 +419,11 @@ export function CommandPalette() {
         module: m.module,
         keywords: m.keywords,
         run: () => {
-          navigate(m.to);
+          if (m.tenantQuery) {
+            navigate(`${m.to}?tenant_id=${encodeURIComponent(workspaceTenantId)}`);
+          } else {
+            navigate(m.to);
+          }
           close();
         },
       };

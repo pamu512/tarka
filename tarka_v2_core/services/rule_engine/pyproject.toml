@@ -11,7 +11,11 @@ dependencies = [
   "uvicorn[standard]>=0.32.0",
   "sqlalchemy>=2.0.0",
   "neo4j>=5.26.0,<6",
+  "redis>=5.0.0",
 ]
+
+[project.optional-dependencies]
+hot-reload = ["nats-py>=2.7.0"]
 
 [build-system]
 requires = ["setuptools>=69", "wheel"]

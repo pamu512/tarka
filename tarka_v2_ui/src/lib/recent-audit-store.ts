@@ -8,7 +8,7 @@ import type { AuditRecentItem } from "@/types/audit-recent";
 const attackOutcomes: AuditRecentItem[] = [];
 
 const MAX_ATTACK_BUFFER = 40;
-const MAX_RETURN = 20;
+const MAX_RETURN = 50;
 
 export function pushAttackOutcome(item: AuditRecentItem): void {
   attackOutcomes.unshift(item);

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { PageTitle } from "../components/PageTitle";
 import { useTheme, type ThemePreference } from "../context/ThemeContext";
 import { decisions } from "../api/client";
+import { MarketplaceSdkApiKeyPanel } from "../components/settings/MarketplaceSdkApiKeyPanel";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
@@ -142,10 +143,7 @@ export default function Settings() {
         </ul>
       </div>
 
-      <div className="rounded-xl border border-dashed border-surface-600 bg-surface-900/50 p-4 space-y-2 opacity-80">
-        <h2 className="text-sm font-semibold text-gray-400">API keys</h2>
-        <p className="text-xs text-gray-600">Coming soon — manage programmatic access here.</p>
-      </div>
+      <MarketplaceSdkApiKeyPanel />
     </div>
   );
 }

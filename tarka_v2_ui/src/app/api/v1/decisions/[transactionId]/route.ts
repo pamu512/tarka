@@ -47,7 +47,24 @@ function mockDecision(transactionId: string): DecisionDetailResponse {
     counterfactuals_considered: 6,
   };
 
-  return { transaction_schema, shadow_decision };
+  const evaluation_trace = [
+    {
+      rule_id: "00000000-0000-0000-0000-00000000c0df",
+      rule_name: "demo_high_amount_shadow_review",
+      matched: true,
+      priority: 10,
+      action: "SHADOW_REVIEW",
+    },
+    {
+      rule_id: "00000000-0000-0000-0000-00000000c0de",
+      rule_name: "demo_stress_block_lane",
+      matched: false,
+      priority: 5,
+      action: null,
+    },
+  ];
+
+  return { transaction_schema, shadow_decision, evaluation_trace };
 }
 
 export async function GET(

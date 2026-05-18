@@ -8,6 +8,7 @@ import {
   sarTransport,
 } from "../api/cases";
 import { SarApproveForFilingControls } from "./SarApproveForFilingControls";
+import { SarRegulatoryProgressBar } from "./SarRegulatoryProgressBar";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
 type Props = {
@@ -158,6 +159,12 @@ export function SarManagementPanel({ caseId, tenantId }: Props) {
               </p>
             </div>
           ) : null}
+
+          <SarRegulatoryProgressBar
+            variant="case_summary"
+            intent={intent}
+            workspaceHref={`/cases/${encodeURIComponent(caseId)}/sar-intent/${encodeURIComponent(intent.id)}?tenant_id=${encodeURIComponent(tenantId)}`}
+          />
 
           <div className="space-y-2">
             <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pipeline status</div>
