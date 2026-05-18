@@ -5,12 +5,12 @@ This schedule is committed to git for planned milestone tracking.
 ## Planned Releases
 
 - `v1.1.0` - `2026-04-30` — consortium v2 **plus** inference_context v2, `recommended_action`, 5m velocity, simulation guardrails, SDK + OpenAPI parity, Case Detail explainability, **CI/security hygiene, five-minute eval path** (full detail: `docs/docs/releases/v1.1.0-2026-04-30.md`). This train is still an **early-development beta**: evidence gates remain required, and any waiver must be explicit, scoped, and time-bound. **Finalization:** tag only after **full `ci.yml` + `security-scan.yml` + `secret-scan.yml`** green on the RC commit (or approved beta waiver documented in the release note), **frontend** and `**investigation-agent`** (copilot) tests passing, and **no P0** demo/stack blockers (see **§ Release candidate finalization & May handoff policy** in that release note). Changes after the tag default to **May 2026 Friday ships** → `v1.2.0`.
-- `v1.2.0` - `2026-05-30` — strategic concentration: productized quality, device/session/integrity, location & co-presence, counters/velocity platform, analyst workflows, network/consortium, operations & lock-in inverse (see `docs/docs/releases/v1.2.0-2026-05-30.md`).
-- `v1.3.0` - `2026-06-29`
+- ~~`v1.2.0` - `2026-05-30`~~ — **SKIPPED** (2026-05-18). Scope moves to **v1.3.0** on `master`; see [INTERNAL-branch-policy-v1.3.md](docs/docs/releases/INTERNAL-branch-policy-v1.3.md).
+- `v1.3.0` - `2026-06-29` — **active trunk** ([v1.3.0-2026-06-29.md](docs/docs/releases/v1.3.0-2026-06-29.md))
 
-### `v1.2.0` — ship hold until Epic C “10x” (active)
+### `v1.3.0` — active development line
 
-**Do not** publish a **`v1.2.0`** Git tag or GitHub release, and do not treat the train as “shipped to users,” until **[Epic C completion (10x bar)](docs/docs/guides/counter-replay-parity.md#epic-c-completion-10x-bar)** is satisfied on the release candidate commit. Integration branches (e.g. `release/v1.2.0`) may continue to move for development; the hold is on **customer-facing release finalization** only.
+All engineering targets **`master`** after [PR #184](https://github.com/pamu512/tarka/pull/184). Stabilize CI (v2 sidecars + `legacy_attic` paths) before tagging **v1.3.0**.
 
 ## Publication Notes
 
