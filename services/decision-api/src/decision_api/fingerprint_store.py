@@ -170,14 +170,18 @@ class FingerprintStore:
         await pipe2.execute()
         return record
 
-    async def get_fingerprint(self, tenant_id: str, fp_hash: str) -> FingerprintRecord | None:
+    async def get_fingerprint(
+        self, tenant_id: str, fp_hash: str
+    ) -> FingerprintRecord | None:
         client = _require_client(self._client)
         raw = await client.get(self._fp_key(tenant_id, fp_hash))
         if not raw:
             return None
         return FingerprintRecord.from_dict(json.loads(raw))
 
-    async def get_entity_fingerprints(self, tenant_id: str, entity_id: str) -> list[FingerprintRecord]:
+    async def get_entity_fingerprints(
+        self, tenant_id: str, entity_id: str
+    ) -> list[FingerprintRecord]:
         client = _require_client(self._client)
         entity_key = self._entity_key(tenant_id, entity_id)
         fp_hashes = await client.zrange(entity_key, 0, -1)

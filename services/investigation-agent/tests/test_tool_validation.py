@@ -51,7 +51,9 @@ class TestValidateToolArguments:
             "run_replay_ab_comparison",
             {
                 "rules_variant_a": [{"id": "r", "when": [{"field": "x", "op": "eq", "value": 1}]}],
-                "rules_variant_b": [{"id": "r2", "when": [{"field": "y", "op": "gte", "value": 2}]}],
+                "rules_variant_b": [
+                    {"id": "r2", "when": [{"field": "y", "op": "gte", "value": 2}]}
+                ],
                 "limit": 10,
             },
         )

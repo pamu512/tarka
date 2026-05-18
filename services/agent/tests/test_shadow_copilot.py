@@ -74,7 +74,9 @@ def test_light_tier_keeps_installed_small_user_choice(monkeypatch: pytest.Monkey
 
 def test_shadow_copilot_initialize_and_cloud_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_ram_gib(monkeypatch, 4.0)
-    monkeypatch.setattr(sc, "fetch_installed_ollama_model_tags", lambda url, timeout_sec=2.0: ([], "down"))
+    monkeypatch.setattr(
+        sc, "fetch_installed_ollama_model_tags", lambda url, timeout_sec=2.0: ([], "down")
+    )
     cop = sc.ShadowCopilot(env_ollama_model="llama3.2")
     st = cop.initialize()
     assert st.tier == sc.CopilotModelTier.DISABLED

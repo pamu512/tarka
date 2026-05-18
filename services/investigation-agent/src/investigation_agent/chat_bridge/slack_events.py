@@ -7,7 +7,10 @@ from typing import Any
 import httpx
 
 from investigation_agent.chat_bridge.agent_client import AgentChatError, post_chat
-from investigation_agent.chat_bridge.bridge_turn import merge_workflow_with_explicit, prepare_messages_for_agent
+from investigation_agent.chat_bridge.bridge_turn import (
+    merge_workflow_with_explicit,
+    prepare_messages_for_agent,
+)
 from investigation_agent.chat_bridge.config import Settings
 from investigation_agent.chat_bridge.reply_format import (
     format_slack_blocks,
@@ -18,12 +21,17 @@ from investigation_agent.chat_bridge.reply_format import (
 log = logging.getLogger(__name__)
 
 
-async def slack_fetch_thread_messages(bot_token: str, channel: str, thread_ts: str, *, limit: int = 20) -> list[dict[str, str]]:
+async def slack_fetch_thread_messages(
+    bot_token: str, channel: str, thread_ts: str, *, limit: int = 20
+) -> list[dict[str, str]]:
     """Use conversations.replies to build OpenAI-style messages (user/assistant)."""
     if not bot_token:
         return []
     url = "https://slack.com/api/conversations.replies"
-    headers = {"Authorization": f"Bearer {bot_token}", "Content-Type": "application/x-www-form-urlencoded"}
+    headers = {
+        "Authorization": f"Bearer {bot_token}",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
     data = {"channel": channel, "ts": thread_ts, "limit": str(min(max(limit, 2), 50))}
     async with httpx.AsyncClient(timeout=30.0) as client:
         r = await client.post(url, headers=headers, data=data)
@@ -47,7 +55,9 @@ async def slack_fetch_thread_messages(bot_token: str, channel: str, thread_ts: s
     return out
 
 
-async def slack_post_message(bot_token: str, channel: str, thread_ts: str | None, blocks: list[dict[str, Any]]) -> None:
+async def slack_post_message(
+    bot_token: str, channel: str, thread_ts: str | None, blocks: list[dict[str, Any]]
+) -> None:
     url = "https://slack.com/api/chat.postMessage"
     headers = {"Authorization": f"Bearer {bot_token}", "Content-Type": "application/json"}
     payload: dict[str, Any] = {"channel": channel, "blocks": blocks}

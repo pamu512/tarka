@@ -169,7 +169,9 @@ async def kpi_series(
     summary = {
         "cases_created_in_window": sum(b["cases_created"] for b in bucket_payloads),
         "cases_closed_in_window": sum(b["cases_closed"] for b in bucket_payloads),
-        "median_handling_hours_closed_window": None if not all_handling else round(median_float(all_handling) or 0.0, 4),
+        "median_handling_hours_closed_window": None
+        if not all_handling
+        else round(median_float(all_handling) or 0.0, 4),
     }
 
     return {

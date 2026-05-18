@@ -12,7 +12,10 @@ def test_health_runtime_fields_present():
 
         with (
             patch("case_api.main.active_database_backend", return_value="postgresql"),
-            patch("case_api.main.public_database_url", return_value="postgresql+asyncpg://fraud:***@db:5432/fraud_cases"),
+            patch(
+                "case_api.main.public_database_url",
+                return_value="postgresql+asyncpg://fraud:***@db:5432/fraud_cases",
+            ),
             patch("case_api.main.using_local_fallback", return_value=False),
             patch("case_api.main.fallback_reason", return_value=None),
             patch("case_api.main.bootstrap_mode", return_value="alembic_head"),

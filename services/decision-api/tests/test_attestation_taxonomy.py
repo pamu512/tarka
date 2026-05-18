@@ -1,6 +1,9 @@
 """Mobile attestation normalization and signal tags."""
 
-from decision_api.attestation_taxonomy import attestation_signal_tags, normalize_attestation_object
+from decision_api.attestation_taxonomy import (
+    attestation_signal_tags,
+    normalize_attestation_object,
+)
 from decision_api.main import extract_signal_tags
 from decision_api.schemas import DeviceContextIn, EvaluateRequest, EventType
 

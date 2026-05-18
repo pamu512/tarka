@@ -47,9 +47,11 @@ Social/Identity:
 """
 log = logging.getLogger(__name__)
 
-_osint_residency_ctx: contextvars.ContextVar[tuple[str | None, TenantConfig | None]] = contextvars.ContextVar(
-    "_osint_residency_ctx",
-    default=(None, None),
+_osint_residency_ctx: contextvars.ContextVar[tuple[str | None, TenantConfig | None]] = (
+    contextvars.ContextVar(
+        "_osint_residency_ctx",
+        default=(None, None),
+    )
 )
 
 # ---------------------------------------------------------------------------
@@ -233,7 +235,9 @@ def _safe_float(val: Any, default: float = 0.0) -> float:
 async def osint_ip_shodan(ip: str, http: httpx.AsyncClient) -> dict[str, Any]:
     """Shodan InternetDB — open ports, CVEs, tags. No API key needed."""
     result: dict[str, Any] = {"source": "shodan_internetdb", "ip": ip}
-    data = await _safe_get(http, f"https://internetdb.shodan.io/{ip}", label="shodan", vendor_key="shodan")
+    data = await _safe_get(
+        http, f"https://internetdb.shodan.io/{ip}", label="shodan", vendor_key="shodan"
+    )
     if data:
         result["ports"] = data.get("ports", [])
         result["hostnames"] = data.get("hostnames", [])
@@ -830,7 +834,9 @@ async def enrich_phone_full(
         if rs is not None:
             risk_scores.append(float(rs))
 
-    agg_risk = max(risk_scores) * 0.6 + (sum(risk_scores) / len(risk_scores)) * 0.4 if risk_scores else 0
+    agg_risk = (
+        max(risk_scores) * 0.6 + (sum(risk_scores) / len(risk_scores)) * 0.4 if risk_scores else 0
+    )
 
     return {
         "phone": phone,
@@ -1008,7 +1014,9 @@ async def full_osint_enrichment(
 
         # Composite risk: weighted max
         if all_risk_scores:
-            composite = max(all_risk_scores) * 0.7 + (sum(all_risk_scores) / len(all_risk_scores)) * 0.3
+            composite = (
+                max(all_risk_scores) * 0.7 + (sum(all_risk_scores) / len(all_risk_scores)) * 0.3
+            )
         else:
             composite = 0
 

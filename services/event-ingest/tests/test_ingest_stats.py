@@ -28,7 +28,10 @@ def client(mock_js):
 
 
 def test_ingest_stats_after_contract_reject(client, mock_js):
-    r = client.post("/v1/events", json={"tenant_id": "t", "event_type": "bad_type", "entity_id": "e", "payload": {}})
+    r = client.post(
+        "/v1/events",
+        json={"tenant_id": "t", "event_type": "bad_type", "entity_id": "e", "payload": {}},
+    )
     assert r.status_code == 422
     s = client.get("/v1/ingest/stats")
     assert s.status_code == 200

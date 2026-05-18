@@ -63,8 +63,12 @@ class TenantSchema:
         node_context_hints: dict[str, list[str]] | None = None,
     ) -> None:
         self.tenant_id = tenant_id
-        self.entity_types: list[str] = list(dict.fromkeys(_DEFAULT_ENTITY_TYPES + (entity_types or [])))
-        self.relationship_types: list[str] = list(dict.fromkeys(_DEFAULT_RELATIONSHIP_TYPES + (relationship_types or [])))
+        self.entity_types: list[str] = list(
+            dict.fromkeys(_DEFAULT_ENTITY_TYPES + (entity_types or []))
+        )
+        self.relationship_types: list[str] = list(
+            dict.fromkeys(_DEFAULT_RELATIONSHIP_TYPES + (relationship_types or []))
+        )
         self.extra: dict[str, Any] = extra or {}
         self.typed_edges: list[dict[str, Any]] = list(typed_edges or [])
         self.node_context_hints: dict[str, list[str]] = dict(node_context_hints or {})
@@ -157,7 +161,9 @@ def save_tenant_schema(schema: TenantSchema) -> None:
     Rejects any entity type or relationship type that isn't a safe Cypher
     identifier (alphanumeric + underscore, starts with a letter, max 64 chars).
     """
-    bad = [t for t in schema.entity_types + schema.relationship_types if not _SAFE_IDENTIFIER.match(t)]
+    bad = [
+        t for t in schema.entity_types + schema.relationship_types if not _SAFE_IDENTIFIER.match(t)
+    ]
     if bad:
         raise ValueError(f"unsafe identifiers rejected: {bad}")
     for spec in schema.typed_edges:

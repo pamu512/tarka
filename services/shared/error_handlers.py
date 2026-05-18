@@ -106,4 +106,3 @@ def setup_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ValidationError, validation_exception_handler)
     app.add_exception_handler(SQLAlchemyError, sqlalchemy_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
-

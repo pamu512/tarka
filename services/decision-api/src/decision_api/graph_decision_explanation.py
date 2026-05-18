@@ -57,10 +57,16 @@ def build_graph_decision_explanation_v1(
         )
         ev: list[dict[str, str]] = [
             {"kind": "decision_trace", "ref": f"trace:{trace_id}", "role": "audit_row"},
-            {"kind": "graph_subject", "ref": f"entity:{entity_id}", "role": "scored_node"},
+            {
+                "kind": "graph_subject",
+                "ref": f"entity:{entity_id}",
+                "role": "scored_node",
+            },
         ]
         if ":" in code:
-            ev.append({"kind": "graph_signal", "ref": f"metric:{code}", "role": "risk_factor"})
+            ev.append(
+                {"kind": "graph_signal", "ref": f"metric:{code}", "role": "risk_factor"}
+            )
         why_links.append({"factor_id": fid, "evidence": ev})
 
     out: dict[str, Any] = {
@@ -68,7 +74,11 @@ def build_graph_decision_explanation_v1(
         "trace_id": trace_id,
         "tenant_id": tenant_id,
         "subject": {"external_id": entity_id},
-        "graph_trace": {"step": trace.get("step"), "status": trace.get("status"), "reason": trace.get("reason")},
+        "graph_trace": {
+            "step": trace.get("step"),
+            "status": trace.get("status"),
+            "reason": trace.get("reason"),
+        },
         "factors": factors,
         "why_links": why_links,
         "case_ui": {

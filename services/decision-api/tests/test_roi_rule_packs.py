@@ -65,9 +65,23 @@ class TestROIRuleEvaluation:
 
     def test_vertical_pack_events_trigger_expected_prefix_tags(self) -> None:
         scenarios = {
-            "fintech": {"amount": 2500, "account_age_days": 3, "transaction_count_24h": 1},
-            "ecommerce": {"is_bot": True, "amount": 180, "distinct_countries_7d": 1, "transaction_count_24h": 1},
-            "gaming": {"is_emulator": True, "is_bot": True, "hour_of_day": 1, "transaction_count_24h": 2},
+            "fintech": {
+                "amount": 2500,
+                "account_age_days": 3,
+                "transaction_count_24h": 1,
+            },
+            "ecommerce": {
+                "is_bot": True,
+                "amount": 180,
+                "distinct_countries_7d": 1,
+                "transaction_count_24h": 1,
+            },
+            "gaming": {
+                "is_emulator": True,
+                "is_bot": True,
+                "hour_of_day": 1,
+                "transaction_count_24h": 2,
+            },
         }
         for vertical, payload in scenarios.items():
             pack = get_vertical_pack(vertical)

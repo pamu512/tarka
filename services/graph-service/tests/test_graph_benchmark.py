@@ -2,7 +2,11 @@
 
 from graph_service.benchmark.datasets import get_task, list_tasks
 from graph_service.benchmark.metrics import average_precision_binary, precision_recall
-from graph_service.benchmark.registry import export_for_decision_pipeline, feature_ids, registry_content_digest
+from graph_service.benchmark.registry import (
+    export_for_decision_pipeline,
+    feature_ids,
+    registry_content_digest,
+)
 from graph_service.benchmark.runner import run_experiment
 
 
@@ -34,7 +38,9 @@ def test_backward_compatible_feature_ids():
     ids = {f["feature_id"] for f in exported}
     assert ids == feature_ids()
     for f in exported:
-        assert "version" in f and "owner" in f and "derivation" in f and "decision_pipeline_key" in f
+        assert (
+            "version" in f and "owner" in f and "derivation" in f and "decision_pipeline_key" in f
+        )
 
 
 def test_metrics_perfect_ranking():
@@ -56,7 +62,11 @@ def test_experiment_scorecard_deterministic():
     b = run_experiment(seed=7, **body)
     assert a["run_id"] == b["run_id"]
     assert a["artifact_digest"] == b["artifact_digest"]
-    assert a["promotion"]["decision"] in {"promote_graph_enhanced", "hold", "rollback_graph_enhanced"}
+    assert a["promotion"]["decision"] in {
+        "promote_graph_enhanced",
+        "hold",
+        "rollback_graph_enhanced",
+    }
 
 
 def test_benchmark_http_flow(monkeypatch):

@@ -92,7 +92,9 @@ class HardwareSnapshot(BaseModel):
     """What we detected — logged and echoed to the UI payload."""
 
     system_ram_total_gib: float = Field(description="psutil.virtual_memory().total / 1024**3")
-    system_ram_available_gib: float = Field(description="psutil.virtual_memory().available / 1024**3")
+    system_ram_available_gib: float = Field(
+        description="psutil.virtual_memory().available / 1024**3"
+    )
     cuda_devices: int = 0
     cuda_total_vram_gib: float | None = None
     mlx_importable: bool = False
@@ -251,9 +253,9 @@ def _pick_installed_light_model(installed: set[str]) -> str | None:
     # Fuzzy: any installed tag that looks like a small variant
     for tag in sorted(installed):
         tl = _normalize_model_tag(tag)
-        if any(x in tl for x in ("1.5b", "1.7b", "2b", "mini", "tinyllama", "smollm", "phi3")) and not _is_heavy_model_tag(
-            tag
-        ):
+        if any(
+            x in tl for x in ("1.5b", "1.7b", "2b", "mini", "tinyllama", "smollm", "phi3")
+        ) and not _is_heavy_model_tag(tag):
             return tag
     return None
 

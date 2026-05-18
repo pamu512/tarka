@@ -27,9 +27,29 @@ from auth_rbac import require_role  # noqa: E402
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/disputes", tags=["disputes"])
 
-VALID_DISPUTE_TYPES = {"chargeback", "dispute", "fraud_claim", "unauthorized", "service_not_rendered", "product_not_received"}
-VALID_STATUSES = {"filed", "investigating", "evidence_submitted", "accepted", "rejected", "resolved"}
-VALID_OUTCOMES = {"fraud_confirmed", "false_positive", "inconclusive", "merchant_fault", "customer_fault"}
+VALID_DISPUTE_TYPES = {
+    "chargeback",
+    "dispute",
+    "fraud_claim",
+    "unauthorized",
+    "service_not_rendered",
+    "product_not_received",
+}
+VALID_STATUSES = {
+    "filed",
+    "investigating",
+    "evidence_submitted",
+    "accepted",
+    "rejected",
+    "resolved",
+}
+VALID_OUTCOMES = {
+    "fraud_confirmed",
+    "false_positive",
+    "inconclusive",
+    "merchant_fault",
+    "customer_fault",
+}
 _EXTERNAL_QUEUE_STATUSES = ("filed", "investigating", "evidence_submitted")
 
 
@@ -39,7 +59,11 @@ class ReprocessExternalBody(BaseModel):
 
 async def _fetch_original_decision(http: httpx.AsyncClient, trace_id: str) -> dict[str, Any]:
     """Fetch the original decision audit record from the decision-api."""
-    decision_url = settings.decision_api_url if hasattr(settings, "decision_api_url") and settings.decision_api_url else None
+    decision_url = (
+        settings.decision_api_url
+        if hasattr(settings, "decision_api_url") and settings.decision_api_url
+        else None
+    )
     if not decision_url:
         return {}
     try:
@@ -51,7 +75,9 @@ async def _fetch_original_decision(http: httpx.AsyncClient, trace_id: str) -> di
     return {}
 
 
-async def _tag_entity(http: httpx.AsyncClient, tenant_id: str, entity_id: str, tags: list[str]) -> None:
+async def _tag_entity(
+    http: httpx.AsyncClient, tenant_id: str, entity_id: str, tags: list[str]
+) -> None:
     """Push tags to both Redis (via decision-api) and Neo4j (via graph-service)."""
     if settings.graph_service_url:
         try:
@@ -66,7 +92,11 @@ async def _tag_entity(http: httpx.AsyncClient, tenant_id: str, entity_id: str, t
 
 async def _send_ml_feedback(http: httpx.AsyncClient, dispute: Dispute) -> None:
     """Send dispute outcome as ML training label feedback."""
-    ml_url = settings.ml_scoring_url if hasattr(settings, "ml_scoring_url") and settings.ml_scoring_url else None
+    ml_url = (
+        settings.ml_scoring_url
+        if hasattr(settings, "ml_scoring_url") and settings.ml_scoring_url
+        else None
+    )
     if not ml_url or not dispute.outcome:
         return
     is_fraud = dispute.outcome in ("fraud_confirmed", "merchant_fault")
@@ -111,7 +141,9 @@ async def create_dispute(
 ):
     """File a new dispute or chargeback, auto-linking to the original decision."""
     if body.dispute_type not in VALID_DISPUTE_TYPES:
-        raise HTTPException(400, f"Invalid dispute_type. Must be one of: {', '.join(sorted(VALID_DISPUTE_TYPES))}")
+        raise HTTPException(
+            400, f"Invalid dispute_type. Must be one of: {', '.join(sorted(VALID_DISPUTE_TYPES))}"
+        )
 
     http: httpx.AsyncClient = request.app.state.http
 
@@ -214,18 +246,30 @@ async def dispute_stats(tenant_id: str, session: AsyncSession = Depends(get_sess
     total = await session.execute(select(func.count()).select_from(base.subquery()))
     total_count = total.scalar() or 0
 
-    by_status = await session.execute(select(Dispute.status, func.count()).where(Dispute.tenant_id == tenant_id).group_by(Dispute.status))
+    by_status = await session.execute(
+        select(Dispute.status, func.count())
+        .where(Dispute.tenant_id == tenant_id)
+        .group_by(Dispute.status)
+    )
     status_counts = {row[0]: row[1] for row in by_status.all()}
 
-    by_type = await session.execute(select(Dispute.dispute_type, func.count()).where(Dispute.tenant_id == tenant_id).group_by(Dispute.dispute_type))
+    by_type = await session.execute(
+        select(Dispute.dispute_type, func.count())
+        .where(Dispute.tenant_id == tenant_id)
+        .group_by(Dispute.dispute_type)
+    )
     type_counts = {row[0]: row[1] for row in by_type.all()}
 
     by_outcome = await session.execute(
-        select(Dispute.outcome, func.count()).where(Dispute.tenant_id == tenant_id, Dispute.outcome.isnot(None)).group_by(Dispute.outcome)
+        select(Dispute.outcome, func.count())
+        .where(Dispute.tenant_id == tenant_id, Dispute.outcome.isnot(None))
+        .group_by(Dispute.outcome)
     )
     outcome_counts = {row[0]: row[1] for row in by_outcome.all()}
 
-    total_amount = await session.execute(select(func.sum(Dispute.amount)).where(Dispute.tenant_id == tenant_id))
+    total_amount = await session.execute(
+        select(func.sum(Dispute.amount)).where(Dispute.tenant_id == tenant_id)
+    )
     sum_amount = total_amount.scalar() or 0.0
 
     won = outcome_counts.get("fraud_confirmed", 0) + outcome_counts.get("merchant_fault", 0)
@@ -258,7 +302,10 @@ async def dispute_deadline_queue(
         .limit(lim)
     )
     rows = (await session.execute(q)).scalars().all()
-    items = [queue_item_view(r, now=now, near_breach_ratio=float(settings.dispute_near_breach_ratio)) for r in rows]
+    items = [
+        queue_item_view(r, now=now, near_breach_ratio=float(settings.dispute_near_breach_ratio))
+        for r in rows
+    ]
     return {
         "schema": "tarka.dispute_deadline_queue/v1",
         "tenant_id": tenant_id,
@@ -293,7 +340,9 @@ async def reprocess_dispute_external(
         out["idempotent_replay"] = True
         return out
 
-    row = await session.scalar(select(Dispute).where(Dispute.id == dispute_id, Dispute.tenant_id == tenant_id))
+    row = await session.scalar(
+        select(Dispute).where(Dispute.id == dispute_id, Dispute.tenant_id == tenant_id)
+    )
     if not row:
         raise HTTPException(404, "Dispute not found")
 
@@ -354,12 +403,16 @@ async def update_dispute(
 
     if body.status:
         if body.status not in VALID_STATUSES:
-            raise HTTPException(400, f"Invalid status. Must be one of: {', '.join(sorted(VALID_STATUSES))}")
+            raise HTTPException(
+                400, f"Invalid status. Must be one of: {', '.join(sorted(VALID_STATUSES))}"
+            )
         dispute.status = body.status
 
     if body.outcome:
         if body.outcome not in VALID_OUTCOMES:
-            raise HTTPException(400, f"Invalid outcome. Must be one of: {', '.join(sorted(VALID_OUTCOMES))}")
+            raise HTTPException(
+                400, f"Invalid outcome. Must be one of: {', '.join(sorted(VALID_OUTCOMES))}"
+            )
         dispute.outcome = body.outcome
         dispute.resolved_at = datetime.now(timezone.utc)
         dispute.status = "resolved"
@@ -384,10 +437,14 @@ async def update_dispute(
             if case:
                 if dispute.outcome == "fraud_confirmed":
                     if "confirmed_fraud" not in (case.labels or []):
-                        case.labels = sorted(set(case.labels or []) | {"confirmed_fraud", "dispute_resolved"})
+                        case.labels = sorted(
+                            set(case.labels or []) | {"confirmed_fraud", "dispute_resolved"}
+                        )
                     case.priority = "critical"
                 elif dispute.outcome == "false_positive":
-                    case.labels = sorted(set(case.labels or []) | {"false_positive", "dispute_resolved"})
+                    case.labels = sorted(
+                        set(case.labels or []) | {"false_positive", "dispute_resolved"}
+                    )
                 else:
                     case.labels = sorted(set(case.labels or []) | {"dispute_resolved"})
                 session.add(
@@ -437,7 +494,11 @@ async def entity_dispute_history(
     session: AsyncSession = Depends(get_session),
 ):
     """Get all disputes for an entity — feeds into risk assessment."""
-    result = await session.execute(select(Dispute).where(Dispute.tenant_id == tenant_id, Dispute.entity_id == entity_id).order_by(Dispute.created_at.desc()))
+    result = await session.execute(
+        select(Dispute)
+        .where(Dispute.tenant_id == tenant_id, Dispute.entity_id == entity_id)
+        .order_by(Dispute.created_at.desc())
+    )
     rows = result.scalars().all()
     fraud_count = sum(1 for r in rows if r.outcome == "fraud_confirmed")
     false_pos_count = sum(1 for r in rows if r.outcome == "false_positive")

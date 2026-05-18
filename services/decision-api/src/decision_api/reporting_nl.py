@@ -27,12 +27,18 @@ _FROM_JOIN_TABLE = re.compile(r"(?is)\b(?:from|join)\s+([a-zA-Z0-9_]+)\b")
 
 class NaturalLanguageSqlRequest(BaseModel):
     tenant_id: str = Field(..., max_length=128)
-    question: str = Field(..., max_length=2000, description="Analyst question; answered only via configured LLM SQL generation.")
+    question: str = Field(
+        ...,
+        max_length=2000,
+        description="Analyst question; answered only via configured LLM SQL generation.",
+    )
 
 
 def _allowed_tables() -> set[str]:
     raw = settings.nl_sql_allowed_tables or "fraud_decisions"
-    return {t.strip() for t in raw.split(",") if t.strip() and _ALLOWED.match(t.strip())}
+    return {
+        t.strip() for t in raw.split(",") if t.strip() and _ALLOWED.match(t.strip())
+    }
 
 
 def _extract_sql_block(raw: str) -> str:
@@ -55,7 +61,19 @@ def _validate_generated_sql(sql: str, allowed: set[str]) -> None:
     if not (head.startswith("select") or head.startswith("with")):
         raise ValueError("not_select")
     for tbl in _FROM_JOIN_TABLE.findall(s):
-        if tbl.lower() in ("select", "where", "on", "as", "and", "or", "not", "group", "order", "limit", "having"):
+        if tbl.lower() in (
+            "select",
+            "where",
+            "on",
+            "as",
+            "and",
+            "or",
+            "not",
+            "group",
+            "order",
+            "limit",
+            "having",
+        ):
             continue
         if tbl not in allowed:
             raise ValueError(f"table_not_allowlisted:{tbl}")
@@ -66,7 +84,10 @@ async def _llm_generate_sql(question: str, allowed: set[str]) -> str:
     if not url:
         raise HTTPException(
             status_code=503,
-            detail={"reason_code": "LLM_ENGINE_OFFLINE", "message": "TARKA_REPORTING_NL_LLM_URL is not set."},
+            detail={
+                "reason_code": "LLM_ENGINE_OFFLINE",
+                "message": "TARKA_REPORTING_NL_LLM_URL is not set.",
+            },
         )
     schema_hint = (
         "Allowed tables (ClickHouse): "
@@ -114,19 +135,28 @@ async def _llm_generate_sql(question: str, allowed: set[str]) -> str:
         log.warning("nl_sql LLM timeout: %s", e)
         raise HTTPException(
             status_code=503,
-            detail={"reason_code": "LLM_ENGINE_OFFLINE", "message": "LLM request timed out."},
+            detail={
+                "reason_code": "LLM_ENGINE_OFFLINE",
+                "message": "LLM request timed out.",
+            },
         ) from e
     except httpx.ConnectError as e:
         log.warning("nl_sql LLM connection failed: %s", e)
         raise HTTPException(
             status_code=503,
-            detail={"reason_code": "LLM_ENGINE_OFFLINE", "message": "Could not connect to LLM provider."},
+            detail={
+                "reason_code": "LLM_ENGINE_OFFLINE",
+                "message": "Could not connect to LLM provider.",
+            },
         ) from e
     except httpx.RequestError as e:
         log.warning("nl_sql LLM request error: %s", e)
         raise HTTPException(
             status_code=503,
-            detail={"reason_code": "LLM_ENGINE_OFFLINE", "message": "LLM transport failed."},
+            detail={
+                "reason_code": "LLM_ENGINE_OFFLINE",
+                "message": "LLM transport failed.",
+            },
         ) from e
     try:
         content = data["choices"][0]["message"]["content"]
@@ -142,7 +172,10 @@ async def _llm_generate_sql(question: str, allowed: set[str]) -> str:
     if not isinstance(content, str):
         raise HTTPException(
             status_code=503,
-            detail={"reason_code": "LLM_REQUEST_FAILED", "message": "LLM message content was not a string."},
+            detail={
+                "reason_code": "LLM_REQUEST_FAILED",
+                "message": "LLM message content was not a string.",
+            },
         )
     return _extract_sql_block(content)
 
@@ -163,7 +196,10 @@ async def nl_to_sql(body: NaturalLanguageSqlRequest) -> dict[str, Any]:
     if not (settings.reporting_nl_llm_url or "").strip():
         raise HTTPException(
             status_code=503,
-            detail={"reason_code": "LLM_ENGINE_OFFLINE", "message": "TARKA_REPORTING_NL_LLM_URL is not set."},
+            detail={
+                "reason_code": "LLM_ENGINE_OFFLINE",
+                "message": "TARKA_REPORTING_NL_LLM_URL is not set.",
+            },
         )
 
     sql = await _llm_generate_sql(body.question, allowed)
@@ -171,9 +207,15 @@ async def nl_to_sql(body: NaturalLanguageSqlRequest) -> dict[str, Any]:
         _validate_generated_sql(sql, allowed)
     except ValueError as e:
         log.warning("nl_sql rejected LLM output: %s", e)
-        raise HTTPException(status_code=400, detail={"error": "sql_validation_failed", "reason": str(e)}) from e
+        raise HTTPException(
+            status_code=400, detail={"error": "sql_validation_failed", "reason": str(e)}
+        ) from e
     tables_used = sorted({t for t in _FROM_JOIN_TABLE.findall(sql) if t in allowed})
-    primary = tables_used[0] if len(tables_used) == 1 else (tables_used[0] if tables_used else next(iter(allowed)))
+    primary = (
+        tables_used[0]
+        if len(tables_used) == 1
+        else (tables_used[0] if tables_used else next(iter(allowed)))
+    )
     return {
         "tenant_id": body.tenant_id,
         "table": primary,

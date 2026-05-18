@@ -61,7 +61,9 @@ class ExchangeRateCache:
                             new_rates[code.upper()] = float(rate)
                         self._rates = new_rates
                         self._last_fetch = time.time()
-                        log.info("refreshed exchange rates: %d currencies", len(new_rates))
+                        log.info(
+                            "refreshed exchange rates: %d currencies", len(new_rates)
+                        )
                         return True
             finally:
                 if close_after:
@@ -105,7 +107,9 @@ async def normalize_amount(
     tgt_rate = _cache.get_rate(target)
 
     if src_rate is None or tgt_rate is None:
-        log.warning("unknown currency pair %s→%s, returning original amount", currency, target)
+        log.warning(
+            "unknown currency pair %s→%s, returning original amount", currency, target
+        )
         return amount
 
     usd_amount = amount / src_rate

@@ -16,14 +16,20 @@ from analytics.engine import DuckDBEngine
 
 
 def test_parse_dashboard_period_midnight_in_timezone() -> None:
-    utc_start, utc_end = parse_dashboard_period("2024-06-10", "2024-06-10", "America/New_York")
+    utc_start, utc_end = parse_dashboard_period(
+        "2024-06-10", "2024-06-10", "America/New_York"
+    )
     assert utc_start == "2024-06-10 04:00:00"
     assert utc_end == "2024-06-11 04:00:00"
 
 
 def test_dashboard_cache_key_includes_table() -> None:
-    k1 = dashboard_cache_key("t1", "2024-01-01", "2024-01-02", "UTC", "duckdb", table="fraud_decisions")
-    k2 = dashboard_cache_key("t1", "2024-01-01", "2024-01-02", "UTC", "duckdb", table="other")
+    k1 = dashboard_cache_key(
+        "t1", "2024-01-01", "2024-01-02", "UTC", "duckdb", table="fraud_decisions"
+    )
+    k2 = dashboard_cache_key(
+        "t1", "2024-01-01", "2024-01-02", "UTC", "duckdb", table="other"
+    )
     assert k1 != k2
     assert "fraud_decisions" in k1
 
@@ -75,7 +81,9 @@ def test_fetch_dashboard_aggregates_duckdb() -> None:
 
 
 @pytest.mark.asyncio
-async def test_dashboard_summary_endpoint_uses_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_dashboard_summary_endpoint_uses_cache(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     pytest.importorskip("tarka_core.cache")
     pytest.importorskip("httpx")
     from httpx import ASGITransport, AsyncClient
@@ -144,7 +152,14 @@ async def test_dashboard_summary_endpoint_uses_cache(monkeypatch: pytest.MonkeyP
         assert len(calls) == 1
 
         raw = await kv.get(
-            dashboard_cache_key("t1", "2025-02-01", "2025-02-01", "UTC", "duckdb", table="fraud_decisions")
+            dashboard_cache_key(
+                "t1",
+                "2025-02-01",
+                "2025-02-01",
+                "UTC",
+                "duckdb",
+                table="fraud_decisions",
+            )
         )
         assert raw is not None
         cached = json.loads(raw)

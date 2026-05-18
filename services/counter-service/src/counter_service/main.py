@@ -86,7 +86,9 @@ if os.environ.get("TARKA_SIGNAL_PLANE_SUBAPP", "").strip() != "1":
 async def _startup():
     app.state.redis = None
     app.state.store = None
-    redis_url = (os.environ.get("COUNTER_SERVICE_REDIS_URL") or os.environ.get("REDIS_URL") or "").strip()
+    redis_url = (
+        os.environ.get("COUNTER_SERVICE_REDIS_URL") or os.environ.get("REDIS_URL") or ""
+    ).strip()
     if redis_url:
         try:
             rc = aioredis.from_url(redis_url, decode_responses=True)

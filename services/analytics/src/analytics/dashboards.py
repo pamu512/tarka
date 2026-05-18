@@ -27,7 +27,9 @@ from analytics.queries import (
 _TOP_LIMIT = 100
 
 
-def parse_dashboard_period(period_start: str, period_end: str, timezone_name: str) -> tuple[str, str]:
+def parse_dashboard_period(
+    period_start: str, period_end: str, timezone_name: str
+) -> tuple[str, str]:
     """Convert inclusive local calendar ``[period_start, period_end]`` to UTC ``[utc_start, utc_end)`` ISO strings.
 
     ``created_at`` in the warehouse is interpreted as **UTC**; user-visible bounds are expanded in
@@ -84,14 +86,21 @@ def _render_volume_duckdb(table: str) -> str:
             exp.TryCast(
                 this=exp.Anonymous(
                     this="json_extract",
-                    expressions=[exp.column("payload_json"), exp.Literal.string("$.payload.amount")],
+                    expressions=[
+                        exp.column("payload_json"),
+                        exp.Literal.string("$.payload.amount"),
+                    ],
                 ),
                 to=exp.DataType.build("DOUBLE"),
             ),
             exp.Literal.number(0),
         ]
     )
-    q = exp.select(exp.Sum(this=amt).as_("total_volume")).from_(tbl).where(_backtest_window_where_duckdb(table))
+    q = (
+        exp.select(exp.Sum(this=amt).as_("total_volume"))
+        .from_(tbl)
+        .where(_backtest_window_where_duckdb(table))
+    )
     return q.sql(dialect="duckdb", identify=True)
 
 
@@ -101,7 +110,11 @@ def _render_volume_clickhouse(table: str, max_execution_seconds: int) -> str:
         "coalesce(JSONExtractFloat(payload_json, 'amount'), JSONExtractFloat(payload_json, 'payload', 'amount'), 0.0)",
         dialect="clickhouse",
     )
-    q = exp.select(exp.Sum(this=amt).as_("total_volume")).from_(tbl).where(_backtest_window_where_clickhouse(table))
+    q = (
+        exp.select(exp.Sum(this=amt).as_("total_volume"))
+        .from_(tbl)
+        .where(_backtest_window_where_clickhouse(table))
+    )
     base = _normalize_clickhouse_named_params(q.sql(dialect="clickhouse", identify=True))
     return _clickhouse_append_settings(base, int(max_execution_seconds))
 
@@ -112,7 +125,10 @@ def _render_block_rate_duckdb(table: str) -> str:
         this=exp.Case(
             ifs=[
                 exp.If(
-                    this=exp.In(this=exp.column("decision"), expressions=[exp.Literal.string("deny"), exp.Literal.string("review")]),
+                    this=exp.In(
+                        this=exp.column("decision"),
+                        expressions=[exp.Literal.string("deny"), exp.Literal.string("review")],
+                    ),
                     true=exp.Literal.number(1),
                 )
             ],
@@ -130,7 +146,11 @@ def _render_block_rate_clickhouse(table: str, max_execution_seconds: int) -> str
         "countIf(decision IN ('deny', 'review')) AS blocked, count() AS total",
         dialect="clickhouse",
     )
-    q = exp.select(num.expressions[0], num.expressions[1]).from_(tbl).where(_backtest_window_where_clickhouse(table))
+    q = (
+        exp.select(num.expressions[0], num.expressions[1])
+        .from_(tbl)
+        .where(_backtest_window_where_clickhouse(table))
+    )
     base = _normalize_clickhouse_named_params(q.sql(dialect="clickhouse", identify=True))
     return _clickhouse_append_settings(base, int(max_execution_seconds))
 
@@ -143,8 +163,8 @@ def _render_top_rules_duckdb(table: str) -> str:
         "SELECT rule_id, COUNT(*) AS hits FROM ( "
         "SELECT TRIM(BOTH '\"' FROM CAST(json_extract(rule_hits_json, '$[' || CAST(i AS VARCHAR) || ']') AS VARCHAR)) AS rule_id "
         f'FROM "{tbl}", generate_series(0, 50) AS gs(i) '
-        "WHERE \"tenant_id\" = ? AND CAST(\"created_at\" AS TIMESTAMP) >= CAST(? AS TIMESTAMP) "
-        "AND CAST(\"created_at\" AS TIMESTAMP) < CAST(? AS TIMESTAMP) "
+        'WHERE "tenant_id" = ? AND CAST("created_at" AS TIMESTAMP) >= CAST(? AS TIMESTAMP) '
+        'AND CAST("created_at" AS TIMESTAMP) < CAST(? AS TIMESTAMP) '
         "AND json_extract(rule_hits_json, '$[' || CAST(i AS VARCHAR) || ']') IS NOT NULL "
         ") AS exploded "
         "WHERE rule_id IS NOT NULL AND rule_id <> '' "
@@ -166,7 +186,9 @@ def _render_top_rules_clickhouse(table: str, max_execution_seconds: int) -> str:
         "SELECT rule_id, count() AS hits FROM ( " + body + " ) AS exploded "
         "WHERE rule_id != '' GROUP BY rule_id ORDER BY hits DESC LIMIT " + str(_TOP_LIMIT)
     )
-    return _clickhouse_append_settings(_normalize_clickhouse_named_params(outer), int(max_execution_seconds))
+    return _clickhouse_append_settings(
+        _normalize_clickhouse_named_params(outer), int(max_execution_seconds)
+    )
 
 
 def _render_geo_spikes_duckdb(table: str) -> str:
@@ -176,14 +198,20 @@ def _render_geo_spikes_duckdb(table: str) -> str:
             exp.TryCast(
                 this=exp.Anonymous(
                     this="json_extract",
-                    expressions=[exp.column("payload_json"), exp.Literal.string("$.impossible_travel_risk")],
+                    expressions=[
+                        exp.column("payload_json"),
+                        exp.Literal.string("$.impossible_travel_risk"),
+                    ],
                 ),
                 to=exp.DataType.build("DOUBLE"),
             ),
             exp.TryCast(
                 this=exp.Anonymous(
                     this="json_extract",
-                    expressions=[exp.column("payload_json"), exp.Literal.string("$.location_meta.impossible_travel_risk")],
+                    expressions=[
+                        exp.column("payload_json"),
+                        exp.Literal.string("$.location_meta.impossible_travel_risk"),
+                    ],
                 ),
                 to=exp.DataType.build("DOUBLE"),
             ),
@@ -236,7 +264,9 @@ def _render_geo_spikes_clickhouse(table: str, max_execution_seconds: int) -> str
         "ORDER BY peak_risk DESC, event_count DESC "
         f"LIMIT {int(_TOP_LIMIT)}"
     )
-    return _clickhouse_append_settings(_normalize_clickhouse_named_params(inner), int(max_execution_seconds))
+    return _clickhouse_append_settings(
+        _normalize_clickhouse_named_params(inner), int(max_execution_seconds)
+    )
 
 
 def _binds_duckdb(tenant_id: str, utc_start: str, utc_end: str) -> tuple[Any, ...]:
@@ -267,10 +297,18 @@ def fetch_dashboard_aggregates_sync(
         geo = engine.execute_query(_render_geo_spikes_duckdb(tbl), b)
     else:
         p = _binds_clickhouse(tenant_id, utc_start, utc_end)
-        vol = engine.execute_query(_render_volume_clickhouse(tbl, max_execution_seconds=max_execution_seconds), p)
-        br = engine.execute_query(_render_block_rate_clickhouse(tbl, max_execution_seconds=max_execution_seconds), p)
-        top = engine.execute_query(_render_top_rules_clickhouse(tbl, max_execution_seconds=max_execution_seconds), p)
-        geo = engine.execute_query(_render_geo_spikes_clickhouse(tbl, max_execution_seconds=max_execution_seconds), p)
+        vol = engine.execute_query(
+            _render_volume_clickhouse(tbl, max_execution_seconds=max_execution_seconds), p
+        )
+        br = engine.execute_query(
+            _render_block_rate_clickhouse(tbl, max_execution_seconds=max_execution_seconds), p
+        )
+        top = engine.execute_query(
+            _render_top_rules_clickhouse(tbl, max_execution_seconds=max_execution_seconds), p
+        )
+        geo = engine.execute_query(
+            _render_geo_spikes_clickhouse(tbl, max_execution_seconds=max_execution_seconds), p
+        )
 
     total_vol = _row_scalar(vol)
     blocked = 0.0

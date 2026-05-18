@@ -38,18 +38,36 @@ def test_consortium_score_delta_caps_value():
 
 def test_consortium_score_delta_penalizes_false_positive_rate():
     good = consortium_score_delta(
-        {"tenant_count": 3, "weighted_tenant_score": 3.0, "weighted_report_score": 6.0, "max_severity": 3.0, "false_positive_rate": 0.0},
+        {
+            "tenant_count": 3,
+            "weighted_tenant_score": 3.0,
+            "weighted_report_score": 6.0,
+            "max_severity": 3.0,
+            "false_positive_rate": 0.0,
+        },
         min_tenants=2,
     )
     bad = consortium_score_delta(
-        {"tenant_count": 3, "weighted_tenant_score": 3.0, "weighted_report_score": 6.0, "max_severity": 3.0, "false_positive_rate": 0.8},
+        {
+            "tenant_count": 3,
+            "weighted_tenant_score": 3.0,
+            "weighted_report_score": 6.0,
+            "max_severity": 3.0,
+            "false_positive_rate": 0.8,
+        },
         min_tenants=2,
     )
     assert bad < good
 
 
 def test_consortium_score_delta_respects_tunable_bounds():
-    data = {"tenant_count": 5, "weighted_tenant_score": 6.0, "weighted_report_score": 12.0, "max_severity": 4.0, "quality_score": 2.0}
+    data = {
+        "tenant_count": 5,
+        "weighted_tenant_score": 6.0,
+        "weighted_report_score": 12.0,
+        "max_severity": 4.0,
+        "quality_score": 2.0,
+    }
     low = consortium_score_delta(data, min_tenants=2, trust_floor=0.1, max_delta=12.0)
     high = consortium_score_delta(data, min_tenants=2, trust_floor=0.4, max_delta=50.0)
     assert low <= 12.0

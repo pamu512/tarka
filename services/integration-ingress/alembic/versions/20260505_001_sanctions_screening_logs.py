@@ -27,7 +27,12 @@ def upgrade() -> None:
         sa.Column("entity_name", sa.String(length=512), nullable=False),
         sa.Column("match_found", sa.Boolean(), nullable=False),
         sa.Column("match_details", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
@@ -57,8 +62,16 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_sanctions_screening_logs_created_at"), table_name="sanctions_screening_logs")
-    op.drop_index(op.f("ix_sanctions_screening_logs_match_found"), table_name="sanctions_screening_logs")
-    op.drop_index(op.f("ix_sanctions_screening_logs_entity_name"), table_name="sanctions_screening_logs")
-    op.drop_index(op.f("ix_sanctions_screening_logs_tenant_id"), table_name="sanctions_screening_logs")
+    op.drop_index(
+        op.f("ix_sanctions_screening_logs_created_at"), table_name="sanctions_screening_logs"
+    )
+    op.drop_index(
+        op.f("ix_sanctions_screening_logs_match_found"), table_name="sanctions_screening_logs"
+    )
+    op.drop_index(
+        op.f("ix_sanctions_screening_logs_entity_name"), table_name="sanctions_screening_logs"
+    )
+    op.drop_index(
+        op.f("ix_sanctions_screening_logs_tenant_id"), table_name="sanctions_screening_logs"
+    )
     op.drop_table("sanctions_screening_logs")

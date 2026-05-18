@@ -16,7 +16,9 @@ from graph_service.janusgraph_gremlin import get_traversal_source, run_in_gremli
 log = logging.getLogger("graph-service.janus")
 
 ALLOWED_LABELS = frozenset({"Person", "Account", "Device", "Payment", "Document", "Custom"})
-ALLOWED_RELS = frozenset({"USED", "SHARED_WITH", "REFERRED", "KYC_VERIFIED_BY", "OWNS", "CUSTOM", "RELATED"})
+ALLOWED_RELS = frozenset(
+    {"USED", "SHARED_WITH", "REFERRED", "KYC_VERIFIED_BY", "OWNS", "CUSTOM", "RELATED"}
+)
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 
 
@@ -102,7 +104,9 @@ def _upsert_entity_sync(
         return t
 
     # Merge by tenant + external_id (any label); same external_id is unique per tenant.
-    existing_list = g.V().has("tenant_id", tenant_id).has("external_id", external_id).limit(1).toList()
+    existing_list = (
+        g.V().has("tenant_id", tenant_id).has("external_id", external_id).limit(1).toList()
+    )
     if existing_list:
         v = existing_list[0]
         apply_props(g.V(v), drop_tags_first=True).iterate()
@@ -139,7 +143,9 @@ def _update_tags_sync(tenant_id: str, external_id: str, tags: list[str]) -> list
         cur = []
     merged = sorted(set(cur) | set(tags))
     enc = json.dumps(merged)
-    g.V(v).sideEffect(__.properties("tags").drop()).property(Cardinality.single, "tags", enc).iterate()
+    g.V(v).sideEffect(__.properties("tags").drop()).property(
+        Cardinality.single, "tags", enc
+    ).iterate()
     return merged
 
 

@@ -95,7 +95,13 @@ def merge_session_geo_from_device_and_features(features: dict[str, Any]) -> list
         features.setdefault("geo_source_resolved", "ip_geolocation")
 
     # Device vs IP distance (OSS / provider-agnostic)
-    if gla is not None and glo is not None and ipla is not None and iplo is not None and src_s in _GEO_SOURCES_TRUST_GPS:
+    if (
+        gla is not None
+        and glo is not None
+        and ipla is not None
+        and iplo is not None
+        and src_s in _GEO_SOURCES_TRUST_GPS
+    ):
         d_km = haversine_km(gla, glo, ipla, iplo)
         features["geo_device_ip_delta_km"] = round(d_km, 2)
         if d_km > 500.0:
@@ -104,7 +110,11 @@ def merge_session_geo_from_device_and_features(features: dict[str, Any]) -> list
     # Optional: coarse timezone label vs IANA timezone (weak signal)
     if isinstance(dev_tz, str) and dev_tz and isinstance(ip_tz, str) and ip_tz:
         hint = _tz_region_hint(dev_tz)
-        ip_part = ip_tz.split("/")[-1].replace("_", " ").lower() if "/" in ip_tz else ip_tz.lower()
+        ip_part = (
+            ip_tz.split("/")[-1].replace("_", " ").lower()
+            if "/" in ip_tz
+            else ip_tz.lower()
+        )
         if hint and ip_part and hint not in ip_part and ip_part not in hint:
             tags.append("sdk:geo_tz_mismatch")
 

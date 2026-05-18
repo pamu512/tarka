@@ -3,7 +3,11 @@
 import pytest
 from aggregate_fake_redis import FakeRedis
 from decision_api.aggregates import AggregateStore
-from decision_api.counter_manifest import expected_feature_names, load_counter_manifest_v1, manifest_version
+from decision_api.counter_manifest import (
+    expected_feature_names,
+    load_counter_manifest_v1,
+    manifest_version,
+)
 
 T0 = 1_700_000_000.0
 
@@ -27,12 +31,22 @@ class TestCounterManifest:
             "t_manifest",
             "e_manifest",
             "ev1",
-            {"amount": 10.0, "ip_address": "10.0.0.1", "device_id": "dev-a", "session_id": "sess-1"},
+            {
+                "amount": 10.0,
+                "ip_address": "10.0.0.1",
+                "device_id": "dev-a",
+                "session_id": "sess-1",
+            },
             ts=T0 + 1.0,
         )
         feats = await s.compute_features(
             "t_manifest",
             "e_manifest",
-            {"amount": 1.0, "ip_address": "10.0.0.9", "device_id": "dev-z", "session_id": "sess-z"},
+            {
+                "amount": 1.0,
+                "ip_address": "10.0.0.9",
+                "device_id": "dev-z",
+                "session_id": "sess-z",
+            },
         )
         assert set(feats.keys()) == expected_feature_names()

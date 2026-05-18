@@ -53,7 +53,9 @@ async def create_link(
     if settings.graph_backend == "janusgraph":
         from graph_service import janusgraph_store as store
 
-        await store.create_link(tenant_id, from_external_id, to_external_id, relationship, properties)
+        await store.create_link(
+            tenant_id, from_external_id, to_external_id, relationship, properties
+        )
         return
     from graph_service import neo4j_client as store
 

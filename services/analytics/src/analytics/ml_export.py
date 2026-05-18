@@ -54,7 +54,9 @@ def _pit_schema():
     try:
         import pyarrow as pa
     except ImportError as e:  # pragma: no cover — exercised when optional dep missing
-        raise RuntimeError("ml export requires pyarrow; install tarka-analytics[ml_export] or pyarrow") from e
+        raise RuntimeError(
+            "ml export requires pyarrow; install tarka-analytics[ml_export] or pyarrow"
+        ) from e
 
     return pa.schema(
         [
@@ -210,7 +212,9 @@ def run_point_in_time_ml_export(
             clickhouse_max_execution_seconds=clickhouse_max_execution_seconds,
         ):
             chunks += 1
-            tids = sorted({str(r.get("trace_id") or "") for r in page if str(r.get("trace_id") or "").strip()})
+            tids = sorted(
+                {str(r.get("trace_id") or "") for r in page if str(r.get("trace_id") or "").strip()}
+            )
             labels: dict[str, Any] = {}
             if tids:
                 labels = dict(label_fetcher(tids))

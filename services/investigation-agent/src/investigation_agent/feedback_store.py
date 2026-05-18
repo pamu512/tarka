@@ -21,7 +21,10 @@ def _data_dir() -> str:
 
 
 def db_path() -> str:
-    name = os.environ.get("COPILOT_FEEDBACK_DB_NAME", "copilot_feedback.sqlite3").strip() or "copilot_feedback.sqlite3"
+    name = (
+        os.environ.get("COPILOT_FEEDBACK_DB_NAME", "copilot_feedback.sqlite3").strip()
+        or "copilot_feedback.sqlite3"
+    )
     return os.path.join(_data_dir(), name)
 
 
@@ -68,9 +71,13 @@ def _init_schema(c: sqlite3.Connection) -> None:
         )
         """
     )
-    c.execute("CREATE INDEX IF NOT EXISTS idx_fb_tenant_time ON copilot_feedback (tenant_id, created_at DESC)")
+    c.execute(
+        "CREATE INDEX IF NOT EXISTS idx_fb_tenant_time ON copilot_feedback (tenant_id, created_at DESC)"
+    )
     c.execute("CREATE INDEX IF NOT EXISTS idx_fb_turn ON copilot_feedback (turn_id)")
-    c.execute("CREATE INDEX IF NOT EXISTS idx_turns_scope ON copilot_turns (tenant_id, analyst_id, created_at DESC)")
+    c.execute(
+        "CREATE INDEX IF NOT EXISTS idx_turns_scope ON copilot_turns (tenant_id, analyst_id, created_at DESC)"
+    )
     c.commit()
     _ensure_persona_column(c)
     _ensure_workflow_id_column(c)

@@ -237,7 +237,9 @@ def deterministic_claim_support(
         if not _tool_call_succeeded(tc.get("result")):
             continue
         try:
-            blob_parts.append(json.dumps({"tool": tc.get("tool"), "result": tc.get("result")}, default=str))
+            blob_parts.append(
+                json.dumps({"tool": tc.get("tool"), "result": tc.get("result")}, default=str)
+            )
         except (TypeError, ValueError):
             continue
     blob = "\n".join(blob_parts).lower()

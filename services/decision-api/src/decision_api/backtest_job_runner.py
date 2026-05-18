@@ -65,7 +65,9 @@ async def run_backtest_job(job_id: uuid.UUID, engine: BaseAnalyticsEngine) -> No
     """Execute a persisted job; enforces a **wall-clock** budget (default 60s) across all chunks + Rust work."""
     wall_s = max(1.0, float(getattr(settings, "backtest_job_timeout_seconds", 60.0)))
     deadline = time.monotonic() + wall_s
-    ch_chunk_sec = max(5, min(45, int(settings.clickhouse_statement_timeout_ms) // 1000))
+    ch_chunk_sec = max(
+        5, min(45, int(settings.clickhouse_statement_timeout_ms) // 1000)
+    )
 
     async with SessionLocal() as session:
         job = await session.get(BacktestRun, job_id)

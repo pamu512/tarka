@@ -7,7 +7,11 @@ import uuid
 
 from integration_ingress.db import SessionLocal
 from integration_ingress.models import ComplianceResidencyAudit
-from tarka_core.data_residency import DataResidencyViolationError, assert_vendor_residency_allowed, coerce_residency
+from tarka_core.data_residency import (
+    DataResidencyViolationError,
+    assert_vendor_residency_allowed,
+    coerce_residency,
+)
 from tarka_core.tenant_config import DataResidencyRegion
 
 log = logging.getLogger(__name__)
@@ -99,6 +103,10 @@ async def guard_osint_before_http(
             "data_residency_block vendor=%s tenant=%s",
             vendor_key,
             (tenant_id or "").strip() or "unknown",
-            extra={"audit_plane": "compliance", "event": "data_residency_block", "vendor_key": vendor_key},
+            extra={
+                "audit_plane": "compliance",
+                "event": "data_residency_block",
+                "vendor_key": vendor_key,
+            },
         )
         raise

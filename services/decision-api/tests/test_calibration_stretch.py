@@ -49,4 +49,8 @@ def test_drift_compute(tmp_path, monkeypatch):
     assert os.environ.get("CALIBRATION_DATA_DIR") == str(tmp_path)
     data = compute_drift_for_tenant("acme", "default")
     assert data.get("drift_score") is not None
-    assert data["hint"] in ("ok", "moderate_drift_monitor", "elevated_bin_shift_review_calibration")
+    assert data["hint"] in (
+        "ok",
+        "moderate_drift_monitor",
+        "elevated_bin_shift_review_calibration",
+    )

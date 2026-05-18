@@ -12,7 +12,10 @@ def _payload() -> dict:
         "trace_id": "12345678-1234-5678-9012-123456789abc",
         "reply": "Risk indicators suggest review.",
         "claims": [
-            {"text": "Trace 12345678-1234-5678-9012-123456789abc score is elevated", "source": "tool"},
+            {
+                "text": "Trace 12345678-1234-5678-9012-123456789abc score is elevated",
+                "source": "tool",
+            },
             {"text": "Graph has shared-device linkage", "source": "tool"},
         ],
         "source_refs": [
@@ -24,7 +27,12 @@ def _payload() -> dict:
             {"tool": "subgraph", "ok": True, "case_id": "case-123", "entity_id": "user_1"},
         ],
         "claims_deterministic_support": [
-            {"claim_index": 0, "supported": True, "method": "token_overlap", "hint": ["12345678-1234-5678-9012-123456789abc"]},
+            {
+                "claim_index": 0,
+                "supported": True,
+                "method": "token_overlap",
+                "hint": ["12345678-1234-5678-9012-123456789abc"],
+            },
             {"claim_index": 1, "supported": False, "method": "token_overlap", "hint": []},
         ],
         "turn_id": "turn-fixed-1",
@@ -67,4 +75,7 @@ def test_evidence_summary_deterministic_and_cited():
     assert b1["claim_confidence_summary"]["medium"] >= 1
     assert len(b1["citations"]) >= 2
     assert b1["summary"] == payload["reply"]
-    assert any(c.get("text", "").find(payload["trace_id"]) >= 0 and c.get("source") == "tool" for c in b1["citations"])
+    assert any(
+        c.get("text", "").find(payload["trace_id"]) >= 0 and c.get("source") == "tool"
+        for c in b1["citations"]
+    )

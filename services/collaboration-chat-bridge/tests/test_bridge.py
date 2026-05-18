@@ -136,7 +136,9 @@ async def test_slack_event_forwards_correlation_to_background_turn(monkeypatch):
     monkeypatch.setattr(m, "run_slack_turn", fake_run_slack_turn)
 
     ts = str(int(time.time()))
-    body = json.dumps({"type": "event_callback", "team_id": "T1", "event": {"type": "app_mention"}}).encode()
+    body = json.dumps(
+        {"type": "event_callback", "team_id": "T1", "event": {"type": "app_mention"}}
+    ).encode()
     basestring = f"v0:{ts}:".encode() + body
     sig = "v0=" + hmac.new(b"shh", basestring, hashlib.sha256).hexdigest()
 
@@ -178,7 +180,9 @@ async def test_teams_bridge_secret(monkeypatch):
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         r_bad = await client.post("/v1/teams/messages", json={"text": "hi"})
         assert r_bad.status_code == 401
-        assert isinstance(r_bad.headers.get("x-correlation-id"), str) and r_bad.headers.get("x-correlation-id")
+        assert isinstance(r_bad.headers.get("x-correlation-id"), str) and r_bad.headers.get(
+            "x-correlation-id"
+        )
         r_ok = await client.post(
             "/v1/teams/messages",
             json={"text": "hello", "analyst_id": "u1"},
@@ -247,7 +251,11 @@ async def test_teams_ingress_audit_logs_unavailable_has_upstream_status(monkeypa
         msg = rec.getMessage()
         if msg.startswith("bridge_ingress_audit "):
             audit_payloads.append(json.loads(msg.split(" ", 1)[1]))
-    hit = [p for p in audit_payloads if p.get("route") == "teams_messages" and p.get("outcome") == "unavailable"]
+    hit = [
+        p
+        for p in audit_payloads
+        if p.get("route") == "teams_messages" and p.get("outcome") == "unavailable"
+    ]
     assert hit
     assert hit[0]["correlation_id"] == "req-ing-fail-1"
     assert hit[0]["status_code"] == 200
@@ -308,7 +316,9 @@ async def test_lark_event_forwards_correlation_to_background_turn(monkeypatch):
     }
     transport = ASGITransport(app=m.app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        r = await client.post("/v1/lark/event", json=payload, headers={"X-Request-Id": "req-lark-1"})
+        r = await client.post(
+            "/v1/lark/event", json=payload, headers={"X-Request-Id": "req-lark-1"}
+        )
     assert r.status_code == 200
     assert r.headers.get("x-correlation-id") == "req-lark-1"
     assert seen.get("correlation_id") == "req-lark-1"
@@ -340,7 +350,11 @@ async def test_teams_ingress_audit_logs(monkeypatch, caplog):
         msg = rec.getMessage()
         if msg.startswith("bridge_ingress_audit "):
             audit_payloads.append(json.loads(msg.split(" ", 1)[1]))
-    hit = [p for p in audit_payloads if p.get("route") == "teams_messages" and p.get("outcome") == "success"]
+    hit = [
+        p
+        for p in audit_payloads
+        if p.get("route") == "teams_messages" and p.get("outcome") == "success"
+    ]
     assert hit
     assert hit[0]["correlation_id"] == "req-ing-1"
     assert hit[0]["status_class"] == "2xx"
@@ -375,7 +389,9 @@ async def test_slack_ingress_audit_logs(monkeypatch, caplog):
 
     caplog.set_level(logging.INFO, logger="collaboration_chat_bridge.main")
     ts = str(int(time.time()))
-    body = json.dumps({"type": "event_callback", "team_id": "T1", "event": {"type": "app_mention"}}).encode()
+    body = json.dumps(
+        {"type": "event_callback", "team_id": "T1", "event": {"type": "app_mention"}}
+    ).encode()
     basestring = f"v0:{ts}:".encode() + body
     sig = "v0=" + hmac.new(b"shh", basestring, hashlib.sha256).hexdigest()
 
@@ -396,7 +412,11 @@ async def test_slack_ingress_audit_logs(monkeypatch, caplog):
         msg = rec.getMessage()
         if msg.startswith("bridge_ingress_audit "):
             audit_payloads.append(json.loads(msg.split(" ", 1)[1]))
-    hit = [p for p in audit_payloads if p.get("route") == "slack_events" and p.get("outcome") == "accepted"]
+    hit = [
+        p
+        for p in audit_payloads
+        if p.get("route") == "slack_events" and p.get("outcome") == "accepted"
+    ]
     assert hit
     assert hit[0]["correlation_id"] == "req-slack-a1"
     assert hit[0]["status_class"] == "2xx"
@@ -435,7 +455,9 @@ async def test_slack_async_completion_audit_logs_upstream_status(monkeypatch, ca
 
     caplog.set_level(logging.INFO, logger="collaboration_chat_bridge.main")
     ts = str(int(time.time()))
-    body = json.dumps({"type": "event_callback", "team_id": "T1", "event": {"type": "app_mention"}}).encode()
+    body = json.dumps(
+        {"type": "event_callback", "team_id": "T1", "event": {"type": "app_mention"}}
+    ).encode()
     basestring = f"v0:{ts}:".encode() + body
     sig = "v0=" + hmac.new(b"shh", basestring, hashlib.sha256).hexdigest()
 
@@ -456,7 +478,11 @@ async def test_slack_async_completion_audit_logs_upstream_status(monkeypatch, ca
         msg = rec.getMessage()
         if msg.startswith("bridge_ingress_audit "):
             audit_payloads.append(json.loads(msg.split(" ", 1)[1]))
-    hit = [p for p in audit_payloads if p.get("route") == "slack_events" and p.get("outcome") == "unavailable"]
+    hit = [
+        p
+        for p in audit_payloads
+        if p.get("route") == "slack_events" and p.get("outcome") == "unavailable"
+    ]
     assert hit
     assert hit[0]["correlation_id"] == "req-slack-c1"
     assert hit[0]["status_code"] == 503
@@ -497,14 +523,20 @@ async def test_lark_async_completion_audit_logs_upstream_status(monkeypatch, cap
     }
     transport = ASGITransport(app=m.app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.post("/v1/lark/event", json=payload, headers={"X-Request-Id": "req-lark-c1"})
+        resp = await client.post(
+            "/v1/lark/event", json=payload, headers={"X-Request-Id": "req-lark-c1"}
+        )
     assert resp.status_code == 200
     audit_payloads = []
     for rec in caplog.records:
         msg = rec.getMessage()
         if msg.startswith("bridge_ingress_audit "):
             audit_payloads.append(json.loads(msg.split(" ", 1)[1]))
-    hit = [p for p in audit_payloads if p.get("route") == "lark_event" and p.get("outcome") == "unavailable"]
+    hit = [
+        p
+        for p in audit_payloads
+        if p.get("route") == "lark_event" and p.get("outcome") == "unavailable"
+    ]
     assert hit
     assert hit[0]["correlation_id"] == "req-lark-c1"
     assert hit[0]["status_code"] == 503
@@ -544,7 +576,9 @@ async def test_plugin_session_proxy(monkeypatch):
             headers={"X-Bridge-Secret": "psec", "X-Request-Id": "req-up-1"},
         )
     assert r_bad.status_code == 401
-    assert isinstance(r_bad.headers.get("x-correlation-id"), str) and r_bad.headers.get("x-correlation-id")
+    assert isinstance(r_bad.headers.get("x-correlation-id"), str) and r_bad.headers.get(
+        "x-correlation-id"
+    )
     assert r_ok.status_code == 200
     data = r_ok.json()
     assert data["ok"] is True
@@ -707,7 +741,11 @@ async def test_plugin_audit_logs(monkeypatch, caplog):
         if msg.startswith("bridge_plugin_audit "):
             audit_payloads.append(json.loads(msg.split(" ", 1)[1]))
     assert audit_payloads
-    success = [p for p in audit_payloads if p.get("action") == "plugin_session" and p.get("outcome") == "success"]
+    success = [
+        p
+        for p in audit_payloads
+        if p.get("action") == "plugin_session" and p.get("outcome") == "success"
+    ]
     assert success
     assert success[0]["correlation_id"] == "req-42"
     assert success[0]["status_class"] == "2xx"
@@ -742,7 +780,11 @@ async def test_plugin_audit_logs_rejected(monkeypatch, caplog):
         msg = rec.getMessage()
         if msg.startswith("bridge_plugin_audit "):
             audit_payloads.append(json.loads(msg.split(" ", 1)[1]))
-    rejected = [p for p in audit_payloads if p.get("action") == "plugin_bootstrap" and p.get("outcome") == "rejected"]
+    rejected = [
+        p
+        for p in audit_payloads
+        if p.get("action") == "plugin_bootstrap" and p.get("outcome") == "rejected"
+    ]
     assert rejected
     assert rejected[0]["status_code"] == 401
     assert rejected[0]["status_class"] == "4xx"

@@ -29,7 +29,9 @@ def test_extract_derived_facts_from_tool_payload():
 def test_strict_violations_on_ack_warns():
     claims = [{"text": "ok", "source": "unknown"}]
     det = deterministic_claim_support(claims, [])
-    v = strict_assurance_violations(claims=claims, det_support=det, ack_warns=["tool_x_error_not_acknowledged:bad"])
+    v = strict_assurance_violations(
+        claims=claims, det_support=det, ack_warns=["tool_x_error_not_acknowledged:bad"]
+    )
     assert "tool_errors_not_acknowledged_in_prose" in v
 
 

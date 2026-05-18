@@ -3,7 +3,11 @@ from __future__ import annotations
 from typing import Any
 
 from investigation_agent.config import Settings
-from investigation_agent.copilot_hardening import filter_tool_definitions, parse_disabled_tools, parse_sensitive_tools
+from investigation_agent.copilot_hardening import (
+    filter_tool_definitions,
+    parse_disabled_tools,
+    parse_sensitive_tools,
+)
 from investigation_agent.tools import TOOL_DEFINITIONS
 
 """
@@ -121,7 +125,11 @@ def build_integration_snapshot(
     sensitive = parse_sensitive_tools(settings.copilot_sensitive_tools)
     reviewer_on = bool((settings.copilot_reviewer_secret or "").strip())
 
-    upstream_suppressed = sorted(runtime_suppressed_tools(settings)) if settings.copilot_hide_tools_without_upstream else []
+    upstream_suppressed = (
+        sorted(runtime_suppressed_tools(settings))
+        if settings.copilot_hide_tools_without_upstream
+        else []
+    )
 
     return {
         "contract_version": INTEGRATION_CONTRACT_VERSION,

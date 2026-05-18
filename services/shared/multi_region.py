@@ -141,7 +141,7 @@ class MultiRegionManager:
 
     def get_traffic_target(self) -> str | None:
         """Determine which region should receive traffic.
-        
+
         Returns the highest priority healthy region.
         """
         if not self._config:
@@ -156,7 +156,8 @@ class MultiRegionManager:
 
         # Sort regions by priority and health
         candidates = [
-            r for r in self._regions.values()
+            r
+            for r in self._regions.values()
             if r.status in (RegionStatus.HEALTHY, RegionStatus.DEGRADED)
         ]
 
@@ -190,7 +191,7 @@ class MultiRegionManager:
 
     async def activate_dr_mode(self, reason: str) -> dict[str, Any]:
         """Activate disaster recovery mode.
-        
+
         In DR mode:
         - Traffic is routed to secondary regions only
         - Write operations may be restricted
@@ -205,8 +206,7 @@ class MultiRegionManager:
             "reason": reason,
             "primary_region": self._config.primary_region if self._config else None,
             "available_regions": [
-                r.region_id for r in self._regions.values()
-                if r.status == RegionStatus.HEALTHY
+                r.region_id for r in self._regions.values() if r.status == RegionStatus.HEALTHY
             ],
         }
 
@@ -300,7 +300,7 @@ class RegionRouter:
 
     async def execute(self, operation: str, *args: Any, **kwargs: Any) -> Any:
         """Execute an operation on the best available region.
-        
+
         This will:
         1. Determine the target region based on health
         2. Execute the operation
@@ -351,7 +351,11 @@ def init_from_env() -> None:
     secondaries = os.environ.get("SECONDARY_REGIONS", "").split(",")
     secondaries = [s.strip() for s in secondaries if s.strip()]
 
-    mode = FailoverMode(mode_str) if mode_str in [m.value for m in FailoverMode] else FailoverMode.AUTOMATIC
+    mode = (
+        FailoverMode(mode_str)
+        if mode_str in [m.value for m in FailoverMode]
+        else FailoverMode.AUTOMATIC
+    )
 
     config = FailoverConfig(
         mode=mode,

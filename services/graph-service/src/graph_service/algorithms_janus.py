@@ -247,7 +247,9 @@ async def detect_fraud_rings(tenant_id: str, min_ring_size: int = 3) -> list[dic
     return await run_in_gremlin_thread(sync)
 
 
-async def compute_entity_risk(tenant_id: str, entity_id: str, *, checkpoint: str | None = None) -> dict:
+async def compute_entity_risk(
+    tenant_id: str, entity_id: str, *, checkpoint: str | None = None
+) -> dict:
     from graph_service.checkpoint_registry import resolve_profile
 
     profile = resolve_profile(checkpoint)
@@ -297,7 +299,9 @@ async def compute_entity_risk(tenant_id: str, entity_id: str, *, checkpoint: str
         if device_id is not None:
             cap = settings.janusgraph_analytics_vertex_cap
             oids: set[str] = set()
-            for ov in g.V().has("tenant_id", tenant_id).has("device_id", device_id).limit(cap).toList():
+            for ov in (
+                g.V().has("tenant_id", tenant_id).has("device_id", device_id).limit(cap).toList()
+            ):
                 oid = _vertex_external_id(ov)
                 if oid and oid != entity_id:
                     oids.add(oid)

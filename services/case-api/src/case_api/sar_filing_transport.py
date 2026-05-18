@@ -80,7 +80,9 @@ def upload_sar_bytes(
 
 def build_sar_filing_data(body: dict[str, Any], report: Any) -> dict[str, Any]:
     """Merge request overrides with generated report institution for mandatory-field checks."""
-    override = body.get("filing_institution") if isinstance(body.get("filing_institution"), dict) else {}
+    override = (
+        body.get("filing_institution") if isinstance(body.get("filing_institution"), dict) else {}
+    )
     inst = {**(getattr(report, "institution", None) or {}), **override}
     filer_tin = inst.get("filer_tin") or inst.get("tin") or inst.get("ein")
     fin_name = inst.get("financial_institution_name") or inst.get("name")

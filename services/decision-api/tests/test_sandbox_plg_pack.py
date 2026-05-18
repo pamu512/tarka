@@ -1,6 +1,9 @@
 """Unit tests for PLG sandbox merged rule pack (no Postgres / Rust)."""
 
-from decision_api.sandbox_plg_pack import build_merged_plg_industry_pack, merged_pack_fingerprint
+from decision_api.sandbox_plg_pack import (
+    build_merged_plg_industry_pack,
+    merged_pack_fingerprint,
+)
 
 
 def test_build_merged_pack_has_five_rules_and_stable_fingerprint():

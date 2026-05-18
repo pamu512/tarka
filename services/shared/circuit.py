@@ -22,7 +22,9 @@ class CircuitOpenError(Exception):
 class AsyncCircuitBreaker:
     __slots__ = ("_name", "_threshold", "_recovery", "_failures", "_blocked_until", "_lock")
 
-    def __init__(self, name: str, *, failure_threshold: int = 5, recovery_seconds: float = 30.0) -> None:
+    def __init__(
+        self, name: str, *, failure_threshold: int = 5, recovery_seconds: float = 30.0
+    ) -> None:
         self._name = name
         self._threshold = max(1, failure_threshold)
         self._recovery = max(0.01, float(recovery_seconds))

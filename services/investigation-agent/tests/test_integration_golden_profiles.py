@@ -4,7 +4,10 @@ import pytest
 from fastapi.testclient import TestClient
 from investigation_agent import config
 from investigation_agent.copilot_hardening import filter_tool_definitions
-from investigation_agent.integration_contract import build_integration_snapshot, effective_disabled_tools
+from investigation_agent.integration_contract import (
+    build_integration_snapshot,
+    effective_disabled_tools,
+)
 from investigation_agent.main import app
 from investigation_agent.tools import TOOL_DEFINITIONS
 
@@ -14,7 +17,11 @@ Golden integration profiles: expected tool surface vs upstream configuration.
 Run with the rest of the suite, or only goldens: pytest -m golden_profile
 Excluded from default CI shard when main job uses -m "not golden_profile".
 """
-_ALL_TOOLS = frozenset((d.get("function") or {}).get("name") for d in TOOL_DEFINITIONS if isinstance((d.get("function") or {}).get("name"), str))
+_ALL_TOOLS = frozenset(
+    (d.get("function") or {}).get("name")
+    for d in TOOL_DEFINITIONS
+    if isinstance((d.get("function") or {}).get("name"), str)
+)
 
 
 def _enabled_names(settings) -> frozenset[str]:
@@ -36,9 +43,13 @@ def _apply_upstream(
     hide_without_upstream: bool = True,
 ) -> None:
     monkeypatch.setattr(config.settings, "case_api_url", "http://case.test" if case else "")
-    monkeypatch.setattr(config.settings, "decision_api_url", "http://decision.test" if decision else "")
+    monkeypatch.setattr(
+        config.settings, "decision_api_url", "http://decision.test" if decision else ""
+    )
     monkeypatch.setattr(config.settings, "graph_service_url", "http://graph.test" if graph else "")
-    monkeypatch.setattr(config.settings, "copilot_hide_tools_without_upstream", hide_without_upstream)
+    monkeypatch.setattr(
+        config.settings, "copilot_hide_tools_without_upstream", hide_without_upstream
+    )
     monkeypatch.setattr(config.settings, "copilot_disabled_tools", "")
 
 
@@ -135,9 +146,13 @@ def test_golden_profile_integration_surface(
     expected: frozenset[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _apply_upstream(monkeypatch, case=case, decision=decision, graph=graph, hide_without_upstream=hide)
+    _apply_upstream(
+        monkeypatch, case=case, decision=decision, graph=graph, hide_without_upstream=hide
+    )
     got = _enabled_names(config.settings)
-    assert got == expected, f"profile={profile} mismatch: extra={got - expected} missing={expected - got}"
+    assert got == expected, (
+        f"profile={profile} mismatch: extra={got - expected} missing={expected - got}"
+    )
 
     snap = build_integration_snapshot(
         config.settings,
@@ -166,7 +181,9 @@ def test_golden_profile_chat_mode_when_llm_unconfigured(
     graph: bool,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _apply_upstream(monkeypatch, case=case, decision=decision, graph=graph, hide_without_upstream=True)
+    _apply_upstream(
+        monkeypatch, case=case, decision=decision, graph=graph, hide_without_upstream=True
+    )
     monkeypatch.setattr(config.settings, "openai_api_key", "")
     monkeypatch.setattr(config.settings, "copilot_plain_chat", False)
 
@@ -177,7 +194,11 @@ def test_golden_profile_chat_mode_when_llm_unconfigured(
     with TestClient(app) as client:
         r = client.post(
             "/v1/chat",
-            json={"tenant_id": "demo", "analyst_id": "analyst-1", "messages": [{"role": "user", "content": f"profile={profile}"}]},
+            json={
+                "tenant_id": "demo",
+                "analyst_id": "analyst-1",
+                "messages": [{"role": "user", "content": f"profile={profile}"}],
+            },
         )
     assert r.status_code == 200, r.text
     out = r.json()

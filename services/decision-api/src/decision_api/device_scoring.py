@@ -75,7 +75,9 @@ def extract_device_entropy_tags(device_context: dict[str, Any] | None) -> list[s
     if signals.get("entropy_webrtc_private_candidate") is True:
         tags.append("device:webrtc_private_candidate")
 
-    if signals.get("headless_detected") is True and not signals.get("entropy_canvas_raster_digest"):
+    if signals.get("headless_detected") is True and not signals.get(
+        "entropy_canvas_raster_digest"
+    ):
         tags.append("device:canvas_entropy_missing_headless")
 
     hw = signals.get("entropy_hardware_concurrency")
@@ -83,7 +85,11 @@ def extract_device_entropy_tags(device_context: dict[str, Any] | None) -> list[s
         tags.append("device:hardware_concurrency_suspicious")
 
     decoded = decode_telemetry_packet(behavior if isinstance(behavior, dict) else None)
-    if decoded is None and isinstance(behavior, dict) and behavior.get("telemetry_packet"):
+    if (
+        decoded is None
+        and isinstance(behavior, dict)
+        and behavior.get("telemetry_packet")
+    ):
         tags.append("device:telemetry_packet_invalid")
     elif isinstance(decoded, dict) and decoded.get("_tampered"):
         tags.append("device:telemetry_packet_tampered")

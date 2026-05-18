@@ -26,7 +26,12 @@ def upgrade() -> None:
         sa.Column("fingerprint_sha256", sa.String(length=64), nullable=False),
         sa.Column("actor_user_id", sa.String(length=256), nullable=False),
         sa.Column("audit_token", sa.String(length=512), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("audit_token", name="uq_rule_approvals_audit_token"),
     )
@@ -36,10 +41,17 @@ def upgrade() -> None:
         ["fingerprint_sha256"],
         unique=False,
     )
-    op.create_index(op.f("ix_rule_approvals_pack_name"), "rule_approvals", ["pack_name"], unique=False)
+    op.create_index(
+        op.f("ix_rule_approvals_pack_name"),
+        "rule_approvals",
+        ["pack_name"],
+        unique=False,
+    )
 
 
 def downgrade() -> None:
     op.drop_index(op.f("ix_rule_approvals_pack_name"), table_name="rule_approvals")
-    op.drop_index(op.f("ix_rule_approvals_fingerprint_sha256"), table_name="rule_approvals")
+    op.drop_index(
+        op.f("ix_rule_approvals_fingerprint_sha256"), table_name="rule_approvals"
+    )
     op.drop_table("rule_approvals")

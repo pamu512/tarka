@@ -14,7 +14,9 @@ from analytics.engine import DuckDBEngine
 
 
 @pytest.mark.asyncio
-async def test_pit_parquet_export_returns_file_uri(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_pit_parquet_export_returns_file_uri(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     from decision_api.config import settings
     from decision_api.main import app
 
@@ -89,7 +91,9 @@ async def test_pit_parquet_export_returns_file_uri(monkeypatch: pytest.MonkeyPat
 
 
 @pytest.mark.asyncio
-async def test_pit_parquet_export_503_when_case_api_unconfigured(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_pit_parquet_export_503_when_case_api_unconfigured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from decision_api.config import settings
     from decision_api.main import app
 

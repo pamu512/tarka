@@ -10,7 +10,9 @@ from graph_service.hetero_schema import validate_typed_edge_or_raise
 _driver: AsyncDriver | None = None
 
 ALLOWED_LABELS = frozenset({"Person", "Account", "Device", "Payment", "Document", "Custom"})
-ALLOWED_RELS = frozenset({"USED", "SHARED_WITH", "REFERRED", "KYC_VERIFIED_BY", "OWNS", "CUSTOM", "RELATED"})
+ALLOWED_RELS = frozenset(
+    {"USED", "SHARED_WITH", "REFERRED", "KYC_VERIFIED_BY", "OWNS", "CUSTOM", "RELATED"}
+)
 
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 
@@ -97,7 +99,9 @@ async def update_tags(
     """
     async with driver.session() as session:
         try:
-            result = await session.run(q, tenant_id=tenant_id, external_id=external_id, new_tags=tags)
+            result = await session.run(
+                q, tenant_id=tenant_id, external_id=external_id, new_tags=tags
+            )
             rec = await result.single()
             if rec:
                 return list(rec["tags"] or [])
@@ -164,7 +168,9 @@ async def create_link(
         )
         mrec = await meta.single()
         if mrec:
-            validate_typed_edge_or_raise(tenant_id, rel, list(mrec["la"] or []), list(mrec["lb"] or []))
+            validate_typed_edge_or_raise(
+                tenant_id, rel, list(mrec["la"] or []), list(mrec["lb"] or [])
+            )
         await session.run(
             q,
             tenant_id=tenant_id,

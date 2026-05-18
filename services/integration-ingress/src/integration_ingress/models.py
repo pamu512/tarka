@@ -20,7 +20,9 @@ class WebhookInbox(Base):
 
 class IntegrationConnection(Base):
     __tablename__ = "integration_connections"
-    __table_args__ = (UniqueConstraint("tenant_id", "provider_id", name="uq_integration_tenant_provider"),)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "provider_id", name="uq_integration_tenant_provider"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[str] = mapped_column(String(128), index=True)
@@ -31,12 +33,16 @@ class IntegrationConnection(Base):
     version: Mapped[int] = mapped_column(Integer, default=1)
     last_connectivity_test: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class IntegrationSecret(Base):
     __tablename__ = "integration_secrets"
-    __table_args__ = (UniqueConstraint("tenant_id", "provider_id", name="uq_secret_tenant_provider"),)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "provider_id", name="uq_secret_tenant_provider"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[str] = mapped_column(String(128), index=True)
@@ -45,12 +51,18 @@ class IntegrationSecret(Base):
     wrapped_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     ciphertext: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class IntegrationOperation(Base):
     __tablename__ = "integration_operations"
-    __table_args__ = (UniqueConstraint("tenant_id", "provider_id", "action", "idempotency_key", name="uq_integration_operation"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "provider_id", "action", "idempotency_key", name="uq_integration_operation"
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[str] = mapped_column(String(128), index=True)
@@ -77,7 +89,9 @@ class KMSRotationJob(Base):
     checkpoint_offset: Mapped[int] = mapped_column(Integer, default=0)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class KMSRotationFailure(Base):
@@ -85,7 +99,9 @@ class KMSRotationFailure(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     job_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), index=True)
-    secret_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True, index=True)
+    secret_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), nullable=True, index=True
+    )
     key_id: Mapped[str] = mapped_column(String(128))
     error_message: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -101,7 +117,9 @@ class SanctionsScreeningLog(Base):
     entity_name: Mapped[str] = mapped_column(String(512), nullable=False, index=True)
     match_found: Mapped[bool] = mapped_column(Boolean(), nullable=False, index=True)
     match_details: Mapped[dict] = mapped_column(JSON, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
 
 
 class ComplianceResidencyAudit(Base):
@@ -118,4 +136,6 @@ class ComplianceResidencyAudit(Base):
     outcome: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     request_url_preview: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )

@@ -23,15 +23,15 @@ def _golden_aml_geo_amount() -> str:
 
 def _golden_numeric_membership() -> str:
     return (
-        "package tarka.visual\n\nimport rego.v1\n\nrules contains \"numeric_membership\" if {\n"
+        'package tarka.visual\n\nimport rego.v1\n\nrules contains "numeric_membership" if {\n'
         "    (input.channel in {1, 2, 3} and not (input.flags in {7, 8}))\n}\n"
     )
 
 
 def _golden_or_of_pairs() -> str:
     return (
-        "package tarka.visual\n\nimport rego.v1\n\nrules contains \"or_of_pairs\" if {\n"
-        "    ((input.a == 1 and input.b < 0) or (input.c != \"x\" and input.d <= 100))\n}\n"
+        'package tarka.visual\n\nimport rego.v1\n\nrules contains "or_of_pairs" if {\n'
+        '    ((input.a == 1 and input.b < 0) or (input.c != "x" and input.d <= 100))\n}\n'
     )
 
 
@@ -45,8 +45,8 @@ def _golden_mixed_cmp_in() -> str:
 
 def _golden_precedence_mix() -> str:
     return (
-        "package tarka.visual\n\nimport rego.v1\n\nrules contains \"precedence_mix\" if {\n"
-        "    ((input.u.mfa == true and (input.u.ip_country == \"US\" or input.u.vpn == false)) or "
+        'package tarka.visual\n\nimport rego.v1\n\nrules contains "precedence_mix" if {\n'
+        '    ((input.u.mfa == true and (input.u.ip_country == "US" or input.u.vpn == false)) or '
         "input.u.override == true)\n}\n"
     )
 
@@ -63,10 +63,18 @@ def _golden_precedence_mix() -> str:
                         "id": "aml_geo_amount",
                         "all_of": [
                             {"field": "transaction.amount", "op": ">", "value": 5000},
-                            {"field": "customer.kyc_tier", "op": "==", "value": "basic"},
+                            {
+                                "field": "customer.kyc_tier",
+                                "op": "==",
+                                "value": "basic",
+                            },
                         ],
                         "any_of": [
-                            {"field": "transaction.country", "op": "in", "value": ["KP", "IR", "SY"]},
+                            {
+                                "field": "transaction.country",
+                                "op": "in",
+                                "value": ["KP", "IR", "SY"],
+                            },
                             {"field": "risk.score", "op": ">=", "value": 0.85},
                         ],
                     }
@@ -84,7 +92,11 @@ def _golden_precedence_mix() -> str:
                         "all_of": [
                             {
                                 "all_of": [
-                                    {"field": "channel", "op": "in", "value": [1, 2, 3]},
+                                    {
+                                        "field": "channel",
+                                        "op": "in",
+                                        "value": [1, 2, 3],
+                                    },
                                     {"field": "flags", "op": "not in", "value": [7, 8]},
                                 ]
                             }
@@ -134,7 +146,9 @@ def _golden_precedence_mix() -> str:
                             {"field": "input.age", "op": "<=", "value": 65},
                             {"field": "state", "op": "NOT IN", "value": ["DE", "NY"]},
                         ],
-                        "any_of": [{"field": "product", "op": "in", "value": ["card", "wire"]}],
+                        "any_of": [
+                            {"field": "product", "op": "in", "value": ["card", "wire"]}
+                        ],
                     }
                 ],
                 "tag_rules": [],
@@ -154,8 +168,16 @@ def _golden_precedence_mix() -> str:
                                     {"field": "u.mfa", "op": "==", "value": True},
                                     {
                                         "any_of": [
-                                            {"field": "u.ip_country", "op": "==", "value": "US"},
-                                            {"field": "u.vpn", "op": "==", "value": False},
+                                            {
+                                                "field": "u.ip_country",
+                                                "op": "==",
+                                                "value": "US",
+                                            },
+                                            {
+                                                "field": "u.vpn",
+                                                "op": "==",
+                                                "value": False,
+                                            },
                                         ]
                                     },
                                 ]

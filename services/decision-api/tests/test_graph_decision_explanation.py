@@ -1,6 +1,9 @@
 """xFraud #69: graph decision explanation payload."""
 
-from decision_api.graph_decision_explanation import SCHEMA_ID, build_graph_decision_explanation_v1
+from decision_api.graph_decision_explanation import (
+    SCHEMA_ID,
+    build_graph_decision_explanation_v1,
+)
 
 
 def test_build_explanation_from_risk_factors():

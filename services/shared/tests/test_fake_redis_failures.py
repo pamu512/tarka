@@ -35,4 +35,3 @@ def test_lua_eval_failure_injection() -> None:
             await redis.eval("return 1", 0)
 
     asyncio.run(run())
-

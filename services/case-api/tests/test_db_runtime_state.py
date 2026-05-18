@@ -2,7 +2,9 @@ import case_api.db as db
 
 
 def test_public_database_url_masks_password(monkeypatch):
-    monkeypatch.setattr(db, "_active_database_url", "postgresql+asyncpg://fraud:secret@db.internal:5432/fraud_cases")
+    monkeypatch.setattr(
+        db, "_active_database_url", "postgresql+asyncpg://fraud:secret@db.internal:5432/fraud_cases"
+    )
     assert db.public_database_url() == "postgresql+asyncpg://fraud:***@db.internal:5432/fraud_cases"
 
 

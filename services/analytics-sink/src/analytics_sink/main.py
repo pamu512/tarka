@@ -22,7 +22,9 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request
 
 from analytics_sink.config import settings
 
-_shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
+_shared_dir = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared")
+)
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
 from observability import get_metrics, setup_observability  # noqa: E402
@@ -83,7 +85,12 @@ async def require_api_key(request: Request) -> None:
         return
     keys = _get_api_keys()
     if not keys:
-        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         if allow:
             return
         raise HTTPException(
@@ -94,7 +101,9 @@ async def require_api_key(request: Request) -> None:
     if header not in keys:
         raise HTTPException(status_code=401, detail="invalid or missing API key")
     tenant_map = parse_api_key_tenant_map()
-    await enforce_tenant_access(request, allowed_tenants=tenant_map.get(header, set()) if tenant_map else None)
+    await enforce_tenant_access(
+        request, allowed_tenants=tenant_map.get(header, set()) if tenant_map else None
+    )
 
 
 def _safe_db_name() -> str:
@@ -196,7 +205,9 @@ def _flush_batch(db: str, batch: list[dict[str, Any]]) -> None:
                 d.get("signal_tags", []),
                 d.get("ml_score"),
                 json.dumps(d.get("payload", {})),
-                datetime.fromisoformat(d["created_at"]) if d.get("created_at") else datetime.now(timezone.utc),
+                datetime.fromisoformat(d["created_at"])
+                if d.get("created_at")
+                else datetime.now(timezone.utc),
             ]
         )
     try:
@@ -285,7 +296,10 @@ async def query_decisions(
         params["entity_id"] = entity_id
     q = f"SELECT * FROM {db}.decision_events WHERE {' AND '.join(where)} ORDER BY created_at DESC LIMIT %(limit)s"
     result = _ch_client.query(q, parameters=params)
-    return {"rows": [dict(zip(result.column_names, row)) for row in result.result_rows], "total": len(result.result_rows)}
+    return {
+        "rows": [dict(zip(result.column_names, row)) for row in result.result_rows],
+        "total": len(result.result_rows),
+    }
 
 
 @app.get("/v1/analytics/hourly")
@@ -319,8 +333,13 @@ async def entity_history(entity_id: str, tenant_id: str, limit: int = 50):
     WHERE tenant_id = %(tenant_id)s AND entity_id = %(entity_id)s
     ORDER BY created_at DESC LIMIT %(limit)s
     """
-    result = _ch_client.query(q, parameters={"tenant_id": tenant_id, "entity_id": entity_id, "limit": limit})
-    return {"entity_id": entity_id, "events": [dict(zip(result.column_names, row)) for row in result.result_rows]}
+    result = _ch_client.query(
+        q, parameters={"tenant_id": tenant_id, "entity_id": entity_id, "limit": limit}
+    )
+    return {
+        "entity_id": entity_id,
+        "events": [dict(zip(result.column_names, row)) for row in result.result_rows],
+    }
 
 
 @app.get("/v1/analytics/top-entities")
@@ -349,7 +368,10 @@ async def top_entities(
             "limit": limit,
         },
     )
-    return {"decision": decision, "entities": [dict(zip(result.column_names, row)) for row in result.result_rows]}
+    return {
+        "decision": decision,
+        "entities": [dict(zip(result.column_names, row)) for row in result.result_rows],
+    }
 
 
 @app.get("/v1/analytics/scorecard")

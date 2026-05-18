@@ -13,7 +13,9 @@ def isolated_rag_db(tmp_path, monkeypatch):
 
 
 def test_ingest_and_search():
-    doc_id = knowledge_store.ingest_document("t1", "a1", "Runbook", "refund abuse patterns\n\nVPN velocity")
+    doc_id = knowledge_store.ingest_document(
+        "t1", "a1", "Runbook", "refund abuse patterns\n\nVPN velocity"
+    )
     assert doc_id
     hits = knowledge_store.search("t1", "a1", "refund VPN", limit=3)
     assert len(hits) >= 1

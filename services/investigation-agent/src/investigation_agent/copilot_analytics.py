@@ -22,7 +22,9 @@ def _analyst_hash(settings: Settings, analyst_id: str) -> str | None:
     secret = (settings.copilot_analytics_hmac_secret or "").strip()
     if not secret:
         return None
-    return hmac.new(secret.encode("utf-8"), analyst_id.encode("utf-8"), hashlib.sha256).hexdigest()[:24]
+    return hmac.new(secret.encode("utf-8"), analyst_id.encode("utf-8"), hashlib.sha256).hexdigest()[
+        :24
+    ]
 
 
 def _base_payload(settings: Settings, tenant_id: str, analyst_id: str) -> dict[str, Any]:

@@ -9,7 +9,12 @@ from tenant_binding import enforce_tenant_access, parse_api_key_tenant_map
 
 
 def _allow_insecure_no_auth() -> bool:
-    return os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+    return os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 def _get_valid_keys() -> frozenset[str]:
@@ -26,7 +31,12 @@ async def require_api_key(request: Request) -> None:
     keys = _get_valid_keys()
     tenant_map = parse_api_key_tenant_map()
     if not keys:
-        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         if allow:
             await enforce_tenant_access(request, allowed_tenants={"*"})
             return

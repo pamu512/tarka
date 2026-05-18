@@ -1,7 +1,11 @@
 """Shared core utilities for Tarka services."""
 
 from tarka_core.cache import KeyValueCache, LocalDictCache, RedisCache
-from tarka_core.data_residency import DataResidencyViolationError, assert_vendor_residency_allowed, coerce_residency
+from tarka_core.data_residency import (
+    DataResidencyViolationError,
+    assert_vendor_residency_allowed,
+    coerce_residency,
+)
 from tarka_core.database import (
     build_async_database_url,
     create_audit_async_engine,
@@ -18,7 +22,11 @@ from tarka_core.messaging import (
     NullMessageBroker,
     PublishDelivery,
 )
-from tarka_core.rule_compiler import TranspilationError, transpile_visual_pack, transpile_visual_rule
+from tarka_core.rule_compiler import (
+    TranspilationError,
+    transpile_visual_pack,
+    transpile_visual_rule,
+)
 from tarka_core.templates import (
     INDUSTRY_RULE_TEMPLATE_ASTS,
     INDUSTRY_TEMPLATE_KEYS,

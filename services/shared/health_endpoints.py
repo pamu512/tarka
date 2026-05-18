@@ -76,21 +76,17 @@ def configure_health(service_name: str, service_version: str) -> None:
     _service_version = service_version
 
 
-def register_health_check(
-    name: str, check: Callable[[], Awaitable[tuple[bool, str]]]
-) -> None:
+def register_health_check(name: str, check: Callable[[], Awaitable[tuple[bool, str]]]) -> None:
     """Register a liveness health check.
-    
+
     The check function should return (is_healthy, message).
     """
     _health_checks[name] = check
 
 
-def register_readiness_check(
-    name: str, check: Callable[[], Awaitable[tuple[bool, str]]]
-) -> None:
+def register_readiness_check(name: str, check: Callable[[], Awaitable[tuple[bool, str]]]) -> None:
     """Register a readiness check.
-    
+
     The check function should return (is_ready, message).
     """
     _readiness_checks[name] = check
@@ -99,7 +95,7 @@ def register_readiness_check(
 @router.get("/health", response_model=HealthStatus)
 async def health_check() -> HealthStatus:
     """Liveness probe - returns 200 if process is running.
-    
+
     Kubernetes uses this to determine if the container should be restarted.
     """
     return HealthStatus(
@@ -114,7 +110,7 @@ async def health_check() -> HealthStatus:
 @router.get("/ready", response_model=ReadinessStatus)
 async def readiness_check() -> ReadinessStatus:
     """Readiness probe - returns 200 if service is ready to accept traffic.
-    
+
     Kubernetes uses this to determine if the pod should receive traffic.
     Returns 503 if any readiness check fails.
     """
@@ -156,7 +152,7 @@ async def readiness_check() -> ReadinessStatus:
 @router.get("/health/deep", response_model=DeepHealthStatus)
 async def deep_health_check() -> DeepHealthStatus:
     """Deep health check with all registered health checks.
-    
+
     This validates both liveness and dependency health.
     Returns detailed status for each check.
     """
@@ -200,7 +196,7 @@ async def deep_health_check() -> DeepHealthStatus:
 @router.get("/slo", response_model=SLOStatus)
 async def slo_status() -> SLOStatus:
     """Service Level Objectives status.
-    
+
     Returns current metrics against SLO targets.
     """
     try:
@@ -215,9 +211,7 @@ async def slo_status() -> SLOStatus:
         server_errors = summary.get("http_server_errors_total_observed", 0)
         client_errors = summary.get("http_client_errors_total_observed", 0)
 
-        error_rate = (
-            (server_errors + client_errors) / total_requests if total_requests > 0 else 0
-        )
+        error_rate = (server_errors + client_errors) / total_requests if total_requests > 0 else 0
 
         # SLO targets (these should be configurable)
         slo_targets = {
@@ -278,6 +272,7 @@ async def slo_status() -> SLOStatus:
 
 # Common health check implementations
 
+
 async def check_redis_health(redis_client: Any) -> tuple[bool, str]:
     """Check Redis connectivity."""
     try:
@@ -315,13 +310,13 @@ async def check_http_service_health(url: str, timeout: float = 5.0) -> tuple[boo
 
 def setup_health_endpoints(app: FastAPI, service_name: str, service_version: str) -> None:
     """Setup standardized health endpoints for a service.
-    
+
     Usage:
         from health_endpoints import setup_health_endpoints, register_readiness_check
-        
+
         app = FastAPI()
         setup_health_endpoints(app, "decision-api", "1.2.0")
-        
+
         # Register custom readiness checks
         register_readiness_check("database", check_db)
         register_readiness_check("redis", check_redis)

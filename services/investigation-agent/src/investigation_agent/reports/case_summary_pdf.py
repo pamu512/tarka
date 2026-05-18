@@ -90,7 +90,9 @@ def render_case_summary_pdf(
     pdf.multi_cell(
         col_w,
         4,
-        _safe_pdf_text("Draft for human review. Provenance: client-supplied chat fields; not a legal or regulatory attestation."),
+        _safe_pdf_text(
+            "Draft for human review. Provenance: client-supplied chat fields; not a legal or regulatory attestation."
+        ),
     )
     buf = BytesIO()
     pdf.output(buf)

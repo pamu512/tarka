@@ -28,7 +28,9 @@ def test_retries_on_operational_error_then_succeeds():
         async def op():
             attempts["n"] += 1
             if attempts["n"] < 3:
-                raise OperationalError("select 1", {}, RuntimeError("deadlock detected"))
+                raise OperationalError(
+                    "select 1", {}, RuntimeError("deadlock detected")
+                )
             return "ok"
 
         out = await _retry_db_op(op, attempts=4, backoff_seconds=0.001)
@@ -47,4 +49,3 @@ def test_fails_after_retry_budget_exhausted():
             await _retry_db_op(op, attempts=2, backoff_seconds=0.001)
 
     asyncio.run(run())
-

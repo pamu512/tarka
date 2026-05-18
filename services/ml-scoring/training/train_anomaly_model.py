@@ -207,7 +207,9 @@ def train_isolation_forest(X_norm: np.ndarray, y: np.ndarray) -> dict:
     print(f"  Fit in {elapsed:.1f}s")
 
     raw_scores = iforest.decision_function(X_norm)
-    anomaly_scores = 1.0 - (raw_scores - raw_scores.min()) / (raw_scores.max() - raw_scores.min() + 1e-9)
+    anomaly_scores = 1.0 - (raw_scores - raw_scores.min()) / (
+        raw_scores.max() - raw_scores.min() + 1e-9
+    )
 
     metrics = _print_metrics("Isolation Forest", y, anomaly_scores)
 
@@ -240,7 +242,9 @@ def train_isolation_forest(X_norm: np.ndarray, y: np.ndarray) -> dict:
             "threshold_deny": 80,
             "threshold_review": 50,
         },
-        "training_metrics": {k: round(v, 4) if isinstance(v, float) else v for k, v in metrics.items()},
+        "training_metrics": {
+            k: round(v, 4) if isinstance(v, float) else v for k, v in metrics.items()
+        },
         "training_data": {
             "samples": N_SAMPLES,
             "fraud_ratio": FRAUD_RATIO,
@@ -318,7 +322,9 @@ def train_gbm(X_norm: np.ndarray, y: np.ndarray) -> dict:
             "type": "fraud_probability",
             "range": [0, 100],
         },
-        "training_metrics": {k: round(v, 4) if isinstance(v, float) else v for k, v in metrics.items()},
+        "training_metrics": {
+            k: round(v, 4) if isinstance(v, float) else v for k, v in metrics.items()
+        },
         "training_data": {
             "samples": N_SAMPLES,
             "fraud_ratio": FRAUD_RATIO,

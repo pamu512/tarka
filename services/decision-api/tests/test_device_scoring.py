@@ -5,7 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 
-from decision_api.device_scoring import decode_telemetry_packet, extract_device_entropy_tags
+from decision_api.device_scoring import (
+    decode_telemetry_packet,
+    extract_device_entropy_tags,
+)
 
 
 def _seal(payload: dict) -> dict:
@@ -45,7 +48,11 @@ def test_extract_zero_mouse_jitter_tag() -> None:
                 "path_length_px": 0,
                 "click_count": 4,
             },
-            "typing": {"key_count": 5, "std_inter_key_ms": 20, "hesitation_events_gt_500ms": 1},
+            "typing": {
+                "key_count": 5,
+                "std_inter_key_ms": 20,
+                "hesitation_events_gt_500ms": 1,
+            },
             "touch": {},
         },
     }

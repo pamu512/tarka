@@ -52,7 +52,9 @@ async def _handle_enrichment_message(msg: Any, http: httpx.AsyncClient, redis: A
         return
     cfg = _osint_cfg()
     dr = str(data.get("data_residency_region") or "").strip().upper()
-    tcfg = tenant_config_from_mapping({"data_residency_region": dr} if dr in ("EU", "US", "GLOBAL") else {})
+    tcfg = tenant_config_from_mapping(
+        {"data_residency_region": dr} if dr in ("EU", "US", "GLOBAL") else {}
+    )
     try:
         osint_result = await full_osint_enrichment(
             email=str(email).strip() if email else None,

@@ -68,7 +68,9 @@ def iter_backtest_row_chunks(
     while True:
         has_cursor = last_ca is not None
         if engine.backend == "duckdb":
-            sql = queries.render_backtest_stream_page_duckdb(tbl, chunk_size=chunk_size, has_cursor=has_cursor)
+            sql = queries.render_backtest_stream_page_duckdb(
+                tbl, chunk_size=chunk_size, has_cursor=has_cursor
+            )
             binds: list[Any] = [tenant_id, window_start_s, window_end_s]
             if has_cursor:
                 binds.extend([last_ca, last_ca, last_tr or ""])

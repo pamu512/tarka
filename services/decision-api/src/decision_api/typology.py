@@ -7,7 +7,10 @@ from typing import Any
 
 from decision_api.config import settings
 from decision_api.json_rules import _match_condition
-from decision_api.typology_predicate_registry import load_predicate_registry, predicate_when_by_id
+from decision_api.typology_predicate_registry import (
+    load_predicate_registry,
+    predicate_when_by_id,
+)
 
 """Typology layer (OSS #34): aggregate rule outcomes + feature predicates into scored scenarios."""
 log = logging.getLogger(__name__)
@@ -102,7 +105,9 @@ def evaluate_typologies(
                     bonus = float(pred.get("bonus", 0))
                     score += bonus
                     val = pred.get("value", cond.get("value"))
-                    feat_contrib.append(f"{label}:{cond.get('field')}:{cond.get('op')}:{val}")
+                    feat_contrib.append(
+                        f"{label}:{cond.get('field')}:{cond.get('op')}:{val}"
+                    )
             except Exception:
                 continue
 
@@ -110,7 +115,11 @@ def evaluate_typologies(
         warn = float(thr.get("warning", 50))
         alert = float(thr.get("alert", 80))
         level = _breach_level(score, warn, alert)
-        disp_map = spec.get("disposition") or {"pass": "allow", "warning": "review", "alert": "deny"}
+        disp_map = spec.get("disposition") or {
+            "pass": "allow",
+            "warning": "review",
+            "alert": "deny",
+        }
         disposition = str(disp_map.get(level) or "review")
 
         out.append(

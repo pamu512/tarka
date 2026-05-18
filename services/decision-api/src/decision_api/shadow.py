@@ -39,7 +39,9 @@ def load_shadow_rules() -> None:
         except Exception as e:
             log.warning("Failed to load shadow rule pack %s: %s", fname, e)
     _shadow_enabled = len(_shadow_packs) > 0
-    log.info("Loaded %d shadow rule packs from %s", len(_shadow_packs), _shadow_rules_path)
+    log.info(
+        "Loaded %d shadow rule packs from %s", len(_shadow_packs), _shadow_rules_path
+    )
 
 
 def evaluate_shadow(features: dict[str, Any], tags: list[str]) -> dict[str, Any] | None:
@@ -132,10 +134,26 @@ def get_observation_stats() -> dict[str, Any]:
         prod_decisions[pd] = prod_decisions.get(pd, 0) + 1
         shadow_decisions[sd] = shadow_decisions.get(sd, 0) + 1
 
-    tp = sum(1 for o in obs if o.get("production_decision") == "deny" and o.get("shadow_decision") == "deny")
-    fp = sum(1 for o in obs if o.get("production_decision") != "deny" and o.get("shadow_decision") == "deny")
-    fn = sum(1 for o in obs if o.get("production_decision") == "deny" and o.get("shadow_decision") != "deny")
-    tn = sum(1 for o in obs if o.get("production_decision") != "deny" and o.get("shadow_decision") != "deny")
+    tp = sum(
+        1
+        for o in obs
+        if o.get("production_decision") == "deny" and o.get("shadow_decision") == "deny"
+    )
+    fp = sum(
+        1
+        for o in obs
+        if o.get("production_decision") != "deny" and o.get("shadow_decision") == "deny"
+    )
+    fn = sum(
+        1
+        for o in obs
+        if o.get("production_decision") == "deny" and o.get("shadow_decision") != "deny"
+    )
+    tn = sum(
+        1
+        for o in obs
+        if o.get("production_decision") != "deny" and o.get("shadow_decision") != "deny"
+    )
 
     score_diffs = [o.get("shadow_score", 0) - o.get("production_score", 0) for o in obs]
     avg_score_delta = sum(score_diffs) / len(score_diffs) if score_diffs else 0.0

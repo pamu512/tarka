@@ -14,7 +14,16 @@ from typing import Any, Literal
 from uuid import UUID
 
 import httpx
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    HTTPException,
+    Query,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -86,10 +95,18 @@ except ImportError:
                 "on_failure": "SKIP",
             },
             "async_osint_redis": {
-                "timeout_seconds": float(os.environ.get("ASYNC_OSINT_REDIS_TIMEOUT_SECONDS", "0.08")),
-                "max_attempts": int(os.environ.get("ASYNC_OSINT_REDIS_MAX_ATTEMPTS", "1")),
-                "circuit_failure_threshold": int(os.environ.get("ASYNC_OSINT_REDIS_CIRCUIT_FAILURE_THRESHOLD", "5")),
-                "circuit_recovery_seconds": float(os.environ.get("ASYNC_OSINT_REDIS_CIRCUIT_RECOVERY_SECONDS", "2.0")),
+                "timeout_seconds": float(
+                    os.environ.get("ASYNC_OSINT_REDIS_TIMEOUT_SECONDS", "0.08")
+                ),
+                "max_attempts": int(
+                    os.environ.get("ASYNC_OSINT_REDIS_MAX_ATTEMPTS", "1")
+                ),
+                "circuit_failure_threshold": int(
+                    os.environ.get("ASYNC_OSINT_REDIS_CIRCUIT_FAILURE_THRESHOLD", "5")
+                ),
+                "circuit_recovery_seconds": float(
+                    os.environ.get("ASYNC_OSINT_REDIS_CIRCUIT_RECOVERY_SECONDS", "2.0")
+                ),
                 "on_failure": "SKIP",
             },
             "graph_upsert": {
@@ -108,7 +125,10 @@ from decision_api.decision_log import build_decision_log_record, emit_decision_l
 from decision_api.entity_link_store import entity_link_store
 from decision_api.eval_dag import EvalDAGRuntime
 from decision_api.eval_load_guard import EvalLoadGuard, acquire_eval_capacity
-from decision_api.async_osint_redis import merge_cached_async_osint, publish_async_enrichment_request
+from decision_api.async_osint_redis import (
+    merge_cached_async_osint,
+    publish_async_enrichment_request,
+)
 from decision_api.eval_steps import run_evaluation_step
 from decision_api.device_scoring import extract_device_entropy_tags
 from decision_api.fingerprint_store import fingerprint_store
@@ -124,7 +144,9 @@ from decision_api.opa_client import evaluate_opa_or_raise
 from decision_api.redis_store import redis_tags
 from decision_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
+sys.path.insert(
+    0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared")
+)
 from circuit import AsyncCircuitBreaker, CircuitOpenError  # noqa: E402
 from entity_lists import ListCheckResult, create_list_store  # noqa: E402
 from event_time import event_time_unix_for_evaluate  # noqa: E402
@@ -132,7 +154,10 @@ from privacy import get_profile, mask_dict  # noqa: E402
 
 from decision_api.aggregates import agg_store
 from decision_api.attestation_taxonomy import attestation_signal_tags
-from decision_api.challenge_policy import apply_challenge_policy, load_challenge_policies
+from decision_api.challenge_policy import (
+    apply_challenge_policy,
+    load_challenge_policies,
+)
 from decision_api.consortium import consortium_score_delta, hash_entity_id
 from decision_api.graph_decision_explanation import build_graph_decision_explanation_v1
 from decision_api.graph_intel import graph_score_delta, graph_tags_from_risk
@@ -159,11 +184,22 @@ from decision_api.shadow import evaluate_shadow, load_shadow_rules, record_obser
 from decision_api.tags import derive_contextual_tags
 from decision_api.tenant_flags import tenant_flag_enabled
 from decision_api.trusted_zones import load_trusted_zones_for_tenant
-from decision_api.typology import evaluate_typologies, load_typology_definitions, reload_typology_definitions, summarize_typologies
-from decision_api.typology_predicate_registry import load_predicate_registry, registry_public_view, reload_predicate_registry
+from decision_api.typology import (
+    evaluate_typologies,
+    load_typology_definitions,
+    reload_typology_definitions,
+    summarize_typologies,
+)
+from decision_api.typology_predicate_registry import (
+    load_predicate_registry,
+    registry_public_view,
+    reload_predicate_registry,
+)
 
 # ---------- observability ----------
-_shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
+_shared_dir = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared")
+)
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
 from auth_rbac import require_role, setup_auth  # noqa: E402
@@ -179,7 +215,9 @@ def _upstream_headers() -> dict[str, str]:
     """Shared auth headers for outbound service calls."""
     key = settings.upstream_api_key.strip() if settings.upstream_api_key.strip() else ""
     if not key:
-        key = settings.api_keys.split(",")[0].strip() if settings.api_keys.strip() else ""
+        key = (
+            settings.api_keys.split(",")[0].strip() if settings.api_keys.strip() else ""
+        )
     return {"x-api-key": key} if key else {}
 
 
@@ -257,7 +295,9 @@ def _load_graph_routing_policy(force: bool = False) -> dict[str, Any] | None:
     return _graph_routing_policy
 
 
-def _graph_routing_match_when(when: list[dict[str, Any]] | None, ctx: dict[str, Any]) -> bool:
+def _graph_routing_match_when(
+    when: list[dict[str, Any]] | None, ctx: dict[str, Any]
+) -> bool:
     if not when:
         return True
     for cond in when:
@@ -329,7 +369,11 @@ def decide_graph_routing(
             result["skip_graph"] = bool(rule.get("skip_graph", result["skip_graph"]))
             if "graph_checkpoint" in rule:
                 gc = rule.get("graph_checkpoint")
-                result["graph_checkpoint"] = gc if isinstance(gc, str) or gc is None else result["graph_checkpoint"]
+                result["graph_checkpoint"] = (
+                    gc
+                    if isinstance(gc, str) or gc is None
+                    else result["graph_checkpoint"]
+                )
             result["matched_rule_id"] = rule.get("id")
             break
     return result
@@ -350,7 +394,9 @@ async def _list_check_with_circuit(
 ) -> ListCheckResult:
     if tenant_flag_enabled(tenant_flags, "disable_entity_lists"):
         degrade_tags.append("lists:disabled_by_tenant")
-        return ListCheckResult(found=False, action="evaluate", reason="tenant_flag_disable_entity_lists")
+        return ListCheckResult(
+            found=False, action="evaluate", reason="tenant_flag_disable_entity_lists"
+        )
 
     _ls = _get_list_store()
 
@@ -377,7 +423,9 @@ async def _fetch_graph_risk_wrapped(
         degrade_tags.append("graph:disabled_by_tenant")
         return None
     try:
-        return await _circuit_graph.call(lambda: _fetch_graph_risk(http, tenant_id, entity_id, graph_checkpoint))
+        return await _circuit_graph.call(
+            lambda: _fetch_graph_risk(http, tenant_id, entity_id, graph_checkpoint)
+        )
     except CircuitOpenError:
         _circuit_metrics_inc("tarka_circuit_open_total_graph")
         degrade_tags.append("graph:unavailable")
@@ -395,7 +443,9 @@ async def _fetch_feature_snapshot_wrapped(
         degrade_tags.append("enrichment:disabled_by_tenant")
         return _feature_snapshot_fallback(body, redis_tag_list)
     try:
-        return await _circuit_feature.call(lambda: _fetch_feature_snapshot(http, body, redis_tag_list))
+        return await _circuit_feature.call(
+            lambda: _fetch_feature_snapshot(http, body, redis_tag_list)
+        )
     except CircuitOpenError:
         _circuit_metrics_inc("tarka_circuit_open_total_feature")
         degrade_tags.append("enrichment:unavailable")
@@ -436,7 +486,9 @@ async def _fetch_counter_snapshot_wrapped(
     if not settings.counter_service_url:
         return None
     try:
-        return await _circuit_counter.call(lambda: _fetch_counter_snapshot(http, body, features))
+        return await _circuit_counter.call(
+            lambda: _fetch_counter_snapshot(http, body, features)
+        )
     except CircuitOpenError:
         _circuit_metrics_inc("tarka_circuit_open_total_counter")
         degrade_tags.append("counter:unavailable")
@@ -454,17 +506,46 @@ async def _fetch_location_evaluation(
     current = None
     previous = None
     try:
-        la = float(features.get("session_last_lat")) if features.get("session_last_lat") is not None else None
-        lo = float(features.get("session_last_lon")) if features.get("session_last_lon") is not None else None
-        lts = float(features.get("session_last_ts")) if features.get("session_last_ts") is not None else None
+        la = (
+            float(features.get("session_last_lat"))
+            if features.get("session_last_lat") is not None
+            else None
+        )
+        lo = (
+            float(features.get("session_last_lon"))
+            if features.get("session_last_lon") is not None
+            else None
+        )
+        lts = (
+            float(features.get("session_last_ts"))
+            if features.get("session_last_ts") is not None
+            else None
+        )
         if la is not None and lo is not None:
-            current = {"lat": la, "lon": lo, "ts": lts, "source": str(features.get("geo_source_resolved") or "derived")}
+            current = {
+                "lat": la,
+                "lon": lo,
+                "ts": lts,
+                "source": str(features.get("geo_source_resolved") or "derived"),
+            }
     except (TypeError, ValueError):
         current = None
     try:
-        pla = float(features.get("session_prev_lat")) if features.get("session_prev_lat") is not None else None
-        plo = float(features.get("session_prev_lon")) if features.get("session_prev_lon") is not None else None
-        pts = float(features.get("session_prev_ts")) if features.get("session_prev_ts") is not None else None
+        pla = (
+            float(features.get("session_prev_lat"))
+            if features.get("session_prev_lat") is not None
+            else None
+        )
+        plo = (
+            float(features.get("session_prev_lon"))
+            if features.get("session_prev_lon") is not None
+            else None
+        )
+        pts = (
+            float(features.get("session_prev_ts"))
+            if features.get("session_prev_ts") is not None
+            else None
+        )
         if pla is not None and plo is not None:
             previous = {"lat": pla, "lon": plo, "ts": pts, "source": "previous"}
     except (TypeError, ValueError):
@@ -498,7 +579,9 @@ async def _fetch_location_evaluation_wrapped(
     if not settings.location_service_url:
         return None
     try:
-        return await _circuit_location.call(lambda: _fetch_location_evaluation(http, body, features))
+        return await _circuit_location.call(
+            lambda: _fetch_location_evaluation(http, body, features)
+        )
     except CircuitOpenError:
         _circuit_metrics_inc("tarka_circuit_open_total_location")
         degrade_tags.append("location:unavailable")
@@ -514,7 +597,11 @@ async def _fetch_calibration_adjustment(
     if not settings.calibration_service_url:
         return None
     url = settings.calibration_service_url.rstrip("/") + "/v1/score"
-    profile = str(features.get("calibration_profile") or body.payload.get("calibration_profile") or "default")
+    profile = str(
+        features.get("calibration_profile")
+        or body.payload.get("calibration_profile")
+        or "default"
+    )
     r = await http.post(
         url,
         json={
@@ -541,7 +628,11 @@ async def _fetch_calibration_adjustment_wrapped(
     if not settings.calibration_service_url:
         return None
     try:
-        return await _circuit_calibration.call(lambda: _fetch_calibration_adjustment(http, body, baseline_confidence, features))
+        return await _circuit_calibration.call(
+            lambda: _fetch_calibration_adjustment(
+                http, body, baseline_confidence, features
+            )
+        )
     except CircuitOpenError:
         _circuit_metrics_inc("tarka_circuit_open_total_calibration")
         degrade_tags.append("calibration:unavailable")
@@ -561,7 +652,9 @@ async def _fetch_ml_score_wrapped(
         degrade_tags.append("ml:disabled_by_tenant")
         return None, {}
     try:
-        return await _circuit_ml.call(lambda: _fetch_ml_score(http, tenant_id, entity_id, event_type, features))
+        return await _circuit_ml.call(
+            lambda: _fetch_ml_score(http, tenant_id, entity_id, event_type, features)
+        )
     except CircuitOpenError:
         _circuit_metrics_inc("tarka_circuit_open_total_ml")
         degrade_tags.append("ml:unavailable")
@@ -592,7 +685,9 @@ async def _evaluate_opa_wrapped(
         return None
 
 
-def _compute_fallback_reason(degrade_tags: list[str], step_trace: list[dict[str, Any]]) -> str | None:
+def _compute_fallback_reason(
+    degrade_tags: list[str], step_trace: list[dict[str, Any]]
+) -> str | None:
     """R2.4 — compact audit field when rules-only or degraded path was used."""
     tag_map = {
         "lists:unavailable": "circuit_list",
@@ -637,7 +732,9 @@ def _normalize_explainability_tier(raw: str | None) -> str:
     return "minimal"
 
 
-def _shape_inference_context_for_tier(inference_context: dict[str, Any], tier: str) -> dict[str, Any]:
+def _shape_inference_context_for_tier(
+    inference_context: dict[str, Any], tier: str
+) -> dict[str, Any]:
     normalized_tier = _normalize_explainability_tier(tier)
     if normalized_tier in {"analyst", "full"}:
         return _json.loads(_json.dumps(inference_context, default=str))
@@ -650,7 +747,11 @@ def _shape_inference_context_for_tier(inference_context: dict[str, Any], tier: s
 
     top_signals = out.get("top_signals")
     if isinstance(top_signals, list):
-        out["top_signals"] = list(dict.fromkeys(str(s).split(":", 1)[0] for s in top_signals if str(s).strip()))
+        out["top_signals"] = list(
+            dict.fromkeys(
+                str(s).split(":", 1)[0] for s in top_signals if str(s).strip()
+            )
+        )
 
     driver_explain = out.get("driver_explain")
     if isinstance(driver_explain, list):
@@ -676,7 +777,9 @@ def _resolve_response_explainability_tier(request: Request) -> str:
     requested_raw = request.headers.get("x-tarka-explainability-tier")
     default_tier = _normalize_explainability_tier(settings.explainability_tier_default)
     user = getattr(request.state, "auth_user", None)
-    can_view_analyst = bool(user and hasattr(user, "has_role") and user.has_role("analyst"))
+    can_view_analyst = bool(
+        user and hasattr(user, "has_role") and user.has_role("analyst")
+    )
 
     if requested_raw is not None:
         requested = _normalize_explainability_tier(requested_raw)
@@ -703,12 +806,22 @@ def _build_artifact_manifest(
     external_signal_meta: dict[str, Any] | None,
     challenge_policy_id: str | None,
 ) -> dict[str, Any]:
-    rule_pack_joined = ",".join(sorted(str(x).strip() for x in json_rule_pack_files if str(x).strip()))
+    rule_pack_joined = ",".join(
+        sorted(str(x).strip() for x in json_rule_pack_files if str(x).strip())
+    )
     return {
-        "decision_api_revision": (os.environ.get("GIT_SHA") or os.environ.get("COMMIT_SHA") or "").strip(),
+        "decision_api_revision": (
+            os.environ.get("GIT_SHA") or os.environ.get("COMMIT_SHA") or ""
+        ).strip(),
         "inference_schema_version": INFERENCE_SCHEMA_VERSION,
-        "rule_pack_files": sorted(str(x).strip() for x in json_rule_pack_files if str(x).strip()),
-        "rule_pack_fingerprint_sha256": hashlib.sha256(rule_pack_joined.encode("utf-8")).hexdigest() if rule_pack_joined else "",
+        "rule_pack_files": sorted(
+            str(x).strip() for x in json_rule_pack_files if str(x).strip()
+        ),
+        "rule_pack_fingerprint_sha256": hashlib.sha256(
+            rule_pack_joined.encode("utf-8")
+        ).hexdigest()
+        if rule_pack_joined
+        else "",
         "score_blend_strategy": settings.score_blend_strategy,
         "counter_version": _audit_counter_version_label(),
         "ml_model": str(inf_ctx.get("ml_model") or ""),
@@ -716,7 +829,9 @@ def _build_artifact_manifest(
         "policy_experiment_id": str(inf_ctx.get("policy_experiment_id") or ""),
         "challenge_policy_id": challenge_policy_id or "",
         "consortium_hash_scope": settings.consortium_hash_scope,
-        "external_signal_providers": list((external_signal_meta or {}).get("providers") or []),
+        "external_signal_providers": list(
+            (external_signal_meta or {}).get("providers") or []
+        ),
     }
 
 
@@ -795,14 +910,23 @@ def _get_api_keys() -> frozenset[str]:
     global _valid_api_keys
     if _valid_api_keys is None:
         raw = settings.api_keys.strip()
-        _valid_api_keys = frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
+        _valid_api_keys = (
+            frozenset(k.strip() for k in raw.split(",") if k.strip())
+            if raw
+            else frozenset()
+        )
     return _valid_api_keys
 
 
 async def require_api_key(request: Request) -> None:
     keys = _get_api_keys()
     if not keys:
-        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         if allow:
             return
         raise HTTPException(
@@ -888,7 +1012,9 @@ async def lifespan(application: FastAPI):
 
     install_vendor_plugins_from_settings()
 
-    application.state.eval_load_guard = EvalLoadGuard(settings.tarka_max_concurrent_evaluations)
+    application.state.eval_load_guard = EvalLoadGuard(
+        settings.tarka_max_concurrent_evaluations
+    )
 
     retention_task = None
     if DEFAULT_RETENTION_DAYS > 0:
@@ -950,7 +1076,10 @@ from decision_api.rule_compiler_api import router as rule_compiler_router  # noq
 from decision_api.rule_gitops_api import router as rule_gitops_router  # noqa: E402
 from decision_api.simulation_api import router as simulation_router  # noqa: E402
 from decision_api.vendor_marketplace_api import router as vendor_marketplace_router  # noqa: E402
-from decision_api.sandbox_bootstrap import maybe_hydrate_sandbox_plg_pack, router as sandbox_bootstrap_router  # noqa: E402
+from decision_api.sandbox_bootstrap import (
+    maybe_hydrate_sandbox_plg_pack,
+    router as sandbox_bootstrap_router,
+)  # noqa: E402
 
 app.include_router(rule_router)
 app.include_router(replay_router)
@@ -1006,7 +1135,9 @@ async def slo_status():
         "current": {
             **cur,
             "redis_connected": redis_tags.is_tag_store_available,
-            "nats_connected": _external_nats_connected(getattr(app.state, "message_broker", None)),
+            "nats_connected": _external_nats_connected(
+                getattr(app.state, "message_broker", None)
+            ),
             "evaluate_require_idempotency_key": settings.evaluate_require_idempotency_key,
         },
     }
@@ -1025,15 +1156,26 @@ async def evaluation_posture(request: Request):
     else:
         has_graph = bool((settings.graph_service_url or "").strip())
         has_nats = bool((settings.nats_url or "").strip())
-        has_ml_plane = bool((settings.feature_service_url or "").strip() or (settings.ml_scoring_url or "").strip())
+        has_ml_plane = bool(
+            (settings.feature_service_url or "").strip()
+            or (settings.ml_scoring_url or "").strip()
+        )
         if not has_graph and not has_nats and not has_ml_plane:
             deployment_tier = "community"
         else:
             deployment_tier = "pro"
 
     data = load_typology_definitions()
-    typologies = data.get("typologies") if isinstance(data.get("typologies"), list) else []
-    typology_count = len([t for t in typologies if isinstance(t, dict) and str(t.get("id") or "").strip()])
+    typologies = (
+        data.get("typologies") if isinstance(data.get("typologies"), list) else []
+    )
+    typology_count = len(
+        [
+            t
+            for t in typologies
+            if isinstance(t, dict) and str(t.get("id") or "").strip()
+        ]
+    )
 
     registry = load_predicate_registry()
     reg_ver = int(registry.get("version") or 0)
@@ -1057,7 +1199,9 @@ async def evaluation_posture(request: Request):
         {
             "id": "redis",
             "ok": redis_tags.is_tag_store_available,
-            "detail": "connected" if redis_tags.is_tag_store_available else "not_connected",
+            "detail": "connected"
+            if redis_tags.is_tag_store_available
+            else "not_connected",
         },
         {
             "id": "graph_service_configured",
@@ -1067,7 +1211,9 @@ async def evaluation_posture(request: Request):
         {
             "id": "feature_service_configured",
             "ok": bool((settings.feature_service_url or "").strip()),
-            "detail": "set" if (settings.feature_service_url or "").strip() else "empty",
+            "detail": "set"
+            if (settings.feature_service_url or "").strip()
+            else "empty",
         },
         {
             "id": "ml_scoring_configured",
@@ -1091,7 +1237,11 @@ async def evaluation_posture(request: Request):
     if last_reload is None:
         last_reload_iso = None
     else:
-        last_reload_iso = datetime.fromtimestamp(last_reload, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        last_reload_iso = (
+            datetime.fromtimestamp(last_reload, tz=timezone.utc)
+            .isoformat()
+            .replace("+00:00", "Z")
+        )
 
     runbook = "https://github.com/pamu512/tarka/blob/master/docs/docs/guides/deployment-profiles-community-vs-pro.md"
 
@@ -1114,7 +1264,8 @@ async def evaluation_posture(request: Request):
         "dependency_resilience_policy": dependency_resilience_policy_table(),
         "last_rules_reload_at": last_reload_iso,
         "runbook_url": runbook,
-        "request_id": request.headers.get("x-request-id") or request.headers.get("x-correlation-id"),
+        "request_id": request.headers.get("x-request-id")
+        or request.headers.get("x-correlation-id"),
     }
 
 
@@ -1162,17 +1313,37 @@ async def attestation_verify(body: VerifyRequest):
         # via Google's playintegrity.googleapis.com/v1/{package}:decodeIntegrityToken
         # This requires GOOGLE_CLOUD_PROJECT and a service account.
         if not body.token or len(body.token) < 50:
-            return {"valid": False, "device_integrity": None, "reason": "invalid_token_format"}
-        log.warning("Play Integrity token received but server-side verification not configured. Set PLAY_INTEGRITY_CREDENTIALS to enable full verification.")
-        return {"valid": True, "device_integrity": "play_integrity_unverified", "warning": "Server-side verification pending configuration"}
+            return {
+                "valid": False,
+                "device_integrity": None,
+                "reason": "invalid_token_format",
+            }
+        log.warning(
+            "Play Integrity token received but server-side verification not configured. Set PLAY_INTEGRITY_CREDENTIALS to enable full verification."
+        )
+        return {
+            "valid": True,
+            "device_integrity": "play_integrity_unverified",
+            "warning": "Server-side verification pending configuration",
+        }
 
     if body.provider == "app_attest":
         # Apple App Attest: token is a CBOR-encoded attestation object.
         # Requires server-side verification with Apple's attestation service.
         if not body.token or len(body.token) < 50:
-            return {"valid": False, "device_integrity": None, "reason": "invalid_token_format"}
-        log.warning("App Attest token received but server-side verification not configured. Set APP_ATTEST_TEAM_ID to enable full verification.")
-        return {"valid": True, "device_integrity": "app_attest_unverified", "warning": "Server-side verification pending configuration"}
+            return {
+                "valid": False,
+                "device_integrity": None,
+                "reason": "invalid_token_format",
+            }
+        log.warning(
+            "App Attest token received but server-side verification not configured. Set APP_ATTEST_TEAM_ID to enable full verification."
+        )
+        return {
+            "valid": True,
+            "device_integrity": "app_attest_unverified",
+            "warning": "Server-side verification pending configuration",
+        }
 
     return {"valid": False, "device_integrity": None, "reason": "unknown_provider"}
 
@@ -1213,7 +1384,11 @@ async def ops_governance():
             )
             await _maybe_await(r.raise_for_status())
             data = await _maybe_await(r.json())
-            cal_status = data if isinstance(data, dict) else {"hint": "invalid_calibration_response"}
+            cal_status = (
+                data
+                if isinstance(data, dict)
+                else {"hint": "invalid_calibration_response"}
+            )
         except Exception:
             cal_status = {"hint": "calibration_service_unavailable"}
     else:
@@ -1277,7 +1452,11 @@ async def calibration_status(tenant_id: str, profile: str = "default"):
             )
             await _maybe_await(r.raise_for_status())
             data = await _maybe_await(r.json())
-            drift = data if isinstance(data, dict) else {"hint": "invalid_calibration_response"}
+            drift = (
+                data
+                if isinstance(data, dict)
+                else {"hint": "invalid_calibration_response"}
+            )
         except Exception:
             drift = {"hint": "calibration_service_unavailable"}
     else:
@@ -1325,7 +1504,9 @@ async def get_tenant_flags_admin(tenant_id: str, _=Depends(require_role("admin")
 
 
 @app.patch("/v1/admin/tenants/{tenant_id}/flags")
-async def patch_tenant_flags_admin(tenant_id: str, body: TenantFlagsBody, _=Depends(require_role("admin"))):
+async def patch_tenant_flags_admin(
+    tenant_id: str, body: TenantFlagsBody, _=Depends(require_role("admin"))
+):
     if not redis_tags.is_tag_store_available:
         raise HTTPException(503, detail="Tag/flags store not configured")
     updates = body.model_dump(exclude_none=True)
@@ -1405,7 +1586,9 @@ def extract_captcha_tags(dc: dict | None) -> list[str]:
     return tags
 
 
-def _infer_ctx_kwargs(body: EvaluateRequest, features: dict[str, Any]) -> dict[str, Any]:
+def _infer_ctx_kwargs(
+    body: EvaluateRequest, features: dict[str, Any]
+) -> dict[str, Any]:
     """Platform + optional TLS pinning hint for inference / integrity policy."""
     plat = "web"
     if body.device_context:
@@ -1484,7 +1667,9 @@ async def _maybe_await(value: Any) -> Any:
 # ---------- downstream helpers ----------
 
 
-def _feature_snapshot_fallback(body: EvaluateRequest, redis_tag_list: list[str]) -> dict[str, Any]:
+def _feature_snapshot_fallback(
+    body: EvaluateRequest, redis_tag_list: list[str]
+) -> dict[str, Any]:
     return {
         "tenant_id": body.tenant_id,
         "entity_id": body.entity_id,
@@ -1494,7 +1679,9 @@ def _feature_snapshot_fallback(body: EvaluateRequest, redis_tag_list: list[str])
     }
 
 
-async def _fetch_feature_snapshot(http: httpx.AsyncClient, body: EvaluateRequest, redis_tag_list: list[str]) -> dict[str, Any]:
+async def _fetch_feature_snapshot(
+    http: httpx.AsyncClient, body: EvaluateRequest, redis_tag_list: list[str]
+) -> dict[str, Any]:
     if not settings.feature_service_url:
         return _feature_snapshot_fallback(body, redis_tag_list)
     url = settings.feature_service_url.rstrip("/") + "/v1/snapshot"
@@ -1515,7 +1702,11 @@ async def _fetch_feature_snapshot(http: httpx.AsyncClient, body: EvaluateRequest
 
 
 async def _fetch_ml_score(
-    http: httpx.AsyncClient, tenant_id: str, entity_id: str, event_type: str, features: dict[str, Any]
+    http: httpx.AsyncClient,
+    tenant_id: str,
+    entity_id: str,
+    event_type: str,
+    features: dict[str, Any],
 ) -> tuple[float | None, dict[str, Any]]:
     """Return blended ML score plus optional explanation slice from ml-scoring (v1.2 inference_context)."""
     empty: dict[str, Any] = {}
@@ -1593,7 +1784,11 @@ async def _graph_upsert(
                 "external_id": dc.device_id,
                 "properties": {
                     "platform": dc.platform,
-                    **{k: v for k, v in dc.signals.items() if isinstance(v, (str, bool, int, float)) or v is None},
+                    **{
+                        k: v
+                        for k, v in dc.signals.items()
+                        if isinstance(v, (str, bool, int, float)) or v is None
+                    },
                 },
                 "tags": device_tags,
             },
@@ -1607,7 +1802,10 @@ async def _graph_upsert(
                 "from_external_id": body.entity_id,
                 "to_external_id": dc.device_id,
                 "relationship": "USED",
-                "properties": {"trace_id": trace_id, "event_type": body.event_type.value},
+                "properties": {
+                    "trace_id": trace_id,
+                    "event_type": body.event_type.value,
+                },
             },
             headers=_upstream_headers(),
         )
@@ -1649,7 +1847,12 @@ async def _graph_upsert(
         lo_f = float(lo_raw) if lo_raw is not None else None
     except (TypeError, ValueError):
         la_f, lo_f = None, None
-    if la_f is not None and lo_f is not None and -90 <= la_f <= 90 and -180 <= lo_f <= 180:
+    if (
+        la_f is not None
+        and lo_f is not None
+        and -90 <= la_f <= 90
+        and -180 <= lo_f <= 180
+    ):
         cell = _quantize_place_cell(la_f, lo_f)
         gtags = list(geo_extra_tags or [])
         await http.post(
@@ -1675,7 +1878,10 @@ async def _graph_upsert(
                 "from_external_id": body.entity_id,
                 "to_external_id": cell,
                 "relationship": "SEEN_AT",
-                "properties": {"trace_id": trace_id, "event_type": body.event_type.value},
+                "properties": {
+                    "trace_id": trace_id,
+                    "event_type": body.event_type.value,
+                },
             },
             headers=_upstream_headers(),
         )
@@ -1778,7 +1984,11 @@ async def _publish_decision(app_state: Any, decision_data: dict) -> None:
     etype = decision_data.get("event_type", "unknown")
     subject = f"fraud.decisions.{tenant}.{etype}"
     try:
-        await broker.publish(subject, _json.dumps(decision_data, default=str).encode(), delivery=PublishDelivery.JETSTREAM)
+        await broker.publish(
+            subject,
+            _json.dumps(decision_data, default=str).encode(),
+            delivery=PublishDelivery.JETSTREAM,
+        )
     except Exception as e:
         log.warning("Failed to publish decision: %s", e)
 
@@ -1824,7 +2034,11 @@ async def _run_shadow_evaluation(
         **shadow_result,
     }
     try:
-        await broker.publish(subject, _json.dumps(payload, default=str).encode(), delivery=PublishDelivery.JETSTREAM)
+        await broker.publish(
+            subject,
+            _json.dumps(payload, default=str).encode(),
+            delivery=PublishDelivery.JETSTREAM,
+        )
     except Exception as e:
         log.warning("Failed to publish shadow result: %s", e)
 
@@ -1840,7 +2054,11 @@ async def evaluate_decision(
     session: AsyncSession = Depends(get_session),
 ):
     if settings.evaluate_require_idempotency_key:
-        idem = (request.headers.get("Idempotency-Key") or request.headers.get("idempotency-key") or "").strip()
+        idem = (
+            request.headers.get("Idempotency-Key")
+            or request.headers.get("idempotency-key")
+            or ""
+        ).strip()
         if not idem:
             raise HTTPException(
                 status_code=422,
@@ -1882,13 +2100,17 @@ async def evaluate_decision(
                 "entity_id": body.entity_id,
                 "session_id": body.session_id,
                 "payload": body.payload,
-                "device_id": body.device_context.device_id if body.device_context else None,
+                "device_id": body.device_context.device_id
+                if body.device_context
+                else None,
             },
             sort_keys=True,
             default=str,
         ).encode()
     ).hexdigest()
-    is_replayed = await redis_tags.check_and_store_replay_signature(body.tenant_id, replay_signature, ttl_seconds=replay_ttl_seconds)
+    is_replayed = await redis_tags.check_and_store_replay_signature(
+        body.tenant_id, replay_signature, ttl_seconds=replay_ttl_seconds
+    )
     if is_replayed:
         signal_tags.append("ingress:replay_payload")
         replay_rule_hits.append("ingress_replay_detected")
@@ -1912,14 +2134,18 @@ async def evaluate_decision(
             body.entity_id,
         )
         if isinstance(body.metadata, dict) and body.metadata:
-            await entity_link_store.record_vendor_bridge(body.tenant_id, body.entity_id, body.metadata)
+            await entity_link_store.record_vendor_bridge(
+                body.tenant_id, body.entity_id, body.metadata
+            )
 
     # Check whitelist/blacklist/test bypass BEFORE full evaluation (bounded list step #32)
     list_check = None
     step_trace: list[dict[str, Any]] = []
 
     async def _list_check_call():
-        return await _list_check_with_circuit(body.tenant_id, body.entity_id, degrade_tags, tenant_flags)
+        return await _list_check_with_circuit(
+            body.tenant_id, body.entity_id, degrade_tags, tenant_flags
+        )
 
     list_check, list_trace = await run_evaluation_step(
         "list",
@@ -1933,7 +2159,9 @@ async def evaluate_decision(
 
     if list_check and list_check.found:
         if list_check.action == "allow":
-            _wl_inf = build_inference_context([], ["whitelist_bypass"], None, 0.0, None, **_infer_ctx_kwargs(body, {}))
+            _wl_inf = build_inference_context(
+                [], ["whitelist_bypass"], None, 0.0, None, **_infer_ctx_kwargs(body, {})
+            )
             _wl_rec, _wl_meta = apply_challenge_policy(
                 body.challenge_policy_id,
                 None,
@@ -1961,7 +2189,11 @@ async def evaluate_decision(
                     "counter_version": _audit_counter_version_label(),
                     "rule_pack_file": "",
                     "ml_model": _wl_inf.get("ml_model"),
-                    **({"etl_batch_id": _eb_wl} if (_eb_wl := _metadata_etl_batch_id(body)) else {}),
+                    **(
+                        {"etl_batch_id": _eb_wl}
+                        if (_eb_wl := _metadata_etl_batch_id(body))
+                        else {}
+                    ),
                     "canary_cohort": build_canary_cohort_audit(
                         body.tenant_id,
                         body.entity_id,
@@ -1987,7 +2219,14 @@ async def evaluate_decision(
             )
 
         if list_check.action == "deny":
-            _bl_inf = build_inference_context(["list:blacklist"], ["blacklist_block"], None, 100.0, None, **_infer_ctx_kwargs(body, {}))
+            _bl_inf = build_inference_context(
+                ["list:blacklist"],
+                ["blacklist_block"],
+                None,
+                100.0,
+                None,
+                **_infer_ctx_kwargs(body, {}),
+            )
             _bl_base = derive_recommended_action("deny", ["list:blacklist"], _bl_inf)
             _bl_rec, _bl_meta = apply_challenge_policy(
                 body.challenge_policy_id,
@@ -2016,7 +2255,11 @@ async def evaluate_decision(
                     "counter_version": _audit_counter_version_label(),
                     "rule_pack_file": "",
                     "ml_model": _bl_inf.get("ml_model"),
-                    **({"etl_batch_id": _eb_bl} if (_eb_bl := _metadata_etl_batch_id(body)) else {}),
+                    **(
+                        {"etl_batch_id": _eb_bl}
+                        if (_eb_bl := _metadata_etl_batch_id(body))
+                        else {}
+                    ),
                     "canary_cohort": build_canary_cohort_audit(
                         body.tenant_id,
                         body.entity_id,
@@ -2049,7 +2292,7 @@ async def evaluate_decision(
             except Exception:
                 pass
         existing_tags = await redis_tags.get_tags(body.tenant_id, body.entity_id)
-    
+
         if settings.consortium_enabled:
             try:
                 signal_hash = hash_entity_id(
@@ -2058,7 +2301,9 @@ async def evaluate_decision(
                     body.entity_id,
                     hash_scope=settings.consortium_hash_scope,
                 )
-                consortium_data = await redis_tags.check_consortium_signal(settings.consortium_id, signal_hash)
+                consortium_data = await redis_tags.check_consortium_signal(
+                    settings.consortium_id, signal_hash
+                )
                 consortium_delta = consortium_score_delta(
                     consortium_data,
                     min_tenants=settings.consortium_min_tenants,
@@ -2070,7 +2315,7 @@ async def evaluate_decision(
                     signal_tags.append("consortium:cross_tenant_hit")
             except Exception:
                 consortium_delta = 0.0
-    
+
         # Graph routing (OSS #42): choose whether to call graph-service and which checkpoint to use.
         graph_checkpoint = _graph_checkpoint_from_body(body)
         graph_routing: dict[str, Any] | None = None
@@ -2078,12 +2323,18 @@ async def evaluate_decision(
             # Only apply routing policy when the caller has not pinned a checkpoint explicitly.
             # Base score here is pre-graph: JSON rules + consortium + replay, no graph_delta yet.
             tentative_base = 10.0 + consortium_delta + (20.0 if is_replayed else 0.0)
-            graph_routing = decide_graph_routing(body.event_type.value, tentative_base, tags=signal_tags)
+            graph_routing = decide_graph_routing(
+                body.event_type.value, tentative_base, tags=signal_tags
+            )
             if graph_routing and graph_routing.get("graph_checkpoint"):
                 graph_checkpoint = str(graph_routing["graph_checkpoint"])
-    
+
         graph_risk = None
-        graph_trace = {"step": "graph_risk", "status": "skipped", "reason": "graph_routing_skip"}
+        graph_trace = {
+            "step": "graph_risk",
+            "status": "skipped",
+            "reason": "graph_routing_skip",
+        }
         if _dag.include_graph():
             if not graph_routing or not graph_routing.get("skip_graph", False):
                 graph_risk, graph_trace = await run_evaluation_step(
@@ -2105,7 +2356,11 @@ async def evaluate_decision(
                     graph_delta = graph_score_delta(graph_risk.get("risk_score"))
                     signal_tags.extend(graph_tags_from_risk(graph_risk))
         else:
-            graph_trace = {"step": "graph_risk", "status": "skipped", "reason": "load_shedding"}
+            graph_trace = {
+                "step": "graph_risk",
+                "status": "skipped",
+                "reason": "load_shedding",
+            }
             if "load_shedding:active" not in degrade_tags:
                 degrade_tags.append("load_shedding:active")
             try:
@@ -2113,11 +2368,13 @@ async def evaluate_decision(
             except Exception:
                 pass
         step_trace.append(graph_trace)
-    
+
         # Feature snapshot (needed before OPA)
         snapshot, snap_trace = await run_evaluation_step(
             "feature_snapshot",
-            lambda: _fetch_feature_snapshot_wrapped(http, body, existing_tags, degrade_tags, tenant_flags),
+            lambda: _fetch_feature_snapshot_wrapped(
+                http, body, existing_tags, degrade_tags, tenant_flags
+            ),
             timeout_seconds=settings.eval_step_feature_snapshot_timeout_seconds,
             max_attempts=settings.eval_step_feature_snapshot_max_attempts,
             on_failure="SKIP",
@@ -2126,7 +2383,7 @@ async def evaluate_decision(
         step_trace.append(snap_trace)
         features: dict[str, Any] = dict(snapshot.get("features") or {})
         redis_tag_list = list(snapshot.get("redis_tags") or existing_tags)
-    
+
         # Entity linking hints for rules (device ↔ entities, optional vendor bridge)
         if body.device_context and entity_link_store._client:
             linked = await entity_link_store.get_entities_for_device(
@@ -2139,43 +2396,55 @@ async def evaluate_decision(
                 features["linked_entity_ids"] = others[:20]
                 signal_tags.append("sdk:linked_entities")
             if isinstance(body.metadata, dict):
-                for vtype, mkey in (("visitor", "vendor_visitor_id"), ("device", "vendor_device_id"), ("install", "vendor_install_id")):
+                for vtype, mkey in (
+                    ("visitor", "vendor_visitor_id"),
+                    ("device", "vendor_device_id"),
+                    ("install", "vendor_install_id"),
+                ):
                     vid = body.metadata.get(mkey)
                     if isinstance(vid, str) and vid.strip():
-                        bridged = await entity_link_store.get_entity_for_vendor(body.tenant_id, vtype, vid.strip())
+                        bridged = await entity_link_store.get_entity_for_vendor(
+                            body.tenant_id, vtype, vid.strip()
+                        )
                         if bridged and bridged != body.entity_id:
                             features["vendor_bridge_entity_id"] = bridged
                             signal_tags.append("sdk:vendor_entity_bridge")
                         break
-    
+
         # Merge device signals into features so rules engine can see them
         if body.device_context:
             for k, v in body.device_context.signals.items():
                 features.setdefault(k, v)
         if body.session_id:
             features.setdefault("session_id", body.session_id)
-    
+
         if body.agent_context is not None:
-            features["agent_context"] = body.agent_context.model_dump(mode="json", exclude_none=True)
-    
+            features["agent_context"] = body.agent_context.model_dump(
+                mode="json", exclude_none=True
+            )
+
         # Normalise amount to USD if a currency is specified
         payload_currency = body.payload.get("currency")
         if payload_currency and "amount" in body.payload:
             try:
                 original_amount = float(body.payload["amount"])
-                normalized = await normalize_amount(original_amount, payload_currency, "USD", http)
+                normalized = await normalize_amount(
+                    original_amount, payload_currency, "USD", http
+                )
                 features["amount"] = normalized
                 features["original_amount"] = original_amount
                 features["original_currency"] = payload_currency
             except (TypeError, ValueError):
                 pass
-    
+
         # Counter ownership: prefer counter-service as source of truth; keep local aggregates as fallback.
         counter_meta: dict[str, Any] | None = None
         if settings.counter_service_url:
             counter_meta, counter_trace = await run_evaluation_step(
                 "counter_snapshot",
-                lambda: _fetch_counter_snapshot_wrapped(http, body, features, degrade_tags),
+                lambda: _fetch_counter_snapshot_wrapped(
+                    http, body, features, degrade_tags
+                ),
                 timeout_seconds=settings.eval_step_feature_snapshot_timeout_seconds,
                 max_attempts=settings.eval_step_feature_snapshot_max_attempts,
                 on_failure="SKIP",
@@ -2187,24 +2456,36 @@ async def evaluate_decision(
                 if isinstance(counters, dict):
                     features.update(counters)
                 if counter_meta.get("definition_id"):
-                    features["counter_definition_id"] = counter_meta.get("definition_id")
+                    features["counter_definition_id"] = counter_meta.get(
+                        "definition_id"
+                    )
                 if counter_meta.get("definition_version") is not None:
-                    features["counter_definition_version"] = counter_meta.get("definition_version")
+                    features["counter_definition_version"] = counter_meta.get(
+                        "definition_version"
+                    )
             elif agg_store._client:
                 # Adapter shim while services roll out; keeps evaluate path functional during outages.
                 degrade_tags.append("counter:fallback_local_agg")
-                agg_features = await agg_store.compute_features(body.tenant_id, body.entity_id, features)
+                agg_features = await agg_store.compute_features(
+                    body.tenant_id, body.entity_id, features
+                )
                 features.update(agg_features)
                 agg_ts = event_time_unix_for_evaluate(body.metadata, body.payload)
-                await agg_store.record_event(body.tenant_id, body.entity_id, str(trace_id), features, ts=agg_ts)
+                await agg_store.record_event(
+                    body.tenant_id, body.entity_id, str(trace_id), features, ts=agg_ts
+                )
         elif agg_store._client:
-            agg_features = await agg_store.compute_features(body.tenant_id, body.entity_id, features)
+            agg_features = await agg_store.compute_features(
+                body.tenant_id, body.entity_id, features
+            )
             features.update(agg_features)
             # Record this event for future aggregate computation (uses normalised amount).
             # Optional metadata.event_time / payload.event_time sets Redis scores to business time (late arrival).
             agg_ts = event_time_unix_for_evaluate(body.metadata, body.payload)
-            await agg_store.record_event(body.tenant_id, body.entity_id, str(trace_id), features, ts=agg_ts)
-    
+            await agg_store.record_event(
+                body.tenant_id, body.entity_id, str(trace_id), features, ts=agg_ts
+            )
+
         geo_extra_tags: list[str] = []
         if body.device_context:
             geo_extra_tags = merge_session_geo_from_device_and_features(features)
@@ -2214,12 +2495,14 @@ async def evaluate_decision(
                 elif t == "sdk:geo_tz_mismatch":
                     features["geo_tz_mismatch"] = True
             signal_tags.extend(geo_extra_tags)
-    
+
         location_meta: dict[str, Any] | None = None
         if settings.location_service_url:
             location_meta, location_trace = await run_evaluation_step(
                 "location_eval",
-                lambda: _fetch_location_evaluation_wrapped(http, body, features, degrade_tags),
+                lambda: _fetch_location_evaluation_wrapped(
+                    http, body, features, degrade_tags
+                ),
                 timeout_seconds=settings.eval_step_feature_snapshot_timeout_seconds,
                 max_attempts=settings.eval_step_feature_snapshot_max_attempts,
                 on_failure="SKIP",
@@ -2228,24 +2511,32 @@ async def evaluate_decision(
             step_trace.append(location_trace)
             if isinstance(location_meta, dict):
                 try:
-                    features["geo_consistency_risk"] = float(location_meta.get("geo_consistency_risk"))
+                    features["geo_consistency_risk"] = float(
+                        location_meta.get("geo_consistency_risk")
+                    )
                 except (TypeError, ValueError):
                     pass
                 try:
-                    features["copresence_risk"] = float(location_meta.get("copresence_risk"))
+                    features["copresence_risk"] = float(
+                        location_meta.get("copresence_risk")
+                    )
                 except (TypeError, ValueError):
                     pass
                 try:
-                    features["impossible_travel_risk"] = float(location_meta.get("impossible_travel_risk"))
+                    features["impossible_travel_risk"] = float(
+                        location_meta.get("impossible_travel_risk")
+                    )
                 except (TypeError, ValueError):
                     pass
                 ltags = location_meta.get("tags")
                 if isinstance(ltags, list):
                     signal_tags.extend(str(t) for t in ltags if isinstance(t, str))
-    
+
         async def _merge_async_osint_redis() -> bool:
             if agg_store._client:
-                await merge_cached_async_osint(agg_store._client, body.tenant_id, body.entity_id, features)
+                await merge_cached_async_osint(
+                    agg_store._client, body.tenant_id, body.entity_id, features
+                )
             return True
 
         _osint_pol = dependency_resilience_policy_table().get("async_osint_redis", {})
@@ -2267,8 +2558,10 @@ async def evaluate_decision(
 
         # Platform integrity supplements (must run before JSON tag_rules so policy can match integrity:*)
         _plat_kw = _infer_ctx_kwargs(body, features)
-        signal_tags.extend(supplemental_tags_for_integrity(_plat_kw["platform"], signal_tags))
-    
+        signal_tags.extend(
+            supplemental_tags_for_integrity(_plat_kw["platform"], signal_tags)
+        )
+
         # Run rules + OPA + ML in parallel (OPA and ML don't need each other)
         rule_hits, rule_tags, score_delta, json_rule_pack_files = evaluate_json_rules(
             features,
@@ -2278,7 +2571,7 @@ async def evaluate_decision(
             evaluation_mode="production",
             signal_tags=signal_tags,
         )
-    
+
         opa_task = run_evaluation_step(
             "opa",
             lambda: _evaluate_opa_wrapped(http, snapshot, degrade_tags, tenant_flags),
@@ -2304,7 +2597,9 @@ async def evaluate_decision(
                 on_failure="SKIP",
                 fallback=(None, {}),
             )
-            (opa_result, opa_trace), (ml_pack, ml_trace) = await asyncio.gather(opa_task, ml_task, return_exceptions=False)
+            (opa_result, opa_trace), (ml_pack, ml_trace) = await asyncio.gather(
+                opa_task, ml_task, return_exceptions=False
+            )
         else:
             opa_result, opa_trace = await opa_task
             ml_pack = (None, {})
@@ -2316,18 +2611,18 @@ async def evaluate_decision(
             }
         step_trace.extend([opa_trace, ml_trace])
         ml_score, ml_detail = ml_pack
-    
+
         for _dt in degrade_tags:
             if _dt not in signal_tags:
                 signal_tags.append(_dt)
-    
+
         opa_delta = 0.0
         if opa_result and isinstance(opa_result, dict):
             rule_hits.extend(str(x) for x in opa_result.get("rule_hits", []))
             rule_tags.extend(str(t) for t in opa_result.get("tags", []))
             opa_delta = float(opa_result.get("score_delta", 0))
             score_delta += opa_delta
-    
+
         policy_routing: dict[str, Any] | None = None
         if settings.policy_champion_challenger_enabled:
             _, _, ch_json_delta, _ = evaluate_json_rules(
@@ -2339,10 +2634,21 @@ async def evaluate_decision(
                 signal_tags=signal_tags,
             )
             replay_delta_cc = 20.0 if is_replayed else 0.0
-            champion_rule_score = 10.0 + score_delta + consortium_delta + graph_delta + replay_delta_cc
-            challenger_rule_score = 10.0 + ch_json_delta + opa_delta + consortium_delta + graph_delta + replay_delta_cc
+            champion_rule_score = (
+                10.0 + score_delta + consortium_delta + graph_delta + replay_delta_cc
+            )
+            challenger_rule_score = (
+                10.0
+                + ch_json_delta
+                + opa_delta
+                + consortium_delta
+                + graph_delta
+                + replay_delta_cc
+            )
             policy_routing = build_policy_routing_audit(
-                cohort_bucket=cohort_bucket_0_99(body.tenant_id, body.entity_id, settings.policy_cohort_salt),
+                cohort_bucket=cohort_bucket_0_99(
+                    body.tenant_id, body.entity_id, settings.policy_cohort_salt
+                ),
                 cohort_salt=settings.policy_cohort_salt,
                 champion_rule_score=champion_rule_score,
                 challenger_rule_score=challenger_rule_score,
@@ -2350,16 +2656,18 @@ async def evaluate_decision(
                 challenger_decision=decision_from_rule_score(challenger_rule_score),
                 ml_score=ml_score if isinstance(ml_score, float) else None,
             )
-    
+
         signal_tags.extend(
             derive_contextual_tags(
                 features=features,
                 signal_tags=signal_tags,
                 graph_risk=graph_risk if isinstance(graph_risk, dict) else None,
-                external_signal_meta=external_signal_meta if isinstance(external_signal_meta, dict) else None,
+                external_signal_meta=external_signal_meta
+                if isinstance(external_signal_meta, dict)
+                else None,
             )
         )
-    
+
         all_new_tags = rule_tags + signal_tags
         if consortium_delta > 0:
             rule_hits.append("consortium_shared_signal")
@@ -2367,8 +2675,10 @@ async def evaluate_decision(
             rule_hits.append("graph_network_risk")
         replay_delta = 20.0 if is_replayed else 0.0
         base_score = 10.0 + score_delta + consortium_delta + graph_delta + replay_delta
-        final_score = _blend_scores(base_score, ml_score if isinstance(ml_score, float) else None)
-    
+        final_score = _blend_scores(
+            base_score, ml_score if isinstance(ml_score, float) else None
+        )
+
         calibration_meta: dict[str, Any] | None = None
         if settings.calibration_service_url:
             if _dag.include_calibration(opa_trace, ml_trace):
@@ -2382,14 +2692,18 @@ async def evaluate_decision(
                     location_meta=location_meta,
                     counter_meta=counter_meta,
                     graph_meta=graph_risk if isinstance(graph_risk, dict) else None,
-                    external_signal_meta=external_signal_meta if isinstance(external_signal_meta, dict) else None,
+                    external_signal_meta=external_signal_meta
+                    if isinstance(external_signal_meta, dict)
+                    else None,
                     policy_experiment_id=settings.policy_experiment_id or None,
                     **_plat_kw,
                 )
                 baseline_conf = float(baseline_inf.get("integrity_confidence") or 0.0)
                 calibration_meta, calibration_trace = await run_evaluation_step(
                     "calibration_adjustment",
-                    lambda: _fetch_calibration_adjustment_wrapped(http, body, baseline_conf, features, degrade_tags),
+                    lambda: _fetch_calibration_adjustment_wrapped(
+                        http, body, baseline_conf, features, degrade_tags
+                    ),
                     timeout_seconds=settings.eval_step_feature_snapshot_timeout_seconds,
                     max_attempts=settings.eval_step_feature_snapshot_max_attempts,
                     on_failure="SKIP",
@@ -2410,26 +2724,37 @@ async def evaluate_decision(
                     except (TypeError, ValueError):
                         pass
             else:
-                reason = "load_shedding" if _dag.load_shed else "skipped_due_to_dependency_failure"
-                step_trace.append(
-                    {"step": "calibration_adjustment", "status": "skipped", "reason": reason, "attempts": 0}
+                reason = (
+                    "load_shedding"
+                    if _dag.load_shed
+                    else "skipped_due_to_dependency_failure"
                 )
-    
-        merged_tags = await redis_tags.merge_tags(body.tenant_id, body.entity_id, all_new_tags)
+                step_trace.append(
+                    {
+                        "step": "calibration_adjustment",
+                        "status": "skipped",
+                        "reason": reason,
+                        "attempts": 0,
+                    }
+                )
+
+        merged_tags = await redis_tags.merge_tags(
+            body.tenant_id, body.entity_id, all_new_tags
+        )
         await redis_tags.set_cached_score(body.tenant_id, body.entity_id, final_score)
-    
+
         combined_rule_hits = rule_hits + replay_rule_hits
-    
+
         typology_results = evaluate_typologies(combined_rule_hits, features)
         typology_summary = summarize_typologies(typology_results)
-    
+
         if final_score >= settings.deny_threshold:
             decision = "deny"
         elif final_score >= settings.review_threshold:
             decision = "review"
         else:
             decision = "allow"
-    
+
         reasons: list[str] = []
         if combined_rule_hits:
             reasons.append(f"rules:{','.join(combined_rule_hits)}")
@@ -2449,11 +2774,15 @@ async def evaluate_decision(
             counter_meta=counter_meta,
             location_meta=location_meta,
             graph_meta=graph_risk if isinstance(graph_risk, dict) else None,
-            external_signal_meta=external_signal_meta if isinstance(external_signal_meta, dict) else None,
+            external_signal_meta=external_signal_meta
+            if isinstance(external_signal_meta, dict)
+            else None,
             policy_experiment_id=settings.policy_experiment_id or None,
             **_plat_kw,
         )
-        recommended_action = derive_recommended_action(decision, merged_signal_tags, inf_ctx)
+        recommended_action = derive_recommended_action(
+            decision, merged_signal_tags, inf_ctx
+        )
         recommended_action, ch_meta = apply_challenge_policy(
             body.challenge_policy_id,
             recommended_action,
@@ -2462,7 +2791,7 @@ async def evaluate_decision(
             merged_tags,
             body.payload,
         )
-    
+
         graph_decision_explanation = build_graph_decision_explanation_v1(
             trace_id=str(trace_id),
             tenant_id=body.tenant_id,
@@ -2470,18 +2799,25 @@ async def evaluate_decision(
             graph_risk=graph_risk if isinstance(graph_risk, dict) else None,
             graph_trace=graph_trace if isinstance(graph_trace, dict) else None,
         )
-    
+
         # Apply region-aware PII masking before storage
-        region = getattr(body, "region", settings.default_region) or settings.default_region
+        region = (
+            getattr(body, "region", settings.default_region) or settings.default_region
+        )
         privacy_profile = get_profile(region)
-        raw_snapshot: dict[str, Any] = {"payload": body.payload, "metadata": body.metadata}
+        raw_snapshot: dict[str, Any] = {
+            "payload": body.payload,
+            "metadata": body.metadata,
+        }
         if body.agent_context is not None:
-            raw_snapshot["agent_context"] = body.agent_context.model_dump(mode="json", exclude_none=True)
+            raw_snapshot["agent_context"] = body.agent_context.model_dump(
+                mode="json", exclude_none=True
+            )
         if privacy_profile.mask_pii_in_logs or privacy_profile.pseudonymize_at_rest:
             stored_snapshot = mask_dict(raw_snapshot, privacy_profile)
         else:
             stored_snapshot = raw_snapshot
-    
+
         fb_reason = _compute_fallback_reason(degrade_tags, step_trace)
         snap_extra: dict[str, Any] = {
             **stored_snapshot,
@@ -2514,14 +2850,14 @@ async def evaluate_decision(
             snap_extra["location"] = location_meta
         if graph_decision_explanation is not None:
             snap_extra["graph_decision_explanation"] = graph_decision_explanation
-    
+
         snap_extra["counter_version"] = _audit_counter_version_label()
         snap_extra["rule_pack_file"] = ",".join(json_rule_pack_files)
         snap_extra["ml_model"] = inf_ctx.get("ml_model")
         _eb_snap = _metadata_etl_batch_id(body)
         if _eb_snap:
             snap_extra["etl_batch_id"] = _eb_snap
-    
+
         audit = AuditRecord(
             trace_id=trace_id,
             tenant_id=body.tenant_id,
@@ -2535,7 +2871,7 @@ async def evaluate_decision(
         )
         session.add(audit)
         await session.commit()
-    
+
         decision_log_record = build_decision_log_record(
             trace_id=str(trace_id),
             tenant_id=body.tenant_id,
@@ -2557,21 +2893,35 @@ async def evaluate_decision(
                 json_rule_pack_files=json_rule_pack_files,
                 inf_ctx=inf_ctx,
                 graph_checkpoint=graph_checkpoint,
-                external_signal_meta=external_signal_meta if isinstance(external_signal_meta, dict) else None,
+                external_signal_meta=external_signal_meta
+                if isinstance(external_signal_meta, dict)
+                else None,
                 challenge_policy_id=ch_meta.get("policy_id"),
             ),
         )
         bg.add_task(emit_decision_log, decision_log_record)
-    
-        bg.add_task(_graph_upsert_stepped, http, body, str(trace_id), merged_tags, geo_extra_tags, tenant_flags)
-    
+
+        bg.add_task(
+            _graph_upsert_stepped,
+            http,
+            body,
+            str(trace_id),
+            merged_tags,
+            geo_extra_tags,
+            tenant_flags,
+        )
+
         try:
             m = get_metrics()
             m.inc(f"fraud_decisions_{decision}_total")
             m.inc("fraud_evaluations_total")
             if fb_reason:
                 m.inc("fraud_fallback_total")
-                reason_key = _re.sub(r"[^a-zA-Z0-9_]+", "_", str(fb_reason)).strip("_").lower()[:64]
+                reason_key = (
+                    _re.sub(r"[^a-zA-Z0-9_]+", "_", str(fb_reason))
+                    .strip("_")
+                    .lower()[:64]
+                )
                 if reason_key:
                     m.inc(f"fraud_fallback_total_{reason_key}")
             if signal_tags:
@@ -2579,17 +2929,22 @@ async def evaluate_decision(
                     m.inc(f"fraud_signal_tag_{st}_total")
         except Exception:
             pass
-    
+
         response_tier = _resolve_response_explainability_tier(request)
         response_inf_ctx = _shape_inference_context_for_tier(inf_ctx, response_tier)
         region_profile = get_profile(body.region)
         if region_profile.mask_pii_in_responses:
             response_inf_ctx = mask_dict(response_inf_ctx, region_profile)
-    
+
         response_graph_explanation = graph_decision_explanation
-        if response_graph_explanation is not None and region_profile.mask_pii_in_responses:
-            response_graph_explanation = mask_dict(response_graph_explanation, region_profile)
-    
+        if (
+            response_graph_explanation is not None
+            and region_profile.mask_pii_in_responses
+        ):
+            response_graph_explanation = mask_dict(
+                response_graph_explanation, region_profile
+            )
+
         response = EvaluateResponse(
             trace_id=trace_id,
             decision=decision,
@@ -2605,7 +2960,7 @@ async def evaluate_decision(
             fallback_reason=fb_reason,
             graph_decision_explanation=response_graph_explanation,
         )
-    
+
         bg.add_task(
             _broadcast_decision,
             {
@@ -2618,7 +2973,7 @@ async def evaluate_decision(
                 "tags": merged_tags,
             },
         )
-    
+
         bg.add_task(
             _publish_decision,
             request.app.state,
@@ -2637,7 +2992,7 @@ async def evaluate_decision(
                 "created_at": datetime.now(timezone.utc).isoformat(),
             },
         )
-    
+
         bg.add_task(
             _run_shadow_evaluation,
             request.app.state,
@@ -2648,12 +3003,14 @@ async def evaluate_decision(
             body.tenant_id,
             str(trace_id),
         )
-    
+
         # Test bypass: run full evaluation but override decision to allow
         if list_check and list_check.found and list_check.list_type == "test_bypass":
             _tb_hits = combined_rule_hits + ["test_bypass"]
             _tb_plat = _infer_ctx_kwargs(body, features)
-            _tb_extra = supplemental_tags_for_integrity(_tb_plat["platform"], signal_tags)
+            _tb_extra = supplemental_tags_for_integrity(
+                _tb_plat["platform"], signal_tags
+            )
             _tb_merged = list(dict.fromkeys(signal_tags + _tb_extra))
             _tb_inf = build_inference_context(
                 _tb_merged,
@@ -2687,7 +3044,7 @@ async def evaluate_decision(
                 challenge_metadata=_tb_meta,
                 fallback_reason=fb_reason,
             )
-    
+
     return response
 
 
@@ -2714,7 +3071,12 @@ async def ws_decision_feed(ws: WebSocket):
                 await ws.close(code=4403, reason="tenant out of scope")
                 return
     else:
-        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         if not allow:
             await ws.close(code=4401, reason="authentication required")
             return
@@ -2755,9 +3117,15 @@ async def get_audit(
     session: AsyncSession = Depends(get_session),
 ):
     user = getattr(request.state, "auth_user", None)
-    if detail_level in {"analyst", "full"} and not (user and hasattr(user, "has_role") and user.has_role("analyst")):
-        raise HTTPException(status_code=403, detail="analyst role required for full audit detail")
-    result = await session.execute(select(AuditRecord).where(AuditRecord.trace_id == trace_id))
+    if detail_level in {"analyst", "full"} and not (
+        user and hasattr(user, "has_role") and user.has_role("analyst")
+    ):
+        raise HTTPException(
+            status_code=403, detail="analyst role required for full audit detail"
+        )
+    result = await session.execute(
+        select(AuditRecord).where(AuditRecord.trace_id == trace_id)
+    )
     row = result.scalar_one_or_none()
     if not row or str(row.tenant_id) != tenant_id:
         raise HTTPException(status_code=404, detail="not found")
@@ -2831,7 +3199,14 @@ async def analyst_entity_velocity(
             "velocity_events_24h": inf["velocity_events_24h"],
             "impossible_travel_risk": inf["impossible_travel_risk"],
             "colocation_risk": inf["colocation_risk"],
-            "driver_reasons": [d for d in inf["driver_reasons"] if any(x in d for x in ("velocity", "travel", "device", "entity", "ml_score"))],
+            "driver_reasons": [
+                d
+                for d in inf["driver_reasons"]
+                if any(
+                    x in d
+                    for x in ("velocity", "travel", "device", "entity", "ml_score")
+                )
+            ],
         },
         "anomaly_flags": _velocity_anomaly_flags(raw_features),
     }

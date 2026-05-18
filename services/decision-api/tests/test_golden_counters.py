@@ -24,7 +24,9 @@ class TestGoldenEventCounts:
     async def test_seven_events_in_one_hour_window(self, golden_store):
         s, _ = golden_store
         for i in range(7):
-            await s.record_event("golden_tenant", "golden_entity", f"ev-{i}", {}, ts=T0 + float(i))
+            await s.record_event(
+                "golden_tenant", "golden_entity", f"ev-{i}", {}, ts=T0 + float(i)
+            )
         assert await s.count("golden_tenant", "golden_entity", 3600) == 7
         assert await s.count("golden_tenant", "golden_entity", 300) == 7
 
@@ -108,7 +110,9 @@ class TestConcurrentRecordEvents:
 
         await asyncio.gather(*(one(i) for i in range(n)))
         assert await s.count("golden_tenant", "golden_entity", 3600) == n
-        feats = await s.compute_features("golden_tenant", "golden_entity", {"amount": 0.0})
+        feats = await s.compute_features(
+            "golden_tenant", "golden_entity", {"amount": 0.0}
+        )
         assert feats["event_count_1h"] == n
         assert abs(feats["sum_amount_1h"] - float(n)) < 1e-6
 
@@ -136,7 +140,12 @@ class TestGoldenEventCounts10xStress:
         feats = await s.compute_features(
             "golden_tenant",
             "golden_entity",
-            {"amount": 1.0, "ip_address": "10.0.0.9", "device_id": "dz", "session_id": "sz"},
+            {
+                "amount": 1.0,
+                "ip_address": "10.0.0.9",
+                "device_id": "dz",
+                "session_id": "sz",
+            },
         )
         assert feats["event_count_1h"] == 70
         assert abs(feats["sum_amount_1h"] - 70.0) < 1e-6

@@ -200,7 +200,9 @@ class TestTenantScopingOnTools:
 class TestCopilotHardening:
     def test_parse_disabled_tools(self):
         assert parse_disabled_tools("") == frozenset()
-        assert parse_disabled_tools("get_case, list_cases ") == frozenset({"get_case", "list_cases"})
+        assert parse_disabled_tools("get_case, list_cases ") == frozenset(
+            {"get_case", "list_cases"}
+        )
 
     def test_filter_tool_definitions(self):
         defs = [

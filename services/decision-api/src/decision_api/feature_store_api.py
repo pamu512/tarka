@@ -111,7 +111,9 @@ async def create_definition(
         raise HTTPException(status_code=422, detail=str(e)) from e
 
     definition_json = body.model_dump()
-    fingerprint = hashlib.sha256(json.dumps(definition_json, sort_keys=True).encode()).hexdigest()
+    fingerprint = hashlib.sha256(
+        json.dumps(definition_json, sort_keys=True).encode()
+    ).hexdigest()
     row_id = None
     try:
         async with pool.acquire() as conn:
@@ -138,7 +140,11 @@ async def create_definition(
         await execute_feature_ddl(ch, ddl)
     except Exception as e:
         err_msg = str(e)[:8192]
-        log.warning("ClickHouse DDL execution failed for feature_definitions id=%s: %s", row_id, err_msg)
+        log.warning(
+            "ClickHouse DDL execution failed for feature_definitions id=%s: %s",
+            row_id,
+            err_msg,
+        )
         async with pool.acquire() as conn:
             await conn.execute(
                 """

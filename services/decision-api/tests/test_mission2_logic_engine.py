@@ -14,7 +14,9 @@ async def asgi_client():
 
 
 @pytest.mark.asyncio
-async def test_compile_rego_transpiles_pack(asgi_client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_compile_rego_transpiles_pack(
+    asgi_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("API_KEYS", "k")
     monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "false")
     payload = {
@@ -36,5 +38,5 @@ async def test_compile_rego_transpiles_pack(asgi_client: AsyncClient, monkeypatc
     assert r.status_code == 200
     body = r.json()
     assert body["package"] == "tarka.visual"
-    assert "rules contains \"rule_one\"" in body["rego_module"]
+    assert 'rules contains "rule_one"' in body["rego_module"]
     assert "input.risk_score > 0.9" in body["rego_module"]

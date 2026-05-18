@@ -28,7 +28,9 @@ class VisualAstLeaf(BaseModel):
     """Leaf: ``field`` / ``op`` / ``value``."""
 
     model_config = ConfigDict(extra="forbid")
-    op: str = Field(..., description="one of: eq, ne, gt, gte, lt, lte, in, not_in, ==, etc.")
+    op: str = Field(
+        ..., description="one of: eq, ne, gt, gte, lt, lte, in, not_in, ==, etc."
+    )
     field: str = Field(..., max_length=256)
     value: Any = None
 
@@ -106,7 +108,10 @@ def _compile_to_json_rules(pack: VisualAstPack) -> dict[str, Any]:
                     "POST /v1/rules/visual/compile/rego only"
                 ),
             )
-        rid = r.id.strip() or f"visual_{hashlib.sha256(json.dumps(r.model_dump()).encode()).hexdigest()[:10]}"
+        rid = (
+            r.id.strip()
+            or f"visual_{hashlib.sha256(json.dumps(r.model_dump()).encode()).hexdigest()[:10]}"
+        )
         if not _SAFE_ID.match(rid):
             raise HTTPException(status_code=400, detail=f"invalid_rule_id:{rid}")
         when: list[dict[str, Any]] = []
@@ -152,7 +157,10 @@ def compile_visual_ast_pack_dict(body: dict[str, Any]) -> dict[str, Any]:
 
 
 def _visual_rule_dict_for_rego(r: VisualAstRule) -> dict[str, Any]:
-    rid = r.id.strip() or f"visual_{hashlib.sha256(json.dumps(r.model_dump()).encode()).hexdigest()[:10]}"
+    rid = (
+        r.id.strip()
+        or f"visual_{hashlib.sha256(json.dumps(r.model_dump()).encode()).hexdigest()[:10]}"
+    )
     if not _SAFE_ID.match(rid):
         raise HTTPException(status_code=400, detail=f"invalid_rule_id:{rid}")
     return {
@@ -194,7 +202,9 @@ async def evaluate_visual_dry_run(
     from decision_api.json_rules import evaluate_adhoc_packs_json
 
     if not body.visual_pack.rules:
-        raise HTTPException(status_code=400, detail="visual_pack.rules must be non-empty")
+        raise HTTPException(
+            status_code=400, detail="visual_pack.rules must be non-empty"
+        )
     _static_check_regex_fields(body.visual_pack)
     json_pack = _compile_to_json_rules(body.visual_pack)
     pack: dict[str, Any] = {

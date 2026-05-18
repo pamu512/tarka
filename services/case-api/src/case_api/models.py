@@ -1,7 +1,18 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, CheckConstraint, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, Uuid, func
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    Uuid,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from case_api.db import Base
@@ -27,16 +38,22 @@ class Case(Base):
         default=None,
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
-    comments: Mapped[list["CaseComment"]] = relationship(back_populates="case", cascade="all, delete-orphan")
+    comments: Mapped[list["CaseComment"]] = relationship(
+        back_populates="case", cascade="all, delete-orphan"
+    )
 
 
 class InvestigationTemplate(Base):
     """Tenant-scoped investigation template (Marble #56): apply_config drives case mutations + SLA hints."""
 
     __tablename__ = "investigation_templates"
-    __table_args__ = (UniqueConstraint("tenant_id", "slug", name="uq_investigation_templates_tenant_slug"),)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "slug", name="uq_investigation_templates_tenant_slug"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[str] = mapped_column(String(128), index=True)
@@ -44,14 +61,18 @@ class InvestigationTemplate(Base):
     name: Mapped[str] = mapped_column(String(256))
     apply_config: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class CaseComment(Base):
     __tablename__ = "case_comments"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigation_cases.id", ondelete="CASCADE"))
+    case_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("investigation_cases.id", ondelete="CASCADE")
+    )
     author: Mapped[str] = mapped_column(String(256))
     body: Mapped[str] = mapped_column(Text())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -68,14 +89,18 @@ class CaseView(Base):
     name: Mapped[str] = mapped_column(String(128))
     filters: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class SARFiling(Base):
     __tablename__ = "sar_filings"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigation_cases.id", ondelete="CASCADE"))
+    case_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("investigation_cases.id", ondelete="CASCADE")
+    )
     format: Mapped[str] = mapped_column(String(32))
     status: Mapped[str] = mapped_column(String(32), default="draft")
     narrative: Mapped[str] = mapped_column(Text())
@@ -100,7 +125,9 @@ class SarFiling(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    case_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigation_cases.id", ondelete="CASCADE"), index=True)
+    case_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("investigation_cases.id", ondelete="CASCADE"), index=True
+    )
     sar_artifact_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("sar_filings.id", ondelete="SET NULL"),
@@ -110,7 +137,9 @@ class SarFiling(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     filing_data: Mapped[dict] = mapped_column(JSON, nullable=False)
     audit_trail: Mapped[dict] = mapped_column(JSON, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -133,7 +162,9 @@ class SarAuditLog(Base):
     actor: Mapped[str | None] = mapped_column(String(256), nullable=True)
     detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     stack_trace: Mapped[str | None] = mapped_column(Text(), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 class InvestigationLabelDraft(Base):
@@ -150,29 +181,41 @@ class InvestigationLabelDraft(Base):
     source: Mapped[str] = mapped_column(String(128), default="analyst")
     notes: Mapped[str | None] = mapped_column(Text(), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class Dispute(Base):
     __tablename__ = "disputes"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    case_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("investigation_cases.id", ondelete="SET NULL"), nullable=True)
+    case_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("investigation_cases.id", ondelete="SET NULL"), nullable=True
+    )
     tenant_id: Mapped[str] = mapped_column(String(128), index=True)
     entity_id: Mapped[str] = mapped_column(String(512), index=True)
     trace_id: Mapped[str] = mapped_column(String(64), index=True)
-    dispute_type: Mapped[str] = mapped_column(String(32))  # "chargeback", "dispute", "fraud_claim", "unauthorized"
-    status: Mapped[str] = mapped_column(String(32), default="filed")  # filed, investigating, accepted, rejected, resolved
+    dispute_type: Mapped[str] = mapped_column(
+        String(32)
+    )  # "chargeback", "dispute", "fraud_claim", "unauthorized"
+    status: Mapped[str] = mapped_column(
+        String(32), default="filed"
+    )  # filed, investigating, accepted, rejected, resolved
     reason_code: Mapped[str] = mapped_column(String(64), default="")
     amount: Mapped[float] = mapped_column(default=0.0)
     currency: Mapped[str] = mapped_column(String(8), default="USD")
     merchant_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
-    card_network: Mapped[str | None] = mapped_column(String(32), nullable=True)  # visa, mastercard, amex
+    card_network: Mapped[str | None] = mapped_column(
+        String(32), nullable=True
+    )  # visa, mastercard, amex
     original_decision: Mapped[str | None] = mapped_column(String(16), nullable=True)
     original_score: Mapped[float | None] = mapped_column(nullable=True)
     original_rule_hits: Mapped[list] = mapped_column(JSON, default=list)
     original_ml_score: Mapped[float | None] = mapped_column(nullable=True)
-    outcome: Mapped[str | None] = mapped_column(String(32), nullable=True)  # fraud_confirmed, false_positive, inconclusive
+    outcome: Mapped[str | None] = mapped_column(
+        String(32), nullable=True
+    )  # fraud_confirmed, false_positive, inconclusive
     resolution_notes: Mapped[str | None] = mapped_column(Text(), nullable=True)
     filed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -188,14 +231,18 @@ class Dispute(Base):
         default=None,
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class DisputeReprocessLedger(Base):
     """Idempotent external reprocess attempts for dispute / refund ops (#60)."""
 
     __tablename__ = "dispute_reprocess_ledger"
-    __table_args__ = (UniqueConstraint("dispute_id", "idempotency_key", name="uq_dispute_reprocess_idempotency"),)
+    __table_args__ = (
+        UniqueConstraint("dispute_id", "idempotency_key", name="uq_dispute_reprocess_idempotency"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     dispute_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("disputes.id", ondelete="CASCADE"))

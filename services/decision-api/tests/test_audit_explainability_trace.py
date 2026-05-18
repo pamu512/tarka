@@ -96,8 +96,12 @@ async def test_audit_endpoint_returns_ordered_driver_explain_and_reasons():
                     app.dependency_overrides[get_session] = _override
                     try:
                         transport = httpx.ASGITransport(app=app)
-                        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
-                            r = await c.get(f"/v1/audit/{trace_id}", params={"tenant_id": "t1"})
+                        async with httpx.AsyncClient(
+                            transport=transport, base_url="http://testserver"
+                        ) as c:
+                            r = await c.get(
+                                f"/v1/audit/{trace_id}", params={"tenant_id": "t1"}
+                            )
                     finally:
                         app.dependency_overrides.pop(get_session, None)
 
@@ -123,7 +127,9 @@ async def test_audit_endpoint_blocks_analyst_detail_without_role():
         score=68.2,
         tags=[],
         rule_hits=[],
-        payload_snapshot={"inference_context": {"driver_reasons": [], "driver_explain": []}},
+        payload_snapshot={
+            "inference_context": {"driver_reasons": [], "driver_explain": []}
+        },
         created_at=datetime.now(timezone.utc),
     )
 
@@ -153,7 +159,9 @@ async def test_audit_endpoint_blocks_analyst_detail_without_role():
                     app.dependency_overrides[get_session] = _override
                     try:
                         transport = httpx.ASGITransport(app=app)
-                        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+                        async with httpx.AsyncClient(
+                            transport=transport, base_url="http://testserver"
+                        ) as c:
                             r = await c.get(
                                 f"/v1/audit/{trace_id}",
                                 params={"tenant_id": "t1", "detail_level": "analyst"},

@@ -37,10 +37,14 @@ def test_case_views_are_persisted_and_update_by_name():
         assert r3.status_code == 200, r3.text
         assert r3.json()["view"]["filters"]["priority"] == "critical"
 
-        r4 = client.delete("/v1/case-views/High Risk", params={"tenant_id": "demo"}, headers=_api_headers())
+        r4 = client.delete(
+            "/v1/case-views/High Risk", params={"tenant_id": "demo"}, headers=_api_headers()
+        )
         assert r4.status_code == 200, r4.text
         assert r4.json()["removed"] is True
 
-        r5 = client.delete("/v1/case-views/High Risk", params={"tenant_id": "demo"}, headers=_api_headers())
+        r5 = client.delete(
+            "/v1/case-views/High Risk", params={"tenant_id": "demo"}, headers=_api_headers()
+        )
         assert r5.status_code == 200, r5.text
         assert r5.json()["removed"] is False

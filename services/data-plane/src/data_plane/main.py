@@ -31,7 +31,11 @@ import event_ingest.main as ei  # noqa: E402
 def _doc_path(path: str | None) -> bool:
     if not path:
         return False
-    return path in ("/docs", "/redoc", "/openapi.json") or path.startswith("/docs/") or path.startswith("/redoc/")
+    return (
+        path in ("/docs", "/redoc", "/openapi.json")
+        or path.startswith("/docs/")
+        or path.startswith("/redoc/")
+    )
 
 
 def _merge_routes(target: FastAPI, source: FastAPI, *, skip_paths: set[str]) -> None:

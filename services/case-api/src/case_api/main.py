@@ -43,7 +43,11 @@ from case_api.models import Case, CaseComment, CaseView, SarAuditLog, SARFiling,
 from case_api.ops_kpi_series import router as ops_kpi_series_router
 from case_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 from case_api.sar import SARGenerator
-from case_api.sar_filing_transport import build_sar_filing_data, build_sftp_destination, validate_pre_filing
+from case_api.sar_filing_transport import (
+    build_sar_filing_data,
+    build_sftp_destination,
+    validate_pre_filing,
+)
 from case_api.sar_transport import (
     SAR_APPROVED,
     SAR_FAILED,
@@ -52,7 +56,11 @@ from case_api.sar_transport import (
     record_sar_intent_initial_state,
     transition_sar_intent,
 )
-from case_api.sar_transport_worker import SAR_TRANSPORT_RUN_SUBJECT, setup_sar_transport_worker, shutdown_sar_transport_worker
+from case_api.sar_transport_worker import (
+    SAR_TRANSPORT_RUN_SUBJECT,
+    setup_sar_transport_worker,
+    shutdown_sar_transport_worker,
+)
 from case_api.schemas import CaseOut, CommentIn, CreateCaseRequest, LabelsIn
 from case_api.template_apply import (
     apply_case_payload_to_case,
@@ -61,7 +69,9 @@ from case_api.template_apply import (
 )
 from case_api.workflow import evaluate_workflows, get_workflows, is_sla_breached, load_workflows
 
-_shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
+_shared_dir = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared")
+)
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
 from audit_trail import AuditTrail, create_audit_model  # noqa: E402
@@ -84,7 +94,9 @@ _DEV_EVIDENCE_SIGNING_SECRET = "tarka-evidence-dev-secret"
 
 
 def _request_support_id(request: Request) -> str:
-    rid = (request.headers.get("x-request-id") or request.headers.get("x-correlation-id") or "").strip()
+    rid = (
+        request.headers.get("x-request-id") or request.headers.get("x-correlation-id") or ""
+    ).strip()
     return rid[:128] if rid else f"case-{uuid.uuid4().hex}"
 
 
@@ -236,7 +248,10 @@ async def _broadcast(event: dict):
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    if settings.case_api_production_mode and (settings.evidence_signing_secret or "").strip() in {"", _DEV_EVIDENCE_SIGNING_SECRET}:
+    if settings.case_api_production_mode and (settings.evidence_signing_secret or "").strip() in {
+        "",
+        _DEV_EVIDENCE_SIGNING_SECRET,
+    }:
         raise RuntimeError(
             "case-api: EVIDENCE_SIGNING_SECRET must be explicitly set when CASE_API_PRODUCTION_MODE=true",
         )
@@ -263,7 +278,11 @@ if os.environ.get("TARKA_CORE_API_SUBAPP", "").strip() != "1":
     setup_observability(app, "case-api")
 setup_auth(app)
 setup_rate_limiter(app, rpm=int(os.environ.get("RATE_LIMIT_RPM", "600")))
-_cors_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()] if settings.cors_origins else []
+_cors_origins = (
+    [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+    if settings.cors_origins
+    else []
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins or ["http://localhost:3000"],
@@ -300,7 +319,9 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, _exc: Exception):
     support_id = getattr(request.state, "support_id", _request_support_id(request))
-    payload = _error_envelope(status_code=500, detail="internal_server_error", support_id=support_id)
+    payload = _error_envelope(
+        status_code=500, detail="internal_server_error", support_id=support_id
+    )
     headers = {"X-Correlation-Id": support_id, "X-Request-Id": support_id}
     return JSONResponse(status_code=500, content=payload, headers=headers)
 
@@ -423,7 +444,10 @@ async def create_case(
             action="create_case",
             resource_type="case",
             resource_id=str(c.id),
-            changes={"status": {"old": None, "new": "open"}, "priority": {"old": None, "new": body.priority}},
+            changes={
+                "status": {"old": None, "new": "open"},
+                "priority": {"old": None, "new": body.priority},
+            },
             tenant_id=body.tenant_id,
         )
         await session.commit()
@@ -456,7 +480,9 @@ async def create_case(
             if "assigned_team" in ctx.mutations:
                 c.assigned_team = ctx.mutations["assigned_team"]
             for comment in ctx.mutations.get("_comments", []):
-                session.add(CaseComment(case_id=c.id, author=comment["author"], body=comment["body"]))
+                session.add(
+                    CaseComment(case_id=c.id, author=comment["author"], body=comment["body"])
+                )
             await session.commit()
             await session.refresh(c)
 
@@ -481,7 +507,9 @@ async def create_case(
             case_id=c.id,
         )
 
-        await _broadcast({"event": "case_created", "case": CaseOut.model_validate(c).model_dump(mode="json")})
+        await _broadcast(
+            {"event": "case_created", "case": CaseOut.model_validate(c).model_dump(mode="json")}
+        )
         return CaseOut.model_validate(c)
     except SQLAlchemyError as exc:
         await session.rollback()
@@ -490,7 +518,9 @@ async def create_case(
 
 async def _case_for_tenant(session: AsyncSession, case_id: uuid.UUID, tenant_id: str) -> Case:
     try:
-        result = await session.execute(select(Case).where(Case.id == case_id, Case.tenant_id == tenant_id))
+        result = await session.execute(
+            select(Case).where(Case.id == case_id, Case.tenant_id == tenant_id)
+        )
         row = result.scalar_one_or_none()
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=503, detail="case_store_unavailable") from exc
@@ -552,7 +582,9 @@ async def get_case_evidence_bundle(
         "case": case_payload,
         "decision_audit": decision_block,
     }
-    bundle_core["content_sha256"] = hashlib.sha256(_canonical_json(content_basis).encode("utf-8")).hexdigest()
+    bundle_core["content_sha256"] = hashlib.sha256(
+        _canonical_json(content_basis).encode("utf-8")
+    ).hexdigest()
 
     bundle = {
         "tenant_id": tenant_id,
@@ -711,7 +743,9 @@ async def apply_playbook(
 ):
     case = await _case_for_tenant(session, case_id, tenant_id)
     user = get_current_user(request)
-    trail_key, apply_cfg, tmpl_uuid = await resolve_playbook_or_template(session, tenant_id, playbook_id)
+    trail_key, apply_cfg, tmpl_uuid = await resolve_playbook_or_template(
+        session, tenant_id, playbook_id
+    )
     await apply_investigation_template_transaction(
         trail=_trail,
         session=session,
@@ -737,7 +771,11 @@ async def list_playbooks():
 @app.get("/v1/cases/ops/kpis")
 async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_session)):
     """Queue health KPIs for the full case population (aggregated; not capped)."""
-    total = (await session.execute(select(func.count()).select_from(Case).where(Case.tenant_id == tenant_id))).scalar_one()
+    total = (
+        await session.execute(
+            select(func.count()).select_from(Case).where(Case.tenant_id == tenant_id)
+        )
+    ).scalar_one()
     if total == 0:
         return {
             "tenant_id": tenant_id,
@@ -754,7 +792,9 @@ async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_sess
 
     st_rows = (
         await session.execute(
-            select(Case.status, func.count()).where(Case.tenant_id == tenant_id).group_by(Case.status),
+            select(Case.status, func.count())
+            .where(Case.tenant_id == tenant_id)
+            .group_by(Case.status),
         )
     ).all()
     by_status: dict[str, int] = {}
@@ -777,7 +817,17 @@ async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_sess
     critical_open = int((await session.execute(crit_open_q)).scalar_one())
 
     now = datetime.now(timezone.utc)
-    times = (await session.execute(select(Case.created_at).where(Case.tenant_id == tenant_id).where(Case.created_at.is_not(None)))).scalars().all()
+    times = (
+        (
+            await session.execute(
+                select(Case.created_at)
+                .where(Case.tenant_id == tenant_id)
+                .where(Case.created_at.is_not(None))
+            )
+        )
+        .scalars()
+        .all()
+    )
     ages: list[float] = []
     for t in times:
         if t:
@@ -787,7 +837,9 @@ async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_sess
 
     lean = (
         await session.execute(
-            select(Case.priority, Case.status, Case.labels, Case.created_at, Case.sla_hours_override).where(
+            select(
+                Case.priority, Case.status, Case.labels, Case.created_at, Case.sla_hours_override
+            ).where(
                 Case.tenant_id == tenant_id,
             ),
         )
@@ -939,7 +991,9 @@ async def case_desk_activity(
 async def list_case_views(tenant_id: str, session: AsyncSession = Depends(get_session)):
     rows = (
         await session.execute(
-            select(CaseView).where(CaseView.tenant_id == tenant_id).order_by(CaseView.updated_at.desc(), CaseView.name.asc()),
+            select(CaseView)
+            .where(CaseView.tenant_id == tenant_id)
+            .order_by(CaseView.updated_at.desc(), CaseView.name.asc()),
         )
     ).scalars()
     return {"items": [_view_to_payload(v) for v in rows]}
@@ -1004,7 +1058,11 @@ async def case_graph(
         r.raise_for_status()
         return r.json()
     except httpx.HTTPStatusError as exc:
-        return {"nodes": [], "edges": [], "message": f"graph_service_http_{exc.response.status_code}"}
+        return {
+            "nodes": [],
+            "edges": [],
+            "message": f"graph_service_http_{exc.response.status_code}",
+        }
     except Exception:
         return {"nodes": [], "edges": [], "message": "graph_service_unreachable"}
 
@@ -1034,7 +1092,12 @@ async def case_decision_explanation(
         headers["x-api-key"] = key
     url = f"{base}/v1/audit/{case.trace_id}"
     try:
-        r = await http.get(url, params={"tenant_id": tenant_id, "detail_level": "analyst"}, headers=headers, timeout=10.0)
+        r = await http.get(
+            url,
+            params={"tenant_id": tenant_id, "detail_level": "analyst"},
+            headers=headers,
+            timeout=10.0,
+        )
     except Exception:
         return {
             "case_id": str(case_id),
@@ -1079,9 +1142,16 @@ async def case_audit(
 
 
 @app.get("/v1/compliance/evidence")
-async def case_control_evidence(tenant_id: str, session: AsyncSession = Depends(get_session), limit: int = 200):
+async def case_control_evidence(
+    tenant_id: str, session: AsyncSession = Depends(get_session), limit: int = 200
+):
     """Export case/workflow/audit evidence bundle for trust-center audits."""
-    q = select(AuditRecord).where(AuditRecord.tenant_id == tenant_id).order_by(AuditRecord.created_at.desc()).limit(max(1, min(limit, 2000)))
+    q = (
+        select(AuditRecord)
+        .where(AuditRecord.tenant_id == tenant_id)
+        .order_by(AuditRecord.created_at.desc())
+        .limit(max(1, min(limit, 2000)))
+    )
     recs = (await session.execute(q)).scalars().all()
     filtered = [
         {
@@ -1149,7 +1219,11 @@ async def verify_case_evidence(body: EvidenceVerifyRequest):
     }
     expected_sig = _bundle_signature(bundle)
     return {
-        "valid": bool(provided_sig and hmac.compare_digest(provided_sig, expected_sig) and provided_hash == expected_hash),
+        "valid": bool(
+            provided_sig
+            and hmac.compare_digest(provided_sig, expected_sig)
+            and provided_hash == expected_hash
+        ),
         "expected_signature": expected_sig,
         "provided_signature": provided_sig,
         "expected_hash": expected_hash,
@@ -1198,7 +1272,9 @@ async def trigger_workflow(request: Request, session: AsyncSession = Depends(get
             if "assigned_team" in ctx.mutations:
                 case.assigned_team = ctx.mutations["assigned_team"]
             for comment in ctx.mutations.get("_comments", []):
-                session.add(CaseComment(case_id=case.id, author=comment["author"], body=comment["body"]))
+                session.add(
+                    CaseComment(case_id=case.id, author=comment["author"], body=comment["body"])
+                )
             await session.commit()
             await session.refresh(case)
 
@@ -1218,7 +1294,10 @@ async def trigger_workflow(request: Request, session: AsyncSession = Depends(get
 
             await _broadcast({"event": "case_updated", "case": new_state})
 
-    return {"actions_executed": ctx.actions_executed, "mutations": {k: v for k, v in ctx.mutations.items() if k != "_comments"}}
+    return {
+        "actions_executed": ctx.actions_executed,
+        "mutations": {k: v for k, v in ctx.mutations.items() if k != "_comments"},
+    }
 
 
 @app.get("/v1/cases/{case_id}/sla")
@@ -1230,8 +1309,12 @@ async def case_sla(
     case = await _case_for_tenant(session, case_id, tenant_id)
     from case_api.workflow import compute_sla_deadline
 
-    deadline = compute_sla_deadline(case.priority, case.created_at, sla_hours_override=case.sla_hours_override)
-    breached = is_sla_breached(case.priority, case.created_at, sla_hours_override=case.sla_hours_override)
+    deadline = compute_sla_deadline(
+        case.priority, case.created_at, sla_hours_override=case.sla_hours_override
+    )
+    breached = is_sla_breached(
+        case.priority, case.created_at, sla_hours_override=case.sla_hours_override
+    )
     return {
         "case_id": str(case.id),
         "priority": case.priority,
@@ -1262,7 +1345,10 @@ async def _sar_intent_for_tenant(
     if intent is None:
         raise HTTPException(
             status_code=404,
-            detail={"reason_code": "SAR_INTENT_NOT_FOUND", "message": "SAR filing intent not found for this case."},
+            detail={
+                "reason_code": "SAR_INTENT_NOT_FOUND",
+                "message": "SAR filing intent not found for this case.",
+            },
         )
     return intent
 
@@ -1372,7 +1458,10 @@ async def generate_sar(
         await session.rollback()
         raise HTTPException(
             status_code=503,
-            detail={"reason_code": "SAR_ARTIFACT_PERSISTENCE_FAILED", "message": "Could not persist SAR artifact."},
+            detail={
+                "reason_code": "SAR_ARTIFACT_PERSISTENCE_FAILED",
+                "message": "Could not persist SAR artifact.",
+            },
         ) from e
 
     user = get_current_user(request)
@@ -1586,7 +1675,9 @@ async def list_sar_filings(
     """Retrieve all generated SAR filings for a case."""
     await _case_for_tenant(session, case_id, tenant_id)
 
-    result = await session.execute(select(SARFiling).where(SARFiling.case_id == case_id).order_by(SARFiling.created_at.desc()))
+    result = await session.execute(
+        select(SARFiling).where(SARFiling.case_id == case_id).order_by(SARFiling.created_at.desc())
+    )
     rows = result.scalars().all()
     return {
         "case_id": str(case_id),
@@ -1644,7 +1735,12 @@ async def ws_feed(ws: WebSocket):
                 await ws.close(code=4403, reason="tenant out of scope")
                 return
     else:
-        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         if not allow:
             await ws.close(code=4401, reason="authentication required")
             return
