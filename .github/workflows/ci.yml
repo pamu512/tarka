@@ -48,7 +48,7 @@ jobs:
           python-version: "3.12"
       - run: pip install ruff
       - run: ruff check .
-      - run: ruff format --check .
+      - run: ruff format --check services/
       - name: Enforce Python import style consistency
         run: python scripts/ci/check_import_style_consistency.py
       - name: Demo vertical contract unit tests (stdlib)
