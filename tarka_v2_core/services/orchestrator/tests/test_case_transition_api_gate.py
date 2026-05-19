@@ -20,7 +20,7 @@ for _p in (_SRC_ORCH, _SRC_INGESTOR, _SRC_SHARED):
         sys.path.insert(0, str(_p))
 
 
-def test_put_case_status_creates_case_history_row() -> None:
+def test_put_case_status_creates_case_history_row(tmp_path: Path) -> None:
     import orchestrator.models.cases  # noqa: F401, PLC0415
     import tarka_shared.audit_trail  # noqa: F401, PLC0415
     import tarka_shared.engine_rules  # noqa: F401, PLC0415
@@ -35,10 +35,11 @@ def test_put_case_status_creates_case_history_row() -> None:
     case_uuid = str(uuid.uuid4())
     shadow_case_id = str(uuid.uuid4())
 
+    audit_db = tmp_path / "audit_case_transition.db"
     app = create_app(
         rule_engine_url="http://rules.test",
         shadow_agent_url=None,
-        audit_database_url="sqlite+aiosqlite:///:memory:",
+        audit_database_url=f"sqlite+aiosqlite:///{audit_db}",
     )
 
     async def _seed() -> None:
@@ -77,14 +78,18 @@ def test_put_case_status_creates_case_history_row() -> None:
             await s.commit()
 
     with TestClient(app) as client:
-        asyncio.run(_seed())
-        r = client.put(
-            f"/v1/cases/{case_uuid}/status",
-            json={"status": "UNDER_REVIEW", "reason_code": "GATE_ANALYST_REVIEW"},
-            headers={"X-Auth-Token": "gate-secret-token-112"},
-        )
-        assert r.status_code == 200, r.text
-        data = r.json()
+
+        async def _exercise() -> dict[str, object]:
+            await _seed()
+            r = client.put(
+                f"/v1/cases/{case_uuid}/status",
+                json={"status": "UNDER_REVIEW", "reason_code": "GATE_ANALYST_REVIEW"},
+                headers={"X-Auth-Token": "gate-secret-token-112"},
+            )
+            assert r.status_code == 200, r.text
+            return r.json()
+
+        data = asyncio.run(_exercise())
         assert data["case_id"] == case_uuid
         assert data["status"] == "UNDER_REVIEW"
         assert isinstance(data["history_row_id"], int)
