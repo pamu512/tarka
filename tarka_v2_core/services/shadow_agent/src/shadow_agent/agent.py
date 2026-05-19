@@ -156,9 +156,14 @@ class ShadowAgent:
         history = await get_recent_entity_transactions(session, entity_s, 5)
         merged_ctx: dict[str, Any] = dict(graph_context) if graph_context else {}
         ff_signals = await build_friendly_fraud_signals(session, tx, graph_context=graph_context)
-        _inject_ff = bool(graph_context) or int(ff_signals.get("prior_successful_orders_same_ip") or 0) >= 10 or bool(
-            ff_signals.get("delivery_confirmation_hash_seen_in_audit"),
-        ) or bool(ff_signals.get("delivery_confirmation_timestamp_aligned_with_dispute"))
+        _inject_ff = (
+            bool(graph_context)
+            or int(ff_signals.get("prior_successful_orders_same_ip") or 0) >= 10
+            or bool(
+                ff_signals.get("delivery_confirmation_hash_seen_in_audit"),
+            )
+            or bool(ff_signals.get("delivery_confirmation_timestamp_aligned_with_dispute"))
+        )
         if _inject_ff:
             merged_ctx["friendly_fraud_signals"] = ff_signals
         drv: Any | None = None
@@ -311,8 +316,14 @@ class ShadowAgent:
             _inv = _meta.get("case_number")
         _outcome_raw = _meta.get("case_outcome")
         _outcome = str(_outcome_raw).strip().upper() if _outcome_raw is not None else "UNKNOWN"
-        _device = _meta.get("device_id") if _meta.get("device_id") is not None else _meta.get("deviceId")
-        _ip = _meta.get("ip_address") if _meta.get("ip_address") is not None else _meta.get("ipAddress")
+        _device = (
+            _meta.get("device_id") if _meta.get("device_id") is not None else _meta.get("deviceId")
+        )
+        _ip = (
+            _meta.get("ip_address")
+            if _meta.get("ip_address") is not None
+            else _meta.get("ipAddress")
+        )
         audit_log = AuditLog(
             case_id=str(decision.transaction_id),
             action_taken=json.dumps(

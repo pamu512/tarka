@@ -81,7 +81,9 @@ def main(argv: list[str] | None = None) -> None:
         format="%(levelname)s %(name)s %(message)s",
         stream=sys.stderr,
     )
-    parser = argparse.ArgumentParser(description="SDK telemetry heartbeat / dropoff monitor (Redis).")
+    parser = argparse.ArgumentParser(
+        description="SDK telemetry heartbeat / dropoff monitor (Redis)."
+    )
     parser.parse_args(argv)
     try:
         asyncio.run(run_worker())

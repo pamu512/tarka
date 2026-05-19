@@ -84,7 +84,11 @@ def test_ai_tool_logs_request_payload_matches_wire_json_exactly() -> None:
         assert nc.last_payload.decode() == expected_request
 
         async with fac() as session:
-            row = (await session.execute(select(AIToolLogORM).order_by(AIToolLogORM.id.desc()).limit(1))).scalar_one()
+            row = (
+                await session.execute(
+                    select(AIToolLogORM).order_by(AIToolLogORM.id.desc()).limit(1)
+                )
+            ).scalar_one()
         assert row.request_payload_exact == expected_request
         assert row.nats_subject == "setu.query"
         assert row.tool_name == "nats_setu_osint_lookup"

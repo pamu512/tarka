@@ -129,7 +129,9 @@ def test_get_case_export_zip_contains_case_graph_and_rust_trace() -> None:
         assert graph_payload.get("gate") == "graph_snapshot_116"
 
         rust_payload = json.loads(zf.read(EXPORT_RUST_TRACE_JSON).decode())
-        assert rust_payload.get("execution_trace") == [{"rule_id": "gate-rust-trace", "matched": True}]
+        assert rust_payload.get("execution_trace") == [
+            {"rule_id": "gate-rust-trace", "matched": True}
+        ]
 
         manifest_bytes = zf.read(EXPORT_MANIFEST_JSON)
         manifest = json.loads(manifest_bytes.decode())

@@ -23,7 +23,11 @@ _CLOUD_ENV_HINTS = frozenset(
 
 
 def _normalized_environment() -> str:
-    raw = (os.environ.get("ENVIRONMENT") or os.environ.get("TARKA_ENVIRONMENT") or "local").strip().lower()
+    raw = (
+        (os.environ.get("ENVIRONMENT") or os.environ.get("TARKA_ENVIRONMENT") or "local")
+        .strip()
+        .lower()
+    )
     return raw or "local"
 
 

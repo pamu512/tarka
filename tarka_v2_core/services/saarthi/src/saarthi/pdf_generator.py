@@ -50,7 +50,13 @@ def sar_shadow_json_to_formal_pdf_bytes(
     )
     styles = getSampleStyleSheet()
     h1 = ParagraphStyle("SARH1", parent=styles["Heading1"], fontSize=16, spaceAfter=14)
-    h2 = ParagraphStyle("SARH2", parent=styles["Heading2"], fontSize=12, spaceAfter=8, textColor=colors.HexColor("#1a5276"))
+    h2 = ParagraphStyle(
+        "SARH2",
+        parent=styles["Heading2"],
+        fontSize=12,
+        spaceAfter=8,
+        textColor=colors.HexColor("#1a5276"),
+    )
     body = ParagraphStyle("SARBody", parent=styles["Normal"], fontSize=10, leading=14)
 
     suspect = str(data["primary_suspect"])

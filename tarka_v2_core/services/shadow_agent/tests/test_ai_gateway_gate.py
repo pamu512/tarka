@@ -52,7 +52,9 @@ def test_demo_gateway_serializes_chat(monkeypatch: pytest.MonkeyPatch) -> None:
 
     async def _run() -> None:
         transport_obj = httpx.MockTransport(transport)
-        async with httpx.AsyncClient(transport=transport_obj, base_url="http://ollama.test") as raw_client:
+        async with httpx.AsyncClient(
+            transport=transport_obj, base_url="http://ollama.test"
+        ) as raw_client:
             client = OllamaLLMClient(client=raw_client, ai_gateway=gw)
 
             async def one_chat() -> None:
@@ -84,7 +86,9 @@ def test_cloud_gateway_allows_parallel_chat(monkeypatch: pytest.MonkeyPatch) -> 
 
     async def _run() -> None:
         transport_obj = httpx.MockTransport(transport)
-        async with httpx.AsyncClient(transport=transport_obj, base_url="http://vllm.test") as raw_client:
+        async with httpx.AsyncClient(
+            transport=transport_obj, base_url="http://vllm.test"
+        ) as raw_client:
             client = OllamaLLMClient(client=raw_client, ai_gateway=gw)
 
             async def one_chat() -> None:

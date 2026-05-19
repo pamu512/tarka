@@ -78,9 +78,9 @@ def test_velocity_query_under_5ms_while_slow_async_guard(n: int, tmp_path: Path)
                 f"median DuckDB execute+fetchall was {med} ms (target < 5 ms for {n} rows); "
                 f"all samples ms={samples!r}"
             )
-            assert max(samples) < 15.0, (
-                f"tail latency {max(samples)} ms too high while slow task still running"
-            )
+            assert (
+                max(samples) < 15.0
+            ), f"tail latency {max(samples)} ms too high while slow task still running"
             assert not slow_guard.done()
         finally:
             slow_guard.cancel()

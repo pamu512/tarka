@@ -129,7 +129,10 @@ def test_autoresolve_skipped_when_confidence_at_threshold() -> None:
 
     from orchestrator.main import create_app  # noqa: E402
     from orchestrator.models.cases import CaseORM, CaseStatus  # noqa: E402
-    from shadow.hooks.resolve_case import CONFIDENCE_THRESHOLD, maybe_autoresolve_lifecycle_case  # noqa: E402
+    from shadow.hooks.resolve_case import (
+        CONFIDENCE_THRESHOLD,
+        maybe_autoresolve_lifecycle_case,
+    )  # noqa: E402
     from tarka_shared.audit_trail import AuditLog, Case  # noqa: E402
     from tarka_shared.case_status import DEFAULT_CASE_STATUS  # noqa: E402
     from tarka_shared.data.tenant_constants import DEFAULT_TENANT_ID  # noqa: E402

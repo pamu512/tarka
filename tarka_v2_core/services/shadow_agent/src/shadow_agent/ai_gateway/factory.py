@@ -14,7 +14,11 @@ _DEMO_MODES = frozenset({"demo", "local", "development", "dev", "laptop"})
 
 
 def _normalized_environment() -> str:
-    return (os.environ.get("ENVIRONMENT") or os.environ.get("TARKA_ENVIRONMENT") or "local").strip().lower()
+    return (
+        (os.environ.get("ENVIRONMENT") or os.environ.get("TARKA_ENVIRONMENT") or "local")
+        .strip()
+        .lower()
+    )
 
 
 def build_ai_gateway() -> AIGateway:

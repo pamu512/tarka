@@ -14,7 +14,10 @@ from typing import Any
 from ingestor.manifest_schema import TransactionSchema
 
 from orchestrator.analytics.provider import AnalyticsProvider
-from orchestrator.analytics.transaction_cursor import decode_transaction_cursor, encode_transaction_cursor
+from orchestrator.analytics.transaction_cursor import (
+    decode_transaction_cursor,
+    encode_transaction_cursor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +164,9 @@ class CloudAnalytics(AnalyticsProvider):
             eid_s = str(last.get("entity_id") or "")
             amt_v = last.get("amount")
             if ts_s and eid_s and isinstance(amt_v, (int, float)):
-                next_cursor = encode_transaction_cursor(ts=ts_s, entity_id=eid_s, amount=float(amt_v))
+                next_cursor = encode_transaction_cursor(
+                    ts=ts_s, entity_id=eid_s, amount=float(amt_v)
+                )
         return rows, next_cursor, ms
 
     def transactions_per_minute_by_country(self) -> list[dict[str, Any]]:
@@ -214,7 +219,14 @@ class CloudAnalytics(AnalyticsProvider):
         clean: list[str] = []
         for raw in device_hashes:
             s = (raw or "").strip()
-            if s and len(s) <= 512 and "\x00" not in s and "'" not in s and '"' not in s and s not in clean:
+            if (
+                s
+                and len(s) <= 512
+                and "\x00" not in s
+                and "'" not in s
+                and '"' not in s
+                and s not in clean
+            ):
                 clean.append(s)
         return {**_EMPTY_CLUSTER_LOSS, "device_hashes_used": clean}
 
@@ -259,7 +271,11 @@ def _try_connect_clickhouse() -> Any | None:
         if url:
             return clickhouse_connect.get_client(dsn=url)
         port = int((os.environ.get("CLICKHOUSE_PORT") or "8443").strip() or "8443")
-        secure = (os.environ.get("CLICKHOUSE_SECURE") or "true").strip().lower() in ("1", "true", "yes")
+        secure = (os.environ.get("CLICKHOUSE_SECURE") or "true").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+        )
         return clickhouse_connect.get_client(
             host=host,
             port=port,

@@ -8,7 +8,10 @@ from pathlib import Path
 import pytest
 
 from orchestrator.analytics.duck_provider import DuckAnalyticsProvider
-from orchestrator.analytics.transaction_cursor import decode_transaction_cursor, encode_transaction_cursor
+from orchestrator.analytics.transaction_cursor import (
+    decode_transaction_cursor,
+    encode_transaction_cursor,
+)
 
 
 def test_transaction_cursor_roundtrip() -> None:

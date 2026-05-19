@@ -32,7 +32,9 @@ def synthetic_dispute_transaction(*, anchor_id: str, filename: str) -> dict[str,
     }
 
 
-def build_cluster_analyst_instruction(anchor_id: str, net: dict[str, Any], duck: dict[str, Any]) -> str:
+def build_cluster_analyst_instruction(
+    anchor_id: str, net: dict[str, Any], duck: dict[str, Any]
+) -> str:
     """Narrative framing passed to Shadow (also echoed in ``graph_context`` for the LLM)."""
     bd = int(net.get("blocked_device_touch_count") or 0)
     spike_pct = duck.get("spike_pct_vs_flat_baseline_2h")

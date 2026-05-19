@@ -499,7 +499,9 @@ def build_app(
                 detail={"error": "rule_required"},
             )
         try:
-            from shadow_agent.hypothesis_backtest_client import build_block_overlay_timeseries_for_rule
+            from shadow_agent.hypothesis_backtest_client import (
+                build_block_overlay_timeseries_for_rule,
+            )
 
             duck_path = raw.get("duckdb_path")
             lookback = raw.get("lookback_days")
@@ -586,7 +588,9 @@ def build_app(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail={"error": "saarthi_package_unavailable"},
             ) from exc
-        scout_payload = raw.get("scout_result") if isinstance(raw.get("scout_result"), dict) else raw
+        scout_payload = (
+            raw.get("scout_result") if isinstance(raw.get("scout_result"), dict) else raw
+        )
         hypothesis_report = (
             raw.get("hypothesis_report") if isinstance(raw.get("hypothesis_report"), dict) else None
         )

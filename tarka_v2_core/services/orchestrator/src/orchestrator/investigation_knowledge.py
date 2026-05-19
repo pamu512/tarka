@@ -112,7 +112,9 @@ def _safe_entity_ids(*parts: str | None) -> set[str]:
     return out
 
 
-async def _lifecycle_snapshot(session: AsyncSession, entity_ids: set[str]) -> tuple[int, bool, list[str]]:
+async def _lifecycle_snapshot(
+    session: AsyncSession, entity_ids: set[str]
+) -> tuple[int, bool, list[str]]:
     if not entity_ids:
         return 0, False, []
     stmt = select(CaseORM).where(CaseORM.entity_id.in_(entity_ids))

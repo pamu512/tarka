@@ -47,7 +47,9 @@ async def run() -> None:
         await gateway.run_shadow_investigate_inference(_noop)
 
     await nc.subscribe(subject, cb=_on)
-    logger.info("nats_shadow_investigate_subscribed subject=%s gateway=%s", subject, type(gateway).__name__)
+    logger.info(
+        "nats_shadow_investigate_subscribed subject=%s gateway=%s", subject, type(gateway).__name__
+    )
 
     stop = asyncio.Event()
 
