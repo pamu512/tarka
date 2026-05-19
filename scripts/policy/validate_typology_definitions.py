@@ -12,7 +12,7 @@ from pathlib import Path
 Fails CI if typologies drift from shipped packs (OSS #34 contract).
 """
 _REPO = Path(__file__).resolve().parents[2]
-_DEC = _REPO / "services" / "decision-api"
+_DEC = _REPO / "legacy_attic" / "services" / "legacy_v1_decision_api"
 _SRC = _DEC / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
