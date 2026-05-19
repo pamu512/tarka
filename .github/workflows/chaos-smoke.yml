@@ -44,7 +44,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: docker/setup-buildx-action@v4.0.0
+      - uses: docker/setup-buildx-action@v4
 
       - name: Chaos smoke (compose profile core)
         env:
