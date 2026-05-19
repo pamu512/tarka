@@ -6,7 +6,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
-: "${SAFETY_VERSION:=2.3.5}"
+# Use :- so an empty SAFETY_VERSION in the environment does not expand to `safety==` (which installs Safety 3.x).
+SAFETY_VERSION="${SAFETY_VERSION:-2.3.5}"
 any_failed=0
 
 while IFS= read -r -d '' pyproject; do
@@ -29,9 +30,11 @@ while IFS= read -r -d '' pyproject; do
       installed=1
     fi
   else
-    if python -m pip install -q -e "${ROOT}/${rel}[dev]" 2>/dev/null; then
+    # Install from the project directory so PEP 508 ``file:../../../…`` path deps resolve to the repo,
+    # not the runner home directory (pip + cwd edge cases when ``-e`` is passed as an absolute path).
+    if (cd "${ROOT}/${rel}" && python -m pip install -q -e ".[dev]") 2>/dev/null; then
       installed=1
-    elif python -m pip install -q -e "${ROOT}/${rel}"; then
+    elif (cd "${ROOT}/${rel}" && python -m pip install -q -e "."); then
       installed=1
     fi
   fi
