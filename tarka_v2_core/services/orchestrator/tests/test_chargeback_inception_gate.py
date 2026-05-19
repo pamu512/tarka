@@ -136,7 +136,9 @@ def test_chargeback_ingest_links_session_and_tags_dispute(monkeypatch: pytest.Mo
 
         async def _load_case() -> CaseORM | None:
             async with fac() as session:  # type: ignore[misc]
-                return await session.scalar(select(CaseORM).where(CaseORM.entity_id == dispute_tid).limit(1))
+                return await session.scalar(
+                    select(CaseORM).where(CaseORM.entity_id == dispute_tid).limit(1)
+                )
 
         row = asyncio.run(_load_case())
     assert row is not None

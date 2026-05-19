@@ -48,7 +48,9 @@ def velocity_bucket(window_seconds: int, now_unix: int | None = None) -> int:
 
 
 def velocity_key_prefix() -> str:
-    return (os.environ.get("ANUMANA_VELOCITY_KEY_PREFIX") or "anumana:velocity").strip() or "anumana:velocity"
+    return (
+        os.environ.get("ANUMANA_VELOCITY_KEY_PREFIX") or "anumana:velocity"
+    ).strip() or "anumana:velocity"
 
 
 def build_velocity_incr_expire_commands(

@@ -102,7 +102,11 @@ async def persist_orchestrator_audit_log(
         except (TypeError, ValueError):
             rs = None
     prio = priority_from_scores(
-        rule_score=rule_data.get("risk_score") if isinstance(rule_data.get("risk_score"), (int, float)) else None,
+        rule_score=(
+            rule_data.get("risk_score")
+            if isinstance(rule_data.get("risk_score"), (int, float))
+            else None
+        ),
         ai_score=rs,
     )
     payload: dict[str, Any] = {
@@ -122,7 +126,11 @@ async def persist_orchestrator_audit_log(
         oe = metadata.get("original_entity_id")
         if oe is not None and str(oe).strip() != "":
             payload["original_entity_id"] = str(oe).strip()
-        raw_tags = metadata.get("case_tags") if isinstance(metadata.get("case_tags"), list) else metadata.get("labels")
+        raw_tags = (
+            metadata.get("case_tags")
+            if isinstance(metadata.get("case_tags"), list)
+            else metadata.get("labels")
+        )
         if isinstance(raw_tags, list) and raw_tags:
             payload["case_tags"] = [str(x) for x in raw_tags if str(x).strip()]
         else:
@@ -146,7 +154,9 @@ async def process_new_audit_logs(session: AsyncSession) -> None:
     Idempotent per ``audit_log_id`` via ``case_history`` uniqueness.
     """
     cursor = await session.scalar(
-        select(OrchestratorPollStateORM).where(OrchestratorPollStateORM.singleton_key == CURSOR_KEY),
+        select(OrchestratorPollStateORM).where(
+            OrchestratorPollStateORM.singleton_key == CURSOR_KEY
+        ),
     )
     if cursor is None:
         cursor = OrchestratorPollStateORM(singleton_key=CURSOR_KEY, last_audit_log_id=0)
@@ -223,7 +233,11 @@ async def process_new_audit_logs(session: AsyncSession) -> None:
             if str(body.get("ingestion_type") or "").upper() == "CHARGEBACK" and not case_labels:
                 case_labels = ["Dispute"]
             linked_sid = body.get("linked_session_id")
-            linked_sid_s = str(linked_sid).strip() if linked_sid is not None and str(linked_sid).strip() else None
+            linked_sid_s = (
+                str(linked_sid).strip()
+                if linked_sid is not None and str(linked_sid).strip()
+                else None
+            )
             session.add(
                 CaseORM(
                     case_id=cid,

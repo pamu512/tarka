@@ -41,7 +41,11 @@ def test_persist_orchestrator_audit_log_writes_shadow_matches_column() -> None:
 
         eid = str(uuid.uuid4())
         shadow_matches = [
-            {"rule_id": "shadow_probe", "matched": True, "recorded_at": "2026-05-18T12:00:00+00:00"},
+            {
+                "rule_id": "shadow_probe",
+                "matched": True,
+                "recorded_at": "2026-05-18T12:00:00+00:00",
+            },
         ]
         async with fac() as session:
             async with session.begin():

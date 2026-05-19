@@ -14,7 +14,9 @@ DEFAULT_SHADOW_INVESTIGATE_SUBJECT = "shadow.investigate"
 
 def shadow_investigate_subject() -> str:
     """NATS subject for Shadow handoff (override with ``SHADOW_DISPATCH_NATS_SUBJECT``)."""
-    return (os.environ.get("SHADOW_DISPATCH_NATS_SUBJECT") or DEFAULT_SHADOW_INVESTIGATE_SUBJECT).strip()
+    return (
+        os.environ.get("SHADOW_DISPATCH_NATS_SUBJECT") or DEFAULT_SHADOW_INVESTIGATE_SUBJECT
+    ).strip()
 
 
 def is_review_decision(rule_data: dict[str, Any], actions: list[str]) -> bool:

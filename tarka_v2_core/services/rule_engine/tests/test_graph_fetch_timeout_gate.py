@@ -17,7 +17,14 @@ for _p in (_SRC_RULE, _SRC_INGESTOR, _SRC_SHARED):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-from rule_engine.ast_schemas import Action, AndNode, ConditionNode, FieldRef, Operator, Rule  # noqa: E402
+from rule_engine.ast_schemas import (
+    Action,
+    AndNode,
+    ConditionNode,
+    FieldRef,
+    Operator,
+    Rule,
+)  # noqa: E402
 from rule_engine.main import create_app  # noqa: E402
 from starlette.testclient import TestClient  # noqa: E402
 

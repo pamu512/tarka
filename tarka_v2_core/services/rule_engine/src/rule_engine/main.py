@@ -155,7 +155,9 @@ def create_app(*, graph_context_provider: object = _GRAPH_PROVIDER_UNSET) -> Fas
         app.state.ruleset = load_active_ruleset()
         if graph_context_provider is _GRAPH_PROVIDER_UNSET:
             neo = Neo4jGraphContextProvider.try_from_env()
-            app.state.graph_context_provider = neo if neo is not None else NullGraphContextProvider()
+            app.state.graph_context_provider = (
+                neo if neo is not None else NullGraphContextProvider()
+            )
         elif graph_context_provider is None:
             app.state.graph_context_provider = NullGraphContextProvider()
         else:
@@ -210,7 +212,9 @@ def create_app(*, graph_context_provider: object = _GRAPH_PROVIDER_UNSET) -> Fas
                         GRAPH_LINKED_TO_BLOCKED_COUNT_FIELD: 0,
                         GRAPH_CONTEXT_FAIL_OPEN_KEY: True,
                     }
-            graph_fail_open = bool(graph_ctx.get(GRAPH_CONTEXT_FAIL_OPEN_KEY)) if graph_ctx else False
+            graph_fail_open = (
+                bool(graph_ctx.get(GRAPH_CONTEXT_FAIL_OPEN_KEY)) if graph_ctx else False
+            )
             graph_ctx_eval = (
                 {k: v for k, v in graph_ctx.items() if not str(k).startswith("_")}
                 if graph_ctx

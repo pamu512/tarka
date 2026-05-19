@@ -339,7 +339,9 @@ class EntityProfileResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     user_id: str = Field(..., description="Marketplace ``user_id`` anchor for the profile.")
-    generated_at: str = Field(..., description="UTC ISO timestamp when this snapshot was assembled.")
+    generated_at: str = Field(
+        ..., description="UTC ISO timestamp when this snapshot was assembled."
+    )
     data_sources: dict[str, Any] = Field(
         ...,
         description=(
@@ -395,7 +397,9 @@ class CaseStatusUpdateResponse(BaseModel):
 
     case_id: str = Field(..., description="``lifecycle_cases.case_id`` UUID string.")
     status: str = Field(..., description="Effective status after the transition.")
-    history_row_id: int = Field(..., description="Primary key of the appended ``case_history`` row.")
+    history_row_id: int = Field(
+        ..., description="Primary key of the appended ``case_history`` row."
+    )
 
 
 class AiFeedbackRequest(BaseModel):

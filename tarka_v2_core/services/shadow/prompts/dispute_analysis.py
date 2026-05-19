@@ -68,9 +68,13 @@ def dispute_prompt_fields_populated(
     duckdb_metrics: dict[str, Any],
 ) -> bool:
     """Return True when all three inputs carry usable analyst-facing data (for guards or tests)."""
-    return bool(_strip_or_empty(extracted_text)) and isinstance(graph_snapshot, dict) and len(
-        graph_snapshot
-    ) > 0 and isinstance(duckdb_metrics, dict) and len(duckdb_metrics) > 0
+    return (
+        bool(_strip_or_empty(extracted_text))
+        and isinstance(graph_snapshot, dict)
+        and len(graph_snapshot) > 0
+        and isinstance(duckdb_metrics, dict)
+        and len(duckdb_metrics) > 0
+    )
 
 
 def assert_dispute_prompt_data_populated(prompt: str) -> None:

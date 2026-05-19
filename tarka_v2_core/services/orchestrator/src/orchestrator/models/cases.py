@@ -116,7 +116,9 @@ def transition_status(
 
     allowed = _FORWARD.get(current_status, frozenset())
     if new_status not in allowed:
-        raise StateTransitionError(f"illegal transition: {current_status.value} -> {new_status.value}")
+        raise StateTransitionError(
+            f"illegal transition: {current_status.value} -> {new_status.value}"
+        )
     return new_status
 
 

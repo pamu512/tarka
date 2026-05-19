@@ -54,19 +54,28 @@ async def put_lifecycle_case_status(
     if not cid or len(cid) > 64 or "\x00" in cid:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"error": "invalid_case_id", "message": "case_id must be a non-empty UUID string"},
+            detail={
+                "error": "invalid_case_id",
+                "message": "case_id must be a non-empty UUID string",
+            },
         )
     rc = (reason_code or "").strip()
     if not rc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"error": "missing_reason_code", "message": "reason_code must be a non-empty string"},
+            detail={
+                "error": "missing_reason_code",
+                "message": "reason_code must be a non-empty string",
+            },
         )
     tok = (auth_token or "").strip()
     if not tok:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"error": "missing_auth_token", "message": "X-Auth-Token must be a non-empty string"},
+            detail={
+                "error": "missing_auth_token",
+                "message": "X-Auth-Token must be a non-empty string",
+            },
         )
 
     try:
@@ -120,11 +129,7 @@ async def put_lifecycle_case_status(
             await session.flush()
             hid = int(hist.id)
 
-    if (
-        next_status == CaseStatus.RESOLVED_FRAUD
-        and graph_client is not None
-        and user_link_key
-    ):
+    if next_status == CaseStatus.RESOLVED_FRAUD and graph_client is not None and user_link_key:
         await sync_resolved_fraud_case_to_graph(graph_client, user_link_key=user_link_key)
 
     logger.info(

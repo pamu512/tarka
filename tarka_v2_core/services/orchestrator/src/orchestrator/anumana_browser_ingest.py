@@ -61,7 +61,9 @@ async def handle_browser_telemetry_ingest(
         )
     if ingest_secret:
         header = (
-            request.headers.get("x-anumana-ingest-key") or request.headers.get("X-Anumana-Ingest-Key") or ""
+            request.headers.get("x-anumana-ingest-key")
+            or request.headers.get("X-Anumana-Ingest-Key")
+            or ""
         )
         if not secrets.compare_digest(header, ingest_secret):
             raise HTTPException(

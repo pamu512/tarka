@@ -28,7 +28,9 @@ def _mark_user_is_fraud_gremlin_sync(janus: JanusGraphClient, user_id: str) -> N
         logger.exception("janus_mark_user_is_fraud_failed user_id=%s", uid)
 
 
-async def sync_resolved_fraud_case_to_graph(graph_client: GraphClient, *, user_link_key: str) -> None:
+async def sync_resolved_fraud_case_to_graph(
+    graph_client: GraphClient, *, user_link_key: str
+) -> None:
     """
     When a lifecycle case is resolved as **fraud**, set ``is_fraud=true`` on the **User** vertex whose
     ``user_id`` matches ``user_link_key`` (the same key persisted on ``lifecycle_cases.user_link_key``

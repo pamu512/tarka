@@ -47,7 +47,9 @@ async def build_shadow_analyze_payload(
         try:
             ctx["signals"] = await graph_client.get_graph_signals(uid)
         except Exception:
-            logger.exception("orchestrator_shadow_graph_signals_failed transaction_id=%s", transaction.entity_id)
+            logger.exception(
+                "orchestrator_shadow_graph_signals_failed transaction_id=%s", transaction.entity_id
+            )
 
     if hints.device_id:
         try:

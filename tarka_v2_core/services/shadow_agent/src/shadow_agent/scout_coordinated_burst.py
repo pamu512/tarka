@@ -186,7 +186,9 @@ def scan_coordinated_bursts(
     Returns probe metadata plus ``hypothesis_reports`` (list of :class:`HypothesisReport` dicts).
     """
     path = (duckdb_path_override or duckdb_path()).strip()
-    min_accts = min_distinct_accounts if min_distinct_accounts is not None else _min_distinct_accounts()
+    min_accts = (
+        min_distinct_accounts if min_distinct_accounts is not None else _min_distinct_accounts()
+    )
     win_h = window_hours if window_hours is not None else _window_hours()
     lookback = lookback_hours if lookback_hours is not None else _lookback_hours()
 
@@ -307,11 +309,9 @@ def scan_coordinated_bursts(
 
     candidates: list[dict[str, Any]] = []
     for fp_kind, fp_value, window_start, window_end, distinct_accounts, account_ids in rows:
-        kind: FingerprintKind = (
-            "canvas_hash" if str(fp_kind) == "canvas_hash" else "webgl_vendor"
-        )
+        kind: FingerprintKind = "canvas_hash" if str(fp_kind) == "canvas_hash" else "webgl_vendor"
         acc_list_raw = account_ids if isinstance(account_ids, list) else []
-        acc_ids = [str(a) for a in acc_list_raw if a is not None][: _MAX_ACCOUNT_IDS]
+        acc_ids = [str(a) for a in acc_list_raw if a is not None][:_MAX_ACCOUNT_IDS]
         ws = window_start if isinstance(window_start, datetime) else datetime.now(UTC)
         we = window_end if isinstance(window_end, datetime) else datetime.now(UTC)
         if ws.tzinfo is None:

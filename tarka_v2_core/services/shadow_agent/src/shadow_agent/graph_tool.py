@@ -77,7 +77,9 @@ def graph_tool_mode() -> str:
     return (os.environ.get("SHADOW_GRAPH_TOOL_MODE") or "heuristic").strip().lower()
 
 
-def should_run_graph_tool_heuristic(tx: TransactionSchema, graph_context: dict[str, Any] | None) -> bool:
+def should_run_graph_tool_heuristic(
+    tx: TransactionSchema, graph_context: dict[str, Any] | None
+) -> bool:
     """
     Borderline Shadow Review heuristic: amount in a mid band **and** an IP is present for
     shared-IP history probing.
@@ -217,7 +219,9 @@ async def find_linked_entities(entity_id: str, tx: TransactionSchema, driver: An
             f"≤{nh}-hop: no neighbor rows in this sample (anchors may exist but have no matches in this depth).",
         )
     if hints.ip:
-        shared = sorted(u for u in user_neighbors if u and (hints.user_id is None or u != hints.user_id))
+        shared = sorted(
+            u for u in user_neighbors if u and (hints.user_id is None or u != hints.user_id)
+        )
         lines.append(
             f"Shared IP history (users seen within {nh} hops of this IP anchor): "
             + (", ".join(shared) if shared else "(none besides anchors)"),
