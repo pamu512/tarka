@@ -13,7 +13,7 @@ def repo_root() -> Path:
 def get_feature_order() -> list[str]:
     """Return ``FEATURE_ORDER`` from ``ml_scoring.heuristic`` (same vector as ONNX training)."""
     root = repo_root()
-    src = root / "services" / "ml-scoring" / "src"
+    src = root / "legacy_attic" / "services" / "ml-scoring" / "src"
     p = str(src)
     if p not in sys.path:
         sys.path.insert(0, p)
