@@ -42,7 +42,9 @@ class _StubLlmEchoEntity:
             raise RuntimeError("stub expected entity_id line in system prompt")
         uid = match.group(1)
         compact = system.replace(" ", "").lower()
-        linked = "linked_to_blocked_node:true" in compact or "linked_to_blocked_node':true" in compact
+        linked = (
+            "linked_to_blocked_node:true" in compact or "linked_to_blocked_node':true" in compact
+        )
         return {
             "transaction_id": uid,
             "risk_score": 88.0 if linked else 12.5,
