@@ -56,7 +56,8 @@ jobs:
           pip install -e ./packages/tarka-deploy-settings
           pip install -e "./tarka_v2_core/services/shadow[dev]"
           (cd tarka_v2_core/services/rule_engine && pip install -e .)
-          (cd tarka_v2_core/services/orchestrator && pip install -e .)
+          (cd tarka_v2_core/services/orchestrator && pip install -e ".[janus]")
+          pip install fakeredis
           pip install -e "./tarka_v2_core/services/saarthi[dev]"
           (cd tarka_v2_core/services/shadow_agent && pip install -e .)
 

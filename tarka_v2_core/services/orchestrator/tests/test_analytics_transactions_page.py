@@ -55,8 +55,9 @@ def test_list_analytics_transactions_keyset_pages() -> None:
         assert page2[0]["entity_id"] != page1[0]["entity_id"]
 
         page3, c3, _ = duck.list_analytics_transactions(limit=2, cursor=c2)
-        assert len(page3) >= 1
-        assert c3 is None or isinstance(c3, str)
+        # Four rows with limit=2: two pages exhaust the view; third page is empty.
+        assert len(page3) == 0
+        assert c3 is None
 
         ids = {r["entity_id"] for r in page1 + page2 + page3}
         assert ids == {"e-a", "e-b", "e-c", "e-d"}

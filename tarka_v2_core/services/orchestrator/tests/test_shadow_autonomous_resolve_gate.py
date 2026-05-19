@@ -114,11 +114,13 @@ def test_mock_ai_high_confidence_autoresolves_to_resolved_auto() -> None:
         assert row.status == CaseStatus.RESOLVED_AUTO.value
 
     with TestClient(app):
-        asyncio.run(_seed())
         transport = httpx.ASGITransport(app=app)
-        asyncio.run(
-            _run_with_client(transport, _call_hook),
-        )
+
+        async def _flow() -> None:
+            await _seed()
+            await _run_with_client(transport, _call_hook)
+
+        asyncio.run(_flow())
 
 
 def test_autoresolve_skipped_when_confidence_at_threshold() -> None:
@@ -199,6 +201,10 @@ def test_autoresolve_skipped_when_confidence_at_threshold() -> None:
         assert row.status == CaseStatus.OPEN.value
 
     with TestClient(app):
-        asyncio.run(_seed())
         transport = httpx.ASGITransport(app=app)
-        asyncio.run(_run_with_client(transport, _call_hook))
+
+        async def _flow() -> None:
+            await _seed()
+            await _run_with_client(transport, _call_hook)
+
+        asyncio.run(_flow())
