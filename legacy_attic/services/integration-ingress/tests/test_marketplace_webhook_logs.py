@@ -47,3 +47,8 @@ def test_row_to_dict_shape() -> None:
     d = _mod._row_to_dict(Row())
     assert d["signal"] == "block"
     assert d["status"] == "delivered"
+
+
+def test_delivery_failed_constant_is_generic() -> None:
+    assert _mod._DELIVERY_FAILED == "delivery failed"
+    assert "Exception" not in _mod._DELIVERY_FAILED
