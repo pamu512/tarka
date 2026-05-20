@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SERVICES_DIR = REPO_ROOT / "services"
+SERVICES_DIR = REPO_ROOT / "legacy_attic" / "services"
 
 
 def _iter_python_files() -> list[Path]:

@@ -44,7 +44,9 @@ class _FakeCH:
         return _QR([row])
 
 
-def _row(trace: list[dict[str, Any]], sig: dict[str, str], final: int) -> tuple[Any, ...]:
+def _row(
+    trace: list[dict[str, Any]], sig: dict[str, str], final: int
+) -> tuple[Any, ...]:
     return (
         trace,
         sig,

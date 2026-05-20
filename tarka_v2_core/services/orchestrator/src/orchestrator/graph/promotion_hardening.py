@@ -59,7 +59,11 @@ async def apply_promotion_hardening_to_graph(
 
     rule_id = str(payload.get("rule_id") or "").strip()
     raw_ids = payload.get("entity_ids")
-    entity_ids = [str(x).strip() for x in raw_ids if x is not None and str(x).strip()] if isinstance(raw_ids, list) else []
+    entity_ids = (
+        [str(x).strip() for x in raw_ids if x is not None and str(x).strip()]
+        if isinstance(raw_ids, list)
+        else []
+    )
 
     import asyncio
 

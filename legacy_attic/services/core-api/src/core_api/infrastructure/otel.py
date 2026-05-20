@@ -66,7 +66,9 @@ def init_opentelemetry(*fastapi_apps: FastAPI) -> None:
     global _INITIALIZED, _INIT_ATTEMPTED
 
     if not fastapi_apps:
-        raise OtelConfigurationError("init_opentelemetry() requires at least one FastAPI application")
+        raise OtelConfigurationError(
+            "init_opentelemetry() requires at least one FastAPI application"
+        )
 
     if _INIT_ATTEMPTED:
         raise OtelConfigurationError("init_opentelemetry() was already called in this process")

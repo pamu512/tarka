@@ -2885,7 +2885,9 @@ async def evaluate_decision(
                 pre_decision_audit_committed = True
 
         # Run rules + OPA + ML in parallel (OPA and ML don't need each other)
-        dual_shadow_eval_ran = settings.shadow_evaluator_enabled and candidate_rules_available()
+        dual_shadow_eval_ran = (
+            settings.shadow_evaluator_enabled and candidate_rules_available()
+        )
         if dual_shadow_eval_ran:
             _shadow_ev = ShadowEvaluator(settings)
             (
@@ -3211,9 +3213,7 @@ async def evaluate_decision(
 
         fb_reason = _compute_fallback_reason(degrade_tags, step_trace)
         signal_notes = _signal_availability_notes_from_tags(degrade_tags)
-        runtime_decision_status = _decision_runtime_status(
-            degrade_tags, signal_notes
-        )
+        runtime_decision_status = _decision_runtime_status(degrade_tags, signal_notes)
         snap_extra: dict[str, Any] = {
             **stored_snapshot,
             "inference_context": inf_ctx,

@@ -30,13 +30,22 @@ def upgrade() -> None:
         sa.Column("payload_preview", sa.Text(), nullable=False),
         sa.Column("attempts_json", sa.JSON(), nullable=False),
         sa.Column("last_error", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.Column("delivered_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_marketplace_webhook_logs_tenant_id", "marketplace_webhook_logs", ["tenant_id"])
+    op.create_index(
+        "ix_marketplace_webhook_logs_tenant_id", "marketplace_webhook_logs", ["tenant_id"]
+    )
     op.create_index("ix_marketplace_webhook_logs_status", "marketplace_webhook_logs", ["status"])
-    op.create_index("ix_marketplace_webhook_logs_created_at", "marketplace_webhook_logs", ["created_at"])
+    op.create_index(
+        "ix_marketplace_webhook_logs_created_at", "marketplace_webhook_logs", ["created_at"]
+    )
 
 
 def downgrade() -> None:

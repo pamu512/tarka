@@ -7,10 +7,10 @@ RUN apt-get update \
 
 WORKDIR /app
 RUN pip install --no-cache-dir pip -U
-COPY services/ml-scoring/pyproject.toml /app/
-COPY services/ml-scoring/rules /app/rules
-COPY services/ml-scoring/src /app/src
-COPY services/shared /app/shared
+COPY legacy_attic/services/ml-scoring/pyproject.toml /app/
+COPY legacy_attic/services/ml-scoring/rules /app/rules
+COPY legacy_attic/services/ml-scoring/src /app/src
+COPY legacy_attic/services/shared /app/shared
 RUN pip install --no-cache-dir -e .
 ENV PYTHONPATH=/app/src:/app/shared
 ENV DISABLE_ML=false

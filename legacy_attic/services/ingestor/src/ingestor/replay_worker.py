@@ -158,9 +158,7 @@ async def replay_main() -> None:
     try:
         while True:
             while True:
-                rows = await fetch_pending_batch(
-                    pool, limit=settings.replay_batch_size
-                )
+                rows = await fetch_pending_batch(pool, limit=settings.replay_batch_size)
                 if not rows:
                     break
                 for row in rows:

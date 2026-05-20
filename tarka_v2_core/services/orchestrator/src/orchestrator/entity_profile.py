@@ -180,12 +180,16 @@ async def build_entity_profile_payload(
         "entity_profile_duck_metrics": duck_metrics,
     }
     if analytics is not None:
-        graph_ctx_for_shadow["duck_spend_velocity_30d"] = analytics.cluster_spend_velocity_for_network(
-            transaction_entity_ids=[],
-            network_user_ids=[uid],
+        graph_ctx_for_shadow["duck_spend_velocity_30d"] = (
+            analytics.cluster_spend_velocity_for_network(
+                transaction_entity_ids=[],
+                network_user_ids=[uid],
+            )
         )
 
-    skip_shadow = (os.environ.get("ORCHESTRATOR_ENTITY_PROFILE_SKIP_SHADOW") or "").strip().lower() in (
+    skip_shadow = (
+        os.environ.get("ORCHESTRATOR_ENTITY_PROFILE_SKIP_SHADOW") or ""
+    ).strip().lower() in (
         "1",
         "true",
         "yes",

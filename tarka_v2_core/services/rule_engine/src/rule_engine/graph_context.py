@@ -76,7 +76,9 @@ class Neo4jGraphContextProvider:
         uri = (os.environ.get("NEO4J_URI") or os.environ.get("GRAPH_NEO4J_URI") or "").strip()
         if not uri:
             return None
-        user = (os.environ.get("NEO4J_USER") or os.environ.get("GRAPH_NEO4J_USER") or "neo4j").strip()
+        user = (
+            os.environ.get("NEO4J_USER") or os.environ.get("GRAPH_NEO4J_USER") or "neo4j"
+        ).strip()
         password = os.environ.get("NEO4J_PASSWORD") or os.environ.get("GRAPH_NEO4J_PASSWORD") or ""
         try:
             drv = AsyncGraphDatabase.driver(uri, auth=(user, password))

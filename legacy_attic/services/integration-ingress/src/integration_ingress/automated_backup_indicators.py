@@ -19,7 +19,12 @@ _REDIS_POSTGRES_META = "ops:backup:postgres:meta"
 _REDIS_JANUS_META = "ops:backup:janusgraph:meta"
 
 _STORES: tuple[dict[str, str], ...] = (
-    {"id": "postgres", "label": "PostgreSQL", "subdir": "postgres", "glob": ("*.sql", "*.sql.gz", "*.dump", "*.dump.gz", "*.tar", "*.tar.gz")},
+    {
+        "id": "postgres",
+        "label": "PostgreSQL",
+        "subdir": "postgres",
+        "glob": ("*.sql", "*.sql.gz", "*.dump", "*.dump.gz", "*.tar", "*.tar.gz"),
+    },
     {
         "id": "janusgraph",
         "label": "JanusGraph",
@@ -48,7 +53,9 @@ def _parse_iso_ts(raw: str | None) -> datetime | None:
         return None
 
 
-def _classify_backup_age(age_seconds: float | None, *, ok_hours: float, warn_hours: float) -> BackupStatus:
+def _classify_backup_age(
+    age_seconds: float | None, *, ok_hours: float, warn_hours: float
+) -> BackupStatus:
     if age_seconds is None:
         return "unknown"
     if age_seconds < 0:
@@ -62,7 +69,9 @@ def _classify_backup_age(age_seconds: float | None, *, ok_hours: float, warn_hou
     return "stale"
 
 
-def _newest_file_in_dir(root: Path, patterns: tuple[str, ...]) -> tuple[datetime | None, Path | None, int | None]:
+def _newest_file_in_dir(
+    root: Path, patterns: tuple[str, ...]
+) -> tuple[datetime | None, Path | None, int | None]:
     if not root.is_dir():
         return None, None, None
     newest_at: datetime | None = None
@@ -164,8 +173,12 @@ async def build_automated_backup_indicators_payload(
     warn_hours: float | None = None,
 ) -> dict[str, Any]:
     """Build JSON for ``GET /v1/ops/automated-backup-indicators``."""
-    ok_h = float(ok_hours if ok_hours is not None else os.environ.get("BACKUP_OK_MAX_AGE_HOURS", "26"))
-    warn_h = float(warn_hours if warn_hours is not None else os.environ.get("BACKUP_WARN_MAX_AGE_HOURS", "50"))
+    ok_h = float(
+        ok_hours if ok_hours is not None else os.environ.get("BACKUP_OK_MAX_AGE_HOURS", "26")
+    )
+    warn_h = float(
+        warn_hours if warn_hours is not None else os.environ.get("BACKUP_WARN_MAX_AGE_HOURS", "50")
+    )
     base_dir = Path(
         backup_dir
         or os.environ.get("TARKA_BACKUP_DIR")
@@ -175,10 +188,16 @@ async def build_automated_backup_indicators_payload(
     status_json = _read_status_json(base_dir)
 
     postgres_schedule = os.environ.get("BACKUP_POSTGRES_SCHEDULE_HINT", "Daily 02:00 UTC (pg_dump)")
-    janus_schedule = os.environ.get("BACKUP_JANUSGRAPH_SCHEDULE_HINT", "Daily 03:30 UTC (gremlin backup)")
+    janus_schedule = os.environ.get(
+        "BACKUP_JANUSGRAPH_SCHEDULE_HINT", "Daily 03:30 UTC (gremlin backup)"
+    )
 
-    redis_pg_at, redis_pg_meta = await _redis_snapshot(redis_client, _REDIS_POSTGRES_AT, _REDIS_POSTGRES_META)
-    redis_jg_at, redis_jg_meta = await _redis_snapshot(redis_client, _REDIS_JANUS_AT, _REDIS_JANUS_META)
+    redis_pg_at, redis_pg_meta = await _redis_snapshot(
+        redis_client, _REDIS_POSTGRES_AT, _REDIS_POSTGRES_META
+    )
+    redis_jg_at, redis_jg_meta = await _redis_snapshot(
+        redis_client, _REDIS_JANUS_AT, _REDIS_JANUS_META
+    )
 
     pg_dir = base_dir / "postgres"
     jg_dir = base_dir / "janusgraph"
@@ -186,7 +205,9 @@ async def build_automated_backup_indicators_payload(
     jg_file_at, jg_file_path, jg_file_size = _newest_file_in_dir(jg_dir, _STORES[1]["glob"])  # type: ignore[arg-type]
 
     json_pg = status_json.get("postgres") if isinstance(status_json.get("postgres"), dict) else {}
-    json_jg = status_json.get("janusgraph") if isinstance(status_json.get("janusgraph"), dict) else {}
+    json_jg = (
+        status_json.get("janusgraph") if isinstance(status_json.get("janusgraph"), dict) else {}
+    )
 
     def _pick(
         store_id: str,
@@ -206,7 +227,9 @@ async def build_automated_backup_indicators_payload(
                     "redis",
                     redis_at,
                     str(redis_meta.get("artifact_hint") or redis_meta.get("path") or "") or None,
-                    int(redis_meta["size_bytes"]) if isinstance(redis_meta.get("size_bytes"), (int, float)) else None,
+                    int(redis_meta["size_bytes"])
+                    if isinstance(redis_meta.get("size_bytes"), (int, float))
+                    else None,
                 ),
             )
         if file_at:
@@ -214,18 +237,24 @@ async def build_automated_backup_indicators_payload(
                 (
                     "filesystem",
                     file_at,
-                    str(file_path.relative_to(base_dir)) if file_path and base_dir in file_path.parents else str(file_path),
+                    str(file_path.relative_to(base_dir))
+                    if file_path and base_dir in file_path.parents
+                    else str(file_path),
                     file_size,
                 ),
             )
-        js_at = _parse_iso_ts(str(json_row.get("last_snapshot_at") or json_row.get("at") or "") or None)
+        js_at = _parse_iso_ts(
+            str(json_row.get("last_snapshot_at") or json_row.get("at") or "") or None
+        )
         if js_at:
             candidates.append(
                 (
                     "backup_status.json",
                     js_at,
                     str(json_row.get("artifact_hint") or json_row.get("path") or "") or None,
-                    int(json_row["size_bytes"]) if isinstance(json_row.get("size_bytes"), (int, float)) else None,
+                    int(json_row["size_bytes"])
+                    if isinstance(json_row.get("size_bytes"), (int, float))
+                    else None,
                 ),
             )
         if not candidates:
@@ -240,7 +269,9 @@ async def build_automated_backup_indicators_payload(
                 warn_hours=warn_h,
                 schedule_hint=schedule_hint,
             )
-        source, last_at, artifact, size = max(candidates, key=lambda c: c[1] or datetime.min.replace(tzinfo=UTC))
+        source, last_at, artifact, size = max(
+            candidates, key=lambda c: c[1] or datetime.min.replace(tzinfo=UTC)
+        )
         return _store_row(
             store_id=store_id,
             label=label,

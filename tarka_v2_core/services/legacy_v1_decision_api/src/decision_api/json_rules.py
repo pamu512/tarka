@@ -14,15 +14,18 @@ from tarka_core.internal_monitor import InternalMonitor
 log = logging.getLogger(__name__)
 
 # Last JSON rule engine metadata for audit/API (Rust vs Python, parity fallback flag).
-_JSON_RULE_ENGINE_META: ContextVar[dict[str, Any]] = ContextVar(
+_JSON_RULE_ENGINE_META: ContextVar[dict[str, Any] | None] = ContextVar(
     "json_rule_engine_metadata",
-    default={"engine": "unknown", "fallback_active": False},
+    default=None,
 )
 
 
 def get_json_rule_engine_metadata() -> dict[str, Any]:
     """Snapshot of engine used for the most recent evaluation in this async task."""
-    return dict(_JSON_RULE_ENGINE_META.get())
+    meta = _JSON_RULE_ENGINE_META.get()
+    if meta is None:
+        return {"engine": "unknown", "fallback_active": False}
+    return dict(meta)
 
 
 def _set_json_rule_engine_metadata(meta: dict[str, Any]) -> None:

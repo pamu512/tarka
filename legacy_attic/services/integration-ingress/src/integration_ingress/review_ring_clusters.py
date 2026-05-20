@@ -74,7 +74,10 @@ def _cluster_row(index: int, *, tenant_id: str, min_ring_size: int) -> dict[str,
     cluster_seed = hashlib.sha256(f"{tenant_id}:review_ring:{index}".encode()).hexdigest()[:12]
     products = _product_catalog(cluster_seed)
     member_count = min_ring_size + (int(cluster_seed[0:2], 16) % 5)
-    members = [_member_row(cluster_seed, m, tenant_id=tenant_id, products=products) for m in range(member_count)]
+    members = [
+        _member_row(cluster_seed, m, tenant_id=tenant_id, products=products)
+        for m in range(member_count)
+    ]
 
     device_ids = [str(m.get("device_id")) for m in members]
     unique_devices = len(set(device_ids))
@@ -119,7 +122,9 @@ def build_review_ring_payload(
 
     clusters = [_cluster_row(i, tenant_id=tid, min_ring_size=min_size) for i in range(lim)]
     clusters = [c for c in clusters if int(c["member_count"]) >= min_size]
-    clusters_sorted = sorted(clusters, key=lambda c: (-int(c["suspicion_score"]), -int(c["member_count"])))
+    clusters_sorted = sorted(
+        clusters, key=lambda c: (-int(c["suspicion_score"]), -int(c["member_count"]))
+    )
 
     total_users = sum(int(c["member_count"]) for c in clusters_sorted)
     high_suspicion = sum(1 for c in clusters_sorted if int(c["suspicion_score"]) >= 70)

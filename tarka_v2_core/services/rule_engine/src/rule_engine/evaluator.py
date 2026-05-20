@@ -102,9 +102,7 @@ def _evaluate_condition(
     if fn is None:
         raise TypeError(f"unsupported operator for evaluation: {op!r}")
 
-    rhs_adj = (
-        _normalize_eq_rhs(lhs, rhs) if op in (Operator.EQ, Operator.NE) else rhs
-    )
+    rhs_adj = _normalize_eq_rhs(lhs, rhs) if op in (Operator.EQ, Operator.NE) else rhs
     try:
         return bool(fn(lhs, rhs_adj))
     except TypeError:

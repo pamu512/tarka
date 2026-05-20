@@ -28,7 +28,11 @@ def _now_iso() -> str:
 
 
 def _default_probe_urls() -> tuple[str, str]:
-    graph = (os.environ.get("FAILOVER_GRAPH_PROBE_URL") or os.environ.get("GRAPH_SERVICE_URL") or "http://127.0.0.1:8001").strip()
+    graph = (
+        os.environ.get("FAILOVER_GRAPH_PROBE_URL")
+        or os.environ.get("GRAPH_SERVICE_URL")
+        or "http://127.0.0.1:8001"
+    ).strip()
     ai = (
         os.environ.get("FAILOVER_AI_PROBE_URL")
         or os.environ.get("SIGNAL_API_URL")
@@ -37,7 +41,9 @@ def _default_probe_urls() -> tuple[str, str]:
     return graph.rstrip("/"), ai.rstrip("/")
 
 
-async def _probe_latency_ms(http: httpx.AsyncClient, base: str, path: str = "/v1/health") -> float | None:
+async def _probe_latency_ms(
+    http: httpx.AsyncClient, base: str, path: str = "/v1/health"
+) -> float | None:
     if not base:
         return None
     url = f"{base}{path}" if path.startswith("/") else f"{base}/{path}"

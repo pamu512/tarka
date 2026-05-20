@@ -45,7 +45,9 @@ def test_ip_velocity_spike_crosses_threshold() -> None:
 
 
 def test_ip_velocity_no_spike_at_threshold_boundary() -> None:
-    block = ip_velocity_block(distinct_users_last_2h=IP_VELOCITY_SYBIL_THRESHOLD, threshold=IP_VELOCITY_SYBIL_THRESHOLD)
+    block = ip_velocity_block(
+        distinct_users_last_2h=IP_VELOCITY_SYBIL_THRESHOLD, threshold=IP_VELOCITY_SYBIL_THRESHOLD
+    )
     assert block["spike"] is False
 
 

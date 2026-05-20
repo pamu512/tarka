@@ -6,7 +6,9 @@ import importlib.util
 import sys
 from pathlib import Path
 
-_MOD_PATH = Path(__file__).resolve().parents[1] / "src" / "integration_ingress" / "mule_path_visualizer.py"
+_MOD_PATH = (
+    Path(__file__).resolve().parents[1] / "src" / "integration_ingress" / "mule_path_visualizer.py"
+)
 _spec = importlib.util.spec_from_file_location("mule_path_visualizer", _MOD_PATH)
 assert _spec and _spec.loader
 _mod = importlib.util.module_from_spec(_spec)

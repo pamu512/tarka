@@ -82,8 +82,7 @@ class FraudPredictor:
         prob_names = [o.name for o in outputs if o.name == "probabilities"]
         if not prob_names:
             raise RuntimeError(
-                "model missing 'probabilities' output; "
-                f"have {[o.name for o in outputs]}",
+                f"model missing 'probabilities' output; have {[o.name for o in outputs]}",
             )
         self._probabilities_name = prob_names[0]
 

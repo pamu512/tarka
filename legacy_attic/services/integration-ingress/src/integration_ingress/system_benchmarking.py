@@ -50,7 +50,9 @@ def _summarize_samples(samples: list[float]) -> dict[str, float | None]:
     }
 
 
-def classify_vs_target(p95_ms: float | None, *, target_ms: float = SUB_MILLISECOND_TARGET_MS) -> BenchStatus:
+def classify_vs_target(
+    p95_ms: float | None, *, target_ms: float = SUB_MILLISECOND_TARGET_MS
+) -> BenchStatus:
     if p95_ms is None:
         return "unavailable"
     if p95_ms <= target_ms:
@@ -165,7 +167,9 @@ def _sample_in_process_floor(rounds: int) -> list[float]:
     return samples
 
 
-async def _sample_http_get(http: httpx.AsyncClient, url: str, rounds: int) -> tuple[list[float], str | None]:
+async def _sample_http_get(
+    http: httpx.AsyncClient, url: str, rounds: int
+) -> tuple[list[float], str | None]:
     if not url.strip():
         return [], "endpoint not configured"
     samples: list[float] = []
@@ -177,7 +181,8 @@ async def _sample_http_get(http: httpx.AsyncClient, url: str, rounds: int) -> tu
                 return [], f"HTTP {resp.status_code}"
             samples.append((time.perf_counter() - t0) * 1000.0)
     except Exception as exc:
-        return [], str(exc)[:120]
+        logger.warning("benchmark http probe failed url=%s", url.strip(), exc_info=exc)
+        return [], "probe failed"
     return samples, None
 
 
@@ -237,7 +242,9 @@ async def build_system_benchmarking_payload(
         ),
     )
 
-    decision_url = (os.environ.get("DECISION_API_BENCH_URL") or "http://127.0.0.1:8001/v1/health").strip()
+    decision_url = (
+        os.environ.get("DECISION_API_BENCH_URL") or "http://127.0.0.1:8001/v1/health"
+    ).strip()
     dec_samples, dec_err = await _sample_http_get(http, decision_url, rounds)
     probes.append(
         _bench_row(

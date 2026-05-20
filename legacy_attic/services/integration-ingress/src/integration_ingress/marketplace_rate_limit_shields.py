@@ -46,7 +46,9 @@ def normalize_shield_config(
 ) -> dict[str, Any]:
     return {
         "enabled": True if enabled is None else bool(enabled),
-        "requests_per_minute": _clamp_rpm(requests_per_minute if requests_per_minute is not None else DEFAULT_RPM),
+        "requests_per_minute": _clamp_rpm(
+            requests_per_minute if requests_per_minute is not None else DEFAULT_RPM
+        ),
         "burst": _clamp_burst(burst if burst is not None else DEFAULT_BURST),
     }
 
@@ -179,7 +181,9 @@ def _shield_config_from_row(row: Any) -> dict[str, Any]:
 def shield_item_from_row(row: Any) -> dict[str, Any]:
     cfg = _shield_config_from_row(row)
     kid = str(row.id)
-    live = shield_live_stats(kid, enabled=cfg["enabled"], rpm=cfg["requests_per_minute"], burst=cfg["burst"])
+    live = shield_live_stats(
+        kid, enabled=cfg["enabled"], rpm=cfg["requests_per_minute"], burst=cfg["burst"]
+    )
     return {
         "key_id": kid,
         "tenant_id": row.tenant_id,
@@ -242,5 +246,7 @@ async def update_rate_limit_shield(
     return shield_item_from_row(row)
 
 
-def consume_for_verified_key(key_id: str, *, enabled: bool, rpm: int, burst: int) -> RateLimitDecision:
+def consume_for_verified_key(
+    key_id: str, *, enabled: bool, rpm: int, burst: int
+) -> RateLimitDecision:
     return evaluate_rate_limit(key_id, enabled=enabled, rpm=rpm, burst=burst, consume=True)

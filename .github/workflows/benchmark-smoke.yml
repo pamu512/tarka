@@ -27,14 +27,14 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: services/decision-api/pyproject.toml
+          cache-dependency-path: legacy_attic/services/legacy_v1_decision_api/pyproject.toml
 
       - name: Install decision-api
         run: pip install -e ".[dev]"
-        working-directory: services/decision-api
+        working-directory: legacy_attic/services/legacy_v1_decision_api
 
       - name: Start Decision API
-        working-directory: services/decision-api
+        working-directory: legacy_attic/services/legacy_v1_decision_api
         env:
           PYTHONPATH: src:../shared
           DATABASE_URL: sqlite+aiosqlite:///
@@ -109,14 +109,14 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: services/decision-api/pyproject.toml
+          cache-dependency-path: legacy_attic/services/legacy_v1_decision_api/pyproject.toml
 
       - name: Install decision-api
         run: pip install -e ".[dev]"
-        working-directory: services/decision-api
+        working-directory: legacy_attic/services/legacy_v1_decision_api
 
       - name: Start Decision API
-        working-directory: services/decision-api
+        working-directory: legacy_attic/services/legacy_v1_decision_api
         env:
           PYTHONPATH: src:../shared
           DATABASE_URL: sqlite+aiosqlite:///

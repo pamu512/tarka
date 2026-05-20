@@ -6,9 +6,9 @@ RUN apt-get update \
 
 WORKDIR /app
 RUN pip install --no-cache-dir pip -U
-COPY services/collaboration-chat-bridge/pyproject.toml /app/
-COPY services/collaboration-chat-bridge/src /app/src
-COPY services/shared /app/shared
+COPY legacy_attic/services/collaboration-chat-bridge/pyproject.toml /app/
+COPY legacy_attic/services/collaboration-chat-bridge/src /app/src
+COPY legacy_attic/services/shared /app/shared
 RUN pip install --no-cache-dir -e .
 ENV PYTHONPATH=/app/src:/app/shared
 CMD ["uvicorn", "collaboration_chat_bridge.main:app", "--host", "0.0.0.0", "--port", "8009"]

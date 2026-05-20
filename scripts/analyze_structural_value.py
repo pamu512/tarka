@@ -35,7 +35,7 @@ def build_import_graph(base_dir: str):
                         if node.module in project_modules:
                             inbound_refs[node.module] += 1
         except (SyntaxError, UnicodeDecodeError):
-            continue 
+            continue
 
     return project_modules, inbound_refs
 

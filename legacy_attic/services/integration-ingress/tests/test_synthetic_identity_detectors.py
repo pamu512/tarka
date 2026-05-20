@@ -30,6 +30,8 @@ def test_payload_has_flagged_users() -> None:
 
 def test_triple_combo_marks_synthetic() -> None:
     payload = _mod.build_synthetic_identity_payload(tenant_id="demo", limit=50, flag_score=95)
-    triple = [u for u in payload["users"] if "synthetic_identity_triple" in u.get("combo_flags", [])]
+    triple = [
+        u for u in payload["users"] if "synthetic_identity_triple" in u.get("combo_flags", [])
+    ]
     assert triple
     assert all(u["is_synthetic_identity"] for u in triple)

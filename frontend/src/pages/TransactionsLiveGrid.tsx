@@ -76,7 +76,7 @@ function applyFeedTextMessage(prev: TransactionRow[], text: string): Transaction
 export default function TransactionsLiveGrid(): ReactElement {
   const [rows, setRows] = useState<TransactionRow[]>([]);
   const [compareIds, setCompareIds] = useState<string[]>([]);
-  const nextCursorRef = useRef<string | null>(null);
+  const nextPageTokenRef = useRef<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -88,7 +88,7 @@ export default function TransactionsLiveGrid(): ReactElement {
 
   useEffect(() => {
     let cancelled = false;
-    nextCursorRef.current = null;
+    nextPageTokenRef.current = null;
     setLoadingInitial(true);
     setError(null);
     setRows([]);
@@ -102,7 +102,7 @@ export default function TransactionsLiveGrid(): ReactElement {
           .map((r) => mapAnalyticsTransactionRow(r))
           .filter((r): r is TransactionRow => r != null);
         setRows(mapped);
-        nextCursorRef.current = res.next_cursor;
+        nextPageTokenRef.current = res.next_cursor;
         setHasMore(Boolean(res.next_cursor));
         setLastQueryMs(res.query_ms);
         setBackend(res.backend);
@@ -128,14 +128,14 @@ export default function TransactionsLiveGrid(): ReactElement {
       setHasMore(false);
       return;
     }
-    const cursor = nextCursorRef.current;
-    if (!cursor) return;
+    const pageToken = nextPageTokenRef.current;
+    if (!pageToken) return;
 
     setLoadingMore(true);
     setError(null);
     try {
-      const res = await fetchAnalyticsTransactionsPage({ limit: PAGE_SIZE, cursor });
-      nextCursorRef.current = res.next_cursor;
+      const res = await fetchAnalyticsTransactionsPage({ limit: PAGE_SIZE, cursor: pageToken });
+      nextPageTokenRef.current = res.next_cursor;
       const mapped = res.rows
         .map((r) => mapAnalyticsTransactionRow(r))
         .filter((r): r is TransactionRow => r != null);

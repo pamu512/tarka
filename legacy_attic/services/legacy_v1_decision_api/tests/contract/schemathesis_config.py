@@ -65,7 +65,11 @@ def derived_max_examples_for_min_total(
     cap: int | None = None,
 ) -> int:
     """Compute ``max_examples`` so ``operations × max_examples >= min_total`` (subject to cap)."""
-    min_t = min_total if min_total is not None else _int_env("SCHEMATHESIS_CONTRACT_MIN_TOTAL", 100)
+    min_t = (
+        min_total
+        if min_total is not None
+        else _int_env("SCHEMATHESIS_CONTRACT_MIN_TOTAL", 100)
+    )
     cap_v = cap if cap is not None else _int_env("SCHEMATHESIS_MAX_EXAMPLES_CAP", 40)
     ops = _openapi_operation_count()
     # ceil(min_total / ops)
@@ -93,7 +97,9 @@ def binary_fuzz_max_examples() -> int:
 
 
 def strict_response_schema_enabled() -> bool:
-    return os.environ.get("SCHEMATHESIS_STRICT_RESPONSE_SCHEMA", "").strip().lower() in (
+    return os.environ.get(
+        "SCHEMATHESIS_STRICT_RESPONSE_SCHEMA", ""
+    ).strip().lower() in (
         "1",
         "true",
         "yes",

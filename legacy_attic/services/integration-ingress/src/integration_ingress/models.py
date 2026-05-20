@@ -70,7 +70,9 @@ class MarketplaceWebhookLog(Base):
     payload_preview: Mapped[str] = mapped_column(Text, default="")
     attempts_json: Mapped[list[dict]] = mapped_column(JSON, default=list)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 

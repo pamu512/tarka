@@ -38,7 +38,9 @@ def _seed_burst_db(db_path: Path) -> None:
             (
                 base + timedelta(minutes=i * 10),
                 f"sess-{i}",
-                json.dumps({"ch": canvas, "px": False, "sid": f"sess-{i}", "metadata": {"acc_id": f"a{i}"}}),
+                json.dumps(
+                    {"ch": canvas, "px": False, "sid": f"sess-{i}", "metadata": {"acc_id": f"a{i}"}}
+                ),
                 i + 1,
             ),
         )

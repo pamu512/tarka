@@ -5,7 +5,12 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-_MOD_PATH = Path(__file__).resolve().parents[1] / "src" / "integration_ingress" / "marketplace_sdk_api_keys.py"
+_MOD_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "src"
+    / "integration_ingress"
+    / "marketplace_sdk_api_keys.py"
+)
 _spec = importlib.util.spec_from_file_location("marketplace_sdk_api_keys", _MOD_PATH)
 assert _spec and _spec.loader
 _mod = importlib.util.module_from_spec(_spec)
