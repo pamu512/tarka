@@ -26,7 +26,7 @@ export default function AuditLogExplorer(): ReactElement {
   const debouncedSearch = useDebouncedValue(searchInput.trim(), 320);
 
   const [items, setItems] = useState<AuditRecentItem[]>([]);
-  const nextCursorRef = useRef<string | null>(null);
+  const nextPageTokenRef = useRef<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -36,7 +36,7 @@ export default function AuditLogExplorer(): ReactElement {
 
   useEffect(() => {
     let cancelled = false;
-    nextCursorRef.current = null;
+    nextPageTokenRef.current = null;
     setLoadingInitial(true);
     setError(null);
     setItems([]);
@@ -51,7 +51,7 @@ export default function AuditLogExplorer(): ReactElement {
         });
         if (cancelled) return;
         setItems(res.items);
-        nextCursorRef.current = res.next_cursor;
+        nextPageTokenRef.current = res.next_cursor;
         setHasMore(Boolean(res.next_cursor));
       } catch (e) {
         if (!cancelled) {
@@ -75,8 +75,8 @@ export default function AuditLogExplorer(): ReactElement {
       setHasMore(false);
       return;
     }
-    const cursor = nextCursorRef.current;
-    if (!cursor) return;
+    const pageToken = nextPageTokenRef.current;
+    if (!pageToken) return;
 
     setLoadingMore(true);
     setError(null);
@@ -84,10 +84,10 @@ export default function AuditLogExplorer(): ReactElement {
       const res = await decisions.auditExplorer({
         tenant_id: tenantId,
         limit: PAGE_SIZE,
-        cursor,
+        cursor: pageToken,
         q: debouncedSearch || undefined,
       });
-      nextCursorRef.current = res.next_cursor;
+      nextPageTokenRef.current = res.next_cursor;
       const projected = items.length + res.items.length;
       setItems((prev) => {
         const merged = [...prev, ...res.items];
@@ -114,7 +114,7 @@ export default function AuditLogExplorer(): ReactElement {
       <div className="shrink-0 border-b border-surface-700 px-6 py-4 space-y-3">
         <PageTitle module="analytics">Audit Log Explorer</PageTitle>
         <p className="text-sm text-gray-500 max-w-4xl leading-relaxed">
-          Cursor-paged decision audit feed with <span className="text-gray-400">windowed virtual scrolling</span> (TanStack
+          Keyset-paged decision audit feed with <span className="text-gray-400">windowed virtual scrolling</span> (TanStack
           Virtual + Table). Only visible rows touch the DOM — suitable when the warehouse holds millions of evaluations.
           Wire <code className="text-gray-400">GET /v1/audit/explorer</code> to ClickHouse / Postgres replicas with keyset
           pagination (avoid large OFFSET).

@@ -83,7 +83,7 @@ jobs:
                   [
                       "git",
                       "grep",
-                      "-nIF",
+                      "-nFI",
                       token,
                       "--",
                       ".",

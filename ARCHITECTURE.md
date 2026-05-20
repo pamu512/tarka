@@ -153,6 +153,6 @@ Shadow agent loads prior rows for `entity_id` before LLM inference, then **adds 
 
 ---
 
-## Mermaid rendering in Cursor
+## Mermaid rendering in the editor
 
-Open this file in the editor and use **Markdown preview** (e.g. “Open Preview” / built-in preview pane). Cursor renders fenced `mermaid` blocks the same way as VS Code Markdown preview.
+Open this file in the editor and use **Markdown preview** (e.g. “Open Preview” / built-in preview pane). VS Code–compatible Markdown preview renders fenced `mermaid` blocks.
