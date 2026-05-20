@@ -2,19 +2,9 @@
 
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 
-_MOD_PATH = (
-    Path(__file__).resolve().parents[1]
-    / "src"
-    / "integration_ingress"
-    / "marketplace_webhook_logs.py"
-)
-_spec = importlib.util.spec_from_file_location("marketplace_webhook_logs", _MOD_PATH)
-assert _spec and _spec.loader
-_mod = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_mod)
+from integration_ingress import marketplace_webhook_logs as _mod
 
 
 def test_preview_truncates() -> None:
@@ -52,3 +42,26 @@ def test_row_to_dict_shape() -> None:
 def test_delivery_failed_constant_is_generic() -> None:
     assert _mod._DELIVERY_FAILED == "delivery failed"
     assert "Exception" not in _mod._DELIVERY_FAILED
+
+
+def test_record_marketplace_block_webhook() -> None:
+    import asyncio
+
+    session = MagicMock()
+    session.commit = AsyncMock()
+    session.refresh = AsyncMock()
+
+    row = asyncio.run(
+        _mod.record_marketplace_block_webhook(
+            session,
+            tenant_id="demo",
+            callback_url="https://example.com/hook",
+            payload={"signal": "block", "entity_id": "e1"},
+            entity_id="e1",
+            trace_id="trace-1",
+        ),
+    )
+    assert row["tenant_id"] == "demo"
+    assert row["signal"] == "block"
+    session.add.assert_called_once()
+    session.commit.assert_awaited_once()
