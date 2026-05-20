@@ -181,7 +181,8 @@ async def _sample_http_get(
                 return [], f"HTTP {resp.status_code}"
             samples.append((time.perf_counter() - t0) * 1000.0)
     except Exception as exc:
-        return [], str(exc)[:120]
+        logger.warning("benchmark http probe failed url=%s", url.strip(), exc_info=exc)
+        return [], "probe failed"
     return samples, None
 
 
