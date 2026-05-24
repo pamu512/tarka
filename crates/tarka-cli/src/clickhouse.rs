@@ -26,7 +26,7 @@ pub const GROUND_TRUTH_LABEL_LOOKUP_CHUNK: usize = 1_000;
 
 /// Keyset cursor for stable ``ORDER BY timestamp_ns, manifest_id`` pagination.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ManifestWindowCursor {
+pub struct ManifestWindowBookmark {
     pub timestamp_ns: u64,
     pub manifest_id: String,
 }
@@ -136,7 +136,7 @@ impl ClickhouseClient {
         tenant_id: &str,
     ) -> Result<Vec<EvidenceManifestRow>, CliError> {
         let mut all = Vec::with_capacity(MANIFEST_BATCH_STREAM_CHUNK.min(MAX_MANIFEST_BATCH_WINDOW_PULL));
-        let mut cursor: Option<ManifestWindowCursor> = None;
+        let mut cursor: Option<ManifestWindowBookmark> = None;
 
         loop {
             let page = self
@@ -162,7 +162,7 @@ impl ClickhouseClient {
                 });
             }
 
-            cursor = page.last().map(ManifestWindowCursor::from_row);
+            cursor = page.last().map(ManifestWindowBookmark::from_row);
             let page_len = page.len();
             all.extend(page);
 
@@ -176,14 +176,14 @@ impl ClickhouseClient {
 
     /// Fetch one keyset page of manifest rows for streaming batch replay.
     ///
-    /// Pass ``cursor`` from the previous page's last row (via [`ManifestWindowCursor::from_row`])
+    /// Pass ``cursor`` from the previous page's last row (via [`ManifestWindowBookmark::from_row`])
     /// until an empty page is returned.
     pub async fn fetch_manifest_rows_window_page(
         &self,
         start_ts: i64,
         end_ts: i64,
         tenant_id: &str,
-        cursor: Option<&ManifestWindowCursor>,
+        cursor: Option<&ManifestWindowBookmark>,
         chunk_limit: usize,
     ) -> Result<Vec<EvidenceManifestRow>, CliError> {
         validate_manifest_window_bounds(start_ts, end_ts, tenant_id)?;
@@ -196,7 +196,7 @@ impl ClickhouseClient {
         let end_u = end_ts as u64;
         let tenant_esc = escape_sql_string(tenant_id.trim());
         let cursor_sql = cursor
-            .map(format_manifest_window_cursor_predicate)
+            .map(format_manifest_window_bookmark_predicate)
             .unwrap_or_default();
 
         let q = format!(
@@ -244,7 +244,7 @@ impl ClickhouseClient {
             chunk_limit
         };
 
-        let mut cursor: Option<ManifestWindowCursor> = None;
+        let mut cursor: Option<ManifestWindowBookmark> = None;
         let mut delivered = 0usize;
 
         loop {
@@ -272,7 +272,7 @@ impl ClickhouseClient {
                 });
             }
 
-            cursor = page.last().map(ManifestWindowCursor::from_row);
+            cursor = page.last().map(ManifestWindowBookmark::from_row);
             delivered += page_len;
             on_chunk(page)?;
 
@@ -408,7 +408,7 @@ pub async fn fetch_manifest_row(
     Ok(row)
 }
 
-impl ManifestWindowCursor {
+impl ManifestWindowBookmark {
     pub fn from_row(row: &EvidenceManifestRow) -> Self {
         Self {
             timestamp_ns: row.timestamp_ns,
@@ -440,7 +440,7 @@ fn validate_manifest_window_bounds(
     Ok(())
 }
 
-fn format_manifest_window_cursor_predicate(cursor: &ManifestWindowCursor) -> String {
+fn format_manifest_window_bookmark_predicate(cursor: &ManifestWindowBookmark) -> String {
     let id_esc = escape_sql_string(cursor.manifest_id.trim());
     format!(
         "AND (timestamp_ns > {ts} OR (timestamp_ns = {ts} AND manifest_id > toUUID('{id_esc}')))",
@@ -676,11 +676,11 @@ mod tests {
 
     #[test]
     fn cursor_predicate_uses_timestamp_and_manifest_id() {
-        let cursor = ManifestWindowCursor {
+        let cursor = ManifestWindowBookmark {
             timestamp_ns: 42,
             manifest_id: "550e8400-e29b-41d4-a716-446655440000".into(),
         };
-        let sql = format_manifest_window_cursor_predicate(&cursor);
+        let sql = format_manifest_window_bookmark_predicate(&cursor);
         assert!(sql.contains("timestamp_ns > 42"));
         assert!(sql.contains("manifest_id > toUUID"));
     }
