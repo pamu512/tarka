@@ -15,7 +15,7 @@ pub mod test_helpers;
 
 pub use clickhouse::{
     collect_transaction_ids_from_signal_maps, parse_ground_truth_class,
-    transaction_id_from_signal_map, ClickhouseClient, ManifestWindowCursor, NormalizedLabelRow,
+    transaction_id_from_signal_map, ClickhouseClient, ManifestWindowBookmark, NormalizedLabelRow,
     MANIFEST_BATCH_STREAM_CHUNK,
 };
 pub use error::CliError;
