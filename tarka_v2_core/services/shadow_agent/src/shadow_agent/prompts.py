@@ -168,7 +168,9 @@ def _graph_context_block(graph_context: dict[str, Any], *, room: int) -> str:
     if room <= 0 or not graph_context:
         return ""
     body = _GRAPH_TOPOLOGY_INSTRUCTIONS
-    if graph_context.get("two_hop_network") is not None or graph_context.get("duck_spend_velocity_30d"):
+    if graph_context.get("two_hop_network") is not None or graph_context.get(
+        "duck_spend_velocity_30d"
+    ):
         body = body + _CLUSTER_ANALYSIS_INSTRUCTIONS
     if graph_context.get("friendly_fraud_signals") is not None:
         body = body + _FRIENDLY_FRAUD_INSTRUCTIONS
@@ -208,9 +210,7 @@ class FraudAnalystPrompt:
         core = _core_prompt(tx)
         graph_room = PROMPT_CHAR_BUDGET - len(core) - 120
         graph_block = (
-            _graph_context_block(graph_context, room=max(0, graph_room))
-            if graph_context
-            else ""
+            _graph_context_block(graph_context, room=max(0, graph_room)) if graph_context else ""
         )
         merged = core + graph_block
         if history_records is None:

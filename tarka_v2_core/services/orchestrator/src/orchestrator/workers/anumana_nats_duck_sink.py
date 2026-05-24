@@ -75,7 +75,9 @@ async def run_worker() -> None:
     redis_url = (
         os.environ.get("ANUMANA_TELEMETRY_REDIS_URL") or os.environ.get("ANUMANA_REDIS_URL") or ""
     ).strip()
-    redis_key = (os.environ.get("ANUMANA_TELEMETRY_REDIS_KEY") or "anumana:browser_telemetry").strip()
+    redis_key = (
+        os.environ.get("ANUMANA_TELEMETRY_REDIS_KEY") or "anumana:browser_telemetry"
+    ).strip()
     batch_max = max(1, min(int(os.environ.get("ANUMANA_SINK_BATCH_MAX", "500")), 50_000))
     idle_sec = max(0.5, float(os.environ.get("ANUMANA_SINK_IDLE_POLL_SECONDS", "10")))
     nats_url = (os.environ.get("NATS_URL") or "").strip()
@@ -191,7 +193,9 @@ def main(argv: list[str] | None = None) -> None:
         format="%(levelname)s %(name)s %(message)s",
         stream=sys.stderr,
     )
-    parser = argparse.ArgumentParser(description="Redis → analytics plane sink with optional NATS triggers.")
+    parser = argparse.ArgumentParser(
+        description="Redis → analytics plane sink with optional NATS triggers."
+    )
     parser.parse_args(argv)
     try:
         asyncio.run(run_worker())

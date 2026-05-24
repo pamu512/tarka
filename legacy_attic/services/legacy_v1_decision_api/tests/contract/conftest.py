@@ -24,5 +24,3 @@ def httpx_client(decision_app):
         headers={"X-API-Key": CONTRACT_API_KEY},
     ) as client:
         yield client
-
-

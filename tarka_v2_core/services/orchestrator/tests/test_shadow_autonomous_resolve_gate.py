@@ -114,11 +114,13 @@ def test_mock_ai_high_confidence_autoresolves_to_resolved_auto() -> None:
         assert row.status == CaseStatus.RESOLVED_AUTO.value
 
     with TestClient(app):
-        asyncio.run(_seed())
         transport = httpx.ASGITransport(app=app)
-        asyncio.run(
-            _run_with_client(transport, _call_hook),
-        )
+
+        async def _flow() -> None:
+            await _seed()
+            await _run_with_client(transport, _call_hook)
+
+        asyncio.run(_flow())
 
 
 def test_autoresolve_skipped_when_confidence_at_threshold() -> None:
@@ -129,7 +131,10 @@ def test_autoresolve_skipped_when_confidence_at_threshold() -> None:
 
     from orchestrator.main import create_app  # noqa: E402
     from orchestrator.models.cases import CaseORM, CaseStatus  # noqa: E402
-    from shadow.hooks.resolve_case import CONFIDENCE_THRESHOLD, maybe_autoresolve_lifecycle_case  # noqa: E402
+    from shadow.hooks.resolve_case import (
+        CONFIDENCE_THRESHOLD,
+        maybe_autoresolve_lifecycle_case,
+    )  # noqa: E402
     from tarka_shared.audit_trail import AuditLog, Case  # noqa: E402
     from tarka_shared.case_status import DEFAULT_CASE_STATUS  # noqa: E402
     from tarka_shared.data.tenant_constants import DEFAULT_TENANT_ID  # noqa: E402
@@ -196,6 +201,10 @@ def test_autoresolve_skipped_when_confidence_at_threshold() -> None:
         assert row.status == CaseStatus.OPEN.value
 
     with TestClient(app):
-        asyncio.run(_seed())
         transport = httpx.ASGITransport(app=app)
-        asyncio.run(_run_with_client(transport, _call_hook))
+
+        async def _flow() -> None:
+            await _seed()
+            await _run_with_client(transport, _call_hook)
+
+        asyncio.run(_flow())

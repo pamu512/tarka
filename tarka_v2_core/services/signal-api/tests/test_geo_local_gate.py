@@ -86,16 +86,16 @@ def test_real_mmdb_optional_under_1ms_after_warmup(
     if not path:
         pytest.skip(f"Set {mmdb_env} to a GeoLite2-City.mmdb for optional live MMDB gate")
 
-    from pathlib import Path as P
+    from pathlib import Path
 
-    if not P(path).is_file():
+    if not Path(path).is_file():
         pytest.skip(f"MMDB not found at {path}")
 
     monkeypatch.delenv("SIGNAL_GEOIP_MMDB", raising=False)
     monkeypatch.delenv("GEOIP_MMDB_PATH", raising=False)
     monkeypatch.setenv(mmdb_env, path)
 
-    p = LocalGeoIpProvider.from_path(P(path))
+    p = LocalGeoIpProvider.from_path(Path(path))
     if not isinstance(p, LocalGeoIpProvider):
         pytest.skip("geoip2 or MMDB load failed")
 

@@ -37,7 +37,11 @@ class DemoAIGateway(AIGateway):
 
     @classmethod
     def from_environment(cls) -> DemoAIGateway:
-        raw = (os.environ.get("AI_GATEWAY_OLLAMA_URL") or os.environ.get("OLLAMA_HOST") or _DEFAULT_OLLAMA).strip()
+        raw = (
+            os.environ.get("AI_GATEWAY_OLLAMA_URL")
+            or os.environ.get("OLLAMA_HOST")
+            or _DEFAULT_OLLAMA
+        ).strip()
         base = raw.rstrip("/") or _DEFAULT_OLLAMA
         mc = int((os.environ.get("AI_GATEWAY_MAX_CONCURRENT") or "32").strip() or "32")
         return cls(base_url=base, max_concurrent=mc)

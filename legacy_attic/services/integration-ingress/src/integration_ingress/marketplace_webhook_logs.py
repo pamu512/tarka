@@ -18,6 +18,8 @@ WebhookDeliveryStatus = Literal["pending", "delivered", "failed", "dlq"]
 
 SIGNAL_BLOCK = "block"
 
+_DELIVERY_FAILED = "delivery failed"
+
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
@@ -160,9 +162,20 @@ async def deliver_marketplace_block_webhook(
             row.last_error = f"HTTP {r.status_code}"
     except Exception as exc:
         latency = (datetime.now(UTC) - t0).total_seconds() * 1000.0
-        await _append_attempt(row, status_code=None, error=str(exc)[:500], latency_ms=latency)
+        logger.warning(
+            "marketplace webhook delivery failed log_id=%s callback=%s",
+            log_id,
+            row.callback_url,
+            exc_info=exc,
+        )
+        await _append_attempt(
+            row,
+            status_code=None,
+            error=_DELIVERY_FAILED,
+            latency_ms=latency,
+        )
         row.status = "failed"
-        row.last_error = str(exc)[:500]
+        row.last_error = _DELIVERY_FAILED
     await session.commit()
     await session.refresh(row)
     return _row_to_dict(row, include_attempts=True)
@@ -194,7 +207,9 @@ async def list_marketplace_webhook_logs(
     return [_row_to_dict(r) for r in rows]
 
 
-async def get_marketplace_webhook_log(session: AsyncSession, *, log_id: str) -> dict[str, Any] | None:
+async def get_marketplace_webhook_log(
+    session: AsyncSession, *, log_id: str
+) -> dict[str, Any] | None:
     from integration_ingress.models import MarketplaceWebhookLog
 
     try:

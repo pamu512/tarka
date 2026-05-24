@@ -146,9 +146,7 @@ def generate_hypothesis_narrative_fallback(report: dict[str, Any]) -> str:
     elif "android" in fp_lower:
         sentence_one = "A potential botnet is using a spoofed Android device fingerprint."
     else:
-        sentence_one = (
-            "A potential botnet is using a shared spoofed device canvas fingerprint."
-        )
+        sentence_one = "A potential botnet is using a shared spoofed device canvas fingerprint."
 
     account_word = "account" if count == 1 else "accounts"
     sentence_two = f"{count} {account_word} created in {hours_label}."

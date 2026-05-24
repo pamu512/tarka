@@ -106,7 +106,9 @@ async def emit_observation_promotion_feedback(
 
         lb_raw = os.environ.get("PROMOTION_FEEDBACK_LOOKBACK_DAYS", "7").strip()
         lb = lookback_days if lookback_days is not None else int(lb_raw or "7")
-        duck = duckdb_path or (os.environ.get("SIGNAL_DUCKDB_PATH") or os.environ.get("SHADOW_SCOUT_DUCKDB_PATH"))
+        duck = duckdb_path or (
+            os.environ.get("SIGNAL_DUCKDB_PATH") or os.environ.get("SHADOW_SCOUT_DUCKDB_PATH")
+        )
         entity_ids = collect_matched_entity_ids_for_rule(
             rule,
             duckdb_path=duck,

@@ -327,9 +327,7 @@ def _persist_trusted_places_for_entity(
     """Write sanitized trusted-place geometry only (no credentials or API material)."""
     data = _load_trusted_places()
     sanitized_places = [
-        clean
-        for p in body.places
-        if isinstance(p, dict) and (clean := _sanitize_place_entry(dict(p)))
+        clean for p in places if isinstance(p, dict) and (clean := _sanitize_place_entry(dict(p)))
     ]
     data[_trusted_key(tenant_id, entity_id)] = sanitized_places
     data.pop(_trusted_key_legacy(tenant_id, entity_id), None)

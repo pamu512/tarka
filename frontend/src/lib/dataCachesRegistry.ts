@@ -1,9 +1,9 @@
-import type { ApolloClient, NormalizedCacheObject } from "@apollo/client";
+import type { ApolloClient } from "@apollo/client";
 import type { QueryClient } from "@tanstack/react-query";
 
 export interface RegisteredDataCaches {
   readonly queryClient: QueryClient;
-  readonly apolloClient: ApolloClient<NormalizedCacheObject>;
+  readonly apolloClient: ApolloClient;
 }
 
 let registered: RegisteredDataCaches | null = null;

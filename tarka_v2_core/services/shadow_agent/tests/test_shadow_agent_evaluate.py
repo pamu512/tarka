@@ -251,9 +251,7 @@ def test_evaluate_find_linked_entities_log_precedes_llm_complete(
         _tx: TransactionSchema,
         _driver: object,
     ) -> str:
-        return (
-            f"find_linked_entities({entity_id}): Shared IP history (ORDERED_FROM_IP) probe OK."
-        )
+        return f"find_linked_entities({entity_id}): Shared IP history (ORDERED_FROM_IP) probe OK."
 
     class _FakeNeo4jDriver:
         async def close(self) -> None:
@@ -325,7 +323,9 @@ def test_evaluate_check_review_integrity_surfaces_hardware_overlap_in_prompt(
             "listing_id": listing_id,
             "reviewer_count": 5,
             "reviewer_ids": ["u1", "u2", "u3", "u4", "u5"],
-            "shared_devices": [{"device_id": "hw-shared", "reviewer_user_ids": ["u1", "u2", "u3", "u4"]}],
+            "shared_devices": [
+                {"device_id": "hw-shared", "reviewer_user_ids": ["u1", "u2", "u3", "u4"]}
+            ],
             "shared_ips": [],
             "reviewers_sharing_device_or_ip_count": 4,
             "signup_analysis": {"all_reviewers_same_10min_window": True},

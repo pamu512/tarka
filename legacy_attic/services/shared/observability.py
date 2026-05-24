@@ -73,7 +73,9 @@ class _PassthroughRustJsonFormatter(logging.Formatter):
 
 
 def setup_logging(service_name: str, level: str = "") -> None:
-    log_level = getattr(logging, (level or os.environ.get("LOG_LEVEL", "INFO")).upper(), logging.INFO)
+    log_level = getattr(
+        logging, (level or os.environ.get("LOG_LEVEL", "INFO")).upper(), logging.INFO
+    )
 
     shared_pre = [
         structlog.stdlib.filter_by_level,
@@ -216,9 +218,7 @@ def setup_sentry_sdk(service_name: str) -> None:
         try:
             _enrich_event_with_trace_context(event)
         except Exception:
-            logging.getLogger(__name__).debug(
-                "sentry_before_send_context_failed", exc_info=True
-            )
+            logging.getLogger(__name__).debug("sentry_before_send_context_failed", exc_info=True)
         return event
 
     def _before_send_transaction(
@@ -246,9 +246,7 @@ def setup_sentry_sdk(service_name: str) -> None:
             before_send_transaction=_before_send_transaction,
         )
     except Exception as exc:
-        logging.getLogger(__name__).warning(
-            "sentry_sdk init failed: %s", exc, exc_info=True
-        )
+        logging.getLogger(__name__).warning("sentry_sdk init failed: %s", exc, exc_info=True)
         return
     _SENTRY_INITIALIZED = True
     logging.getLogger(__name__).info(
@@ -276,9 +274,7 @@ def _bind_sentry_http_scope(trace_id: str, otel_trace_id: str) -> None:
                 {"otel_trace_id": otel_trace_id},
             )
     except Exception:
-        logging.getLogger(__name__).debug(
-            "sentry_scope_bind_failed", exc_info=True
-        )
+        logging.getLogger(__name__).debug("sentry_scope_bind_failed", exc_info=True)
 
 
 # ---- Prometheus metrics (lightweight, no external deps) ----
@@ -400,9 +396,7 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
         trace_id = hdr_tid if hdr_tid else uuid.uuid4().hex[:16]
 
         rule_set_hash = (
-            request.headers.get("x-rule-set-hash")
-            or request.headers.get("X-Rule-Set-Hash")
-            or ""
+            request.headers.get("x-rule-set-hash") or request.headers.get("X-Rule-Set-Hash") or ""
         ).strip()
 
         tenant_query = (request.query_params.get("tenant_id") or "").strip()
@@ -411,21 +405,19 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
         ).strip()
         tenant_id = tenant_query or tenant_hdr
 
-        otel_trace_id = _parse_w3c_trace_id_from_traceparent(
-            request.headers.get("traceparent")
-        )
+        otel_trace_id = _parse_w3c_trace_id_from_traceparent(request.headers.get("traceparent"))
         if not otel_trace_id:
             raw_otel = (
                 request.headers.get("x-otel-trace-id")
                 or request.headers.get("X-Otel-Trace-Id")
                 or ""
             ).strip()
-            if len(raw_otel) == 32 and all(
-                c in "0123456789abcdefABCDEF" for c in raw_otel
-            ):
+            if len(raw_otel) == 32 and all(c in "0123456789abcdefABCDEF" for c in raw_otel):
                 otel_trace_id = raw_otel.lower()
-        if not otel_trace_id and len(hdr_tid) == 32 and all(
-            c in "0123456789abcdefABCDEF" for c in hdr_tid
+        if (
+            not otel_trace_id
+            and len(hdr_tid) == 32
+            and all(c in "0123456789abcdefABCDEF" for c in hdr_tid)
         ):
             otel_trace_id = hdr_tid.lower()
 

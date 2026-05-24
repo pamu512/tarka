@@ -6,7 +6,12 @@ import importlib.util
 import sys
 from pathlib import Path
 
-_MOD_PATH = Path(__file__).resolve().parents[1] / "src" / "integration_ingress" / "social_engineering_monitor.py"
+_MOD_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "src"
+    / "integration_ingress"
+    / "social_engineering_monitor.py"
+)
 _spec = importlib.util.spec_from_file_location("social_engineering_monitor", _MOD_PATH)
 assert _spec and _spec.loader
 _mod = importlib.util.module_from_spec(_spec)
@@ -22,7 +27,10 @@ def test_flags_credential_burst_after_high_value_listing() -> None:
     assert "social_engineering_credential_burst" in row["signals"]
     assert row["minutes_listing_to_email_change"] is not None
     assert row["minutes_listing_to_password_change"] is not None
-    assert row["minutes_listing_to_email_change"] <= payload["config"]["credential_change_window_minutes"]
+    assert (
+        row["minutes_listing_to_email_change"]
+        <= payload["config"]["credential_change_window_minutes"]
+    )
 
 
 def test_low_value_listing_not_flagged() -> None:

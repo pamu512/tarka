@@ -844,7 +844,10 @@ async def ops_failover_toggles_get(request: Request):
 @app.put("/v1/ops/failover-toggles")
 async def ops_failover_toggles_put(request: Request):
     """Persist analyst failover toggles (Redis when configured)."""
-    from integration_ingress.failover_toggles import apply_failover_toggles, build_failover_toggles_payload
+    from integration_ingress.failover_toggles import (
+        apply_failover_toggles,
+        build_failover_toggles_payload,
+    )
 
     body = await request.json()
     if not isinstance(body, dict):
@@ -908,7 +911,12 @@ async def marketplace_sdk_api_keys_create(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"ok": True, "key": row, "secret": secret, "warning": "Copy the secret now — it will not be shown again."}
+    return {
+        "ok": True,
+        "key": row,
+        "secret": secret,
+        "warning": "Copy the secret now — it will not be shown again.",
+    }
 
 
 @app.post("/v1/marketplace/sdk-api-keys/{key_id}/revoke")
@@ -1026,7 +1034,12 @@ async def compliance_pii_field_reveal_audit_list(
 
     items = await list_pii_field_reveal_audit(session, tenant_id=tenant_id, limit=limit)
     reveals = sum(1 for i in items if i.get("action") == "reveal")
-    return {"tenant_id": tenant_id, "items": items, "count": len(items), "summary": {"reveals": reveals}}
+    return {
+        "tenant_id": tenant_id,
+        "items": items,
+        "count": len(items),
+        "summary": {"reveals": reveals},
+    }
 
 
 @app.get("/v1/investigation/mule-path")
@@ -1335,7 +1348,11 @@ async def marketplace_webhook_logs_list(
         "tenant_id": tenant_id,
         "items": items,
         "count": len(items),
-        "summary": {"delivered": delivered, "failed": failed, "pending": len(items) - delivered - failed},
+        "summary": {
+            "delivered": delivered,
+            "failed": failed,
+            "pending": len(items) - delivered - failed,
+        },
     }
 
 
@@ -1412,7 +1429,9 @@ async def marketplace_webhook_logs_dispatch(
 @app.get("/v1/ops/automated-backup-indicators")
 async def ops_automated_backup_indicators(request: Request):
     """Last successful Postgres / JanusGraph snapshot times for ops dashboards."""
-    from integration_ingress.automated_backup_indicators import build_automated_backup_indicators_payload
+    from integration_ingress.automated_backup_indicators import (
+        build_automated_backup_indicators_payload,
+    )
     from integration_ingress.config import settings
 
     redis_client = getattr(request.app.state, "redis_client", None)
@@ -1456,9 +1475,10 @@ async def ops_system_health_hud(request: Request):
     http: httpx.AsyncClient = request.app.state.http
     redis_client = getattr(request.app.state, "redis_client", None)
     ollama = (
-        (os.environ.get("OLLAMA_BASE_URL") or os.environ.get("SHADOW_OLLAMA_BASE_URL") or settings.ollama_base_url)
-        .strip()
-    )
+        os.environ.get("OLLAMA_BASE_URL")
+        or os.environ.get("SHADOW_OLLAMA_BASE_URL")
+        or settings.ollama_base_url
+    ).strip()
     return await build_system_health_hud_payload(
         http=http,
         redis_client=redis_client,
@@ -1925,6 +1945,7 @@ async def integration_scorecards(tenant_id: str, session: AsyncSession = Depends
         if providers
         else 0.0
     )
+    degraded = [p for p in providers if p["status"] in ("degraded", "down")]
     return {
         "tenant_id": tenant_id,
         "connector_quality_version": CONNECTOR_QUALITY_VERSION,

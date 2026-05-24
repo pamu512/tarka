@@ -46,7 +46,9 @@ def test_gate_195_fallback_50_accounts_2_hours() -> None:
     assert "botnet" in text.lower()
 
 
-def test_generate_hypothesis_narrative_uses_fallback_without_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_generate_hypothesis_narrative_uses_fallback_without_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     scout = {"hypothesis_reports": [_sample_report()]}
     out = generate_hypothesis_narrative(scout, prefer_gemini=True)
@@ -62,7 +64,4 @@ def test_narrative_input_window_hours() -> None:
 
 
 def test_normalize_rejects_three_sentences() -> None:
-    assert (
-        normalize_two_sentence_narrative("One. Two. Three.")
-        is None
-    )
+    assert normalize_two_sentence_narrative("One. Two. Three.") is None

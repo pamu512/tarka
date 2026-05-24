@@ -27,7 +27,7 @@ services:
   graph-service:
     build:
       context: ..
-      dockerfile: services/graph-service/Dockerfile
+      dockerfile: legacy_attic/services/graph-service/Dockerfile
     environment:
       GRAPH_BACKEND: janusgraph
       JANUSGRAPH_GREMLIN_URL: ws://janusgraph:8182/gremlin
@@ -39,14 +39,14 @@ services:
   ml-scoring:
     build:
       context: ..
-      dockerfile: services/ml-scoring/Dockerfile
+      dockerfile: legacy_attic/services/ml-scoring/Dockerfile
     ports:
       - "18005:8005"
 
   decision-api:
     build:
       context: ..
-      dockerfile: services/decision-api/Dockerfile
+      dockerfile: legacy_attic/services/legacy_v1_decision_api/Dockerfile
     environment:
       DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
       REDIS_URL: redis://redis:6379/0
@@ -65,7 +65,7 @@ services:
   data-platform:
     build:
       context: ..
-      dockerfile: services/data-platform/Dockerfile
+      dockerfile: legacy_attic/services/data-platform/Dockerfile
     environment:
       DATABASE_URL: postgresql://fraud:fraud@postgres:5432/fraud
       REDIS_URL: redis://redis:6379/0

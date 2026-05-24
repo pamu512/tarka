@@ -228,11 +228,7 @@ async def run_mirror_worker(*, stop: asyncio.Event | None = None) -> None:
                 rows = rows_from_validated(batch)
                 msgs_only = [pair[0] for pair in batch]
                 try:
-
-                    def _write() -> int:
-                        return flush_batch_to_duckdb(con, rows)
-
-                    await asyncio.to_thread(_write)
+                    await asyncio.to_thread(flush_batch_to_duckdb, con, rows)
                     await _ack_all(msgs_only)
                     logger.info("duck_mirror_flush rows=%s", len(rows))
                 except Exception:

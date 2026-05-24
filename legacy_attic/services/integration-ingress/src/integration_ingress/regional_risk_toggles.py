@@ -157,7 +157,9 @@ def build_sub_region_row(
         "blacklisted": bool(toggle.get("blacklisted")),
         "updated_at": toggle.get("updated_at"),
         "updated_by": toggle.get("updated_by"),
-        "policy_effect": "block_new_onboarding_and_payouts" if toggle.get("blacklisted") else "monitor_only",
+        "policy_effect": "block_new_onboarding_and_payouts"
+        if toggle.get("blacklisted")
+        else "monitor_only",
     }
 
 
@@ -165,7 +167,9 @@ def build_regional_risk_payload(*, tenant_id: str) -> dict[str, Any]:
     tid = (tenant_id or "demo").strip() or "demo"
     rows = []
     for base in _catalog():
-        toggle = _get_toggle(tid, base["sub_region_id"], default_score=int(base["attack_wave_score"]))
+        toggle = _get_toggle(
+            tid, base["sub_region_id"], default_score=int(base["attack_wave_score"])
+        )
         rows.append(build_sub_region_row(tid, base, toggle))
 
     rows_sorted = sorted(

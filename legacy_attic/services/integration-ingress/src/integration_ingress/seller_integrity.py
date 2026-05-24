@@ -118,15 +118,21 @@ def build_seller_integrity_payload(
     sellers_sorted = sorted(sellers, key=lambda s: (int(s["integrity_score"]), str(s["seller_id"])))
 
     at_risk = [s for s in sellers if s["integrity_tier"] in ("warning", "critical")]
-    ratios = [float(s["review_to_delivery_ratio"]) for s in sellers if int(s["successful_deliveries"]) > 0]
+    ratios = [
+        float(s["review_to_delivery_ratio"]) for s in sellers if int(s["successful_deliveries"]) > 0
+    ]
     median_ratio = sorted(ratios)[len(ratios) // 2] if ratios else 0.0
 
     platform_signals: list[str] = []
     critical = sum(1 for s in sellers if s["integrity_tier"] == "critical")
     if critical >= 3:
-        platform_signals.append(f"{critical} sellers with reviews exceeding or near delivery volume")
+        platform_signals.append(
+            f"{critical} sellers with reviews exceeding or near delivery volume"
+        )
     if median_ratio > WARN_RATIO_ABOVE:
-        platform_signals.append(f"Median review/delivery ratio {median_ratio:.2f} above warn threshold")
+        platform_signals.append(
+            f"Median review/delivery ratio {median_ratio:.2f} above warn threshold"
+        )
 
     return {
         "tenant_id": tid,

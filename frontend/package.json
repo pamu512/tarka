@@ -41,6 +41,7 @@
     "react-map-gl": "^8.1.1",
     "react-router-dom": "^7.15.1",
     "recharts": "^3.8.1",
+    "rxjs": "^7.8.2",
     "tailwind-merge": "^3.6.0",
     "vis-data": "^8.0.4",
     "vis-network": "^10.1.0",
@@ -52,6 +53,7 @@
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "4.60.4",
     "@rolldown/binding-linux-x64-gnu": "1.0.2",
+    "@tailwindcss/oxide-linux-x64-gnu": "4.2.2",
     "lightningcss-linux-x64-gnu": "1.32.0"
   },
   "devDependencies": {

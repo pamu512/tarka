@@ -7,7 +7,10 @@ import sys
 from pathlib import Path
 
 _MOD_PATH = (
-    Path(__file__).resolve().parents[1] / "src" / "integration_ingress" / "marketplace_rate_limit_shields.py"
+    Path(__file__).resolve().parents[1]
+    / "src"
+    / "integration_ingress"
+    / "marketplace_rate_limit_shields.py"
 )
 _spec = importlib.util.spec_from_file_location("marketplace_rate_limit_shields", _MOD_PATH)
 assert _spec and _spec.loader

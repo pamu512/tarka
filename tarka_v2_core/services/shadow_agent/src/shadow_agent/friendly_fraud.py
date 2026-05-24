@@ -142,7 +142,9 @@ def _scan_delivery_confirmations(
     for root in _iter_json_blobs(action_taken, code_executed, agent_notes):
         _collect_delivery_pairs(root, pairs)
 
-    dispute_utc = dispute_ts.astimezone(UTC) if dispute_ts.tzinfo else dispute_ts.replace(tzinfo=UTC)
+    dispute_utc = (
+        dispute_ts.astimezone(UTC) if dispute_ts.tzinfo else dispute_ts.replace(tzinfo=UTC)
+    )
     aligned = False
     hash_seen = False
     for h, pod_ts in pairs:
@@ -232,8 +234,12 @@ async def count_prior_successful_orders_same_ip(
     ip_e = _ip_expr(bind)
     outcome_e = _outcome_expr(bind)
     fraud_e = _fraud_expr(bind)
-    before = before_timestamp.astimezone(UTC) if before_timestamp.tzinfo else before_timestamp.replace(
-        tzinfo=UTC,
+    before = (
+        before_timestamp.astimezone(UTC)
+        if before_timestamp.tzinfo
+        else before_timestamp.replace(
+            tzinfo=UTC,
+        )
     )
 
     fulfilled = or_(*[outcome_e == v for v in sorted(_FULFILLED_OUTCOMES)])
@@ -245,15 +251,19 @@ async def count_prior_successful_orders_same_ip(
         cast(fraud_e, String) == "",
     )
 
-    stmt = select(func.count()).select_from(AuditLog).where(
-        amount_e.is_not(None),
-        ip_e == ip,
-        AuditLog.timestamp < before,
-        outcome_e.is_not(None),
-        outcome_e != "",
-        outcome_e != "null",
-        fulfilled,
-        not_fraud,
+    stmt = (
+        select(func.count())
+        .select_from(AuditLog)
+        .where(
+            amount_e.is_not(None),
+            ip_e == ip,
+            AuditLog.timestamp < before,
+            outcome_e.is_not(None),
+            outcome_e != "",
+            outcome_e != "null",
+            fulfilled,
+            not_fraud,
+        )
     )
     if exclude_case_id:
         stmt = stmt.where(AuditLog.case_id != exclude_case_id)

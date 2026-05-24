@@ -139,7 +139,7 @@ def test_shadow_retro_tag_handler_queries_clickhouse_and_persists_label() -> Non
                 await OutboxDAO.create_task(
                     session,
                     OUTBOX_EVENT_SHADOW_RETRO_TAG,
-                    f"shadow_tag_ops:cb:shadow-retro:4853",
+                    "shadow_tag_ops:cb:shadow-retro:4853",
                     {
                         "entity_id": entity_id,
                         "signal_id": str(signal_id),

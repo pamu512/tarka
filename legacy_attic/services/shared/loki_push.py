@@ -34,9 +34,7 @@ _SHUTDOWN = object()
 
 
 def _loki_push_url() -> str:
-    return (
-        (os.environ.get("TARKA_LOKI_PUSH_URL") or os.environ.get("LOKI_PUSH_URL") or "").strip()
-    )
+    return (os.environ.get("TARKA_LOKI_PUSH_URL") or os.environ.get("LOKI_PUSH_URL") or "").strip()
 
 
 def _env_float(name: str, default: float) -> float:
@@ -150,9 +148,7 @@ def _post_with_retries(url: str, body: bytes) -> None:
         jitter = random.uniform(0, sleep_s * 0.25)
         time.sleep(sleep_s + jitter)
 
-    sys.stderr.write(
-        f"[loki_push] exhausted retries posting to Loki url={url!r}: {last_err!r}\n"
-    )
+    sys.stderr.write(f"[loki_push] exhausted retries posting to Loki url={url!r}: {last_err!r}\n")
 
 
 def _worker_loop(
@@ -174,9 +170,7 @@ def _worker_loop(
         if isinstance(item, str):
             pending.append(item)
 
-        should_flush = bool(pending) and (
-            len(pending) >= batch_max or (item is None and pending)
-        )
+        should_flush = bool(pending) and (len(pending) >= batch_max or (item is None and pending))
         if should_flush:
             body = json.dumps(_build_push_body(service_name, pending)).encode("utf-8")
             _post_with_retries(url, body)
