@@ -1,11 +1,12 @@
-"""Gate: POST /v1/ai/feedback appends a JSON line to the configured JSONL sink."""
+"""Gate: legacy ``POST /v1/ai/feedback`` bridges to operational-signals (JSONL sink removed)."""
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
+from unittest.mock import AsyncMock
 
+import pytest
 from starlette.testclient import TestClient
 
 _SRC_ORCH = Path(__file__).resolve().parents[1] / "src"
@@ -17,14 +18,21 @@ for _p in (_SRC_ORCH, _SRC_INGESTOR):
 from orchestrator.main import create_app  # noqa: E402
 
 
-def test_post_ai_feedback_updates_jsonl(tmp_path: Path) -> None:
-    jsonl = tmp_path / "rejections.jsonl"
+def test_post_ai_feedback_bridges_to_operational_signals(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ORCHESTRATOR_V1_RATE_LIMIT_RPM", "0")
+    import orchestrator.models.operational_signals  # noqa: F401, PLC0415
+
+    redis = AsyncMock()
+    redis.set = AsyncMock(return_value=True)
+    redis.delete = AsyncMock(return_value=1)
+    redis.ping = AsyncMock(return_value=True)
+
     app = create_app(
         rule_engine_url="http://rules.test",
         shadow_agent_url=None,
-        ai_feedback_jsonl=str(jsonl),
+        audit_database_url="sqlite+aiosqlite:///:memory:",
+        anumana_redis_client=redis,
     )
-    assert not jsonl.exists()
     payload = {
         "rejection_reasons": ["Hallucinated merchant name", "Contradicts ledger"],
         "tenant_id": "demo",
@@ -34,31 +42,19 @@ def test_post_ai_feedback_updates_jsonl(tmp_path: Path) -> None:
     }
     with TestClient(app) as client:
         r = client.post("/v1/ai/feedback", json=payload)
-    assert r.status_code == 200, r.text
+    assert r.status_code == 202, r.text
     body = r.json()
     assert body["ok"] is True
-    assert body["jsonl_path"] == str(jsonl.resolve())
-    assert body["feedback_id"]
-
-    lines = jsonl.read_text(encoding="utf-8").strip().splitlines()
-    assert len(lines) == 1
-    row = json.loads(lines[0])
-    assert row["schema"] == "tarka.ai_feedback.v1"
-    assert row["feedback_id"] == body["feedback_id"]
-    assert row["rejection_reasons"] == payload["rejection_reasons"]
-    assert row["tenant_id"] == "demo"
-    assert row["trace_id"] == "tr-gate-001"
-    assert row["source"] == "pytest"
+    assert body["deprecated"] is True
+    assert body["event_id"] == body["feedback_id"]
+    assert r.headers.get("Deprecation") == "true"
 
 
-def test_post_ai_feedback_requires_at_least_one_reason(tmp_path: Path) -> None:
-    jsonl = tmp_path / "empty.jsonl"
+def test_post_ai_feedback_requires_at_least_one_reason() -> None:
     app = create_app(
         rule_engine_url="http://rules.test",
         shadow_agent_url=None,
-        ai_feedback_jsonl=str(jsonl),
     )
     with TestClient(app) as client:
         r = client.post("/v1/ai/feedback", json={"rejection_reasons": []})
     assert r.status_code == 422
-    assert not jsonl.exists()

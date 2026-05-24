@@ -25,6 +25,7 @@ dependencies = [
 janus = ["gremlinpython>=3.7.0"]
 worker = ["nats-py>=2.7.0"]
 cloud = ["clickhouse-connect>=0.7.0"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.24.0"]
 
 [build-system]
 requires = ["setuptools>=69", "wheel"]
@@ -38,3 +39,5 @@ orchestrator = ["analytics/data/*.parquet"]
 
 [tool.pytest.ini_options]
 pythonpath = [".", "src", "../ingestor/src", "../shared", "../rule_engine/src", "../../.."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

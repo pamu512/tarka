@@ -14,6 +14,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from orchestrator.analytics import business_context as biz_ctx
 from orchestrator.graph.client import GraphClient
 from orchestrator.models.cases import CaseORM, CaseStatus
 
@@ -129,6 +130,8 @@ async def resolve_knowledge_row(
     graph_client: GraphClient,
     session: AsyncSession | None,
     analytics: AnalyticsProvider | None = None,
+    *,
+    include_business_context: bool = False,
 ) -> dict[str, Any]:
     raw, two_hop = await asyncio.gather(
         graph_client.knowledge_linked_users(detected_id),
@@ -156,17 +159,14 @@ async def resolve_knowledge_row(
     )
 
     duck_cluster: dict[str, Any] = {}
-    if analytics is not None and bool(two_hop.get("found")):
-        try:
-            duck_cluster = await asyncio.to_thread(
-                analytics.cluster_spend_velocity_for_network,
-                transaction_entity_ids=list(two_hop.get("network_transaction_ids") or ()),
-                network_user_ids=list(two_hop.get("network_user_ids") or ()),
-                days=30,
-            )
-        except Exception:
-            logger.exception("knowledge_drop_duck_cluster_failed detected_id=%s", detected_id)
-            duck_cluster = {"error": "duck_cluster_failed"}
+    if analytics is not None and bool(two_hop.get("found")) and include_business_context:
+        duck_cluster = await biz_ctx.cluster_spend_velocity_for_network_async(
+            analytics,
+            transaction_entity_ids=list(two_hop.get("network_transaction_ids") or ()),
+            network_user_ids=list(two_hop.get("network_user_ids") or ()),
+            days=30,
+            include_business_context=True,
+        )
 
     return {
         "detected_id": detected_id,
@@ -190,11 +190,20 @@ async def knowledge_bundle_for_detected_ids(
     graph_client: GraphClient,
     session: AsyncSession | None,
     analytics: AnalyticsProvider | None = None,
+    include_business_context: bool = False,
 ) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for did in detected_ids:
         try:
-            out.append(await resolve_knowledge_row(did, graph_client, session, analytics=analytics))
+            out.append(
+                await resolve_knowledge_row(
+                    did,
+                    graph_client,
+                    session,
+                    analytics=analytics,
+                    include_business_context=include_business_context,
+                ),
+            )
         except Exception:
             logger.exception("knowledge_drop_resolve_failed detected_id=%s", did)
             out.append(

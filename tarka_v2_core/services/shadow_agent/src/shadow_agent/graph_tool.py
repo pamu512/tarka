@@ -121,6 +121,100 @@ def should_invoke_find_linked_entities(
     return wants_find_linked_entities(tx, graph_context) and driver_available
 
 
+def orchestrator_graph_topology(graph_context: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Return orchestrator-injected ``graph_topology`` when present and dict-shaped."""
+    if not isinstance(graph_context, dict):
+        return None
+    topo = graph_context.get("graph_topology")
+    return topo if isinstance(topo, dict) else None
+
+
+def find_linked_entities_from_topology(
+    entity_id: str,
+    tx: TransactionSchema,
+    topology: dict[str, Any],
+) -> str:
+    """
+    Build a ``find_linked_entities``-compatible summary from orchestrator ``graph_topology``.
+
+    Used when JanusGraph (Gremlin) supplies neighborhood data on the ingest payload and the
+    Shadow process has no local Neo4j driver.
+    """
+    hints = graph_anchor_hints(tx)
+    nh = _neighbor_max_hops_from_env()
+    backend = str(topology.get("backend") or "orchestrator_topology")
+    anchor_user = str(topology.get("anchor_user_id") or hints.user_id or "").strip()
+
+    users_raw = topology.get("network_user_ids")
+    devices_raw = topology.get("network_device_ids")
+    ips_raw = topology.get("network_ip_addresses")
+    users = sorted({str(u) for u in users_raw if u is not None and str(u).strip()}) if isinstance(users_raw, list) else []
+    devices = sorted({str(d) for d in devices_raw if d is not None and str(d).strip()}) if isinstance(devices_raw, list) else []
+    ips = sorted({str(i) for i in ips_raw if i is not None and str(i).strip()}) if isinstance(ips_raw, list) else []
+
+    blocked_device_touch = int(topology.get("blocked_device_touch_count") or 0)
+    neighbor_count = int(topology.get("neighbor_node_count") or 0)
+    found = bool(topology.get("found"))
+
+    lines = [
+        f"find_linked_entities({entity_id}): ≤{nh}-hop neighborhood from orchestrator graph_topology "
+        f"(backend={backend!r}).",
+        f"Anchors: user_id={hints.user_id!r}, ip={hints.ip!r}, device_id={hints.device_id!r}.",
+        f"Topology anchor_user_id={anchor_user!r}, found={found}, neighbor_node_count={neighbor_count}, "
+        f"blocked_device_touch_count={blocked_device_touch}.",
+    ]
+
+    if not found and not users and not devices and not ips:
+        lines.append(
+            f"≤{nh}-hop: orchestrator topology empty (anchor may be absent in graph store).",
+        )
+
+    if hints.user_id:
+        peer_users = sorted(u for u in users if u and u != hints.user_id)
+    else:
+        peer_users = users
+    lines.append(
+        "Shared user neighborhood (network_user_ids): "
+        + (", ".join(peer_users) if peer_users else "(none besides anchors)"),
+    )
+
+    shared_ip_ordered = topology.get("shared_ip_users_ordered_from")
+    if hints.ip:
+        if isinstance(shared_ip_ordered, list):
+            ordered = sorted(
+                str(u)
+                for u in shared_ip_ordered
+                if u is not None and str(u).strip() and (hints.user_id is None or str(u) != hints.user_id)
+            )
+            lines.append(
+                "Shared IP history (ORDERED_FROM_IP — distinct User.user_id on this IP): "
+                + (", ".join(ordered) if ordered else "(none besides current user)"),
+            )
+        else:
+            ip_peers = sorted(u for u in peer_users if u)
+            lines.append(
+                f"Shared IP history (users in topology near ip={hints.ip!r}): "
+                + (", ".join(ip_peers) if ip_peers else "(none besides anchors)"),
+            )
+
+    if devices:
+        sample = devices[:25]
+        tail = " …" if len(devices) > 25 else ""
+        lines.append(f"Device neighbors: {', '.join(sample)}{tail}")
+    if ips:
+        sample = ips[:25]
+        tail = " …" if len(ips) > 25 else ""
+        lines.append(f"IP neighbors: {', '.join(sample)}{tail}")
+
+    edges = topology.get("edges_summary")
+    if isinstance(edges, list) and edges:
+        edge_sample = [str(e) for e in edges[:10] if e is not None and str(e).strip()]
+        if edge_sample:
+            lines.append("Edge samples: " + "; ".join(edge_sample))
+
+    return "\n".join(lines)
+
+
 async def find_linked_entities(entity_id: str, tx: TransactionSchema, driver: Any) -> str:
     """
     Execute an undirected **≤N-hop** neighborhood expansion (``GRAPH_MAX_HOPS``) from the

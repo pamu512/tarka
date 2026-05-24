@@ -14,6 +14,7 @@ from ingestor.manifest_schema import TransactionSchema
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from orchestrator.analytics import business_context as biz_ctx
 from orchestrator.analytics.provider import AnalyticsProvider
 from orchestrator.graph.client import GraphClient
 from orchestrator.models.cases import CaseORM, CaseStatus
@@ -145,6 +146,7 @@ async def build_entity_profile_payload(
     shadow_base: str | None,
     shadow_key: str | None,
     shadow_timeout_s: float,
+    include_business_context: bool = False,
 ) -> dict[str, Any]:
     uid = (user_id or "").strip()
     if not uid:
@@ -161,35 +163,40 @@ async def build_entity_profile_payload(
             "available": False,
             "error": "analytics_unavailable",
         }
-    else:
-        duck_metrics = {**analytics.marketplace_user_stats(uid), "available": True}
+    elif include_business_context:
+        duck_metrics = biz_ctx.marketplace_user_stats(
+            analytics,
+            uid,
+            include_business_context=True,
+        )
         devs = [
             str(d).strip()
             for d in (network.get("network_device_ids") or [])
             if isinstance(d, str) and str(d).strip()
         ][:8]
         if devs:
-            cl = analytics.cluster_loss_for_device_hashes(devs)
-            duck_metrics["cluster_loss"] = cl["cluster_loss"]
-            duck_metrics["cluster_loss_txn_count"] = cl["linked_txn_count"]
-            duck_metrics["cluster_loss_session_count"] = cl["distinct_session_count"]
-            duck_metrics["cluster_loss_device_scope"] = cl["device_hashes_used"]
+            cl = biz_ctx.cluster_loss_for_device_hashes(
+                analytics,
+                devs,
+                include_business_context=True,
+            )
+            biz_ctx.attach_cluster_loss_to_metrics(duck_metrics, cl)
+    else:
+        duck_metrics = biz_ctx.business_context_skipped_payload(source="duckdb")
 
     graph_ctx_for_shadow: dict[str, Any] = {
         "two_hop_network": network,
         "entity_profile_duck_metrics": duck_metrics,
     }
-    if analytics is not None:
-        graph_ctx_for_shadow["duck_spend_velocity_30d"] = (
-            analytics.cluster_spend_velocity_for_network(
-                transaction_entity_ids=[],
-                network_user_ids=[uid],
-            )
+    if analytics is not None and include_business_context:
+        graph_ctx_for_shadow["duck_spend_velocity_30d"] = biz_ctx.cluster_spend_velocity_for_network(
+            analytics,
+            transaction_entity_ids=[],
+            network_user_ids=[uid],
+            include_business_context=True,
         )
 
-    skip_shadow = (
-        os.environ.get("ORCHESTRATOR_ENTITY_PROFILE_SKIP_SHADOW") or ""
-    ).strip().lower() in (
+    skip_shadow = (os.environ.get("ORCHESTRATOR_ENTITY_PROFILE_SKIP_SHADOW") or "").strip().lower() in (
         "1",
         "true",
         "yes",
@@ -220,6 +227,7 @@ async def build_entity_profile_payload(
             "graph_backend": str(network.get("backend") or "none"),
             "graph_neighbors_found": bool(network.get("found")),
             "duckdb": analytics is not None,
+            "duckdb_business_context": bool(include_business_context and analytics is not None),
             "shadow_live": bool(shadow_summary.get("available")),
         },
         "lifecycle_case": lifecycle,

@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,9 +8,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # --- Backend selection (operators flip GRAPH_BACKEND; HTTP API unchanged) ---
-    graph_backend: Literal["neo4j", "janusgraph"] = Field(
+    graph_backend: Literal["neo4j", "janusgraph", "age"] = Field(
         default="janusgraph",
-        description="Graph persistence: neo4j (Bolt/Cypher) or janusgraph (Gremlin Server / JanusGraph-compatible).",
+        description="Graph persistence: neo4j (Bolt/Cypher), janusgraph (Gremlin), or age (Apache AGE on Postgres).",
     )
 
     # --- Neo4j (default) ---
@@ -39,6 +39,18 @@ class Settings(BaseSettings):
         default="", description="Optional HTTP endpoint for experimental graph risk scoring."
     )
     graph_gnn_beta_timeout_seconds: float = Field(default=0.6, ge=0.1, le=5.0)
+
+    database_url: str = Field(
+        default="postgresql://fraud:fraud@postgres:5432/fraud",
+        description="Postgres DSN for Apache AGE (asyncpg; use postgresql:// not +asyncpg).",
+    )
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _asyncpg_dsn(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.replace("postgresql+asyncpg://", "postgresql://", 1)
+        return value
 
 
 settings = Settings()

@@ -163,6 +163,7 @@ def test_ingest_shadow_review_triggers_shadow_downstream_and_logs(
         rule_engine_url="http://rules.test",
         shadow_agent_url="http://shadow.test",
         shadow_api_key="unit-test-token",
+        audit_database_url="sqlite+aiosqlite:///:memory:",
     )
     body = {
         "entity_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
@@ -176,7 +177,7 @@ def test_ingest_shadow_review_triggers_shadow_downstream_and_logs(
 
     assert response.status_code == 200
     data = response.json()
-    assert data["rule_engine"] == rule_engine_body
+    assert data["risk_decision"]["actions"] == ["SHADOW_REVIEW", "FLAG"]
     assert data["shadow_agent"] == shadow_body
     assert len(dummy.post_calls) == 2
     ev_url, ev_body, _ = dummy.post_calls[0]
@@ -207,6 +208,7 @@ def test_ingest_allow_only_skips_shadow(monkeypatch: pytest.MonkeyPatch) -> None
         rule_engine_url="http://rules.test",
         shadow_agent_url="http://shadow.test",
         shadow_api_key="unit-test-token",
+        audit_database_url="sqlite+aiosqlite:///:memory:",
     )
     body = {
         "entity_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
@@ -240,6 +242,7 @@ def test_ingest_shadow_analyze_timeout_returns_flag_fallback(
         shadow_agent_url="http://shadow.test",
         shadow_api_key="unit-test-token",
         shadow_analyze_timeout_seconds=3.0,
+        audit_database_url="sqlite+aiosqlite:///:memory:",
     )
     body = {
         "entity_id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
@@ -252,7 +255,7 @@ def test_ingest_shadow_analyze_timeout_returns_flag_fallback(
 
     assert response.status_code == 200
     data = response.json()
-    assert data["rule_engine"] == rule_engine_body
+    assert data["risk_decision"]["actions"] == ["SHADOW_REVIEW"]
     assert "shadow_agent" not in data
     assert data.get("orchestrator_fallback_decision") == "FLAG"
     assert data.get("orchestrator_fallback_reason") == "shadow_analyze_deadline_exceeded"
@@ -278,6 +281,7 @@ def test_ingest_shadow_connect_error_returns_flag_sidescar_unreachable(
         rule_engine_url="http://rules.test",
         shadow_agent_url="http://shadow.test",
         shadow_api_key="unit-test-token",
+        audit_database_url="sqlite+aiosqlite:///:memory:",
     )
     body = {
         "entity_id": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
@@ -290,7 +294,7 @@ def test_ingest_shadow_connect_error_returns_flag_sidescar_unreachable(
 
     assert response.status_code == 200
     data = response.json()
-    assert data["rule_engine"] == rule_engine_body
+    assert data["risk_decision"]["actions"] == ["SHADOW_REVIEW"]
     assert "shadow_agent" not in data
     assert data.get("orchestrator_fallback_decision") == "FLAG"
     assert data.get("orchestrator_fallback_reason") == "SIDECAR_UNREACHABLE"
@@ -411,6 +415,7 @@ def test_ingest_block_only_skips_shadow(monkeypatch: pytest.MonkeyPatch) -> None
     app = create_app(
         rule_engine_url="http://rules.test",
         shadow_agent_url="http://shadow.test",
+        audit_database_url="sqlite+aiosqlite:///:memory:",
     )
     body = {
         "entity_id": "cccccccc-cccc-cccc-cccc-cccccccccccc",

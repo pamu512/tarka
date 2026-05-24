@@ -154,7 +154,7 @@ class CaseHistoryORM(Base):
         nullable=False,
         server_default=func.now(),
     )
-    #: Populated for ``PUT /v1/cases/{id}/status`` audit rows (ingest rows leave null).
+    #: FK to ``audit_logs.id`` for ingest events and lifecycle status transitions.
     from_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
     to_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
     reason_code: Mapped[str | None] = mapped_column(String(128), nullable=True)

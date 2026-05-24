@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import os
 import time
+from dataclasses import dataclass
 from typing import Any
 
 WINDOW_SPECS: tuple[tuple[str, int, int], ...] = (
@@ -82,6 +83,72 @@ def build_velocity_incr_expire_commands(
             out.append((key, ttl))
 
     return out
+
+
+@dataclass(frozen=True, slots=True)
+class TransactionVelocityCommand:
+    """One Redis ``INCRBY`` (+ ``EXPIRE``) and matching ClickHouse counter increment."""
+
+    redis_key: str
+    ttl_sec: int
+    increment: int
+
+
+def build_transaction_velocity_incrby_commands(
+    *,
+    tenant_id: str | None,
+    device_token: str | None,
+    ip_tokens: list[str],
+    amount_cents: int,
+    now_unix: int | None = None,
+) -> list[TransactionVelocityCommand]:
+    """
+    Build transaction velocity increments using the production ``anumana:velocity`` namespace.
+
+    Each device/IP/window/bucket gets:
+      - count key (``…:{bucket}``) — ``INCRBY`` +1
+      - amount key (``…:{bucket}:amt``) — ``INCRBY`` ``amount_cents``
+    """
+    if amount_cents < 0:
+        raise ValueError(f"amount_cents must be >= 0, got {amount_cents}")
+    amount_incr = int(amount_cents)
+
+    prefix = velocity_key_prefix()
+    tseg = _tenant_segment(tenant_id)
+    now = int(now_unix if now_unix is not None else time.time())
+    out: list[TransactionVelocityCommand] = []
+
+    for win_label, win_sec, ttl in WINDOW_SPECS:
+        bucket = velocity_bucket(win_sec, now)
+        if device_token:
+            count_key = f"{prefix}:t:{tseg}:device:{win_label}:{device_token}:{bucket}"
+            out.append(TransactionVelocityCommand(count_key, ttl, 1))
+            out.append(TransactionVelocityCommand(f"{count_key}:amt", ttl, amount_incr))
+        for ip_tok in ip_tokens:
+            if not ip_tok:
+                continue
+            count_key = f"{prefix}:t:{tseg}:ip:{win_label}:{ip_tok}:{bucket}"
+            out.append(TransactionVelocityCommand(count_key, ttl, 1))
+            out.append(TransactionVelocityCommand(f"{count_key}:amt", ttl, amount_incr))
+
+    return out
+
+
+async def apply_velocity_incrby_multi_exec(
+    redis_client: Any,
+    commands: list[TransactionVelocityCommand],
+) -> None:
+    """Apply velocity ``INCRBY`` + ``EXPIRE`` inside a Redis ``MULTI/EXEC`` block."""
+    if not commands:
+        return
+    pipe = redis_client.pipeline(transaction=True)
+    seen_expire: set[str] = set()
+    for cmd in commands:
+        pipe.incrby(cmd.redis_key, cmd.increment)
+        if cmd.redis_key not in seen_expire:
+            pipe.expire(cmd.redis_key, cmd.ttl_sec)
+            seen_expire.add(cmd.redis_key)
+    await pipe.execute()
 
 
 async def run_ingest_pipeline(

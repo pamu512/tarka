@@ -14,6 +14,10 @@ COPY legacy_attic/services/integration-ingress/alembic.ini /repo/services/integr
 COPY legacy_attic/services/integration-ingress/alembic /repo/services/integration-ingress/alembic
 COPY legacy_attic/services/integration-ingress/src /repo/services/integration-ingress/src
 COPY legacy_attic/services/shared /repo/services/shared
-RUN pip install --no-cache-dir -e .
+RUN sed -i \
+        -e 's|file:../core|file:/repo/services/core|g' \
+        -e 's|file:../integration|file:/repo/services/integration|g' \
+        /repo/services/integration-ingress/pyproject.toml \
+    && pip install --no-cache-dir -e .
 ENV PYTHONPATH=/repo/services/integration-ingress/src:/repo/services/shared
-CMD ["uvicorn", "integration_ingress.main:app", "--host", "0.0.0.0", "--port", "8003"]
+CMD ["/bin/sh", "-c", "alembic upgrade head && exec uvicorn integration_ingress.main:app --host 0.0.0.0 --port 8003"]

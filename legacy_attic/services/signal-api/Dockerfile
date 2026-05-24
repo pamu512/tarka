@@ -6,6 +6,8 @@ RUN apt-get update \
 
 WORKDIR /app
 RUN pip install --no-cache-dir pip -U
+COPY legacy_attic/services/core /app/core
+RUN pip install --no-cache-dir -e /app/core
 COPY legacy_attic/services/signal-api/pyproject.toml /app/
 COPY legacy_attic/services/feature-service/src/feature_service /app/src/feature_service
 COPY legacy_attic/services/ml-scoring/src/ml_scoring /app/src/ml_scoring

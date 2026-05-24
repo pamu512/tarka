@@ -17,7 +17,9 @@ from shadow_agent.friendly_fraud import (
 from shadow_agent.graph_hints import listing_id_from_transaction
 from shadow_agent.graph_tool import (
     find_linked_entities,
+    find_linked_entities_from_topology,
     neo4j_driver_from_env,
+    orchestrator_graph_topology,
     should_invoke_find_linked_entities,
     wants_find_linked_entities,
 )
@@ -37,8 +39,9 @@ from shadow_agent.scout_coordinated_burst import (
 )
 from shadow_agent.schemas import ShadowDecision
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
+from tarka_shared.audit_errors import AuditPersistenceError
 from tarka_shared.audit_trail import AuditLog, Case
 from tarka_shared.case_status import DEFAULT_CASE_STATUS
 from tarka_shared.data.tenant_constants import DEFAULT_TENANT_ID
@@ -170,19 +173,10 @@ class ShadowAgent:
         try:
             wants_linked = wants_find_linked_entities(tx, merged_ctx)
             wants_review = wants_check_review_integrity(tx, merged_ctx)
+            topology = orchestrator_graph_topology(merged_ctx)
             drv = neo4j_driver_from_env()
-            if wants_linked and drv is None:
-                logger.warning(
-                    "shadow_tool_find_linked_entities_skipped_driver_unavailable entity_id=%s",
-                    entity_s,
-                )
-            if wants_review and drv is None:
-                logger.warning(
-                    "shadow_tool_check_review_integrity_skipped_driver_unavailable entity_id=%s",
-                    entity_s,
-                )
-            if drv is not None:
-                if should_invoke_find_linked_entities(
+            if wants_linked:
+                if drv is not None and should_invoke_find_linked_entities(
                     tx,
                     merged_ctx,
                     driver_available=True,
@@ -199,27 +193,52 @@ class ShadowAgent:
                         entity_s,
                         len(summary),
                     )
-                if should_invoke_check_review_integrity(
-                    tx,
-                    merged_ctx,
-                    driver_available=True,
-                ):
-                    lid = listing_id_from_transaction(tx)
-                    if lid:
-                        logger.info(
-                            "shadow_tool_check_review_integrity entity_id=%s listing_id=%s",
-                            entity_s,
-                            lid,
-                        )
-                        review_payload = await check_review_integrity(lid, drv)
-                        merged_ctx["check_review_integrity"] = review_payload
-                        logger.info(
-                            "shadow_tool_check_review_integrity_complete entity_id=%s "
-                            "review_ring_likely=%s reviewers=%s",
-                            entity_s,
-                            review_payload.get("review_ring_likely"),
-                            review_payload.get("reviewer_count"),
-                        )
+                elif topology is not None:
+                    logger.info(
+                        "shadow_tool_find_linked_entities_from_topology entity_id=%s "
+                        "backend=%s",
+                        entity_s,
+                        topology.get("backend"),
+                    )
+                    summary = find_linked_entities_from_topology(entity_s, tx, topology)
+                    merged_ctx["find_linked_entities"] = summary
+                    logger.info(
+                        "shadow_tool_find_linked_entities_from_topology_complete entity_id=%s "
+                        "summary_chars=%s",
+                        entity_s,
+                        len(summary),
+                    )
+                elif drv is None:
+                    logger.warning(
+                        "shadow_tool_find_linked_entities_skipped_no_driver_or_topology entity_id=%s",
+                        entity_s,
+                    )
+            if wants_review and drv is None:
+                logger.warning(
+                    "shadow_tool_check_review_integrity_skipped_driver_unavailable entity_id=%s",
+                    entity_s,
+                )
+            if drv is not None and should_invoke_check_review_integrity(
+                tx,
+                merged_ctx,
+                driver_available=True,
+            ):
+                lid = listing_id_from_transaction(tx)
+                if lid:
+                    logger.info(
+                        "shadow_tool_check_review_integrity entity_id=%s listing_id=%s",
+                        entity_s,
+                        lid,
+                    )
+                    review_payload = await check_review_integrity(lid, drv)
+                    merged_ctx["check_review_integrity"] = review_payload
+                    logger.info(
+                        "shadow_tool_check_review_integrity_complete entity_id=%s "
+                        "review_ring_likely=%s reviewers=%s",
+                        entity_s,
+                        review_payload.get("review_ring_likely"),
+                        review_payload.get("reviewer_count"),
+                    )
         finally:
             if drv is not None:
                 await drv.close()
@@ -353,16 +372,20 @@ class ShadowAgent:
             await _ensure_case_for_shadow_audit(session, str(decision.transaction_id))
             session.add(audit_log)
             await session.commit()
-        except IntegrityError:
+            await session.refresh(audit_log)
+        except SQLAlchemyError as exc:
             logger.critical(
-                "shadow_evaluate_audit_persist_integrity_error entity_id=%s case_id=%s",
+                "shadow_evaluate_audit_persist_failed entity_id=%s case_id=%s",
                 entity_s,
                 audit_log.case_id,
                 exc_info=True,
             )
             await session.rollback()
-        else:
-            await session.refresh(audit_log)
+            raise AuditPersistenceError.persist_failed(
+                entity_id=entity_s,
+                component="shadow",
+                http_status=503,
+            ) from exc
 
         logger.info(
             "shadow_evaluate_validation_ok entity_id=%s risk_score=%s is_fraud=%s reasoning_count=%s",

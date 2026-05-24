@@ -48,6 +48,17 @@ python scripts/benchmarks/vertical_benchmark_smoke.py \
   --verticals fintech,ecommerce,gaming
 ```
 
+**Publishable scorecards (May MVP):** defaults **`seed: 42`** via [`vertical_benchmark_thresholds.v1.json`](./vertical_benchmark_thresholds.v1.json). Smoke enforces shape + threshold bands and optional reproducibility:
+
+```bash
+python scripts/benchmarks/vertical_benchmark_smoke.py \
+  --url http://127.0.0.1:8000 \
+  --verify-repro \
+  --write-scorecard docs/docs/releases/evidence/v1.2.0-vertical-benchmark-scorecard.json
+```
+
+CI: `test_api_endpoints.py::test_benchmark_vertical_pack_reproducible_with_seed`. **DEFERRED TO v1.3.0 (JUNE):** `hey` / `k6` load recipes and published RPS/latency SLOs.
+
 ## Throughput tools
 
 - **`load-hey-evaluate.sh`** — optional **[hey](https://github.com/rakyll/hey)** wrapper for `POST /v1/decisions/evaluate` (install `hey` via Go toolchain). Falls back to a single `curl` if `hey` is missing.

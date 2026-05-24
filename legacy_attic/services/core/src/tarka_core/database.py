@@ -38,23 +38,28 @@ def resolve_tarka_db_engine(*, database_url: str) -> EngineKind:
     return "sqlite"
 
 
+def _url_for_engine(url: str) -> str:
+    """Render a SQLAlchemy URL for create_async_engine (never redact credentials)."""
+    return make_url(url).render_as_string(hide_password=False)
+
+
 def _ensure_postgresql_asyncpg(url: str) -> str:
     u = make_url(url)
     if u.drivername == "postgresql+asyncpg":
-        return str(u)
+        return _url_for_engine(url)
     if u.drivername == "postgresql":
-        return str(u.set(drivername="postgresql+asyncpg"))
+        return _url_for_engine(str(u.set(drivername="postgresql+asyncpg")))
     if u.drivername.startswith("postgresql+"):
-        return str(u.set(drivername="postgresql+asyncpg"))
+        return _url_for_engine(str(u.set(drivername="postgresql+asyncpg")))
     return url
 
 
 def _ensure_sqlite_aiosqlite(url: str) -> str:
     u = make_url(url)
     if u.drivername == "sqlite+aiosqlite":
-        return str(u)
+        return _url_for_engine(url)
     if u.drivername == "sqlite":
-        return str(u.set(drivername="sqlite+aiosqlite"))
+        return _url_for_engine(str(u.set(drivername="sqlite+aiosqlite")))
     return url
 
 

@@ -1974,8 +1974,18 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   if (path.includes("/api/decisions/v1/challenge-policies")) {
     return {
       policies: [
-        { policy_id: "default_v1", version: 1, description: "Default escalation ladder" },
-        { policy_id: "strict_review_v1", version: 1, description: "Stricter review thresholds" },
+        {
+          policy_id: "default_v1",
+          version: 1,
+          description: "Default escalation ladder",
+          escalation_ladder: ["step_up_mfa", "step_up_attestation", "manual_review", "block"],
+        },
+        {
+          policy_id: "strict_review_v1",
+          version: 1,
+          description: "Stricter review thresholds",
+          escalation_ladder: ["manual_review", "block"],
+        },
       ],
     };
   }

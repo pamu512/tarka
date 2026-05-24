@@ -7,14 +7,11 @@ import logging
 import os
 import time
 import uuid
-from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Annotated, Any
 
 import httpx
 from fastapi import (
-    BackgroundTasks,
     Depends,
     FastAPI,
     File,
@@ -30,21 +27,13 @@ from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from ingestor.manifest_schema import TransactionSchema
 from pydantic import ValidationError
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse, Response
-from tarka_shared.database.session import Base
 
-from orchestrator.ai_feedback_jsonl import append_feedback_jsonl, resolve_ai_feedback_jsonl_path
 from orchestrator.analytics.deps import get_analytics
-from orchestrator.analytics.factory import build_analytics_provider
 from orchestrator.analytics.provider import AnalyticsProvider
 from orchestrator.anumana_browser_ingest import handle_browser_telemetry_ingest
-from orchestrator.audit_case_worker import (
-    build_audit_engine,
-    process_new_audit_logs,
-    resolve_audit_database_url,
-)
+from orchestrator.audit_case_worker import resolve_audit_database_url
 from orchestrator.case_export import CaseExportNotFoundError, build_compliance_export_zip
 from orchestrator.case_transition_api import put_lifecycle_case_status
 from orchestrator.dispute_evidence_pdf import PDF_GRAPH_SECTION_TITLE
@@ -56,8 +45,9 @@ from orchestrator.disputes.chargeback_inception import (
     build_chargeback_transaction,
     resolve_linked_session_id,
 )
+from orchestrator.decision_retrieval import fetch_decision_detail_payload
 from orchestrator.entity_profile import build_entity_profile_payload
-from orchestrator.graph.client import GraphClient, graph_client_from_environment
+from orchestrator.graph.client import GraphClient
 from orchestrator.ingestion_schema import IngestionSchema
 from orchestrator.investigation_cluster_shadow import (
     build_prime_shadow_graph_context,
@@ -67,8 +57,6 @@ from orchestrator.investigation_knowledge import knowledge_bundle_for_detected_i
 from orchestrator.investigation_prime import prime_from_upload
 from orchestrator.models.cases import CaseStatus
 from orchestrator.openapi_schemas import (
-    AiFeedbackRequest,
-    AiFeedbackResponse,
     AnalyticsTransactionsSnapshot,
     AnalyticsVelocityResponse,
     AnalyticsVelocityRow,
@@ -76,6 +64,7 @@ from orchestrator.openapi_schemas import (
     CaseStatusUpdateRequest,
     CaseStatusUpdateResponse,
     ChargebackIngestRequest,
+    DecisionDetailResponse,
     DemoSimulateResponse,
     EntityProfileResponse,
     HealthFullResponse,
@@ -86,6 +75,11 @@ from orchestrator.openapi_schemas import (
     RuleShadowTestResponse,
     ServiceUnavailable503,
 )
+from orchestrator.deps.v1_api_guard import V1_PROTECTED_ROUTE_DEPENDENCIES
+from orchestrator.lifespan import LifespanConfig, build_lifespan
+from orchestrator.routes.data_export import router as data_export_router
+from orchestrator.routes.legacy_feedback_bridge import router as legacy_feedback_bridge_router
+from orchestrator.routes.operational_signals import router as operational_signals_router
 from orchestrator.rule_shadow_test import execute_rule_shadow_test
 from orchestrator.transaction_ingest import execute_transaction_ingest
 
@@ -152,6 +146,13 @@ _ORCHESTRATOR_TAGS: list[dict[str, str]] = [
     {
         "name": "Cases",
         "description": "Lifecycle investigation case transitions and audit history.",
+    },
+    {
+        "name": "Operational signals",
+        "description": (
+            "Ingress for chargebacks, refunds, reversals, and analyst manual overrides "
+            "with Redis idempotency and durable PostgreSQL persistence."
+        ),
     },
     {
         "name": "Anumana",
@@ -232,8 +233,6 @@ def create_app(
     anumana_redis_client: Any | None = None,
     shadow_dispatch_nats_client: Any | None = None,
     compliance_export_hmac_key: str | bytes | None = None,
-    audit_background_poll: bool = True,
-    ai_feedback_jsonl: str | os.PathLike[str] | None = None,
 ) -> FastAPI:
     """
     Build the ASGI app.
@@ -258,10 +257,6 @@ def create_app(
             when ``None`` and :envvar:`NATS_URL` is set, the app connects on startup.
         compliance_export_hmac_key: Optional secret for HMAC-SHA256 over the compliance ZIP ``manifest.json``;
             when ``None``, uses :envvar:`ORCHESTRATOR_COMPLIANCE_EXPORT_HMAC_KEY` (empty disables signing output).
-        audit_background_poll: When ``True`` (default), starts the audit ``process_new_audit_logs`` poll loop;
-            set ``False`` in tests that use SQLite ``:memory:`` plus their own async sessions to avoid lock races.
-        ai_feedback_jsonl: Optional override path for ``POST /v1/ai/feedback`` JSONL sink (tests); when ``None``,
-            uses :envvar:`ORCHESTRATOR_AI_FEEDBACK_JSONL` or ``{cwd}/data/ai_rejection_feedback.jsonl``.
     """
     rule_base = (rule_engine_url or _rule_engine_base_url()).rstrip("/")
     shadow_base = (
@@ -280,139 +275,17 @@ def create_app(
     anumana_redis_injected = anumana_redis_client
     shadow_dispatch_nats_injected = shadow_dispatch_nats_client
     compliance_hmac_injected = compliance_export_hmac_key
-    audit_poll_injected = audit_background_poll
 
-    @asynccontextmanager
-    async def lifespan(app: FastAPI):
-        app.state.audit_engine = None
-        app.state.audit_session_factory = None
-        app.state.audit_poll_task = None
-        app.state.graph_client = (
-            graph_client_injected
-            if graph_client_injected is not None
-            else graph_client_from_environment()
-        )
-        if analytics_injected is not None:
-            app.state.analytics = analytics_injected
-        else:
-            app.state.analytics = build_analytics_provider()
-        app.state.anumana_ingest_secret = (
-            os.environ.get("ANUMANA_TELEMETRY_INGEST_KEY") or ""
-        ).strip() or None
-        app.state.anumana_redis_key = (
-            os.environ.get("ANUMANA_TELEMETRY_REDIS_KEY") or "anumana:browser_telemetry"
-        ).strip()
-        if anumana_redis_injected is not None:
-            app.state.anumana_redis = anumana_redis_injected
-        else:
-            aru = (os.environ.get("ANUMANA_REDIS_URL") or "").strip()
-            if aru:
-                import redis.asyncio as redis_mod
-
-                app.state.anumana_redis = redis_mod.from_url(aru, decode_responses=False)
-            else:
-                app.state.anumana_redis = None
-        app.state.shadow_dispatch_nats = None
-        shadow_dispatch_nc: Any = shadow_dispatch_nats_injected
-        if shadow_dispatch_nc is None:
-            nats_url = (os.environ.get("NATS_URL") or "").strip()
-            if nats_url:
-                try:
-                    import nats  # noqa: PLC0415 — ``pip install tarka-orchestrator[worker]``
-
-                    shadow_dispatch_nc = await nats.connect(nats_url)
-                except Exception:
-                    logger.exception("orchestrator_shadow_dispatch_nats_connect_failed")
-                    shadow_dispatch_nc = None
-        app.state.shadow_dispatch_nats = shadow_dispatch_nc
-        if compliance_hmac_injected is not None:
-            if isinstance(compliance_hmac_injected, bytes):
-                app.state.compliance_export_hmac_key = compliance_hmac_injected
-            else:
-                app.state.compliance_export_hmac_key = (
-                    str(compliance_hmac_injected).strip().encode("utf-8")
-                )
-        else:
-            app.state.compliance_export_hmac_key = (
-                (os.environ.get("ORCHESTRATOR_COMPLIANCE_EXPORT_HMAC_KEY") or "")
-                .strip()
-                .encode("utf-8")
-            )
-        engine = None
-        task: asyncio.Task | None = None
-        stop: asyncio.Event | None = None
-        if audit_url:
-            import tarka_shared.audit_trail  # noqa: F401, PLC0415
-            import tarka_shared.engine_rules  # noqa: F401, PLC0415
-            import tarka_shared.fraud_rules  # noqa: F401, PLC0415
-
-            import orchestrator.models.cases  # noqa: F401, PLC0415
-            import orchestrator.models.decision  # noqa: F401, PLC0415
-
-            engine = build_audit_engine(audit_url)
-            fac = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
-            app.state.audit_engine = engine
-            app.state.audit_session_factory = fac
-            if audit_poll_injected:
-                stop = asyncio.Event()
-
-                async def _poll_loop() -> None:
-                    assert fac is not None
-                    assert stop is not None
-                    while not stop.is_set():
-                        try:
-                            async with fac() as session:
-                                async with session.begin():
-                                    await process_new_audit_logs(session)
-                        except Exception:
-                            logger.exception("orchestrator_audit_poll_batch_failed")
-                        if stop.is_set():
-                            break
-                        try:
-                            await asyncio.wait_for(stop.wait(), timeout=5.0)
-                        except TimeoutError:
-                            pass
-
-                task = asyncio.create_task(_poll_loop(), name="orchestrator-audit-poll")
-            app.state.audit_poll_task = task
-        yield
-        if stop is not None:
-            stop.set()
-        if task is not None:
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
-        if engine is not None:
-            await engine.dispose()
-        sdn = getattr(app.state, "shadow_dispatch_nats", None)
-        if sdn is not None and shadow_dispatch_nats_injected is None:
-            try:
-                await sdn.drain()
-                await sdn.close()
-            except Exception:
-                logger.exception("orchestrator_shadow_dispatch_nats_close_failed")
-        ar = getattr(app.state, "anumana_redis", None)
-        if ar is not None and anumana_redis_injected is None:
-            try:
-                await ar.aclose()
-            except Exception:
-                logger.exception("orchestrator_anumana_redis_close_failed")
-        dprov = getattr(app.state, "analytics", None)
-        if dprov is not None:
-            try:
-                dprov.close()
-            except Exception:
-                logger.exception("orchestrator_analytics_close_failed")
-        gc = getattr(app.state, "graph_client", None)
-        if gc is not None:
-            try:
-                await gc.close()
-            except Exception:
-                logger.exception("orchestrator_graph_client_close_failed")
+    lifespan = build_lifespan(
+        LifespanConfig(
+            audit_database_url=audit_url,
+            graph_client_override=graph_client_injected,
+            analytics_provider=analytics_injected,
+            anumana_redis_client=anumana_redis_injected,
+            shadow_dispatch_nats_client=shadow_dispatch_nats_injected,
+            compliance_export_hmac_key=compliance_hmac_injected,
+        ),
+    )
 
     application = FastAPI(
         title="Tarka Orchestrator API",
@@ -428,7 +301,20 @@ def create_app(
     application.state.shadow_agent_url = shadow_base or None
     application.state.shadow_api_key = shadow_key
     application.state.shadow_analyze_timeout_seconds = shadow_deadline_s
-    application.state.ai_feedback_jsonl_path = resolve_ai_feedback_jsonl_path(ai_feedback_jsonl)
+    application.include_router(
+        operational_signals_router,
+        prefix="/v1",
+        dependencies=V1_PROTECTED_ROUTE_DEPENDENCIES,
+    )
+    application.include_router(
+        legacy_feedback_bridge_router,
+        prefix="/v1",
+    )
+    application.include_router(
+        data_export_router,
+        prefix="/v1",
+        dependencies=V1_PROTECTED_ROUTE_DEPENDENCIES,
+    )
 
     @application.exception_handler(RequestValidationError)
     async def _ingest_validation_fail_closed(request: Request, exc: RequestValidationError):
@@ -467,9 +353,7 @@ def create_app(
             request,
             body,
             redis_client=getattr(request.app.state, "anumana_redis", None),
-            redis_key=str(
-                getattr(request.app.state, "anumana_redis_key", "anumana:browser_telemetry")
-            ),
+            redis_key=str(getattr(request.app.state, "anumana_redis_key", "anumana:browser_telemetry")),
             ingest_secret=getattr(request.app.state, "anumana_ingest_secret", None),
         )
 
@@ -481,9 +365,9 @@ def create_app(
             "Accepts a **TransactionSchema** JSON body. The orchestrator evaluates policy first; "
             "if the outcome requests secondary fraud review, it may run an additional analysis step "
             "and merge that structured result. Pure allow/block/flag outcomes do not trigger that "
-            "extra step. After a successful policy response, graph upsert (JanusGraph / Neo4j) and "
-            "DuckDB append run concurrently via ``asyncio.gather``; for non-Shadow outcomes they are "
-            "scheduled as **background tasks** so slow storage does not delay the HTTP response."
+            "extra step. After a successful policy response, graph ingest and velocity counter updates "
+            "are enqueued in ``tarka_outbox`` inside the same ACID transaction as the audit log "
+            "(``GRAPH_INGEST`` + ``VELOCITY_UPDATE``); a relay worker drains the outbox asynchronously."
         ),
         response_model=IngestResponse,
         responses=_RESP_INGEST,
@@ -492,12 +376,10 @@ def create_app(
     async def v1_ingest(
         transaction: TransactionSchema,
         request: Request,
-        background_tasks: BackgroundTasks,
     ) -> dict[str, Any]:
         """Evaluate policy for the given transaction envelope and optionally attach analysis output."""
         return await execute_transaction_ingest(
             request=request,
-            background_tasks=background_tasks,
             transaction=transaction,
         )
 
@@ -518,16 +400,13 @@ def create_app(
     async def v1_ingest_chargeback(
         body: ChargebackIngestRequest,
         request: Request,
-        background_tasks: BackgroundTasks,
     ) -> dict[str, Any]:
         fac = getattr(request.app.state, "audit_session_factory", None)
         resolved = (body.session_id or "").strip() or None
         try:
             if fac is not None and not resolved:
                 async with fac() as session:
-                    resolved = await resolve_linked_session_id(
-                        session, str(body.original_entity_id)
-                    )
+                    resolved = await resolve_linked_session_id(session, str(body.original_entity_id))
         except Exception:
             logger.exception("chargeback_session_resolve_failed")
         txn = build_chargeback_transaction(
@@ -539,9 +418,63 @@ def create_app(
         )
         return await execute_transaction_ingest(
             request=request,
-            background_tasks=background_tasks,
             transaction=txn,
         )
+
+    @application.get(
+        "/v1/decisions/{transaction_id}",
+        tags=["Investigation"],
+        summary="Retrieve decision detail for a transaction",
+        description=(
+            "Assembles the analyst **DecisionDetail** payload from the latest Lekh ``decisions`` row "
+            "and correlated ``audit_logs`` (orchestrator ingest envelope + Shadow ``agent_notes``). "
+            "Returns **404** when the transaction has not been materialized yet (async ingest lag)."
+        ),
+        response_model=DecisionDetailResponse,
+        responses={
+            404: {"description": "No decision or audit history for this transaction id."},
+            422: {
+                "model": HTTPValidationError422,
+                "description": "Invalid or non-UUID transaction id.",
+            },
+            503: {
+                "model": ServiceUnavailable503,
+                "description": "Audit database is not configured on this orchestrator process.",
+            },
+        },
+    )
+    async def v1_decision_detail(
+        request: Request,
+        transaction_id: str,
+    ) -> DecisionDetailResponse:
+        tid = (transaction_id or "").strip()
+        if not tid or len(tid) > 512 or "\x00" in tid:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"error": "invalid_transaction_id", "message": "transaction_id must be non-empty and ≤512 chars"},
+            )
+        try:
+            uuid.UUID(tid)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"error": "invalid_transaction_id", "message": "transaction_id must be a UUID"},
+            ) from exc
+
+        fac = getattr(request.app.state, "audit_session_factory", None)
+        if fac is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={"error": "audit_database_unconfigured"},
+            )
+
+        payload = await fetch_decision_detail_payload(fac, transaction_id=tid)
+        if payload is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "decision_not_found", "transaction_id": tid},
+            )
+        return DecisionDetailResponse.model_validate(payload)
 
     @application.post(
         "/v1/investigation/prime",
@@ -606,8 +539,8 @@ def create_app(
                 detail={"error": "unsupported_file_type", "message": str(exc)},
             ) from exc
         except RuntimeError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        raise HTTPException(
+                            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail={"error": "pdf_parser_unavailable", "message": str(exc)},
             ) from exc
         gc: GraphClient = request.app.state.graph_client
@@ -622,6 +555,7 @@ def create_app(
                         graph_client=gc,
                         session=session,
                         analytics=analytics,
+                        include_business_context=True,
                     )
             else:
                 knowledge_raw = await knowledge_bundle_for_detected_ids(
@@ -629,6 +563,7 @@ def create_app(
                     graph_client=gc,
                     session=None,
                     analytics=analytics,
+                    include_business_context=True,
                 )
 
         cluster_analysis: dict[str, Any] | None = None
@@ -643,6 +578,7 @@ def create_app(
                     anchor_id=anchor,
                     graph_client=gc,
                     analytics=analytics,
+                    include_business_context=True,
                 )
                 tx_payload = synthetic_dispute_transaction(anchor_id=anchor, filename=filename)
                 tx_model = TransactionSchema.model_validate(tx_payload)
@@ -657,7 +593,7 @@ def create_app(
                     r = await client.post(
                         f"{str(shadow_base).rstrip('/')}/v1/analyze",
                         json=body,
-                        headers=headers or None,
+                            headers=headers or None,
                     )
                     r.raise_for_status()
                     cluster_analysis = r.json()
@@ -750,15 +686,19 @@ def create_app(
     async def v1_marketplace_user_entity_profile(
         request: Request,
         user_id: str,
+        include_business_context: bool = Query(
+            False,
+            description=(
+                "When true, run DuckDB spend / cluster-loss aggregations for Entity Explorer. "
+                "Omitted or false on live ingest paths — analyst opt-in only."
+            ),
+        ),
     ) -> EntityProfileResponse:
         uid = (user_id or "").strip()
         if not uid or len(uid) > 512 or "\x00" in uid:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "error": "invalid_user_id",
-                    "message": "user_id must be non-empty and ≤512 chars",
-                },
+                detail={"error": "invalid_user_id", "message": "user_id must be non-empty and ≤512 chars"},
             )
         gc: GraphClient = request.app.state.graph_client
         analytics = get_analytics(request)
@@ -775,6 +715,7 @@ def create_app(
                 shadow_base=shadow_base,
                 shadow_key=shadow_key,
                 shadow_timeout_s=shadow_deadline,
+                include_business_context=include_business_context,
             )
         except ValueError as exc:
             raise HTTPException(
@@ -789,17 +730,14 @@ def create_app(
         summary="Update lifecycle case status",
         description=(
             "Requires ``X-Auth-Token`` and a JSON body with ``status`` plus ``reason_code``. "
-            "Validates the lifecycle state machine and appends an audit row to ``case_history`` "
-            "(``audit_log_id`` null; ``from_status`` / ``to_status`` / ``reason_code`` / token fingerprint)."
+            "Validates the lifecycle state machine, appends an ``audit_logs`` row (transition payload), "
+            "updates ``lifecycle_cases.status``, and links ``case_history.audit_log_id`` atomically."
         ),
         response_model=CaseStatusUpdateResponse,
         responses={
             404: {"description": "Unknown ``lifecycle_cases.case_id``."},
             409: {"description": "Illegal state transition or corrupt stored status."},
-            422: {
-                "model": HTTPValidationError422,
-                "description": "Missing token, reason, or invalid status.",
-            },
+            422: {"model": HTTPValidationError422, "description": "Missing token, reason, or invalid status."},
             503: {"model": ServiceUnavailable503, "description": "Audit database not configured."},
         },
     )
@@ -827,6 +765,7 @@ def create_app(
             reason_code=body.reason_code,
             auth_token=tok,
             graph_client=gc,
+            analyst_notes=body.analyst_notes,
         )
         return CaseStatusUpdateResponse.model_validate(payload)
 
@@ -844,10 +783,7 @@ def create_app(
         response_class=Response,
         responses={
             404: {"description": "Unknown ``lifecycle_cases.case_id``."},
-            422: {
-                "model": HTTPValidationError422,
-                "description": "Missing token or invalid ``case_id``.",
-            },
+            422: {"model": HTTPValidationError422, "description": "Missing token or invalid ``case_id``."},
             503: {"model": ServiceUnavailable503, "description": "Audit database not configured."},
         },
     )
@@ -892,10 +828,7 @@ def create_app(
                 detail={"error": "invalid_case_id", "message": str(exc)},
             ) from exc
 
-        safe = (
-            "".join(c if c.isalnum() or c in "-_" else "_" for c in (case_id or "").strip())[:72]
-            or "case"
-        )
+        safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in (case_id or "").strip())[:72] or "case"
         fname = f"case-{safe}-compliance-export.zip"
         return Response(
             content=body,
@@ -917,10 +850,7 @@ def create_app(
         responses={
             404: {"description": "Unknown ``lifecycle_cases.case_id``."},
             409: {"description": "Illegal state transition or corrupt stored status."},
-            422: {
-                "model": HTTPValidationError422,
-                "description": "Missing token or invalid ``case_id``.",
-            },
+            422: {"model": HTTPValidationError422, "description": "Missing token or invalid ``case_id``."},
             503: {"model": ServiceUnavailable503, "description": "Audit database not configured."},
         },
     )
@@ -973,10 +903,7 @@ def create_app(
                 detail={"error": "invalid_case_id", "message": str(exc)},
             ) from exc
 
-        safe = (
-            "".join(c if c.isalnum() or c in "-_" else "_" for c in (case_id or "").strip())[:72]
-            or "case"
-        )
+        safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in (case_id or "").strip())[:72] or "case"
         fname = f"case-{safe}-dispute-evidence.pdf"
         return Response(
             content=pdf_body,
@@ -1069,11 +996,7 @@ def create_app(
                 },
             )
 
-        backend = (
-            "duckdb"
-            if type(analytics).__name__ in ("LocalAnalytics", "DuckAnalyticsProvider")
-            else "clickhouse"
-        )
+        backend = "duckdb" if type(analytics).__name__ in ("LocalAnalytics", "DuckAnalyticsProvider") else "clickhouse"
 
         def _run() -> tuple[list[dict[str, Any]], str | None, float]:
             return analytics.list_analytics_transactions(limit=limit, cursor=cursor)
@@ -1221,7 +1144,7 @@ def create_app(
                 {
                     "pattern_index": i,
                     "total": n,
-                    "transaction_id": tid,
+            "transaction_id": tid,
                     "amount": round(50.0 + i * 12.5, 2),
                     "currency": "USD",
                     "channel": "card_not_present",
@@ -1232,54 +1155,8 @@ def create_app(
             )
         return {"total": n, "results": results}
 
-    @application.post(
-        "/v1/ai/feedback",
-        tags=["AI"],
-        summary="Record AI rejection feedback",
-        description=(
-            "Appends one JSON object per request to a local **JSONL** file (default under ``data/`` or "
-            ":envvar:`ORCHESTRATOR_AI_FEEDBACK_JSONL`). Intended for analyst **rejection reasons** and "
-            "downstream RAG / fine-tuning export pipelines. No database round-trip."
-        ),
-        response_model=AiFeedbackResponse,
-        responses=_RESP_422,
-        response_model_exclude_none=True,
-    )
-    async def v1_ai_feedback(
-        body: AiFeedbackRequest,
-        request: Request,
-    ) -> dict[str, Any]:
-        """Persist rejection reasons and optional correlation fields as one JSON line."""
-        feedback_id = str(uuid.uuid4())
-        received_at = datetime.now(UTC).isoformat()
-        record: dict[str, Any] = {
-            "schema": "tarka.ai_feedback.v1",
-            "feedback_id": feedback_id,
-            "received_at": received_at,
-            "rejection_reasons": body.rejection_reasons,
-        }
-        if body.tenant_id is not None:
-            record["tenant_id"] = body.tenant_id
-        if body.trace_id is not None:
-            record["trace_id"] = body.trace_id
-        if body.entity_id is not None:
-            record["entity_id"] = body.entity_id
-        if body.source is not None:
-            record["source"] = body.source
-        if body.context is not None:
-            record["context"] = body.context
-        path: Path = request.app.state.ai_feedback_jsonl_path
-        await asyncio.to_thread(append_feedback_jsonl, path, record)
-        return {
-            "ok": True,
-            "feedback_id": feedback_id,
-            "jsonl_path": str(path),
-        }
-
     _cors_raw = (os.environ.get("ANUMANA_TELEMETRY_CORS_ORIGINS") or "*").strip()
-    _cors_origins = (
-        ["*"] if _cors_raw == "*" else [o.strip() for o in _cors_raw.split(",") if o.strip()]
-    )
+    _cors_origins = ["*"] if _cors_raw == "*" else [o.strip() for o in _cors_raw.split(",") if o.strip()]
     application.add_middleware(
         CORSMiddleware,
         allow_origins=_cors_origins,

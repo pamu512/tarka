@@ -22,11 +22,13 @@ COPY legacy_attic/services/case-api/static /app/case-api/static
 COPY legacy_attic/services/case-api/alembic /app/case_migrations
 COPY legacy_attic/services/core-api/src/core_api /app/src/core_api
 COPY legacy_attic/services/core-api/config/decision_alembic.ini /app/config/decision_alembic.ini
+COPY legacy_attic/services/core-api/config/decision_alembic.ini /app/alembic.ini
 COPY legacy_attic/services/core-api/config/case_alembic.ini /app/config/case_alembic.ini
-RUN sed -i \
-    -e 's|file:../core|file:./core|g' \
-    -e 's|file:../analytics|file:./analytics|g' \
-    /app/pyproject.toml \
+RUN sed -i -e 's|file:../core|file:/app/core|g' /app/analytics/pyproject.toml \
+    && sed -i \
+        -e 's|file:../core|file:/app/core|g' \
+        -e 's|file:../analytics|file:/app/analytics|g' \
+        /app/pyproject.toml \
     && pip install --no-cache-dir -e .
 ENV PYTHONPATH=/app/src:/app/shared
 ENV RULES_PATH=/app/rules
