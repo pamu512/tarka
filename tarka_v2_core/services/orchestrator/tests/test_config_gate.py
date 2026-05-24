@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 _SRC_ORCH = Path(__file__).resolve().parents[1] / "src"
 if str(_SRC_ORCH) not in sys.path:
@@ -104,5 +105,5 @@ def test_configured_modules_avoid_os_environ() -> None:
 
 
 def test_orchestrator_settings_rejects_invalid_log_level() -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         OrchestratorSettings(log_level="VERBOSE")

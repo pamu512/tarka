@@ -576,8 +576,8 @@ def test_holy_grail_convergence_end_to_end(monkeypatch: pytest.MonkeyPatch) -> N
                 assert observed == cmd.increment, (
                     f"velocity key {cmd.redis_key!r} expected {cmd.increment}, got {observed!r}"
                 )
-            assert any(f":device:" in key for key in velocity_redis.counters)
-            assert any(f":ip:" in key and ip_token in key for key in velocity_redis.counters)
+            assert any(":device:" in key for key in velocity_redis.counters)
+            assert any(":ip:" in key and ip_token in key for key in velocity_redis.counters)
 
             async with fac() as session:
                 await process_new_audit_logs(session)

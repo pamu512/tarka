@@ -606,13 +606,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             out_path = args.scorecard_output
             if out_path is None:
-                tmp_scorecard = tempfile.NamedTemporaryFile(
+                with tempfile.NamedTemporaryFile(
                     prefix="tarka_backtest_scorecard_",
                     suffix=".json",
                     delete=False,
-                )
-                tmp_scorecard.close()
-                out_path = Path(tmp_scorecard.name)
+                ) as tmp_scorecard:
+                    out_path = Path(tmp_scorecard.name)
 
             scorecard, batch_proc = run_batch_replay_subprocess(
                 tarka_bin=args.tarka_bin,
