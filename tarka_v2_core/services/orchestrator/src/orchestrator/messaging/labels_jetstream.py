@@ -33,12 +33,12 @@ def normalized_label_event_entity(row: Any) -> dict[str, Any]:
     created_iso = created_at.isoformat() if created_at is not None else None
     return {
         "schema": NORMALIZED_LABEL_EVENT_SCHEMA,
-        "id": str(getattr(row, "id")),
-        "source_type": str(getattr(row, "source_type")),
-        "source_id": str(getattr(row, "source_id")),
-        "entity_id": str(getattr(row, "entity_id")),
-        "ground_truth_class": str(getattr(row, "ground_truth_class")),
-        "tags": list(getattr(row, "tags") or []),
+        "id": str(row.id),
+        "source_type": str(row.source_type),
+        "source_id": str(row.source_id),
+        "entity_id": str(row.entity_id),
+        "ground_truth_class": str(row.ground_truth_class),
+        "tags": list(row.tags or []),
         "propagated_to_consortium": bool(getattr(row, "propagated_to_consortium", False)),
         "created_at": created_iso,
     }

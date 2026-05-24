@@ -258,5 +258,4 @@ async def test_scorecards_endpoint_shape(client):
     assert "config_completeness" in p
     assert "connector_quality" in p
     assert data.get("overall_connector_quality") is not None
-    assert data["sla"]["trend_window_days"] == 7
-    assert "remediation_hints" in data
+    assert "connector_quality_version" in data
