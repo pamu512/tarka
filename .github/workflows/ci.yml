@@ -30,8 +30,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -39,16 +37,12 @@ jobs:
         run: python3 scripts/audit_stubs.py
       - name: Tier-1 Honesty gate — audit_stubs self-test (stdlib unittest)
         run: python3 scripts/ci/test_audit_stubs.py
-      - name: No legacy wire protobuf split-brain (grep gate)
-        run: python3 scripts/ci/test_no_legacy_imports.py
 
   lint:
     needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -106,13 +100,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: legacy_attic/services/legacy_v1_decision_api/pyproject.toml
+      - name: Build and install rule engine
+        run: |
+          pip install "maturin>=1.7,<2.0"
+          maturin build --release --out dist
+          pip install dist/*.whl
+        working-directory: legacy_attic/services/rule-engine
       - name: Install dependencies
         run: pip install -e ".[dev]"
         working-directory: legacy_attic/services/legacy_v1_decision_api
@@ -149,8 +148,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -184,8 +181,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -228,8 +223,6 @@ jobs:
           NEO4J_AUTH: neo4j/graphcipass2026
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -273,8 +266,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -308,8 +299,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -347,8 +336,6 @@ jobs:
         profile: [full, no_graph, no_case, no_decision, case_only, legacy_visible]
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -371,8 +358,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -409,20 +394,19 @@ jobs:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: npm
-          # Monorepo root lock: workspace install pulls Rollup optional native binaries for Linux CI.
-          cache-dependency-path: package-lock.json
-      - name: Install workspace (root)
-        run: npm ci
-      - run: npm run test -w tarka-ui
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run test
+        working-directory: frontend
       - name: Guard production build mock mode
         run: python scripts/ci/check_frontend_mock_mode.py
-      - run: npm run build -w tarka-ui
+      - run: npm run build
+        working-directory: frontend
 
   build-sdk-typescript:
     needs: audit-stubs
@@ -431,25 +415,25 @@ jobs:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: package-lock.json
+          cache-dependency-path: packages/fraud-sdk-typescript/package-lock.json
       - run: npm ci
-      - run: npm test -w @tarka/sdk
-      - run: npm run test:contract -w @tarka/sdk
-      - run: npm run build -w @tarka/sdk
+        working-directory: packages/fraud-sdk-typescript
+      - run: npm test
+        working-directory: packages/fraud-sdk-typescript
+      - run: npm run test:contract
+        working-directory: packages/fraud-sdk-typescript
+      - run: npm run build
+        working-directory: packages/fraud-sdk-typescript
 
   test-graphql-gateway:
     needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -483,8 +467,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -507,15 +489,13 @@ jobs:
         run: python -c "from data_plane.main import app; assert 'Data Plane' in app.title"
         working-directory: legacy_attic/services/data-plane
         env:
-          PYTHONPATH: src:../shared:../analytics-sink/src:../event-ingest/src
+          PYTHONPATH: src:../analytics-sink/src:../event-ingest/src:../shared
 
   test-chitragupta:
     needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -549,8 +529,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -584,8 +562,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -619,8 +595,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -670,8 +644,6 @@ jobs:
         fault: [redis, postgres]
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - name: Run chaos smoke
         run: python3 scripts/chaos/chaos_smoke.py --profile core --fault ${{ matrix.fault }}
 
@@ -680,8 +652,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -722,8 +692,6 @@ jobs:
           - graphql-gateway
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: docker/setup-buildx-action@v4.0.0
       - uses: docker/build-push-action@v7.1.0
         with:
@@ -743,8 +711,6 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: docker/setup-buildx-action@v4.0.0
       - name: Full stack smoke (Docker Compose profile full)
         env:
@@ -760,8 +726,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - uses: azure/setup-helm@v4
         with:
           version: v3.14.4

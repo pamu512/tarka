@@ -23,6 +23,14 @@ if settings.graph_backend == "janusgraph":
         find_shared_attributes,
         propagate_risk,
     )
+elif settings.graph_backend == "age":
+    from graph_service.algorithms_age import (
+        compute_entity_risk,
+        detect_communities,
+        detect_fraud_rings,
+        find_shared_attributes,
+        propagate_risk,
+    )
 else:
     from graph_service.algorithms_neo4j import (
         compute_entity_risk,

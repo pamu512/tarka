@@ -1,0 +1,13 @@
+{
+  "description": "Publishable vertical benchmark scorecard (Day 60 MVP). Regenerate with decision-api running:",
+  "command": "python scripts/benchmarks/vertical_benchmark_smoke.py --url http://127.0.0.1:8000 --verify-repro --write-scorecard docs/docs/releases/evidence/v1.2.0-vertical-benchmark-scorecard.json",
+  "thresholds_file": "scripts/benchmarks/vertical_benchmark_thresholds.v1.json",
+  "request_template": { "scenario": "baseline", "seed": 42 },
+  "verticals": {
+    "fintech": { "note": "Run smoke to populate delta after API is up" },
+    "ecommerce": { "note": "Run smoke to populate delta after API is up" },
+    "gaming": { "note": "Run smoke to populate delta after API is up" }
+  },
+  "ci_gate": "services/decision-api/tests/test_api_endpoints.py::TestVerticalPacks::test_benchmark_vertical_pack_reproducible_with_seed",
+  "deferred": "hey/k6 load numbers — DEFERRED TO v1.3.0 (JUNE)"
+}

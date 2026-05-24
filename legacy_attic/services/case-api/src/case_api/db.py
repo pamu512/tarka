@@ -1,3 +1,4 @@
+import asyncio
 import os
 from collections.abc import AsyncGenerator
 from pathlib import Path
@@ -187,6 +188,13 @@ async def init_db() -> None:
     global _fallback_reason, _bootstrap_mode
     from case_api import models as _models  # noqa: F401
 
+    if os.environ.get("TARKA_SKIP_STARTUP_MIGRATIONS", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }:
+        return
+
     try:
         if _engine_kind == "sqlite":
             async with engine.begin() as conn:
@@ -198,8 +206,11 @@ async def init_db() -> None:
         from alembic import command
         from alembic.config import Config
 
-        cfg = Config(str(_app_root() / "alembic.ini"))
-        command.upgrade(cfg, "head")
+        cfg_path = _app_root() / "config" / "case_alembic.ini"
+        if not cfg_path.is_file():
+            cfg_path = _app_root() / "alembic.ini"
+        cfg = Config(str(cfg_path))
+        await asyncio.to_thread(command.upgrade, cfg, "head")
         _bootstrap_mode = "alembic_head"
     except Exception as exc:
         # Local resilience: only DB bootstrap/migration failures trigger sqlite fallback.

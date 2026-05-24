@@ -12,10 +12,9 @@ from ingestor.manifest_schema import TransactionSchema
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-logger = logging.getLogger(__name__)
+from orchestrator.config import get_settings
 
-_SHADOW_COHORT_LIMIT = 1000
-_HIGH_POSITIVE_THRESHOLD = 0.98
+logger = logging.getLogger(__name__)
 
 _NS_SYNTH = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
 
@@ -29,7 +28,7 @@ def _synthetic_cohort_for_demo() -> list[TransactionSchema]:
     """
     base = datetime(2025, 1, 1, 0, 0, 0, tzinfo=UTC)
     out: list[TransactionSchema] = []
-    for i in range(_SHADOW_COHORT_LIMIT):
+    for i in range(get_settings().rule_shadow_test_cohort_limit):
         amt = 2.0 if i < 980 else 0.5
         out.append(
             TransactionSchema(
@@ -116,18 +115,19 @@ async def _transactions_from_audit_logs(
 async def load_shadow_test_transactions(
     session_factory: async_sessionmaker[AsyncSession] | None,
     *,
-    limit: int = _SHADOW_COHORT_LIMIT,
+    limit: int | None = None,
 ) -> list[TransactionSchema]:
     """Prefer audit-backed history; fall back to a deterministic synthetic cohort."""
+    cohort_limit = limit if limit is not None else get_settings().rule_shadow_test_cohort_limit
     if session_factory is None:
-        logger.info("rule_shadow_test_no_audit_db_using_synthetic cohort_size=%s", limit)
-        return _synthetic_cohort_for_demo()[:limit]
+        logger.info("rule_shadow_test_no_audit_db_using_synthetic cohort_size=%s", cohort_limit)
+        return _synthetic_cohort_for_demo()[:cohort_limit]
     async with session_factory() as session:
-        rows = await _transactions_from_audit_logs(session, limit=limit)
+        rows = await _transactions_from_audit_logs(session, limit=cohort_limit)
     if not rows:
-        logger.info("rule_shadow_test_empty_audit_using_synthetic cohort_size=%s", limit)
-        return _synthetic_cohort_for_demo()[:limit]
-    return rows[:limit]
+        logger.info("rule_shadow_test_empty_audit_using_synthetic cohort_size=%s", cohort_limit)
+        return _synthetic_cohort_for_demo()[:cohort_limit]
+    return rows[:cohort_limit]
 
 
 def run_shadow_test_against_transactions(
@@ -188,7 +188,8 @@ def run_shadow_test_against_transactions(
     )
 
     warning: str | None = None
-    if rate >= _HIGH_POSITIVE_THRESHOLD:
+    high_positive_threshold = get_settings().rule_shadow_test_high_positive_rate_threshold
+    if rate >= high_positive_threshold:
         pct_whole = int(round(rate * 100.0))
         warning = f"HIGH POSITIVE RATE: This rule affects {pct_whole}% of your traffic."
 
@@ -208,9 +209,10 @@ async def execute_rule_shadow_test(
     *,
     root_payload: dict[str, Any],
     action_value: str,
-    limit: int = _SHADOW_COHORT_LIMIT,
+    limit: int | None = None,
 ) -> dict[str, Any]:
-    txns = await load_shadow_test_transactions(session_factory, limit=limit)
+    cohort_limit = limit if limit is not None else get_settings().rule_shadow_test_cohort_limit
+    txns = await load_shadow_test_transactions(session_factory, limit=cohort_limit)
     return run_shadow_test_against_transactions(
         root_payload=root_payload,
         action_value=action_value,

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import useSWR from "swr";
-import { X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { JsonCodeBlock } from "@/components/decision-detail/JsonCodeBlock";
 import { CoTTimeline } from "@/components/decision-detail/CoTTimeline";
 import { TimelineView } from "@/components/decision-detail/TimelineView";
@@ -12,6 +12,7 @@ import {
   KnowledgeDropInsight,
   type KnowledgeResolution,
 } from "@/components/decision-detail/KnowledgeDropInsight";
+import { normalizeKnowledgeRows } from "@/types/knowledge-drop";
 import { AstTranslator } from "@/components/decision-detail/AstTranslator";
 
 export type DecisionDetailProps = {
@@ -20,13 +21,6 @@ export type DecisionDetailProps = {
 };
 
 function decisionDetailUrl(transactionId: string): string {
-  const base =
-    typeof process.env.NEXT_PUBLIC_ORCHESTRATOR_BASE_URL === "string"
-      ? process.env.NEXT_PUBLIC_ORCHESTRATOR_BASE_URL.replace(/\/$/, "")
-      : "";
-  if (base.length > 0) {
-    return `${base}/v1/decisions/${encodeURIComponent(transactionId)}`;
-  }
   return `/api/v1/decisions/${encodeURIComponent(transactionId)}`;
 }
 
@@ -52,45 +46,14 @@ type PrimeResponse = {
   cluster_analysis?: { ai_reasoning?: string } | null;
 };
 
+type ShadowChatResponse = {
+  reply?: string;
+  ai_reasoning?: unknown;
+  error?: string;
+};
+
 function normalizeKnowledge(raw: unknown): KnowledgeResolution[] {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-  const out: KnowledgeResolution[] = [];
-  for (const x of raw) {
-    if (!x || typeof x !== "object") continue;
-    const o = x as Record<string, unknown>;
-    if (typeof o.detected_id !== "string") continue;
-    out.push({
-      detected_id: o.detected_id,
-      id_kind: typeof o.id_kind === "string" ? o.id_kind : "unknown",
-      found_in_graph: Boolean(o.found_in_graph),
-      match_kind: typeof o.match_kind === "string" ? o.match_kind : null,
-      graph_backend: typeof o.graph_backend === "string" ? o.graph_backend : null,
-      linked_user_ids: Array.isArray(o.linked_user_ids)
-        ? o.linked_user_ids.filter((u): u is string => typeof u === "string")
-        : [],
-      active_investigation_count:
-        typeof o.active_investigation_count === "number" ? o.active_investigation_count : 0,
-      pending_action_conflict: Boolean(o.pending_action_conflict),
-      pending_action_case_ids: Array.isArray(o.pending_action_case_ids)
-        ? o.pending_action_case_ids.filter((c): c is string => typeof c === "string")
-        : [],
-      mini_graph:
-        o.mini_graph && typeof o.mini_graph === "object"
-          ? (o.mini_graph as KnowledgeResolution["mini_graph"])
-          : undefined,
-      two_hop_network:
-        o.two_hop_network && typeof o.two_hop_network === "object"
-          ? (o.two_hop_network as KnowledgeResolution["two_hop_network"])
-          : undefined,
-      duck_cluster_velocity:
-        o.duck_cluster_velocity && typeof o.duck_cluster_velocity === "object"
-          ? (o.duck_cluster_velocity as KnowledgeResolution["duck_cluster_velocity"])
-          : undefined,
-    });
-  }
-  return out;
+  return normalizeKnowledgeRows(raw);
 }
 
 function isAllowedPrimeFile(file: File): boolean {
@@ -107,6 +70,8 @@ export function DecisionDetail({ transactionId, onClose }: DecisionDetailProps) 
   const [animateIn, setAnimateIn] = useState(false);
   const [shadowLens, setShadowLens] = useState<string>(SHADOW_LENS_OPTIONS[0].value);
   const [shadowChat, setShadowChat] = useState("");
+  const [shadowChatBusy, setShadowChatBusy] = useState(false);
+  const [shadowChatError, setShadowChatError] = useState<string | null>(null);
   const [primeBusy, setPrimeBusy] = useState(false);
   const [primeError, setPrimeError] = useState<string | null>(null);
   const [primeKnowledge, setPrimeKnowledge] = useState<KnowledgeResolution[] | null>(null);
@@ -170,6 +135,46 @@ export function DecisionDetail({ transactionId, onClose }: DecisionDetailProps) 
       setPrimeBusy(false);
     }
   }, []);
+
+  const submitShadowChat = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const message = shadowChat.trim();
+      if (!message || shadowChatBusy || !data) {
+        return;
+      }
+
+      setShadowChatBusy(true);
+      setShadowChatError(null);
+      try {
+        const res = await fetch("/api/v1/analyze/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            transaction_id: transactionId,
+            message,
+            ai_reasoning: data.shadow_decision.ai_reasoning,
+          }),
+        });
+        const body = (await res.json().catch(() => ({}))) as ShadowChatResponse;
+        if (!res.ok) {
+          setShadowChatError(
+            typeof body.error === "string" ? body.error : `Shadow chat failed (${res.status})`,
+          );
+          return;
+        }
+        const reply = typeof body.reply === "string" ? body.reply.trim() : "";
+        if (reply.length > 0) {
+          setShadowChat(`${message}\n\n— Shadow —\n${reply}`);
+        }
+      } catch {
+        setShadowChatError("Network error while contacting Shadow.");
+      } finally {
+        setShadowChatBusy(false);
+      }
+    },
+    [data, shadowChat, shadowChatBusy, transactionId],
+  );
 
   const onDropFiles = useCallback(
     (fl: FileList | File[] | null) => {
@@ -393,22 +398,62 @@ export function DecisionDetail({ transactionId, onClose }: DecisionDetailProps) 
                     ) : null}
                   </div>
 
-                  <div className="flex flex-col gap-1.5">
+                  <form
+                    className="relative flex flex-col gap-2"
+                    onSubmit={(e) => {
+                      void submitShadowChat(e);
+                    }}
+                  >
                     <label
                       htmlFor={`${titleId}-shadow-chat`}
                       className="text-[10px] font-semibold uppercase tracking-widest text-slate-500"
                     >
                       Shadow AI
                     </label>
-                    <textarea
-                      id={`${titleId}-shadow-chat`}
-                      value={shadowChat}
-                      onChange={(e) => setShadowChat(e.target.value)}
-                      rows={5}
-                      placeholder="Ask Shadow to reason about this decision, or drop a document above to prime from extracted IDs…"
-                      className="resize-y rounded-md border border-slate-700 bg-slate-950 px-3 py-2 font-sans text-xs leading-relaxed text-slate-100 placeholder:text-slate-600 focus:border-slate-500 focus:outline-none"
-                    />
-                  </div>
+                    <div className="relative">
+                      <textarea
+                        id={`${titleId}-shadow-chat`}
+                        value={shadowChat}
+                        onChange={(e) => setShadowChat(e.target.value)}
+                        rows={5}
+                        disabled={shadowChatBusy}
+                        aria-busy={shadowChatBusy}
+                        placeholder="Ask Shadow to reason about this decision, or drop a document above to prime from extracted IDs…"
+                        className="w-full resize-y rounded-md border border-slate-700 bg-slate-950 px-3 py-2 font-sans text-xs leading-relaxed text-slate-100 placeholder:text-slate-600 focus:border-slate-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                            e.preventDefault();
+                            e.currentTarget.form?.requestSubmit();
+                          }
+                        }}
+                      />
+                      {shadowChatBusy ? (
+                        <div
+                          className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-md bg-slate-950/75"
+                          aria-hidden
+                        >
+                          <Loader2 className="size-5 animate-spin text-sky-400" />
+                        </div>
+                      ) : null}
+                    </div>
+                    {shadowChatError ? (
+                      <p className="text-[11px] text-amber-400/90">{shadowChatError}</p>
+                    ) : null}
+                    <button
+                      type="submit"
+                      disabled={shadowChatBusy || shadowChat.trim().length === 0}
+                      className="inline-flex items-center justify-center gap-2 self-end rounded-md border border-slate-600 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-100 transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {shadowChatBusy ? (
+                        <>
+                          <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                          Sending…
+                        </>
+                      ) : (
+                        "Send to Shadow"
+                      )}
+                    </button>
+                  </form>
                 </div>
               </section>
             </div>

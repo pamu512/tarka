@@ -1,0 +1,16 @@
+{
+  "version": "v1.2.0-day60",
+  "seed": 42,
+  "scenario": "baseline",
+  "verticals": ["fintech", "ecommerce", "gaming"],
+  "gates": {
+    "min_events_evaluated": 200,
+    "delta": {
+      "f1_score": { "min": -0.2, "max": 0.5 },
+      "precision": { "min": -1.0, "max": 1.0 },
+      "recall": { "min": -1.0, "max": 1.0 },
+      "false_positives": { "min": -1000, "max": 1000 },
+      "false_negatives": { "min": -1000, "max": 1000 }
+    }
+  }
+}

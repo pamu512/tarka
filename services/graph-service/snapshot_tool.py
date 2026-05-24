@@ -45,7 +45,7 @@ def _ensure_graph_service_path() -> None:
         sys.path.insert(0, p)
 
 
-def _gremlin_t() -> Any:
+def _gremlin_T() -> Any:  # noqa: N802
     from gremlin_python.process.traversal import T
 
     return T
@@ -53,7 +53,7 @@ def _gremlin_t() -> Any:
 
 def element_map_to_public(em: dict[Any, Any]) -> dict[str, Any]:
     """Turn a Gremlin ``elementMap()`` row into JSON-safe ``{id, label, properties}``."""
-    T = _gremlin_t()
+    T = _gremlin_T()
     vid = em.get(T.id)
     lbl = em.get(T.label)
     props: dict[str, Any] = {}
@@ -70,7 +70,7 @@ def element_map_to_public(em: dict[Any, Any]) -> dict[str, Any]:
 
 def edge_element_map_to_public(em: dict[Any, Any]) -> dict[str, Any]:
     """JSON-safe edge description from ``bothE().elementMap()``."""
-    T = _gremlin_t()
+    T = _gremlin_T()
     eid = em.get(T.id)
     lbl = em.get(T.label)
     props: dict[str, Any] = {}
@@ -123,7 +123,7 @@ def build_neighborhood_tree_from_gremlin_maps(
     }
     if not uid or anchor_em is None:
         return out
-    T = _gremlin_t()
+    T = _gremlin_T()
     anchor_tid = anchor_em.get(T.id)
     out["found"] = True
     out["anchor"] = element_map_to_public(anchor_em)
@@ -171,7 +171,7 @@ def fetch_two_hop_neighborhood_snapshot_sync(
     """
     from gremlin_python.process.graph_traversal import __
 
-    T = _gremlin_t()
+    T = _gremlin_T()
     uid = (user_id or "").strip()
     if not uid:
         return build_neighborhood_tree_from_gremlin_maps(
@@ -220,19 +220,11 @@ def fetch_two_hop_neighborhood_snapshot_sync(
     def _two_hop(nid: Any, anchor_id: Any) -> list[dict[str, Any]]:
         try:
             raw_v = (
-                g.V()
-                .hasId(nid)
-                .both()
-                .dedup()
-                .limit(max_two_hop_per_branch)
-                .elementMap()
-                .toList()
+                g.V().hasId(nid).both().dedup().limit(max_two_hop_per_branch).elementMap().toList()
             )
-            verts = [
-                v
-                for v in raw_v
-                if isinstance(v, dict) and v.get(T.id) != anchor_id
-            ][:max_two_hop_per_branch]
+            verts = [v for v in raw_v if isinstance(v, dict) and v.get(T.id) != anchor_id][
+                :max_two_hop_per_branch
+            ]
         except Exception:
             logger.exception("snapshot_two_hop_branch_failed neighbor_id=%s", nid)
             return []
@@ -267,7 +259,9 @@ def fetch_two_hop_neighborhood_snapshot_sync(
     )
 
 
-async def fetch_two_hop_neighborhood_snapshot(user_id: str, *, g: Any | None = None) -> dict[str, Any]:
+async def fetch_two_hop_neighborhood_snapshot(
+    user_id: str, *, g: Any | None = None
+) -> dict[str, Any]:
     """Async wrapper; builds ``g`` from env when omitted (closes connection when created here)."""
     import asyncio
 
@@ -290,7 +284,9 @@ async def fetch_two_hop_neighborhood_snapshot(user_id: str, *, g: Any | None = N
 def snapshot_json(user_id: str, *, g: Any | None = None, indent: int | None = 2) -> str:
     """Return pretty-printed JSON (sync path uses injected ``g`` only)."""
     if g is None:
-        raise ValueError("Pass traversal source g=... or use fetch_two_hop_neighborhood_snapshot async")
+        raise ValueError(
+            "Pass traversal source g=... or use fetch_two_hop_neighborhood_snapshot async"
+        )
     tree = fetch_two_hop_neighborhood_snapshot_sync(g, user_id)
     return json.dumps(tree, indent=indent)
 

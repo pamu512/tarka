@@ -1193,7 +1193,12 @@ export const decisions = {
 
   challengePolicies() {
     return request<{
-      policies: Array<{ policy_id: string; version: number; description: string }>;
+      policies: Array<{
+        policy_id: string;
+        version: number;
+        description: string;
+        escalation_ladder?: string[];
+      }>;
     }>("/api/decisions/v1/challenge-policies");
   },
 
@@ -3231,6 +3236,17 @@ export interface IntegrationScorecardsPayload {
   connector_quality_version?: string;
   overall_score: number;
   overall_connector_quality: number;
+  sla?: {
+    availability_target_pct: number;
+    latency_target_ms_p95: number;
+    trend_window_days: number;
+  };
+  trend_note?: string;
+  remediation_hints?: Array<{
+    provider_id: string;
+    status: string;
+    actions: string[];
+  }>;
   providers: IntegrationProviderScorecard[];
 }
 

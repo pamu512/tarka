@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { integrations, type IntegrationScorecardsPayload } from "../api/client";
@@ -282,7 +283,15 @@ export default function Integrations() {
               <h2 className="text-sm font-semibold text-gray-200">Integration scorecards</h2>
               <p className="text-xs text-gray-400 mt-1">
                 Installed providers — <code className="text-gray-500">GET /v1/integrations/scorecards</code>
+                {scorecards.sla ? (
+                  <>
+                    {" "}
+                    · SLA {scorecards.sla.availability_target_pct}% / p95 {scorecards.sla.latency_target_ms_p95}ms · trend window{" "}
+                    {scorecards.sla.trend_window_days}d
+                  </>
+                ) : null}
               </p>
+              {scorecards.trend_note && <p className="text-xs text-gray-500">{scorecards.trend_note}</p>}
             </div>
             <div className="text-right shrink-0">
               <div className="text-xl font-bold text-brand-300 tabular-nums">{scorecards.overall_score.toFixed(1)}</div>
@@ -293,6 +302,23 @@ export default function Integrations() {
               </div>
             </div>
           </div>
+          {(scorecards.remediation_hints?.length ?? 0) > 0 && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+              <motion.div className="text-xs font-medium text-amber-200/90">Remediation (degraded / down)</motion.div>
+              <ul className="text-xs text-gray-400 space-y-2 list-none">
+                {scorecards.remediation_hints!.map((h) => (
+                  <li key={h.provider_id}>
+                    <span className="font-mono text-gray-300">{h.provider_id}</span> ({h.status})
+                    <ul className="list-disc pl-4 mt-1 text-gray-500">
+                      {h.actions.map((a) => (
+                        <li key={a}>{a}</li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {scorecards.providers.length === 0 ? (
             <p className="text-xs text-gray-500">No installed integration connections for this tenant.</p>
           ) : (
@@ -305,6 +331,7 @@ export default function Integrations() {
                     <th className="text-left py-2 px-3 font-medium">Status</th>
                     <th className="text-right py-2 px-3 font-medium">Score</th>
                     <th className="text-right py-2 px-3 font-medium">Latency</th>
+                    <th className="text-left py-2 px-3 font-medium">Last check</th>
                     <th className="text-left py-2 px-3 font-medium">Reasons</th>
                   </tr>
                 </thead>
@@ -316,6 +343,9 @@ export default function Integrations() {
                       <td className="py-2 px-3 text-gray-300">{row.status}</td>
                       <td className="py-2 px-3 text-right text-gray-200 tabular-nums">{row.provider_score.toFixed(1)}</td>
                       <td className="py-2 px-3 text-right text-gray-400 tabular-nums">{row.latency_ms.toFixed(0)}ms</td>
+                      <td className="py-2 px-3 text-gray-500 tabular-nums whitespace-nowrap">
+                        {row.last_checked_at ? new Date(row.last_checked_at).toLocaleString() : "—"}
+                      </td>
                       <td className="py-2 px-3 text-gray-500 max-w-[220px] truncate" title={row.reasons.join(", ")}>
                         {row.reasons.length ? row.reasons.join(", ") : "—"}
                       </td>

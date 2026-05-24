@@ -75,25 +75,98 @@ async def _ensure_shadow_case_row(session: AsyncSession, entity_id: str) -> None
         return
 
 
-async def persist_orchestrator_audit_log(
+async def _upsert_lifecycle_case_from_payload(
     session: AsyncSession,
+    *,
+    audit_log_id: int,
+    body: dict[str, Any],
+    now: datetime | None = None,
+) -> str | None:
+    """
+    Link or create ``lifecycle_cases`` for an orchestrator audit payload.
+
+    Returns the lifecycle ``case_id`` when a row was linked or created; ``None`` when the payload
+    does not trigger lifecycle materialization.
+    """
+    acts = set(body.get("actions") or [])
+    if not acts & TRIGGER_ACTIONS_FOR_LIFECYCLE:
+        return None
+
+    now = now or datetime.now(UTC)
+    since = now - timedelta(hours=24)
+    user_key = str(body.get("user_link_key") or body.get("user_id") or body.get("entity_id"))
+    entity_id = str(body["entity_id"])
+    try:
+        prio = int(body.get("priority_hint") or 0)
+    except (TypeError, ValueError):
+        prio = 0
+    prio = max(0, min(100, prio))
+
+    existing = (
+        await session.execute(
+            select(CaseORM)
+            .where(
+                CaseORM.user_link_key == user_key,
+                CaseORM.opened_at >= since,
+            )
+            .order_by(CaseORM.opened_at.asc())
+            .limit(1),
+        )
+    ).scalar_one_or_none()
+
+    if existing is not None:
+        try:
+            async with session.begin_nested():
+                session.add(
+                    CaseHistoryORM(case_id=existing.case_id, audit_log_id=audit_log_id),
+                )
+                await session.flush()
+        except IntegrityError:
+            logger.debug(
+                "case_history_skip_duplicate audit_log_id=%s case_id=%s",
+                audit_log_id,
+                existing.case_id,
+            )
+        return existing.case_id
+
+    cid = str(uuid.uuid4())
+    raw_tags = body.get("case_tags")
+    case_labels: list[str] = []
+    if isinstance(raw_tags, list):
+        case_labels = [str(x) for x in raw_tags if str(x).strip()]
+    if str(body.get("ingestion_type") or "").upper() == "CHARGEBACK" and not case_labels:
+        case_labels = ["Dispute"]
+    linked_sid = body.get("linked_session_id")
+    linked_sid_s = str(linked_sid).strip() if linked_sid is not None and str(linked_sid).strip() else None
+    session.add(
+        CaseORM(
+            case_id=cid,
+            transaction_id=audit_log_id,
+            user_link_key=user_key,
+            entity_id=entity_id,
+            opened_at=now,
+            status=CaseStatus.OPEN.value,
+            priority=prio,
+            case_labels=list(case_labels),
+            linked_session_id=linked_sid_s,
+        ),
+    )
+    session.add(CaseHistoryORM(case_id=cid, audit_log_id=audit_log_id))
+    await session.flush()
+    return cid
+
+
+def _orchestrator_audit_payload(
     *,
     entity_id: str,
     metadata: dict[str, Any],
     actions: list[str],
     rule_data: dict[str, Any],
     shadow_data: dict[str, Any] | None,
-    shadow_matches: list[dict[str, Any]] | None = None,
-) -> int:
-    """
-    Insert an ``AuditLog`` row for every processed transaction.
-
-    ``shadow_matches`` records every active shadow hypothesis rule that fired (promotion evidence).
-    Lifecycle case materialization still keys off ``actions`` intersecting ``TRIGGER_ACTIONS_FOR_LIFECYCLE``.
-    """
+    transaction_envelope: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build the JSON stored in ``audit_logs.action_taken`` for orchestrator ingest."""
     hits = [a for a in actions if a in TRIGGER_ACTIONS_FOR_LIFECYCLE]
-
-    await _ensure_shadow_case_row(session, entity_id)
     user_key = _user_link_key(metadata, entity_id)
     rs: float | None = None
     if isinstance(shadow_data, dict) and shadow_data.get("risk_score") is not None:
@@ -102,11 +175,7 @@ async def persist_orchestrator_audit_log(
         except (TypeError, ValueError):
             rs = None
     prio = priority_from_scores(
-        rule_score=(
-            rule_data.get("risk_score")
-            if isinstance(rule_data.get("risk_score"), (int, float))
-            else None
-        ),
+        rule_score=rule_data.get("risk_score") if isinstance(rule_data.get("risk_score"), (int, float)) else None,
         ai_score=rs,
     )
     payload: dict[str, Any] = {
@@ -126,15 +195,73 @@ async def persist_orchestrator_audit_log(
         oe = metadata.get("original_entity_id")
         if oe is not None and str(oe).strip() != "":
             payload["original_entity_id"] = str(oe).strip()
-        raw_tags = (
-            metadata.get("case_tags")
-            if isinstance(metadata.get("case_tags"), list)
-            else metadata.get("labels")
-        )
+        raw_tags = metadata.get("case_tags") if isinstance(metadata.get("case_tags"), list) else metadata.get("labels")
         if isinstance(raw_tags, list) and raw_tags:
             payload["case_tags"] = [str(x) for x in raw_tags if str(x).strip()]
         else:
             payload["case_tags"] = ["Dispute"]
+    if isinstance(transaction_envelope, dict) and transaction_envelope:
+        payload["transaction_envelope"] = transaction_envelope
+    return payload
+
+
+async def materialize_lifecycle_case_for_ingest(
+    session: AsyncSession,
+    *,
+    audit_log_id: int,
+    entity_id: str,
+    metadata: dict[str, Any],
+    actions: list[str],
+    rule_data: dict[str, Any],
+    shadow_data: dict[str, Any] | None,
+) -> str | None:
+    """
+    Synchronously ensure a ``lifecycle_cases`` row exists for a just-committed orchestrator audit log.
+
+    Mirrors the background poll in :func:`process_new_audit_logs` so inline autoresolve can transition
+    status before the HTTP response returns.
+    """
+    payload = _orchestrator_audit_payload(
+        entity_id=entity_id,
+        metadata=metadata,
+        actions=actions,
+        rule_data=rule_data,
+        shadow_data=shadow_data,
+    )
+    if not payload.get("actions"):
+        return None
+    return await _upsert_lifecycle_case_from_payload(
+        session,
+        audit_log_id=audit_log_id,
+        body=payload,
+    )
+
+
+async def persist_orchestrator_audit_log(
+    session: AsyncSession,
+    *,
+    entity_id: str,
+    metadata: dict[str, Any],
+    actions: list[str],
+    rule_data: dict[str, Any],
+    shadow_data: dict[str, Any] | None,
+    shadow_matches: list[dict[str, Any]] | None = None,
+    transaction_envelope: dict[str, Any] | None = None,
+) -> int:
+    """
+    Insert an ``AuditLog`` row for every processed transaction.
+
+    ``shadow_matches`` records every active shadow hypothesis rule that fired (promotion evidence).
+    Lifecycle case materialization still keys off ``actions`` intersecting ``TRIGGER_ACTIONS_FOR_LIFECYCLE``.
+    """
+    payload = _orchestrator_audit_payload(
+        entity_id=entity_id,
+        metadata=metadata,
+        actions=actions,
+        rule_data=rule_data,
+        shadow_data=shadow_data,
+        transaction_envelope=transaction_envelope,
+    )
     log = AuditLog(
         case_id=entity_id,
         action_taken=json.dumps(payload, separators=(",", ":"), ensure_ascii=False),
@@ -154,9 +281,7 @@ async def process_new_audit_logs(session: AsyncSession) -> None:
     Idempotent per ``audit_log_id`` via ``case_history`` uniqueness.
     """
     cursor = await session.scalar(
-        select(OrchestratorPollStateORM).where(
-            OrchestratorPollStateORM.singleton_key == CURSOR_KEY
-        ),
+        select(OrchestratorPollStateORM).where(OrchestratorPollStateORM.singleton_key == CURSOR_KEY),
     )
     if cursor is None:
         cursor = OrchestratorPollStateORM(singleton_key=CURSOR_KEY, last_audit_log_id=0)
@@ -174,7 +299,6 @@ async def process_new_audit_logs(session: AsyncSession) -> None:
         return
 
     now = datetime.now(UTC)
-    since = now - timedelta(hours=24)
     max_id = cursor.last_audit_log_id
 
     for log in logs:
@@ -187,72 +311,19 @@ async def process_new_audit_logs(session: AsyncSession) -> None:
             continue
         if body.get("source") != ORCHESTRATOR_AUDIT_SOURCE:
             continue
-        acts = set(body.get("actions") or [])
-        if not acts & TRIGGER_ACTIONS_FOR_LIFECYCLE:
-            continue
 
-        user_key = str(body.get("user_link_key") or body.get("user_id") or body.get("entity_id"))
-        entity_id = str(body["entity_id"])
-        try:
-            prio = int(body.get("priority_hint") or 0)
-        except (TypeError, ValueError):
-            prio = 0
-        prio = max(0, min(100, prio))
-
-        existing = (
-            await session.execute(
-                select(CaseORM)
-                .where(
-                    CaseORM.user_link_key == user_key,
-                    CaseORM.opened_at >= since,
-                )
-                .order_by(CaseORM.opened_at.asc())
-                .limit(1),
+        case_id = await _upsert_lifecycle_case_from_payload(
+            session,
+            audit_log_id=int(log.id),
+            body=body,
+            now=now,
+        )
+        if case_id is not None:
+            logger.debug(
+                "lifecycle_case_materialized audit_log_id=%s case_id=%s",
+                log.id,
+                case_id,
             )
-        ).scalar_one_or_none()
-
-        if existing is not None:
-            try:
-                async with session.begin_nested():
-                    session.add(
-                        CaseHistoryORM(case_id=existing.case_id, audit_log_id=int(log.id)),
-                    )
-                    await session.flush()
-            except IntegrityError:
-                logger.debug(
-                    "case_history_skip_duplicate audit_log_id=%s case_id=%s",
-                    log.id,
-                    existing.case_id,
-                )
-        else:
-            cid = str(uuid.uuid4())
-            raw_tags = body.get("case_tags")
-            case_labels: list[str] = []
-            if isinstance(raw_tags, list):
-                case_labels = [str(x) for x in raw_tags if str(x).strip()]
-            if str(body.get("ingestion_type") or "").upper() == "CHARGEBACK" and not case_labels:
-                case_labels = ["Dispute"]
-            linked_sid = body.get("linked_session_id")
-            linked_sid_s = (
-                str(linked_sid).strip()
-                if linked_sid is not None and str(linked_sid).strip()
-                else None
-            )
-            session.add(
-                CaseORM(
-                    case_id=cid,
-                    transaction_id=int(log.id),
-                    user_link_key=user_key,
-                    entity_id=entity_id,
-                    opened_at=now,
-                    status=CaseStatus.OPEN.value,
-                    priority=prio,
-                    case_labels=list(case_labels),
-                    linked_session_id=linked_sid_s,
-                ),
-            )
-            session.add(CaseHistoryORM(case_id=cid, audit_log_id=int(log.id)))
-            await session.flush()
 
     cursor.last_audit_log_id = max_id
     await session.flush()

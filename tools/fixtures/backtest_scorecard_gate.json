@@ -1,0 +1,20 @@
+{
+  "total_evaluated": 2000,
+  "decision_match_count": 2000,
+  "step_parity_count": 2000,
+  "mismatches": [],
+  "false_positive_rate_delta": 0.0712,
+  "precision_delta": 0.0,
+  "recall_delta": 0.0,
+  "execution_time_ms": 42,
+  "display": {
+    "replay_predicted_block": 512,
+    "replay_predicted_allow": 1488,
+    "ground_truth_confusion": {
+      "tp": 48,
+      "fp": 464,
+      "fn": 12,
+      "tn": 1476
+    }
+  }
+}

@@ -18,12 +18,9 @@ classifiers = [
     "Topic :: Office/Business :: Financial",
 ]
 
-# Core: HTTP utilities + ``tarka`` CLI (``tarka_v2_core/cli.py``).
+# Core: just the CLI installer + shared utilities
 dependencies = [
     "httpx>=0.28.0",
-    "tenacity>=9.0.0",
-    "typer>=0.12.0",
-    "sqlalchemy>=2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -87,13 +84,6 @@ micro = [
     "aiosqlite>=0.21.0",
 ]
 
-# High-concurrency scripts (e.g. scripts/stress_test_ingestion.py).
-stress = [
-    "aiohttp>=3.9.0",
-    "psutil>=6.0.0",
-    "psycopg[binary]>=3.2.0",
-]
-
 # Bundles — common combinations
 lite = [
     "tarka[core,cases]",
@@ -104,21 +94,6 @@ standard = [
 full = [
     "tarka[core,graph,ml,cases,streaming,analytics,agent,osint,gateway]",
 ]
-
-[project.scripts]
-tarka = "tarka_v2_core.cli:main"
-
-[build-system]
-requires = ["setuptools>=69", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["tarka_v2_core*"]
-
-[tool.black]
-line-length = 100
-target-version = ["py311"]
 
 [tool.ruff]
 line-length = 100
@@ -179,7 +154,6 @@ ignore = [
     "C401",
     "C416",
 ]
-
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
