@@ -4,17 +4,18 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from ingestor.manifest_schema import TransactionSchema
 
-DEFAULT_SHADOW_INVESTIGATE_SUBJECT = "shadow.investigate"
+from orchestrator.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 def shadow_investigate_subject() -> str:
     """NATS subject for Shadow handoff (override with ``SHADOW_DISPATCH_NATS_SUBJECT``)."""
-    return (os.environ.get("SHADOW_DISPATCH_NATS_SUBJECT") or DEFAULT_SHADOW_INVESTIGATE_SUBJECT).strip()
+    return get_settings().shadow_dispatch_nats_subject
 
 
 def is_review_decision(rule_data: dict[str, Any], actions: list[str]) -> bool:
@@ -48,11 +49,22 @@ async def dispatch_shadow_investigate_if_review(
     metadata: dict[str, Any],
     rule_data: dict[str, Any],
     actions: list[str],
+    transaction: TransactionSchema | None = None,
 ) -> bool:
     """
     If this is a REVIEW decision and a NATS client is configured, publish JSON to ``shadow.investigate``.
 
-    Payload: ``{"session_id": "<resolved>", "trace": <evaluation_trace list>}``.
+    Payload::
+
+        {
+          "session_id": "<resolved>",
+          "entity_id": "<transaction uuid>",
+          "trace": <evaluation_trace list>,
+          "transaction": { ... TransactionSchema ... }
+        }
+
+    The ``transaction`` envelope is required for the NATS worker to call
+    :meth:`~shadow_agent.agent.ShadowAgent.evaluate` with full audit persistence.
 
     Returns ``True`` when a message was published.
     """
@@ -68,13 +80,27 @@ async def dispatch_shadow_investigate_if_review(
     session_id = resolve_session_id(entity_id, metadata)
     trace = evaluation_trace_from_rule_data(rule_data)
     subject = shadow_investigate_subject()
+    body_obj: dict[str, Any] = {
+        "session_id": session_id,
+        "entity_id": entity_id,
+        "trace": trace,
+    }
+    if transaction is not None:
+        body_obj["transaction"] = transaction.model_dump(mode="json")
     body = json.dumps(
-        {"session_id": session_id, "trace": trace},
+        body_obj,
         separators=(",", ":"),
         default=str,
     ).encode("utf-8")
 
-    await nats_client.publish(subject, body)
+    js = nats_client.jetstream() if hasattr(nats_client, "jetstream") else None
+    if js is not None:
+        from orchestrator.messaging.shadow_investigate_jetstream import ensure_shadow_investigate_stream  # noqa: PLC0415
+
+        await ensure_shadow_investigate_stream(js, subject=subject)
+        await js.publish(subject, body)
+    else:
+        await nats_client.publish(subject, body)
     logger.info(
         "orchestrator_shadow_investigate_nats_published subject=%s session_id=%s entity_id=%s",
         subject,

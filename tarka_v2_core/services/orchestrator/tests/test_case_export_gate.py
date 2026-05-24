@@ -55,7 +55,6 @@ def test_get_case_export_zip_contains_case_graph_and_rust_trace() -> None:
         shadow_agent_url=None,
         audit_database_url="sqlite+aiosqlite:///:memory:",
         compliance_export_hmac_key=hmac_key,
-        audit_background_poll=False,
     )
 
     async def _seed() -> None:

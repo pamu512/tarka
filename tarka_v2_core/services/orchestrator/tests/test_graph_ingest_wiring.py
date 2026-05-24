@@ -1,23 +1,25 @@
-"""Orchestrator runs graph ingest + DuckDB append after successful rule evaluation (async sidecars).
+"""Orchestrator enqueues graph + velocity outbox tasks after successful rule evaluation.
 
-**Manual gate (JanusGraph + DuckDB)** — with ``GRAPH_BACKEND=janusgraph``, ``GREMLIN_REMOTE_URL`` set,
-and the orchestrator running locally:
+**Manual gate (JanusGraph + outbox relay)** — with ``GRAPH_BACKEND=janusgraph``, ``GREMLIN_REMOTE_URL`` set,
+outbox relay running, and the orchestrator running locally:
 
 1. ``POST /v1/ingest`` with ``metadata.user_id``, ``metadata.billing_address`` (or ``graph_address``),
    ``country``, ``amount``, ``timestamp``, ``entity_id``.
-2. Gremlin console: ``g.V().has('User','user_id','<id>').out('LIVES_AT').values('line1')``
-3. ``GET /v1/analytics/transactions?limit=20`` — confirm a row whose ``entity_id`` matches the ingest.
+2. Confirm ``tarka_outbox`` rows ``GRAPH_INGEST`` + ``VELOCITY_UPDATE`` for the entity id.
+3. After relay processes ``GRAPH_INGEST``, Gremlin console:
+   ``g.V().has('User','user_id','<id>').out('LIVES_AT').values('line1')``
 """
 
 from __future__ import annotations
 
+import asyncio
 import sys
-import time
 from pathlib import Path
 from uuid import UUID
 
 import httpx
 import pytest
+from sqlalchemy import select
 from starlette.testclient import TestClient
 
 _SRC_ORCH = Path(__file__).resolve().parents[1] / "src"
@@ -26,17 +28,21 @@ for _p in (_SRC_ORCH, _SRC_INGESTOR):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-from ingestor.manifest_schema import TransactionSchema  # noqa: E402
-from orchestrator.analytics.duck_provider import DuckAnalyticsProvider  # noqa: E402
 from orchestrator.graph.client import GraphClient  # noqa: E402
 from orchestrator.main import create_app  # noqa: E402
+from orchestrator.models.outbox import (  # noqa: E402
+    OUTBOX_EVENT_GRAPH_INGEST,
+    OUTBOX_EVENT_VELOCITY_UPDATE,
+    OutboxORM,
+    OutboxStatus,
+)
 
 
 class _RecordingGraphClient(GraphClient):
     def __init__(self) -> None:
-        self.transactions: list[TransactionSchema] = []
+        self.transactions: list[object] = []
 
-    async def ingest_transaction(self, transaction: TransactionSchema) -> None:
+    async def ingest_transaction(self, transaction: object) -> None:
         self.transactions.append(transaction)
 
     async def users_connected_to_ip(self, ip: str) -> list[str]:
@@ -91,6 +97,9 @@ class _DummyUpstreamResponse:
 
 
 class _EvalOnlyAsyncClient:
+    def __init__(self, *, entity_id: str) -> None:
+        self._entity_id = entity_id
+
     async def __aenter__(self) -> _EvalOnlyAsyncClient:
         return self
 
@@ -104,7 +113,22 @@ class _EvalOnlyAsyncClient:
         **kwargs: object,
     ) -> _DummyUpstreamResponse:
         if "/v1/evaluate" in url:
-            return _DummyUpstreamResponse({"actions": ["FLAG"], "transaction_id": str(UUID(int=7))})
+            return _DummyUpstreamResponse(
+                {
+                    "actions": ["FLAG"],
+                    "transaction_id": self._entity_id,
+                    "evaluation_trace": [
+                        {
+                            "rule_id": "22222222-2222-2222-2222-222222222222",
+                            "rule_name": "flag_rule",
+                            "priority": 5,
+                            "matched": True,
+                            "action": "FLAG",
+                        },
+                    ],
+                    "blocking_rule_id": None,
+                },
+            )
         raise AssertionError(f"unexpected post url: {url!r}")
 
 
@@ -113,39 +137,59 @@ def recording_graph_client() -> _RecordingGraphClient:
     return _RecordingGraphClient()
 
 
-def test_v1_ingest_invokes_graph_client_after_evaluate(
+def test_v1_ingest_enqueues_graph_and_velocity_outbox_tasks(
     monkeypatch: pytest.MonkeyPatch,
     recording_graph_client: _RecordingGraphClient,
 ) -> None:
-    monkeypatch.setattr(httpx, "AsyncClient", lambda *a, **k: _EvalOnlyAsyncClient())
-
-    duck = DuckAnalyticsProvider()
-    duck.load()
+    entity_id = "22222222-2222-2222-2222-222222222222"
+    monkeypatch.setattr(httpx, "AsyncClient", lambda *a, **k: _EvalOnlyAsyncClient(entity_id=entity_id))
 
     app = create_app(
         rule_engine_url="http://rules.test",
         shadow_agent_url=None,
         graph_client_override=recording_graph_client,
-        duck_analytics_provider=duck,
+        audit_database_url="sqlite+aiosqlite:///:memory:",
     )
     body = {
-        "entity_id": "22222222-2222-2222-2222-222222222222",
+        "entity_id": entity_id,
         "amount": 42.0,
         "timestamp": "2026-05-09T12:00:00+00:00",
         "country": "US",
-        "metadata": {"user_id": "user_1", "ip": "ip_A"},
+        "metadata": {"user_id": "user_1", "ip": "ip_A", "canvas_fingerprint": "cd" * 32},
     }
     with TestClient(app) as client:
         r = client.post("/v1/ingest", json=body)
         assert r.status_code == 200
-        time.sleep(0.15)
-        snap = client.get("/v1/analytics/transactions?limit=50")
-    assert snap.status_code == 200
-    rows = snap.json()["rows"]
-    assert any(str(r.get("entity_id")) == "22222222-2222-2222-2222-222222222222" for r in rows)
 
-    assert len(recording_graph_client.transactions) == 1
-    ingested = recording_graph_client.transactions[0]
-    assert str(ingested.entity_id) == "22222222-2222-2222-2222-222222222222"
-    assert ingested.metadata.get("user_id") == "user_1"
-    assert ingested.metadata.get("ip") == "ip_A"
+    async def _fetch_outbox() -> list[OutboxORM]:
+        fac = app.state.audit_session_factory
+        async with fac() as session:
+            rows = (
+                await session.scalars(
+                    select(OutboxORM)
+                    .where(
+                        OutboxORM.idempotency_key.like(f"graph_ingest:{entity_id}:%")
+                        | OutboxORM.idempotency_key.like(f"velocity_update:{entity_id}:%"),
+                    )
+                    .order_by(OutboxORM.event_type.asc())
+                )
+            ).all()
+            return list(rows)
+
+    rows = asyncio.run(_fetch_outbox())
+    assert len(rows) == 2
+    by_type = {row.event_type: row for row in rows}
+    graph_row = by_type[OUTBOX_EVENT_GRAPH_INGEST]
+    vel_row = by_type[OUTBOX_EVENT_VELOCITY_UPDATE]
+    assert graph_row.status == OutboxStatus.PENDING.value
+    assert vel_row.status == OutboxStatus.PENDING.value
+    assert graph_row.idempotency_key.startswith(f"graph_ingest:{entity_id}:")
+    assert graph_row.payload["entity_id"] == entity_id
+    assert graph_row.payload["transaction_id"] == entity_id
+    assert "22222222-2222-2222-2222-222222222222" in graph_row.payload["resolved_rules"]
+    assert graph_row.payload["edge_transaction_payload_envelope"]["metadata"]["user_id"] == "user_1"
+    assert vel_row.idempotency_key.startswith(f"velocity_update:{entity_id}:")
+    assert vel_row.payload["entity_id"] == entity_id
+    assert vel_row.payload["amount_cents"] == 4200
+    assert vel_row.payload["client_browser_metadata_context"]["canvas_fingerprint"] == "cd" * 32
+    assert len(recording_graph_client.transactions) == 0

@@ -1,3 +1,4 @@
+import asyncio
 import os
 from collections.abc import AsyncGenerator
 from pathlib import Path
@@ -44,6 +45,13 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 async def init_db() -> None:
     from integration_ingress import models as _models  # noqa: F401
 
+    if os.environ.get("TARKA_SKIP_STARTUP_MIGRATIONS", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }:
+        return
+
     if _engine_kind == "sqlite":
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -54,4 +62,4 @@ async def init_db() -> None:
     from alembic.config import Config
 
     cfg = Config(str(_app_root() / "alembic.ini"))
-    command.upgrade(cfg, "head")
+    await asyncio.to_thread(command.upgrade, cfg, "head")

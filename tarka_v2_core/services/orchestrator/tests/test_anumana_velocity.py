@@ -5,6 +5,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 _SRC_ORCH = Path(__file__).resolve().parents[1] / "src"
 if str(_SRC_ORCH) not in sys.path:
     sys.path.insert(0, str(_SRC_ORCH))
@@ -35,3 +37,15 @@ def test_velocity_bucket_alignment() -> None:
     assert velocity_bucket(60, 120) == 2
     assert velocity_bucket(300, 600) == 2
     assert velocity_bucket(3600, 7200) == 2
+
+
+def test_build_transaction_velocity_incrby_negative_amount_rejected() -> None:
+    from orchestrator.anumana_velocity import build_transaction_velocity_incrby_commands
+
+    with pytest.raises(ValueError, match="amount_cents"):
+        build_transaction_velocity_incrby_commands(
+            tenant_id="t",
+            device_token="d",
+            ip_tokens=[],
+            amount_cents=-1,
+        )

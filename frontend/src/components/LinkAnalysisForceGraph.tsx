@@ -28,7 +28,7 @@ export type LinkAnalysisForceGraphProps = {
 };
 
 export function LinkAnalysisForceGraph({ graphData, largeGraph, onNodeClick }: LinkAnalysisForceGraphProps) {
-  const fgRef = useRef<ForceGraphMethods<LinkAnalysisGraphNode, LinkAnalysisForceLink> | null>(null);
+  const fgRef = useRef<ForceGraphMethods<LinkAnalysisGraphNode, LinkAnalysisForceLink>>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ width: 800, height: 560 });
 

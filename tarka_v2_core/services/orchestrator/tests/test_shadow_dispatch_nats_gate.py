@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from starlette.testclient import TestClient
@@ -65,9 +65,15 @@ def test_v1_ingest_review_triggers_shadow_investigate_nats_message(
         "decision": "REVIEW",
     }
 
+    mock_js = AsyncMock()
+    mock_js.publish = AsyncMock(return_value=None)
     mock_nc = AsyncMock()
-    mock_nc.publish = AsyncMock(return_value=None)
+    mock_nc.jetstream = MagicMock(return_value=mock_js)
 
+    monkeypatch.setattr(
+        "orchestrator.queues.shadow_dispatch.ensure_shadow_investigate_stream",
+        AsyncMock(),
+    )
     monkeypatch.setattr(
         "orchestrator.transaction_ingest.httpx.AsyncClient",
         lambda *a, **k: _EvalOnlyAsyncClient(rule_engine_body),
@@ -77,6 +83,7 @@ def test_v1_ingest_review_triggers_shadow_investigate_nats_message(
         rule_engine_url="http://rules.test",
         shadow_agent_url=None,
         shadow_dispatch_nats_client=mock_nc,
+        audit_database_url="sqlite+aiosqlite:///:memory:",
     )
     body = {
         "entity_id": txn_id,
@@ -89,14 +96,18 @@ def test_v1_ingest_review_triggers_shadow_investigate_nats_message(
 
     assert r.status_code == 200, r.text
     data = r.json()
-    assert data["rule_engine"]["decision"] == "REVIEW"
+    assert data["risk_decision"]["actions"] == ["REVIEW"]
 
-    mock_nc.publish.assert_awaited_once()
-    (subject, raw), _kw = mock_nc.publish.await_args
+    mock_js.publish.assert_awaited_once()
+    (subject, raw), _kw = mock_js.publish.await_args
     assert subject == "shadow.investigate"
     payload = json.loads(raw.decode("utf-8"))
     assert payload["session_id"] == "sess-gate-99"
     assert payload["trace"] == trace
+    assert payload["entity_id"] == txn_id
+    assert isinstance(payload.get("transaction"), dict)
+    assert payload["transaction"]["entity_id"] == txn_id
+    assert payload["transaction"]["amount"] == 12.0
 
 
 def test_review_decision_via_decision_field_only_still_dispatches(
@@ -110,8 +121,14 @@ def test_review_decision_via_decision_field_only_still_dispatches(
         "evaluation_trace": [],
         "decision": "REVIEW",
     }
+    mock_js = AsyncMock()
+    mock_js.publish = AsyncMock(return_value=None)
     mock_nc = AsyncMock()
-    mock_nc.publish = AsyncMock(return_value=None)
+    mock_nc.jetstream = MagicMock(return_value=mock_js)
+    monkeypatch.setattr(
+        "orchestrator.queues.shadow_dispatch.ensure_shadow_investigate_stream",
+        AsyncMock(),
+    )
     monkeypatch.setattr(
         "orchestrator.transaction_ingest.httpx.AsyncClient",
         lambda *a, **k: _EvalOnlyAsyncClient(rule_engine_body),
@@ -120,6 +137,7 @@ def test_review_decision_via_decision_field_only_still_dispatches(
         rule_engine_url="http://rules.test",
         shadow_agent_url=None,
         shadow_dispatch_nats_client=mock_nc,
+        audit_database_url="sqlite+aiosqlite:///:memory:",
     )
     body = {
         "entity_id": txn_id,
@@ -130,6 +148,6 @@ def test_review_decision_via_decision_field_only_still_dispatches(
     with TestClient(app) as client:
         r = client.post("/v1/ingest", json=body)
     assert r.status_code == 200
-    mock_nc.publish.assert_awaited_once()
-    _sub, raw = mock_nc.publish.await_args[0]
+    mock_js.publish.assert_awaited_once()
+    _sub, raw = mock_js.publish.await_args[0]
     assert json.loads(raw.decode("utf-8"))["session_id"] == txn_id

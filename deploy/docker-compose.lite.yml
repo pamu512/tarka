@@ -56,12 +56,12 @@ services:
   # ---------- Core Services ----------
   core-api:
     build:
-      # Repo root (compose file is under deploy/) — matches Dockerfile COPY services/... paths.
       context: ..
       dockerfile: services/core-api/Dockerfile
     environment:
       DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
       REDIS_URL: redis://redis:6379/0
+      AGG_KEY_VERSION: ${AGG_KEY_VERSION:-local_v1}
       RULES_PATH: /app/rules
       FEATURE_SERVICE_URL: ${FEATURE_SERVICE_URL:-http://signal-api:8004/features}
       ML_SCORING_URL: ${ML_SCORING_URL:-http://signal-api:8004/ml}
@@ -109,6 +109,7 @@ services:
       dockerfile: services/signal-api/Dockerfile
     environment:
       REDIS_URL: redis://redis:6379/0
+      AGG_KEY_VERSION: ${AGG_KEY_VERSION:-local_v1}
       FEATURE_SERVICE_REDIS_URL: redis://redis:6379/0
       COUNTER_SERVICE_REDIS_URL: redis://redis:6379/0
       DISABLE_ML: ${DISABLE_ML:-true}

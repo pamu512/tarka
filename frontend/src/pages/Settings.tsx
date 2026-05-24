@@ -8,7 +8,9 @@ import { toUserFacingError } from "../utils/userFacingErrors";
 
 export default function Settings() {
   const { preference, setPreference, effective } = useTheme();
-  const [challengePolicies, setChallengePolicies] = useState<Array<{ policy_id: string; version: number; description: string }>>([]);
+  const [challengePolicies, setChallengePolicies] = useState<
+    Array<{ policy_id: string; version: number; description: string; escalation_ladder?: string[] }>
+  >([]);
   const [challengeErr, setChallengeErr] = useState<string | null>(null);
   const [gov, setGov] = useState<{
     inference_schema_version?: string;
@@ -133,14 +135,37 @@ export default function Settings() {
         {!challengeErr && challengePolicies.length === 0 && (
           <p className="text-xs text-gray-600">No policies returned (backend may be offline).</p>
         )}
-        <ul className="text-xs text-gray-400 space-y-1 list-disc pl-4">
+        <div className="space-y-3">
           {challengePolicies.map((p) => (
-            <li key={p.policy_id}>
-              <span className="text-gray-300 font-mono">{p.policy_id}</span>
-              {p.description ? ` — ${p.description}` : ""}
-            </li>
+            <div
+              key={p.policy_id}
+              className="rounded-lg border border-surface-800 bg-surface-950/50 px-3 py-2.5 space-y-2"
+            >
+              <div className="flex flex-wrap items-baseline gap-2">
+                <span className="text-sm font-mono text-gray-200">{p.policy_id}</span>
+                <span className="text-[11px] text-gray-600">v{p.version}</span>
+              </div>
+              {p.description ? <p className="text-xs text-gray-500">{p.description}</p> : null}
+              {p.escalation_ladder?.length ? (
+                <ol className="text-xs text-gray-400 list-decimal pl-4 space-y-0.5">
+                  {p.escalation_ladder.map((step) => (
+                    <li key={step}>
+                      <span className="font-mono text-gray-300">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-xs text-gray-600">No escalation ladder declared.</p>
+              )}
+            </div>
           ))}
-        </ul>
+        </div>
+        <p className="text-[11px] text-gray-600 border-t border-surface-800 pt-2">
+          <span className="text-gray-500">Day 60 example — </span>
+          <code className="text-gray-500">payments_high_value_v1</code> on allow with amount ≥ 6000 escalates to{" "}
+          <code className="text-gray-500">step_up_attestation</code>. Unmatched rules use engine{" "}
+          <code className="text-gray-500">recommended_action</code> (<code className="text-gray-500">default_v1</code>).
+        </p>
       </div>
 
       <MarketplaceSdkApiKeyPanel />

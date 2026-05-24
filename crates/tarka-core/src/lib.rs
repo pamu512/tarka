@@ -15,6 +15,7 @@ pub mod pb {
 pub mod compiler;
 pub mod crypto;
 pub mod engine;
+pub mod error;
 pub mod evidence;
 pub mod metrics_export;
 pub mod observability;
@@ -56,3 +57,5 @@ pub use engine::{
     WasmSandboxConfig, WasmSandboxError, MAX_CUSTOM_RULE_WASM_MEMORY_BYTES, MAX_MERMAID_DEPTH,
     MAX_MERMAID_NODES,
 };
+
+pub use error::TarkaCoreError;

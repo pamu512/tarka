@@ -7,6 +7,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from orchestrator.schemas.domain_boundaries import RiskDecision
+
 
 class ValidationErrorItem(BaseModel):
     """One field-level validation failure."""
@@ -64,11 +66,11 @@ class IngestResponse(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    rule_engine: dict[str, Any] = Field(
+    risk_decision: RiskDecision = Field(
         ...,
         description=(
-            "Opaque policy evaluation payload returned to callers "
-            "(for example actions and identifiers produced by the rules tier)."
+            "Normalized rule-engine outcome (scores, actions, blocking_rule_id, evaluation_trace). "
+            "Business P&L metrics are never included on this wire contract."
         ),
     )
     transaction_id: str = Field(
@@ -386,6 +388,11 @@ class CaseStatusUpdateRequest(BaseModel):
         description="Machine-readable reason for the transition (audit trail).",
         examples=["ESCALATED_BY_ANALYST"],
     )
+    analyst_notes: str | None = Field(
+        default=None,
+        max_length=4096,
+        description="Optional analyst narrative included in audit logs and shadow retro-tag outbox payloads.",
+    )
 
 
 class CaseStatusUpdateResponse(BaseModel):
@@ -396,6 +403,10 @@ class CaseStatusUpdateResponse(BaseModel):
     case_id: str = Field(..., description="``lifecycle_cases.case_id`` UUID string.")
     status: str = Field(..., description="Effective status after the transition.")
     history_row_id: int = Field(..., description="Primary key of the appended ``case_history`` row.")
+    audit_log_id: int = Field(
+        ...,
+        description="Primary key of the append-only ``audit_logs`` row for this transition.",
+    )
 
 
 class AiFeedbackRequest(BaseModel):
@@ -459,4 +470,51 @@ class AiFeedbackResponse(BaseModel):
     jsonl_path: str = Field(
         ...,
         description="Absolute path of the JSONL file after append (operators / tests).",
+    )
+
+
+class DecisionDetailTransactionSchema(BaseModel):
+    """UI ``TransactionSchema`` envelope returned by ``GET /v1/decisions/{transaction_id}``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: str
+    transaction_id: str
+    amount_cents: int = Field(..., ge=0)
+    currency: str
+    channel: str
+    merchant_id: str
+    instrument_fingerprint: str
+    ip_asn: str
+    geo_country: str
+    mcc: str
+    velocity_window_minutes: int = Field(..., ge=0)
+    prior_declines_24h: int = Field(..., ge=0)
+    metadata: dict[str, str | int | bool] = Field(default_factory=dict)
+
+
+class DecisionDetailShadowDecision(BaseModel):
+    """UI ``ShadowDecision`` envelope for analyst decision detail."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    model_id: str
+    shadow_verdict: str
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    risk_tags: list[str] = Field(default_factory=list)
+    ai_reasoning: Any = None
+    latency_ms: int = Field(..., ge=0)
+    counterfactuals_considered: int = Field(..., ge=0)
+
+
+class DecisionDetailResponse(BaseModel):
+    """Combined rule-engine trace + Shadow narrative for the V2 decision slide-over."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    transaction_schema: DecisionDetailTransactionSchema
+    shadow_decision: DecisionDetailShadowDecision
+    evaluation_trace: list[Any] | None = Field(
+        default=None,
+        description="Latest Lekh ``decisions.execution_trace_json`` when present.",
     )

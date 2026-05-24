@@ -88,7 +88,6 @@ def test_chargeback_ingest_links_session_and_tags_dispute(monkeypatch: pytest.Mo
         rule_engine_url="http://rules.test",
         shadow_agent_url=None,
         audit_database_url="sqlite+aiosqlite:///:memory:",
-        audit_background_poll=False,
     )
 
     async def _seed(fac: object) -> None:

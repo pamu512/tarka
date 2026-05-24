@@ -185,7 +185,10 @@ def test_entity_profile_unifies_postgres_graph_duck() -> None:
 
     with TestClient(app) as client:
         asyncio.run(_seed())
-        r = client.get(f"/v1/marketplace/users/{uid}/entity-profile")
+        r = client.get(
+            f"/v1/marketplace/users/{uid}/entity-profile",
+            params={"include_business_context": "true"},
+        )
 
     assert r.status_code == 200, r.text
     body = r.json()
