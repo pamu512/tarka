@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 import asyncio
 
+from orchestrator.analytics import business_context as biz_ctx
 from orchestrator.graph.client import GraphClient
 
 if TYPE_CHECKING:
@@ -35,6 +36,12 @@ def synthetic_dispute_transaction(*, anchor_id: str, filename: str) -> dict[str,
 def build_cluster_analyst_instruction(anchor_id: str, net: dict[str, Any], duck: dict[str, Any]) -> str:
     """Narrative framing passed to Shadow (also echoed in ``graph_context`` for the LLM)."""
     bd = int(net.get("blocked_device_touch_count") or 0)
+    if duck.get("business_context_skipped"):
+        return (
+            f"Analyst has uploaded a dispute for ID {anchor_id}. "
+            f"Graph shows this ID is linked to {bd} blocked devices. "
+            "Analyze the coordination risk."
+        )
     spike_pct = duck.get("spike_pct_vs_flat_baseline_2h")
     if spike_pct is None:
         spike_txt = "an elevated"
@@ -56,6 +63,7 @@ async def build_prime_shadow_graph_context(
     *,
     graph_client: GraphClient,
     analytics: AnalyticsProvider | None,
+    include_business_context: bool = False,
 ) -> dict[str, Any]:
     """
     Parallel graph linkage probe + two-hop neighborhood, then analytics-plane velocity for that network.
@@ -67,12 +75,13 @@ async def build_prime_shadow_graph_context(
     net, linked = await asyncio.gather(net_task, link_task)
 
     duck_payload: dict[str, Any] = {}
-    if analytics is not None:
-        duck_payload = await asyncio.to_thread(
-            analytics.cluster_spend_velocity_for_network,
+    if analytics is not None and include_business_context:
+        duck_payload = await biz_ctx.cluster_spend_velocity_for_network_async(
+            analytics,
             transaction_entity_ids=list(net.get("network_transaction_ids") or ()),
             network_user_ids=list(net.get("network_user_ids") or ()),
             days=30,
+            include_business_context=True,
         )
 
     instruction = build_cluster_analyst_instruction(anchor_id, net, duck_payload)

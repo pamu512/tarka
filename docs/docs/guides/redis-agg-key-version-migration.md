@@ -51,10 +51,11 @@ This playbook is for **changing** the version in production without silently spl
 - [ ] **`GET /v1/internal/counters/manifest`** shows expected **`redis_key_version`**.
 - [ ] Spot-check **`ZCARD`** on a known **`fraud:agg:...:events`** key for a test tenant after traffic.
 - [ ] **`POST /v1/velocity/query`** (feature-service) matches decision-api counts for the same tenant/entity when sharing Redis.
-- [ ] Weekly **`counter-parity-smoke`** workflow green (or manual runbook in **`counter-replay-parity.md`**).
+- [ ] Weekly **`counter-parity-smoke`** workflow green (or manual runbook in **`counter-replay-parity.md`** § gate **C-3a**).
+- [ ] Staging cutover log attached for v1.2.0 RC (gate **C-2**).
 
 ## Related
 
-- **[counter-replay-parity.md](./counter-replay-parity.md)** — Epic C parity, replay API, runbook.
+- **[counter-replay-parity.md](./counter-replay-parity.md)** — Epic C RC gate **C-2** (staging cutover log required for v1.2.0).
 - **`services/shared/fraud_aggregates.py`** — key construction.
 - **`scripts/replay/README.md`** — CLI replay and diff.

@@ -25,6 +25,8 @@ dependencies = [
   "opentelemetry-exporter-otlp>=1.27.0,<2",
   "clickhouse-connect>=0.8.0",
   "pyarrow>=14.0.0",
+  "bleach>=6.2.0",
+  "paramiko>=3.5.0",
 ]
 
 [project.optional-dependencies]

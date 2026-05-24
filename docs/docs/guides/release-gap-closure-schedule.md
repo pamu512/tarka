@@ -21,15 +21,15 @@ Maps [competitive-critical-review-2026-04.md](./competitive-critical-review-2026
 
 | Gap | Closure |
 |-----|---------|
-| Counter / velocity maturity | **Feature-service** multi-window counters, normalized velocity keys per roadmap |
+| Counter / velocity maturity | **RC gates only:** deterministic **5m/1h/24h** via feature-service + [velocity-counter-rule-keys.md](./examples/velocity-counter-rule-keys.md) — see [Epic C RC criteria](./counter-replay-parity.md#epic-c-release-candidate-gate-criteria) **C-4**, **C-5** |
 | Location / geo (SDK + decision + graph) | **Largely on trunk:** optional GPS + IP-geo collectors, **`location_context`**, geo mismatch signal tags, **`Place` / `SEEN_AT`** — v1.2 closes **docs, tests, and operator clarity**; Incognia-class co-presence remains **post–v1.2** per competitive review |
-| Online/offline parity | **[counter-replay-parity.md](./counter-replay-parity.md)** + `replay_aggregates.py` + `diff_aggregate_redis.py` + **CI** `test_golden_counters.py` |
+| Online/offline parity | **[Epic C RC gates](./counter-replay-parity.md#epic-c-release-candidate-gate-criteria)** **C-2–C-3c** (staging `AGG_KEY_VERSION` log, manual runbook, `counter-parity-smoke`, `test_golden_counters.py`) — no new counter features before tag |
 | Challenge / FP friction | **Policy templates** — JSON under `rules/challenge_policies/`, `challenge_policy_id` on evaluate, **`GET /v1/challenge-policies`**, extends `recommended_action` |
 | Connector seriousness | **Ingress reliability** scorecards + UI/API fields |
 | Benchmarks | **Vertical packs** + reproducible harness; publish **hey/k6** numbers using [`scripts/benchmarks/`](../../scripts/benchmarks/README.md) |
 | Load discipline | Optional **scheduled workflow** or documented **hey** SLO runbook |
 
-**Tag when:** Day 60 acceptance tests in [`roadmap-30-60-90.md`](./roadmap-30-60-90.md) pass; examples updated for new packs.
+**Tag when:** Epic C RC gates signed on the RC commit; other Day 60 acceptance tests in [`roadmap-30-60-90.md`](./roadmap-30-60-90.md) pass; examples updated for new packs.
 
 ## Still after v1.2 (v1.3.0 or later)
 

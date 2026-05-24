@@ -389,3 +389,72 @@ def test_evaluate_check_review_integrity_surfaces_hardware_overlap_in_prompt(
     assert "High probability of a review ring" in system
     assert "hardware hash" in system
     assert "review_ring_likely" in system
+
+
+def test_evaluate_find_linked_entities_uses_orchestrator_topology_without_neo4j(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Gate: JanusGraph ``graph_topology`` on the payload replaces Neo4j ``find_linked_entities``."""
+
+    monkeypatch.setenv("SHADOW_GRAPH_TOOL_MODE", "always")
+    monkeypatch.setattr(
+        "shadow_agent.agent.neo4j_driver_from_env",
+        lambda: None,
+    )
+
+    tx_id = UUID("ffffffff-ffff-ffff-ffff-ffffffffffff")
+    tx = TransactionSchema(
+        entity_id=tx_id,
+        amount=99.0,
+        timestamp=datetime(2026, 3, 1, 0, 0, 0, tzinfo=UTC),
+        metadata={"user_id": "u_topo", "ip": "203.0.113.55"},
+    )
+    graph_context = {
+        "graph_topology": {
+            "found": True,
+            "anchor_user_id": "u_topo",
+            "network_user_ids": ["u_topo", "u_peer"],
+            "network_device_ids": ["dev_topo"],
+            "network_ip_addresses": ["203.0.113.55"],
+            "blocked_device_touch_count": 2,
+            "neighbor_node_count": 3,
+            "backend": "janusgraph",
+            "shared_ip_users_ordered_from": ["u_peer", "u_other"],
+            "anchor_ip_address": "203.0.113.55",
+        },
+    }
+    stub_payload: dict[str, Any] = {
+        "transaction_id": str(tx_id),
+        "risk_score": 55.0,
+        "is_fraud": False,
+        "reasoning": ["topology_context_considered"],
+        "confidence_metrics": {"topology": True},
+        "ai_reasoning": "Used orchestrator graph_topology for shared IP linkage.",
+    }
+    llm = _StubLlmClient(stub_payload)
+    agent = ShadowAgent(llm_client=llm)
+
+    async def _run() -> None:
+        caplog.set_level(logging.INFO)
+        engine = create_async_engine(
+            "sqlite+aiosqlite:///:memory:",
+            poolclass=StaticPool,
+            connect_args={"check_same_thread": False},
+        )
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        fac = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+        async with fac() as session:
+            await agent.evaluate(tx, session, graph_context=graph_context)
+        await engine.dispose()
+
+    asyncio.run(_run())
+
+    msgs = [r.message for r in caplog.records]
+    assert any("shadow_tool_find_linked_entities_from_topology" in m for m in msgs)
+    sys0 = llm.calls[0][0]["content"]
+    assert "find_linked_entities" in sys0
+    assert "orchestrator graph_topology" in sys0
+    assert "u_peer" in sys0
+    assert "ORDERED_FROM_IP" in sys0

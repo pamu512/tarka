@@ -51,19 +51,6 @@ services:
       - fraud_ch:/var/lib/clickhouse
     profiles: [analytics, full]
 
-  otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.120.1
-    command: ["--config=/etc/otel-collector-config.yaml"]
-    volumes:
-      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
-    ports:
-      - "4317:4317" # OTLP gRPC
-      - "4318:4318" # OTLP HTTP
-      - "13133:13133" # health_check
-    depends_on:
-      - clickhouse
-    profiles: [analytics, full]
-
   opa:
     image: openpolicyagent/opa:0.70.0
     command: ["run", "--server", "/policies/policy.rego"]
@@ -87,13 +74,13 @@ services:
   # ---------- Core Services ----------
   core-api:
     build:
-      # Compose file lives in deploy/: parent directory is the git repo root.
-      # Required so services/core-api/Dockerfile can COPY services/core, services/analytics, …
       context: ..
-      dockerfile: services/core-api/Dockerfile
+      dockerfile: legacy_attic/services/core-api/Dockerfile
     environment:
+      TARKA_SKIP_STARTUP_MIGRATIONS: "1"
       DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
       REDIS_URL: redis://redis:6379/0
+      AGG_KEY_VERSION: ${AGG_KEY_VERSION:-local_v1}
       RULES_PATH: /app/rules
       FEATURE_SERVICE_URL: ${FEATURE_SERVICE_URL:-http://signal-api:8004/features}
       ML_SCORING_URL: ${ML_SCORING_URL:-http://signal-api:8004/ml}
@@ -136,7 +123,7 @@ services:
   graph-service:
     build:
       context: ..
-      dockerfile: services/graph-service/Dockerfile
+      dockerfile: legacy_attic/services/graph-service/Dockerfile
     environment:
       GRAPH_BACKEND: age
       DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
@@ -152,8 +139,9 @@ services:
   integration-ingress:
     build:
       context: ..
-      dockerfile: services/integration-ingress/Dockerfile
+      dockerfile: legacy_attic/services/integration-ingress/Dockerfile
     environment:
+      TARKA_SKIP_STARTUP_MIGRATIONS: "1"
       DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
       TENANT_BINDING_REQUIRED: ${TENANT_BINDING_REQUIRED:-false}
       API_KEY_TENANT_MAP: ${API_KEY_TENANT_MAP:-}
@@ -167,9 +155,10 @@ services:
   signal-api:
     build:
       context: ..
-      dockerfile: services/signal-api/Dockerfile
+      dockerfile: legacy_attic/services/signal-api/Dockerfile
     environment:
       REDIS_URL: redis://redis:6379/0
+      AGG_KEY_VERSION: ${AGG_KEY_VERSION:-local_v1}
       FEATURE_SERVICE_REDIS_URL: redis://redis:6379/0
       COUNTER_SERVICE_REDIS_URL: redis://redis:6379/0
       DISABLE_ML: ${DISABLE_ML:-false}
@@ -186,7 +175,7 @@ services:
   investigation-agent:
     build:
       context: ..
-      dockerfile: services/investigation-agent/Dockerfile
+      dockerfile: legacy_attic/services/investigation-agent/Dockerfile
     environment:
       CASE_API_URL: http://core-api:8000/cases
       GRAPH_SERVICE_URL: http://graph-service:8001
@@ -219,7 +208,7 @@ services:
   data-plane:
     build:
       context: ..
-      dockerfile: services/data-plane/Dockerfile
+      dockerfile: legacy_attic/services/data-plane/Dockerfile
     environment:
       NATS_URL: nats://nats:4222
       DECISION_API_URL: http://core-api:8000/decisions
@@ -251,7 +240,7 @@ services:
   graphql-gateway:
     build:
       context: ..
-      dockerfile: services/graphql-gateway/Dockerfile
+      dockerfile: legacy_attic/services/graphql-gateway/Dockerfile
     environment:
       DECISION_API_URL: http://core-api:8000/decisions
       CASE_API_URL: http://core-api:8000/cases

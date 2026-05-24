@@ -7,9 +7,22 @@ from typing import Any
 
 from ingestor.manifest_schema import TransactionSchema
 
-from orchestrator.graph.client import GraphClient, graph_hints_from_transaction
+from orchestrator.graph.client import GraphClient, JanusGraphClient, graph_hints_from_transaction
 
 logger = logging.getLogger(__name__)
+
+
+def _is_janusgraph_client(graph_client: GraphClient) -> bool:
+    return isinstance(graph_client, JanusGraphClient)
+
+
+def _topology_anchor_uid(uid: str | None, transaction: TransactionSchema) -> str | None:
+    if uid:
+        return uid
+    entity_s = str(transaction.entity_id).strip()
+    if entity_s and len(entity_s) <= 512 and "\x00" not in entity_s:
+        return entity_s
+    return None
 
 
 def _shadow_user_id(meta: dict[str, Any]) -> str | None:
@@ -58,6 +71,36 @@ async def build_shadow_analyze_payload(
         except Exception:
             logger.exception(
                 "orchestrator_shadow_device_hardware_risk_failed transaction_id=%s",
+                transaction.entity_id,
+            )
+
+    if _is_janusgraph_client(graph_client):
+        anchor = _topology_anchor_uid(uid, transaction)
+        if anchor:
+            try:
+                topology = await graph_client.two_hop_neighbor_network(anchor)
+                if hints.ip:
+                    try:
+                        shared_ip_users = await graph_client.users_connected_to_ip(hints.ip)
+                        topology = {
+                            **topology,
+                            "shared_ip_users_ordered_from": shared_ip_users,
+                            "anchor_ip_address": hints.ip,
+                        }
+                    except Exception:
+                        logger.exception(
+                            "orchestrator_shadow_janus_shared_ip_users_failed transaction_id=%s",
+                            transaction.entity_id,
+                        )
+                ctx["graph_topology"] = topology
+            except Exception:
+                logger.exception(
+                    "orchestrator_shadow_janus_graph_topology_failed transaction_id=%s",
+                    transaction.entity_id,
+                )
+        else:
+            logger.warning(
+                "orchestrator_shadow_janus_topology_skipped_no_anchor transaction_id=%s",
                 transaction.entity_id,
             )
 

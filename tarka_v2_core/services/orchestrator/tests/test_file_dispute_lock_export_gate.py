@@ -81,7 +81,6 @@ def test_post_file_dispute_locks_case_and_pdf_includes_graph_viz() -> None:
         shadow_agent_url=None,
         audit_database_url="sqlite+aiosqlite:///:memory:",
         graph_client_override=_GraphStub(),
-        audit_background_poll=False,
     )
 
     async def _seed() -> None:

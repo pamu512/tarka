@@ -62,3 +62,6 @@ services/investigation-agent/var/
 
 # Local gate / benchmark CSV dumps (not source)
 artifacts/
+
+# Next.js build output
+tarka_v2_ui/.next/

@@ -24,6 +24,13 @@ from shadow_agent.dispute_letter import RepresentmentLetterIn, generate_dispute_
 from shadow_agent.graph_tool import find_linked_entities, neo4j_driver_from_env
 from shadow_agent.review_integrity_tool import check_review_integrity
 from shadow_agent.llm_client import OllamaLLMClient, ShadowLLMError
+from shadow_agent.retroactive_label import (
+    RetroactiveLabelRequest,
+    parse_retroactive_tags,
+    _normalize_feedback_context,
+    _normalize_manifest_payload,
+)
+from tarka_shared.audit_errors import AuditPersistenceError
 from shadow_agent.schemas import ShadowAnalyzeEnvelope
 from shadow_agent.timeline import TimelineResponse, build_transaction_timeline
 from sqlalchemy import text
@@ -209,6 +216,22 @@ async def require_shadow_api_token(
         )
 
 
+def get_shadow_llm_client(request: Request) -> OllamaLLMClient:
+    """Resolve the process-wide :class:`~shadow_agent.llm_client.OllamaLLMClient`."""
+    llm = getattr(request.app.state, "_shadow_llm_client", None)
+    if llm is not None:
+        return llm
+    agent = getattr(request.app.state, "shadow_agent", None)
+    if agent is not None:
+        nested = getattr(agent, "_llm_client", None)
+        if nested is not None:
+            return nested
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="shadow_llm_client_not_initialized",
+    )
+
+
 def get_shadow_agent(request: Request) -> ShadowAgent:
     """Resolve the process-wide :class:`~shadow_agent.agent.ShadowAgent` from application state."""
     agent = getattr(request.app.state, "shadow_agent", None)
@@ -218,6 +241,172 @@ def get_shadow_agent(request: Request) -> ShadowAgent:
             detail="shadow_agent_not_initialized",
         )
     return agent
+
+
+def _human_feedback_string(feedback_context: dict[str, Any]) -> str:
+    """Collapse analyst/chargeback feedback fields into one prompt-facing string."""
+    parts: list[str] = []
+    seen: set[str] = set()
+    for key in (
+        "disposition_text",
+        "analyst_notes",
+        "analyst_note",
+        "feedback_text",
+    ):
+        raw = feedback_context.get(key)
+        if isinstance(raw, str):
+            token = raw.strip()
+            if token and token not in seen:
+                seen.add(token)
+                parts.append(token)
+
+    metadata = feedback_context.get("operational_metadata")
+    if isinstance(metadata, dict):
+        for key in ("chargeback_reason_code", "refund_reason_code", "reason_code"):
+            raw = metadata.get(key)
+            if isinstance(raw, str):
+                token = raw.strip()
+                if token and token not in seen:
+                    seen.add(token)
+                    parts.append(token)
+
+    if parts:
+        return "\n".join(parts)
+    return json.dumps(feedback_context, sort_keys=True, ensure_ascii=False)
+
+
+def build_evaluate_retroactive_system_prompt(
+    manifest_payload: dict[str, Any],
+    feedback_context: dict[str, Any],
+) -> str:
+    """
+    Strict system prompt for local LLM forensic taxonomy extraction.
+
+    The model must reply with **only** a raw JSON array of ``category:value`` structural tags.
+    """
+    manifest_json = json.dumps(manifest_payload, sort_keys=True, ensure_ascii=False)
+    feedback_string = _human_feedback_string(feedback_context)
+    context_json = json.dumps(feedback_context, sort_keys=True, ensure_ascii=False)
+
+    return (
+        "You are a forensic taxonomy extractor running on a local LLM inference node "
+        "(Ollama or vLLM). Ingest the JSON evidence manifest and the human feedback, then map "
+        "the human reasoning to structured consortium training tags.\n\n"
+        "EVIDENCE MANIFEST (trusted JSON; do not invent fields):\n"
+        f"{manifest_json}\n\n"
+        "HUMAN FEEDBACK (analyst notes, chargeback metadata, disposition narrative):\n"
+        f"{feedback_string}\n\n"
+        "OPERATIONAL CONTEXT (full structured feedback JSON):\n"
+        f"{context_json}\n\n"
+        "TASK:\n"
+        "1. Cross-reference the human feedback with the manifest trace, transaction signals, "
+        "and disposition fields.\n"
+        "2. Extract structural fraud vectors, compromise points, and matched rule patterns "
+        "supported by the combined evidence.\n"
+        "3. Emit concise forensic tags as category:value pairs.\n\n"
+        "OUTPUT CONTRACT — NON-NEGOTIABLE:\n"
+        "1. Return ONLY a raw JSON array of strings and nothing else.\n"
+        "2. Do NOT include markdown fences, prose, explanations, JSON objects, keys, or "
+        "conversational filler.\n"
+        "3. Each tag MUST match category:value using lowercase letters, digits, and underscores.\n"
+        "4. Categories are forensic taxonomies (examples: compromise_point, fraud_vector, "
+        "vector, velocity, signal).\n"
+        "5. Values are concise snake_case tokens (examples: pos, card_pool_velocity, ato).\n"
+        "6. Emit between 1 and 12 tags grounded in the manifest and/or human feedback.\n"
+        "7. Example valid output ONLY:\n"
+        '[\"compromise_point:pos\",\"fraud_vector:card_pool_velocity\"]\n'
+    )
+
+
+async def evaluate_retroactive(
+    manifest_payload: dict[str, Any],
+    feedback_context: dict[str, Any],
+    *,
+    llm_client: OllamaLLMClient,
+) -> list[str]:
+    """
+    Map historic ``EvidenceManifest`` evidence + human feedback to structural ``category:value`` tags.
+
+    Uses ``format=json`` on the local LLM and ``json.loads`` on the assistant payload with
+    **no** conversational self-correction loops (``json_self_correction_retries=0``).
+    """
+    manifest = _normalize_manifest_payload(manifest_payload)
+    feedback = _normalize_feedback_context(feedback_context)
+
+    system_prompt = build_evaluate_retroactive_system_prompt(manifest, feedback)
+    messages: list[dict[str, str]] = [
+        {"role": "system", "content": system_prompt},
+        {
+            "role": "user",
+            "content": (
+                "Return ONLY a raw JSON array of category:value structural tag strings. "
+                'Example: ["compromise_point:pos","fraud_vector:card_pool_velocity"]'
+            ),
+        },
+    ]
+
+    logger.info(
+        "evaluate_retroactive_start manifest_keys=%s feedback_keys=%s prompt_chars=%s",
+        sorted(manifest.keys()),
+        sorted(feedback.keys()),
+        len(system_prompt),
+    )
+
+    try:
+        raw = await llm_client.chat_json_validated(
+            messages,
+            json_self_correction_retries=0,
+        )
+    except ShadowLLMError:
+        logger.exception("evaluate_retroactive_llm_json_failed")
+        raise
+
+    try:
+        tags = parse_retroactive_tags(raw)
+    except ValueError as exc:
+        raise ShadowLLMError(
+            "Retroactive taxonomy model output failed tag validation.",
+            reason="retroactive_tag_validation_failed",
+            raw_content=json.dumps(raw, ensure_ascii=False) if raw is not None else None,
+        ) from exc
+
+    logger.info(
+        "evaluate_retroactive_ok tag_count=%s tags=%s",
+        len(tags),
+        tags,
+    )
+    return tags
+
+
+class ShadowRuntime:
+    """Shadow sidecar runtime for LLM-backed forensic taxonomy extraction."""
+
+    __slots__ = ("_llm_client",)
+
+    def __init__(self, llm_client: OllamaLLMClient) -> None:
+        self._llm_client = llm_client
+
+    async def evaluate_retroactive(
+        self,
+        manifest: dict[str, Any],
+        context: dict[str, Any],
+    ) -> list[str]:
+        """
+        Extract ``category:value`` structural tags from manifest evidence and operational context.
+
+        Invokes the local Ollama / vLLM integration with a strict JSON-array-only contract.
+        """
+        return await evaluate_retroactive(manifest, context, llm_client=self._llm_client)
+
+
+def get_shadow_runtime(request: Request) -> ShadowRuntime:
+    runtime = getattr(request.app.state, "shadow_runtime", None)
+    if runtime is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="shadow_runtime_not_initialized",
+        )
+    return runtime
 
 
 def build_app(
@@ -256,6 +445,13 @@ def build_app(
             app.state.shadow_agent = ShadowAgent(llm_client=llm)
             app.state._shadow_llm_client = llm
             owns_llm = True
+
+        llm_for_runtime = getattr(app.state, "_shadow_llm_client", None)
+        if llm_for_runtime is None:
+            llm_for_runtime = getattr(app.state.shadow_agent, "_llm_client", None)
+        if llm_for_runtime is None:
+            raise RuntimeError("shadow sidecar failed to initialize an OllamaLLMClient")
+        app.state.shadow_runtime = ShadowRuntime(llm_for_runtime)
 
         db_url = database_url or os.environ.get("SHADOW_DATABASE_URL", _DEFAULT_ASYNC_DB_URL)
         engine_kw: dict[str, Any] = {"pool_pre_ping": True}
@@ -711,6 +907,20 @@ def build_app(
         )
         try:
             decision, audit_log = await agent.evaluate(tx, session, graph_context=graph_ctx)
+        except AuditPersistenceError as exc:
+            logger.exception(
+                "shadow_sidecar_analyze_audit_persist_failed entity_id=%s error_code=%s",
+                tx.entity_id,
+                exc.error_code,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={
+                    "error": exc.error_code,
+                    "message": exc.message,
+                    "entity_id": str(tx.entity_id),
+                },
+            ) from exc
         except ShadowLLMError as exc:
             logger.exception(
                 "shadow_sidecar_analyze_shadow_llm_error entity_id=%s reason=%s",
@@ -768,6 +978,43 @@ def build_app(
             },
         }
         return JSONResponse(content=payload)
+
+    @application.post("/internal/v1/retroactive-label/evaluate")
+    async def internal_evaluate_retroactive_label(
+        _auth: Annotated[None, Depends(require_shadow_api_token)],
+        body: RetroactiveLabelRequest,
+        runtime: Annotated[ShadowRuntime, Depends(get_shadow_runtime)],
+    ) -> JSONResponse:
+        """
+        Internal-only: parse ``EvidenceManifest`` + human feedback into structural tags.
+
+        Returns ``{"tags": ["vector:ato", ...]}`` with no conversational filler.
+        """
+        try:
+            tags = await runtime.evaluate_retroactive(
+                body.manifest_payload,
+                body.feedback_context,
+            )
+        except ShadowLLMError as exc:
+            logger.exception(
+                "shadow_retroactive_label_llm_error reason=%s",
+                exc.reason,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail={
+                    "error": "retroactive_label_llm_error",
+                    "reason": exc.reason,
+                    "parse_attempts": exc.parse_attempts,
+                },
+            ) from exc
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"error": "retroactive_label_validation", "message": str(exc)},
+            ) from exc
+
+        return JSONResponse(content={"tags": tags})
 
     return application
 

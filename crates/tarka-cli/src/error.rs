@@ -74,4 +74,20 @@ pub enum CliError {
 
     #[error("wasm modules missing for replay (provide --wasm-dir with `<hex>.wasm` artifacts): {0}")]
     WasmMissing(String),
+
+    #[error("batch-replay flag {flag} invalid: {message}")]
+    BatchReplayField {
+        flag: &'static str,
+        message: String,
+    },
+
+    #[error("batch-replay failed: {0}")]
+    BatchReplay(String),
+
+    #[error("failed to write scorecard to `{path}`: {source}")]
+    ScorecardWrite {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
 }
