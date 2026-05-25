@@ -329,7 +329,7 @@ export default function Rules() {
         /* optional */
       }
       try {
-        const raw = localStorage.getItem(VERTICAL_HISTORY_KEY);
+        const raw = sessionStorage.getItem(VERTICAL_HISTORY_KEY);
         setVerticalHistory(raw ? JSON.parse(raw) : []);
       } catch {
         setVerticalHistory([]);
@@ -522,7 +522,7 @@ export default function Rules() {
         baseline?: Record<string, unknown>;
         vertical_pack?: Record<string, unknown>;
       };
-      const existingRaw = localStorage.getItem(VERTICAL_HISTORY_KEY);
+      const existingRaw = sessionStorage.getItem(VERTICAL_HISTORY_KEY);
       const existing = existingRaw ? (JSON.parse(existingRaw) as Array<{
         ts: string;
         scenario: string;
@@ -540,7 +540,8 @@ export default function Rules() {
         delta_f1: Number(data.delta?.f1_score ?? 0),
       };
       const next = [entry, ...existing].slice(0, 20);
-      localStorage.setItem(VERTICAL_HISTORY_KEY, JSON.stringify(next));
+      // lgtm[js/clear-text-storage-of-sensitive-data] stores non-credential benchmark metrics only.
+      sessionStorage.setItem(VERTICAL_HISTORY_KEY, JSON.stringify(next));
       setVerticalHistory(next);
       setToast(`Benchmark completed: ${vertical} (${benchmarkScenario})`);
     } catch (e) {

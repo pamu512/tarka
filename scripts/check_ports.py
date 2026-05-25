@@ -38,6 +38,7 @@ def _port_available(port: int) -> bool:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            # codeql[py/bind-socket-all-network-interfaces]
             s.bind((host, port))
         except OSError:
             return False

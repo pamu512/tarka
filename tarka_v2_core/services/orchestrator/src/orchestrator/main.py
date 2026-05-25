@@ -1107,13 +1107,13 @@ def create_app(
                                 "detail": f"HTTP {r2.status_code}",
                             }
                         )
-                except httpx.RequestError as exc:
+                except httpx.RequestError:
                     services.append(
                         {
                             "component": "shadow_agent",
                             "status": "offline",
                             "latency_ms": None,
-                            "detail": str(exc),
+                            "detail": "upstream unreachable",
                         }
                     )
 

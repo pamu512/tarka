@@ -41,6 +41,17 @@ def _analytics_uses_duckdb() -> bool:
     return _analytics_store_raw() in ("duck", "duckdb", "local")
 
 
+def _public_probe_detail(reason_code: str, detail: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Strip filesystem paths and exception text before returning to HTTP clients."""
+    out: dict[str, Any] = {"reason_code": reason_code}
+    if not detail:
+        return out
+    for key in ("engine", "detail", "analytics_store"):
+        if key in detail:
+            out[key] = detail[key]
+    return out
+
+
 def _probe_sqlite_permissions() -> tuple[bool, str, dict[str, Any]]:
     path = _sqlite_database_path()
     if path is None:
@@ -53,26 +64,38 @@ def _probe_sqlite_permissions() -> tuple[bool, str, dict[str, Any]]:
     parent = path.parent
     try:
         parent.mkdir(parents=True, exist_ok=True)
-    except OSError as e:
+    except OSError:
         return (
             False,
-            f"sqlite_parent_mkdir_failed:{e}",
-            {"path": str(path), "parent": str(parent)},
+            "sqlite_parent_mkdir_failed",
+            {"engine": ENGINE_KIND, "detail": "SQLite parent directory is not writable."},
         )
 
     if not os.access(parent, os.W_OK | os.X_OK):
-        return False, "sqlite_parent_not_writable", {"parent": str(parent)}
+        return (
+            False,
+            "sqlite_parent_not_writable",
+            {"engine": ENGINE_KIND, "detail": "SQLite parent directory is not writable."},
+        )
 
     if path.exists():
         if not os.access(path, os.R_OK | os.W_OK):
-            return False, "sqlite_file_not_rw", {"path": str(path)}
+            return (
+                False,
+                "sqlite_file_not_rw",
+                {"engine": ENGINE_KIND, "detail": "SQLite database file is not readable/writable."},
+            )
     else:
         try:
             path.touch(mode=0o644, exist_ok=True)
-        except OSError as e:
-            return False, f"sqlite_touch_failed:{e}", {"path": str(path)}
+        except OSError:
+            return (
+                False,
+                "sqlite_touch_failed",
+                {"engine": ENGINE_KIND, "detail": "SQLite database file could not be created."},
+            )
 
-    return True, "ok", {"path": str(path)}
+    return True, "ok", {"engine": ENGINE_KIND, "detail": "SQLite permissions OK."}
 
 
 def _probe_duckdb_bindings() -> tuple[bool, str, dict[str, Any]]:
@@ -88,20 +111,31 @@ def _probe_duckdb_bindings() -> tuple[bool, str, dict[str, Any]]:
 
     try:
         from analytics.engine import DuckDBEngine
-    except ImportError as e:  # pragma: no cover
-        return False, "duckdb_import_failed", {"error": str(e)}
+    except ImportError:  # pragma: no cover
+        return (
+            False,
+            "duckdb_import_failed",
+            {"analytics_store": _analytics_store_raw(), "detail": "DuckDB bindings are not installed."},
+        )
 
     eng = None
     try:
         eng = DuckDBEngine.from_env()
-        path_str = str(eng._path)
         res = eng.execute_query("SELECT 1 AS ok", ())
         ok = bool(res.rows) and res.rows[0][0] == 1
         if not ok:
-            return False, "duckdb_unexpected_result", {"duckdb_path": path_str}
-        return True, "ok", {"duckdb_path": path_str}
-    except Exception as e:
-        return False, "duckdb_failure", {"error": str(e)}
+            return (
+                False,
+                "duckdb_unexpected_result",
+                {"analytics_store": _analytics_store_raw(), "detail": "DuckDB probe returned an unexpected result."},
+            )
+        return True, "ok", {"analytics_store": _analytics_store_raw(), "detail": "DuckDB bindings OK."}
+    except Exception:
+        return (
+            False,
+            "duckdb_failure",
+            {"analytics_store": _analytics_store_raw(), "detail": "DuckDB probe failed."},
+        )
     finally:
         if eng is not None:
             try:
@@ -188,13 +222,13 @@ async def onboarding_status() -> OnboardingStatusOut:
 async def verify_sqlite() -> dict[str, Any]:
     ok, code, detail = _probe_sqlite_permissions()
     if not ok:
-        raise HTTPException(status_code=503, detail={"reason_code": code, **detail})
-    return {"status": "ok", "check": "sqlite_permissions", "detail": detail}
+        raise HTTPException(status_code=503, detail=_public_probe_detail(code, detail))
+    return {"status": "ok", "check": "sqlite_permissions", "detail": _public_probe_detail(code, detail)}
 
 
 @router.get("/verify/duckdb")
 async def verify_duckdb() -> dict[str, Any]:
     ok, code, detail = _probe_duckdb_bindings()
     if not ok:
-        raise HTTPException(status_code=503, detail={"reason_code": code, **detail})
-    return {"status": "ok", "check": "duckdb_bindings", "detail": detail}
+        raise HTTPException(status_code=503, detail=_public_probe_detail(code, detail))
+    return {"status": "ok", "check": "duckdb_bindings", "detail": _public_probe_detail(code, detail)}
