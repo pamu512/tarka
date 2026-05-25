@@ -339,9 +339,9 @@ def _audit_plugin_event(
         "status_code": int(status_code),
         "status_class": _status_class(status_code),
         "upstream_status": int(upstream_status) if upstream_status is not None else None,
-        "client_ip": client_ip[:128],
+        "client_ip": None,
         "tenant_id": (tenant_id or "")[:128] or None,
-        "analyst_id": (analyst_id or "")[:128] or None,
+        "analyst_id": None,
         "case_id": (case_id or "")[:128] or None,
         "external_case_id": (external_case_id or "")[:128] or None,
     }
@@ -368,9 +368,9 @@ def _audit_ingress_event(
         "status_code": int(status_code),
         "status_class": _status_class(status_code),
         "upstream_status": int(upstream_status) if upstream_status is not None else None,
-        "client_ip": client_ip[:128],
+        "client_ip": None,
         "tenant_id": (tenant_id or "")[:128] or None,
-        "analyst_id": (analyst_id or "")[:128] or None,
+        "analyst_id": None,
         "reason": (reason or "")[:120] or None,
     }
     log.info("bridge_ingress_audit %s", json.dumps(payload, separators=(",", ":"), sort_keys=True))

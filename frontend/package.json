@@ -28,6 +28,8 @@
     "axios": "^1.13.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dompurify": "3.4.2",
+    "dompurify": "^3.4.2",
     "framer-motion": "^12.38.0",
     "graphql": "^16.12.0",
     "jspdf": "^4.2.1",
@@ -47,11 +49,19 @@
     "zustand": "^5.0.9"
   },
   "overrides": {
-    "uuid": "11.1.1"
+    "uuid": "11.1.1",
+    "dompurify": "3.4.2",
+    "postcss": "8.5.10",
+    "monaco-editor": {
+      "dompurify": "3.4.2"
+    },
+    "jspdf": {
+      "dompurify": "3.4.2"
+    }
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "4.60.2",
     "@rolldown/binding-linux-x64-gnu": "1.0.0-rc.15",
+    "@rollup/rollup-linux-x64-gnu": "4.60.2",
     "@tailwindcss/oxide-linux-x64-gnu": "4.2.2",
     "lightningcss-linux-x64-gnu": "1.32.0"
   },

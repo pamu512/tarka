@@ -21,6 +21,18 @@ SIGNAL_BLOCK = "block"
 _DELIVERY_FAILED = "delivery failed"
 
 
+def _sanitize_last_error(value: str | None) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    lowered = text.lower()
+    if "traceback" in lowered or 'file "' in lowered or "exception" in lowered:
+        return _DELIVERY_FAILED
+    return text[:240]
+
+
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -45,7 +57,7 @@ def _row_to_dict(row: Any, *, include_attempts: bool = False) -> dict[str, Any]:
         "attempt_count": int(row.attempt_count or 0),
         "latency_ms": row.latency_ms,
         "payload_preview": row.payload_preview,
-        "last_error": row.last_error,
+        "last_error": _sanitize_last_error(row.last_error),
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "delivered_at": row.delivered_at.isoformat() if row.delivered_at else None,
     }

@@ -3101,7 +3101,10 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
     const platform = String(b.platform ?? "sdk-typescript");
     const label = String(b.label ?? "New SDK key");
     const scopes = Array.isArray(b.scopes) ? b.scopes.map(String) : ["evaluate", "ingest"];
-    const secret = `tarka_mkt_${Math.random().toString(36).slice(2, 10)}${Math.random().toString(36).slice(2, 10)}`;
+    const rnd = new Uint8Array(12);
+    crypto.getRandomValues(rnd);
+    const suffix = Array.from(rnd, (b) => (b % 36).toString(36)).join("");
+    const secret = `tarka_mkt_${suffix}`;
     const row = {
       id: `msk-${id("k")}`,
       tenant_id: tid,

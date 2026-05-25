@@ -909,8 +909,8 @@ async def marketplace_sdk_api_keys_create(
             scopes=body.scopes,
             created_by=actor,
         )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid sdk api key request") from None
     return {
         "ok": True,
         "key": row,
@@ -1019,7 +1019,7 @@ async def compliance_pii_field_reveal(
             masked_preview_value=preview,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail="invalid sdk api key request") from None
     return {"ok": True, "event": row}
 
 
