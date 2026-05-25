@@ -601,7 +601,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - uses: docker/setup-buildx-action@v4.0.0
+      - uses: docker/setup-buildx-action@v4
       - name: Start lite stack for benchmark
         run: docker compose -f deploy/docker-compose.lite.yml up -d --build
       - name: Wait for core-api (decision) health
@@ -695,8 +695,8 @@ jobs:
           - graphql-gateway
     steps:
       - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4.0.0
-      - uses: docker/build-push-action@v7.1.0
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7.2.0
         with:
           context: .
           file: legacy_attic/services/${{ matrix.service }}/Dockerfile
@@ -714,7 +714,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4.0.0
+      - uses: docker/setup-buildx-action@v4
       - name: Full stack smoke (Docker Compose profile full)
         env:
           DOCKER_BUILDKIT: "1"
@@ -729,7 +729,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@v5
         with:
           version: v3.14.4
       - uses: actions/setup-python@v6
