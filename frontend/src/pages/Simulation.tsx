@@ -158,7 +158,7 @@ export default function Simulation() {
       const data = resp as unknown as VerticalBenchmarkResult;
       setVerticalResult(data);
       try {
-        const existingRaw = localStorage.getItem(VERTICAL_HISTORY_KEY);
+        const existingRaw = sessionStorage.getItem(VERTICAL_HISTORY_KEY);
         const existing = existingRaw ? (JSON.parse(existingRaw) as Array<Record<string, unknown>>) : [];
         const entry = {
           ts: new Date().toISOString(),
@@ -169,7 +169,8 @@ export default function Simulation() {
           delta_f1: Number((data.delta ?? {})["f1_score"] ?? 0),
         };
         const next = [entry, ...existing].slice(0, 20);
-        localStorage.setItem(VERTICAL_HISTORY_KEY, JSON.stringify(next));
+        // lgtm[js/clear-text-storage-of-sensitive-data] stores non-credential benchmark metrics only.
+        sessionStorage.setItem(VERTICAL_HISTORY_KEY, JSON.stringify(next));
       } catch {
         /* ignore localStorage failures */
       }

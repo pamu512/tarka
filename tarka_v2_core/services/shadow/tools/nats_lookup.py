@@ -154,7 +154,9 @@ async def connect_setu_nats(url: str | None = None) -> Any:
 
 async def _async_main(argv: list[str] | None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    p = argparse.ArgumentParser(description="Query Setu OSINT over NATS (setu.query + inbox reply).")
+    p = argparse.ArgumentParser(
+        description="Query Setu OSINT over NATS (setu.query + inbox reply)."
+    )
     p.add_argument("ip", help="IPv4/IPv6 address to look up")
     p.add_argument(
         "--url",

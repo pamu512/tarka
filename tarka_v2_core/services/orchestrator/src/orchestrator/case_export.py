@@ -30,7 +30,9 @@ class CaseExportNotFoundError(LookupError):
 
 
 def _json_bytes(obj: Any) -> bytes:
-    return json.dumps(obj, default=_json_default, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    return json.dumps(obj, default=_json_default, ensure_ascii=False, separators=(",", ":")).encode(
+        "utf-8"
+    )
 
 
 def _json_default(o: Any) -> Any:
@@ -112,19 +114,21 @@ async def fetch_compliance_export_documents(
                 "transaction_id": int(row.transaction_id),
                 "opened_at": row.opened_at,
             },
-            "shadow_case": None
-            if shadow is None
-            else {
-                "id": shadow.id,
-                "tenant_id": shadow.tenant_id,
-                "name": shadow.name,
-                "status": shadow.status,
-                "dataset_path": shadow.dataset_path,
-                "is_active": bool(shadow.is_active),
-                "assigned_to": shadow.assigned_to,
-                "created_at": shadow.created_at,
-                "updated_at": shadow.updated_at,
-            },
+            "shadow_case": (
+                None
+                if shadow is None
+                else {
+                    "id": shadow.id,
+                    "tenant_id": shadow.tenant_id,
+                    "name": shadow.name,
+                    "status": shadow.status,
+                    "dataset_path": shadow.dataset_path,
+                    "is_active": bool(shadow.is_active),
+                    "assigned_to": shadow.assigned_to,
+                    "created_at": shadow.created_at,
+                    "updated_at": shadow.updated_at,
+                }
+            ),
         }
 
         graph_doc = shadow.graph_snapshot if shadow is not None else None

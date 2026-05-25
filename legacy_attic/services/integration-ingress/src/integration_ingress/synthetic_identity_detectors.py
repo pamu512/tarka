@@ -87,11 +87,7 @@ def _combo_flags(ip: dict[str, Any], browser: dict[str, Any], email: dict[str, A
         flags.append("browser_email_high_risk_combo")
     if ip.get("risk") == "high" and browser.get("risk") == "high":
         flags.append("ip_browser_high_risk_combo")
-    if (
-        ip.get("risk") == "high"
-        and browser.get("risk") == "high"
-        and email.get("risk") == "high"
-    ):
+    if ip.get("risk") == "high" and browser.get("risk") == "high" and email.get("risk") == "high":
         flags.append("synthetic_identity_triple")
     return flags
 
@@ -104,9 +100,7 @@ def _user_row(index: int, *, tenant_id: str) -> dict[str, Any]:
     risk_score = min(
         100,
         round(
-            0.35 * int(ip["score"])
-            + 0.35 * int(browser["score"])
-            + 0.30 * int(email["score"]),
+            0.35 * int(ip["score"]) + 0.35 * int(browser["score"]) + 0.30 * int(email["score"]),
         ),
     )
     combo = _combo_flags(ip, browser, email)
@@ -138,7 +132,8 @@ def build_synthetic_identity_payload(
     users = [_user_row(i, tenant_id=tid) for i in range(lim)]
     for u in users:
         u["is_synthetic_identity"] = bool(
-            u["risk_score"] >= threshold or "synthetic_identity_triple" in (u.get("combo_flags") or []),
+            u["risk_score"] >= threshold
+            or "synthetic_identity_triple" in (u.get("combo_flags") or []),
         )
 
     flagged = [u for u in users if u["is_synthetic_identity"]]
@@ -158,7 +153,9 @@ def build_synthetic_identity_payload(
             "scanned_users": len(users),
             "flagged_users": len(flagged),
             "triple_high_combos": triple,
-            "avg_risk_score": round(sum(int(u["risk_score"]) for u in users) / max(len(users), 1), 1),
+            "avg_risk_score": round(
+                sum(int(u["risk_score"]) for u in users) / max(len(users), 1), 1
+            ),
         },
         "users": users_sorted,
     }

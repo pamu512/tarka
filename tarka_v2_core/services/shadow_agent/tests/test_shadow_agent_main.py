@@ -41,12 +41,16 @@ class _StubLlmEchoEntity:
         if not match:
             raise RuntimeError("stub expected entity_id line in system prompt")
         uid = match.group(1)
-        compact = system.replace(" ", "").lower()
-        linked = "linked_to_blocked_node" in compact and "true" in compact
+        linked = bool(
+            re.search(
+                r"linked_to_blocked_node[\"']?\s*:\s*(?:true|True)\b",
+                system,
+            ),
+        )
         return {
             "transaction_id": uid,
             "risk_score": 88.0 if linked else 12.5,
-            "is_fraud": True if linked else False,
+            "is_fraud": bool(linked),
             "reasoning": (
                 ["Linked to Blocked Node", "device_id overlaps blocked account"]
                 if linked

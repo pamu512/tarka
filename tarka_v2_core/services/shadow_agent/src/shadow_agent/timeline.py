@@ -42,7 +42,7 @@ class TimelineEventModel(BaseModel):
     )
     matched_via: str = Field(
         ...,
-        description='How this row entered the result set: ``entity_scope``, ``device_id``, or ``ip_address``.',
+        description="How this row entered the result set: ``entity_scope``, ``device_id``, or ``ip_address``.",
     )
 
 
@@ -188,7 +188,9 @@ async def _collect_audit_rows(
 
     if anchor.device_id:
         dev_expr = _json_device_expr(bind)
-        q_dev = select(AuditLog.id, AuditLog.case_id, AuditLog.timestamp, AuditLog.action_taken).where(
+        q_dev = select(
+            AuditLog.id, AuditLog.case_id, AuditLog.timestamp, AuditLog.action_taken
+        ).where(
             base_filter,
             dev_expr == anchor.device_id,
         )
@@ -197,7 +199,9 @@ async def _collect_audit_rows(
 
     if anchor.ip_address:
         ip_expr = _json_ip_expr(bind)
-        q_ip = select(AuditLog.id, AuditLog.case_id, AuditLog.timestamp, AuditLog.action_taken).where(
+        q_ip = select(
+            AuditLog.id, AuditLog.case_id, AuditLog.timestamp, AuditLog.action_taken
+        ).where(
             base_filter,
             ip_expr == anchor.ip_address,
         )

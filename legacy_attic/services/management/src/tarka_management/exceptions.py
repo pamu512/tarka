@@ -17,5 +17,3 @@ class DuplicateRuleVersionError(RuleRegistryError):
             f"immutable duplicate: rule_name={rule_name!r} already has version with "
             f"content_hash={content_hash}"
         )
-
-

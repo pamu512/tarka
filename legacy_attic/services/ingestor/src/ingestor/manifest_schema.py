@@ -84,8 +84,7 @@ class SignalValueWireJson(BaseModel):
         set_count = sum(1 for v in branches if v is not None)
         if set_count != 1:
             raise ValueError(
-                "SignalValue JSON must set exactly one of "
-                "str_val|num_val|bool_val|raw_bytes"
+                "SignalValue JSON must set exactly one of str_val|num_val|bool_val|raw_bytes"
             )
         return self
 

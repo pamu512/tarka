@@ -15,7 +15,7 @@ services:
     build:
       # Repo root (compose file is under deploy/) — required for monorepo COPY services/... in Dockerfile.
       context: ..
-      dockerfile: services/core-api/Dockerfile
+      dockerfile: legacy_attic/services/core-api/Dockerfile
     ports:
       - "${TARKA_MICRO_PORT:-8000}:8000"
     environment:

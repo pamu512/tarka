@@ -324,7 +324,7 @@ def _graph_routing_match_when(
                 return False
             if op == "gte" and not (lhs_v >= rhs_v):
                 return False
-            if op == "eq" and not (lhs_v == rhs_v):
+            if op == "eq" and lhs_v != rhs_v:
                 return False
             continue
         # Fallback to string equality.

@@ -14,7 +14,11 @@ for _p in (_SRC_ORCH, _SRC_INGESTOR, _SRC_SHARED):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-from orchestrator.models.cases import CaseStatus, StateTransitionError, transition_status  # noqa: E402
+from orchestrator.models.cases import (
+    CaseStatus,
+    StateTransitionError,
+    transition_status,
+)  # noqa: E402
 
 
 def test_resolved_fraud_to_under_review_without_reason_raises() -> None:

@@ -16,7 +16,7 @@ SCHEMA_FROM_APP = openapi.from_asgi(
     "/openapi.json", _APP, headers={"X-API-Key": CONTRACT_API_KEY}
 )
 
-_REPO_ROOT = Path(__file__).resolve().parents[4]
+_REPO_ROOT = Path(__file__).resolve().parents[5]
 _CONTRACT_DECISION_API = _REPO_ROOT / "contracts" / "openapi" / "decision-api.yaml"
 assert _CONTRACT_DECISION_API.is_file(), f"missing {_CONTRACT_DECISION_API}"
 

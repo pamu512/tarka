@@ -18,6 +18,20 @@ WebhookDeliveryStatus = Literal["pending", "delivered", "failed", "dlq"]
 
 SIGNAL_BLOCK = "block"
 
+_DELIVERY_FAILED = "delivery failed"
+
+
+def _sanitize_last_error(value: str | None) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    lowered = text.lower()
+    if "traceback" in lowered or 'file "' in lowered or "exception" in lowered:
+        return _DELIVERY_FAILED
+    return text[:240]
+
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
@@ -43,7 +57,7 @@ def _row_to_dict(row: Any, *, include_attempts: bool = False) -> dict[str, Any]:
         "attempt_count": int(row.attempt_count or 0),
         "latency_ms": row.latency_ms,
         "payload_preview": row.payload_preview,
-        "last_error": row.last_error,
+        "last_error": _sanitize_last_error(row.last_error),
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "delivered_at": row.delivered_at.isoformat() if row.delivered_at else None,
     }
@@ -160,9 +174,20 @@ async def deliver_marketplace_block_webhook(
             row.last_error = f"HTTP {r.status_code}"
     except Exception as exc:
         latency = (datetime.now(UTC) - t0).total_seconds() * 1000.0
-        await _append_attempt(row, status_code=None, error=str(exc)[:500], latency_ms=latency)
+        logger.warning(
+            "marketplace webhook delivery failed log_id=%s callback=%s",
+            log_id,
+            row.callback_url,
+            exc_info=exc,
+        )
+        await _append_attempt(
+            row,
+            status_code=None,
+            error=_DELIVERY_FAILED,
+            latency_ms=latency,
+        )
         row.status = "failed"
-        row.last_error = str(exc)[:500]
+        row.last_error = _DELIVERY_FAILED
     await session.commit()
     await session.refresh(row)
     return _row_to_dict(row, include_attempts=True)
@@ -194,7 +219,9 @@ async def list_marketplace_webhook_logs(
     return [_row_to_dict(r) for r in rows]
 
 
-async def get_marketplace_webhook_log(session: AsyncSession, *, log_id: str) -> dict[str, Any] | None:
+async def get_marketplace_webhook_log(
+    session: AsyncSession, *, log_id: str
+) -> dict[str, Any] | None:
     from integration_ingress.models import MarketplaceWebhookLog
 
     try:

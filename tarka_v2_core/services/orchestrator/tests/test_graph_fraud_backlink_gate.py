@@ -115,7 +115,10 @@ def test_resolve_fraud_sets_janus_user_is_fraud() -> None:
 
         r = client.put(
             f"/v1/cases/{case_uuid}/status",
-            json={"status": CaseStatus.RESOLVED_FRAUD.value, "reason_code": "GATE_FRAUD_DISPOSITION"},
+            json={
+                "status": CaseStatus.RESOLVED_FRAUD.value,
+                "reason_code": "GATE_FRAUD_DISPOSITION",
+            },
             headers={"X-Auth-Token": "gate-token-115"},
         )
         assert r.status_code == 200, r.text

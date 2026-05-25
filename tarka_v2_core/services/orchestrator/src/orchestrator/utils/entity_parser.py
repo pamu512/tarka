@@ -45,12 +45,16 @@ def _push_unique(ordered: list[str], seen: set[str], value: str) -> None:
     ordered.append(v)
 
 
-def _collect_pattern(text: str, pattern: re.Pattern[str], ordered: list[str], seen: set[str]) -> None:
+def _collect_pattern(
+    text: str, pattern: re.Pattern[str], ordered: list[str], seen: set[str]
+) -> None:
     for m in pattern.finditer(text):
         _push_unique(ordered, seen, m.group(0))
 
 
-def _fedex_like_without_usps_overlap(text: str, usps_hits: set[str], ordered: list[str], seen: set[str]) -> None:
+def _fedex_like_without_usps_overlap(
+    text: str, usps_hits: set[str], ordered: list[str], seen: set[str]
+) -> None:
     for m in _FEDEX_LIKE_RE.finditer(text):
         span = m.group(0)
         if any(span in u or u in span for u in usps_hits):

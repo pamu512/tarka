@@ -114,7 +114,13 @@ def test_tenant_filter_excludes_other_tenant_rows() -> None:
         fac = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         case_a = str(uuid.uuid4())
         case_b = str(uuid.uuid4())
-        payload = json.dumps({"amount": 1.0, "transaction_id": str(uuid.uuid4()), "metadata": {"order_id": "ORD-99887766"}})
+        payload = json.dumps(
+            {
+                "amount": 1.0,
+                "transaction_id": str(uuid.uuid4()),
+                "metadata": {"order_id": "ORD-99887766"},
+            }
+        )
 
         async with fac() as s:
             s.add(
@@ -142,7 +148,9 @@ def test_tenant_filter_excludes_other_tenant_rows() -> None:
             await s.commit()
 
         async with fac() as s:
-            hits_default = await find_audit_log_hits_for_tokens(s, ["ORD-99887766"], tenant_id=DEFAULT_TENANT_ID)
+            hits_default = await find_audit_log_hits_for_tokens(
+                s, ["ORD-99887766"], tenant_id=DEFAULT_TENANT_ID
+            )
 
         assert len(hits_default) == 1
         assert hits_default[0].case_id == case_a

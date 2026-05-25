@@ -469,24 +469,24 @@ fn extract_in_list_entity_ids(query: &str) -> HashSet<String> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct WindowCursor {
+struct WindowBookmark {
     timestamp_ns: u64,
     manifest_id: String,
 }
 
-fn parse_cursor_predicate(query: &str) -> Option<WindowCursor> {
+fn parse_cursor_predicate(query: &str) -> Option<WindowBookmark> {
     if !query.contains("timestamp_ns >") {
         return None;
     }
     let ts = extract_u64_after(query, "timestamp_ns > ")?;
     let manifest_id = extract_to_uuid_literal(query)?;
-    Some(WindowCursor {
+    Some(WindowBookmark {
         timestamp_ns: ts,
         manifest_id,
     })
 }
 
-fn cursor_matches(row: &EvidenceManifestRow, cursor: Option<&WindowCursor>) -> bool {
+fn cursor_matches(row: &EvidenceManifestRow, cursor: Option<&WindowBookmark>) -> bool {
     let Some(cursor) = cursor else {
         return true;
     };

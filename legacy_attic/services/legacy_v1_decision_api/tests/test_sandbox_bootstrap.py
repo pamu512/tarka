@@ -3,8 +3,10 @@
 from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 import pytest_asyncio
+from starlette.requests import Request
 
 
 @asynccontextmanager

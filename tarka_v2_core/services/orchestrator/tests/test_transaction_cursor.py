@@ -1,6 +1,9 @@
 """Unit tests for analytics transaction keyset cursors (no DuckDB required)."""
 
-from orchestrator.analytics.transaction_cursor import decode_transaction_cursor, encode_transaction_cursor
+from orchestrator.analytics.transaction_cursor import (
+    decode_transaction_cursor,
+    encode_transaction_cursor,
+)
 
 
 def test_encode_decode_roundtrip() -> None:

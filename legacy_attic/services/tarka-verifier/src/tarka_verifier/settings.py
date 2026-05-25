@@ -9,7 +9,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class VerifierSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="TARKA_VERIFIER_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="TARKA_VERIFIER_", env_file=".env", extra="ignore"
+    )
 
     verifying_key_hex: str = Field(
         default="",

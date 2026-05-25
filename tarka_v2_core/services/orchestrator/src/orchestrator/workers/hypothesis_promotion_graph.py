@@ -19,11 +19,15 @@ logger = logging.getLogger(__name__)
 
 
 def _promotion_subject() -> str:
-    return (os.environ.get("HYPOTHESIS_PROMOTION_NATS_SUBJECT") or "tarka.hypothesis.promoted").strip()
+    return (
+        os.environ.get("HYPOTHESIS_PROMOTION_NATS_SUBJECT") or "tarka.hypothesis.promoted"
+    ).strip()
 
 
 def _promotion_queue() -> str:
-    return (os.environ.get("HYPOTHESIS_PROMOTION_GRAPH_QUEUE") or "hypothesis-promotion-graph").strip()
+    return (
+        os.environ.get("HYPOTHESIS_PROMOTION_GRAPH_QUEUE") or "hypothesis-promotion-graph"
+    ).strip()
 
 
 async def handle_promotion_message(payload: dict, *, graph_client: object | None = None) -> dict:

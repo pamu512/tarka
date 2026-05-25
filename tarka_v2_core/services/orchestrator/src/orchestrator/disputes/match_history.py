@@ -114,7 +114,12 @@ async def find_audit_log_hits_for_tokens(
             .limit(limit)
         )
     else:
-        stmt = select(AuditLog).where(pred).order_by(AuditLog.timestamp.desc(), AuditLog.id.desc()).limit(limit)
+        stmt = (
+            select(AuditLog)
+            .where(pred)
+            .order_by(AuditLog.timestamp.desc(), AuditLog.id.desc())
+            .limit(limit)
+        )
 
     try:
         rows = list(await session.scalars(stmt))

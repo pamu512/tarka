@@ -35,7 +35,9 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.PrimaryKeyConstraint("tenant_id", "entity_id", name="pk_entity_signature_state"),
+        sa.PrimaryKeyConstraint(
+            "tenant_id", "entity_id", name="pk_entity_signature_state"
+        ),
     )
     op.create_index(
         "ix_entity_signature_state_updated_at",

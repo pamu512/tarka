@@ -84,7 +84,9 @@ def redact_scalar_string(value: str) -> str:
         parts = out.split()
         if len(parts) >= 2 and all(len(p) >= 2 for p in parts[:2]):
             # Likely "First Last" style token run — mask each word's interior.
-            return " ".join(_mask_edges(p) if len(p) > 2 else mask_email_like(p) for p in parts)
+            return " ".join(
+                _mask_edges(p) if len(p) > 2 else mask_email_like(p) for p in parts
+            )
     return out
 
 
