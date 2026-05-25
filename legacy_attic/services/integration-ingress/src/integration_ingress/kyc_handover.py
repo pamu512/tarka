@@ -83,7 +83,12 @@ def send_kyc_id_request_email(
     if row is None:
         return {"ok": False, "error": "case_not_found", "case_id": cid}
     if row["kyc_status"] != "needs_more_id":
-        return {"ok": False, "error": "kyc_not_pending", "case_id": cid, "kyc_status": row["kyc_status"]}
+        return {
+            "ok": False,
+            "error": "kyc_not_pending",
+            "case_id": cid,
+            "kyc_status": row["kyc_status"],
+        }
 
     sent_at = _now_iso()
     message_id = f"msg_{hashlib.sha256(f'{tid}:{cid}:{sent_at}'.encode()).hexdigest()[:16]}"

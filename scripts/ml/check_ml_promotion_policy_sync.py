@@ -7,8 +7,9 @@ from pathlib import Path
 
 """Ensure ml_promotion_policy_v1.json and .yaml parse to the same object (OSS #52)."""
 _REPO = Path(__file__).resolve().parents[2]
-_JSON = _REPO / "services" / "ml-scoring" / "rules" / "ml_promotion_policy_v1.json"
-_YAML = _REPO / "services" / "ml-scoring" / "rules" / "ml_promotion_policy_v1.yaml"
+_RULES = _REPO / "legacy_attic" / "services" / "ml-scoring" / "rules"
+_JSON = _RULES / "ml_promotion_policy_v1.json"
+_YAML = _RULES / "ml_promotion_policy_v1.yaml"
 
 
 def main() -> int:

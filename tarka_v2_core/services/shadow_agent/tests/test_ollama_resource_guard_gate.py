@@ -8,10 +8,16 @@ import time
 from multiprocessing import Process
 
 import pytest
-from shadow_agent.ollama_resource_guard import RSS_HEADROOM_LIMIT_BYTES, ollama_resource_environ, popen_ollama
+from shadow_agent.ollama_resource_guard import (
+    RSS_HEADROOM_LIMIT_BYTES,
+    ollama_resource_environ,
+    popen_ollama,
+)
 
 
-def test_ollama_resource_environ_merges_base_without_forcing_caps(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ollama_resource_environ_merges_base_without_forcing_caps(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv("OLLAMA_NUM_PARALLEL", raising=False)
     monkeypatch.delenv("OLLAMA_MAX_LOADED_MODELS", raising=False)
     env = ollama_resource_environ({"CUSTOM_GATE": "134"})
@@ -20,7 +26,9 @@ def test_ollama_resource_environ_merges_base_without_forcing_caps(monkeypatch: p
     assert "OLLAMA_MAX_LOADED_MODELS" not in env
 
 
-def test_ollama_resource_environ_preserves_docker_compose_caps(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ollama_resource_environ_preserves_docker_compose_caps(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """docker-compose.local.yml (or host) sets parallelism — subprocess inherits."""
     monkeypatch.setenv("OLLAMA_NUM_PARALLEL", "1")
     monkeypatch.setenv("OLLAMA_MAX_LOADED_MODELS", "1")
@@ -65,7 +73,9 @@ def _psutil_available() -> bool:
     return True
 
 
-@pytest.mark.skipif(not _psutil_available(), reason="psutil required for RSS gate (pip install psutil)")
+@pytest.mark.skipif(
+    not _psutil_available(), reason="psutil required for RSS gate (pip install psutil)"
+)
 def test_peak_rss_stays_under_16gb_while_shadow_stub_running() -> None:
     import psutil
 

@@ -161,7 +161,7 @@ pub async fn run_batch_replay(cfg: BatchReplayConfig) -> Result<ReplayScorecard,
     });
 
     let mut collector = ScorecardCollector::new();
-    let mut cursor: Option<clickhouse::ManifestWindowCursor> = None;
+    let mut cursor: Option<clickhouse::ManifestWindowBookmark> = None;
     let mut worker_elapsed = Duration::ZERO;
 
     loop {
@@ -180,7 +180,7 @@ pub async fn run_batch_replay(cfg: BatchReplayConfig) -> Result<ReplayScorecard,
             break;
         }
 
-        cursor = chunk.last().map(clickhouse::ManifestWindowCursor::from_row);
+        cursor = chunk.last().map(clickhouse::ManifestWindowBookmark::from_row);
         let manifests = rows_to_evidence_manifests(&chunk)
             .map_err(|e| CliError::BatchReplay(e.to_string()))?;
         let ctx = Arc::clone(&exec_ctx);

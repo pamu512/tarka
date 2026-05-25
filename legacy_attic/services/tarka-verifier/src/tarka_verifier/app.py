@@ -14,13 +14,19 @@ from pydantic import BaseModel, Field
 
 from tarka_verifier.pagerduty import PagerDutyDeliveryError, alert_verification_failure
 from tarka_verifier.settings import VerifierSettings, get_settings
-from tarka_verifier.verify_pipeline import VerificationReport, decode_hex_pubkey, verify_evidence_bundle
+from tarka_verifier.verify_pipeline import (
+    VerificationReport,
+    decode_hex_pubkey,
+    verify_evidence_bundle,
+)
 
 log = logging.getLogger(__name__)
 
 
 class VerifyRequest(BaseModel):
-    manifest_protobuf_base64: str = Field(..., description="Raw EvidenceManifest protobuf, base64-encoded.")
+    manifest_protobuf_base64: str = Field(
+        ..., description="Raw EvidenceManifest protobuf, base64-encoded."
+    )
     merkle_proof_bytes_base64: str = Field(
         ...,
         description="rs_merkle ``MerkleProof::to_bytes()`` (DirectHashesOrder), base64-encoded.",
@@ -65,7 +71,9 @@ def create_app() -> FastAPI:
             ) from exc
 
         try:
-            manifest_raw = base64.b64decode(body.manifest_protobuf_base64, validate=True)
+            manifest_raw = base64.b64decode(
+                body.manifest_protobuf_base64, validate=True
+            )
             proof_raw = base64.b64decode(body.merkle_proof_bytes_base64, validate=True)
         except binascii.Error as exc:
             raise HTTPException(
@@ -79,11 +87,16 @@ def create_app() -> FastAPI:
         sig_override: bytes | None = None
         if body.signature_bytes_base64 is not None:
             try:
-                sig_override = base64.b64decode(body.signature_bytes_base64, validate=True)
+                sig_override = base64.b64decode(
+                    body.signature_bytes_base64, validate=True
+                )
             except binascii.Error as exc:
                 raise HTTPException(
                     status_code=422,
-                    detail={"reason_code": "SIGNATURE_BASE64_INVALID", "message": str(exc)},
+                    detail={
+                        "reason_code": "SIGNATURE_BASE64_INVALID",
+                        "message": str(exc),
+                    },
                 ) from exc
 
         def _run_verify() -> VerificationReport:

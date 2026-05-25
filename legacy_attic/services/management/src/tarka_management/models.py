@@ -18,16 +18,16 @@ class RuleVersion(Base):
 
     __tablename__ = "rule_versions"
     __table_args__ = (
-        UniqueConstraint("rule_name", "content_hash", name="uq_rule_versions_rule_name_content_hash"),
+        UniqueConstraint(
+            "rule_name", "content_hash", name="uq_rule_versions_rule_name_content_hash"
+        ),
         CheckConstraint(
             "(valid_to IS NULL) OR (valid_to > valid_from)",
             name="ck_rule_versions_valid_range",
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     rule_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     rule_body: Mapped[str] = mapped_column(Text, nullable=False)

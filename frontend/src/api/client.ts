@@ -258,7 +258,7 @@ export interface AuditRecentResponse {
 }
 
 /**
- * Cursor-paged decision audit slice for the explorer UI (`GET /v1/audit/explorer`).
+ * Keyset-paged decision audit slice for the explorer UI (`GET /v1/audit/explorer`).
  * Designed for keyset / opaque cursor semantics against ClickHouse or Postgres replicas.
  */
 export interface AuditExplorerResponse {

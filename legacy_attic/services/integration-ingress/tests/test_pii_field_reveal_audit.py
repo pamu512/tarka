@@ -6,7 +6,12 @@ import importlib.util
 import sys
 from pathlib import Path
 
-_MOD_PATH = Path(__file__).resolve().parents[1] / "src" / "integration_ingress" / "pii_field_reveal_audit.py"
+_MOD_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "src"
+    / "integration_ingress"
+    / "pii_field_reveal_audit.py"
+)
 _spec = importlib.util.spec_from_file_location("pii_field_reveal_audit", _MOD_PATH)
 assert _spec and _spec.loader
 _mod = importlib.util.module_from_spec(_spec)

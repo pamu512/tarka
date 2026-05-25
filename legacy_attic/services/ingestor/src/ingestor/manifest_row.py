@@ -69,7 +69,9 @@ def _total_execution_time_us(msg: evidence_pb2.EvidenceManifest) -> int:
     return int(msg.verdict.latency_ns // 1000)
 
 
-def _manifest_to_row(msg: evidence_pb2.EvidenceManifest, raw: bytes, *, tenant_id: str) -> dict[str, Any]:
+def _manifest_to_row(
+    msg: evidence_pb2.EvidenceManifest, raw: bytes, *, tenant_id: str
+) -> dict[str, Any]:
     try:
         manifest_uuid = uuid.UUID(msg.manifest_id)
     except ValueError as exc:

@@ -67,7 +67,11 @@ class _GraphVizFlowable(Flowable):
                 c.line(x0, y0, x1, y1)
 
         for nid, (x, y) in positions.items():
-            fill = colors.HexColor("#1a5276") if nid.startswith("user:") else colors.HexColor("#1e8449")
+            fill = (
+                colors.HexColor("#1a5276")
+                if nid.startswith("user:")
+                else colors.HexColor("#1e8449")
+            )
             if nid.startswith("ip:"):
                 fill = colors.HexColor("#b9770e")
             c.setFillColor(fill)
@@ -126,7 +130,9 @@ def build_dispute_evidence_pdf_bytes(
         Preformatted(_json_pretty(case_doc), mono, maxLineLength=110),
         Spacer(1, 0.12 * inch),
         Paragraph("Shadow graph snapshot (JSON)", h2),
-        Preformatted(_json_pretty(graph_doc if graph_doc is not None else {}), mono, maxLineLength=110),
+        Preformatted(
+            _json_pretty(graph_doc if graph_doc is not None else {}), mono, maxLineLength=110
+        ),
         Spacer(1, 0.12 * inch),
         Paragraph("Rule-engine trace (JSON)", h2),
         Preformatted(_json_pretty(rust_doc), mono, maxLineLength=110),

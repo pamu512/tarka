@@ -92,6 +92,7 @@ def _neighbor_max_hops_from_env() -> int:
 def _safe_graph_key(s: str) -> bool:
     return "\x00" not in s and 0 < len(s) <= 512
 
+
 # --- Schema constants (labels / rel types are fixed; never interpolated from user metadata) ---
 
 LABEL_USER = "User"
@@ -182,7 +183,9 @@ def parse_graph_entity_ref(entity_id: str) -> tuple[Literal["user", "ip"], str]:
     return "user", raw
 
 
-def ip_velocity_block(*, distinct_users_last_2h: int, threshold: int = IP_VELOCITY_SYBIL_THRESHOLD) -> dict[str, Any]:
+def ip_velocity_block(
+    *, distinct_users_last_2h: int, threshold: int = IP_VELOCITY_SYBIL_THRESHOLD
+) -> dict[str, Any]:
     """Pure scoring for ``IP_VELOCITY`` (used by tests and Neo4j implementation)."""
     spike = distinct_users_last_2h > threshold
     denom = max(float(threshold), 1.0)
@@ -199,7 +202,11 @@ def graph_hints_from_transaction(transaction: TransactionSchema) -> GraphHints:
     """Map ``TransactionSchema`` (+ ``metadata``) into graph upsert hints."""
     meta = transaction.metadata or {}
     blocked_raw = meta.get("graph_user_is_blocked")
-    user_marked_blocked = blocked_raw is True or str(blocked_raw).strip().lower() in ("true", "1", "yes")
+    user_marked_blocked = blocked_raw is True or str(blocked_raw).strip().lower() in (
+        "true",
+        "1",
+        "yes",
+    )
     return GraphHints(
         user_id=_meta_str(meta, "user_id", "graph_user_id", "user"),
         device_id=_meta_str(meta, "device_id", "device_fingerprint", "graph_device_id"),
@@ -335,7 +342,9 @@ class Neo4jGraphClient(GraphClient):
     def __init__(self, driver: Any, *, neighbor_max_hops: int | None = None) -> None:
         self._driver = driver
         self._neighbor_max_hops = (
-            int(neighbor_max_hops) if neighbor_max_hops is not None else _neighbor_max_hops_from_env()
+            int(neighbor_max_hops)
+            if neighbor_max_hops is not None
+            else _neighbor_max_hops_from_env()
         )
 
     @classmethod
@@ -345,7 +354,9 @@ class Neo4jGraphClient(GraphClient):
         uri = (os.environ.get("NEO4J_URI") or os.environ.get("GRAPH_NEO4J_URI") or "").strip()
         if not uri:
             return None
-        user = (os.environ.get("NEO4J_USER") or os.environ.get("GRAPH_NEO4J_USER") or "neo4j").strip()
+        user = (
+            os.environ.get("NEO4J_USER") or os.environ.get("GRAPH_NEO4J_USER") or "neo4j"
+        ).strip()
         password = os.environ.get("NEO4J_PASSWORD") or os.environ.get("GRAPH_NEO4J_PASSWORD") or ""
         try:
             drv = AsyncGraphDatabase.driver(uri, auth=(user, password))
@@ -579,7 +590,9 @@ class Neo4jGraphClient(GraphClient):
             "backend": "neo4j",
         }
 
-    async def _degree_neighbors(self, label: str, key: str, value: str) -> tuple[dict[str, int], int]:
+    async def _degree_neighbors(
+        self, label: str, key: str, value: str
+    ) -> tuple[dict[str, int], int]:
         q = f"""
         MATCH (x:`{label}` {{{key}: $id}})-[r]-(n)
         RETURN head(labels(n)) AS lbl, count(DISTINCT n) AS cnt
@@ -963,7 +976,9 @@ class JanusGraphClient(GraphClient):
         self._g = g
         self._connection = connection
         self._neighbor_max_hops = (
-            int(neighbor_max_hops) if neighbor_max_hops is not None else _neighbor_max_hops_from_env()
+            int(neighbor_max_hops)
+            if neighbor_max_hops is not None
+            else _neighbor_max_hops_from_env()
         )
 
     @classmethod
@@ -1092,12 +1107,16 @@ class JanusGraphClient(GraphClient):
         if hints.user_id and hints.device_id:
             u = g.V().has(LABEL_USER, "user_id", hints.user_id).next()
             d = g.V().has(LABEL_DEVICE, "device_id", hints.device_id).next()
-            g.V(u).addE(REL_USED_DEVICE).to(__.V(d)).property("transaction_id", tid).property("observed_at", ts).iterate()
+            g.V(u).addE(REL_USED_DEVICE).to(__.V(d)).property("transaction_id", tid).property(
+                "observed_at", ts
+            ).iterate()
 
         if hints.user_id and hints.ip:
             u = g.V().has(LABEL_USER, "user_id", hints.user_id).next()
             ip_v = g.V().has(LABEL_IP, "address", hints.ip).next()
-            g.V(u).addE(REL_ORDERED_FROM_IP).to(__.V(ip_v)).property("transaction_id", tid).property(
+            g.V(u).addE(REL_ORDERED_FROM_IP).to(__.V(ip_v)).property(
+                "transaction_id", tid
+            ).property(
                 "observed_at",
                 ts,
             ).iterate()

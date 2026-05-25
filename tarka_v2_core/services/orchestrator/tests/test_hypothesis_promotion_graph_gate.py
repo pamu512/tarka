@@ -26,7 +26,7 @@ class _FakeGremlin:
     def __init__(self) -> None:
         self.marked: dict[str, dict[str, object]] = {}
 
-    def V(self) -> _FakeGremlin:
+    def V(self) -> _FakeGremlin:  # noqa: N802
         return self
 
     def has(self, _label: str, _key: str, user_id: str) -> _FakeGremlin:
@@ -45,7 +45,7 @@ class _FakeGremlin:
         self._read_key = key
         return self
 
-    def toList(self) -> list[object]:
+    def toList(self) -> list[object]:  # noqa: N802
         uid = getattr(self, "_uid", "")
         val = self.marked.get(uid, {}).get(getattr(self, "_read_key", ""))
         return [val] if val is not None else []

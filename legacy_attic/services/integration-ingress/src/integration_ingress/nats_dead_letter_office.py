@@ -14,8 +14,14 @@ _PEEK_DURABLE = "integration-ingress-dlq-office-peek"
 
 
 def _dlq_config() -> tuple[str, str, str]:
-    subject = (os.environ.get("INGEST_DLQ_SUBJECT") or os.environ.get("NATS_DLQ_SUBJECT") or "fraud.events.dlq").strip()
-    stream = (os.environ.get("NATS_STREAM_NAME") or os.environ.get("INGEST_STREAM_NAME") or "FRAUD_EVENTS").strip()
+    subject = (
+        os.environ.get("INGEST_DLQ_SUBJECT")
+        or os.environ.get("NATS_DLQ_SUBJECT")
+        or "fraud.events.dlq"
+    ).strip()
+    stream = (
+        os.environ.get("NATS_STREAM_NAME") or os.environ.get("INGEST_STREAM_NAME") or "FRAUD_EVENTS"
+    ).strip()
     prefix = (os.environ.get("INGEST_SUBJECT_PREFIX") or "fraud.events").strip()
     return subject, stream, prefix
 
@@ -117,7 +123,9 @@ async def build_nats_dead_letter_office_payload(
             seq = 0
             meta = getattr(msg, "metadata", None)
             if meta is not None:
-                seq = int(getattr(meta, "sequence", None) or getattr(meta, "sequence_stream", 0) or 0)
+                seq = int(
+                    getattr(meta, "sequence", None) or getattr(meta, "sequence_stream", 0) or 0
+                )
             subj = str(getattr(msg, "subject", None) or subject)
             row = _parse_envelope(msg.data, subject=subj, sequence=seq)
             if kind_f and (row.get("kind") or "").lower() != kind_f:

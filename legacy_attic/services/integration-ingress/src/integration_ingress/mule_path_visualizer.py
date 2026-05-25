@@ -11,7 +11,11 @@ HopRole = Literal["origin", "mule", "payout"]
 
 _DEMO_PATHS: dict[str, dict[str, Any]] = {
     "default": {
-        "origin": {"entity_id": "user_alice", "label": "Alice Johnson", "account_id": "acc_alice_main"},
+        "origin": {
+            "entity_id": "user_alice",
+            "label": "Alice Johnson",
+            "account_id": "acc_alice_main",
+        },
         "mule": {
             "entity_id": "mule_ivan",
             "label": "Ivan Kowalski",
@@ -30,7 +34,11 @@ _DEMO_PATHS: dict[str, dict[str, Any]] = {
         "hours_span": 4.2,
     },
     "fraud_frank_chain": {
-        "origin": {"entity_id": "fraud_frank", "label": "Frank Moretti", "account_id": "acc_frank_burner"},
+        "origin": {
+            "entity_id": "fraud_frank",
+            "label": "Frank Moretti",
+            "account_id": "acc_frank_burner",
+        },
         "mule": {
             "entity_id": "mule_jane",
             "label": "Jane Okafor",

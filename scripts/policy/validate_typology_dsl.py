@@ -9,7 +9,7 @@ from pathlib import Path
 
 """OSS #46 — validate typology_definitions + predicate registry pins and predicate_ref ids."""
 _REPO = Path(__file__).resolve().parents[2]
-_DEC = _REPO / "services" / "decision-api"
+_DEC = _REPO / "legacy_attic" / "services" / "legacy_v1_decision_api"
 _RULES = _DEC / "rules"
 
 

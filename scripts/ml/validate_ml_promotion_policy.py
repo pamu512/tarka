@@ -14,8 +14,9 @@ from pathlib import Path
 - Check active ONNX/sklearn model versions under models/ have metadata matching policy strictness.
 """
 _REPO = Path(__file__).resolve().parents[2]
-_DEFAULT_MODELS = _REPO / "services" / "ml-scoring" / "models"
-_POLICY_JSON = _REPO / "services" / "ml-scoring" / "rules" / "ml_promotion_policy_v1.json"
+_ML_SCORING = _REPO / "legacy_attic" / "services" / "ml-scoring"
+_DEFAULT_MODELS = _ML_SCORING / "models"
+_POLICY_JSON = _ML_SCORING / "rules" / "ml_promotion_policy_v1.json"
 
 
 def _validate_policy_schema(policy: dict) -> list[str]:

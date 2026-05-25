@@ -34,7 +34,9 @@ def decode_hex_pubkey(raw: str) -> bytes:
     return out
 
 
-def _failure_codes_from_verifier(reason: VerificationFailureReason | None) -> tuple[str, ...]:
+def _failure_codes_from_verifier(
+    reason: VerificationFailureReason | None,
+) -> tuple[str, ...]:
     if reason is None:
         return ()
     return (reason.value,)
@@ -100,7 +102,9 @@ def verify_evidence_bundle(
     if n == 0:
         proof_ok = merkle_proof_bytes == b""
         if not proof_ok:
-            detail["merkle_proof_error"] = "empty trace requires empty rs_merkle proof bytes"
+            detail["merkle_proof_error"] = (
+                "empty trace requires empty rs_merkle proof bytes"
+            )
     else:
         indices = list(range(n))
         try:
@@ -122,9 +126,7 @@ def verify_evidence_bundle(
             detail["merkle_proof_embedded_mismatch"] = True
 
     ok = bool(
-        sealed.status
-        and proof_ok
-        and "MERKLE_PROOF_EMBEDDED_MISMATCH" not in failures
+        sealed.status and proof_ok and "MERKLE_PROOF_EMBEDDED_MISMATCH" not in failures
     )
 
     merkle_hex = None

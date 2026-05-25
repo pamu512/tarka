@@ -310,7 +310,9 @@ class ShadowEvaluator:
         """
         timeout_s = float(self._settings.shadow_evaluator_timeout_seconds)
 
-        async def run_prod() -> tuple[list[str], list[str], float, list[str], dict[str, Any]]:
+        async def run_prod() -> tuple[
+            list[str], list[str], float, list[str], dict[str, Any]
+        ]:
             return await asyncio.to_thread(
                 _evaluate_json_rules_http_equivalent,
                 features,

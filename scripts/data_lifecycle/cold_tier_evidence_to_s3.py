@@ -317,6 +317,10 @@ def purge_manifest_ids(
     uuid_re = re.compile(
         r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
     )
+    tenant_extra = ""
+    if tenant_id is not None:
+        safe_tenant = _validate_identifier(tenant_id, "tenant_id")
+        tenant_extra = f" AND tenant_id = '{safe_tenant}'"
     for i in range(0, len(ids), chunk_size):
         part = ids[i : i + chunk_size]
         for u in part:

@@ -137,9 +137,9 @@ def test_timeline_api_cross_case_alert_and_highlight(cross_case_app: TestClient)
     assert r.status_code == 200, r.text
     data = r.json()
     assert data["entity_id"] == str(CLEAN_TX)
-    assert any(
-        "High Risk: Device ID matched blocked Case #123" in a for a in data["alerts"]
-    ), data["alerts"]
+    assert any("High Risk: Device ID matched blocked Case #123" in a for a in data["alerts"]), data[
+        "alerts"
+    ]
     cross = [e for e in data["events"] if e.get("highlight") == "cross_case"]
     assert len(cross) >= 1
     assert cross[0]["investigation_case_number"] == "123"

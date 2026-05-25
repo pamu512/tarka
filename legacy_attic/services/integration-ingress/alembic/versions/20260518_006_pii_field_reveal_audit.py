@@ -24,12 +24,16 @@ def upgrade() -> None:
         sa.Column("context_id", sa.String(length=256), nullable=True),
         sa.Column("value_fingerprint", sa.String(length=64), nullable=False),
         sa.Column("masked_preview", sa.String(length=128), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_pii_field_reveal_audit_tenant_id", "pii_field_reveal_audit", ["tenant_id"])
     op.create_index("ix_pii_field_reveal_audit_action", "pii_field_reveal_audit", ["action"])
-    op.create_index("ix_pii_field_reveal_audit_created_at", "pii_field_reveal_audit", ["created_at"])
+    op.create_index(
+        "ix_pii_field_reveal_audit_created_at", "pii_field_reveal_audit", ["created_at"]
+    )
 
 
 def downgrade() -> None:

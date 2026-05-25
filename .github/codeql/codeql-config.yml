@@ -13,3 +13,5 @@ paths-ignore:
   - packages/fraud-sdk-android
   - "**/.cache/**"
   - root/.cache
+  # Local dev PKI only (not used in production deploy paths).
+  - infrastructure/certs/dev/**

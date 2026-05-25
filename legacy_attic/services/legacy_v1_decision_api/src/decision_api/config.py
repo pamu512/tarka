@@ -43,8 +43,9 @@ class Settings(BaseSettings):
     )
     #: Audit ingest sink :func:`~ingestor.manifest_row.decode_manifest_row` → ``trace_json``.
     clickhouse_evidence_manifests_table: str = Field(
-        default=os.environ.get("CLICKHOUSE_EVIDENCE_MANIFESTS_TABLE", "evidence_manifests")
-        .strip()
+        default=os.environ.get(
+            "CLICKHOUSE_EVIDENCE_MANIFESTS_TABLE", "evidence_manifests"
+        ).strip()
         or "evidence_manifests",
         min_length=1,
         max_length=128,
@@ -66,9 +67,7 @@ class Settings(BaseSettings):
     )
     #: Background worker: scan Postgres and repopulate missing/stale ``fraud:tags`` keys in Redis.
     redis_signature_sync_enabled: bool = Field(
-        default=os.environ.get("REDIS_SIGNATURE_SYNC_ENABLED", "false")
-        .strip()
-        .lower()
+        default=os.environ.get("REDIS_SIGNATURE_SYNC_ENABLED", "false").strip().lower()
         in ("1", "true", "yes", "on"),
     )
     redis_signature_sync_interval_seconds: float = Field(

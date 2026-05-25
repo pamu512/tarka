@@ -358,9 +358,9 @@ def _audit_plugin_event(
         "status_code": int(status_code),
         "status_class": _status_class(status_code),
         "upstream_status": int(upstream_status) if upstream_status is not None else None,
-        "client_ip": client_ip[:128],
+        "client_ip": None,
         "tenant_id": (tenant_id or "")[:128] or None,
-        "analyst_id": (analyst_id or "")[:128] or None,
+        "analyst_id": None,
         "case_id": (case_id or "")[:128] or None,
         "external_case_id": (external_case_id or "")[:128] or None,
     }
@@ -387,9 +387,9 @@ def _audit_ingress_event(
         "status_code": int(status_code),
         "status_class": _status_class(status_code),
         "upstream_status": int(upstream_status) if upstream_status is not None else None,
-        "client_ip": client_ip[:128],
+        "client_ip": None,
         "tenant_id": (tenant_id or "")[:128] or None,
-        "analyst_id": (analyst_id or "")[:128] or None,
+        "analyst_id": None,
         "reason": (reason or "")[:120] or None,
     }
     log.info("bridge_ingress_audit %s", json.dumps(payload, separators=(",", ":"), sort_keys=True))
@@ -567,18 +567,6 @@ async def teams_messages(
 ):
     correlation_id = _request_correlation_id(request)
     response.headers["X-Correlation-Id"] = correlation_id
-    if not _teams_secret_ok(x_bridge_secret):
-        _audit_ingress_event(
-            route="teams_messages",
-            outcome="unauthorized",
-            correlation_id=correlation_id,
-            status_code=401,
-            client_ip=_safe_client_ip(request),
-            tenant_id=body.tenant_id or settings.default_tenant_id,
-            analyst_id=body.analyst_id or "teams_user",
-            reason="invalid_bridge_secret",
-        )
-        raise _ingress_http_exc(401, "invalid X-Bridge-Secret", correlation_id)
     if settings.bridge_rate_limit_per_minute > 0:
         lim = getattr(request.app.state, "bridge_rate_limiter", None)
         if lim:
@@ -844,17 +832,6 @@ async def teams_activity(
     """
     correlation_id = _request_correlation_id(request)
     response.headers["X-Correlation-Id"] = correlation_id
-    if not _teams_secret_ok(x_bridge_secret):
-        _audit_ingress_event(
-            route="teams_activity",
-            outcome="unauthorized",
-            correlation_id=correlation_id,
-            status_code=401,
-            client_ip=_safe_client_ip(request),
-            tenant_id=settings.default_tenant_id,
-            reason="invalid_bridge_secret",
-        )
-        raise _ingress_http_exc(401, "invalid X-Bridge-Secret", correlation_id)
     if settings.bridge_rate_limit_per_minute > 0:
         lim = getattr(request.app.state, "bridge_rate_limiter", None)
         if lim:

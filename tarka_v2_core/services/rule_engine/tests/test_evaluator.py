@@ -26,7 +26,11 @@ from rule_engine.ast_schemas import (  # noqa: E402
     OrNode,
     Rule,
 )
-from rule_engine.evaluator import evaluate_node, evaluate_ruleset, evaluate_ruleset_detailed  # noqa: E402
+from rule_engine.evaluator import (
+    evaluate_node,
+    evaluate_ruleset,
+    evaluate_ruleset_detailed,
+)  # noqa: E402
 
 
 def test_evaluate_condition_amount_gt_returns_true_when_amount_exceeds_threshold() -> None:
