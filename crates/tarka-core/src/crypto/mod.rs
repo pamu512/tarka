@@ -17,8 +17,10 @@
 //! Verifiers load an Ed25519 public key from **`TARKA_VERIFYING_KEY`** (hex-encoded 32-byte key).
 //! Verification matches KMS signing: SHA-512 over the Merkle root, then Ed25519ph (`verify_prehashed`).
 
+#[cfg(feature = "kms")]
 mod kms;
 
+#[cfg(feature = "kms")]
 pub use kms::KmsSigner;
 
 use std::env;
