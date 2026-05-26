@@ -1059,13 +1059,13 @@ def create_app(
                             "detail": f"HTTP {r.status_code}",
                         }
                     )
-            except httpx.RequestError as exc:
+            except httpx.RequestError:
                 services.append(
                     {
                         "component": "rule_engine",
                         "status": "offline",
                         "latency_ms": None,
-                        "detail": str(exc),
+                        "detail": "upstream unreachable",
                     }
                 )
 

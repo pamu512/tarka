@@ -15,6 +15,11 @@ import { PageTitle } from "../components/PageTitle";
 import { RuleSandboxPanel } from "../components/RuleSandboxPanel";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { toUserFacingError } from "../utils/userFacingErrors";
+import {
+  getVerticalBenchmarkHistory,
+  prependVerticalBenchmarkHistory,
+  type VerticalBenchmarkHistoryEntry,
+} from "../lib/verticalBenchmarkHistory";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -178,8 +183,6 @@ const DEFAULT_PAYLOAD = JSON.stringify(
   null,
   2,
 );
-const VERTICAL_HISTORY_KEY = "tarka_vertical_benchmark_history";
-
 let _ctr = 0;
 function uid(): string {
   _ctr++;
@@ -249,14 +252,7 @@ export default function Rules() {
   const [tagInputs, setTagInputs] = useState<Record<number, string>>({});
   const [toast, setToast] = useState<string | null>(null);
   const [verticalCatalog, setVerticalCatalog] = useState<Record<string, { name: string; rules: number; version: number }>>({});
-  const [verticalHistory, setVerticalHistory] = useState<Array<{
-    ts: string;
-    scenario: string;
-    vertical: string;
-    baseline_f1: number;
-    vertical_f1: number;
-    delta_f1: number;
-  }>>([]);
+  const [verticalHistory, setVerticalHistory] = useState<VerticalBenchmarkHistoryEntry[]>([]);
   const [installingVertical, setInstallingVertical] = useState<string | null>(null);
   const [benchmarkingVertical, setBenchmarkingVertical] = useState<string | null>(null);
   const [benchmarkScenario, setBenchmarkScenario] = useState<string>("baseline");
@@ -328,12 +324,7 @@ export default function Rules() {
       } catch {
         /* optional */
       }
-      try {
-        const raw = sessionStorage.getItem(VERTICAL_HISTORY_KEY);
-        setVerticalHistory(raw ? JSON.parse(raw) : []);
-      } catch {
-        setVerticalHistory([]);
-      }
+      setVerticalHistory(getVerticalBenchmarkHistory());
     })();
   }, []);
 
@@ -522,16 +513,7 @@ export default function Rules() {
         baseline?: Record<string, unknown>;
         vertical_pack?: Record<string, unknown>;
       };
-      const existingRaw = sessionStorage.getItem(VERTICAL_HISTORY_KEY);
-      const existing = existingRaw ? (JSON.parse(existingRaw) as Array<{
-        ts: string;
-        scenario: string;
-        vertical: string;
-        baseline_f1: number;
-        vertical_f1: number;
-        delta_f1: number;
-      }>) : [];
-      const entry = {
+      const entry: VerticalBenchmarkHistoryEntry = {
         ts: new Date().toISOString(),
         scenario: data.scenario,
         vertical: data.vertical,
@@ -539,10 +521,7 @@ export default function Rules() {
         vertical_f1: Number(data.vertical_pack?.f1_score ?? 0),
         delta_f1: Number(data.delta?.f1_score ?? 0),
       };
-      const next = [entry, ...existing].slice(0, 20);
-      // lgtm[js/clear-text-storage-of-sensitive-data] stores non-credential benchmark metrics only.
-      sessionStorage.setItem(VERTICAL_HISTORY_KEY, JSON.stringify(next));
-      setVerticalHistory(next);
+      setVerticalHistory(prependVerticalBenchmarkHistory(entry));
       setToast(`Benchmark completed: ${vertical} (${benchmarkScenario})`);
     } catch (e) {
       setError(toUserFacingError(e, { subject: "Vertical benchmark", action: "run benchmark" }));

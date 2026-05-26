@@ -14,9 +14,10 @@ tarka-core = { path = "../../../crates/tarka-core" }
 dotenvy = "0.15"
 axum = "0.7"
 clickhouse = "0.11"
-rustls-webpki = "0.103.13"
 futures = "0.3"
 sha2 = "0.10"
+
+rustls-webpki = "0.103.13"
 
 [dev-dependencies]
 proptest = "1.4"
