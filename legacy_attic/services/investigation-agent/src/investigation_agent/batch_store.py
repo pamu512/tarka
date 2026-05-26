@@ -38,6 +38,11 @@ _SAFE_BATCH_ID = re.compile(
 
 def validate_batch_id(batch_id: str) -> str:
     bid = str(batch_id).strip()
+    try:
+        # Canonicalize to RFC-4122 hyphenated lowercase UUID string.
+        bid = str(uuid.UUID(bid))
+    except (ValueError, AttributeError, TypeError):
+        raise ValueError("Invalid batch_id (expected UUID)")
     if not _SAFE_BATCH_ID.match(bid):
         raise ValueError("Invalid batch_id (expected UUID)")
     return bid
