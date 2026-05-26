@@ -15,3 +15,9 @@ paths-ignore:
   - root/.cache
   # Local dev PKI only (not used in production deploy paths).
   - infrastructure/certs/dev/**
+  # Legacy duplicate tree (canonical code lives under legacy_attic/services/).
+  - services/investigation-agent/**
+  - services/collaboration-chat-bridge/**
+  - services/location-service/**
+  # Local dev PKI only (not used in production deploy paths).
+  - infrastructure/certs/dev/**

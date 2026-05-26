@@ -129,7 +129,11 @@ def _save_trusted_places(data: dict[str, list[dict[str, Any]]]) -> None:
         _MEM_TRUSTED_PLACES = sanitized
         return
     payload = json.dumps(sanitized, separators=(",", ":"), sort_keys=True).encode("utf-8")
-    _trusted_places_path().write_text(_seal_trusted_places_payload(payload), encoding="utf-8")
+    sealed = _seal_trusted_places_payload(payload).encode("utf-8")
+    out_path = _trusted_places_path()
+    fd = os.open(out_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as fh:
+        fh.write(sealed)
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
