@@ -37,8 +37,7 @@ pub use crypto::{
     CryptoError, LocalEd25519PhSigner, MerkleHasher, MerkleProof, ProofSignError, Signer,
     SigningError, VerifyError,
 };
-#[cfg(feature = "kms")]
-pub use crypto::{KmsConnectionError, KmsSigner};
+pub use crypto::KmsConnectionError;
 
 pub use compiler::{
     compile_yaml_rule_set, type_check_expr, CompileError, CompiledRule, RuleExpression, RuleSet,
