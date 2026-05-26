@@ -64,7 +64,7 @@ def _batch_disk_root() -> Path:
 def _disk_record_path(batch_id: str) -> Path:
     bid = validate_batch_id(batch_id)
     root = _batch_disk_root().resolve()
-    target = (root / f"{bid}.json").resolve()
+    target = root.joinpath(bid).with_suffix(".json")
     if not target.is_relative_to(root):
         raise ValueError("batch path outside store root")
     return target
