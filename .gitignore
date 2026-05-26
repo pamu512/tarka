@@ -17,6 +17,9 @@ infrastructure/envoy/certs/dev/
 *.pkl
 *.pickle
 
+# Standalone KMS crate (outside workspace); lockfile is generated locally only.
+crates/tarka-kms/Cargo.lock
+
 node_modules/
 dist/
 .tsbuildinfo

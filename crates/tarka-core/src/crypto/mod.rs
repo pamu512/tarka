@@ -1,9 +1,8 @@
 //! Merkle anchoring and Ed25519 **prehashed** (Ed25519ph) signatures for [`EvidenceManifest`] trace integrity.
 //!
 //! ## Signing (production)
-//! Preferred signing uses **AWS KMS** asymmetric keys (`ECC_NIST_EDWARDS25519`) via [`KmsSigner`]. The private key
-//! never enters application memory; manifests are signed remotely with `ED25519_PH_SHA_512` + `RAW`
-//! message type over the 32-byte Merkle root.
+//! Production KMS signing lives in the separate **`tarka-kms`** crate (outside the workspace lockfile).
+//! The private key never enters application memory when using that path.
 //!
 //! Configure credentials and region using the standard AWS SDK chain (`AWS_PROFILE`, `AWS_REGION`,
 //! instance role, etc.). Set **`TARKA_KMS_KEY_ID`** (or **`AWS_KMS_KEY_ID`**) to the CMK ID, ARN, or alias.
@@ -16,12 +15,6 @@
 //! ## Verification
 //! Verifiers load an Ed25519 public key from **`TARKA_VERIFYING_KEY`** (hex-encoded 32-byte key).
 //! Verification matches KMS signing: SHA-512 over the Merkle root, then Ed25519ph (`verify_prehashed`).
-
-#[cfg(feature = "kms")]
-mod kms;
-
-#[cfg(feature = "kms")]
-pub use kms::KmsSigner;
 
 use std::env;
 use std::future::Future;
