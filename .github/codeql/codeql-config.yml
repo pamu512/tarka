@@ -19,5 +19,3 @@ paths-ignore:
   - services/investigation-agent/**
   - services/collaboration-chat-bridge/**
   - services/location-service/**
-  # Local dev PKI only (not used in production deploy paths).
-  - infrastructure/certs/dev/**
