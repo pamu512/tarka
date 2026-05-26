@@ -3,6 +3,10 @@ import { rules, simulation } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { toUserFacingError } from "../utils/userFacingErrors";
+import {
+  prependVerticalBenchmarkHistory,
+  type VerticalBenchmarkHistoryEntry,
+} from "../lib/verticalBenchmarkHistory";
 
 type Tab = "simulate" | "ab-test" | "vertical-benchmark";
 
@@ -49,8 +53,6 @@ interface VerticalBenchmarkResult {
   vertical_pack: SimResult;
   delta: Record<string, unknown>;
 }
-
-const VERTICAL_HISTORY_KEY = "tarka_vertical_benchmark_history";
 
 export default function Simulation() {
   const [tab, setTab] = useState<Tab>("simulate");
@@ -157,23 +159,15 @@ export default function Simulation() {
       });
       const data = resp as unknown as VerticalBenchmarkResult;
       setVerticalResult(data);
-      try {
-        const existingRaw = sessionStorage.getItem(VERTICAL_HISTORY_KEY);
-        const existing = existingRaw ? (JSON.parse(existingRaw) as Array<Record<string, unknown>>) : [];
-        const entry = {
-          ts: new Date().toISOString(),
-          scenario: data.scenario,
-          vertical: data.vertical,
-          baseline_f1: Number((data.baseline as Record<string, unknown>)?.f1_score ?? 0),
-          vertical_f1: Number((data.vertical_pack as Record<string, unknown>)?.f1_score ?? 0),
-          delta_f1: Number((data.delta ?? {})["f1_score"] ?? 0),
-        };
-        const next = [entry, ...existing].slice(0, 20);
-        // lgtm[js/clear-text-storage-of-sensitive-data] stores non-credential benchmark metrics only.
-        sessionStorage.setItem(VERTICAL_HISTORY_KEY, JSON.stringify(next));
-      } catch {
-        /* ignore localStorage failures */
-      }
+      const entry: VerticalBenchmarkHistoryEntry = {
+        ts: new Date().toISOString(),
+        scenario: data.scenario,
+        vertical: data.vertical,
+        baseline_f1: Number((data.baseline as Record<string, unknown>)?.f1_score ?? 0),
+        vertical_f1: Number((data.vertical_pack as Record<string, unknown>)?.f1_score ?? 0),
+        delta_f1: Number((data.delta ?? {})["f1_score"] ?? 0),
+      };
+      prependVerticalBenchmarkHistory(entry);
     } catch (e) {
       setError(toUserFacingError(e, { subject: "Vertical benchmark", action: "run vertical benchmark" }));
     } finally {
