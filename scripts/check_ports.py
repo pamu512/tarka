@@ -28,24 +28,33 @@ import subprocess
 import sys
 
 
-def _port_available(port: int) -> bool:
-    """Return True only if the port can be bound on both wildcard and loopback.
+def _can_bind_loopback(port: int) -> bool:
+    """Return True if ``127.0.0.1:port`` is free to bind (loopback-only probe)."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind(("127.0.0.1", port))
+        return True
+    except OSError:
+        return False
+    finally:
+        s.close()
 
-    On some hosts, binding ``("", port)`` can succeed while another process holds
-    ``127.0.0.1:port`` only; Docker publish still collides, so we test both.
+
+def _port_available(port: int, psutil_mod: object | None = None) -> bool:
+    """Return True when the port is free on loopback and no wildcard listener holds it.
+
+    Avoids binding ``0.0.0.0`` (CodeQL: all interfaces). Wildcard listeners are detected via
+    psutil/lsof because Docker publish can collide even when loopback bind succeeds.
     """
-    for host in ("0.0.0.0", "127.0.0.1"):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            # lgtm[py/bind-socket-all-network-interfaces]
-            # codeql[py/bind-socket-all-network-interfaces]
-            s.bind((host, port))
-        except OSError:
+    if not _can_bind_loopback(port):
+        return False
+    if psutil_mod is not None:
+        pid, _ = _listener_info(port, psutil_mod)
+        if pid is not None:
             return False
-        finally:
-            s.close()
-    return True
+    pid_lsof, _ = _listener_info_lsof(port)
+    return pid_lsof is None
 
 
 def _listener_info_lsof(port: int) -> tuple[int | None, str | None]:
@@ -121,7 +130,7 @@ def main() -> int:
 
     conflicts: list[tuple[int, int | None, str | None]] = []
     for port in ports:
-        if not _port_available(port):
+        if not _port_available(port, psutil):
             pid, pname = _listener_info(port, psutil)
             conflicts.append((port, pid, pname))
 

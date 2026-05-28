@@ -9,6 +9,7 @@ members = [
     "packages/tarka-rule-engine",
 ]
 exclude = [
+    "crates/tarka-kms",
     "fuzz",
     "legacy_attic/services/rule-engine",
     "legacy_attic/services/event-ingest",

@@ -331,6 +331,7 @@ def _audit_plugin_event(
     external_case_id: str | None = None,
     upstream_status: int | None = None,
 ) -> None:
+    # Intentionally omit client_ip / tenant_id / analyst_id (CodeQL: clear-text secret logging).
     payload: dict[str, Any] = {
         "event": "bridge.plugin.audit",
         "action": action,
@@ -339,12 +340,10 @@ def _audit_plugin_event(
         "status_code": int(status_code),
         "status_class": _status_class(status_code),
         "upstream_status": int(upstream_status) if upstream_status is not None else None,
-        "client_ip": None,
-        "tenant_id": (tenant_id or "")[:128] or None,
-        "analyst_id": None,
         "case_id": (case_id or "")[:128] or None,
         "external_case_id": (external_case_id or "")[:128] or None,
     }
+    _ = (client_ip, tenant_id, analyst_id)
     log.info("bridge_plugin_audit %s", json.dumps(payload, separators=(",", ":"), sort_keys=True))
 
 
@@ -368,11 +367,9 @@ def _audit_ingress_event(
         "status_code": int(status_code),
         "status_class": _status_class(status_code),
         "upstream_status": int(upstream_status) if upstream_status is not None else None,
-        "client_ip": None,
-        "tenant_id": (tenant_id or "")[:128] or None,
-        "analyst_id": None,
         "reason": (reason or "")[:120] or None,
     }
+    _ = (client_ip, tenant_id, analyst_id)
     log.info("bridge_ingress_audit %s", json.dumps(payload, separators=(",", ":"), sort_keys=True))
 
 
@@ -395,11 +392,9 @@ def _audit_ingress_async_completion(
         "status_code": int(status_code),
         "status_class": _status_class(status_code),
         "upstream_status": int(upstream_status) if upstream_status is not None else None,
-        "client_ip": None,
-        "tenant_id": (tenant_id or "")[:128] or None,
-        "analyst_id": (analyst_id or "")[:128] or None,
         "reason": (reason or "")[:120] or None,
     }
+    _ = (tenant_id, analyst_id)
     log.info("bridge_ingress_audit %s", json.dumps(payload, separators=(",", ":"), sort_keys=True))
 
 

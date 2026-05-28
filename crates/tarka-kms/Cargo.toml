@@ -1,0 +1,13 @@
+[package]
+name = "tarka-kms"
+version = "0.1.0"
+edition = "2021"
+description = "AWS KMS Ed25519ph signing for Tarka (optional; not part of the root workspace lockfile)."
+publish = false
+
+[dependencies]
+aws-config = "1.8.17"
+aws-sdk-kms = "1.107.0"
+ed25519-dalek = { version = "2.2.0", features = ["digest"] }
+tarka-core = { path = "../tarka-core" }
+tokio = { version = "1.52.2", features = ["rt-multi-thread", "macros", "time"] }
