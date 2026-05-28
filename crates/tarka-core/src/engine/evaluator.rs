@@ -733,6 +733,7 @@ impl<D: ExternalDataSource> Evaluator<D> {
 
         let pass = evaluate_json_with_module(
             &runtime.engine,
+            runtime.linker.as_ref(),
             module.as_ref(),
             &runtime.config,
             export_name,
