@@ -10,14 +10,10 @@ use aws_sdk_kms::{
     types::{MessageType, SigningAlgorithmSpec},
 };
 use ed25519_dalek::Signature;
+use tarka_core::crypto::{KmsConnectionError, Signer, SigningError};
 use tokio::time::sleep;
 
-use crate::crypto::{KmsConnectionError, Signer, SigningError};
-
 /// KMS asymmetric signing client for Merkle roots using **Ed25519ph** (`ED25519_PH_SHA_512`, raw message).
-///
-/// The Merkle root (32 bytes) is sent as the KMS **RAW** message; KMS SHA-512 prehashes per AWS rules.
-/// Verification uses [`ed25519_dalek::VerifyingKey::verify_prehashed`] with SHA-512 over the same root.
 #[derive(Clone)]
 pub struct KmsSigner {
     client: aws_sdk_kms::Client,
@@ -25,7 +21,6 @@ pub struct KmsSigner {
 }
 
 impl KmsSigner {
-    /// Build from an existing SDK config (credentials + region from env/instance profile, etc.).
     pub fn new(config: &aws_config::SdkConfig, key_id: impl Into<String>) -> Self {
         Self {
             client: aws_sdk_kms::Client::new(config),
@@ -33,13 +28,11 @@ impl KmsSigner {
         }
     }
 
-    /// Loads AWS configuration via [`aws_config::defaults`] and constructs a signer for `key_id`.
     pub async fn from_default_config(key_id: impl Into<String>) -> Self {
         let cfg = aws_config::defaults(BehaviorVersion::latest()).load().await;
         Self::new(&cfg, key_id)
     }
 
-    /// Reads `TARKA_KMS_KEY_ID`, falling back to `AWS_KMS_KEY_ID`, then loads config from the environment.
     pub async fn from_env() -> Result<Self, KmsConnectionError> {
         let key_id = std::env::var("TARKA_KMS_KEY_ID")
             .or_else(|_| std::env::var("AWS_KMS_KEY_ID"))
@@ -100,7 +93,6 @@ impl KmsSigner {
 }
 
 impl Signer for KmsSigner {
-    #[allow(clippy::manual_async_fn)]
     fn sign_merkle_root<'a>(
         &'a self,
         root: &'a [u8; 32],
@@ -123,13 +115,13 @@ fn map_sign_sdk_error(err: SdkError<SignError>) -> SigningError {
             SigningError::Kms(KmsConnectionError::Dispatch(format!("{e:?}")))
         }
         SdkError::TimeoutError(_) => SigningError::Kms(KmsConnectionError::Timeout),
-        SdkError::ResponseError(r) => SigningError::Kms(KmsConnectionError::Http(format!(
-            "{r:?}"
-        ))),
+        SdkError::ResponseError(r) => {
+            SigningError::Kms(KmsConnectionError::Http(format!("{r:?}")))
+        }
         SdkError::ServiceError(se) => map_service_sign_error(se.err()),
-        SdkError::ConstructionFailure(e) => SigningError::Kms(KmsConnectionError::Unexpected(
-            format!("{e:?}"),
-        )),
+        SdkError::ConstructionFailure(e) => {
+            SigningError::Kms(KmsConnectionError::Unexpected(format!("{e:?}")))
+        }
         _ => SigningError::Kms(KmsConnectionError::Unexpected(err.to_string())),
     }
 }
@@ -148,10 +140,9 @@ fn map_service_sign_error(err: &SignError) -> SigningError {
     match err {
         SignError::KmsInternalException(_)
         | SignError::DependencyTimeoutException(_)
-        | SignError::KeyUnavailableException(_) => SigningError::Kms(KmsConnectionError::SdkRetryable {
-            code,
-            msg,
-        }),
+        | SignError::KeyUnavailableException(_) => {
+            SigningError::Kms(KmsConnectionError::SdkRetryable { code, msg })
+        }
         _ => SigningError::Kms(KmsConnectionError::Service { code, msg }),
     }
 }

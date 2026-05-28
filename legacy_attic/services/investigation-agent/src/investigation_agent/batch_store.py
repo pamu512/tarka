@@ -38,6 +38,11 @@ _SAFE_BATCH_ID = re.compile(
 
 def validate_batch_id(batch_id: str) -> str:
     bid = str(batch_id).strip()
+    try:
+        # Canonicalize to RFC-4122 hyphenated lowercase UUID string.
+        bid = str(uuid.UUID(bid))
+    except (ValueError, AttributeError, TypeError):
+        raise ValueError("Invalid batch_id (expected UUID)")
     if not _SAFE_BATCH_ID.match(bid):
         raise ValueError("Invalid batch_id (expected UUID)")
     return bid
@@ -62,10 +67,11 @@ def _batch_disk_root() -> Path:
 
 
 def _disk_record_path(batch_id: str) -> Path:
+    """Resolve ``<store>/<uuid>.json`` only — batch_id is validated as UUID (no path segments)."""
     bid = validate_batch_id(batch_id)
-    root = _batch_disk_root().resolve()
-    target = root.joinpath(bid).with_suffix(".json")
-    if not target.is_relative_to(root):
+    root = _batch_disk_root()
+    target = (root / f"{bid}.json").resolve()
+    if target.parent != root or target.suffix != ".json":
         raise ValueError("batch path outside store root")
     return target
 
