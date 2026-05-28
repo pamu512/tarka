@@ -17,7 +17,7 @@ use std::sync::Arc;
 use anyhow::Error as AnyhowError;
 use thiserror::Error;
 use wasmtime::{
-    Config, Engine, Instance, Memory, Module, Store, StoreLimits, StoreLimitsBuilder, Trap,
+    Config, Engine, Linker, Memory, Module, ResourceLimiter, Store, Trap,
 };
 
 /// Hard upper bound for each guest linear memory (10 MiB).
@@ -28,6 +28,58 @@ pub const DEFAULT_WASM_FUEL_UNITS: u64 = 200_000;
 
 /// Location in guest memory where the host writes JSON input (bytes `[base, base+len)`).
 const GUEST_INPUT_BASE: u32 = 1024;
+
+/// Per-invocation Wasmtime store state: fuel budget and [`ResourceLimiter`] bounds.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TarkaEngineState {
+    pub fuel_limit: u64,
+    pub memory_pool_bytes: usize,
+    pub max_instances: usize,
+    pub max_tables: usize,
+}
+
+impl TarkaEngineState {
+    pub fn from_sandbox_config(config: &WasmSandboxConfig) -> Self {
+        Self {
+            fuel_limit: config.fuel_units,
+            memory_pool_bytes: config.max_linear_memory_bytes,
+            max_instances: 1,
+            max_tables: 1,
+        }
+    }
+}
+
+impl ResourceLimiter for TarkaEngineState {
+    fn memory_growing(
+        &mut self,
+        _current: usize,
+        desired: usize,
+        _maximum: Option<usize>,
+    ) -> wasmtime::Result<bool> {
+        Ok(desired <= self.memory_pool_bytes)
+    }
+
+    fn table_growing(
+        &mut self,
+        _current: usize,
+        desired: usize,
+        _maximum: Option<usize>,
+    ) -> wasmtime::Result<bool> {
+        Ok(desired <= self.max_tables)
+    }
+
+    fn instances(&self) -> usize {
+        self.max_instances
+    }
+
+    fn tables(&self) -> usize {
+        self.max_tables
+    }
+
+    fn memories(&self) -> usize {
+        1
+    }
+}
 
 /// Tunables for the Wasmtime store backing a single evaluation.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -164,18 +216,28 @@ pub enum WasmRegistryError {
     Engine(String),
 }
 
-struct LimiterState {
-    limits: StoreLimits,
-}
-
 /// Verified registry: maps lowercase SHA-256 hex id → raw wasm bytes. Keys must match [`crate::engine::rule_address::rule_content_sha256`].
 pub type WasmModuleBytesRegistry = std::collections::HashMap<String, Arc<[u8]>>;
 
 /// Compile-time verified and precompiled modules keyed by lowercase SHA-256 hex digest.
 pub(crate) struct WasmRuntimeState {
     pub(crate) engine: Arc<Engine>,
+    pub(crate) linker: Arc<Linker<TarkaEngineState>>,
     pub(crate) modules: std::collections::HashMap<String, Arc<Module>>,
     pub(crate) config: WasmSandboxConfig,
+}
+
+/// Builds a fuel-enabled engine and empty linker for zero-import custom-rule guests.
+pub(crate) fn init_tarka_wasm_engine() -> Result<(Engine, Linker<TarkaEngineState>), WasmRegistryError> {
+    let mut config = Config::new();
+    config.consume_fuel(true);
+    config.epoch_interruption(false);
+    config.cranelift_opt_level(wasmtime::OptLevel::Speed);
+    config.cranelift_nan_canonicalization(true);
+
+    let engine = Engine::new(&config).map_err(|e| WasmRegistryError::Engine(format!("{e:#}")))?;
+    let linker = Linker::new(&engine);
+    Ok((engine, linker))
 }
 
 impl WasmRuntimeState {
@@ -186,7 +248,7 @@ impl WasmRuntimeState {
     ) -> Result<Self, WasmRegistryError> {
         debug_assert!(!registry.is_empty(), "empty registry should use Evaluator without wasm");
 
-        let engine = Arc::new(build_engine()?);
+        let (engine, linker) = init_tarka_wasm_engine()?;
 
         let mut modules = std::collections::HashMap::new();
         for (hex_key, bytes) in registry {
@@ -213,53 +275,37 @@ impl WasmRuntimeState {
         }
 
         Ok(Self {
-            engine,
+            engine: Arc::new(engine),
+            linker: Arc::new(linker),
             modules,
             config,
         })
     }
 }
 
-fn build_engine() -> Result<Engine, WasmRegistryError> {
-    let mut cfg = Config::new();
-    cfg.consume_fuel(true);
-    cfg.cranelift_nan_canonicalization(true);
-    Engine::new(&cfg).map_err(|e| WasmRegistryError::Engine(format!("{e:#}")))
-}
-
 /// Runs the compiled guest `evaluate` export against JSON input.
 pub(crate) fn evaluate_json_with_module(
     engine: &Engine,
+    linker: &Linker<TarkaEngineState>,
     module: &Module,
     config: &WasmSandboxConfig,
     export_name: &str,
     input: &serde_json::Value,
 ) -> Result<bool, WasmSandboxError> {
-    let payload = serde_json::to_string(input).map_err(|e| WasmSandboxError::InvalidBinary(e.to_string()))?;
+    let payload =
+        serde_json::to_string(input).map_err(|e| WasmSandboxError::InvalidBinary(e.to_string()))?;
     let payload_bytes = payload.as_bytes();
 
-    let limits = StoreLimitsBuilder::new()
-        .memory_size(config.max_linear_memory_bytes)
-        .instances(1)
-        .memories(1)
-        .tables(256)
-        .build();
-
-    let mut store = Store::new(
-        engine,
-        LimiterState {
-            limits,
-        },
-    );
-
-    store.limiter(|s: &mut LimiterState| &mut s.limits);
+    let state = TarkaEngineState::from_sandbox_config(config);
+    let mut store = Store::new(engine, state);
+    store.limiter(|s| s);
     store
         .set_fuel(config.fuel_units)
         .map_err(|e| WasmSandboxError::StoreConfiguration(format!("{e:#}")))?;
 
-    let instance = Instance::new(&mut store, module, &[]).map_err(|e| {
-        WasmSandboxError::Instantiate(format!("{e:#}"))
-    })?;
+    let instance = linker
+        .instantiate(&mut store, module)
+        .map_err(|e| WasmSandboxError::Instantiate(format!("{e:#}")))?;
 
     let memory = instance
         .get_memory(&mut store, "memory")
@@ -267,7 +313,12 @@ pub(crate) fn evaluate_json_with_module(
             name: "memory".into(),
         })?;
 
-    ensure_guest_input_region(&mut store, &memory, payload_bytes.len(), config.max_linear_memory_bytes)?;
+    ensure_guest_input_region(
+        &mut store,
+        &memory,
+        payload_bytes.len(),
+        config.max_linear_memory_bytes,
+    )?;
 
     memory
         .write(&mut store, GUEST_INPUT_BASE as usize, payload_bytes)
@@ -291,8 +342,8 @@ pub(crate) fn evaluate_json_with_module(
     }
 }
 
-fn ensure_guest_input_region<T>(
-    store: &mut Store<T>,
+fn ensure_guest_input_region(
+    store: &mut Store<TarkaEngineState>,
     memory: &Memory,
     input_len: usize,
     max_linear_memory_bytes: usize,
