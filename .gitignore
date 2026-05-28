@@ -12,6 +12,7 @@ venv/
 
 # Local-only Development CA + keys for Envoy mTLS (see infrastructure/envoy/scripts/gen-dev-mtls-certs.sh).
 infrastructure/envoy/certs/dev/
+infrastructure/certs/dev/
 .env
 *.onnx
 *.pkl

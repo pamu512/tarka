@@ -34,6 +34,7 @@ def ttl_seconds() -> int:
 _SAFE_BATCH_ID = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE
 )
+_SAFE_REASON_CODE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 
 
 def validate_batch_id(batch_id: str) -> str:
@@ -78,7 +79,10 @@ def _disk_record_path(batch_id: str) -> Path:
 
 def _write_disk_record(rec: dict[str, Any]) -> None:
     bid = validate_batch_id(str(rec.get("batch_id", "")))
-    p = _disk_record_path(bid)
+    root = _batch_disk_root()
+    target = _disk_record_path(bid)
+    if not target.resolve().is_relative_to(root.resolve()):
+        raise ValueError("batch path outside store root")
     payload = {
         "batch_id": rec.get("batch_id"),
         "created_at": float(rec.get("created_at", time.time())),
@@ -90,7 +94,7 @@ def _write_disk_record(rec: dict[str, Any]) -> None:
         "rows": rec.get("rows") or [],
         "row_count": int(rec.get("row_count") or 0),
     }
-    p.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
+    target.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")  # codeql[py/path-injection]
 
 
 def _read_disk_record(batch_id: str) -> dict[str, Any] | None:
