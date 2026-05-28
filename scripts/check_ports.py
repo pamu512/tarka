@@ -33,7 +33,7 @@ def _can_bind_loopback(port: int) -> bool:
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(("127.0.0.1", port))
+        s.bind(("127.0.0.1", port))  # codeql[py/bind-socket-all-network-interfaces]
         return True
     except OSError:
         return False
@@ -41,7 +41,7 @@ def _can_bind_loopback(port: int) -> bool:
         s.close()
 
 
-def _port_available(port: int, psutil_mod: object | None = None) -> bool:
+def _port_available(port: int, psutil_mod: object | None = None) -> bool:  # codeql[py/bind-socket-all-network-interfaces]
     """Return True when the port is free on loopback and no wildcard listener holds it.
 
     Avoids binding ``0.0.0.0`` (CodeQL: all interfaces). Wildcard listeners are detected via

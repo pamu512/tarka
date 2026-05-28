@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import uuid
 from contextlib import asynccontextmanager
 from typing import Any, Literal
@@ -308,6 +309,19 @@ def _status_class(status_code: int) -> str:
     return "unknown"
 
 
+_SAFE_AUDIT_REASON = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+
+
+def _audit_reason_code(reason: str | None) -> str:
+    """Allow only machine reason codes in logs (never upstream error bodies)."""
+    if reason is None:
+        return ""
+    r = str(reason).strip()[:120]
+    if _SAFE_AUDIT_REASON.fullmatch(r):
+        return r
+    return "other"
+
+
 def _safe_client_ip(request: Request | None) -> str:
     """Extract client IP for audit logs without passing Request into log sinks (CodeQL: sensitive data flow)."""
     try:
@@ -331,20 +345,17 @@ def _audit_plugin_event(
     external_case_id: str | None = None,
     upstream_status: int | None = None,
 ) -> None:
-    # Intentionally omit client_ip / tenant_id / analyst_id (CodeQL: clear-text secret logging).
-    payload: dict[str, Any] = {
-        "event": "bridge.plugin.audit",
-        "action": action,
-        "outcome": outcome,
-        "correlation_id": correlation_id[:128],
-        "status_code": int(status_code),
-        "status_class": _status_class(status_code),
-        "upstream_status": int(upstream_status) if upstream_status is not None else None,
-        "case_id": (case_id or "")[:128] or None,
-        "external_case_id": (external_case_id or "")[:128] or None,
-    }
-    _ = (client_ip, tenant_id, analyst_id)
-    log.info("bridge_plugin_audit %s", json.dumps(payload, separators=(",", ":"), sort_keys=True))
+    _ = (client_ip, tenant_id, analyst_id, case_id, external_case_id)
+    log.info(
+        "bridge_plugin_audit event=bridge.plugin.audit action=%s outcome=%s correlation_id=%s "
+        "status_code=%s status_class=%s upstream_status=%s",
+        action,
+        outcome,
+        correlation_id[:128],
+        int(status_code),
+        _status_class(status_code),
+        upstream_status if upstream_status is not None else "",
+    )
 
 
 def _audit_ingress_event(
@@ -359,18 +370,18 @@ def _audit_ingress_event(
     reason: str | None = None,
     upstream_status: int | None = None,
 ) -> None:
-    payload: dict[str, Any] = {
-        "event": "bridge.ingress.audit",
-        "route": route,
-        "outcome": outcome,
-        "correlation_id": correlation_id[:128],
-        "status_code": int(status_code),
-        "status_class": _status_class(status_code),
-        "upstream_status": int(upstream_status) if upstream_status is not None else None,
-        "reason": (reason or "")[:120] or None,
-    }
     _ = (client_ip, tenant_id, analyst_id)
-    log.info("bridge_ingress_audit %s", json.dumps(payload, separators=(",", ":"), sort_keys=True))
+    log.info(
+        "bridge_ingress_audit event=bridge.ingress.audit route=%s outcome=%s correlation_id=%s "
+        "status_code=%s status_class=%s reason=%s upstream_status=%s",
+        route,
+        outcome,
+        correlation_id[:128],
+        int(status_code),
+        _status_class(status_code),
+        _audit_reason_code(reason),
+        upstream_status if upstream_status is not None else "",
+    )
 
 
 def _audit_ingress_async_completion(
@@ -384,18 +395,18 @@ def _audit_ingress_async_completion(
     reason: str | None = None,
     upstream_status: int | None = None,
 ) -> None:
-    payload: dict[str, Any] = {
-        "event": "bridge.ingress.audit",
-        "route": route,
-        "outcome": outcome,
-        "correlation_id": correlation_id[:128],
-        "status_code": int(status_code),
-        "status_class": _status_class(status_code),
-        "upstream_status": int(upstream_status) if upstream_status is not None else None,
-        "reason": (reason or "")[:120] or None,
-    }
     _ = (tenant_id, analyst_id)
-    log.info("bridge_ingress_audit %s", json.dumps(payload, separators=(",", ":"), sort_keys=True))
+    log.info(
+        "bridge_ingress_audit event=bridge.ingress.audit route=%s outcome=%s correlation_id=%s "
+        "status_code=%s status_class=%s reason=%s upstream_status=%s",
+        route,
+        outcome,
+        correlation_id[:128],
+        int(status_code),
+        _status_class(status_code),
+        _audit_reason_code(reason),
+        upstream_status if upstream_status is not None else "",
+    )
 
 
 async def _run_slack_turn_with_audit(settings: Settings, meta: dict[str, Any]) -> None:
