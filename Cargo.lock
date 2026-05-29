@@ -3346,6 +3346,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "tarka-cli",
  "tarka-core",
  "thiserror 1.0.69",

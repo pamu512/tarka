@@ -48,6 +48,10 @@ from integration_ingress.osint import (
     osint_finops_router_set,
 )
 from integration_ingress.vault import InMemoryVault
+from integration_ingress.webhook_ingress import (
+    normalize_kyc_webhook_payload,
+    persist_normalized_webhook,
+)
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from audit_trail import AuditTrail, create_audit_model  # noqa: E402
@@ -77,7 +81,8 @@ if settings.kms_keyring_json.strip():
         parsed = json.loads(settings.kms_keyring_json)
         if isinstance(parsed, dict):
             _keyring = {str(k): str(v) for k, v in parsed.items()}
-    except Exception:
+    except json.JSONDecodeError as exc:
+        logger.warning("kms_keyring_json_invalid: %s", exc)
         _keyring = {}
 if settings.kms_active_key_id not in _keyring:
     _keyring[settings.kms_active_key_id] = settings.integration_vault_key
@@ -270,8 +275,10 @@ async def lifespan(application: FastAPI):
                     await session.commit()
             except asyncio.CancelledError:
                 break
-            except Exception:
-                continue
+            except (RuntimeError, OSError, ValueError) as exc:
+                logger.exception("kms_rotation_loop_failed: %s", exc)
+            except Exception as exc:
+                logger.exception("kms_rotation_loop_unexpected: %s", exc)
 
     if settings.kms_rotation_enabled:
         rotation_task = asyncio.create_task(_rotation_loop())
@@ -731,32 +738,23 @@ async def kyc_webhook(
     session: AsyncSession = Depends(get_session),
 ):
     event_id = uuid.uuid4()
-    # Persist raw webhook
-    record = WebhookInbox(
-        id=event_id,
+    normalized = await normalize_kyc_webhook_payload(
         provider=provider,
-        raw_payload=payload,
-        status="received",
+        payload=payload,
+        event_id=event_id,
     )
-    session.add(record)
-
-    # Attempt normalization via adapter
-    normalized = None
-    adapter_fn = ADAPTERS.get(provider)
-    if adapter_fn:
-        try:
-            normalized = await adapter_fn("", "", payload)
-            record.normalized = normalized
-            record.status = "normalized"
-        except Exception:
-            record.status = "normalization_failed"
-
-    await session.commit()
+    await persist_normalized_webhook(
+        session,
+        event_id=event_id,
+        provider=provider,
+        payload=payload,
+        normalized=normalized,
+    )
     return {
         "event_id": str(event_id),
         "provider": provider,
         "accepted": True,
-        "normalized": normalized is not None,
+        "normalized": True,
     }
 
 
@@ -1732,10 +1730,13 @@ async def _live_provider_probe(
                     return False, latency_ms, "sandbox_semantic_check_failed"
             return True, latency_ms, ""
         return False, latency_ms, f"http_{resp.status_code}"
-    except Exception:
+    except httpx.TimeoutException:
         latency_ms = round((time.perf_counter() - t0) * 1000, 2)
-        logger.exception("live provider probe request failed")
-        return False, latency_ms, "live_probe_error"
+        return False, latency_ms, "live_probe_timeout"
+    except httpx.HTTPError as exc:
+        latency_ms = round((time.perf_counter() - t0) * 1000, 2)
+        logger.warning("live_provider_probe_http_error url=%s error=%s", url, exc)
+        return False, latency_ms, "live_probe_http_error"
 
 
 @app.get("/v1/integrations/installed")

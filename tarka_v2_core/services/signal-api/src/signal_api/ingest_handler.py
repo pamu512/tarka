@@ -1,11 +1,11 @@
 """
 Fast-path **UnifiedSignalSchema** ingestion: Redis session dedup + atomic velocity counters.
 
-**Durable intent handover** (when configured):
+**Durable intent handover** (required — at least one of Postgres audit pool or NATS JetStream):
 
 * **Postgres** ``audit_logs``: append-only row with ``raw_payload``, ``integrity_signature`` (HMAC-SHA256
   of canonical signal JSON via ``SYSTEM_SECRET``), ``shadow_matches`` JSONB (hypothesis rules that fired),
-  dispatched via **FastAPI ``BackgroundTasks``** so the HTTP response is not blocked.
+  awaited **synchronously** before the HTTP **201** response.
 * **NATS JetStream**: publish canonical signal bytes to ``signals.raw`` for downstream JanusGraph / DuckDB.
 
 Environment:
@@ -47,7 +47,7 @@ import logging
 import os
 from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from redis.asyncio import Redis
 
 from signal_api.durable_handover import (
@@ -69,6 +69,7 @@ router = APIRouter(tags=["Ingest"])
 
 _SEEN_PREFIX = "seen:"
 _DEFAULT_SEEN_TTL = 86_400
+_NO_DURABLE_SINKS_DETAIL = "No durable persistence configured"
 
 
 def _seen_ttl_sec() -> int:
@@ -105,6 +106,17 @@ async def get_redis(request: Request) -> Redis:
     return r
 
 
+def _require_durable_sinks(request: Request) -> tuple[Any | None, Any | None]:
+    audit_pool = getattr(request.app.state, "audit_pool", None)
+    js = getattr(request.app.state, "nats_js", None)
+    if audit_pool is None and js is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=_NO_DURABLE_SINKS_DETAIL,
+        )
+    return audit_pool, js
+
+
 @router.post(
     "/ingest",
     status_code=status.HTTP_201_CREATED,
@@ -112,7 +124,6 @@ async def get_redis(request: Request) -> Redis:
 )
 async def ingest_unified_signals(
     request: Request,
-    background_tasks: BackgroundTasks,
     body: UnifiedSignalSchema,
     redis: Annotated[Redis, Depends(get_redis)],
 ) -> Response:
@@ -123,6 +134,12 @@ async def ingest_unified_signals(
     first_seen = await redis.set(seen_key, "1", nx=True, ex=ttl)
     if first_seen is not True:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    try:
+        audit_pool, js = _require_durable_sinks(request)
+    except HTTPException:
+        await redis.delete(seen_key)
+        raise
 
     ip_s = str(body.client_ip)
     ch = body.canvas_hash
@@ -154,11 +171,6 @@ async def ingest_unified_signals(
     body = geo.enrich_unified_signal(body)
 
     canonical_bytes = canonical_signal_json_bytes(body)
-    audit_pool = getattr(request.app.state, "audit_pool", None)
-    js = getattr(request.app.state, "nats_js", None)
-
-    if audit_pool is None and js is None:
-        return Response(status_code=status.HTTP_201_CREATED)
 
     secret = (os.environ.get("SYSTEM_SECRET") or "").strip()
     if audit_pool is not None and not secret:
@@ -177,8 +189,7 @@ async def ingest_unified_signals(
         circuit = AuditPostgresCircuitBreaker()
         request.app.state.audit_circuit = circuit
 
-    background_tasks.add_task(
-        durable_intent_handover,
+    await durable_intent_handover(
         pool=audit_pool,
         js=js,
         body=body,

@@ -58,6 +58,12 @@ pub struct EvidenceManifestRow {
     pub crypto_key_id: String,
     #[serde(default)]
     pub raw_manifest_sha256: Option<String>,
+    /// Hex-encoded wire `EvidenceManifest` protobuf when ClickHouse stores `raw_manifest`.
+    #[serde(default)]
+    pub raw_manifest_hex: Option<String>,
+    /// Hex-encoded 32-byte digest (`hex(raw_manifest_sha256)` in queries).
+    #[serde(default)]
+    pub raw_manifest_sha256_hex: Option<String>,
 }
 
 /// Active ground-truth row from the ClickHouse ``normalized_labels`` mirror.
