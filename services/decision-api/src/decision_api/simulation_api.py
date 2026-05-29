@@ -9,6 +9,10 @@ from pydantic import BaseModel, Field
 from decision_api.config import settings
 from decision_api.experiment_api import append_experiment_record
 from decision_api.json_rules import evaluate_json_rules
+from decision_api.rust_rule_engine_exceptions import (
+    RustRuleEngineCircuitOpenError,
+    RustRuleEngineInvocationFailed,
+)
 from decision_api.simulator import (
     SCENARIO_TEMPLATES,
     SyntheticProfile,
@@ -76,11 +80,21 @@ async def run_simulation(body: RunSimulationRequest, request: Request):
 
     for event in events:
         features = dict(event.get("payload", {}))
-        rule_hits, rule_tags, score_delta, _pack_files = evaluate_json_rules(
-            features,
-            [],
-            evaluation_mode="simulation",
-        )
+        try:
+            rule_hits, rule_tags, score_delta, _pack_files = evaluate_json_rules(
+                features,
+                [],
+                evaluation_mode="simulation",
+            )
+        except (RustRuleEngineCircuitOpenError, RustRuleEngineInvocationFailed) as e:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "error": "rust_rule_engine_unavailable",
+                    "message": "Simulation requires the JSON rule engine; Rust FFI circuit open or invocation failed.",
+                    "exc_type": type(e).__name__,
+                },
+            ) from e
         score = max(0.0, min(100.0, 10.0 + score_delta))
 
         if score >= settings.deny_threshold:
@@ -156,9 +170,18 @@ def _eval_with_override_rules(
                 delta += float(rule.get("score_delta", 0))
         score = max(0.0, min(100.0, 10.0 + delta))
     else:
-        hits, tags, delta, _pack_files = evaluate_json_rules(
-            features, [], evaluation_mode="simulation"
-        )
+        try:
+            hits, tags, delta, _pack_files = evaluate_json_rules(
+                features, [], evaluation_mode="simulation"
+            )
+        except (RustRuleEngineCircuitOpenError, RustRuleEngineInvocationFailed) as e:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "error": "rust_rule_engine_unavailable",
+                    "exc_type": type(e).__name__,
+                },
+            ) from e
         score = max(0.0, min(100.0, 10.0 + delta))
 
     if score >= settings.deny_threshold:
