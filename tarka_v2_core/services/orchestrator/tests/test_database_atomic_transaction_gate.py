@@ -31,7 +31,9 @@ def test_atomic_transaction_commits_on_success() -> None:
         )
         fac = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
         async with engine.begin() as conn:
-            await conn.execute(text("CREATE TABLE t_probe (id INTEGER PRIMARY KEY, v TEXT NOT NULL)"))
+            await conn.execute(
+                text("CREATE TABLE t_probe (id INTEGER PRIMARY KEY, v TEXT NOT NULL)")
+            )
 
         async with atomic_transaction(fac) as session:
             await session.execute(text("INSERT INTO t_probe (id, v) VALUES (1, 'ok')"))
@@ -58,7 +60,9 @@ def test_atomic_transaction_wraps_sqlalchemy_error() -> None:
         )
         fac = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
         async with engine.begin() as conn:
-            await conn.execute(text("CREATE TABLE t_probe2 (id INTEGER PRIMARY KEY, v TEXT NOT NULL)"))
+            await conn.execute(
+                text("CREATE TABLE t_probe2 (id INTEGER PRIMARY KEY, v TEXT NOT NULL)")
+            )
 
         class _BrokenSession(AsyncSession):
             async def execute(self, *args: object, **kwargs: object) -> object:

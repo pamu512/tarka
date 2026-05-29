@@ -64,7 +64,9 @@ from locust import HttpUser, LoadTestShape, between, events, task
 
 logger = logging.getLogger(__name__)
 
-_INGEST_PATH = (os.environ.get("STRESS_INGEST_PATH") or "/v1/signals/ingest").strip() or "/v1/signals/ingest"
+_INGEST_PATH = (
+    os.environ.get("STRESS_INGEST_PATH") or "/v1/signals/ingest"
+).strip() or "/v1/signals/ingest"
 _peak_rss_lock = threading.Lock()
 _peak_rss: int = 0
 _baseline_rss: int = 0
@@ -134,7 +136,9 @@ def _on_test_start(environment: Any, **kwargs: Any) -> None:
     with _peak_rss_lock:
         _peak_rss = _baseline_rss
 
-    _sampler_thread = threading.Thread(target=_rss_sampler, args=(pid,), name="stress-rss-sampler", daemon=True)
+    _sampler_thread = threading.Thread(
+        target=_rss_sampler, args=(pid,), name="stress-rss-sampler", daemon=True
+    )
     _sampler_thread.start()
 
 
@@ -174,7 +178,9 @@ def _enforce_gates(environment: Any, **kwargs: Any) -> None:
         overhead = max(0, _peak_rss - _baseline_rss)
 
     if _baseline_rss == 0:
-        logger.warning("stress_gate_skip: RAM gate skipped (no baseline RSS; install psutil and set STRESS_MONITOR_PID)")
+        logger.warning(
+            "stress_gate_skip: RAM gate skipped (no baseline RSS; install psutil and set STRESS_MONITOR_PID)"
+        )
     elif overhead >= max_overhead:
         logger.error(
             "stress_gate_fail: RSS overhead %s bytes >= ceiling %s bytes (baseline=%s peak=%s)",

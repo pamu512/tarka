@@ -73,7 +73,9 @@ def test_legacy_ai_feedback_bridges_to_operational_signals(monkeypatch: pytest.M
     assert asyncio.run(_count_rows()) == 1
 
 
-def test_legacy_consortium_feedback_bridges_to_operational_signals(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_legacy_consortium_feedback_bridges_to_operational_signals(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("ORCHESTRATOR_V1_RATE_LIMIT_RPM", "0")
     import orchestrator.models.operational_signals  # noqa: F401, PLC0415
 
@@ -115,7 +117,9 @@ def test_legacy_consortium_feedback_bridges_to_operational_signals(monkeypatch: 
     assert row.metadata_json["reason_code"] == "CONFIRMED_FRAUD"
 
 
-def test_legacy_copilot_feedback_bridges_to_operational_signals(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_legacy_copilot_feedback_bridges_to_operational_signals(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("ORCHESTRATOR_V1_RATE_LIMIT_RPM", "0")
     import orchestrator.models.operational_signals  # noqa: F401, PLC0415
 

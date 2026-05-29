@@ -16,7 +16,9 @@ for _p in (_SRC_ORCH,):
 
 
 def test_build_consortium_threat_counter_commands_from_label_event() -> None:
-    from orchestrator.analytics.consortium_threat_matrix import build_consortium_threat_counter_commands
+    from orchestrator.analytics.consortium_threat_matrix import (
+        build_consortium_threat_counter_commands,
+    )
     from orchestrator.messaging.labels_jetstream import NORMALIZED_LABEL_EVENT_SCHEMA
 
     label_id, cmds = build_consortium_threat_counter_commands(
@@ -62,7 +64,9 @@ def test_apply_consortium_threat_counter_increments_uses_lua_script() -> None:
 
         cmds = [
             ConsortiumThreatCounterCommand("anumana:consortium:threat:cid:global:labels_total", 1),
-            ConsortiumThreatCounterCommand("anumana:consortium:threat:cid:global:ground_truth:FRAUD", 1),
+            ConsortiumThreatCounterCommand(
+                "anumana:consortium:threat:cid:global:ground_truth:FRAUD", 1
+            ),
         ]
         applied = await apply_consortium_threat_counter_increments(
             redis_client,

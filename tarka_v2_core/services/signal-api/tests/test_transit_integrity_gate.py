@@ -92,12 +92,13 @@ async def test_matching_client_hash_ingested_not_tampered(signal_app: AsyncClien
 
     core = _wire_core(sid)
     m0 = UnifiedSignalSchema.model_validate(core)
-    exp = hashlib.sha256(canonical_transit_wire_bytes(m0) + b"|" + nonce.encode("utf-8")).hexdigest()
+    exp = hashlib.sha256(
+        canonical_transit_wire_bytes(m0) + b"|" + nonce.encode("utf-8")
+    ).hexdigest()
     body = {**core, "n": nonce, "ih": exp}
 
     r = await signal_app.post("/v1/signals/ingest", json=body)
     assert r.status_code == 201
-    await asyncio.sleep(0.15)
     assert _AuditCapture.last_execute is not None
     _q, args = _AuditCapture.last_execute
     decision = args[2]
@@ -105,7 +106,9 @@ async def test_matching_client_hash_ingested_not_tampered(signal_app: AsyncClien
 
 
 @pytest.mark.anyio
-async def test_wrong_client_hash_marked_tampered_in_transit_postgres(signal_app: AsyncClient) -> None:
+async def test_wrong_client_hash_marked_tampered_in_transit_postgres(
+    signal_app: AsyncClient,
+) -> None:
     _AuditCapture.last_execute = None
     sid = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
     nr = await signal_app.post("/v1/session/nonce", json={"session_id": sid})
@@ -114,7 +117,6 @@ async def test_wrong_client_hash_marked_tampered_in_transit_postgres(signal_app:
     body = {**_wire_core(sid), "n": nonce, "ih": "0" * 64}
     r = await signal_app.post("/v1/signals/ingest", json=body)
     assert r.status_code == 201
-    await asyncio.sleep(0.15)
     assert _AuditCapture.last_execute is not None
     _q, args = _AuditCapture.last_execute
     decision = args[2]

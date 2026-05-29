@@ -29,7 +29,12 @@ def test_process_outbox_batch_completes_graph_ingest_task(monkeypatch: pytest.Mo
         import tarka_shared.fraud_rules  # noqa: F401
 
         from orchestrator.graph.client import NullGraphClient
-        from orchestrator.models.outbox import OUTBOX_EVENT_GRAPH_INGEST, OutboxDAO, OutboxORM, OutboxStatus
+        from orchestrator.models.outbox import (
+            OUTBOX_EVENT_GRAPH_INGEST,
+            OutboxDAO,
+            OutboxORM,
+            OutboxStatus,
+        )
         from orchestrator.workers.outbox_processor import OutboxProcessorDeps, process_outbox_batch
         from tarka_shared.database.session import Base
 
@@ -143,7 +148,9 @@ def test_process_outbox_batch_skips_when_redis_lock_held(monkeypatch: pytest.Mon
             self.locks: set[str] = set()
             self.deletes: list[str] = []
 
-        async def set(self, key: str, value: object, *, nx: bool = False, ex: int | None = None) -> bool | None:
+        async def set(
+            self, key: str, value: object, *, nx: bool = False, ex: int | None = None
+        ) -> bool | None:
             _ = value, ex
             if nx and key in self.locks:
                 return None
@@ -165,7 +172,12 @@ def test_process_outbox_batch_skips_when_redis_lock_held(monkeypatch: pytest.Mon
         import tarka_shared.fraud_rules  # noqa: F401
 
         from orchestrator.graph.client import NullGraphClient
-        from orchestrator.models.outbox import OUTBOX_EVENT_GRAPH_INGEST, OutboxDAO, OutboxORM, OutboxStatus
+        from orchestrator.models.outbox import (
+            OUTBOX_EVENT_GRAPH_INGEST,
+            OutboxDAO,
+            OutboxORM,
+            OutboxStatus,
+        )
         from orchestrator.workers.outbox_processor import OutboxProcessorDeps, process_outbox_batch
         from tarka_shared.database.session import Base
 
@@ -224,13 +236,17 @@ def test_process_outbox_batch_skips_when_redis_lock_held(monkeypatch: pytest.Mon
     asyncio.run(_run())
 
 
-def test_process_outbox_batch_releases_redis_lock_on_handler_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_process_outbox_batch_releases_redis_lock_on_handler_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class _LockRedis:
         def __init__(self) -> None:
             self.locks: set[str] = set()
             self.deletes: list[str] = []
 
-        async def set(self, key: str, value: object, *, nx: bool = False, ex: int | None = None) -> bool | None:
+        async def set(
+            self, key: str, value: object, *, nx: bool = False, ex: int | None = None
+        ) -> bool | None:
             _ = value, ex
             if nx and key in self.locks:
                 return None
@@ -252,7 +268,12 @@ def test_process_outbox_batch_releases_redis_lock_on_handler_failure(monkeypatch
         import tarka_shared.fraud_rules  # noqa: F401
 
         from orchestrator.graph.client import NullGraphClient
-        from orchestrator.models.outbox import OUTBOX_EVENT_GRAPH_INGEST, OutboxDAO, OutboxORM, OutboxStatus
+        from orchestrator.models.outbox import (
+            OUTBOX_EVENT_GRAPH_INGEST,
+            OutboxDAO,
+            OutboxORM,
+            OutboxStatus,
+        )
         from orchestrator.workers.outbox_processor import OutboxProcessorDeps, process_outbox_batch
         from tarka_shared.database.session import Base
 

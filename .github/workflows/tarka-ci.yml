@@ -31,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.12", "3.14"]
 
     steps:
       - uses: actions/checkout@v4
@@ -72,8 +72,9 @@ jobs:
             tarka_v2_core/services/ingestor
 
       - name: Black
+        if: matrix.python-version == '3.14'
         run: |
-          black --check --line-length 100 \
+          black --check --line-length 100 --target-version py314 --fast \
             tarka_v2_core/services/rule_engine \
             tarka_v2_core/services/shadow \
             tarka_v2_core/services/shadow_agent \

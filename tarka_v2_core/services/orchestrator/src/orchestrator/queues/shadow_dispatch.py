@@ -95,7 +95,9 @@ async def dispatch_shadow_investigate_if_review(
 
     js = nats_client.jetstream() if hasattr(nats_client, "jetstream") else None
     if js is not None:
-        from orchestrator.messaging.shadow_investigate_jetstream import ensure_shadow_investigate_stream  # noqa: PLC0415
+        from orchestrator.messaging.shadow_investigate_jetstream import (
+            ensure_shadow_investigate_stream,
+        )  # noqa: PLC0415
 
         await ensure_shadow_investigate_stream(js, subject=subject)
         await js.publish(subject, body)

@@ -215,7 +215,10 @@ async def load_transaction_for_entity(
         raise LabelPropagationError("entity_id is required to rebuild transaction envelope")
 
     case = await session.scalar(
-        select(CaseORM).where(CaseORM.entity_id == token).order_by(CaseORM.opened_at.desc()).limit(1),
+        select(CaseORM)
+        .where(CaseORM.entity_id == token)
+        .order_by(CaseORM.opened_at.desc())
+        .limit(1),
     )
     if case is None:
         raise LabelPropagationError(f"no lifecycle case for entity_id={token!r}")
@@ -329,7 +332,10 @@ def validate_label_propagate_payload(payload: dict[str, Any]) -> dict[str, Any]:
         raise LabelPropagationError("normalized_label_id is required")
     if not isinstance(entity_id, str) or not entity_id.strip():
         raise LabelPropagationError("entity_id is required")
-    if not isinstance(ground_truth, str) or ground_truth.strip().upper() not in {"FRAUD", "LEGITIMATE"}:
+    if not isinstance(ground_truth, str) or ground_truth.strip().upper() not in {
+        "FRAUD",
+        "LEGITIMATE",
+    }:
         raise LabelPropagationError("ground_truth_class must be FRAUD or LEGITIMATE")
     try:
         UUID(label_raw.strip())

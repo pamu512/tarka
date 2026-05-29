@@ -91,7 +91,9 @@ def _run_gremlin(client: JanusGraphClient, op: str, fn: Any) -> Any:
         return fn()
     except Exception as exc:
         if _is_connection_error(exc):
-            raise GraphDatabaseConnectionError(f"JanusGraph connection dropped during {op}") from exc
+            raise GraphDatabaseConnectionError(
+                f"JanusGraph connection dropped during {op}"
+            ) from exc
         raise
 
 
@@ -113,7 +115,7 @@ def _read_int_property(client: JanusGraphClient, vertex: Any, prop: str) -> int 
         return None
     try:
         return int(values[0])
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
 
@@ -182,7 +184,7 @@ def _edge_matches_audit_log(
         return False
     try:
         return int(rows[0]) == audit_log_id
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return False
 
 
@@ -275,7 +277,9 @@ def _ingest_janus_sync(
         return
 
     ts = transaction.timestamp.isoformat()
-    _apply_janus_mutations(client, hints, transaction_id=transaction_id, observed_at=ts, audit_log_id=audit_log_id)
+    _apply_janus_mutations(
+        client, hints, transaction_id=transaction_id, observed_at=ts, audit_log_id=audit_log_id
+    )
 
 
 def _apply_janus_mutations(
@@ -288,7 +292,9 @@ def _apply_janus_mutations(
 ) -> None:
     user_v = None
     if hints.user_id:
-        user_v = _merge_vertex(client, LABEL_USER, "user_id", hints.user_id, audit_log_id=audit_log_id)
+        user_v = _merge_vertex(
+            client, LABEL_USER, "user_id", hints.user_id, audit_log_id=audit_log_id
+        )
     if hints.device_id:
         _merge_vertex(client, LABEL_DEVICE, "device_id", hints.device_id, audit_log_id=audit_log_id)
     if hints.ip:
@@ -386,7 +392,9 @@ def _apply_janus_mutations(
         )
 
     if hints.listing_id:
-        _merge_vertex(client, LABEL_LISTING, "listing_id", hints.listing_id, audit_log_id=audit_log_id)
+        _merge_vertex(
+            client, LABEL_LISTING, "listing_id", hints.listing_id, audit_log_id=audit_log_id
+        )
     if hints.user_id and hints.listing_id:
         u = user_v or _run_gremlin(
             client,
@@ -433,7 +441,9 @@ class GraphIngestHandler(BaseOutboxHandler):
             raise
         except Exception as exc:
             if _is_connection_error(exc):
-                raise GraphDatabaseConnectionError("JanusGraph connection dropped during GRAPH_INGEST") from exc
+                raise GraphDatabaseConnectionError(
+                    "JanusGraph connection dropped during GRAPH_INGEST"
+                ) from exc
             raise
         finally:
             await client.close()

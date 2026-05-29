@@ -374,9 +374,9 @@ class LLMHealthMonitor:
             "total_output_tokens": sum(c.output_tokens for c in filtered),
             "total_cost_usd": round(sum(c.estimated_cost_usd for c in filtered), 4),
             "avg_latency_ms": round(avg_latency, 2),
-            "error_rate": round(sum(1 for c in filtered if c.is_error) / len(filtered), 4)
-            if filtered
-            else 0,
+            "error_rate": (
+                round(sum(1 for c in filtered if c.is_error) / len(filtered), 4) if filtered else 0
+            ),
             "by_provider": {
                 k: {
                     "total_calls": v.total_calls,

@@ -38,7 +38,9 @@ def _chargeback_body(*, idempotency_key: str = "cb:entity-1:4853") -> dict:
     }
 
 
-def test_post_operational_signal_returns_202_and_persists_row(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_post_operational_signal_returns_202_and_persists_row(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("ORCHESTRATOR_V1_RATE_LIMIT_RPM", "0")
     import orchestrator.models.operational_signals  # noqa: F401, PLC0415
     import orchestrator.models.outbox  # noqa: F401, PLC0415
@@ -75,7 +77,9 @@ def test_post_operational_signal_returns_202_and_persists_row(monkeypatch: pytes
             fac = app.state.audit_session_factory
             assert fac is not None
             async with fac() as session:
-                return int(await session.scalar(select(func.count()).select_from(OperationalSignalORM)))
+                return int(
+                    await session.scalar(select(func.count()).select_from(OperationalSignalORM))
+                )
 
         assert asyncio.run(_count_rows()) == 1
 
@@ -89,7 +93,9 @@ def test_post_operational_signal_returns_202_and_persists_row(monkeypatch: pytes
 
         outbox_row = asyncio.run(_fetch_outbox())
         assert outbox_row is not None
-        assert outbox_row.idempotency_key == f"shadow_tag_ops:{_chargeback_body()['idempotency_key']}"
+        assert (
+            outbox_row.idempotency_key == f"shadow_tag_ops:{_chargeback_body()['idempotency_key']}"
+        )
         assert outbox_row.payload["entity_id"] == _ENTITY_ID
         assert outbox_row.payload["signal_id"] == event_id
         assert outbox_row.payload["metadata"]["chargeback_reason_code"] == "4853"

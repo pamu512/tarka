@@ -7,13 +7,24 @@ from enum import Enum
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, DateTime, Index, Integer, String, Text, Uuid, and_, or_, select, update
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    Index,
+    Integer,
+    String,
+    Text,
+    Uuid,
+    and_,
+    or_,
+    select,
+    update,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON, TypeEngine
 from tarka_shared.database.session import Base
-
 
 OUTBOX_EVENT_GRAPH_INGEST = "GRAPH_INGEST"
 OUTBOX_EVENT_VELOCITY_UPDATE = "VELOCITY_UPDATE"

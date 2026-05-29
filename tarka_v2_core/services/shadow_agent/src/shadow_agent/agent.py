@@ -195,8 +195,7 @@ class ShadowAgent:
                     )
                 elif topology is not None:
                     logger.info(
-                        "shadow_tool_find_linked_entities_from_topology entity_id=%s "
-                        "backend=%s",
+                        "shadow_tool_find_linked_entities_from_topology entity_id=%s " "backend=%s",
                         entity_s,
                         topology.get("backend"),
                     )

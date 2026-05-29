@@ -77,7 +77,9 @@ async def process_shadow_investigate_message(runtime: Any, msg: Any) -> None:
 
     ``ack`` only after ShadowAgent evaluation + audit commit; ``nak(delay=5)`` on retryable failures.
     """
-    from shadow_agent.workers.shadow_investigate_handler import handle_shadow_investigate_payload  # noqa: PLC0415
+    from shadow_agent.workers.shadow_investigate_handler import (
+        handle_shadow_investigate_payload,
+    )  # noqa: PLC0415
 
     payload = decode_shadow_investigate_payload(msg)
     logger.info(

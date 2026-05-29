@@ -65,7 +65,11 @@ def resolve_v1_rate_limit_rpm() -> int:
     try:
         return max(0, int(raw))
     except ValueError:
-        logger.warning("orchestrator_v1_rate_limit_rpm_invalid value=%r using_default=%s", raw, _DEFAULT_V1_RATE_LIMIT_RPM)
+        logger.warning(
+            "orchestrator_v1_rate_limit_rpm_invalid value=%r using_default=%s",
+            raw,
+            _DEFAULT_V1_RATE_LIMIT_RPM,
+        )
         return _DEFAULT_V1_RATE_LIMIT_RPM
 
 
