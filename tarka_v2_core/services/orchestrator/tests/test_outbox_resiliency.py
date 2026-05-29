@@ -11,7 +11,12 @@ from uuid import UUID
 import pytest
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.pool import StaticPool
 
 _SRC_ORCH = Path(__file__).resolve().parents[1] / "src"
@@ -80,7 +85,12 @@ async def test_outbox_insert_failure_rolls_back_audit_and_decision_rows(
     from orchestrator.database import TarkaDatabaseException, atomic_transaction
     from orchestrator.enforcement.log_decision import persist_lekh_decision
     from orchestrator.models.decision import DecisionORM
-    from orchestrator.models.outbox import OUTBOX_EVENT_GRAPH_INGEST, OUTBOX_EVENT_VELOCITY_UPDATE, OutboxDAO, OutboxORM
+    from orchestrator.models.outbox import (
+        OUTBOX_EVENT_GRAPH_INGEST,
+        OUTBOX_EVENT_VELOCITY_UPDATE,
+        OutboxDAO,
+        OutboxORM,
+    )
 
     AuditLog = ephemeral_audit_db._test_audit_log  # type: ignore[attr-defined]
     fac = ephemeral_audit_db
@@ -161,7 +171,12 @@ async def test_worker_recovers_transient_handler_failure_while_other_tasks_compl
 ) -> None:
     """One flaky GRAPH_INGEST task retries after FAILED; the other nine complete in the first batch."""
     from orchestrator.graph.client import NullGraphClient
-    from orchestrator.models.outbox import OUTBOX_EVENT_GRAPH_INGEST, OutboxDAO, OutboxORM, OutboxStatus
+    from orchestrator.models.outbox import (
+        OUTBOX_EVENT_GRAPH_INGEST,
+        OutboxDAO,
+        OutboxORM,
+        OutboxStatus,
+    )
     from orchestrator.workers.handlers.graph_ingest import GraphIngestHandler
     from orchestrator.workers.outbox_processor import OutboxProcessorDeps, process_outbox_batch
 
@@ -207,7 +222,10 @@ async def test_worker_recovers_transient_handler_failure_while_other_tasks_compl
 
     async with fac() as session:
         rows_after_first = (await session.scalars(select(OutboxORM))).all()
-        by_status = {r.status: sum(1 for x in rows_after_first if x.status == r.status) for r in rows_after_first}
+        by_status = {
+            r.status: sum(1 for x in rows_after_first if x.status == r.status)
+            for r in rows_after_first
+        }
         assert by_status.get(OutboxStatus.COMPLETED.value) == 9
         assert by_status.get(OutboxStatus.FAILED.value) == 1
         flaky_row = next(r for r in rows_after_first if FLAKY_ENTITY_ID in r.idempotency_key)
@@ -239,7 +257,12 @@ async def test_worker_second_batch_claims_only_retryable_failed_tasks(
 ) -> None:
     """FAILED rows with retries remaining re-enter the claim set; COMPLETED rows are not reclaimed."""
     from orchestrator.graph.client import NullGraphClient
-    from orchestrator.models.outbox import OUTBOX_EVENT_GRAPH_INGEST, OutboxDAO, OutboxORM, OutboxStatus
+    from orchestrator.models.outbox import (
+        OUTBOX_EVENT_GRAPH_INGEST,
+        OutboxDAO,
+        OutboxORM,
+        OutboxStatus,
+    )
     from orchestrator.workers.handlers.graph_ingest import GraphIngestHandler
     from orchestrator.workers.outbox_processor import OutboxProcessorDeps, process_outbox_batch
 

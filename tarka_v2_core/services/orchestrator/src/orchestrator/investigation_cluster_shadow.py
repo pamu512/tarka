@@ -50,7 +50,7 @@ def build_cluster_analyst_instruction(
     else:
         try:
             spike_txt = f"a {float(spike_pct):.0f}%"
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             spike_txt = "an elevated"
     return (
         f"Analyst has uploaded a dispute for ID {anchor_id}. "

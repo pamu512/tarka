@@ -164,4 +164,6 @@ def test_raw_signals_ttl_keeps_duckdb_size_stable_across_repeated_purges(tmp_pat
         sizes.append(sz)
 
     tail = sizes[1:]
-    assert max(tail) - min(tail) < 512 * 1024, f"duckdb size drift too large across pseudo-days: {sizes}"
+    assert (
+        max(tail) - min(tail) < 512 * 1024
+    ), f"duckdb size drift too large across pseudo-days: {sizes}"

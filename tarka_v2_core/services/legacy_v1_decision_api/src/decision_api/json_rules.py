@@ -59,9 +59,7 @@ _plg_sandbox_runtime_pack: dict[str, Any] | None = None
 
 def _attach_plg_sandbox_pack(active: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Strip any stale sandbox artifact from disk list, then append runtime PLG pack if configured."""
-    filtered = [
-        p for p in active if p.get("_source_file") != SANDBOX_PLG_INDUSTRY_SOURCE_FILE
-    ]
+    filtered = [p for p in active if p.get("_source_file") != SANDBOX_PLG_INDUSTRY_SOURCE_FILE]
     if _plg_sandbox_runtime_pack is None:
         return filtered
     merged = dict(_plg_sandbox_runtime_pack)
@@ -159,15 +157,11 @@ def _sync_rust_engine_packs() -> None:
         )
 
 
-def build_emergency_static_rule_tuple() -> tuple[
-    list[str], list[str], float, list[str]
-]:
+def build_emergency_static_rule_tuple() -> tuple[list[str], list[str], float, list[str]]:
     """Fixed JSON-rule tuple when Rust FFI circuit is open and emergency policy is configured."""
     hits = json.loads(settings.rust_ffi_emergency_rule_hits_json or "[]")
     tags = json.loads(settings.rust_ffi_emergency_tags_json or "[]")
-    contrib = json.loads(
-        settings.rust_ffi_emergency_contributing_pack_files_json or "[]"
-    )
+    contrib = json.loads(settings.rust_ffi_emergency_contributing_pack_files_json or "[]")
     if not isinstance(hits, list):
         hits = ["rust_circuit_open"]
     if not isinstance(tags, list):
@@ -291,9 +285,9 @@ def _json_value_display_for_regex(v: Any) -> str:
 def _json_collection_equals(actual: Any, elem: Any) -> bool:
     """Approximate ``serde_json::Value`` equality for ``in`` / ``not_in`` list membership."""
     try:
-        return json.dumps(
-            actual, sort_keys=True, separators=(",", ":"), default=str
-        ) == json.dumps(elem, sort_keys=True, separators=(",", ":"), default=str)
+        return json.dumps(actual, sort_keys=True, separators=(",", ":"), default=str) == json.dumps(
+            elem, sort_keys=True, separators=(",", ":"), default=str
+        )
     except (TypeError, ValueError):
         return actual == elem
 
@@ -528,9 +522,7 @@ def evaluate_json_rules(
         fallback_active=fallback_active,
     )
     _apply_telemetry_from_rust(out)
-    _set_json_rule_engine_metadata(
-        {"engine": "python", "fallback_active": fallback_active}
-    )
+    _set_json_rule_engine_metadata({"engine": "python", "fallback_active": fallback_active})
     return _rust_eval_to_tuple(out)
 
 
@@ -590,9 +582,7 @@ def evaluate_adhoc_packs_json(
     )
     if record_telemetry:
         _apply_telemetry_from_rust(out)
-    _set_json_rule_engine_metadata(
-        {"engine": "python", "fallback_active": fallback_active}
-    )
+    _set_json_rule_engine_metadata({"engine": "python", "fallback_active": fallback_active})
     return _rust_eval_to_tuple(out)
 
 

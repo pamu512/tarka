@@ -260,7 +260,9 @@ def test_operational_chargeback_pipeline_persists_signal_and_shadow_retro_outbox
             event_id = uuid.UUID(response.json()["event_id"])
 
         async with fac() as session:
-            signal_count = await session.scalar(select(func.count()).select_from(OperationalSignalORM))
+            signal_count = await session.scalar(
+                select(func.count()).select_from(OperationalSignalORM)
+            )
             assert int(signal_count or 0) == 1
 
             signal_row = await session.get(OperationalSignalORM, event_id)
@@ -309,11 +311,19 @@ def test_operational_chargeback_idempotent_replay_does_not_duplicate_outbox(
             assert first.json()["event_id"] == second.json()["event_id"]
 
         async with fac() as session:
-            assert int(await session.scalar(select(func.count()).select_from(OperationalSignalORM)) or 0) == 1
+            assert (
+                int(
+                    await session.scalar(select(func.count()).select_from(OperationalSignalORM))
+                    or 0
+                )
+                == 1
+            )
             assert (
                 int(
                     await session.scalar(
-                        select(func.count()).select_from(OutboxORM).where(
+                        select(func.count())
+                        .select_from(OutboxORM)
+                        .where(
                             OutboxORM.event_type == OUTBOX_EVENT_SHADOW_RETRO_TAG,
                         ),
                     ),

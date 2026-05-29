@@ -15,8 +15,12 @@ _DEFAULT_TABLE = "evidence_manifests"
 
 
 def _qualified_manifest_table() -> str:
-    database = (os.environ.get("CLICKHOUSE_DATABASE") or _DEFAULT_DATABASE).strip() or _DEFAULT_DATABASE
-    table = (os.environ.get("CLICKHOUSE_EVIDENCE_MANIFESTS_TABLE") or _DEFAULT_TABLE).strip() or _DEFAULT_TABLE
+    database = (
+        os.environ.get("CLICKHOUSE_DATABASE") or _DEFAULT_DATABASE
+    ).strip() or _DEFAULT_DATABASE
+    table = (
+        os.environ.get("CLICKHOUSE_EVIDENCE_MANIFESTS_TABLE") or _DEFAULT_TABLE
+    ).strip() or _DEFAULT_TABLE
     return f"`{database}`.`{table}`"
 
 

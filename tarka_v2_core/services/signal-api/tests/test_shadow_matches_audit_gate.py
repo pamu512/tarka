@@ -93,7 +93,6 @@ async def test_audit_insert_includes_shadow_matches(ingester_shadow_audit: Async
     sid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
     r = await ingester_shadow_audit.post("/v1/signals/ingest", json=_body(sid))
     assert r.status_code == 201
-    await asyncio.sleep(0.15)
 
     assert _AuditCapture.last_execute is not None
     _q, args = _AuditCapture.last_execute

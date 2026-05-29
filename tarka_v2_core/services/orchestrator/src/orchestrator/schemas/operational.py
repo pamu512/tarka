@@ -129,7 +129,9 @@ class OperationalSignalCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     idempotency_key: str = Field(..., min_length=1, max_length=255)
-    entity_id: UUID = Field(..., description="Transaction or case entity UUID the signal applies to.")
+    entity_id: UUID = Field(
+        ..., description="Transaction or case entity UUID the signal applies to."
+    )
     signal_type: SignalType
     metadata: ChargebackReceivedMetadata | RefundIssuedMetadata | ManualOverrideMetadata
 
@@ -158,7 +160,9 @@ class OperationalSignalCreate(BaseModel):
             return data
         try:
             signal_type = (
-                signal_raw if isinstance(signal_raw, SignalType) else SignalType(str(signal_raw).strip())
+                signal_raw
+                if isinstance(signal_raw, SignalType)
+                else SignalType(str(signal_raw).strip())
             )
         except ValueError:
             return data

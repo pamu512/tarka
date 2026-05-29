@@ -73,7 +73,9 @@ class ChargebackReversedMetadata(BaseModel):
         if not token:
             raise ValueError("original_signal_idempotency_key must be non-empty")
         if len(token) > max_len:
-            raise ValueError(f"original_signal_idempotency_key must be at most {max_len} characters")
+            raise ValueError(
+                f"original_signal_idempotency_key must be at most {max_len} characters"
+            )
         if not _IDEMPOTENCY_KEY_RE.fullmatch(token):
             raise ValueError("original_signal_idempotency_key has invalid characters or shape")
         return token
@@ -145,7 +147,9 @@ class OperationalSignalCreate(BaseModel):
             return data
         try:
             signal_type = (
-                signal_raw if isinstance(signal_raw, SignalType) else SignalType(str(signal_raw).strip())
+                signal_raw
+                if isinstance(signal_raw, SignalType)
+                else SignalType(str(signal_raw).strip())
             )
         except ValueError:
             return data

@@ -211,8 +211,8 @@ async def run_pull_consumer(
 
 async def build_consortium_counter_deps() -> ConsortiumCounterDeps:
     redis_url = (
-        (os.environ.get("ANUMANA_TELEMETRY_REDIS_URL") or os.environ.get("ANUMANA_REDIS_URL") or "").strip()
-    )
+        os.environ.get("ANUMANA_TELEMETRY_REDIS_URL") or os.environ.get("ANUMANA_REDIS_URL") or ""
+    ).strip()
     if not redis_url:
         raise RuntimeError(
             "ANUMANA_REDIS_URL (or ANUMANA_TELEMETRY_REDIS_URL) is required for consortium counter worker",

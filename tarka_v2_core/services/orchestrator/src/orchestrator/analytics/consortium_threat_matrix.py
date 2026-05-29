@@ -46,9 +46,8 @@ class ConsortiumThreatCounterCommand:
 
 def consortium_threat_matrix_key_prefix() -> str:
     return (
-        (os.environ.get("CONSORTIUM_THREAT_MATRIX_KEY_PREFIX") or "anumana:consortium:threat").strip()
-        or "anumana:consortium:threat"
-    )
+        os.environ.get("CONSORTIUM_THREAT_MATRIX_KEY_PREFIX") or "anumana:consortium:threat"
+    ).strip() or "anumana:consortium:threat"
 
 
 def consortium_id_from_environment() -> str:
@@ -61,7 +60,9 @@ def consortium_id_from_environment() -> str:
 def _normalize_ground_truth_class(raw: object) -> str:
     token = str(raw or "").strip().upper()
     if token not in {"FRAUD", "LEGITIMATE"}:
-        raise ConsortiumThreatMatrixError(f"ground_truth_class must be FRAUD or LEGITIMATE, got {raw!r}")
+        raise ConsortiumThreatMatrixError(
+            f"ground_truth_class must be FRAUD or LEGITIMATE, got {raw!r}"
+        )
     return token
 
 
@@ -216,7 +217,9 @@ async def verify_consortium_threat_counter_increments(
     verified: list[int] = []
     for idx, raw in enumerate(raw_results):
         if raw is None:
-            raise RuntimeError(f"redis counter missing after increment: {commands[idx].redis_key!r}")
+            raise RuntimeError(
+                f"redis counter missing after increment: {commands[idx].redis_key!r}"
+            )
         try:
             value = int(raw)
         except (TypeError, ValueError) as exc:

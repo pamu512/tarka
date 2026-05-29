@@ -1,5 +1,5 @@
 # Criterion micro-benchmarks for `tarka-core`:
-# - Job 1: expanded p99 vs origin/main (ratio) — `scripts/ci/criterion_p99_regression.py`
+# - Job 1: expanded p99 vs origin/master (ratio) — `scripts/ci/criterion_p99_regression.py`
 # - Job 2: Proposed vs Baseline rule sets — absolute delta — `scripts/ci/latency_violation_report.py`
 name: tarka-core benchmark regression
 
@@ -52,7 +52,7 @@ jobs:
             --max-delta-us 100
 
   criterion-p99:
-    name: Criterion p99 vs main (5% max)
+    name: Criterion p99 vs master (5% max)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PR head
@@ -69,19 +69,19 @@ jobs:
         with:
           prefix-key: v1-tarka-core-bench
 
-      - name: Fetch main (baseline ref)
-        run: git fetch --no-tags --depth=1 origin +refs/heads/main:refs/remotes/origin/main
+      - name: Fetch master (baseline ref)
+        run: git fetch --no-tags --depth=1 origin +refs/heads/master:refs/remotes/origin/master
 
       - name: Save PR SHA
         run: echo "PR_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
-      - name: Benchmark baseline (origin/main)
+      - name: Benchmark baseline (origin/master)
         env:
           CI: "true"
         run: |
           set -euo pipefail
-          git checkout --detach origin/main
-          cargo bench -p tarka-core --bench standard_heavy_rule_set --locked -- --save-baseline main
+          git checkout --detach origin/master
+          cargo bench -p tarka-core --bench standard_heavy_rule_set --locked -- --save-baseline master
 
       - name: Benchmark PR branch + enforce p99 regression bound
         env:
@@ -92,5 +92,5 @@ jobs:
           cargo bench -p tarka-core --bench standard_heavy_rule_set --locked
           python3 scripts/ci/criterion_p99_regression.py \
             --benchmark-dir target/criterion/standard_heavy_rule_set/evaluate_full_trace \
-            --baseline-label main \
+            --baseline-label master \
             --max-ratio 1.05

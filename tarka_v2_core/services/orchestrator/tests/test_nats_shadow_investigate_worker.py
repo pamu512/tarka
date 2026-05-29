@@ -75,7 +75,9 @@ def test_process_message_naks_retryable_engine_failure() -> None:
             mp.setattr(
                 "shadow_agent.workers.shadow_investigate_handler.handle_shadow_investigate_payload",
                 AsyncMock(
-                    side_effect=AuditPersistenceError.persist_failed(entity_id="e1", component="shadow"),
+                    side_effect=AuditPersistenceError.persist_failed(
+                        entity_id="e1", component="shadow"
+                    ),
                 ),
             )
             await process_shadow_investigate_message(MagicMock(), msg)
@@ -110,7 +112,9 @@ def test_run_pull_consumer_uses_fetch_batch_ten() -> None:
             mp.setattr(mod, "ensure_shadow_investigate_stream", AsyncMock())
             mp.setattr(mod, "process_shadow_investigate_message", AsyncMock())
             mp.setattr(mod, "shadow_investigate_fetch_batch_size", lambda: 10)
-            await mod.run_pull_consumer(runtime=MagicMock(), js=js, subject="shadow.investigate", stop=stop)
+            await mod.run_pull_consumer(
+                runtime=MagicMock(), js=js, subject="shadow.investigate", stop=stop
+            )
 
         sub.fetch.assert_awaited()
         assert sub.fetch.await_args.kwargs["batch"] == 10

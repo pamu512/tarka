@@ -51,7 +51,9 @@ def test_should_invoke_shadow_for_flag_with_graph_signals() -> None:
         "IP_VELOCITY": {"distinct_users_last_2h": 6, "spike": True, "score": 1.2},
     }
     assert graph_indicators_nonzero(rule_data, tx, signals) is True
-    assert should_invoke_shadow_synchronously(["FLAG"], rule_data, tx, graph_signals=signals) is True
+    assert (
+        should_invoke_shadow_synchronously(["FLAG"], rule_data, tx, graph_signals=signals) is True
+    )
 
 
 def test_modulate_actions_downgrades_flag_on_low_shadow_risk() -> None:

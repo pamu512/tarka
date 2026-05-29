@@ -33,9 +33,7 @@ class VisualAstLeaf(BaseModel):
     """Leaf: ``field`` / ``op`` / ``value``."""
 
     model_config = ConfigDict(extra="forbid")
-    op: str = Field(
-        ..., description="one of: eq, ne, gt, gte, lt, lte, in, not_in, ==, etc."
-    )
+    op: str = Field(..., description="one of: eq, ne, gt, gte, lt, lte, in, not_in, ==, etc.")
     field: str = Field(..., max_length=256)
     value: Any = None
 
@@ -184,9 +182,7 @@ async def evaluate_visual_dry_run(
     from decision_api.json_rules import evaluate_adhoc_packs_json
 
     if not body.visual_pack.rules:
-        raise HTTPException(
-            status_code=400, detail="visual_pack.rules must be non-empty"
-        )
+        raise HTTPException(status_code=400, detail="visual_pack.rules must be non-empty")
     _static_check_regex_fields(body.visual_pack)
     json_pack = _compile_to_json_rules(body.visual_pack)
     pack: dict[str, Any] = {

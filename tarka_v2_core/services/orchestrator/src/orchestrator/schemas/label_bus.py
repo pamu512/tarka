@@ -87,7 +87,9 @@ def filter_structural_tags(raw_tags: list[str] | None) -> list[str]:
 
 def build_label_bus_emit_dict(row: Any) -> dict[str, Any]:
     """Build a candidate label-bus payload from a ``NormalizedLabelORM`` row."""
-    from orchestrator.messaging.labels_jetstream import normalized_label_event_entity  # noqa: PLC0415
+    from orchestrator.messaging.labels_jetstream import (
+        normalized_label_event_entity,
+    )  # noqa: PLC0415
 
     payload = normalized_label_event_entity(row)
     payload["tags"] = filter_structural_tags(list(payload.get("tags") or []))

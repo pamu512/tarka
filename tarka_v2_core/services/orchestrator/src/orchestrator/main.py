@@ -353,7 +353,9 @@ def create_app(
             request,
             body,
             redis_client=getattr(request.app.state, "anumana_redis", None),
-            redis_key=str(getattr(request.app.state, "anumana_redis_key", "anumana:browser_telemetry")),
+            redis_key=str(
+                getattr(request.app.state, "anumana_redis_key", "anumana:browser_telemetry")
+            ),
             ingest_secret=getattr(request.app.state, "anumana_ingest_secret", None),
         )
 
@@ -406,7 +408,9 @@ def create_app(
         try:
             if fac is not None and not resolved:
                 async with fac() as session:
-                    resolved = await resolve_linked_session_id(session, str(body.original_entity_id))
+                    resolved = await resolve_linked_session_id(
+                        session, str(body.original_entity_id)
+                    )
         except Exception:
             logger.exception("chargeback_session_resolve_failed")
         txn = build_chargeback_transaction(
@@ -451,14 +455,20 @@ def create_app(
         if not tid or len(tid) > 512 or "\x00" in tid:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={"error": "invalid_transaction_id", "message": "transaction_id must be non-empty and ≤512 chars"},
+                detail={
+                    "error": "invalid_transaction_id",
+                    "message": "transaction_id must be non-empty and ≤512 chars",
+                },
             )
         try:
             uuid.UUID(tid)
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={"error": "invalid_transaction_id", "message": "transaction_id must be a UUID"},
+                detail={
+                    "error": "invalid_transaction_id",
+                    "message": "transaction_id must be a UUID",
+                },
             ) from exc
 
         fac = getattr(request.app.state, "audit_session_factory", None)
@@ -539,8 +549,8 @@ def create_app(
                 detail={"error": "unsupported_file_type", "message": str(exc)},
             ) from exc
         except RuntimeError as exc:
-                        raise HTTPException(
-                            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail={"error": "pdf_parser_unavailable", "message": str(exc)},
             ) from exc
         gc: GraphClient = request.app.state.graph_client
@@ -593,7 +603,7 @@ def create_app(
                     r = await client.post(
                         f"{str(shadow_base).rstrip('/')}/v1/analyze",
                         json=body,
-                            headers=headers or None,
+                        headers=headers or None,
                     )
                     r.raise_for_status()
                     cluster_analysis = r.json()
@@ -698,7 +708,10 @@ def create_app(
         if not uid or len(uid) > 512 or "\x00" in uid:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={"error": "invalid_user_id", "message": "user_id must be non-empty and ≤512 chars"},
+                detail={
+                    "error": "invalid_user_id",
+                    "message": "user_id must be non-empty and ≤512 chars",
+                },
             )
         gc: GraphClient = request.app.state.graph_client
         analytics = get_analytics(request)
@@ -737,7 +750,10 @@ def create_app(
         responses={
             404: {"description": "Unknown ``lifecycle_cases.case_id``."},
             409: {"description": "Illegal state transition or corrupt stored status."},
-            422: {"model": HTTPValidationError422, "description": "Missing token, reason, or invalid status."},
+            422: {
+                "model": HTTPValidationError422,
+                "description": "Missing token, reason, or invalid status.",
+            },
             503: {"model": ServiceUnavailable503, "description": "Audit database not configured."},
         },
     )
@@ -783,7 +799,10 @@ def create_app(
         response_class=Response,
         responses={
             404: {"description": "Unknown ``lifecycle_cases.case_id``."},
-            422: {"model": HTTPValidationError422, "description": "Missing token or invalid ``case_id``."},
+            422: {
+                "model": HTTPValidationError422,
+                "description": "Missing token or invalid ``case_id``.",
+            },
             503: {"model": ServiceUnavailable503, "description": "Audit database not configured."},
         },
     )
@@ -828,7 +847,10 @@ def create_app(
                 detail={"error": "invalid_case_id", "message": str(exc)},
             ) from exc
 
-        safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in (case_id or "").strip())[:72] or "case"
+        safe = (
+            "".join(c if c.isalnum() or c in "-_" else "_" for c in (case_id or "").strip())[:72]
+            or "case"
+        )
         fname = f"case-{safe}-compliance-export.zip"
         return Response(
             content=body,
@@ -850,7 +872,10 @@ def create_app(
         responses={
             404: {"description": "Unknown ``lifecycle_cases.case_id``."},
             409: {"description": "Illegal state transition or corrupt stored status."},
-            422: {"model": HTTPValidationError422, "description": "Missing token or invalid ``case_id``."},
+            422: {
+                "model": HTTPValidationError422,
+                "description": "Missing token or invalid ``case_id``.",
+            },
             503: {"model": ServiceUnavailable503, "description": "Audit database not configured."},
         },
     )
@@ -903,7 +928,10 @@ def create_app(
                 detail={"error": "invalid_case_id", "message": str(exc)},
             ) from exc
 
-        safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in (case_id or "").strip())[:72] or "case"
+        safe = (
+            "".join(c if c.isalnum() or c in "-_" else "_" for c in (case_id or "").strip())[:72]
+            or "case"
+        )
         fname = f"case-{safe}-dispute-evidence.pdf"
         return Response(
             content=pdf_body,
@@ -996,7 +1024,11 @@ def create_app(
                 },
             )
 
-        backend = "duckdb" if type(analytics).__name__ in ("LocalAnalytics", "DuckAnalyticsProvider") else "clickhouse"
+        backend = (
+            "duckdb"
+            if type(analytics).__name__ in ("LocalAnalytics", "DuckAnalyticsProvider")
+            else "clickhouse"
+        )
 
         def _run() -> tuple[list[dict[str, Any]], str | None, float]:
             return analytics.list_analytics_transactions(limit=limit, cursor=cursor)
@@ -1144,7 +1176,7 @@ def create_app(
                 {
                     "pattern_index": i,
                     "total": n,
-            "transaction_id": tid,
+                    "transaction_id": tid,
                     "amount": round(50.0 + i * 12.5, 2),
                     "currency": "USD",
                     "channel": "card_not_present",
@@ -1156,7 +1188,9 @@ def create_app(
         return {"total": n, "results": results}
 
     _cors_raw = (os.environ.get("ANUMANA_TELEMETRY_CORS_ORIGINS") or "*").strip()
-    _cors_origins = ["*"] if _cors_raw == "*" else [o.strip() for o in _cors_raw.split(",") if o.strip()]
+    _cors_origins = (
+        ["*"] if _cors_raw == "*" else [o.strip() for o in _cors_raw.split(",") if o.strip()]
+    )
     application.add_middleware(
         CORSMiddleware,
         allow_origins=_cors_origins,

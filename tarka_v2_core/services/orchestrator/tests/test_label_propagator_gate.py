@@ -720,7 +720,10 @@ def test_label_propagator_routes_invalid_structural_tags_to_dlq() -> None:
             assert len(dlq_rows) == 1
             assert dlq_rows[0].normalized_label_id == label_id
             assert dlq_rows[0].entity_id == entity_id
-            assert "INVALID TAG" in dlq_rows[0].rejection_reason or "must match" in dlq_rows[0].rejection_reason
+            assert (
+                "INVALID TAG" in dlq_rows[0].rejection_reason
+                or "must match" in dlq_rows[0].rejection_reason
+            )
 
             from orchestrator.models.normalized_labels import NormalizedLabelORM
 
@@ -734,7 +737,10 @@ def test_label_propagator_routes_invalid_structural_tags_to_dlq() -> None:
 
 
 def test_label_bus_emit_payload_validates_structural_tags() -> None:
-    from orchestrator.schemas.label_bus import LabelBusValidationError, validate_label_bus_emit_payload
+    from orchestrator.schemas.label_bus import (
+        LabelBusValidationError,
+        validate_label_bus_emit_payload,
+    )
 
     payload = {
         "schema": "tarka.normalized_label.v1",
@@ -848,7 +854,9 @@ def test_case_transition_enqueues_label_propagate_outbox() -> None:
             async with fac() as session:
                 rows = (
                     await session.scalars(
-                        select(OutboxORM).where(OutboxORM.event_type == OUTBOX_EVENT_LABEL_PROPAGATE),
+                        select(OutboxORM).where(
+                            OutboxORM.event_type == OUTBOX_EVENT_LABEL_PROPAGATE
+                        ),
                     )
                 ).all()
             assert len(rows) == 1

@@ -20,7 +20,12 @@ def test_outbox_dao_lifecycle() -> None:
         from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
         from sqlalchemy.pool import StaticPool
 
-        from orchestrator.models.outbox import OutboxDAO, OutboxORM, OutboxStatus, OutboxTaskNotFoundError
+        from orchestrator.models.outbox import (
+            OutboxDAO,
+            OutboxORM,
+            OutboxStatus,
+            OutboxTaskNotFoundError,
+        )
         from tarka_shared.database.session import Base
 
         engine = create_async_engine(

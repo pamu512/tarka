@@ -35,7 +35,9 @@ def source_type_for_operational_signal(signal_type: SignalType) -> str:
     return signal_type.value
 
 
-def ground_truth_class_for_operational_signal(body: OperationalSignalCreate) -> GroundTruthClass | None:
+def ground_truth_class_for_operational_signal(
+    body: OperationalSignalCreate,
+) -> GroundTruthClass | None:
     """Map operational signal types to consortium ground-truth classes."""
     if body.signal_type == SignalType.CHARGEBACK_RECEIVED:
         return GroundTruthClass.FRAUD

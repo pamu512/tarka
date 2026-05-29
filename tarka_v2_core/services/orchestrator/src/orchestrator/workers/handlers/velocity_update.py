@@ -75,7 +75,9 @@ def _ip_tokens_from_browser_context(ctx: dict[str, Any]) -> list[str]:
     return ip_segments
 
 
-def _parse_velocity_payload(payload: dict[str, Any]) -> tuple[str, str | None, str | None, list[str], int, int | None]:
+def _parse_velocity_payload(
+    payload: dict[str, Any],
+) -> tuple[str, str | None, str | None, list[str], int, int | None]:
     if payload.get("schema") != "tarka.velocity_update.v1":
         raise VelocityUpdatePayloadError(
             f"unsupported velocity payload schema: {payload.get('schema')!r}",
@@ -116,7 +118,9 @@ class VelocityUpdateHandler(BaseOutboxHandler):
         if not isinstance(payload, dict):
             raise VelocityUpdatePayloadError("velocity payload must be a dict")
 
-        entity_id, device_token, tenant_id, ip_tokens, amount_cents, now_unix = _parse_velocity_payload(payload)
+        entity_id, device_token, tenant_id, ip_tokens, amount_cents, now_unix = (
+            _parse_velocity_payload(payload)
+        )
 
         commands = build_transaction_velocity_incrby_commands(
             tenant_id=tenant_id,

@@ -148,9 +148,21 @@ def find_linked_entities_from_topology(
     users_raw = topology.get("network_user_ids")
     devices_raw = topology.get("network_device_ids")
     ips_raw = topology.get("network_ip_addresses")
-    users = sorted({str(u) for u in users_raw if u is not None and str(u).strip()}) if isinstance(users_raw, list) else []
-    devices = sorted({str(d) for d in devices_raw if d is not None and str(d).strip()}) if isinstance(devices_raw, list) else []
-    ips = sorted({str(i) for i in ips_raw if i is not None and str(i).strip()}) if isinstance(ips_raw, list) else []
+    users = (
+        sorted({str(u) for u in users_raw if u is not None and str(u).strip()})
+        if isinstance(users_raw, list)
+        else []
+    )
+    devices = (
+        sorted({str(d) for d in devices_raw if d is not None and str(d).strip()})
+        if isinstance(devices_raw, list)
+        else []
+    )
+    ips = (
+        sorted({str(i) for i in ips_raw if i is not None and str(i).strip()})
+        if isinstance(ips_raw, list)
+        else []
+    )
 
     blocked_device_touch = int(topology.get("blocked_device_touch_count") or 0)
     neighbor_count = int(topology.get("neighbor_node_count") or 0)
@@ -184,7 +196,9 @@ def find_linked_entities_from_topology(
             ordered = sorted(
                 str(u)
                 for u in shared_ip_ordered
-                if u is not None and str(u).strip() and (hints.user_id is None or str(u) != hints.user_id)
+                if u is not None
+                and str(u).strip()
+                and (hints.user_id is None or str(u) != hints.user_id)
             )
             lines.append(
                 "Shared IP history (ORDERED_FROM_IP — distinct User.user_id on this IP): "

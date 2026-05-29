@@ -60,5 +60,6 @@ def test_business_impact_requires_cents_fields() -> None:
 
 def test_domains_cannot_share_inheritance() -> None:
     with pytest.raises(TypeError, match="cannot inherit from (risk|business) domain"):
+
         class _Bad(RiskDecision, BusinessImpact):  # type: ignore[misc, valid-type]
             pass

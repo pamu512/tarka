@@ -113,10 +113,7 @@ def _evaluate_json_rules_http_equivalent(
             get_json_rule_engine_metadata(),
         )
     except RustRuleEngineCircuitOpenError as e:
-        if (
-            getattr(settings, "rust_ffi_circuit_open_behavior", "503")
-            == "emergency_static"
-        ):
+        if getattr(settings, "rust_ffi_circuit_open_behavior", "503") == "emergency_static":
             h, t, d, pf = build_emergency_static_rule_tuple()
             meta = {
                 "engine": "emergency_static",
@@ -139,9 +136,9 @@ def _evaluate_json_rules_http_equivalent(
             detail={
                 "error": "rust_rule_engine_failed",
                 "message": "Rust JSON rule engine evaluation failed.",
-                "exc_type": type(e.cause).__name__
-                if getattr(e, "cause", None)
-                else type(e).__name__,
+                "exc_type": (
+                    type(e.cause).__name__ if getattr(e, "cause", None) else type(e).__name__
+                ),
             },
         ) from e
 

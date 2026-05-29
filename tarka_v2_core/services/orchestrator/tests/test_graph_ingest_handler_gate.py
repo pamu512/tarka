@@ -27,7 +27,9 @@ def test_graph_ingest_handler_requires_audit_log_id() -> None:
         )
 
         handler = GraphIngestHandler(
-            OutboxProcessorDeps(session_factory=MagicMock(), graph_client=NullGraphClient(), redis_client=None),
+            OutboxProcessorDeps(
+                session_factory=MagicMock(), graph_client=NullGraphClient(), redis_client=None
+            ),
         )
         with pytest.raises(GraphIngestPayloadError, match="audit_log_id"):
             await handler.execute(
@@ -54,7 +56,9 @@ def test_graph_ingest_handler_connection_drop_raises() -> None:
         )
 
         handler = GraphIngestHandler(
-            OutboxProcessorDeps(session_factory=MagicMock(), graph_client=NullGraphClient(), redis_client=None),
+            OutboxProcessorDeps(
+                session_factory=MagicMock(), graph_client=NullGraphClient(), redis_client=None
+            ),
         )
         payload = {
             "audit_log_id": 42,

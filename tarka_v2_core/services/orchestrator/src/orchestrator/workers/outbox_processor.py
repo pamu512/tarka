@@ -135,7 +135,9 @@ async def _connect_nats_jetstream() -> tuple[Any | None, Any | None]:
             "NATS_URL is set but nats-py is not installed (pip install tarka-orchestrator[worker])",
         ) from exc
 
-    from orchestrator.messaging.nats_jetstream import TarkaEventsJetStreamInitializer  # noqa: PLC0415
+    from orchestrator.messaging.nats_jetstream import (
+        TarkaEventsJetStreamInitializer,
+    )  # noqa: PLC0415
 
     nc = await nats.connect(nats_url)
     js = nc.jetstream()
@@ -147,7 +149,9 @@ async def _connect_nats_jetstream() -> tuple[Any | None, Any | None]:
     return js, nc
 
 
-async def build_processor_deps(config: OutboxProcessorConfig) -> tuple[OutboxProcessorDeps, AsyncEngine]:
+async def build_processor_deps(
+    config: OutboxProcessorConfig,
+) -> tuple[OutboxProcessorDeps, AsyncEngine]:
     engine = build_audit_engine(config.audit_database_url)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

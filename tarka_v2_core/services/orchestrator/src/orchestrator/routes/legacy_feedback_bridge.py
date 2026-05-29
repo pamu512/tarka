@@ -152,7 +152,9 @@ def ai_feedback_to_operational_signal(body: AiFeedbackRequest) -> OperationalSig
     )
 
 
-def consortium_feedback_to_operational_signal(body: ConsortiumFeedbackRequest) -> OperationalSignalCreate:
+def consortium_feedback_to_operational_signal(
+    body: ConsortiumFeedbackRequest,
+) -> OperationalSignalCreate:
     """Map ``POST /v1/consortium/feedback`` payloads to ``MANUAL_OVERRIDE`` operational signals."""
     outcome = body.outcome.strip().lower()
     if outcome == "false_positive":
@@ -307,7 +309,9 @@ async def legacy_ai_feedback(
     try:
         mapped = ai_feedback_to_operational_signal(body)
     except LegacyBridgeError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
 
     payload = await _bridge_legacy_payload(
         request,
@@ -337,7 +341,9 @@ async def legacy_consortium_feedback(
     try:
         mapped = consortium_feedback_to_operational_signal(body)
     except LegacyBridgeError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
 
     payload = await _bridge_legacy_payload(
         request,
@@ -371,7 +377,9 @@ async def legacy_copilot_feedback(
     try:
         mapped = copilot_feedback_to_operational_signal(body)
     except LegacyBridgeError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
 
     payload = await _bridge_legacy_payload(
         request,

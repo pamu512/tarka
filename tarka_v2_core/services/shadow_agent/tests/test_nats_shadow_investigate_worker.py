@@ -23,7 +23,9 @@ def test_handle_shadow_investigate_payload_invokes_evaluate() -> None:
     from ingestor.schemas import TransactionSchema  # noqa: E402
     from shadow_agent.agent import ShadowAgent  # noqa: E402
     from shadow_agent.schemas import ShadowDecision  # noqa: E402
-    from shadow_agent.workers.shadow_investigate_handler import handle_shadow_investigate_payload  # noqa: E402
+    from shadow_agent.workers.shadow_investigate_handler import (
+        handle_shadow_investigate_payload,
+    )  # noqa: E402
     from shadow_agent.workers.runtime import ShadowInvestigateRuntime  # noqa: E402
     from tarka_shared.audit_trail import AuditLog  # noqa: E402
 
@@ -88,7 +90,9 @@ def test_handle_shadow_investigate_payload_invokes_evaluate() -> None:
 
 
 def test_handle_shadow_investigate_payload_skips_legacy_body_without_transaction() -> None:
-    from shadow_agent.workers.shadow_investigate_handler import handle_shadow_investigate_payload  # noqa: E402
+    from shadow_agent.workers.shadow_investigate_handler import (
+        handle_shadow_investigate_payload,
+    )  # noqa: E402
     from shadow_agent.workers.runtime import ShadowInvestigateRuntime  # noqa: E402
 
     gateway = MagicMock()

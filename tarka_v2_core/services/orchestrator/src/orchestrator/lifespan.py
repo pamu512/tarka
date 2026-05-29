@@ -19,7 +19,10 @@ from orchestrator.analytics.provider import AnalyticsProvider
 from orchestrator.audit_case_worker import build_audit_engine
 from orchestrator.deps.v1_api_guard import V1_PROTECTED_ROUTE_DEPENDENCIES, build_v1_rate_limiter
 from orchestrator.graph.client import GraphClient, graph_client_from_environment
-from orchestrator.messaging.nats_jetstream import JetStreamUnavailableError, TarkaEventsJetStreamInitializer
+from orchestrator.messaging.nats_jetstream import (
+    JetStreamUnavailableError,
+    TarkaEventsJetStreamInitializer,
+)
 from orchestrator.messaging.shadow_investigate_jetstream import ensure_shadow_investigate_stream
 from orchestrator.queues.shadow_dispatch import shadow_investigate_subject
 from tarka_shared.database.session import Base
@@ -148,11 +151,11 @@ def build_lifespan(config: LifespanConfig):
             app.state.analytics = build_analytics_provider()
 
         app.state.anumana_ingest_secret = (
-            (os.environ.get("ANUMANA_TELEMETRY_INGEST_KEY") or "").strip() or None
-        )
+            os.environ.get("ANUMANA_TELEMETRY_INGEST_KEY") or ""
+        ).strip() or None
         app.state.anumana_redis_key = (
-            (os.environ.get("ANUMANA_TELEMETRY_REDIS_KEY") or "anumana:browser_telemetry").strip()
-        )
+            os.environ.get("ANUMANA_TELEMETRY_REDIS_KEY") or "anumana:browser_telemetry"
+        ).strip()
         app.state.v1_rate_limiter = build_v1_rate_limiter()
 
         if config.anumana_redis_client is not None:
@@ -170,12 +173,18 @@ def build_lifespan(config: LifespanConfig):
             if isinstance(config.compliance_export_hmac_key, bytes):
                 app.state.compliance_export_hmac_key = config.compliance_export_hmac_key
             else:
-                app.state.compliance_export_hmac_key = str(config.compliance_export_hmac_key).strip().encode(
-                    "utf-8",
+                app.state.compliance_export_hmac_key = (
+                    str(config.compliance_export_hmac_key)
+                    .strip()
+                    .encode(
+                        "utf-8",
+                    )
                 )
         else:
             app.state.compliance_export_hmac_key = (
-                (os.environ.get("ORCHESTRATOR_COMPLIANCE_EXPORT_HMAC_KEY") or "").strip().encode("utf-8")
+                (os.environ.get("ORCHESTRATOR_COMPLIANCE_EXPORT_HMAC_KEY") or "")
+                .strip()
+                .encode("utf-8")
             )
 
         try:

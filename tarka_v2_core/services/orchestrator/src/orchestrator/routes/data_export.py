@@ -53,9 +53,13 @@ def _require_session_factory(request: Request) -> async_sessionmaker[AsyncSessio
 )
 async def export_labels_dataset(
     request: Request,
-    start_date: Annotated[str, Query(description="Inclusive UTC start date (YYYY-MM-DD or ISO-8601).")],
+    start_date: Annotated[
+        str, Query(description="Inclusive UTC start date (YYYY-MM-DD or ISO-8601).")
+    ],
     end_date: Annotated[str, Query(description="Inclusive UTC end date (YYYY-MM-DD or ISO-8601).")],
-    format: Annotated[str, Query(description="Export encoding: jsonl (default) or json array.")] = "jsonl",
+    format: Annotated[
+        str, Query(description="Export encoding: jsonl (default) or json array.")
+    ] = "jsonl",
 ) -> StreamingResponse:
     try:
         window = parse_export_window(start_date=start_date, end_date=end_date)
@@ -82,7 +86,9 @@ async def export_labels_dataset(
         ),
         media_type=export_media_type(export_format),
         headers={
-            "Content-Disposition": export_content_disposition(window=window, export_format=export_format),
+            "Content-Disposition": export_content_disposition(
+                window=window, export_format=export_format
+            ),
             "X-Tarka-Export-Schema": "tarka.label_export.v1",
         },
     )
