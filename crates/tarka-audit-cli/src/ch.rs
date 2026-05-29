@@ -112,21 +112,62 @@ pub async fn otel_trace_present(
     })
 }
 
+pub async fn clickhouse_column_exists(
+    http: &reqwest::Client,
+    p: &ClickHouseParams,
+    table: &str,
+    column: &str,
+) -> Result<bool, ClickHouseError> {
+    validate_sql_identifier(&p.database, "database")?;
+    validate_sql_identifier(table, "table")?;
+    validate_sql_identifier(column, "column")?;
+
+    let q = format!(
+        "SELECT count() AS n FROM system.columns \
+         WHERE database = '{db}' AND table = '{tbl}' AND name = '{col}' \
+         FORMAT JSONEachRow",
+        db = escape_sql_string(&p.database),
+        tbl = escape_sql_string(table),
+        col = escape_sql_string(column),
+    );
+
+    let body = http_post_query_with_retry(http, p, &q).await?;
+    let line = body.lines().find(|l| !l.trim().is_empty());
+    let Some(line) = line else {
+        return Ok(false);
+    };
+    #[derive(Deserialize)]
+    struct CountRow {
+        n: u64,
+    }
+    let row: CountRow = serde_json::from_str(line).map_err(|e| ClickHouseError::Payload {
+        reason: format!("system.columns parse: {e}; line={line:.300}"),
+    })?;
+    Ok(row.n > 0)
+}
+
 pub async fn fetch_manifest_for_trace(
     http: &reqwest::Client,
     p: &ClickHouseParams,
     tid: &str,
     latest: bool,
+    include_raw_manifest_hex: bool,
 ) -> Result<EvidenceManifestRow, ClickHouseError> {
     validate_sql_identifier(&p.database, "database")?;
     validate_sql_identifier(&p.evidence_table, "evidence_table")?;
 
     let limit = if latest { 1 } else { 2 };
     let tid_esc = escape_sql_string(tid);
+    let raw_sel = if include_raw_manifest_hex {
+        "ifNull(hex(raw_manifest), '') AS raw_manifest_hex"
+    } else {
+        "'' AS raw_manifest_hex"
+    };
     let q = format!(
         "SELECT \
            tenant_id, manifest_id, engine_version, timestamp_ns, final_decision, total_execution_time_us, \
-           signals, trace_json, crypto_algorithm, crypto_signature_hex, crypto_key_id, raw_manifest_sha256 \
+           signals, trace_json, crypto_algorithm, crypto_signature_hex, crypto_key_id, \
+           hex(raw_manifest_sha256) AS raw_manifest_sha256_hex, {raw_sel} \
          FROM `{db}`.`{tbl}` \
          WHERE arrayExists( \
            obj -> lower(replaceAll(JSONExtractString(obj, 'otel_trace_id'), '-', '')) = '{tid}', \

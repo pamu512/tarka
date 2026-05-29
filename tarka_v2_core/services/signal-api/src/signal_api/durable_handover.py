@@ -105,7 +105,7 @@ async def durable_intent_handover(
     shadow_matches: list[dict[str, Any]] | None = None,
     circuit: AuditPostgresCircuitBreaker | None = None,
 ) -> None:
-    """Background task: Postgres row + JetStream publish (errors logged, do not fail HTTP)."""
+    """Postgres row + JetStream publish (errors logged; caller awaits before HTTP response)."""
     raw_payload = body.model_dump(mode="json", by_alias=True)
     entity_id = body.session_id
 
