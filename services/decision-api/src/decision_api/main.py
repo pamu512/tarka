@@ -210,6 +210,35 @@ from tenant_binding import parse_api_key_tenant_map  # noqa: E402
 
 log = logging.getLogger("decision-api")
 
+TENANT_CONFIG_UNAVAILABLE_DETAIL = "Tenant configuration unavailable"
+
+
+def _metrics_inc_safe(metric: str, *, trace_id: uuid.UUID | None = None) -> None:
+    """Increment a counter; log and continue when the metrics backend is unavailable."""
+    try:
+        get_metrics().inc(metric)
+    except Exception as exc:
+        log.warning(
+            "decision_metrics_inc_failed metric=%s trace_id=%s error=%s",
+            metric,
+            trace_id,
+            exc,
+        )
+
+
+async def _load_tenant_flags_for_evaluate(tenant_id: str) -> dict[str, Any]:
+    """Load tenant feature flags; fail closed when Redis tag store lookup errors."""
+    if not redis_tags.is_tag_store_available:
+        return {}
+    try:
+        return await redis_tags.get_tenant_flags(tenant_id)
+    except Exception as exc:
+        log.exception("tenant_flags_lookup_failed tenant_id=%s", tenant_id)
+        raise HTTPException(
+            status_code=500,
+            detail=TENANT_CONFIG_UNAVAILABLE_DETAIL,
+        ) from exc
+
 
 def _upstream_headers() -> dict[str, str]:
     """Shared auth headers for outbound service calls."""
@@ -380,10 +409,7 @@ def decide_graph_routing(
 
 
 def _circuit_metrics_inc(name: str) -> None:
-    try:
-        get_metrics().inc(name)
-    except Exception:
-        pass
+    _metrics_inc_safe(name)
 
 
 async def _list_check_with_circuit(
@@ -2072,12 +2098,7 @@ async def evaluate_decision(
     trace_id = uuid.uuid4()
     replay_ttl_seconds = int(os.environ.get("REPLAY_PAYLOAD_TTL_SECONDS", "300"))
     degrade_tags: list[str] = []
-    tenant_flags: dict[str, Any] = {}
-    if redis_tags.is_tag_store_available:
-        try:
-            tenant_flags = await redis_tags.get_tenant_flags(body.tenant_id)
-        except Exception:
-            tenant_flags = {}
+    tenant_flags = await _load_tenant_flags_for_evaluate(body.tenant_id)
 
     # Extract SDK signal tags
     dc_dump = body.device_context.model_dump() if body.device_context else None
@@ -2287,10 +2308,7 @@ async def evaluate_decision(
     async with acquire_eval_capacity(request.app) as cap:
         _dag = EvalDAGRuntime(load_shed=cap.load_shed)
         if cap.load_shed:
-            try:
-                get_metrics().inc("tarka_load_shedding_eval_total")
-            except Exception:
-                pass
+            _metrics_inc_safe("tarka_load_shedding_eval_total", trace_id=trace_id)
         existing_tags = await redis_tags.get_tags(body.tenant_id, body.entity_id)
 
         if settings.consortium_enabled:
@@ -2363,10 +2381,7 @@ async def evaluate_decision(
             }
             if "load_shedding:active" not in degrade_tags:
                 degrade_tags.append("load_shedding:active")
-            try:
-                get_metrics().inc("tarka_load_shedding_active_total")
-            except Exception:
-                pass
+            _metrics_inc_safe("tarka_load_shedding_active_total", trace_id=trace_id)
         step_trace.append(graph_trace)
 
         # Feature snapshot (needed before OPA)
@@ -2911,24 +2926,20 @@ async def evaluate_decision(
             tenant_flags,
         )
 
-        try:
-            m = get_metrics()
-            m.inc(f"fraud_decisions_{decision}_total")
-            m.inc("fraud_evaluations_total")
-            if fb_reason:
-                m.inc("fraud_fallback_total")
-                reason_key = (
-                    _re.sub(r"[^a-zA-Z0-9_]+", "_", str(fb_reason))
-                    .strip("_")
-                    .lower()[:64]
-                )
-                if reason_key:
-                    m.inc(f"fraud_fallback_total_{reason_key}")
-            if signal_tags:
-                for st in signal_tags:
-                    m.inc(f"fraud_signal_tag_{st}_total")
-        except Exception:
-            pass
+        _metrics_inc_safe(f"fraud_decisions_{decision}_total", trace_id=trace_id)
+        _metrics_inc_safe("fraud_evaluations_total", trace_id=trace_id)
+        if fb_reason:
+            _metrics_inc_safe("fraud_fallback_total", trace_id=trace_id)
+            reason_key = (
+                _re.sub(r"[^a-zA-Z0-9_]+", "_", str(fb_reason))
+                .strip("_")
+                .lower()[:64]
+            )
+            if reason_key:
+                _metrics_inc_safe(f"fraud_fallback_total_{reason_key}", trace_id=trace_id)
+        if signal_tags:
+            for st in signal_tags:
+                _metrics_inc_safe(f"fraud_signal_tag_{st}_total", trace_id=trace_id)
 
         response_tier = _resolve_response_explainability_tier(request)
         response_inf_ctx = _shape_inference_context_for_tier(inf_ctx, response_tier)
