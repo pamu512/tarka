@@ -136,6 +136,7 @@ fn runtime_error_to_manifest_integrity(py: Python<'_>, e: RuntimeError) -> PyErr
         RuntimeError::Convert(_) => "DECODE_ERROR",
         RuntimeError::KeyStore(_) => "CANONICALIZATION_ERROR",
         RuntimeError::WireEncode(_) => "CANONICALIZATION_ERROR",
+        RuntimeError::InvalidSeal(_) => "INVALID_SEAL_FIELDS",
     };
     manifest_integrity_err(py, variant, detail)
 }

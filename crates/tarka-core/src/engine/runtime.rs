@@ -2,8 +2,8 @@
 //! optionally **seal** with [`KeyStore`] + [`crate::evidence::TarkaEvidence::seal`], and enforce auditability.
 //!
 //! Sealing runs **before** returning to FFI hosts (e.g. PyO3). When sealing is required (`fast_path == false`
-//! and the outcome is a full manifest), an empty **signature** after seal triggers a **panic** so
-//! unaudited successes cannot leave the engine.
+//! and the outcome is a full manifest), an empty **signature** after seal returns
+//! [`RuntimeError::InvalidSeal`] so unaudited successes cannot leave the engine.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -163,6 +163,8 @@ pub enum RuntimeError {
     TraceMerkleProof(#[from] crate::evidence::merkle::TraceMerkleError),
     #[error("protobuf encode of wire manifest failed: {0}")]
     WireEncode(String),
+    #[error("invalid seal: {0}")]
+    InvalidSeal(String),
 }
 
 /// Outcome after evaluation + optional wire seal (used by FFI).
@@ -179,10 +181,8 @@ pub struct FinalizedWireDecision {
 /// — when `fast_path` is **false** and the evaluation produced a **full** manifest — loads a signing key
 /// and calls [`TarkaEvidence::seal`].
 ///
-/// # Panics
-///
-/// If sealing was performed successfully ([`EvidenceError`] not returned) but the wire manifest’s
-/// **`signature`** is still empty, this function **panics** (`un-audited decision`).
+/// Returns [`RuntimeError::InvalidSeal`] if sealing completed without error but the wire manifest
+/// **`signature`** is still empty (engine audit invariant).
 pub fn finalize_decision_with_optional_seal<D: ExternalDataSource>(
     evaluator: &mut Evaluator<D>,
     data: &Value,
@@ -204,10 +204,7 @@ pub fn finalize_decision_with_optional_seal<D: ExternalDataSource>(
                     manifest: std::mem::take(&mut wire),
                 };
                 tarka.seal(&sk)?;
-                assert!(
-                    !tarka.manifest.signature.is_empty(),
-                    "un-audited decision: wire manifest signature empty after seal (engine audit invariant)"
-                );
+                ensure_wire_signature_after_seal(&tarka.manifest)?;
                 wire = tarka.manifest;
                 let proof = try_generate_trace_merkle_proof(&wire.trace)?;
                 wire.merkle_proof = Some(proof);
@@ -276,6 +273,16 @@ fn set_verdict_from_legacy(wire: &mut WireManifest, legacy: &LegacyManifest) {
         tags: vec![],
         latency_ns: elapsed_us.saturating_mul(1000),
     });
+}
+
+/// Post-seal invariant: a successful seal must populate a non-empty Ed25519 signature.
+pub(crate) fn ensure_wire_signature_after_seal(manifest: &WireManifest) -> Result<(), RuntimeError> {
+    if manifest.signature.is_empty() {
+        return Err(RuntimeError::InvalidSeal(
+            "Signature generated but empty".into(),
+        ));
+    }
+    Ok(())
 }
 
 fn legacy_manifest_to_wire(legacy: &LegacyManifest) -> Result<WireManifest, LegacyWireConvertError> {
@@ -380,6 +387,26 @@ mod tests {
             .expect("eval");
         assert!(!out.sealed);
         assert!(out.wire_manifest.signature.is_empty());
+    }
+
+    #[test]
+    fn test_empty_signature_returns_err_not_panic() {
+        let wire = WireManifest {
+            manifest_id: "550e8400-e29b-41d4-a716-446655440000".into(),
+            occurred_at_unix_ns: 0,
+            engine: None,
+            signals: Default::default(),
+            trace: vec![],
+            verdict: None,
+            merkle_root: vec![0u8; 32],
+            signature: vec![],
+            merkle_proof: None,
+        };
+        let err = ensure_wire_signature_after_seal(&wire).unwrap_err();
+        assert!(
+            matches!(err, RuntimeError::InvalidSeal(ref msg) if msg == "Signature generated but empty"),
+            "unexpected error: {err:?}"
+        );
     }
 
     #[test]

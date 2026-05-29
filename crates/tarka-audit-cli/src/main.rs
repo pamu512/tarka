@@ -25,7 +25,7 @@ struct RootCli {
 enum Command {
     /// Verify raw `.bin` wire manifest bytes against an Ed25519 public key (parity with Python `ManifestVerifier.verify_manifest_integrity`).
     Verify(VerifyCli),
-    /// Legacy: locate evidence by OpenTelemetry trace id in ClickHouse and verify the internal Merkle signature.
+    /// Locate evidence by OpenTelemetry trace id in ClickHouse and verify sealed wire manifest bytes.
     Trace(trace_audit::TraceCli),
 }
 
