@@ -46,10 +46,17 @@ def test_label_export_stream_deduplicates_normalized_labels_by_source() -> None:
         import tarka_shared.engine_rules  # noqa: F401
         import tarka_shared.fraud_rules  # noqa: F401
 
-        from orchestrator.models.normalized_labels import GroundTruthClass, NormalizedLabelDAO, NormalizedLabelORM
+        from orchestrator.models.normalized_labels import (
+            GroundTruthClass,
+            NormalizedLabelDAO,
+            NormalizedLabelORM,
+        )
         from orchestrator.models.operational_signals import OperationalSignalDAO
         from orchestrator.schemas.operational_signals import SignalType
-        from orchestrator.services.label_data_export import iter_label_export_records, parse_export_window
+        from orchestrator.services.label_data_export import (
+            iter_label_export_records,
+            parse_export_window,
+        )
         from tarka_shared.database.session import Base
 
         engine = create_async_engine(
@@ -125,7 +132,10 @@ def test_get_labels_export_jsonl_route(monkeypatch: pytest.MonkeyPatch) -> None:
     from starlette.testclient import TestClient
 
     from orchestrator.deps.v1_api_guard import V1_PROTECTED_ROUTE_DEPENDENCIES
-    from orchestrator.models.normalized_labels import GroundTruthClass, NormalizedLabelORM  # noqa: E402
+    from orchestrator.models.normalized_labels import (
+        GroundTruthClass,
+        NormalizedLabelORM,
+    )  # noqa: E402
     from orchestrator.routes.data_export import router as data_export_router
     from tarka_shared.database.session import Base  # noqa: E402
 
@@ -158,7 +168,9 @@ def test_get_labels_export_jsonl_route(monkeypatch: pytest.MonkeyPatch) -> None:
     app = FastAPI()
     app.state.audit_session_factory = fac
     app.state.v1_rate_limiter = None
-    app.include_router(data_export_router, prefix="/v1", dependencies=V1_PROTECTED_ROUTE_DEPENDENCIES)
+    app.include_router(
+        data_export_router, prefix="/v1", dependencies=V1_PROTECTED_ROUTE_DEPENDENCIES
+    )
 
     with TestClient(app) as client:
         r = client.get(

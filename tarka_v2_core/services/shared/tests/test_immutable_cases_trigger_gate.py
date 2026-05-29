@@ -22,7 +22,9 @@ _TRIGGER_SQL = _REPO_ROOT / "triggers" / "immutable_cases.sql"
 def pg_url() -> str:
     url = (os.environ.get("IMMUTABLE_CASES_PG_URL") or os.environ.get("DATABASE_URL") or "").strip()
     if not url or "postgresql" not in url.lower():
-        pytest.skip("Set IMMUTABLE_CASES_PG_URL or DATABASE_URL to a sync Postgres URL for this gate")
+        pytest.skip(
+            "Set IMMUTABLE_CASES_PG_URL or DATABASE_URL to a sync Postgres URL for this gate"
+        )
     return url.replace("+asyncpg", "").replace("+psycopg", "")
 
 
@@ -57,29 +59,25 @@ def test_graph_snapshot_update_raises_check_violation(pg_url: str) -> None:
     with psycopg.connect(pg_url, autocommit=True) as conn:
         conn.execute(ddl)
         conn.execute(_TRIGGER_SQL.read_text())
-        conn.execute(
-            """
+        conn.execute("""
             INSERT INTO public.cases (id, name, graph_snapshot)
             VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'gate-case', '{"k":0}'::jsonb)
-            """
-        )
+            """)
 
-        with pytest.raises(pg_errors.CheckViolation, match="immutable except status and assigned_to"):
-            conn.execute(
-                """
+        with pytest.raises(
+            pg_errors.CheckViolation, match="immutable except status and assigned_to"
+        ):
+            conn.execute("""
                 UPDATE public.cases
                 SET graph_snapshot = '{"mutated":true}'::jsonb
                 WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
-                """
-            )
+                """)
 
-        conn.execute(
-            """
+        conn.execute("""
             UPDATE public.cases
             SET status = 'UNDER_REVIEW', assigned_to = 'analyst-42'
             WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
-            """
-        )
+            """)
         row = conn.execute(
             "SELECT status, assigned_to FROM public.cases WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'"
         ).fetchone()

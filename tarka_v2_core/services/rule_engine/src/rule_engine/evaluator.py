@@ -54,7 +54,7 @@ def _transaction_field_value(
         raw = graph_context.get("graph_linked_to_blocked_count", 0)
         try:
             return int(raw)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return 0
     raise ValueError(f"unsupported FieldRef field {field_name!r}")
 

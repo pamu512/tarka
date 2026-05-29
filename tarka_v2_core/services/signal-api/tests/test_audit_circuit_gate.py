@@ -144,19 +144,36 @@ async def test_success_resets_consecutive_timeouts() -> None:
             return _Ctx()
 
     await durable_intent_handover(
-        pool=_SlowPool(), js=None, body=body, canonical_bytes=canon, integrity_hex="a" * 64, circuit=circuit
+        pool=_SlowPool(),
+        js=None,
+        body=body,
+        canonical_bytes=canon,
+        integrity_hex="a" * 64,
+        circuit=circuit,
     )
     await durable_intent_handover(
-        pool=_SlowPool(), js=None, body=body, canonical_bytes=canon, integrity_hex="a" * 64, circuit=circuit
+        pool=_SlowPool(),
+        js=None,
+        body=body,
+        canonical_bytes=canon,
+        integrity_hex="a" * 64,
+        circuit=circuit,
     )
     await durable_intent_handover(
-        pool=_Pool(), js=None, body=body, canonical_bytes=canon, integrity_hex="a" * 64, circuit=circuit
+        pool=_Pool(),
+        js=None,
+        body=body,
+        canonical_bytes=canon,
+        integrity_hex="a" * 64,
+        circuit=circuit,
     )
     assert not circuit.is_degraded()
 
 
 @pytest.mark.anyio
-async def test_ingest_returns_201_when_audit_postgres_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_ingest_returns_201_when_audit_postgres_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Redis fast-path: HTTP **201** even when background audit cannot use Postgres (simulated disconnect)."""
 
     class _DeadPool:
@@ -175,7 +192,9 @@ async def test_ingest_returns_201_when_audit_postgres_unavailable(monkeypatch: p
     app = FastAPI()
     app.state.redis = FakeAsyncRedis(decode_responses=True)
     app.state.audit_pool = _DeadPool()
-    app.state.audit_circuit = AuditPostgresCircuitBreaker(execute_timeout_sec=1.0, open_after_timeouts=5)
+    app.state.audit_circuit = AuditPostgresCircuitBreaker(
+        execute_timeout_sec=1.0, open_after_timeouts=5
+    )
     app.state.nats_js = None
     app.include_router(router, prefix="/v1/signals")
     transport = ASGITransport(app=app)

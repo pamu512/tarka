@@ -142,7 +142,9 @@ def test_v1_ingest_enqueues_graph_and_velocity_outbox_tasks(
     recording_graph_client: _RecordingGraphClient,
 ) -> None:
     entity_id = "22222222-2222-2222-2222-222222222222"
-    monkeypatch.setattr(httpx, "AsyncClient", lambda *a, **k: _EvalOnlyAsyncClient(entity_id=entity_id))
+    monkeypatch.setattr(
+        httpx, "AsyncClient", lambda *a, **k: _EvalOnlyAsyncClient(entity_id=entity_id)
+    )
 
     app = create_app(
         rule_engine_url="http://rules.test",

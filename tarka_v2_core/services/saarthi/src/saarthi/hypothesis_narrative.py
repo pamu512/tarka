@@ -183,7 +183,7 @@ def generate_hypothesis_narrative_gemini(
     facts = narrative_input_from_report(report)
     try:
         payload_json = json.dumps(facts, separators=(",", ":"), default=str)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     if len(payload_json) > _MAX_PAYLOAD_CHARS:
         payload_json = payload_json[:_MAX_PAYLOAD_CHARS]

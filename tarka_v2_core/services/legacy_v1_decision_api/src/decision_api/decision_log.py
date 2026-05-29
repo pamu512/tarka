@@ -109,9 +109,7 @@ def build_decision_log_record(
     artifact_manifest: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     payload = (
-        payload_snapshot
-        if settings.decision_log_include_payload_snapshot
-        else {"omitted": True}
+        payload_snapshot if settings.decision_log_include_payload_snapshot else {"omitted": True}
     )
     return {
         "schema_id": SCHEMA_ID,
@@ -153,8 +151,6 @@ async def emit_decision_log(record: dict[str, Any]) -> None:
 
     headers: dict[str, str] = {"content-type": "application/json"}
     if settings.decision_log_warehouse_api_key.strip():
-        headers["authorization"] = (
-            f"Bearer {settings.decision_log_warehouse_api_key.strip()}"
-        )
+        headers["authorization"] = f"Bearer {settings.decision_log_warehouse_api_key.strip()}"
     async with httpx.AsyncClient(timeout=3.0) as client:
         await client.post(warehouse_url, json=record_out, headers=headers)

@@ -68,7 +68,7 @@ def ui_transaction_schema_from_envelope(
     if isinstance(envelope, dict):
         try:
             amount = float(envelope.get("amount") or 0.0)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             amount = 0.0
     amount_cents = max(0, int(round(amount * 100)))
     channel = _coerce_channel(meta_map.get("channel") if meta_map else None)
@@ -100,8 +100,12 @@ def ui_transaction_schema_from_envelope(
         "ip_asn": ip_asn,
         "geo_country": geo[:8] if geo else "ZZ",
         "mcc": mcc,
-        "velocity_window_minutes": int(velocity_window) if isinstance(velocity_window, (int, float)) else 15,
-        "prior_declines_24h": int(prior_declines) if isinstance(prior_declines, (int, float)) else 0,
+        "velocity_window_minutes": (
+            int(velocity_window) if isinstance(velocity_window, (int, float)) else 15
+        ),
+        "prior_declines_24h": (
+            int(prior_declines) if isinstance(prior_declines, (int, float)) else 0
+        ),
         "metadata": meta_map,
     }
 
@@ -114,7 +118,7 @@ def ui_shadow_decision_from_agent(
     """Map Shadow agent JSON to UI ``ShadowDecision``."""
     try:
         risk = float(shadow.get("risk_score") or 0.0)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         risk = 0.0
     is_fraud = bool(shadow.get("is_fraud"))
     if is_fraud:
@@ -128,7 +132,11 @@ def ui_shadow_decision_from_agent(
     else:
         verdict = "clear"
     reasoning = shadow.get("reasoning")
-    risk_tags = [str(x) for x in reasoning if isinstance(x, str) and x.strip()][:8] if isinstance(reasoning, list) else []
+    risk_tags = (
+        [str(x) for x in reasoning if isinstance(x, str) and x.strip()][:8]
+        if isinstance(reasoning, list)
+        else []
+    )
     conf_metrics = shadow.get("confidence_metrics")
     counterfactuals = 0
     if isinstance(conf_metrics, dict):
@@ -201,13 +209,17 @@ async def fetch_decision_detail_payload(
         ).scalar_one_or_none()
 
         audit_rows = (
-            await session.execute(
-                select(AuditLog)
-                .where(AuditLog.case_id == tid)
-                .order_by(AuditLog.id.desc())
-                .limit(32)
+            (
+                await session.execute(
+                    select(AuditLog)
+                    .where(AuditLog.case_id == tid)
+                    .order_by(AuditLog.id.desc())
+                    .limit(32)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
     if decision_row is None and not audit_rows:
         return None
@@ -238,7 +250,11 @@ async def fetch_decision_detail_payload(
             if isinstance(raw_trace, list):
                 trace = raw_trace
 
-    if envelope is None and decision_row is not None and isinstance(decision_row.raw_rule_engine_json, dict):
+    if (
+        envelope is None
+        and decision_row is not None
+        and isinstance(decision_row.raw_rule_engine_json, dict)
+    ):
         raw_tx = decision_row.raw_rule_engine_json.get("transaction")
         if isinstance(raw_tx, dict):
             envelope = raw_tx

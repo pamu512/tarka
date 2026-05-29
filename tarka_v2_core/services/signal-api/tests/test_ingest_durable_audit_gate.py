@@ -91,9 +91,6 @@ async def test_audit_background_hmac_matches_canonical_payload(ingester_audit: A
     r = await ingester_audit.post("/v1/signals/ingest", json=body)
     assert r.status_code == 201
 
-    # BackgroundTasks run after response; wait for task completion.
-    await asyncio.sleep(0.15)
-
     assert _AuditCapture.last_execute is not None
     _q, args = _AuditCapture.last_execute
     entity_id, raw_payload, decision, integrity_hex, shadow_matches = args
@@ -125,7 +122,9 @@ async def test_postgres_audit_row_matches_hmac_optional_live_pg(
 ) -> None:
     dsn = (os.environ.get("SIGNAL_GATE_PG_URL") or "").strip()
     if not dsn:
-        pytest.skip("Set SIGNAL_GATE_PG_URL for live Postgres gate (see signal-api README pattern).")
+        pytest.skip(
+            "Set SIGNAL_GATE_PG_URL for live Postgres gate (see signal-api README pattern)."
+        )
 
     monkeypatch.setenv("SYSTEM_SECRET", "live-gate-secret-do-not-reuse")
 
@@ -133,8 +132,7 @@ async def test_postgres_audit_row_matches_hmac_optional_live_pg(
 
     conn = await asyncpg.connect(dsn)
     try:
-        await conn.execute(
-            """
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS audit_logs (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 entity_id UUID NOT NULL,
@@ -144,8 +142,7 @@ async def test_postgres_audit_row_matches_hmac_optional_live_pg(
                 integrity_signature VARCHAR(128),
                 shadow_matches JSONB
             )
-            """
-        )
+            """)
         await conn.execute("TRUNCATE audit_logs")
     finally:
         await conn.close()
@@ -166,19 +163,16 @@ async def test_postgres_audit_row_matches_hmac_optional_live_pg(
         r = await ac.post("/v1/signals/ingest", json=payload)
         assert r.status_code == 201
 
-    await asyncio.sleep(0.2)
     await pool.close()
 
     conn2 = await asyncpg.connect(dsn)
     try:
-        row = await conn2.fetchrow(
-            """
+        row = await conn2.fetchrow("""
             SELECT raw_payload, integrity_signature, created_at
             FROM audit_logs
             ORDER BY created_at DESC
             LIMIT 1
-            """
-        )
+            """)
         assert row is not None
         raw = row["raw_payload"]
         sig = row["integrity_signature"]

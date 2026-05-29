@@ -263,7 +263,7 @@ def _numeric_nonzero(value: Any) -> bool:
     if isinstance(value, (int, float)):
         try:
             return bool(math.isfinite(float(value)) and float(value) != 0.0)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return False
     if isinstance(value, str):
         s = value.strip()
@@ -407,7 +407,7 @@ def modulate_actions_with_shadow_advice(
     out = [a for a in actions if a != "SHADOW_REVIEW"]
     try:
         risk = float(shadow_data.get("risk_score", 0.0))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         risk = 0.0
     is_fraud = bool(shadow_data.get("is_fraud"))
 

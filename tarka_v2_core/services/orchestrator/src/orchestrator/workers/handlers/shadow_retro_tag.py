@@ -294,7 +294,9 @@ class ShadowRetroTagHandler(BaseOutboxHandler):
 
         async with self._deps.session_factory() as session:
             if parsed.signal_id is not None:
-                anchor, _signal = await _resolve_operational_anchor(session, signal_id=parsed.signal_id)
+                anchor, _signal = await _resolve_operational_anchor(
+                    session, signal_id=parsed.signal_id
+                )
             else:
                 assert parsed.case_id is not None and parsed.new_status is not None
                 anchor = await _resolve_case_anchor(
@@ -329,7 +331,9 @@ class ShadowRetroTagHandler(BaseOutboxHandler):
             )
         else:
             async with self._deps.session_factory() as session:
-                evidence = await load_evidence_manifest_snapshot(session, entity_id=parsed.entity_id)
+                evidence = await load_evidence_manifest_snapshot(
+                    session, entity_id=parsed.entity_id
+                )
             if not evidence.trace_steps and evidence.manifest_id is None:
                 logger.warning(
                     "shadow_retro_tag_no_manifest entity_id=%s source_type=%s source_id=%s",
@@ -469,7 +473,9 @@ class ShadowRetroTagHandler(BaseOutboxHandler):
             if callable(evaluate_fn):
                 tags = await evaluate_fn(manifest_payload, feedback_context)
             else:
-                from shadow_agent.retroactive_label import evaluate_retroactive_label  # noqa: PLC0415
+                from shadow_agent.retroactive_label import (
+                    evaluate_retroactive_label,
+                )  # noqa: PLC0415
 
                 async def _evaluate() -> list[str]:
                     return await evaluate_retroactive_label(
@@ -553,7 +559,9 @@ class ShadowRetroTagHandler(BaseOutboxHandler):
         if self._shadow_runtime_cache is not None:
             return self._shadow_runtime_cache
         try:
-            from shadow_agent.workers.runtime import bootstrap_shadow_investigate_runtime  # noqa: PLC0415
+            from shadow_agent.workers.runtime import (
+                bootstrap_shadow_investigate_runtime,
+            )  # noqa: PLC0415
         except ImportError as exc:
             raise RuntimeError(
                 "shadow retro tag handler requires shadow_agent package (pip install / PYTHONPATH)",

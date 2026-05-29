@@ -16,7 +16,10 @@ for _p in (_SRC_ORCH,):
 
 
 def test_build_transaction_velocity_incrby_commands_count_and_amount_keys() -> None:
-    from orchestrator.anumana_velocity import build_transaction_velocity_incrby_commands, device_hash_token
+    from orchestrator.anumana_velocity import (
+        build_transaction_velocity_incrby_commands,
+        device_hash_token,
+    )
 
     fp = "ab" * 32
     dtok = device_hash_token(fp)
@@ -40,7 +43,10 @@ def test_build_transaction_velocity_incrby_commands_count_and_amount_keys() -> N
 
 def test_apply_velocity_incrby_multi_exec_uses_multi_exec() -> None:
     async def _run() -> None:
-        from orchestrator.anumana_velocity import TransactionVelocityCommand, apply_velocity_incrby_multi_exec
+        from orchestrator.anumana_velocity import (
+            TransactionVelocityCommand,
+            apply_velocity_incrby_multi_exec,
+        )
 
         pipe = MagicMock()
         pipe.incrby = MagicMock(return_value=pipe)

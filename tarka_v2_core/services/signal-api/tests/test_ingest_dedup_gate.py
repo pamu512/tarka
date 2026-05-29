@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
+from unittest.mock import AsyncMock
+
 import pytest
 from fakeredis import FakeAsyncRedis
 from fastapi import FastAPI
@@ -26,6 +28,7 @@ async def ingester() -> AsyncClient:
     """Single asyncio loop — required for ``FakeAsyncRedis`` + ASGI."""
     app = FastAPI()
     app.state.redis = FakeAsyncRedis(decode_responses=True)
+    app.state.nats_js = AsyncMock()
     app.include_router(router, prefix="/v1/signals")
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

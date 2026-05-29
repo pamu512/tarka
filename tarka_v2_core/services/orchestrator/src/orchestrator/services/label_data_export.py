@@ -106,7 +106,9 @@ def _normalize_tags(raw: object) -> list[str]:
     return out
 
 
-def normalized_label_export_record(row: NormalizedLabelORM, *, window: LabelExportWindow) -> dict[str, Any]:
+def normalized_label_export_record(
+    row: NormalizedLabelORM, *, window: LabelExportWindow
+) -> dict[str, Any]:
     created_at = row.created_at
     if created_at.tzinfo is None:
         created_at = created_at.replace(tzinfo=UTC)
@@ -129,7 +131,9 @@ def normalized_label_export_record(row: NormalizedLabelORM, *, window: LabelExpo
     }
 
 
-def operational_signal_export_record(row: OperationalSignalORM, *, window: LabelExportWindow) -> dict[str, Any]:
+def operational_signal_export_record(
+    row: OperationalSignalORM, *, window: LabelExportWindow
+) -> dict[str, Any]:
     created_at = row.created_at
     if created_at.tzinfo is None:
         created_at = created_at.replace(tzinfo=UTC)
@@ -256,7 +260,9 @@ def export_media_type(export_format: LabelExportFormat) -> str:
     return "application/json"
 
 
-def export_content_disposition(*, window: LabelExportWindow, export_format: LabelExportFormat) -> str:
+def export_content_disposition(
+    *, window: LabelExportWindow, export_format: LabelExportFormat
+) -> str:
     start_token = window.start.date().isoformat()
     end_token = window.end.date().isoformat()
     ext = "jsonl" if export_format == LabelExportFormat.JSONL else "json"

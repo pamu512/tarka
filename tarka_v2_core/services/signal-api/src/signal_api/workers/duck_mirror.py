@@ -149,14 +149,23 @@ async def _nak_all(msgs: list[Any]) -> None:
 
 async def run_mirror_worker(*, stop: asyncio.Event | None = None) -> None:
     duck_path = (os.environ.get("SIGNAL_DUCKDB_PATH") or _DEFAULT_DUCK_PATH).strip()
-    flush_sec = max(0.25, float(os.environ.get("SIGNAL_DUCK_MIRROR_FLUSH_SEC", str(_DEFAULT_FLUSH_SEC))))
+    flush_sec = max(
+        0.25, float(os.environ.get("SIGNAL_DUCK_MIRROR_FLUSH_SEC", str(_DEFAULT_FLUSH_SEC)))
+    )
     nats_url = (os.environ.get("SIGNAL_NATS_URL") or os.environ.get("NATS_URL") or "").strip()
     subject = (os.environ.get("SIGNAL_NATS_SIGNALS_SUBJECT") or _DEFAULT_SUBJECT).strip()
     stream_name = (os.environ.get("SIGNAL_NATS_STREAM") or _DEFAULT_STREAM).strip()
     durable = (os.environ.get("SIGNAL_DUCK_MIRROR_DURABLE") or "duck-mirror").strip()
     max_batch = max(100, min(int(os.environ.get("SIGNAL_DUCK_MIRROR_MAX_BATCH", "10000")), 500_000))
-    ttl_days = max(1, int(os.environ.get("SIGNAL_DUCK_RAW_SIGNALS_TTL_DAYS", str(_DEFAULT_TTL_DAYS))))
-    ttl_interval = max(60.0, float(os.environ.get("SIGNAL_DUCK_MIRROR_TTL_INTERVAL_SEC", str(_DEFAULT_TTL_INTERVAL_SEC))))
+    ttl_days = max(
+        1, int(os.environ.get("SIGNAL_DUCK_RAW_SIGNALS_TTL_DAYS", str(_DEFAULT_TTL_DAYS)))
+    )
+    ttl_interval = max(
+        60.0,
+        float(
+            os.environ.get("SIGNAL_DUCK_MIRROR_TTL_INTERVAL_SEC", str(_DEFAULT_TTL_INTERVAL_SEC))
+        ),
+    )
 
     if not nats_url:
         raise RuntimeError("Set SIGNAL_NATS_URL or NATS_URL for the Duck mirror worker")
@@ -200,7 +209,9 @@ async def run_mirror_worker(*, stop: asyncio.Event | None = None) -> None:
                         return purge_expired_raw_signals(con, ttl_days=ttl_days)
 
                     removed = await asyncio.to_thread(_ttl)
-                    logger.info("duck_mirror_ttl_purge ttl_days=%s removed_rows=%s", ttl_days, removed)
+                    logger.info(
+                        "duck_mirror_ttl_purge ttl_days=%s removed_rows=%s", ttl_days, removed
+                    )
                 except Exception:
                     logger.exception("duck_mirror_ttl_purge_failed")
                 last_ttl = time.monotonic()
@@ -253,7 +264,9 @@ def main(argv: list[str] | None = None) -> None:
         format="%(levelname)s %(name)s %(message)s",
         stream=sys.stderr,
     )
-    parser = argparse.ArgumentParser(description="Mirror signals.raw JetStream into DuckDB raw_signals.")
+    parser = argparse.ArgumentParser(
+        description="Mirror signals.raw JetStream into DuckDB raw_signals."
+    )
     parser.parse_args(argv)
     try:
         asyncio.run(run_mirror_worker())

@@ -17,13 +17,19 @@ from orchestrator.analytics import business_context as biz_ctx  # noqa: E402
 
 class _UnreachableAnalytics:
     def marketplace_user_stats(self, user_id: str) -> dict[str, object]:
-        raise AssertionError("financial aggregation must not run when include_business_context=False")
+        raise AssertionError(
+            "financial aggregation must not run when include_business_context=False"
+        )
 
     def cluster_loss_for_device_hashes(self, device_hashes: object) -> dict[str, object]:
-        raise AssertionError("financial aggregation must not run when include_business_context=False")
+        raise AssertionError(
+            "financial aggregation must not run when include_business_context=False"
+        )
 
     def cluster_spend_velocity_for_network(self, **kwargs: object) -> dict[str, object]:
-        raise AssertionError("financial aggregation must not run when include_business_context=False")
+        raise AssertionError(
+            "financial aggregation must not run when include_business_context=False"
+        )
 
 
 def test_business_context_skips_financial_aggregations_by_default() -> None:
@@ -65,4 +71,6 @@ def test_transaction_ingest_never_calls_financial_aggregations() -> None:
             names.add(node.func.id)
         if isinstance(node, ast.Attribute):
             names.add(node.attr)
-    assert forbidden.isdisjoint(names), f"transaction_ingest references financial aggregations: {forbidden & names}"
+    assert forbidden.isdisjoint(
+        names
+    ), f"transaction_ingest references financial aggregations: {forbidden & names}"

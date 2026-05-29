@@ -106,7 +106,9 @@ def test_put_case_status_resolved_creates_normalized_label(
     )
 
     with TestClient(app) as client:
-        _seed_open_case(app, case_uuid=case_uuid, shadow_case_id=shadow_case_id, entity_id=entity_id)
+        _seed_open_case(
+            app, case_uuid=case_uuid, shadow_case_id=shadow_case_id, entity_id=entity_id
+        )
         r = client.put(
             f"/v1/cases/{case_uuid}/status",
             json={"status": resolved_status, "reason_code": "GATE_ANALYST_FINAL"},
@@ -159,7 +161,9 @@ def test_put_case_status_non_terminal_skips_normalized_label() -> None:
     )
 
     with TestClient(app) as client:
-        _seed_open_case(app, case_uuid=case_uuid, shadow_case_id=shadow_case_id, entity_id=entity_id)
+        _seed_open_case(
+            app, case_uuid=case_uuid, shadow_case_id=shadow_case_id, entity_id=entity_id
+        )
         r = client.put(
             f"/v1/cases/{case_uuid}/status",
             json={"status": "UNDER_REVIEW", "reason_code": "GATE_ANALYST_REVIEW"},
@@ -171,6 +175,8 @@ def test_put_case_status_non_terminal_skips_normalized_label() -> None:
             fac = app.state.audit_session_factory
             assert fac is not None
             async with fac() as s:
-                return int(await s.scalar(select(func.count()).select_from(NormalizedLabelORM)) or 0)
+                return int(
+                    await s.scalar(select(func.count()).select_from(NormalizedLabelORM)) or 0
+                )
 
         assert asyncio.run(_count_labels()) == 0

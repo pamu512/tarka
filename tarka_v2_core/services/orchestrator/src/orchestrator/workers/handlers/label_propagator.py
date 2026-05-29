@@ -273,7 +273,9 @@ class LabelPropagatorHandler(BaseOutboxHandler):
         if self._shadow_runtime_cache is not None:
             return self._shadow_runtime_cache
         try:
-            from shadow_agent.workers.runtime import bootstrap_shadow_investigate_runtime  # noqa: PLC0415
+            from shadow_agent.workers.runtime import (
+                bootstrap_shadow_investigate_runtime,
+            )  # noqa: PLC0415
         except ImportError as exc:
             raise RuntimeError(
                 "label propagator requires shadow_agent package (pip install / PYTHONPATH)",

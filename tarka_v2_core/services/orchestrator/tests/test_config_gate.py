@@ -13,7 +13,11 @@ _SRC_ORCH = Path(__file__).resolve().parents[1] / "src"
 if str(_SRC_ORCH) not in sys.path:
     sys.path.insert(0, str(_SRC_ORCH))
 
-from orchestrator.config import OrchestratorSettings, get_settings, reset_settings_cache  # noqa: E402
+from orchestrator.config import (
+    OrchestratorSettings,
+    get_settings,
+    reset_settings_cache,
+)  # noqa: E402
 from orchestrator.workers.outbox_processor import load_config  # noqa: E402
 
 
@@ -52,7 +56,9 @@ def test_operational_signal_constraint_settings_defaults() -> None:
     assert settings.operational_signal_reason_code_max_length == 32
 
 
-def test_rule_shadow_test_scorecard_threshold_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_rule_shadow_test_scorecard_threshold_from_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("RULE_SHADOW_TEST_HIGH_POSITIVE_RATE_THRESHOLD", "0.95")
     monkeypatch.setenv("RULE_SHADOW_TEST_COHORT_LIMIT", "500")
     reset_settings_cache()
