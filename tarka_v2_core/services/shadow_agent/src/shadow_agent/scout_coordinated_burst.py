@@ -230,28 +230,34 @@ def scan_coordinated_bursts(
             return out
 
         sql = f"""
-        WITH parsed AS (
+        WITH scan_bounds AS (
+            SELECT MAX(ingested_at) AS as_of_ts
+            FROM raw_signals
+        ),
+        parsed AS (
             SELECT
-                ingested_at,
-                CAST(session_id AS VARCHAR) AS session_id,
+                rs.ingested_at,
+                CAST(rs.session_id AS VARCHAR) AS session_id,
                 COALESCE(
-                    NULLIF(TRIM(json_extract_string(signal_json, '$.metadata.acc_id')), ''),
-                    NULLIF(TRIM(json_extract_string(signal_json, '$.acc_id')), ''),
-                    NULLIF(TRIM(json_extract_string(signal_json, '$.metadata.user_id')), ''),
-                    NULLIF(TRIM(json_extract_string(signal_json, '$.user_id')), ''),
-                    NULLIF(TRIM(json_extract_string(signal_json, '$.metadata.entity_id')), ''),
-                    CAST(session_id AS VARCHAR)
+                    NULLIF(TRIM(json_extract_string(rs.signal_json, '$.metadata.acc_id')), ''),
+                    NULLIF(TRIM(json_extract_string(rs.signal_json, '$.acc_id')), ''),
+                    NULLIF(TRIM(json_extract_string(rs.signal_json, '$.metadata.user_id')), ''),
+                    NULLIF(TRIM(json_extract_string(rs.signal_json, '$.user_id')), ''),
+                    NULLIF(TRIM(json_extract_string(rs.signal_json, '$.metadata.entity_id')), ''),
+                    CAST(rs.session_id AS VARCHAR)
                 ) AS acc_id,
                 NULLIF(TRIM(COALESCE(
-                    json_extract_string(signal_json, '$.ch'),
-                    json_extract_string(signal_json, '$.canvas_hash')
+                    json_extract_string(rs.signal_json, '$.ch'),
+                    json_extract_string(rs.signal_json, '$.canvas_hash')
                 )), '') AS canvas_hash,
                 NULLIF(TRIM(COALESCE(
-                    json_extract_string(signal_json, '$.wv'),
-                    json_extract_string(signal_json, '$.webgl_vendor')
+                    json_extract_string(rs.signal_json, '$.wv'),
+                    json_extract_string(rs.signal_json, '$.webgl_vendor')
                 )), '') AS webgl_vendor
-            FROM raw_signals
-            WHERE ingested_at >= (CURRENT_TIMESTAMP - INTERVAL '{int(lookback)}' HOUR)
+            FROM raw_signals rs
+            CROSS JOIN scan_bounds b
+            WHERE b.as_of_ts IS NOT NULL
+                AND rs.ingested_at >= (b.as_of_ts - INTERVAL '{int(lookback)}' HOUR)
         ),
         events AS (
             SELECT ingested_at, acc_id, 'canvas_hash' AS fp_kind, canvas_hash AS fp_value

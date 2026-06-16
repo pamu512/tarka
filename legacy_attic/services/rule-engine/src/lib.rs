@@ -785,7 +785,7 @@ fn install_tracing_python_bridge_py(logger: Bound<'_, PyAny>) -> PyResult<()> {
 #[pymodule]
 fn tarka_rule_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Safe for `tracing` → Python `logging` if events are emitted from Rust threads.
-    pyo3::prepare_freethreaded_python();
+    Python::initialize();
     ensure_tracing_installed();
     tracing::info!(target: "tarka_rule_engine", "tarka_rule_engine PyO3 module initialized");
 
