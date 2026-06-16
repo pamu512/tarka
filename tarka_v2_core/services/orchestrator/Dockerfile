@@ -16,7 +16,7 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 
 RUN apk add --no-cache build-base
 
-COPY packages/tarka-deploy-settings ../packages/tarka-deploy-settings
+COPY packages/tarka-deploy-settings /packages/tarka-deploy-settings
 COPY tarka_v2_core/services/orchestrator/pyproject.toml tarka_v2_core/services/orchestrator/README.md tarka_v2_core/services/orchestrator/requirements.txt ./services/orchestrator/
 COPY tarka_v2_core/services/orchestrator/src ./services/orchestrator/src
 COPY tarka_v2_core/services/ingestor/src ./services/ingestor/src
