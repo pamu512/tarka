@@ -21,10 +21,6 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  # Shadow main.py requires a non-empty key at import time for some tests; others inject their own.
-  SHADOW_API_KEY: ci-placeholder-not-for-production
-
 jobs:
   v2-sidecars:
     runs-on: ubuntu-latest
@@ -51,12 +47,12 @@ jobs:
       - name: Install tooling and editable sidecars
         run: |
           python -m pip install --upgrade pip
-          pip install ruff black pytest openai psutil
+          pip install ruff black pytest pytest-asyncio openai psutil
           # Install shared package first (file: deps in sidecar pyprojects resolve from repo root).
           pip install -e ./packages/tarka-deploy-settings
           pip install -e "./tarka_v2_core/services/shadow[dev]"
           (cd tarka_v2_core/services/rule_engine && pip install -e .)
-          (cd tarka_v2_core/services/orchestrator && pip install -e ".[janus]")
+          (cd tarka_v2_core/services/orchestrator && pip install -e ".[janus,dev]")
           pip install fakeredis
           pip install -e "./tarka_v2_core/services/saarthi[dev]"
           (cd tarka_v2_core/services/shadow_agent && pip install -e .)
@@ -98,6 +94,8 @@ jobs:
 
       - name: Pytest — Shadow Agent
         working-directory: tarka_v2_core/services/shadow_agent
+        env:
+          SHADOW_API_KEY: ci-placeholder-not-for-production
         run: pytest tests -q
 
       - name: Pytest — Saarthi (SAR PDF)

@@ -71,7 +71,7 @@ def test_v1_ingest_review_triggers_shadow_investigate_nats_message(
     mock_nc.jetstream = MagicMock(return_value=mock_js)
 
     monkeypatch.setattr(
-        "orchestrator.queues.shadow_dispatch.ensure_shadow_investigate_stream",
+        "orchestrator.messaging.shadow_investigate_jetstream.ensure_shadow_investigate_stream",
         AsyncMock(),
     )
     monkeypatch.setattr(
@@ -126,7 +126,7 @@ def test_review_decision_via_decision_field_only_still_dispatches(
     mock_nc = AsyncMock()
     mock_nc.jetstream = MagicMock(return_value=mock_js)
     monkeypatch.setattr(
-        "orchestrator.queues.shadow_dispatch.ensure_shadow_investigate_stream",
+        "orchestrator.messaging.shadow_investigate_jetstream.ensure_shadow_investigate_stream",
         AsyncMock(),
     )
     monkeypatch.setattr(
