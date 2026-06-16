@@ -69,6 +69,3 @@ jobs:
         run: |
           source "${GITHUB_WORKSPACE}/.venv/bin/activate"
           python -m pytest tests/test_integrity_parity.py -v --tb=short
-        env:
-          # Generated wire stubs live under python/tarka/...
-          PYTHONPATH: python

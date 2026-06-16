@@ -52,6 +52,17 @@ class _RuleOnlyClient:
         self.post_calls.append((url, json or {}))
         if "/v1/evaluate" in url:
             return _DummyUpstreamResponse(self._evaluate_json)
+        if "/v1/analyze" in url:
+            return _DummyUpstreamResponse(
+                {
+                    "transaction_id": str((json or {}).get("transaction", {}).get("entity_id", "")),
+                    "risk_score": 80.0,
+                    "is_fraud": False,
+                    "reasoning": ["mock"],
+                    "confidence_metrics": {},
+                    "ai_reasoning": "mock",
+                },
+            )
         raise AssertionError(f"unexpected post url: {url!r}")
 
 
@@ -86,7 +97,8 @@ def test_chargeback_ingest_links_session_and_tags_dispute(monkeypatch: pytest.Mo
 
     app = create_app(
         rule_engine_url="http://rules.test",
-        shadow_agent_url=None,
+        shadow_agent_url="http://shadow.test",
+        shadow_api_key="unit-test-token",
         audit_database_url="sqlite+aiosqlite:///:memory:",
     )
 
@@ -140,6 +152,6 @@ def test_chargeback_ingest_links_session_and_tags_dispute(monkeypatch: pytest.Mo
                 )
 
         row = asyncio.run(_load_case())
-    assert row is not None
-    assert row.linked_session_id == "sess-checkout-orig-122"
-    assert row.case_labels == ["Dispute"]
+        assert row is not None
+        assert row.linked_session_id == "sess-checkout-orig-122"
+        assert row.case_labels == ["Dispute"]
