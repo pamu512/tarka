@@ -1,5 +1,5 @@
-# Context directory: `tarka_v2_core/`
-#   docker build -f services/orchestrator/Dockerfile -t tarka-orchestrator:dev .
+# Context directory: repository root
+#   docker build -f tarka_v2_core/services/orchestrator/Dockerfile -t tarka-orchestrator:dev .
 
 ARG PYTHON_VERSION=3.12
 
@@ -8,7 +8,7 @@ ARG PYTHON_VERSION=3.12
 # -----------------------------------------------------------------------------
 FROM python:${PYTHON_VERSION}-alpine AS builder
 
-WORKDIR /build
+WORKDIR /build/tarka_v2_core
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -16,11 +16,12 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 
 RUN apk add --no-cache build-base
 
-COPY services/orchestrator/pyproject.toml services/orchestrator/README.md services/orchestrator/requirements.txt ./services/orchestrator/
-COPY services/orchestrator/src ./services/orchestrator/src
-COPY services/ingestor/src ./services/ingestor/src
-COPY services/rule_engine/pyproject.toml services/rule_engine/README.md ./services/rule_engine/
-COPY services/rule_engine/src ./services/rule_engine/src
+COPY packages/tarka-deploy-settings ../packages/tarka-deploy-settings
+COPY tarka_v2_core/services/orchestrator/pyproject.toml tarka_v2_core/services/orchestrator/README.md tarka_v2_core/services/orchestrator/requirements.txt ./services/orchestrator/
+COPY tarka_v2_core/services/orchestrator/src ./services/orchestrator/src
+COPY tarka_v2_core/services/ingestor/src ./services/ingestor/src
+COPY tarka_v2_core/services/rule_engine/pyproject.toml tarka_v2_core/services/rule_engine/README.md ./services/rule_engine/
+COPY tarka_v2_core/services/rule_engine/src ./services/rule_engine/src
 
 RUN python -m pip install --upgrade pip setuptools wheel \
     && python -m pip install --prefix=/install --no-cache-dir ./services/rule_engine \
@@ -45,9 +46,9 @@ RUN apk add --no-cache libstdc++ \
 COPY --from=builder /install/lib/python3.12/site-packages \
     /usr/local/lib/python3.12/site-packages
 
-COPY services/ingestor/src ./services/ingestor/src
-COPY services/rule_engine/src ./services/rule_engine/src
-COPY services/shared/tarka_shared ./services/shared/tarka_shared
+COPY tarka_v2_core/services/ingestor/src ./services/ingestor/src
+COPY tarka_v2_core/services/rule_engine/src ./services/rule_engine/src
+COPY tarka_v2_core/services/shared/tarka_shared ./services/shared/tarka_shared
 
 USER tarka
 

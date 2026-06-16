@@ -1,9 +1,9 @@
-# Context directory: `tarka_v2_core/`
-#   docker build -f services/shadow_agent/Dockerfile -t tarka-shadow-agent:dev .
+# Context directory: repository root
+#   docker build -f tarka_v2_core/services/shadow_agent/Dockerfile -t tarka-shadow-agent:dev .
 
 FROM python:3.12-alpine AS builder
 
-WORKDIR /build
+WORKDIR /build/tarka_v2_core
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -11,10 +11,11 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 
 RUN apk add --no-cache build-base
 
-COPY services/shadow_agent/pyproject.toml services/shadow_agent/README.md ./services/shadow_agent/
-COPY services/shadow_agent/src ./services/shadow_agent/src
-COPY services/ingestor/src ./services/ingestor/src
-COPY services/shared/tarka_shared ./services/shared/tarka_shared
+COPY packages/tarka-deploy-settings ../packages/tarka-deploy-settings
+COPY tarka_v2_core/services/shadow_agent/pyproject.toml tarka_v2_core/services/shadow_agent/README.md ./services/shadow_agent/
+COPY tarka_v2_core/services/shadow_agent/src ./services/shadow_agent/src
+COPY tarka_v2_core/services/ingestor/src ./services/ingestor/src
+COPY tarka_v2_core/services/shared/tarka_shared ./services/shared/tarka_shared
 
 RUN python -m pip install --upgrade pip setuptools wheel \
     && python -m pip install --prefix=/install --no-cache-dir "./services/shadow_agent" \
@@ -35,8 +36,8 @@ RUN apk add --no-cache libstdc++ \
 COPY --from=builder /install/lib/python3.12/site-packages \
     /usr/local/lib/python3.12/site-packages
 
-COPY services/ingestor/src ./services/ingestor/src
-COPY services/shared/tarka_shared ./services/shared/tarka_shared
+COPY tarka_v2_core/services/ingestor/src ./services/ingestor/src
+COPY tarka_v2_core/services/shared/tarka_shared ./services/shared/tarka_shared
 
 USER tarka
 
