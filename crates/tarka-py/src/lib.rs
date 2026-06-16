@@ -262,7 +262,7 @@ fn evaluate(
     } else {
         HashMap::new()
     };
-    match py.allow_threads(|| {
+    match py.detach(|| {
         evaluate_inner_owned(
             rule_json,
             data_json,
@@ -435,7 +435,7 @@ fn dict_to_string_vec_map(d: &Bound<'_, PyDict>) -> PyResult<HashMap<String, Vec
     let mut out = HashMap::new();
     for (k, v) in d.iter() {
         let key: String = k.extract()?;
-        let list = v.downcast::<PyList>().map_err(|_| {
+        let list = v.cast::<PyList>().map_err(|_| {
             PyErr::new::<PyTypeError, _>(format!(
                 "mock_lists[{key:?}] expected list"
             ))

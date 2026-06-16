@@ -93,7 +93,7 @@ def test_label_export_stream_deduplicates_normalized_labels_by_source() -> None:
                         created_at=datetime(2026, 5, 2, 12, 0, 0, tzinfo=UTC),
                     ),
                 )
-                await OperationalSignalDAO.create(
+                signal_row = await OperationalSignalDAO.create(
                     session,
                     idempotency_key="cb:entity-1:4853",
                     target_entity_id=_ENTITY_ID,
@@ -105,6 +105,7 @@ def test_label_export_stream_deduplicates_normalized_labels_by_source() -> None:
                         "card_network": "VISA",
                     },
                 )
+                signal_row.created_at = datetime(2026, 5, 2, 14, 0, 0, tzinfo=UTC)
 
         window = parse_export_window(start_date="2026-05-01", end_date="2026-05-31")
         rows = [row async for row in iter_label_export_records(fac, window=window)]
