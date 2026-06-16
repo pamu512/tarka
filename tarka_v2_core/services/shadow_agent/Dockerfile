@@ -11,7 +11,7 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 
 RUN apk add --no-cache build-base
 
-COPY packages/tarka-deploy-settings ../packages/tarka-deploy-settings
+COPY packages/tarka-deploy-settings /packages/tarka-deploy-settings
 COPY tarka_v2_core/services/shadow_agent/pyproject.toml tarka_v2_core/services/shadow_agent/README.md ./services/shadow_agent/
 COPY tarka_v2_core/services/shadow_agent/src ./services/shadow_agent/src
 COPY tarka_v2_core/services/ingestor/src ./services/ingestor/src
