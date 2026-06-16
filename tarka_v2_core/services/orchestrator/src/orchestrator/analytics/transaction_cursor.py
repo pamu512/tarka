@@ -20,7 +20,7 @@ def decode_transaction_cursor(cursor: str | None) -> tuple[str, str, float] | No
     try:
         raw = base64.urlsafe_b64decode((cursor + pad).encode("ascii"))
         obj = json.loads(raw.decode("utf-8"))
-    except ValueError, json.JSONDecodeError, UnicodeDecodeError:
+    except (ValueError, json.JSONDecodeError, UnicodeDecodeError):
         return None
     if not isinstance(obj, dict):
         return None

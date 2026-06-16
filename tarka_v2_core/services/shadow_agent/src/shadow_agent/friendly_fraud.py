@@ -305,7 +305,7 @@ async def build_friendly_fraud_signals(
     hint_raw = (graph_context or {}).get("prior_successful_orders_same_ip")
     try:
         prior_hint = int(hint_raw) if hint_raw is not None else 0
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         prior_hint = 0
     prior_orders = max(prior_db, prior_hint)
 
@@ -366,7 +366,7 @@ def apply_friendly_fraud_post_rules(
         return decision
     try:
         prior = int(signals.get("prior_successful_orders_same_ip") or 0)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         prior = 0
     if prior < 10:
         return decision
