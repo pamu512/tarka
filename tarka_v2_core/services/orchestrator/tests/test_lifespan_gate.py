@@ -28,8 +28,10 @@ def test_lifespan_skips_background_audit_poll_task() -> None:
 
 
 def test_lifespan_bootstraps_jetstream_when_nats_url_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    from orchestrator.config import get_settings
     from orchestrator.main import create_app
 
+    get_settings.cache_clear()
     monkeypatch.setenv("NATS_URL", "nats://127.0.0.1:4222")
 
     mock_js = AsyncMock()

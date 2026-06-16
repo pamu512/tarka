@@ -55,22 +55,23 @@ def test_legacy_ai_feedback_bridges_to_operational_signals(monkeypatch: pytest.M
     }
     with TestClient(app) as client:
         r = client.post("/v1/ai/feedback", json=payload)
-    assert r.status_code == 202, r.text
-    body = r.json()
-    assert body["ok"] is True
-    assert body["deprecated"] is True
-    assert body["successor"] == "/v1/operational-signals"
-    assert body["event_id"] == body["feedback_id"]
-    assert r.headers.get("Deprecation") == "true"
-    assert "operational-signals" in (r.headers.get("Link") or "")
+        assert r.status_code == 202, r.text
+        body = r.json()
+        assert body["ok"] is True
+        assert body["deprecated"] is True
+        assert body["successor"] == "/v1/operational-signals"
+        assert body["event_id"] == body["feedback_id"]
+        assert r.headers.get("Deprecation") == "true"
+        assert "operational-signals" in (r.headers.get("Link") or "")
 
-    async def _count_rows() -> int:
         fac = app.state.audit_session_factory
         assert fac is not None
-        async with fac() as session:
-            return len((await session.scalars(select(OperationalSignalORM))).all())
 
-    assert asyncio.run(_count_rows()) == 1
+        async def _count_rows() -> int:
+            async with fac() as session:
+                return len((await session.scalars(select(OperationalSignalORM))).all())
+
+        assert asyncio.run(_count_rows()) == 1
 
 
 def test_legacy_consortium_feedback_bridges_to_operational_signals(
@@ -98,23 +99,24 @@ def test_legacy_consortium_feedback_bridges_to_operational_signals(
                 "outcome": "confirmed_fraud",
             },
         )
-    assert r.status_code == 202, r.text
-    body = r.json()
-    assert body["ok"] is True
-    assert body["signal_hash"]
-    assert body["event_id"]
+        assert r.status_code == 202, r.text
+        body = r.json()
+        assert body["ok"] is True
+        assert body["signal_hash"]
+        assert body["event_id"]
 
-    async def _fetch_row() -> OperationalSignalORM:
         fac = app.state.audit_session_factory
         assert fac is not None
-        async with fac() as session:
-            row = (await session.scalars(select(OperationalSignalORM))).first()
-        assert row is not None
-        return row
 
-    row = asyncio.run(_fetch_row())
-    assert row.signal_type == "MANUAL_OVERRIDE"
-    assert row.metadata_json["reason_code"] == "CONFIRMED_FRAUD"
+        async def _fetch_row() -> OperationalSignalORM:
+            async with fac() as session:
+                row = (await session.scalars(select(OperationalSignalORM))).first()
+            assert row is not None
+            return row
+
+        row = asyncio.run(_fetch_row())
+        assert row.signal_type == "MANUAL_OVERRIDE"
+        assert row.metadata_json["reason_code"] == "CONFIRMED_FRAUD"
 
 
 def test_legacy_copilot_feedback_bridges_to_operational_signals(

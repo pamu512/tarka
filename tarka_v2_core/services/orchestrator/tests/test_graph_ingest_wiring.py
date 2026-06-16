@@ -163,22 +163,24 @@ def test_v1_ingest_enqueues_graph_and_velocity_outbox_tasks(
         r = client.post("/v1/ingest", json=body)
         assert r.status_code == 200
 
-    async def _fetch_outbox() -> list[OutboxORM]:
         fac = app.state.audit_session_factory
-        async with fac() as session:
-            rows = (
-                await session.scalars(
-                    select(OutboxORM)
-                    .where(
-                        OutboxORM.idempotency_key.like(f"graph_ingest:{entity_id}:%")
-                        | OutboxORM.idempotency_key.like(f"velocity_update:{entity_id}:%"),
-                    )
-                    .order_by(OutboxORM.event_type.asc())
-                )
-            ).all()
-            return list(rows)
+        assert fac is not None
 
-    rows = asyncio.run(_fetch_outbox())
+        async def _fetch_outbox() -> list[OutboxORM]:
+            async with fac() as session:
+                rows = (
+                    await session.scalars(
+                        select(OutboxORM)
+                        .where(
+                            OutboxORM.idempotency_key.like(f"graph_ingest:{entity_id}:%")
+                            | OutboxORM.idempotency_key.like(f"velocity_update:{entity_id}:%"),
+                        )
+                        .order_by(OutboxORM.event_type.asc())
+                    )
+                ).all()
+                return list(rows)
+
+        rows = asyncio.run(_fetch_outbox())
     assert len(rows) == 2
     by_type = {row.event_type: row for row in rows}
     graph_row = by_type[OUTBOX_EVENT_GRAPH_INGEST]
