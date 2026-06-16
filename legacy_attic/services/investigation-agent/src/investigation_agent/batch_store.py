@@ -94,7 +94,9 @@ def _write_disk_record(rec: dict[str, Any]) -> None:
         "rows": rec.get("rows") or [],
         "row_count": int(rec.get("row_count") or 0),
     }
-    target.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")  # codeql[py/path-injection]
+    target.write_text(
+        json.dumps(payload, separators=(",", ":")), encoding="utf-8"
+    )  # codeql[py/path-injection]
 
 
 def _read_disk_record(batch_id: str) -> dict[str, Any] | None:
