@@ -116,12 +116,11 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build sidecar images
-        working-directory: tarka_v2_core
         run: |
           set -eux
-          docker build -f services/orchestrator/Dockerfile -t tarka-orchestrator:ci .
-          docker build -f services/rule_engine/Dockerfile -t tarka-rule-engine:ci .
-          docker build -f services/shadow_agent/Dockerfile -t tarka-shadow-agent:ci .
+          docker build -f tarka_v2_core/services/orchestrator/Dockerfile -t tarka-orchestrator:ci .
+          docker build -f tarka_v2_core/services/rule_engine/Dockerfile -t tarka-rule-engine:ci .
+          docker build -f tarka_v2_core/services/shadow_agent/Dockerfile -t tarka-shadow-agent:ci .
 
       - name: Trivy — Orchestrator
         uses: aquasecurity/trivy-action@v0.36.0
