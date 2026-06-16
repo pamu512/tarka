@@ -81,7 +81,7 @@ async def _transactions_from_audit_logs(
             continue
         try:
             amount = float(amt)
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             continue
         if not amount > 0:
             continue

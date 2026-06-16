@@ -3,155 +3,129 @@
 isort:skip_file
 """
 
-from collections import abc as _abc
-from google.protobuf import descriptor as _descriptor
-from google.protobuf import message as _message
-from google.protobuf.internal import containers as _containers
-import builtins as _builtins
-import sys
-import typing as _typing
+import builtins
+import collections.abc
+import google.protobuf.descriptor
+import google.protobuf.internal.containers
+import google.protobuf.message
+import typing
 
-if sys.version_info >= (3, 11):
-    from typing import TypeAlias as _TypeAlias, Never as _Never
-else:
-    from typing_extensions import TypeAlias as _TypeAlias, Never as _Never
+DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
-DESCRIPTOR: _descriptor.FileDescriptor
-
-@_typing.final
-class SignalResolutionRequest(_message.Message):
+@typing.final
+class SignalResolutionRequest(google.protobuf.message.Message):
     """---------------------------------------------------------------------------
     SignalService — unary resolution plus a cheap liveness/metadata ping.
     ---------------------------------------------------------------------------
     """
 
-    DESCRIPTOR: _descriptor.Descriptor
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
-    TRACE_ID_FIELD_NUMBER: _builtins.int
-    TENANT_ID_FIELD_NUMBER: _builtins.int
-    SIGNAL_NAMES_FIELD_NUMBER: _builtins.int
-    EVALUATION_CONTEXT_JSON_FIELD_NUMBER: _builtins.int
-    trace_id: _builtins.str
+    TRACE_ID_FIELD_NUMBER: builtins.int
+    TENANT_ID_FIELD_NUMBER: builtins.int
+    SIGNAL_NAMES_FIELD_NUMBER: builtins.int
+    EVALUATION_CONTEXT_JSON_FIELD_NUMBER: builtins.int
+    trace_id: builtins.str
     """Correlates downstream logs with decision/evaluation traces (W3C trace id hex, etc.)."""
-    tenant_id: _builtins.str
+    tenant_id: builtins.str
     """Tenant / realm identifier for isolation and routing."""
-    evaluation_context_json: _builtins.bytes
+    evaluation_context_json: builtins.bytes
     """Opaque JSON blob: evaluation payload slice the provider may need (bounded by policy at callers)."""
-    @_builtins.property
-    def signal_names(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+    @property
+    def signal_names(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
         """Logical signal identifiers (e.g. feature store keys) to resolve in one round-trip."""
 
     def __init__(
         self,
         *,
-        trace_id: _builtins.str = ...,
-        tenant_id: _builtins.str = ...,
-        signal_names: _abc.Iterable[_builtins.str] | None = ...,
-        evaluation_context_json: _builtins.bytes = ...,
+        trace_id: builtins.str = ...,
+        tenant_id: builtins.str = ...,
+        signal_names: collections.abc.Iterable[builtins.str] | None = ...,
+        evaluation_context_json: builtins.bytes = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
-    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["evaluation_context_json", b"evaluation_context_json", "signal_names", b"signal_names", "tenant_id", b"tenant_id", "trace_id", b"trace_id"]  # noqa: Y015
-    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-    def WhichOneof(self, oneof_group: _Never) -> None: ...
+    def ClearField(self, field_name: typing.Literal["evaluation_context_json", b"evaluation_context_json", "signal_names", b"signal_names", "tenant_id", b"tenant_id", "trace_id", b"trace_id"]) -> None: ...
 
-Global___SignalResolutionRequest: _TypeAlias = SignalResolutionRequest  # noqa: Y015
+global___SignalResolutionRequest = SignalResolutionRequest
 
-@_typing.final
-class ResolvedSignal(_message.Message):
-    DESCRIPTOR: _descriptor.Descriptor
+@typing.final
+class ResolvedSignal(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
-    NAME_FIELD_NUMBER: _builtins.int
-    OK_FIELD_NUMBER: _builtins.int
-    PAYLOAD_JSON_FIELD_NUMBER: _builtins.int
-    ERROR_CODE_FIELD_NUMBER: _builtins.int
-    ERROR_DETAIL_FIELD_NUMBER: _builtins.int
-    name: _builtins.str
-    ok: _builtins.bool
-    payload_json: _builtins.bytes
+    NAME_FIELD_NUMBER: builtins.int
+    OK_FIELD_NUMBER: builtins.int
+    PAYLOAD_JSON_FIELD_NUMBER: builtins.int
+    ERROR_CODE_FIELD_NUMBER: builtins.int
+    ERROR_DETAIL_FIELD_NUMBER: builtins.int
+    name: builtins.str
+    ok: builtins.bool
+    payload_json: builtins.bytes
     """JSON-encoded value when ok; empty when not ok unless partial payloads are contractually allowed."""
-    error_code: _builtins.str
+    error_code: builtins.str
     """Stable machine-readable reason when ok is false (e.g. SIGNAL_NOT_FOUND, UPSTREAM_TIMEOUT)."""
-    error_detail: _builtins.str
+    error_detail: builtins.str
     def __init__(
         self,
         *,
-        name: _builtins.str = ...,
-        ok: _builtins.bool = ...,
-        payload_json: _builtins.bytes = ...,
-        error_code: _builtins.str = ...,
-        error_detail: _builtins.str = ...,
+        name: builtins.str = ...,
+        ok: builtins.bool = ...,
+        payload_json: builtins.bytes = ...,
+        error_code: builtins.str = ...,
+        error_detail: builtins.str = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
-    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["error_code", b"error_code", "error_detail", b"error_detail", "name", b"name", "ok", b"ok", "payload_json", b"payload_json"]  # noqa: Y015
-    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-    def WhichOneof(self, oneof_group: _Never) -> None: ...
+    def ClearField(self, field_name: typing.Literal["error_code", b"error_code", "error_detail", b"error_detail", "name", b"name", "ok", b"ok", "payload_json", b"payload_json"]) -> None: ...
 
-Global___ResolvedSignal: _TypeAlias = ResolvedSignal  # noqa: Y015
+global___ResolvedSignal = ResolvedSignal
 
-@_typing.final
-class SignalResolutionResponse(_message.Message):
-    DESCRIPTOR: _descriptor.Descriptor
+@typing.final
+class SignalResolutionResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
-    SIGNALS_FIELD_NUMBER: _builtins.int
-    PROVIDER_LATENCY_MS_FIELD_NUMBER: _builtins.int
-    provider_latency_ms: _builtins.int
+    SIGNALS_FIELD_NUMBER: builtins.int
+    PROVIDER_LATENCY_MS_FIELD_NUMBER: builtins.int
+    provider_latency_ms: builtins.int
     """Optional hint: provider-side processing time excluding network to caller."""
-    @_builtins.property
-    def signals(self) -> _containers.RepeatedCompositeFieldContainer[Global___ResolvedSignal]: ...
+    @property
+    def signals(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___ResolvedSignal]: ...
     def __init__(
         self,
         *,
-        signals: _abc.Iterable[Global___ResolvedSignal] | None = ...,
-        provider_latency_ms: _builtins.int = ...,
+        signals: collections.abc.Iterable[global___ResolvedSignal] | None = ...,
+        provider_latency_ms: builtins.int = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
-    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["provider_latency_ms", b"provider_latency_ms", "signals", b"signals"]  # noqa: Y015
-    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-    def WhichOneof(self, oneof_group: _Never) -> None: ...
+    def ClearField(self, field_name: typing.Literal["provider_latency_ms", b"provider_latency_ms", "signals", b"signals"]) -> None: ...
 
-Global___SignalResolutionResponse: _TypeAlias = SignalResolutionResponse  # noqa: Y015
+global___SignalResolutionResponse = SignalResolutionResponse
 
-@_typing.final
-class PingRequest(_message.Message):
-    DESCRIPTOR: _descriptor.Descriptor
+@typing.final
+class PingRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
-    CALLER_SERVICE_FIELD_NUMBER: _builtins.int
-    caller_service: _builtins.str
+    CALLER_SERVICE_FIELD_NUMBER: builtins.int
+    caller_service: builtins.str
     """Calling service name for debugging (e.g. decision-api)."""
     def __init__(
         self,
         *,
-        caller_service: _builtins.str = ...,
+        caller_service: builtins.str = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
-    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["caller_service", b"caller_service"]  # noqa: Y015
-    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-    def WhichOneof(self, oneof_group: _Never) -> None: ...
+    def ClearField(self, field_name: typing.Literal["caller_service", b"caller_service"]) -> None: ...
 
-Global___PingRequest: _TypeAlias = PingRequest  # noqa: Y015
+global___PingRequest = PingRequest
 
-@_typing.final
-class PongResponse(_message.Message):
-    DESCRIPTOR: _descriptor.Descriptor
+@typing.final
+class PongResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
-    CALLEE_SERVICE_FIELD_NUMBER: _builtins.int
-    BUILD_VERSION_FIELD_NUMBER: _builtins.int
-    callee_service: _builtins.str
-    build_version: _builtins.str
+    CALLEE_SERVICE_FIELD_NUMBER: builtins.int
+    BUILD_VERSION_FIELD_NUMBER: builtins.int
+    callee_service: builtins.str
+    build_version: builtins.str
     def __init__(
         self,
         *,
-        callee_service: _builtins.str = ...,
-        build_version: _builtins.str = ...,
+        callee_service: builtins.str = ...,
+        build_version: builtins.str = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
-    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["build_version", b"build_version", "callee_service", b"callee_service"]  # noqa: Y015
-    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-    def WhichOneof(self, oneof_group: _Never) -> None: ...
+    def ClearField(self, field_name: typing.Literal["build_version", b"build_version", "callee_service", b"callee_service"]) -> None: ...
 
-Global___PongResponse: _TypeAlias = PongResponse  # noqa: Y015
+global___PongResponse = PongResponse

@@ -115,7 +115,7 @@ def _read_int_property(client: JanusGraphClient, vertex: Any, prop: str) -> int 
         return None
     try:
         return int(values[0])
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return None
 
 
@@ -184,7 +184,7 @@ def _edge_matches_audit_log(
         return False
     try:
         return int(rows[0]) == audit_log_id
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return False
 
 

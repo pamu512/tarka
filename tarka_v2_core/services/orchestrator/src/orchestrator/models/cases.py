@@ -279,7 +279,7 @@ def priority_from_scores(*, rule_score: float | None = None, ai_score: float | N
             continue
         try:
             v = float(raw)
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             continue
         if v == v and 0.0 <= v <= 100.0:  # not NaN
             candidates.append(v)

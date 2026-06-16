@@ -68,7 +68,7 @@ def ui_transaction_schema_from_envelope(
     if isinstance(envelope, dict):
         try:
             amount = float(envelope.get("amount") or 0.0)
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             amount = 0.0
     amount_cents = max(0, int(round(amount * 100)))
     channel = _coerce_channel(meta_map.get("channel") if meta_map else None)
@@ -118,7 +118,7 @@ def ui_shadow_decision_from_agent(
     """Map Shadow agent JSON to UI ``ShadowDecision``."""
     try:
         risk = float(shadow.get("risk_score") or 0.0)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         risk = 0.0
     is_fraud = bool(shadow.get("is_fraud"))
     if is_fraud:

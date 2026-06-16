@@ -98,7 +98,7 @@ async def _upsert_lifecycle_case_from_payload(
     entity_id = str(body["entity_id"])
     try:
         prio = int(body.get("priority_hint") or 0)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         prio = 0
     prio = max(0, min(100, prio))
 
@@ -174,7 +174,7 @@ def _orchestrator_audit_payload(
     if isinstance(shadow_data, dict) and shadow_data.get("risk_score") is not None:
         try:
             rs = float(shadow_data["risk_score"])
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             rs = None
     prio = priority_from_scores(
         rule_score=(
@@ -317,7 +317,7 @@ async def process_new_audit_logs(session: AsyncSession) -> None:
         max_id = max(max_id, int(log.id))
         try:
             body = json.loads(log.action_taken)
-        except json.JSONDecodeError, TypeError, ValueError:
+        except (json.JSONDecodeError, TypeError, ValueError):
             continue
         if not isinstance(body, dict):
             continue

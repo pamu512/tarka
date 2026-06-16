@@ -499,7 +499,7 @@ class LocalAnalytics(AnalyticsProvider):
         if promo_avg is not None:
             try:
                 pr = float(promo_avg)
-            except TypeError, ValueError:
+            except (TypeError, ValueError):
                 pr = None
         return {
             **base,

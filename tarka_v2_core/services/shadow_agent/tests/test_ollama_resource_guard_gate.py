@@ -90,7 +90,7 @@ def test_peak_rss_stays_under_16gb_while_shadow_stub_running() -> None:
                 rss = proc.memory_info().rss
                 for c in proc.children(recursive=True):
                     rss += c.memory_info().rss
-            except psutil.NoSuchProcess, psutil.AccessDenied:
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
                 break
             peak = max(peak, rss)
             time.sleep(0.04)
