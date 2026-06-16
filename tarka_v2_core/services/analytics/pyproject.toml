@@ -1,0 +1,30 @@
+[project]
+name = "tarka-v2-analytics"
+version = "0.1.0"
+description = "V2 analytics workers: macro seasonal baselines and RAG context synthesis."
+requires-python = ">=3.11"
+dependencies = [
+  "clickhouse-connect>=0.8.0",
+  "httpx>=0.28.0",
+  "pydantic>=2.10.0",
+  "pydantic-settings>=2.6.0",
+  "sqlalchemy[asyncio]>=2.0.36",
+  "asyncpg>=0.30.0",
+  "tenacity>=9.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["macro_synthesizer", "trend_agent"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
