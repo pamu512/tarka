@@ -218,7 +218,7 @@ where
         })
         .to_string();
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let log_call = || -> PyResult<()> {
                 let lg = logger.bind(py);
                 let _ = lg.call_method1("log", (py_level, line))?;

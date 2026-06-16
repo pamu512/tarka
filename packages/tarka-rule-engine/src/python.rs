@@ -3,9 +3,9 @@
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyDictMethods};
-use serde_json::{Map, Value};
+use serde_json::Value;
 
-use tarka_rule_engine::{evaluate_rules_json, EvaluationResult};
+use crate::{evaluate_rules_json, EvaluationResult};
 
 /// Sentinel passed as ``velocity_1h`` to force a Rust panic (integration / chaos tests only).
 pub const PANIC_TEST_VELOCITY_SENTINEL: i32 = -911911;
@@ -75,7 +75,7 @@ fn evaluate_observation_rules_json(rules_json: String, features_json: String) ->
 #[pymodule]
 #[pyo3(name = "_native")]
 fn tarka_rule_engine_native(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    pyo3::prepare_freethreaded_python();
+    Python::initialize();
     m.add_class::<EvaluationContext>()?;
     m.add_class::<RuleEngine>()?;
     m.add_function(wrap_pyfunction!(evaluate_observation_rules_json, m)?)?;
