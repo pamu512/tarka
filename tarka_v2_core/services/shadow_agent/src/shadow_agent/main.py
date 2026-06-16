@@ -141,7 +141,7 @@ def _ingestion_reject_audit_case_id(exc: RequestValidationError) -> str:
             data = raw
         else:
             return _SENTINEL_INGESTION_REJECT_CASE_ID
-    except json.JSONDecodeError, UnicodeDecodeError, TypeError:
+    except (json.JSONDecodeError, UnicodeDecodeError, TypeError):
         return _SENTINEL_INGESTION_REJECT_CASE_ID
     eid = data.get("entity_id")
     if eid is None and isinstance(data.get("transaction"), dict):

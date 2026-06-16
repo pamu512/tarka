@@ -145,7 +145,7 @@ def _duckdb_same_10min_window(user_ids: list[str]) -> dict[str, Any]:
         else:
             try:
                 dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
-            except TypeError, ValueError:
+            except (TypeError, ValueError):
                 continue
         parsed.append((u, dt.astimezone(UTC)))
 

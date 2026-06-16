@@ -60,7 +60,7 @@ def extract_shadow_autoresolve_confidence(shadow_data: dict[str, Any]) -> float 
                 continue
             try:
                 val = float(raw)
-            except TypeError, ValueError:
+            except (TypeError, ValueError):
                 continue
             if 0.0 <= val <= 1.0:
                 return val
@@ -68,11 +68,11 @@ def extract_shadow_autoresolve_confidence(shadow_data: dict[str, Any]) -> float 
         if p_fraud is not None:
             try:
                 return max(0.0, min(1.0, 1.0 - float(p_fraud)))
-            except TypeError, ValueError:
+            except (TypeError, ValueError):
                 pass
     try:
         risk = float(shadow_data.get("risk_score", 0.0))
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return None
     return max(0.0, min(1.0, 1.0 - risk / 100.0))
 
@@ -94,7 +94,7 @@ def shadow_recommends_autoresolve(shadow_data: dict[str, Any]) -> bool:
                 return True
     try:
         risk = float(shadow_data.get("risk_score", 100.0))
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return False
     return risk <= 25.0 and not bool(shadow_data.get("is_fraud"))
 

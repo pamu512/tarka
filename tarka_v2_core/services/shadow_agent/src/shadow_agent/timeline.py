@@ -241,7 +241,7 @@ def _build_events(
         amt_raw = doc.get("amount")
         try:
             amount = float(amt_raw) if amt_raw is not None else None
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             amount = None
         fraud_raw = doc.get("is_fraud")
         is_fraud = fraud_raw if isinstance(fraud_raw, bool) else None
