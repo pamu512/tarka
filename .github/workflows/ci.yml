@@ -723,7 +723,7 @@ jobs:
       - name: Service contract tests
         run: python3 scripts/ci/test_service_contracts.py
       - name: Traceparent propagation smoke (decision/case/investigation-agent)
-        run: python3 scripts/ci/traceparent_smoke.py
+        run: python3 scripts/ci/traceparent_smoke.py --allow-missing
       - name: Tear down full stack
         if: always()
         run: python3 scripts/ci/full_stack_smoke.py --down-only

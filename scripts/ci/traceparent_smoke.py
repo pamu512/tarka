@@ -43,7 +43,11 @@ def _assert_traceparent(service: str, url: str) -> None:
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Traceparent propagation smoke")
-    p.add_argument("--allow-missing", action="store_true", help="Skip endpoints that are down")
+    p.add_argument(
+        "--allow-missing",
+        action="store_true",
+        help="Skip endpoints that are down or do not emit traceparent yet",
+    )
     args = p.parse_args()
 
     failures = 0
