@@ -29,7 +29,7 @@ jobs:
   audit-stubs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -42,7 +42,7 @@ jobs:
     needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -105,7 +105,7 @@ jobs:
         ports:
           - 6379:6379
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-python@v6
         with:
@@ -142,7 +142,7 @@ jobs:
           path: legacy_attic/services/legacy_v1_decision_api/coverage.xml
           if-no-files-found: ignore
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -154,7 +154,7 @@ jobs:
     needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -175,7 +175,7 @@ jobs:
           path: legacy_attic/services/case-api/coverage.xml
           if-no-files-found: ignore
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -187,7 +187,7 @@ jobs:
     needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -210,7 +210,7 @@ jobs:
           path: legacy_attic/services/graph-service/coverage.xml
           if-no-files-found: ignore
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -229,7 +229,7 @@ jobs:
         env:
           NEO4J_AUTH: neo4j/graphcipass2026
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -272,7 +272,7 @@ jobs:
     needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -293,7 +293,7 @@ jobs:
           path: legacy_attic/services/integration-ingress/coverage.xml
           if-no-files-found: ignore
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -305,7 +305,7 @@ jobs:
     needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -326,7 +326,7 @@ jobs:
           path: legacy_attic/services/investigation-agent/coverage.xml
           if-no-files-found: ignore
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -342,7 +342,7 @@ jobs:
       matrix:
         profile: [full, no_graph, no_case, no_decision, case_only, legacy_visible]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -364,7 +364,7 @@ jobs:
     needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -385,7 +385,7 @@ jobs:
           path: packages/fraud-sdk-python/coverage.xml
           if-no-files-found: ignore
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -400,7 +400,7 @@ jobs:
       # Deterministic Vite/tsc memory on CI runners (avoids flaky OOM on `vite build`).
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
@@ -418,7 +418,7 @@ jobs:
     env:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
@@ -437,7 +437,7 @@ jobs:
     needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -458,7 +458,7 @@ jobs:
           path: legacy_attic/services/graphql-gateway/coverage.xml
           if-no-files-found: ignore
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -470,7 +470,7 @@ jobs:
     needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -499,7 +499,7 @@ jobs:
     needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -520,7 +520,7 @@ jobs:
           path: legacy_attic/services/chitragupta/coverage.xml
           if-no-files-found: ignore
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -532,7 +532,7 @@ jobs:
     needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -553,7 +553,7 @@ jobs:
           path: legacy_attic/services/feature-service/coverage.xml
           if-no-files-found: ignore
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -565,7 +565,7 @@ jobs:
     needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -586,7 +586,7 @@ jobs:
           path: legacy_attic/services/ml-scoring/coverage.xml
           if-no-files-found: ignore
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -598,11 +598,11 @@ jobs:
     needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - uses: docker/setup-buildx-action@v4.0.0
+      - uses: docker/setup-buildx-action@v4
       - name: Start lite stack for benchmark
         run: docker compose -f deploy/docker-compose.lite.yml up -d --build
       - name: Wait for core-api (decision) health
@@ -647,7 +647,7 @@ jobs:
       matrix:
         fault: [redis, postgres]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Run chaos smoke
         run: python3 scripts/chaos/chaos_smoke.py --profile core --fault ${{ matrix.fault }}
 
@@ -655,7 +655,7 @@ jobs:
     needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -695,9 +695,9 @@ jobs:
           - data-plane
           - graphql-gateway
     steps:
-      - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4.0.0
-      - uses: docker/build-push-action@v7.1.0
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7.2.0
         with:
           context: .
           file: legacy_attic/services/${{ matrix.service }}/Dockerfile
@@ -714,8 +714,8 @@ jobs:
       - docker-build
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4.0.0
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
       - name: Full stack smoke (Docker Compose profile full)
         env:
           DOCKER_BUILDKIT: "1"
@@ -732,8 +732,8 @@ jobs:
     needs: audit-stubs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: azure/setup-helm@v4
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
         with:
           version: v3.14.4
       - uses: actions/setup-python@v6
