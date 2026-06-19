@@ -16,6 +16,7 @@ Bring up deploy/docker-compose.yml with --profile full, wait for HTTP health, PO
 Used by GitHub Actions; runnable locally from repo root:
   python scripts/ci/full_stack_smoke.py
   python scripts/ci/full_stack_smoke.py --skip-up   # stack already running (no compose down)
+  python scripts/ci/full_stack_smoke.py --keep-up   # leave stack running for follow-up checks
 """
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COMPOSE_FILE = REPO_ROOT / "deploy" / "docker-compose.yml"
@@ -192,6 +193,11 @@ def main() -> int:
     p.add_argument(
         "--skip-up", action="store_true", help="Assume compose is already up; skip compose down"
     )
+    p.add_argument(
+        "--keep-up",
+        action="store_true",
+        help="Leave compose stack running for follow-up checks",
+    )
     p.add_argument("--down-only", action="store_true", help="Only run docker compose down -v")
     p.add_argument(
         "--wait-seconds",
@@ -230,7 +236,7 @@ def main() -> int:
         compose_logs_tail()
         return 1
     finally:
-        if did_up:
+        if did_up and not args.keep_up:
             print("docker compose down -v ...")
             compose_down()
 
