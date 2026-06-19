@@ -5,6 +5,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from decision_api.json_rules import (
     _match_condition,
     evaluate_json_rules,
@@ -12,6 +14,13 @@ from decision_api.json_rules import (
 )
 
 # ---- _match_condition ----
+
+
+@pytest.fixture(autouse=True)
+def _force_python_json_rules(monkeypatch):
+    from decision_api.config import settings
+
+    monkeypatch.setattr(settings, "json_rules_engine", "python")
 
 
 class TestMatchCondition:
