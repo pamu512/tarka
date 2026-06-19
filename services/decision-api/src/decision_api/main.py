@@ -145,7 +145,7 @@ from decision_api.redis_store import redis_tags
 from decision_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 
 sys.path.insert(
-    0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared")
+    0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared")
 )
 from circuit import AsyncCircuitBreaker, CircuitOpenError  # noqa: E402
 from entity_lists import ListCheckResult, create_list_store  # noqa: E402
@@ -198,7 +198,7 @@ from decision_api.typology_predicate_registry import (
 
 # ---------- observability ----------
 _shared_dir = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared")
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared")
 )
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
