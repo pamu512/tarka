@@ -20,7 +20,7 @@ jobs:
         ports:
           - 6379:6379
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: actions/setup-python@v6
@@ -77,7 +77,7 @@ jobs:
     name: drift_score_smoke.py (heuristic separation)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: actions/setup-python@v6
@@ -102,7 +102,7 @@ jobs:
         ports:
           - 6379:6379
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: actions/setup-python@v6
