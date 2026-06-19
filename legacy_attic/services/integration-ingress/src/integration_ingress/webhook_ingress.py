@@ -87,19 +87,13 @@ async def normalize_kyc_webhook_payload(
             error=f"fatal_payload:{type(exc).__name__}:{exc}",
             cause=exc,
         )
-    except Exception as exc:
+    except Exception:
         logger.exception(
             "webhook_adapter_unexpected provider=%s event_id=%s",
             provider,
             event_id,
         )
-        _raise_normalization_http(
-            provider=provider,
-            event_id=event_id,
-            payload=payload,
-            error=f"adapter_error:{type(exc).__name__}",
-            cause=exc,
-        )
+        raise
 
     if not isinstance(normalized, dict):
         _raise_normalization_http(
@@ -110,6 +104,28 @@ async def normalize_kyc_webhook_payload(
         )
 
     return normalized
+
+
+async def persist_failed_webhook(
+    session: AsyncSession,
+    *,
+    event_id: uuid.UUID,
+    provider: str,
+    payload: dict[str, Any],
+    error: str,
+) -> WebhookInbox:
+    """Insert an inbox row with status ``normalization_failed`` so the audit trail is preserved."""
+    log_webhook_dlq(provider=provider, event_id=event_id, payload=payload, error=error)
+    record = WebhookInbox(
+        id=event_id,
+        provider=provider,
+        raw_payload=payload,
+        normalized=None,
+        status="normalization_failed",
+    )
+    session.add(record)
+    await session.commit()
+    return record
 
 
 async def persist_normalized_webhook(
