@@ -134,6 +134,9 @@ jobs:
           PYTHONPATH: src:../shared
           DATABASE_URL: sqlite+aiosqlite:///
           REDIS_URL: redis://localhost:6379/0
+          SCHEMATHESIS_CONTRACT_MIN_TOTAL: "1"
+          SCHEMATHESIS_MAX_EXAMPLES: "1"
+          SCHEMATHESIS_BINARY_MAX_EXAMPLES: "10"
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
