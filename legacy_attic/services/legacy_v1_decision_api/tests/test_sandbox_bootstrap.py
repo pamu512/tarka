@@ -53,7 +53,11 @@ async def sb_client(monkeypatch):
     pytest.importorskip("asyncpg")
     monkeypatch.setenv("API_KEYS", "test-key")
     monkeypatch.delenv("ALLOW_INSECURE_NO_AUTH", raising=False)
-    import decision_api.main as _main_mod  # noqa: F401
+    from decision_api.config import settings
+    import decision_api.main as _main_mod
+
+    monkeypatch.setattr(settings, "api_keys", "test-key")
+    monkeypatch.setattr(_main_mod, "_valid_api_keys", None)
 
     with patch("decision_api.main.init_db", new_callable=AsyncMock):
         with patch("decision_api.main.redis_tags") as mock_redis:
