@@ -39,6 +39,7 @@ from integration_ingress.osint import OsintConfig, full_osint_enrichment
 from integration_ingress.vault import InMemoryVault
 from integration_ingress.webhook_ingress import (
     normalize_kyc_webhook_payload,
+    persist_failed_webhook,
     persist_normalized_webhook,
 )
 
@@ -708,11 +709,28 @@ async def kyc_webhook(
     session: AsyncSession = Depends(get_session),
 ):
     event_id = uuid.uuid4()
-    normalized = await normalize_kyc_webhook_payload(
-        provider=provider,
-        payload=payload,
-        event_id=event_id,
-    )
+    try:
+        normalized = await normalize_kyc_webhook_payload(
+            provider=provider,
+            payload=payload,
+            event_id=event_id,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        await persist_failed_webhook(
+            session,
+            event_id=event_id,
+            provider=provider,
+            payload=payload,
+            error=f"adapter_error:{type(exc).__name__}",
+        )
+        return {
+            "event_id": str(event_id),
+            "provider": provider,
+            "accepted": True,
+            "normalized": False,
+        }
     await persist_normalized_webhook(
         session,
         event_id=event_id,
