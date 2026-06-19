@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from decision_api.inference_build import build_inference_context
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
+_REPO_ROOT = Path(__file__).resolve().parents[4]
 _GOLDEN_PATH = _REPO_ROOT / "contracts" / "golden" / "inference-context-v3.example.json"
 
 
