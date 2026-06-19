@@ -707,7 +707,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
   # End-to-end: build and start every service in deploy/docker-compose.yml (--profile full),
-  # wait for health + POST /v1/decisions/evaluate, then tear down (see scripts/ci/full_stack_smoke.py).
+  # wait for health + POST /v1/decisions/evaluate, run follow-up smoke checks, then tear down.
   stack-smoke:
     runs-on: ubuntu-latest
     needs:
@@ -719,11 +719,14 @@ jobs:
       - name: Full stack smoke (Docker Compose profile full)
         env:
           DOCKER_BUILDKIT: "1"
-        run: python3 scripts/ci/full_stack_smoke.py --wait-seconds 1200
+        run: python3 scripts/ci/full_stack_smoke.py --wait-seconds 1200 --keep-up
       - name: Service contract tests
         run: python3 scripts/ci/test_service_contracts.py
       - name: Traceparent propagation smoke (decision/case/investigation-agent)
         run: python3 scripts/ci/traceparent_smoke.py
+      - name: Tear down full stack
+        if: always()
+        run: python3 scripts/ci/full_stack_smoke.py --down-only
 
   cloud-preset-smoke:
     needs: audit-stubs

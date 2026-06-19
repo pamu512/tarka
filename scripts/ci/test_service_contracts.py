@@ -32,15 +32,15 @@ def assert_health(name: str, url: str) -> None:
 def main() -> int:
     p = argparse.ArgumentParser(description="Service contract checks for core dependencies.")
     p.add_argument("--decision-api", default="http://127.0.0.1:8000")
-    p.add_argument("--ml-scoring", default="http://127.0.0.1:8005")
+    p.add_argument("--signal-api", default="http://127.0.0.1:8004")
     p.add_argument("--graph-service", default="http://127.0.0.1:8001")
-    p.add_argument("--data-platform", default="http://127.0.0.1:8014")
+    p.add_argument("--data-plane", default="http://127.0.0.1:8007")
     args = p.parse_args()
 
-    assert_health("decision-api", f"{args.decision_api.rstrip('/')}/v1/health")
-    assert_health("ml-scoring", f"{args.ml_scoring.rstrip('/')}/v1/health")
+    assert_health("decision-api", f"{args.decision_api.rstrip('/')}/decisions/v1/health")
+    assert_health("signal-api", f"{args.signal_api.rstrip('/')}/v1/health")
     assert_health("graph-service", f"{args.graph_service.rstrip('/')}/v1/health")
-    assert_health("data-platform", f"{args.data_platform.rstrip('/')}/v1/health")
+    assert_health("data-plane", f"{args.data_plane.rstrip('/')}/v1/health")
     print("service contracts ok")
     return 0
 
