@@ -19,6 +19,9 @@ def _patch_env(monkeypatch):
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
     # Use local snapshot fallback in tests (avoid AsyncMock httpx response quirks).
     monkeypatch.setenv("FEATURE_SERVICE_URL", "")
+    from decision_api.config import settings
+
+    monkeypatch.setattr(settings, "json_rules_engine", "python")
 
 
 @pytest.fixture
@@ -34,6 +37,9 @@ async def client():
             mock_redis.store_nonce = AsyncMock()
             mock_redis.consume_nonce = AsyncMock(return_value=True)
             mock_redis.check_and_store_replay_signature = AsyncMock(return_value=False)
+            mock_redis.check_consortium_signal = AsyncMock(return_value={})
+            mock_redis.get_tenant_flags = AsyncMock(return_value={})
+            mock_redis.is_tag_store_available = True
 
             with patch("decision_api.main.load_rules"):
                 with patch("decision_api.main.agg_store") as mock_agg:

@@ -10,7 +10,9 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_audit_endpoint_returns_ordered_driver_explain_and_reasons():
+async def test_audit_endpoint_returns_ordered_driver_explain_and_reasons(monkeypatch):
+    monkeypatch.setenv("API_KEYS", "")
+    monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
     trace_id = uuid4()
     inf_ctx = {
         "schema_version": "3",
@@ -116,7 +118,9 @@ async def test_audit_endpoint_returns_ordered_driver_explain_and_reasons():
 
 
 @pytest.mark.asyncio
-async def test_audit_endpoint_blocks_analyst_detail_without_role():
+async def test_audit_endpoint_blocks_analyst_detail_without_role(monkeypatch):
+    monkeypatch.setenv("API_KEYS", "")
+    monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
     trace_id = uuid4()
     row = SimpleNamespace(
         trace_id=trace_id,

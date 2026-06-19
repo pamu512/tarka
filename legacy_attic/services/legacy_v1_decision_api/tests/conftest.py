@@ -6,6 +6,9 @@ from pathlib import Path
 
 # OpenTelemetry: disable OTLP export in unit tests (avoids background export to a missing collector).
 os.environ.setdefault("OTEL_SDK_DISABLED", "1")
+# CI installs the Rust rule-engine wheel before this suite. Keep legacy Python-engine
+# unit tests deterministic unless an individual test explicitly opts into Rust.
+os.environ.setdefault("TARKA_JSON_RULES_ENGINE", "python")
 
 # auth_rbac middleware fails closed when API_KEYS and OIDC are unset. CI often exports
 # API_KEYS="" (empty but present), so os.environ.setdefault("API_KEYS", ...) never runs.

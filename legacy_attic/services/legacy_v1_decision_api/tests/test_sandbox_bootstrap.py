@@ -49,8 +49,10 @@ class _FakePool:
 
 
 @pytest_asyncio.fixture
-async def sb_client():
+async def sb_client(monkeypatch):
     pytest.importorskip("asyncpg")
+    monkeypatch.setenv("API_KEYS", "test-key")
+    monkeypatch.delenv("ALLOW_INSECURE_NO_AUTH", raising=False)
     import decision_api.main as _main_mod  # noqa: F401
 
     with patch("decision_api.main.init_db", new_callable=AsyncMock):

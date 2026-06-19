@@ -3,9 +3,18 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
+import pytest
+
 from decision_api.json_rules import evaluate_json_rules, governance_summary, load_rules
 
 """Canary / effective_at gating and governance summary."""
+
+
+@pytest.fixture(autouse=True)
+def _force_python_json_rules(monkeypatch):
+    from decision_api.config import settings
+
+    monkeypatch.setattr(settings, "json_rules_engine", "python")
 
 
 def test_challenger_mode_includes_canary_excluded_packs():
