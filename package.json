@@ -15,6 +15,9 @@
   "engines": {
     "node": ">=20"
   },
+  "devDependencies": {
+    "jsdom": "^26.1.0"
+  },
   "overrides": {
     "dompurify": "3.4.2",
     "postcss": "8.5.10",
