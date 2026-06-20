@@ -749,7 +749,7 @@ export default function Cases() {
                     <td className="py-3 px-3">
                       <Link
                         to={`/cases/${encodeURIComponent(c.id)}?tenant_id=${encodeURIComponent(c.tenant_id)}`}
-                        onClick={(e) => {
+                        onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
                           e.stopPropagation();
                           pinCase({
                             caseId: c.id,
