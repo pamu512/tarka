@@ -36,7 +36,7 @@ function NotificationNavLink({ actionableCount }: { actionableCount: number }) {
   return (
     <NavLink
       to="/notifications"
-      className={({ isActive }) =>
+      className={({ isActive }: { isActive: boolean }) =>
         `${iconBtn} ${isActive ? "text-brand-400 bg-brand-600/15 hover:bg-brand-600/20" : ""}`
       }
       aria-label={label}
@@ -171,7 +171,7 @@ export function AppTopBar({ notificationActionableCount }: { notificationActiona
       </button>
       <NavLink
         to="/help"
-        className={({ isActive }) =>
+        className={({ isActive }: { isActive: boolean }) =>
           `${iconBtn} ${isActive ? "text-brand-400 bg-brand-600/15 hover:bg-brand-600/20" : ""}`
         }
         aria-label="Help and guide"
@@ -182,7 +182,7 @@ export function AppTopBar({ notificationActionableCount }: { notificationActiona
       <NotificationNavLink actionableCount={notificationActionableCount} />
       <NavLink
         to="/settings"
-        className={({ isActive }) =>
+        className={({ isActive }: { isActive: boolean }) =>
           `${iconBtn} ${isActive ? "text-brand-400 bg-brand-600/15 hover:bg-brand-600/20" : ""}`
         }
         aria-label="Settings"

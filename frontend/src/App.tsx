@@ -246,7 +246,7 @@ export default function App() {
                     <NavLink
                       key={item.to}
                       to={item.to}
-                      className={({ isActive }) =>
+                      className={({ isActive }: { isActive: boolean }) =>
                         `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors min-w-0 ${
                           isActive
                             ? "bg-brand-600/20 text-brand-400"
