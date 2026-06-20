@@ -37,10 +37,12 @@ jobs:
     env:
       PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
       PULUMI_SKIP_UPDATE_CHECK: "true"
+      # Local `pulumi login` (no cloud token) still needs a passphrase for stack secrets in CI.
+      PULUMI_CONFIG_PASSPHRASE: pulumi-ci-preview-local-passphrase
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -51,13 +53,16 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ]; then
             echo "run=false" >> "${GITHUB_OUTPUT}"
             echo "::notice::Skipping Pulumi preview: workflows triggered from fork PRs do not receive repository secrets (for example PULUMI_ACCESS_TOKEN). Push a branch on the base repository or use workflow_dispatch here with secrets configured."
+          elif [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.actor }}" = "dependabot[bot]" ]; then
+            echo "run=false" >> "${GITHUB_OUTPUT}"
+            echo "::notice::Skipping Pulumi preview on Dependabot PRs: action-only bumps do not need a full triple-db stack preview and Dependabot runs lack Pulumi cloud secrets."
           else
             echo "run=true" >> "${GITHUB_OUTPUT}"
           fi
 
       - name: Set up Python
         if: steps.pulumi_gate.outputs.run == 'true'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -66,7 +71,7 @@ jobs:
       # Install-only (omit `command`) — replaces deprecated pulumi/setup-pulumi; see pulumi/actions README.
       - name: Install Pulumi CLI
         if: steps.pulumi_gate.outputs.run == 'true'
-        uses: pulumi/actions@v4
+        uses: pulumi/actions@v7
         with:
           pulumi-version: "^3"
 
