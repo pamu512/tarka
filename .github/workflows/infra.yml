@@ -53,6 +53,9 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ]; then
             echo "run=false" >> "${GITHUB_OUTPUT}"
             echo "::notice::Skipping Pulumi preview: workflows triggered from fork PRs do not receive repository secrets (for example PULUMI_ACCESS_TOKEN). Push a branch on the base repository or use workflow_dispatch here with secrets configured."
+          elif [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.actor }}" = "dependabot[bot]" ]; then
+            echo "run=false" >> "${GITHUB_OUTPUT}"
+            echo "::notice::Skipping Pulumi preview on Dependabot PRs: action-only bumps do not need a full triple-db stack preview and Dependabot runs lack Pulumi cloud secrets."
           else
             echo "run=true" >> "${GITHUB_OUTPUT}"
           fi
