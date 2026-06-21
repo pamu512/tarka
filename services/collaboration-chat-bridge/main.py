@@ -252,6 +252,8 @@ class PluginBootstrapBridgeBody(BaseModel):
 
 
 def _teams_secret_ok(x_bridge_secret: str | None) -> bool:
+    if settings.allow_insecure_no_auth:
+        return True
     expected = (settings.teams_bridge_secret or "").strip()
     if not expected:
         return False
@@ -259,6 +261,8 @@ def _teams_secret_ok(x_bridge_secret: str | None) -> bool:
 
 
 def _plugin_secret_ok(x_bridge_secret: str | None) -> bool:
+    if settings.allow_insecure_no_auth:
+        return True
     expected = (settings.bridge_plugin_secret or "").strip() or (
         settings.teams_bridge_secret or ""
     ).strip()
@@ -598,6 +602,18 @@ async def teams_messages(
     allowed_tenants = {
         t.strip() for t in (settings.teams_allowed_tenant_ids or "").split(",") if t.strip()
     }
+    if settings.tenant_binding_required and not allowed_tenants:
+        _audit_ingress_event(
+            route="teams_messages",
+            outcome="rejected",
+            correlation_id=correlation_id,
+            status_code=403,
+            client_ip=_safe_client_ip(request),
+            tenant_id=resolved_tenant_id,
+            analyst_id=resolved_analyst_id,
+            reason="tenant_binding_required_no_allowlist",
+        )
+        raise _ingress_http_exc(403, "tenant binding required but no tenant allowlist configured", correlation_id)
     if allowed_tenants and resolved_tenant_id not in allowed_tenants:
         _audit_ingress_event(
             route="teams_messages",
@@ -825,6 +841,8 @@ async def execute_case_action(
 ):
     correlation_id = _request_correlation_id(request)
     response.headers["X-Correlation-Id"] = correlation_id
+    if not settings.bridge_case_actions_enabled:
+        raise _plugin_http_exc(404, "case actions disabled", correlation_id)
     if not _plugin_secret_ok(x_bridge_secret):
         raise _plugin_http_exc(401, "invalid X-Bridge-Secret", correlation_id)
     try:
