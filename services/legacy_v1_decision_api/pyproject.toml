@@ -60,6 +60,9 @@ where = ["src"]
 [tool.setuptools.package-data]
 decision_api = ["data/*.json"]
 
+[tool.ruff.lint]
+ignore = ["E402"]
+
 [tool.ruff.lint.per-file-ignores]
 "src/decision_api/feature_store_api.py" = ["B008"]
 "src/decision_api/analytics_dashboards.py" = ["B008"]
