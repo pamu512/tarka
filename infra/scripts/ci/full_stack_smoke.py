@@ -19,7 +19,7 @@ Used by GitHub Actions; runnable locally from repo root:
   python infra/scripts/ci/full_stack_smoke.py --keep-up   # leave stack running for follow-up checks
 """
 REPO_ROOT = Path(__file__).resolve().parents[3]
-COMPOSE_FILE = REPO_ROOT / "deploy" / "docker-compose.yml"
+COMPOSE_FILE = REPO_ROOT / "infra" / "deploy" / "docker-compose.yml"
 
 JSON_HEALTH = [
     ("decision-api", "http://127.0.0.1:8000/decisions/v1/health"),

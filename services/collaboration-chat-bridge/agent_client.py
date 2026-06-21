@@ -158,6 +158,120 @@ async def create_plugin_session(
         raise AgentUpstreamError("cannot reach investigation-agent", status_code=0) from e
 
 
+async def proxy_case_action(
+    settings: Settings,
+    *,
+    payload: dict[str, Any],
+    correlation_id: str | None = None,
+) -> dict[str, Any]:
+    url = f"{settings.investigation_agent_url.rstrip('/')}/v1/case-actions"
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
+            r = await client.post(
+                url, json=payload, headers=_agent_headers(settings, correlation_id=correlation_id)
+            )
+            if r.status_code >= 400:
+                log.warning(
+                    "investigation-agent case-actions HTTP %s: %s", r.status_code, r.text[:500]
+                )
+            r.raise_for_status()
+            data = r.json()
+            if not isinstance(data, dict):
+                raise AgentUpstreamError(
+                    "invalid response from investigation-agent", status_code=502
+                )
+            return data
+    except httpx.HTTPStatusError as e:
+        resp = e.response
+        raise AgentUpstreamError(
+            f"investigation-agent returned HTTP {resp.status_code if resp is not None else 0}",
+            status_code=resp.status_code if resp is not None else 0,
+            body_snippet=resp.text[:800] if resp is not None else "",
+        ) from e
+    except httpx.RequestError as e:
+        log.warning("investigation-agent case-actions unreachable: %s", e)
+        raise AgentUpstreamError("cannot reach investigation-agent", status_code=0) from e
+
+
+async def upsert_thread_correlation(
+    settings: Settings,
+    *,
+    payload: dict[str, Any],
+    correlation_id: str | None = None,
+) -> dict[str, Any]:
+    url = f"{settings.investigation_agent_url.rstrip('/')}/v1/thread-correlations"
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
+            r = await client.post(
+                url, json=payload, headers=_agent_headers(settings, correlation_id=correlation_id)
+            )
+            if r.status_code >= 400:
+                log.warning(
+                    "investigation-agent thread-correlations HTTP %s: %s",
+                    r.status_code,
+                    r.text[:500],
+                )
+            r.raise_for_status()
+            data = r.json()
+            if not isinstance(data, dict):
+                raise AgentUpstreamError(
+                    "invalid response from investigation-agent", status_code=502
+                )
+            return data
+    except httpx.HTTPStatusError as e:
+        resp = e.response
+        raise AgentUpstreamError(
+            f"investigation-agent returned HTTP {resp.status_code if resp is not None else 0}",
+            status_code=resp.status_code if resp is not None else 0,
+            body_snippet=resp.text[:800] if resp is not None else "",
+        ) from e
+    except httpx.RequestError as e:
+        log.warning("investigation-agent thread-correlations unreachable: %s", e)
+        raise AgentUpstreamError("cannot reach investigation-agent", status_code=0) from e
+
+
+async def get_thread_correlation(
+    settings: Settings,
+    *,
+    platform: str,
+    workspace_id: str,
+    thread_key: str,
+    correlation_id: str | None = None,
+) -> dict[str, Any] | None:
+    base = settings.investigation_agent_url.rstrip("/")
+    url = f"{base}/v1/thread-correlations/{platform}/{workspace_id}/{thread_key}"
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
+            r = await client.get(
+                url, headers=_agent_headers(settings, correlation_id=correlation_id)
+            )
+            if r.status_code == 404:
+                return None
+            if r.status_code >= 400:
+                log.warning(
+                    "investigation-agent thread-correlations GET HTTP %s: %s",
+                    r.status_code,
+                    r.text[:500],
+                )
+            r.raise_for_status()
+            data = r.json()
+            if not isinstance(data, dict):
+                raise AgentUpstreamError(
+                    "invalid response from investigation-agent", status_code=502
+                )
+            return data
+    except httpx.HTTPStatusError as e:
+        resp = e.response
+        raise AgentUpstreamError(
+            f"investigation-agent returned HTTP {resp.status_code if resp is not None else 0}",
+            status_code=resp.status_code if resp is not None else 0,
+            body_snippet=resp.text[:800] if resp is not None else "",
+        ) from e
+    except httpx.RequestError as e:
+        log.warning("investigation-agent thread-correlations GET unreachable: %s", e)
+        raise AgentUpstreamError("cannot reach investigation-agent", status_code=0) from e
+
+
 async def bootstrap_plugin_session(
     settings: Settings, *, token: str, correlation_id: str | None = None
 ) -> dict[str, Any]:

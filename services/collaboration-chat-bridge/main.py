@@ -17,7 +17,10 @@ from agent_client import (
     AgentUpstreamError,
     bootstrap_plugin_session,
     create_plugin_session,
+    get_thread_correlation,
     post_chat,
+    proxy_case_action,
+    upsert_thread_correlation,
 )
 from bridge_turn import (
     merge_workflow_with_explicit,
@@ -794,6 +797,118 @@ async def plugin_bootstrap(
     )
     response.headers["X-Correlation-Id"] = correlation_id
     return {"ok": True, "correlation_id": correlation_id, **upstream}
+
+
+class CaseActionBody(BaseModel):
+    action: Literal["assign", "comment", "escalate", "resolve"]
+    tenant_id: str = Field(..., max_length=128)
+    case_id: str = Field(..., max_length=128)
+    actor_id: str = Field(..., max_length=128)
+    actor_role: str = Field(default="analyst", max_length=64)
+    platform: Literal["slack", "teams"]
+    workspace_id: str | None = Field(default=None, max_length=128)
+    thread_key: str | None = Field(default=None, max_length=256)
+    idempotency_key: str = Field(..., max_length=256)
+    correlation_id: str | None = Field(default=None, max_length=128)
+    assignee: str | None = Field(default=None, max_length=128)
+    comment_body: str | None = Field(default=None, max_length=4096)
+    resolve_status: str | None = Field(default=None, max_length=64)
+    reason_code: str | None = Field(default=None, max_length=128)
+
+
+@app.post("/v1/case-actions")
+async def execute_case_action(
+    request: Request,
+    response: Response,
+    body: CaseActionBody,
+    x_bridge_secret: str | None = Header(default=None, alias="X-Bridge-Secret"),
+):
+    correlation_id = _request_correlation_id(request)
+    response.headers["X-Correlation-Id"] = correlation_id
+    if not _plugin_secret_ok(x_bridge_secret):
+        raise _plugin_http_exc(401, "invalid X-Bridge-Secret", correlation_id)
+    try:
+        _rate_limit_bridge_key(request, "case-action")
+    except HTTPException:
+        raise _plugin_http_exc(429, "rate limit exceeded", correlation_id)
+    try:
+        upstream = await proxy_case_action(
+            settings,
+            payload=body.model_dump(exclude_none=True),
+            correlation_id=correlation_id,
+        )
+    except AgentUpstreamError as e:
+        mapped = _plugin_upstream_status(e.status_code)
+        detail = "case action unavailable" if mapped == 502 else "case action rejected"
+        raise _plugin_http_exc(mapped, detail, correlation_id) from None
+    response.headers["X-Correlation-Id"] = correlation_id
+    return upstream
+
+
+class ThreadCorrelationBody(BaseModel):
+    platform: Literal["slack", "teams"]
+    workspace_id: str = Field(..., max_length=128)
+    thread_key: str = Field(..., max_length=256)
+    case_id: str = Field(..., max_length=128)
+    tenant_id: str = Field(..., max_length=128)
+
+
+@app.post("/v1/thread-correlations")
+async def upsert_thread_correlation_route(
+    request: Request,
+    response: Response,
+    body: ThreadCorrelationBody,
+    x_bridge_secret: str | None = Header(default=None, alias="X-Bridge-Secret"),
+):
+    correlation_id = _request_correlation_id(request)
+    response.headers["X-Correlation-Id"] = correlation_id
+    if not _plugin_secret_ok(x_bridge_secret):
+        raise _plugin_http_exc(401, "invalid X-Bridge-Secret", correlation_id)
+    try:
+        _rate_limit_bridge_key(request, "thread-corr")
+    except HTTPException:
+        raise _plugin_http_exc(429, "rate limit exceeded", correlation_id)
+    try:
+        upstream = await upsert_thread_correlation(
+            settings,
+            payload=body.model_dump(),
+            correlation_id=correlation_id,
+        )
+    except AgentUpstreamError as e:
+        mapped = _plugin_upstream_status(e.status_code)
+        detail = "thread correlation unavailable" if mapped == 502 else "thread correlation rejected"
+        raise _plugin_http_exc(mapped, detail, correlation_id) from None
+    response.headers["X-Correlation-Id"] = correlation_id
+    return upstream
+
+
+@app.get("/v1/thread-correlations/{platform}/{workspace_id}/{thread_key}")
+async def get_thread_correlation_route(
+    request: Request,
+    response: Response,
+    platform: str,
+    workspace_id: str,
+    thread_key: str,
+    x_bridge_secret: str | None = Header(default=None, alias="X-Bridge-Secret"),
+):
+    correlation_id = _request_correlation_id(request)
+    response.headers["X-Correlation-Id"] = correlation_id
+    if not _plugin_secret_ok(x_bridge_secret):
+        raise _plugin_http_exc(401, "invalid X-Bridge-Secret", correlation_id)
+    try:
+        result = await get_thread_correlation(
+            settings,
+            platform=platform,
+            workspace_id=workspace_id,
+            thread_key=thread_key,
+            correlation_id=correlation_id,
+        )
+    except AgentUpstreamError as e:
+        mapped = _plugin_upstream_status(e.status_code)
+        raise _plugin_http_exc(mapped, "thread correlation lookup failed", correlation_id) from None
+    if result is None:
+        raise _plugin_http_exc(404, "thread correlation not found", correlation_id)
+    return result
 
 
 class TeamsActivityBody(BaseModel):
