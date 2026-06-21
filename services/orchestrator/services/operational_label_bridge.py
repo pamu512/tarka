@@ -70,10 +70,7 @@ def disposition_text_for_operational_signal(body: OperationalSignalCreate) -> st
             f"original {meta.chargeback_reason_code}"
         )
     if isinstance(meta, RefundIssuedMetadata):
-        return (
-            f"Refund issued reason {meta.refund_reason_code} "
-            f"channel {meta.refund_channel.value}"
-        )
+        return f"Refund issued reason {meta.refund_reason_code} channel {meta.refund_channel.value}"
     if isinstance(meta, ManualOverrideMetadata):
         parts = [f"Manual override {meta.override_action.value} reason {meta.reason_code}"]
         if meta.notes and meta.notes.strip():

@@ -51,7 +51,9 @@ class CitationVerifierSummary(BaseModel):
     validity_rate: float = Field(..., ge=0.0, le=1.0)
 
 
-def _confidence_for_claim(*, source: str, supported: bool | None) -> Literal["low", "medium", "high"]:
+def _confidence_for_claim(
+    *, source: str, supported: bool | None
+) -> Literal["low", "medium", "high"]:
     if supported is True:
         return "high"
     if source == "tool":
@@ -119,7 +121,9 @@ def build_standard_citations(
                         {"artifact": str(x.get("artifact") or ""), "id": str(x.get("id") or "")},
                     )
         if i == 0 and trace_id:
-            resolves.append({"artifact": CitationArtifact.DECISION_TRACE.value, "id": trace_id.strip()})
+            resolves.append(
+                {"artifact": CitationArtifact.DECISION_TRACE.value, "id": trace_id.strip()}
+            )
         if i == 0 and case_id:
             resolves.append({"artifact": CitationArtifact.CASE.value, "id": case_id.strip()})
         merged = _merge_resolution_refs(resolves, audit_resolution_refs if i == 0 else [])

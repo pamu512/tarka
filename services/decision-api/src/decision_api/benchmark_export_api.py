@@ -34,7 +34,9 @@ def _exports_dir() -> Path:
 
 
 def _tenant_file(tenant_id: str) -> Path:
-    safe = "".join(c if c.isalnum() or c in "._-" else "_" for c in tenant_id.strip())[:128]
+    safe = "".join(c if c.isalnum() or c in "._-" else "_" for c in tenant_id.strip())[
+        :128
+    ]
     return _exports_dir() / f"{safe}.jsonl"
 
 
@@ -106,8 +108,10 @@ def _run_vertical_benchmark(
             "score_separation": round(
                 result_vertical.score_separation - result_base.score_separation, 2
             ),
-            "false_positives": result_vertical.false_positives - result_base.false_positives,
-            "false_negatives": result_vertical.false_negatives - result_base.false_negatives,
+            "false_positives": result_vertical.false_positives
+            - result_base.false_positives,
+            "false_negatives": result_vertical.false_negatives
+            - result_base.false_negatives,
         }
         vertical_results[vertical] = {
             "events_evaluated": n,
@@ -158,9 +162,10 @@ async def create_benchmark_export(
     _admin=Depends(require_role("admin")),
 ):
     """Run reproducible vertical benchmark (seed 42 default) and persist tenant export."""
-    verticals = tuple(
-        v.strip().lower() for v in body.verticals if str(v).strip()
-    ) or DEFAULT_VERTICALS
+    verticals = (
+        tuple(v.strip().lower() for v in body.verticals if str(v).strip())
+        or DEFAULT_VERTICALS
+    )
     artifact = _run_vertical_benchmark(
         body.tenant_id.strip(),
         seed=body.seed,

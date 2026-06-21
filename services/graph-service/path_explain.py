@@ -85,11 +85,7 @@ def _risk_narrative(
         f"{p.get('entity_id')} (d={p.get('distance')}, score={p.get('propagated_risk_score')})"
         for p in lead
     ]
-    return (
-        f"Top outward risk exposures from {from_entity_id}: "
-        + "; ".join(summaries)
-        + "."
-    )
+    return f"Top outward risk exposures from {from_entity_id}: " + "; ".join(summaries) + "."
 
 
 def assemble_path_explanation(
@@ -149,9 +145,9 @@ def assemble_path_explanation(
             default=0.0,
         ),
         "flagged_intermediates": [
-            p.get("entity_id") for p in ranked if any(
-                r.startswith("neighbor_tags:") for r in (p.get("reasons") or [])
-            )
+            p.get("entity_id")
+            for p in ranked
+            if any(r.startswith("neighbor_tags:") for r in (p.get("reasons") or []))
         ],
     }
     if subject_risk:

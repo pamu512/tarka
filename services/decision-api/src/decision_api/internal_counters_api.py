@@ -156,8 +156,7 @@ def _catalog_meta() -> dict[str, Any]:
             "generated_at": parity.get("generated_at"),
             "ok": bool((parity.get("replay") or {}).get("ok"))
             and (
-                parity.get("diff") is None
-                or bool((parity.get("diff") or {}).get("ok"))
+                parity.get("diff") is None or bool((parity.get("diff") or {}).get("ok"))
             ),
             "agg_key_version": parity.get("agg_key_version"),
             "scratch_redis_url": parity.get("scratch_redis_url"),
@@ -361,7 +360,9 @@ class CounterReplayJobStatus(BaseModel):
 async def _run_replay_job(job_id: str, body: CounterReplayRequest) -> None:
     _replay_jobs[job_id]["status"] = "running"
     try:
-        client = aioredis.from_url(body.scratch_redis_url.strip(), decode_responses=True)
+        client = aioredis.from_url(
+            body.scratch_redis_url.strip(), decode_responses=True
+        )
         try:
             store = AggregateStore(client)
             recorded = await apply_replay_events(store, body.events)
@@ -385,7 +386,9 @@ async def _run_replay_job(job_id: str, body: CounterReplayRequest) -> None:
     status_code=202,
     summary="Enqueue offline replay job",
 )
-async def post_counter_replay_job(body: CounterReplayRequest) -> CounterReplayJobResponse:
+async def post_counter_replay_job(
+    body: CounterReplayRequest,
+) -> CounterReplayJobResponse:
     job_id = uuid.uuid4().hex
     while len(_replay_jobs) >= _MAX_REPLAY_JOBS:
         oldest = next(iter(_replay_jobs))
