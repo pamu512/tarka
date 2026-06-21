@@ -2,7 +2,7 @@
 # Release-candidate checks for v1.1.0: Investigation Copilot (investigation-agent) + frontend + TS SDK.
 # Full repo lint (`ruff check .`) is the CI lint job; this script targets the copilot service and Node builds.
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$ROOT"
 
 echo "== Ruff (investigation-agent only; matches copilot Python surface) =="
