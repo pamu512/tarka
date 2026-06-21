@@ -51,7 +51,7 @@ jobs:
           # Install shared package first (file: deps in sidecar pyprojects resolve from repo root).
           pip install -e ./packages/deploy-settings
           pip install -e "./services/shadow[dev]"
-          (cd crates/tarka-py && maturin develop --release)
+          (cd crates/tarka-py && maturin build --release --out /tmp/tarka-wheels && pip install /tmp/tarka-wheels/*.whl)
           (cd services/rule_engine && pip install -e .)
           (cd services/orchestrator && pip install -e ".[janus,dev]")
           pip install fakeredis

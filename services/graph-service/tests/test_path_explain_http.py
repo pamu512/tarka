@@ -31,7 +31,7 @@ def test_path_explain_endpoint(monkeypatch):
             "summary": {"path_count": 1},
         }
 
-    monkeypatch.setattr("graph_service.main.explain_paths", _explain)
+    monkeypatch.setattr("main.explain_paths", _explain)
     with TestClient(app) as client:
         res = client.get(
             "/v1/analytics/path-explain",

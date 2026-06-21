@@ -33,11 +33,6 @@ router = APIRouter(prefix="/v1/compliance", tags=["compliance"])
 # ---------------------------------------------------------------------------
 # Shared privacy module import helper
 # ---------------------------------------------------------------------------
-_shared_dir = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared")
-)
-if _shared_dir not in sys.path:
-    sys.path.insert(0, _shared_dir)
 
 from privacy import (  # noqa: E402
     PRIVACY_PROFILES,

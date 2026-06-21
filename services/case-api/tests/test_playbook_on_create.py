@@ -4,7 +4,7 @@ import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from workflow import WorkflowContext
+from case_api.workflow import WorkflowContext
 from fastapi.testclient import TestClient
 
 

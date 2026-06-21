@@ -33,6 +33,6 @@ RUN sed -i -e 's|file:../core|file:/app/core|g' /app/analytics/pyproject.toml \
         -e 's|file:../analytics|file:/app/analytics|g' \
         /app/pyproject.toml \
     && pip install --no-cache-dir -e .
-ENV PYTHONPATH=/app:/app/shared
+ENV PYTHONPATH=/app:/app/shared:/app/case_api:/app/decision_api
 ENV RULES_PATH=/app/rules
 CMD ["/bin/sh", "-c", "alembic -c /app/config/decision_alembic.ini upgrade head && alembic -c /app/config/case_alembic.ini upgrade head && exec uvicorn main:app --host 0.0.0.0 --port 8000"]

@@ -111,6 +111,7 @@ if not _shared_inserted:
     fallback = Path(__file__).resolve().parents[3] / "shared"
     sys.path.insert(0, str(fallback))
 from observability import get_metrics, setup_observability  # noqa: E402
+from tarka_shared.tracing import setup_tracing  # noqa: E402
 
 _TARKA_CLAIMS_MARKER = "\nTARKA_CLAIMS_JSON="
 _MAX_PARSED_CLAIMS = 40
@@ -182,6 +183,7 @@ app = FastAPI(
     dependencies=[Depends(require_api_key)],
 )
 setup_observability(app, "investigation-agent")
+setup_tracing(app, "investigation-agent")
 
 
 class ChatMessage(BaseModel):

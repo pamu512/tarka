@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
-from workflow import (
+from case_api.workflow import (
     WorkflowContext,
     _evaluate_condition,
     _execute_action,
@@ -111,7 +111,7 @@ class TestEvaluateWorkflows:
                 {"type": "add_label", "labels": ["vip"]},
             ],
         }
-        import workflow as mod
+        import case_api.workflow as mod
 
         mod._workflows = [wf]
 
@@ -128,7 +128,7 @@ class TestEvaluateWorkflows:
             "conditions": [{"field": "priority", "op": "eq", "value": "critical"}],
             "actions": [{"type": "escalate"}],
         }
-        import workflow as mod
+        import case_api.workflow as mod
 
         mod._workflows = [wf]
 
@@ -144,7 +144,7 @@ class TestEvaluateWorkflows:
             "conditions": [],
             "actions": [{"type": "escalate"}],
         }
-        import workflow as mod
+        import case_api.workflow as mod
 
         mod._workflows = [wf]
 
