@@ -5,6 +5,7 @@ import logging
 import re
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Any, Literal
 
 import httpx
@@ -935,6 +936,45 @@ async def get_thread_correlation_route(
     if result is None:
         raise _plugin_http_exc(404, "thread correlation not found", correlation_id)
     return result
+
+
+class CaseStateChangeWebhookPayload(BaseModel):
+    schema_id: Literal["tarka.bridge.case_state_change/v1"]
+    event_id: str
+    emitted_at: datetime
+    tenant_id: str
+    case_id: str
+    previous_status: str | None = None
+    new_status: str
+    previous_priority: str | None = None
+    new_priority: str | None = None
+    assigned_team: str | None = None
+    actor_id: str
+    actor_role: str
+    source: Literal["case-api", "orchestrator", "chat-bridge"]
+    platform: Literal["slack", "teams", "api"] | None = None
+    thread_key: str | None = None
+    correlation_id: str | None = None
+    idempotency_key: str | None = None
+    labels: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+@app.get("/v1/outbound/case-state-change/schema")
+async def case_state_change_schema():
+    return CaseStateChangeWebhookPayload.model_json_schema()
+
+
+@app.post("/v1/outbound/case-state-change/fixture")
+async def case_state_change_fixture(
+    request: Request,
+    body: CaseStateChangeWebhookPayload,
+    x_bridge_secret: str | None = Header(default=None, alias="X-Bridge-Secret"),
+):
+    if not _plugin_secret_ok(x_bridge_secret):
+        correlation_id = _request_correlation_id(request)
+        raise _plugin_http_exc(401, "invalid X-Bridge-Secret", correlation_id)
+    return {"ok": True}
 
 
 class TeamsActivityBody(BaseModel):
