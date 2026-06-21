@@ -21,9 +21,7 @@ from httpx import ASGITransport, AsyncClient
 
 
 def _bridge_audit_payloads(caplog, prefix: str = "bridge_ingress_audit") -> list[dict[str, object]]:
-    _int_fields = frozenset(
-        {"status_code", "upstream_status", "status_class"}
-    )
+    _int_fields = frozenset({"status_code", "upstream_status", "status_class"})
     payloads: list[dict[str, object]] = []
     for rec in caplog.records:
         msg = rec.getMessage()
