@@ -12,7 +12,7 @@ import httpx
 
 _REPO_ROOT = Path(__file__).resolve().parent
 _SHARED_ROOT = _REPO_ROOT / "packages" / "shared-core"
-_RULE_ENGINE_SRC = _REPO_ROOT / "services" / "rule_engine"
+_RULE_ENGINE_SRC = _REPO_ROOT / "services"
 _INGESTOR_SRC = _REPO_ROOT / "services" / "ingestor"
 
 for _p in (_SHARED_ROOT, _RULE_ENGINE_SRC, _INGESTOR_SRC):

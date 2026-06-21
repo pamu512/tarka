@@ -54,7 +54,7 @@ def _store_benchmark_run(payload: dict[str, Any]) -> None:
         _BENCHMARK_RUNS.popitem(last=False)
 
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "shared"))
 from auth_rbac import require_role  # noqa: E402
 from observability import setup_observability  # noqa: E402
 from tenant_binding import enforce_tenant_access, parse_api_key_tenant_map  # noqa: E402
