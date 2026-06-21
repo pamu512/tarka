@@ -89,6 +89,11 @@ jobs:
         run: |
           pip install pyyaml
           python scripts/ml/validate_ml_promotion_policy.py --check-sync --strict
+      - name: Lint Prometheus SLO burn rules (Q1-E04)
+        run: |
+          curl -sLO https://github.com/prometheus/prometheus/releases/download/v2.53.0/prometheus-2.53.0.linux-amd64.tar.gz
+          tar xzf prometheus-2.53.0.linux-amd64.tar.gz prometheus-2.53.0.linux-amd64/promtool
+          ./prometheus-2.53.0.linux-amd64/promtool check rules infra/deploy/observability/prometheus-rules/slo-burn.yml
       - name: Block vendor IDE tokens in tracked sources
         run: |
           python << 'PY'

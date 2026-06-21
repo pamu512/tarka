@@ -16,8 +16,8 @@ from pathlib import Path
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parents[4]
-_VIEW_SQL_PATH = _REPO_ROOT / "deploy" / "sql" / "view_case_timeline.sql"
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_VIEW_SQL_PATH = _REPO_ROOT / "infra" / "deploy" / "sql" / "view_case_timeline.sql"
 
 
 @pytest.fixture

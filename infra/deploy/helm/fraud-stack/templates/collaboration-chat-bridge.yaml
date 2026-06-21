@@ -43,6 +43,18 @@ spec:
                   name: {{ .Values.global.appSecretsName | quote }}
                   key: API_KEYS
                   optional: true
+            - name: TEAMS_BRIDGE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: TEAMS_BRIDGE_SECRET
+                  optional: true
+            - name: BRIDGE_PLUGIN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: BRIDGE_PLUGIN_SECRET
+                  optional: true
             {{- end }}
 ---
 apiVersion: v1

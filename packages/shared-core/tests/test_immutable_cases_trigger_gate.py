@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parents[4]
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 _TRIGGER_SQL = _REPO_ROOT / "triggers" / "immutable_cases.sql"
 
 
