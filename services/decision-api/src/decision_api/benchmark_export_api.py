@@ -82,8 +82,6 @@ def _run_vertical_benchmark(
     )
     from decision_api.vertical_packs import get_vertical_pack
 
-    random.seed(seed)
-
     if scenario not in SCENARIO_TEMPLATES:
         raise HTTPException(400, f"Unknown scenario: {scenario}")
 
@@ -93,6 +91,7 @@ def _run_vertical_benchmark(
         pack = get_vertical_pack(vertical)
         if not pack:
             raise HTTPException(404, f"Unknown vertical pack: {vertical}")
+        random.seed(seed)
         events = generate_scenario(profile)
         baseline = [_eval_with_override_rules(e, []) for e in events]
         vertical_decisions = [
