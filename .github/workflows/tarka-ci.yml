@@ -80,10 +80,14 @@ jobs:
 
       - name: Pytest — Rule Engine
         working-directory: services/rule_engine
+        env:
+          PYTHONPATH: .:../ingestor/src:../ingestor:../shared:../../packages/shared-core
         run: pytest tests -q
 
       - name: Pytest — Orchestrator
         working-directory: services/orchestrator
+        env:
+          PYTHONPATH: .:../ingestor/src:../ingestor:../shared:../../packages/shared-core:..
         run: pytest tests -q
 
       - name: Pytest — Shadow (hooks + NATS tools)
@@ -95,6 +99,7 @@ jobs:
       - name: Pytest — Shadow Agent
         working-directory: services/shadow_agent
         env:
+          PYTHONPATH: .:../ingestor/src:../ingestor:../../packages/shared-core:..
           SHADOW_API_KEY: ci-placeholder-not-for-production
         run: pytest tests -q
 

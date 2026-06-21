@@ -1,4 +1,4 @@
-"""Pytest path setup for flat shadow_agent layout (v1.3.0)."""
+"""Pytest path setup for flat rule_engine layout (v1.3.0)."""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ for _p in (
     _ROOT,
     _SERVICES / "ingestor" / "src",
     _SERVICES / "ingestor",
+    _SERVICES / "shared",
     _SERVICES.parent / "packages" / "shared-core",
-    _SERVICES,
 ):
     _s = str(_p.resolve())
     if _s not in sys.path:

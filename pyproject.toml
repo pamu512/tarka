@@ -158,6 +158,11 @@ ignore = [
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
+[tool.ruff.lint.per-file-ignores]
+"services/*/__init__.py" = ["N999"]
+"services/*/tests/__init__.py" = ["N999"]
+"services/*/*/__init__.py" = ["N999"]
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"

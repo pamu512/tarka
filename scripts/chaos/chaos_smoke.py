@@ -19,7 +19,7 @@ Manual / CI:
   python3 scripts/chaos/chaos_smoke.py --profile full --dependency-fallback-checks
 """
 REPO_ROOT = Path(__file__).resolve().parents[2]
-COMPOSE_FILE = REPO_ROOT / "deploy" / "docker-compose.yml"
+COMPOSE_FILE = REPO_ROOT / "infra" / "deploy" / "docker-compose.yml"
 DECISION_HEALTH = "http://127.0.0.1:8000/decisions/v1/health"
 EVALUATE_URL = "http://127.0.0.1:8000/decisions/v1/decisions/evaluate"
 DEPENDENCY_FALLBACK_MATRIX = [

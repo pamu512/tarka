@@ -131,7 +131,7 @@ jobs:
         run: pytest -v tests/
         working-directory: services/shared
         env:
-          PYTHONPATH: .
+          PYTHONPATH: .:../../packages/shared-core
           TENANT_BINDING_REQUIRED: ${{ matrix.tenant_binding_required }}
       - name: Tenant binding smoke (Q1-E02)
         run: python3 scripts/security/tenant_binding_smoke.py --tenant-binding-required ${{ matrix.tenant_binding_required }}
