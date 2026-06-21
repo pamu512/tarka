@@ -9,9 +9,9 @@ from pathlib import Path
 from typing import Any
 
 _REPO = Path(__file__).resolve().parents[3]
-_MANIFEST = _REPO / "deploy" / "profiles" / "default-deployment-profile.yaml"
-_HELM_VALUES = _REPO / "deploy" / "helm" / "fraud-stack" / "values.yaml"
-_HARDENING = _REPO / "deploy" / "docker-compose.production-hardening.yml"
+_MANIFEST = _REPO / "infra" / "deploy" / "profiles" / "default-deployment-profile.yaml"
+_HELM_VALUES = _REPO / "infra" / "deploy" / "helm" / "fraud-stack" / "values.yaml"
+_HARDENING = _REPO / "infra" / "deploy" / "docker-compose.production-hardening.yml"
 
 try:
     import yaml

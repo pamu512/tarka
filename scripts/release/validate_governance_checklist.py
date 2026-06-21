@@ -14,7 +14,7 @@ except ImportError:  # pragma: no cover - CI installs pyyaml in lint job
     yaml = None  # type: ignore[assignment]
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_CHECKLIST = ROOT / "deploy" / "release" / "governance-checklist.yaml"
+DEFAULT_CHECKLIST = ROOT / "infra" / "deploy" / "release" / "governance-checklist.yaml"
 OWNER_RE = re.compile(r"^[a-z][a-z0-9-]{1,48}$")
 REQUIRED_ITEM_KEYS = ("id", "title", "owner", "section", "ci_required")
 
