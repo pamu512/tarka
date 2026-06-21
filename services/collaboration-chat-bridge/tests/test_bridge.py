@@ -820,3 +820,126 @@ async def test_lark_event_rate_limit(monkeypatch):
         r2 = await client.post("/v1/lark/event", json=payload)
     assert r1.status_code == 200
     assert r2.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_case_action_proxy(monkeypatch):
+    monkeypatch.setenv("BRIDGE_PLUGIN_SECRET", "psec")
+    seen: dict[str, object] = {}
+
+    async def fake_proxy_case_action(*_a, **_k):
+        seen.update(_k)
+        return {"ok": True, "action_id": "act-1"}
+
+    import main as m
+
+    m.settings = m.Settings()
+    monkeypatch.setattr(m, "proxy_case_action", fake_proxy_case_action)
+
+    body = {
+        "action": "assign",
+        "tenant_id": "demo",
+        "case_id": "case-1",
+        "actor_id": "analyst-1",
+        "platform": "slack",
+        "idempotency_key": "idem-1",
+    }
+    transport = ASGITransport(app=m.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        r_unauth = await client.post("/v1/case-actions", json=body)
+        r_ok = await client.post(
+            "/v1/case-actions",
+            json=body,
+            headers={"X-Bridge-Secret": "psec", "X-Request-Id": "req-ca-1"},
+        )
+    assert r_unauth.status_code == 401
+    assert r_ok.status_code == 200
+    data = r_ok.json()
+    assert data["ok"] is True
+    assert data["action_id"] == "act-1"
+    assert r_ok.headers.get("x-correlation-id") == "req-ca-1"
+    assert seen.get("correlation_id") == "req-ca-1"
+
+
+@pytest.mark.asyncio
+async def test_thread_correlation_upsert_proxy(monkeypatch):
+    monkeypatch.setenv("BRIDGE_PLUGIN_SECRET", "psec")
+    seen: dict[str, object] = {}
+
+    async def fake_upsert(*_a, **_k):
+        seen.update(_k)
+        return {"ok": True, "thread_key": "t-1"}
+
+    import main as m
+
+    m.settings = m.Settings()
+    monkeypatch.setattr(m, "upsert_thread_correlation", fake_upsert)
+
+    body = {
+        "platform": "slack",
+        "workspace_id": "W1",
+        "thread_key": "t-1",
+        "case_id": "case-1",
+        "tenant_id": "demo",
+    }
+    transport = ASGITransport(app=m.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        r_unauth = await client.post("/v1/thread-correlations", json=body)
+        r_ok = await client.post(
+            "/v1/thread-correlations",
+            json=body,
+            headers={"X-Bridge-Secret": "psec", "X-Request-Id": "req-tc-1"},
+        )
+    assert r_unauth.status_code == 401
+    assert r_ok.status_code == 200
+    data = r_ok.json()
+    assert data["ok"] is True
+    assert r_ok.headers.get("x-correlation-id") == "req-tc-1"
+    assert seen.get("correlation_id") == "req-tc-1"
+
+
+@pytest.mark.asyncio
+async def test_thread_correlation_get_proxy(monkeypatch):
+    monkeypatch.setenv("BRIDGE_PLUGIN_SECRET", "psec")
+
+    async def fake_get(*_a, **_k):
+        return {"platform": "slack", "workspace_id": "W1", "thread_key": "t-1", "case_id": "case-1"}
+
+    import main as m
+
+    m.settings = m.Settings()
+    monkeypatch.setattr(m, "get_thread_correlation", fake_get)
+
+    transport = ASGITransport(app=m.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        r_unauth = await client.get("/v1/thread-correlations/slack/W1/t-1")
+        r_ok = await client.get(
+            "/v1/thread-correlations/slack/W1/t-1",
+            headers={"X-Bridge-Secret": "psec", "X-Request-Id": "req-tc-g1"},
+        )
+    assert r_unauth.status_code == 401
+    assert r_ok.status_code == 200
+    data = r_ok.json()
+    assert data["case_id"] == "case-1"
+    assert r_ok.headers.get("x-correlation-id") == "req-tc-g1"
+
+
+@pytest.mark.asyncio
+async def test_thread_correlation_get_not_found(monkeypatch):
+    monkeypatch.setenv("BRIDGE_PLUGIN_SECRET", "psec")
+
+    async def fake_get_none(*_a, **_k):
+        return None
+
+    import main as m
+
+    m.settings = m.Settings()
+    monkeypatch.setattr(m, "get_thread_correlation", fake_get_none)
+
+    transport = ASGITransport(app=m.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        r = await client.get(
+            "/v1/thread-correlations/slack/W1/missing",
+            headers={"X-Bridge-Secret": "psec"},
+        )
+    assert r.status_code == 404
