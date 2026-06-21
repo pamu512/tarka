@@ -16,7 +16,7 @@ from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[3]
 _DEFAULT_BUNDLE = _REPO / "infra" / "deploy" / "opa"
-_OPA_VERSION = os.environ.get("OPA_VERSION", "0.68.0")
+_OPA_VERSION = os.environ.get("OPA_VERSION", "0.70.0")
 
 
 def _opa_platform_slug() -> str:

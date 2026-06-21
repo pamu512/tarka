@@ -125,17 +125,6 @@ groups:
           description: "Location dependency is degraded; evaluate geo risk fallback quality."
           runbook_url: https://github.com/pamu512/tarka/blob/master/docs/docs/guides/fallback-emergency-runbook.md
 
-      - alert: TarkaDecisionApiCircuitOpenExternal
-        expr: rate(tarka_circuit_open_total_external[5m]) > 0.01
-        for: 10m
-        labels:
-          severity: warning
-          tier: decision-resilience
-        annotations:
-          summary: "Decision API external signal circuit is opening frequently"
-          description: "External connector path is degraded; inspect provider outages and timeout budget."
-          runbook_url: https://github.com/pamu512/tarka/blob/master/docs/docs/operations/runbook-common-failures.md
-
       - alert: TarkaDecisionApiFallbackRateElevated
         expr: rate(fraud_fallback_total[5m]) > 0.05
         for: 10m
