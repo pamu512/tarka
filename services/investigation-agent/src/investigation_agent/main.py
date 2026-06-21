@@ -1841,6 +1841,123 @@ async def plugin_bootstrap(request: Request, response: Response, body: PluginBoo
     }
 
 
+# ---------- case-actions & thread-correlations (Q2-E08, proxied by collaboration-chat-bridge) ----------
+
+_thread_correlations: dict[str, dict[str, Any]] = {}
+
+
+class CaseActionBody(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    action: Literal["assign", "comment", "escalate", "resolve"]
+    tenant_id: str = Field(..., max_length=128)
+    case_id: str = Field(..., max_length=128)
+    actor_id: str = Field(..., max_length=128)
+    actor_role: str = Field(default="analyst", max_length=64)
+    platform: Literal["slack", "teams"]
+    workspace_id: str | None = Field(default=None, max_length=128)
+    thread_key: str | None = Field(default=None, max_length=256)
+    idempotency_key: str = Field(..., max_length=256)
+    correlation_id: str | None = Field(default=None, max_length=128)
+    assignee: str | None = Field(default=None, max_length=128)
+    comment_body: str | None = Field(default=None, max_length=4096)
+    resolve_status: str | None = Field(default=None, max_length=64)
+    reason_code: str | None = Field(default=None, max_length=128)
+
+
+class ThreadCorrelationBody(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    platform: Literal["slack", "teams"]
+    workspace_id: str = Field(..., max_length=128)
+    thread_key: str = Field(..., max_length=256)
+    case_id: str = Field(..., max_length=128)
+    tenant_id: str = Field(..., max_length=128)
+
+
+async def _forward_case_action(body: CaseActionBody) -> dict[str, Any]:
+    base = settings.case_api_url.rstrip("/")
+    headers: dict[str, str] = {}
+    if settings.upstream_api_key:
+        headers["x-api-key"] = settings.upstream_api_key
+
+    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
+        if body.action == "comment":
+            r = await client.post(
+                f"{base}/v1/cases/{body.case_id}/comments",
+                params={"tenant_id": body.tenant_id},
+                json={"author": body.actor_id, "body": body.comment_body or ""},
+                headers=headers,
+            )
+        else:
+            patch_payload: dict[str, Any] = {}
+            if body.action == "assign":
+                patch_payload["assigned_team"] = body.assignee or body.actor_id
+            elif body.action == "escalate":
+                patch_payload["status"] = "escalated"
+            elif body.action == "resolve":
+                patch_payload["status"] = body.resolve_status or "resolved"
+            r = await client.patch(
+                f"{base}/v1/cases/{body.case_id}",
+                params={"tenant_id": body.tenant_id},
+                json=patch_payload,
+                headers=headers,
+            )
+        r.raise_for_status()
+        return r.json()
+
+
+@app.post("/v1/case-actions")
+async def execute_case_action(request: Request, response: Response, body: CaseActionBody):
+    correlation_id = _request_correlation_id(request)
+    response.headers["X-Correlation-Id"] = correlation_id
+    try:
+        _validate_scope_id("tenant_id", body.tenant_id)
+        _validate_scope_id("case_id", body.case_id)
+        _validate_scope_id("actor_id", body.actor_id)
+    except HTTPException as e:
+        raise _plugin_http_exc(int(e.status_code), str(e.detail), correlation_id) from None
+    try:
+        result = await _forward_case_action(body)
+    except httpx.HTTPStatusError as e:
+        code = e.response.status_code if e.response is not None else 502
+        raise _plugin_http_exc(code, "case action upstream error", correlation_id) from None
+    except httpx.RequestError:
+        raise _plugin_http_exc(502, "case-api unreachable", correlation_id) from None
+    return {"ok": True, "correlation_id": correlation_id, **result}
+
+
+@app.post("/v1/thread-correlations")
+async def upsert_thread_correlation(request: Request, response: Response, body: ThreadCorrelationBody):
+    correlation_id = _request_correlation_id(request)
+    response.headers["X-Correlation-Id"] = correlation_id
+    try:
+        _validate_scope_id("tenant_id", body.tenant_id)
+        _validate_scope_id("case_id", body.case_id)
+    except HTTPException as e:
+        raise _plugin_http_exc(int(e.status_code), str(e.detail), correlation_id) from None
+    key = f"{body.platform}:{body.workspace_id}:{body.thread_key}"
+    _thread_correlations[key] = body.model_dump()
+    return {"ok": True, "correlation_id": correlation_id, **body.model_dump()}
+
+
+@app.get("/v1/thread-correlations/{platform}/{workspace_id}/{thread_key}")
+async def get_thread_correlation(
+    request: Request,
+    response: Response,
+    platform: str,
+    workspace_id: str,
+    thread_key: str,
+):
+    correlation_id = _request_correlation_id(request)
+    response.headers["X-Correlation-Id"] = correlation_id
+    key = f"{platform}:{workspace_id}:{thread_key}"
+    entry = _thread_correlations.get(key)
+    if entry is None:
+        raise _plugin_http_exc(404, "thread correlation not found", correlation_id)
+    return entry
+
+
 @app.post("/v1/batch/ingest")
 async def batch_ingest(
     tenant_id: str = Form(...),
