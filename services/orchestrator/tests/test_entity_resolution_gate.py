@@ -32,8 +32,8 @@ def test_build_graph_viz_attaches_resolution_confidence() -> None:
         assert 0.0 <= float(link["resolution_confidence"]) <= 1.0
         assert link["confidence_label"] in ("high", "medium", "low")
 
-    device_links = [l for l in links if l.get("rel") == "USED_DEVICE"]
-    ip_links = [l for l in links if l.get("rel") == "ORDERED_FROM_IP"]
+    device_links = [link for link in links if link.get("rel") == "USED_DEVICE"]
+    ip_links = [link for link in links if link.get("rel") == "ORDERED_FROM_IP"]
     assert device_links and ip_links
     assert float(device_links[0]["resolution_confidence"]) < 0.88
     assert float(ip_links[0]["resolution_confidence"]) <= 0.65
