@@ -7,9 +7,9 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db import get_session
-from models import Case
-from workflow import is_sla_breached_at
+from .db import get_session
+from .models import Case
+from .workflow import is_sla_breached_at
 
 """Time-bucketed investigation KPIs for dashboards and exports (Marble #57)."""
 router = APIRouter(prefix="/v1/cases/ops", tags=["case-ops-kpi-series"])

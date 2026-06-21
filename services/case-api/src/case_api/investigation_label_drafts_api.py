@@ -9,9 +9,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db import get_session
-from models import InvestigationLabelDraft
-from schemas import LabelDraftBatchIn, LabelDraftOut, LabelDraftRowIn
+from .db import get_session
+from .models import InvestigationLabelDraft
+from .schemas import LabelDraftBatchIn, LabelDraftOut, LabelDraftRowIn
 
 """Durable analyst-scoped investigation label drafts (separate from case workflow labels)."""
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))

@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete
 
-from db import engine as async_engine
+from .db import engine as async_engine
 
 log = logging.getLogger("case-api.retention")
 

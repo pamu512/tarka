@@ -11,8 +11,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db import get_session
-from models import Case, Dispute
+from .db import get_session
+from .models import Case, Dispute
 
 _shared = Path(__file__).resolve().parents[3] / "shared"
 if str(_shared) not in sys.path:

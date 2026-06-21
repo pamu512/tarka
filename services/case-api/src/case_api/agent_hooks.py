@@ -11,7 +11,7 @@ from typing import Any
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import CaseComment
+from .models import CaseComment
 
 log = logging.getLogger(__name__)
 

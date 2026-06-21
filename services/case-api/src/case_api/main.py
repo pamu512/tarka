@@ -21,10 +21,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from tarka_core.internal_monitor import InternalMonitor
 
-from agent_hooks import fire_case_brief
-from builtin_playbooks import PLAYBOOKS
-from config import settings
-from db import (
+from .agent_hooks import fire_case_brief
+from .builtin_playbooks import PLAYBOOKS
+from .config import settings
+from .db import (
     Base,
     active_database_backend,
     bootstrap_mode,
@@ -35,27 +35,27 @@ from db import (
     public_database_url,
     using_local_fallback,
 )
-from dispute_api import router as dispute_router
-from investigation_label_drafts_api import router as investigation_label_drafts_router
-from graph_case_api import router as graph_case_router
-from investigation_templates_api import router as investigation_templates_router
-from ml_training_api import router as ml_training_router
-from models import Case, CaseComment, CaseView, SarAuditLog, SARFiling, SarFiling
-from ops_kpi_series import router as ops_kpi_series_router
-from retention import DEFAULT_RETENTION_DAYS, retention_loop
-from routing import evaluate_case_routing
-from sar import SARGenerator
-from sar_filing_transport import (
+from .dispute_api import router as dispute_router
+from .investigation_label_drafts_api import router as investigation_label_drafts_router
+from .graph_case_api import router as graph_case_router
+from .investigation_templates_api import router as investigation_templates_router
+from .ml_training_api import router as ml_training_router
+from .models import Case, CaseComment, CaseView, SarAuditLog, SARFiling, SarFiling
+from .ops_kpi_series import router as ops_kpi_series_router
+from .retention import DEFAULT_RETENTION_DAYS, retention_loop
+from .routing import evaluate_case_routing
+from .sar import SARGenerator
+from .sar_filing_transport import (
     build_sar_filing_data,
     build_sftp_destination,
     validate_pre_filing,
 )
-from sar_intent_notes import (
+from .sar_intent_notes import (
     fincen_submission_sha256_hex,
     is_sar_uploaded_locked,
     sanitize_investigative_notes_html,
 )
-from sar_transport import (
+from .sar_transport import (
     SAR_APPROVED,
     SAR_FAILED,
     SAR_PENDING_REVIEW,
@@ -63,19 +63,19 @@ from sar_transport import (
     record_sar_intent_initial_state,
     transition_sar_intent,
 )
-from sar_transport_monitor_api import router as sar_transport_monitor_router
-from sar_transport_worker import (
+from .sar_transport_monitor_api import router as sar_transport_monitor_router
+from .sar_transport_worker import (
     SAR_TRANSPORT_RUN_SUBJECT,
     setup_sar_transport_worker,
     shutdown_sar_transport_worker,
 )
-from schemas import CaseOut, CommentIn, CreateCaseRequest, LabelsIn
-from template_apply import (
+from .schemas import CaseOut, CommentIn, CreateCaseRequest, LabelsIn
+from .template_apply import (
     apply_case_payload_to_case,
     apply_investigation_template_transaction,
     resolve_playbook_or_template,
 )
-from workflow import evaluate_workflows, get_workflows, is_sla_breached, load_workflows
+from .workflow import evaluate_workflows, get_workflows, is_sla_breached, load_workflows
 
 from audit_trail import AuditTrail, create_audit_model  # noqa: E402
 from auth_rbac import get_current_user, require_role, setup_auth  # noqa: E402

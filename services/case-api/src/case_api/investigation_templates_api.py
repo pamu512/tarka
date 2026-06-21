@@ -8,9 +8,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db import get_session
-from models import InvestigationTemplate
-from schemas import (
+from .db import get_session
+from .models import InvestigationTemplate
+from .schemas import (
     CreateInvestigationTemplateRequest,
     InvestigationTemplateOut,
     PatchInvestigationTemplateRequest,
