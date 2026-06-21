@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, Query
 
+from decision_api._shared_path import ensure_shared_on_path
 from decision_api.calibration_api import compute_drift_for_tenant
 
-_shared = Path(__file__).resolve().parents[3] / "shared"
-if str(_shared) not in sys.path:
-    sys.path.insert(0, str(_shared))
+ensure_shared_on_path()
 from auth_rbac import require_role  # noqa: E402
 
 router = APIRouter(prefix="/v1/drift", tags=["drift"])
