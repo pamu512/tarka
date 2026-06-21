@@ -81,13 +81,13 @@ jobs:
       - name: Pytest — Rule Engine
         working-directory: services/rule_engine
         env:
-          PYTHONPATH: .:../ingestor/src:../ingestor:../shared:../../packages/shared-core
+          PYTHONPATH: .:../ingestor/src:../ingestor:../shared:../../packages/shared-core:../../crates/tarka-py/python
         run: pytest tests -q
 
       - name: Pytest — Orchestrator
         working-directory: services/orchestrator
         env:
-          PYTHONPATH: .:../ingestor/src:../ingestor:../shared:../../packages/shared-core:..
+          PYTHONPATH: .:../ingestor/src:../ingestor:../shared:../../packages/shared-core:../../crates/tarka-py/python:..
         run: pytest tests -q
 
       - name: Pytest — Shadow (hooks + NATS tools)
