@@ -9,6 +9,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 from sqlalchemy import cast, func, select
+from sqlalchemy.exc import NotSupportedError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import ColumnElement
 from tarka_shared.audit_trail import AuditLog
@@ -91,7 +92,7 @@ def _json_device_expr(bind: Any) -> ColumnElement[Any]:
 
         doc = cast(AuditLog.action_taken, JSONB)
         return doc["device_id"].astext
-    raise NotImplementedError(f"timeline unsupported dialect {dialect!r}")
+    raise NotSupportedError(f"timeline unsupported dialect {dialect!r}")
 
 
 def _json_ip_expr(bind: Any) -> ColumnElement[Any]:
@@ -103,7 +104,7 @@ def _json_ip_expr(bind: Any) -> ColumnElement[Any]:
 
         doc = cast(AuditLog.action_taken, JSONB)
         return doc["ip_address"].astext
-    raise NotImplementedError(f"timeline unsupported dialect {dialect!r}")
+    raise NotSupportedError(f"timeline unsupported dialect {dialect!r}")
 
 
 def _amount_expr(bind: Any) -> ColumnElement[Any]:
@@ -118,7 +119,7 @@ def _amount_expr(bind: Any) -> ColumnElement[Any]:
 
         doc = cast(AuditLog.action_taken, JSONB)
         return cast(doc["amount"].astext, Float)
-    raise NotImplementedError(f"timeline unsupported dialect {dialect!r}")
+    raise NotSupportedError(f"timeline unsupported dialect {dialect!r}")
 
 
 @dataclass(frozen=True, slots=True)
