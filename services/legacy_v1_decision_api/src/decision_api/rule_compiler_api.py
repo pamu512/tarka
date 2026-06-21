@@ -13,7 +13,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
 
-
 ensure_shared_on_path()
 from auth_rbac import require_role  # noqa: E402
 

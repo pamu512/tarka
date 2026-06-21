@@ -613,7 +613,9 @@ async def teams_messages(
             analyst_id=resolved_analyst_id,
             reason="tenant_binding_required_no_allowlist",
         )
-        raise _ingress_http_exc(403, "tenant binding required but no tenant allowlist configured", correlation_id)
+        raise _ingress_http_exc(
+            403, "tenant binding required but no tenant allowlist configured", correlation_id
+        )
     if allowed_tenants and resolved_tenant_id not in allowed_tenants:
         _audit_ingress_event(
             route="teams_messages",

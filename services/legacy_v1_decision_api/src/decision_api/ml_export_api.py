@@ -30,7 +30,6 @@ from decision_api.deps import require_analytics_engine
 from tarka_core.internal_monitor import InternalMonitor
 
 
-
 ensure_shared_on_path()
 from auth_rbac import require_role  # noqa: E402
 
