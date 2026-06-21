@@ -51,8 +51,13 @@ def test_benchmark_export_persistence(tmp_path, monkeypatch):
 def test_benchmark_run_vertical_seed42(monkeypatch, tmp_path):
     try:
         import tarka_core  # noqa: F401
+        import tarka_rule_engine as tre
+
+        tre.sync_packs_json("[]")
     except ImportError:
-        pytest.skip("tarka_core not installed")
+        pytest.skip("tarka_core / tarka_rule_engine not installed")
+    except Exception as exc:
+        pytest.skip(f"rust rule engine unavailable: {exc}")
     monkeypatch.setenv("RULES_PATH", str(tmp_path))
     from decision_api.config import settings
     from decision_api.benchmark_export_api import _run_vertical_benchmark

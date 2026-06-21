@@ -10,7 +10,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field, model_validator
-from tarka_shared.observability import get_metrics
+from observability import get_metrics
 
 router = APIRouter(prefix="/v1/calibrate", tags=["calibration"])
 

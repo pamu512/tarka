@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import math
+from datetime import datetime
 from typing import Any, Self
+from uuid import UUID
 
 from google.protobuf.json_format import MessageToDict
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
@@ -11,6 +14,47 @@ from descriptor_pin import manifest_descriptor_set_sha256
 from settings import IngestorSettings
 
 EXPECTED_MANIFEST_FULL_NAME = "tarka.evidence.wire.v1.EvidenceManifest"
+
+
+class TransactionSchema(BaseModel):
+    """Canonical transaction envelope for ingestion (aligned with Core ``/v1/decide`` payloads)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    entity_id: UUID = Field(
+        ...,
+        description="Unique transaction identifier (UUID). Must match across retries for the same payment attempt.",
+    )
+    amount: float = Field(
+        ...,
+        gt=0,
+        description="Strictly positive finite monetary amount in the transaction currency (not NaN or infinite).",
+    )
+    timestamp: datetime = Field(
+        ...,
+        description="Transaction time as ISO 8601 datetime (UTC recommended).",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Optional structured context (channel, device, merchant tags, etc.). "
+            "Extra keys are allowed inside `metadata`; the top-level envelope rejects unknown fields."
+        ),
+    )
+    country: str | None = Field(
+        default=None,
+        description=(
+            "Optional ISO-like country code used by the rule-engine ``country`` field ref "
+            "(derived or mirrored from metadata in production pipelines)."
+        ),
+    )
+
+    @field_validator("amount")
+    @classmethod
+    def _finite_amount(cls, value: float) -> float:
+        if not math.isfinite(value):
+            raise ValueError("amount must be finite")
+        return value
 
 
 class SchemaIncompatibilityError(ValueError):
