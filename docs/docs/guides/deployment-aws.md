@@ -1,6 +1,6 @@
 # Deploying Tarka on AWS
 
-This guide maps the **reference** deployment artifacts in this repo ([Docker Compose](../../../deploy/docker-compose.yml), [Helm chart](../../../deploy/helm/fraud-stack/)) to a typical **Amazon Web Services** production layout. It is **not** a one-click Terraform module; it describes what to provision, how services fit together, and where to inject secrets and URLs.
+This guide maps the **reference** deployment artifacts in this repo ([Docker Compose](../../../infra/deploy/docker-compose.yml), [Helm chart](../../../infra/deploy/helm/fraud-stack/)) to a typical **Amazon Web Services** production layout. It is **not** a one-click Terraform module; it describes what to provision, how services fit together, and where to inject secrets and URLs.
 
 **See also:** [Deployment Guide](./deployment.md) (Compose profiles, Helm install, env reference), [Service ports](./service-ports.md), [Cloud presets and generated values](./deployment-presets.md), [Enterprise readiness](./enterprise-readiness.md).
 
@@ -25,7 +25,7 @@ This guide maps the **reference** deployment artifacts in this repo ([Docker Com
 
 ## Helm chart and managed data stores
 
-The bundled Helm chart (`deploy/helm/fraud-stack`) wires `DATABASE_URL` and `REDIS_URL` to **in-cluster** Postgres and Redis by default (see `templates/decision-api.yaml` and similar).
+The bundled Helm chart (`infra/deploy/helm/fraud-stack`) wires `DATABASE_URL` and `REDIS_URL` to **in-cluster** Postgres and Redis by default (see `templates/decision-api.yaml` and similar).
 
 For **RDS** and **ElastiCache**, production teams usually:
 
@@ -55,12 +55,12 @@ Repeat for each enabled service (`graph-service`, `case-api`, `investigation-age
 Use the preset generator for a quick starting values file:
 
 ```bash
-python3 scripts/deploy/generate_cloud_values.py \
+python3 infra/scripts/deploy/generate_cloud_values.py \
   --preset core-on-aws \
   --image-registry <account>.dkr.ecr.<region>.amazonaws.com/tarka \
   --db-url postgresql+asyncpg://fraud:***@<rds-host>:5432/fraud \
   --redis-url redis://<elasticache-host>:6379/0 \
-  --output deploy/generated/core-on-aws.values.yaml
+  --output infra/deploy/generated/core-on-aws.values.yaml
 ```
 
 ---
@@ -75,7 +75,7 @@ python3 scripts/deploy/generate_cloud_values.py \
 
 ## Observability
 
-- **Amazon CloudWatch** for logs (DaemonSet / Fluent Bit) and metrics; or keep the optional [Prometheus + Grafana compose add-on](../../../deploy/observability/README.md) pattern and run the same stack on EKS via Prometheus Operator.
+- **Amazon CloudWatch** for logs (DaemonSet / Fluent Bit) and metrics; or keep the optional [Prometheus + Grafana compose add-on](../../../infra/deploy/observability/README.md) pattern and run the same stack on EKS via Prometheus Operator.
 - All Tarka HTTP services expose **`/v1/health`**; use those for **liveness/readiness** probes.
 
 ---

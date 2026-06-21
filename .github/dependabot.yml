@@ -11,7 +11,7 @@ updates:
           - "*"
 
   - package-ecosystem: pip
-    directory: /legacy_attic/services/legacy_v1_decision_api
+    directory: /services/legacy_v1_decision_api
     schedule:
       interval: weekly
     groups:
@@ -20,7 +20,7 @@ updates:
           - "*"
 
   - package-ecosystem: pip
-    directory: /legacy_attic/services/core
+    directory: /services/core
     schedule:
       interval: weekly
     groups:
@@ -29,7 +29,7 @@ updates:
           - "*"
 
   - package-ecosystem: pip
-    directory: /legacy_attic/services/analytics
+    directory: /services/analytics
     schedule:
       interval: weekly
     groups:
@@ -38,7 +38,7 @@ updates:
           - "*"
 
   - package-ecosystem: pip
-    directory: /legacy_attic/services/case-api
+    directory: /services/case-api
     schedule:
       interval: weekly
     groups:
@@ -47,7 +47,7 @@ updates:
           - "*"
 
   - package-ecosystem: pip
-    directory: /legacy_attic/services/graph-service
+    directory: /services/graph-service
     schedule:
       interval: weekly
     groups:
@@ -56,7 +56,7 @@ updates:
           - "*"
 
   - package-ecosystem: pip
-    directory: /legacy_attic/services/integration-ingress
+    directory: /services/integration-ingress
     schedule:
       interval: weekly
     groups:
@@ -65,7 +65,7 @@ updates:
           - "*"
 
   - package-ecosystem: pip
-    directory: /legacy_attic/services/investigation-agent
+    directory: /services/investigation-agent
     schedule:
       interval: weekly
     groups:

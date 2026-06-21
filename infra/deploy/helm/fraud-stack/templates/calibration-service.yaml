@@ -1,0 +1,40 @@
+{{- if .Values.calibrationService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-calibration-service
+spec:
+  replicas: {{ .Values.calibrationService.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-calibration-service
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-calibration-service
+    spec:
+      containers:
+        - name: calibration-service
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.calibrationService.image "tag" .Values.calibrationService.tag) | quote }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.calibrationService.servicePort }}
+          env:
+            - name: REDIS_URL
+              {{- if .Values.global.externalServices.redis.enabled }}
+              value: {{ .Values.global.externalServices.redis.redisUrl | quote }}
+              {{- else }}
+              value: "redis://{{ include "tarka.fullname" . }}-redis:6379/0"
+              {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-calibration-service
+spec:
+  selector:
+    app: {{ include "tarka.fullname" . }}-calibration-service
+  ports:
+    - port: {{ .Values.calibrationService.servicePort }}
+      targetPort: {{ .Values.calibrationService.servicePort }}
+{{- end }}

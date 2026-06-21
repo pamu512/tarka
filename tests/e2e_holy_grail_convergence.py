@@ -27,12 +27,12 @@ from sqlalchemy import func, select
 from starlette.testclient import TestClient
 
 _REPO = Path(__file__).resolve().parents[1]
-_SRC_ORCH = _REPO / "tarka_v2_core/services/orchestrator/src"
-_SRC_RULE = _REPO / "tarka_v2_core/services/rule_engine/src"
-_SRC_INGESTOR = _REPO / "tarka_v2_core/services/ingestor/src"
-_SRC_SHARED = _REPO / "tarka_v2_core/services/shared"
-_SRC_SHADOW = _REPO / "tarka_v2_core/services/shadow_agent/src"
-_SRC_SERVICES = _REPO / "tarka_v2_core/services"
+_SRC_ORCH = _REPO / "services/orchestrator/src"
+_SRC_RULE = _REPO / "services/rule_engine/src"
+_SRC_INGESTOR = _REPO / "services/ingestor/src"
+_SRC_SHARED = _REPO / "packages/shared-core"
+_SRC_SHADOW = _REPO / "services/shadow_agent/src"
+_SRC_SERVICES = _REPO / "services"
 for _p in (_SRC_ORCH, _SRC_RULE, _SRC_INGESTOR, _SRC_SHARED, _SRC_SHADOW, _SRC_SERVICES):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))

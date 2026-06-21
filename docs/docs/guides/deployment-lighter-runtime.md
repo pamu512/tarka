@@ -6,6 +6,22 @@ Use it for early production pilots, smaller module footprints, or organizations 
 
 ---
 
+## Profile selection decision tree (Q1-D08)
+
+```
+Pilot budget / no K8s ops team?
+  └─ yes → lighter runtime (this guide): decision-api + managed Postgres/Redis
+  └─ no → Need graph, NATS, or ClickHouse on day one?
+            └─ yes → cloud-native bundles on Kubernetes (deployment-cloud-native-bundles.md)
+            └─ no → customer already has RDS/ElastiCache?
+                      └─ yes → managed-services contract (deployment-managed-services.md)
+                      └─ no → stay on lighter runtime until complexity threshold hit
+```
+
+**Misconfiguration escalation:** validate env parity with `python3 infra/scripts/deploy/validate_env_contract.py`; before cutover, run preset smoke via `infra/scripts/ci/cloud_preset_smoke.py`.
+
+---
+
 ## Good candidates for lighter runtime
 
 | Service | Notes |

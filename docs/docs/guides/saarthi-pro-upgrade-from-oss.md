@@ -20,7 +20,7 @@
 
 ## Verification steps
 
-1. **Contract smoke:** `python scripts/ci/check_integration_contract.py --base-url https://<agent>/` (add `--api-key` if required).
+1. **Contract smoke:** `python infra/scripts/ci/check_integration_contract.py --base-url https://<agent>/` (add `--api-key` if required).
 2. **Health:** `GET /v1/health` → confirm `integration.contract_version` matches release notes.
 3. **Golden profile (optional):** Re-run agreed profiles in UAT (see [certification checklist](saarthi-pro-certification-checklist.md)).
 4. **Canary chat:** One analyst thread with replay/labels **disabled** in UAT first if production-sensitive.

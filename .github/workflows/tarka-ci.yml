@@ -2,7 +2,7 @@
 # Lint runs before tests so a deliberate ruff violation fails the job before pytest starts.
 #
 # Gate (manual): on a throwaway branch, introduce a ruff error (e.g. unused import) under
-# tarka_v2_core/services/{rule_engine,shadow_agent,orchestrator,ingestor}/, push, open PR —
+# services/{rule_engine,shadow_agent,orchestrator,ingestor}/, push, open PR —
 # the "Ruff" step must fail; pytest steps must not run (skipped after failure).
 #
 # Trivy gate: uncomment ``urllib3==1.25.11`` in ``services/orchestrator/requirements.txt``,
@@ -38,71 +38,71 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: |
-            tarka_v2_core/services/orchestrator/pyproject.toml
-            tarka_v2_core/services/rule_engine/pyproject.toml
-            tarka_v2_core/services/shadow/pyproject.toml
-            tarka_v2_core/services/saarthi/pyproject.toml
-            tarka_v2_core/services/shadow_agent/pyproject.toml
+            services/orchestrator/pyproject.toml
+            services/rule_engine/pyproject.toml
+            services/shadow/pyproject.toml
+            services/saarthi/pyproject.toml
+            services/shadow_agent/pyproject.toml
 
       - name: Install tooling and editable sidecars
         run: |
           python -m pip install --upgrade pip
           pip install ruff black pytest pytest-asyncio openai psutil
           # Install shared package first (file: deps in sidecar pyprojects resolve from repo root).
-          pip install -e ./packages/tarka-deploy-settings
-          pip install -e "./tarka_v2_core/services/shadow[dev]"
-          (cd tarka_v2_core/services/rule_engine && pip install -e .)
-          (cd tarka_v2_core/services/orchestrator && pip install -e ".[janus,dev]")
+          pip install -e ./packages/deploy-settings
+          pip install -e "./services/shadow[dev]"
+          (cd services/rule_engine && pip install -e .)
+          (cd services/orchestrator && pip install -e ".[janus,dev]")
           pip install fakeredis
-          pip install -e "./tarka_v2_core/services/saarthi[dev]"
-          (cd tarka_v2_core/services/shadow_agent && pip install -e .)
+          pip install -e "./services/saarthi[dev]"
+          (cd services/shadow_agent && pip install -e .)
 
       - name: Ruff (sidecars + ingestor)
         run: |
           ruff check \
-            tarka_v2_core/services/rule_engine \
-            tarka_v2_core/services/shadow \
-            tarka_v2_core/services/shadow_agent \
-            tarka_v2_core/services/orchestrator \
-            tarka_v2_core/services/saarthi \
-            tarka_v2_core/services/ingestor
+            services/rule_engine \
+            services/shadow \
+            services/shadow_agent \
+            services/orchestrator \
+            services/saarthi \
+            services/ingestor
 
       - name: Black
         if: matrix.python-version == '3.14'
         run: |
           black --check --line-length 100 --target-version py312 --fast \
-            tarka_v2_core/services/rule_engine \
-            tarka_v2_core/services/shadow \
-            tarka_v2_core/services/shadow_agent \
-            tarka_v2_core/services/orchestrator \
-            tarka_v2_core/services/saarthi \
-            tarka_v2_core/services/ingestor
+            services/rule_engine \
+            services/shadow \
+            services/shadow_agent \
+            services/orchestrator \
+            services/saarthi \
+            services/ingestor
 
       - name: Pytest — Rule Engine
-        working-directory: tarka_v2_core/services/rule_engine
+        working-directory: services/rule_engine
         run: pytest tests -q
 
       - name: Pytest — Orchestrator
-        working-directory: tarka_v2_core/services/orchestrator
+        working-directory: services/orchestrator
         run: pytest tests -q
 
       - name: Pytest — Shadow (hooks + NATS tools)
-        working-directory: tarka_v2_core/services/shadow
+        working-directory: services/shadow
         env:
-          PYTHONPATH: ${{ github.workspace }}/tarka_v2_core/services
+          PYTHONPATH: ${{ github.workspace }}/services
         run: pytest tests -q
 
       - name: Pytest — Shadow Agent
-        working-directory: tarka_v2_core/services/shadow_agent
+        working-directory: services/shadow_agent
         env:
           SHADOW_API_KEY: ci-placeholder-not-for-production
         run: pytest tests -q
 
       - name: Pytest — Saarthi (SAR PDF)
-        working-directory: tarka_v2_core/services/saarthi
+        working-directory: services/saarthi
         run: pytest tests -q
 
-  # Multi-stage Dockerfiles under tarka_v2_core/services/*/Dockerfile — scan after lint+tests pass.
+  # Multi-stage Dockerfiles under services/*/Dockerfile — scan after lint+tests pass.
   container-scan:
     name: Container images (Trivy)
     runs-on: ubuntu-latest
@@ -118,9 +118,9 @@ jobs:
       - name: Build sidecar images
         run: |
           set -eux
-          docker build -f tarka_v2_core/services/orchestrator/Dockerfile -t tarka-orchestrator:ci .
-          docker build -f tarka_v2_core/services/rule_engine/Dockerfile -t tarka-rule-engine:ci .
-          docker build -f tarka_v2_core/services/shadow_agent/Dockerfile -t tarka-shadow-agent:ci .
+          docker build -f services/orchestrator/Dockerfile -t tarka-orchestrator:ci .
+          docker build -f services/rule_engine/Dockerfile -t tarka-rule-engine:ci .
+          docker build -f services/shadow_agent/Dockerfile -t tarka-shadow-agent:ci .
 
       - name: Trivy — Orchestrator
         uses: aquasecurity/trivy-action@v0.36.0

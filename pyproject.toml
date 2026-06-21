@@ -78,7 +78,7 @@ observability = [
     "opentelemetry-instrumentation-fastapi>=0.48b0",
 ]
 
-# Laptop / Docker micro stack (see deploy/docker-compose.micro.yml and scripts/start-micro.sh).
+# Laptop / Docker micro stack (see infra/deploy/docker-compose.micro.yml and scripts/start-micro.sh).
 micro = [
     "duckdb>=1.1.0",
     "aiosqlite>=0.21.0",

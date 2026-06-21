@@ -7,9 +7,17 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { isCaseWorkbenchTab, type CaseWorkbenchTab } from "../workbench/workbenchContract";
 
 const STORAGE_KEY = "tarka-analyst-open-cases";
 const MAX_OPEN_CASES = 14;
+
+export type WorkbenchCommand =
+  | { type: "set_tab"; tab: CaseWorkbenchTab }
+  | { type: "toggle_copilot"; open?: boolean }
+  | { type: "toggle_panel"; panel: string; open?: boolean };
+
+type WorkbenchCommandListener = (cmd: WorkbenchCommand) => void;
 
 export type OpenCaseTab = {
   caseId: string;
@@ -58,6 +66,12 @@ type AnalystWorkspaceValue = {
   clearOpenCases: () => void;
   /** Update title only if tab exists */
   updateCaseTitle: (caseId: string, tenantId: string, title: string) => void;
+  /** Subscribe to workbench commands (command palette, hotkeys). Returns unsubscribe. */
+  subscribeWorkbenchCommands: (listener: WorkbenchCommandListener) => () => void;
+  /** Dispatch a workbench command to active case detail listeners. */
+  dispatchWorkbenchCommand: (cmd: WorkbenchCommand) => void;
+  /** Build case detail href preserving optional workbench tab. */
+  caseDetailHref: (caseId: string, tenantId: string, tab?: CaseWorkbenchTab | null) => string;
 };
 
 const AnalystWorkspaceContext = createContext<AnalystWorkspaceValue | null>(null);
@@ -66,6 +80,7 @@ export function AnalystWorkspaceProvider({ children }: { children: ReactNode }) 
   const [openCases, setOpenCases] = useState<OpenCaseTab[]>(() =>
     typeof window !== "undefined" ? readStored() : [],
   );
+  const [workbenchListeners] = useState(() => new Set<WorkbenchCommandListener>());
 
   useEffect(() => {
     writeStored(openCases);
@@ -95,6 +110,26 @@ export function AnalystWorkspaceProvider({ children }: { children: ReactNode }) 
 
   const preferredTenantId = openCases[0]?.tenantId ?? "demo";
 
+  const subscribeWorkbenchCommands = useCallback((listener: WorkbenchCommandListener) => {
+    workbenchListeners.add(listener);
+    return () => {
+      workbenchListeners.delete(listener);
+    };
+  }, [workbenchListeners]);
+
+  const dispatchWorkbenchCommand = useCallback(
+    (cmd: WorkbenchCommand) => {
+      for (const listener of workbenchListeners) listener(cmd);
+    },
+    [workbenchListeners],
+  );
+
+  const caseDetailHref = useCallback((caseId: string, tenantId: string, tab?: CaseWorkbenchTab | null) => {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    if (tab && tab !== "timeline") q.set("tab", tab);
+    return `/cases/${encodeURIComponent(caseId)}?${q}`;
+  }, []);
+
   const value = useMemo(
     () => ({
       openCases,
@@ -103,8 +138,21 @@ export function AnalystWorkspaceProvider({ children }: { children: ReactNode }) 
       removeCase,
       clearOpenCases,
       updateCaseTitle,
+      subscribeWorkbenchCommands,
+      dispatchWorkbenchCommand,
+      caseDetailHref,
     }),
-    [openCases, preferredTenantId, pinCase, removeCase, clearOpenCases, updateCaseTitle],
+    [
+      openCases,
+      preferredTenantId,
+      pinCase,
+      removeCase,
+      clearOpenCases,
+      updateCaseTitle,
+      subscribeWorkbenchCommands,
+      dispatchWorkbenchCommand,
+      caseDetailHref,
+    ],
   );
 
   return (

@@ -2,7 +2,7 @@
 
 **Purpose:** Map Tarka’s runnable stacks to two operational tiers—**Community** (minimal footprint, fast onboarding) and **Pro** (full modular stack)—with copy-paste Compose commands, env fragments, and known limits. Aligns with GitHub **#38** (integration-ingress / platform swimlane).
 
-**Sources in repo:** `deploy/docker-compose.lite.yml` (community-shaped), `deploy/docker-compose.yml` + Compose **profiles** (pro modular), `deploy/.env.example` (pro-oriented defaults).
+**Sources in repo:** `infra/deploy/docker-compose.lite.yml` (community-shaped), `infra/deploy/docker-compose.yml` + Compose **profiles** (pro modular), `infra/deploy/.env.example` (pro-oriented defaults).
 
 ---
 
@@ -10,7 +10,7 @@
 
 | Dimension | **Community** | **Pro** |
 |-----------|---------------|---------|
-| **Primary compose file** | `deploy/docker-compose.lite.yml` | `deploy/docker-compose.yml` |
+| **Primary compose file** | `infra/deploy/docker-compose.lite.yml` | `infra/deploy/docker-compose.yml` |
 | **Database** | Postgres 16 | Postgres 16 |
 | **Cache** | Redis 7 | Redis 7 |
 | **Message bus** | — (not in lite file) | NATS JetStream (`--profile streaming` or `full`) |
@@ -29,12 +29,12 @@
 From repository root:
 
 ```bash
-docker compose -f deploy/docker-compose.lite.yml up --build -d
+docker compose -f infra/deploy/docker-compose.lite.yml up --build -d
 ```
 
 **Services (lite file):** Postgres, Redis, decision-api, case-api, integration-ingress, frontend (see file for exact list and ports).
 
-**Env:** use `deploy/env/community.env.example` as a starting point (copy beside the compose file or merge into your shell / CI secrets). Lite compose sets empty optional URLs for graph/ML/OPA so the Decision API does not block on missing deps.
+**Env:** use `infra/deploy/env/community.env.example` as a starting point (copy beside the compose file or merge into your shell / CI secrets). Lite compose sets empty optional URLs for graph/ML/OPA so the Decision API does not block on missing deps.
 
 **Limitations:**
 
@@ -68,12 +68,12 @@ docker compose --profile core --profile graph --profile cases up -d
 docker compose --profile core --profile ml --profile integration up -d
 ```
 
-**Env:** start from `deploy/.env.example` (full inter-service URL matrix). For a slimmer `.env` when only **core + cases** is running, see `deploy/env/pro-core-cases.env.example`.
+**Env:** start from `infra/deploy/.env.example` (full inter-service URL matrix). For a slimmer `.env` when only **core + cases** is running, see `infra/deploy/env/pro-core-cases.env.example`.
 
 **Limitations:**
 
 - `full` pulls many images and ports; reserve ports per [service-ports.md](./service-ports.md).
-- Production still needs secrets management, backups, network policy, and observability—see [deployment.md](./deployment.md) and [docker-compose.production-hardening.yml](../../../deploy/docker-compose.production-hardening.yml).
+- Production still needs secrets management, backups, network policy, and observability—see [deployment.md](./deployment.md) and [docker-compose.production-hardening.yml](../../../infra/deploy/docker-compose.production-hardening.yml).
 
 ---
 
@@ -93,7 +93,7 @@ docker compose --profile core --profile ml --profile integration up -d
 
 ## CI / smoke
 
-- Full-repo smoke: GitHub Actions **`stack-smoke`** runs `scripts/ci/full_stack_smoke.py` (health + evaluate)—see root CI workflow.
+- Full-repo smoke: GitHub Actions **`stack-smoke`** runs `infra/scripts/ci/full_stack_smoke.py` (health + evaluate)—see root CI workflow.
 - **Optional:** run the same script locally against **Community** (`lite`) or **Pro** (`core` / `full`) after `docker compose up` to validate both tiers when changing compose or env docs.
 
 ### Tenant reliability profile (Decision API)
@@ -104,4 +104,4 @@ Set **`TARKA_TENANT_RELIABILITY_PROFILE`** on **decision-api** to one of **`stri
 
 ## Module swimlane
 
-**Integration / platform** — GitHub **#38** (`borrowed-from-OSS`). For compose overlays beyond this page, see also [deployment.md](./deployment.md) and `deploy/docker-compose.sandbox.yml` for sandbox-specific tweaks.
+**Integration / platform** — GitHub **#38** (`borrowed-from-OSS`). For compose overlays beyond this page, see also [deployment.md](./deployment.md) and `infra/deploy/docker-compose.sandbox.yml` for sandbox-specific tweaks.

@@ -710,24 +710,7 @@ paths:
                   citations:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        claim_index: { type: integer }
-                        text: { type: string }
-                        source: { type: string }
-                        supported: { type: boolean, nullable: true }
-                        confidence_label: { type: string }
-                        resolves_to:
-                          type: array
-                          items:
-                            type: object
-                            required: [artifact, id]
-                            properties:
-                              artifact:
-                                type: string
-                                description: decision_trace | case | json_rule | typology
-                              id: { type: string }
-                      additionalProperties: true
+                      $ref: "#/components/schemas/CopilotCitation"
                   evidence_counts:
                     type: object
                     additionalProperties: true
@@ -976,6 +959,13 @@ paths:
                     items:
                       type: object
                       additionalProperties: true
+                  citations:
+                    type: array
+                    description: Standardized citation cards (schema version 1.0.0)
+                    items:
+                      $ref: "#/components/schemas/CopilotCitation"
+                  citation_verifier:
+                    $ref: "#/components/schemas/CitationVerifierSummary"
                   tool_acknowledgment_warnings:
                     type: array
                     items: { type: string }
@@ -1016,3 +1006,42 @@ paths:
           description: Invalid batch_id, playbook_id, message limits, or scope id format
         "403":
           description: Analyst not permitted
+components:
+  schemas:
+    CitationResolvesTo:
+      type: object
+      required: [artifact, id]
+      properties:
+        artifact:
+          type: string
+          enum: [decision_trace, case, json_rule, typology, tool, unknown]
+        id:
+          type: string
+    CopilotCitation:
+      type: object
+      required: [claim_index, text, source, confidence_label]
+      properties:
+        claim_index: { type: integer, minimum: 0 }
+        text: { type: string }
+        source: { type: string, enum: [tool, unknown] }
+        supported: { type: boolean, nullable: true }
+        confidence_label: { type: string, enum: [low, medium, high] }
+        resolves_to:
+          type: array
+          items:
+            $ref: "#/components/schemas/CitationResolvesTo"
+    CitationVerifierSummary:
+      type: object
+      required:
+        - schema_version
+        - citation_count
+        - supported_count
+        - validity_rate
+      properties:
+        schema_version: { type: string, example: "1.0.0" }
+        citation_count: { type: integer, minimum: 0 }
+        supported_count: { type: integer, minimum: 0 }
+        high_confidence_count: { type: integer, minimum: 0 }
+        medium_confidence_count: { type: integer, minimum: 0 }
+        low_confidence_count: { type: integer, minimum: 0 }
+        validity_rate: { type: number, minimum: 0, maximum: 1 }

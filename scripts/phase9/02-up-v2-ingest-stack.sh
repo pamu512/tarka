@@ -3,4 +3,4 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${ROOT}"
-exec docker compose -f deploy/docker-compose.v2-ingest.yml up -d
+exec docker compose -f infra/deploy/docker-compose.v2-ingest.yml up -d

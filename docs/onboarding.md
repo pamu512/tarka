@@ -10,8 +10,8 @@ This guide walks you through the **Nix development shell**, applying the **Tripl
 |---------------|--------|
 | [Nix](https://nixos.org/download/) with **flakes** enabled (`experimental-features = nix-command flakes`) | Required for `nix develop`. |
 | [Pulumi CLI](https://www.pulumi.com/docs/install/) | Not bundled in the flake; install globally or run `nix shell nixpkgs#pulumi`. |
-| Python **3.11+** | Used by `deploy/pulumi` (virtualenv) and Python services. |
-| **kubectl** context targeting a cluster | Only if you run full `pulumi up` with the default Redis backend (`triple-db:redisBackend: kubernetes` in `deploy/pulumi/Pulumi.dev.yaml`). Docker Desktop Kubernetes or [kind](https://kind.sigs.k8s.io/) is enough for local Redis. |
+| Python **3.11+** | Used by `infra/deploy/pulumi` (virtualenv) and Python services. |
+| **kubectl** context targeting a cluster | Only if you run full `pulumi up` with the default Redis backend (`triple-db:redisBackend: kubernetes` in `infra/deploy/pulumi/Pulumi.dev.yaml`). Docker Desktop Kubernetes or [kind](https://kind.sigs.k8s.io/) is enough for local Redis. |
 
 Architecture notes for Pulumi live in [`0003-iac-via-pulumi` ADR](docs/adr/0003-iac-via-pulumi.md).
 
@@ -58,7 +58,7 @@ Together, that is “run Pulumi locally.”
 ### 2.1 Install dependencies and select the dev stack
 
 ```bash
-cd deploy/pulumi
+cd infra/deploy/pulumi
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -67,7 +67,7 @@ pulumi login --local
 pulumi stack select dev --create   # first time; afterwards: pulumi stack select dev
 ```
 
-Stack defaults live in `deploy/pulumi/Pulumi.dev.yaml` (Postgres/ClickHouse/Redis pointing at **localhost**).
+Stack defaults live in `infra/deploy/pulumi/Pulumi.dev.yaml` (Postgres/ClickHouse/Redis pointing at **localhost**).
 
 ### 2.2 Required secret
 

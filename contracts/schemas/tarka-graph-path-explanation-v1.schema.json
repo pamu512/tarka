@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tarka.dev/schemas/tarka-graph-path-explanation-v1.schema.json",
+  "title": "Graph path explanation v1",
+  "type": "object",
+  "required": ["schema_id", "tenant_id", "subject", "paths", "risk_narrative", "summary"],
+  "properties": {
+    "schema_id": {
+      "type": "string",
+      "const": "tarka.graph_path_explanation/v1"
+    },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "subject": { "type": "string", "minLength": 1 },
+    "target": { "type": ["string", "null"] },
+    "paths": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "entity_id",
+          "distance",
+          "propagated_risk_score",
+          "path_description",
+          "hops",
+          "reasons"
+        ],
+        "properties": {
+          "entity_id": { "type": "string" },
+          "target_entity_id": { "type": "string" },
+          "distance": { "type": "integer", "minimum": 1 },
+          "propagated_risk_score": { "type": "number" },
+          "path_description": { "type": "string" },
+          "hops": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["entity_id"],
+              "properties": {
+                "entity_id": { "type": "string" },
+                "labels": { "type": "array", "items": { "type": "string" } },
+                "relationship": { "type": ["string", "null"] }
+              }
+            }
+          },
+          "reasons": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "risk_narrative": { "type": "string" },
+    "summary": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

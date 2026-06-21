@@ -25,6 +25,7 @@ class KeyValueCache(ABC):
 
     async def aclose(self) -> None:  # noqa: B027
         """Release network resources (no-op for in-process caches)."""
+        return None
 
 
 class LocalDictCache(KeyValueCache):

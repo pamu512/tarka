@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAnalystWorkspace } from "../context/AnalystWorkspaceContext";
+import { isCaseWorkbenchTab } from "../workbench/workbenchContract";
 import { ModuleIcon } from "./ModuleIcon";
 
 function tabKey(caseId: string, tenantId: string) {
@@ -16,20 +17,22 @@ export function AnalystCaseTabBar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { openCases, removeCase, clearOpenCases } = useAnalystWorkspace();
+  const { openCases, removeCase, clearOpenCases, caseDetailHref } = useAnalystWorkspace();
 
-  const { activeCaseId, activeTenantId } = useMemo(() => {
+  const { activeCaseId, activeTenantId, activeTab } = useMemo(() => {
     const path = location.pathname;
     if (!path.startsWith("/cases/") || path === "/cases") {
-      return { activeCaseId: null as string | null, activeTenantId: null as string | null };
+      return { activeCaseId: null as string | null, activeTenantId: null as string | null, activeTab: null };
     }
     const rest = decodeURIComponent(path.slice("/cases/".length));
     if (rest === "bulk-triage" || rest === "compare") {
-      return { activeCaseId: null as string | null, activeTenantId: null as string | null };
+      return { activeCaseId: null as string | null, activeTenantId: null as string | null, activeTab: null };
     }
     const id = rest;
     const tenant = searchParams.get("tenant_id") ?? "demo";
-    return { activeCaseId: id || null, activeTenantId: tenant };
+    const tab = searchParams.get("tab");
+    const activeTab = isCaseWorkbenchTab(tab) ? tab : null;
+    return { activeCaseId: id || null, activeTenantId: tenant, activeTab };
   }, [location.pathname, searchParams]);
 
   const onClose = (e: React.MouseEvent, caseId: string, tenantId: string) => {
@@ -43,9 +46,7 @@ export function AnalystCaseTabBar() {
     if (!isClosingActive) return;
     const fallback = without[idx] ?? without[idx - 1] ?? without[0];
     if (fallback) {
-      navigate(
-        `/cases/${encodeURIComponent(fallback.caseId)}?tenant_id=${encodeURIComponent(fallback.tenantId)}`,
-      );
+      navigate(caseDetailHref(fallback.caseId, fallback.tenantId, activeTab));
     } else {
       navigate("/cases");
     }
@@ -76,7 +77,11 @@ export function AnalystCaseTabBar() {
         {openCases.map((tab) => {
           const active =
             activeCaseId === tab.caseId && activeTenantId === tab.tenantId;
-          const href = `/cases/${encodeURIComponent(tab.caseId)}?tenant_id=${encodeURIComponent(tab.tenantId)}`;
+          const href = caseDetailHref(
+            tab.caseId,
+            tab.tenantId,
+            active && activeTab ? activeTab : null,
+          );
           return (
             <div
               key={tabKey(tab.caseId, tab.tenantId)}

@@ -14,7 +14,7 @@ name: Infrastructure
 on:
   pull_request:
     paths:
-      - "deploy/**"
+      - "infra/deploy/**"
       - ".github/workflows/infra.yml"
   workflow_dispatch:
 
@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
-        working-directory: deploy/pulumi
+        working-directory: infra/deploy/pulumi
 
     env:
       PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
@@ -66,7 +66,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: deploy/pulumi/requirements.txt
+          cache-dependency-path: infra/deploy/pulumi/requirements.txt
 
       # Install-only (omit `command`) — replaces deprecated pulumi/setup-pulumi; see pulumi/actions README.
       - name: Install Pulumi CLI
@@ -140,7 +140,7 @@ jobs:
           pulumi config set --secret triple-db:postgresPassword "${PW}"
           echo "### Pulumi preview (\`triple-db/ci\`)" >> "${GITHUB_STEP_SUMMARY}"
           echo "" >> "${GITHUB_STEP_SUMMARY}"
-          echo "Diff highlights **Postgres** bootstrap function / \`psql\` Command and **ClickHouse** DDL Command when \`deploy/postgres.py\` or \`deploy/clickhouse.py\` change." >> "${GITHUB_STEP_SUMMARY}"
+          echo "Diff highlights **Postgres** bootstrap function / \`psql\` Command and **ClickHouse** DDL Command when \`infra/deploy/postgres.py\` or \`infra/deploy/clickhouse.py\` change." >> "${GITHUB_STEP_SUMMARY}"
           echo "" >> "${GITHUB_STEP_SUMMARY}"
           echo '```text' >> "${GITHUB_STEP_SUMMARY}"
           pulumi preview --diff --non-interactive --color never 2>&1 | tee -a "${GITHUB_STEP_SUMMARY}"

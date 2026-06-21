@@ -832,7 +832,7 @@ Ingress audit model:
 
 ## GraphQL Gateway — `:8010` {#graphql-gateway}
 
-**Compose default:** host **8010** (`8010:8010` in `deploy/docker-compose.yml`). Do not confuse with **investigation-agent** on **:8006** (copilot + embedded collaboration ingress).
+**Compose default:** host **8010** (`8010:8010` in `infra/deploy/docker-compose.yml`). Do not confuse with **investigation-agent** on **:8006** (copilot + embedded collaboration ingress).
 
 Strawberry **GraphQL** over HTTP, with the same shared **observability** stack as other Python services (**`GET` `/metrics`**, structured request logging). Send **`X-API-Key`** when the gateway is configured with **`API_KEYS`** (empty keys without `ALLOW_INSECURE_NO_AUTH` yields **`503`** — see `services/graphql-gateway`).
 

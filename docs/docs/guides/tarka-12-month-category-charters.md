@@ -7,7 +7,7 @@ These one-page charters define mission, scope, and 12-month outcomes for each ro
 - Mission: make trust-by-default enforceable across service, tenant, and workload boundaries.
 - Scope: authN/Z, tenant isolation, policy-as-code, service identity, key lifecycle, audit integrity.
 - 12-month outcomes: policy enforcement in default profiles, no critical auth bypasses in release trains, zero-downtime key rotation drills.
-- Core interfaces: `services/shared/*auth*`, `deploy/opa/*`, deployment profiles, release gates.
+- Core interfaces: `services/shared/*auth*`, `infra/deploy/opa/*`, deployment profiles, release gates.
 
 ## Compliance Charter
 

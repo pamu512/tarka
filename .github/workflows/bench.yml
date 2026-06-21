@@ -5,7 +5,7 @@ on:
     branches: [main, master]
     paths:
       - "crates/tarka-core/**"
-      - "scripts/ci/criterion_p99_regression.py"
+      - "infra/scripts/ci/criterion_p99_regression.py"
       - ".github/workflows/bench.yml"
   workflow_dispatch:
 
@@ -66,7 +66,7 @@ jobs:
           set -euo pipefail
           git checkout --detach "${HEAD_SHA}"
           cargo bench -p tarka-core --bench standard_heavy_rule_set --locked
-          python3 scripts/ci/criterion_p99_regression.py \
+          python3 infra/scripts/ci/criterion_p99_regression.py \
             --benchmark-dir target/criterion/standard_heavy_rule_set/evaluate_full_trace \
             --baseline-label base \
             --max-ratio 1.05

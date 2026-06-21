@@ -27,14 +27,14 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: legacy_attic/services/legacy_v1_decision_api/pyproject.toml
+          cache-dependency-path: services/legacy_v1_decision_api/pyproject.toml
 
       - name: Install decision-api
         run: pip install -e ".[dev]"
-        working-directory: legacy_attic/services/legacy_v1_decision_api
+        working-directory: services/legacy_v1_decision_api
 
       - name: Start Decision API
-        working-directory: legacy_attic/services/legacy_v1_decision_api
+        working-directory: services/legacy_v1_decision_api
         env:
           PYTHONPATH: src:../shared
           DATABASE_URL: sqlite+aiosqlite:///
@@ -109,14 +109,14 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: legacy_attic/services/legacy_v1_decision_api/pyproject.toml
+          cache-dependency-path: services/legacy_v1_decision_api/pyproject.toml
 
       - name: Install decision-api
         run: pip install -e ".[dev]"
-        working-directory: legacy_attic/services/legacy_v1_decision_api
+        working-directory: services/legacy_v1_decision_api
 
       - name: Start Decision API
-        working-directory: legacy_attic/services/legacy_v1_decision_api
+        working-directory: services/legacy_v1_decision_api
         env:
           PYTHONPATH: src:../shared
           DATABASE_URL: sqlite+aiosqlite:///
@@ -144,7 +144,10 @@ jobs:
           python scripts/benchmarks/vertical_benchmark_smoke.py \
             --url http://127.0.0.1:8000 \
             --scenario baseline \
+            --seed 42 \
             --verticals fintech,ecommerce,gaming \
+            --verify-repro \
+            --write-scorecard docs/docs/releases/evidence/v1.2.0-vertical-benchmark-scorecard.json \
             --timeout 90
 
       - name: Stop Decision API

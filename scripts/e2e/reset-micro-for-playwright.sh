@@ -3,8 +3,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-COMPOSE_MICRO="${ROOT}/deploy/docker-compose.micro.yml"
-COMPOSE_E2E="${ROOT}/deploy/docker-compose.micro.e2e.yml"
+COMPOSE_MICRO="${ROOT}/infra/deploy/docker-compose.micro.yml"
+COMPOSE_E2E="${ROOT}/infra/deploy/docker-compose.micro.e2e.yml"
 export TARKA_MICRO_DATA_DIR="${TARKA_MICRO_DATA_DIR:-${ROOT}/.tarka-micro-e2e/data}"
 export TARKA_MICRO_PORT="${TARKA_MICRO_PORT:-8000}"
 export E2E_API_KEY="${E2E_API_KEY:-playwright-e2e-micro-key}"

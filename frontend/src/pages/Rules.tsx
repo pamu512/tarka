@@ -10,11 +10,12 @@ import {
   type RuleDetail,
   type DecisionRequest,
   type DecisionResponse,
+  toUserFacingApiError,
 } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
+import { DegradedModeBanner } from "../components/DegradedModeBanner";
 import { RuleSandboxPanel } from "../components/RuleSandboxPanel";
 import { SupportIdHint } from "../components/SupportIdHint";
-import { toUserFacingError } from "../utils/userFacingErrors";
 import {
   getVerticalBenchmarkHistory,
   prependVerticalBenchmarkHistory,
@@ -351,7 +352,7 @@ export default function Rules() {
         setRuleChangeLog([]);
       }
     } catch (e) {
-      setError(toUserFacingError(e, { subject: "Rule packs", action: "load rules" }));
+      setError(toUserFacingApiError(e, { subject: "Rule packs", action: "load rules" }));
     } finally {
       setLoading(false);
     }
@@ -426,7 +427,7 @@ export default function Rules() {
       setNewPackName("");
       setToast(`Pack "${name}" created`);
     } catch (e) {
-      setError(toUserFacingError(e, { subject: "Rule pack", action: "create rule pack" }));
+      setError(toUserFacingApiError(e, { subject: "Rule pack", action: "create rule pack" }));
     } finally {
       setCreating(false);
     }
@@ -446,7 +447,7 @@ export default function Rules() {
       setDeleteConfirm(null);
       setToast("Pack deleted");
     } catch (e) {
-      setError(toUserFacingError(e, { subject: "Rule pack", action: "delete rule pack" }));
+      setError(toUserFacingApiError(e, { subject: "Rule pack", action: "delete rule pack" }));
     } finally {
       setDeleting(false);
     }
@@ -466,7 +467,7 @@ export default function Rules() {
       setDirty(false);
       setToast("Pack saved");
     } catch (e) {
-      setError(toUserFacingError(e, { subject: "Rule pack", action: "save rule pack changes" }));
+      setError(toUserFacingApiError(e, { subject: "Rule pack", action: "save rule pack changes" }));
     } finally {
       setSaving(false);
     }
@@ -479,7 +480,7 @@ export default function Rules() {
       await fetchPacks();
       setToast("Rules reloaded");
     } catch (e) {
-      setError(toUserFacingError(e, { subject: "Rule engine", action: "reload rules" }));
+      setError(toUserFacingApiError(e, { subject: "Rule engine", action: "reload rules" }));
     } finally {
       setReloading(false);
     }
@@ -493,7 +494,7 @@ export default function Rules() {
       await fetchPacks();
       setToast(`Installed vertical pack: ${vertical}`);
     } catch (e) {
-      setError(toUserFacingError(e, { subject: "Vertical pack", action: "install selected vertical pack" }));
+      setError(toUserFacingApiError(e, { subject: "Vertical pack", action: "install selected vertical pack" }));
     } finally {
       setInstallingVertical(null);
     }
@@ -524,7 +525,7 @@ export default function Rules() {
       setVerticalHistory(prependVerticalBenchmarkHistory(entry));
       setToast(`Benchmark completed: ${vertical} (${benchmarkScenario})`);
     } catch (e) {
-      setError(toUserFacingError(e, { subject: "Vertical benchmark", action: "run benchmark" }));
+      setError(toUserFacingApiError(e, { subject: "Vertical benchmark", action: "run benchmark" }));
     } finally {
       setBenchmarkingVertical(null);
     }
@@ -538,7 +539,7 @@ export default function Rules() {
       setError(null);
     } catch (e) {
       setLineageHash("");
-      setError(toUserFacingError(e, { subject: "Model lineage", action: "lookup lineage" }));
+      setError(toUserFacingApiError(e, { subject: "Model lineage", action: "lookup lineage" }));
     } finally {
       setLineageBusy(false);
     }
@@ -621,7 +622,7 @@ export default function Rules() {
       const result = await rulesApi.simulate(payload);
       setSimResult(result);
     } catch (e) {
-      setSimError(toUserFacingError(e, { subject: "Rule simulation", action: "run simulation" }));
+      setSimError(toUserFacingApiError(e, { subject: "Rule simulation", action: "run simulation" }));
     } finally {
       setSimulating(false);
     }
@@ -678,22 +679,12 @@ export default function Rules() {
       </div>
 
       {error && (
-        <div className="mx-6 mt-3 bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm shrink-0 space-y-1">
-          <div className="flex items-start justify-between gap-4">
-            <span>{error}</span>
-            <button
-              onClick={() => setError(null)}
-              className="ml-2 text-red-400 hover:text-red-300"
-            >
-              ×
-            </button>
-          </div>
-          <SupportIdHint
-            message={error}
-            className="flex flex-wrap items-center gap-2 text-[11px] text-red-300/85"
-            buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
-          />
-        </div>
+        <DegradedModeBanner
+          error={error}
+          title="Rules workspace error"
+          onDismiss={() => setError(null)}
+          className="mx-6 mt-3 shrink-0"
+        />
       )}
 
       <div className="mx-6 mt-3 flex flex-col gap-3 text-xs text-gray-400">

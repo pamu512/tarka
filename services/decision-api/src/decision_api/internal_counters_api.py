@@ -32,6 +32,9 @@ _counter_replay_api_key = APIKeyHeader(
 MAX_REPLAY_EVENTS = 2000
 MAX_REPLAY_FROM_AUDIT = 20_000
 
+_replay_jobs: dict[str, dict[str, Any]] = {}
+_MAX_REPLAY_JOBS = 100
+
 
 class ReplayEventIn(BaseModel):
     tenant_id: str = Field(min_length=1, max_length=256)
@@ -113,6 +116,56 @@ def _read_counter_catalog_file() -> dict[str, Any]:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
+def _agg_key_version() -> str | None:
+    ver = os.environ.get("AGG_KEY_VERSION", "").strip()
+    if ver and all(c.isalnum() or c in "._:-" for c in ver):
+        return ver
+    return None
+
+
+def _parity_report_path() -> Path:
+    raw = os.environ.get("COUNTER_PARITY_REPORT_PATH", "").strip()
+    if raw:
+        return Path(raw)
+    return Path(settings.rules_path) / "counter_parity_last.json"
+
+
+def _load_last_parity_run() -> dict[str, Any] | None:
+    path = _parity_report_path()
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    return data
+
+
+def _catalog_meta() -> dict[str, Any]:
+    parity = _load_last_parity_run()
+    agg = _agg_key_version()
+    meta: dict[str, Any] = {
+        "manifest_version": manifest_version(),
+        "agg_key_version": agg,
+        "redis_key_version": agg,
+    }
+    if parity:
+        meta["last_parity_run"] = {
+            "generated_at": parity.get("generated_at"),
+            "ok": bool((parity.get("replay") or {}).get("ok"))
+            and (
+                parity.get("diff") is None
+                or bool((parity.get("diff") or {}).get("ok"))
+            ),
+            "agg_key_version": parity.get("agg_key_version"),
+            "scratch_redis_url": parity.get("scratch_redis_url"),
+            "reference_redis_url": parity.get("reference_redis_url"),
+        }
+    return meta
+
+
 async def apply_replay_events(
     store: AggregateStore, events: list[ReplayEventIn]
 ) -> int:
@@ -130,9 +183,11 @@ async def apply_replay_events(
 async def get_counter_manifest() -> dict[str, Any]:
     """Public read: versioned list of aggregate feature outputs (parity contract)."""
     m = dict(load_counter_manifest_v1())
-    ver = os.environ.get("AGG_KEY_VERSION", "").strip()
-    if ver and all(c.isalnum() or c in "._:-" for c in ver):
+    ver = _agg_key_version()
+    if ver:
         m["redis_key_version"] = ver
+        m["agg_key_version"] = ver
+    m.update(_catalog_meta())
     return m
 
 
@@ -141,9 +196,10 @@ async def get_counter_catalog_merged() -> dict[str, Any]:
     """Human-readable counter catalog merged with manifest feature names (ops UI)."""
     manifest = dict(load_counter_manifest_v1())
     cat = _read_counter_catalog_file()
-    ver = os.environ.get("AGG_KEY_VERSION", "").strip()
-    if ver and all(c.isalnum() or c in "._:-" for c in ver):
+    ver = _agg_key_version()
+    if ver:
         manifest["redis_key_version"] = ver
+        manifest["agg_key_version"] = ver
     by_name = {
         str(x.get("name", "")): x
         for x in (cat.get("counters") or [])
@@ -157,13 +213,18 @@ async def get_counter_catalog_merged() -> dict[str, Any]:
         name = str(f.get("name", "")).strip()
         extra = dict(by_name.get(name, {}))
         merged.append({**f, **{k: v for k, v in extra.items() if k != "name"}})
-    return {
+    out = {
         "catalog_version": cat.get("catalog_version", "0"),
         "description": cat.get("description", ""),
         "manifest_version": manifest.get("manifest_version"),
         "redis_key_version": manifest.get("redis_key_version") or ver or None,
+        "agg_key_version": ver,
         "counters": merged,
     }
+    parity = _load_last_parity_run()
+    if parity:
+        out["last_parity_run"] = _catalog_meta().get("last_parity_run")
+    return out
 
 
 @router.get("/definitions")
@@ -277,6 +338,93 @@ async def post_counter_replay_from_audit(
         scratch_redis_url=body.scratch_redis_url.strip(),
         tenant_id=body.tenant_id.strip(),
         entity_id=body.entity_id.strip(),
+    )
+
+
+class CounterReplayJobResponse(BaseModel):
+    job_id: str
+    status: str
+    manifest_version: str
+    agg_key_version: str | None = None
+
+
+class CounterReplayJobStatus(BaseModel):
+    job_id: str
+    status: str
+    manifest_version: str | None = None
+    recorded: int | None = None
+    scratch_redis_url: str | None = None
+    error: str | None = None
+    agg_key_version: str | None = None
+
+
+async def _run_replay_job(job_id: str, body: CounterReplayRequest) -> None:
+    _replay_jobs[job_id]["status"] = "running"
+    try:
+        client = aioredis.from_url(body.scratch_redis_url.strip(), decode_responses=True)
+        try:
+            store = AggregateStore(client)
+            recorded = await apply_replay_events(store, body.events)
+        finally:
+            await client.aclose()
+        _replay_jobs[job_id].update(
+            {
+                "status": "completed",
+                "recorded": recorded,
+                "manifest_version": manifest_version(),
+                "agg_key_version": _agg_key_version(),
+            }
+        )
+    except Exception as exc:
+        _replay_jobs[job_id].update({"status": "failed", "error": str(exc)[:500]})
+
+
+@_secured.post(
+    "/replay/jobs",
+    response_model=CounterReplayJobResponse,
+    status_code=202,
+    summary="Enqueue offline replay job",
+)
+async def post_counter_replay_job(body: CounterReplayRequest) -> CounterReplayJobResponse:
+    job_id = uuid.uuid4().hex
+    while len(_replay_jobs) >= _MAX_REPLAY_JOBS:
+        oldest = next(iter(_replay_jobs))
+        _replay_jobs.pop(oldest, None)
+    _replay_jobs[job_id] = {
+        "job_id": job_id,
+        "status": "pending",
+        "scratch_redis_url": body.scratch_redis_url.strip(),
+        "manifest_version": manifest_version(),
+        "agg_key_version": _agg_key_version(),
+    }
+    import asyncio
+
+    asyncio.create_task(_run_replay_job(job_id, body))
+    return CounterReplayJobResponse(
+        job_id=job_id,
+        status="pending",
+        manifest_version=manifest_version(),
+        agg_key_version=_agg_key_version(),
+    )
+
+
+@_secured.get(
+    "/replay/jobs/{job_id}",
+    response_model=CounterReplayJobStatus,
+    summary="Offline replay job status",
+)
+async def get_counter_replay_job(job_id: str) -> CounterReplayJobStatus:
+    row = _replay_jobs.get(job_id.strip())
+    if not row:
+        raise HTTPException(status_code=404, detail="replay job not found")
+    return CounterReplayJobStatus(
+        job_id=job_id,
+        status=str(row.get("status") or "unknown"),
+        manifest_version=row.get("manifest_version"),
+        recorded=row.get("recorded"),
+        scratch_redis_url=row.get("scratch_redis_url"),
+        error=row.get("error"),
+        agg_key_version=row.get("agg_key_version"),
     )
 
 

@@ -4,7 +4,7 @@ import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from case_api.workflow import WorkflowContext
+from workflow import WorkflowContext
 from fastapi.testclient import TestClient
 
 
@@ -18,7 +18,7 @@ def _api_headers() -> dict[str, str]:
 def client_with_http_mock():
     with patch("case_api.main.evaluate_workflows", new_callable=AsyncMock) as ev:
         ev.return_value = WorkflowContext("case_created", {})
-        from case_api.main import app
+        from main import app
 
         with TestClient(app) as client:
 

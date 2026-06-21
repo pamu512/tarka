@@ -26,7 +26,7 @@ This guide covers deploying Tarka from local development through production, inc
 
 ## Docker Compose Profiles
 
-The `deploy/docker-compose.yml` file uses Compose profiles so you can pick exactly the components you need.
+The `infra/deploy/docker-compose.yml` file uses Compose profiles so you can pick exactly the components you need.
 
 ### Available Profiles
 
@@ -98,15 +98,15 @@ GRAPH_SERVICE_URL=http://graph-service:8001
 
 ## Kubernetes with Helm
 
-Helm charts are provided in `deploy/helm/fraud-stack/` (chart name: `tarka`).
+Helm charts are provided in `infra/deploy/helm/fraud-stack/` (chart name: `tarka`).
 
 ### Install
 
 ```bash
-helm install tarka deploy/helm/fraud-stack \
+helm install tarka infra/deploy/helm/fraud-stack \
   --namespace fraud \
   --create-namespace \
-  --values deploy/helm/fraud-stack/values.yaml
+  --values infra/deploy/helm/fraud-stack/values.yaml
 ```
 
 ### values.yaml
@@ -226,7 +226,7 @@ global:
 ### Custom Values for Production
 
 ```bash
-helm install tarka deploy/helm/fraud-stack \
+helm install tarka infra/deploy/helm/fraud-stack \
   --namespace fraud \
   --create-namespace \
   --set postgres.auth.password=<strong-password> \
@@ -274,7 +274,7 @@ In **Docker Compose** and **Helm** defaults, the Decision and Case FastAPI apps 
 | ---------------- | ----------------------- | ----------------------------------------------------------------- |
 | `NEO4J_URI`      | `bolt://localhost:7687` | Neo4j Bolt URI                                                    |
 | `NEO4J_USER`     | `neo4j`                 | Neo4j username                                                    |
-| `NEO4J_PASSWORD` | `tarka2026`             | Neo4j password (matches `deploy/docker-compose.yml` `NEO4J_AUTH`) |
+| `NEO4J_PASSWORD` | `tarka2026`             | Neo4j password (matches `infra/deploy/docker-compose.yml` `NEO4J_AUTH`) |
 | `API_KEYS`       | *(empty)*               | Comma-separated API keys                                          |
 
 
@@ -283,7 +283,7 @@ In **Docker Compose** and **Helm** defaults, the Decision and Case FastAPI apps 
 
 | Variable                  | Default                                                       | Description                                                                                                                 |
 | ------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`            | `postgresql+asyncpg://fraud:fraud@localhost:5432/fraud_cases` | Postgres connection (local default; `**deploy/docker-compose.yml` uses `…/fraud` shared with decision-api** for simplicity) |
+| `DATABASE_URL`            | `postgresql+asyncpg://fraud:fraud@localhost:5432/fraud_cases` | Postgres connection (local default; `**infra/deploy/docker-compose.yml` uses `…/fraud` shared with decision-api** for simplicity) |
 | `GRAPH_SERVICE_URL`       | *(empty)*                                                     | Graph Service URL for case graph lookups                                                                                    |
 | `DECISION_API_URL`        | `http://localhost:8000/decisions`                               | Decision API base URL including **`/decisions`** mount when using core-api (dispute flows, audit fetch, etc.)                |
 | `ML_SCORING_URL`          | *(empty)*                                                     | Optional ML scoring service URL                                                                                             |
@@ -399,7 +399,7 @@ The Decision API is the most latency-sensitive service. Scale horizontally behin
 
 ### Observability (Prometheus / Grafana)
 
-- Optional **compose merge** stacks Prometheus + Grafana against Tarka `**/metrics*`* endpoints: [deploy/observability/README.md](../../../deploy/observability/README.md).
+- Optional **compose merge** stacks Prometheus + Grafana against Tarka `**/metrics*`* endpoints: [infra/deploy/observability/README.md](../../../infra/deploy/observability/README.md).
 
 ### Postgres
 

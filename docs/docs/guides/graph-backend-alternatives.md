@@ -21,4 +21,4 @@ This is **not** switched on by default in the repository yet; treat this file as
 
 ## Lite stack
 
-**`deploy/docker-compose.lite.yml`** intentionally omits graph infrastructure; use **mock/UI** paths or spin up **full** compose when you need live graph features.
+**`infra/deploy/docker-compose.lite.yml`** intentionally omits graph infrastructure; use **mock/UI** paths or spin up **full** compose when you need live graph features.

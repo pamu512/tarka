@@ -5,7 +5,7 @@ This guide maps backlog items **N1–N4** from [v1.2.5 execution backlog](./v1.2
 ## N1 — No-code rule builder
 
 - **UI:** `frontend/src/pages/Rules.tsx` — visual pack editor, templates, simulation, **field catalog** (grouped feature names), **export all packs as JSON**.
-- **Validation:** `scripts/policy/validate_rule_packs.py` and `decision_api.rule_pack_validation` (CI-friendly structural checks).
+- **Validation:** `infra/scripts/policy/validate_rule_packs.py` and `decision_api.rule_pack_validation` (CI-friendly structural checks).
 
 ## N2 — Maker–checker for rule mutations
 
@@ -24,4 +24,4 @@ This guide maps backlog items **N1–N4** from [v1.2.5 execution backlog](./v1.2
 
 ## Environment
 
-See `deploy/.env.example` — `RULE_GOVERNANCE_SECRET` (optional).
+See `infra/deploy/.env.example` — `RULE_GOVERNANCE_SECRET` (optional).

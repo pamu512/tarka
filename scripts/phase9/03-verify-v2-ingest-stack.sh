@@ -15,5 +15,5 @@ while (( SECONDS < deadline )); do
   sleep 1
 done
 echo "error: ${BASE_URL}/health/full did not succeed within 120s." >&2
-cd "${ROOT}" && docker compose -f deploy/docker-compose.v2-ingest.yml ps >&2 || true
+cd "${ROOT}" && docker compose -f infra/deploy/docker-compose.v2-ingest.yml ps >&2 || true
 exit 1

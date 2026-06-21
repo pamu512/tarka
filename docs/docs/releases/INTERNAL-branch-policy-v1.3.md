@@ -16,8 +16,8 @@ We are **skipping v1.2.0** and moving **all development to v1.3**. The `1.3.0-be
 ```text
 master  ──► v1.3.0 integration (PR #184)
               │
-              ├── legacy_attic/   (OSS services from pre-beta layout)
-              ├── tarka_v2_core/  (sidecars, orchestrator, ingest)
+              ├──    (OSS services from pre-beta layout)
+              ├──   (sidecars, orchestrator, ingest)
               ├── frontend/       (analyst workbench)
               └── tarka_v2_ui/    (decision detail, AST, etc.)
 

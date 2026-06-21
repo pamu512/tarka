@@ -11,8 +11,8 @@ members = [
 exclude = [
     "crates/tarka-kms",
     "fuzz",
-    "legacy_attic/services/rule-engine",
-    "legacy_attic/services/event-ingest",
-    "legacy_attic/services/analytics-sink",
-    "legacy_attic/services/batch-ingest",
+    "services/rule-engine",
+    "services/event-ingest",
+    "services/analytics-sink",
+    "services/batch-ingest",
 ]

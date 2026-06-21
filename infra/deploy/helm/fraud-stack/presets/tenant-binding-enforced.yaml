@@ -1,0 +1,25 @@
+# Helm preset: enforce tenant binding on tenant-scoped API surfaces (Q1-E02).
+# Merge with core-on-aws / full-on-k8s after API_KEY_TENANT_MAP is provisioned in appSecretsName.
+#
+#   helm upgrade tarka infra/deploy/helm/fraud-stack \
+#     -f infra/deploy/helm/fraud-stack/presets/core-on-aws.yaml \
+#     -f infra/deploy/helm/fraud-stack/presets/tenant-binding-enforced.yaml
+
+global:
+  environment: prod
+
+coreApi:
+  enabled: true
+  allowInsecureNoAuth: false
+  tenantBindingRequired: true
+
+integrationIngress:
+  enabled: true
+  tenantBindingRequired: true
+
+graphService:
+  enabled: true
+
+dataPlane:
+  enabled: true
+  tenantBindingRequired: true

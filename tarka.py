@@ -678,7 +678,7 @@ def cmd_dev(args):
         "graph-service": ("graph_service.main:app", "8001"),
         "case-api": ("case_api.main:app", "8002"),
         "integration-ingress": ("integration_ingress.main:app", "8003"),
-        "signal-api": ("signal_api.main:app", "8004"),
+        "signal-api": ("main:app", "8004"),
         "feature-service": ("feature_service.main:app", "8004"),
         "ml-scoring": ("ml_scoring.main:app", "8005"),
         "investigation-agent": ("investigation_agent.main:app", "8006"),

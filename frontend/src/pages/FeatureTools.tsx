@@ -89,7 +89,7 @@ export default function FeatureTools() {
       <p className="text-sm text-gray-500 -mt-2">
         Live velocity counters and parity verification against the same Redis aggregate store as the Decision API (
         <code className="text-gray-600">POST /v1/velocity/query</code>, <code className="text-gray-600">POST /v1/internal/parity/verify</code>
-        ). Requires feature-service with Redis — see <code className="text-gray-600">deploy/docker-compose.yml</code> (
+        ). Requires feature-service with Redis — see <code className="text-gray-600">infra/deploy/docker-compose.yml</code> (
         <code className="text-gray-600">--profile ml</code> or <code className="text-gray-600">full</code>). Optional{" "}
         <code className="text-gray-600">VITE_FEATURE_SERVICE_API_KEY</code> if the service uses <code className="text-gray-600">API_KEYS</code>.
       </p>

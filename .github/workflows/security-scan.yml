@@ -63,7 +63,7 @@ jobs:
         uses: docker/build-push-action@v7.2.0
         with:
           context: .
-          file: legacy_attic/services/legacy_v1_decision_api/Dockerfile
+          file: services/legacy_v1_decision_api/Dockerfile
           load: true
           tags: tarka/decision-api:scan
           push: false

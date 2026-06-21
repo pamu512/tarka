@@ -20,14 +20,14 @@ import {
   type TopEntity,
   type AuditEntry,
   type AuditRecentItem,
+  toUserFacingApiError,
 } from "../api/client";
 import { ControlPanel } from "../components/ControlPanel";
 import { DecisionInspector } from "../components/DecisionInspector";
+import { DegradedModeBanner } from "../components/DegradedModeBanner";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { PageTitle } from "../components/PageTitle";
-import { SupportIdHint } from "../components/SupportIdHint";
 import { TransactionTicker } from "../components/TransactionTicker";
-import { toUserFacingError } from "../utils/userFacingErrors";
 
 const DECISION_COLORS = {
   allow: "#22c55e",
@@ -137,7 +137,7 @@ export default function Dashboard() {
       setDataWarnings(warnings);
       setError(null);
     } catch (e) {
-      setError(toUserFacingError(e, { subject: "Dashboard", action: "load dashboard metrics" }));
+      setError(toUserFacingApiError(e, { subject: "Dashboard", action: "load dashboard metrics" }));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -235,10 +235,10 @@ export default function Dashboard() {
         </p>
       )}
       {dataWarnings.length > 0 && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200/90">
-          <p className="font-medium">Some dashboard panels are degraded.</p>
-          <p className="text-amber-100/80">{dataWarnings.join(" · ")}</p>
-        </div>
+        <DegradedModeBanner
+          warnings={dataWarnings}
+          title="Some dashboard panels are degraded."
+        />
       )}
 
       <ControlPanel className="max-w-4xl" />
@@ -544,22 +544,13 @@ function ErrorState({
   onRetry: () => void;
 }) {
   return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-center space-y-3">
-        <div className="text-red-400 text-4xl">!</div>
-        <p className="text-gray-300 font-medium">Failed to load dashboard</p>
-        <p className="text-gray-500 text-sm max-w-sm">{message}</p>
-        <SupportIdHint
-          message={message}
-          className="flex flex-wrap items-center justify-center gap-2 text-[11px] text-red-300/85"
-          buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+    <div className="flex items-center justify-center h-full p-6">
+      <div className="max-w-md w-full">
+        <DegradedModeBanner
+          error={message}
+          title="Failed to load dashboard"
+          onRetry={onRetry}
         />
-        <button
-          onClick={onRetry}
-          className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm rounded-lg transition-colors"
-        >
-          Retry
-        </button>
       </div>
     </div>
   );

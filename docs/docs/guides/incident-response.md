@@ -11,7 +11,7 @@
 
 1. Declare severity and open incident channel.
 2. Assign incident commander and communications lead.
-3. Freeze risky changes and capture active deploy/version state.
+3. Freeze risky changes and capture active infra/deploy/version state.
 4. Validate blast radius (tenants, regions, services).
 
 ## Containment Steps
