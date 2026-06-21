@@ -1,5 +1,19 @@
 from __future__ import annotations
 
+
+def _ensure_shared_on_path() -> None:
+    import sys
+    from pathlib import Path as _Path
+
+    for _parent in _Path(__file__).resolve().parents:
+        _candidate = _parent / "shared"
+        if _candidate.is_dir() and (_candidate / "observability.py").is_file():
+            p = str(_candidate)
+            if p not in sys.path:
+                sys.path.insert(0, p)
+            return
+
+
 import hashlib
 import json
 import sys
@@ -13,9 +27,7 @@ from pydantic import BaseModel, Field
 from decision_api.config import settings
 from decision_api.experiment_api import append_experiment_record
 
-_shared = Path(__file__).resolve().parents[3] / "shared"
-if str(_shared) not in sys.path:
-    sys.path.insert(0, str(_shared))
+_ensure_shared_on_path()
 from auth_rbac import require_role  # noqa: E402
 
 router = APIRouter(prefix="/v1/simulation/benchmark", tags=["simulation"])
@@ -37,7 +49,13 @@ def _tenant_file(tenant_id: str) -> Path:
     safe = "".join(c if c.isalnum() or c in "._-" else "_" for c in tenant_id.strip())[
         :128
     ]
-    return _exports_dir() / f"{safe}.jsonl"
+    if not safe:
+        raise HTTPException(status_code=400, detail="tenant_id required")
+    root = _exports_dir().resolve()
+    path = (root / f"{safe}.jsonl").resolve()
+    if not path.is_relative_to(root):
+        raise HTTPException(status_code=400, detail="invalid tenant_id")
+    return path
 
 
 def _load_latest_export(tenant_id: str) -> dict[str, Any] | None:

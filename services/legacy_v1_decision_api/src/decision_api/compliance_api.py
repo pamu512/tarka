@@ -26,6 +26,20 @@ Implements data subject rights required by GDPR, CCPA, LGPD, and other regulatio
 - Right to Data Portability (Article 20 GDPR)
 - Right to Rectification (Article 16 GDPR)
 """
+
+
+def _ensure_shared_on_path() -> None:
+    import sys
+    from pathlib import Path as _Path
+    for _parent in _Path(__file__).resolve().parents:
+        _candidate = _parent / "shared"
+        if _candidate.is_dir() and (_candidate / "observability.py").is_file():
+            p = str(_candidate)
+            if p not in sys.path:
+                sys.path.insert(0, p)
+            return
+
+
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/compliance", tags=["compliance"])
 
@@ -33,11 +47,7 @@ router = APIRouter(prefix="/v1/compliance", tags=["compliance"])
 # ---------------------------------------------------------------------------
 # Shared privacy module import helper
 # ---------------------------------------------------------------------------
-_shared_dir = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared")
-)
-if _shared_dir not in sys.path:
-    sys.path.insert(0, _shared_dir)
+_ensure_shared_on_path()
 
 from privacy import (  # noqa: E402
     PRIVACY_PROFILES,

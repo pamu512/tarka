@@ -20,7 +20,13 @@ from .config import settings
 
 
 def _app_root() -> Path:
-    return Path(__file__).resolve().parent.parent.parent
+    here = Path(__file__).resolve().parent
+    for parent in (here, *here.parents):
+        if (parent / "config" / "case_alembic.ini").is_file():
+            return parent
+        if (parent / "alembic.ini").is_file():
+            return parent
+    return here.parent.parent.parent
 
 
 _ALEMBIC_VERSION_TABLE = "alembic_version_case_api"

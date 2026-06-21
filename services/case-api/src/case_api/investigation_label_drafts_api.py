@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import os
 import re
 import sys
 import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, func, select
@@ -14,7 +14,13 @@ from .models import InvestigationLabelDraft
 from .schemas import LabelDraftBatchIn, LabelDraftOut, LabelDraftRowIn
 
 """Durable analyst-scoped investigation label drafts (separate from case workflow labels)."""
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
+
+for _parent in Path(__file__).resolve().parents:
+    _candidate = _parent / "shared"
+    if _candidate.is_dir() and (_candidate / "auth_rbac.py").is_file():
+        if str(_candidate) not in sys.path:
+            sys.path.insert(0, str(_candidate))
+        break
 from auth_rbac import require_role  # noqa: E402
 
 router = APIRouter(prefix="/v1/investigation-label-drafts", tags=["investigation-label-drafts"])

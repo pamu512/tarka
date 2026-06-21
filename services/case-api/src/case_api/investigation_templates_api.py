@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import os
 import sys
 import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import delete, select
@@ -18,7 +18,12 @@ from .schemas import (
 
 """Tenant-scoped investigation templates (Marble #56): CRUD + apply via ``playbook_id`` on cases."""
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
+for _parent in Path(__file__).resolve().parents:
+    _candidate = _parent / "shared"
+    if _candidate.is_dir() and (_candidate / "auth_rbac.py").is_file():
+        if str(_candidate) not in sys.path:
+            sys.path.insert(0, str(_candidate))
+        break
 from auth_rbac import require_role  # noqa: E402
 
 router = APIRouter(prefix="/v1/investigation-templates", tags=["investigation-templates"])

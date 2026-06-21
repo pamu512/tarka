@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import os
 import sys
 import uuid
+from pathlib import Path
 from collections import defaultdict
 from threading import Lock
 from typing import Any
@@ -16,7 +16,12 @@ from .db import get_session
 from .models import CaseGraphAnnotation
 from .schemas import GraphAnnotationsIn, GraphAnnotationsOut
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
+for _parent in Path(__file__).resolve().parents:
+    _candidate = _parent / "shared"
+    if _candidate.is_dir() and (_candidate / "auth_rbac.py").is_file():
+        if str(_candidate) not in sys.path:
+            sys.path.insert(0, str(_candidate))
+        break
 from auth_rbac import require_role  # noqa: E402
 
 router = APIRouter(tags=["case-graph"])
