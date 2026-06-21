@@ -10,7 +10,7 @@ from typing import Any
 
 import httpx
 
-_REPO_ROOT = Path(__file__).resolve().parents[1]
+_REPO_ROOT = Path(__file__).resolve().parent
 _SHARED_ROOT = _REPO_ROOT / "packages" / "shared-core"
 _RULE_ENGINE_SRC = _REPO_ROOT / "services" / "rule_engine"
 _INGESTOR_SRC = _REPO_ROOT / "services" / "ingestor"
