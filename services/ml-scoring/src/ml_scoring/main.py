@@ -45,7 +45,11 @@ MODEL_VERSION = os.environ.get("ML_MODEL_VERSION", "heuristic-v1")
 ONNX_PATH = os.environ.get("ONNX_MODEL_PATH", "")
 MODELS_DIR = os.environ.get(
     "MODELS_DIR",
-    str(Path(__file__).resolve().parent.parent.parent / "models"),
+    str(
+        Path(__file__).resolve().parent.parent.parent / "models"
+        if (Path(__file__).resolve().parent.parent.parent / "models").is_dir()
+        else Path(__file__).resolve().parent / "models"
+    ),
 )
 
 registry = ModelRegistry(MODELS_DIR)

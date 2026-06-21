@@ -22,6 +22,7 @@ _strip_hoisted_service_root()
 def pytest_configure(config):  # noqa: ARG001
     _strip_hoisted_service_root()
 
+
 # Default to in-memory SQLite (init_db create_all) unless the runner exports DATABASE_URL.
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 # API key grants admin (satisfies analyst-only routes); override locally if needed.
