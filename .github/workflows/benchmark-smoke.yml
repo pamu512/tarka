@@ -147,8 +147,16 @@ jobs:
             --seed 42 \
             --verticals fintech,ecommerce,gaming \
             --verify-repro \
-            --write-scorecard docs/docs/releases/evidence/v1.2.0-vertical-benchmark-scorecard.json \
+            --write-scorecard ${{ runner.temp }}/v1.2.0-vertical-benchmark-scorecard.json \
             --timeout 90
+
+      - name: Upload scorecard artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vertical-benchmark-scorecard
+          path: ${{ runner.temp }}/v1.2.0-vertical-benchmark-scorecard.json
+          if-no-files-found: ignore
 
       - name: Stop Decision API
         if: always()
