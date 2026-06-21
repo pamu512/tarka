@@ -22,7 +22,7 @@ Example::
       --rule-json-file ./rules/amount_block.json
 
     python tools/backtest_rules.py \\
-      --parquet tarka_v2_core/services/orchestrator/src/orchestrator/analytics/data/seed_data.parquet \\
+      --parquet services/orchestrator/src/orchestrator/analytics/data/seed_data.parquet \\
       --tenant default \\
       --timestamp-column event_time \\
       --block-if-amount-gt 5000
@@ -50,7 +50,6 @@ def _repo_root() -> Path:
 def _default_parquet() -> Path:
     return (
         _repo_root()
-        / "tarka_v2_core"
         / "services"
         / "orchestrator"
         / "src"

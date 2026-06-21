@@ -21,4 +21,4 @@ Builds on the typology layer (OSS #34) with **named, reusable predicates** and *
 
 ## CI
 
-- `python scripts/policy/validate_typology_dsl.py` — pins match, every `predicate_ref` exists.
+- `python infra/scripts/policy/validate_typology_dsl.py` — pins match, every `predicate_ref` exists.

@@ -10,7 +10,7 @@ Scenario (synthetic, in-process orchestrator + DuckDB + graph stub):
 
 Run (recommended: orchestrator venv has DuckDB, FastAPI, ReportLab, pypdf)::
 
-    cd tarka_v2_core/services/orchestrator && python -m pytest ../../../tests/e2e/full_mule_detection.py -v
+    cd services/orchestrator && python -m pytest ../../../tests/e2e/full_mule_detection.py -v
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ import pytest
 from starlette.testclient import TestClient
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_CORE = _REPO_ROOT / "tarka_v2_core"
+_CORE = _REPO_ROOT / "services" / "orchestrator"
 _ORCH_SRC = _CORE / "services" / "orchestrator" / "src"
 _INGESTOR_SRC = _CORE / "services" / "ingestor" / "src"
 _SHARED_SRC = _CORE / "services" / "shared"

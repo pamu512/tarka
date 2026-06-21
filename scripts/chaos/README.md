@@ -7,7 +7,7 @@ Use these steps on a **non-production** machine to validate degradation paths, S
 ## Prerequisites
 
 - Repo root as working directory for paths below.
-- Stack up with at least **`core`** (and optionally **`streaming`**, **`graph`**, **`ml`**) profiles — see `deploy/docker-compose.yml` header comments.
+- Stack up with at least **`core`** (and optionally **`streaming`**, **`graph`**, **`ml`**) profiles — see `infra/deploy/docker-compose.yml` header comments.
 
 Example (core only):
 
@@ -24,7 +24,7 @@ docker compose -f docker-compose.yml --profile core up -d --build
 
 ## Fault matrix (suggested order)
 
-| Fault | Command (from `deploy/`) | What to watch |
+| Fault | Command (from `infra/deploy/`) | What to watch |
 |-------|---------------------------|---------------|
 | **Redis unavailable** | `docker compose -f docker-compose.yml stop redis` | Decision API velocity / aggregate paths; `GET http://localhost:8000/v1/slo` (if wired); UI readiness strip if using the analyst banner. |
 | **Postgres unavailable** | `docker compose -f docker-compose.yml stop postgres` | Decision API should fail closed or error clearly; no silent success. |

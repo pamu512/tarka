@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-ENV_FILE="${1:-$ROOT/deploy/local-ai/.env.local}"
+ENV_FILE="${1:-$ROOT/infra/deploy/local-ai/.env.local}"
 
 set -a
 source "$ENV_FILE"
@@ -17,7 +17,7 @@ COMPOSE_CMD=(
   --project-name local-ai-stack
   --env-file "$ENV_FILE"
   -f "$AGENTICSEEK_DIR/docker-compose.yml"
-  -f "$ROOT/deploy/local-ai/docker-compose.addons.yml"
+  -f "$ROOT/infra/deploy/local-ai/docker-compose.addons.yml"
 )
 
 echo "Checking service endpoints..."

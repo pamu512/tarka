@@ -1,0 +1,222 @@
+# Tarka Lite — "try it in 5 minutes" deployment
+# Core: postgres, redis, core-api (decision+case), integration-ingress, frontend.
+# Optional OSS path: Gremlin Server (JanusGraph-compatible) + graph-service (profile: graph); signal-api is always on for core-api.
+# so policy routing, typologies, velocities, and graph checkpoints work without the full stack.
+#
+# Usage:
+#   docker compose -f infra/deploy/docker-compose.lite.yml up --build
+# Optional async ingest + analytics (NATS + data-plane :8007):
+#   docker compose -f infra/deploy/docker-compose.lite.yml -f infra/deploy/docker-compose.demo-vertical.yml --profile ingest up --build
+# See README (demo vertical) and infra/scripts/ci/demo_vertical_smoke.py
+
+name: tarka-lite
+
+services:
+  # ---------- Infrastructure ----------
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fraud
+      POSTGRES_PASSWORD: fraud
+      POSTGRES_DB: fraud
+    ports:
+      - "5432:5432"
+    volumes:
+      - fraud_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fraud -d fraud"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  nats:
+    image: nats:2-alpine
+    command: ["-js", "-sd", "/data"]
+    ports:
+      - "4222:4222"
+    volumes:
+      - fraud_nats_lite:/data
+
+  janusgraph:
+    image: tinkerpop/gremlin-server:3.7.2
+    ports:
+      - "8182:8182"
+    profiles: [graph]
+
+  # ---------- Core Services ----------
+  core-api:
+    build:
+      context: ../..
+      dockerfile: services/core-api/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
+      REDIS_URL: redis://redis:6379/0
+      AGG_KEY_VERSION: ${AGG_KEY_VERSION:-local_v1}
+      RULES_PATH: /app/rules
+      FEATURE_SERVICE_URL: ${FEATURE_SERVICE_URL:-http://signal-api:8004/features}
+      ML_SCORING_URL: ${ML_SCORING_URL:-http://signal-api:8004/ml}
+      GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-}
+      NATS_URL: ${NATS_URL:-nats://nats:4222}
+      OPA_URL: ""
+      EDGE_SECURITY_SIGNALS_ENABLED: ${EDGE_SECURITY_SIGNALS_ENABLED:-false}
+      API_KEYS: ${API_KEYS:-}
+      ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-false}
+      DECISION_API_URL: http://127.0.0.1:8000/decisions
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_started
+      signal-api:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/decisions/v1/ready')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  graph-service:
+    build:
+      context: ../..
+      dockerfile: services/graph-service/Dockerfile
+    environment:
+      GRAPH_BACKEND: janusgraph
+      JANUSGRAPH_GREMLIN_URL: ws://janusgraph:8182/gremlin
+    ports:
+      - "8001:8001"
+    depends_on:
+      - janusgraph
+    profiles: [graph]
+
+  signal-api:
+    build:
+      context: ../..
+      dockerfile: services/signal-api/Dockerfile
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      AGG_KEY_VERSION: ${AGG_KEY_VERSION:-local_v1}
+      FEATURE_SERVICE_REDIS_URL: redis://redis:6379/0
+      COUNTER_SERVICE_REDIS_URL: redis://redis:6379/0
+      DISABLE_ML: ${DISABLE_ML:-true}
+    ports:
+      - "8004:8004"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  integration-ingress:
+    build:
+      context: ../..
+      dockerfile: services/integration-ingress/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
+      KMS_PROVIDER: local
+      KMS_ACTIVE_KEY_ID: lite-v1
+      INTEGRATION_VAULT_KEY: lite-dev-key
+      NATS_URL: nats://nats:4222
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  data-platform:
+    build:
+      context: ../..
+      dockerfile: services/data-platform/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://fraud:fraud@postgres:5432/fraud
+      REDIS_URL: redis://redis:6379/0
+      ALLOW_INSECURE_NO_AUTH: "true"
+    ports:
+      - "8014:8014"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8014/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  data-plane:
+    build:
+      context: ../..
+      dockerfile: services/data-plane/Dockerfile
+    environment:
+      NATS_URL: nats://nats:4222
+      DECISION_API_URL: http://core-api:8000/decisions
+      REDIS_URL: redis://redis:6379/0
+      API_KEYS: ${API_KEYS:-}
+      ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-true}
+      INGEST_SCHEMA_REGISTRY_MODE: ${INGEST_SCHEMA_REGISTRY_MODE:-enforce}
+      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST:-clickhouse}
+      CLICKHOUSE_DATABASE: fraud
+    ports:
+      - "8007:8007"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_started
+      core-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8007/v1/ready')"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 35s
+    profiles: [ingest]
+
+  frontend:
+    build:
+      context: ../..
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - core-api
+      - integration-ingress
+      - data-platform
+      - signal-api
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  fraud_pg:
+  fraud_nats_lite:

@@ -2,7 +2,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react
 import { useSearchParams } from "react-router-dom";
 
 import type { AuditEntry } from "../api/client";
-import { decisions } from "../api/client";
+import { decisions, toUserFacingApiError } from "../api/client";
 import { DagTraceVisualizer } from "../components/DagTraceVisualizer";
 import { PageTitle } from "../components/PageTitle";
 
@@ -37,7 +37,7 @@ export default function DagTracePage() {
       setAudit(row);
     } catch (e) {
       setAudit(null);
-      setLoadErr(e instanceof Error ? e.message : String(e));
+      setLoadErr(toUserFacingApiError(e, { subject: "DAG trace", action: "load audit trace" }));
     } finally {
       setLoading(false);
     }

@@ -9,10 +9,10 @@ _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."
 sys.path.insert(0, os.path.join(_ROOT, "services", "shared"))
 sys.path.insert(0, os.path.join(_ROOT, "services", "decision-api", "tests"))
 
-from aggregate_fake_redis import FakeRedis
+from .aggregate_fake_redis import FakeRedis
 from fastapi.testclient import TestClient
 from fraud_aggregates import AggregateStore
-from feature_service.main import app
+from main import app
 
 T0 = 1_700_000_000.0
 

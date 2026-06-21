@@ -1,6 +1,6 @@
 # Deploying Tarka on Microsoft Azure
 
-This guide maps the **reference** deployment artifacts in this repo ([Docker Compose](../../../deploy/docker-compose.yml), [Helm chart](../../../deploy/helm/fraud-stack/)) to a typical **Microsoft Azure** production layout. It is **not** a turnkey Bicep/ARM template; it describes what to provision, how components align, and where secrets and URLs belong.
+This guide maps the **reference** deployment artifacts in this repo ([Docker Compose](../../../infra/deploy/docker-compose.yml), [Helm chart](../../../infra/deploy/helm/fraud-stack/)) to a typical **Microsoft Azure** production layout. It is **not** a turnkey Bicep/ARM template; it describes what to provision, how components align, and where secrets and URLs belong.
 
 **See also:** [Deployment Guide](./deployment.md) (Compose profiles, Helm install, env reference), [Service ports](./service-ports.md), [Enterprise readiness](./enterprise-readiness.md).
 
@@ -25,7 +25,7 @@ This guide maps the **reference** deployment artifacts in this repo ([Docker Com
 
 ## Helm chart and managed data stores
 
-The bundled Helm chart (`deploy/helm/fraud-stack`) defaults to **in-cluster** PostgreSQL and Redis (`templates/decision-api.yaml` wires `DATABASE_URL` / `REDIS_URL` to those Services).
+The bundled Helm chart (`infra/deploy/helm/fraud-stack`) defaults to **in-cluster** PostgreSQL and Redis (`templates/decision-api.yaml` wires `DATABASE_URL` / `REDIS_URL` to those Services).
 
 For **Flexible Server** and **Azure Cache for Redis**, production deployments typically:
 
@@ -62,7 +62,7 @@ Configure AKS to pull from ACR ([AcrPull role](https://learn.microsoft.com/azure
 
 ## Observability
 
-- **Azure Monitor** for containers (metrics/logs) integrates with AKS; or deploy **Prometheus/Grafana** similarly to [deploy/observability](../../../deploy/observability/README.md).
+- **Azure Monitor** for containers (metrics/logs) integrates with AKS; or deploy **Prometheus/Grafana** similarly to [infra/deploy/observability](../../../infra/deploy/observability/README.md).
 - Use **`/v1/health`** for Kubernetes **liveness** and **readiness** probes on each service.
 
 ---

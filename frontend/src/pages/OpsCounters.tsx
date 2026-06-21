@@ -13,7 +13,7 @@ export default function OpsCounters() {
     (async () => {
       try {
         const [cat, g] = await Promise.all([decisions.counterCatalog(), decisions.governance()]);
-        setData(cat as Record<string, unknown>);
+        setData(cat as unknown as Record<string, unknown>);
         setGov(g as Record<string, unknown>);
       } catch (e) {
         setErr(toUserFacingError(e, { subject: "Counter catalog", action: "load counter catalog and governance" }));

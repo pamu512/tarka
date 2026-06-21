@@ -23,7 +23,7 @@ Map to [adapter-first tiers](saarthi-pro-adapter-strategy-and-pricing.md) withou
 
 | Level | Typical tier | Technical gate (illustrative) |
 |-------|----------------|--------------------------------|
-| **Conformance — smoke** | Runtime + support (customer adapter) | `scripts/ci/check_integration_contract.py` green against deployed agent URL. |
+| **Conformance — smoke** | Runtime + support (customer adapter) | `infra/scripts/ci/check_integration_contract.py` green against deployed agent URL. |
 | **Conformance — golden** | Certified adapter | Agreed subset of golden profiles green in **customer UAT** (or Pro staging with customer API mocks), plus documented `INTEGRATION_PROFILE_ID`. |
 | **Conformance — sustained** | Adapter + SLA | Above + quarterly re-run or hook in customer CI; release notes on customer API bumps per [change policy](saarthi-customer-api-change-policy.md). |
 

@@ -51,7 +51,7 @@ Pro adapters for **non-Tarka** stacks map these families to customer endpoints; 
 - **Live smoke (optional):** from repo root, with agent running:
 
 ```bash
-python scripts/ci/check_integration_contract.py --base-url http://localhost:8006
+python infra/scripts/ci/check_integration_contract.py --base-url http://localhost:8006
 ```
 
 Add `--api-key` if the deployment requires it.

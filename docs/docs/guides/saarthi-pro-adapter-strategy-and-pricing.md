@@ -98,7 +98,7 @@ If they maintain the adapter:
 | **Versioned integration snapshot** | `GET /v1/integration` + `integration` on `GET /v1/health` — `contract_version`, `profile_id` (`INTEGRATION_PROFILE_ID`), upstream booleans, enabled tools, **families** for mapping. |
 | **Contract doc** | [investigation-agent-integration-contract.md](investigation-agent-integration-contract.md) |
 | **Unit tests** | `services/investigation-agent/tests/test_integration_contract.py` |
-| **Live smoke** | `scripts/ci/check_integration_contract.py --base-url …` |
+| **Live smoke** | `infra/scripts/ci/check_integration_contract.py --base-url …` |
 | **Upstream mock (stdlib)** | `scripts/integration_adapter_mock/server.py` — stub Case/Graph/Decision paths for adapter dev |
 | **OSS agent image** | `services/investigation-agent/Dockerfile` (monorepo root build context); CI **`docker-build`** |
 

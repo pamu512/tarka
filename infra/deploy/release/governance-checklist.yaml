@@ -1,0 +1,75 @@
+# Release governance sign-off checklist (Q1-E06).
+# Validated in CI via scripts/release/validate_governance_checklist.py
+# Narrative: docs/docs/guides/deployment-release-readiness.md
+
+version: "1"
+documentation: docs/docs/guides/deployment-release-readiness.md
+
+owners_registry:
+  platform-engineering: Platform Engineering
+  sre: Site Reliability Engineering
+  security-engineering: Security Engineering
+  compliance-ops: Compliance and Product Operations
+  technical-documentation: Technical Documentation
+  case-ops: Case Operations
+
+items:
+  - id: image-publication-matrix
+    title: Immutable image tags published for all enabled Helm services
+    section: image-publication
+    owner: platform-engineering
+    ci_required: true
+
+  - id: cloud-preset-smoke-green
+    title: cloud-preset-smoke CI job green on release candidate
+    section: ci-readiness
+    owner: sre
+    ci_required: true
+
+  - id: full-stack-smoke-green
+    title: stack-smoke and service contract tests green on release candidate
+    section: ci-readiness
+    owner: sre
+    ci_required: true
+
+  - id: slo-burn-dashboards
+    title: SLO burn dashboards and alert routes verified for enabled services
+    section: observability
+    owner: sre
+    ci_required: true
+
+  - id: health-metrics-scrape
+    title: All enabled HTTP services expose and pass /v1/health with metrics scrape
+    section: observability
+    owner: sre
+    ci_required: true
+
+  - id: stateful-backup-restore
+    title: Postgres, graph, and analytics backup/restore drills documented and rehearsed
+    section: stateful-operations
+    owner: platform-engineering
+    ci_required: true
+
+  - id: tenant-binding-aligned
+    title: Tenant binding and API key/OIDC settings aligned with environment policy
+    section: tenant-security
+    owner: security-engineering
+    ci_required: true
+
+  - id: evidence-signing-enabled
+    title: Evidence-signing and audit controls enabled for regulated workloads
+    section: tenant-security
+    owner: compliance-ops
+    ci_required: true
+
+  - id: release-readiness-doc-current
+    title: deployment-release-readiness.md reviewed and matches deployed profile
+    section: documentation
+    owner: technical-documentation
+    ci_required: true
+
+  - id: analyst-degraded-ux-baseline
+    title: Analyst degraded-mode UX baseline verified on Cases, Investigation, and Dashboard
+    section: analyst-operations
+    owner: case-ops
+    ci_required: false

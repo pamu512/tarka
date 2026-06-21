@@ -11,7 +11,7 @@ Use this path when you want **copy-paste** steps that show **real `inference_con
 From the **repository root**:
 
 ```bash
-docker compose -f deploy/docker-compose.lite.yml up -d --build
+docker compose -f infra/deploy/docker-compose.lite.yml up -d --build
 ```
 
 Wait for healthchecks (~30s), then:
@@ -43,7 +43,7 @@ Open **http://localhost:3000**.
 ### 4) Stop
 
 ```bash
-docker compose -f deploy/docker-compose.lite.yml down
+docker compose -f infra/deploy/docker-compose.lite.yml down
 ```
 
 ## Option B — Prebuilt images (sandbox compose)
@@ -51,7 +51,7 @@ docker compose -f deploy/docker-compose.lite.yml down
 For published images (may require registry access):
 
 ```bash
-docker compose -f deploy/docker-compose.sandbox.yml up -d
+docker compose -f infra/deploy/docker-compose.sandbox.yml up -d
 ```
 
 Same `curl` targets; ports **8000**, **8003**, **3000** as in [service-ports.md](./service-ports.md).
@@ -63,7 +63,7 @@ Same `curl` targets; ports **8000**, **8003**, **3000** as in [service-ports.md]
 In the terminal:
 
 ```bash
-docker compose -f deploy/docker-compose.lite.yml up -d --build
+docker compose -f infra/deploy/docker-compose.lite.yml up -d --build
 ```
 
 Forwarded ports (Codespaces / Dev Containers): see `.devcontainer/devcontainer.json` — defaults include **3000**, **8000**, **8002**, **8003**, **8005**, **8006**, **8009** (collaboration bridge), **8010** (GraphQL).
@@ -78,7 +78,7 @@ With the **agent** profile on full compose, Investigation Agent listens on **800
 - [Deployment](./deployment.md)
 - [Ready-to-run examples](./examples/README.md) (payments + ONNX, bot defense, IOC + graph)
 - [Shadow / simulation / A-B](./shadow-and-ab-testing.md)
-- [Prometheus + Grafana add-on](../../../deploy/observability/README.md)
+- [Prometheus + Grafana add-on](../../../infra/deploy/observability/README.md)
 - [Latency benchmark script](../../../scripts/benchmarks/README.md)
 - [LICENSE-DEPENDENCIES.md](../../../LICENSE-DEPENDENCIES.md) (Neo4j / AGPL)
 - [Graph backend alternatives](./graph-backend-alternatives.md)

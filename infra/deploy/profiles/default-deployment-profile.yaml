@@ -1,0 +1,42 @@
+# Default deployment profile manifest (Q1-E01).
+# CI drift gate: infra/scripts/policy/validate_deployment_profile_manifest.py
+#
+# Describes the security/policy posture expected for production-ready default Helm
+# deployments. Local Compose may keep softer defaults (TENANT_BINDING_REQUIRED=false)
+# for developer ergonomics; production-hardening overlay aligns with this manifest.
+
+version: 1
+profile_id: default
+description: Baseline policy and security posture for Tarka default cloud deployments.
+
+ci_policy_gates:
+  - id: opa_bundle
+    script: infra/scripts/policy/validate_opa_bundle.py
+  - id: rule_packs
+    script: infra/scripts/policy/validate_rule_packs.py
+  - id: typology_dsl
+    script: infra/scripts/policy/validate_typology_dsl.py
+
+security:
+  allow_insecure_no_auth: false
+  tenant_binding_required: true
+
+helm_contract:
+  coreApi:
+    allowInsecureNoAuth: false
+    tenantBindingRequired: true
+  integrationIngress:
+    tenantBindingRequired: true
+  dataPlane:
+    tenantBindingRequired: true
+
+compose_production_hardening:
+  core-api:
+    ALLOW_INSECURE_NO_AUTH: "false"
+    TENANT_BINDING_REQUIRED: "true"
+  integration-ingress:
+    TENANT_BINDING_REQUIRED: "true"
+  graph-service:
+    TENANT_BINDING_REQUIRED: "true"
+  data-plane:
+    TENANT_BINDING_REQUIRED: "true"

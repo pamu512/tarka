@@ -11,9 +11,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-_INGRESS_SRC = Path(__file__).resolve().parents[1] / ".." / "src"
+_LEGACY_SRC = Path(__file__).resolve().parents[1] / "src"
 _SHARED = Path(__file__).resolve().parents[2] / "shared"
-for _p in (_INGRESS_SRC.resolve(), _SHARED.resolve()):
+for _p in (_LEGACY_SRC, _SHARED):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 

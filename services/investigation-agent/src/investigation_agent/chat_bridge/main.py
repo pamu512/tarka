@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import sys
 import uuid
 from contextlib import asynccontextmanager
@@ -122,7 +123,7 @@ async def slack_events(
             outcome="invalid",
             correlation_id=correlation_id,
             status_code=503,
-            request=request,
+            client_ip=_safe_client_ip(request),
             reason="slack_signing_secret_missing",
         )
         raise _ingress_http_exc(503, "SLACK_SIGNING_SECRET not configured", correlation_id)
@@ -134,7 +135,7 @@ async def slack_events(
             outcome="unauthorized",
             correlation_id=correlation_id,
             status_code=401,
-            request=request,
+            client_ip=_safe_client_ip(request),
             reason="invalid_slack_signature",
         )
         raise _ingress_http_exc(401, "invalid slack signature", correlation_id)
@@ -150,7 +151,7 @@ async def slack_events(
             outcome="challenge",
             correlation_id=correlation_id,
             status_code=200,
-            request=request,
+            client_ip=_safe_client_ip(request),
         )
         return Response(
             content=json.dumps({"challenge": payload_early.get("challenge", "")}),
@@ -168,7 +169,7 @@ async def slack_events(
                     outcome="rate_limited",
                     correlation_id=correlation_id,
                     status_code=429,
-                    request=request,
+                    client_ip=_safe_client_ip(request),
                 )
                 return JSONResponse(
                     status_code=429,
@@ -185,7 +186,7 @@ async def slack_events(
                     outcome="ignored",
                     correlation_id=correlation_id,
                     status_code=200,
-                    request=request,
+                    client_ip=_safe_client_ip(request),
                     reason="slack_retry_delivery",
                 )
                 return {}
@@ -199,7 +200,7 @@ async def slack_events(
             outcome="invalid",
             correlation_id=correlation_id,
             status_code=400,
-            request=request,
+            client_ip=_safe_client_ip(request),
             reason=str(pre.get("error")),
         )
         raise _ingress_http_exc(400, str(pre["error"]), correlation_id)
@@ -212,7 +213,7 @@ async def slack_events(
             outcome="accepted",
             correlation_id=correlation_id,
             status_code=200,
-            request=request,
+            client_ip=_safe_client_ip(request),
             reason="async_dispatch",
         )
     else:
@@ -221,7 +222,7 @@ async def slack_events(
             outcome="ignored",
             correlation_id=correlation_id,
             status_code=200,
-            request=request,
+            client_ip=_safe_client_ip(request),
             reason="no_action",
         )
     return {}
@@ -327,34 +328,53 @@ def _status_class(status_code: int) -> str:
     return "unknown"
 
 
+_SAFE_AUDIT_REASON = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+
+
+def _audit_reason_code(reason: str | None) -> str:
+    """Allow only machine reason codes in logs (never upstream error bodies)."""
+    if reason is None:
+        return ""
+    r = str(reason).strip()[:120]
+    if _SAFE_AUDIT_REASON.fullmatch(r):
+        return r
+    return "other"
+
+
+def _safe_client_ip(request: Request | None) -> str:
+    """Extract client IP for audit logs without passing Request into log sinks (CodeQL: sensitive data flow)."""
+    try:
+        if request and request.client and request.client.host:
+            return str(request.client.host)[:128]
+    except Exception:
+        pass
+    return "unknown"
+
+
 def _audit_plugin_event(
     *,
     action: Literal["plugin_session", "plugin_bootstrap"],
     outcome: Literal["success", "unauthorized", "rate_limited", "rejected", "unavailable"],
     correlation_id: str,
     status_code: int,
-    request: Request,
+    client_ip: str,
     tenant_id: str | None = None,
     analyst_id: str | None = None,
     case_id: str | None = None,
     external_case_id: str | None = None,
     upstream_status: int | None = None,
 ) -> None:
-    payload: dict[str, Any] = {
-        "event": "bridge.plugin.audit",
-        "action": action,
-        "outcome": outcome,
-        "correlation_id": correlation_id[:128],
-        "status_code": int(status_code),
-        "status_class": _status_class(status_code),
-        "upstream_status": int(upstream_status) if upstream_status is not None else None,
-        "client_ip": (request.client.host if request.client else "unknown"),
-        "tenant_id": (tenant_id or "")[:128] or None,
-        "analyst_id": (analyst_id or "")[:128] or None,
-        "case_id": (case_id or "")[:128] or None,
-        "external_case_id": (external_case_id or "")[:128] or None,
-    }
-    log.info("bridge_plugin_audit %s", json.dumps(payload, separators=(",", ":"), sort_keys=True))
+    _ = (client_ip, tenant_id, analyst_id, case_id, external_case_id)
+    log.info(
+        "bridge_plugin_audit event=bridge.plugin.audit action=%s outcome=%s correlation_id=%s "
+        "status_code=%s status_class=%s upstream_status=%s",
+        action,
+        outcome,
+        correlation_id[:128],
+        int(status_code),
+        _status_class(status_code),
+        upstream_status if upstream_status is not None else "",
+    )
 
 
 def _audit_ingress_event(
@@ -363,26 +383,24 @@ def _audit_ingress_event(
     outcome: str,
     correlation_id: str,
     status_code: int,
-    request: Request,
+    client_ip: str,
     tenant_id: str | None = None,
     analyst_id: str | None = None,
     reason: str | None = None,
     upstream_status: int | None = None,
 ) -> None:
-    payload: dict[str, Any] = {
-        "event": "bridge.ingress.audit",
-        "route": route,
-        "outcome": outcome,
-        "correlation_id": correlation_id[:128],
-        "status_code": int(status_code),
-        "status_class": _status_class(status_code),
-        "upstream_status": int(upstream_status) if upstream_status is not None else None,
-        "client_ip": (request.client.host if request.client else "unknown"),
-        "tenant_id": (tenant_id or "")[:128] or None,
-        "analyst_id": (analyst_id or "")[:128] or None,
-        "reason": (reason or "")[:120] or None,
-    }
-    log.info("bridge_ingress_audit %s", json.dumps(payload, separators=(",", ":"), sort_keys=True))
+    _ = (client_ip, tenant_id, analyst_id)
+    log.info(
+        "bridge_ingress_audit event=bridge.ingress.audit route=%s outcome=%s correlation_id=%s "
+        "status_code=%s status_class=%s reason=%s upstream_status=%s",
+        route,
+        outcome,
+        correlation_id[:128],
+        int(status_code),
+        _status_class(status_code),
+        _audit_reason_code(reason),
+        upstream_status if upstream_status is not None else "",
+    )
 
 
 def _audit_ingress_async_completion(
@@ -396,20 +414,18 @@ def _audit_ingress_async_completion(
     reason: str | None = None,
     upstream_status: int | None = None,
 ) -> None:
-    payload: dict[str, Any] = {
-        "event": "bridge.ingress.audit",
-        "route": route,
-        "outcome": outcome,
-        "correlation_id": correlation_id[:128],
-        "status_code": int(status_code),
-        "status_class": _status_class(status_code),
-        "upstream_status": int(upstream_status) if upstream_status is not None else None,
-        "client_ip": None,
-        "tenant_id": (tenant_id or "")[:128] or None,
-        "analyst_id": (analyst_id or "")[:128] or None,
-        "reason": (reason or "")[:120] or None,
-    }
-    log.info("bridge_ingress_audit %s", json.dumps(payload, separators=(",", ":"), sort_keys=True))
+    _ = (tenant_id, analyst_id)
+    log.info(
+        "bridge_ingress_audit event=bridge.ingress.audit route=%s outcome=%s correlation_id=%s "
+        "status_code=%s status_class=%s reason=%s upstream_status=%s",
+        route,
+        outcome,
+        correlation_id[:128],
+        int(status_code),
+        _status_class(status_code),
+        _audit_reason_code(reason),
+        upstream_status if upstream_status is not None else "",
+    )
 
 
 async def _run_slack_turn_with_audit(settings: Settings, meta: dict[str, Any]) -> None:
@@ -427,7 +443,7 @@ async def _run_slack_turn_with_audit(settings: Settings, meta: dict[str, Any]) -
                 "analyst_id": f"slack:{str(meta.get('user') or 'unknown')[:128]}",
             }
     except Exception as e:
-        log.warning("slack async turn crashed: %s", e)
+        log.warning("slack async turn crashed: %s", type(e).__name__)
         result = {
             "outcome": "failed",
             "reason": "unexpected_error",
@@ -567,12 +583,17 @@ async def teams_messages(
                     outcome="rate_limited",
                     correlation_id=correlation_id,
                     status_code=429,
-                    request=request,
+                    client_ip=_safe_client_ip(request),
                     tenant_id=body.tenant_id or settings.default_tenant_id,
                     analyst_id=body.analyst_id or "teams_user",
                 )
                 raise _ingress_http_exc(429, "rate limit exceeded", correlation_id)
-    trusted_tenant, trusted_analyst = trusted_scope_headers(request)
+    trusted_tenant = (
+        request.headers.get("X-Tenant-Id") or request.headers.get("X-Tarka-Tenant-Id") or ""
+    ).strip()
+    trusted_analyst = (
+        request.headers.get("X-Analyst-Id") or request.headers.get("X-Tarka-Analyst-Id") or ""
+    ).strip()
     if settings.bridge_trusted_scope_headers_required and (
         not trusted_tenant or not trusted_analyst
     ):
@@ -581,7 +602,7 @@ async def teams_messages(
             outcome="rejected",
             correlation_id=correlation_id,
             status_code=400,
-            request=request,
+            client_ip=_safe_client_ip(request),
             tenant_id=body.tenant_id or settings.default_tenant_id,
             analyst_id=body.analyst_id or "teams_user",
             reason="trusted_scope_headers_required",
@@ -599,7 +620,7 @@ async def teams_messages(
             outcome="rejected",
             correlation_id=correlation_id,
             status_code=403,
-            request=request,
+            client_ip=_safe_client_ip(request),
             tenant_id=resolved_tenant_id,
             analyst_id=resolved_analyst_id,
             reason="tenant_not_allowed",
@@ -628,7 +649,7 @@ async def teams_messages(
             outcome="unavailable",
             correlation_id=correlation_id,
             status_code=out.status_code,
-            request=request,
+            client_ip=_safe_client_ip(request),
             tenant_id=resolved_tenant_id,
             analyst_id=resolved_analyst_id,
             upstream_status=upstream_status,
@@ -639,7 +660,7 @@ async def teams_messages(
         outcome="success",
         correlation_id=correlation_id,
         status_code=200,
-        request=request,
+        client_ip=_safe_client_ip(request),
         tenant_id=resolved_tenant_id,
         analyst_id=resolved_analyst_id,
     )
@@ -664,7 +685,7 @@ async def plugin_session(
             outcome="unauthorized",
             correlation_id=correlation_id,
             status_code=401,
-            request=request,
+            client_ip=_safe_client_ip(request),
             tenant_id=body.tenant_id,
             analyst_id=body.analyst_id,
             case_id=body.case_id,
@@ -679,7 +700,7 @@ async def plugin_session(
             outcome="rate_limited",
             correlation_id=correlation_id,
             status_code=429,
-            request=request,
+            client_ip=_safe_client_ip(request),
             tenant_id=body.tenant_id,
             analyst_id=body.analyst_id,
             case_id=body.case_id,
@@ -705,7 +726,7 @@ async def plugin_session(
             outcome="unavailable" if mapped == 502 else "rejected",
             correlation_id=correlation_id,
             status_code=mapped,
-            request=request,
+            client_ip=_safe_client_ip(request),
             tenant_id=body.tenant_id,
             analyst_id=body.analyst_id,
             case_id=body.case_id,
@@ -719,7 +740,7 @@ async def plugin_session(
         outcome="success",
         correlation_id=correlation_id,
         status_code=200,
-        request=request,
+        client_ip=_safe_client_ip(request),
         tenant_id=body.tenant_id,
         analyst_id=body.analyst_id,
         case_id=body.case_id,
@@ -747,7 +768,7 @@ async def plugin_bootstrap(
             outcome="unauthorized",
             correlation_id=correlation_id,
             status_code=401,
-            request=request,
+            client_ip=_safe_client_ip(request),
         )
         raise _plugin_http_exc(401, "invalid X-Bridge-Secret", correlation_id)
     try:
@@ -758,7 +779,7 @@ async def plugin_bootstrap(
             outcome="rate_limited",
             correlation_id=correlation_id,
             status_code=429,
-            request=request,
+            client_ip=_safe_client_ip(request),
         )
         raise _plugin_http_exc(429, "rate limit exceeded", correlation_id)
     try:
@@ -773,7 +794,7 @@ async def plugin_bootstrap(
             outcome="unavailable" if mapped == 502 else "rejected",
             correlation_id=correlation_id,
             status_code=mapped,
-            request=request,
+            client_ip=_safe_client_ip(request),
             upstream_status=e.status_code,
         )
         detail = "plugin bootstrap unavailable" if mapped == 502 else "plugin bootstrap rejected"
@@ -784,7 +805,7 @@ async def plugin_bootstrap(
         outcome="success",
         correlation_id=correlation_id,
         status_code=200,
-        request=request,
+        client_ip=_safe_client_ip(request),
         tenant_id=str(session.get("tenant_id") or "") or None,
         analyst_id=str(session.get("analyst_id") or "") or None,
         case_id=str(session.get("case_id") or "") or None,
@@ -827,7 +848,7 @@ async def teams_activity(
                     outcome="rate_limited",
                     correlation_id=correlation_id,
                     status_code=429,
-                    request=request,
+                    client_ip=_safe_client_ip(request),
                     tenant_id=settings.default_tenant_id,
                 )
                 raise _ingress_http_exc(429, "rate limit exceeded", correlation_id)
@@ -837,7 +858,7 @@ async def teams_activity(
             outcome="ignored",
             correlation_id=correlation_id,
             status_code=200,
-            request=request,
+            client_ip=_safe_client_ip(request),
             tenant_id=settings.default_tenant_id,
             reason="not_message_activity",
         )
@@ -849,7 +870,7 @@ async def teams_activity(
             outcome="ignored",
             correlation_id=correlation_id,
             status_code=200,
-            request=request,
+            client_ip=_safe_client_ip(request),
             tenant_id=settings.default_tenant_id,
             reason="empty_text",
         )
@@ -877,7 +898,7 @@ async def teams_activity(
         outcome="unavailable" if isinstance(out, JSONResponse) else "success",
         correlation_id=correlation_id,
         status_code=out.status_code if isinstance(out, JSONResponse) else 200,
-        request=request,
+        client_ip=_safe_client_ip(request),
         tenant_id=settings.default_tenant_id,
         analyst_id=f"teams:{uid}",
         upstream_status=upstream_status,
@@ -909,7 +930,7 @@ async def lark_event(request: Request, response: Response, background_tasks: Bac
             outcome="invalid",
             correlation_id=correlation_id,
             status_code=400,
-            request=request,
+            client_ip=_safe_client_ip(request),
             reason="expected_json_object",
         )
         raise _ingress_http_exc(400, "expected JSON object", correlation_id)
@@ -922,7 +943,7 @@ async def lark_event(request: Request, response: Response, background_tasks: Bac
                 outcome="challenge",
                 correlation_id=correlation_id,
                 status_code=200,
-                request=request,
+                client_ip=_safe_client_ip(request),
             )
             return {"challenge": ch}
 
@@ -935,7 +956,7 @@ async def lark_event(request: Request, response: Response, background_tasks: Bac
                 outcome="unauthorized",
                 correlation_id=correlation_id,
                 status_code=401,
-                request=request,
+                client_ip=_safe_client_ip(request),
                 reason="invalid_lark_verification_token",
             )
             raise _ingress_http_exc(401, "invalid lark verification token", correlation_id)
@@ -949,7 +970,7 @@ async def lark_event(request: Request, response: Response, background_tasks: Bac
                         outcome="rate_limited",
                         correlation_id=correlation_id,
                         status_code=429,
-                        request=request,
+                        client_ip=_safe_client_ip(request),
                     )
                     raise _ingress_http_exc(429, "rate limit exceeded", correlation_id)
         ev = wrap.event or {}
@@ -971,7 +992,7 @@ async def lark_event(request: Request, response: Response, background_tasks: Bac
                 outcome="accepted",
                 correlation_id=correlation_id,
                 status_code=200,
-                request=request,
+                client_ip=_safe_client_ip(request),
                 analyst_id=f"lark:{sid}",
                 reason="async_dispatch",
             )
@@ -981,7 +1002,7 @@ async def lark_event(request: Request, response: Response, background_tasks: Bac
                 outcome="ignored",
                 correlation_id=correlation_id,
                 status_code=200,
-                request=request,
+                client_ip=_safe_client_ip(request),
                 reason="empty_text",
             )
     else:
@@ -990,7 +1011,7 @@ async def lark_event(request: Request, response: Response, background_tasks: Bac
             outcome="ignored",
             correlation_id=correlation_id,
             status_code=200,
-            request=request,
+            client_ip=_safe_client_ip(request),
             reason="unsupported_event_type",
         )
     return {}
@@ -1035,8 +1056,11 @@ async def _lark_reply_task(
         )
         out_text = format_lark_card_text(agent_out)
     except AgentChatError as e:
-        log.warning("lark turn agent error: %s", e)
-        out_text = format_lark_error_text("Copilot is temporarily unavailable.", "")
+        log.warning("lark turn agent error status=%s", getattr(e, "status_code", None))
+        out_text = format_lark_error_text(
+            "The investigation assistant returned an error. Please try again.",
+            "",
+        )
         outcome = "unavailable"
         upstream_status = int(e.status_code or 0) or None
         reason = "agent_unavailable"
@@ -1073,7 +1097,7 @@ async def _lark_reply_task(
     try:
         await _lark_post_message(access, str(chat_id), out_text)
     except Exception as e:
-        log.warning("lark message send failed: %s", e)
+        log.warning("lark message send failed: %s", type(e).__name__)
         if outcome == "success":
             outcome = "delivery_failed"
         reason = reason or "lark_post_failed"
@@ -1106,7 +1130,7 @@ async def _lark_reply_task_with_audit(
                 "analyst_id": f"lark:{analyst_id}"[:128],
             }
     except Exception as e:
-        log.warning("lark async turn crashed: %s", e)
+        log.warning("lark async turn crashed: %s", type(e).__name__)
         result = {
             "outcome": "failed",
             "reason": "unexpected_error",

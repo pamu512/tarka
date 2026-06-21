@@ -3,7 +3,7 @@
 ## 1) Start core services
 
 ```bash
-docker compose -f deploy/docker-compose.lite.yml up -d
+docker compose -f infra/deploy/docker-compose.lite.yml up -d
 ```
 
 ## 2) Send one evaluate event

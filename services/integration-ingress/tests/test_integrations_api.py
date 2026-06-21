@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import urlparse
@@ -239,7 +239,7 @@ async def test_scorecards_endpoint_shape(client):
             "missing_fields": [],
             "live_probe": {"ok": True, "latency_ms": 11.0, "error": ""},
         },
-        updated_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(UTC),
     )
     result = MagicMock()
     result.scalars.return_value.all.return_value = [row]
@@ -258,5 +258,4 @@ async def test_scorecards_endpoint_shape(client):
     assert "config_completeness" in p
     assert "connector_quality" in p
     assert data.get("overall_connector_quality") is not None
-    assert data["sla"]["trend_window_days"] == 7
-    assert "remediation_hints" in data
+    assert "connector_quality_version" in data

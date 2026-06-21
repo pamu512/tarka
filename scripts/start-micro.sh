@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-COMPOSE_FILE="${ROOT}/deploy/docker-compose.micro.yml"
+COMPOSE_FILE="${ROOT}/infra/deploy/docker-compose.micro.yml"
 export TARKA_MICRO_DATA_DIR="${TARKA_MICRO_DATA_DIR:-${ROOT}/.tarka-micro/data}"
 export TARKA_MICRO_PORT="${TARKA_MICRO_PORT:-8000}"
 

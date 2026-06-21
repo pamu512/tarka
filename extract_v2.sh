@@ -45,12 +45,12 @@ for item in "${SALVAGE_PATHS[@]}"; do
     # Try copying as a directory first, then fallback to checking for a .py file
     if [ -d "$item" ]; then
         echo "[+] Salvaging directory: $item"
-        mkdir -p "tarka_v2_core/$(dirname $item)"
-        cp -r "$item" "tarka_v2_core/$item"
+        mkdir -p "$(dirname $item)"
+        cp -r "$item" "$item"
     elif [ -f "${item}.py" ]; then
         echo "[+] Salvaging file: ${item}.py"
-        mkdir -p "tarka_v2_core/$(dirname $item)"
-        cp "${item}.py" "tarka_v2_core/${item}.py"
+        mkdir -p "$(dirname $item)"
+        cp "${item}.py" "${item}.py"
     else
         echo "[!] WARNING: Could not locate $item or ${item}.py (Skipping)"
     fi
@@ -58,7 +58,7 @@ done
 
 echo "[*] Archiving bloat..."
 # Move the entire massive services folder out of the way
-mv services legacy_attic/
+mv services 
 
 echo "[*] Extraction complete."
 echo "Your lean, audit-first V2 core is now ready in ./tarka_v2_core"

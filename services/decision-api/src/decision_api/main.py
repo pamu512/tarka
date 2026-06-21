@@ -1091,8 +1091,12 @@ from decision_api.captcha import router as captcha_router  # noqa: E402
 from decision_api.compliance_api import router as compliance_router  # noqa: E402
 from decision_api.consortium_api import router as consortium_router  # noqa: E402
 from decision_api.feature_store_api import router as feature_store_router  # noqa: E402
-from decision_api.experiment_api import experiment_registry_line_count  # noqa: E402
-from decision_api.experiment_api import router as experiment_router  # noqa: E402
+from decision_api.experiment_api import (  # noqa: E402
+    experiment_registry_line_count,
+    router as experiment_router,
+)
+from decision_api.benchmark_export_api import router as benchmark_export_router  # noqa: E402
+from decision_api.drift_query_api import router as drift_query_router  # noqa: E402
 from decision_api.internal_counters_api import router as internal_counters_router  # noqa: E402
 from decision_api.recommend_api import router as recommend_router  # noqa: E402
 from decision_api.replay import router as replay_router  # noqa: E402
@@ -1110,6 +1114,8 @@ from decision_api.sandbox_bootstrap import (  # noqa: E402
 app.include_router(rule_router)
 app.include_router(replay_router)
 app.include_router(simulation_router)
+app.include_router(benchmark_export_router)
+app.include_router(drift_query_router)
 app.include_router(experiment_router)
 app.include_router(recommend_router)
 app.include_router(compliance_router)

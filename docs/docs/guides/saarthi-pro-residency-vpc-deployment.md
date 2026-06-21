@@ -35,4 +35,4 @@
 
 - [SSO / SCIM guide](saarthi-pro-sso-scim-integration-guide.md)
 - [DPA template](saarthi-pro-dpa-subprocessor-template.md)
-- [Production hardening overlay](../../../deploy/docker-compose.production-hardening.yml) (reference path from repo root)
+- [Production hardening overlay](../../../infra/deploy/docker-compose.production-hardening.yml) (reference path from repo root)

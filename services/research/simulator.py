@@ -356,14 +356,14 @@ def _rule_matches_python(rule: dict[str, Any], features: dict[str, Any]) -> bool
         except ImportError:
             pass
     try:
-        from tarka_v2_core.shadow_hypothesis import rule_matches_flat
+        from shadow_hypothesis import rule_matches_flat
 
         return rule_matches_flat(rule, features)
     except ImportError:
         when = rule.get("when")
         if not isinstance(when, list) or not when:
             return False
-        from tarka_v2_core.shadow_hypothesis import match_flat_condition
+        from shadow_hypothesis import match_flat_condition
 
         return all(isinstance(c, dict) and match_flat_condition(features, c) for c in when)
 

@@ -11,7 +11,7 @@ import httpx
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_SHADOW_SRC = _REPO_ROOT / "tarka_v2_core" / "services" / "shadow_agent" / "src"
+_SHADOW_SRC = _REPO_ROOT / "services" / "shadow_agent"
 if str(_SHADOW_SRC) not in sys.path:
     sys.path.insert(0, str(_SHADOW_SRC))
 
