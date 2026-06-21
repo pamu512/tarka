@@ -431,7 +431,6 @@ jobs:
         working-directory: services/collaboration-chat-bridge
         env:
           PYTHONPATH: .:src
-        env:
           ALLOW_INSECURE_NO_AUTH: "true"
 
   test-orchestrator-gates:
