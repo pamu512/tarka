@@ -510,7 +510,7 @@ components:
 
     CaseActionResponse:
       type: object
-      required: [ok, action, case_id, tenant_id, idempotency_key, correlation_id, audit_id]
+      required: [ok, action, case_id, tenant_id, idempotency_key, correlation_id]
       properties:
         ok: { type: boolean }
         action: { type: string }

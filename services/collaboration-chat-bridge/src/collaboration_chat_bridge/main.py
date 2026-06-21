@@ -842,6 +842,10 @@ async def execute_case_action(
         detail = "case action unavailable" if mapped == 502 else "case action rejected"
         raise _plugin_http_exc(mapped, detail, correlation_id) from None
     response.headers["X-Correlation-Id"] = correlation_id
+    upstream.setdefault("action", body.action)
+    upstream.setdefault("case_id", body.case_id)
+    upstream.setdefault("tenant_id", body.tenant_id)
+    upstream.setdefault("idempotency_key", body.idempotency_key)
     return upstream
 
 

@@ -156,7 +156,7 @@ jobs:
         with:
           name: vertical-benchmark-scorecard
           path: ${{ runner.temp }}/v1.2.0-vertical-benchmark-scorecard.json
-          if-no-files-found: ignore
+          if-no-files-found: warn
 
       - name: Stop Decision API
         if: always()
