@@ -16,7 +16,7 @@ from db import get_session
 from models import CaseGraphAnnotation
 from schemas import GraphAnnotationsIn, GraphAnnotationsOut
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "shared"))
 from auth_rbac import require_role  # noqa: E402
 
 router = APIRouter(tags=["case-graph"])

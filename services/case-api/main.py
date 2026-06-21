@@ -78,7 +78,7 @@ from template_apply import (
 from workflow import evaluate_workflows, get_workflows, is_sla_breached, load_workflows
 
 _shared_dir = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared")
+    os.path.join(os.path.dirname(__file__), "..", "shared")
 )
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)

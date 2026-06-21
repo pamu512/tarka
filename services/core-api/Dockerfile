@@ -17,6 +17,7 @@ COPY services/core-api/pyproject.toml /app/
 COPY services/legacy_v1_decision_api/src/decision_api /app/decision_api
 COPY services/decision-api/src/decision_api/benchmark_export_api.py /app/decision_api/benchmark_export_api.py
 COPY services/decision-api/src/decision_api/drift_query_api.py /app/decision_api/drift_query_api.py
+COPY services/decision-api/src/decision_api/internal_counters_api.py /app/decision_api/internal_counters_api.py
 COPY services/legacy_v1_decision_api/alembic /app/decision_migrations
 COPY services/legacy_v1_decision_api/rules /app/rules
 COPY services/legacy_v1_decision_api/static /app/static
