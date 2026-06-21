@@ -250,8 +250,8 @@ jobs:
         run: pytest --cov=graph_service --cov-report=xml --cov-report=term-missing --cov-fail-under=26 tests/
         working-directory: services/graph-service
         env:
-          PYTHONPATH: src:.
-          # Unit tests mock drivers; janusgraph is the default backend (no live Neo4j in this job).
+          PYTHONPATH: src:.:../shared
+          GRAPH_BACKEND: neo4j
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
