@@ -184,7 +184,7 @@ jobs:
         run: >
           pytest services/decision-api/tests/test_q2_wave4_api.py -q
         env:
-          PYTHONPATH: services/decision-api/src:services/shared:../../packages/shared-core
+          PYTHONPATH: services/decision-api/src:services/shared:packages/shared-core
           DATABASE_URL: sqlite+aiosqlite:///
           REDIS_URL: redis://localhost:6379/0
       - name: Upload coverage
