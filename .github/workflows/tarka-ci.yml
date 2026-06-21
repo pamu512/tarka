@@ -88,7 +88,7 @@ jobs:
       - name: Pytest — Orchestrator
         working-directory: services/orchestrator
         env:
-          PYTHONPATH: .:../ingestor/src:../ingestor:../shared:../../packages/shared-core:..
+          PYTHONPATH: .:../ingestor/src:../ingestor:../shared:../../packages/shared-core
         run: pytest tests -q
 
       - name: Pytest — Shadow (hooks + NATS tools)
