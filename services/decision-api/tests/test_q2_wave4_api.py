@@ -1,6 +1,5 @@
 """Q2 Wave 4 unit tests."""
 
-import json
 import os
 import sys
 from pathlib import Path

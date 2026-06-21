@@ -1,5 +1,5 @@
-"""Tarka ClickHouse ingestor service (EvidenceManifest sink)."""
+"""Ingestor package re-export (flat layout entry)."""
 
-from enqueue import enqueue_manifest_bytes
+from ingestor.manifest_schema import TransactionSchema
 
-__all__ = ["enqueue_manifest_bytes"]
+__all__ = ["TransactionSchema"]

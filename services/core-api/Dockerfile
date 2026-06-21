@@ -13,14 +13,14 @@ COPY services/core /app/core
 COPY services/analytics /app/analytics
 COPY services/shared /app/shared
 COPY services/core-api/pyproject.toml /app/
-COPY services/legacy_v1_decision_api/decision_api /app/decision_api
+COPY services/legacy_v1_decision_api/src/decision_api /app/decision_api
 COPY services/legacy_v1_decision_api/alembic /app/decision_migrations
 COPY services/legacy_v1_decision_api/rules /app/rules
 COPY services/legacy_v1_decision_api/static /app/static
-COPY services/case-api/case_api /app/case_api
+COPY services/case-api/src/case_api /app/case_api
 COPY services/case-api/static /app/case-api/static
 COPY services/case-api/alembic /app/case_migrations
-COPY services/core-api/core_api /app/core_api
+COPY services/core-api/src/core_api /app/core_api
 COPY services/core-api/config/decision_alembic.ini /app/config/decision_alembic.ini
 COPY services/core-api/config/decision_alembic.ini /app/alembic.ini
 COPY services/core-api/config/case_alembic.ini /app/config/case_alembic.ini
