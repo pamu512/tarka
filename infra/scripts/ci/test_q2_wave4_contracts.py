@@ -12,6 +12,9 @@ ROOT = Path(__file__).resolve().parents[3]
 GRAPH_SRC = ROOT / "services/graph-service/src"
 if str(GRAPH_SRC) not in sys.path:
     sys.path.insert(0, str(GRAPH_SRC))
+GRAPH_FLAT = ROOT / "services/graph-service"
+if str(GRAPH_FLAT) not in sys.path:
+    sys.path.insert(0, str(GRAPH_FLAT))
 
 
 class TestGraphPathExplanationSchema(unittest.TestCase):
@@ -23,7 +26,7 @@ class TestGraphPathExplanationSchema(unittest.TestCase):
 
 class TestPathExplainAssembly(unittest.TestCase):
     def test_assemble_minimal(self) -> None:
-        from graph_service.path_explain import assemble_path_explanation
+        from path_explain import assemble_path_explanation
 
         out = assemble_path_explanation(
             "tenant-1",
