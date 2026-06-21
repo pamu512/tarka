@@ -13,7 +13,6 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-
 ensure_shared_on_path()
 from auth_rbac import require_role  # noqa: E402
 

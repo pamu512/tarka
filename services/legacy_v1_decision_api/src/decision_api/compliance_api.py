@@ -27,7 +27,6 @@ Implements data subject rights required by GDPR, CCPA, LGPD, and other regulatio
 """
 
 
-
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/compliance", tags=["compliance"])
 

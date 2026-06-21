@@ -5,7 +5,6 @@ from __future__ import annotations
 from decision_api._shared_path import ensure_shared_on_path
 
 
-
 from fastapi import APIRouter, Depends
 
 from tarka_core.engine_adapter import merge_features_with_resolved_from_ast

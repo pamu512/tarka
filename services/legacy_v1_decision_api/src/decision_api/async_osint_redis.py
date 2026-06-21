@@ -9,7 +9,6 @@ import logging
 from typing import Any
 
 
-
 log = logging.getLogger(__name__)
 
 ensure_shared_on_path()
