@@ -3,7 +3,7 @@
 # Intended for CI (GitHub Actions). Requires: python3, pip, network.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$ROOT"
 
 # Use :- so an empty SAFETY_VERSION in the environment does not expand to `safety==` (which installs Safety 3.x).

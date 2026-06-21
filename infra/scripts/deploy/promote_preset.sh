@@ -3,7 +3,7 @@
 set -euo pipefail
 
 PRESET="${1:?usage: promote_preset.sh <preset-name>}"
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$REPO_ROOT"
 
 GENERATED="infra/deploy/generated/${PRESET}.values.yaml"
