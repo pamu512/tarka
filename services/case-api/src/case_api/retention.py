@@ -17,7 +17,7 @@ DEFAULT_RETENTION_DAYS = int(os.environ.get("CASE_RETENTION_DAYS", "730"))
 async def cleanup_old_cases(retention_days: int = DEFAULT_RETENTION_DAYS) -> int:
     """Delete closed cases older than retention_days. Returns count deleted."""
     cutoff = datetime.now(UTC) - timedelta(days=retention_days)
-    from models import Case
+    from .models import Case
 
     async with async_engine.begin() as conn:
         result = await conn.execute(

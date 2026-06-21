@@ -155,7 +155,7 @@ async def case_path_explain(
     limit: int = 10,
     _analyst=Depends(require_role("analyst")),
 ):
-    from config import settings
+    from .config import settings
 
     case = await _case_for_tenant(session, case_id, tenant_id)
     base = (settings.graph_service_url or "").strip().rstrip("/")

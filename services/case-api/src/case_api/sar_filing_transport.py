@@ -8,7 +8,7 @@ import os
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from models import SARFiling, SarFiling
+    from .models import SARFiling, SarFiling
 
 log = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ def build_sar_transmission_package(intent: SarFiling, artifact: SARFiling) -> tu
 
     Returns ``(remote_filename, body_bytes)`` for SFTP placement.
     """
-    from models import SARFiling as _SARFiling
+    from .models import SARFiling as _SARFiling
 
     if not isinstance(artifact, _SARFiling):
         raise TypeError("artifact must be SARFiling")
