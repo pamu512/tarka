@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 
 import bleach
 
-from sar_filing_transport import build_sar_transmission_package
-from sar_transport import SAR_ACKNOWLEDGED, SAR_TRANSMITTED
+from .sar_filing_transport import build_sar_transmission_package
+from .sar_transport import SAR_ACKNOWLEDGED, SAR_TRANSMITTED
 
 if TYPE_CHECKING:
     from models import SARFiling, SarFiling

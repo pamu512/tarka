@@ -16,7 +16,7 @@ from tarka_core.database import (
     sync_url_for_alembic,
 )
 
-from config import settings
+from .config import settings
 
 
 def _app_root() -> Path:

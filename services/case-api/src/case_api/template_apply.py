@@ -8,9 +8,9 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from builtin_playbooks import PLAYBOOKS
-from models import Case, CaseComment, InvestigationTemplate
-from schemas import CaseOut
+from .builtin_playbooks import PLAYBOOKS
+from .models import Case, CaseComment, InvestigationTemplate
+from .schemas import CaseOut
 
 """Resolve and apply investigation templates / built-in playbooks (Marble #56)."""
 

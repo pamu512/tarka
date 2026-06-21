@@ -12,9 +12,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db import get_session
-from models import CaseGraphAnnotation
-from schemas import GraphAnnotationsIn, GraphAnnotationsOut
+from .db import get_session
+from .models import CaseGraphAnnotation
+from .schemas import GraphAnnotationsIn, GraphAnnotationsOut
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
 from auth_rbac import require_role  # noqa: E402

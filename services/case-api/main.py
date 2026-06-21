@@ -77,9 +77,7 @@ from template_apply import (
 )
 from workflow import evaluate_workflows, get_workflows, is_sla_breached, load_workflows
 
-_shared_dir = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "shared")
-)
+_shared_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "shared"))
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
 from audit_trail import AuditTrail, create_audit_model  # noqa: E402

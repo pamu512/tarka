@@ -219,7 +219,7 @@ jobs:
         run: pytest --cov=case_api --cov-report=xml --cov-report=term-missing --cov-fail-under=40 tests/
         working-directory: services/case-api
         env:
-          PYTHONPATH: src/case_api:src:../shared:../../packages/shared-core
+          PYTHONPATH: src:../shared:../../packages/shared-core
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
