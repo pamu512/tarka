@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(_ROOT, "services", "decision-api", "tests"))
 from .aggregate_fake_redis import FakeRedis
 from fastapi.testclient import TestClient
 from fraud_aggregates import AggregateStore
-from main import app
+from feature_service.main import app
 
 T0 = 1_700_000_000.0
 

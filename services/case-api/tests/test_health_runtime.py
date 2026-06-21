@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 def test_health_runtime_fields_present():
     with patch("case_api.main.init_db", new_callable=AsyncMock):
-        from main import app
+        from case_api.main import app
 
         with (
             patch("case_api.main.active_database_backend", return_value="postgresql"),

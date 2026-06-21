@@ -1,6 +1,6 @@
 import os
 
-from main import app
+from case_api.main import app
 from fastapi.testclient import TestClient
 
 

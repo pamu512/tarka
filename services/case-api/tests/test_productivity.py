@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from main import _apply_case_mutations
+from case_api.main import _apply_case_mutations
 
 
 def test_apply_case_mutations_updates_core_fields():

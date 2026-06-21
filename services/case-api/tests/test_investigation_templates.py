@@ -18,7 +18,7 @@ def _api_headers() -> dict[str, str]:
 def case_client():
     with patch("case_api.main.evaluate_workflows", new_callable=AsyncMock) as ev:
         ev.return_value = WorkflowContext("case_created", {})
-        from main import app
+        from case_api.main import app
 
         with TestClient(app) as client:
             yield client

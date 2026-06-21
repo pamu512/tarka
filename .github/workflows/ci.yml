@@ -126,7 +126,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install test dependencies
-        run: pip install pytest fastapi httpx
+        run: pip install pytest fastapi httpx sqlalchemy
       - name: Shared auth + tenant binding regression (TENANT_BINDING_REQUIRED=${{ matrix.tenant_binding_required }})
         run: pytest -v tests/
         working-directory: services/shared
@@ -430,6 +430,8 @@ jobs:
         run: pytest -v tests/
         working-directory: services/collaboration-chat-bridge
         env:
+          PYTHONPATH: .:src
+        env:
           ALLOW_INSECURE_NO_AUTH: "true"
 
   test-orchestrator-gates:
@@ -442,7 +444,7 @@ jobs:
           python-version: "3.12"
       - name: Install orchestrator test dependencies
         run: |
-          pip install pytest pytest-asyncio fastapi httpx sqlalchemy aiosqlite redis pydantic pydantic-settings duckdb neo4j reportlab pypdf python-multipart greenlet
+          pip install pytest pytest-asyncio fastapi httpx sqlalchemy aiosqlite redis pydantic pydantic-settings duckdb neo4j reportlab pypdf python-multipart greenlet protobuf
           pip install -e packages/deploy-settings
       - name: Q2-E04 entity resolution + HIL override gates
         run: |
@@ -452,7 +454,7 @@ jobs:
             services/orchestrator/tests/test_entity_profile_gate.py
         env:
           PYTHONPATH: >-
-            services/orchestrator:services:packages/shared-core:services/rule_engine:.
+            services/orchestrator:services:packages/shared-core:services/rule_engine:services/ingestor/src:services/ingestor:.
           ORCHESTRATOR_ENTITY_PROFILE_SKIP_SHADOW: "1"
           ORCHESTRATOR_V1_RATE_LIMIT_RPM: "0"
           ALLOW_INSECURE_NO_AUTH: "true"

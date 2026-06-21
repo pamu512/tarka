@@ -21,7 +21,7 @@ def test_admin_migration_status_endpoint():
         "note": "Current DB revision(s) differ from expected Alembic head(s).",
     }
     with patch("case_api.main.init_db", new_callable=AsyncMock):
-        from main import app
+        from case_api.main import app
 
         with patch(
             "case_api.main.migration_status", new_callable=AsyncMock, return_value=expected_payload

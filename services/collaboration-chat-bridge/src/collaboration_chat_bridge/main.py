@@ -876,7 +876,9 @@ async def upsert_thread_correlation_route(
         )
     except AgentUpstreamError as e:
         mapped = _plugin_upstream_status(e.status_code)
-        detail = "thread correlation unavailable" if mapped == 502 else "thread correlation rejected"
+        detail = (
+            "thread correlation unavailable" if mapped == 502 else "thread correlation rejected"
+        )
         raise _plugin_http_exc(mapped, detail, correlation_id) from None
     response.headers["X-Correlation-Id"] = correlation_id
     return upstream

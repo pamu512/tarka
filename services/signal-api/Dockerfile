@@ -8,6 +8,7 @@ WORKDIR /app
 RUN pip install --no-cache-dir pip -U
 COPY services/core /app/core
 RUN pip install --no-cache-dir -e /app/core
+COPY services/signal-api/main.py /app/main.py
 COPY services/signal-api/pyproject.toml /app/
 COPY services/feature-service/src/feature_service /app/feature_service
 COPY services/ml-scoring/src/ml_scoring /app/ml_scoring

@@ -1,7 +1,7 @@
 """GET /v1/slo smoke test."""
 
 from fastapi.testclient import TestClient
-from main import app
+from feature_service.main import app
 
 
 def test_slo():

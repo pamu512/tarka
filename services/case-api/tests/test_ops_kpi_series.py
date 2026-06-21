@@ -124,7 +124,7 @@ def _api_headers() -> dict[str, str]:
 
 
 def test_kpi_series_http_smoke():
-    from main import app
+    from case_api.main import app
 
     with TestClient(app) as client:
         r = client.get(
