@@ -96,3 +96,16 @@ class Settings(BaseSettings):
         ge=2000,
         description="Total extracted attachment text appended to last user message.",
     )
+
+    bridge_case_actions_enabled: bool = Field(
+        default=True,
+        description="If false, /v1/case-actions returns 404.",
+    )
+    tenant_binding_required: bool = Field(
+        default=False,
+        description="If true, reject requests that cannot prove tenant scope.",
+    )
+    allow_insecure_no_auth: bool = Field(
+        default=False,
+        description="If true, bypass bridge shared-secret checks (local development only).",
+    )
