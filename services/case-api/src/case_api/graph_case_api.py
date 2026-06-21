@@ -16,7 +16,7 @@ from .db import get_session
 from .models import CaseGraphAnnotation
 from .schemas import GraphAnnotationsIn, GraphAnnotationsOut
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from auth_rbac import require_role  # noqa: E402
 
 router = APIRouter(tags=["case-graph"])
@@ -45,7 +45,7 @@ def usage_snapshot() -> dict[str, Any]:
 
 
 async def _case_for_tenant(session: AsyncSession, case_id: uuid.UUID, tenant_id: str):
-    from main import _case_for_tenant as _load
+    from .main import _case_for_tenant as _load
 
     return await _load(session, case_id, tenant_id)
 
