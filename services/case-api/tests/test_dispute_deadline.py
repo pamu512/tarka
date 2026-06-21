@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from dispute_deadline import alert_state, queue_item_view
+from case_api.dispute_deadline import alert_state, queue_item_view
 from fastapi.testclient import TestClient
 
 

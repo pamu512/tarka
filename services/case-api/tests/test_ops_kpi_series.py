@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
-from ops_kpi_series import (
+from case_api.ops_kpi_series import (
     build_bucket_payloads,
     build_time_buckets,
     median_float,
