@@ -464,7 +464,7 @@ jobs:
         working-directory: services/orchestrator
         env:
           PYTHONPATH: >-
-            .:..:../../packages/shared-core:../rule_engine:../ingestor/src:../ingestor
+            .:../../packages/shared-core:../rule_engine:../ingestor/src:../ingestor
           ORCHESTRATOR_ENTITY_PROFILE_SKIP_SHADOW: "1"
           ORCHESTRATOR_V1_RATE_LIMIT_RPM: "0"
           ALLOW_INSECURE_NO_AUTH: "true"

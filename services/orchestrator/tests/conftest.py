@@ -13,7 +13,6 @@ for _p in (
     _SERVICES / "ingestor" / "src",
     _SERVICES / "shared",
     _SERVICES.parent / "packages" / "shared-core",
-    _SERVICES,
 ):
     _s = str(_p.resolve())
     if _s not in sys.path:
