@@ -9,6 +9,7 @@ import re
 import sys
 import time
 import uuid
+from datetime import datetime, timezone
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -1941,8 +1942,12 @@ async def upsert_thread_correlation(
     except HTTPException as e:
         raise _plugin_http_exc(int(e.status_code), str(e.detail), correlation_id) from None
     key = f"{body.platform}:{body.workspace_id}:{body.thread_key}"
-    _thread_correlations[key] = body.model_dump()
-    return {"ok": True, "correlation_id": correlation_id, **body.model_dump()}
+    now = datetime.now(timezone.utc).isoformat()
+    existing = _thread_correlations.get(key)
+    created_at = existing["created_at"] if existing else now
+    entry = {**body.model_dump(), "created_at": created_at, "updated_at": now}
+    _thread_correlations[key] = entry
+    return {"ok": True, "correlation_id": correlation_id, **entry}
 
 
 @app.get("/v1/thread-correlations/{platform}/{workspace_id}/{thread_key}")
