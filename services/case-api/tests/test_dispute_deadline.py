@@ -67,7 +67,7 @@ def test_queue_item_view_hooks():
 @pytest.fixture
 def dispute_client():
     with patch("case_api.main.evaluate_workflows", new_callable=AsyncMock):
-        from main import app
+        from case_api.main import app
 
         with TestClient(app) as client:
             yield client

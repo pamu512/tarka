@@ -1,7 +1,7 @@
 """OSS #48 parity verifier endpoint."""
 
 from fastapi.testclient import TestClient
-from main import app
+from feature_service.main import app
 
 from .aggregate_fake_redis import FakeRedis
 

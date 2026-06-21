@@ -4,7 +4,7 @@ import math
 from unittest.mock import patch
 
 import pytest
-from main import (
+from feature_service.main import (
     VECTOR_KEYS,
     _build_vector,
     _compute_amount_features,
@@ -134,7 +134,7 @@ class TestSnapshotEndpoint:
             },
         ):
             import main as mod
-            from main import app
+            from feature_service.main import app
 
             mod._valid_api_keys = None
             from fastapi.testclient import TestClient
@@ -196,7 +196,7 @@ class TestVelocityQueryEndpoint:
             },
         ):
             import main as mod
-            from main import app
+            from feature_service.main import app
 
             mod._valid_api_keys = None
             from fastapi.testclient import TestClient

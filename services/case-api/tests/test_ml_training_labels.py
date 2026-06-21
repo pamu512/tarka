@@ -19,7 +19,7 @@ def ml_client():
         patch("case_api.main.evaluate_workflows", new_callable=AsyncMock),
         patch("case_api.dispute_api._send_ml_feedback", new_callable=AsyncMock),
     ):
-        from main import app
+        from case_api.main import app
 
         with TestClient(app) as client:
             yield client

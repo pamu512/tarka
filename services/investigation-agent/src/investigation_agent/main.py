@@ -1928,7 +1928,9 @@ async def execute_case_action(request: Request, response: Response, body: CaseAc
 
 
 @app.post("/v1/thread-correlations")
-async def upsert_thread_correlation(request: Request, response: Response, body: ThreadCorrelationBody):
+async def upsert_thread_correlation(
+    request: Request, response: Response, body: ThreadCorrelationBody
+):
     correlation_id = _request_correlation_id(request)
     response.headers["X-Correlation-Id"] = correlation_id
     try:

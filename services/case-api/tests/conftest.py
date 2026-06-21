@@ -1,6 +1,13 @@
 """Case API test defaults: SQLite + API key so HTTP tests can hit the app without Docker Postgres."""
 
 import os
+import sys
+from pathlib import Path
+
+# Prefer src/case_api over hoisted main.py (avoid duplicate SQLAlchemy model registration).
+_service_root = str(Path(__file__).resolve().parents[1])
+while _service_root in sys.path:
+    sys.path.remove(_service_root)
 
 # Default to in-memory SQLite (init_db create_all) unless the runner exports DATABASE_URL.
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")

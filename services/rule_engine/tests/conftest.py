@@ -12,7 +12,7 @@ for _p in (
     _SERVICES / "ingestor" / "src",
     _SERVICES / "ingestor",
     _SERVICES / "shared",
-    _SERVICES.parent / "crates" / "tarka-py" / "python",
+    _SERVICES.parent / "packages" / "shared-core",
 ):
     _s = str(_p.resolve())
     if _s not in sys.path:

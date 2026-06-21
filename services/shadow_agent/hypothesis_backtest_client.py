@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-_RESEARCH_DIR = Path(__file__).resolve().parents[5] / "services" / "research"
+_RESEARCH_DIR = Path(__file__).resolve().parents[1] / "research"
 
 
 def _ensure_research_path() -> None:

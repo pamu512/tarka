@@ -20,7 +20,7 @@ def _api_headers() -> dict[str, str]:
 
 def test_patch_investigative_notes_rejected_when_uploaded() -> None:
     with patch("case_api.main.evaluate_workflows", new_callable=AsyncMock):
-        from main import app
+        from case_api.main import app
 
         tid = "tenant-sar-notes-lock"
         case_id = uuid.uuid4()
@@ -79,7 +79,7 @@ def test_patch_investigative_notes_rejected_when_uploaded() -> None:
 
 def test_patch_investigative_notes_ok_when_not_uploaded() -> None:
     with patch("case_api.main.evaluate_workflows", new_callable=AsyncMock):
-        from main import app
+        from case_api.main import app
 
         tid = "tenant-sar-notes-open"
         case_id = uuid.uuid4()
@@ -142,7 +142,7 @@ def test_patch_investigative_notes_ok_when_not_uploaded() -> None:
 
 def test_get_detail_includes_sha_when_transmitted() -> None:
     with patch("case_api.main.evaluate_workflows", new_callable=AsyncMock):
-        from main import app
+        from case_api.main import app
 
         tid = "tenant-sar-detail-sha"
         case_id = uuid.uuid4()

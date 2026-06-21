@@ -103,7 +103,7 @@ def test_sar_transport_board_reflects_database_columns() -> None:
             )
 
     with patch("case_api.main.evaluate_workflows", new_callable=AsyncMock):
-        from main import app
+        from case_api.main import app
 
         with TestClient(app) as client:
             asyncio.run(seed())
@@ -132,7 +132,7 @@ def test_force_sftp_sync_rate_limited_within_60s() -> None:
             "case_api.sar_transport_monitor_api.process_sar_transport_once", new_callable=AsyncMock
         ) as proc,
     ):
-        from main import app
+        from case_api.main import app
 
         proc.return_value = False
         with TestClient(app) as client:
@@ -150,7 +150,7 @@ def test_force_sftp_sync_maps_socket_timeout_to_504() -> None:
             "case_api.sar_transport_monitor_api.process_sar_transport_once", new_callable=AsyncMock
         ) as proc,
     ):
-        from main import app
+        from case_api.main import app
 
         proc.side_effect = TimeoutError("SFTP handshake timed out")
         with TestClient(app) as client:
@@ -171,7 +171,7 @@ def test_force_sftp_sync_maps_paramiko_ssh_exception_to_502() -> None:
             "case_api.sar_transport_monitor_api.process_sar_transport_once", new_callable=AsyncMock
         ) as proc,
     ):
-        from main import app
+        from case_api.main import app
 
         proc.side_effect = paramiko.SSHException("connection failed")
         with TestClient(app) as client:

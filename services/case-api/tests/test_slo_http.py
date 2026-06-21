@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 def test_slo_endpoint():
     with patch("case_api.main.init_db", new_callable=AsyncMock):
-        from main import app
+        from case_api.main import app
 
         keys = [k.strip() for k in (os.environ.get("API_KEYS") or "").split(",") if k.strip()]
         headers = {"X-API-Key": keys[0]} if keys else {}

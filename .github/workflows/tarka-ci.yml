@@ -47,10 +47,11 @@ jobs:
       - name: Install tooling and editable sidecars
         run: |
           python -m pip install --upgrade pip
-          pip install ruff black pytest pytest-asyncio openai psutil protobuf
+          pip install ruff black pytest pytest-asyncio openai psutil protobuf maturin
           # Install shared package first (file: deps in sidecar pyprojects resolve from repo root).
           pip install -e ./packages/deploy-settings
           pip install -e "./services/shadow[dev]"
+          (cd crates/tarka-py && maturin develop --release)
           (cd services/rule_engine && pip install -e .)
           (cd services/orchestrator && pip install -e ".[janus,dev]")
           pip install fakeredis
@@ -81,13 +82,13 @@ jobs:
       - name: Pytest — Rule Engine
         working-directory: services/rule_engine
         env:
-          PYTHONPATH: .:../ingestor/src:../ingestor:../shared:../../packages/shared-core:../../crates/tarka-py/python
+          PYTHONPATH: .:../ingestor/src:../ingestor:../shared:../../packages/shared-core
         run: pytest tests -q
 
       - name: Pytest — Orchestrator
         working-directory: services/orchestrator
         env:
-          PYTHONPATH: .:../ingestor/src:../ingestor:../shared:../../packages/shared-core:../../crates/tarka-py/python:..
+          PYTHONPATH: .:../ingestor/src:../ingestor:../shared:../../packages/shared-core:..
         run: pytest tests -q
 
       - name: Pytest — Shadow (hooks + NATS tools)

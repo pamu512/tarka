@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from main import _queue_score, _recommended_action
+from case_api.main import _queue_score, _recommended_action
 
 
 def _case(priority: str, status: str, labels: list[str]):
