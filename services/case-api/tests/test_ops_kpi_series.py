@@ -10,7 +10,7 @@ from ops_kpi_series import (
     build_time_buckets,
     median_float,
 )
-from workflow import is_sla_breached_at
+from case_api.workflow import is_sla_breached_at
 from fastapi.testclient import TestClient
 
 

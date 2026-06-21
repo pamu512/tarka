@@ -24,11 +24,11 @@ def test_ring_suspicion_endpoint_returns_mule_summary(monkeypatch):
         ]
 
     monkeypatch.setattr(
-        "graph_service.main.compute_entity_risk",
+        "main.compute_entity_risk",
         _risk,
     )
     monkeypatch.setattr(
-        "graph_service.main.detect_fraud_rings",
+        "main.detect_fraud_rings",
         _rings,
     )
     with TestClient(app) as client:

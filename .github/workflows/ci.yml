@@ -54,7 +54,9 @@ jobs:
       - name: Demo vertical contract unit tests (stdlib)
         run: python3 infra/scripts/ci/test_demo_vertical_contracts.py
       - name: Q2 Wave 4 contract unit tests (stdlib)
-        run: python3 infra/scripts/ci/test_q2_wave4_contracts.py
+        run: |
+          pip install pyyaml
+          python3 infra/scripts/ci/test_q2_wave4_contracts.py
       - name: Validate JSON rule packs (policy-as-code gate)
         run: python infra/scripts/policy/validate_rule_packs.py
       - name: Validate OPA policy bundle (Q1-E01)
@@ -215,7 +217,7 @@ jobs:
         run: pytest --cov=case_api --cov-report=xml --cov-report=term-missing --cov-fail-under=40 tests/
         working-directory: services/case-api
         env:
-          PYTHONPATH: src:../shared
+          PYTHONPATH: src:../shared:../../packages/shared-core
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
@@ -248,9 +250,8 @@ jobs:
         run: pytest --cov=graph_service --cov-report=xml --cov-report=term-missing --cov-fail-under=26 tests/
         working-directory: services/graph-service
         env:
-          PYTHONPATH: src:../shared
-          # Unit tests mock Neo4j drivers; default graph_backend is janusgraph (Gremlin on :8182).
-          GRAPH_BACKEND: neo4j
+          PYTHONPATH: src:.
+          # Unit tests mock drivers; janusgraph is the default backend (no live Neo4j in this job).
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
@@ -443,8 +444,9 @@ jobs:
           python-version: "3.12"
       - name: Install orchestrator test dependencies
         run: |
-          pip install pytest pytest-asyncio fastapi httpx sqlalchemy aiosqlite redis pydantic pydantic-settings duckdb neo4j reportlab pypdf python-multipart greenlet protobuf
+          pip install pytest pytest-asyncio fastapi httpx sqlalchemy aiosqlite redis pydantic pydantic-settings duckdb neo4j reportlab pypdf python-multipart greenlet protobuf maturin
           pip install -e packages/deploy-settings
+          (cd crates/tarka-py && maturin build --release --out /tmp/tarka-wheels && pip install /tmp/tarka-wheels/*.whl)
       - name: Q2-E04 entity resolution + HIL override gates
         run: |
           pytest -q \
@@ -453,7 +455,7 @@ jobs:
             services/orchestrator/tests/test_entity_profile_gate.py
         env:
           PYTHONPATH: >-
-            services/orchestrator:services:packages/shared-core:services/rule_engine:services/ingestor/src:services/ingestor:.
+            services/orchestrator:services:packages/shared-core:services/rule_engine:services/ingestor/src:services/ingestor
           ORCHESTRATOR_ENTITY_PROFILE_SKIP_SHADOW: "1"
           ORCHESTRATOR_V1_RATE_LIMIT_RPM: "0"
           ALLOW_INSECURE_NO_AUTH: "true"
@@ -545,10 +547,10 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/graphql-gateway
       - name: Run tests
-        run: pytest --cov=graphql_gateway --cov-report=xml --cov-report=term-missing --cov-fail-under=72 tests/
+        run: pytest --cov=schema --cov=main --cov=config --cov-report=xml --cov-report=term-missing --cov-fail-under=72 tests/
         working-directory: services/graphql-gateway
         env:
-          PYTHONPATH: src:../shared
+          PYTHONPATH: .:src:../shared
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
@@ -610,7 +612,7 @@ jobs:
         run: pytest --cov=chitragupta --cov-report=xml --cov-report=term-missing --cov-fail-under=70 tests/
         working-directory: services/chitragupta
         env:
-          PYTHONPATH: src
+          PYTHONPATH: .:src
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
@@ -676,7 +678,7 @@ jobs:
         run: pytest --cov=ml_scoring --cov-report=xml --cov-report=term-missing --cov-fail-under=64 tests/
         working-directory: services/ml-scoring
         env:
-          PYTHONPATH: src:../shared
+          PYTHONPATH: src:.:../shared:../../packages/shared-core
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:

@@ -19,9 +19,6 @@ from dispute_deadline import queue_item_view
 from models import Case, CaseComment, Dispute, DisputeReprocessLedger
 from schemas import CreateDisputeRequest, DisputeOut, UpdateDisputeRequest
 
-_shared = Path(__file__).resolve().parents[3] / "shared"
-if str(_shared) not in sys.path:
-    sys.path.insert(0, str(_shared))
 from auth_rbac import require_role  # noqa: E402
 
 log = logging.getLogger(__name__)

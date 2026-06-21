@@ -1,4 +1,4 @@
-import db as db
+import case_api.db as db
 
 
 def test_public_database_url_masks_password(monkeypatch):

@@ -77,15 +77,11 @@ from template_apply import (
 )
 from workflow import evaluate_workflows, get_workflows, is_sla_breached, load_workflows
 
-_shared_dir = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared")
-)
-if _shared_dir not in sys.path:
-    sys.path.insert(0, _shared_dir)
 from audit_trail import AuditTrail, create_audit_model  # noqa: E402
 from auth_rbac import get_current_user, require_role, setup_auth  # noqa: E402
 from observability import get_metrics, setup_observability  # noqa: E402
 from rate_limiter import setup_rate_limiter  # noqa: E402
+from tarka_shared.tracing import setup_tracing  # noqa: E402
 from tenant_binding import parse_api_key_tenant_map  # noqa: E402
 from webhook_sender import WebhookSender  # noqa: E402
 
@@ -296,6 +292,7 @@ async def lifespan(application: FastAPI):
 app = FastAPI(title="Tarka Case API", version="4.0.0", lifespan=lifespan)
 if os.environ.get("TARKA_CORE_API_SUBAPP", "").strip() != "1":
     setup_observability(app, "case-api")
+    setup_tracing(app, "case-api")
 setup_auth(app)
 setup_rate_limiter(app, rpm=int(os.environ.get("RATE_LIMIT_RPM", "600")))
 _cors_origins = (

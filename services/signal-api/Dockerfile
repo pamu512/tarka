@@ -18,5 +18,5 @@ COPY services/location-service/src/location_service /app/location_service
 COPY services/signal-api/src/signal_api /app/signal_api
 COPY services/shared /app/shared
 RUN pip install --no-cache-dir -e .
-ENV PYTHONPATH=/app:/app/shared
+ENV PYTHONPATH=/app:/app/shared:/app/ml_scoring:/app/feature_service:/app/calibration_service:/app/counter_service:/app/location_service:/app/signal_api
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8004"]

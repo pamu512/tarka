@@ -45,11 +45,6 @@ def _idempotency_redis_key(tenant_id: str, idempotency_key: str) -> str:
     return f"{settings.idempotency_key_prefix}:{tenant_id}:{digest}"
 
 
-_shared_dir = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared")
-)
-if _shared_dir not in sys.path:
-    sys.path.insert(0, _shared_dir)
 from observability import get_metrics, setup_observability  # noqa: E402
 
 log = logging.getLogger("event-ingest")

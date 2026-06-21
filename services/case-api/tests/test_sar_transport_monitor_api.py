@@ -7,9 +7,9 @@ import uuid
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from db import SessionLocal
-from models import Case, SARFiling, SarFiling
-from sar_transport import SAR_APPROVED, SAR_SFTP_QUEUED, SAR_TRANSMITTED
+from case_api.db import SessionLocal
+from case_api.models import Case, SARFiling, SarFiling
+from case_api.sar_transport import SAR_APPROVED, SAR_SFTP_QUEUED, SAR_TRANSMITTED
 from fastapi.testclient import TestClient
 
 
@@ -21,7 +21,7 @@ def _api_headers() -> dict[str, str]:
 
 @pytest.fixture(autouse=True)
 def _reset_force_sftp_sync_clock() -> None:
-    import sar_transport_monitor_api as mon
+    import case_api.sar_transport_monitor_api as mon
 
     mon._last_force_sync_monotonic = 0.0
     yield

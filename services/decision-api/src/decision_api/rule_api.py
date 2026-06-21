@@ -27,9 +27,6 @@ router = APIRouter(prefix="/v1/rules", tags=["rules"])
 _SAFE_FILENAME_RE = re.compile(r"^[a-zA-Z0-9_-]{1,120}\.json$")
 _SAFE_SLUG_RE = re.compile(r"[^a-z0-9_-]+")
 
-_shared = Path(__file__).resolve().parents[3] / "shared"
-if str(_shared) not in sys.path:
-    sys.path.insert(0, str(_shared))
 from auth_rbac import require_role  # noqa: E402
 
 
