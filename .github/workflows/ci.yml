@@ -249,7 +249,7 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/graph-service
       - name: Run tests (algorithms + Neo4j driver mocks)
-        run: pytest --cov=graph_service --cov-report=xml --cov-report=term-missing --cov-fail-under=26 tests/
+        run: pytest --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=26 tests/
         working-directory: services/graph-service
         env:
           PYTHONPATH: src:.:../shared
@@ -678,7 +678,7 @@ jobs:
         run: pip install -e ".[dev]" sqlalchemy
         working-directory: services/ml-scoring
       - name: Run tests
-        run: pytest --cov=ml_scoring --cov-report=xml --cov-report=term-missing --cov-fail-under=64 tests/
+        run: pytest --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=64 tests/
         working-directory: services/ml-scoring
         env:
           PYTHONPATH: src:.:../shared:../../packages/shared-core
