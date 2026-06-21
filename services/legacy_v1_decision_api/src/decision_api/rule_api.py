@@ -1,20 +1,10 @@
 from __future__ import annotations
 
-def _ensure_shared_on_path() -> None:
-    import sys
-    from pathlib import Path as _Path
-    for _parent in _Path(__file__).resolve().parents:
-        _candidate = _parent / "shared"
-        if _candidate.is_dir() and (_candidate / "observability.py").is_file():
-            p = str(_candidate)
-            if p not in sys.path:
-                sys.path.insert(0, p)
-            return
-
+from decision_api._shared_path import ensure_shared_on_path
 import json
 import os
 import re
-import sys
+
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,7 +28,7 @@ router = APIRouter(prefix="/v1/rules", tags=["rules"])
 _SAFE_FILENAME_RE = re.compile(r"^[a-zA-Z0-9_-]{1,120}\.json$")
 _SAFE_SLUG_RE = re.compile(r"[^a-z0-9_-]+")
 
-_ensure_shared_on_path()
+ensure_shared_on_path()
 from auth_rbac import require_role  # noqa: E402
 
 

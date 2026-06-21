@@ -2,17 +2,6 @@
 
 from __future__ import annotations
 
-def _ensure_shared_on_path() -> None:
-    import sys
-    from pathlib import Path as _Path
-    for _parent in _Path(__file__).resolve().parents:
-        _candidate = _parent / "shared"
-        if _candidate.is_dir() and (_candidate / "observability.py").is_file():
-            p = str(_candidate)
-            if p not in sys.path:
-                sys.path.insert(0, p)
-            return
-
 import asyncio
 import logging
 import sys
@@ -32,7 +21,9 @@ from decision_api.manifest_visualize_api import (
     _parse_trace_json,
 )
 
-_ensure_shared_on_path()
+_shared = Path(__file__).resolve().parents[3] / "shared"
+if str(_shared) not in sys.path:
+    sys.path.insert(0, str(_shared))
 from auth_rbac import require_role  # noqa: E402
 
 log = logging.getLogger("decision-api.manifest_compare")

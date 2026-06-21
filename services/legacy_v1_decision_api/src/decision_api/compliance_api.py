@@ -1,11 +1,10 @@
 from __future__ import annotations
 
+from decision_api._shared_path import ensure_shared_on_path
 import hashlib
 import hmac
 import json
 import logging
-import os
-import sys
 from datetime import datetime, timezone
 from typing import Any
 
@@ -28,17 +27,6 @@ Implements data subject rights required by GDPR, CCPA, LGPD, and other regulatio
 """
 
 
-def _ensure_shared_on_path() -> None:
-    import sys
-    from pathlib import Path as _Path
-    for _parent in _Path(__file__).resolve().parents:
-        _candidate = _parent / "shared"
-        if _candidate.is_dir() and (_candidate / "observability.py").is_file():
-            p = str(_candidate)
-            if p not in sys.path:
-                sys.path.insert(0, p)
-            return
-
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/compliance", tags=["compliance"])
@@ -47,7 +35,7 @@ router = APIRouter(prefix="/v1/compliance", tags=["compliance"])
 # ---------------------------------------------------------------------------
 # Shared privacy module import helper
 # ---------------------------------------------------------------------------
-_ensure_shared_on_path()
+ensure_shared_on_path()
 
 from privacy import (  # noqa: E402
     PRIVACY_PROFILES,
