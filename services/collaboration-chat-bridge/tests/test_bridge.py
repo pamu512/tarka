@@ -21,6 +21,9 @@ from httpx import ASGITransport, AsyncClient
 
 
 def _bridge_audit_payloads(caplog, prefix: str = "bridge_ingress_audit") -> list[dict[str, object]]:
+    _int_fields = frozenset(
+        {"status_code", "upstream_status", "status_class"}
+    )
     payloads: list[dict[str, object]] = []
     for rec in caplog.records:
         msg = rec.getMessage()
@@ -33,7 +36,12 @@ def _bridge_audit_payloads(caplog, prefix: str = "bridge_ingress_audit") -> list
             key, value = part.split("=", 1)
             if key == "event":
                 continue
-            payload[key] = value or None
+            if not value:
+                payload[key] = None
+            elif key in _int_fields and value.isdigit():
+                payload[key] = int(value)
+            else:
+                payload[key] = value
         payloads.append(payload)
     return payloads
 
