@@ -8,9 +8,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-sys.path.insert(
-    0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared")
-)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from entity_lists import ALL_LIST_TYPES, ListStore  # noqa: E402
 
 log = logging.getLogger(__name__)

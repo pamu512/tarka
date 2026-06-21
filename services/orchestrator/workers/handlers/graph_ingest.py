@@ -142,11 +142,13 @@ def _merge_vertex(
     vertex = _run_gremlin(
         client,
         f"merge_vertex_{label}",
-        lambda: g.V()
-        .has(label, key_prop, key_val)
-        .fold()
-        .coalesce(__.unfold(), __.addV(label).property(key_prop, key_val))
-        .next(),
+        lambda: (
+            g.V()
+            .has(label, key_prop, key_val)
+            .fold()
+            .coalesce(__.unfold(), __.addV(label).property(key_prop, key_val))
+            .next()
+        ),
     )
     if _vertex_matches_audit_log(client, vertex, audit_log_id):
         return vertex
@@ -173,12 +175,14 @@ def _edge_matches_audit_log(
     rows = _run_gremlin(
         client,
         f"find_edge_{rel_type}",
-        lambda: g.V(from_vertex)
-        .outE(rel_type)
-        .where(__.inV().is_(to_vertex))
-        .has("transaction_id", transaction_id)
-        .values(TARKA_AUDIT_LOG_ID_PROP)
-        .toList(),
+        lambda: (
+            g.V(from_vertex)
+            .outE(rel_type)
+            .where(__.inV().is_(to_vertex))
+            .has("transaction_id", transaction_id)
+            .values(TARKA_AUDIT_LOG_ID_PROP)
+            .toList()
+        ),
     )
     if not rows:
         return False
@@ -220,13 +224,15 @@ def _upsert_edge(
     _run_gremlin(
         client,
         f"add_edge_{rel_type}",
-        lambda: g.V(from_vertex)
-        .addE(rel_type)
-        .to(__.V(to_vertex))
-        .property("transaction_id", transaction_id)
-        .property("observed_at", observed_at)
-        .property(TARKA_AUDIT_LOG_ID_PROP, audit_log_id)
-        .iterate(),
+        lambda: (
+            g.V(from_vertex)
+            .addE(rel_type)
+            .to(__.V(to_vertex))
+            .property("transaction_id", transaction_id)
+            .property("observed_at", observed_at)
+            .property(TARKA_AUDIT_LOG_ID_PROP, audit_log_id)
+            .iterate()
+        ),
     )
 
 
@@ -240,12 +246,14 @@ def _ingest_already_committed(
     count = _run_gremlin(
         client,
         "ingest_idempotency_probe",
-        lambda: g.E()
-        .has("transaction_id", transaction_id)
-        .has(TARKA_AUDIT_LOG_ID_PROP, audit_log_id)
-        .limit(1)
-        .count()
-        .next(),
+        lambda: (
+            g.E()
+            .has("transaction_id", transaction_id)
+            .has(TARKA_AUDIT_LOG_ID_PROP, audit_log_id)
+            .limit(1)
+            .count()
+            .next()
+        ),
     )
     return int(count) > 0
 

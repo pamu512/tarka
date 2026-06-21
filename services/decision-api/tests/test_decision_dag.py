@@ -88,7 +88,9 @@ def _evaluate_payload() -> dict:
 
 
 @pytest.mark.asyncio
-async def test_evaluation_fails_closed_on_missing_tenant(evaluate_client: httpx.AsyncClient) -> None:
+async def test_evaluation_fails_closed_on_missing_tenant(
+    evaluate_client: httpx.AsyncClient,
+) -> None:
     evaluate_client.mock_redis.get_tenant_flags = AsyncMock(  # type: ignore[attr-defined]
         side_effect=RuntimeError("redis unavailable"),
     )
@@ -146,6 +148,7 @@ async def test_evaluation_succeeds_degraded_on_metric_failure(
     assert r.status_code == 200
     assert r.json()["decision"] == "allow"
     assert any(
-        "decision_metrics_inc_failed" in rec.message and "fraud_evaluations_total" in rec.message
+        "decision_metrics_inc_failed" in rec.message
+        and "fraud_evaluations_total" in rec.message
         for rec in caplog.records
     )

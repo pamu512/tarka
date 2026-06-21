@@ -144,9 +144,7 @@ from decision_api.opa_client import evaluate_opa_or_raise
 from decision_api.redis_store import redis_tags
 from decision_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 
-sys.path.insert(
-    0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared")
-)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from circuit import AsyncCircuitBreaker, CircuitOpenError  # noqa: E402
 from entity_lists import ListCheckResult, create_list_store  # noqa: E402
 from event_time import event_time_unix_for_evaluate  # noqa: E402
@@ -2937,12 +2935,12 @@ async def evaluate_decision(
         if fb_reason:
             _metrics_inc_safe("fraud_fallback_total", trace_id=trace_id)
             reason_key = (
-                _re.sub(r"[^a-zA-Z0-9_]+", "_", str(fb_reason))
-                .strip("_")
-                .lower()[:64]
+                _re.sub(r"[^a-zA-Z0-9_]+", "_", str(fb_reason)).strip("_").lower()[:64]
             )
             if reason_key:
-                _metrics_inc_safe(f"fraud_fallback_total_{reason_key}", trace_id=trace_id)
+                _metrics_inc_safe(
+                    f"fraud_fallback_total_{reason_key}", trace_id=trace_id
+                )
         if signal_tags:
             for st in signal_tags:
                 _metrics_inc_safe(f"fraud_signal_tag_{st}_total", trace_id=trace_id)

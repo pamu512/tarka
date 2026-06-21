@@ -37,7 +37,9 @@ def test_benchmark_export_persistence(tmp_path, monkeypatch):
     artifact = {
         "schema_id": "tarka.tenant_benchmark_export/v1",
         "tenant_id": "tenant-export",
-        "verticals": {"fintech": {"events_evaluated": 200, "delta": {"f1_score": 0.01}}},
+        "verticals": {
+            "fintech": {"events_evaluated": 200, "delta": {"f1_score": 0.01}}
+        },
     }
     _append_export({"export_id": "abc123", **artifact})
     loaded = _load_latest_export("tenant-export")
