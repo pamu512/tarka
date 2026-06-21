@@ -175,7 +175,7 @@ jobs:
           tests/
         working-directory: services/legacy_v1_decision_api
         env:
-          PYTHONPATH: src:../shared
+          PYTHONPATH: src:../shared:../../packages/shared-core
           DATABASE_URL: sqlite+aiosqlite:///
           REDIS_URL: redis://localhost:6379/0
       - name: Q2 Wave 4 decision-api tests
@@ -251,7 +251,7 @@ jobs:
         working-directory: services/graph-service
         env:
           PYTHONPATH: src:.:../shared
-          GRAPH_BACKEND: neo4j
+          # Unit tests mock drivers; janusgraph is the default backend (no live Neo4j in this job).
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
@@ -311,7 +311,7 @@ jobs:
         run: pytest -v tests/test_neo4j_integration.py
         working-directory: services/graph-service
         env:
-          PYTHONPATH: src:../shared
+          PYTHONPATH: src:../shared:../../packages/shared-core
           NEO4J_INTEGRATION: "1"
           NEO4J_URI: bolt://127.0.0.1:7687
           NEO4J_USER: neo4j
@@ -334,7 +334,7 @@ jobs:
         run: pytest --cov=integration_ingress --cov-report=xml --cov-report=term-missing --cov-fail-under=35 tests/
         working-directory: services/integration-ingress
         env:
-          PYTHONPATH: src:../shared
+          PYTHONPATH: src:../shared:../../packages/shared-core
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
@@ -367,12 +367,12 @@ jobs:
         run: pytest --cov=investigation_agent --cov-report=xml --cov-report=term-missing --cov-fail-under=52 -m "not golden_profile" tests/
         working-directory: services/investigation-agent
         env:
-          PYTHONPATH: src:../shared
+          PYTHONPATH: src:../shared:../../packages/shared-core
       - name: Copilot eval golden gate (Q2-E02)
         run: pytest -v tests/test_copilot_eval_golden.py
         working-directory: services/investigation-agent
         env:
-          PYTHONPATH: src:../shared
+          PYTHONPATH: src:../shared:../../packages/shared-core
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
@@ -412,7 +412,7 @@ jobs:
           -v --tb=short
         working-directory: services/investigation-agent
         env:
-          PYTHONPATH: src:../shared
+          PYTHONPATH: src:../shared:../../packages/shared-core
 
   test-collaboration-chat-bridge:
     needs: audit-stubs
@@ -609,7 +609,7 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/chitragupta
       - name: Run tests
-        run: pytest --cov=chitragupta --cov-report=xml --cov-report=term-missing --cov-fail-under=70 tests/
+        run: pytest --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=70 tests/
         working-directory: services/chitragupta
         env:
           PYTHONPATH: .:src
@@ -645,7 +645,7 @@ jobs:
         run: pytest --cov=feature_service --cov-report=xml --cov-report=term-missing --cov-fail-under=49 tests/
         working-directory: services/feature-service
         env:
-          PYTHONPATH: src:../shared
+          PYTHONPATH: src:../shared:../../packages/shared-core
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
@@ -672,7 +672,7 @@ jobs:
           cache: pip
           cache-dependency-path: services/ml-scoring/pyproject.toml
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev]" sqlalchemy
         working-directory: services/ml-scoring
       - name: Run tests
         run: pytest --cov=ml_scoring --cov-report=xml --cov-report=term-missing --cov-fail-under=64 tests/
