@@ -58,7 +58,9 @@ jobs:
           pip install pyyaml
           python3 infra/scripts/ci/test_q2_wave4_contracts.py
       - name: Validate JSON rule packs (policy-as-code gate)
-        run: python infra/scripts/policy/validate_rule_packs.py
+        run: |
+          pip install pydantic
+          python infra/scripts/policy/validate_rule_packs.py
       - name: Validate OPA policy bundle (Q1-E01)
         run: python infra/scripts/policy/validate_opa_bundle.py
       - name: Validate default deployment profile manifest drift (Q1-E01)
@@ -182,7 +184,7 @@ jobs:
         run: >
           pytest services/decision-api/tests/test_q2_wave4_api.py -q
         env:
-          PYTHONPATH: services/decision-api/src:services/shared
+          PYTHONPATH: services/decision-api/src:services/shared:../../packages/shared-core
           DATABASE_URL: sqlite+aiosqlite:///
           REDIS_URL: redis://localhost:6379/0
       - name: Upload coverage
@@ -251,7 +253,7 @@ jobs:
         working-directory: services/graph-service
         env:
           PYTHONPATH: src:.:../shared
-          # Unit tests mock drivers; janusgraph is the default backend (no live Neo4j in this job).
+          GRAPH_BACKEND: neo4j
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
@@ -361,7 +363,7 @@ jobs:
           cache: pip
           cache-dependency-path: services/investigation-agent/pyproject.toml
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev]" sqlalchemy
         working-directory: services/investigation-agent
       - name: Run tests
         run: pytest --cov=investigation_agent --cov-report=xml --cov-report=term-missing --cov-fail-under=52 -m "not golden_profile" tests/
@@ -403,7 +405,7 @@ jobs:
           cache: pip
           cache-dependency-path: services/investigation-agent/pyproject.toml
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev]" sqlalchemy
         working-directory: services/investigation-agent
       - name: Golden profile ${{ matrix.profile }}
         run: >
@@ -450,12 +452,13 @@ jobs:
       - name: Q2-E04 entity resolution + HIL override gates
         run: |
           pytest -q \
-            services/orchestrator/tests/test_entity_resolution_gate.py \
-            services/orchestrator/tests/test_hil_overrides_contract_gate.py \
-            services/orchestrator/tests/test_entity_profile_gate.py
+            tests/test_entity_resolution_gate.py \
+            tests/test_hil_overrides_contract_gate.py \
+            tests/test_entity_profile_gate.py
+        working-directory: services/orchestrator
         env:
           PYTHONPATH: >-
-            services/orchestrator:services:packages/shared-core:services/rule_engine:services/ingestor/src:services/ingestor
+            .:..:../../packages/shared-core:../rule_engine:../ingestor/src:../ingestor
           ORCHESTRATOR_ENTITY_PROFILE_SKIP_SHADOW: "1"
           ORCHESTRATOR_V1_RATE_LIMIT_RPM: "0"
           ALLOW_INSECURE_NO_AUTH: "true"
@@ -593,7 +596,7 @@ jobs:
         run: python -c "from data_plane.main import app; assert 'Data Plane' in app.title"
         working-directory: services/data-plane
         env:
-          PYTHONPATH: src:../analytics-sink/src:../event-ingest/src:../shared
+          PYTHONPATH: src:../event-ingest/src/event_ingest:../analytics-sink/src/analytics_sink:../shared
 
   test-chitragupta:
     needs: audit-stubs
