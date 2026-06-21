@@ -10,6 +10,7 @@ from typing import Any
 from ingestor.schemas import TransactionSchema
 from schemas import ShadowDecision
 from sqlalchemy import Float, String, cast, func, or_, select
+from sqlalchemy.exc import NotSupportedError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import ColumnElement
 from tarka_shared.audit_trail import AuditLog
@@ -173,7 +174,7 @@ def _amount_expr(bind: Any) -> ColumnElement[Any]:
 
         doc = cast(AuditLog.action_taken, JSONB)
         return cast(doc["amount"].astext, Float)
-    raise NotImplementedError(f"friendly_fraud count: unsupported dialect {dialect!r}")
+    raise NotSupportedError(f"friendly_fraud count: unsupported dialect {dialect!r}")
 
 
 def _ip_expr(bind: Any) -> ColumnElement[Any]:
@@ -185,7 +186,7 @@ def _ip_expr(bind: Any) -> ColumnElement[Any]:
 
         doc = cast(AuditLog.action_taken, JSONB)
         return doc["ip_address"].astext
-    raise NotImplementedError(f"friendly_fraud count: unsupported dialect {dialect!r}")
+    raise NotSupportedError(f"friendly_fraud count: unsupported dialect {dialect!r}")
 
 
 def _outcome_expr(bind: Any) -> ColumnElement[Any]:
@@ -197,7 +198,7 @@ def _outcome_expr(bind: Any) -> ColumnElement[Any]:
 
         doc = cast(AuditLog.action_taken, JSONB)
         return func.lower(func.coalesce(doc["case_outcome"].astext, ""))
-    raise NotImplementedError(f"friendly_fraud count: unsupported dialect {dialect!r}")
+    raise NotSupportedError(f"friendly_fraud count: unsupported dialect {dialect!r}")
 
 
 def _fraud_expr(bind: Any) -> ColumnElement[Any]:
@@ -209,7 +210,7 @@ def _fraud_expr(bind: Any) -> ColumnElement[Any]:
 
         doc = cast(AuditLog.action_taken, JSONB)
         return doc["is_fraud"].astext
-    raise NotImplementedError(f"friendly_fraud count: unsupported dialect {dialect!r}")
+    raise NotSupportedError(f"friendly_fraud count: unsupported dialect {dialect!r}")
 
 
 async def count_prior_successful_orders_same_ip(

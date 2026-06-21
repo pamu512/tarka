@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import Float, cast, func, select
+from sqlalchemy.exc import NotSupportedError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import ColumnElement
 from tarka_shared.audit_trail import AuditLog
@@ -35,7 +36,7 @@ def _amount_and_fraud_exprs(bind: Any) -> tuple[ColumnElement[Any], ColumnElemen
         amount_e = cast(func.jsonb_extract_path_text(doc, "amount"), Float)
         fraud_e = func.jsonb_extract_path_text(doc, "is_fraud")
         return amount_e, fraud_e
-    raise NotImplementedError(
+    raise NotSupportedError(
         f"get_recent_entity_transactions: unsupported dialect {dialect!r} "
         "(supported: sqlite, postgresql)",
     )
