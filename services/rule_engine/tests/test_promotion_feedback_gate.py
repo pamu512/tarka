@@ -67,7 +67,7 @@ def test_rules_deploy_observation_promotion_publishes_nats(
     }
 
     with patch(
-        "rule_engine.promotion_feedback.emit_observation_promotion_feedback",
+        "promotion_feedback.emit_observation_promotion_feedback",
         mock_publish,
     ):
         app = create_app()

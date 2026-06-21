@@ -41,6 +41,6 @@ where = ["."]
 
 
 [tool.pytest.ini_options]
-pythonpath = [".", "..", "../ingestor", "../../packages/shared-core", "../rule_engine", "../.."]
+pythonpath = [".", "..", "../ingestor", "../../packages/shared-core", "../rule_engine"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"

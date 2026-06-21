@@ -60,7 +60,7 @@ def test_gate_v1_rules_reload_then_evaluate_uses_new_logic(
     def _fake_load() -> tuple[Rule, ...]:
         return next(loads)
 
-    monkeypatch.setattr("rule_engine.main.load_active_ruleset", _fake_load)
+    monkeypatch.setattr("main.load_active_ruleset", _fake_load)
     app = create_app()
     body = {
         "entity_id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
@@ -182,7 +182,7 @@ def test_v1_evaluate_graph_linked_blocked_rule_triggers_block_and_logs_graph_con
         "timestamp": "2026-05-09T12:00:00+00:00",
         "metadata": {"user_id": "victim-user", "ip": "203.0.113.9"},
     }
-    caplog.set_level(logging.INFO, logger="rule_engine.main")
+    caplog.set_level(logging.INFO, logger="main")
     with TestClient(app) as client:
         client.app.state.ruleset = (graph_rule,)
         response = client.post("/v1/evaluate", json=body)
