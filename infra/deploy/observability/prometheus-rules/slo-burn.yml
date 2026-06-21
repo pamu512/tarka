@@ -48,7 +48,7 @@ groups:
 
       - alert: TarkaPlatformServiceHighErrorRate5m
         expr: |
-          tarka:http_5xx_ratio_5m{service=~"decision-api|case-api|feature-service|ml-scoring|integration-ingress|event-ingest|graphql-gateway|investigation-agent|analytics-sink|graph-service"} > 0.04
+          tarka:http_5xx_ratio_5m{service=~"core-api|decision-api|case-api|feature-service|ml-scoring|integration-ingress|event-ingest|graphql-gateway|investigation-agent|analytics-sink|graph-service"} > 0.04
         for: 5m
         labels:
           severity: warning
@@ -60,7 +60,7 @@ groups:
 
       - alert: TarkaPlatformServiceHighErrorRate1h
         expr: |
-          tarka:http_5xx_ratio_1h{service=~"decision-api|case-api|feature-service|ml-scoring|integration-ingress|event-ingest|graphql-gateway|investigation-agent|analytics-sink|graph-service"} > 0.008
+          tarka:http_5xx_ratio_1h{service=~"core-api|decision-api|case-api|feature-service|ml-scoring|integration-ingress|event-ingest|graphql-gateway|investigation-agent|analytics-sink|graph-service"} > 0.008
         for: 15m
         labels:
           severity: warning
