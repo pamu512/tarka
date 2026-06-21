@@ -9,8 +9,8 @@ _ROOT = Path(__file__).resolve().parents[1]
 _SERVICES = _ROOT.parent
 for _p in (
     _ROOT,
-    _SERVICES / "ingestor" / "src",
     _SERVICES / "ingestor",
+    _SERVICES / "ingestor" / "src",
     _SERVICES / "shared",
     _SERVICES.parent / "packages" / "shared-core",
     _SERVICES,
