@@ -17,6 +17,10 @@ paths:
   - scripts
   - schemas
   - tools
+  - adapters
+  - cli.py
+  - rules_import.py
+  - tarka.py
 
 paths-ignore:
   - packages/fraud-sdk-android
