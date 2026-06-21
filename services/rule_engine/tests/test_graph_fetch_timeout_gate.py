@@ -70,7 +70,7 @@ def test_graph_fetch_timeout_fail_open_skips_blocked_rule(
         "timestamp": "2026-05-09T12:00:00+00:00",
         "metadata": {"user_id": "victim-user", "ip": "203.0.113.9"},
     }
-    caplog.set_level(logging.WARNING, logger="rule_engine.main")
+    caplog.set_level(logging.WARNING, logger="main")
     with TestClient(app) as client:
         client.app.state.ruleset = (graph_rule,)
         response = client.post("/v1/evaluate", json=body)

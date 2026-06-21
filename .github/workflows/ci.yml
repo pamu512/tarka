@@ -438,8 +438,9 @@ jobs:
         run: pytest -v tests/
         working-directory: services/collaboration-chat-bridge
         env:
-          PYTHONPATH: .:src
-          ALLOW_INSECURE_NO_AUTH: "true"
+          PYTHONPATH: .:src:../shared
+          # Override workflow default: Q2-E08 asserts bridge secret auth (401 without headers).
+          ALLOW_INSECURE_NO_AUTH: "false"
 
   test-orchestrator-gates:
     needs: audit-stubs
@@ -601,7 +602,7 @@ jobs:
         run: python -c "from data_plane.main import app; assert 'Data Plane' in app.title"
         working-directory: services/data-plane
         env:
-          PYTHONPATH: src:../event-ingest/src:../analytics-sink/src:../shared
+          PYTHONPATH: src:../event-ingest:../event-ingest/src:../analytics-sink:../analytics-sink/src:../shared
 
   test-chitragupta:
     needs: audit-stubs

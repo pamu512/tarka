@@ -16,7 +16,7 @@ for _p in (_SRC_RULE, _SRC_INGESTOR):
         sys.path.insert(0, str(_p))
 
 from ingestor.manifest_schema import TransactionSchema  # noqa: E402
-from rule_engine import evaluator as evaluator_module  # noqa: E402
+import evaluator as evaluator_module  # noqa: E402
 from ast_schemas import (  # noqa: E402
     Action,
     AndNode,
