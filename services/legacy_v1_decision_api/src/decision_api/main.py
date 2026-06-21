@@ -1,16 +1,3 @@
-def _ensure_shared_on_path() -> None:
-    import sys
-    from pathlib import Path as _Path
-
-    for _parent in _Path(__file__).resolve().parents:
-        _candidate = _parent / "shared"
-        if _candidate.is_dir() and (_candidate / "observability.py").is_file():
-            p = str(_candidate)
-            if p not in sys.path:
-                sys.path.insert(0, p)
-            return
-
-
 import asyncio
 import copy
 import hashlib
@@ -19,7 +6,6 @@ import json as _json
 import logging
 import os
 import re as _re
-import sys
 import time
 import uuid
 from contextlib import asynccontextmanager, suppress
@@ -27,6 +13,7 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 from uuid import UUID
 
+from decision_api._shared_path import ensure_shared_on_path
 import httpx
 from redis.exceptions import RedisError
 from fastapi import (
@@ -175,7 +162,7 @@ from decision_api.redis_signature_sync import (
 )
 from decision_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 
-_ensure_shared_on_path()
+ensure_shared_on_path()
 from circuit import AsyncCircuitBreaker, CircuitOpenError  # noqa: E402
 from entity_lists import ListCheckResult, create_list_store  # noqa: E402
 from event_time import event_time_unix_for_evaluate  # noqa: E402
@@ -232,7 +219,7 @@ from decision_api.typology_predicate_registry import (
 )
 
 # ---------- observability ----------
-_ensure_shared_on_path()
+ensure_shared_on_path()
 from auth_rbac import require_role, setup_auth  # noqa: E402
 from observability import get_metrics, setup_observability, setup_sentry_sdk  # noqa: E402
 from rate_limiter import setup_rate_limiter  # noqa: E402

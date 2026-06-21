@@ -1,15 +1,3 @@
-
-def _ensure_shared_on_path() -> None:
-    import sys
-    from pathlib import Path as _Path
-    for _parent in _Path(__file__).resolve().parents:
-        _candidate = _parent / "shared"
-        if _candidate.is_dir() and (_candidate / "observability.py").is_file():
-            p = str(_candidate)
-            if p not in sys.path:
-                sys.path.insert(0, p)
-            return
-
 import asyncio
 import hashlib
 import hmac
@@ -156,7 +144,7 @@ from decision_api.opa_client import evaluate_opa_or_raise
 from decision_api.redis_store import redis_tags
 from decision_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 
-_ensure_shared_on_path()
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from circuit import AsyncCircuitBreaker, CircuitOpenError  # noqa: E402
 from entity_lists import ListCheckResult, create_list_store  # noqa: E402
 from event_time import event_time_unix_for_evaluate  # noqa: E402

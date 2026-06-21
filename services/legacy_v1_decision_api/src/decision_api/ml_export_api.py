@@ -2,16 +2,7 @@
 
 from __future__ import annotations
 
-def _ensure_shared_on_path() -> None:
-    import sys
-    from pathlib import Path as _Path
-    for _parent in _Path(__file__).resolve().parents:
-        _candidate = _parent / "shared"
-        if _candidate.is_dir() and (_candidate / "observability.py").is_file():
-            p = str(_candidate)
-            if p not in sys.path:
-                sys.path.insert(0, p)
-            return
+from decision_api._shared_path import ensure_shared_on_path
 
 import logging
 import uuid
@@ -38,9 +29,9 @@ from decision_api.config import settings
 from decision_api.deps import require_analytics_engine
 from tarka_core.internal_monitor import InternalMonitor
 
-import sys
 
-_ensure_shared_on_path()
+
+ensure_shared_on_path()
 from auth_rbac import require_role  # noqa: E402
 
 log = logging.getLogger("decision-api.ml_export")
