@@ -13,14 +13,15 @@ if context.config.config_file_name:
     fileConfig(context.config.config_file_name)
 
 _app_root = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_app_root / "src"))
+_src = _app_root / "src"
+sys.path.insert(0, str(_src if _src.is_dir() else _app_root))
 
 from tarka_core.database import install_sqlite_migration_compilers  # noqa: E402
 
 install_sqlite_migration_compilers()
 
 from case_api import models as _models  # noqa: F401, E402
-from db import Base  # noqa: E402
+from case_api.db import Base  # noqa: E402
 
 target_metadata = Base.metadata
 

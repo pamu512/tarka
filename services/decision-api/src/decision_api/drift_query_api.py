@@ -1,5 +1,16 @@
 from __future__ import annotations
 
+def _ensure_shared_on_path() -> None:
+    import sys
+    from pathlib import Path as _Path
+    for _parent in _Path(__file__).resolve().parents:
+        _candidate = _parent / "shared"
+        if _candidate.is_dir() and (_candidate / "observability.py").is_file():
+            p = str(_candidate)
+            if p not in sys.path:
+                sys.path.insert(0, p)
+            return
+
 import sys
 from pathlib import Path
 
@@ -7,9 +18,7 @@ from fastapi import APIRouter, Depends, Query
 
 from decision_api.calibration_api import compute_drift_for_tenant
 
-_shared = Path(__file__).resolve().parents[3] / "shared"
-if str(_shared) not in sys.path:
-    sys.path.insert(0, str(_shared))
+_ensure_shared_on_path()
 from auth_rbac import require_role  # noqa: E402
 
 router = APIRouter(prefix="/v1/drift", tags=["drift"])

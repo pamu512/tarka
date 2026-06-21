@@ -14,9 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .db import get_session
 from .models import Case, Dispute
 
-_shared = Path(__file__).resolve().parents[3] / "shared"
-if str(_shared) not in sys.path:
-    sys.path.insert(0, str(_shared))
+for _parent in Path(__file__).resolve().parents:
+    _candidate = _parent / "shared"
+    if _candidate.is_dir() and (_candidate / "auth_rbac.py").is_file():
+        if str(_candidate) not in sys.path:
+            sys.path.insert(0, str(_candidate))
+        break
 from auth_rbac import require_role  # noqa: E402
 
 router = APIRouter(prefix="/v1/ml", tags=["ml-training"])
