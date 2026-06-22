@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-_SRC_ORCH = Path(__file__).resolve().parents[1] / "src"
+_SRC_ORCH = Path(__file__).resolve().parents[1]
 for _p in (_SRC_ORCH,):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))

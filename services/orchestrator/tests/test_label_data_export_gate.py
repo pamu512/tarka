@@ -13,7 +13,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-_SRC_ORCH = Path(__file__).resolve().parents[1] / "src"
+_SRC_ORCH = Path(__file__).resolve().parents[1]
 _SRC_SHARED = Path(__file__).resolve().parents[2] / "shared"
 for _p in (_SRC_ORCH, _SRC_SHARED):
     if str(_p) not in sys.path:

@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-_SRC_ORCH = Path(__file__).resolve().parents[1] / "src"
+_SRC_ORCH = Path(__file__).resolve().parents[1]
 if str(_SRC_ORCH) not in sys.path:
     sys.path.insert(0, str(_SRC_ORCH))
 
@@ -81,15 +81,15 @@ def test_load_config_uses_typed_settings(monkeypatch: pytest.MonkeyPatch) -> Non
 
 def test_configured_modules_avoid_os_environ() -> None:
     module_paths = [
-        _SRC_ORCH / "orchestrator" / "config.py",
-        _SRC_ORCH / "orchestrator" / "workers" / "outbox_processor.py",
-        _SRC_ORCH / "orchestrator" / "messaging" / "nats_jetstream.py",
-        _SRC_ORCH / "orchestrator" / "messaging" / "shadow_investigate_jetstream.py",
-        _SRC_ORCH / "orchestrator" / "messaging" / "labels_jetstream.py",
-        _SRC_ORCH / "orchestrator" / "queues" / "shadow_dispatch.py",
-        _SRC_ORCH / "orchestrator" / "services" / "operational_signal_ingress.py",
-        _SRC_ORCH / "orchestrator" / "rule_shadow_test.py",
-        _SRC_ORCH / "orchestrator" / "workers" / "nats_shadow_investigate.py",
+        _SRC_ORCH / "config.py",
+        _SRC_ORCH / "workers" / "outbox_processor.py",
+        _SRC_ORCH / "messaging" / "nats_jetstream.py",
+        _SRC_ORCH / "messaging" / "shadow_investigate_jetstream.py",
+        _SRC_ORCH / "messaging" / "labels_jetstream.py",
+        _SRC_ORCH / "queues" / "shadow_dispatch.py",
+        _SRC_ORCH / "services" / "operational_signal_ingress.py",
+        _SRC_ORCH / "rule_shadow_test.py",
+        _SRC_ORCH / "workers" / "nats_shadow_investigate.py",
     ]
     for path in module_paths:
         if path.name == "config.py":
