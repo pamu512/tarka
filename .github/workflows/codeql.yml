@@ -63,7 +63,7 @@ jobs:
 
       - name: Validate CodeQL config
         run: |
-          pip install pyyaml
+          python3 -m pip install pyyaml
           python3 -c "import yaml; yaml.safe_load(open('.github/codeql/codeql-config.yml'))"
 
       - name: Initialize CodeQL
