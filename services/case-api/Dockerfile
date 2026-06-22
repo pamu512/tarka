@@ -12,6 +12,7 @@ COPY services/case-api/alembic.ini /repo/services/case-api/
 COPY services/case-api/alembic /repo/services/case-api/alembic
 COPY services/case-api /repo/services/case-api
 COPY services/shared /repo/services/shared
+COPY packages/shared-core /repo/packages/shared-core
 RUN pip install --no-cache-dir -e .
-ENV PYTHONPATH=/repo/services/case-api:/repo/services/shared
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002"]
+ENV PYTHONPATH=/repo/services/case-api/src:/repo/services/shared:/repo/packages/shared-core
+CMD ["uvicorn", "case_api.main:app", "--host", "0.0.0.0", "--port", "8002"]
