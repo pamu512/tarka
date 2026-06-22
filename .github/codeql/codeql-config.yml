@@ -14,6 +14,7 @@ paths:
   - services
   - packages
   - infra/scripts
+  - infra/deploy
   - scripts
   - schemas
   - tools
