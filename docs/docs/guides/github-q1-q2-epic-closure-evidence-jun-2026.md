@@ -58,7 +58,7 @@ Umbrella epics **#127–#142** closed after Q1/Q2 Epic Closure Plan delivery on 
 ## Q2-E04 [#138] — Entity resolution (backend + UI)
 
 - `migrations/20260603_002_macro_seasonal_baselines.sql`, `scripts/apply_clickhouse_migration.py`
-- Orchestrator HIL overrides: `services/orchestrator/src/orchestrator/routes/hil_overrides.py`
+- Orchestrator HIL overrides: `services/orchestrator/routes/hil_overrides.py`
 - Resolution confidence: `entity_profile.py`, `entity_resolution.py`
 - UI: `frontend/src/components/CaseView/workbench/panels/HilOverridePanel.tsx`
 

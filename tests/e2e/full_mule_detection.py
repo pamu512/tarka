@@ -27,12 +27,13 @@ import pytest
 from starlette.testclient import TestClient
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_CORE = _REPO_ROOT / "services" / "orchestrator"
-_ORCH_SRC = _CORE / "services" / "orchestrator" / "src"
-_INGESTOR_SRC = _CORE / "services" / "ingestor" / "src"
-_SHARED_SRC = _CORE / "services" / "shared"
-_SAARTHI_SRC = _CORE / "services" / "saarthi" / "src"
-for _p in (_ORCH_SRC, _INGESTOR_SRC, _SHARED_SRC, _SAARTHI_SRC):
+_SERVICES = _REPO_ROOT / "services"
+_ORCH_ROOT = _SERVICES / "orchestrator"
+_INGESTOR_SRC = _SERVICES / "ingestor" / "src"
+_SHARED_SRC = _SERVICES / "shared"
+_SAARTHI_SRC = _SERVICES / "saarthi" / "src"
+_PKG_SHARED = _REPO_ROOT / "packages" / "shared-core"
+for _p in (_ORCH_ROOT, _SERVICES, _INGESTOR_SRC, _SHARED_SRC, _SAARTHI_SRC, _PKG_SHARED):
     s = str(_p)
     if s not in sys.path:
         sys.path.insert(0, s)

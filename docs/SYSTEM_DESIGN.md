@@ -1,6 +1,6 @@
 # System design — v2 ingest path (Orchestrator → Rule Engine → Shadow)
 
-This document describes the **TransactionSchema** ingestion flow through the **tarka_v2_core** services that ship today: validation at the API edge, **async HTTP** to the rule engine, an optional **async HTTP** hop to the Shadow sidecar, and—on the Shadow path—a **relational `AuditLog` commit** after the model returns.
+This document describes the **TransactionSchema** ingestion flow through the **v1.3 sidecar** services that ship today: validation at the API edge, **async HTTP** to the rule engine, an optional **async HTTP** hop to the Shadow sidecar, and—on the Shadow path—a **relational `AuditLog` commit** after the model returns.
 
 **Default dev ports** (all overrideable via env; bind flags are operator-owned):
 

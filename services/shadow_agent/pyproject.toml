@@ -29,7 +29,7 @@ py-modules = []
 where = ["."]
 
 [tool.pytest.ini_options]
-pythonpath = ["src", "../ingestor/src", "../shared", "../saarthi/src", "../../../../services/research"]
+pythonpath = [".", "../ingestor/src", "../shared", "../saarthi/src", "../research"]
 
 [project.optional-dependencies]
 worker = ["nats-py>=2.7.0"]

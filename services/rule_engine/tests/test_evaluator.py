@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest import mock
 from uuid import UUID
 
-_SRC_RULE = Path(__file__).resolve().parents[1] / "src"
+_SRC_RULE = Path(__file__).resolve().parents[1]
 _SRC_INGESTOR = Path(__file__).resolve().parents[2] / "ingestor" / "src"
 for _p in (_SRC_RULE, _SRC_INGESTOR):
     if str(_p) not in sys.path:

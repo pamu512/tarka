@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID
 
-_SRC = Path(__file__).resolve().parents[1] / "src"
+_SRC = Path(__file__).resolve().parents[1]
 _SRC_INGESTOR = Path(__file__).resolve().parents[2] / "ingestor" / "src"
 _SRC_SHARED = Path(__file__).resolve().parents[2] / "shared"
 for _p in (_SRC, _SRC_INGESTOR, _SRC_SHARED):

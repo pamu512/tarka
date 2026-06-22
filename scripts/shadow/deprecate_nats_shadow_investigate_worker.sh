@@ -19,10 +19,10 @@ if [[ "${1:-}" == "--apply" ]]; then
   APPLY=1
 fi
 
-WORKER="services/shadow_agent/src/shadow_agent/workers/nats_shadow_investigate.py"
-RUNTIME="services/shadow_agent/src/shadow_agent/workers/runtime.py"
+WORKER="services/shadow_agent/workers/nats_shadow_investigate.py"
+RUNTIME="services/shadow_agent/workers/runtime.py"
 TEST="services/shadow_agent/tests/test_nats_shadow_investigate_worker.py"
-DISPATCH="services/orchestrator/src/orchestrator/queues/shadow_dispatch.py"
+DISPATCH="services/orchestrator/queues/shadow_dispatch.py"
 
 echo "=== NATS shadow.investigate deprecation (dry_run=$((1-APPLY))) ==="
 echo

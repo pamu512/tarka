@@ -27,11 +27,11 @@ from sqlalchemy import func, select
 from starlette.testclient import TestClient
 
 _REPO = Path(__file__).resolve().parents[1]
-_SRC_ORCH = _REPO / "services/orchestrator/src"
-_SRC_RULE = _REPO / "services/rule_engine/src"
+_SRC_ORCH = _REPO / "services/orchestrator"
+_SRC_RULE = _REPO / "services/rule_engine"
 _SRC_INGESTOR = _REPO / "services/ingestor/src"
 _SRC_SHARED = _REPO / "packages/shared-core"
-_SRC_SHADOW = _REPO / "services/shadow_agent/src"
+_SRC_SHADOW = _REPO / "services/shadow_agent"
 _SRC_SERVICES = _REPO / "services"
 for _p in (_SRC_ORCH, _SRC_RULE, _SRC_INGESTOR, _SRC_SHARED, _SRC_SHADOW, _SRC_SERVICES):
     if str(_p) not in sys.path:
