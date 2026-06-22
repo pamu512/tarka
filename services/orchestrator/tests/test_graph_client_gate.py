@@ -24,7 +24,7 @@ from uuid import UUID
 
 import pytest
 
-_SRC_ORCH = Path(__file__).resolve().parents[1] / "src"
+_SRC_ORCH = Path(__file__).resolve().parents[1]
 _SRC_INGESTOR = Path(__file__).resolve().parents[2] / "ingestor" / "src"
 for _p in (_SRC_ORCH, _SRC_INGESTOR):
     if str(_p) not in sys.path:

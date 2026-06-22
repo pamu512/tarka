@@ -7,9 +7,9 @@ from pathlib import Path
 
 from starlette.testclient import TestClient
 
-_SRC_ORCH = Path(__file__).resolve().parents[1] / "src"
+_SRC_ORCH = Path(__file__).resolve().parents[1]
 _SRC_INGESTOR = Path(__file__).resolve().parents[2] / "ingestor" / "src"
-_SRC_RULE = Path(__file__).resolve().parents[2] / "rule_engine" / "src"
+_SRC_RULE = Path(__file__).resolve().parents[2] / "rule_engine"
 _SRC_SHARED = Path(__file__).resolve().parents[2] / "shared"
 for _p in (_SRC_ORCH, _SRC_INGESTOR, _SRC_RULE, _SRC_SHARED):
     if str(_p) not in sys.path:

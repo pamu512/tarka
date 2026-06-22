@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-_SRC_ORCH = Path(__file__).resolve().parents[1] / "src"
+_SRC_ORCH = Path(__file__).resolve().parents[1]
 if str(_SRC_ORCH) not in sys.path:
     sys.path.insert(0, str(_SRC_ORCH))
 
@@ -56,7 +56,7 @@ def test_business_context_skips_financial_aggregations_by_default() -> None:
 
 
 def test_transaction_ingest_never_calls_financial_aggregations() -> None:
-    ingest_path = _SRC_ORCH / "orchestrator" / "transaction_ingest.py"
+    ingest_path = _SRC_ORCH / "transaction_ingest.py"
     source = ingest_path.read_text(encoding="utf-8")
     tree = ast.parse(source)
     forbidden = {

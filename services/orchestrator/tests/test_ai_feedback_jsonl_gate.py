@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock
 import pytest
 from starlette.testclient import TestClient
 
-_SRC_ORCH = Path(__file__).resolve().parents[1] / "src"
+_SRC_ORCH = Path(__file__).resolve().parents[1]
 _SRC_INGESTOR = Path(__file__).resolve().parents[2] / "ingestor" / "src"
 for _p in (_SRC_ORCH, _SRC_INGESTOR):
     if str(_p) not in sys.path:

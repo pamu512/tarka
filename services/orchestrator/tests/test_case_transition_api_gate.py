@@ -13,7 +13,7 @@ import pytest
 from sqlalchemy import func, select
 from starlette.testclient import TestClient
 
-_SRC_ORCH = Path(__file__).resolve().parents[1] / "src"
+_SRC_ORCH = Path(__file__).resolve().parents[1]
 _SRC_INGESTOR = Path(__file__).resolve().parents[2] / "ingestor" / "src"
 _SRC_SHARED = Path(__file__).resolve().parents[2] / "shared"
 _SRC_SERVICES = Path(__file__).resolve().parents[2]

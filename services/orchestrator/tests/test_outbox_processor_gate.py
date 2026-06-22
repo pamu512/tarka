@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy import select
 
-_SRC_ORCH = Path(__file__).resolve().parents[1] / "src"
+_SRC_ORCH = Path(__file__).resolve().parents[1]
 _SRC_SHARED = Path(__file__).resolve().parents[2] / "shared"
 _SRC_INGESTOR = Path(__file__).resolve().parents[2] / "ingestor" / "src"
 for _p in (_SRC_ORCH, _SRC_SHARED, _SRC_INGESTOR):
