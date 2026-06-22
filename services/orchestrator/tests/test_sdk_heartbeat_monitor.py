@@ -121,7 +121,7 @@ def test_scan_flags_high_risk_dropoff_when_silent_mid_session() -> None:
         r.zsets[r.zkey] = {m: 100.0}
         r.strings[session_event_count_key(m)] = b"3"
 
-        with patch("orchestrator.anumana_session_watch.time") as mt:
+        with patch("anumana_session_watch.time") as mt:
             mt.time.return_value = 400.0
             stats = await scan_stale_sessions_for_dropoff(
                 r,
@@ -147,7 +147,7 @@ def test_scan_clears_single_event_without_flag() -> None:
         r.zsets[r.zkey] = {m: 50.0}
         r.strings[session_event_count_key(m)] = b"1"
 
-        with patch("orchestrator.anumana_session_watch.time") as mt:
+        with patch("anumana_session_watch.time") as mt:
             mt.time.return_value = 400.0
             stats = await scan_stale_sessions_for_dropoff(
                 r,

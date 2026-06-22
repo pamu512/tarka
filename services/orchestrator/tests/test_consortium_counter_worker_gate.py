@@ -125,7 +125,7 @@ def test_consortium_counter_worker_acks_after_redis_and_clickhouse() -> None:
         )
 
         with patch(
-            "orchestrator.workers.consortium_counter_worker.asyncio.to_thread",
+            "workers.consortium_counter_worker.asyncio.to_thread",
             new=AsyncMock(side_effect=lambda fn, *args: fn(*args)),
         ):
             await process_consortium_label_message(deps, msg)
@@ -182,7 +182,7 @@ def test_consortium_counter_worker_naks_on_clickhouse_failure() -> None:
         )
 
         with patch(
-            "orchestrator.workers.consortium_counter_worker.asyncio.to_thread",
+            "workers.consortium_counter_worker.asyncio.to_thread",
             new=AsyncMock(side_effect=lambda fn, *args: fn(*args)),
         ):
             await process_consortium_label_message(deps, msg)

@@ -118,15 +118,15 @@ def test_execute_transaction_ingest_writes_outbox_tasks(monkeypatch: pytest.Monk
                 raise AssertionError(f"unexpected post url: {url!r}")
 
         monkeypatch.setattr(
-            "orchestrator.transaction_ingest.httpx.AsyncClient",
+            "transaction_ingest.httpx.AsyncClient",
             lambda *a, **k: _EvalClient(),
         )
         monkeypatch.setattr(
-            "orchestrator.transaction_ingest.evaluate_transaction_shadow_matches",
+            "transaction_ingest.evaluate_transaction_shadow_matches",
             AsyncMock(return_value=[]),
         )
         monkeypatch.setattr(
-            "orchestrator.transaction_ingest.dispatch_shadow_investigate_if_review",
+            "transaction_ingest.dispatch_shadow_investigate_if_review",
             AsyncMock(return_value=None),
         )
 

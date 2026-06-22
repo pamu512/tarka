@@ -10,8 +10,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 _SRC_ORCH = Path(__file__).resolve().parents[1]
-_SRC_SHADOW = Path(__file__).resolve().parents[2] / "shadow_agent"
-for _p in (_SRC_ORCH, _SRC_SHADOW):
+_SRC_SERVICES = Path(__file__).resolve().parents[2]
+for _p in (_SRC_ORCH, _SRC_SERVICES):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 

@@ -191,7 +191,7 @@ async def test_worker_recovers_transient_handler_failure_while_other_tasks_compl
                 raise ConnectionError("transient graph backend unavailable")
 
     monkeypatch.setattr(
-        "orchestrator.workers.handlers.graph_ingest.GraphIngestHandler.execute",
+        "workers.handlers.graph_ingest.GraphIngestHandler.execute",
         _flaky_execute,
     )
 
@@ -275,7 +275,7 @@ async def test_worker_second_batch_claims_only_retryable_failed_tasks(
             raise TimeoutError("transient timeout")
 
     monkeypatch.setattr(
-        "orchestrator.workers.handlers.graph_ingest.GraphIngestHandler.execute",
+        "workers.handlers.graph_ingest.GraphIngestHandler.execute",
         _track_execute,
     )
 
@@ -315,7 +315,7 @@ async def test_worker_second_batch_claims_only_retryable_failed_tasks(
         return None
 
     monkeypatch.setattr(
-        "orchestrator.workers.handlers.graph_ingest.GraphIngestHandler.execute",
+        "workers.handlers.graph_ingest.GraphIngestHandler.execute",
         _noop_execute,
     )
 

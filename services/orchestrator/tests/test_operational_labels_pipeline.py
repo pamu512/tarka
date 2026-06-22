@@ -22,8 +22,7 @@ _SRC_ORCH = Path(__file__).resolve().parents[1]
 _SRC_INGESTOR = Path(__file__).resolve().parents[2] / "ingestor" / "src"
 _SRC_SHARED = Path(__file__).resolve().parents[2] / "shared"
 _SRC_SERVICES = Path(__file__).resolve().parents[2]
-_SRC_SHADOW = Path(__file__).resolve().parents[2] / "shadow_agent"
-for _p in (_SRC_ORCH, _SRC_INGESTOR, _SRC_SHARED, _SRC_SERVICES, _SRC_SHADOW):
+for _p in (_SRC_ORCH, _SRC_INGESTOR, _SRC_SHARED, _SRC_SERVICES):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
