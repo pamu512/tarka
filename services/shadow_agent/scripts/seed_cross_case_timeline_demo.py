@@ -4,7 +4,7 @@
 Usage (from ``services/shadow_agent``)::
 
   pip install -e . -e ../ingestor -e ../shared
-  export PYTHONPATH=src:../ingestor/src:../shared
+  export PYTHONPATH=.:../ingestor/src:../shared
   python scripts/seed_cross_case_timeline_demo.py ./shadow_timeline_demo.db
 
 Start the shadow sidecar with::
@@ -32,7 +32,7 @@ from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import Session
 
 _SERVICES = Path(__file__).resolve().parents[2]
-for _p in (_SERVICES / "shared", _SERVICES / "shadow_agent" / "src"):
+for _p in (_SERVICES / "shared", _SERVICES / "shadow_agent"):
     sp = str(_p)
     if sp not in sys.path:
         sys.path.insert(0, sp)

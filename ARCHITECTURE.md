@@ -20,7 +20,7 @@ This document describes the **decoupled sidecar pipeline** under `services/`: **
 | `ORCHESTRATOR_SHADOW_ANALYZE_TIMEOUT_SECONDS` | Read deadline for Shadow HTTP call (default **3s**); on timeout, ingest still returns **200** with `orchestrator_fallback_decision` / `FLAG` and **no** `shadow_agent` body. |
 | `SHADOW_DATABASE_URL` | Async SQLAlchemy URL for Shadow’s DB (audit + case bootstrap). |
 
-Sources: `services/orchestrator/src/orchestrator/main.py`, `rule_engine/main.py`, `shadow_agent/main.py`.
+Sources: `services/orchestrator/main.py`, `services/rule_engine/main.py`, `services/shadow_agent/main.py`.
 
 ---
 

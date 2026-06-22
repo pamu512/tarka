@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-_SRC_RULE = Path(__file__).resolve().parents[1] / "src"
+_SRC_RULE = Path(__file__).resolve().parents[1]
 _SRC_INGESTOR = Path(__file__).resolve().parents[2] / "ingestor" / "src"
 _SRC_SHARED = Path(__file__).resolve().parents[2] / "shared"
 for _p in (_SRC_RULE, _SRC_INGESTOR, _SRC_SHARED):

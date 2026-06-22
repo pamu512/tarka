@@ -10,7 +10,7 @@ from uuid import uuid4
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-_SRC = Path(__file__).resolve().parents[1] / "src"
+_SRC = Path(__file__).resolve().parents[1]
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
