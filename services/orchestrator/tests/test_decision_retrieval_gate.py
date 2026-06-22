@@ -79,7 +79,7 @@ def test_get_decision_detail_after_ingest(monkeypatch: pytest.MonkeyPatch) -> No
     def _client_factory(*args: object, **kwargs: object) -> _EvalOnlyAsyncClient:
         return _EvalOnlyAsyncClient(rule_engine_body)
 
-    monkeypatch.setattr("orchestrator.transaction_ingest.httpx.AsyncClient", _client_factory)
+    monkeypatch.setattr("transaction_ingest.httpx.AsyncClient", _client_factory)
 
     app = create_app(
         rule_engine_url="http://rules.test",

@@ -66,7 +66,7 @@ def test_process_outbox_batch_completes_graph_ingest_task(monkeypatch: pytest.Mo
 
         execute_mock = AsyncMock()
         monkeypatch.setattr(
-            "orchestrator.workers.handlers.graph_ingest.GraphIngestHandler.execute",
+            "workers.handlers.graph_ingest.GraphIngestHandler.execute",
             execute_mock,
         )
 
@@ -210,7 +210,7 @@ def test_process_outbox_batch_skips_when_redis_lock_held(monkeypatch: pytest.Mon
 
         execute_mock = AsyncMock()
         monkeypatch.setattr(
-            "orchestrator.workers.handlers.graph_ingest.GraphIngestHandler.execute",
+            "workers.handlers.graph_ingest.GraphIngestHandler.execute",
             execute_mock,
         )
 
@@ -306,7 +306,7 @@ def test_process_outbox_batch_releases_redis_lock_on_handler_failure(
 
         execute_mock = AsyncMock(side_effect=RuntimeError("handler boom"))
         monkeypatch.setattr(
-            "orchestrator.workers.handlers.graph_ingest.GraphIngestHandler.execute",
+            "workers.handlers.graph_ingest.GraphIngestHandler.execute",
             execute_mock,
         )
 

@@ -136,7 +136,7 @@ def test_ingest_shadow_review_triggers_shadow_downstream_and_logs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Gate: SHADOW_REVIEW → POST /v1/analyze; log line proves downstream scheduling."""
-    caplog.set_level(logging.INFO, logger="orchestrator.transaction_ingest")
+    caplog.set_level(logging.INFO, logger="transaction_ingest")
     rule_engine_body: dict[str, object] = {
         "actions": ["SHADOW_REVIEW", "FLAG"],
         "transaction_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
@@ -157,7 +157,7 @@ def test_ingest_shadow_review_triggers_shadow_downstream_and_logs(
     def _client_factory(*args: object, **kwargs: object) -> _RoutingDummyAsyncClient:
         return dummy
 
-    monkeypatch.setattr("orchestrator.transaction_ingest.httpx.AsyncClient", _client_factory)
+    monkeypatch.setattr("transaction_ingest.httpx.AsyncClient", _client_factory)
 
     app = create_app(
         rule_engine_url="http://rules.test",
@@ -204,7 +204,7 @@ def test_ingest_allow_only_skips_shadow(monkeypatch: pytest.MonkeyPatch) -> None
     }
     dummy = _RoutingDummyAsyncClient(rule_engine_body, {})
 
-    monkeypatch.setattr("orchestrator.transaction_ingest.httpx.AsyncClient", lambda *a, **k: dummy)
+    monkeypatch.setattr("transaction_ingest.httpx.AsyncClient", lambda *a, **k: dummy)
 
     app = create_app(
         rule_engine_url="http://rules.test",
@@ -237,7 +237,7 @@ def test_ingest_shadow_analyze_timeout_returns_flag_fallback(
     }
     dummy = _TimeoutOnAnalyzeClient(rule_engine_body, {})
 
-    monkeypatch.setattr("orchestrator.transaction_ingest.httpx.AsyncClient", lambda *a, **k: dummy)
+    monkeypatch.setattr("transaction_ingest.httpx.AsyncClient", lambda *a, **k: dummy)
 
     app = create_app(
         rule_engine_url="http://rules.test",
@@ -277,7 +277,7 @@ def test_ingest_shadow_connect_error_returns_flag_sidescar_unreachable(
     }
     dummy = _ConnectErrorOnAnalyzeClient(rule_engine_body, {})
 
-    monkeypatch.setattr("orchestrator.transaction_ingest.httpx.AsyncClient", lambda *a, **k: dummy)
+    monkeypatch.setattr("transaction_ingest.httpx.AsyncClient", lambda *a, **k: dummy)
 
     app = create_app(
         rule_engine_url="http://rules.test",
@@ -328,7 +328,7 @@ def test_health_full_returns_aggregate_matrix(
             raise AssertionError(f"unexpected GET {url!r}")
 
     monkeypatch.setattr(
-        "orchestrator.transaction_ingest.httpx.AsyncClient", lambda *a, **k: _HealthFullClient()
+        "transaction_ingest.httpx.AsyncClient", lambda *a, **k: _HealthFullClient()
     )
 
     app = create_app(
@@ -366,7 +366,7 @@ def test_health_full_shadow_not_configured(monkeypatch: pytest.MonkeyPatch) -> N
             raise AssertionError(f"unexpected GET {url!r}")
 
     monkeypatch.setattr(
-        "orchestrator.transaction_ingest.httpx.AsyncClient", lambda *a, **k: _RuleOnlyClient()
+        "transaction_ingest.httpx.AsyncClient", lambda *a, **k: _RuleOnlyClient()
     )
 
     app = create_app(rule_engine_url="http://rules.test", shadow_agent_url=None)
@@ -412,7 +412,7 @@ def test_ingest_block_only_skips_shadow(monkeypatch: pytest.MonkeyPatch) -> None
     }
     dummy = _RoutingDummyAsyncClient(rule_engine_body, {})
 
-    monkeypatch.setattr("orchestrator.transaction_ingest.httpx.AsyncClient", lambda *a, **k: dummy)
+    monkeypatch.setattr("transaction_ingest.httpx.AsyncClient", lambda *a, **k: dummy)
 
     app = create_app(
         rule_engine_url="http://rules.test",

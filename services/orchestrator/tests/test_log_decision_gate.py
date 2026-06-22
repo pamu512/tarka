@@ -121,7 +121,7 @@ def test_v1_ingest_block_writes_decision_row_with_exact_rule_id(
     }
 
     monkeypatch.setattr(
-        "orchestrator.transaction_ingest.httpx.AsyncClient",
+        "transaction_ingest.httpx.AsyncClient",
         lambda *a, **k: _EvalOnlyAsyncClient(evaluate_json),
     )
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from workers.runtime import (
+from .runtime import (
     ShadowInvestigateRuntime,
     evaluation_trace_from_payload,
     transaction_from_investigate_payload,

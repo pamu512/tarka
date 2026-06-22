@@ -7,7 +7,7 @@ The durable JetStream pull consumer lives in
 
 from __future__ import annotations
 
-from workers.shadow_investigate_handler import handle_shadow_investigate_payload
+from .shadow_investigate_handler import handle_shadow_investigate_payload
 
 __all__ = ["handle_shadow_investigate_payload", "main", "run"]
 

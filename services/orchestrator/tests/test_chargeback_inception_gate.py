@@ -93,7 +93,7 @@ def test_chargeback_ingest_links_session_and_tags_dispute(monkeypatch: pytest.Mo
         "risk_score": 55.0,
     }
     dummy = _RuleOnlyClient(rule_engine_body)
-    monkeypatch.setattr("orchestrator.transaction_ingest.httpx.AsyncClient", lambda *a, **k: dummy)
+    monkeypatch.setattr("transaction_ingest.httpx.AsyncClient", lambda *a, **k: dummy)
 
     app = create_app(
         rule_engine_url="http://rules.test",

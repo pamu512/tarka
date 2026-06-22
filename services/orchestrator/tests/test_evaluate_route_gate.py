@@ -35,7 +35,7 @@ def test_finalize_live_evaluation_matches_risk_decision_shape() -> None:
 def test_finalize_live_evaluation_strips_business_pnl_keys(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    caplog.set_level(logging.CRITICAL, logger="orchestrator.routes.evaluate")
+    caplog.set_level(logging.CRITICAL, logger="routes.evaluate")
     wire = finalize_live_evaluation_wire_payload(
         {
             "actions": ["ALLOW"],
@@ -58,7 +58,7 @@ def test_finalize_live_evaluation_strips_business_pnl_keys(
 def test_finalize_live_evaluation_strips_financial_score_keys(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    caplog.set_level(logging.CRITICAL, logger="orchestrator.routes.evaluate")
+    caplog.set_level(logging.CRITICAL, logger="routes.evaluate")
     wire = finalize_live_evaluation_wire_payload(
         {
             "actions": [],

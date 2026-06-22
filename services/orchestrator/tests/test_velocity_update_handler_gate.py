@@ -110,7 +110,7 @@ def test_velocity_update_handler_applies_redis_and_clickhouse() -> None:
         }
 
         with patch(
-            "orchestrator.workers.handlers.velocity_update.ensure_velocity_counters_table",
+            "workers.handlers.velocity_update.ensure_velocity_counters_table",
         ) as ensure_table:
             await handler.execute(payload)
 

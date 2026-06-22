@@ -77,11 +77,11 @@ def test_graph_ingest_handler_connection_drop_raises() -> None:
         fake_client.close = _close
 
         with patch(
-            "orchestrator.workers.handlers.graph_ingest._connect_janusgraph",
+            "workers.handlers.graph_ingest._connect_janusgraph",
             return_value=fake_client,
         ):
             with patch(
-                "orchestrator.workers.handlers.graph_ingest._ingest_janus_sync",
+                "workers.handlers.graph_ingest._ingest_janus_sync",
                 side_effect=ConnectionResetError("connection dropped"),
             ):
                 with pytest.raises(GraphDatabaseConnectionError):
