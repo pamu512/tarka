@@ -1848,6 +1848,19 @@ async def plugin_bootstrap(request: Request, response: Response, body: PluginBoo
 
 _thread_correlations: dict[str, dict[str, Any]] = {}
 
+_CASE_ACTION_IDEM_TTL = 3600  # 1 hour
+_CASE_ACTION_IDEM_MAX = 4096
+_case_action_idempotency: dict[str, tuple[float, dict[str, Any]]] = {}
+
+
+def _idem_prune() -> None:
+    if len(_case_action_idempotency) <= _CASE_ACTION_IDEM_MAX:
+        return
+    cutoff = time.monotonic() - _CASE_ACTION_IDEM_TTL
+    expired = [k for k, (ts, _) in _case_action_idempotency.items() if ts < cutoff]
+    for k in expired:
+        del _case_action_idempotency[k]
+
 
 class CaseActionBody(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -1920,6 +1933,15 @@ async def execute_case_action(request: Request, response: Response, body: CaseAc
         _validate_scope_id("actor_id", body.actor_id)
     except HTTPException as e:
         raise _plugin_http_exc(int(e.status_code), str(e.detail), correlation_id) from None
+
+    idem_key = body.idempotency_key
+    cached = _case_action_idempotency.get(idem_key)
+    if cached is not None:
+        ts, cached_result = cached
+        if time.monotonic() - ts < _CASE_ACTION_IDEM_TTL:
+            return {**cached_result, "replayed": True, "correlation_id": correlation_id}
+        del _case_action_idempotency[idem_key]
+
     try:
         result = await _forward_case_action(body)
     except httpx.HTTPStatusError as e:
@@ -1927,7 +1949,11 @@ async def execute_case_action(request: Request, response: Response, body: CaseAc
         raise _plugin_http_exc(code, "case action upstream error", correlation_id) from None
     except httpx.RequestError:
         raise _plugin_http_exc(502, "case-api unreachable", correlation_id) from None
-    return {"ok": True, "correlation_id": correlation_id, **result}
+
+    out = {"ok": True, "correlation_id": correlation_id, **result}
+    _idem_prune()
+    _case_action_idempotency[idem_key] = (time.monotonic(), out)
+    return out
 
 
 @app.post("/v1/thread-correlations")
