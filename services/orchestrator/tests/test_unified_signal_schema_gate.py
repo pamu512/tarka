@@ -11,8 +11,10 @@ import pytest
 from pydantic import ValidationError
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
+_repo = str(_REPO_ROOT)
+if _repo in sys.path:
+    sys.path.remove(_repo)
+sys.path.insert(0, _repo)
 
 from schemas.ingestion import UnifiedSignalSchema  # noqa: E402
 
