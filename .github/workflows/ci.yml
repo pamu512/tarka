@@ -254,7 +254,7 @@ jobs:
         run: pip install -e ".[dev]"
         working-directory: services/graph-service
       - name: Run tests (algorithms + Neo4j driver mocks)
-        run: pytest --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=26 tests/
+        run: pytest --cov=src/graph_service --cov-report=xml --cov-report=term-missing --cov-fail-under=26 tests/
         working-directory: services/graph-service
         env:
           PYTHONPATH: src:.:../shared
