@@ -15,6 +15,11 @@ _repo = str(_REPO_ROOT)
 if _repo in sys.path:
     sys.path.remove(_repo)
 sys.path.insert(0, _repo)
+# Orchestrator's local ``schemas/`` package is imported first in the full pytest suite;
+# evict cached modules so repo-root ``schemas.ingestion`` resolves correctly.
+for _mod in list(sys.modules):
+    if _mod == "schemas" or _mod.startswith("schemas."):
+        del sys.modules[_mod]
 
 from schemas.ingestion import UnifiedSignalSchema  # noqa: E402
 

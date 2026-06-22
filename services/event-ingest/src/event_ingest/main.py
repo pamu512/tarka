@@ -20,8 +20,8 @@ from nats.aio.client import Client as NatsClient
 from nats.js import JetStreamContext
 from pydantic import BaseModel, Field, ValidationError
 
-from config import settings
-from ingest_contract import (
+from .config import settings
+from .ingest_contract import (
     IngestContractError,
     parse_batch_event_item,
     parse_ingest_event_body,

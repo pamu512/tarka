@@ -13,4 +13,4 @@ COPY services/data-plane/src/data_plane /app/data_plane
 COPY services/shared /app/shared
 RUN pip install --no-cache-dir -e .
 ENV PYTHONPATH=/app:/app/shared
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8007"]
+CMD ["uvicorn", "data_plane.main:app", "--host", "0.0.0.0", "--port", "8007"]
