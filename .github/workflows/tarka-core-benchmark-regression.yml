@@ -49,7 +49,7 @@ jobs:
             --group-dir target/criterion/rule_set_latency_guard \
             --baseline-fn baseline_evaluate \
             --proposed-fn proposed_evaluate \
-            --max-delta-us 200
+            --max-delta-us 100
 
   criterion-p99:
     name: Criterion p99 vs master (5% max)
