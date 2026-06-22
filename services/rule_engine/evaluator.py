@@ -15,15 +15,26 @@ from uuid import UUID
 
 from ingestor.manifest_schema import TransactionSchema
 
-from ast_schemas import (
-    Action,
-    AndNode,
-    ConditionNode,
-    LogicalNode,
-    Operator,
-    OrNode,
-    Rule,
-)
+if __package__:
+    from .ast_schemas import (
+        Action,
+        AndNode,
+        ConditionNode,
+        LogicalNode,
+        Operator,
+        OrNode,
+        Rule,
+    )
+else:
+    from ast_schemas import (
+        Action,
+        AndNode,
+        ConditionNode,
+        LogicalNode,
+        Operator,
+        OrNode,
+        Rule,
+    )
 
 _OPERATOR_FUNCS: dict[Operator, Any] = {
     Operator.EQ: operator.eq,
