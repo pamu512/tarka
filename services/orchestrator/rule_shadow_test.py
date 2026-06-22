@@ -143,8 +143,13 @@ def run_shadow_test_against_transactions(
     """
     try:
         from pydantic import TypeAdapter
-        from rule_engine.ast_schemas import Action, LogicalNode
-        from rule_engine.evaluator import evaluate_node
+
+        try:
+            from ast_schemas import Action, LogicalNode
+            from evaluator import evaluate_node
+        except ImportError:
+            from rule_engine.ast_schemas import Action, LogicalNode
+            from rule_engine.evaluator import evaluate_node
     except ImportError as exc:  # pragma: no cover — Docker / CI install ``rule_engine``
         raise RuntimeError("rule_engine package is required for shadow tests") from exc
 

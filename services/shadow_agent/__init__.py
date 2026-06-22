@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import importlib
+import importlib.util
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -22,15 +22,26 @@ def _load_submodule(name: str) -> ModuleType:
         return existing
     flat_py = _PKG_ROOT / f"{name}.py"
     if flat_py.is_file():
-        mod = importlib.import_module(name)
-        return _alias_module(full, mod)
-    if (_PKG_ROOT / name).is_dir():
-        mod = importlib.import_module(name)
-        _alias_module(full, mod)
-        prefix = f"{name}."
-        for loaded_name, loaded_mod in list(sys.modules.items()):
-            if loaded_name.startswith(prefix):
-                _alias_module(f"{__name__}.{loaded_name}", loaded_mod)
+        spec = importlib.util.spec_from_file_location(full, flat_py)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"cannot load {full} from {flat_py}")
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[full] = mod
+        spec.loader.exec_module(mod)
+        return mod
+    pkg_dir = _PKG_ROOT / name
+    init_py = pkg_dir / "__init__.py"
+    if pkg_dir.is_dir() and init_py.is_file():
+        spec = importlib.util.spec_from_file_location(
+            full,
+            init_py,
+            submodule_search_locations=[str(pkg_dir)],
+        )
+        if spec is None or spec.loader is None:
+            raise ImportError(f"cannot load package {full} from {pkg_dir}")
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[full] = mod
+        spec.loader.exec_module(mod)
         return mod
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
