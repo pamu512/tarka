@@ -69,7 +69,7 @@ def main() -> int:
         )
         return 1
 
-    missing_hardening = REQUIRED_DOCUMENTED - hardening - compose
+    missing_hardening = REQUIRED_DOCUMENTED - hardening
     if missing_hardening:
         print(
             "WARN: production-hardening overlay does not re-declare (may inherit from base):",
