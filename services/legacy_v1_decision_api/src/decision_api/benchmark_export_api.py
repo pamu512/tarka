@@ -34,13 +34,13 @@ def _exports_dir() -> Path:
 
 
 def _tenant_file(tenant_id: str) -> Path:
-    safe = "".join(c if c.isalnum() or c in "._-" else "_" for c in tenant_id.strip())[
-        :128
-    ]
-    if not safe:
+    tid = tenant_id.strip()
+    if not tid:
         raise HTTPException(status_code=400, detail="tenant_id required")
+    # Hash tenant_id so the on-disk name never embeds user-controlled path segments.
+    key = hashlib.sha256(tid.encode("utf-8")).hexdigest()
     root = _exports_dir().resolve()
-    path = (root / f"{safe}.jsonl").resolve()
+    path = (root / f"{key}.jsonl").resolve()
     if not path.is_relative_to(root):
         raise HTTPException(status_code=400, detail="invalid tenant_id")
     return path

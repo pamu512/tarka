@@ -20,7 +20,7 @@ import clickhouse_connect
 import nats
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 
-from config import settings
+from .config import settings
 
 from observability import get_metrics, setup_observability  # noqa: E402
 from tenant_binding import enforce_tenant_access, parse_api_key_tenant_map  # noqa: E402
