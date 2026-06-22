@@ -261,16 +261,22 @@ def bulk_replace_paths() -> None:
         ("tarka_v2_core/", ""),
         ("legacy_attic/services/", "services/"),
         ("legacy_attic/", ""),
-        ("deploy/", "infra/deploy/"),
-        ("scripts/deploy/", "infra/scripts/deploy/"),
-        ("scripts/ci/", "infra/scripts/ci/"),
-        ("scripts/policy/", "infra/scripts/policy/"),
         ("packages/tarka-deploy-settings", "packages/deploy-settings"),
         ("tarka-deploy-settings @ file:", "tarka-deploy-settings @ file:"),
         ("orchestrator.main:app", "main:app"),
         ("shadow_agent.main:app", "main:app"),
         ("rule_engine.main:app", "main:app"),
         ("signal_api.main:app", "main:app"),
+    ]
+
+    # Regex replacements with negative lookbehinds to avoid double-prefixing
+    # paths that are already under infra/. Longer patterns first so that e.g.
+    # ``scripts/deploy/`` is consumed before the shorter ``deploy/`` pattern.
+    _infra_re_replacements: list[tuple[re.Pattern[str], str]] = [
+        (re.compile(r"(?<!infra/)scripts/deploy/"), "infra/scripts/deploy/"),
+        (re.compile(r"(?<!infra/)scripts/ci/"), "infra/scripts/ci/"),
+        (re.compile(r"(?<!infra/)scripts/policy/"), "infra/scripts/policy/"),
+        (re.compile(r"(?<!infra/)(?<!scripts/)deploy/"), "infra/deploy/"),
     ]
 
     skip_dirs = {".git", "node_modules", ".venv", "__pycache__", ".pytest_cache", "dist", "build"}
@@ -291,6 +297,8 @@ def bulk_replace_paths() -> None:
         original = text
         for old, new in replacements:
             text = text.replace(old, new)
+        for pat, repl in _infra_re_replacements:
+            text = pat.sub(repl, text)
         if text != original:
             path.write_text(text, encoding="utf-8")
 

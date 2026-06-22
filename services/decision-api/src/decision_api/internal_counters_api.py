@@ -385,6 +385,12 @@ async def _run_replay_job(job_id: str, body: CounterReplayRequest) -> None:
     response_model=CounterReplayJobResponse,
     status_code=202,
     summary="Enqueue offline replay job",
+    description=(
+        "Enqueue an async counter-replay job executed in the current worker process. "
+        "Job state is held **in-process memory**; POST and subsequent GET must hit the "
+        "same OS process. Run uvicorn with a single worker (the default) or use sticky "
+        "sessions when deploying behind a load balancer."
+    ),
 )
 async def post_counter_replay_job(
     body: CounterReplayRequest,
@@ -399,6 +405,7 @@ async def post_counter_replay_job(
         "scratch_redis_url": body.scratch_redis_url.strip(),
         "manifest_version": manifest_version(),
         "agg_key_version": _agg_key_version(),
+        "worker_pid": os.getpid(),
     }
     import asyncio
 
@@ -415,11 +422,23 @@ async def post_counter_replay_job(
     "/replay/jobs/{job_id}",
     response_model=CounterReplayJobStatus,
     summary="Offline replay job status",
+    description=(
+        "Poll the status of an async replay job. The job is tracked **in-process**; "
+        "this request must reach the same worker process that accepted the POST. "
+        "Returns 404 if the job_id is unknown to this process (e.g. after a restart "
+        "or when routed to a different worker)."
+    ),
 )
 async def get_counter_replay_job(job_id: str) -> CounterReplayJobStatus:
     row = _replay_jobs.get(job_id.strip())
     if not row:
-        raise HTTPException(status_code=404, detail="replay job not found")
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"replay job not found on worker pid={os.getpid()}; "
+                "the job may have been created on a different worker process"
+            ),
+        )
     return CounterReplayJobStatus(
         job_id=job_id,
         status=str(row.get("status") or "unknown"),
