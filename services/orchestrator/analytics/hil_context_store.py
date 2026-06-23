@@ -206,9 +206,9 @@ class InMemoryHilContextOverrideStore:
                 {
                     "override_type": row["override_type"],
                     "scope_key": row["scope_key"],
-                    "expires_at": expires.isoformat()
-                    if isinstance(expires, datetime)
-                    else str(expires),
+                    "expires_at": (
+                        expires.isoformat() if isinstance(expires, datetime) else str(expires)
+                    ),
                     "created_at": created.isoformat() if isinstance(created, datetime) else None,
                     "analyst_rationale": row["analyst_rationale"],
                 },
