@@ -77,7 +77,12 @@ updates:
     directory: /frontend
     schedule:
       interval: weekly
+    open-pull-requests-limit: 1
     groups:
       npm-frontend:
         patterns:
           - "*"
+    ignore:
+      # Major frontend bumps need a dedicated upgrade pass (see closed PR #232/#238).
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
