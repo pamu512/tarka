@@ -109,6 +109,7 @@ jobs:
         run: pytest tests -q
 
   # Multi-stage Dockerfiles under services/*/Dockerfile — scan after lint+tests pass.
+  # ignore-unfixed matches security-scan.yml: Debian slim often reports CVEs with no distro fix yet.
   container-scan:
     name: Container images (Trivy)
     runs-on: ubuntu-latest
@@ -136,8 +137,9 @@ jobs:
           vuln-type: os,library
           severity: CRITICAL,HIGH
           exit-code: "1"
-          ignore-unfixed: "false"
+          ignore-unfixed: "true"
           hide-progress: "true"
+          trivyignores: .trivyignore
 
       - name: Trivy — Rule Engine
         uses: aquasecurity/trivy-action@v0.36.0
@@ -147,8 +149,9 @@ jobs:
           vuln-type: os,library
           severity: CRITICAL,HIGH
           exit-code: "1"
-          ignore-unfixed: "false"
+          ignore-unfixed: "true"
           hide-progress: "true"
+          trivyignores: .trivyignore
 
       - name: Trivy — Shadow Agent
         uses: aquasecurity/trivy-action@v0.36.0
@@ -158,5 +161,6 @@ jobs:
           vuln-type: os,library
           severity: CRITICAL,HIGH
           exit-code: "1"
-          ignore-unfixed: "false"
+          ignore-unfixed: "true"
           hide-progress: "true"
+          trivyignores: .trivyignore
