@@ -156,7 +156,7 @@ jobs:
 
       - name: Upload scorecard artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vertical-benchmark-scorecard
           path: ${{ runner.temp }}/v1.2.0-vertical-benchmark-scorecard.json
