@@ -141,6 +141,12 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/investigation/, ""),
       },
+      /** Collaboration chat bridge (outbound schema + case actions). Default: :8012. */
+      "/api/bridge": {
+        target: "http://127.0.0.1:8012",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/bridge/, ""),
+      },
       "/api/ingest": {
         target: "http://localhost:8007",
         changeOrigin: true,

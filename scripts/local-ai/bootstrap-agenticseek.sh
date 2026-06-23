@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-ENV_FILE="${1:-$ROOT/deploy/local-ai/.env.local}"
-EXAMPLE_FILE="$ROOT/deploy/local-ai/.env.example"
+ENV_FILE="${1:-$ROOT/infra/deploy/local-ai/.env.local}"
+EXAMPLE_FILE="$ROOT/infra/deploy/local-ai/.env.example"
 
 if [[ ! -f "$ENV_FILE" ]]; then
   cp "$EXAMPLE_FILE" "$ENV_FILE"

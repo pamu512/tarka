@@ -2,7 +2,25 @@
 
 This guide defines opinionated deployment bundles for cloud environments so teams can choose by business need instead of wiring every service manually.
 
-These bundles map directly to existing module and profile behavior in `deploy/docker-compose.yml`, but are designed for Kubernetes and managed cloud runtimes.
+These bundles map directly to existing module and profile behavior in `infra/deploy/docker-compose.yml`, but are designed for Kubernetes and managed cloud runtimes.
+
+---
+
+## Profile selection decision tree (Q1-D08)
+
+```
+Need scoring only, no analyst UI?
+  └─ yes → bundle `core` + Helm preset `core-only` / compose profile minimal
+  └─ no → Need graph + case triage in one URL?
+            └─ yes → bundle `investigation` (+ optional `graph-service`)
+            └─ no → Need async ingest / NATS replay?
+                      └─ yes → add bundle `streaming`
+                      └─ no → Need ClickHouse trends / drift?
+                                └─ yes → add bundle `analytics`
+                                └─ no → bundle `full` (platform-wide)
+```
+
+**Misconfiguration escalation:** run `python3 infra/scripts/deploy/validate_env_contract.py` and `infra/scripts/ci/cloud_preset_smoke.py`; if preset drift persists, follow [Staging promotion playbook](./staging-promotion-playbook.md) before promoting overlays.
 
 ---
 

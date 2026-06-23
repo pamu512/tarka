@@ -24,15 +24,15 @@ Set these in `decision-api`:
 
 Use preset overlays:
 
-- `deploy/helm/fraud-stack/presets/edge-cloudflare.yaml`
-- `deploy/helm/fraud-stack/presets/edge-aws-waf.yaml`
+- `infra/deploy/helm/fraud-stack/presets/edge-cloudflare.yaml`
+- `infra/deploy/helm/fraud-stack/presets/edge-aws-waf.yaml`
 
 Example:
 
 ```bash
-helm template tarka deploy/helm/fraud-stack \
-  -f deploy/helm/fraud-stack/values.yaml \
-  -f deploy/helm/fraud-stack/presets/edge-cloudflare.yaml
+helm template tarka infra/deploy/helm/fraud-stack \
+  -f infra/deploy/helm/fraud-stack/values.yaml \
+  -f infra/deploy/helm/fraud-stack/presets/edge-cloudflare.yaml
 ```
 
 ## Ops visibility

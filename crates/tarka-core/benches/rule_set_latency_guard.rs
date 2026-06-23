@@ -5,7 +5,7 @@
 //! - ``proposed_evaluate`` — Proposed rule tree (env ``TARKA_LG_PROPOSED_*``).
 //!
 //! CI compares expanded p99 nanoseconds; failure when Proposed exceeds Baseline by > threshold
-//! (see ``scripts/ci/latency_violation_report.py``).
+//! (see ``infra/scripts/ci/latency_violation_report.py``).
 
 use std::hint::black_box;
 use std::path::Path;

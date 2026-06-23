@@ -18,7 +18,7 @@ export GRAPH_SERVICE_URL=http://127.0.0.1:18080
 Then:
 
 ```bash
-python scripts/ci/check_integration_contract.py --base-url http://localhost:8006
+python infra/scripts/ci/check_integration_contract.py --base-url http://localhost:8006
 ```
 
 ## Limits

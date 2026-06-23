@@ -1,20 +1,20 @@
 import { lazy, Suspense, useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useAnalystWorkspace } from "../context/AnalystWorkspaceContext";
+import { CaseWorkbenchProvider, useCaseWorkbench } from "../context/CaseWorkbenchContext";
 import { useRegisterPageMeta } from "../context/PageMetaContext";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { useToast } from "../context/ToastContext";
 import {
   cases,
-  decisions,
   graph,
   type Case,
   type EntityRiskResult,
   type GraphEdge,
   type GraphNode,
   type InferenceContext,
-  normalizeInferenceContext,
   type SubgraphResponse,
+  toUserFacingApiError,
 } from "../api/client";
 import StatusBadge from "../components/StatusBadge";
 import PriorityBadge from "../components/PriorityBadge";
@@ -52,9 +52,9 @@ import { VelocityHeatmap } from "../components/CaseView/VelocityHeatmap";
 const GeographicCollisionMap = lazy(() =>
   import("../components/CaseView/GeographicCollisionMap").then((m) => ({ default: m.GeographicCollisionMap })),
 );
+import { DegradedModeBanner } from "../components/DegradedModeBanner";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { buildCaseComparisonHref } from "../utils/caseComparisonUrl";
-import { toUserFacingError } from "../utils/userFacingErrors";
 import {
   buildCaseWorkspaceEvidencePdfBlob,
   buildCaseWorkspaceEvidenceSnapshot,
@@ -67,7 +67,9 @@ import {
   KnowledgeGraphMobilePanel,
   useKnowledgeGraphSidebarState,
 } from "../components/CaseView/KnowledgeGraphSidebar";
-import { ShadowChatSidebar } from "../components/CaseView/ShadowChatSidebar";
+import { AnalystWorkbenchLayout } from "../components/CaseView/workbench/AnalystWorkbenchLayout";
+import { BridgeConfirmDialog } from "../components/CaseView/workbench/panels/BridgeConfirmDialog";
+import { trackWorkbenchTask } from "../workbench/workbenchTelemetry";
 import { isHeroHotkeyEventIgnored } from "../utils/heroHotkeys";
 import { Network, type Options } from "vis-network";
 import { DataSet } from "vis-data";
@@ -75,12 +77,7 @@ import { DataSet } from "vis-data";
 const CASE_DETAIL_TABS = ["timeline", "audit", "graph"] as const;
 
 /** Re-fetch decision audit + graph risk for velocity sparklines (Prompt 164). */
-const VELOCITY_SPARKLINE_POLL_MS = 15_000;
 type Tab = (typeof CASE_DETAIL_TABS)[number];
-
-function isCaseDetailTab(v: string | null): v is Tab {
-  return v != null && (CASE_DETAIL_TABS as readonly string[]).includes(v);
-}
 
 const RECOMMENDED_ACTION_LABELS: Record<string, string> = {
   block: "Block this activity",
@@ -149,18 +146,6 @@ function buildTriageFlashCards(
   return [velocity, graph, geo];
 }
 
-type DecisionExplain = {
-  score: number;
-  decision: string;
-  reasons: string[];
-  tags: string[];
-  rule_hits: string[];
-  recommended_action?: string | null;
-  inference_context: InferenceContext | null;
-  /** Present when audit is loaded with analyst/full detail — transaction envelope for exposure hints. */
-  evaluate_payload?: Record<string, unknown> | null;
-};
-
 /** Best-effort parse of evaluate payload / nested envelopes for triage financial hints (DuckDB cohort rolls up same trace keys when wired). */
 function extractTransactionMoney(payload: Record<string, unknown> | null | undefined): {
   amount: number;
@@ -189,58 +174,60 @@ function extractTransactionMoney(payload: Record<string, unknown> | null | undef
 
 export default function CaseDetail() {
   const { caseId } = useParams<{ caseId: string }>();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
+  const { tenantId: workspaceTenantId } = useTenantEnvironment();
+  const tenantEffective = (searchParams.get("tenant_id")?.trim() || workspaceTenantId || "demo").trim();
+
+  if (!caseId) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-gray-500 text-sm">Missing case id.</p>
+      </div>
+    );
+  }
+
+  return (
+    <CaseWorkbenchProvider caseId={caseId} tenantId={tenantEffective}>
+      <CaseDetailWorkbench />
+    </CaseWorkbenchProvider>
+  );
+}
+
+function CaseDetailWorkbench() {
+  const { caseId } = useParams<{ caseId: string }>();
+  const [searchParams] = useSearchParams();
   const { tenantId: workspaceTenantId } = useTenantEnvironment();
   const tenantEffective = (searchParams.get("tenant_id")?.trim() || workspaceTenantId || "demo").trim();
   const navigate = useNavigate();
   const { pinCase } = useAnalystWorkspace();
   const { toast } = useToast();
-  const [advancedDevView, setAdvancedDevView] = useState(false);
-  const [shadowChatOpen, setShadowChatOpen] = useState(false);
-  const [caseData, setCaseData] = useState<Case | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    caseData,
+    loading,
+    error,
+    setError,
+    decisionExplain,
+    graphRisk,
+    velocityArtifactsUpdatedAt,
+    activeTab,
+    setActiveTab,
+    copilotRailOpen,
+    setCopilotRailOpen,
+    advancedDevView,
+    setAdvancedDevView,
+    refreshCase,
+    setBridgeConfirmOpen,
+    setPendingStatusChange,
+    pendingStatusChange,
+  } = useCaseWorkbench();
 
-  const tabParam = searchParams.get("tab");
-  const activeTab: Tab = isCaseDetailTab(tabParam) ? tabParam : "timeline";
-
-  const setActiveTab = useCallback(
-    (tab: Tab) => {
-      setSearchParams(
-        (prev) => {
-          const n = new URLSearchParams(prev);
-          if (tab === "timeline") n.delete("tab");
-          else n.set("tab", tab);
-          return n;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
   const [commentText, setCommentText] = useState("");
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [labelInput, setLabelInput] = useState("");
-  const [decisionExplain, setDecisionExplain] = useState<DecisionExplain | null>(null);
-  const [graphRisk, setGraphRisk] = useState<EntityRiskResult | null>(null);
   const [bundleBusy, setBundleBusy] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [tuneRuleOpen, setTuneRuleOpen] = useState(false);
-  const [velocityArtifactsUpdatedAt, setVelocityArtifactsUpdatedAt] = useState<string | null>(null);
-
-  const fetchCase = useCallback(async () => {
-    if (!caseId) return;
-    try {
-      const data = await cases.get(caseId, tenantEffective);
-      setCaseData(data);
-      setError(null);
-    } catch (e) {
-      setError(toUserFacingError(e, { subject: "Case detail", action: "load this case" }));
-    } finally {
-      setLoading(false);
-    }
-  }, [caseId, tenantEffective]);
 
   const pageMeta = useMemo(
     () =>
@@ -252,10 +239,6 @@ export default function CaseDetail() {
   useRegisterPageMeta(pageMeta);
 
   useEffect(() => {
-    fetchCase();
-  }, [fetchCase]);
-
-  useEffect(() => {
     if (!caseData) return;
     pinCase({
       caseId: caseData.id,
@@ -264,78 +247,36 @@ export default function CaseDetail() {
     });
   }, [caseData, pinCase]);
 
-  const refreshVelocityArtifacts = useCallback(async () => {
-    if (!caseData) return;
-    try {
-      if (caseData.trace_id) {
-        const audit = await decisions.getAudit(caseData.trace_id, caseData.tenant_id, {
-          detail_level: "analyst",
-        });
-        setDecisionExplain({
-          score: audit.score,
-          decision: audit.decision,
-          reasons: [],
-          tags: audit.tags || [],
-          rule_hits: audit.rule_hits || [],
-          recommended_action: audit.recommended_action ?? null,
-          inference_context: normalizeInferenceContext(audit.inference_context),
-          evaluate_payload: audit.evaluate_payload ?? null,
-        });
-        setVelocityArtifactsUpdatedAt(new Date().toISOString());
-      } else {
-        setDecisionExplain(null);
-        setVelocityArtifactsUpdatedAt(null);
+  const applyStatusChange = useCallback(
+    async (newStatus: string) => {
+      if (!caseId || !caseData || statusUpdating) return;
+      setStatusUpdating(true);
+      try {
+        await cases.update(caseId, caseData.tenant_id, { status: newStatus as Case["status"] });
+        await refreshCase();
+        trackWorkbenchTask("case_status_update", { caseId, tenantId: caseData.tenant_id, detail: newStatus });
+      } catch (e) {
+        setError(toUserFacingApiError(e, { subject: "Case status", action: "update case status" }));
+      } finally {
+        setStatusUpdating(false);
       }
-    } catch {
-      setDecisionExplain(null);
-    }
-    try {
-      const risk = await graph.entityRisk(caseData.entity_id, caseData.tenant_id);
-      setGraphRisk(risk);
-    } catch {
-      setGraphRisk(null);
-    }
-  }, [caseData]);
+    },
+    [caseId, caseData, statusUpdating, refreshCase, setError],
+  );
 
-  useEffect(() => {
-    void refreshVelocityArtifacts();
-  }, [refreshVelocityArtifacts]);
-
-  useEffect(() => {
-    if (!caseData?.trace_id) return undefined;
-    const id = window.setInterval(() => {
-      if (document.visibilityState === "visible") void refreshVelocityArtifacts();
-    }, VELOCITY_SPARKLINE_POLL_MS);
-    const onVis = () => {
-      if (document.visibilityState === "visible") void refreshVelocityArtifacts();
-    };
-    document.addEventListener("visibilitychange", onVis);
-    return () => {
-      window.clearInterval(id);
-      document.removeEventListener("visibilitychange", onVis);
-    };
-  }, [caseData?.trace_id, refreshVelocityArtifacts]);
-
-  const handleStatusChange = async (newStatus: string) => {
-    if (!caseId || !caseData || statusUpdating) return;
-    setStatusUpdating(true);
-    try {
-      const updated = await cases.update(caseId, caseData.tenant_id, { status: newStatus as Case["status"] });
-      setCaseData(updated);
-    } catch (e) {
-      setError(toUserFacingError(e, { subject: "Case status", action: "update case status" }));
-    } finally {
-      setStatusUpdating(false);
-    }
+  const handleStatusChange = (newStatus: string) => {
+    if (!caseId || !caseData || statusUpdating || newStatus === caseData.status) return;
+    setPendingStatusChange(newStatus);
+    setBridgeConfirmOpen(true);
   };
 
   const handlePriorityChange = async (newPriority: string) => {
     if (!caseId || !caseData) return;
     try {
-      const updated = await cases.update(caseId, caseData.tenant_id, { priority: newPriority as Case["priority"] });
-      setCaseData(updated);
+      await cases.update(caseId, caseData.tenant_id, { priority: newPriority as Case["priority"] });
+      await refreshCase();
     } catch (e) {
-      toast(toUserFacingError(e, { subject: "Case priority", action: "update case priority" }), "error");
+      toast(toUserFacingApiError(e, { subject: "Case priority", action: "update case priority" }), "error");
     }
   };
 
@@ -345,10 +286,10 @@ export default function CaseDetail() {
     setCommentSubmitting(true);
     try {
       await cases.addComment(caseId, caseData.tenant_id, "analyst", commentText.trim());
-      await fetchCase();
+      await refreshCase();
       setCommentText("");
     } catch (err) {
-      setError(toUserFacingError(err, { subject: "Case comment", action: "add a case comment" }));
+      setError(toUserFacingApiError(err, { subject: "Case comment", action: "add a case comment" }));
     } finally {
       setCommentSubmitting(false);
     }
@@ -368,7 +309,7 @@ export default function CaseDetail() {
       URL.revokeObjectURL(url);
       toast("Evidence bundle downloaded", "success");
     } catch (e) {
-      toast(toUserFacingError(e, { subject: "Evidence bundle", action: "download evidence bundle" }), "error");
+      toast(toUserFacingApiError(e, { subject: "Evidence bundle", action: "download evidence bundle" }), "error");
     } finally {
       setBundleBusy(false);
     }
@@ -447,7 +388,7 @@ export default function CaseDetail() {
       URL.revokeObjectURL(url);
       toast("Evidence PDF downloaded", "success");
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Could not build evidence PDF", "error");
+      toast(toUserFacingApiError(e, { subject: "Evidence PDF", action: "build evidence PDF" }), "error");
     } finally {
       setPdfBusy(false);
     }
@@ -457,10 +398,10 @@ export default function CaseDetail() {
     if (!caseId || !caseData || !labelInput.trim()) return;
     try {
       await cases.addLabels(caseId, caseData.tenant_id, [labelInput.trim()]);
-      await fetchCase();
+      await refreshCase();
       setLabelInput("");
     } catch (e) {
-      toast(toUserFacingError(e, { subject: "Case label", action: "add a case label" }), "error");
+      toast(toUserFacingApiError(e, { subject: "Case label", action: "add a case label" }), "error");
     }
   };
 
@@ -472,11 +413,11 @@ export default function CaseDetail() {
     }
     setStatusUpdating(true);
     try {
-      const updated = await cases.update(caseId, caseData.tenant_id, { status: "investigating" });
-      setCaseData(updated);
+      await cases.update(caseId, caseData.tenant_id, { status: "investigating" });
+      await refreshCase();
       toast("Approved — Investigating.", "success");
     } catch (e) {
-      setError(toUserFacingError(e, { subject: "Case status", action: "approve case" }));
+      setError(toUserFacingApiError(e, { subject: "Case status", action: "approve case" }));
     } finally {
       setStatusUpdating(false);
     }
@@ -490,11 +431,11 @@ export default function CaseDetail() {
     }
     setStatusUpdating(true);
     try {
-      const updated = await cases.update(caseId, caseData.tenant_id, { status: "closed" });
-      setCaseData(updated);
+      await cases.update(caseId, caseData.tenant_id, { status: "closed" });
+      await refreshCase();
       toast("Rejected — case closed.", "success");
     } catch (e) {
-      setError(toUserFacingError(e, { subject: "Case status", action: "close case" }));
+      setError(toUserFacingApiError(e, { subject: "Case status", action: "close case" }));
     } finally {
       setStatusUpdating(false);
     }
@@ -507,8 +448,8 @@ export default function CaseDetail() {
       tenantId: caseData.tenant_id,
       title: caseData.title || "Case",
     });
-    setShadowChatOpen(true);
-  }, [caseData, pinCase]);
+    setCopilotRailOpen(true);
+  }, [caseData, pinCase, setCopilotRailOpen]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -613,8 +554,18 @@ export default function CaseDetail() {
   }, [decisionExplain?.inference_context?.ml_summary, decisionExplain?.recommended_action]);
 
   return (
-    <div className="flex min-h-0 w-full flex-col xl:flex-row xl:items-stretch xl:min-h-[calc(100vh-10rem)]">
-      <div className="min-w-0 flex-1 space-y-6 animate-fade-in p-6">
+    <>
+      <AnalystWorkbenchLayout
+        bridgeConfirm={
+          <BridgeConfirmDialog
+            onConfirm={() => {
+              if (pendingStatusChange) void applyStatusChange(pendingStatusChange);
+            }}
+            onCancel={() => undefined}
+          />
+        }
+        header={
+          <>
       <nav className="text-sm text-gray-500 flex flex-wrap items-center gap-2" aria-label="Breadcrumb">
         <Link to={casesListHref} className="text-brand-400 hover:text-brand-300">
           Cases
@@ -629,16 +580,7 @@ export default function CaseDetail() {
         state={knowledgeGraphState}
       />
 
-      {error ? (
-        <div className="rounded-lg border border-rose-500/35 bg-rose-500/10 px-3 py-2 text-sm text-rose-300 space-y-1">
-          <p>{error}</p>
-          <SupportIdHint
-            message={error}
-            className="flex flex-wrap items-center gap-2 text-[11px] text-rose-200/85"
-            buttonClassName="px-1.5 py-0.5 rounded border border-rose-400/35 hover:border-rose-300/50 hover:text-rose-100 transition-colors"
-          />
-        </div>
-      ) : null}
+      <DegradedModeBanner error={error} title="Case action failed" onDismiss={() => setError(null)} />
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-2 min-w-0 flex-1">
@@ -674,20 +616,20 @@ export default function CaseDetail() {
           </button>
           <button
             type="button"
-            aria-pressed={shadowChatOpen}
-            onClick={() => setShadowChatOpen((v) => !v)}
+            aria-pressed={copilotRailOpen}
+            onClick={() => setCopilotRailOpen(!copilotRailOpen)}
             className={`shrink-0 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors ${
-              shadowChatOpen
+              copilotRailOpen
                 ? "border-brand-500/50 bg-brand-500/15 text-brand-200"
                 : "border-surface-600 bg-surface-800 text-gray-300 hover:bg-surface-700"
             }`}
           >
-            {shadowChatOpen ? "Shadow AI: open" : "Shadow AI"}
+            {copilotRailOpen ? "Copilot rail: open" : "Copilot rail"}
           </button>
           <button
             type="button"
             aria-pressed={advancedDevView}
-            onClick={() => setAdvancedDevView((v) => !v)}
+            onClick={() => setAdvancedDevView(!advancedDevView)}
             className={`shrink-0 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors ${
               advancedDevView
                 ? "border-brand-500/50 bg-brand-500/15 text-brand-200"
@@ -733,7 +675,10 @@ export default function CaseDetail() {
           — dry-run draft JSON rules against this case&apos;s stored audit payload before deploying to Rust.
         </span>
       </p>
-
+          </>
+        }
+        body={
+          <>
       <TriageHeader
         verdict={decisionExplain?.decision ?? "review"}
         riskScore={decisionExplain?.score ?? 0}
@@ -977,12 +922,13 @@ export default function CaseDetail() {
             </div>
           </div>
           <div className="flex flex-col gap-2 mt-1">
-            <Link
-              to={`/investigation?case_id=${encodeURIComponent(caseData.id)}&tenant_id=${encodeURIComponent(caseData.tenant_id)}`}
-              className="block text-center text-xs font-medium px-3 py-2.5 rounded-lg bg-brand-600/20 text-brand-300 hover:bg-brand-600/30 transition-colors border border-brand-500/30"
+            <button
+              type="button"
+              onClick={() => setCopilotRailOpen(true)}
+              className="block w-full text-center text-xs font-medium px-3 py-2.5 rounded-lg bg-brand-600/20 text-brand-300 hover:bg-brand-600/30 transition-colors border border-brand-500/30"
             >
-              Open in Investigation Copilot
-            </Link>
+              Open copilot rail
+            </button>
             <button
               type="button"
               disabled={!decisionExplain?.rule_hits?.length}
@@ -1365,37 +1311,9 @@ export default function CaseDetail() {
           </button>
         </div>
       </div>
-
-      {/* Tabs — URL ?tab=timeline|audit|graph for sharing & multi-case workflow */}
-      <div className="border-b border-surface-700" role="tablist" aria-label="Case views">
-        <div className="flex gap-1 sm:gap-6 flex-wrap">
-          {CASE_DETAIL_TABS.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab}
-              id={`case-tab-${tab}`}
-              onClick={() => setActiveTab(tab)}
-              className={`pb-3 px-1 sm:px-0 text-sm font-medium capitalize transition-colors border-b-2 ${
-                activeTab === tab
-                  ? "text-brand-400 border-brand-400"
-                  : "text-gray-400 border-transparent hover:text-gray-200"
-              }`}
-            >
-              {tab === "graph" ? "Entity Graph" : tab}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Tab Content */}
-      {activeTab === "timeline" && (
-        <div
-          role="tabpanel"
-          id="case-panel-timeline"
-          aria-labelledby="case-tab-timeline"
-        >
+          </>
+        }
+        timeline={
           <TimelineTab
             comments={caseData.comments ?? []}
             commentText={commentText}
@@ -1403,15 +1321,9 @@ export default function CaseDetail() {
             onSubmit={handleAddComment}
             submitting={commentSubmitting}
           />
-        </div>
-      )}
-      {activeTab === "audit" && (
-        <div role="tabpanel" id="case-panel-audit" aria-labelledby="case-tab-audit">
-          <AuditTab caseData={caseData} />
-        </div>
-      )}
-      {activeTab === "graph" && (
-        <div role="tabpanel" id="case-panel-graph" aria-labelledby="case-tab-graph">
+        }
+        audit={<AuditTab caseData={caseData} />}
+        graph={
           <GraphTab
             caseId={caseData.id}
             entityId={caseData.entity_id}
@@ -1420,28 +1332,21 @@ export default function CaseDetail() {
             eventTimeIso={caseData.created_at}
             showRawDevTables={advancedDevView}
           />
-        </div>
-      )}
-
+        }
+        knowledgeGraphRail={
+          <KnowledgeGraphDesktopRail
+            entityId={caseData.entity_id}
+            tenantId={caseData.tenant_id}
+            state={knowledgeGraphState}
+          />
+        }
+      />
       <TuneRuleModal
         open={tuneRuleOpen}
         onClose={() => setTuneRuleOpen(false)}
         ruleHits={decisionExplain?.rule_hits ?? []}
       />
-      </div>
-      <KnowledgeGraphDesktopRail
-        entityId={caseData.entity_id}
-        tenantId={caseData.tenant_id}
-        state={knowledgeGraphState}
-      />
-      <ShadowChatSidebar
-        caseId={caseData.id}
-        tenantId={caseData.tenant_id}
-        caseTitle={caseData.title ?? undefined}
-        open={shadowChatOpen}
-        onOpenChange={setShadowChatOpen}
-      />
-    </div>
+    </>
   );
 }
 
@@ -1695,7 +1600,7 @@ function GraphTab({
         const data = await graph.subgraph(entityId, tenantId, 2);
         setGraphData(data);
       } catch (e) {
-        setError(toUserFacingError(e, { subject: "Case graph", action: "load related entity graph" }));
+        setError(toUserFacingApiError(e, { subject: "Case graph", action: "load related entity graph" }));
       } finally {
         setLoading(false);
       }

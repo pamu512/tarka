@@ -1,6 +1,6 @@
 # Tarka V2 — Ingestion sidecar architecture (audit-first)
 
-This document describes the **decoupled sidecar pipeline** under `tarka_v2_core/services/`: **Orchestrator** (ingestion gateway), **Rule Engine** (deterministic AST evaluation), and **Shadow Agent** (optional LLM analyze + persistence). It is distinct from the macroservice **Core API :8000** / **Graph :8001** / **Case :8002** layout in `deploy/docker-compose.lite.yml`.
+This document describes the **decoupled sidecar pipeline** under `services/`: **Orchestrator** (ingestion gateway), **Rule Engine** (deterministic AST evaluation), and **Shadow Agent** (optional LLM analyze + persistence). It is distinct from the macroservice **Core API :8000** / **Graph :8001** / **Case :8002** layout in `infra/deploy/docker-compose.lite.yml`.
 
 ## Host port convention (V2 local stack)
 
@@ -20,7 +20,7 @@ This document describes the **decoupled sidecar pipeline** under `tarka_v2_core/
 | `ORCHESTRATOR_SHADOW_ANALYZE_TIMEOUT_SECONDS` | Read deadline for Shadow HTTP call (default **3s**); on timeout, ingest still returns **200** with `orchestrator_fallback_decision` / `FLAG` and **no** `shadow_agent` body. |
 | `SHADOW_DATABASE_URL` | Async SQLAlchemy URL for Shadow’s DB (audit + case bootstrap). |
 
-Sources: `tarka_v2_core/services/orchestrator/src/orchestrator/main.py`, `rule_engine/main.py`, `shadow_agent/main.py`.
+Sources: `services/orchestrator/main.py`, `services/rule_engine/main.py`, `services/shadow_agent/main.py`.
 
 ---
 
@@ -82,7 +82,7 @@ sequenceDiagram
 
 ### 1. Ingest envelope — `TransactionSchema`
 
-Shared Pydantic model (`tarka_v2_core/services/ingestor/src/ingestor/manifest_schema.py`). **Extra fields forbidden.** Used as the **JSON body** for orchestrator `POST /v1/ingest` and forwarded verbatim to rule engine / Shadow.
+Shared Pydantic model (`services/ingestor/src/ingestor/manifest_schema.py`). **Extra fields forbidden.** Used as the **JSON body** for orchestrator `POST /v1/ingest` and forwarded verbatim to rule engine / Shadow.
 
 | Field | Type | Constraints |
 |-------|------|-------------|
@@ -125,7 +125,7 @@ Validated `ShadowDecision` plus orchestration-only `_debug` (`shadow_agent/main.
 
 ### 4. Audit trail — SQLAlchemy ORM
 
-`AuditLog` (`tarka_v2_core/services/shared/tarka_shared/audit_trail.py`), table **`audit_logs`**:
+`AuditLog` (`packages/shared-core/tarka_shared/audit_trail.py`), table **`audit_logs`**:
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -144,11 +144,11 @@ Shadow agent loads prior rows for `entity_id` before LLM inference, then **adds 
 
 | Path | Purpose |
 |------|---------|
-| `tarka_v2_core/services/orchestrator/` | Ingest gateway, httpx to rule engine + Shadow. |
-| `tarka_v2_core/services/rule_engine/` | AST evaluator sidecar. |
-| `tarka_v2_core/services/shadow_agent/` | Analyze + audit persistence + Ollama client. |
-| `tarka_v2_core/services/ingestor/` | `TransactionSchema` + manifest types. |
-| `tarka_v2_core/services/shared/tarka_shared/` | `AuditLog`, `Case`, DB session helpers. |
+| `services/orchestrator/` | Ingest gateway, httpx to rule engine + Shadow. |
+| `services/rule_engine/` | AST evaluator sidecar. |
+| `services/shadow_agent/` | Analyze + audit persistence + Ollama client. |
+| `services/ingestor/` | `TransactionSchema` + manifest types. |
+| `packages/shared-core/tarka_shared/` | `AuditLog`, `Case`, DB session helpers. |
 | `scripts/stress_test_ingestion.py` | Concurrent ingest + optional `audit_logs` count gate. |
 
 ---

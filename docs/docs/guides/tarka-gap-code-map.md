@@ -97,7 +97,7 @@ Legend: **Today** = where behavior exists now; **Extend** = natural place to dee
 |------|------|
 | **Today — JSON rules engine** | `services/decision-api/src/decision_api/json_rules.py` |
 | **Today — rule HTTP API** | `services/decision-api/src/decision_api/rule_api.py` |
-| **Today — optional OPA sidecar** | Compose/Helm samples under `deploy/opa/`; `evaluate_opa` in `services/decision-api/src/decision_api/main.py` — **separate** from visual JSON compile and **`tarka_rule_engine`** |
+| **Today — optional OPA sidecar** | Compose/Helm samples under `infra/deploy/opa/`; `evaluate_opa` in `services/decision-api/src/decision_api/main.py` — **separate** from visual JSON compile and **`tarka_rule_engine`** |
 | **Today — shadow mode API** | `services/decision-api/src/decision_api/main.py` + rule packs — shadow observations/stats |
 | **Today — simulation** | `services/decision-api/src/decision_api/simulation_api.py`, `simulator.py` |
 | **Today — vertical packs** | `services/decision-api/src/decision_api/vertical_packs.py` |

@@ -219,6 +219,89 @@ paths:
       responses:
         "200":
           description: OK
+  /v1/cases/{case_id}/graph-annotations:
+    get:
+      operationId: getCaseGraphAnnotations
+      summary: Server-persisted graph node annotations (replaces localStorage contract)
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Annotation map keyed by graph node id
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+    put:
+      operationId: putCaseGraphAnnotations
+      summary: Upsert graph node annotations for a case
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                annotations:
+                  type: object
+                  additionalProperties: { type: string }
+                analyst_id: { type: string }
+      responses:
+        "200":
+          description: Stored annotations
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/cases/{case_id}/path-explain:
+    get:
+      operationId: casePathExplain
+      summary: Proxy graph-service path-explain for case subject entity
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: to_entity_id
+          in: query
+          required: false
+          schema: { type: string }
+        - name: depth
+          in: query
+          schema: { type: integer, default: 3 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10 }
+      responses:
+        "200":
+          description: Path explanation artifact
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
   /v1/cases/{case_id}/decision-explanation:
     get:
       operationId: caseDecisionExplanation

@@ -11,6 +11,14 @@ import {
 } from "../lib/saarthi/featureImportance";
 import { reportDataOutcome } from "./dataSourceState";
 import { assertIntegrationSecretsTransportSecure } from "../utils/integrationSecretsTransport";
+import {
+  extractSupportIdFromMessage,
+  toUserFacingError,
+  type ErrorContext,
+} from "../utils/userFacingErrors";
+
+export type { ErrorContext };
+export { toUserFacingError };
 
 export type { ConfidenceTier, InferenceContext, MlTopFactor };
 export { normalizeInferenceContext };
@@ -85,7 +93,7 @@ async function fetchGraphEntityDeepContext(entityId: string, tenantId: string): 
           return mock as GraphEntityDeepContext;
         }
       }
-      throw new Error(parseHttpErrorMessage(res.status, res.statusText, text, res.headers));
+      throw apiRequestErrorFromHttp(res.status, res.statusText, text, res.headers);
     }
     return JSON.parse(text) as GraphEntityDeepContext;
   } catch (err) {
@@ -97,7 +105,7 @@ async function fetchGraphEntityDeepContext(entityId: string, tenantId: string): 
         return mock as GraphEntityDeepContext;
       }
     }
-    throw err;
+    throw normalizeNetworkFetchError(err);
   }
 }
 
@@ -321,6 +329,131 @@ export interface CaseDecisionExplanationPayload {
   source: string;
   decision?: string;
   score?: number;
+}
+
+/** ``tarka.graph_path_explanation/v1`` (graph-service / case-api proxy). */
+export interface GraphPathHop {
+  entity_id: string;
+  labels?: string[];
+  relationship?: string | null;
+}
+
+export interface GraphPathExplanationPath {
+  entity_id: string;
+  target_entity_id?: string;
+  distance: number;
+  propagated_risk_score: number;
+  path_description: string;
+  hops: GraphPathHop[];
+  reasons: string[];
+}
+
+export interface GraphPathExplanation {
+  schema_id: "tarka.graph_path_explanation/v1";
+  tenant_id: string;
+  subject: string;
+  target?: string | null;
+  paths: GraphPathExplanationPath[];
+  risk_narrative: string;
+  summary: Record<string, unknown>;
+}
+
+export type HilOverrideType =
+  | "ALLOW_SEASONAL_SPIKE"
+  | "FORCE_BLOCK"
+  | "TEMPORARY_BASELINE_SHIFT";
+
+export interface HilOverrideRow {
+  override_type: HilOverrideType | string;
+  scope_key: string;
+  expires_at?: string | null;
+  analyst_rationale?: string;
+  analyst_id?: string;
+  created_at?: string;
+  [key: string]: unknown;
+}
+
+export interface HilOverrideCreateRequest {
+  idempotency_key: string;
+  tenant_id: string;
+  override_type: HilOverrideType;
+  scope_key: string;
+  expires_at?: string | null;
+  analyst_rationale: string;
+  analyst_id: string;
+}
+
+export interface HilOverrideAcceptedResponse {
+  event_id: string;
+  override: HilOverrideRow;
+}
+
+export interface HilOverrideListResponse {
+  tenant_id: string;
+  entity_id: string;
+  overrides: HilOverrideRow[];
+}
+
+export interface TenantBenchmarkExport {
+  schema_id?: string;
+  tenant_id: string;
+  exported_at?: string;
+  verticals?: Array<Record<string, unknown>>;
+  summary?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface DriftQueryResponse {
+  schema_id: string;
+  tenant_id: string;
+  profile: string;
+  calibration: Record<string, unknown>;
+  summary: {
+    drift_elevated?: boolean;
+    drift_score?: number | null;
+    hint?: string;
+  };
+}
+
+export interface CounterCatalogEntry {
+  name: string;
+  title?: string;
+  category?: string;
+  window_seconds?: number;
+  kind?: string;
+  ops_deep_link?: string;
+  description?: string;
+  [key: string]: unknown;
+}
+
+export interface CounterCatalogResponse {
+  catalog_version: string;
+  manifest_version?: string;
+  redis_key_version?: string | null;
+  counters: CounterCatalogEntry[];
+}
+
+/** ``tarka.bridge.case_state_change/v1`` outbound webhook payload. */
+export interface BridgeCaseStateChangePayload {
+  schema_id: "tarka.bridge.case_state_change/v1";
+  event_id: string;
+  emitted_at: string;
+  tenant_id: string;
+  case_id: string;
+  previous_status?: string | null;
+  new_status: string;
+  previous_priority?: string | null;
+  new_priority?: string | null;
+  assigned_team?: string | null;
+  actor_id: string;
+  actor_role: string;
+  source: "case-api" | "orchestrator" | "chat-bridge";
+  platform?: "slack" | "teams" | "api" | null;
+  thread_key?: string | null;
+  correlation_id?: string | null;
+  idempotency_key?: string | null;
+  labels?: string[];
+  metadata?: Record<string, unknown>;
 }
 
 /** SAR filing intent regulatory status (case-api `sar_filing_intents`). */
@@ -1081,6 +1214,52 @@ export function parseHttpErrorMessage(status: number, statusText: string, text: 
   return `${status} ${normalizedDetail}${codeSuffix}${supportSuffix}`;
 }
 
+/** Structured HTTP failure from ``request`` / ``fetch`` helpers in this module. */
+export class ApiRequestError extends Error {
+  readonly status: number | null;
+  readonly supportId: string | null;
+
+  constructor(message: string, opts?: { status?: number | null; supportId?: string | null }) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = opts?.status ?? null;
+    this.supportId = opts?.supportId ?? extractSupportIdFromMessage(message);
+  }
+}
+
+export function isApiRequestError(error: unknown): error is ApiRequestError {
+  return error instanceof ApiRequestError;
+}
+
+/** Map API/network failures to analyst-safe copy (centralized for page handlers). */
+export function toUserFacingApiError(error: unknown, context: ErrorContext): string {
+  return toUserFacingError(error, context);
+}
+
+function apiRequestErrorFromHttp(
+  status: number,
+  statusText: string,
+  text: string,
+  headers: Headers,
+): ApiRequestError {
+  const message = parseHttpErrorMessage(status, statusText, text, headers);
+  return new ApiRequestError(message, {
+    status,
+    supportId: extractSupportIdFromMessage(message),
+  });
+}
+
+function normalizeNetworkFetchError(error: unknown): unknown {
+  if (error instanceof ApiRequestError) return error;
+  if (error instanceof TypeError && /failed to fetch/i.test(error.message)) {
+    return new ApiRequestError(error.message, { status: null, supportId: null });
+  }
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return new ApiRequestError("408 Request timed out or was aborted", { status: 408, supportId: null });
+  }
+  return error;
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const allowMockFallback = USE_API_MOCKS;
   try {
@@ -1099,7 +1278,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
         }
       }
       reportDataOutcome("offline");
-      throw new Error(parseHttpErrorMessage(res.status, res.statusText, text, res.headers));
+      throw apiRequestErrorFromHttp(res.status, res.statusText, text, res.headers);
     }
     if (!ct.includes("json") && !text.trimStart().startsWith("{") && !text.trimStart().startsWith("[")) {
       if (allowMockFallback) {
@@ -1140,7 +1319,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
       }
     }
     reportDataOutcome("offline");
-    throw err;
+    throw normalizeNetworkFetchError(err);
   }
 }
 
@@ -1224,12 +1403,17 @@ export const decisions = {
   },
 
   counterCatalog() {
-    return request<{
-      catalog_version: string;
-      manifest_version?: string;
-      redis_key_version?: string | null;
-      counters: Array<Record<string, unknown>>;
-    }>("/api/decisions/v1/internal/counters/catalog");
+    return request<CounterCatalogResponse>("/api/decisions/v1/internal/counters/catalog");
+  },
+
+  benchmarkExport(tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<TenantBenchmarkExport>(`/api/decisions/v1/simulation/benchmark/export?${q}`);
+  },
+
+  driftQuery(tenantId: string, profile: string = "default") {
+    const q = new URLSearchParams({ tenant_id: tenantId, profile });
+    return request<DriftQueryResponse>(`/api/decisions/v1/drift/query?${q}`);
   },
 
   calibrationStatus(tenantId: string, profile: string = "default") {
@@ -1551,6 +1735,18 @@ export const cases = {
     return request<CaseDecisionExplanationPayload>(`/api/cases/v1/cases/${caseId}/decision-explanation?${q}`);
   },
 
+  pathExplain(
+    caseId: string,
+    tenantId: string,
+    opts?: { to_entity_id?: string; depth?: number; limit?: number },
+  ) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    if (opts?.to_entity_id) q.set("to_entity_id", opts.to_entity_id);
+    if (opts?.depth != null) q.set("depth", String(opts.depth));
+    if (opts?.limit != null) q.set("limit", String(opts.limit));
+    return request<GraphPathExplanation>(`/api/cases/v1/cases/${caseId}/path-explain?${q}`);
+  },
+
   evidenceBundle(caseId: string, tenantId: string) {
     const q = new URLSearchParams({ tenant_id: tenantId });
     return request<Record<string, unknown>>(`/api/cases/v1/cases/${caseId}/evidence-bundle?${q}`);
@@ -1741,6 +1937,20 @@ export const graph = {
   /** Deep neighborhood context; ``null`` when the graph DB has no vertex for this entity (404). */
   entityDeepContext(entityId: string, tenantId: string) {
     return fetchGraphEntityDeepContext(entityId, tenantId);
+  },
+
+  pathExplain(params: {
+    tenant_id: string;
+    subject: string;
+    target?: string;
+    depth?: number;
+    limit?: number;
+  }) {
+    const q = new URLSearchParams({ tenant_id: params.tenant_id, subject: params.subject });
+    if (params.target) q.set("target", params.target);
+    if (params.depth != null) q.set("depth", String(params.depth));
+    if (params.limit != null) q.set("limit", String(params.limit));
+    return request<GraphPathExplanation>(`/api/graph/v1/analytics/path-explain?${q}`);
   },
 
   /** ``GET /v1/investigation/mule-path`` — User A → mule → payout fund flow (Prompt 179). */
@@ -2221,7 +2431,7 @@ export async function streamShadowLLMChat(
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(parseHttpErrorMessage(res.status, res.statusText, text, res.headers));
+    throw apiRequestErrorFromHttp(res.status, res.statusText, text, res.headers);
   }
   const reader = res.body?.getReader();
   if (!reader) throw new Error("No response body");
@@ -2719,7 +2929,7 @@ export const investigation = {
     });
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(parseHttpErrorMessage(res.status, res.statusText, text, res.headers));
+      throw apiRequestErrorFromHttp(res.status, res.statusText, text, res.headers);
     }
     const reader = res.body?.getReader();
     if (!reader) throw new Error("No response body");
@@ -2783,7 +2993,7 @@ export const investigation = {
         const mock = await loadMockResponse(url, { method: "POST" });
         if (mock !== null) return mock as InvestigationBatchIngestResponse;
       }
-      throw new Error(parseHttpErrorMessage(res.status, res.statusText, text, res.headers));
+      throw apiRequestErrorFromHttp(res.status, res.statusText, text, res.headers);
     } catch (err) {
       if (USE_API_MOCKS) {
         const mock = await loadMockResponse(url, { method: "POST" });
@@ -3824,7 +4034,7 @@ export async function downloadComplianceResidencyAuditCsv(filters: ResidencyAudi
   if (!res.ok) {
     const text = await res.text();
     reportDataOutcome("offline");
-    throw new Error(parseHttpErrorMessage(res.status, res.statusText, text, res.headers));
+    throw apiRequestErrorFromHttp(res.status, res.statusText, text, res.headers);
   }
   const blob = await res.blob();
   reportDataOutcome("live");
@@ -4158,5 +4368,42 @@ export const admin = {
       `/api/admin/v1/approvals/${approvalId}/reject`,
       { method: "POST", body: JSON.stringify(body) },
     );
+  },
+};
+
+// ── Orchestrator (HIL overrides — Q2-E04) ───────────────────────────
+
+export const orchestrator = {
+  listHilOverrides(entityId: string, tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<HilOverrideListResponse>(
+      `/api/orchestrator/v1/entities/${encodeURIComponent(entityId)}/hil-overrides?${q}`,
+    );
+  },
+
+  createHilOverride(entityId: string, body: HilOverrideCreateRequest) {
+    return request<HilOverrideAcceptedResponse>(
+      `/api/orchestrator/v1/entities/${encodeURIComponent(entityId)}/hil-overrides`,
+      { method: "POST", body: JSON.stringify(body) },
+    );
+  },
+};
+
+// ── Collaboration chat bridge (outbound schema — Q2-E08) ────────────
+
+export const bridge = {
+  caseStateChangeSchema() {
+    return request<Record<string, unknown>>("/api/bridge/v1/outbound/case-state-change/schema");
+  },
+
+  validateCaseStateChangeFixture(payload: BridgeCaseStateChangePayload, bridgeSecret: string) {
+    return request<{ ok?: boolean }>("/api/bridge/v1/outbound/case-state-change/fixture", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Bridge-Secret": bridgeSecret,
+      },
+      body: JSON.stringify(payload),
+    });
   },
 };

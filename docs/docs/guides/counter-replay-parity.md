@@ -18,7 +18,7 @@
 | Ops replay API | `POST /v1/internal/counters/replay`, `POST /v1/internal/counters/replay/from-audit` (token: `COUNTER_REPLAY_TOKEN`) |
 | CI / unit parity | [`.github/workflows/counter-parity-smoke.yml`](../../.github/workflows/counter-parity-smoke.yml), [`test_golden_counters.py`](../../../services/decision-api/tests/test_golden_counters.py), [`test_day60_velocity_windows.py`](../../../services/decision-api/tests/test_day60_velocity_windows.py), [`test_velocity_day60_parity.py`](../../../services/feature-service/tests/test_velocity_day60_parity.py) |
 | Feature-service Redis read path | `POST /v1/snapshot`, `POST /v1/velocity/query` when `FEATURE_SERVICE_REDIS_URL` / shared Redis is set |
-| Compose defaults | `AGG_KEY_VERSION` on `core-api` and `signal-api` in [`deploy/docker-compose.yml`](../../../deploy/docker-compose.yml) and [`deploy/docker-compose.lite.yml`](../../../deploy/docker-compose.lite.yml) |
+| Compose defaults | `AGG_KEY_VERSION` on `core-api` and `signal-api` in [`infra/deploy/docker-compose.yml`](../../../infra/deploy/docker-compose.yml) and [`infra/deploy/docker-compose.lite.yml`](../../../infra/deploy/docker-compose.lite.yml) |
 | Rule author keys | [velocity-counter-rule-keys.md](./examples/velocity-counter-rule-keys.md) |
 
 ---
@@ -104,7 +104,7 @@ Day 60 acceptance is **limited** to proving **deterministic** `event_count_5m`, 
 
 | Field | Value |
 |-------|--------|
-| **Verification command** | Confirm `deploy/docker-compose.yml` and `deploy/docker-compose.lite.yml` set `AGG_KEY_VERSION: ${AGG_KEY_VERSION:-local_v1}` on **core-api** and **signal-api**. Review [velocity-counter-rule-keys.md](./examples/velocity-counter-rule-keys.md) and confirm rule examples cite `event_count_5m`, `event_count_1h`, `event_count_24h`, and `distinct_session_id_24h` (when `session_id` is present) with **no invented key names**. |
+| **Verification command** | Confirm `infra/deploy/docker-compose.yml` and `infra/deploy/docker-compose.lite.yml` set `AGG_KEY_VERSION: ${AGG_KEY_VERSION:-local_v1}` on **core-api** and **signal-api**. Review [velocity-counter-rule-keys.md](./examples/velocity-counter-rule-keys.md) and confirm rule examples cite `event_count_5m`, `event_count_1h`, `event_count_24h`, and `distinct_session_id_24h` (when `session_id` is present) with **no invented key names**. |
 | **Expected evidence** | PR link or diff hunk showing compose env; rule doc merged on RC branch; Release Manager checklist tick. |
 | **Sign-off owner** | **Platform Engineering** |
 

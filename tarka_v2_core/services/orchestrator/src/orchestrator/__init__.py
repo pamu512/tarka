@@ -1,1 +1,0 @@
-"""Tarka ingestion orchestrator (gateway)."""

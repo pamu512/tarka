@@ -7,7 +7,7 @@
 Use **lite** compose (Decision + Case + Ingress + UI):
 
 ```bash
-docker compose -f deploy/docker-compose.lite.yml up -d --build
+docker compose -f infra/deploy/docker-compose.lite.yml up -d --build
 ```
 
 ## 2. Bot-like session (no human-like behavior)

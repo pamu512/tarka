@@ -11,7 +11,7 @@ This guide ties together **high-volume ingestion**, **client SDKs**, **idempoten
 
 The ingest worker forwards the same JSON fields as synchronous evaluate (except internal keys such as `_ingest_id`). Optional top-level **`agent_context`** and **`metadata.correlation_id`** for LLM/MCP-mediated events are described in [Agentic AI fraud detection: variables and layering](agentic-ai-fraud-detection-variables-and-layering.md).
 
-Default compose port for event-ingest (full/streaming profile) is **8007** (`deploy/docker-compose.yml`).
+Default compose port for event-ingest (full/streaming profile) is **8007** (`infra/deploy/docker-compose.yml`).
 
 ## Python SDK
 

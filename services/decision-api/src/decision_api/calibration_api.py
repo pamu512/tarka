@@ -202,7 +202,19 @@ def compute_drift_for_tenant(
 @router.get("/drift")
 async def drift_hint(tenant_id: str, profile: str = "default"):
     """Compare latest snapshot to reference; return a small drift score for ops dashboards."""
-    return compute_drift_for_tenant(tenant_id, profile)
+    out = compute_drift_for_tenant(tenant_id, profile)
+    try:
+        from observability import get_metrics
+
+        hint = str(out.get("hint") or "")
+        metrics = get_metrics()
+        if hint == "elevated_bin_shift_review_calibration":
+            metrics.inc("tarka_calibration_drift_hint_elevated")
+        elif hint == "moderate_drift_monitor":
+            metrics.inc("tarka_calibration_drift_hint_moderate")
+    except Exception:
+        pass
+    return out
 
 
 @router.get("/summary")

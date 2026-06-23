@@ -1,4 +1,4 @@
-type ErrorContext = {
+export type ErrorContext = {
   subject: string;
   action: string;
 };

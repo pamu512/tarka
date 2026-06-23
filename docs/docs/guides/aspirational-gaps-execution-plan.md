@@ -12,7 +12,7 @@ This document turns **“Missing”** and **large “Extend”** rows in [tarka-
 | Step | Deliverable                                                                                                                        | Where                                                                                    | Acceptance                                                                    |
 | ---- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | 1.1  | **Cross-SDK golden vectors** for `device_context` + minimal evaluate payloads                                                      | `contracts/json-schema/`, `services/decision-api/tests/`, `packages/fraud-sdk-* / tests` | CI job fails if a canonical JSON fixture drifts from schema or server parsing |
-| 1.2  | **Calibration / drift** already has `/v1/ops/calibration-status` — extend **docs + dashboards** linking drift to rule pack version | `docs/docs/guides/`, `deploy/observability/`                                             | Runbook: “when to bump calibration profile”                                   |
+| 1.2  | **Calibration / drift** already has `/v1/ops/calibration-status` — extend **docs + dashboards** linking drift to rule pack version | `docs/docs/guides/`, `infra/deploy/observability/`                                             | Runbook: “when to bump calibration profile”                                   |
 | 1.3  | **Reliability-style exports** (optional): export binned scores + labels to ClickHouse or CSV for offline reliability curves        | `analytics-sink` or batch script under `scripts/`                                        | Documented recipe, not a blocking product surface                             |
 
 
@@ -68,7 +68,7 @@ This document turns **“Missing”** and **large “Extend”** rows in [tarka-
 
 | Step | Deliverable                                                                                              | Where                               | Acceptance                           |
 | ---- | -------------------------------------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------ |
-| 5.1  | `**make policy-check`** (or GitHub Action) validating rule packs + OPA bundle against checked-in schemas | `.github/workflows/`, `deploy/opa/` | Required check on default branch     |
+| 5.1  | `**make policy-check`** (or GitHub Action) validating rule packs + OPA bundle against checked-in schemas | `.github/workflows/`, `infra/deploy/opa/` | Required check on default branch     |
 | 5.2  | **JSON Schema** for evaluate payload subsets versioned next to `contracts/json-schema/`                  | same                                | Breaking changes bump schema version |
 
 
@@ -119,7 +119,7 @@ This document turns **“Missing”** and **large “Extend”** rows in [tarka-
 
 | Step | Deliverable | Where | Acceptance |
 | ---- | ----------- | ----- | ---------- |
-| 9.1 | **Compose file** for the three sidecars (pinned Dockerfiles under `tarka_v2_core/`) | `deploy/docker-compose.v2-ingest.yml` | `docker compose … config` succeeds |
+| 9.1 | **Compose file** for the three sidecars (pinned Dockerfiles under ``) | `infra/deploy/docker-compose.v2-ingest.yml` | `docker compose … config` succeeds |
 | 9.2 | **Three shell entrypoints**: build, up, verify | `scripts/phase9/*.sh` | From repo root, scripts exit 0 when Docker is healthy; verify hits `GET /health/full` on **:8790** |
 | 9.3 | **Root README** documents hardware + the exact three commands | `README.md` | New engineers can copy-paste the block verbatim |
 
@@ -128,7 +128,7 @@ This document turns **“Missing”** and **large “Extend”** rows in [tarka-
 ## Cross-cutting — SLOs and ops (ongoing)
 
 - Per-tenant **scorecard export** JSON from `analytics-sink` or decision audit aggregates.
-- Grafana panels for **evaluate latency**, **error budget**, and **replay** failures — extend `deploy/observability/`.
+- Grafana panels for **evaluate latency**, **error budget**, and **replay** failures — extend `infra/deploy/observability/`.
 
 ---
 

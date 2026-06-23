@@ -24,18 +24,18 @@ Aliases such as `usa`, `eea`, `gdpr`, `uk` normalize to the closest profile (see
 
 ### Docker Compose
 
-Use the profile directory **[deploy/profiles/ai-governance](../../../deploy/profiles/ai-governance/README.md)**:
+Use the profile directory **[infra/deploy/profiles/ai-governance](../../../infra/deploy/profiles/ai-governance/README.md)**:
 
 - **Overrides:** `docker-compose.override-us.yml`, `docker-compose.override-eu-uk.yml`, `docker-compose.override-global.yml`
 - **Env snippets:** `us.env`, `eu-uk.env`, `global.env`
 
-Base **[deploy/docker-compose.yml](../../../deploy/docker-compose.yml)** passes through `AI_GOVERNANCE_PROFILE`, `BATCH_TTL_SECONDS`, `COPILOT_INJECTION_POLICY`, and frontend `**VITE_AI_GOVERNANCE_PROFILE`** from your shell or `deploy/.env`.
+Base **[infra/deploy/docker-compose.yml](../../../infra/deploy/docker-compose.yml)** passes through `AI_GOVERNANCE_PROFILE`, `BATCH_TTL_SECONDS`, `COPILOT_INJECTION_POLICY`, and frontend `**VITE_AI_GOVERNANCE_PROFILE`** from your shell or `infra/deploy/.env`.
 
 ### Helm
 
 Set `**investigationAgent.aiGovernanceProfile**`, optional `**batchTtlSeconds**`, and `**extraEnv**` (e.g. `COPILOT_INJECTION_POLICY`).
 
-Example fragments: **[deploy/profiles/ai-governance/helm/](../../../deploy/profiles/ai-governance/helm/)**.
+Example fragments: **[infra/deploy/profiles/ai-governance/helm/](../../../infra/deploy/profiles/ai-governance/helm/)**.
 
 Pre-built **frontend images** should be built with the matching `**VITE_AI_GOVERNANCE_PROFILE`** build arg (see **[frontend/Dockerfile](../../../frontend/Dockerfile)**).
 

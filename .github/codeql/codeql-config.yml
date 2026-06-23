@@ -1,21 +1,35 @@
 # Shared CodeQL configuration (advanced workflow + optional default-setup use).
 #
-# Kotlin/Android sources live only under packages/fraud-sdk-android/ with a local
-# build.gradle.kts but no Gradle/Maven project at the repository root. GitHub
-# default CodeQL for "Java/Kotlin" expects a top-level Gradle/Maven/Ant build,
-# which triggers "No build command found" unless you disable that language or
-# add a root aggregator + wrapper.
+# v1.3 layout: active Python/JS/Actions code lives under services/, frontend/,
+# packages/, infra/scripts/, and .github/workflows/ (legacy_attic/ removed).
 #
-# Excluding this path removes the only Kotlin/Java sources from extraction so
-# java-kotlin analysis can complete without a root build (when this file is used).
+# Kotlin/Android: packages/fraud-sdk-android/ has no root Gradle project — exclude
+# so default java-kotlin setup does not require a top-level build.
 name: Tarka CodeQL config
+
+paths:
+  - .github
+  - crates
+  - frontend
+  - services
+  - packages
+  - infra/scripts
+  - infra/deploy
+  - scripts
+  - schemas
+  - tools
+  - adapters
+
 paths-ignore:
   - packages/fraud-sdk-android
+  - "**/node_modules/**"
+  - "**/.venv/**"
+  - "**/__pycache__/**"
+  - "**/.pytest_cache/**"
+  - "**/dist/**"
+  - "**/build/**"
   - "**/.cache/**"
-  - root/.cache
-  # Local dev PKI only (not used in production deploy paths).
   - infrastructure/certs/dev/**
-  # Legacy duplicate tree (canonical code lives under legacy_attic/services/).
-  - services/investigation-agent/**
-  - services/collaboration-chat-bridge/**
-  - services/location-service/**
+  - docs/site/**
+  # Git submodule (separate repo); enable recursive checkout in codeql.yml to scan.
+  - tools/shadow/**

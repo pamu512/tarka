@@ -1,7 +1,10 @@
+import logging
 import os
 import sys
+import threading
 import time
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -11,17 +14,24 @@ from pydantic import BaseModel, Field
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared"))
 from observability import get_metrics, setup_observability  # noqa: E402
 
-from ml_scoring.adaptive import get_detector, init_detector, reset_detector, save_detector  # noqa: E402
-from ml_scoring.explainability import (  # noqa: E402
+from adaptive import (  # noqa: E402
+    get_detector,
+    init_detector,
+    reset_detector,
+    save_detector,
+)
+from calibration import router as calibration_router  # noqa: E402
+from explainability import (  # noqa: E402
     explain_score,
     ml_summary_from_factors,
     top_factors_from_explanations,
 )
-from ml_scoring.heuristic import extract_feature_vector as _extract_feature_vector  # noqa: E402
-from ml_scoring.heuristic import heuristic_score as _heuristic_score  # noqa: E402
-from ml_scoring.model_registry import ModelRegistry  # noqa: E402
-from ml_scoring.calibration import router as calibration_router  # noqa: E402
-from ml_scoring.shap_explainer import lgbm_score_and_shap_factors  # noqa: E402
+from heuristic import extract_feature_vector as _extract_feature_vector  # noqa: E402
+from heuristic import heuristic_score as _heuristic_score  # noqa: E402
+from model_registry import ModelRegistry  # noqa: E402
+from shap_explainer import lgbm_score_and_shap_factors  # noqa: E402
+
+log = logging.getLogger(__name__)
 
 DISABLE_ML = os.environ.get("DISABLE_ML", "").lower() in ("1", "true", "yes")
 # OSS #37: when true (default), activate/traffic-split require passing ml_promotion_policy_v1.json gates
@@ -35,25 +45,67 @@ MODEL_VERSION = os.environ.get("ML_MODEL_VERSION", "heuristic-v1")
 ONNX_PATH = os.environ.get("ONNX_MODEL_PATH", "")
 MODELS_DIR = os.environ.get(
     "MODELS_DIR",
-    str(Path(__file__).resolve().parent.parent.parent / "models"),
+    str(
+        Path(__file__).resolve().parent.parent.parent / "models"
+        if (Path(__file__).resolve().parent.parent.parent / "models").is_dir()
+        else Path(__file__).resolve().parent / "models"
+    ),
 )
 
 registry = ModelRegistry(MODELS_DIR)
 
 
+@dataclass
+class OnnxInferenceHandle:
+    """Single object swapped during hot reload so readers snapshot session + input name together."""
+
+    session: Any
+    input_name: str
+    source_path: str = ""
+
+
+_onnx_handle = OnnxInferenceHandle(None, "", "")
+_onnx_swap_lock = threading.Lock()
+
+
+def load_onnx_inference_handle(model_path: str) -> OnnxInferenceHandle:
+    """Load ONNX from disk. Returns an empty handle on failure (logs, does not raise)."""
+    raw = (model_path or "").strip()
+    if not raw:
+        return OnnxInferenceHandle(None, "", "")
+    try:
+        import onnxruntime as ort
+
+        path = str(Path(raw).resolve())
+        sess = ort.InferenceSession(path, providers=["CPUExecutionProvider"])
+        inp = sess.get_inputs()[0].name
+        return OnnxInferenceHandle(session=sess, input_name=inp, source_path=path)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("onnx_load_failed path=%s error=%s", raw, exc)
+        return OnnxInferenceHandle(None, "", raw)
+
+
+def swap_onnx_inference_handle(new: OnnxInferenceHandle) -> OnnxInferenceHandle:
+    """Publish ``new`` as the active ONNX handle. Returns the previous handle (retired).
+
+    The critical section is only the pointer swap so HTTP scoring threads are not
+    held on this lock while ONNXRuntime loads weights from disk.
+    """
+    global _onnx_handle
+    with _onnx_swap_lock:
+        prev = _onnx_handle
+        _onnx_handle = new
+    return prev
+
+
 def _promotion_skip(request: Request) -> bool:
     if not PROMOTION_GATE_ENFORCE:
         return True
-    if (
+    return bool(
         ML_PROMOTION_OVERRIDE_SECRET
         and request.headers.get("x-ml-promotion-override", "") == ML_PROMOTION_OVERRIDE_SECRET
-    ):
-        return True
-    return False
+    )
 
-
-_onnx_session = None
-_onnx_input_name: str = ""
 
 # ---------- auth ----------
 
@@ -97,22 +149,16 @@ _score_counter: int = 0
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    global _onnx_session, _onnx_input_name
-
     registry.scan()
     init_detector()
 
     if ONNX_PATH and not DISABLE_ML:
-        try:
-            import onnxruntime as ort
-
-            _onnx_session = ort.InferenceSession(ONNX_PATH, providers=["CPUExecutionProvider"])
-            _onnx_input_name = _onnx_session.get_inputs()[0].name
-        except Exception:
-            _onnx_session = None
+        swap_onnx_inference_handle(load_onnx_inference_handle(ONNX_PATH))
+    else:
+        swap_onnx_inference_handle(OnnxInferenceHandle(None, "", ""))
     yield
     save_detector()
-    _onnx_session = None
+    swap_onnx_inference_handle(OnnxInferenceHandle(None, "", ""))
 
 
 app = FastAPI(
@@ -121,6 +167,7 @@ app = FastAPI(
     lifespan=lifespan,
     dependencies=[Depends(require_api_key)],
 )
+app.include_router(calibration_router)
 if os.environ.get("TARKA_SIGNAL_PLANE_SUBAPP", "").strip() != "1":
     setup_observability(app, "ml-scoring")
 app.include_router(calibration_router)
@@ -154,13 +201,14 @@ def _extract_onnx_score(outputs: list) -> float:
 
 
 def _onnx_score(features: dict[str, Any]) -> float | None:
-    if not _onnx_session:
+    h = _onnx_handle
+    if not h.session:
         return None
     try:
         import numpy as np
 
         vec = np.array([_extract_feature_vector(features)], dtype=np.float32)
-        outputs = _onnx_session.run(None, {_onnx_input_name: vec})
+        outputs = h.session.run(None, {h.input_name: vec})
         return _extract_onnx_score(outputs)
     except Exception:
         return None
@@ -188,7 +236,7 @@ async def health():
         "status": "ok",
         "disable_ml": DISABLE_ML,
         "model_version": MODEL_VERSION,
-        "onnx_loaded": _onnx_session is not None,
+        "onnx_loaded": _onnx_handle.session is not None,
         "registry_models": len(registry.list_models()),
         "shap_stretch_enabled": shap_on and lgbm_path,
     }
@@ -200,24 +248,15 @@ async def models_reload(request: Request) -> dict[str, object]:
     secret = (os.environ.get("ML_MODEL_WEBHOOK_SECRET") or "").strip()
     if secret and request.headers.get("x-ml-webhook-secret", "") != secret:
         raise HTTPException(status_code=403, detail="invalid_webhook_secret")
-    global _onnx_session, _onnx_input_name
     count = registry.scan()
     if ONNX_PATH and not DISABLE_ML:
-        try:
-            import onnxruntime as ort
-
-            _onnx_session = ort.InferenceSession(ONNX_PATH, providers=["CPUExecutionProvider"])
-            _onnx_input_name = _onnx_session.get_inputs()[0].name
-        except Exception:
-            _onnx_session = None
-            _onnx_input_name = ""
+        swap_onnx_inference_handle(load_onnx_inference_handle(ONNX_PATH))
     else:
-        _onnx_session = None
-        _onnx_input_name = ""
+        swap_onnx_inference_handle(OnnxInferenceHandle(None, "", ""))
     return {
         "ok": True,
         "registry_versions_scanned": count,
-        "onnx_loaded": _onnx_session is not None,
+        "onnx_loaded": _onnx_handle.session is not None,
     }
 
 
@@ -234,7 +273,7 @@ async def slo_status():
         "current": {
             **cur,
             "disable_ml": DISABLE_ML,
-            "onnx_loaded": _onnx_session is not None,
+            "onnx_loaded": _onnx_handle.session is not None,
             "registry_models": len(registry.list_models()),
         },
     }
@@ -322,10 +361,7 @@ async def score(body: ScoreRequest, bg: BackgroundTasks):
         else None,
     )
 
-    if shap_factors:
-        ml_top_factors = shap_factors
-    else:
-        ml_top_factors = top_factors_from_explanations(explanations, limit=3)
+    ml_top_factors = shap_factors or top_factors_from_explanations(explanations, limit=3)
     ml_summary = ml_summary_from_factors(blended, ml_top_factors, model_label)
 
     bg.add_task(_background_adaptive_update, numeric_features)

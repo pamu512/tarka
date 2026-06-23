@@ -1,15 +1,15 @@
 import { useEffect, useState, useCallback, useRef, useId } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { cases, type Case, type CaseCreateRequest, type CaseDeskActivity, type CaseOpsKpis } from "../api/client";
+import { cases, type Case, type CaseCreateRequest, type CaseDeskActivity, type CaseOpsKpis, toUserFacingApiError } from "../api/client";
 import { useAnalystWorkspace } from "../context/AnalystWorkspaceContext";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { useToast } from "../context/ToastContext";
 import StatusBadge from "../components/StatusBadge";
 import PriorityBadge from "../components/PriorityBadge";
 import { PageTitle } from "../components/PageTitle";
+import { DegradedModeBanner } from "../components/DegradedModeBanner";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { buildCaseComparisonHref } from "../utils/caseComparisonUrl";
-import { toUserFacingError } from "../utils/userFacingErrors";
 import { isHeroHotkeyEventIgnored } from "../utils/heroHotkeys";
 
 function insertCaseSortedByQueue(list: Case[], row: Case): Case[] {
@@ -32,6 +32,7 @@ export default function Cases() {
   const [caseList, setCaseList] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [degradedWarnings, setDegradedWarnings] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
   const [sortBy, setSortBy] = useState<"queue" | "updated" | "priority">("queue");
@@ -91,31 +92,39 @@ export default function Cases() {
         data = data.filter((c) => c.priority === priorityFilter);
       }
       setCaseList(data);
-      try {
-        const [kpis, coh, desk] = await Promise.all([
-          cases.opsKpis(tenantId),
-          cases.cohortCompare(tenantId, 7).catch(() => null),
-          cases.deskActivity(tenantId, 7, 40).catch(() => null),
-        ]);
-        setOpsKpis(kpis);
-        setCohort(
-          coh
-            ? {
-                cases_created_recent: coh.cases_created_recent,
-                cases_created_prior: coh.cases_created_prior,
-                delta_percent_vs_prior: coh.delta_percent_vs_prior,
-              }
-            : null,
-        );
-        setDeskActivity(desk);
-      } catch {
+      const warnings: string[] = [];
+      const [kpisR, cohR, deskR] = await Promise.allSettled([
+        cases.opsKpis(tenantId),
+        cases.cohortCompare(tenantId, 7),
+        cases.deskActivity(tenantId, 7, 40),
+      ]);
+      if (kpisR.status === "fulfilled") {
+        setOpsKpis(kpisR.value);
+      } else {
         setOpsKpis(null);
-        setCohort(null);
-        setDeskActivity(null);
+        warnings.push("Ops KPIs unavailable");
       }
+      if (cohR.status === "fulfilled") {
+        setCohort({
+          cases_created_recent: cohR.value.cases_created_recent,
+          cases_created_prior: cohR.value.cases_created_prior,
+          delta_percent_vs_prior: cohR.value.delta_percent_vs_prior,
+        });
+      } else {
+        setCohort(null);
+        warnings.push("Cohort compare unavailable");
+      }
+      if (deskR.status === "fulfilled") {
+        setDeskActivity(deskR.value);
+      } else {
+        setDeskActivity(null);
+        warnings.push("Desk activity unavailable");
+      }
+      setDegradedWarnings(warnings);
       setError(null);
     } catch (e) {
-      setError(toUserFacingError(e, { subject: "Case queue", action: "load cases" }));
+      setDegradedWarnings([]);
+      setError(toUserFacingApiError(e, { subject: "Case queue", action: "load cases" }));
     } finally {
       setLoading(false);
     }
@@ -155,7 +164,7 @@ export default function Cases() {
       setBulkLabel("");
       await fetchCases();
     } catch (e) {
-      setError(toUserFacingError(e, { subject: "Bulk update", action: "update selected cases" }));
+      setError(toUserFacingApiError(e, { subject: "Bulk update", action: "update selected cases" }));
     } finally {
       setBulkBusy(false);
     }
@@ -171,7 +180,7 @@ export default function Cases() {
       setSelectedIds(new Set());
       await fetchCases();
     } catch (e) {
-      setError(toUserFacingError(e, { subject: "Playbook apply", action: "run playbook on selected cases" }));
+      setError(toUserFacingApiError(e, { subject: "Playbook apply", action: "run playbook on selected cases" }));
     } finally {
       setBulkBusy(false);
     }
@@ -212,7 +221,7 @@ export default function Cases() {
             return copy;
           });
           toast(
-            toUserFacingError(e, {
+            toUserFacingApiError(e, {
               subject: "Case approval",
               action: "approve this case for investigation",
             }),
@@ -261,7 +270,7 @@ export default function Cases() {
       await fetchCases();
       toast("Rejected — case closed.", "success");
     } catch (e) {
-      setError(toUserFacingError(e, { subject: "Case status", action: "close case" }));
+      setError(toUserFacingApiError(e, { subject: "Case status", action: "close case" }));
     }
   }, [selectedIds, caseList, fetchCases, toast]);
 
@@ -555,7 +564,7 @@ export default function Cases() {
               setSavedViewSelection(savedName);
               setError(null);
             } catch (e) {
-              setError(toUserFacingError(e, { subject: "Saved view", action: "save this filter view" }));
+              setError(toUserFacingApiError(e, { subject: "Saved view", action: "save this filter view" }));
             } finally {
               setSaveViewBusy(false);
             }
@@ -623,20 +632,18 @@ export default function Cases() {
       </div>
       )}
 
-      {/* Table */}
-      {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm">
-          <p>{error}</p>
-          <SupportIdHint
-            message={error}
-            className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-red-300/85"
-            buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
-          />
-          <p className="mt-1 text-[11px] text-red-300/80">
-            Tip: retry the queue fetch. If this persists, use Investigation in demo/mock mode and escalate service health.
-          </p>
-        </div>
-      )}
+      <DegradedModeBanner
+        error={error}
+        warnings={degradedWarnings}
+        title={error ? "Case queue unavailable" : undefined}
+        hint={
+          error
+            ? "Tip: retry the queue fetch. If this persists, use Investigation in demo/mock mode and escalate service health."
+            : undefined
+        }
+        onDismiss={error ? () => setError(null) : undefined}
+        onRetry={error ? () => void fetchCases() : undefined}
+      />
 
       <div className="bg-surface-900 border border-surface-700 rounded-xl overflow-hidden">
         {loading ? (
@@ -900,7 +907,7 @@ function CreateCaseModal({
       if (followUps.length > 0) await Promise.all(followUps);
       onCreated();
     } catch (err) {
-      setError(toUserFacingError(err, { subject: "Case creation", action: "create a new case" }));
+      setError(toUserFacingApiError(err, { subject: "Case creation", action: "create a new case" }));
     } finally {
       setSubmitting(false);
     }

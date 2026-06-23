@@ -29,7 +29,7 @@ JanusGraph is not a dashboard decoration. The orchestrator’s graph client trea
 
 **Implication:** a “fraud score” backed only by a scalar feature store is weak evidence. A **Gremlin-traversable** explanation path—same device across five reviewers on one listing—is **auditable**. That is the moat: **edges are the receipts**.
 
-Configure graph backend via deployment env (JanusGraph remote / Gremlin; Neo4j remains available in some paths—see `deploy/janusgraph-cassandra-demo/` and orchestrator `GRAPH_BACKEND` docs in code).
+Configure graph backend via deployment env (JanusGraph remote / Gremlin; Neo4j remains available in some paths—see `infra/deploy/janusgraph-cassandra-demo/` and orchestrator `GRAPH_BACKEND` docs in code).
 
 ---
 
@@ -138,9 +138,9 @@ Publish honest numbers: host SKU, compose profile, commit SHA, warm-up count, an
 
 | Layer | What ships |
 |--------|------------|
-| **Decision engine** | **Rust `tarka-core`** — deterministic evaluation, WASM leaf hooks, forensic **replay** (`crates/tarka-cli`, `tarka replay`). Python integration uses **PyO3** where the `tarka` / `tarka-py` bindings are installed (compiler / flowchart / advanced paths). **HTTP policy seam:** `tarka_v2_core/services/rule_engine` (FastAPI evaluator on the ingest rail). |
-| **Intelligence graph** | **JanusGraph** (Gremlin) for topological signals; demo compose under `deploy/janusgraph-cassandra-demo/`. |
-| **Forensics AI** | **Shadow** — FastAPI sidecar `tarka_v2_core/services/shadow_agent`; local **Ollama** models (**Llama 3.2**, **Qwen3-VL** per `scripts/bootstrap_beta.sh` baseline checks). |
+| **Decision engine** | **Rust `tarka-core`** — deterministic evaluation, WASM leaf hooks, forensic **replay** (`crates/tarka-cli`, `tarka replay`). Python integration uses **PyO3** where the `tarka` / `tarka-py` bindings are installed (compiler / flowchart / advanced paths). **HTTP policy seam:** `services/rule_engine` (FastAPI evaluator on the ingest rail). |
+| **Intelligence graph** | **JanusGraph** (Gremlin) for topological signals; demo compose under `infra/deploy/janusgraph-cassandra-demo/`. |
+| **Forensics AI** | **Shadow** — FastAPI sidecar `services/shadow_agent`; local **Ollama** models (**Llama 3.2**, **Qwen3-VL** per `scripts/bootstrap_beta.sh` baseline checks). |
 | **Visualizer** | **Next.js** (`tarka_v2_ui/`) — **Knowledge Drop Zone** in decision views: upload priming documents, forward to `POST /v1/investigation/prime`, merge **graph snippet + cluster analysis** into analyst-facing UI (`DecisionDetail`, `KnowledgeDropInsight`). |
 | **Persistence** | **Postgres** (async SQLAlchemy), Redis where configured; **AuditLog** as the non-negotiable write-ahead for automated decisions. |
 
@@ -177,16 +177,19 @@ cargo build --release -p tarka-cli
 
 ---
 
-## Repository map (short)
+## Repository map (v1.3.0)
 
 | Path | Role |
 |------|------|
-| [`tarka_v2_core/`](tarka_v2_core/) | Ingestor schema, orchestrator, **rule_engine**, **shadow_agent**, shared models. |
-| [`tarka_v2_ui/`](tarka_v2_ui/) | Next.js operator UI + Knowledge Drop / prime API routes. |
-| [`crates/tarka-core/`](crates/tarka-core/) | Rust decision DAG / determinism. |
-| [`crates/tarka-cli/`](crates/tarka-cli/) | `tarka replay` and operator tooling. |
-| [`scripts/bootstrap_beta.sh`](scripts/bootstrap_beta.sh) | **1.3.0-beta** gate + `--launch`. |
-| [`legacy_attic/`](legacy_attic/) | Archived monolith-era trees—reference only. |
+| [`frontend/`](frontend/) | React analyst app (canonical workbench) |
+| [`services/`](services/) | Microservices — orchestrator, shadow_agent, rule_engine, case-api, graph-service, … |
+| [`packages/`](packages/) | Internal libs (`deploy-settings`, `shared-core`, SDKs) |
+| [`infra/`](infra/) | `infra/deploy/` (Compose, Helm, OPA) + `infra/scripts/` (CI, policy gates) |
+| [`docs/`](docs/) | Execution kits, runbooks, release notes — see [`docs/REPOSITORY_LAYOUT.md`](docs/REPOSITORY_LAYOUT.md) |
+| [`crates/tarka-core/`](crates/tarka-core/) | Rust decision DAG / determinism |
+| [`crates/tarka-cli/`](crates/tarka-cli/) | `tarka replay` and operator tooling |
+
+Legacy wrappers **`tarka_v2_core/`** and **`legacy_attic/`** are removed; all active code lives under the five zones above.
 
 ---
 

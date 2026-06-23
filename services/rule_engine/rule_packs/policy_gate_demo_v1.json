@@ -1,0 +1,15 @@
+{
+  "rules": [
+    {
+      "id": "33333333-3333-3333-3333-333333333333",
+      "name": "policy_gate_demo_flag",
+      "root_node": {
+        "field": { "field": "metadata" },
+        "operator": "CONTAINS",
+        "value": "POLICY_GATE_DEMO_MARKER"
+      },
+      "action": "FLAG",
+      "priority": 10
+    }
+  ]
+}

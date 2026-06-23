@@ -183,7 +183,7 @@ export default function OpsPipelines() {
       </div>
 
       <p className="text-xs text-gray-500">
-        Related: <span className="font-mono">deploy/docker-compose.yml</span> event-ingest on port{" "}
+        Related: <span className="font-mono">infra/deploy/docker-compose.yml</span> event-ingest on port{" "}
         <span className="font-mono">8007</span>, analytics-sink scorecard on{" "}
         <span className="font-mono">/api/analytics/v1/analytics/scorecard</span>, and Prometheus metrics on{" "}
         <span className="font-mono">/metrics</span>.

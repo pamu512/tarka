@@ -56,7 +56,7 @@ Run these checks from a trusted network segment with valid API keys.
 ### One-command smoke gate
 
 ```bash
-python3 scripts/ci/operational_surface_smoke.py --api-key <key>
+python3 infra/scripts/ci/operational_surface_smoke.py --api-key <key>
 ```
 
 This validates:

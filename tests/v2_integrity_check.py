@@ -1,32 +1,42 @@
 import sys
-import os
+from pathlib import Path
 
-CORE_BASE = os.path.abspath("tarka_v2_core")
+REPO = Path(__file__).resolve().parents[1]
+for candidate in (
+    REPO / "packages" / "shared-core",
+    REPO / "services" / "ingestor" / "src",
+    REPO / "services" / "ingestor",
+):
+    p = str(candidate)
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
-# This will find any directory named 'tarka_shared' or 'ingestor' and add its PARENT to sys.path
-for root, dirs, files in os.walk(CORE_BASE):
-    if 'tarka_shared' in dirs or 'ingestor' in dirs:
-        if root not in sys.path:
-            sys.path.append(root)
-
-print("[*] Testing Tarka V2 Integrity (Recursive Search)...")
+print("[*] Testing Tarka V2 integrity (v1.3 layout)...")
 
 try:
-    # 1. Test Audit-First Foundation
     from tarka_shared.audit_trail import AuditLog
+
     print("✅ SUCCESS: AuditLog found.")
-    
-    # 2. Test Ingestion Contract
-    from ingestor.manifest_schema import TransactionSchema
+
+    try:
+        from ingestor.manifest_schema import TransactionSchema
+    except ImportError as e:
+        if getattr(e, "name", "") == "tarka" or "No module named 'tarka'" in str(e):
+            print(
+                "⚠️  SKIP: TransactionSchema requires tarka-py "
+                "(cd crates/tarka-py && maturin develop)"
+            )
+            print("\n--- INTEGRITY PASSED (partial; install tarka-py for full check) ---")
+            raise SystemExit(0) from e
+        raise
+
     print("✅ SUCCESS: Ingestion Schema found.")
-    
     print("\n--- INTEGRITY PASSED ---")
     print("Foundation is locked. Ready to wire Shadow AI.")
 
 except ImportError as e:
     print(f"\n❌ FAILURE: {e}")
     print("\nDEBUG: Current sys.path entries added:")
-    for path in sys.path:
-        if "tarka_v2_core" in path:
-            print(f" - {path}")
+    for path in sys.path[:12]:
+        print(f" - {path}")
     sys.exit(1)

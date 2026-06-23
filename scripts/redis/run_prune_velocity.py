@@ -50,8 +50,8 @@ def _default_idle_sec() -> int:
     except Exception as exc:
         print(
             "Configure prune idle threshold: set REDIS_VELOCITY_PRUNE_IDLE_SEC or REDIS_VELOCITY_TTL, "
-            "or install packages/tarka-deploy-settings and set TARKA_DEPLOY_PROFILE — "
-            "see deploy/env/runtime-demo.env.example.",
+            "or install packages/deploy-settings and set TARKA_DEPLOY_PROFILE — "
+            "see infra/deploy/env/runtime-demo.env.example.",
             file=sys.stderr,
         )
         raise SystemExit(2) from exc
