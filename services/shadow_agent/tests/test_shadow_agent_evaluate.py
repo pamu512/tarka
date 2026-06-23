@@ -259,11 +259,11 @@ def test_evaluate_find_linked_entities_log_precedes_llm_complete(
 
     monkeypatch.setenv("SHADOW_GRAPH_TOOL_MODE", "always")
     monkeypatch.setattr(
-        "shadow_agent.agent.find_linked_entities",
+        "agent.find_linked_entities",
         _fake_find_linked_entities,
     )
     monkeypatch.setattr(
-        "shadow_agent.agent.neo4j_driver_from_env",
+        "agent.neo4j_driver_from_env",
         lambda: _FakeNeo4jDriver(),
     )
 
@@ -342,11 +342,11 @@ def test_evaluate_check_review_integrity_surfaces_hardware_overlap_in_prompt(
 
     monkeypatch.setenv("SHADOW_GRAPH_TOOL_MODE", "off")
     monkeypatch.setattr(
-        "shadow_agent.agent.check_review_integrity",
+        "agent.check_review_integrity",
         _fake_check_review_integrity,
     )
     monkeypatch.setattr(
-        "shadow_agent.agent.neo4j_driver_from_env",
+        "agent.neo4j_driver_from_env",
         lambda: _FakeNeo4jDriver(),
     )
 
@@ -399,7 +399,7 @@ def test_evaluate_find_linked_entities_uses_orchestrator_topology_without_neo4j(
 
     monkeypatch.setenv("SHADOW_GRAPH_TOOL_MODE", "always")
     monkeypatch.setattr(
-        "shadow_agent.agent.neo4j_driver_from_env",
+        "agent.neo4j_driver_from_env",
         lambda: None,
     )
 

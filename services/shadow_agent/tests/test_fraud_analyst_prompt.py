@@ -121,7 +121,7 @@ def test_fraud_analyst_prompt_history_truncates_when_over_budget(monkeypatch) ->
         for i in range(40)
     ]
     # Core contract + embedded JSON schema grew; keep headroom for Entity History truncation.
-    monkeypatch.setattr("shadow_agent.prompts.PROMPT_CHAR_BUDGET", 2800)
+    monkeypatch.setattr("prompts.PROMPT_CHAR_BUDGET", 2800)
     text = FraudAnalystPrompt.build(tx, history_records=many)
     assert len(text) <= 2800
     assert "Entity History: " in text

@@ -12,19 +12,20 @@ _PKG = Path(__file__).resolve().parent
 
 def _load_schemas_module() -> ModuleType:
     try:
+        import schemas as mod  # noqa: PLC0415
+
+        if getattr(mod, "ShadowDecision", None) is not None:
+            sys.modules.setdefault("shadow_agent.schemas", mod)
+            return mod
+    except ImportError:
+        pass
+    try:
         from shadow_agent import schemas as mod
 
         return mod
     except ImportError:
         pass
-    try:
-        import schemas as mod  # noqa: PLC0415
-
-        if getattr(mod, "ShadowDecision", None) is not None:
-            return mod
-    except ImportError:
-        pass
-    mod_name = "shadow_agent._schemas_flat"
+    mod_name = "shadow_agent.schemas"
     cached = sys.modules.get(mod_name)
     if cached is not None:
         return cached
@@ -34,6 +35,7 @@ def _load_schemas_module() -> ModuleType:
     mod = importlib.util.module_from_spec(spec)
     sys.modules[mod_name] = mod
     spec.loader.exec_module(mod)
+    sys.modules.setdefault("schemas", mod)
     return mod
 
 
