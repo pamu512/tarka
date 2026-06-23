@@ -9,7 +9,11 @@ from typing import Any
 
 from ingestor.schemas import TransactionSchema
 from pydantic import ValidationError
-from agent import ShadowAgent
+
+try:
+    from shadow_agent.agent import ShadowAgent
+except ImportError:
+    from agent import ShadowAgent
 from ai_gateway.base import AIGateway
 from ai_gateway.factory import build_ai_gateway
 from llm_client import OllamaLLMClient

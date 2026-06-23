@@ -327,9 +327,7 @@ def test_health_full_returns_aggregate_matrix(
                 return _Resp()
             raise AssertionError(f"unexpected GET {url!r}")
 
-    monkeypatch.setattr(
-        "transaction_ingest.httpx.AsyncClient", lambda *a, **k: _HealthFullClient()
-    )
+    monkeypatch.setattr("transaction_ingest.httpx.AsyncClient", lambda *a, **k: _HealthFullClient())
 
     app = create_app(
         rule_engine_url="http://rules.test",
@@ -365,9 +363,7 @@ def test_health_full_shadow_not_configured(monkeypatch: pytest.MonkeyPatch) -> N
                 return _Resp()
             raise AssertionError(f"unexpected GET {url!r}")
 
-    monkeypatch.setattr(
-        "transaction_ingest.httpx.AsyncClient", lambda *a, **k: _RuleOnlyClient()
-    )
+    monkeypatch.setattr("transaction_ingest.httpx.AsyncClient", lambda *a, **k: _RuleOnlyClient())
 
     app = create_app(rule_engine_url="http://rules.test", shadow_agent_url=None)
     with TestClient(app) as client:

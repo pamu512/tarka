@@ -1,0 +1,3 @@
+# `instant` is pulled transitively by `notify-types` (unmaintained, not a vulnerability).
+[advisories]
+ignore = ["RUSTSEC-2024-0384"]

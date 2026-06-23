@@ -14,7 +14,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from schemas import HypothesisReport
+from shadow_schemas import HypothesisReport
 
 logger = logging.getLogger(__name__)
 

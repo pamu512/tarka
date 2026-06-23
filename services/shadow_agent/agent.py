@@ -37,7 +37,7 @@ from scout_coordinated_burst import (
     run_scout_coordinated_burst_probe,
     wants_scout_coordinated_burst,
 )
-from schemas import ShadowDecision
+from shadow_schemas import ShadowDecision
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
