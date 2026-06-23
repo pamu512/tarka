@@ -41,6 +41,7 @@ jobs:
           REDIS_URL: redis://127.0.0.1:6379/0
           API_KEYS: ""
           FEATURE_SERVICE_URL: ""
+          RULES_PATH: ../legacy_v1_decision_api/rules
         run: |
           set -euo pipefail
           nohup python -m uvicorn decision_api.main:app --host 127.0.0.1 --port 8000 > /tmp/decision-api.log 2>&1 &
@@ -123,6 +124,7 @@ jobs:
           REDIS_URL: redis://127.0.0.1:6379/0
           API_KEYS: ""
           FEATURE_SERVICE_URL: ""
+          RULES_PATH: ../legacy_v1_decision_api/rules
         run: |
           set -euo pipefail
           nohup python -m uvicorn decision_api.main:app --host 127.0.0.1 --port 8000 > /tmp/decision-api.log 2>&1 &
