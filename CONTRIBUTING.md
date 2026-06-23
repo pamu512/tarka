@@ -33,7 +33,7 @@ Keep each pull request focused on a single concern (one bug, one feature, or one
 
 Run the checks your change touches (examples—adjust paths to match the service you edited):
 
-- **Tests:** `pytest` for the affected package or `tarka_v2_core` subtree.
+- **Tests:** `pytest` for the affected package under `services/` or `packages/`.
 - **Lint:** **`ruff check`** (and format if the project uses `ruff format`) on changed Python trees.
 
 CI failures on Ruff or tests block merge.

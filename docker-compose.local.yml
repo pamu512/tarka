@@ -6,7 +6,7 @@
 # Or export the same variables into your shell / IDE when running Ollama natively.
 #
 # Deployment runtime (TTLs, graph hops, JVM hints): validated by ``tarka-deploy-settings``
-# (see deploy/env/runtime-demo.env.example). Demo-friendly defaults:
+# (see infra/deploy/env/runtime-demo.env.example). Demo-friendly defaults:
 #   TARKA_DEPLOY_PROFILE=demo
 #   REDIS_VELOCITY_TTL=86400
 #   GRAPH_MAX_HOPS=2

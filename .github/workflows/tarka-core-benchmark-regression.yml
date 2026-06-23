@@ -1,6 +1,6 @@
 # Criterion micro-benchmarks for `tarka-core`:
-# - Job 1: expanded p99 vs origin/master (ratio) — `scripts/ci/criterion_p99_regression.py`
-# - Job 2: Proposed vs Baseline rule sets — absolute delta — `scripts/ci/latency_violation_report.py`
+# - Job 1: expanded p99 vs origin/master (ratio) — `infra/scripts/ci/criterion_p99_regression.py`
+# - Job 2: Proposed vs Baseline rule sets — absolute delta — `infra/scripts/ci/latency_violation_report.py`
 name: tarka-core benchmark regression
 
 on:
@@ -45,7 +45,7 @@ jobs:
         run: |
           set -euo pipefail
           cargo bench -p tarka-core --bench rule_set_latency_guard --locked
-          python3 scripts/ci/latency_violation_report.py \
+          python3 infra/scripts/ci/latency_violation_report.py \
             --group-dir target/criterion/rule_set_latency_guard \
             --baseline-fn baseline_evaluate \
             --proposed-fn proposed_evaluate \
@@ -90,7 +90,7 @@ jobs:
           set -euo pipefail
           git checkout --detach "${PR_SHA}"
           cargo bench -p tarka-core --bench standard_heavy_rule_set --locked
-          python3 scripts/ci/criterion_p99_regression.py \
+          python3 infra/scripts/ci/criterion_p99_regression.py \
             --benchmark-dir target/criterion/standard_heavy_rule_set/evaluate_full_trace \
             --baseline-label master \
             --max-ratio 1.05

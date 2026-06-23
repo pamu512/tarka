@@ -51,13 +51,13 @@ Engineering attention for the next 12 days is **only** on the **v1.2.0 Release C
 
 | Epic | Issue | May waiver | Sub-work already on `master` (not closing umbrella) |
 |------|-------|------------|-----------------------------------------------------|
-| Q1-E01 | [#127](https://github.com/pamu512/tarka/issues/127) | **Non-blocking — slip** | OPA bundles under `deploy/opa/`; no default-branch `policy-check` gate yet |
+| Q1-E01 | [#127](https://github.com/pamu512/tarka/issues/127) | **Non-blocking — slip** | OPA bundles under `infra/deploy/opa/`; no default-branch `policy-check` gate yet |
 | Q1-E02 | [#128](https://github.com/pamu512/tarka/issues/128) | **Non-blocking — slip** | `TENANT_BINDING_REQUIRED` patterns; migration aids not shipped |
 | Q1-E03 | [#129](https://github.com/pamu512/tarka/issues/129) | **Non-blocking — slip** | Deploy presets/overlays; full promotion framework open |
 | Q1-E04 | [#130](https://github.com/pamu512/tarka/issues/130) | **Non-blocking — partial** | **Shipped sub-work:** `GET /v1/slo` on core services, Prometheus burn rules — [service-slos-v1.md](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/service-slos-v1.md), [v1.2.5 backlog](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/v1.2.5-execution-backlog-status.md) |
 | Q1-E05 | [#131](https://github.com/pamu512/tarka/issues/131) | **Non-blocking — partial** | **Shipped sub-work:** outbound circuit breakers, `fallback_reason` on evaluate, degrade metrics — [v1.2.5 backlog](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/v1.2.5-execution-backlog-status.md) |
 | Q1-E06 | [#132](https://github.com/pamu512/tarka/issues/132) | **Deferred → v1.3.0** | CI exists; automated governance sign-off checklist = June |
-| Q1-E07 | [#133](https://github.com/pamu512/tarka/issues/133) | **Non-blocking — in progress** | [`packages/tarka-deploy-settings`](https://github.com/pamu512/tarka/tree/master/packages/tarka-deploy-settings) on `master`; full parity gates post-tag |
+| Q1-E07 | [#133](https://github.com/pamu512/tarka/issues/133) | **Non-blocking — in progress** | [`packages/deploy-settings`](https://github.com/pamu512/tarka/tree/master/packages/deploy-settings) on `master`; full parity gates post-tag |
 | Q1-E08 | [#134](https://github.com/pamu512/tarka/issues/134) | **Non-blocking — slip** | Scattered runbooks; Epic C weekly parity runbook added for v1.2.0 |
 
 **Consolidated tracking:** [q1-2026-milestone-status-may-2026.md](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/q1-2026-milestone-status-may-2026.md)

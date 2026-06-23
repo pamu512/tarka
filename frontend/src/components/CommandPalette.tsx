@@ -224,7 +224,7 @@ export function CommandPalette() {
   const listRef = useRef<HTMLUListElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { openCases, pinCase } = useAnalystWorkspace();
+  const { openCases, pinCase, dispatchWorkbenchCommand, caseDetailHref } = useAnalystWorkspace();
   const { tenantId: workspaceTenantId } = useTenantEnvironment();
 
   const close = useCallback(() => {
@@ -382,11 +382,36 @@ export function CommandPalette() {
     const contextual: CommandItem[] = [];
     if (routeCase) {
       contextual.push({
+        id: "ctx:workbench-copilot-rail",
+        label: "Toggle copilot rail (this case)",
+        hint: "Embedded Shadow AI + citation cards",
+        module: "investigation",
+        keywords: "copilot rail shadow chat sidebar workbench",
+        run: () => {
+          dispatchWorkbenchCommand({ type: "toggle_copilot" });
+          close();
+        },
+      });
+      for (const tab of ["timeline", "audit", "graph"] as const) {
+        contextual.push({
+          id: `ctx:workbench-tab-${tab}`,
+          label: `Case tab: ${tab === "graph" ? "entity graph" : tab}`,
+          hint: routeCase.caseId.slice(0, 12),
+          module: "cases",
+          keywords: `workbench tab ${tab} case view`,
+          run: () => {
+            navigate(caseDetailHref(routeCase.caseId, tenantOnCasePage, tab));
+            dispatchWorkbenchCommand({ type: "set_tab", tab });
+            close();
+          },
+        });
+      }
+      contextual.push({
         id: "ctx:copilot-this-case",
-        label: "Investigation Copilot (this case)",
+        label: "Investigation Copilot (full page)",
         hint: `${routeCase.caseId.slice(0, 14)}${routeCase.caseId.length > 14 ? "…" : ""} · ${tenantOnCasePage}`,
         module: "investigation",
-        keywords: "copilot chat saarthi this case current",
+        keywords: "copilot chat saarthi this case current full page",
         run: () => {
           navigate(copilotUrl(routeCase.caseId, tenantOnCasePage));
           close();
@@ -491,6 +516,8 @@ export function CommandPalette() {
     workspaceTenantId,
     routeCase,
     tenantOnCasePage,
+    dispatchWorkbenchCommand,
+    caseDetailHref,
   ]);
 
   const flatItems = useMemo(() => paletteSections.flatMap((s) => s.items), [paletteSections]);

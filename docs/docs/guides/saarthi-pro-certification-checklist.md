@@ -7,7 +7,7 @@
 **Audience:** Runtime + support; customer-built adapter.
 
 - [ ] Deployed agent returns **`contract_version`** on `GET /v1/integration` (or health `integration`).
-- [ ] `python scripts/ci/check_integration_contract.py --base-url <URL>` exits 0 (with `--api-key` if required).
+- [ ] `python infra/scripts/ci/check_integration_contract.py --base-url <URL>` exits 0 (with `--api-key` if required).
 - [ ] `INTEGRATION_PROFILE_ID` set and recorded in [adapter catalog](saarthi-pro-adapter-catalog-and-certification.md) (customer row).
 - [ ] Analyst can complete **one** golden-path chat (case lookup or safe read-only tool) in UAT.
 

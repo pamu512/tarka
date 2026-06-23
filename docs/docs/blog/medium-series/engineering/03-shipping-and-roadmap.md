@@ -21,7 +21,7 @@ If you fork the repo, treat failing CI as a feature: it’s cheaper than product
 Three entry points show up in issues more than the rest:
 
 1. **`python tarka.py install --lite`** — core + cases + frontend for a believable demo.
-2. **`deploy/docker-compose.lite.yml`** — matches the “five minute” sandbox path with integration-ingress (8003) where we want OSINT without standing up Neo4j.
+2. **`infra/deploy/docker-compose.lite.yml`** — matches the “five minute” sandbox path with integration-ingress (8003) where we want OSINT without standing up Neo4j.
 3. **`.devcontainer`** — Codespaces / VS Code remote; Docker-outside-Docker so contributors aren’t hand-editing `/etc/hosts` for fun.
 
 The CLI and compose files can drift; when they do, we fix it as a release blocker, not a FAQ entry.

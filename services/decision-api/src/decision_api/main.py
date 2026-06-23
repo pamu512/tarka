@@ -144,9 +144,7 @@ from decision_api.opa_client import evaluate_opa_or_raise
 from decision_api.redis_store import redis_tags
 from decision_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 
-sys.path.insert(
-    0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared")
-)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from circuit import AsyncCircuitBreaker, CircuitOpenError  # noqa: E402
 from entity_lists import ListCheckResult, create_list_store  # noqa: E402
 from event_time import event_time_unix_for_evaluate  # noqa: E402
@@ -197,16 +195,12 @@ from decision_api.typology_predicate_registry import (
 )
 
 # ---------- observability ----------
-_shared_dir = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared")
-)
-if _shared_dir not in sys.path:
-    sys.path.insert(0, _shared_dir)
 from auth_rbac import require_role, setup_auth  # noqa: E402
 from observability import get_metrics, setup_observability  # noqa: E402
 from rate_limiter import setup_rate_limiter  # noqa: E402
 from security_headers import setup_security_headers  # noqa: E402
 from tenant_binding import parse_api_key_tenant_map  # noqa: E402
+from tarka_shared.tracing import setup_tracing  # noqa: E402
 
 log = logging.getLogger("decision-api")
 
@@ -1070,6 +1064,7 @@ app = FastAPI(
 )
 if os.environ.get("TARKA_CORE_API_SUBAPP", "").strip() != "1":
     setup_observability(app, "decision-api")
+    setup_tracing(app, "decision-api")
 setup_security_headers(app)
 setup_auth(app)
 setup_rate_limiter(app, rpm=int(os.environ.get("RATE_LIMIT_RPM", "1000")))
@@ -1091,8 +1086,12 @@ from decision_api.captcha import router as captcha_router  # noqa: E402
 from decision_api.compliance_api import router as compliance_router  # noqa: E402
 from decision_api.consortium_api import router as consortium_router  # noqa: E402
 from decision_api.feature_store_api import router as feature_store_router  # noqa: E402
-from decision_api.experiment_api import experiment_registry_line_count  # noqa: E402
-from decision_api.experiment_api import router as experiment_router  # noqa: E402
+from decision_api.experiment_api import (  # noqa: E402
+    experiment_registry_line_count,
+    router as experiment_router,
+)
+from decision_api.benchmark_export_api import router as benchmark_export_router  # noqa: E402
+from decision_api.drift_query_api import router as drift_query_router  # noqa: E402
 from decision_api.internal_counters_api import router as internal_counters_router  # noqa: E402
 from decision_api.recommend_api import router as recommend_router  # noqa: E402
 from decision_api.replay import router as replay_router  # noqa: E402
@@ -1110,6 +1109,8 @@ from decision_api.sandbox_bootstrap import (  # noqa: E402
 app.include_router(rule_router)
 app.include_router(replay_router)
 app.include_router(simulation_router)
+app.include_router(benchmark_export_router)
+app.include_router(drift_query_router)
 app.include_router(experiment_router)
 app.include_router(recommend_router)
 app.include_router(compliance_router)
@@ -2931,12 +2932,12 @@ async def evaluate_decision(
         if fb_reason:
             _metrics_inc_safe("fraud_fallback_total", trace_id=trace_id)
             reason_key = (
-                _re.sub(r"[^a-zA-Z0-9_]+", "_", str(fb_reason))
-                .strip("_")
-                .lower()[:64]
+                _re.sub(r"[^a-zA-Z0-9_]+", "_", str(fb_reason)).strip("_").lower()[:64]
             )
             if reason_key:
-                _metrics_inc_safe(f"fraud_fallback_total_{reason_key}", trace_id=trace_id)
+                _metrics_inc_safe(
+                    f"fraud_fallback_total_{reason_key}", trace_id=trace_id
+                )
         if signal_tags:
             for st in signal_tags:
                 _metrics_inc_safe(f"fraud_signal_tag_{st}_total", trace_id=trace_id)

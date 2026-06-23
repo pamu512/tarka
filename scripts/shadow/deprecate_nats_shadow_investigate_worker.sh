@@ -19,10 +19,10 @@ if [[ "${1:-}" == "--apply" ]]; then
   APPLY=1
 fi
 
-WORKER="tarka_v2_core/services/shadow_agent/src/shadow_agent/workers/nats_shadow_investigate.py"
-RUNTIME="tarka_v2_core/services/shadow_agent/src/shadow_agent/workers/runtime.py"
-TEST="tarka_v2_core/services/shadow_agent/tests/test_nats_shadow_investigate_worker.py"
-DISPATCH="tarka_v2_core/services/orchestrator/src/orchestrator/queues/shadow_dispatch.py"
+WORKER="services/shadow_agent/workers/nats_shadow_investigate.py"
+RUNTIME="services/shadow_agent/workers/runtime.py"
+TEST="services/shadow_agent/tests/test_nats_shadow_investigate_worker.py"
+DISPATCH="services/orchestrator/queues/shadow_dispatch.py"
 
 echo "=== NATS shadow.investigate deprecation (dry_run=$((1-APPLY))) ==="
 echo
@@ -34,7 +34,7 @@ echo
 echo "Will edit (manual follow-up if --apply):"
 echo "  - ${DISPATCH} — remove dispatch_shadow_investigate_if_review and NATS publish from transaction_ingest"
 echo "  - orchestrator/main.py — remove shadow_dispatch_nats lifecycle"
-echo "  - tarka_v2_core/services/shadow_agent/pyproject.toml — drop [project.optional-dependencies].worker if unused"
+echo "  - services/shadow_agent/pyproject.toml — drop [project.optional-dependencies].worker if unused"
 echo
 echo "Verify no references:"
 echo "  rg 'nats_shadow_investigate|shadow\\.investigate|shadow_dispatch_nats' \"${ROOT}\""

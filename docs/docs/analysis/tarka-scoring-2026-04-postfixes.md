@@ -123,7 +123,7 @@
 - ✅ `INGEST_SCHEMA_REGISTRY_MODE` (enforce/off)
 - ✅ Unknown field rejection
 - ✅ `event_schema_version` validation in metadata
-- ✅ CI gate: `scripts/ci/schema_registry_compat.py`
+- ✅ CI gate: `infra/scripts/ci/schema_registry_compat.py`
 - ✅ Fixed contract drift: `device_context` added to JSON schema
 
 **Remaining Gaps:**

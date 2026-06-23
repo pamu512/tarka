@@ -11,10 +11,10 @@ import sys
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[1]
-_SRC = _REPO / "tarka_v2_core" / "services" / "shadow_agent" / "src"
+_SRC = _REPO / "services" / "shadow_agent"
 sys.path.insert(0, str(_SRC))
 
-from shadow_agent.providers.base import BaseLLMProvider  # noqa: E402
+from providers.base import BaseLLMProvider  # noqa: E402
 
 
 class _DummyIncompleteProvider(BaseLLMProvider):

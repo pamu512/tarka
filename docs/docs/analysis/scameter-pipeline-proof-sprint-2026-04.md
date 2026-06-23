@@ -115,7 +115,7 @@ Observed operational nuance during follow-up:
 
 Commands used:
 - Start core on alternate ports:
-  - `docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.host-ports.override.yml --profile core up -d`
+  - `docker compose -f infra/deploy/docker-compose.yml -f infra/deploy/docker-compose.host-ports.override.yml --profile core up -d`
 - Baseline (aggressive profile):
   - `python3 scripts/load_tests/simple_load_test.py --base-url http://127.0.0.1:18000 --api-key tarka-local --profile --sustained-duration-seconds 10 --sustained-concurrency 80 --burst-duration-seconds 10 --burst-concurrency 200 --target-rps-sustained 1000 --target-rps-burst 5000`
 - Remediated profile (load-shaped):

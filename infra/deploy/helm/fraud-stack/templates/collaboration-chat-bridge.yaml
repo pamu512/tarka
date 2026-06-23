@@ -1,0 +1,70 @@
+{{- if .Values.collaborationChatBridge.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-collaboration-chat-bridge
+spec:
+  replicas: {{ .Values.collaborationChatBridge.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-collaboration-chat-bridge
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-collaboration-chat-bridge
+    spec:
+      containers:
+        - name: collaboration-chat-bridge
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.collaborationChatBridge.image "tag" .Values.collaborationChatBridge.tag) | quote }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.collaborationChatBridge.servicePort }}
+          env:
+            - name: INVESTIGATION_AGENT_URL
+              value: "http://{{ include "tarka.fullname" . }}-investigation-agent:{{ .Values.investigationAgent.servicePort }}"
+            - name: CASE_API_URL
+              value: {{ .Values.collaborationChatBridge.caseApiUrl | default (printf "http://%s-core-api:%v/cases" (include "tarka.fullname" .) .Values.coreApi.servicePort) | quote }}
+            {{- if .Values.collaborationChatBridge.orchestratorUrl }}
+            - name: ORCHESTRATOR_URL
+              value: {{ .Values.collaborationChatBridge.orchestratorUrl | quote }}
+            {{- end }}
+            - name: BRIDGE_STORE_PATH
+              value: "/var/lib/collaboration-chat-bridge/bridge_store.sqlite3"
+            - name: BRIDGE_CASE_ACTIONS_ENABLED
+              value: {{ ternary "true" "false" .Values.collaborationChatBridge.caseActionsEnabled | quote }}
+            - name: TENANT_BINDING_REQUIRED
+              value: {{ ternary "true" "false" .Values.collaborationChatBridge.tenantBindingRequired | quote }}
+            - name: ALLOW_INSECURE_NO_AUTH
+              value: {{ ternary "true" "false" .Values.collaborationChatBridge.allowInsecureNoAuth | quote }}
+            {{- if .Values.global.appSecretsName }}
+            - name: API_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: API_KEYS
+                  optional: true
+            - name: TEAMS_BRIDGE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: TEAMS_BRIDGE_SECRET
+                  optional: true
+            - name: BRIDGE_PLUGIN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: BRIDGE_PLUGIN_SECRET
+                  optional: true
+            {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-collaboration-chat-bridge
+spec:
+  selector:
+    app: {{ include "tarka.fullname" . }}-collaboration-chat-bridge
+  ports:
+    - port: {{ .Values.collaborationChatBridge.servicePort }}
+      targetPort: {{ .Values.collaborationChatBridge.servicePort }}
+{{- end }}

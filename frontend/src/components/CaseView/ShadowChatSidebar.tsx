@@ -33,12 +33,14 @@ export type ShadowChatSidebarProps = {
   caseTitle?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** When true, render inline panel body (workbench copilot rail) without fixed overlay chrome. */
+  embedded?: boolean;
 };
 
 /**
  * Case-detail right rail: streaming chat with the Shadow sidecar for this case (`case_id` on every request).
  */
-export function ShadowChatSidebar({ caseId, tenantId, caseTitle, open, onOpenChange }: ShadowChatSidebarProps) {
+export function ShadowChatSidebar({ caseId, tenantId, caseTitle, open, onOpenChange, embedded = false }: ShadowChatSidebarProps) {
   const [messages, setMessages] = useState<ShadowSidecarChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [streamingText, setStreamingText] = useState("");
@@ -266,6 +268,14 @@ export function ShadowChatSidebar({ caseId, tenantId, caseTitle, open, onOpenCha
       </div>
     </div>
   ) : null;
+
+  if (embedded && open) {
+    return (
+      <div className="flex min-h-[14rem] max-h-[40vh] flex-col border-b border-surface-700/80">
+        {panel}
+      </div>
+    );
+  }
 
   return (
     <>

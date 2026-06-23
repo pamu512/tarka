@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-ENV_FILE="${1:-$ROOT/deploy/local-ai/.env.local}"
+ENV_FILE="${1:-$ROOT/infra/deploy/local-ai/.env.local}"
 
 "$ROOT/scripts/local-ai/bootstrap-agenticseek.sh" "$ENV_FILE"
 
@@ -27,7 +27,7 @@ docker compose \
   --project-name local-ai-stack \
   --env-file "$ENV_FILE" \
   -f "$AGENTICSEEK_DIR/docker-compose.yml" \
-  -f "$ROOT/deploy/local-ai/docker-compose.addons.yml" \
+  -f "$ROOT/infra/deploy/local-ai/docker-compose.addons.yml" \
   --profile full \
   --profile addons \
   up -d --build

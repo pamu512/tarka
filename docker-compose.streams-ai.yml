@@ -18,7 +18,7 @@ services:
       - "5432:5432"
     volumes:
       - tarka_streams_pg:/var/lib/postgresql/data
-      - ./deploy/initdb:/docker-entrypoint-initdb.d:ro
+      - ./infra/deploy/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s

@@ -1,1 +1,0 @@
-"""Investigation agent utilities."""

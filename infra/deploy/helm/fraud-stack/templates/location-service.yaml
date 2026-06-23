@@ -1,0 +1,40 @@
+{{- if .Values.locationService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-location-service
+spec:
+  replicas: {{ .Values.locationService.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-location-service
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-location-service
+    spec:
+      containers:
+        - name: location-service
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.locationService.image "tag" .Values.locationService.tag) | quote }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.locationService.servicePort }}
+          env:
+            - name: REDIS_URL
+              {{- if .Values.global.externalServices.redis.enabled }}
+              value: {{ .Values.global.externalServices.redis.redisUrl | quote }}
+              {{- else }}
+              value: "redis://{{ include "tarka.fullname" . }}-redis:6379/0"
+              {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-location-service
+spec:
+  selector:
+    app: {{ include "tarka.fullname" . }}-location-service
+  ports:
+    - port: {{ .Values.locationService.servicePort }}
+      targetPort: {{ .Values.locationService.servicePort }}
+{{- end }}

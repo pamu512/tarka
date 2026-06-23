@@ -24,17 +24,36 @@ Use this guide when promoting **auth, tenant binding, Copilot, collaboration bri
 | `INGEST_REQUIRE_IDEMPOTENCY_KEY` | event-ingest | When **true**, `POST /v1/events` requires an idempotency key (see [ingest replay onboarding](./ingest-replay-onboarding.md)). |
 | `TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY` | decision-api | When **true**, `POST /v1/decisions/evaluate` requires `Idempotency-Key`. |
 | `DECISION_LOG_INCLUDE_PAYLOAD_SNAPSHOT` | decision-api | Default **false**: omits full payload in JSONL; when **true**, payload is still **redacted** for common secret-like keys. |
-| `COPILOT_PRODUCTION_MODE`, `COPILOT_REQUIRE_INVESTIGATION_API_KEY`, `ALLOWED_ANALYSTS`, `COPILOT_INJECTION_POLICY` | investigation-agent | Fail-fast and abuse controls; see `deploy/docker-compose.production-hardening.yml`. |
+| `COPILOT_PRODUCTION_MODE`, `COPILOT_REQUIRE_INVESTIGATION_API_KEY`, `ALLOWED_ANALYSTS`, `COPILOT_INJECTION_POLICY` | investigation-agent | Fail-fast and abuse controls; see `infra/deploy/docker-compose.production-hardening.yml`. |
 | `COPILOT_TRUSTED_SCOPE_HEADERS_REQUIRED` | investigation-agent | When **true**, `POST /v1/chat` requires **`X-Tenant-Id`** and **`X-Analyst-Id`**; body `tenant_id` / `analyst_id` are **overridden** by those headers. |
 | `BRIDGE_TRUSTED_SCOPE_HEADERS_REQUIRED` | collaboration-chat-bridge | When **true**, Teams ingress requires **`X-Tenant-Id`** and **`X-Analyst-Id`**; body tenant/analyst are not trusted alone. |
 | `TEAMS_ALLOWED_TENANT_IDS` | collaboration-chat-bridge | Optional comma-separated allowlist of resolved tenant ids after header/body resolution. |
 | `CASE_API_PRODUCTION_MODE` | case-api | When **true**, `EVIDENCE_SIGNING_SECRET` must be set to a non-default value at startup. |
 
-**Compose overlay:** `deploy/docker-compose.production-hardening.yml` turns on several of the above for a reference “full” profile. Merge it only after secrets and gateway headers are ready:
+**Compose overlay:** `infra/deploy/docker-compose.production-hardening.yml` turns on several of the above for a reference “full” profile. Merge it only after secrets and gateway headers are ready:
 
-`docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.production-hardening.yml ...`
+`docker compose -f infra/deploy/docker-compose.yml -f infra/deploy/docker-compose.production-hardening.yml ...`
 
-**Helm:** set `global.appSecretsName` to a Secret that contains at least `API_KEYS`; optional keys include `API_KEY_TENANT_MAP`, `POSTGRES_PASSWORD`, `EVIDENCE_SIGNING_SECRET`, etc. (see templates under `deploy/helm/fraud-stack/templates/`).
+**Helm:** set `global.appSecretsName` to a Secret that contains at least `API_KEYS`; optional keys include `API_KEY_TENANT_MAP`, `POSTGRES_PASSWORD`, `EVIDENCE_SIGNING_SECRET`, etc. (see templates under `infra/deploy/helm/fraud-stack/templates/`).
+
+**Helm preset (tenant binding enforced):** merge `infra/deploy/helm/fraud-stack/presets/tenant-binding-enforced.yaml` after your cloud preset once `API_KEY_TENANT_MAP` is provisioned:
+
+```bash
+helm upgrade tarka infra/deploy/helm/fraud-stack \
+  -f infra/deploy/helm/fraud-stack/presets/core-on-aws.yaml \
+  -f infra/deploy/helm/fraud-stack/presets/tenant-binding-enforced.yaml
+```
+
+**CI / smoke aids (Q1-E02):**
+
+- GitHub Actions job **`test-shared-auth`** runs `services/shared/tests/test_auth.py` and `scripts/security/tenant_binding_smoke.py` with `TENANT_BINDING_REQUIRED=true` and `false`.
+- Local smoke before cutover:
+
+```bash
+pip install pytest fastapi httpx
+PYTHONPATH=services/shared pytest services/shared/tests/test_auth.py -v
+python3 scripts/security/tenant_binding_smoke.py --both
+```
 
 ---
 
@@ -44,7 +63,7 @@ Use these **in order**; each step should pass smoke tests before the next.
 
 1. **Secrets only** — Deploy with new Secret objects but **unchanged** feature flags (`TENANT_BINDING_REQUIRED=false`, etc.). Fix any mount or key name mismatches.
 2. **Tenant map without enforcement** — Set `API_KEY_TENANT_MAP` correctly while `TENANT_BINDING_REQUIRED=false`. Validate mapping JSON and client behavior; no 403s yet.
-3. **Tenant binding on** — Set `TENANT_BINDING_REQUIRED=true` on one service (e.g. decision-api), then expand to case-api, graph-service, analytics-sink, integration-ingress.
+3. **Tenant binding on** — Set `TENANT_BINDING_REQUIRED=true` on one service (e.g. decision-api), then expand to case-api, graph-service, analytics-sink, integration-ingress. Run `python3 scripts/security/tenant_binding_smoke.py --tenant-binding-required true` against staging credentials before widening blast radius.
 4. **Ingest → decision auth** — Set `UPSTREAM_API_KEY` on event-ingest to a key that decision-api accepts; verify NATS consumer processes messages (no 401 on evaluate).
 5. **Idempotency** — Enable `INGEST_REQUIRE_IDEMPOTENCY_KEY` and/or `TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY` after all producers send keys.
 6. **WebSockets** — Update dashboards to pass **`tenant_id`** query parameter and **`X-API-Key`**; confirm only the intended tenant receives events.
@@ -99,7 +118,7 @@ Secrets + API_KEYS
 - [ ] Evaluate and ingest succeed end-to-end with **idempotency** when required flags are on.
 - [ ] Cross-tenant negative test: key mapped to `tenant_a` receives **403** on `tenant_b` data.
 - [ ] WebSocket subscriber only receives events for **subscribed** `tenant_id`.
-- [ ] Prometheus: no sustained burn on `TarkaDecisionApiFallbackRateElevated` or circuit-open alerts ([slo-burn rules](../../../deploy/observability/prometheus-rules/slo-burn.yml)).
+- [ ] Prometheus: no sustained burn on `TarkaDecisionApiFallbackRateElevated` or circuit-open alerts ([slo-burn rules](../../../infra/deploy/observability/prometheus-rules/slo-burn.yml)).
 - [ ] Decision log line count grows without unexpected payload growth when snapshots are omitted.
 
 ---

@@ -12,9 +12,9 @@ import {
   type InvestigationEvidenceSummaryResponse,
   type InvestigationGovernanceInfo,
   type InvestigationSourceRefCard,
+  toUserFacingApiError,
 } from "../api/client";
 import { buildPlatformAuditForCopilot, type CopilotContextFlags } from "../utils/copilotContext";
-import { toUserFacingError } from "../utils/userFacingErrors";
 import {
   buildRepeatSkillSuggestionPrompt,
   buildSkillCommandHelp,
@@ -25,6 +25,7 @@ import {
   parseSkillCommand,
   QUICK_INSTANT_SKILLS,
 } from "../config/copilotSkills";
+import { DegradedModeBanner } from "../components/DegradedModeBanner";
 import { PageTitle } from "../components/PageTitle";
 import { ModuleIcon } from "../components/ModuleIcon";
 import { SupportIdHint } from "../components/SupportIdHint";
@@ -212,7 +213,7 @@ export default function Investigation() {
       setFeedbackSummary(sum);
       setFeedbackRecent(rec.items ?? []);
     } catch (e) {
-      setFeedbackAnalyticsError(toUserFacingError(e, { subject: "Feedback analytics", action: "load feedback analytics" }));
+      setFeedbackAnalyticsError(toUserFacingApiError(e, { subject: "Feedback analytics", action: "load feedback analytics" }));
       setFeedbackSummary(null);
       setFeedbackRecent([]);
     } finally {
@@ -245,7 +246,7 @@ export default function Investigation() {
       })
       .catch((e: unknown) => {
         if (cancelled) return;
-        setCaseContextError(toUserFacingError(e, { subject: "Case context", action: "load graph and decision context" }));
+        setCaseContextError(toUserFacingApiError(e, { subject: "Case context", action: "load graph and decision context" }));
       })
       .finally(() => {
         if (!cancelled) setCaseContextLoading(false);
@@ -301,7 +302,7 @@ export default function Investigation() {
         },
       ]);
     } catch (err) {
-      const msg = toUserFacingError(err, { subject: "Investigation memo", action: "save investigation memo" });
+      const msg = toUserFacingApiError(err, { subject: "Investigation memo", action: "save investigation memo" });
       setMessages((prev) => [
         ...prev,
         {
@@ -330,7 +331,7 @@ export default function Investigation() {
         columnCount: r.columns?.length ?? 0,
       });
     } catch (err) {
-      const msg = toUserFacingError(err, { subject: "Batch upload", action: "upload batch investigation data" });
+      const msg = toUserFacingApiError(err, { subject: "Batch upload", action: "upload batch investigation data" });
       setMessages((prev) => [
         ...prev,
         {
@@ -482,7 +483,7 @@ export default function Investigation() {
       const errorMsg: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `Error: ${toUserFacingError(err, { subject: "Investigation Copilot", action: "send copilot request" })}`,
+        content: `Error: ${toUserFacingApiError(err, { subject: "Investigation Copilot", action: "send copilot request" })}`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -814,17 +815,11 @@ export default function Investigation() {
             </summary>
             <div className="px-3 pb-3 pt-1 border-t border-surface-800/80 space-y-2">
               {caseContextError ? (
-                <div className="rounded-md border border-rose-500/35 bg-rose-500/10 px-2.5 py-1.5 space-y-1">
-                  <p className="text-[11px] text-rose-300">{caseContextError}</p>
-                  <SupportIdHint
-                    message={caseContextError}
-                    className="flex flex-wrap items-center gap-2 text-[10px] text-rose-300/90"
-                    buttonClassName="px-1.5 py-0.5 rounded border border-rose-400/35 hover:border-rose-300/50 hover:text-rose-100 transition-colors"
-                  />
-                  <p className="text-[10px] text-rose-300/80">
-                    Copilot can still respond, but case-grounded recommendations are degraded until context recovers.
-                  </p>
-                </div>
+                <DegradedModeBanner
+                  error={caseContextError}
+                  title="Case context unavailable"
+                  hint="Copilot can still respond, but case-grounded recommendations are degraded until context recovers."
+                />
               ) : (
                 <>
                   <div className="grid gap-2 sm:grid-cols-2 text-[11px]">
@@ -1260,7 +1255,7 @@ function MessageBubble({
       })
       .then((data) => setEvidenceSummary(data))
       .catch((e: unknown) =>
-        setEvidenceSummaryErr(toUserFacingError(e, { subject: "Evidence summary", action: "generate evidence summary" })),
+        setEvidenceSummaryErr(toUserFacingApiError(e, { subject: "Evidence summary", action: "generate evidence summary" })),
       )
       .finally(() => setEvidenceSummaryBusy(false));
   };

@@ -1,0 +1,48 @@
+{
+  "release": "v1.2.0-day60",
+  "request_template": {
+    "scenario": "baseline",
+    "seed": 42
+  },
+  "thresholds_file": "vertical_benchmark_thresholds.v1.json",
+  "verticals": {
+    "fintech": {
+      "events_evaluated": 1000,
+      "delta": {
+        "precision": 1.0,
+        "recall": 0.06,
+        "f1_score": 0.1132,
+        "score_separation": 13.18,
+        "false_positives": 0,
+        "false_negatives": -3
+      },
+      "seed": 42
+    },
+    "ecommerce": {
+      "events_evaluated": 1000,
+      "delta": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0,
+        "score_separation": 5.32,
+        "false_positives": 0,
+        "false_negatives": 0
+      },
+      "seed": 42
+    },
+    "gaming": {
+      "events_evaluated": 1000,
+      "delta": {
+        "precision": 1.0,
+        "recall": 0.02,
+        "f1_score": 0.0392,
+        "score_separation": 7.62,
+        "false_positives": 0,
+        "false_negatives": -1
+      },
+      "seed": 42
+    }
+  },
+  "schema_id": "tarka.tenant_benchmark_export/v1",
+  "content_digest": "73855e3fd491fcf27738403bd54000f0f8102bd0d070debb9f9f20960ae0f58e"
+}

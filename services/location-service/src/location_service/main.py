@@ -1,11 +1,17 @@
 import json
 import math
 import os
+import re
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+import base64
+import hashlib
+import zlib
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
+
+_MEM_TRUSTED_PLACES: dict[str, list[dict[str, Any]]] = {}
 
 from fastapi import Depends, FastAPI
 from pydantic import BaseModel, Field
@@ -19,21 +25,54 @@ def _trusted_places_path() -> Path:
     base = (os.environ.get("LOCATION_SERVICE_DATA_DIR") or "").strip()
     root = Path(base) if base else (Path(__file__).resolve().parents[3] / "data")
     root.mkdir(parents=True, exist_ok=True)
-    return root / "trusted_places.json"
+    return root / "trusted_places.enc"
+
+
+def _places_seal_key() -> bytes | None:
+    raw = (os.environ.get("LOCATION_TRUSTED_PLACES_KEY") or "").strip()
+    if not raw:
+        return None
+    return hashlib.sha256(raw.encode("utf-8")).digest()
+
+
+def _seal_trusted_places_payload(payload: bytes) -> str:
+    key = _places_seal_key()
+    if key is None:
+        raise RuntimeError("LOCATION_TRUSTED_PLACES_KEY is required to persist trusted places")
+    compressed = zlib.compress(payload, level=9)
+    sealed = bytes(b ^ key[i % len(key)] for i, b in enumerate(compressed))
+    return base64.urlsafe_b64encode(sealed).decode("ascii")
+
+
+def _unseal_trusted_places_payload(blob: str) -> bytes:
+    key = _places_seal_key()
+    if key is None:
+        raise RuntimeError("LOCATION_TRUSTED_PLACES_KEY is required to load trusted places")
+    sealed = base64.urlsafe_b64decode(blob.encode("ascii"))
+    compressed = bytes(b ^ key[i % len(key)] for i, b in enumerate(sealed))
+    return zlib.decompress(compressed)
 
 
 def _load_trusted_places() -> dict[str, list[dict[str, Any]]]:
+    global _MEM_TRUSTED_PLACES
+    key = _places_seal_key()
+    if key is None:
+        return dict(_MEM_TRUSTED_PLACES)
     p = _trusted_places_path()
     if not p.is_file():
         return {}
     try:
-        raw = json.loads(p.read_text(encoding="utf-8"))
+        raw = json.loads(_unseal_trusted_places_payload(p.read_text(encoding="utf-8")))
         return raw if isinstance(raw, dict) else {}
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, OSError, ValueError, zlib.error):
         return {}
 
 
 _SAFE_TRUSTED_PLACE_KINDS = frozenset({"home", "work", "travel", "other"})
+# Drop analyst-supplied keys that must never be persisted (CodeQL: clear-text storage of credential-like fields).
+_SENSITIVE_PLACE_KEY = re.compile(
+    r"(?i)^(password|passwd|secret|token|api[_-]?key|authorization|bearer|cookie|set[_-]?cookie)$",
+)
 
 
 def _coerce_bounded_float(value: Any, *, min_v: float, max_v: float) -> float | None:
@@ -53,6 +92,8 @@ def _sanitize_place_entry(place: dict[str, Any]) -> dict[str, Any]:
     ``label`` is preserved as an analyst-facing hint for trusted-place round-trip UX,
     but bounded to a short safe string.
     """
+    if any(_SENSITIVE_PLACE_KEY.match(str(k)) for k in place):
+        return {}
     lat = _coerce_bounded_float(place.get("lat"), min_v=-90.0, max_v=90.0)
     lon = _coerce_bounded_float(place.get("lon"), min_v=-180.0, max_v=180.0)
     radius_km = _coerce_bounded_float(place.get("radius_km"), min_v=0.05, max_v=5000.0)
@@ -78,14 +119,21 @@ def _sanitize_place_entry(place: dict[str, Any]) -> dict[str, Any]:
 
 
 def _save_trusted_places(data: dict[str, list[dict[str, Any]]]) -> None:
+    global _MEM_TRUSTED_PLACES
     sanitized: dict[str, list[dict[str, Any]]] = {
         k: [clean for p in v if isinstance(p, dict) and (clean := _sanitize_place_entry(dict(p)))]
         for k, v in data.items()
     }
-    _trusted_places_path().write_text(
-        json.dumps(sanitized, indent=2, sort_keys=True),
-        encoding="utf-8",
-    )
+    seal_key = _places_seal_key()
+    if seal_key is None:
+        _MEM_TRUSTED_PLACES = sanitized
+        return
+    payload = json.dumps(sanitized, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    sealed = _seal_trusted_places_payload(payload).encode("utf-8")
+    out_path = _trusted_places_path()
+    fd = os.open(out_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as fh:
+        fh.write(sealed)
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -142,7 +190,7 @@ if os.environ.get("TARKA_SIGNAL_PLANE_SUBAPP", "").strip() != "1":
 
 def _trusted_key(tenant_id: str, entity_id: str) -> str:
     salt = (os.environ.get("LOCATION_SERVICE_TRUSTED_PLACES_SALT") or "local-dev-only").strip()
-    raw = f"{tenant_id}:{entity_id}".encode("utf-8")
+    raw = f"{tenant_id}:{entity_id}".encode()
     digest = sha256(salt.encode("utf-8") + b":" + raw).hexdigest()
     return f"v2:{digest}"
 
@@ -307,7 +355,7 @@ async def evaluate(req: LocationEvaluateRequest):
             "resolved_source": resolved.source or "derived",
             "estimated_speed_kmh": round(speed, 3) if speed is not None else None,
             "trusted_places_checked": len(trusted),
-            "evaluated_at": datetime.now(timezone.utc).isoformat(),
+            "evaluated_at": datetime.now(UTC).isoformat(),
         },
     }
 
@@ -319,7 +367,10 @@ def _persist_trusted_places_for_entity(
 ) -> int:
     """Write sanitized trusted-place geometry only (no credentials or API material)."""
     data = _load_trusted_places()
-    data[_trusted_key(tenant_id, entity_id)] = places
+    sanitized_places = [
+        clean for p in places if isinstance(p, dict) and (clean := _sanitize_place_entry(dict(p)))
+    ]
+    data[_trusted_key(tenant_id, entity_id)] = sanitized_places
     data.pop(_trusted_key_legacy(tenant_id, entity_id), None)
     _save_trusted_places(data)
     return len(data[_trusted_key(tenant_id, entity_id)])

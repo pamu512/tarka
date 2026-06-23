@@ -8,7 +8,7 @@
 - **Python 3.11+** (same baseline as Shadow’s `pyproject.toml`)
 - **Rust + Cargo** — only if you want the desktop app (`npm run tauri:dev`). Otherwise use **`--web`** (browser + API).
 - **Ollama** (recommended) for local LLM — see Shadow’s [README](https://github.com/pamu512/shadow/blob/master/README.md).
-- **PostgreSQL** — for the recommended wiring below, start Tarka’s Postgres first (e.g. `docker compose --profile core up -d postgres` from `deploy/`).
+- **PostgreSQL** — for the recommended wiring below, start Tarka’s Postgres first (e.g. `docker compose --profile core up -d postgres` from `infra/deploy/`).
 
 ## One-command launch (from Tarka repo root)
 

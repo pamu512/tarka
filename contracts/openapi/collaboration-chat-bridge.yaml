@@ -340,6 +340,117 @@ paths:
               description: Correlation id for support and audit tracing.
               schema: { type: string }
 
+  /v1/case-actions:
+    post:
+      operationId: executeCaseAction
+      summary: Execute chat→case action with RBAC, idempotency, and audit (Q2-E08)
+      parameters:
+        - in: header
+          name: X-Bridge-Secret
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CaseActionRequest"
+      responses:
+        "200":
+          description: Action applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaseActionResponse"
+        "401":
+          description: Invalid bridge secret
+        "422":
+          description: Validation or RBAC failure
+
+  /v1/thread-correlations:
+    post:
+      operationId: upsertThreadCorrelation
+      summary: Bind Slack/Teams thread to case_id (Q2-E08)
+      parameters:
+        - in: header
+          name: X-Bridge-Secret
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ThreadCorrelationRequest"
+      responses:
+        "200":
+          description: Correlation stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ThreadCorrelationResponse"
+
+  /v1/thread-correlations/{platform}/{workspace_id}/{thread_key}:
+    get:
+      operationId: getThreadCorrelation
+      summary: Lookup thread correlation (Q2-E08)
+      parameters:
+        - in: header
+          name: X-Bridge-Secret
+          required: true
+          schema: { type: string }
+        - in: path
+          name: platform
+          required: true
+          schema: { type: string, enum: [slack, teams] }
+        - in: path
+          name: workspace_id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: thread_key
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Correlation found
+        "404":
+          description: Not found
+
+  /v1/outbound/case-state-change/schema:
+    get:
+      operationId: caseStateChangeSchema
+      summary: Outbound case state change webhook JSON schema (Q2-E08)
+      responses:
+        "200":
+          description: JSON Schema for outbound notifications
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /v1/outbound/case-state-change/fixture:
+    post:
+      operationId: caseStateChangeFixture
+      summary: Validate outbound webhook payload fixtures (schema-only, Q2-E08)
+      parameters:
+        - in: header
+          name: X-Bridge-Secret
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CaseStateChangeWebhookPayload"
+      responses:
+        "200":
+          description: Fixture accepted
+        "401":
+          description: Invalid bridge secret
+
 components:
   schemas:
     TeamsBridgeBody:
@@ -376,6 +487,88 @@ components:
         from:
           type: object
           nullable: true
+          additionalProperties: true
+
+    CaseActionRequest:
+      type: object
+      required: [action, tenant_id, case_id, actor_id, platform, idempotency_key]
+      properties:
+        action: { type: string, enum: [assign, comment, escalate, resolve] }
+        tenant_id: { type: string, maxLength: 128 }
+        case_id: { type: string, maxLength: 128 }
+        actor_id: { type: string, maxLength: 128 }
+        actor_role: { type: string, maxLength: 64, default: analyst }
+        platform: { type: string, enum: [slack, teams] }
+        workspace_id: { type: string, maxLength: 128 }
+        thread_key: { type: string, maxLength: 256, nullable: true }
+        idempotency_key: { type: string, maxLength: 256 }
+        correlation_id: { type: string, maxLength: 128, nullable: true }
+        assignee: { type: string, maxLength: 128, nullable: true }
+        comment_body: { type: string, maxLength: 4096, nullable: true }
+        resolve_status: { type: string, maxLength: 64, nullable: true }
+        reason_code: { type: string, maxLength: 128, nullable: true }
+
+    CaseActionResponse:
+      type: object
+      required: [ok, action, case_id, tenant_id, idempotency_key, correlation_id]
+      properties:
+        ok: { type: boolean }
+        action: { type: string }
+        case_id: { type: string }
+        tenant_id: { type: string }
+        idempotency_key: { type: string }
+        correlation_id: { type: string }
+        audit_id: { type: integer }
+        upstream_service: { type: string, nullable: true }
+        upstream_status: { type: integer, nullable: true }
+        replayed: { type: boolean, default: false }
+        detail: { type: string, nullable: true }
+
+    ThreadCorrelationRequest:
+      type: object
+      required: [platform, workspace_id, thread_key, case_id, tenant_id]
+      properties:
+        platform: { type: string, enum: [slack, teams] }
+        workspace_id: { type: string, maxLength: 128 }
+        thread_key: { type: string, maxLength: 256 }
+        case_id: { type: string, maxLength: 128 }
+        tenant_id: { type: string, maxLength: 128 }
+
+    ThreadCorrelationResponse:
+      allOf:
+        - $ref: "#/components/schemas/ThreadCorrelationRequest"
+        - type: object
+          required: [created_at, updated_at]
+          properties:
+            created_at: { type: string, format: date-time }
+            updated_at: { type: string, format: date-time }
+
+    CaseStateChangeWebhookPayload:
+      type: object
+      required: [schema_id, event_id, emitted_at, tenant_id, case_id, new_status, actor_id, actor_role, source]
+      properties:
+        schema_id: { type: string, const: "tarka.bridge.case_state_change/v1" }
+        event_id: { type: string }
+        emitted_at: { type: string, format: date-time }
+        tenant_id: { type: string }
+        case_id: { type: string }
+        previous_status: { type: string, nullable: true }
+        new_status: { type: string }
+        previous_priority: { type: string, nullable: true }
+        new_priority: { type: string, nullable: true }
+        assigned_team: { type: string, nullable: true }
+        actor_id: { type: string }
+        actor_role: { type: string }
+        source: { type: string, enum: [case-api, orchestrator, chat-bridge] }
+        platform: { type: string, enum: [slack, teams, api], nullable: true }
+        thread_key: { type: string, nullable: true }
+        correlation_id: { type: string, nullable: true }
+        idempotency_key: { type: string, nullable: true }
+        labels:
+          type: array
+          items: { type: string }
+        metadata:
+          type: object
           additionalProperties: true
 
     PluginSessionBridgeBody:

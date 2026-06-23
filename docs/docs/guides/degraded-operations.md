@@ -46,7 +46,7 @@ The embedded collaboration app (`investigation_agent.chat_bridge`, **`GET /v1/ch
 Use the smoke script to verify the explanation chain after deploy:
 
 ```bash
-python scripts/ci/investigation_e2e_smoke.py \
+python infra/scripts/ci/investigation_e2e_smoke.py \
   --tenant-id demo \
   --decision-api-url http://localhost:8000 \
   --case-api-url http://localhost:8002

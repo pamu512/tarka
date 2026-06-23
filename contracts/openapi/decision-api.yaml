@@ -140,6 +140,90 @@ paths:
           description: Unknown scenario
         "404":
           description: Unknown vertical pack
+  /v1/simulation/benchmark/export:
+    get:
+      operationId: getTenantBenchmarkExport
+      summary: Tenant-scoped latest vertical benchmark scorecard (RBAC analyst)
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Publishable tenant benchmark export
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "404":
+          description: No export for tenant
+    post:
+      operationId: createTenantBenchmarkExport
+      summary: Run reproducible vertical benchmark and persist tenant export (RBAC admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_id]
+              properties:
+                tenant_id: { type: string }
+                seed: { type: integer, default: 42 }
+                scenario: { type: string, default: baseline }
+                verticals:
+                  type: array
+                  items: { type: string }
+      responses:
+        "201":
+          description: Stored benchmark export
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/drift/query:
+    get:
+      operationId: driftQuery
+      summary: Unified tenant drift summary (calibration)
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: profile
+          in: query
+          schema: { type: string, default: default }
+      responses:
+        "200":
+          description: Drift query envelope
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/drift/calibration:
+    get:
+      operationId: driftCalibration
+      summary: Tenant calibration histogram drift
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: profile
+          in: query
+          schema: { type: string, default: default }
+      responses:
+        "200":
+          description: Calibration drift detail
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
   /v1/attestation/challenge:
     post:
       operationId: attestationChallenge
@@ -613,6 +697,47 @@ paths:
           description: No audit rows for tenant_id and entity_id
         "503":
           description: Counter replay disabled (COUNTER_REPLAY_TOKEN unset)
+  /v1/internal/counters/replay/jobs:
+    post:
+      operationId: enqueueCounterReplayJob
+      summary: Enqueue offline replay job (async status surface)
+      security:
+        - TarkaCounterReplayToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CounterReplayRequest"
+      responses:
+        "202":
+          description: Job accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/internal/counters/replay/jobs/{job_id}:
+    get:
+      operationId: getCounterReplayJobById
+      summary: Offline replay job status
+      security:
+        - TarkaCounterReplayToken: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Job status
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "404":
+          description: Job not found
 components:
   securitySchemes:
     TarkaCounterReplayToken:

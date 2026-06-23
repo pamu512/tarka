@@ -1,6 +1,6 @@
 # Deploying Tarka on GCP
 
-This guide maps Tarka deployment artifacts ([Docker Compose](../../../deploy/docker-compose.yml), [Helm chart](../../../deploy/helm/fraud-stack/)) to a practical Google Cloud production layout.
+This guide maps Tarka deployment artifacts ([Docker Compose](../../../infra/deploy/docker-compose.yml), [Helm chart](../../../infra/deploy/helm/fraud-stack/)) to a practical Google Cloud production layout.
 
 It is intentionally parallel to AWS guidance so operators can follow the same mental model across clouds.
 

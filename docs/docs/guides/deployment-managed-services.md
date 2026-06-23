@@ -8,6 +8,20 @@ When rolling out **secret-backed auth and tenant controls** after wiring `global
 
 ---
 
+## Profile selection decision tree (Q1-D08)
+
+```
+Already operate managed Postgres + Redis?
+  └─ yes → managed-services path (this guide); disable chart infra
+  └─ no → chart-managed infra OK for pilot?
+            └─ yes → Helm defaults with `postgres.enabled=true`
+            └─ no → lighter runtime path (see deployment-lighter-runtime.md)
+```
+
+**Misconfiguration escalation:** env key drift → `python3 infra/scripts/deploy/validate_env_contract.py`; tenant/auth failures → [production-security-rollout.md](./production-security-rollout.md); preset promotion → [staging-promotion-playbook.md](./staging-promotion-playbook.md).
+
+---
+
 ## Runtime classification
 
 | Class | Services | Cloud-native expectation |

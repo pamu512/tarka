@@ -53,8 +53,8 @@ jobs:
           ignore-unfixed: true
         continue-on-error: true
 
-  trivy-decision-api-image:
-    name: Trivy decision-api image
+  trivy-core-api-image:
+    name: Trivy core-api image
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -63,15 +63,15 @@ jobs:
         uses: docker/build-push-action@v7.2.0
         with:
           context: .
-          file: legacy_attic/services/legacy_v1_decision_api/Dockerfile
+          file: services/core-api/Dockerfile
           load: true
-          tags: tarka/decision-api:scan
+          tags: tarka/core-api:scan
           push: false
 
       - name: Trivy image scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: tarka/decision-api:scan
+          image-ref: tarka/core-api:scan
           format: sarif
           output: trivy-image.sarif
           severity: CRITICAL,HIGH,MEDIUM
@@ -83,4 +83,4 @@ jobs:
         if: always() && hashFiles('trivy-image.sarif') != ''
         with:
           sarif_file: trivy-image.sarif
-          category: trivy-decision-api
+          category: trivy-core-api

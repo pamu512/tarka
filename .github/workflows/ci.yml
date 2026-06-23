@@ -36,7 +36,7 @@ jobs:
       - name: Tier-1 Honesty gate — no stub APIs or empty implementations (AST)
         run: python3 scripts/audit_stubs.py
       - name: Tier-1 Honesty gate — audit_stubs self-test (stdlib unittest)
-        run: python3 scripts/ci/test_audit_stubs.py
+        run: python3 infra/scripts/ci/test_audit_stubs.py
 
   lint:
     needs: audit-stubs
@@ -48,25 +48,52 @@ jobs:
           python-version: "3.12"
       - run: pip install ruff
       - run: ruff check .
-      - run: ruff format --check legacy_attic/services/
+      - run: ruff format --check services/
       - name: Enforce Python import style consistency
-        run: python scripts/ci/check_import_style_consistency.py
+        run: python infra/scripts/ci/check_import_style_consistency.py
       - name: Demo vertical contract unit tests (stdlib)
-        run: python3 scripts/ci/test_demo_vertical_contracts.py
+        run: python3 infra/scripts/ci/test_demo_vertical_contracts.py
+      - name: Q2 Wave 4 contract unit tests (stdlib)
+        run: |
+          pip install pyyaml
+          python3 infra/scripts/ci/test_q2_wave4_contracts.py
       - name: Validate JSON rule packs (policy-as-code gate)
-        run: python scripts/policy/validate_rule_packs.py
+        run: |
+          pip install pydantic
+          python infra/scripts/policy/validate_rule_packs.py
+      - name: Validate OPA policy bundle (Q1-E01)
+        run: python infra/scripts/policy/validate_opa_bundle.py
+      - name: Validate default deployment profile manifest drift (Q1-E01)
+        run: |
+          pip install pyyaml
+          python infra/scripts/policy/validate_deployment_profile_manifest.py
       - name: Validate typology DSL + predicate registry (OSS #46)
-        run: python scripts/policy/validate_typology_dsl.py
+        run: python infra/scripts/policy/validate_typology_dsl.py
+      - name: Validate deployment env contract (Q1-E07)
+        run: python3 infra/scripts/deploy/validate_env_contract.py
+      - name: Validate release governance checklist (Q1-E06)
+        run: |
+          pip install pyyaml
+          python3 scripts/release/validate_governance_checklist.py
+      - name: tarka-deploy-settings schema gate (Q1-E07)
+        run: |
+          pip install -e packages/deploy-settings pytest
+          pytest packages/deploy-settings/tests -q
       - name: Validate OpenAPI contracts (contracts/openapi)
         run: |
           pip install pyyaml openapi-spec-validator
-          python scripts/ci/validate_openapi_yaml.py
+          python infra/scripts/ci/validate_openapi_yaml.py
       - name: Validate ML signal catalogs vs heuristic FEATURE_ORDER
         run: python scripts/ml/validate_signal_catalogs.py
       - name: ML promotion policy YAML/JSON sync + metadata (OSS #37 / #52)
         run: |
           pip install pyyaml
           python scripts/ml/validate_ml_promotion_policy.py --check-sync --strict
+      - name: Lint Prometheus SLO burn rules (Q1-E04)
+        run: |
+          curl -sLO https://github.com/prometheus/prometheus/releases/download/v2.53.0/prometheus-2.53.0.linux-amd64.tar.gz
+          tar xzf prometheus-2.53.0.linux-amd64.tar.gz prometheus-2.53.0.linux-amd64/promtool
+          ./prometheus-2.53.0.linux-amd64/promtool check rules infra/deploy/observability/prometheus-rules/slo-burn.yml
       - name: Block vendor IDE tokens in tracked sources
         run: |
           python << 'PY'
@@ -95,6 +122,29 @@ jobs:
                   sys.exit(r.returncode)
           PY
 
+  test-shared-auth:
+    needs: audit-stubs
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tenant_binding_required: [true, false]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: pip install pytest fastapi httpx sqlalchemy
+      - name: Shared auth + tenant binding regression (TENANT_BINDING_REQUIRED=${{ matrix.tenant_binding_required }})
+        run: pytest -v tests/
+        working-directory: services/shared
+        env:
+          PYTHONPATH: .:../../packages/shared-core
+          TENANT_BINDING_REQUIRED: ${{ matrix.tenant_binding_required }}
+      - name: Tenant binding smoke (Q1-E02)
+        run: python3 scripts/security/tenant_binding_smoke.py --tenant-binding-required ${{ matrix.tenant_binding_required }}
+
   test-decision-api:
     needs: audit-stubs
     runs-on: ubuntu-latest
@@ -111,16 +161,16 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: legacy_attic/services/legacy_v1_decision_api/pyproject.toml
+          cache-dependency-path: services/legacy_v1_decision_api/pyproject.toml
       - name: Build and install rule engine
         run: |
           pip install "maturin>=1.7,<2.0"
           maturin build --release --out dist
           pip install dist/*.whl
-        working-directory: legacy_attic/services/rule-engine
+        working-directory: services/rule-engine
       - name: Install dependencies
         run: pip install -e ".[dev]"
-        working-directory: legacy_attic/services/legacy_v1_decision_api
+        working-directory: services/legacy_v1_decision_api
       - name: Run tests (inference, replay, evaluate path, consortium, rules)
         run: >
           pytest
@@ -130,23 +180,30 @@ jobs:
           --cov-report=term-missing
           --cov-fail-under=48
           tests/
-        working-directory: legacy_attic/services/legacy_v1_decision_api
+        working-directory: services/legacy_v1_decision_api
         env:
-          PYTHONPATH: src:../shared
+          PYTHONPATH: src:../shared:../../packages/shared-core
+          DATABASE_URL: sqlite+aiosqlite:///
+          REDIS_URL: redis://localhost:6379/0
+      - name: Q2 Wave 4 decision-api tests
+        run: >
+          pytest services/decision-api/tests/test_q2_wave4_api.py -q
+        env:
+          PYTHONPATH: services/decision-api/src:services/shared:packages/shared-core
           DATABASE_URL: sqlite+aiosqlite:///
           REDIS_URL: redis://localhost:6379/0
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
           name: coverage-decision-api
-          path: legacy_attic/services/legacy_v1_decision_api/coverage.xml
+          path: services/legacy_v1_decision_api/coverage.xml
           if-no-files-found: ignore
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: legacy_attic/services/legacy_v1_decision_api/coverage.xml
+          files: services/legacy_v1_decision_api/coverage.xml
           flags: decision-api
           fail_ci_if_error: false
 
@@ -159,27 +216,27 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: legacy_attic/services/case-api/pyproject.toml
+          cache-dependency-path: services/case-api/pyproject.toml
       - name: Install dependencies
         run: pip install -e ".[dev]"
-        working-directory: legacy_attic/services/case-api
+        working-directory: services/case-api
       - name: Run tests
         run: pytest --cov=case_api --cov-report=xml --cov-report=term-missing --cov-fail-under=40 tests/
-        working-directory: legacy_attic/services/case-api
+        working-directory: services/case-api
         env:
-          PYTHONPATH: src:../shared
+          PYTHONPATH: src:../shared:../../packages/shared-core
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
           name: coverage-case-api
-          path: legacy_attic/services/case-api/coverage.xml
+          path: services/case-api/coverage.xml
           if-no-files-found: ignore
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: legacy_attic/services/case-api/coverage.xml
+          files: services/case-api/coverage.xml
           flags: case-api
           fail_ci_if_error: false
 
@@ -192,29 +249,28 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: legacy_attic/services/graph-service/pyproject.toml
+          cache-dependency-path: services/graph-service/pyproject.toml
       - name: Install dependencies
         run: pip install -e ".[dev]"
-        working-directory: legacy_attic/services/graph-service
+        working-directory: services/graph-service
       - name: Run tests (algorithms + Neo4j driver mocks)
-        run: pytest --cov=graph_service --cov-report=xml --cov-report=term-missing --cov-fail-under=26 tests/
-        working-directory: legacy_attic/services/graph-service
+        run: pytest --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=26 tests/
+        working-directory: services/graph-service
         env:
-          PYTHONPATH: src:../shared
-          # Unit tests mock Neo4j drivers; default graph_backend is janusgraph (Gremlin on :8182).
+          PYTHONPATH: src:.:../shared
           GRAPH_BACKEND: neo4j
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
           name: coverage-graph-service
-          path: legacy_attic/services/graph-service/coverage.xml
+          path: services/graph-service/coverage.xml
           if-no-files-found: ignore
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: legacy_attic/services/graph-service/coverage.xml
+          files: services/graph-service/coverage.xml
           flags: graph-service
           fail_ci_if_error: false
 
@@ -234,10 +290,10 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: legacy_attic/services/graph-service/pyproject.toml
+          cache-dependency-path: services/graph-service/pyproject.toml
       - name: Install dependencies
         run: pip install -e ".[dev]"
-        working-directory: legacy_attic/services/graph-service
+        working-directory: services/graph-service
       - name: Wait for Neo4j Bolt
         run: |
           python <<'PY'
@@ -260,9 +316,9 @@ jobs:
           PY
       - name: Run Neo4j integration tests
         run: pytest -v tests/test_neo4j_integration.py
-        working-directory: legacy_attic/services/graph-service
+        working-directory: services/graph-service
         env:
-          PYTHONPATH: src:../shared
+          PYTHONPATH: src:../shared:../../packages/shared-core
           NEO4J_INTEGRATION: "1"
           NEO4J_URI: bolt://127.0.0.1:7687
           NEO4J_USER: neo4j
@@ -277,27 +333,27 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: legacy_attic/services/integration-ingress/pyproject.toml
+          cache-dependency-path: services/integration-ingress/pyproject.toml
       - name: Install dependencies
         run: pip install -e ".[dev]"
-        working-directory: legacy_attic/services/integration-ingress
+        working-directory: services/integration-ingress
       - name: Run tests (OSINT parallel enrichment, KMS stubs)
         run: pytest --cov=integration_ingress --cov-report=xml --cov-report=term-missing --cov-fail-under=35 tests/
-        working-directory: legacy_attic/services/integration-ingress
+        working-directory: services/integration-ingress
         env:
-          PYTHONPATH: src:../shared
+          PYTHONPATH: src:../shared:../../packages/shared-core
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
           name: coverage-integration-ingress
-          path: legacy_attic/services/integration-ingress/coverage.xml
+          path: services/integration-ingress/coverage.xml
           if-no-files-found: ignore
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: legacy_attic/services/integration-ingress/coverage.xml
+          files: services/integration-ingress/coverage.xml
           flags: integration-ingress
           fail_ci_if_error: false
 
@@ -310,27 +366,32 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: legacy_attic/services/investigation-agent/pyproject.toml
+          cache-dependency-path: services/investigation-agent/pyproject.toml
       - name: Install dependencies
-        run: pip install -e ".[dev]"
-        working-directory: legacy_attic/services/investigation-agent
+        run: pip install -e ".[dev]" sqlalchemy
+        working-directory: services/investigation-agent
       - name: Run tests
         run: pytest --cov=investigation_agent --cov-report=xml --cov-report=term-missing --cov-fail-under=52 -m "not golden_profile" tests/
-        working-directory: legacy_attic/services/investigation-agent
+        working-directory: services/investigation-agent
         env:
-          PYTHONPATH: src:../shared
+          PYTHONPATH: src:../shared:../../packages/shared-core
+      - name: Copilot eval golden gate (Q2-E02)
+        run: pytest -v tests/test_copilot_eval_golden.py
+        working-directory: services/investigation-agent
+        env:
+          PYTHONPATH: src:../shared:../../packages/shared-core
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
           name: coverage-investigation-agent
-          path: legacy_attic/services/investigation-agent/coverage.xml
+          path: services/investigation-agent/coverage.xml
           if-no-files-found: ignore
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: legacy_attic/services/investigation-agent/coverage.xml
+          files: services/investigation-agent/coverage.xml
           flags: investigation-agent
           fail_ci_if_error: false
 
@@ -347,18 +408,66 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: legacy_attic/services/investigation-agent/pyproject.toml
+          cache-dependency-path: services/investigation-agent/pyproject.toml
       - name: Install dependencies
-        run: pip install -e ".[dev]"
-        working-directory: legacy_attic/services/investigation-agent
+        run: pip install -e ".[dev]" sqlalchemy
+        working-directory: services/investigation-agent
       - name: Golden profile ${{ matrix.profile }}
         run: >
           pytest -m golden_profile
           "tests/test_integration_golden_profiles.py::test_golden_profile_integration_surface[${{ matrix.profile }}]"
           -v --tb=short
-        working-directory: legacy_attic/services/investigation-agent
+        working-directory: services/investigation-agent
         env:
-          PYTHONPATH: src:../shared
+          PYTHONPATH: src:../shared:../../packages/shared-core
+
+  test-collaboration-chat-bridge:
+    needs: audit-stubs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services/collaboration-chat-bridge/pyproject.toml
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+        working-directory: services/collaboration-chat-bridge
+      - name: Q2-E08 bidirectional case actions gate
+        run: pytest -v tests/
+        working-directory: services/collaboration-chat-bridge
+        env:
+          PYTHONPATH: .:src:../shared
+          # Override workflow default: Q2-E08 asserts bridge secret auth (401 without headers).
+          ALLOW_INSECURE_NO_AUTH: "false"
+
+  test-orchestrator-gates:
+    needs: audit-stubs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install orchestrator test dependencies
+        run: |
+          pip install pytest pytest-asyncio fastapi httpx sqlalchemy aiosqlite redis pydantic pydantic-settings duckdb neo4j reportlab pypdf python-multipart greenlet protobuf maturin
+          pip install -e packages/deploy-settings
+          (cd crates/tarka-py && maturin build --release --out /tmp/tarka-wheels && pip install /tmp/tarka-wheels/*.whl)
+      - name: Q2-E04 entity resolution + HIL override gates
+        run: |
+          pytest -q \
+            tests/test_entity_resolution_gate.py \
+            tests/test_hil_overrides_contract_gate.py \
+            tests/test_entity_profile_gate.py
+        working-directory: services/orchestrator
+        env:
+          PYTHONPATH: >-
+            .:../../packages/shared-core:../rule_engine:../ingestor/src:../ingestor
+          ORCHESTRATOR_ENTITY_PROFILE_SKIP_SHADOW: "1"
+          ORCHESTRATOR_V1_RATE_LIMIT_RPM: "0"
+          ALLOW_INSECURE_NO_AUTH: "true"
 
   test-sdk:
     needs: audit-stubs
@@ -409,7 +518,7 @@ jobs:
       - run: npm ci
       - run: npm run test -w tarka-ui
       - name: Guard production build mock mode
-        run: python scripts/ci/check_frontend_mock_mode.py
+        run: python infra/scripts/ci/check_frontend_mock_mode.py
       - run: npm run build -w tarka-ui
 
   build-sdk-typescript:
@@ -442,27 +551,27 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: legacy_attic/services/graphql-gateway/pyproject.toml
+          cache-dependency-path: services/graphql-gateway/pyproject.toml
       - name: Install dependencies
         run: pip install -e ".[dev]"
-        working-directory: legacy_attic/services/graphql-gateway
+        working-directory: services/graphql-gateway
       - name: Run tests
-        run: pytest --cov=graphql_gateway --cov-report=xml --cov-report=term-missing --cov-fail-under=72 tests/
-        working-directory: legacy_attic/services/graphql-gateway
+        run: pytest --cov=schema --cov=main --cov=config --cov-report=xml --cov-report=term-missing --cov-fail-under=72 tests/
+        working-directory: services/graphql-gateway
         env:
-          PYTHONPATH: src:../shared
+          PYTHONPATH: .:src:../shared
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
           name: coverage-graphql-gateway
-          path: legacy_attic/services/graphql-gateway/coverage.xml
+          path: services/graphql-gateway/coverage.xml
           if-no-files-found: ignore
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: legacy_attic/services/graphql-gateway/coverage.xml
+          files: services/graphql-gateway/coverage.xml
           flags: graphql-gateway
           fail_ci_if_error: false
 
@@ -477,23 +586,23 @@ jobs:
           prefix-key: v1-data-plane-rust
       - name: cargo test (event-ingest crate)
         run: cargo test
-        working-directory: legacy_attic/services/event-ingest
+        working-directory: services/event-ingest
       - name: cargo test (analytics-sink crate)
         run: cargo test
-        working-directory: legacy_attic/services/analytics-sink
+        working-directory: services/analytics-sink
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: legacy_attic/services/data-plane/pyproject.toml
+          cache-dependency-path: services/data-plane/pyproject.toml
       - name: Install data-plane (Python)
         run: pip install -e "."
-        working-directory: legacy_attic/services/data-plane
+        working-directory: services/data-plane
       - name: Import merged FastAPI app
         run: python -c "from data_plane.main import app; assert 'Data Plane' in app.title"
-        working-directory: legacy_attic/services/data-plane
+        working-directory: services/data-plane
         env:
-          PYTHONPATH: src:../analytics-sink/src:../event-ingest/src:../shared
+          PYTHONPATH: src:../event-ingest:../event-ingest/src:../analytics-sink:../analytics-sink/src:../shared
 
   test-chitragupta:
     needs: audit-stubs
@@ -504,27 +613,27 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: legacy_attic/services/chitragupta/pyproject.toml
+          cache-dependency-path: services/chitragupta/pyproject.toml
       - name: Install dependencies
         run: pip install -e ".[dev]"
-        working-directory: legacy_attic/services/chitragupta
+        working-directory: services/chitragupta
       - name: Run tests
-        run: pytest --cov=chitragupta --cov-report=xml --cov-report=term-missing --cov-fail-under=70 tests/
-        working-directory: legacy_attic/services/chitragupta
+        run: pytest --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=70 tests/
+        working-directory: services/chitragupta
         env:
-          PYTHONPATH: src
+          PYTHONPATH: .:src
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
           name: coverage-chitragupta
-          path: legacy_attic/services/chitragupta/coverage.xml
+          path: services/chitragupta/coverage.xml
           if-no-files-found: ignore
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: legacy_attic/services/chitragupta/coverage.xml
+          files: services/chitragupta/coverage.xml
           flags: chitragupta
           fail_ci_if_error: false
 
@@ -537,27 +646,27 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: legacy_attic/services/feature-service/pyproject.toml
+          cache-dependency-path: services/feature-service/pyproject.toml
       - name: Install dependencies
         run: pip install -e ".[dev]"
-        working-directory: legacy_attic/services/feature-service
+        working-directory: services/feature-service
       - name: Run tests
         run: pytest --cov=feature_service --cov-report=xml --cov-report=term-missing --cov-fail-under=49 tests/
-        working-directory: legacy_attic/services/feature-service
+        working-directory: services/feature-service
         env:
-          PYTHONPATH: src:../shared
+          PYTHONPATH: src:../shared:../../packages/shared-core
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
           name: coverage-feature-service
-          path: legacy_attic/services/feature-service/coverage.xml
+          path: services/feature-service/coverage.xml
           if-no-files-found: ignore
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: legacy_attic/services/feature-service/coverage.xml
+          files: services/feature-service/coverage.xml
           flags: feature-service
           fail_ci_if_error: false
 
@@ -570,27 +679,27 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: legacy_attic/services/ml-scoring/pyproject.toml
+          cache-dependency-path: services/ml-scoring/pyproject.toml
       - name: Install dependencies
-        run: pip install -e ".[dev]"
-        working-directory: legacy_attic/services/ml-scoring
+        run: pip install -e ".[dev]" sqlalchemy
+        working-directory: services/ml-scoring
       - name: Run tests
-        run: pytest --cov=ml_scoring --cov-report=xml --cov-report=term-missing --cov-fail-under=64 tests/
-        working-directory: legacy_attic/services/ml-scoring
+        run: pytest --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=64 tests/
+        working-directory: services/ml-scoring
         env:
-          PYTHONPATH: src:../shared
+          PYTHONPATH: src:.:../shared:../../packages/shared-core
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
           name: coverage-ml-scoring
-          path: legacy_attic/services/ml-scoring/coverage.xml
+          path: services/ml-scoring/coverage.xml
           if-no-files-found: ignore
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: legacy_attic/services/ml-scoring/coverage.xml
+          files: services/ml-scoring/coverage.xml
           flags: ml-scoring
           fail_ci_if_error: false
 
@@ -604,7 +713,7 @@ jobs:
           python-version: "3.12"
       - uses: docker/setup-buildx-action@v4
       - name: Start lite stack for benchmark
-        run: docker compose -f deploy/docker-compose.lite.yml up -d --build
+        run: docker compose -f infra/deploy/docker-compose.lite.yml up -d --build
       - name: Wait for core-api (decision) health
         run: |
           python3 - <<'PY'
@@ -637,7 +746,7 @@ jobs:
           if-no-files-found: error
       - name: Tear down stack
         if: always()
-        run: docker compose -f deploy/docker-compose.lite.yml down -v --remove-orphans
+        run: docker compose -f infra/deploy/docker-compose.lite.yml down -v --remove-orphans
 
   chaos-matrix:
     needs: audit-stubs
@@ -660,13 +769,14 @@ jobs:
         with:
           python-version: "3.12"
       - name: Event schema registry compatibility gate
-        run: python3 scripts/ci/schema_registry_compat.py
+        run: python3 infra/scripts/ci/schema_registry_compat.py
 
   docker-build:
     runs-on: ubuntu-latest
     needs:
       - audit-stubs
       - lint
+      - test-shared-auth
       - test-decision-api
       - test-case-api
       - test-graph-service
@@ -674,6 +784,8 @@ jobs:
       - test-integration-ingress
       - test-investigation-agent
       - test-investigation-agent-golden-matrix
+      - test-collaboration-chat-bridge
+      - test-orchestrator-gates
       - test-sdk
       - build-frontend
       - build-sdk-typescript
@@ -700,13 +812,13 @@ jobs:
       - uses: docker/build-push-action@v7.2.0
         with:
           context: .
-          file: legacy_attic/services/${{ matrix.service }}/Dockerfile
+          file: services/${{ matrix.service }}/Dockerfile
           push: false
           tags: tarka/${{ matrix.service }}:${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
-  # End-to-end: build and start every service in deploy/docker-compose.yml (--profile full),
+  # End-to-end: build and start every service in infra/deploy/docker-compose.yml (--profile full),
   # wait for health + POST /v1/decisions/evaluate, run follow-up smoke checks, then tear down.
   stack-smoke:
     runs-on: ubuntu-latest
@@ -719,14 +831,14 @@ jobs:
       - name: Full stack smoke (Docker Compose profile full)
         env:
           DOCKER_BUILDKIT: "1"
-        run: python3 scripts/ci/full_stack_smoke.py --wait-seconds 1200 --keep-up
+        run: python3 infra/scripts/ci/full_stack_smoke.py --wait-seconds 1200 --keep-up
       - name: Service contract tests
-        run: python3 scripts/ci/test_service_contracts.py
+        run: python3 infra/scripts/ci/test_service_contracts.py
       - name: Traceparent propagation smoke (decision/case/investigation-agent)
-        run: python3 scripts/ci/traceparent_smoke.py --allow-missing
+        run: python3 infra/scripts/ci/traceparent_smoke.py --allow-missing
       - name: Tear down full stack
         if: always()
-        run: python3 scripts/ci/full_stack_smoke.py --down-only
+        run: python3 infra/scripts/ci/full_stack_smoke.py --down-only
 
   cloud-preset-smoke:
     needs: audit-stubs
@@ -740,17 +852,17 @@ jobs:
         with:
           python-version: "3.12"
       - name: Helm lint
-        run: helm lint deploy/helm/fraud-stack
+        run: helm lint infra/deploy/helm/fraud-stack
       - name: Helm template (default values)
-        run: helm template tarka deploy/helm/fraud-stack -f deploy/helm/fraud-stack/values.yaml >/tmp/tarka-default.yaml
+        run: helm template tarka infra/deploy/helm/fraud-stack -f infra/deploy/helm/fraud-stack/values.yaml >/tmp/tarka-default.yaml
       - name: Validate cloud preset generation
-        run: python3 scripts/ci/cloud_preset_smoke.py
+        run: python3 infra/scripts/ci/cloud_preset_smoke.py
       - name: Helm template (generated core-on-aws preset)
         run: |
-          python3 scripts/deploy/generate_cloud_values.py \
+          python3 infra/scripts/deploy/generate_cloud_values.py \
             --preset core-on-aws \
             --image-registry registry.example.com/tarka \
             --db-url 'postgresql+asyncpg://fraud:pw@db.internal:5432/fraud' \
             --redis-url 'redis://redis.internal:6379/0' \
             --output /tmp/core-on-aws.values.yaml
-          helm template tarka deploy/helm/fraud-stack -f /tmp/core-on-aws.values.yaml >/tmp/tarka-core-aws.yaml
+          helm template tarka infra/deploy/helm/fraud-stack -f /tmp/core-on-aws.values.yaml >/tmp/tarka-core-aws.yaml

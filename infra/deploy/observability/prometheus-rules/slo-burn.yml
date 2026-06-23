@@ -1,0 +1,163 @@
+# Recording rules: HTTP 5xx ratio (5m vs 1h windows) by service label from shared observability middleware.
+# http_requests_total includes optional tenant_query=present|absent; sums by service are unchanged.
+# Load via prometheus.yml rule_files. Tune alert thresholds for your error budget.
+#
+# Runbooks: docs/docs/operations/runbook-pack-index.md
+# slo-burn: docs/docs/operations/slo-burn-response.md
+# fallback: docs/docs/guides/fallback-emergency-runbook.md
+# common:   docs/docs/operations/runbook-common-failures.md
+
+groups:
+  - name: tarka_slo_http_burn
+    interval: 30s
+    rules:
+      - record: tarka:http_5xx_ratio_5m
+        expr: |
+          sum by (service) (rate(http_requests_total{status=~"5.."}[5m]))
+          /
+          clamp_min(sum by (service) (rate(http_requests_total[5m])), 1e-9)
+      - record: tarka:http_5xx_ratio_1h
+        expr: |
+          sum by (service) (rate(http_requests_total{status=~"5.."}[1h]))
+          /
+          clamp_min(sum by (service) (rate(http_requests_total[1h])), 1e-9)
+
+  - name: tarka_slo_alerts
+    rules:
+      - alert: TarkaHighErrorRate5m
+        expr: tarka:http_5xx_ratio_5m > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          tier: platform
+        annotations:
+          summary: "Elevated 5xx ratio (5m) for {{ $labels.service }}"
+          description: "Fast burn: 5xx ratio exceeded 5% over 5m."
+          runbook_url: https://github.com/pamu512/tarka/blob/master/docs/docs/operations/slo-burn-response.md
+
+      - alert: TarkaHighErrorRate1h
+        expr: tarka:http_5xx_ratio_1h > 0.01
+        for: 15m
+        labels:
+          severity: warning
+          tier: platform
+        annotations:
+          summary: "Sustained 5xx ratio (1h) for {{ $labels.service }}"
+          description: "Slow burn: 5xx ratio exceeded 1% over 1h."
+          runbook_url: https://github.com/pamu512/tarka/blob/master/docs/docs/operations/slo-burn-response.md
+
+      - alert: TarkaPlatformServiceHighErrorRate5m
+        expr: |
+          tarka:http_5xx_ratio_5m{service=~"core-api|decision-api|case-api|feature-service|ml-scoring|integration-ingress|event-ingest|graphql-gateway|investigation-agent|analytics-sink|graph-service"} > 0.04
+        for: 5m
+        labels:
+          severity: warning
+          tier: platform-core
+        annotations:
+          summary: "Core platform 5xx ratio elevated (5m): {{ $labels.service }}"
+          description: "Error ratio exceeded 4% in 5m for a core HTTP service."
+          runbook_url: https://github.com/pamu512/tarka/blob/master/docs/docs/operations/slo-burn-response.md
+
+      - alert: TarkaPlatformServiceHighErrorRate1h
+        expr: |
+          tarka:http_5xx_ratio_1h{service=~"core-api|decision-api|case-api|feature-service|ml-scoring|integration-ingress|event-ingest|graphql-gateway|investigation-agent|analytics-sink|graph-service"} > 0.008
+        for: 15m
+        labels:
+          severity: warning
+          tier: platform-core
+        annotations:
+          summary: "Core platform 5xx ratio sustained (1h): {{ $labels.service }}"
+          description: "Error ratio exceeded 0.8% in 1h for a core HTTP service."
+          runbook_url: https://github.com/pamu512/tarka/blob/master/docs/docs/operations/slo-burn-response.md
+
+      - alert: TarkaRiskServiceHighErrorRate5m
+        expr: tarka:http_5xx_ratio_5m{service=~"calibration-service|counter-service|location-service"} > 0.03
+        for: 5m
+        labels:
+          severity: warning
+          tier: risk-services
+        annotations:
+          summary: "Risk service 5xx ratio elevated (5m): {{ $labels.service }}"
+          description: "Error ratio exceeded 3% in the last 5m for a first-class risk service."
+          runbook_url: https://github.com/pamu512/tarka/blob/master/docs/docs/operations/slo-burn-response.md
+
+      - alert: TarkaRiskServiceHighErrorRate1h
+        expr: tarka:http_5xx_ratio_1h{service=~"calibration-service|counter-service|location-service"} > 0.01
+        for: 15m
+        labels:
+          severity: warning
+          tier: risk-services
+        annotations:
+          summary: "Risk service 5xx ratio sustained (1h): {{ $labels.service }}"
+          description: "Error ratio exceeded 1% in the last 1h for a first-class risk service."
+          runbook_url: https://github.com/pamu512/tarka/blob/master/docs/docs/operations/slo-burn-response.md
+
+      - alert: TarkaDecisionApiCircuitOpenCalibration
+        expr: rate(tarka_circuit_open_total_calibration[5m]) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          tier: decision-resilience
+        annotations:
+          summary: "Decision API calibration circuit is opening frequently"
+          description: "Calibration dependency is degraded; inspect fallback_reason and upstream latency."
+          runbook_url: https://github.com/pamu512/tarka/blob/master/docs/docs/guides/fallback-emergency-runbook.md
+
+      - alert: TarkaDecisionApiCircuitOpenCounter
+        expr: rate(tarka_circuit_open_total_counter[5m]) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          tier: decision-resilience
+        annotations:
+          summary: "Decision API counter circuit is opening frequently"
+          description: "Counter-service fallback path is active; verify local aggregate fallback and upstream health."
+          runbook_url: https://github.com/pamu512/tarka/blob/master/docs/docs/guides/fallback-emergency-runbook.md
+
+      - alert: TarkaDecisionApiCircuitOpenLocation
+        expr: rate(tarka_circuit_open_total_location[5m]) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          tier: decision-resilience
+        annotations:
+          summary: "Decision API location circuit is opening frequently"
+          description: "Location dependency is degraded; evaluate geo risk fallback quality."
+          runbook_url: https://github.com/pamu512/tarka/blob/master/docs/docs/guides/fallback-emergency-runbook.md
+
+      - alert: TarkaDecisionApiFallbackRateElevated
+        expr: rate(fraud_fallback_total[5m]) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          tier: decision-resilience
+        annotations:
+          summary: "Decision API fallback rate elevated"
+          description: "Fallback decisions are occurring frequently; inspect fallback_reason metrics and dependency health."
+          runbook_url: https://github.com/pamu512/tarka/blob/master/docs/docs/guides/fallback-emergency-runbook.md
+
+  - name: tarka_drift_alerts
+    rules:
+      - alert: TarkaCalibrationDriftElevated
+        expr: |
+          max by (service) (tarka_calibration_drift_hint_elevated{service="decision-api"}) > 0
+        for: 30m
+        labels:
+          severity: warning
+          tier: calibration-drift
+        annotations:
+          summary: "Calibration drift elevated for {{ $labels.service }}"
+          description: "Histogram drift hint indicates elevated bin shift; review calibration snapshots and reference profiles."
+          runbook_url: https://github.com/pamu512/tarka/blob/master/docs/docs/operations/slo-burn-response.md
+
+      - alert: TarkaCalibrationDriftModerate
+        expr: |
+          max by (service) (tarka_calibration_drift_hint_moderate{service="decision-api"}) > 0
+        for: 1h
+        labels:
+          severity: info
+          tier: calibration-drift
+        annotations:
+          summary: "Calibration drift moderate for {{ $labels.service }}"
+          description: "Monitor calibration drift; moderate histogram shift detected."
+          runbook_url: https://github.com/pamu512/tarka/blob/master/docs/docs/operations/slo-burn-response.md

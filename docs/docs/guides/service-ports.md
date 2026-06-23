@@ -1,6 +1,6 @@
 # Service ports and OpenAPI index
 
-Single reference for **default HTTP ports**, **Docker Compose service names** (internal DNS), and **`contracts/openapi`** specs. Aligns with `deploy/docker-compose.yml`, Helm `values.yaml`, and the Components table in the repo root `README.md`.
+Single reference for **default HTTP ports**, **Docker Compose service names** (internal DNS), and **`contracts/openapi`** specs. Aligns with `infra/deploy/docker-compose.yml`, Helm `values.yaml`, and the Components table in the repo root `README.md`.
 
 ## Macroservices (preferred Compose / Helm layout)
 
@@ -34,7 +34,7 @@ From any container on the default Compose network, use **service name + containe
 - `http://data-plane:8007`
 - `http://graphql-gateway:8010`
 
-**In-process case → decision:** `core-api` sets `DECISION_API_URL=http://127.0.0.1:8000/decisions` for the case sub-app (see `deploy/docker-compose.yml`).
+**In-process case → decision:** `core-api` sets `DECISION_API_URL=http://127.0.0.1:8000/decisions` for the case sub-app (see `infra/deploy/docker-compose.yml`).
 
 **Investigation agent:** `CASE_API_URL=http://core-api:8000/cases`, `DECISION_API_URL=http://core-api:8000/decisions`, optional `GRAPH_SERVICE_URL`.
 
@@ -42,7 +42,7 @@ From any container on the default Compose network, use **service name + containe
 
 ## Helm (Kubernetes)
 
-Service names follow `{{ release-name }}-<component>` (see `deploy/helm/fraud-stack/templates/*.yaml`). Key toggles: **`coreApi`**, **`signalApi`**, **`dataPlane`**, **`graphqlGateway`**, etc. Ports default like the table unless overridden in `values.yaml`.
+Service names follow `{{ release-name }}-<component>` (see `infra/deploy/helm/fraud-stack/templates/*.yaml`). Key toggles: **`coreApi`**, **`signalApi`**, **`dataPlane`**, **`graphqlGateway`**, etc. Ports default like the table unless overridden in `values.yaml`.
 
 Templates wire **`DECISION_API_URL`** / **`CASE_API_URL`** with **`/decisions`** and **`/cases`** suffixes where consumers expect the consolidated **core-api** service.
 
@@ -54,6 +54,6 @@ Use `http://localhost:<port>` with the same path prefixes as in Docker (e.g. `ht
 
 When adding a service or changing a port:
 
-1. Update `deploy/docker-compose.yml` (and `lite` / `sandbox` if applicable).
+1. Update `infra/deploy/docker-compose.yml` (and `lite` / `sandbox` if applicable).
 2. Update this page and the root `README.md` Components table.
 3. Add or adjust `contracts/openapi/<service>.yaml` `servers` if the service is contract-published.
