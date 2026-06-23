@@ -68,10 +68,10 @@ jobs:
             services/saarthi \
             services/ingestor
 
-      - name: Black
+      - name: Ruff format (sidecars + ingestor)
         if: matrix.python-version == '3.14'
         run: |
-          black --check --line-length 100 --target-version py312 --fast \
+          ruff format --check \
             services/rule_engine \
             services/shadow \
             services/shadow_agent \
