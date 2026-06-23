@@ -70,7 +70,7 @@ def test_scout_blocks_hypothesis_when_backtest_fails(
         }
 
     with patch(
-        "shadow_agent.hypothesis_backtest_client.validate_suggested_rule_for_analyst",
+        "hypothesis_backtest_client.validate_suggested_rule_for_analyst",
         side_effect=_fail_gate,
     ):
         out = scout.scan_coordinated_bursts(duckdb_path_override=str(db), min_distinct_accounts=6)

@@ -288,8 +288,8 @@ def test_post_check_review_integrity_returns_payload(
         async def close(self) -> None:
             return None
 
-    monkeypatch.setattr("shadow_agent.main.check_review_integrity", _fake_check)
-    monkeypatch.setattr("shadow_agent.main.neo4j_driver_from_env", lambda: _FakeDriver())
+    monkeypatch.setattr("main.check_review_integrity", _fake_check)
+    monkeypatch.setattr("main.neo4j_driver_from_env", lambda: _FakeDriver())
 
     app = build_app(
         shadow_agent=ShadowAgent(llm_client=_StubLlmEchoEntity()),
