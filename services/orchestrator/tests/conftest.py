@@ -7,11 +7,12 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
 _SERVICES = _ROOT.parent
+_REPO_ROOT = _SERVICES.parent
 for _p in (
     _SERVICES / "ingestor" / "src",
     _SERVICES / "ingestor",
     _SERVICES / "shared",
-    _SERVICES.parent / "packages" / "shared-core",
+    _REPO_ROOT / "packages" / "shared-core",
 ):
     _s = str(_p.resolve())
     if _s not in sys.path:
@@ -21,6 +22,10 @@ _root_s = str(_ROOT.resolve())
 if _root_s in sys.path:
     sys.path.remove(_root_s)
 sys.path.insert(0, _root_s)
+# Repo-root ``schemas/`` (UnifiedSignalSchema) collides with orchestrator and shadow_agent.
+_repo_s = str(_REPO_ROOT.resolve())
+while _repo_s in sys.path:
+    sys.path.remove(_repo_s)
 for _mod in list(sys.modules):
     if _mod == "schemas" or _mod.startswith("schemas."):
         _file = getattr(sys.modules[_mod], "__file__", "") or ""

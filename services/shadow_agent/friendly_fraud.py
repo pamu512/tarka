@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from ingestor.schemas import TransactionSchema
-from schemas import ShadowDecision
+from shadow_schemas import ShadowDecision
 from sqlalchemy import Float, String, cast, func, or_, select
 from sqlalchemy.exc import NotSupportedError
 from sqlalchemy.ext.asyncio import AsyncSession

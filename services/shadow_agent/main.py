@@ -31,7 +31,7 @@ from retroactive_label import (
     _normalize_manifest_payload,
 )
 from tarka_shared.audit_errors import AuditPersistenceError
-from schemas import ShadowAnalyzeEnvelope
+from shadow_schemas import ShadowAnalyzeEnvelope
 from timeline import TimelineResponse, build_transaction_timeline
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError

@@ -8,7 +8,7 @@ from typing import Any, Final
 
 from ingestor.schemas import TransactionSchema
 from history import RecentEntityTransaction
-from schemas import ShadowDecision
+from shadow_schemas import ShadowDecision
 
 _JSON_SCHEMA_SPEC: Final[str] = json.dumps(
     ShadowDecision.model_json_schema(),
