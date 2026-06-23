@@ -40,6 +40,7 @@ jobs:
           DATABASE_URL: sqlite+aiosqlite:///
           REDIS_URL: redis://127.0.0.1:6379/0
           API_KEYS: ""
+          ALLOW_INSECURE_NO_AUTH: "true"
           FEATURE_SERVICE_URL: ""
           RULES_PATH: ../legacy_v1_decision_api/rules
         run: |
@@ -123,6 +124,7 @@ jobs:
           DATABASE_URL: sqlite+aiosqlite:///
           REDIS_URL: redis://127.0.0.1:6379/0
           API_KEYS: ""
+          ALLOW_INSECURE_NO_AUTH: "true"
           FEATURE_SERVICE_URL: ""
           RULES_PATH: ../legacy_v1_decision_api/rules
         run: |
