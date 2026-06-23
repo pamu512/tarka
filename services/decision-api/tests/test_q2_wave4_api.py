@@ -70,10 +70,6 @@ def test_benchmark_run_vertical_seed42(monkeypatch, tmp_path):
 
 @pytest.mark.asyncio
 async def test_counter_catalog_agg_key(monkeypatch):
-    try:
-        import tarka_core  # noqa: F401
-    except ImportError:
-        pytest.skip("tarka_core not installed")
     monkeypatch.setenv("AGG_KEY_VERSION", "ci_wave4_v1")
     from decision_api.internal_counters_api import get_counter_catalog_merged
 
