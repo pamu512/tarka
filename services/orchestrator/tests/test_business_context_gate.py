@@ -71,6 +71,6 @@ def test_transaction_ingest_never_calls_financial_aggregations() -> None:
             names.add(node.func.id)
         if isinstance(node, ast.Attribute):
             names.add(node.attr)
-    assert forbidden.isdisjoint(
-        names
-    ), f"transaction_ingest references financial aggregations: {forbidden & names}"
+    assert forbidden.isdisjoint(names), (
+        f"transaction_ingest references financial aggregations: {forbidden & names}"
+    )
