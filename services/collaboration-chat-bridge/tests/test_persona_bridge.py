@@ -44,7 +44,7 @@ def test_resolve_explicit_wins_over_prefix():
 
 @pytest.mark.asyncio
 async def test_post_chat_payload_persona(monkeypatch: pytest.MonkeyPatch):
-    from collaboration_chat_bridge import agent_client
+    import agent_client
 
     captured: dict = {}
 
