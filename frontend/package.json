@@ -31,7 +31,7 @@
     "framer-motion": "^12.38.0",
     "graphql": "^16.12.0",
     "jspdf": "^4.2.1",
-    "lucide-react": "^0.562.0",
+    "lucide-react": "^0.577.0",
     "maplibre-gl": "^5.24.0",
     "monaco-editor": "^0.55.1",
     "pdfjs-dist": "^5.7.284",
@@ -58,9 +58,9 @@
     }
   },
   "optionalDependencies": {
-    "@rolldown/binding-linux-x64-gnu": "1.0.0-rc.15",
-    "@rollup/rollup-linux-x64-gnu": "4.60.2",
-    "@tailwindcss/oxide-linux-x64-gnu": "4.2.2",
+    "@rolldown/binding-linux-x64-gnu": "1.1.2",
+    "@rollup/rollup-linux-x64-gnu": "4.62.2",
+    "@tailwindcss/oxide-linux-x64-gnu": "4.3.1",
     "lightningcss-linux-x64-gnu": "1.32.0"
   },
   "devDependencies": {
@@ -79,7 +79,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^16.5.0",
     "jsdom": "^26.1.0",
-    "sharp": "^0.34.1",
+    "sharp": "^0.35.2",
     "tailwindcss": "^4.0.0",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.50.1",
