@@ -7,7 +7,7 @@ import os
 import sys
 from pathlib import Path
 
-"""Validate JSON rule packs under legacy decision-api rules (or RULES_PATH).
+"""Validate JSON rule packs under decision-api rules (or RULES_PATH).
 
 Also validates v2 Hetu rule-engine AST packs under services/rule_engine/.
 
@@ -15,7 +15,7 @@ Exit 0 if all packs parse and pass structural validation (same checks as rule_ap
 Used by CI for policy-as-code gate.
 """
 _REPO = Path(__file__).resolve().parents[3]
-_DEC = _REPO / "services" / "legacy_v1_decision_api"
+_DEC = _REPO / "services" / "decision-api"
 _V2_RULE_ENGINE = _REPO / "services" / "rule_engine"
 _SRC = _DEC / "src"
 if str(_SRC) not in sys.path:

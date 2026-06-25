@@ -42,7 +42,7 @@ jobs:
           API_KEYS: ""
           ALLOW_INSECURE_NO_AUTH: "true"
           FEATURE_SERVICE_URL: ""
-          RULES_PATH: ../legacy_v1_decision_api/rules
+          RULES_PATH: rules
         run: |
           set -euo pipefail
           nohup python -m uvicorn decision_api.main:app --host 127.0.0.1 --port 8000 > /tmp/decision-api.log 2>&1 &
@@ -126,7 +126,7 @@ jobs:
           API_KEYS: ""
           ALLOW_INSECURE_NO_AUTH: "true"
           FEATURE_SERVICE_URL: ""
-          RULES_PATH: ../legacy_v1_decision_api/rules
+          RULES_PATH: rules
         run: |
           set -euo pipefail
           nohup python -m uvicorn decision_api.main:app --host 127.0.0.1 --port 8000 > /tmp/decision-api.log 2>&1 &

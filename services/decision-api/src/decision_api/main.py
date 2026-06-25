@@ -963,6 +963,7 @@ async def require_api_key(request: Request) -> None:
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    log.info("decision-api canonical package (services/decision-api)")
     from tarka_core.cache import LocalDictCache, RedisCache
     from tarka_core.messaging import LocalAsyncBroker, NatsBroker, NullMessageBroker
 

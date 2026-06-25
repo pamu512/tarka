@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# DEPRECATED paths: legacy_v1_decision_api is dormant — prefer services/decision-api (see DEPRECATED.md).
+
 # Tarka V2 Surgical Extraction Script
 # This will extract ONLY the highest-value, audit-first modules into a new 'tarka_v2_core' directory.
 # Everything else gets boxed up into 'legacy_attic' to instantly clear your working context.
@@ -18,27 +20,27 @@ declare -a SALVAGE_PATHS=(
     "services/event-ingest/src/event_ingest/ingest_contract"
     "services/core/src/tarka_core/engine_adapter"
     "services/shared/tarka_shared/audit_trail"
-    "services/legacy_v1_decision_api/src/decision_api/decision_log"
+    "services/decision-api/src/decision_api/decision_log"
     
     # 2. Rule Engine & AST
     "services/core/src/tarka_core/visual_rule_ast"
     "services/core/src/tarka_core/ast_definition"
-    "services/legacy_v1_decision_api/src/decision_api/json_rules"
-    "services/legacy_v1_decision_api/src/decision_api/rule_compiler_api"
+    "services/decision-api/src/decision_api/json_rules"
+    "services/decision-api/src/decision_api/rule_compiler_api"
     
     # 3. AI Insights & ONNX
     "services/signal-api/src/signal_api/onnx_hot_reload"
     "services/ml_sidecar/onnx_engine"
     "services/ml-scoring/training/train_anomaly_model"
     "services/ml-scoring/src/ml_scoring/shap_explainer"
-    "services/legacy_v1_decision_api/src/decision_api/inference_build"
+    "services/decision-api/src/decision_api/inference_build"
     
     # 4. Omnipresent Copilot
     "services/agent/shadow_copilot"
     "services/investigation-agent/src/investigation_agent/copilot_hardening"
     "services/investigation-agent/src/investigation_agent/chat_bridge/workflow_bridge"
     "services/investigation-agent/src/investigation_agent/llm_health"
-    "services/legacy_v1_decision_api/src/decision_api/shadow_evaluator"
+    "services/decision-api/src/decision_api/shadow_evaluator"
 )
 
 for item in "${SALVAGE_PATHS[@]}"; do
