@@ -6,6 +6,7 @@ import {
 } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
+import { safeExternalHref } from "../utils/externalLinks";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
 const MS_PER_DAY = 86_400_000;
@@ -85,6 +86,10 @@ export default function PitMlParquetExport() {
   const [submitting, setSubmitting] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<PitParquetJobStatusResponse | null>(null);
+  const presignedDownloadHref = useMemo(
+    () => safeExternalHref(jobStatus?.result?.presigned_get_url),
+    [jobStatus?.result?.presigned_get_url],
+  );
 
   const clientErrors = useMemo(() => {
     const errs: string[] = [];
@@ -370,12 +375,12 @@ export default function PitMlParquetExport() {
                 <dt className="text-gray-500 text-xs uppercase tracking-wide">Artifact URI</dt>
                 <dd className="font-mono text-xs break-all text-brand-300">{jobStatus.result.artifact_uri}</dd>
               </div>
-              {jobStatus.result.presigned_get_url && (
+              {presignedDownloadHref && (
                 <div>
                   <dt className="text-gray-500 text-xs uppercase tracking-wide">Presigned GET</dt>
                   <dd>
                     <a
-                      href={jobStatus.result.presigned_get_url}
+                      href={presignedDownloadHref}
                       className="text-brand-400 hover:text-brand-300 text-xs break-all underline"
                       target="_blank"
                       rel="noreferrer"

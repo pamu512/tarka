@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { disputes, type DisputeEntry } from "../../api/client";
 import { PageTitle } from "../../components/PageTitle";
+import { safeExternalHref } from "../../utils/externalLinks";
 import { toUserFacingError } from "../../utils/userFacingErrors";
 
 /** Public sample PDF (HTTPS) for demo iframe when no tenant upload URL is present. */
@@ -37,7 +38,7 @@ export default function DisputeReviewByIdPage() {
     void load();
   }, [load]);
 
-  const pdfSrc = row?.evidence_pdf_url?.trim() || DEMO_PDF_FALLBACK;
+  const pdfSrc = safeExternalHref(row?.evidence_pdf_url) ?? DEMO_PDF_FALLBACK;
   const shadowMd =
     row?.shadow_evidence_report_markdown?.trim() ||
     "*No Shadow evidence report is attached to this dispute yet.*";
