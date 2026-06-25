@@ -1067,6 +1067,10 @@ async def require_api_key(request: Request) -> None:
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    log.warning(
+        "DEPRECATED: services/legacy_v1_decision_api is dormant for one release cycle. "
+        "Use services/decision-api instead. See services/legacy_v1_decision_api/DEPRECATED.md"
+    )
     from tarka_core.cache import LocalDictCache, RedisCache
     from tarka_core.messaging import (
         EphemeralDiskBufferBroker,

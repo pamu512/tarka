@@ -45,7 +45,7 @@ Default-branch PRs must pass these **lint** job steps (see `.github/workflows/ci
 
 | Gate | Script | Scope |
 | --- | --- | --- |
-| Legacy rule packs (v1) | `infra/scripts/policy/validate_rule_packs.py` | `services/legacy_v1_decision_api/rules/*.json` |
+| Legacy rule packs (v1) | `infra/scripts/policy/validate_rule_packs.py` | `services/decision-api/rules/*.json` (symlink to legacy until migrated) |
 | Hetu rule-engine AST packs (v2) | same script | `services/rule_engine/rule_packs/` (+ test fixtures) |
 | OPA bundle | `infra/scripts/policy/validate_opa_bundle.py` | `infra/deploy/opa/*.rego` (`opa check --strict` + eval smoke) |
 | Default deployment profile drift | `infra/scripts/policy/validate_deployment_profile_manifest.py` | `infra/deploy/profiles/default-deployment-profile.yaml` vs Helm `values.yaml` + `docker-compose.production-hardening.yml` |

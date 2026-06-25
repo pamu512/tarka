@@ -46,7 +46,7 @@ services:
   decision-api:
     build:
       context: ../..
-      dockerfile: services/legacy_v1_decision_api/Dockerfile
+      dockerfile: services/decision-api/Dockerfile
     environment:
       DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
       REDIS_URL: redis://redis:6379/0

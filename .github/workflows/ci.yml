@@ -149,6 +149,7 @@ jobs:
     needs: audit-stubs
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    # Canonical package: services/decision-api. legacy_v1 tests remain one release cycle (DEPRECATED.md).
     services:
       redis:
         image: redis:7-alpine
@@ -161,17 +162,17 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: services/legacy_v1_decision_api/pyproject.toml
+          cache-dependency-path: services/decision-api/pyproject.toml
       - name: Build and install rule engine
         run: |
           pip install "maturin>=1.7,<2.0"
           maturin build --release --out dist
           pip install dist/*.whl
         working-directory: services/rule-engine
-      - name: Install dependencies
+      - name: Install dependencies (canonical decision-api)
         run: pip install -e ".[dev]"
-        working-directory: services/legacy_v1_decision_api
-      - name: Run tests (inference, replay, evaluate path, consortium, rules)
+        working-directory: services/decision-api
+      - name: Run tests (legacy_v1 tree — dormant, remove after one release)
         run: >
           pytest
           -m "not contract"
