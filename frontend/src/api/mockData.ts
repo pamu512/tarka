@@ -30,20 +30,53 @@ const nowIso = () => new Date().toISOString();
 /** ISO timestamp ``hours`` before now — for SLA / workload mocks. */
 const isoHoursAgo = (hours: number) => new Date(Date.now() - hours * 3600000).toISOString();
 
-const mockPayoutDelayConfigByTenant: Record<
+const mockPayoutDelayConfigByTenant = new Map<
   string,
   { automation_enabled: boolean; mule_score_hold_threshold: number }
-> = {};
+>();
 const mockPayoutDelayReleased = new Set<string>();
 
-const mockSocialEngineeringConfigByTenant: Record<
+const mockSocialEngineeringConfigByTenant = new Map<
   string,
   { high_value_listing_usd: number; credential_change_window_minutes: number }
-> = {};
+>();
 
 const mockKycHandoverSent: Record<string, { sent_at: string; message_id: string; subject: string }> = {};
 
-const mockRegionalRiskBlacklist: Record<string, Record<string, boolean>> = {};
+const mockRegionalRiskBlacklist = new Map<string, Map<string, boolean>>();
+
+function getSocialEngineeringConfig(tid: string): {
+  high_value_listing_usd: number;
+  credential_change_window_minutes: number;
+} {
+  let cfg = mockSocialEngineeringConfigByTenant.get(tid);
+  if (!cfg) {
+    cfg = { high_value_listing_usd: 5000, credential_change_window_minutes: 10 };
+    mockSocialEngineeringConfigByTenant.set(tid, cfg);
+  }
+  return cfg;
+}
+
+function getPayoutDelayConfig(tid: string): {
+  automation_enabled: boolean;
+  mule_score_hold_threshold: number;
+} {
+  let cfg = mockPayoutDelayConfigByTenant.get(tid);
+  if (!cfg) {
+    cfg = { automation_enabled: true, mule_score_hold_threshold: 72 };
+    mockPayoutDelayConfigByTenant.set(tid, cfg);
+  }
+  return cfg;
+}
+
+function getRegionalBlacklistForTenant(tid: string): Map<string, boolean> {
+  let toggles = mockRegionalRiskBlacklist.get(tid);
+  if (!toggles) {
+    toggles = new Map();
+    mockRegionalRiskBlacklist.set(tid, toggles);
+  }
+  return toggles;
+}
 
 const MOCK_REGIONAL_CATALOG = [
   {
@@ -121,11 +154,13 @@ const MOCK_REGIONAL_CATALOG = [
 ] as const;
 
 function buildMockRegionalRiskBoard(tid: string): AnyObj {
-  const tenantToggles = mockRegionalRiskBlacklist[tid] ?? {};
+  const tenantToggles = mockRegionalRiskBlacklist.get(tid);
   const tier = (score: number) => (score >= 80 ? "critical" : score >= 65 ? "elevated" : "normal");
   const sub_regions = MOCK_REGIONAL_CATALOG.map((base) => {
     const defaultBl = base.attack_wave_score >= 80;
-    const blacklisted = tenantToggles[base.sub_region_id] ?? defaultBl;
+    const blacklisted = tenantToggles?.has(base.sub_region_id)
+      ? Boolean(tenantToggles.get(base.sub_region_id))
+      : defaultBl;
     return {
       ...base,
       attack_tier: tier(base.attack_wave_score),
@@ -178,13 +213,7 @@ function buildMockSocialEngineeringBoard(
   limit: number,
   onlyFlagged: boolean,
 ): AnyObj {
-  if (!mockSocialEngineeringConfigByTenant[tid]) {
-    mockSocialEngineeringConfigByTenant[tid] = {
-      high_value_listing_usd: 5000,
-      credential_change_window_minutes: 10,
-    };
-  }
-  const cfg = mockSocialEngineeringConfigByTenant[tid];
+  const cfg = getSocialEngineeringConfig(tid);
   const profiles = [
     { value: 15000, emailMin: 3.2, passMin: 5.8, flagged: true },
     { value: 8900, emailMin: 4.1, passMin: 7.0, flagged: true },
@@ -262,10 +291,7 @@ function buildMockSocialEngineeringBoard(
 }
 
 function buildMockPayoutDelayBoard(tid: string, limit: number): AnyObj {
-  if (!mockPayoutDelayConfigByTenant[tid]) {
-    mockPayoutDelayConfigByTenant[tid] = { automation_enabled: true, mule_score_hold_threshold: 72 };
-  }
-  const cfg = mockPayoutDelayConfigByTenant[tid];
+  const cfg = getPayoutDelayConfig(tid);
   const payouts = Array.from({ length: limit }, (_, i) => {
     const muleScore = 28 + (i % 11) * 7;
     const payoutId = `payout_mock_${String(i).padStart(3, "0")}`;
@@ -3275,18 +3301,12 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   if (path.includes("/api/ingress/v1/investigation/social-engineering-monitor/config") && method === "PATCH") {
     const patchBody = (body && typeof body === "object" ? body : {}) as AnyObj;
     const tid = safeMockRecordKey(patchBody.tenant_id);
-    if (!mockSocialEngineeringConfigByTenant[tid]) {
-      mockSocialEngineeringConfigByTenant[tid] = {
-        high_value_listing_usd: 5000,
-        credential_change_window_minutes: 10,
-      };
-    }
+    const cfg = getSocialEngineeringConfig(tid);
     if (patchBody.high_value_listing_usd != null) {
-      mockSocialEngineeringConfigByTenant[tid].high_value_listing_usd =
-        Number(patchBody.high_value_listing_usd) || 5000;
+      cfg.high_value_listing_usd = Number(patchBody.high_value_listing_usd) || 5000;
     }
     if (patchBody.credential_change_window_minutes != null) {
-      mockSocialEngineeringConfigByTenant[tid].credential_change_window_minutes = Math.max(
+      cfg.credential_change_window_minutes = Math.max(
         1,
         Math.min(120, Number(patchBody.credential_change_window_minutes) || 10),
       );
@@ -3321,14 +3341,12 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       body = {};
     }
     const tid = safeMockRecordKey(body.tenant_id);
-    if (!mockPayoutDelayConfigByTenant[tid]) {
-      mockPayoutDelayConfigByTenant[tid] = { automation_enabled: true, mule_score_hold_threshold: 72 };
-    }
+    const cfg = getPayoutDelayConfig(tid);
     if (typeof body.automation_enabled === "boolean") {
-      mockPayoutDelayConfigByTenant[tid].automation_enabled = body.automation_enabled;
+      cfg.automation_enabled = body.automation_enabled;
     }
     if (body.mule_score_hold_threshold != null) {
-      mockPayoutDelayConfigByTenant[tid].mule_score_hold_threshold = Math.max(
+      cfg.mule_score_hold_threshold = Math.max(
         1,
         Math.min(99, Number(body.mule_score_hold_threshold) || 72),
       );
@@ -3546,8 +3564,7 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
     const subRegionId = idx >= 0 ? safeMockPathSegment(parts[idx + 1]) : "";
     const base = MOCK_REGIONAL_CATALOG.find((r) => r.sub_region_id === subRegionId);
     if (!base) return { ok: false, error: "sub_region_not_found" };
-    if (!mockRegionalRiskBlacklist[tid]) mockRegionalRiskBlacklist[tid] = {};
-    mockRegionalRiskBlacklist[tid][subRegionId] = Boolean(patchBody.blacklisted);
+    getRegionalBlacklistForTenant(tid).set(subRegionId, Boolean(patchBody.blacklisted));
     const board = buildMockRegionalRiskBoard(tid);
     const sub_region = (board.sub_regions as AnyObj[]).find((r) => r.sub_region_id === subRegionId);
     return { ok: true, sub_region, board };
