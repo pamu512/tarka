@@ -39,7 +39,7 @@
   --color-decision-review: #f59e0b;
   --color-decision-deny: #ef4444;
 
-  /* Shadcn semantic tokens (Tailwind v4 @theme — used by `components/ui/button`) */
+  /* Shadcn semantic tokens (Tailwind v4 @theme) */
   --radius: 0.5rem;
   --color-background: var(--s-950);
   --color-foreground: var(--g-100);
