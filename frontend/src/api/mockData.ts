@@ -10,6 +10,21 @@ import { isSessionNoiseAuditRow } from "../utils/copilotContext";
 
 type AnyObj = Record<string, unknown>;
 
+const UNSAFE_RECORD_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+/** Reject prototype-pollution keys when indexing mock tenant maps (CodeQL). */
+function safeMockRecordKey(raw: unknown, fallback = "demo"): string {
+  const key = String(raw ?? fallback).trim();
+  if (!key || UNSAFE_RECORD_KEYS.has(key)) return fallback;
+  return key;
+}
+
+function safeMockPathSegment(raw: unknown): string {
+  const key = decodeURIComponent(String(raw ?? "")).trim();
+  if (!key || UNSAFE_RECORD_KEYS.has(key)) return "";
+  return key;
+}
+
 const nowIso = () => new Date().toISOString();
 
 /** ISO timestamp ``hours`` before now — for SLA / workload mocks. */
@@ -3259,7 +3274,7 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
 
   if (path.includes("/api/ingress/v1/investigation/social-engineering-monitor/config") && method === "PATCH") {
     const patchBody = (body && typeof body === "object" ? body : {}) as AnyObj;
-    const tid = String(patchBody.tenant_id ?? "demo");
+    const tid = safeMockRecordKey(patchBody.tenant_id);
     if (!mockSocialEngineeringConfigByTenant[tid]) {
       mockSocialEngineeringConfigByTenant[tid] = {
         high_value_listing_usd: 5000,
@@ -3305,7 +3320,7 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
     } catch {
       body = {};
     }
-    const tid = String(body.tenant_id ?? "demo");
+    const tid = safeMockRecordKey(body.tenant_id);
     if (!mockPayoutDelayConfigByTenant[tid]) {
       mockPayoutDelayConfigByTenant[tid] = { automation_enabled: true, mule_score_hold_threshold: 72 };
     }
@@ -3525,10 +3540,10 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
 
   if (path.includes("/api/ingress/v1/compliance/regional-risk-toggles/") && method === "PATCH") {
     const patchBody = (body && typeof body === "object" ? body : {}) as AnyObj;
-    const tid = String(patchBody.tenant_id ?? "demo");
+    const tid = safeMockRecordKey(patchBody.tenant_id);
     const parts = path.split("/");
     const idx = parts.indexOf("regional-risk-toggles");
-    const subRegionId = idx >= 0 ? decodeURIComponent(parts[idx + 1] ?? "") : "";
+    const subRegionId = idx >= 0 ? safeMockPathSegment(parts[idx + 1]) : "";
     const base = MOCK_REGIONAL_CATALOG.find((r) => r.sub_region_id === subRegionId);
     if (!base) return { ok: false, error: "sub_region_not_found" };
     if (!mockRegionalRiskBlacklist[tid]) mockRegionalRiskBlacklist[tid] = {};

@@ -8,6 +8,7 @@ import {
   type EvaluationPostureResponse,
 } from "../api/client";
 import { SupportIdHint } from "./SupportIdHint";
+import { safeExternalHref } from "../utils/externalLinks";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
 const DEP_LABELS: Record<string, string> = {
@@ -139,6 +140,7 @@ export function AnalystReadinessBar() {
   const complianceDegraded = posture.compliance_degraded === true;
   const reasons = (posture.compliance_degraded_reasons ?? []).join(", ");
   const showAlert = complianceDegraded || runtimeDegraded;
+  const runbookHref = safeExternalHref(posture.runbook_url);
 
   return (
     <div
@@ -169,9 +171,9 @@ export function AnalystReadinessBar() {
             </>
           )}
           <a
-            href={posture.runbook_url}
-            target="_blank"
-            rel="noreferrer"
+            href={runbookHref ?? "/help#readiness"}
+            target={runbookHref ? "_blank" : undefined}
+            rel={runbookHref ? "noreferrer" : undefined}
             className="text-brand-300 hover:text-brand-200 underline ml-1"
           >
             Deployment profiles
