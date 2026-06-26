@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from neo4j_client import get_driver
 
 """
@@ -395,12 +397,21 @@ async def compute_entity_risk(
     WITH n, conn_count, flagged_neighbors, community_size,
          count(DISTINCT other) AS shared_device_count
 
+    OPTIONAL MATCH (n)-[]-(nb)
+    WHERE nb.tenant_id = $tenant_id AND nb.device_id IS NOT NULL
+    WITH n, conn_count, flagged_neighbors, community_size, shared_device_count,
+         count(DISTINCT nb.device_id) AS neighbor_device_count
+
     RETURN
       n.tags              AS tags,
+      n.updated_at        AS updated_at,
+      n.last_seen         AS last_seen,
+      n.tags_updated_at   AS tags_updated_at,
       conn_count,
       flagged_neighbors,
       community_size,
-      shared_device_count
+      shared_device_count,
+      neighbor_device_count
     """
 
     async with await _open_session(driver) as session:
@@ -419,6 +430,7 @@ async def compute_entity_risk(
             "risk_factors": ["entity_not_found"],
             "connected_flagged_count": 0,
             "community_size": 0,
+            "neighbor_device_count": 0,
             "graph_checkpoint": checkpoint,
             "graph_profile": profile.get("_profile_name"),
             "graph_profile_max_neighbor_hops": hop_depth,
@@ -429,6 +441,7 @@ async def compute_entity_risk(
     flagged: int = rec["flagged_neighbors"]
     community_size: int = rec["community_size"]
     shared_devices: int = rec["shared_device_count"]
+    neighbor_device_count: int = int(rec.get("neighbor_device_count") or 0)
 
     score = 0.0
     factors: list[str] = []
@@ -462,14 +475,28 @@ async def compute_entity_risk(
 
     score = min(round(score * mult), 100)
 
-    return {
+    from graph_data_freshness import graph_data_as_of_iso
+
+    freshness = graph_data_as_of_iso(
+        {
+            "updated_at": rec.get("updated_at"),
+            "last_seen": rec.get("last_seen"),
+            "tags_updated_at": rec.get("tags_updated_at"),
+        }
+    )
+
+    out: dict[str, Any] = {
         "entity_id": entity_id,
         "risk_score": score,
         "risk_factors": factors,
         "connected_flagged_count": flagged,
         "community_size": community_size,
+        "neighbor_device_count": neighbor_device_count,
         "graph_checkpoint": checkpoint,
         "graph_profile": profile.get("_profile_name"),
         "graph_profile_multiplier": mult,
         "graph_profile_max_neighbor_hops": hop_depth,
     }
+    if freshness:
+        out["graph_data_as_of"] = freshness
+    return out

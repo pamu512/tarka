@@ -1986,7 +1986,18 @@ async def _fetch_graph_risk(
     )
     await _maybe_await(r.raise_for_status())
     data = await _maybe_await(r.json())
-    return data if isinstance(data, dict) else None
+    if not isinstance(data, dict):
+        return None
+    from decision_api.graph_risk_freshness import warn_if_graph_risk_stale
+
+    warn_if_graph_risk_stale(
+        data,
+        max_age_minutes=settings.graph_risk_max_age_minutes,
+        tenant_id=tenant_id,
+        entity_id=entity_id,
+        metrics_inc=_metrics_inc_safe,
+    )
+    return data
 
 
 def _blend_scores(rule_score: float, ml_score: float | None) -> float:
@@ -2429,9 +2440,9 @@ async def evaluate_decision(
                         break
 
         # Merge device signals into features so rules engine can see them
-        if body.device_context:
-            for k, v in body.device_context.signals.items():
-                features.setdefault(k, v)
+        from decision_api.device_feature_merge import merge_device_context_into_features
+
+        merge_device_context_into_features(features, body.device_context)
         if body.session_id:
             features.setdefault("session_id", body.session_id)
 

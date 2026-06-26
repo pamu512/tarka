@@ -29,6 +29,7 @@ from custom_schema import (
     save_tenant_schema,
 )
 from graph_risk_model import score_graph_risk_beta
+from schemas import EntityRiskResponse
 from graph_runtime import (
     close_graph_backend,
     create_link,
@@ -345,7 +346,7 @@ async def fraud_rings_endpoint(tenant_id: str, min_size: int = 3):
     return {"rings": result}
 
 
-@app.get("/v1/analytics/entity-risk")
+@app.get("/v1/analytics/entity-risk", response_model=EntityRiskResponse)
 async def entity_risk_endpoint(tenant_id: str, entity_id: str, checkpoint: str | None = None):
     """Optional ``checkpoint`` selects graph profile (OSS #49). See GET /v1/checkpoint-profiles."""
     base = await compute_entity_risk(tenant_id, entity_id, checkpoint=checkpoint)
@@ -362,7 +363,7 @@ async def entity_risk_endpoint(tenant_id: str, entity_id: str, checkpoint: str |
             reasons.append("gnn_beta_high_risk")
             base["risk_factors"] = list(dict.fromkeys(str(x) for x in reasons if str(x).strip()))
         base["gnn_beta"] = beta
-    return base
+    return EntityRiskResponse.model_validate(base)
 
 
 @app.get("/v1/analytics/ring-suspicion", response_model=RingSuspicionResponse)

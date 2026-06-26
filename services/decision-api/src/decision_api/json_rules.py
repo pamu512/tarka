@@ -370,6 +370,144 @@ def _match_condition(features: dict[str, Any], condition: dict[str, Any]) -> boo
     return False
 
 
+def evaluate_rule_when(
+    rule: dict[str, Any],
+    merged_features: dict[str, Any],
+    *,
+    tenant_id: str = "",
+    entity_id: str = "",
+) -> bool:
+    """Evaluate flat ``when`` / ``when_ast``; log per-condition results at DEBUG."""
+    _ = tenant_id, entity_id
+    rid = str(rule.get("id") or "unknown")
+    when = rule.get("when")
+    raw_ast = rule.get("when_ast")
+    has_flat = isinstance(when, list) and len(when) > 0
+    has_ast = raw_ast is not None
+
+    log.debug("json_rule_eval rule_id=%s phase=start", rid)
+
+    if has_flat and has_ast:
+        log.debug(
+            "json_rule_eval rule_id=%s result=failed reason=when_and_when_ast_both_set",
+            rid,
+        )
+        return False
+
+    if has_ast:
+        try:
+            from pydantic import TypeAdapter
+
+            from decision_api.ast_evaluator import evaluate_json_ast
+            from decision_api.ast_models import JsonAstNode, enforce_ast_limits
+
+            node = TypeAdapter(JsonAstNode).validate_python(raw_ast)
+            enforce_ast_limits(node)
+            matched = evaluate_json_ast(node, merged_features)
+        except Exception as exc:
+            log.debug(
+                "json_rule_eval rule_id=%s result=failed reason=when_ast_error error=%s",
+                rid,
+                exc,
+            )
+            return False
+        log.debug(
+            "json_rule_eval rule_id=%s when_ast result=%s",
+            rid,
+            "passed" if matched else "failed",
+        )
+        return matched
+
+    if not has_flat:
+        log.debug("json_rule_eval rule_id=%s result=failed reason=empty_when", rid)
+        return False
+
+    if len(when) > _MAX_CONDITIONS_PER_RULE:
+        log.debug(
+            "json_rule_eval rule_id=%s result=failed reason=too_many_conditions count=%d",
+            rid,
+            len(when),
+        )
+        return False
+
+    for idx, cond in enumerate(when, start=1):
+        if not isinstance(cond, dict):
+            log.debug(
+                "json_rule_eval rule_id=%s condition_index=%d result=failed reason=not_object",
+                rid,
+                idx,
+            )
+            return False
+        fld = cond.get("field")
+        if not fld or len(str(fld)) > _MAX_FIELD_LEN:
+            log.debug(
+                "json_rule_eval rule_id=%s condition_index=%d result=failed reason=invalid_field field=%r",
+                rid,
+                idx,
+                fld,
+            )
+            return False
+        op = cond.get("op", "eq")
+        expected = cond.get("value")
+        actual = merged_features.get(fld)
+        passed = _match_condition(merged_features, cond)
+        log.debug(
+            "json_rule_eval rule_id=%s condition_index=%d field=%r op=%r result=%s expected=%r actual=%r",
+            rid,
+            idx,
+            fld,
+            op,
+            "passed" if passed else "failed",
+            expected,
+            actual,
+        )
+        if not passed:
+            log.debug("json_rule_eval rule_id=%s overall=failed", rid)
+            return False
+
+    log.debug("json_rule_eval rule_id=%s overall=passed", rid)
+    return True
+
+
+def evaluate_tag_rule_when(
+    rule_id: str,
+    any_tag: list[Any],
+    redis_tags: set[str],
+) -> bool:
+    """True when any required tag is present; log tag-level results at DEBUG."""
+    log.debug("json_rule_eval tag_rule_id=%s phase=start", rule_id)
+    if not isinstance(any_tag, list):
+        log.debug(
+            "json_rule_eval tag_rule_id=%s result=failed reason=any_tag_not_list",
+            rule_id,
+        )
+        return False
+    need = {str(t) for t in any_tag if isinstance(t, str)}
+    if not need:
+        log.debug(
+            "json_rule_eval tag_rule_id=%s result=failed reason=any_tag_empty",
+            rule_id,
+        )
+        return False
+    matched_any = False
+    for tag in sorted(need):
+        present = tag in redis_tags
+        log.debug(
+            "json_rule_eval tag_rule_id=%s tag=%r result=%s",
+            rule_id,
+            tag,
+            "passed" if present else "failed",
+        )
+        if present:
+            matched_any = True
+    log.debug(
+        "json_rule_eval tag_rule_id=%s overall=%s",
+        rule_id,
+        "passed" if matched_any else "failed",
+    )
+    return matched_any
+
+
 def _pack_experiment_bucket(tenant_id: str, entity_id: str, pack_key: str) -> int:
     """Deterministic 0..99 bucket for canary rollout (same entity always same bucket per pack)."""
     raw = f"{tenant_id}|{entity_id}|{pack_key}".encode("utf-8")

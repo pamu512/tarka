@@ -1043,6 +1043,8 @@ export interface EntityRiskResult {
   risk_factors: string[];
   connected_flagged_count: number;
   community_size: number;
+  /** Distinct device_id values among 1-hop neighbors (graph-service entity-risk). */
+  neighbor_device_count?: number;
   gnn_beta?: Record<string, unknown> | null;
   /** JanusGraph / graph-service: explicit 1-hop degree when exposed (else parse risk_factors connectivity strings). */
   neighbors_1hop?: number;

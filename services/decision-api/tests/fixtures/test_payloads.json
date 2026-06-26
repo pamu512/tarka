@@ -1,0 +1,93 @@
+[
+  {
+    "name": "clean_features_allow",
+    "features": { "event_type": "login", "amount": 100 },
+    "redis_tags": [],
+    "signal_tags": [],
+    "expected": {
+      "score_delta": 0,
+      "score": 10,
+      "action": "allow",
+      "rule_hits": [],
+      "tags": []
+    }
+  },
+  {
+    "name": "sdk_bot_review",
+    "features": { "is_bot": true },
+    "redis_tags": [],
+    "signal_tags": [],
+    "expected": {
+      "score_delta": 40,
+      "score": 50,
+      "action": "review",
+      "rule_hits": ["sdk_bot"],
+      "tags": ["sdk:bot"]
+    }
+  },
+  {
+    "name": "high_payment_review",
+    "features": { "amount": 6000, "event_type": "payment" },
+    "redis_tags": [],
+    "signal_tags": [],
+    "expected": {
+      "score_delta": 25,
+      "score": 35,
+      "action": "allow",
+      "rule_hits": ["high_amount"],
+      "tags": ["amount:high"]
+    }
+  },
+  {
+    "name": "bot_and_high_payment_deny",
+    "features": { "is_bot": true, "amount": 9000, "event_type": "payment" },
+    "redis_tags": [],
+    "signal_tags": [],
+    "expected": {
+      "score_delta": 65,
+      "score": 75,
+      "action": "review",
+      "rule_hits": ["sdk_bot", "high_amount"],
+      "tags": ["sdk:bot", "amount:high"]
+    }
+  },
+  {
+    "name": "graph_tag_rule_only",
+    "features": {},
+    "redis_tags": [],
+    "signal_tags": ["graph:neighbor_device_count_high"],
+    "expected": {
+      "score_delta": 15,
+      "score": 25,
+      "action": "allow",
+      "rule_hits": ["graph_neighbor_device_ring"],
+      "tags": ["graph:device_ring_suspect"]
+    }
+  },
+  {
+    "name": "bot_vpn_graph_combo_deny",
+    "features": { "is_bot": true, "is_vpn": true },
+    "redis_tags": [],
+    "signal_tags": ["graph:neighbor_device_count_high"],
+    "expected": {
+      "score_delta": 70,
+      "score": 80,
+      "action": "deny",
+      "rule_hits": ["sdk_bot", "sdk_vpn", "graph_neighbor_device_ring"],
+      "tags": ["sdk:bot", "sdk:vpn", "graph:device_ring_suspect"]
+    }
+  },
+  {
+    "name": "device_fingerprint_string_eq",
+    "features": { "device_fingerprint": "dev-abc" },
+    "redis_tags": [],
+    "signal_tags": [],
+    "expected": {
+      "score_delta": 12,
+      "score": 22,
+      "action": "allow",
+      "rule_hits": ["known_device_fingerprint"],
+      "tags": ["device:fingerprint_match"]
+    }
+  }
+]
