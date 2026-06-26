@@ -289,6 +289,22 @@ components:
           items: { type: string }
         connected_flagged_count: { type: integer }
         community_size: { type: integer }
+        neighbor_device_count:
+          type: integer
+          minimum: 0
+          description: Distinct device_id values among 1-hop neighbors
+        graph_checkpoint:
+          type: string
+          nullable: true
+          description: Analytics profile name (minimal/standard/deep), not a timestamp
+        graph_profile: { type: string, nullable: true }
+        graph_profile_multiplier: { type: number, nullable: true }
+        graph_profile_max_neighbor_hops: { type: integer, nullable: true }
+        graph_data_as_of:
+          type: string
+          format: date-time
+          nullable: true
+          description: Latest graph vertex write time (UTC); used by decision-api freshness guard
         gnn_beta:
           type: object
           nullable: true

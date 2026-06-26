@@ -19,5 +19,6 @@ PYTHONPATH=src:../shared RULES_PATH=rules uvicorn decision_api.main:app --port 8
 ## Layout
 
 - `src/decision_api/` — application code
+- `docs/decision-api-graph-service-contract.md` — evaluate ↔ graph-service contract
 - `rules/` — symlink → `../legacy_v1_decision_api/rules` (migrate next release)
 - `alembic/` — symlink → legacy migrations (migrate next release)

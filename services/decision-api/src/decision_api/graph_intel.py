@@ -1,5 +1,7 @@
 from typing import Any
 
+from decision_api.graph_entity_risk_types import NEIGHBOR_DEVICE_COUNT_HIGH_THRESHOLD
+
 
 def graph_score_delta(risk_score: float | int | None) -> float:
     if risk_score is None:
@@ -24,6 +26,13 @@ def graph_tags_from_risk(payload: dict[str, Any] | None) -> list[str]:
         tags.append("graph:high_risk_entity")
     elif risk >= 40:
         tags.append("graph:medium_risk_entity")
+
+    try:
+        neighbor_device_count = int(payload.get("neighbor_device_count") or 0)
+    except (TypeError, ValueError):
+        neighbor_device_count = 0
+    if neighbor_device_count >= NEIGHBOR_DEVICE_COUNT_HIGH_THRESHOLD:
+        tags.append("graph:neighbor_device_count_high")
 
     factors = payload.get("risk_factors") or []
     if isinstance(factors, list):

@@ -65,7 +65,7 @@ async def upsert_entity(
 
     q = f"""
     MERGE (n:{label} {{tenant_id: $tenant_id, external_id: $external_id}})
-    SET n += $properties
+    SET n += $properties, n.updated_at = datetime()
     RETURN elementId(n) AS gid
     """
     async with driver.session() as session:

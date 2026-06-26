@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "mode": "active",
+  "name": "batch_test_pack",
+  "_source_file": "test_rules_batch_pack.json",
+  "rules": [
+    {
+      "id": "sdk_bot",
+      "when": [{ "op": "is_true", "field": "is_bot" }],
+      "tags": ["sdk:bot"],
+      "score_delta": 40
+    },
+    {
+      "id": "sdk_vpn",
+      "when": [{ "op": "is_true", "field": "is_vpn" }],
+      "tags": ["sdk:vpn"],
+      "score_delta": 15
+    },
+    {
+      "id": "high_amount",
+      "when": [
+        { "op": "gte", "field": "amount", "value": 5000 },
+        { "op": "eq", "field": "event_type", "value": "payment" }
+      ],
+      "tags": ["amount:high"],
+      "score_delta": 25
+    },
+    {
+      "id": "known_device_fingerprint",
+      "when": [{ "op": "eq", "field": "device_fingerprint", "value": "dev-abc" }],
+      "tags": ["device:fingerprint_match"],
+      "score_delta": 12
+    }
+  ],
+  "tag_rules": [
+    {
+      "id": "graph_neighbor_device_ring",
+      "any_tag": ["graph:neighbor_device_count_high"],
+      "tags": ["graph:device_ring_suspect"],
+      "score_delta": 15
+    }
+  ]
+}

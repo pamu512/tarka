@@ -61,7 +61,31 @@ class TestComputeEntityRisk:
             result = await compute_entity_risk("tenant1", "missing-entity")
 
         assert result["risk_score"] == 0
+        assert result["neighbor_device_count"] == 0
         assert "entity_not_found" in result["risk_factors"]
+
+    @pytest.mark.asyncio
+    async def test_neighbor_device_count_in_payload(self):
+        record = _mock_record(
+            {
+                "tags": [],
+                "conn_count": 4,
+                "flagged_neighbors": 0,
+                "community_size": 2,
+                "shared_device_count": 0,
+                "neighbor_device_count": 4,
+            }
+        )
+        mock_result = AsyncMock()
+        mock_result.single = AsyncMock(return_value=record)
+        mock_session = AsyncMock()
+        mock_session.run = AsyncMock(return_value=mock_result)
+        mock_driver = AsyncMock()
+        mock_driver.session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_driver.session.return_value.__aexit__ = AsyncMock(return_value=False)
+        with patch("algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)):
+            result = await compute_entity_risk("tenant1", "device-hopper")
+        assert result["neighbor_device_count"] == 4
 
     @pytest.mark.asyncio
     async def test_entity_with_high_risk_tags(self):
