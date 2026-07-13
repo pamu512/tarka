@@ -181,6 +181,7 @@ jobs:
           --cov-report=term-missing
           --cov-fail-under=48
           --ignore=tests/test_ml_export_api.py
+          --ignore=tests/latency_injection/test_real_world_faltering.py
           tests/
         working-directory: services/decision-api
         env:

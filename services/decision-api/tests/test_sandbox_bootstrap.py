@@ -94,6 +94,8 @@ async def sb_client():
 
 @pytest.mark.asyncio
 async def test_sandbox_bootstrap_idempotent(monkeypatch, sb_client):
+    monkeypatch.setenv("API_KEYS", "test-key")
+    monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "false")
     captured: list[object] = []
 
     def _capture(pack):

@@ -1145,7 +1145,11 @@ from decision_api.recommend_api import router as recommend_router  # noqa: E402
 from decision_api.replay import router as replay_router  # noqa: E402
 from decision_api.reporting_nl import router as reporting_nl_router  # noqa: E402
 from decision_api.rule_api import router as rule_router  # noqa: E402
-from decision_api.rule_compiler_api import router as rule_compiler_router  # noqa: E402
+from decision_api.ast_rule_api import router as ast_rules_router  # noqa: E402
+from decision_api.rule_compiler_api import (  # noqa: E402
+    rego_deprecation_router,
+    router as rule_compiler_router,
+)
 from decision_api.rule_gitops_api import router as rule_gitops_router  # noqa: E402
 from decision_api.simulation_api import router as simulation_router  # noqa: E402
 from decision_api.vendor_marketplace_api import router as vendor_marketplace_router  # noqa: E402
@@ -1155,6 +1159,7 @@ from decision_api.sandbox_bootstrap import (  # noqa: E402
 )
 
 app.include_router(rule_router)
+app.include_router(ast_rules_router)
 app.include_router(replay_router)
 app.include_router(simulation_router)
 app.include_router(benchmark_export_router)
@@ -1168,6 +1173,7 @@ app.include_router(consortium_router)
 app.include_router(internal_counters_router)
 app.include_router(calibration_router)
 app.include_router(reporting_nl_router)
+app.include_router(rego_deprecation_router)
 app.include_router(rule_compiler_router)
 app.include_router(rule_gitops_router)
 app.include_router(backtest_router)
