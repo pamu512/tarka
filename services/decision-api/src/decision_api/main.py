@@ -1136,7 +1136,11 @@ from decision_api.experiment_api import (  # noqa: E402
 )
 from decision_api.benchmark_export_api import router as benchmark_export_router  # noqa: E402
 from decision_api.drift_query_api import router as drift_query_router  # noqa: E402
+from decision_api.health_deep import run_deep_health, run_unified_health  # noqa: E402
 from decision_api.internal_counters_api import router as internal_counters_router  # noqa: E402
+from decision_api.manifest_compare_api import router as manifest_compare_router  # noqa: E402
+from decision_api.manifest_visualize_api import router as manifest_visualize_router  # noqa: E402
+from decision_api.micro_dev_onboarding import router as micro_dev_onboarding_router  # noqa: E402
 from decision_api.recommend_api import router as recommend_router  # noqa: E402
 from decision_api.replay import router as replay_router  # noqa: E402
 from decision_api.reporting_nl import router as reporting_nl_router  # noqa: E402
@@ -1170,8 +1174,11 @@ app.include_router(backtest_router)
 app.include_router(ml_export_router)
 app.include_router(feature_store_router)
 app.include_router(analytics_dashboards_router)
+app.include_router(manifest_visualize_router)
+app.include_router(manifest_compare_router)
 app.include_router(vendor_marketplace_router)
 app.include_router(sandbox_bootstrap_router)
+app.include_router(micro_dev_onboarding_router)
 
 
 def _http(request: Request) -> httpx.AsyncClient:
@@ -1190,6 +1197,30 @@ def _external_nats_connected(broker: Any) -> bool:
 @app.get("/v1/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/v1/ready")
+async def ready():
+    """Liveness for compose healthchecks (`/decisions/v1/ready`)."""
+    return {"status": "ok"}
+
+
+@app.get("/health")
+async def health_unified(request: Request):
+    """Unified readiness: Postgres, Redis ping, ClickHouse read/write, Rust rule engine + manifest ingest."""
+    return await run_unified_health(request)
+
+
+@app.get("/v1/health/deep")
+async def health_deep(request: Request):
+    """Deep readiness: Redis ping latency, ClickHouse probes, Rust ingest gate (503 when unhealthy)."""
+    return await run_deep_health(request)
+
+
+@app.get("/health/deep")
+async def health_deep_alias(request: Request):
+    """Alias for operators expecting `/health/deep` (same payload as `/v1/health/deep`)."""
+    return await run_deep_health(request)
 
 
 @app.get("/v1/slo")

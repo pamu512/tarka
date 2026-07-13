@@ -34,7 +34,9 @@ class _DummyUpstreamResponse:
 
 
 class _DualRunClient:
-    def __init__(self, *, python_actions: list[str] | None = None, python_fail: bool = False) -> None:
+    def __init__(
+        self, *, python_actions: list[str] | None = None, python_fail: bool = False
+    ) -> None:
         self.posts: list[str] = []
         self._python_actions = python_actions or ["ALLOW"]
         self._python_fail = python_fail

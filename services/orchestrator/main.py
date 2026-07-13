@@ -313,11 +313,7 @@ def create_app(
             "orchestrator_rule_eval_misconfigured backend=decision_api "
             "reason=decision_api_url_unset (no python fallback)",
         )
-    dual_run = (
-        bool(rule_eval_dual_run)
-        if rule_eval_dual_run is not None
-        else _rule_eval_dual_run()
-    )
+    dual_run = bool(rule_eval_dual_run) if rule_eval_dual_run is not None else _rule_eval_dual_run()
     if dual_run and not decision_base:
         logger.warning(
             "orchestrator_rule_eval_dual_run_disabled reason=decision_api_url_unset",
@@ -328,7 +324,6 @@ def create_app(
     ).rstrip("/")
     shadow_key = shadow_api_key if shadow_api_key is not None else _shadow_api_key()
     shadow_deadline_s = _shadow_analyze_timeout_seconds(shadow_analyze_timeout_seconds)
-
 
     if audit_database_url is None:
         audit_url = resolve_audit_database_url()

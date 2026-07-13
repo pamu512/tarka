@@ -100,7 +100,9 @@ class IncogniaVendorPlugin(BaseVendorPlugin):
             http_status=http_status,
         )
 
-    async def fetch_signals(self, ctx: VendorFetchContext) -> list[NormalizedVendorSignal]:
+    async def fetch_signals(
+        self, ctx: VendorFetchContext
+    ) -> list[NormalizedVendorSignal]:
         features = IncogniaFeaturePayload.model_validate(ctx.features)
         url = self._build_get_url(ctx.features)
         t0 = time.perf_counter()

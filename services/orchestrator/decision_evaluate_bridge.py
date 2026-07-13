@@ -170,7 +170,11 @@ def map_evaluate_to_actions(evaluate: Mapping[str, Any]) -> list[str]:
     recommended = evaluate.get("recommended_action")
     if isinstance(recommended, str):
         rec = recommended.strip().lower().replace(" ", "_")
-        if rec in _CHALLENGE_RECOMMENDED or rec.startswith("step_up") or rec.startswith("challenge"):
+        if (
+            rec in _CHALLENGE_RECOMMENDED
+            or rec.startswith("step_up")
+            or rec.startswith("challenge")
+        ):
             if "FLAG" not in actions:
                 actions.append("FLAG")
 
@@ -274,9 +278,13 @@ def wire_rule_data_from_evaluate(
         "scores": scores,
         "decision": decision_wire,
         "decision_api": {
-            "trace_id": str(evaluate.get("trace_id")) if evaluate.get("trace_id") is not None else None,
+            "trace_id": str(evaluate.get("trace_id"))
+            if evaluate.get("trace_id") is not None
+            else None,
             "decision": decision_out,
-            "tags": list(evaluate.get("tags") or []) if isinstance(evaluate.get("tags"), list) else [],
+            "tags": list(evaluate.get("tags") or [])
+            if isinstance(evaluate.get("tags"), list)
+            else [],
             "rule_hits": list(evaluate.get("rule_hits") or [])
             if isinstance(evaluate.get("rule_hits"), list)
             else [],
