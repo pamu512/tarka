@@ -1,8 +1,7 @@
 #!/bin/bash
 
-# DEPRECATED paths: legacy_v1_decision_api is dormant — prefer services/decision-api (see DEPRECATED.md).
-
 # Tarka V2 Surgical Extraction Script
+# Prefer services/decision-api (and collaboration-chat-bridge) as canonical sources.
 # This will extract ONLY the highest-value, audit-first modules into a new 'tarka_v2_core' directory.
 # Everything else gets boxed up into 'legacy_attic' to instantly clear your working context.
 
@@ -38,7 +37,7 @@ declare -a SALVAGE_PATHS=(
     # 4. Omnipresent Copilot
     "services/agent/shadow_copilot"
     "services/investigation-agent/src/investigation_agent/copilot_hardening"
-    "services/investigation-agent/src/investigation_agent/chat_bridge/workflow_bridge"
+    "services/collaboration-chat-bridge/src/collaboration_chat_bridge/workflow_bridge"
     "services/investigation-agent/src/investigation_agent/llm_health"
     "services/decision-api/src/decision_api/shadow_evaluator"
 )
