@@ -19,12 +19,6 @@ updates:
         patterns:
           - "*"
 
-  # DEPRECATED (one release cycle): legacy_v1_decision_api — dependabot frozen; use decision-api above.
-  - package-ecosystem: pip
-    directory: /services/legacy_v1_decision_api
-    schedule:
-      interval: monthly
-    open-pull-requests-limit: 0
 
   - package-ecosystem: pip
     directory: /services/core
