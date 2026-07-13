@@ -6,14 +6,6 @@ import logging
 import os
 
 from decision_api.config import settings
-from decision_api.vendors.plugins.fingerprint import (
-    FingerprintCredentials,
-    FingerprintVendorPlugin,
-)
-from decision_api.vendors.plugins.incognia import (
-    IncogniaCredentials,
-    IncogniaVendorPlugin,
-)
 from decision_api.vendors.plugins.ip_api import (
     IpApiVendorCredentials,
     IpApiVendorPlugin,
@@ -39,6 +31,11 @@ def install_vendor_plugins_from_settings() -> None:
 
     fp_key = os.environ.get("TARKA_VENDOR_FINGERPRINT_API_KEY", "").strip()
     if fp_key:
+        from decision_api.vendors.plugins.fingerprint import (
+            FingerprintCredentials,
+            FingerprintVendorPlugin,
+        )
+
         register_adapter(
             "fingerprint",
             FingerprintVendorPlugin(
@@ -55,6 +52,11 @@ def install_vendor_plugins_from_settings() -> None:
     inc_id = os.environ.get("TARKA_VENDOR_INCOGNIA_CLIENT_ID", "").strip()
     inc_secret = os.environ.get("TARKA_VENDOR_INCOGNIA_CLIENT_SECRET", "").strip()
     if inc_id and inc_secret:
+        from decision_api.vendors.plugins.incognia import (
+            IncogniaCredentials,
+            IncogniaVendorPlugin,
+        )
+
         register_adapter(
             "incognia",
             IncogniaVendorPlugin(

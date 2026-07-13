@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir pip -U
 COPY services/core /app/core
 COPY services/analytics /app/analytics
 COPY services/shared /app/shared
+COPY adapters /app/adapters
 COPY services/core-api/main.py /app/main.py
 COPY services/core-api/pyproject.toml /app/
 COPY services/decision-api/src/decision_api /app/decision_api
