@@ -48,8 +48,15 @@ class _FakePool:
 
 
 @pytest.fixture
-async def sb_client():
+async def sb_client(monkeypatch):
     pytest.importorskip("asyncpg")
+    monkeypatch.setenv("API_KEYS", "test-key")
+    monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "false")
+    from decision_api import main as main_mod
+    from decision_api.config import settings
+
+    monkeypatch.setattr(settings, "api_keys", "test-key")
+    monkeypatch.setattr(main_mod, "_valid_api_keys", None)
     import decision_api.main as _main_mod  # noqa: F401
 
     with patch("decision_api.main.init_db", new_callable=AsyncMock):
@@ -94,12 +101,6 @@ async def sb_client():
 
 @pytest.mark.asyncio
 async def test_sandbox_bootstrap_idempotent(monkeypatch, sb_client):
-    from decision_api import main as main_mod
-    from decision_api.config import settings
-
-    monkeypatch.setattr(settings, "api_keys", "test-key")
-    monkeypatch.setattr(main_mod, "_valid_api_keys", None)
-    monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "false")
     captured: list[object] = []
 
     def _capture(pack):
