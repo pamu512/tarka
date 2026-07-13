@@ -55,7 +55,7 @@ def _validate_v2_packs(v2_root: Path) -> list[str]:
         if s not in sys.path:
             sys.path.insert(0, s)
 
-    from rule_engine.ast_schemas import Rule
+    from tarka_shared.ast_schemas import Rule
 
     errors: list[str] = []
     pack_dirs = [

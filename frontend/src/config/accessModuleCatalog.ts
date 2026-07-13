@@ -14,7 +14,6 @@ export type AccessModuleId =
   | "simulation"
   | "compliance"
   | "integrations"
-  | "notifications"
   | "settings"
   | "admin";
 
@@ -78,7 +77,6 @@ export const ACCESS_GROUPS: { id: AccessGroupId; label: string; modules: ModuleC
     id: "account",
     label: "Account",
     modules: [
-      { id: "notifications", label: "Notifications", route: "/notifications" },
       { id: "settings", label: "Settings", route: "/settings" },
     ],
   },

@@ -1,0 +1,49 @@
+# Nightly counter parity (fixture replay → report artifact). Extends weekly smoke.
+name: Counter parity nightly
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  replay-and-diff:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install redis client
+        run: pip install redis
+      - name: Offline parity report
+        env:
+          AGG_KEY_VERSION: ci_parity_v1
+        run: |
+          mkdir -p artifacts
+          python3 scripts/replay/run_offline_parity.py \
+            --input scripts/replay/fixtures/parity_smoke.jsonl \
+            --scratch-url redis://127.0.0.1:6379/15 \
+            --reference-url redis://127.0.0.1:6379/14 \
+            --report artifacts/counter-parity-nightly.json \
+            --agg-key-version ci_parity_v1
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: counter-parity-nightly
+          path: artifacts/counter-parity-nightly.json
+          if-no-files-found: ignore

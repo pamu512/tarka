@@ -1,14 +1,14 @@
-# Criterion micro-benchmarks for `tarka-core`:
-# - Job 1: expanded p99 vs origin/master (ratio) — `infra/scripts/ci/criterion_p99_regression.py`
-# - Job 2: Proposed vs Baseline rule sets — absolute delta — `infra/scripts/ci/latency_violation_report.py`
+# Criterion micro-benchmarks for `tarka-core` (manual / release checks).
+# PR gate for Criterion p99 ratio is `.github/workflows/bench.yml` only (ROI #10).
+# - Job 1: absolute Baseline vs Proposed p99 delta — `infra/scripts/ci/latency_violation_report.py`
+# - Job 2: p99 vs origin/master ratio — `infra/scripts/ci/criterion_p99_regression.py`
 name: tarka-core benchmark regression
 
 on:
-  pull_request:
-    branches: [main, master]
+  workflow_dispatch:
 
 concurrency:
-  group: tarka-core-bench-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: tarka-core-bench-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -23,11 +23,10 @@ jobs:
     name: Baseline vs Proposed p99 delta (max +100 µs)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout PR head
+      - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -55,11 +54,10 @@ jobs:
     name: Criterion p99 vs master (5% max)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout PR head
+      - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -72,8 +70,8 @@ jobs:
       - name: Fetch master (baseline ref)
         run: git fetch --no-tags --depth=1 origin +refs/heads/master:refs/remotes/origin/master
 
-      - name: Save PR SHA
-        run: echo "PR_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - name: Save tip SHA
+        run: echo "TIP_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Benchmark baseline (origin/master)
         env:
@@ -83,12 +81,12 @@ jobs:
           git checkout --detach origin/master
           cargo bench -p tarka-core --bench standard_heavy_rule_set --locked -- --save-baseline master
 
-      - name: Benchmark PR branch + enforce p99 regression bound
+      - name: Benchmark tip + enforce p99 regression bound
         env:
           CI: "true"
         run: |
           set -euo pipefail
-          git checkout --detach "${PR_SHA}"
+          git checkout --detach "${TIP_SHA}"
           cargo bench -p tarka-core --bench standard_heavy_rule_set --locked
           python3 infra/scripts/ci/criterion_p99_regression.py \
             --benchmark-dir target/criterion/standard_heavy_rule_set/evaluate_full_trace \

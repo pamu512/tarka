@@ -20,6 +20,10 @@ interface ImportMetaEnv {
   readonly VITE_OIDC_ROLES_CLAIM?: string;
   /** WebSocket URL for the live transaction grid (`/transactions/live`); optional. */
   readonly VITE_TRANSACTIONS_WS_URL?: string;
+  /** Show fake queue badges on nav (default off). */
+  readonly VITE_SHOW_DEMO_BADGES?: string;
+  /** Lean analyst nav — triad + cases (default on). Set `false` at **build** time for full brochure/demo surface. */
+  readonly VITE_LEAN_NAV?: string;
 }
 
 interface ImportMeta {

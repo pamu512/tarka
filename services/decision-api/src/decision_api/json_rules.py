@@ -119,6 +119,8 @@ def get_rule_hit_telemetry() -> dict[str, Any]:
         )
     return {
         "since_unix": _telemetry_started_at_unix,
+        "since_process_start": True,
+        "durability": "process_memory",
         "total_hits": total,
         "unique_keys": len(rows),
         "rows": rows,

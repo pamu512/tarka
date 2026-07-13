@@ -92,12 +92,6 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/orchestrator/, ""),
       },
-      /** v2 rule engine — versioned AST snapshots (``GET/POST /v1/rules/versions``). Default: :8778. */
-      "/api/rule-engine": {
-        target: "http://127.0.0.1:8778",
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/rule-engine/, ""),
-      },
       /** Orchestrator AI feedback JSONL (``POST /v1/ai/feedback``). */
       "/api/v1/ai": {
         target: "http://127.0.0.1:8790",
@@ -152,7 +146,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/ingest/, ""),
       },
-      /** Local Shadow sidecar (fraud copilot LLM); default port 8742 — see tools/shadow docs. */
+      /**
+       * Local-only: tools/shadow desktop sidecar (:8742).
+       * Production case-rail uses investigation-agent (/api/investigation).
+       * Keep for ShadowLlmForensics page / desktop forensics — not the analyst workbench path.
+       */
       "/api/shadow-llm": {
         target: "http://127.0.0.1:8742",
         changeOrigin: true,

@@ -1,4 +1,5 @@
 # Weekly / manual smoke: keep scripts/benchmarks/latency_evaluate.py runnable against a real API + Redis.
+# Overlaps ci.yml job `benchmark-latency-evaluate` on schedule — keep both until #10 product call.
 # Full load belongs in release docs or k6; this job only sanity-checks the script path.
 name: Benchmark smoke
 
