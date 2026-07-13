@@ -1,0 +1,19 @@
+{
+  "policy_id": "strict_review_v1",
+  "version": 1,
+  "description": "Force manual review queue for all review decisions; deny stays block.",
+  "escalation_ladder": ["step_up_mfa", "manual_review", "block"],
+  "rules": [
+    {
+      "id": "deny_block",
+      "when": { "decision": "deny" },
+      "recommended_action": "block"
+    },
+    {
+      "id": "review_manual_queue",
+      "when": { "decision": "review" },
+      "recommended_action": "manual_review"
+    }
+  ],
+  "default": "use_base_engine"
+}

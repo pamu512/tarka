@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "sdk_emulator",
+      "when": [{ "op": "is_true", "field": "is_emulator" }],
+      "tags": ["sdk:emulator"],
+      "score_delta": 30
+    },
+    {
+      "id": "sdk_vpn",
+      "when": [{ "op": "is_true", "field": "is_vpn" }],
+      "tags": ["sdk:vpn"],
+      "score_delta": 15
+    },
+    {
+      "id": "sdk_bot",
+      "when": [{ "op": "is_true", "field": "is_bot" }],
+      "tags": ["sdk:bot"],
+      "score_delta": 40
+    },
+    {
+      "id": "sdk_repackaged",
+      "when": [{ "op": "is_true", "field": "is_repackaged" }],
+      "tags": ["sdk:repackaged"],
+      "score_delta": 50
+    },
+    {
+      "id": "sdk_spoofed_location",
+      "when": [{ "op": "is_true", "field": "is_spoofed_location" }],
+      "tags": ["sdk:spoofed_location"],
+      "score_delta": 25
+    },
+    {
+      "id": "sdk_webdriver",
+      "when": [{ "op": "is_true", "field": "webdriver_detected" }],
+      "tags": ["sdk:webdriver"],
+      "score_delta": 35
+    },
+    {
+      "id": "sdk_headless",
+      "when": [{ "op": "is_true", "field": "headless_detected" }],
+      "tags": ["sdk:headless"],
+      "score_delta": 30
+    },
+    {
+      "id": "sdk_automation",
+      "when": [{ "op": "is_true", "field": "automation_detected" }],
+      "tags": ["sdk:automation"],
+      "score_delta": 35
+    },
+    {
+      "id": "sdk_tz_geo_mismatch",
+      "when": [{ "op": "is_true", "field": "timezone_geo_mismatch" }],
+      "tags": ["sdk:tz_geo_mismatch"],
+      "score_delta": 10
+    },
+    {
+      "id": "sdk_proxy_ip",
+      "when": [{ "op": "is_true", "field": "ip_is_proxy" }],
+      "tags": ["sdk:proxy"],
+      "score_delta": 15
+    },
+    {
+      "id": "sdk_datacenter_ip",
+      "when": [{ "op": "is_true", "field": "ip_is_datacenter" }],
+      "tags": ["sdk:datacenter"],
+      "score_delta": 20
+    }
+  ],
+  "tag_rules": []
+}
