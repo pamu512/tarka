@@ -55,13 +55,16 @@ The console **trust/ops readiness** strip (`frontend/src/components/AnalystReadi
 | `POST` | `/v1/rules/visual/compile` | Compile a visual-rule AST JSON payload into a deployable JSON rule pack |
 | `POST` | `/v1/rules/visual/evaluate-dry-run` | Compile to JSON `when` rules, then evaluate the pack in **simulation** against caller-supplied features (no warehouse side effects) |
 | `POST` | `/v1/rules/rego/compile` | **Deprecated** — returns **410 Gone**; Rego/OPA export was removed. Use `/v1/rules/visual/compile` and the native Rust `tarka_rule_engine` evaluation path |
-| `POST` | `/v1/rules/gitops/approve` | Record maker/checker approval metadata for a rule pack (integrate with your SOX/Git workflow) |
+| `POST` | `/v1/rules/gitops/approve` | Persist maker/checker approval (`rule_approvals`) and return `audit_token` |
 | `POST` | `/v1/rules/backtest/preview-sql` | Return bounded ClickHouse SQL for a 90-day window with point-in-time guidance in the response body |
-| `POST` | `/v1/rules/backtest/run` | Stub backtest metrics until a read-only ClickHouse role is wired server-side |
+| `POST` | `/v1/rules/backtest/jobs` | Enqueue streaming warehouse backtest; poll `GET /v1/rules/backtest/jobs/{job_id}` |
+| `POST` | `/v1/rules/backtest/run` | **410 Gone** — stub route removed; use `/jobs` |
 | `POST` | `/v1/reporting/nl-to-sql` | Natural language → bounded SQL (LLM when configured; template fallback otherwise) |
-| `POST` | `/v1/feature-store/definitions` | Upsert feature definitions and versioned materialized-view DDL templates |
-| `GET` | `/v1/analytics/dashboards/kpis` | Cached KPI stub for embedded dashboards (Redis TTL `DASHBOARD_KPI_CACHE_TTL_SECONDS`; tenant-scoped when API keys bind tenants) |
-| `GET` | `/v1/vendors/registry` | List registered vendor adapters (cost-aware routing stub) |
+| `POST` | `/v1/feature-store/definitions` | Upsert durable feature definitions and execute ClickHouse MV DDL |
+| `GET` | `/v1/analytics/dashboards/kpis` | Live KPI counts from analytics engine (**503** when offline; Redis cache when healthy) |
+| `GET` | `/v1/calibration/reliability-export.csv` | CSV of `decision_audit` scores + `inference_context` for offline reliability curves |
+| `GET` | `/v1/calibration/reliability-bins` | Equal-width bins vs proxy labels (caveat: not ground truth until `y_label` joined) |
+| `GET` | `/v1/vendors/registry` | List registered vendor adapters |
 | `POST` | `/v1/vendors/probe` | Admin probe of a vendor adapter |
 
 Guide: [competitor-parity.md](guides/competitor-parity.md). Env vars: [competitor-parity-env.md](../architecture/competitor-parity-env.md).
