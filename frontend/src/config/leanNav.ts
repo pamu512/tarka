@@ -44,6 +44,7 @@ export const LEAN_NAV_PATHS = new Set<string>([
   "/integrations",
   "/settings",
   "/help",
+  "/admin",
 ]);
 
 export function leanHomePath(): string {

@@ -194,3 +194,20 @@ def test_ingest_decision_api_missing_tenant_422(monkeypatch: pytest.MonkeyPatch)
         assert client.posts == []
 
     asyncio.run(_run())
+
+
+def test_create_app_decision_api_without_url_does_not_fall_back_to_python(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """High #3: explicit decision_api without DECISION_API_URL stays decision_api (fail closed)."""
+    monkeypatch.delenv("DECISION_API_URL", raising=False)
+    from main import create_app
+
+    app = create_app(
+        rule_engine_url="http://rules.test",
+        shadow_agent_url=None,
+        rule_eval_backend="decision_api",
+        decision_api_url=None,
+    )
+    assert app.state.rule_eval_backend == "decision_api"
+    assert app.state.decision_api_url is None

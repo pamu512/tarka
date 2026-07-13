@@ -9,7 +9,7 @@ import { AnalystReadinessBar } from "./components/AnalystReadinessBar";
 import { CommandPalette } from "./components/CommandPalette";
 import { ModuleIcon, type ModuleId } from "./components/ModuleIcon";
 import { TarkaLogo } from "./components/TarkaLogo";
-import { LEAN_NAV, LEAN_NAV_PATHS, INCLUDE_DEMO_SURFACE, leanHomePath } from "./config/leanNav";
+import { LEAN_NAV, INCLUDE_DEMO_SURFACE, leanHomePath, isProductionSurfacePath } from "./config/leanNav";
 import MlLifecycle from "./pages/MlLifecycle";
 import OpsCalibration from "./pages/OpsCalibration";
 import { TarkaRbacRole } from "./security/rbacConstants";
@@ -169,7 +169,7 @@ const NAV_GROUPS_ALL: { label: string; items: NavItem[] }[] = [
 const NAV_GROUPS = LEAN_NAV
   ? NAV_GROUPS_ALL.map((g) => ({
       ...g,
-      items: g.items.filter((i) => LEAN_NAV_PATHS.has(i.to)),
+      items: g.items.filter((i) => isProductionSurfacePath(i.to)),
     })).filter((g) => g.items.length > 0)
   : NAV_GROUPS_ALL;
 
@@ -336,6 +336,9 @@ export default function App() {
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/help" element={<Help />} />
+            <Route path="/admin" element={<AdminPanel />} />
+            <Route path="/notifications" element={<Navigate to="/settings" replace />} />
+            <Route path="/rules/version-control" element={<Navigate to="/rules" replace />} />
             {INCLUDE_DEMO_SURFACE ? (
               <>
                 <Route path="/command-center" element={<TarkaCommandCenter />} />
@@ -362,7 +365,6 @@ export default function App() {
                 <Route path="/integrations/rate-limit-shields" element={<RateLimitShields />} />
                 <Route path="/integrations/seller-integrity" element={<SellerIntegrityDashboard />} />
                 <Route path="/integrations/payout-delay" element={<PayoutDelayAutomation />} />
-                <Route path="/admin" element={<AdminPanel />} />
               </>
             ) : (
               <>
@@ -390,7 +392,8 @@ export default function App() {
                 <Route path="/integrations/rate-limit-shields" element={<Navigate to="/integrations" replace />} />
                 <Route path="/integrations/seller-integrity" element={<Navigate to="/integrations" replace />} />
                 <Route path="/integrations/payout-delay" element={<Navigate to="/integrations" replace />} />
-                <Route path="/admin" element={<Navigate to="/settings" replace />} />
+                {/* Stale / unknown paths not in isProductionSurfacePath allowlist */}
+                <Route path="*" element={<Navigate to={leanHomePath()} replace />} />
               </>
             )}
           </Routes>

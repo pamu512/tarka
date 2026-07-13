@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Mapping, Protocol
 
 import httpx
@@ -290,16 +291,40 @@ async def post_decision_evaluate(
     *,
     decision_api_url: str,
     body: dict[str, Any],
+    api_key: str | None = None,
 ) -> dict[str, Any]:
-    """POST {DECISION_API_URL}/v1/decisions/evaluate → JSON dict."""
+    """POST {DECISION_API_URL}/v1/decisions/evaluate → JSON dict.
+
+    When ``api_key`` is set (or :envvar:`DECISION_API_KEY` /
+    :envvar:`ORCHESTRATOR_DECISION_API_KEY` / first :envvar:`API_KEYS` entry),
+    sends ``X-API-Key`` so evaluate works against auth-enabled decision-api.
+    """
     base = decision_api_url.rstrip("/")
     url = f"{base}/v1/decisions/evaluate"
-    response = await client.post(url, json=body)
+    headers = decision_api_auth_headers(api_key)
+    response = await client.post(url, json=body, headers=headers or None)
     response.raise_for_status()
     data = response.json()
     if not isinstance(data, dict):
         raise TypeError(f"decision-api evaluate returned non-object: {type(data).__name__}")
     return data
+
+
+def decision_api_auth_headers(api_key: str | None = None) -> dict[str, str]:
+    """Resolve service credentials for decision-api evaluate."""
+    key = (api_key or "").strip()
+    if not key:
+        key = (
+            os.environ.get("DECISION_API_KEY", "").strip()
+            or os.environ.get("ORCHESTRATOR_DECISION_API_KEY", "").strip()
+        )
+    if not key:
+        raw = os.environ.get("API_KEYS", "").strip()
+        if raw:
+            key = raw.split(",", 1)[0].strip()
+    if not key:
+        return {}
+    return {"X-API-Key": key}
 
 
 def _blocking_id(rule_data: Mapping[str, Any]) -> str | None:
