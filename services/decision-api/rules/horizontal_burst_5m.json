@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "description": "Horizontal burst detection on 5m velocity (requires event_count_5m on features).",
+  "rules": [
+    {
+      "id": "burst_5m_severe",
+      "when": [{ "op": "gte", "field": "event_count_5m", "value": 15 }],
+      "tags": ["horizontal:burst_5m_severe", "velocity:burst_5m"],
+      "score_delta": 30,
+      "description": ">=15 events in 5 minutes — possible automation or card testing"
+    },
+    {
+      "id": "burst_5m_elevated",
+      "when": [{ "op": "gte", "field": "event_count_5m", "value": 8 }],
+      "tags": ["horizontal:burst_5m_elevated", "velocity:burst_5m"],
+      "score_delta": 15,
+      "description": ">=8 events in 5 minutes"
+    }
+  ],
+  "tag_rules": []
+}

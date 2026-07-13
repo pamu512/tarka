@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tarka — Live Dashboard</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--accent:#3b82f6;--text:#e2e8f0;
+--muted:#94a3b8;--success:#22c55e;--warn:#f59e0b;--danger:#ef4444;--radius:8px}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;padding:24px}
+h1{font-size:1.5rem;font-weight:700;margin-bottom:4px}
+.subtitle{color:var(--muted);font-size:.875rem;margin-bottom:24px}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:24px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center}
+.kpi .val{font-size:2rem;font-weight:800}.kpi .lbl{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:4px}
+.kpi.allow .val{color:var(--success)}.kpi.deny .val{color:var(--danger)}.kpi.review .val{color:var(--warn)}.kpi.total .val{color:var(--accent)}
+.row{display:grid;grid-template-columns:2fr 1fr;gap:24px;margin-bottom:24px}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.panel h2{font-size:1rem;font-weight:600;margin-bottom:16px;color:var(--text)}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{text-align:left;color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;padding:8px 6px;border-bottom:1px solid var(--border)}
+td{padding:8px 6px;border-bottom:1px solid rgba(51,65,85,.3)}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:600}
+.badge.allow{background:rgba(34,197,94,.15);color:var(--success)}
+.badge.deny{background:rgba(239,68,68,.15);color:var(--danger)}
+.badge.review{background:rgba(245,158,11,.15);color:var(--warn)}
+.tag{background:var(--accent);color:#fff;padding:1px 6px;border-radius:3px;font-size:.65rem;margin-right:4px;display:inline-block}
+.chart-bar{display:flex;height:20px;border-radius:4px;overflow:hidden;margin-top:8px}
+.chart-bar .seg{height:100%;transition:width .3s}
+.chart-bar .seg.allow{background:var(--success)}.chart-bar .seg.review{background:var(--warn)}.chart-bar .seg.deny{background:var(--danger)}
+.ws-status{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.ws-status.connected{background:var(--success)}.ws-status.disconnected{background:var(--danger)}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.live-indicator{font-size:.8rem;color:var(--muted);display:flex;align-items:center}
+.score-bar{width:80px;height:6px;background:var(--border);border-radius:3px;display:inline-block;vertical-align:middle;margin-left:8px}
+.score-bar .fill{height:100%;border-radius:3px;transition:width .3s}
+.score-bar .fill.low{background:var(--success)}.score-bar .fill.med{background:var(--warn)}.score-bar .fill.high{background:var(--danger)}
+.rate{font-size:1.1rem;font-weight:700;color:var(--accent);margin-top:8px}
+.sparkline{display:flex;align-items:flex-end;height:40px;gap:2px;margin-top:12px}
+.sparkline .bar{background:var(--accent);border-radius:2px 2px 0 0;min-width:4px;flex:1;transition:height .3s}
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>Live Fraud Dashboard</h1>
+    <p class="subtitle">Real-time fraud decision monitoring</p>
+  </div>
+  <div class="live-indicator">
+    <span class="ws-status" id="ws-dot"></span>
+    <span id="ws-label">Connecting...</span>
+  </div>
+</div>
+
+<div class="kpis">
+  <div class="kpi total"><div class="val" id="k-total">0</div><div class="lbl">Total Events</div></div>
+  <div class="kpi allow"><div class="val" id="k-allow">0</div><div class="lbl">Allowed</div></div>
+  <div class="kpi review"><div class="val" id="k-review">0</div><div class="lbl">Review</div></div>
+  <div class="kpi deny"><div class="val" id="k-deny">0</div><div class="lbl">Denied</div></div>
+  <div class="kpi"><div class="val" id="k-rate">0</div><div class="lbl">Events/min</div></div>
+</div>
+
+<div class="panel" style="margin-bottom:24px">
+  <h2>Decision Distribution</h2>
+  <div class="chart-bar" id="dist-bar">
+    <div class="seg allow" style="width:33%"></div>
+    <div class="seg review" style="width:33%"></div>
+    <div class="seg deny" style="width:34%"></div>
+  </div>
+  <div style="display:flex;gap:24px;margin-top:12px;font-size:.8rem">
+    <span style="color:var(--success)">Allow: <span id="pct-allow">0</span>%</span>
+    <span style="color:var(--warn)">Review: <span id="pct-review">0</span>%</span>
+    <span style="color:var(--danger)">Deny: <span id="pct-deny">0</span>%</span>
+  </div>
+  <h2 style="margin-top:20px">Throughput (last 60s)</h2>
+  <div class="sparkline" id="sparkline"></div>
+</div>
+
+<div class="row">
+  <div class="panel">
+    <h2>Recent Decisions</h2>
+    <table>
+      <thead><tr><th>Time</th><th>Entity</th><th>Type</th><th>Decision</th><th>Score</th><th>Tags</th></tr></thead>
+      <tbody id="events-body"></tbody>
+    </table>
+  </div>
+  <div class="panel">
+    <h2>Top Denied Entities</h2>
+    <table>
+      <thead><tr><th>Entity</th><th>Denials</th><th>Avg Score</th></tr></thead>
+      <tbody id="deny-body"></tbody>
+    </table>
+    <h2 style="margin-top:24px">Active Tags</h2>
+    <div id="tag-cloud" style="margin-top:8px"></div>
+  </div>
+</div>
+
+<script>
+const MAX_EVENTS = 100;
+let events = [], counts = {allow:0,review:0,deny:0,total:0};
+let entityDenials = {}, tagCounts = {};
+let minuteBuffer = new Array(60).fill(0);
+let currentSecond = 0;
+
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const ws = new WebSocket(`${proto}//${location.host}/v1/decisions/ws`);
+  const dot = document.getElementById('ws-dot');
+  const lbl = document.getElementById('ws-label');
+
+  ws.onopen = () => { dot.className = 'ws-status connected'; lbl.textContent = 'Live'; };
+  ws.onclose = () => { dot.className = 'ws-status disconnected'; lbl.textContent = 'Reconnecting...'; setTimeout(connectWS, 2000); };
+  ws.onerror = () => ws.close();
+  ws.onmessage = (e) => {
+    try { handleEvent(JSON.parse(e.data)); } catch {}
+  };
+}
+
+function handleEvent(ev) {
+  events.unshift(ev);
+  if (events.length > MAX_EVENTS) events.pop();
+  const d = ev.decision || 'allow';
+  counts[d] = (counts[d] || 0) + 1;
+  counts.total++;
+  minuteBuffer[currentSecond] = (minuteBuffer[currentSecond] || 0) + 1;
+
+  if (d === 'deny') {
+    const eid = ev.entity_id || 'unknown';
+    entityDenials[eid] = entityDenials[eid] || {count: 0, totalScore: 0};
+    entityDenials[eid].count++;
+    entityDenials[eid].totalScore += (ev.score || 0);
+  }
+  (ev.tags || []).forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; });
+  render();
+}
+
+function render() {
+  document.getElementById('k-total').textContent = counts.total;
+  document.getElementById('k-allow').textContent = counts.allow || 0;
+  document.getElementById('k-review').textContent = counts.review || 0;
+  document.getElementById('k-deny').textContent = counts.deny || 0;
+  const rpm = minuteBuffer.reduce((a,b) => a+b, 0);
+  document.getElementById('k-rate').textContent = rpm;
+
+  const t = counts.total || 1;
+  const pa = ((counts.allow||0)/t*100).toFixed(1), pr = ((counts.review||0)/t*100).toFixed(1), pd = ((counts.deny||0)/t*100).toFixed(1);
+  document.getElementById('pct-allow').textContent = pa;
+  document.getElementById('pct-review').textContent = pr;
+  document.getElementById('pct-deny').textContent = pd;
+  document.getElementById('dist-bar').innerHTML = `
+    <div class="seg allow" style="width:${pa}%"></div>
+    <div class="seg review" style="width:${pr}%"></div>
+    <div class="seg deny" style="width:${pd}%"></div>`;
+
+  const maxBar = Math.max(1, ...minuteBuffer);
+  document.getElementById('sparkline').innerHTML = minuteBuffer.map(v =>
+    `<div class="bar" style="height:${Math.max(2, v/maxBar*40)}px"></div>`).join('');
+
+  const tbody = document.getElementById('events-body');
+  tbody.innerHTML = events.slice(0, 25).map(ev => {
+    const d = ev.decision || 'allow';
+    const s = (ev.score || 0);
+    const cls = s < 50 ? 'low' : s < 80 ? 'med' : 'high';
+    return `<tr>
+      <td style="font-size:.75rem;color:var(--muted)">${new Date().toLocaleTimeString()}</td>
+      <td style="font-size:.8rem">${esc(ev.entity_id||'')}</td>
+      <td style="font-size:.8rem">${esc(ev.event_type||'')}</td>
+      <td><span class="badge ${d}">${d}</span></td>
+      <td>${s.toFixed(1)} <div class="score-bar"><div class="fill ${cls}" style="width:${s}%"></div></div></td>
+      <td>${(ev.tags||[]).slice(0,3).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</td>
+    </tr>`;
+  }).join('');
+
+  const sorted = Object.entries(entityDenials).sort((a,b) => b[1].count - a[1].count).slice(0, 10);
+  document.getElementById('deny-body').innerHTML = sorted.map(([eid, d]) =>
+    `<tr><td style="font-size:.8rem">${esc(eid)}</td><td>${d.count}</td><td>${(d.totalScore/d.count).toFixed(1)}</td></tr>`).join('');
+
+  const topTags = Object.entries(tagCounts).sort((a,b) => b[1] - a[1]).slice(0, 20);
+  document.getElementById('tag-cloud').innerHTML = topTags.map(([tag, cnt]) =>
+    `<span class="tag" style="margin-bottom:4px;font-size:${Math.min(.9, .65 + cnt*.02)}rem">${esc(tag)} (${cnt})</span>`).join(' ');
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = String(s||''); return d.innerHTML; }
+
+setInterval(() => { currentSecond = (currentSecond + 1) % 60; minuteBuffer[currentSecond] = 0; }, 1000);
+connectWS();
+</script>
+</body>
+</html>

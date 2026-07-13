@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "name": "integrity_tamper_policy_v1",
+  "description": "Policy tag_rules keyed on stable ingress / geo / device-integrity signal tags (Epic B tamper surfaces).",
+  "rules": [],
+  "tag_rules": [
+    {
+      "id": "policy_escalate_ingress_replay",
+      "any_tag": ["ingress:replay_payload"],
+      "tags": ["policy:replay_payload_escalation"],
+      "score_delta": 15,
+      "description": "Duplicate evaluate payload within the replay signature window"
+    },
+    {
+      "id": "policy_geo_ip_mismatch",
+      "any_tag": ["sdk:geo_ip_mismatch"],
+      "tags": ["policy:geo_mismatch_review"],
+      "score_delta": 12,
+      "description": "Session geo inconsistent with IP-derived geo"
+    },
+    {
+      "id": "policy_device_integrity_markers",
+      "any_tag": ["sdk:emulator", "sdk:repackaged"],
+      "tags": ["policy:device_integrity_concern"],
+      "score_delta": 20,
+      "description": "Device integrity markers from SDK signals"
+    }
+  ]
+}

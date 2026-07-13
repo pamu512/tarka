@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "velocity_high_1h",
+      "when": [{ "op": "gte", "field": "event_count_1h", "value": 20 }],
+      "tags": ["velocity:high_1h"],
+      "score_delta": 25,
+      "description": "More than 20 events in the last hour"
+    },
+    {
+      "id": "velocity_high_24h",
+      "when": [{ "op": "gte", "field": "event_count_24h", "value": 100 }],
+      "tags": ["velocity:high_24h"],
+      "score_delta": 15,
+      "description": "More than 100 events in the last 24 hours"
+    },
+    {
+      "id": "high_sum_amount_24h",
+      "when": [{ "op": "gte", "field": "sum_amount_24h", "value": 50000 }],
+      "tags": ["amount:high_daily_volume"],
+      "score_delta": 20,
+      "description": "Total amount exceeds 50k in 24h"
+    },
+    {
+      "id": "many_ips_24h",
+      "when": [{ "op": "gte", "field": "distinct_ip_address_24h", "value": 5 }],
+      "tags": ["device:many_ips"],
+      "score_delta": 15,
+      "description": "Entity used more than 5 distinct IPs in 24h"
+    },
+    {
+      "id": "many_devices_24h",
+      "when": [{ "op": "gte", "field": "distinct_device_id_24h", "value": 3 }],
+      "tags": ["device:many_devices"],
+      "score_delta": 20,
+      "description": "Entity used more than 3 distinct devices in 24h"
+    }
+  ],
+  "tag_rules": [
+    {
+      "id": "escalate_velocity_vpn",
+      "any_tag": ["velocity:high_1h", "sdk:vpn"],
+      "tags": ["escalated:velocity_vpn"],
+      "score_delta": 20,
+      "description": "High velocity combined with VPN use"
+    }
+  ]
+}
