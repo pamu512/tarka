@@ -1,12 +1,11 @@
-from __future__ import annotations
+"""Optional HMAC verification for POST bodies (see docs/guides/tls-pinning-and-signed-requests.md)."""
 
+from __future__ import annotations
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import JSONResponse, Response
 
-"""Optional HMAC verification for POST bodies (see docs/guides/tls-pinning-and-signed-requests.md)."""
-# Shared helpers (repo layout: services/shared next to decision-api)
 from decision_api.shared_path import ensure_services_shared_on_path
 
 ensure_services_shared_on_path()
