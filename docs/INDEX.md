@@ -15,7 +15,7 @@ Canonical operator index. Prefer these over scattered epic status notes.
 - MkDocs site home: [`docs/index.md`](docs/index.md)
 - Repo layout: [`REPOSITORY_LAYOUT.md`](REPOSITORY_LAYOUT.md)
 - Stub honesty: [`../STUB_REGISTER.md`](../STUB_REGISTER.md)
-- Product vision / ROI: complexity canvas in Cursor (Jul 2026)
+- Product vision / ROI: complexity canvas notes (Jul 2026)
 
 ## Compose (one story)
 
