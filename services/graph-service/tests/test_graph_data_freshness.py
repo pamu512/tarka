@@ -1,4 +1,4 @@
-from graph_data_freshness import graph_data_as_of_iso
+from graph_service.graph_data_freshness import graph_data_as_of_iso
 
 
 def test_graph_data_as_of_picks_latest():

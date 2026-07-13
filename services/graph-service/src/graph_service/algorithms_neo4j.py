@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from neo4j_client import get_driver
+from .neo4j_client import get_driver
 
 """
 Graph analytics functions using native Neo4j Cypher.
@@ -200,7 +200,7 @@ async def explain_paths(
     to_entity_id: str | None = None,
     limit: int = 10,
 ) -> dict:
-    from path_explain import assemble_path_explanation
+    from .path_explain import assemble_path_explanation
 
     rows = await propagate_risk(tenant_id, entity_id, depth=depth, decay=decay)
     subject = await compute_entity_risk(tenant_id, entity_id)
@@ -360,7 +360,7 @@ async def compute_entity_risk(
 
     Optional ``checkpoint`` selects a profile from ``checkpoint_profiles_v1.json`` (risk score multiplier).
     """
-    from checkpoint_registry import resolve_profile
+    from .checkpoint_registry import resolve_profile
 
     profile = resolve_profile(checkpoint)
     mult = float(profile.get("risk_score_multiplier") or 1.0)
@@ -475,7 +475,7 @@ async def compute_entity_risk(
 
     score = min(round(score * mult), 100)
 
-    from graph_data_freshness import graph_data_as_of_iso
+    from .graph_data_freshness import graph_data_as_of_iso
 
     freshness = graph_data_as_of_iso(
         {

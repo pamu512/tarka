@@ -3,10 +3,10 @@ from typing import Any
 
 from neo4j import AsyncDriver, AsyncGraphDatabase
 
-from config import settings
-from custom_schema import get_allowed_labels, get_allowed_rels
-from entity_context_shape import shape_deep_context_from_nodes
-from hetero_schema import validate_typed_edge_or_raise
+from .config import settings
+from .custom_schema import get_allowed_labels, get_allowed_rels
+from .entity_context_shape import shape_deep_context_from_nodes
+from .hetero_schema import validate_typed_edge_or_raise
 
 _driver: AsyncDriver | None = None
 

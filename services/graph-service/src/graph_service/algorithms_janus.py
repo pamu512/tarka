@@ -7,9 +7,9 @@ from typing import Any
 
 import networkx as nx
 
-from config import settings
-from janusgraph_gremlin import get_traversal_source, run_in_gremlin_thread
-from janusgraph_store import _vertex_external_id
+from .config import settings
+from .janusgraph_gremlin import get_traversal_source, run_in_gremlin_thread
+from .janusgraph_store import _vertex_external_id
 
 """
 Graph analytics when GRAPH_BACKEND=janusgraph (Gremlin).
@@ -36,7 +36,7 @@ def _clamp_depth(depth: int) -> int:
 
 
 def _tags_list_from_vertex(g, v: Any) -> list[str]:
-    from janusgraph_store import _tags_decode
+    from .janusgraph_store import _tags_decode
 
     try:
         raw = g.V(v).values("tags").limit(1).next()
@@ -186,7 +186,7 @@ async def explain_paths(
     to_entity_id: str | None = None,
     limit: int = 10,
 ) -> dict:
-    from path_explain import assemble_path_explanation
+    from .path_explain import assemble_path_explanation
 
     rows = await propagate_risk(tenant_id, entity_id, depth=depth, decay=decay)
     subject = await compute_entity_risk(tenant_id, entity_id)
@@ -276,7 +276,7 @@ async def detect_fraud_rings(tenant_id: str, min_ring_size: int = 3) -> list[dic
 async def compute_entity_risk(
     tenant_id: str, entity_id: str, *, checkpoint: str | None = None
 ) -> dict:
-    from checkpoint_registry import resolve_profile
+    from .checkpoint_registry import resolve_profile
 
     profile = resolve_profile(checkpoint)
     mult = float(profile.get("risk_score_multiplier") or 1.0)
@@ -386,7 +386,7 @@ async def compute_entity_risk(
 
         score = min(round(score * mult), 100)
 
-        from graph_data_freshness import graph_data_as_of_iso
+        from .graph_data_freshness import graph_data_as_of_iso
 
         freshness_props: dict[str, Any] = {}
         for key in ("updated_at", "last_seen", "tags_updated_at", "observed_at"):

@@ -1,4 +1,4 @@
-from schemas import EntityRiskResponse
+from graph_service.schemas import EntityRiskResponse
 
 
 def test_entity_risk_response_includes_neighbor_device_count():
