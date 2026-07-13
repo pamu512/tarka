@@ -6,43 +6,22 @@ import hashlib
 import logging
 import os
 import secrets
-import time
-from collections import defaultdict, deque
-from threading import Lock
+import sys
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import Depends, Header, HTTPException, Request, status
 
 from anumana_browser_ingest import ingress_client_ip
 
+_shared = Path(__file__).resolve().parents[2] / "shared"
+if _shared.is_dir() and str(_shared) not in sys.path:
+    sys.path.insert(0, str(_shared))
+from minute_rate_limit import MinuteRateLimiter
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_V1_RATE_LIMIT_RPM = 120
-_RATE_LIMIT_WINDOW_SEC = 60.0
-
-
-class MinuteRateLimiter:
-    """In-process sliding-window limiter (per key)."""
-
-    __slots__ = ("max_events", "window", "_dq", "_lock")
-
-    def __init__(self, max_events: int, window: float = _RATE_LIMIT_WINDOW_SEC) -> None:
-        self.max_events = max(1, int(max_events))
-        self.window = float(window)
-        self._dq: dict[str, deque[float]] = defaultdict(deque)
-        self._lock = Lock()
-
-    def allow(self, key: str) -> bool:
-        now = time.monotonic()
-        cutoff = now - self.window
-        with self._lock:
-            bucket = self._dq[key]
-            while bucket and bucket[0] < cutoff:
-                bucket.popleft()
-            if len(bucket) >= self.max_events:
-                return False
-            bucket.append(now)
-            return True
 
 
 def resolve_v1_auth_token_secret() -> str | None:

@@ -513,77 +513,6 @@ let mockCases: AnyObj[] = [
     };
   }),
 ];
-/** Mutable active AST snapshot for Versioned Rule Control mock (Prompt 172). */
-let mockRuleEngineActiveVersion = 4;
-
-const MOCK_RULE_AST_VERSIONS: Array<{
-  version: number;
-  rule_count: number;
-  ast_hash: string;
-  created_at: string;
-  rules_payload: unknown[];
-}> = [
-  {
-    version: 4,
-    rule_count: 12,
-    ast_hash: "c4f91a2e8b0d17e3",
-    created_at: "2026-05-17T14:22:00.000Z",
-    rules_payload: [
-      {
-        id: "rule-velocity-v4",
-        name: "velocity_5m_burst",
-        action: "BLOCK",
-        priority: 5,
-        root_node: { field: { field: "velocity_5m" }, operator: "GT", value: 8 },
-      },
-    ],
-  },
-  {
-    version: 3,
-    rule_count: 11,
-    ast_hash: "9e2ac70155f4aa10",
-    created_at: "2026-05-16T09:10:00.000Z",
-    rules_payload: [
-      {
-        id: "rule-graph-v3",
-        name: "graph_score_elevated",
-        action: "SHADOW_REVIEW",
-        priority: 8,
-        root_node: { field: { field: "graph_score" }, operator: "GT", value: 0.72 },
-      },
-    ],
-  },
-  {
-    version: 2,
-    rule_count: 9,
-    ast_hash: "1b77dfe04c3298ac",
-    created_at: "2026-05-14T18:45:00.000Z",
-    rules_payload: [
-      {
-        id: "rule-amount-v2",
-        name: "high_amount_block",
-        action: "BLOCK",
-        priority: 5,
-        root_node: { field: { field: "amount" }, operator: "GT", value: 5000 },
-      },
-    ],
-  },
-  {
-    version: 1,
-    rule_count: 7,
-    ast_hash: "0a9c31e55d2f8811",
-    created_at: "2026-05-10T11:00:00.000Z",
-    rules_payload: [
-      {
-        id: "rule-demo-v1",
-        name: "demo_shadow_lane",
-        action: "SHADOW_REVIEW",
-        priority: 10,
-        root_node: { field: { field: "amount" }, operator: "GT", value: 200 },
-      },
-    ],
-  },
-];
 
 let mockFailoverToggles = {
   graph_plane_disabled: false,
@@ -2483,40 +2412,6 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       path: "rules/rule_change_log.jsonl",
       count: 1,
     };
-  }
-  if (path.includes("/api/rule-engine/v1/rules/versions/") && method === "GET") {
-    const ver = Number(path.split("/").pop()?.split("?")[0]);
-    const row = MOCK_RULE_AST_VERSIONS.find((v) => v.version === ver);
-    if (!row) return { error: "not_found" };
-    return {
-      version: row.version,
-      is_active: row.version === mockRuleEngineActiveVersion,
-      rule_count: row.rule_count,
-      created_at: row.created_at,
-      ast_hash: row.ast_hash,
-      rules_payload: row.rules_payload,
-    };
-  }
-  if (path.includes("/api/rule-engine/v1/rules/rollback/") && method === "POST") {
-    const ver = Number(path.split("/").pop()?.split("?")[0]);
-    if (!MOCK_RULE_AST_VERSIONS.some((v) => v.version === ver)) return { error: "not_found" };
-    mockRuleEngineActiveVersion = ver;
-    const row = MOCK_RULE_AST_VERSIONS.find((v) => v.version === ver)!;
-    return { ok: true, active_version: ver, rule_count: row.rule_count, reloaded: true };
-  }
-  if (path.includes("/api/rule-engine/v1/rules/versions") && method === "GET") {
-    const versions = MOCK_RULE_AST_VERSIONS.map((v) => ({
-      version: v.version,
-      is_active: v.version === mockRuleEngineActiveVersion,
-      rule_count: v.rule_count,
-      created_at: v.created_at,
-      ast_hash: v.ast_hash,
-    }));
-    return { versions, active_version: mockRuleEngineActiveVersion, source: "mock" };
-  }
-  if (path.includes("/api/rule-engine/v1/rules/reload") && method === "POST") {
-    const row = MOCK_RULE_AST_VERSIONS.find((v) => v.version === mockRuleEngineActiveVersion);
-    return { ok: true, count: row?.rule_count ?? 0 };
   }
 
   if (path.includes("/api/decisions/v1/rules") && method === "GET") return { packs: [{ _file: "default.json", name: "Default", version: 1, rules: [{ id: "velocity_guard", when: [{ field: "amount", op: "gt", value: 500 }], score_delta: 25 }], tag_rules: [] }] };
