@@ -30,3 +30,4 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 investigation_agent = ["workflows/manifests/*.json", "resources/*.json"]
+

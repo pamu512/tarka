@@ -3,11 +3,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from attachments import slack_files_to_append_text
-from config import Settings
-from message_enrich import maybe_enrich_last_user_with_web_fetch
-from persona_bridge import resolve_copilot_persona_for_bridge
-from workflow_bridge import resolve_workflow_from_messages
+from collaboration_chat_bridge.attachments import slack_files_to_append_text
+from collaboration_chat_bridge.config import Settings
+from collaboration_chat_bridge.message_enrich import maybe_enrich_last_user_with_web_fetch
+from collaboration_chat_bridge.persona_bridge import resolve_copilot_persona_for_bridge
+from collaboration_chat_bridge.workflow_bridge import resolve_workflow_from_messages
 
 """Shared pipeline: workflow directives → Slack files → web fetch → persona → agent payload."""
 log = logging.getLogger(__name__)

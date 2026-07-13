@@ -10,8 +10,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     investigation_agent_url: str = Field(
-        default="",
-        description="Base URL of investigation-agent (no trailing slash). Empty = in-process chat (macroservice).",
+        default="http://investigation-agent:8006",
+        description=(
+            "Base URL of investigation-agent (no trailing slash). "
+            "Empty string enables in-process chat when mounted as a subapp."
+        ),
     )
     investigation_agent_api_key: str = Field(
         default="",
@@ -95,4 +98,17 @@ class Settings(BaseSettings):
         default=80_000,
         ge=2000,
         description="Total extracted attachment text appended to last user message.",
+    )
+
+    bridge_case_actions_enabled: bool = Field(
+        default=True,
+        description="If false, /v1/case-actions returns 404.",
+    )
+    tenant_binding_required: bool = Field(
+        default=False,
+        description="If true, reject requests that cannot prove tenant scope.",
+    )
+    allow_insecure_no_auth: bool = Field(
+        default=False,
+        description="If true, bypass bridge shared-secret checks (local development only).",
     )

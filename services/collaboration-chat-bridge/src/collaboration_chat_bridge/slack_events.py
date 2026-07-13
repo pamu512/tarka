@@ -6,13 +6,13 @@ from typing import Any
 
 import httpx
 
-from agent_client import AgentChatError, post_chat
-from bridge_turn import (
+from collaboration_chat_bridge.agent_client import AgentChatError, post_chat
+from collaboration_chat_bridge.bridge_turn import (
     merge_workflow_with_explicit,
     prepare_messages_for_agent,
 )
-from config import Settings
-from reply_format import (
+from collaboration_chat_bridge.config import Settings
+from collaboration_chat_bridge.reply_format import (
     format_slack_blocks,
     format_slack_error_blocks,
     normalize_slack_user_text,

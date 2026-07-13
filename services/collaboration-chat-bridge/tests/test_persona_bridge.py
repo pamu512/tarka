@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import pytest
-from config import Settings
-from persona_bridge import (
+from collaboration_chat_bridge.config import Settings
+from collaboration_chat_bridge.persona_bridge import (
     resolve_copilot_persona_for_bridge,
     strip_persona_command,
 )

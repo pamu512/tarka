@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from io import BytesIO
 
-from attachments import extract_text_from_bytes
+from collaboration_chat_bridge.attachments import extract_text_from_bytes
 from openpyxl import Workbook
 
 

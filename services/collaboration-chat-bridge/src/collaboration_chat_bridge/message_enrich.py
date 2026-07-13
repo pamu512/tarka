@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 import re
 
-from investigation_agent.chat_bridge.web_fetch import WebFetchError, fetch_public_text
+from collaboration_chat_bridge.web_fetch import WebFetchError, fetch_public_text
 
 """Optional web URL fetch to prepend context to the last user message."""
 _URL_RE = re.compile(r"https://[^\s<>\"']{8,2048}", re.IGNORECASE)
