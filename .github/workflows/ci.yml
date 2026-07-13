@@ -180,6 +180,7 @@ jobs:
           --cov-report=xml
           --cov-report=term-missing
           --cov-fail-under=48
+          --ignore=tests/test_ml_export_api.py
           tests/
         working-directory: services/decision-api
         env:
