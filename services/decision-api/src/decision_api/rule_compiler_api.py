@@ -10,12 +10,10 @@ from typing import Annotated, Any, Union
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-import sys
-from pathlib import Path
 
-_shared = Path(__file__).resolve().parents[3] / "shared"
-if str(_shared) not in sys.path:
-    sys.path.insert(0, str(_shared))
+from decision_api.shared_path import ensure_services_shared_on_path
+
+ensure_services_shared_on_path()
 from auth_rbac import require_role  # noqa: E402
 
 router = APIRouter(prefix="/v1/rules/visual", tags=["visual-rules"])
