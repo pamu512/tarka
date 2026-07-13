@@ -79,7 +79,6 @@ async def test_challenge_webhook_dispatch(monkeypatch):
 async def test_simulation_rejects_underpowered(monkeypatch):
     monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
     from decision_api.simulation_api import router
-    from decision_api.simulator import SyntheticProfile
 
     app = FastAPI()
     app.include_router(router)
