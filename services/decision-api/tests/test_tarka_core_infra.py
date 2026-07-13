@@ -8,7 +8,15 @@ import json
 import pytest
 
 from tarka_core.cache import LocalDictCache
-from tarka_core.messaging import LocalAsyncBroker, PublishDelivery
+from tarka_core.messaging import LocalAsyncBroker, NullMessageBroker, PublishDelivery
+
+
+@pytest.mark.asyncio
+async def test_null_message_broker_is_noop() -> None:
+    b = NullMessageBroker()
+    await b.publish("fraud.test", b"x")
+    assert await b.subscribe("fraud.test", lambda *_: None) is None
+    await b.aclose()
 
 
 @pytest.mark.asyncio
