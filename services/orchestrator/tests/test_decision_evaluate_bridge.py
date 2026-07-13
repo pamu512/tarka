@@ -147,3 +147,50 @@ def test_compare_rule_eval_outcomes_match_and_mismatch() -> None:
     assert mismatch["blocking_rule_id_match"] is False
     assert mismatch["decision_api_actions"] == ["BLOCK"]
     assert mismatch["python_actions"] == ["ALLOW"]
+
+
+def test_decision_api_auth_headers_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    from decision_evaluate_bridge import decision_api_auth_headers
+
+    monkeypatch.delenv("DECISION_API_KEY", raising=False)
+    monkeypatch.delenv("ORCHESTRATOR_DECISION_API_KEY", raising=False)
+    monkeypatch.delenv("API_KEYS", raising=False)
+    assert decision_api_auth_headers() == {}
+
+    monkeypatch.setenv("API_KEYS", "k1,k2")
+    assert decision_api_auth_headers() == {"X-API-Key": "k1"}
+
+    monkeypatch.setenv("DECISION_API_KEY", "dedicated")
+    assert decision_api_auth_headers() == {"X-API-Key": "dedicated"}
+    assert decision_api_auth_headers("explicit") == {"X-API-Key": "explicit"}
+
+
+@pytest.mark.asyncio
+async def test_post_decision_evaluate_sends_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    from decision_evaluate_bridge import post_decision_evaluate
+
+    monkeypatch.setenv("DECISION_API_KEY", "svc-key")
+    seen: dict[str, object] = {}
+
+    class _Client:
+        async def post(self, url: str, json: object = None, headers: object = None) -> object:
+            seen["url"] = url
+            seen["headers"] = headers
+
+            class _Resp:
+                def raise_for_status(self) -> None:
+                    return None
+
+                def json(self) -> dict[str, object]:
+                    return {"decision": "allow", "score": 0.1, "tags": [], "rule_hits": []}
+
+            return _Resp()
+
+    out = await post_decision_evaluate(
+        _Client(),  # type: ignore[arg-type]
+        decision_api_url="http://core-api.test/decisions",
+        body={"tenant_id": "t1", "event_type": "payment", "entity_id": "e1"},
+    )
+    assert out["decision"] == "allow"
+    assert seen["url"] == "http://core-api.test/decisions/v1/decisions/evaluate"
+    assert seen["headers"] == {"X-API-Key": "svc-key"}

@@ -6,4 +6,4 @@ export {
   collectDeviceContext,
   publishDeviceContext,
   type TarkaSdkOptions,
-} from "../../fraud-sdk-typescript/src/cname_consent.js";
+} from "@tarka/sdk";

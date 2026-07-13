@@ -5,7 +5,7 @@ import { useAnalystWorkspace } from "../context/AnalystWorkspaceContext";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { parseCaseDetailRoute, parseCaseOpenInput } from "../utils/caseOpenQuery";
 import { ModuleIcon, type ModuleId } from "./ModuleIcon";
-import { LEAN_NAV, LEAN_NAV_PATHS } from "../config/leanNav";
+import { LEAN_NAV, isProductionSurfacePath } from "../config/leanNav";
 
 type CommandItem = {
   id: string;
@@ -187,7 +187,7 @@ const MODULE_ROUTES_ALL: Array<{ to: string; label: string; module: ModuleId; ke
 ];
 
 const MODULE_ROUTES = LEAN_NAV
-  ? MODULE_ROUTES_ALL.filter((r) => LEAN_NAV_PATHS.has(r.to) || r.to.startsWith("/cases/"))
+  ? MODULE_ROUTES_ALL.filter((r) => isProductionSurfacePath(r.to))
   : MODULE_ROUTES_ALL;
 
 function normalize(s: string) {

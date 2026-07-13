@@ -3,7 +3,7 @@
 Consent-gated CNAME helpers (`collectDeviceContext`, `publishDeviceContext`) now live in
 [`fraud-sdk-typescript`](../fraud-sdk-typescript/) (`src/cname_consent.ts`).
 
-This package is a **thin re-export** for the old package name. Prefer:
+This package is a **thin re-export** of `@tarka/sdk` (package dependency, not a relative `src/` path). Prefer:
 
 ```ts
 import { collectDeviceContext, publishDeviceContext } from "@tarka/sdk";

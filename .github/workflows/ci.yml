@@ -369,18 +369,20 @@ jobs:
           cache: pip
           cache-dependency-path: services/investigation-agent/pyproject.toml
       - name: Install dependencies
-        run: pip install -e ".[dev]" sqlalchemy
+        run: |
+          pip install -e "../collaboration-chat-bridge"
+          pip install -e ".[dev]" sqlalchemy
         working-directory: services/investigation-agent
       - name: Run tests
         run: pytest --cov=investigation_agent --cov-report=xml --cov-report=term-missing --cov-fail-under=52 -m "not golden_profile" tests/
         working-directory: services/investigation-agent
         env:
-          PYTHONPATH: src:../shared:../../packages/shared-core
+          PYTHONPATH: src:../shared:../../packages/shared-core:../collaboration-chat-bridge/src
       - name: Copilot eval golden gate (Q2-E02)
         run: pytest -v tests/test_copilot_eval_golden.py
         working-directory: services/investigation-agent
         env:
-          PYTHONPATH: src:../shared:../../packages/shared-core
+          PYTHONPATH: src:../shared:../../packages/shared-core:../collaboration-chat-bridge/src
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
@@ -411,7 +413,9 @@ jobs:
           cache: pip
           cache-dependency-path: services/investigation-agent/pyproject.toml
       - name: Install dependencies
-        run: pip install -e ".[dev]" sqlalchemy
+        run: |
+          pip install -e "../collaboration-chat-bridge"
+          pip install -e ".[dev]" sqlalchemy
         working-directory: services/investigation-agent
       - name: Golden profile ${{ matrix.profile }}
         run: >
@@ -420,7 +424,7 @@ jobs:
           -v --tb=short
         working-directory: services/investigation-agent
         env:
-          PYTHONPATH: src:../shared:../../packages/shared-core
+          PYTHONPATH: src:../shared:../../packages/shared-core:../collaboration-chat-bridge/src
 
   test-collaboration-chat-bridge:
     needs: audit-stubs
@@ -461,7 +465,10 @@ jobs:
           pytest -q \
             tests/test_entity_resolution_gate.py \
             tests/test_hil_overrides_contract_gate.py \
-            tests/test_entity_profile_gate.py
+            tests/test_entity_profile_gate.py \
+            tests/test_decision_evaluate_bridge.py \
+            tests/test_decision_api_ingest_gate.py \
+            tests/test_rule_eval_dual_run_gate.py
         working-directory: services/orchestrator
         env:
           PYTHONPATH: >-
@@ -542,6 +549,11 @@ jobs:
         working-directory: packages/fraud-sdk-typescript
       - run: npm run build
         working-directory: packages/fraud-sdk-typescript
+      - name: Build deprecated @tarka/web-sdk re-export
+        run: |
+          npm install
+          npm run build
+        working-directory: packages/tarka-web-sdk
 
   test-graphql-gateway:
     needs: audit-stubs

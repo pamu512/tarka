@@ -5,6 +5,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 _ROOT = Path(__file__).resolve().parents[1]
 _SERVICES = _ROOT.parent
 _REPO_ROOT = _SERVICES.parent
@@ -31,3 +33,9 @@ for _mod in list(sys.modules):
         _file = getattr(sys.modules[_mod], "__file__", "") or ""
         if "orchestrator/schemas" not in _file.replace("\\", "/"):
             del sys.modules[_mod]
+
+
+@pytest.fixture(autouse=True)
+def _default_python_rule_eval(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unit tests historically omit DECISION_API_URL; pin Python backend unless a test overrides."""
+    monkeypatch.setenv("RULE_EVAL_BACKEND", "python")

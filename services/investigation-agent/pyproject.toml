@@ -12,6 +12,7 @@ dependencies = [
   "openpyxl>=3.1.5",
   "pydantic>=2.13.4",
   "pydantic-settings>=2.14.2",
+  "tarka-collaboration-chat-bridge @ file:../collaboration-chat-bridge",
 ]
 
 [project.optional-dependencies]

@@ -90,6 +90,8 @@ services:
     environment:
       RULE_EVAL_BACKEND: decision_api
       DECISION_API_URL: http://decision-api:8000
+      # When decision-api enforces API_KEYS, set the same key here (or DECISION_API_KEY):
+      # DECISION_API_KEY: ${API_KEYS:-}
       # Optional dual-run / rollback (requires --profile legacy-python-rules):
       # RULE_EVAL_DUAL_RUN: "true"
       # RULE_EVAL_BACKEND: python

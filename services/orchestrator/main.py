@@ -270,8 +270,8 @@ def create_app(
             :envvar:`DECISION_API_URL` (e.g. ``http://core-api:8000/decisions``).
         rule_eval_backend: ``python`` | ``decision_api``; falls back to
             :envvar:`RULE_EVAL_BACKEND` (default ``decision_api``). When ``decision_api``
-            is selected but :envvar:`DECISION_API_URL` is unset, falls back to ``python``
-            so local tests without decision-api keep working.
+            is selected but :envvar:`DECISION_API_URL` is unset, ingest fails closed
+            (503) — no silent fallback to the Python sidecar.
         rule_eval_dual_run: When true, call both engines, log diffs, and use decision-api
             for side effects; falls back to :envvar:`RULE_EVAL_DUAL_RUN`.
         shadow_agent_url: Override Shadow sidecar base URL (tests); falls back to :envvar:`SHADOW_AGENT_URL`.
@@ -307,12 +307,12 @@ def create_app(
     if eval_backend not in {"python", "decision_api"}:
         eval_backend = _DEFAULT_RULE_EVAL_BACKEND
     if eval_backend == "decision_api" and not decision_base:
-        # Local/tests often omit DECISION_API_URL; keep ingest working via Python sidecar.
-        logger.warning(
-            "orchestrator_rule_eval_fallback backend=decision_api reason=decision_api_url_unset "
-            "falling_back=python",
+        # Fail closed: do not silently evaluate via Python when decision_api was selected.
+        # Ingest returns 503 decision_api_url_required until DECISION_API_URL is set.
+        logger.error(
+            "orchestrator_rule_eval_misconfigured backend=decision_api "
+            "reason=decision_api_url_unset (no python fallback)",
         )
-        eval_backend = "python"
     dual_run = (
         bool(rule_eval_dual_run)
         if rule_eval_dual_run is not None
