@@ -18,8 +18,11 @@ _REPO = Path(__file__).resolve().parents[3]
 _DEC = _REPO / "services" / "decision-api"
 _V2_RULE_ENGINE = _REPO / "services" / "rule_engine"
 _SRC = _DEC / "src"
+_SHARED_CORE = _REPO / "packages" / "shared-core"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
+if str(_SHARED_CORE) not in sys.path:
+    sys.path.insert(0, str(_SHARED_CORE))
 
 
 def _validate_v1_packs(rules_dir: Path) -> list[str]:
