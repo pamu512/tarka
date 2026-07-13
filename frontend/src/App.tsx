@@ -9,6 +9,7 @@ import { AnalystReadinessBar } from "./components/AnalystReadinessBar";
 import { CommandPalette } from "./components/CommandPalette";
 import { ModuleIcon, type ModuleId } from "./components/ModuleIcon";
 import { TarkaLogo } from "./components/TarkaLogo";
+import { LEAN_NAV, LEAN_NAV_PATHS, INCLUDE_DEMO_SURFACE, leanHomePath } from "./config/leanNav";
 import MlLifecycle from "./pages/MlLifecycle";
 import OpsCalibration from "./pages/OpsCalibration";
 import { TarkaRbacRole } from "./security/rbacConstants";
@@ -45,7 +46,6 @@ const OpsInfraDashboard = lazy(() => import("./pages/OpsInfraDashboard"));
 const FeatureTools = lazy(() => import("./pages/FeatureTools"));
 const EntityLists = lazy(() => import("./pages/EntityLists"));
 const Integrations = lazy(() => import("./pages/Integrations"));
-const Notifications = lazy(() => import("./pages/Notifications"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Help = lazy(() => import("./pages/Help"));
 const AdminPanel = lazy(() => import("./pages/AdminPanel"));
@@ -65,7 +65,6 @@ const SocialEngineeringMonitor = lazy(() => import("./pages/SocialEngineeringMon
 const ReviewRingClusters = lazy(() => import("./pages/ReviewRingClusters"));
 const FailoverTogglesPage = lazy(() => import("./pages/FailoverTogglesPage"));
 const DeadLetterOffice = lazy(() => import("./pages/DeadLetterOffice"));
-const VersionedRuleControl = lazy(() => import("./pages/VersionedRuleControl"));
 const AutomatedBackupIndicators = lazy(() => import("./pages/AutomatedBackupIndicators"));
 const WebhookLogs = lazy(() => import("./pages/WebhookLogs"));
 const RateLimitShields = lazy(() => import("./pages/RateLimitShields"));
@@ -85,7 +84,7 @@ type NavItem = {
 
 const SHOW_DEMO_BADGES = ((import.meta.env.VITE_SHOW_DEMO_BADGES as string | undefined) ?? "false").trim().toLowerCase() === "true";
 
-const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+const NAV_GROUPS_ALL: { label: string; items: NavItem[] }[] = [
   {
     label: "Operations",
     items: [
@@ -133,7 +132,6 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { to: "/rules", label: "Rules", module: "rules" },
       { to: "/rules/visual", label: "Visual rule builder", module: "rules" },
-      { to: "/rules/version-control", label: "Versioned rule control", module: "rules" },
       { to: "/entity-lists", label: "Entity Lists", module: "entity-lists" },
       { to: "/shadow", label: "Shadow Mode", module: "shadow" },
       { to: "/simulation", label: "Simulation", module: "simulation" },
@@ -168,8 +166,14 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   },
 ];
 
+const NAV_GROUPS = LEAN_NAV
+  ? NAV_GROUPS_ALL.map((g) => ({
+      ...g,
+      items: g.items.filter((i) => LEAN_NAV_PATHS.has(i.to)),
+    })).filter((g) => g.items.length > 0)
+  : NAV_GROUPS_ALL;
+
 /** Demo counts are opt-in so production-like runs do not imply false confidence. */
-const NOTIFICATION_ACTIONABLE_COUNT = SHOW_DEMO_BADGES ? 2 : 0;
 
 function BadgePill({ badge, degradedTitle }: { badge: NavBadge; degradedTitle?: string }) {
   if (degradedTitle) {
@@ -213,7 +217,6 @@ export default function App() {
   useEffect(() => subscribeDataSource(() => setDataSource(getDataSourceSnapshot())), []);
 
   const queueSignalDegraded = dataSource.outcome !== "live";
-  const notificationActionableCount = queueSignalDegraded ? 0 : NOTIFICATION_ACTIONABLE_COUNT;
   const queueDegradedTitle = useMemo(
     () => `Queue signal degraded: ${dataSource.outcome} data. Last refresh ${formatFreshness(dataSource.updatedAt)}.`,
     [dataSource.outcome, dataSource.updatedAt],
@@ -278,7 +281,7 @@ export default function App() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col bg-surface-950">
-        <AppTopBar notificationActionableCount={notificationActionableCount} />
+        <AppTopBar />
         <AnalystReadinessBar />
         <AnalystCaseTabBar />
         <CommandPalette />
@@ -291,13 +294,10 @@ export default function App() {
           }
         >
           <Routes>
-            <Route path="/" element={<Navigate to="/command-center" replace />} />
-            <Route path="/command-center" element={<TarkaCommandCenter />} />
+            <Route path="/" element={<Navigate to={leanHomePath()} replace />} />
             <Route path="/403-unauthorized" element={<ForbiddenUnauthorized />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/exec-dashboards" element={<ExecutiveDashboards />} />
             <Route path="/cases" element={<Cases />} />
-            <Route path="/ops/workload" element={<WorkloadBalancer />} />
             <Route path="/cases/bulk-triage" element={<BulkTriage />} />
             <Route path="/cases/compare" element={<CaseComparisonMode />} />
             <Route path="/cases/:caseId/sar-intent/:intentId" element={<SarIntentDetailPage />} />
@@ -313,60 +313,86 @@ export default function App() {
                 </RequireRole>
               }
             />
-            <Route
-              path="/rules/version-control"
-              element={
-                <RequireRole allow={TarkaRbacRole.RiskArchitect}>
-                  <VersionedRuleControl />
-                </RequireRole>
-              }
-            />
             <Route path="/entity-lists" element={<EntityLists />} />
             <Route path="/shadow" element={<ShadowMode />} />
             <Route path="/simulation" element={<Simulation />} />
             <Route path="/ops/backtest" element={<BacktestJobConfigurator />} />
             <Route path="/graph" element={<GraphExplorer />} />
             <Route path="/graph/link-analysis" element={<LinkAnalysisPage />} />
-            <Route path="/graph/mule-path" element={<MulePathVisualizer />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/analytics/rule-performance" element={<RulePerformance />} />
-            <Route path="/analytics/promo-abuse" element={<PromoAbuseDashboard />} />
-            <Route path="/analytics/review-rings" element={<ReviewRingClusters />} />
             <Route path="/analytics/audit-log" element={<AuditLogExplorer />} />
             <Route path="/transactions/live" element={<TransactionsLiveGrid />} />
             <Route path="/ops/calibration" element={<OpsCalibration />} />
-            <Route path="/ops/ml-lifecycle" element={<MlLifecycle />} />
-            <Route path="/ops/ml-parquet-export" element={<PitMlParquetExport />} />
             <Route path="/investigation" element={<Investigation />} />
             <Route path="/investigation/dag-trace" element={<DagTracePage />} />
             <Route path="/investigation/shadow-llm" element={<ShadowLlmForensics />} />
-            <Route path="/investigation/synthetic-identity" element={<SyntheticIdentityDetectors />} />
-            <Route path="/investigation/social-engineering" element={<SocialEngineeringMonitor />} />
-            <Route path="/osint" element={<OsintEnrichment />} />
-            <Route path="/osint/nats-setu-monitor" element={<NatsSetuMonitor />} />
-            <Route path="/compliance/encrypted-fields" element={<EncryptedFieldToggles />} />
-            <Route path="/compliance/kyc-handover" element={<KycHandover />} />
-            <Route path="/compliance/regional-risk" element={<RegionalRiskToggles />} />
             <Route path="/compliance" element={<Compliance />} />
             <Route path="/ops/counters" element={<OpsCounters />} />
             <Route path="/ops/pipelines" element={<OpsPipelines />} />
             <Route path="/ops/sar-transport" element={<OpsSarTransportBoard />} />
             <Route path="/ops/infra" element={<OpsInfraDashboard />} />
-            <Route path="/ops/system-health" element={<SystemHealthHud />} />
-            <Route path="/ops/system-benchmarking" element={<SystemBenchmarking />} />
-            <Route path="/ops/failover-toggles" element={<FailoverTogglesPage />} />
-            <Route path="/ops/dead-letter" element={<DeadLetterOffice />} />
-            <Route path="/ops/backups" element={<AutomatedBackupIndicators />} />
             <Route path="/ops/features" element={<FeatureTools />} />
-            <Route path="/integrations/webhook-logs" element={<WebhookLogs />} />
-            <Route path="/integrations/rate-limit-shields" element={<RateLimitShields />} />
-            <Route path="/integrations/seller-integrity" element={<SellerIntegrityDashboard />} />
-            <Route path="/integrations/payout-delay" element={<PayoutDelayAutomation />} />
             <Route path="/integrations" element={<Integrations />} />
-            <Route path="/notifications" element={<Notifications />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/help" element={<Help />} />
-            <Route path="/admin" element={<AdminPanel />} />
+            {INCLUDE_DEMO_SURFACE ? (
+              <>
+                <Route path="/command-center" element={<TarkaCommandCenter />} />
+                <Route path="/exec-dashboards" element={<ExecutiveDashboards />} />
+                <Route path="/ops/workload" element={<WorkloadBalancer />} />
+                <Route path="/graph/mule-path" element={<MulePathVisualizer />} />
+                <Route path="/analytics/promo-abuse" element={<PromoAbuseDashboard />} />
+                <Route path="/analytics/review-rings" element={<ReviewRingClusters />} />
+                <Route path="/ops/ml-lifecycle" element={<MlLifecycle />} />
+                <Route path="/ops/ml-parquet-export" element={<PitMlParquetExport />} />
+                <Route path="/investigation/synthetic-identity" element={<SyntheticIdentityDetectors />} />
+                <Route path="/investigation/social-engineering" element={<SocialEngineeringMonitor />} />
+                <Route path="/osint" element={<OsintEnrichment />} />
+                <Route path="/osint/nats-setu-monitor" element={<NatsSetuMonitor />} />
+                <Route path="/compliance/encrypted-fields" element={<EncryptedFieldToggles />} />
+                <Route path="/compliance/kyc-handover" element={<KycHandover />} />
+                <Route path="/compliance/regional-risk" element={<RegionalRiskToggles />} />
+                <Route path="/ops/system-health" element={<SystemHealthHud />} />
+                <Route path="/ops/system-benchmarking" element={<SystemBenchmarking />} />
+                <Route path="/ops/failover-toggles" element={<FailoverTogglesPage />} />
+                <Route path="/ops/dead-letter" element={<DeadLetterOffice />} />
+                <Route path="/ops/backups" element={<AutomatedBackupIndicators />} />
+                <Route path="/integrations/webhook-logs" element={<WebhookLogs />} />
+                <Route path="/integrations/rate-limit-shields" element={<RateLimitShields />} />
+                <Route path="/integrations/seller-integrity" element={<SellerIntegrityDashboard />} />
+                <Route path="/integrations/payout-delay" element={<PayoutDelayAutomation />} />
+                <Route path="/admin" element={<AdminPanel />} />
+              </>
+            ) : (
+              <>
+                <Route path="/command-center" element={<Navigate to="/cases" replace />} />
+                <Route path="/exec-dashboards" element={<Navigate to="/cases" replace />} />
+                <Route path="/ops/workload" element={<Navigate to="/cases" replace />} />
+                <Route path="/graph/mule-path" element={<Navigate to="/graph" replace />} />
+                <Route path="/analytics/promo-abuse" element={<Navigate to="/analytics" replace />} />
+                <Route path="/analytics/review-rings" element={<Navigate to="/analytics" replace />} />
+                <Route path="/ops/ml-lifecycle" element={<Navigate to="/ops/calibration" replace />} />
+                <Route path="/ops/ml-parquet-export" element={<Navigate to="/ops/calibration" replace />} />
+                <Route path="/investigation/synthetic-identity" element={<Navigate to="/investigation" replace />} />
+                <Route path="/investigation/social-engineering" element={<Navigate to="/investigation" replace />} />
+                <Route path="/osint" element={<Navigate to="/investigation" replace />} />
+                <Route path="/osint/nats-setu-monitor" element={<Navigate to="/investigation" replace />} />
+                <Route path="/compliance/encrypted-fields" element={<Navigate to="/compliance" replace />} />
+                <Route path="/compliance/kyc-handover" element={<Navigate to="/compliance" replace />} />
+                <Route path="/compliance/regional-risk" element={<Navigate to="/compliance" replace />} />
+                <Route path="/ops/system-health" element={<Navigate to="/ops/infra" replace />} />
+                <Route path="/ops/system-benchmarking" element={<Navigate to="/ops/infra" replace />} />
+                <Route path="/ops/failover-toggles" element={<Navigate to="/ops/infra" replace />} />
+                <Route path="/ops/dead-letter" element={<Navigate to="/ops/infra" replace />} />
+                <Route path="/ops/backups" element={<Navigate to="/ops/infra" replace />} />
+                <Route path="/integrations/webhook-logs" element={<Navigate to="/integrations" replace />} />
+                <Route path="/integrations/rate-limit-shields" element={<Navigate to="/integrations" replace />} />
+                <Route path="/integrations/seller-integrity" element={<Navigate to="/integrations" replace />} />
+                <Route path="/integrations/payout-delay" element={<Navigate to="/integrations" replace />} />
+                <Route path="/admin" element={<Navigate to="/settings" replace />} />
+              </>
+            )}
           </Routes>
         </Suspense>
         </main>

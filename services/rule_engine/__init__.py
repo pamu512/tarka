@@ -1,6 +1,20 @@
-"""Rule engine: AST schemas and (future) evaluation."""
+"""Rule engine: AST schemas and (future) evaluation.
 
+Deprecated HTTP evaluate path — prefer decision-api. In-process AST still used by
+orchestrator shadow-test / pack validators. See DEPRECATED.md.
+"""
+
+from __future__ import annotations
+
+import warnings
 from typing import Any
+
+warnings.warn(
+    "rule_engine is legacy AST; evaluate via decision-api "
+    "(RULE_EVAL_BACKEND=decision_api). See services/rule_engine/DEPRECATED.md.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 from .ast_schemas import (
     Action,

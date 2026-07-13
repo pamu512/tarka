@@ -137,7 +137,7 @@ def run_shadow_test_against_transactions(
     transactions: list[TransactionSchema],
 ) -> dict[str, Any]:
     """
-    Evaluate ``root_payload`` as a :class:`rule_engine.ast_schemas.LogicalNode` for each transaction.
+    Evaluate ``root_payload`` as a :class:`tarka_shared.ast_schemas.LogicalNode` for each transaction.
 
     Returns summary strings suitable for the analyst console (no persistence).
     """
@@ -148,7 +148,7 @@ def run_shadow_test_against_transactions(
             from ast_schemas import Action, LogicalNode
             from evaluator import evaluate_node
         except ImportError:
-            from rule_engine.ast_schemas import Action, LogicalNode
+            from tarka_shared.ast_schemas import Action, LogicalNode
             from rule_engine.evaluator import evaluate_node
     except ImportError as exc:  # pragma: no cover — Docker / CI install ``rule_engine``
         raise RuntimeError("rule_engine package is required for shadow tests") from exc

@@ -165,12 +165,18 @@ collaborationChatBridge:
   caseApiUrl: ""
   orchestratorUrl: ""
 
+# Keep standalone Deployment templates (opt-in split-scale). Canonical runtime is
+# signal-api mounts; enabled:false by default. Product decision 2026-07: do not delete.
 calibrationService:
+  # Standalone pod is OFF by default. Canonical calibration is signal-api /calibration
+  # (see services/calibration-service/DEPRECATED.md). Enabling this does NOT rewrite
+  # CALIBRATION_SERVICE_URL on core-api — set that env yourself if you split-scale.
   enabled: false
   image: tarka-calibration-service
   tag: latest
   replicaCount: 1
-  servicePort: 8013
+  # Align with services/calibration-service/Dockerfile (uvicorn 8011).
+  servicePort: 8011
 
 counterService:
   enabled: false

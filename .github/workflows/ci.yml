@@ -149,7 +149,7 @@ jobs:
     needs: audit-stubs
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    # Canonical package: services/decision-api. legacy_v1 tests remain one release cycle (DEPRECATED.md).
+    # Canonical package: services/decision-api.
     services:
       redis:
         image: redis:7-alpine
@@ -168,11 +168,11 @@ jobs:
           pip install "maturin>=1.7,<2.0"
           maturin build --release --out dist
           pip install dist/*.whl
-        working-directory: services/rule-engine
+        working-directory: packages/tarka-rule-engine
       - name: Install dependencies (canonical decision-api)
         run: pip install -e ".[dev]"
         working-directory: services/decision-api
-      - name: Run tests (legacy_v1 tree — dormant, remove after one release)
+      - name: Run tests (decision-api)
         run: >
           pytest
           -m "not contract"
@@ -181,9 +181,9 @@ jobs:
           --cov-report=term-missing
           --cov-fail-under=48
           tests/
-        working-directory: services/legacy_v1_decision_api
+        working-directory: services/decision-api
         env:
-          PYTHONPATH: src:../shared:../../packages/shared-core
+          PYTHONPATH: src:../shared:../../packages/shared-core:../..
           DATABASE_URL: sqlite+aiosqlite:///
           REDIS_URL: redis://localhost:6379/0
       - name: Q2 Wave 4 decision-api tests
@@ -197,14 +197,14 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: coverage-decision-api
-          path: services/legacy_v1_decision_api/coverage.xml
+          path: services/decision-api/coverage.xml
           if-no-files-found: ignore
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: services/legacy_v1_decision_api/coverage.xml
+          files: services/decision-api/coverage.xml
           flags: decision-api
           fail_ci_if_error: false
 
@@ -853,6 +853,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Helm lint
+        # Canonical chart: infra/deploy/helm/fraud-stack (name: tarka).
         run: helm lint infra/deploy/helm/fraud-stack
       - name: Helm template (default values)
         run: helm template tarka infra/deploy/helm/fraud-stack -f infra/deploy/helm/fraud-stack/values.yaml >/tmp/tarka-default.yaml

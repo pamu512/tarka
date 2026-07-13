@@ -193,10 +193,32 @@ _RESP_INGEST = {
 }
 
 _DEFAULT_RULE_ENGINE_URL = "http://127.0.0.1:8778"
+_DEFAULT_RULE_EVAL_BACKEND = "decision_api"
 
 
 def _rule_engine_base_url() -> str:
     return os.environ.get("RULE_ENGINE_URL", _DEFAULT_RULE_ENGINE_URL).rstrip("/")
+
+
+def _decision_api_base_url() -> str | None:
+    raw = os.environ.get("DECISION_API_URL", "").strip().rstrip("/")
+    return raw or None
+
+
+def _rule_eval_backend() -> str:
+    raw = os.environ.get("RULE_EVAL_BACKEND", _DEFAULT_RULE_EVAL_BACKEND).strip().lower()
+    if raw in {"python", "decision_api"}:
+        return raw
+    return _DEFAULT_RULE_EVAL_BACKEND
+
+
+def _env_flag_true(name: str) -> bool:
+    raw = os.environ.get(name, "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+def _rule_eval_dual_run() -> bool:
+    return _env_flag_true("RULE_EVAL_DUAL_RUN")
 
 
 def _shadow_agent_base_url() -> str:
@@ -224,6 +246,9 @@ def _shadow_analyze_timeout_seconds(override: float | None) -> float:
 def create_app(
     *,
     rule_engine_url: str | None = None,
+    decision_api_url: str | None = None,
+    rule_eval_backend: str | None = None,
+    rule_eval_dual_run: bool | None = None,
     shadow_agent_url: str | None = None,
     shadow_api_key: str | None = None,
     shadow_analyze_timeout_seconds: float | None = None,
@@ -240,7 +265,15 @@ def create_app(
     Build the ASGI app.
 
     Parameters:
-        rule_engine_url: Override rule engine base URL (tests).
+        rule_engine_url: Override Python rule engine base URL (tests).
+        decision_api_url: Override decision-api mount base (tests); falls back to
+            :envvar:`DECISION_API_URL` (e.g. ``http://core-api:8000/decisions``).
+        rule_eval_backend: ``python`` | ``decision_api``; falls back to
+            :envvar:`RULE_EVAL_BACKEND` (default ``decision_api``). When ``decision_api``
+            is selected but :envvar:`DECISION_API_URL` is unset, falls back to ``python``
+            so local tests without decision-api keep working.
+        rule_eval_dual_run: When true, call both engines, log diffs, and use decision-api
+            for side effects; falls back to :envvar:`RULE_EVAL_DUAL_RUN`.
         shadow_agent_url: Override Shadow sidecar base URL (tests); falls back to :envvar:`SHADOW_AGENT_URL`.
         shadow_api_key: Override ``X-Shadow-Token`` (tests); falls back to :envvar:`SHADOW_API_KEY`.
         shadow_analyze_timeout_seconds: Override Shadow ``/v1/analyze`` read deadline (tests);
@@ -261,11 +294,41 @@ def create_app(
             when ``None``, uses :envvar:`ORCHESTRATOR_COMPLIANCE_EXPORT_HMAC_KEY` (empty disables signing output).
     """
     rule_base = (rule_engine_url or _rule_engine_base_url()).rstrip("/")
+    decision_base = (
+        decision_api_url.strip().rstrip("/")
+        if isinstance(decision_api_url, str) and decision_api_url.strip()
+        else _decision_api_base_url()
+    )
+    eval_backend = (
+        rule_eval_backend.strip().lower()
+        if isinstance(rule_eval_backend, str) and rule_eval_backend.strip()
+        else _rule_eval_backend()
+    )
+    if eval_backend not in {"python", "decision_api"}:
+        eval_backend = _DEFAULT_RULE_EVAL_BACKEND
+    if eval_backend == "decision_api" and not decision_base:
+        # Local/tests often omit DECISION_API_URL; keep ingest working via Python sidecar.
+        logger.warning(
+            "orchestrator_rule_eval_fallback backend=decision_api reason=decision_api_url_unset "
+            "falling_back=python",
+        )
+        eval_backend = "python"
+    dual_run = (
+        bool(rule_eval_dual_run)
+        if rule_eval_dual_run is not None
+        else _rule_eval_dual_run()
+    )
+    if dual_run and not decision_base:
+        logger.warning(
+            "orchestrator_rule_eval_dual_run_disabled reason=decision_api_url_unset",
+        )
+        dual_run = False
     shadow_base = (
         shadow_agent_url if shadow_agent_url is not None else _shadow_agent_base_url()
     ).rstrip("/")
     shadow_key = shadow_api_key if shadow_api_key is not None else _shadow_api_key()
     shadow_deadline_s = _shadow_analyze_timeout_seconds(shadow_analyze_timeout_seconds)
+
 
     if audit_database_url is None:
         audit_url = resolve_audit_database_url()
@@ -302,6 +365,9 @@ def create_app(
         lifespan=lifespan,
     )
     application.state.rule_engine_url = rule_base
+    application.state.decision_api_url = decision_base
+    application.state.rule_eval_backend = eval_backend
+    application.state.rule_eval_dual_run = dual_run
     application.state.shadow_agent_url = shadow_base or None
     application.state.shadow_api_key = shadow_key
     application.state.shadow_analyze_timeout_seconds = shadow_deadline_s
@@ -1078,36 +1144,89 @@ def create_app(
         ]
 
         async with httpx.AsyncClient(timeout=timeout) as client:
-            t0 = time.perf_counter()
-            try:
-                r = await client.get(f"{rule_base}/health")
-                dt_ms = (time.perf_counter() - t0) * 1000.0
-                if r.status_code == 200:
+            decision_base: str | None = getattr(request.app.state, "decision_api_url", None)
+            eval_backend: str = str(
+                getattr(request.app.state, "rule_eval_backend", "python") or "python",
+            ).lower()
+            dual_run = bool(getattr(request.app.state, "rule_eval_dual_run", False))
+
+            if isinstance(decision_base, str) and decision_base.strip():
+                t0 = time.perf_counter()
+                try:
+                    # Prefer /v1/health; fall back to /health for mounts that expose both.
+                    r = await client.get(f"{decision_base.rstrip('/')}/v1/health")
+                    if r.status_code == 404:
+                        r = await client.get(f"{decision_base.rstrip('/')}/health")
+                    dt_ms = (time.perf_counter() - t0) * 1000.0
+                    services.append(
+                        {
+                            "component": "decision_api",
+                            "status": "ok" if r.status_code == 200 else "degraded",
+                            "latency_ms": round(dt_ms, 2),
+                            "detail": f"HTTP {r.status_code}",
+                        },
+                    )
+                except httpx.RequestError:
+                    services.append(
+                        {
+                            "component": "decision_api",
+                            "status": "offline",
+                            "latency_ms": None,
+                            "detail": "upstream unreachable",
+                        },
+                    )
+            elif eval_backend == "decision_api" or dual_run:
+                services.append(
+                    {
+                        "component": "decision_api",
+                        "status": "not_configured",
+                        "latency_ms": None,
+                        "detail": "DECISION_API_URL unset on orchestrator",
+                    },
+                )
+
+            # Probe Python rule engine when still used for evaluate, dual-run, or rollback.
+            probe_python = eval_backend == "python" or dual_run
+            if probe_python:
+                t0 = time.perf_counter()
+                try:
+                    r = await client.get(f"{rule_base}/health")
+                    dt_ms = (time.perf_counter() - t0) * 1000.0
+                    if r.status_code == 200:
+                        services.append(
+                            {
+                                "component": "rule_engine",
+                                "status": "ok",
+                                "latency_ms": round(dt_ms, 2),
+                                "detail": f"HTTP {r.status_code}",
+                            }
+                        )
+                    else:
+                        services.append(
+                            {
+                                "component": "rule_engine",
+                                "status": "degraded",
+                                "latency_ms": round(dt_ms, 2),
+                                "detail": f"HTTP {r.status_code}",
+                            }
+                        )
+                except httpx.RequestError:
                     services.append(
                         {
                             "component": "rule_engine",
-                            "status": "ok",
-                            "latency_ms": round(dt_ms, 2),
-                            "detail": f"HTTP {r.status_code}",
+                            "status": "offline",
+                            "latency_ms": None,
+                            "detail": "upstream unreachable",
                         }
                     )
-                else:
-                    services.append(
-                        {
-                            "component": "rule_engine",
-                            "status": "degraded",
-                            "latency_ms": round(dt_ms, 2),
-                            "detail": f"HTTP {r.status_code}",
-                        }
-                    )
-            except httpx.RequestError:
+            else:
                 services.append(
                     {
                         "component": "rule_engine",
-                        "status": "offline",
+                        "status": "not_configured",
                         "latency_ms": None,
-                        "detail": "upstream unreachable",
-                    }
+                        "detail": "skipped (RULE_EVAL_BACKEND=decision_api)",
+                    },
                 )
 
             if not shadow_base:

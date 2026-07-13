@@ -11,7 +11,7 @@ from .database.session import Base
 
 
 class EngineRule(Base):
-    """One validated :class:`rule_engine.ast_schemas.Rule` JSON blob keyed by rule ``id``."""
+    """One validated :class:`tarka_shared.ast_schemas.Rule` JSON blob keyed by rule ``id``."""
 
     __tablename__ = "engine_rules"
 

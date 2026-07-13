@@ -2173,54 +2173,6 @@ export const rules = {
   },
 };
 
-/** v2 rule engine — immutable ``fraud_rules`` AST snapshots (Rust-backed evaluate path). */
-export type RuleAstVersionSummary = {
-  version: number;
-  is_active: boolean;
-  rule_count: number;
-  created_at: string | null;
-  ast_hash: string;
-};
-
-export type RuleAstVersionsResponse = {
-  versions: RuleAstVersionSummary[];
-  active_version: number | null;
-  source?: string;
-};
-
-export type RuleAstVersionDetail = RuleAstVersionSummary & {
-  rules_payload: unknown[];
-};
-
-export type RuleAstRollbackResponse = {
-  ok: boolean;
-  active_version: number;
-  rule_count: number;
-  reloaded?: boolean;
-};
-
-export const ruleEngine = {
-  listVersions() {
-    return request<RuleAstVersionsResponse>("/api/rule-engine/v1/rules/versions");
-  },
-
-  versionDetail(version: number) {
-    return request<RuleAstVersionDetail>(`/api/rule-engine/v1/rules/versions/${version}`);
-  },
-
-  rollback(version: number) {
-    return request<RuleAstRollbackResponse>(`/api/rule-engine/v1/rules/rollback/${version}`, {
-      method: "POST",
-    });
-  },
-
-  reload() {
-    return request<{ ok: boolean; count?: number }>("/api/rule-engine/v1/rules/reload", {
-      method: "POST",
-    });
-  },
-};
-
 // ── Shadow Mode (decision-api :8000) ────────────────────────────────
 
 export const shadow = {
@@ -2538,27 +2490,42 @@ export const simulation = {
     return request<{ scenarios: Record<string, unknown> }>("/api/decisions/v1/simulation/scenarios");
   },
 
-  run(scenario: string, options?: { include_ml?: boolean }) {
-    return request<{ result: unknown; sample_events: unknown[]; sample_decisions: unknown[] }>(
-      "/api/decisions/v1/simulation/run",
-      { method: "POST", body: JSON.stringify({ scenario, ...options }) },
-    );
+  run(scenario: string, options?: { include_ml?: boolean; allow_underpowered?: boolean }) {
+    return request<{
+      result: unknown;
+      sample_events: unknown[];
+      sample_decisions: unknown[];
+      experiment_guardrails?: Record<string, unknown>;
+    }>("/api/decisions/v1/simulation/run", {
+      method: "POST",
+      body: JSON.stringify({ scenario, ...options }),
+    });
   },
 
-  abTest(body: { scenario: string; rule_set_a: unknown[]; rule_set_b: unknown[] }) {
+  abTest(body: {
+    scenario: string;
+    rule_set_a: unknown[];
+    rule_set_b: unknown[];
+    allow_underpowered?: boolean;
+  }) {
     return request<unknown>("/api/decisions/v1/simulation/ab-test", {
       method: "POST",
       body: JSON.stringify(body),
     });
   },
 
-  benchmarkVertical(body: { scenario: string; vertical: string }) {
+  benchmarkVertical(body: {
+    scenario: string;
+    vertical: string;
+    allow_underpowered?: boolean;
+  }) {
     return request<{
       scenario: string;
       vertical: string;
       baseline: Record<string, unknown>;
       vertical_pack: Record<string, unknown>;
       delta: Record<string, unknown>;
+      experiment_guardrails?: Record<string, unknown>;
     }>("/api/decisions/v1/simulation/benchmark/vertical", {
       method: "POST",
       body: JSON.stringify(body),
@@ -2910,7 +2877,7 @@ export const investigation = {
     tenantId: string = "demo",
     analystId: string = "analyst-1",
     caseId?: string,
-    opts?: InvestigationChatOpts,
+    opts?: InvestigationChatOpts & { signal?: AbortSignal },
     onEvent?: (ev: { type: string; payload: unknown }) => void,
   ): Promise<InvestigationChatResponse> {
     const payload: Record<string, unknown> = {
@@ -2928,6 +2895,7 @@ export const investigation = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      signal: opts?.signal,
     });
     if (!res.ok) {
       const text = await res.text();

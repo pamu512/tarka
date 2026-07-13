@@ -1,6 +1,6 @@
 # Local demo overlay — laptop-safe Ollama parallelism + optional single-flight Shadow gateway.
 #
-# Compose does not merge this file automatically; use:
+# Compose does not merge this file automatically; use with the default Lite stack:
 #   docker compose -f docker-compose.yml -f docker-compose.local.yml up
 #
 # Or export the same variables into your shell / IDE when running Ollama natively.
