@@ -17,8 +17,9 @@ COPY services/decision-api/alembic /repo/services/decision-api/alembic
 COPY services/decision-api/src /repo/services/decision-api/src
 COPY services/decision-api/rules /repo/services/decision-api/rules
 COPY services/decision-api/static /repo/services/decision-api/static
+COPY adapters /repo/adapters
 RUN pip install --no-cache-dir -e . \
     && rm -rf /root/.cache /root/.cargo/registry /root/.cargo/git 2>/dev/null || true
 ENV RULES_PATH=/repo/services/decision-api/rules
-ENV PYTHONPATH=/repo/services/decision-api/src:/repo/services/shared
+ENV PYTHONPATH=/repo/services/decision-api/src:/repo/services/shared:/repo
 CMD ["uvicorn", "decision_api.main:app", "--host", "0.0.0.0", "--port", "8000"]

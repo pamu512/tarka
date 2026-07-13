@@ -1498,6 +1498,14 @@ async def calibration_status(tenant_id: str, profile: str = "default"):
     }
 
 
+@app.get("/v1/ops/integrity-policy")
+async def integrity_policy_ops():
+    """Wave 2: publish platform × attestation matrix for ops and CI."""
+    from decision_api.integrity_policy import integrity_policy_matrix
+
+    return integrity_policy_matrix()
+
+
 @app.get("/v1/challenge-policies")
 async def list_challenge_policy_templates():
     """List loaded challenge / escalation policy templates (JSON under rules/challenge_policies/)."""
@@ -2937,6 +2945,19 @@ async def evaluate_decision(
             merged_tags,
             geo_extra_tags,
             tenant_flags,
+        )
+
+        from decision_api.challenge_orchestrator import maybe_dispatch_challenge_webhook
+
+        bg.add_task(
+            maybe_dispatch_challenge_webhook,
+            http=http,
+            trace_id=str(trace_id),
+            tenant_id=body.tenant_id,
+            entity_id=body.entity_id,
+            decision=decision,
+            recommended_action=recommended_action,
+            challenge_metadata=ch_meta if isinstance(ch_meta, dict) else None,
         )
 
         _metrics_inc_safe(f"fraud_decisions_{decision}_total", trace_id=trace_id)

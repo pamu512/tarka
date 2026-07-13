@@ -3,17 +3,36 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+_shared = Path(__file__).resolve().parents[3] / "shared"
+if str(_shared) not in sys.path:
+    sys.path.insert(0, str(_shared))
+from auth_rbac import require_role  # noqa: E402
 
 from decision_api.config import settings
+from decision_api.db import get_session
+from decision_api.models import AuditRecord
+from decision_api.reliability_export import (
+    RELIABILITY_CSV_FIELDS,
+    audit_row_to_export_dict,
+    reliability_bins,
+    rows_to_csv,
+)
 
-"""Stretch: lightweight calibration snapshots and drift hints (file-backed; not full reliability diagrams)."""
+"""Calibration snapshots, drift hints, and reliability export (Wave 1 trust)."""
 router = APIRouter(prefix="/v1/calibration", tags=["calibration"])
+
+_EXPORT_MAX = 50_000
 
 
 def _data_dir() -> Path:
@@ -239,3 +258,93 @@ async def summary(tenant_id: str, profile: str = "default", limit: int = 20):
         if len(out) >= min(limit, 100):
             break
     return {"tenant_id": tenant_id, "profile": safe_profile, "snapshots": out}
+
+
+def _enforce_tenant(request: Request, tenant_id: str) -> None:
+    auth = getattr(request.state, "auth_user", None)
+    if (
+        auth
+        and auth.tenant_ids
+        and "*" not in auth.tenant_ids
+        and tenant_id not in auth.tenant_ids
+    ):
+        raise HTTPException(403, "tenant not permitted for this credential")
+
+
+async def _load_audit_export_rows(
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    limit: int,
+) -> list[dict[str, Any]]:
+    lim = max(1, min(int(limit), _EXPORT_MAX))
+    stmt = (
+        select(AuditRecord)
+        .where(AuditRecord.tenant_id == tenant_id)
+        .order_by(AuditRecord.created_at.desc())
+        .limit(lim)
+    )
+    result = await session.execute(stmt)
+    records = result.scalars().all()
+    rows: list[dict[str, Any]] = []
+    for rec in records:
+        rows.append(
+            {
+                "trace_id": rec.trace_id,
+                "tenant_id": rec.tenant_id,
+                "entity_id": rec.entity_id,
+                "event_type": rec.event_type,
+                "decision": rec.decision,
+                "score": rec.score,
+                "payload_snapshot": rec.payload_snapshot,
+                "created_at": rec.created_at,
+            }
+        )
+    return rows
+
+
+@router.get("/reliability-export.csv")
+async def reliability_export_csv(
+    request: Request,
+    tenant_id: str = Query(..., max_length=128),
+    limit: int = Query(10_000, ge=1, le=_EXPORT_MAX),
+    session: AsyncSession = Depends(get_session),
+    _user=Depends(require_role("analyst")),
+) -> Response:
+    """CSV of decision_audit scores + inference_context for offline reliability curves.
+
+    ``y_label`` is left empty for warehouse/case joins. ``proxy_label_from_decision``
+    is a weak stand-in only — see ``GET /v1/calibration/reliability-bins`` caveat.
+    """
+    _enforce_tenant(request, tenant_id)
+    rows = await _load_audit_export_rows(session, tenant_id=tenant_id, limit=limit)
+    body = rows_to_csv(rows)
+    filename = f"reliability_{tenant_id}.csv"
+    return Response(
+        content=body,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/reliability-bins")
+async def reliability_export_bins(
+    request: Request,
+    tenant_id: str = Query(..., max_length=128),
+    limit: int = Query(10_000, ge=1, le=_EXPORT_MAX),
+    n_bins: int = Query(10, ge=2, le=50),
+    session: AsyncSession = Depends(get_session),
+    _user=Depends(require_role("analyst")),
+) -> dict[str, Any]:
+    """Equal-width reliability bins from recent audit rows (proxy labels unless y_label filled)."""
+    _enforce_tenant(request, tenant_id)
+    rows = await _load_audit_export_rows(session, tenant_id=tenant_id, limit=limit)
+    export_rows = [audit_row_to_export_dict(r) for r in rows]
+    try:
+        payload = reliability_bins(export_rows, n_bins=n_bins, use_proxy_labels=True)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    payload["tenant_id"] = tenant_id
+    payload["rows_scanned"] = len(export_rows)
+    payload["csv_fields"] = list(RELIABILITY_CSV_FIELDS)
+    return payload

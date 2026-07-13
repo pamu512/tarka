@@ -179,3 +179,18 @@ async def get_backtest_job(
         "created_at": job.created_at.isoformat() if job.created_at else None,
         "updated_at": job.updated_at.isoformat() if job.updated_at else None,
     }
+
+
+@router.post("/run", deprecated=True)
+async def backtest_run_tombstone(_user=Depends(require_role("analyst"))) -> None:
+    """Removed: never returned stub metrics. Use ``POST /v1/rules/backtest/jobs``."""
+    raise HTTPException(
+        status_code=410,
+        detail={
+            "reason_code": "BACKTEST_RUN_REMOVED",
+            "message": (
+                "POST /v1/rules/backtest/run was deleted (it returned stub null metrics). "
+                "Use POST /v1/rules/backtest/jobs and GET /v1/rules/backtest/jobs/{job_id}."
+            ),
+        },
+    )

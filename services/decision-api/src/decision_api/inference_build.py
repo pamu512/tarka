@@ -196,6 +196,21 @@ def build_inference_context(
         colocation_risk = max(
             colocation_risk, _clamp01(0.35 + 0.1 * min(distinct_sess, 5))
         )
+    # Graph SEEN_AT / Place peer count when feature-service or graph_meta supplies it.
+    peer = int(features.get("graph_seen_at_peer_count_24h") or 0)
+    if graph_meta and isinstance(graph_meta, dict):
+        try:
+            peer = max(peer, int(graph_meta.get("seen_at_peer_count_24h") or 0))
+        except (TypeError, ValueError):
+            pass
+        try:
+            peer = max(peer, int(graph_meta.get("colocated_entities_24h") or 0))
+        except (TypeError, ValueError):
+            pass
+    if peer >= 2:
+        colocation_risk = max(
+            colocation_risk, _clamp01(0.4 + 0.1 * min(peer, 6))
+        )
 
     ev1h = int(features.get("event_count_1h") or 0)
     ev24 = int(features.get("event_count_24h") or 0)

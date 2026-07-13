@@ -15,7 +15,7 @@ COPY services/shared /app/shared
 COPY services/core-api/main.py /app/main.py
 COPY services/core-api/pyproject.toml /app/
 COPY services/decision-api/src/decision_api /app/decision_api
-COPY services/legacy_v1_decision_api/alembic /app/decision_migrations
+COPY services/decision-api/alembic /app/decision_migrations
 COPY services/decision-api/rules /app/rules
 COPY services/decision-api/static /app/static
 COPY services/case-api/src/case_api /app/case_api
