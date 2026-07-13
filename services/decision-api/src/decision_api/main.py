@@ -718,6 +718,10 @@ def _compute_fallback_reason(
         "calibration:unavailable": "circuit_calibration",
         "counter:unavailable": "circuit_counter",
         "location:unavailable": "circuit_location",
+        "consortium:unavailable": "circuit_consortium",
+        "redis:tenant_flags_unavailable": "circuit_redis_tenant_flags",
+        "redis:entity_tags_unavailable": "circuit_redis_entity_tags",
+        "redis:tag_merge_unavailable": "circuit_redis_tag_merge",
         "async_osint:unavailable": "async_osint_redis",
         "counter:fallback_local_agg": "counter_local_aggregate_fallback",
         "lists:disabled_by_tenant": "tenant_disable_entity_lists",
@@ -743,6 +747,45 @@ def _compute_fallback_reason(
         parts.append("rules_only_blend")
         seen.add("rules_only_blend")
     return "; ".join(parts) if parts else None
+
+
+_SIGNAL_UNAVAILABLE_AUDIT: dict[str, str] = {
+    "lists:unavailable": "Signal Entity lists was unavailable",
+    "graph:unavailable": "Signal Graph risk was unavailable",
+    "enrichment:unavailable": "Signal Feature enrichment was unavailable",
+    "ml:unavailable": "Signal ML scoring was unavailable",
+    "opa:unavailable": "Signal Policy (OPA) was unavailable",
+    "calibration:unavailable": "Signal Calibration was unavailable",
+    "counter:unavailable": "Signal Counter service was unavailable",
+    "location:unavailable": "Signal Location intelligence was unavailable",
+    "redis:tag_merge_unavailable": "Signal Redis tag merge was unavailable",
+    "redis:tenant_flags_unavailable": "Signal Redis tenant flags was unavailable",
+    "redis:entity_tags_unavailable": "Signal Redis entity tags was unavailable",
+    "consortium:unavailable": "Signal Consortium cross-tenant signal was unavailable",
+    "async_osint:unavailable": "Signal Async OSINT cache was unavailable",
+}
+
+
+def _signal_availability_notes_from_tags(degrade_tags: list[str]) -> list[str]:
+    """Human-readable audit lines when external signal paths tripped or fell back."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for t in degrade_tags:
+        msg = _SIGNAL_UNAVAILABLE_AUDIT.get(t)
+        if msg and msg not in seen:
+            seen.add(msg)
+            out.append(msg)
+    return out
+
+
+def _decision_runtime_status(degrade_tags: list[str], notes: list[str]) -> str:
+    if notes:
+        return "Degraded"
+    if "load_shedding:active" in degrade_tags:
+        return "Degraded"
+    if "counter:fallback_local_agg" in degrade_tags:
+        return "Degraded"
+    return "Healthy"
 
 
 def _normalize_explainability_tier(raw: str | None) -> str:
@@ -2855,6 +2898,8 @@ async def evaluate_decision(
             stored_snapshot = raw_snapshot
 
         fb_reason = _compute_fallback_reason(degrade_tags, step_trace)
+        signal_notes = _signal_availability_notes_from_tags(degrade_tags)
+        runtime_decision_status = _decision_runtime_status(degrade_tags, signal_notes)
         snap_extra: dict[str, Any] = {
             **stored_snapshot,
             "inference_context": inf_ctx,
@@ -2893,6 +2938,9 @@ async def evaluate_decision(
         _eb_snap = _metadata_etl_batch_id(body)
         if _eb_snap:
             snap_extra["etl_batch_id"] = _eb_snap
+
+        snap_extra["decision_status"] = runtime_decision_status
+        snap_extra["signal_availability_notes"] = signal_notes
 
         audit = AuditRecord(
             trace_id=trace_id,
@@ -2999,6 +3047,8 @@ async def evaluate_decision(
             reasons=reasons,
             ml_score=ml_score if isinstance(ml_score, float) else None,
             inference_context=response_inf_ctx,
+            decision_status=runtime_decision_status,
+            signal_availability_notes=signal_notes,
             recommended_action=recommended_action,
             challenge_policy_id=ch_meta.get("policy_id"),
             challenge_metadata=ch_meta,
@@ -3084,6 +3134,8 @@ async def evaluate_decision(
                 reasons=reasons + [f"test_bypass:{list_check.reason}"],
                 ml_score=ml_score if isinstance(ml_score, float) else None,
                 inference_context=_tb_inf,
+                decision_status=runtime_decision_status,
+                signal_availability_notes=signal_notes,
                 recommended_action=_tb_rec,
                 challenge_policy_id=_tb_meta.get("policy_id"),
                 challenge_metadata=_tb_meta,
