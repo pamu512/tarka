@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import sys
 import time
-from pathlib import Path
 from typing import Any
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from decision_api.vendors.adapters_path import ensure_adapters_on_path
 from decision_api.vendors.base import (
     BaseVendorPlugin,
     NormalizedVendorSignal,
@@ -18,9 +17,10 @@ from decision_api.vendors.base import (
 )
 from decision_api.vendors.exceptions import VendorTimeoutError, VendorUpstreamError
 
-_REPO_ROOT = Path(__file__).resolve().parents[6]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
+if ensure_adapters_on_path() is None:
+    raise ImportError(
+        "adapters/biometrics not found (monorepo adapters/ or /app/adapters in core-api image)"
+    )
 
 from adapters.biometrics.incognia.client import (  # noqa: E402
     IncogniaClient,
