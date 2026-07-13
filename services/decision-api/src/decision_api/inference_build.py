@@ -208,9 +208,7 @@ def build_inference_context(
         except (TypeError, ValueError):
             pass
     if peer >= 2:
-        colocation_risk = max(
-            colocation_risk, _clamp01(0.4 + 0.1 * min(peer, 6))
-        )
+        colocation_risk = max(colocation_risk, _clamp01(0.4 + 0.1 * min(peer, 6)))
 
     ev1h = int(features.get("event_count_1h") or 0)
     ev24 = int(features.get("event_count_24h") or 0)

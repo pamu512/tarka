@@ -85,7 +85,8 @@ async def health():
     return {
         "status": "ok",
         "service": "collaboration-chat-bridge",
-        "investigation_agent_configured": bool(settings.investigation_agent_url) or _CHAT_BRIDGE_SUBAPP,
+        "investigation_agent_configured": bool(settings.investigation_agent_url)
+        or _CHAT_BRIDGE_SUBAPP,
         "slack_signing_configured": bool((settings.slack_signing_secret or "").strip()),
         "slack_bot_configured": bool((settings.slack_bot_token or "").strip()),
         "slack_skip_retry_background": settings.slack_skip_retry_background,

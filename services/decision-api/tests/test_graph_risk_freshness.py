@@ -29,7 +29,9 @@ def test_stale_graph_risk_warns_and_metrics():
 
 def test_fresh_graph_risk_silent():
     seen: list[str] = []
-    recent = (datetime.now(UTC) - timedelta(minutes=5)).isoformat().replace("+00:00", "Z")
+    recent = (
+        (datetime.now(UTC) - timedelta(minutes=5)).isoformat().replace("+00:00", "Z")
+    )
     age = warn_if_graph_risk_stale(
         {"graph_data_as_of": recent},
         max_age_minutes=30,

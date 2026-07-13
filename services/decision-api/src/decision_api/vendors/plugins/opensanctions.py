@@ -108,7 +108,9 @@ class OpenSanctionsVendorPlugin(BaseVendorPlugin):
                     all_matches.extend(r for r in results if isinstance(r, dict))
         return self._from_matches(all_matches)
 
-    def _from_matches(self, matches: list[dict[str, Any]]) -> list[NormalizedVendorSignal]:
+    def _from_matches(
+        self, matches: list[dict[str, Any]]
+    ) -> list[NormalizedVendorSignal]:
         if not matches:
             return [
                 NormalizedVendorSignal(
@@ -146,7 +148,9 @@ class OpenSanctionsVendorPlugin(BaseVendorPlugin):
             )
         ]
 
-    async def fetch_signals(self, ctx: VendorFetchContext) -> list[NormalizedVendorSignal]:
+    async def fetch_signals(
+        self, ctx: VendorFetchContext
+    ) -> list[NormalizedVendorSignal]:
         features = OpenSanctionsFeaturePayload.model_validate(ctx.features)
         url = self._build_get_url(ctx.features)
         props: dict[str, Any] = {"name": [features.entity_name]}

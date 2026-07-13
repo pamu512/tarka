@@ -70,13 +70,10 @@ def test_rows_to_csv_and_bins():
 def test_backtest_run_tombstone_in_source():
     """Avoid importing backtest_api (pulls analytics stack); assert the 410 tombstone shipped."""
     path = (
-        Path(__file__).resolve().parents[1]
-        / "src"
-        / "decision_api"
-        / "backtest_api.py"
+        Path(__file__).resolve().parents[1] / "src" / "decision_api" / "backtest_api.py"
     )
     src = path.read_text(encoding="utf-8")
-    assert 'status_code=410' in src
+    assert "status_code=410" in src
     assert "BACKTEST_RUN_REMOVED" in src
     assert '@router.post("/run"' in src
 
