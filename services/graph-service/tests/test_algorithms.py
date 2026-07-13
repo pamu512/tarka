@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from algorithms import (
+from graph_service.algorithms import (
     _clamp_depth,
     compute_entity_risk,
     detect_fraud_rings,

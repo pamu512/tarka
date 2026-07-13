@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from algorithms import (
+from .algorithms import (
     compute_entity_risk,
     detect_communities,
     detect_fraud_rings,
@@ -17,20 +17,20 @@ from algorithms import (
     find_shared_attributes,
     propagate_risk,
 )
-from explainability_usage import record_explainability_event, usage_snapshot
-from checkpoint_registry import (
+from .explainability_usage import record_explainability_event, usage_snapshot
+from .checkpoint_registry import (
     registry_public_view,
     reload_checkpoint_registry,
 )
-from custom_schema import (
+from .custom_schema import (
     TenantSchema,
     invalidate_cache,
     load_tenant_schema,
     save_tenant_schema,
 )
-from graph_risk_model import score_graph_risk_beta
-from schemas import EntityRiskResponse
-from graph_runtime import (
+from .graph_risk_model import score_graph_risk_beta
+from .schemas import EntityRiskResponse
+from .graph_runtime import (
     close_graph_backend,
     create_link,
     get_tags,
