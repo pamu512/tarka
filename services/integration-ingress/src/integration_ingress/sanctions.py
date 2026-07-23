@@ -5,6 +5,12 @@ from __future__ import annotations
 Downloads the FtM entities JSON-lines file, caches it locally, and provides
 fuzzy name matching with optional country / date-of-birth filters.
 
+**Boundary vs decision-api:** This module is the **integration-plane bulk screener**
+(offline FtM cache + Levenshtein). Real-time vendor enrichment for rules uses
+``decision_api.vendors.plugins.opensanctions`` (OpenSanctions Match API →
+``NormalizedVendorSignal``). Do not merge the two paths without an explicit
+shared adapter; they serve different latency and audit contracts.
+
 **Persistence (SR-17):** Every adapter invocation appends a row to
 ``sanctions_screening_logs`` (Postgres) before returning. If persistence fails,
 the request fails with **503 SCREENING_PERSISTENCE_FAILED** (no ephemeral-only
