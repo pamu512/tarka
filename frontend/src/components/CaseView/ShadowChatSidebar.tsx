@@ -92,8 +92,8 @@ export function ShadowChatSidebar({
           } else if (ev.type === "final" && ev.payload && typeof ev.payload === "object") {
             const p = ev.payload as { reply?: string };
             const reply = typeof p.reply === "string" ? p.reply : "";
+            gotFinalRef.current = true;
             if (reply) {
-              gotFinalRef.current = true;
               setMessages([...nextMessages, { role: "assistant", content: reply }]);
               setStreamingText("");
             }

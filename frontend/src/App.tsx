@@ -365,6 +365,7 @@ export default function App() {
                 <Route path="/integrations/rate-limit-shields" element={<RateLimitShields />} />
                 <Route path="/integrations/seller-integrity" element={<SellerIntegrityDashboard />} />
                 <Route path="/integrations/payout-delay" element={<PayoutDelayAutomation />} />
+                <Route path="*" element={<Navigate to={leanHomePath()} replace />} />
               </>
             ) : (
               <>
