@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
-import { decisions } from "../api/client";
+import { decisions, features } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
+import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
 export default function OpsCounters() {
+  const { tenantId } = useTenantEnvironment();
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [gov, setGov] = useState<Record<string, unknown> | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [parityMsg, setParityMsg] = useState<string | null>(null);
+  const [parityBusy, setParityBusy] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -20,6 +24,25 @@ export default function OpsCounters() {
       }
     })();
   }, []);
+
+  async function runParityVerify() {
+    setParityBusy(true);
+    setParityMsg(null);
+    setErr(null);
+    try {
+      const out = await features.parityVerify({
+        tenant_id: tenantId,
+        entity_id: "parity-smoke",
+        expected: {},
+        epsilon: 0,
+      });
+      setParityMsg(JSON.stringify(out, null, 2));
+    } catch (e) {
+      setErr(toUserFacingError(e, { subject: "Counter parity", action: "run parity verify" }));
+    } finally {
+      setParityBusy(false);
+    }
+  }
 
   const counters = (data?.counters as Array<Record<string, unknown>> | undefined) ?? [];
 
@@ -51,6 +74,19 @@ export default function OpsCounters() {
                 `See ${(gov.counter_catalog as { endpoint?: string }).endpoint ?? "GET /v1/internal/counters/catalog"}`}
             </div>
           ) : null}
+          <button
+            type="button"
+            disabled={parityBusy}
+            onClick={() => void runParityVerify()}
+            className="mt-3 px-3 py-1.5 text-xs rounded border border-surface-600 hover:border-brand-500 text-gray-200 disabled:opacity-50"
+          >
+            {parityBusy ? "Running parity…" : "Run parity verify"}
+          </button>
+          {parityMsg && (
+            <pre className="mt-2 max-h-48 overflow-auto text-[11px] text-gray-400 font-mono whitespace-pre-wrap">
+              {parityMsg}
+            </pre>
+          )}
         </div>
       )}
       <div className="overflow-x-auto rounded-xl border border-surface-700">

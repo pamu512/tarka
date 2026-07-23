@@ -15,8 +15,9 @@ def _p(
     fields: list[str] | None = None,
     doc_url: str,
     swimlane_module: str = _SWIMLANE_INTEGRATE,
+    callable_plugin: str | None = None,
 ) -> dict[str, Any]:
-    return {
+    row: dict[str, Any] = {
         "id": pid,
         "name": name,
         "category": category,
@@ -25,13 +26,38 @@ def _p(
         "doc_url": doc_url,
         "swimlane_module": swimlane_module,
         "github_project_view_url": _GITHUB_PROJECT_VIEW,
+        "callable": bool(callable_plugin),
     }
+    if callable_plugin:
+        row["decision_api_plugin"] = callable_plugin
+        row["bootstrap_env"] = {
+            "opensanctions": "TARKA_VENDOR_OPENSANCTIONS_API_KEY",
+            "fingerprint": "TARKA_VENDOR_FINGERPRINT_API_KEY",
+            "incognia": "TARKA_VENDOR_INCOGNIA_CLIENT_ID+TARKA_VENDOR_INCOGNIA_CLIENT_SECRET",
+        }.get(callable_plugin)
+    return row
+
 
 
 PROVIDER_CATALOG: list[dict[str, Any]] = [
     _p("onfido", "Onfido", "kyc", doc_url="https://documentation.onfido.com/"),
     _p("sumsub", "Sumsub", "kyc", doc_url="https://developers.sumsub.com/"),
-    _p("fingerprint", "Fingerprint", "device_intelligence", doc_url="https://dev.fingerprint.com/"),
+    _p(
+        "fingerprint",
+        "Fingerprint",
+        "device_intelligence",
+        fields=["api_key"],
+        doc_url="https://dev.fingerprint.com/",
+        callable_plugin="fingerprint",
+    ),
+    _p(
+        "incognia",
+        "Incognia",
+        "location_intelligence",
+        fields=["client_id", "client_secret"],
+        doc_url="https://www.incognia.com/",
+        callable_plugin="incognia",
+    ),
     _p(
         "threatmetrix",
         "ThreatMetrix",
@@ -71,6 +97,7 @@ PROVIDER_CATALOG: list[dict[str, Any]] = [
         "sanctions",
         fields=["api_key"],
         doc_url="https://www.opensanctions.org/docs/api/",
+        callable_plugin="opensanctions",
     ),
     _p(
         "dow_jones_riskcenter",
