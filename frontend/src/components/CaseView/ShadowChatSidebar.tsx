@@ -90,13 +90,13 @@ export function ShadowChatSidebar({
             const t = (ev.payload as { text?: string }).text;
             if (t) setStreamingText((s) => s + t);
           } else if (ev.type === "final" && ev.payload && typeof ev.payload === "object") {
-            gotFinalRef.current = true;
             const p = ev.payload as { reply?: string };
             const reply = typeof p.reply === "string" ? p.reply : "";
             if (reply) {
+              gotFinalRef.current = true;
               setMessages([...nextMessages, { role: "assistant", content: reply }]);
+              setStreamingText("");
             }
-            setStreamingText("");
           } else if (ev.type === "error" && ev.payload && typeof ev.payload === "object") {
             const err = ev.payload as { code?: string; message?: string };
             const msg = err.message ?? "Stream error";
