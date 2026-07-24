@@ -2941,6 +2941,25 @@ async def turn_review_metrics(request: Request, tenant_id: str, days: float = 30
     return review_store.review_metrics(tenant_id, days=max(0.5, min(days, 365.0)))
 
 
+@app.get("/v1/review/history")
+async def turn_review_history(
+    request: Request,
+    turn_id: str,
+    tenant_id: str,
+    limit: int = 100,
+):
+    _validate_and_enforce_tenant_scope(request, tenant_id)
+    tid = (turn_id or "").strip()
+    if not tid:
+        raise HTTPException(status_code=400, detail="turn_id required")
+    rows = review_store.review_history(
+        tid,
+        tenant_id.strip(),
+        limit=max(1, min(limit, 500)),
+    )
+    return {"reviews": rows, "count": len(rows)}
+
+
 @app.post("/v1/chat/stream")
 async def chat_stream(body: ChatRequest, request: Request):
     """SSE: meta + deltas of final reply + final JSON tail (use POST /v1/chat for full sync payload)."""

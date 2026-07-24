@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -48,7 +49,29 @@ def legacy_review_db_path() -> Path:
     return _data_dir() / name
 
 
-def _legacy_review_rows() -> list[tuple[str, str, str, str, str | None, float, float]]:
+def _review_digest(
+    *,
+    turn_id: str,
+    tenant_id: str,
+    analyst_id: str,
+    status: str,
+    note: str | None,
+    legacy_created_at: float | None = None,
+) -> str:
+    identity: dict[str, Any] = {
+        "turn_id": str(turn_id),
+        "tenant_id": str(tenant_id),
+        "analyst_id": str(analyst_id),
+        "status": str(status),
+        "note": str(note) if note is not None else None,
+    }
+    if legacy_created_at is not None:
+        identity["legacy_created_at"] = float(legacy_created_at)
+    encoded = json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _legacy_review_rows() -> list[tuple[str, str, str, str, str, str | None, float, float]]:
     path = legacy_review_db_path()
     if not path.is_file() or path.resolve() == db_path().resolve():
         return []
@@ -76,29 +99,120 @@ def _legacy_review_rows() -> list[tuple[str, str, str, str, str | None, float, f
             raise AgentRunPersistenceError("legacy review database schema is incomplete")
         updated_expr = "updated_at" if "updated_at" in columns else "created_at"
         rows = legacy.execute(
-            "SELECT turn_id, tenant_id, analyst_id, status, note, created_at, "
+            "SELECT id, turn_id, tenant_id, analyst_id, status, note, created_at, "
             f"{updated_expr} FROM copilot_turn_reviews "
             "ORDER BY created_at ASC, id ASC"
         ).fetchall()
     finally:
         legacy.close()
 
-    latest: dict[tuple[str, str], tuple[str, str, str, str, str | None, float, float]] = {}
+    events: list[tuple[str, str, str, str, str, str | None, float, float]] = []
     for row in rows:
-        status = str(row[3])
+        status = str(row[4])
         if status not in {"approved", "rejected"}:
             raise AgentRunPersistenceError("legacy review status is invalid")
-        normalized = (
-            str(row[0]),
-            str(row[1]),
-            str(row[2]),
-            status,
-            str(row[4]) if row[4] is not None else None,
-            float(row[5]),
-            float(row[6]),
+        turn_id = str(row[1])
+        tenant_id = str(row[2])
+        analyst_id = str(row[3])
+        note = str(row[5]) if row[5] is not None else None
+        created_at = float(row[6])
+        events.append(
+            (
+                _review_digest(
+                    turn_id=turn_id,
+                    tenant_id=tenant_id,
+                    analyst_id=analyst_id,
+                    status=status,
+                    note=note,
+                    legacy_created_at=created_at,
+                ),
+                turn_id,
+                tenant_id,
+                analyst_id,
+                status,
+                note,
+                created_at,
+                float(row[7]),
+            )
         )
-        latest[(normalized[1], normalized[0])] = normalized
-    return list(latest.values())
+    return events
+
+
+def _create_review_history_table(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS copilot_turn_reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_digest TEXT NOT NULL UNIQUE,
+            turn_id TEXT NOT NULL,
+            tenant_id TEXT NOT NULL,
+            analyst_id TEXT NOT NULL,
+            status TEXT NOT NULL,
+            note TEXT,
+            created_at REAL NOT NULL,
+            updated_at REAL NOT NULL
+        )
+        """
+    )
+
+
+def _upgrade_review_history_table(conn: sqlite3.Connection) -> None:
+    table = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'copilot_turn_reviews'"
+    ).fetchone()
+    if not table:
+        _create_review_history_table(conn)
+    else:
+        columns = {
+            str(row[1])
+            for row in conn.execute("PRAGMA table_info(copilot_turn_reviews)").fetchall()
+        }
+        if "event_digest" not in columns:
+            rows = conn.execute(
+                """
+                SELECT turn_id, tenant_id, analyst_id, status, note,
+                       created_at, updated_at
+                FROM copilot_turn_reviews
+                ORDER BY created_at ASC, id ASC
+                """
+            ).fetchall()
+            conn.execute(
+                "ALTER TABLE copilot_turn_reviews RENAME TO copilot_turn_reviews_pre_history"
+            )
+            _create_review_history_table(conn)
+            conn.executemany(
+                """
+                INSERT OR IGNORE INTO copilot_turn_reviews (
+                    event_digest, turn_id, tenant_id, analyst_id, status, note,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        _review_digest(
+                            turn_id=str(row[0]),
+                            tenant_id=str(row[1]),
+                            analyst_id=str(row[2]),
+                            status=str(row[3]),
+                            note=str(row[4]) if row[4] is not None else None,
+                            legacy_created_at=float(row[5]),
+                        ),
+                        str(row[0]),
+                        str(row[1]),
+                        str(row[2]),
+                        str(row[3]),
+                        str(row[4]) if row[4] is not None else None,
+                        float(row[5]),
+                        float(row[6]),
+                    )
+                    for row in rows
+                ],
+            )
+            conn.execute("DROP TABLE copilot_turn_reviews_pre_history")
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_reviews_tenant_time "
+        "ON copilot_turn_reviews (tenant_id, created_at DESC)"
+    )
 
 
 def _get_conn() -> sqlite3.Connection:
@@ -135,31 +249,13 @@ def _get_conn() -> sqlite3.Connection:
                     "CREATE INDEX IF NOT EXISTS idx_agent_runs_tenant_created "
                     "ON copilot_agent_runs (tenant_id, created_at DESC)"
                 )
-                conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS copilot_turn_reviews (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        turn_id TEXT NOT NULL,
-                        tenant_id TEXT NOT NULL,
-                        analyst_id TEXT NOT NULL,
-                        status TEXT NOT NULL,
-                        note TEXT,
-                        created_at REAL NOT NULL,
-                        updated_at REAL NOT NULL,
-                        UNIQUE (tenant_id, turn_id)
-                    )
-                    """
-                )
-                conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_reviews_tenant_time "
-                    "ON copilot_turn_reviews (tenant_id, created_at DESC)"
-                )
+                _upgrade_review_history_table(conn)
                 conn.executemany(
                     """
                     INSERT OR IGNORE INTO copilot_turn_reviews (
-                        turn_id, tenant_id, analyst_id, status, note,
-                        created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        event_digest, turn_id, tenant_id, analyst_id, status,
+                        note, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     legacy_rows,
                 )
@@ -499,6 +595,64 @@ def _update_agent_run_review_payload(
         raise AgentRunPersistenceError("AgentRun review update did not affect one row")
 
 
+def _append_review_event(
+    conn: sqlite3.Connection,
+    *,
+    turn_id: str,
+    tenant_id: str,
+    analyst_id: str,
+    status: str,
+    note: str | None,
+    created_at: float,
+) -> tuple[int, bool]:
+    existing = conn.execute(
+        """
+        SELECT id
+        FROM copilot_turn_reviews
+        WHERE turn_id = ? AND tenant_id = ? AND analyst_id = ?
+          AND status = ? AND note IS ?
+        ORDER BY created_at DESC, id DESC
+        LIMIT 1
+        """,
+        (turn_id, tenant_id, analyst_id, status, note),
+    ).fetchone()
+    if existing:
+        return int(existing[0]), False
+
+    event_digest = _review_digest(
+        turn_id=turn_id,
+        tenant_id=tenant_id,
+        analyst_id=analyst_id,
+        status=status,
+        note=note,
+    )
+    inserted = conn.execute(
+        """
+        INSERT OR IGNORE INTO copilot_turn_reviews (
+            event_digest, turn_id, tenant_id, analyst_id, status, note,
+            created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            event_digest,
+            turn_id,
+            tenant_id,
+            analyst_id,
+            status,
+            note,
+            created_at,
+            created_at,
+        ),
+    )
+    row = conn.execute(
+        "SELECT id FROM copilot_turn_reviews WHERE event_digest = ?",
+        (event_digest,),
+    ).fetchone()
+    if not row:
+        raise AgentRunPersistenceError("review event insert did not return a row")
+    return int(row[0]), inserted.rowcount == 1
+
+
 def save_review_transactionally(
     *,
     turn_id: str,
@@ -507,7 +661,7 @@ def save_review_transactionally(
     status: Literal["approved", "rejected"],
     note: str | None,
 ) -> int:
-    """Upsert one review and its AgentRun state in the same SQLite transaction."""
+    """Append one review event and update AgentRun state in one transaction."""
     if status not in {"approved", "rejected"}:
         raise AgentRunPersistenceError("review status must be approved or rejected")
     emergency_record = _load_emergency_record(
@@ -545,18 +699,14 @@ def save_review_transactionally(
                     turn_id=turn_id,
                     ignore_existing=True,
                 )
-            conn.execute(
-                """
-                INSERT INTO copilot_turn_reviews (
-                    turn_id, tenant_id, analyst_id, status, note, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(tenant_id, turn_id) DO UPDATE SET
-                    analyst_id = excluded.analyst_id,
-                    status = excluded.status,
-                    note = excluded.note,
-                    updated_at = excluded.updated_at
-                """,
-                (turn_id, tenant_id, analyst_id, status, note_s, now, now),
+            review_id, _inserted = _append_review_event(
+                conn,
+                turn_id=turn_id,
+                tenant_id=tenant_id,
+                analyst_id=analyst_id,
+                status=status,
+                note=note_s,
+                created_at=now,
             )
             _update_agent_run_review_payload(
                 conn,
@@ -564,14 +714,8 @@ def save_review_transactionally(
                 turn_id=turn_id,
                 review_state=status,
             )
-            row = conn.execute(
-                "SELECT id FROM copilot_turn_reviews WHERE tenant_id = ? AND turn_id = ?",
-                (tenant_id, turn_id),
-            ).fetchone()
-            if not row:
-                raise AgentRunPersistenceError("review upsert did not return a row")
             conn.commit()
-            return int(row[0])
+            return review_id
     except Exception as exc:
         with _lock:
             if conn.in_transaction:
@@ -589,30 +733,33 @@ def save_review_record(
     status: Literal["approved", "rejected"],
     note: str | None,
 ) -> int:
-    """Compatibility helper for importing historical reviews into the unified store."""
+    """Compatibility helper that appends a deduplicated review event."""
+    if status not in {"approved", "rejected"}:
+        raise AgentRunPersistenceError("review status must be approved or rejected")
     conn = _get_conn()
     now = time.time()
     note_s = (note or "")[:2000] or None
-    with _lock:
-        conn.execute(
-            """
-            INSERT INTO copilot_turn_reviews (
-                turn_id, tenant_id, analyst_id, status, note, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(tenant_id, turn_id) DO UPDATE SET
-                analyst_id = excluded.analyst_id,
-                status = excluded.status,
-                note = excluded.note,
-                updated_at = excluded.updated_at
-            """,
-            (turn_id, tenant_id, analyst_id, status, note_s, now, now),
-        )
-        row = conn.execute(
-            "SELECT id FROM copilot_turn_reviews WHERE tenant_id = ? AND turn_id = ?",
-            (tenant_id, turn_id),
-        ).fetchone()
-        conn.commit()
-    return int(row[0]) if row else 0
+    try:
+        with _lock:
+            conn.execute("BEGIN IMMEDIATE")
+            review_id, _inserted = _append_review_event(
+                conn,
+                turn_id=turn_id,
+                tenant_id=tenant_id,
+                analyst_id=analyst_id,
+                status=status,
+                note=note_s,
+                created_at=now,
+            )
+            conn.commit()
+            return review_id
+    except Exception as exc:
+        with _lock:
+            if conn.in_transaction:
+                conn.rollback()
+        if isinstance(exc, AgentRunPersistenceError):
+            raise
+        raise AgentRunPersistenceError("review event transaction failed") from exc
 
 
 def latest_review(turn_id: str, tenant_id: str) -> dict[str, Any] | None:
@@ -623,6 +770,8 @@ def latest_review(turn_id: str, tenant_id: str) -> dict[str, Any] | None:
             SELECT id, turn_id, tenant_id, analyst_id, status, note, created_at
             FROM copilot_turn_reviews
             WHERE turn_id = ? AND tenant_id = ?
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
             """,
             (turn_id, tenant_id),
         ).fetchone()
@@ -637,6 +786,39 @@ def latest_review(turn_id: str, tenant_id: str) -> dict[str, Any] | None:
         "note": row[5],
         "created_at": row[6],
     }
+
+
+def review_history(
+    turn_id: str,
+    tenant_id: str,
+    *,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    conn = _get_conn()
+    bounded_limit = max(1, min(int(limit), 500))
+    with _lock:
+        rows = conn.execute(
+            """
+            SELECT id, turn_id, tenant_id, analyst_id, status, note, created_at
+            FROM copilot_turn_reviews
+            WHERE turn_id = ? AND tenant_id = ?
+            ORDER BY created_at DESC, id DESC
+            LIMIT ?
+            """,
+            (turn_id, tenant_id, bounded_limit),
+        ).fetchall()
+    return [
+        {
+            "id": row[0],
+            "turn_id": row[1],
+            "tenant_id": row[2],
+            "analyst_id": row[3],
+            "status": row[4],
+            "note": row[5],
+            "created_at": row[6],
+        }
+        for row in rows
+    ]
 
 
 def review_metrics(tenant_id: str, days: float = 30.0) -> dict[str, Any]:
