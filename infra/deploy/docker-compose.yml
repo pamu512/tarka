@@ -191,8 +191,14 @@ services:
       COPILOT_INJECTION_POLICY: ${COPILOT_INJECTION_POLICY:-reject}
       COPILOT_TRUSTED_SCOPE_HEADERS_REQUIRED: ${COPILOT_TRUSTED_SCOPE_HEADERS_REQUIRED:-false}
       API_KEYS: ${API_KEYS:-}
+      OKF_ENABLED: ${OKF_ENABLED:-true}
+      OKF_SHARED_ROOT: /app/knowledge/shared
+      OKF_TENANT_ROOT: /var/lib/tarka/knowledge/tenants
+      OKF_ADMIN_API_KEYS: ${OKF_ADMIN_API_KEYS:-}
     ports:
       - "8006:8006"
+    volumes:
+      - ${OKF_TENANT_OVERLAYS_PATH:-./knowledge/tenants}:/var/lib/tarka/knowledge/tenants:ro
     depends_on:
       - core-api
     healthcheck:

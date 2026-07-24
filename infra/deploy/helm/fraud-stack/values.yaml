@@ -149,6 +149,11 @@ investigationAgent:
   tag: latest
   replicaCount: 1
   servicePort: 8006
+  okfTenantOverlays:
+    enabled: false
+    existingClaim: ""
+    mountPath: /var/lib/tarka/knowledge/tenants
+    readOnly: true
   # Regional AI governance: us | eu_uk | global (see docs/docs/guides/ai-governance-regional-builds.md)
   aiGovernanceProfile: global
   # Optional in-memory batch TTL for copilot uploads (seconds); omit to use default

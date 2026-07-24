@@ -123,3 +123,140 @@ Final result: `git diff --check` exited 0. Status contained only source, docs, C
 - `npm ci` installed 659 packages and reported existing audit findings: 2 low and 4 high vulnerabilities. I did not change dependencies.
 - Investigation-agent tests modify the tracked `services/investigation-agent/var/investigation-agent/copilot_feedback.sqlite3`; I restored it after test runs so no generated database is included.
 - Frontend tests pass but emit `npm warn config ignoring workspace config at /workspace/frontend/.npmrc`.
+
+---
+
+## Review Fix: Task 7 Blockers
+
+### Changes
+
+- Startup lifecycle now indexes every active approved shared and tenant OKF bundle before OKF readiness is declared.
+- Admin reload now refreshes the derived OKF index after an activated reload; failed validation reloads do not reindex and keep the prior snapshot/index ready.
+- `OkfRegistry.active_bundles()` exposes only active parsed bundles, not merged tenant views.
+- End-to-end tests now activate through FastAPI startup/admin reload and call the real `search_knowledge` tool with hybrid embeddings, keyword fallback, citations, isolation, and rollback checks.
+- Canonical Compose mounts operator tenant overlays at `/var/lib/tarka/knowledge/tenants:ro`.
+- Helm fraud-stack values/template now support an explicit existing PVC for tenant overlays and fail rendering when overlays are enabled without a claim.
+- Env/docs now state `OKF_ADMIN_API_KEYS` must also be in `API_KEYS` and tenant-scoped via `API_KEY_TENANT_MAP`.
+- NPM high advisories were resolved without `--force`: `axios@1.18.1`, `linkify-it@5.0.2`, `js-yaml@4.3.0`, `brace-expansion@1.1.16`, and `brace-expansion@5.0.8`.
+- Reverted prior Task-7-only Ruff formatting noise in pre-existing Python files, including removal of the unrelated `dict.fromkeys` change in `okf_registry.py`.
+
+### Red Evidence
+
+```bash
+cd /workspace/services/investigation-agent && PYTHONPATH=src:../shared:../../packages/shared-core python3 -m pytest -q tests/test_okf_end_to_end.py
+```
+
+Initial review-blocker result:
+
+```text
+3 failed, 1 warning in 0.82s
+```
+
+Expected failures:
+
+- Startup did not invoke OKF indexing.
+- Admin reload did not refresh the OKF index.
+- Env/deployment config lacked admin key and overlay mounts.
+
+### Final Verification
+
+```bash
+cd /workspace && PYTHONPATH=services/investigation-agent/src:services/shared:packages/shared-core python3 -m pytest -q \
+  services/investigation-agent/tests/test_okf_parser.py \
+  services/investigation-agent/tests/test_okf_registry.py \
+  services/investigation-agent/tests/test_okf_exporters.py \
+  services/investigation-agent/tests/test_okf_retrieval.py \
+  services/investigation-agent/tests/test_okf_end_to_end.py
+```
+
+Result:
+
+```text
+52 passed, 1 warning in 1.05s
+```
+
+```bash
+cd /workspace/services/investigation-agent && PYTHONPATH=src:../shared:../../packages/shared-core python3 -m pytest -q
+```
+
+Result:
+
+```text
+254 passed, 1 skipped, 1 warning in 3.38s
+```
+
+```bash
+cd /workspace/services/investigation-agent && python3 scripts/validate_okf_bundle.py ../../knowledge/shared --scope shared
+```
+
+Result: exit 0, no output.
+
+```bash
+cd /workspace/services/investigation-agent && python3 -m ruff check src/investigation_agent/main.py tests/test_okf_end_to_end.py && python3 -m ruff format --check tests/test_okf_end_to_end.py
+```
+
+Result:
+
+```text
+All checks passed!
+1 file already formatted
+```
+
+`python3 -m ruff check src/investigation_agent/okf_registry.py` was also run and failed only on the restored pre-existing C420 dict-comprehension lines. I did not reintroduce `dict.fromkeys` because the review explicitly required removing that Task-7-only noise.
+
+```bash
+cd /workspace/frontend && npm test -- --run
+```
+
+Result:
+
+```text
+Test Files  49 passed (49)
+Tests       144 passed (144)
+```
+
+```bash
+cd /workspace && npm audit --audit-level=high
+```
+
+Result: exit 0. Remaining advisories are low severity only:
+
+- `dompurify <=3.4.11`: GHSA-c2j3-45gr-mqc4, low, fix requires `npm audit fix --force` and a breaking `monaco-editor@0.53.0` change.
+- `jspdf 2.0.0 - 2.5.2`: low via `dompurify`.
+- `monaco-editor >=0.54.0-dev-20250909`: low via `dompurify`, fix available only as a breaking downgrade per npm audit.
+
+```bash
+cd /workspace && npm ls brace-expansion linkify-it js-yaml axios --all
+```
+
+Result:
+
+```text
+axios@1.18.1
+linkify-it@5.0.2 overridden
+js-yaml@4.3.0 overridden
+brace-expansion@1.1.16 overridden
+brace-expansion@5.0.8 overridden
+```
+
+### Deployment Validation
+
+```bash
+cd /workspace && docker compose -f infra/deploy/docker-compose.yml config --quiet
+```
+
+Result: not available in this environment (`docker: command not found`).
+
+```bash
+cd /workspace && helm lint infra/deploy/helm/fraud-stack
+```
+
+Result: not available in this environment (`helm: command not found`).
+
+The static end-to-end test validates the Compose mount and Helm PVC/fail-template configuration.
+
+### Concerns / Notes
+
+- `npm audit --audit-level=high` exits 0, but full audit still exits 1 because three low advisories remain; no high or critical advisories remain.
+- Docker and Helm CLIs are absent in this environment, so runtime rendering validation could not be executed here.
+- The review-required surgical Ruff revert conflicts with latest Ruff C420 on pre-existing `okf_registry.py` comprehensions; I preserved the requested source shape and did not weaken project config.

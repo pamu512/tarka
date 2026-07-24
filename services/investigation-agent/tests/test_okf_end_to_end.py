@@ -2,21 +2,19 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
+from pathlib import Path
 
 import pytest
+import yaml
+from fastapi.testclient import TestClient
 
 from investigation_agent import knowledge_db
+import investigation_agent.main as main_mod
 from investigation_agent.citation_schema import build_standard_citations
-from investigation_agent.knowledge_db import (
-    ingest_document_sync,
-    index_okf_concepts_sync,
-    reset_connection_for_tests,
-)
-from investigation_agent.knowledge_store import retrieve_knowledge_async
-from investigation_agent.okf_parser import validate_bundle
-from investigation_agent.okf_registry import OkfRegistry
+from investigation_agent.knowledge_db import ingest_document_sync, reset_connection_for_tests
+from investigation_agent.main import app
+from investigation_agent.tools import tool_search_knowledge
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -98,8 +96,10 @@ def _write_concept(
 def isolated_knowledge_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("INVESTIGATION_DATA_DIR", str(tmp_path / "rag"))
     monkeypatch.setenv("KNOWLEDGE_TTL_SECONDS", "86400")
+    main_mod._valid_api_keys = None
     reset_connection_for_tests()
     yield
+    main_mod._valid_api_keys = None
     reset_connection_for_tests()
 
 
@@ -173,124 +173,238 @@ def _build_bundle_tree(shared_root: Path, tenant_root: Path) -> None:
     )
 
 
-def _activate_and_index(shared_root: Path, tenant_root: Path) -> OkfRegistry:
-    shared_validation = validate_bundle(shared_root, scope="shared", tenant_id=None)
-    assert shared_validation.valid is True
-    assert shared_validation.bundle is not None
-    index_okf_concepts_sync(shared_validation.bundle)
+def _configure_okf_settings(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    shared_root: Path,
+    tenant_root: Path,
+    embeddings: bool,
+) -> None:
+    monkeypatch.setattr(main_mod.settings, "okf_enabled", True)
+    monkeypatch.setattr(main_mod.settings, "okf_shared_root", str(shared_root))
+    monkeypatch.setattr(main_mod.settings, "okf_tenant_root", str(tenant_root))
+    monkeypatch.setattr(main_mod.settings, "copilot_knowledge_embeddings", embeddings)
+    monkeypatch.setattr(main_mod.settings, "openai_api_key", "test-key")
+    monkeypatch.setattr(main_mod.settings, "copilot_embedding_api_key", "")
+    monkeypatch.setattr(
+        main_mod.settings,
+        "copilot_embedding_base_url",
+        "http://embeddings.local/v1",
+    )
+    monkeypatch.setattr(main_mod.settings, "copilot_embedding_model", "test-embedding")
+    monkeypatch.setattr(main_mod.settings, "allowed_analysts", "*")
+    main_mod._valid_api_keys = None
 
-    for tenant_id in ("t1", "t2"):
-        validation = validate_bundle(
-            tenant_root / tenant_id,
-            scope="tenant",
-            tenant_id=tenant_id,
-            shared_bundle=shared_validation.bundle,
-        )
-        assert validation.valid is True
-        assert validation.bundle is not None
-        index_okf_concepts_sync(validation.bundle)
 
-    registry = OkfRegistry(shared_root=shared_root, tenant_root=tenant_root)
-    reload_result = registry.reload()
-    assert reload_result.activated is True
-    return registry
+async def _semantic_embeddings(*_: Any, texts: list[str], **__: Any) -> list[list[float]]:
+    vectors: list[list[float]] = []
+    for text in texts:
+        lowered = text.casefold()
+        if "fresh reload marker" in lowered:
+            vectors.append([0.0, 1.0, 0.0])
+        elif "account activity" in lowered or "confirm profile" in lowered:
+            vectors.append([1.0, 0.0, 0.0])
+        else:
+            vectors.append([0.0, 0.0, 1.0])
+    return vectors
 
 
-@pytest.mark.asyncio
-async def test_exact_link_rag_fallback_isolation_rollback_and_citations(
+def _tool_search(client: TestClient, *, tenant_id: str, query: str, limit: int = 5) -> dict:
+    return client.portal.call(
+        tool_search_knowledge,
+        client.app.state.http,
+        tenant_id,
+        "analyst-1",
+        query,
+        limit,
+        client.app.state.okf_registry,
+    )
+
+
+def test_startup_indexes_bundles_before_ready_and_tool_uses_hybrid_and_fallback(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     shared_root = tmp_path / "shared"
     tenant_root = tmp_path / "tenants"
     _build_bundle_tree(shared_root, tenant_root)
-    registry = _activate_and_index(shared_root, tenant_root)
-    prior_revision = registry.snapshot_revision("t1")
-
-    ingest_document_sync(
-        "t1",
-        "analyst-1",
-        "Residual high amount memo",
-        "Residual chargeback memo for high amount rule escalation and manual review.",
+    _configure_okf_settings(
+        monkeypatch,
+        shared_root=shared_root,
+        tenant_root=tenant_root,
+        embeddings=True,
     )
+    monkeypatch.setattr(knowledge_db.emb_mod, "embed_texts", _semantic_embeddings)
+    real_indexer = main_mod.knowledge_store.index_okf_bundle_async
+    indexed_bundles: list[tuple[str, str | None]] = []
 
-    async def fail_embeddings(*_: Any, **__: Any) -> list[list[float]]:
-        raise RuntimeError("embedding service unavailable")
+    async def spy_indexer(http: Any, bundle: Any, **kwargs: Any) -> int:
+        indexed_bundles.append((bundle.scope, bundle.tenant_id))
+        return await real_indexer(http, bundle, **kwargs)
 
-    monkeypatch.setattr(knowledge_db.emb_mod, "embed_texts", fail_embeddings)
+    monkeypatch.setattr(main_mod.knowledge_store, "index_okf_bundle_async", spy_indexer)
 
-    result = await retrieve_knowledge_async(
-        object(),
-        registry=registry,
-        use_embeddings=True,
-        api_key="test-key",
-        base_url="http://embeddings.local/v1",
-        embed_model="test-embedding",
-        tenant_id="t1",
-        analyst_id="analyst-1",
-        query="High Amount Rule",
-        limit=4,
+    with TestClient(app) as client:
+        ready = client.get("/v1/ready")
+        assert ready.status_code == 200
+        assert {scope for scope, _ in indexed_bundles} == {"shared", "tenant"}
+        assert ("tenant", "t1") in indexed_bundles
+        assert ("tenant", "t2") in indexed_bundles
+
+        hybrid = _tool_search(client, tenant_id="t1", query="account activity", limit=3)
+        assert hybrid["retrieval_mode"] == "hybrid"
+        assert hybrid["hits"][0]["concept_id"] == "references/kyc-checklist"
+        assert hybrid["hits"][0]["authority_label"] == "shared_okf"
+
+        ingest_document_sync(
+            "t1",
+            "analyst-1",
+            "Residual high amount memo",
+            "Residual chargeback memo for high amount rule escalation and manual review.",
+        )
+
+        async def fail_embeddings(*_: Any, **__: Any) -> list[list[float]]:
+            raise RuntimeError("embedding service unavailable")
+
+        monkeypatch.setattr(knowledge_db.emb_mod, "embed_texts", fail_embeddings)
+
+        fallback = _tool_search(client, tenant_id="t1", query="High Amount Rule", limit=4)
+        assert fallback["retrieval_mode"] == "exact+expand+keyword_fallback"
+        assert [hit["concept_id"] for hit in fallback["hits"]] == [
+            "rules/high-amount",
+            "playbooks/high-amount-review",
+            "references/kyc-checklist",
+            None,
+        ]
+        assert [hit["authority_label"] for hit in fallback["hits"]] == [
+            "tenant_okf",
+            "tenant_okf",
+            "shared_okf",
+            "memo_rag",
+        ]
+        assert fallback["hits"][1]["retrieval_path"] == [
+            "rules/high-amount",
+            "playbooks/high-amount-review",
+        ]
+
+        allowed_concepts = {hit["concept_id"] for hit in fallback["hits"] if hit["concept_id"]}
+        allowed_evidence = {
+            evidence_id for hit in fallback["hits"] for evidence_id in hit["evidence_ids"]
+        }
+        claim_concepts = [
+            hit["concept_id"] for hit in fallback["hits"] if hit["authority"] == "tenant_okf"
+        ]
+        claim_evidence = [
+            evidence_id
+            for hit in fallback["hits"]
+            if hit["authority"] == "tenant_okf"
+            for evidence_id in hit["evidence_ids"]
+        ]
+        citations, summary = build_standard_citations(
+            claims=[
+                {
+                    "text": "Use the high amount rule and linked playbook.",
+                    "source": "tool",
+                    "concept_ids": claim_concepts,
+                    "evidence_ids": claim_evidence,
+                }
+            ],
+            deterministic_support=[{"claim_index": 0, "supported": True}],
+            allowed_concept_ids=allowed_concepts,
+            allowed_evidence_ids=allowed_evidence,
+        )
+        resolved = {(item["artifact"], item["id"]) for item in citations[0]["resolves_to"]}
+        assert summary.supported_count == 1
+        assert ("okf_concept", "rules/high-amount") in resolved
+        assert ("okf_concept", "playbooks/high-amount-review") in resolved
+        assert ("evidence", "ev-rule") in resolved
+        assert ("evidence", "ev-playbook") in resolved
+
+        t2_result = _tool_search(client, tenant_id="t1", query="T2 Secret Playbook", limit=5)
+        assert "playbooks/t2-secret" not in {hit["concept_id"] for hit in t2_result["hits"]}
+
+
+def test_admin_reload_refreshes_index_and_failed_reload_keeps_prior_searchable_index(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    shared_root = tmp_path / "shared"
+    tenant_root = tmp_path / "tenants"
+    _build_bundle_tree(shared_root, tenant_root)
+    _configure_okf_settings(
+        monkeypatch,
+        shared_root=shared_root,
+        tenant_root=tenant_root,
+        embeddings=True,
     )
+    monkeypatch.setattr(knowledge_db.emb_mod, "embed_texts", _semantic_embeddings)
+    monkeypatch.setenv("API_KEYS", "admin-key")
+    monkeypatch.setenv("API_KEY_TENANT_MAP", '{"admin-key":["t1"]}')
+    monkeypatch.setenv("OKF_ADMIN_API_KEYS", "admin-key")
+    main_mod._valid_api_keys = None
+    real_indexer = main_mod.knowledge_store.index_okf_bundle_async
+    indexed_after_reload: list[tuple[str, str | None]] = []
 
-    assert result.retrieval_mode == "exact+expand+keyword_fallback"
-    assert [item.concept_id for item in result.results] == [
-        "rules/high-amount",
-        "playbooks/high-amount-review",
-        "references/kyc-checklist",
-        None,
-    ]
-    assert [item.authority for item in result.results] == [
-        "tenant_okf",
-        "tenant_okf",
-        "shared_okf",
-        "memo_rag",
-    ]
-    assert result.results[1].retrieval_path == (
-        "rules/high-amount",
-        "playbooks/high-amount-review",
-    )
+    async def spy_indexer(http: Any, bundle: Any, **kwargs: Any) -> int:
+        indexed_after_reload.append((bundle.scope, bundle.tenant_id))
+        return await real_indexer(http, bundle, **kwargs)
 
-    allowed_concepts = {item.concept_id for item in result.results if item.concept_id}
-    allowed_evidence = {evidence_id for item in result.results for evidence_id in item.evidence_ids}
-    citations, summary = build_standard_citations(
-        claims=[
-            {
-                "text": "Use the high amount rule and linked playbook.",
-                "source": "tool",
-                "concept_ids": ["rules/high-amount", "playbooks/high-amount-review"],
-                "evidence_ids": ["ev-rule", "ev-playbook"],
-            }
-        ],
-        deterministic_support=[{"claim_index": 0, "supported": True}],
-        allowed_concept_ids=allowed_concepts,
-        allowed_evidence_ids=allowed_evidence,
-    )
-    resolved = {(item["artifact"], item["id"]) for item in citations[0]["resolves_to"]}
-    assert summary.supported_count == 1
-    assert ("okf_concept", "rules/high-amount") in resolved
-    assert ("okf_concept", "playbooks/high-amount-review") in resolved
-    assert ("evidence", "ev-rule") in resolved
-    assert ("evidence", "ev-playbook") in resolved
+    monkeypatch.setattr(main_mod.knowledge_store, "index_okf_bundle_async", spy_indexer)
 
-    t2_result = await retrieve_knowledge_async(
-        object(),
-        registry=registry,
-        use_embeddings=True,
-        api_key="test-key",
-        base_url="http://embeddings.local/v1",
-        embed_model="test-embedding",
-        tenant_id="t1",
-        analyst_id="analyst-1",
-        query="T2 Secret Playbook",
-        limit=5,
-    )
-    assert "playbooks/t2-secret" not in {item.concept_id for item in t2_result.results}
+    with TestClient(app) as client:
+        indexed_after_reload.clear()
+        _write_concept(
+            tenant_root / "t1",
+            "playbooks/fresh-reload.md",
+            concept_type="Investigation Playbook",
+            title="Fresh Reload Playbook",
+            tenant_scope="t1",
+            source_uri="playbooks/t1/fresh-reload.json",
+            source_hash_char="f",
+            evidence_ids=("ev-reload",),
+            body="Fresh reload marker guidance for newly approved overlays.",
+        )
 
-    (shared_root / "rules" / "high-amount.md").write_text("invalid\n", encoding="utf-8")
-    rollback = registry.reload()
-    assert rollback.activated is False
-    assert registry.snapshot_revision("t1") == prior_revision
-    assert registry.resolve("t1", "High Amount Rule")
+        reload_response = client.post(
+            "/v1/admin/okf/reload",
+            headers={"x-api-key": "admin-key"},
+        )
+        assert reload_response.status_code == 200
+        assert reload_response.json()["activated"] is True
+        assert ("shared", None) in indexed_after_reload
+        assert ("tenant", "t1") in indexed_after_reload
+        refreshed = _tool_search(
+            client,
+            tenant_id="t1",
+            query="fresh reload marker",
+            limit=3,
+        )
+        assert refreshed["retrieval_mode"] == "hybrid"
+        assert refreshed["hits"][0]["concept_id"] == "playbooks/fresh-reload"
+
+        prior_revision = client.app.state.okf_reload_result.revision
+        indexed_after_reload.clear()
+        (shared_root / "rules" / "high-amount.md").write_text(
+            "invalid\n",
+            encoding="utf-8",
+        )
+        failed = client.post(
+            "/v1/admin/okf/reload",
+            headers={"x-api-key": "admin-key"},
+        )
+        assert failed.status_code == 200
+        assert failed.json()["activated"] is False
+        assert client.app.state.okf_reload_result.revision == prior_revision
+        assert indexed_after_reload == []
+        ready = client.get("/v1/ready", headers={"x-api-key": "admin-key"})
+        assert ready.status_code == 200
+        still_searchable = _tool_search(
+            client,
+            tenant_id="t1",
+            query="fresh reload marker",
+            limit=3,
+        )
+        assert still_searchable["hits"][0]["concept_id"] == "playbooks/fresh-reload"
 
 
 def test_deployment_config_ships_only_shared_bundle_and_mounts_tenants() -> None:
@@ -310,3 +424,48 @@ def test_deployment_config_ships_only_shared_bundle_and_mounts_tenants() -> None
     assert "OKF_TENANT_ROOT=/var/lib/tarka/knowledge/tenants" in env_reference
     assert "OKF_MAX_LINK_DEPTH=2" in env_reference
     assert "OKF_MAX_CONCEPTS=24" in env_reference
+    assert "OKF_ADMIN_API_KEYS=" in env_reference
+
+    compose = yaml.safe_load(
+        (_REPO_ROOT / "infra" / "deploy" / "docker-compose.yml").read_text(encoding="utf-8")
+    )
+    agent = compose["services"]["investigation-agent"]
+    assert (
+        "${OKF_TENANT_OVERLAYS_PATH:-./knowledge/tenants}:/var/lib/tarka/knowledge/tenants:ro"
+    ) in agent["volumes"]
+    assert agent["environment"]["OKF_TENANT_ROOT"] == "/var/lib/tarka/knowledge/tenants"
+    assert "OKF_ADMIN_API_KEYS" in agent["environment"]
+
+    helm_values = yaml.safe_load(
+        (_REPO_ROOT / "infra" / "deploy" / "helm" / "fraud-stack" / "values.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    overlay_values = helm_values["investigationAgent"]["okfTenantOverlays"]
+    assert overlay_values == {
+        "enabled": False,
+        "existingClaim": "",
+        "mountPath": "/var/lib/tarka/knowledge/tenants",
+        "readOnly": True,
+    }
+    helm_template = (
+        _REPO_ROOT
+        / "infra"
+        / "deploy"
+        / "helm"
+        / "fraud-stack"
+        / "templates"
+        / "investigation-agent.yaml"
+    ).read_text(encoding="utf-8")
+    assert "OKF tenant overlays require investigationAgent.okfTenantOverlays.existingClaim" in (
+        helm_template
+    )
+    assert "volumeMounts:" in helm_template
+    assert "persistentVolumeClaim:" in helm_template
+
+    docs = (_REPO_ROOT / "docs" / "docs" / "services" / "investigation-agent.md").read_text(
+        encoding="utf-8"
+    )
+    assert "OKF_ADMIN_API_KEYS" in docs
+    assert "API_KEYS" in docs
+    assert "API_KEY_TENANT_MAP" in docs
