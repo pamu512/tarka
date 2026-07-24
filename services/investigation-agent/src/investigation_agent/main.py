@@ -2700,6 +2700,37 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         tool_errors=tool_errors,
         assurance_refused=assurance_refused,
     )
+    agent_run_payload: dict[str, Any] | None = None
+    try:
+        from decision_intelligence import new_agent_run
+
+        _prompt = ""
+        if getattr(body, "messages", None):
+            for _m in reversed(list(body.messages)):
+                _c = getattr(_m, "content", None) or (
+                    _m.get("content") if isinstance(_m, dict) else None
+                )
+                if _c:
+                    _prompt = str(_c)
+                    break
+        agent_run_payload = new_agent_run(
+            tenant_id=body.tenant_id,
+            prompt=_prompt,
+            model_provider="openai_compatible",
+            model_revision=_effective_chat_model(),
+            case_id=body.case_id,
+            entity_id=getattr(body, "entity_id", None),
+            trace_id=getattr(body, "trace_id", None),
+            tool_calls=list(tool_calls),
+            claims=list(claims),
+            uncertainty={
+                "assurance_refused": assurance_refused,
+                "grounding_adjustments": list(grounding_adj),
+            },
+        ).to_dict()
+    except Exception:
+        agent_run_payload = None
+
     out: dict[str, Any] = {
         "reply": reply,
         "tool_calls": tool_calls,
@@ -2714,6 +2745,7 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         "claims_deterministic_support": det_support,
         "citations": citations,
         "citation_verifier": verifier_summary.model_dump(mode="json"),
+        "agent_run": agent_run_payload,
         "turn_metrics": {
             "model": _effective_chat_model(),
             "llm_completion_rounds": llm_rounds,

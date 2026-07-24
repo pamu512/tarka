@@ -1,6 +1,6 @@
 # Tarka: The Graph-Powered Fraud Operating System
 
-**Version 1.3.0-beta** · **Category: Local-First Fraud Intelligence (LFFI)**
+**Version 1.3.0** · **Category: Local-First Fraud Intelligence (LFFI)**
 
 **Vision:** End the **black box**—every material claim must be **inspectable** (rules, graph topology, local agent output), not a vendor scorecard you cannot replay.
 

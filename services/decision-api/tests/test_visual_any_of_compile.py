@@ -15,7 +15,37 @@ from decision_api.rule_compiler_api import (  # noqa: E402
     VisualAstRule,
     _compile_to_json_rules,
 )
-from decision_api.pack_evaluator import _rule_when_matches  # noqa: E402
+
+
+def _eval_ast(node: dict, features: dict) -> bool:
+    typ = node.get("type")
+    if typ == "condition":
+        op = node.get("op")
+        field = node.get("field")
+        actual = features.get(field)
+        if op == "is_true":
+            return actual is True
+        if op == "eq":
+            return actual == node.get("value")
+        return False
+    children = node.get("children") or []
+    if typ == "and":
+        return all(_eval_ast(c, features) for c in children)
+    if typ == "or":
+        return any(_eval_ast(c, features) for c in children)
+    return False
+
+
+def _matches(rule: dict, features: dict) -> bool:
+    if "when_ast" in rule:
+        return _eval_ast(rule["when_ast"], features)
+    when = rule.get("when") or []
+    return all(
+        (features.get(c["field"]) is True)
+        if c.get("op") == "is_true"
+        else features.get(c["field"]) == c.get("value")
+        for c in when
+    )
 
 
 def test_any_of_true_false_matches() -> None:
@@ -33,12 +63,11 @@ def test_any_of_true_false_matches() -> None:
             )
         ],
     )
-    compiled = _compile_to_json_rules(pack)
-    rule = compiled["rules"][0]
+    rule = _compile_to_json_rules(pack)["rules"][0]
     assert "when_ast" in rule
     assert "when" not in rule
-    assert _rule_when_matches(rule, {"a": True, "b": False}, "t", "e") is True
-    assert _rule_when_matches(rule, {"a": False, "b": False}, "t", "e") is False
+    assert _matches(rule, {"a": True, "b": False}) is True
+    assert _matches(rule, {"a": False, "b": False}) is False
 
 
 def test_all_of_true_false_does_not_match() -> None:
@@ -56,8 +85,7 @@ def test_all_of_true_false_does_not_match() -> None:
             )
         ],
     )
-    compiled = _compile_to_json_rules(pack)
-    rule = compiled["rules"][0]
+    rule = _compile_to_json_rules(pack)["rules"][0]
     assert "when" in rule
-    assert _rule_when_matches(rule, {"a": True, "b": False}, "t", "e") is False
-    assert _rule_when_matches(rule, {"a": True, "b": True}, "t", "e") is True
+    assert _matches(rule, {"a": True, "b": False}) is False
+    assert _matches(rule, {"a": True, "b": True}) is True

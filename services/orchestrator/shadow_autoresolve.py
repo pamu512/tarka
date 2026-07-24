@@ -7,9 +7,6 @@ import os
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-
-from graph.client import GraphClient
 from shadow.hooks.resolve_case import shadow_autoresolve_eligible
 
 logger = logging.getLogger(__name__)
@@ -37,8 +34,8 @@ def resolve_autoresolve_auth_token() -> str | None:
 
 async def try_shadow_autoresolve_after_ingest(
     *,
-    audit_session_factory: async_sessionmaker[AsyncSession],
-    graph_client: GraphClient | None,
+    audit_session_factory: Any,
+    graph_client: Any,
     audit_log_id: int,
     entity_id: str,
     metadata: dict[str, Any],
