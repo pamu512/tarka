@@ -256,11 +256,24 @@ async def test_endpoint_renews_lease_during_long_evaluation(
 
 @pytest.mark.asyncio
 async def test_endpoint_reports_completion_ownership_loss(endpoint_client):
+    from decision_api import main as main_mod
+
+    audit_commits = 0
+
+    class _AuditSession:
+        async def commit(self):
+            nonlocal audit_commits
+            audit_commits += 1
+
+    async def _fenced_evaluation(_body, request, _bg, _session):
+        await main_mod._commit_authoritative_audit(request, _AuditSession())
+        return _allow_response()
+
     with (
         patch(
             "decision_api.main._evaluate_decision_impl",
-            new=AsyncMock(return_value=_allow_response()),
-        ),
+            new=AsyncMock(side_effect=_fenced_evaluation),
+        ) as evaluator,
         patch(
             "decision_api.evaluate_idempotency.complete_evaluate_idempotency",
             new=AsyncMock(return_value=False),
@@ -271,6 +284,104 @@ async def test_endpoint_reports_completion_ownership_loss(endpoint_client):
             headers={"Idempotency-Key": "lost-owner"},
             json=_request_payload(),
         )
+        retry = await endpoint_client.post(
+            "/v1/decisions/evaluate",
+            headers={"Idempotency-Key": "lost-owner"},
+            json=_request_payload(),
+        )
+
+    assert response.status_code == 503
+    assert (
+        response.json()["detail"]["error"]
+        == "evaluate_idempotency_completion_uncertain"
+    )
+    assert retry.status_code == 409
+    assert retry.json()["detail"]["error"] == "evaluate_idempotency_outcome_uncertain"
+    assert evaluator.await_count == 1
+    assert audit_commits == 1
+
+
+@pytest.mark.asyncio
+async def test_endpoint_ownership_stolen_before_commit_writes_zero_audits(
+    endpoint_client,
+):
+    from decision_api import main as main_mod
+
+    audit_commits = 0
+
+    class _AuditSession:
+        async def commit(self):
+            nonlocal audit_commits
+            audit_commits += 1
+
+    async def _fenced_evaluation(_body, request, _bg, _session):
+        await main_mod._commit_authoritative_audit(request, _AuditSession())
+        return _allow_response()
+
+    with (
+        patch(
+            "decision_api.main._evaluate_decision_impl",
+            new=AsyncMock(side_effect=_fenced_evaluation),
+        ),
+        patch(
+            "decision_api.evaluate_idempotency.renew_evaluate_idempotency",
+            new=AsyncMock(return_value=False),
+        ),
+    ):
+        response = await endpoint_client.post(
+            "/v1/decisions/evaluate",
+            headers={"Idempotency-Key": "stolen-before-commit"},
+            json=_request_payload(),
+        )
 
     assert response.status_code == 503
     assert response.json()["detail"]["error"] == "evaluate_idempotency_lease_lost"
+    assert audit_commits == 0
+
+
+@pytest.mark.asyncio
+async def test_endpoint_heartbeat_covers_delayed_commit_with_one_audit(
+    endpoint_client, monkeypatch
+):
+    from decision_api import main as main_mod
+
+    monkeypatch.setenv("TARKA_EVALUATE_IDEMPOTENCY_LEASE_SECONDS", "1")
+    monkeypatch.setenv("TARKA_EVALUATE_IDEMPOTENCY_HEARTBEAT_SECONDS", "0.2")
+    commit_started = asyncio.Event()
+    audit_commits = 0
+
+    class _AuditSession:
+        async def commit(self):
+            nonlocal audit_commits
+            commit_started.set()
+            await asyncio.sleep(1.2)
+            audit_commits += 1
+
+    async def _fenced_evaluation(_body, request, _bg, _session):
+        await main_mod._commit_authoritative_audit(request, _AuditSession())
+        return _allow_response()
+
+    with patch(
+        "decision_api.main._evaluate_decision_impl",
+        new=AsyncMock(side_effect=_fenced_evaluation),
+    ) as evaluator:
+        first = asyncio.create_task(
+            endpoint_client.post(
+                "/v1/decisions/evaluate",
+                headers={"Idempotency-Key": "delayed-commit"},
+                json=_request_payload(),
+            )
+        )
+        await commit_started.wait()
+        await asyncio.sleep(1.05)
+        concurrent = await endpoint_client.post(
+            "/v1/decisions/evaluate",
+            headers={"Idempotency-Key": "delayed-commit"},
+            json=_request_payload(),
+        )
+        completed = await first
+
+    assert concurrent.status_code == 409
+    assert completed.status_code == 200, completed.text
+    assert evaluator.await_count == 1
+    assert audit_commits == 1

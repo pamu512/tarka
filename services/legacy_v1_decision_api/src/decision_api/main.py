@@ -2319,6 +2319,24 @@ def _evaluate_json_rules_http(
 # ---------- main endpoint ----------
 
 
+async def _assert_authoritative_audit_owner(request: Request) -> None:
+    callback = getattr(request.state, "evaluate_idempotency_assert_owner", None)
+    if callback is not None:
+        await callback()
+
+
+def _mark_authoritative_audit_committed(request: Request) -> None:
+    current = int(getattr(request.state, "evaluate_idempotency_audit_commits", 0))
+    request.state.evaluate_idempotency_audit_commits = current + 1
+
+
+async def _commit_authoritative_audit(request: Request, session: AsyncSession) -> None:
+    """Fence the idempotency owner immediately before committing an audit."""
+    await _assert_authoritative_audit_owner(request)
+    await session.commit()
+    _mark_authoritative_audit_committed(request)
+
+
 @app.post("/v1/decisions/evaluate", response_model=EvaluateResponse)
 async def evaluate_decision(
     body: EvaluateRequest,
@@ -2343,6 +2361,7 @@ async def evaluate_decision(
         return await _evaluate_decision_impl(body, request, bg, session)
 
     from decision_api.evaluate_idempotency import (
+        block_evaluate_idempotency_outcome,
         canonical_request_fingerprint,
         claim_evaluate_idempotency,
         complete_evaluate_idempotency,
@@ -2358,6 +2377,18 @@ async def evaluate_decision(
         )
     except ValueError:
         lease_seconds = 30
+    try:
+        commit_lease_seconds = max(
+            lease_seconds,
+            int(
+                os.environ.get(
+                    "TARKA_EVALUATE_IDEMPOTENCY_COMMIT_LEASE_SECONDS",
+                    str(max(120, lease_seconds * 4)),
+                )
+            ),
+        )
+    except ValueError:
+        commit_lease_seconds = max(120, lease_seconds * 4)
     try:
         heartbeat_seconds = float(
             os.environ.get(
@@ -2387,6 +2418,16 @@ async def evaluate_decision(
                 "message": "This Idempotency-Key is already bound to a different request.",
             },
         )
+    if claim.state == "blocked":
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "evaluate_idempotency_outcome_uncertain"},
+        )
+    if claim.state == "unavailable":
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "evaluate_idempotency_store_unavailable"},
+        )
     if claim.state != "owned" or not claim.owner_token:
         raise HTTPException(
             status_code=409,
@@ -2398,17 +2439,63 @@ async def evaluate_decision(
 
     owner_token = claim.owner_token
     lease_lost = asyncio.Event()
+    request.state.evaluate_idempotency_audit_commits = 0
+    request.state.evaluate_idempotency_commit_window = False
+
+    async def _assert_owner_for_commit() -> None:
+        if lease_lost.is_set():
+            raise HTTPException(
+                status_code=503,
+                detail={"error": "evaluate_idempotency_lease_lost"},
+            )
+        try:
+            renewed = await renew_evaluate_idempotency(
+                tenant_id=body.tenant_id,
+                idempotency_key=idem,
+                request_fingerprint=fingerprint,
+                owner_token=owner_token,
+                lease_seconds=commit_lease_seconds,
+            )
+        except Exception as exc:
+            log.critical(
+                "evaluate_idempotency_commit_fence_failed tenant_id=%s",
+                body.tenant_id,
+                exc_info=True,
+            )
+            lease_lost.set()
+            raise HTTPException(
+                status_code=503,
+                detail={"error": "evaluate_idempotency_lease_lost"},
+            ) from exc
+        if not renewed:
+            log.critical(
+                "evaluate_idempotency_commit_fence_ownership_lost tenant_id=%s",
+                body.tenant_id,
+            )
+            lease_lost.set()
+            raise HTTPException(
+                status_code=503,
+                detail={"error": "evaluate_idempotency_lease_lost"},
+            )
+        request.state.evaluate_idempotency_commit_window = True
+
+    request.state.evaluate_idempotency_assert_owner = _assert_owner_for_commit
 
     async def _heartbeat() -> None:
         while True:
             await asyncio.sleep(heartbeat_seconds)
             try:
+                renewal_seconds = (
+                    commit_lease_seconds
+                    if request.state.evaluate_idempotency_commit_window
+                    else lease_seconds
+                )
                 renewed = await renew_evaluate_idempotency(
                     tenant_id=body.tenant_id,
                     idempotency_key=idem,
                     request_fingerprint=fingerprint,
                     owner_token=owner_token,
-                    lease_seconds=lease_seconds,
+                    lease_seconds=renewal_seconds,
                 )
             except Exception:
                 log.critical(
@@ -2451,51 +2538,87 @@ async def evaluate_decision(
                 exc_info=True,
             )
 
+    async def _block_post_commit(reason: str) -> None:
+        try:
+            blocked = await block_evaluate_idempotency_outcome(
+                tenant_id=body.tenant_id,
+                idempotency_key=idem,
+                request_fingerprint=fingerprint,
+                reason=reason,
+            )
+        except Exception:
+            blocked = False
+            log.critical(
+                "evaluate_idempotency_post_commit_block_failed tenant_id=%s reason=%s",
+                body.tenant_id,
+                reason,
+                exc_info=True,
+            )
+        if not blocked:
+            log.critical(
+                "evaluate_idempotency_post_commit_outcome_unfenced tenant_id=%s reason=%s",
+                body.tenant_id,
+                reason,
+            )
+
     heartbeat = asyncio.create_task(_heartbeat())
     try:
         response = await _evaluate_decision_impl(body, request, bg, session)
     except BaseException:
+        committed = request.state.evaluate_idempotency_audit_commits > 0
+        if committed:
+            await _block_post_commit("evaluation_failed_after_audit_commit")
         await _stop_heartbeat(heartbeat)
-        await _release_claim()
+        if not committed:
+            await _release_claim()
         raise
 
-    await _stop_heartbeat(heartbeat)
-    if lease_lost.is_set():
-        await _release_claim()
-        raise HTTPException(
-            status_code=503,
-            detail={"error": "evaluate_idempotency_lease_lost"},
-        )
     try:
-        completed = await complete_evaluate_idempotency(
-            tenant_id=body.tenant_id,
-            idempotency_key=idem,
-            request_fingerprint=fingerprint,
-            owner_token=owner_token,
-            response=response.model_dump(mode="json"),
-        )
-    except Exception as exc:
-        log.critical(
-            "evaluate_idempotency_completion_failed tenant_id=%s",
-            body.tenant_id,
-            exc_info=True,
-        )
-        await _release_claim()
-        raise HTTPException(
-            status_code=503,
-            detail={"error": "evaluate_idempotency_completion_failed"},
-        ) from exc
-    if not completed:
-        log.critical(
-            "evaluate_idempotency_completion_ownership_lost tenant_id=%s",
-            body.tenant_id,
-        )
-        await _release_claim()
-        raise HTTPException(
-            status_code=503,
-            detail={"error": "evaluate_idempotency_lease_lost"},
-        )
-    return response
+        if lease_lost.is_set():
+            committed = request.state.evaluate_idempotency_audit_commits > 0
+            if committed:
+                await _block_post_commit("lease_lost_after_audit_commit")
+                raise HTTPException(
+                    status_code=503,
+                    detail={"error": "evaluate_idempotency_completion_uncertain"},
+                )
+            await _release_claim()
+            raise HTTPException(
+                status_code=503,
+                detail={"error": "evaluate_idempotency_lease_lost"},
+            )
+        try:
+            completed = await complete_evaluate_idempotency(
+                tenant_id=body.tenant_id,
+                idempotency_key=idem,
+                request_fingerprint=fingerprint,
+                owner_token=owner_token,
+                response=response.model_dump(mode="json"),
+            )
+        except Exception as exc:
+            log.critical(
+                "evaluate_idempotency_completion_failed tenant_id=%s",
+                body.tenant_id,
+                exc_info=True,
+            )
+            await _block_post_commit("completion_failed_after_audit_commit")
+            raise HTTPException(
+                status_code=503,
+                detail={"error": "evaluate_idempotency_completion_uncertain"},
+            ) from exc
+        if not completed:
+            log.critical(
+                "evaluate_idempotency_completion_ownership_lost tenant_id=%s",
+                body.tenant_id,
+            )
+            await _block_post_commit("completion_ownership_lost_after_audit_commit")
+            raise HTTPException(
+                status_code=503,
+                detail={"error": "evaluate_idempotency_completion_uncertain"},
+            )
+        return response
+    finally:
+        await _stop_heartbeat(heartbeat)
 
 
 async def _evaluate_decision_impl(
@@ -2720,7 +2843,7 @@ async def _evaluate_decision_impl(
                 payload_snapshot=_wl_snapshot,
             )
             session.add(audit)
-            await session.commit()
+            await _commit_authoritative_audit(request, session)
             _queue_early_list_decision_log(
                 decision="allow",
                 score=0.0,
@@ -2803,7 +2926,7 @@ async def _evaluate_decision_impl(
                 payload_snapshot=_bl_snapshot,
             )
             session.add(audit)
-            await session.commit()
+            await _commit_authoritative_audit(request, session)
             _queue_early_list_decision_log(
                 decision="deny",
                 score=100.0,
@@ -3164,6 +3287,7 @@ async def _evaluate_decision_impl(
             from decision_api.decision_engine import DecisionEngine
 
             if ENGINE_KIND == "postgres":
+                await _assert_authoritative_audit_owner(request)
                 await DecisionEngine().commit_pre_rule_evaluation_audit(
                     session,
                     trace_id=trace_id,
@@ -3175,6 +3299,7 @@ async def _evaluate_decision_impl(
                     signal_tags=signal_tags,
                     snapshot={"step_trace": step_trace},
                 )
+                _mark_authoritative_audit_committed(request)
                 pre_decision_audit_committed = True
 
         # Run rules + OPA + ML in parallel (OPA and ML don't need each other)
@@ -3601,6 +3726,7 @@ async def _evaluate_decision_impl(
         if pre_decision_audit_committed:
             from decision_api.decision_engine import finalize_audit_after_evaluation
 
+            await _assert_authoritative_audit_owner(request)
             await finalize_audit_after_evaluation(
                 session,
                 trace_id=trace_id,
@@ -3610,6 +3736,7 @@ async def _evaluate_decision_impl(
                 rule_hits=combined_rule_hits,
                 payload_snapshot=snap_extra,
             )
+            _mark_authoritative_audit_committed(request)
         else:
             audit = AuditRecord(
                 trace_id=trace_id,
@@ -3623,7 +3750,7 @@ async def _evaluate_decision_impl(
                 payload_snapshot=snap_extra,
             )
             session.add(audit)
-            await session.commit()
+            await _commit_authoritative_audit(request, session)
 
         decision_log_record = build_decision_log_record(
             trace_id=str(trace_id),
