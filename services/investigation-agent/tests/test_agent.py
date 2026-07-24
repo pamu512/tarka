@@ -879,6 +879,90 @@ class TestSearchKnowledgeOkf:
         assert grounded[2]["supported"] is False
         assert adjustments.count("tool_call_binding_invalid") == 2
 
+    def test_exact_ids_require_selected_successful_knowledge_call(self):
+        from investigation_agent.main import _enforce_claim_exact_ids
+
+        tool_calls = [
+            {
+                "tool": "search_knowledge",
+                "result": {
+                    "hits": [
+                        {
+                            "concept_id": "rules/high-amount",
+                            "evidence_ids": ["ev-high"],
+                            "title": "High Amount Rule",
+                            "snippet": "High amount transactions require manual review.",
+                        }
+                    ],
+                    "abstain": False,
+                    "conflicts": [],
+                },
+            },
+            {
+                "tool": "search_knowledge",
+                "result": {
+                    "hits": [
+                        {
+                            "concept_id": "typologies/mule-network",
+                            "evidence_ids": ["ev-mule"],
+                            "title": "Mule Network",
+                            "snippet": "Linked beneficiary accounts indicate mule activity.",
+                        }
+                    ],
+                    "abstain": False,
+                    "conflicts": [],
+                },
+            },
+            {
+                "tool": "get_case",
+                "result": {"case": {"id": "case-1", "status": "open"}},
+            },
+        ]
+        claims = [
+            {
+                "text": "High amount transactions require manual review.",
+                "source": "tool",
+                "concept_ids": ["rules/high-amount"],
+                "evidence_ids": ["ev-high"],
+                "supporting_tool_call_indices": [2],
+            },
+            {
+                "text": "Linked beneficiary accounts indicate mule activity.",
+                "source": "tool",
+                "concept_ids": ["typologies/mule-network"],
+                "evidence_ids": ["ev-mule"],
+                "supporting_tool_call_indices": [0, 2],
+            },
+            {
+                "text": "High amount transactions require manual review.",
+                "source": "tool",
+                "concept_ids": ["rules/high-amount"],
+                "evidence_ids": ["ev-high"],
+                "supporting_tool_call_indices": [0],
+            },
+            {
+                "text": "High amount transactions require manual review.",
+                "source": "model",
+                "concept_ids": ["rules/high-amount"],
+                "evidence_ids": ["ev-high"],
+                "supporting_tool_call_indices": [0],
+            },
+        ]
+
+        grounded, adjustments = _enforce_claim_exact_ids(claims, tool_calls)
+
+        assert [claim["source"] for claim in grounded] == [
+            "unknown",
+            "unknown",
+            "tool",
+            "unknown",
+        ]
+        assert grounded[0]["supported"] is False
+        assert grounded[1]["supported"] is False
+        assert grounded[3]["supported"] is False
+        assert "search_knowledge_citation_omitted" in adjustments
+        assert "unresolved_exact_citation_id" in adjustments
+
     @pytest.mark.parametrize("assurance_mode", ["standard", "strict"])
     def test_exact_citation_violation_withholds_narrative_in_all_modes(self, assurance_mode):
         from investigation_agent.main import _apply_grounding_abstention
