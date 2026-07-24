@@ -180,3 +180,35 @@ def test_review_metrics_endpoint(monkeypatch):
     assert data["approved"] == 1
     assert data["rejected"] == 1
     assert data["unique_reviewers"] == 2
+
+
+def test_review_history_endpoint_returns_latest_first(monkeypatch):
+    import investigation_agent.main as m
+
+    monkeypatch.setattr(m.settings, "copilot_maker_checker_required", False, raising=False)
+    first_id = review_store.save_review(
+        turn_id="turn-history",
+        tenant_id="demo",
+        analyst_id="checker-1",
+        status="approved",
+        note="first",
+    )
+    second_id = review_store.save_review(
+        turn_id="turn-history",
+        tenant_id="demo",
+        analyst_id="checker-2",
+        status="rejected",
+        note="second",
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/v1/review/history",
+            params={"turn_id": "turn-history", "tenant_id": "demo"},
+        )
+
+    assert response.status_code == 200, response.text
+    assert [row["id"] for row in response.json()["reviews"]] == [
+        second_id,
+        first_id,
+    ]

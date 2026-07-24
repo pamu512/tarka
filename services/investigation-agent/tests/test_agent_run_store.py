@@ -144,18 +144,29 @@ def test_review_and_agent_run_are_atomic_and_retry_idempotent(tmp_path, monkeypa
         status="approved",
         note="verified",
     )
+    distinct_id = agent_run_store.save_review_transactionally(
+        turn_id="turn-atomic",
+        tenant_id="t1",
+        analyst_id="checker-2",
+        status="rejected",
+        note="new evidence",
+    )
 
     reviewed = agent_run_store.get_agent_run(
         tenant_id="t1",
         agent_run_id=run["agent_run_id"],
     )
     metrics = review_store.review_metrics("t1")
+    history = review_store.review_history("turn-atomic", "t1")
 
     assert retry_id == first_id
-    assert reviewed["review_state"] == "approved"
-    assert review_store.latest_review("turn-atomic", "t1")["id"] == first_id
-    assert metrics["total_reviews"] == 1
+    assert distinct_id != first_id
+    assert reviewed["review_state"] == "rejected"
+    assert review_store.latest_review("turn-atomic", "t1")["id"] == distinct_id
+    assert [row["id"] for row in history] == [distinct_id, first_id]
+    assert metrics["total_reviews"] == 2
     assert metrics["approved"] == 1
+    assert metrics["rejected"] == 1
     agent_run_store.reset_connection_for_tests()
 
 
@@ -233,33 +244,115 @@ def test_unified_store_migrates_legacy_reviews_once_across_restart(tmp_path, mon
         )
         """
     )
-    legacy.execute(
+    base_time = time.time() - 10
+    legacy.executemany(
         """
         INSERT INTO copilot_turn_reviews (
             turn_id, tenant_id, analyst_id, status, note, created_at
         ) VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (
-            "legacy-turn",
-            "t1",
-            "legacy-reviewer",
-            "approved",
-            "historical",
-            time.time(),
-        ),
+        [
+            (
+                "legacy-turn",
+                "t1",
+                "legacy-reviewer-1",
+                "approved",
+                "first event",
+                base_time,
+            ),
+            (
+                "legacy-turn",
+                "t1",
+                "legacy-reviewer-2",
+                "rejected",
+                "second event",
+                base_time + 1,
+            ),
+            (
+                "legacy-turn",
+                "t1",
+                "legacy-reviewer-1",
+                "approved",
+                "first event",
+                base_time + 2,
+            ),
+        ],
     )
     legacy.commit()
     legacy.close()
 
     first = review_store.latest_review("legacy-turn", "t1")
+    first_history = review_store.review_history("legacy-turn", "t1")
     agent_run_store.reset_connection_for_tests()
     second = review_store.latest_review("legacy-turn", "t1")
+    second_history = review_store.review_history("legacy-turn", "t1")
     metrics = review_store.review_metrics("t1", days=365)
 
     assert first is not None
     assert first["status"] == "approved"
     assert second["id"] == first["id"]
-    assert metrics["total_reviews"] == 1
+    assert [row["status"] for row in first_history] == [
+        "approved",
+        "rejected",
+        "approved",
+    ]
+    assert [row["id"] for row in second_history] == [row["id"] for row in first_history]
+    assert metrics["total_reviews"] == 3
+    agent_run_store.reset_connection_for_tests()
+
+
+def test_unified_current_review_table_upgrades_to_append_only_history(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setenv("INVESTIGATION_DATA_DIR", str(tmp_path))
+    agent_run_store.reset_connection_for_tests()
+    unified = sqlite3.connect(tmp_path / "copilot_agent_runs.sqlite3")
+    unified.execute(
+        """
+        CREATE TABLE copilot_turn_reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            turn_id TEXT NOT NULL,
+            tenant_id TEXT NOT NULL,
+            analyst_id TEXT NOT NULL,
+            status TEXT NOT NULL,
+            note TEXT,
+            created_at REAL NOT NULL,
+            updated_at REAL NOT NULL,
+            UNIQUE (tenant_id, turn_id)
+        )
+        """
+    )
+    unified.execute(
+        """
+        INSERT INTO copilot_turn_reviews (
+            turn_id, tenant_id, analyst_id, status, note, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        ("turn-upgrade", "t1", "checker-1", "approved", "first", 100.0, 100.0),
+    )
+    unified.commit()
+    unified.close()
+
+    first_history = review_store.review_history("turn-upgrade", "t1")
+    second_id = review_store.save_review(
+        turn_id="turn-upgrade",
+        tenant_id="t1",
+        analyst_id="checker-2",
+        status="rejected",
+        note="second",
+    )
+    retry_id = review_store.save_review(
+        turn_id="turn-upgrade",
+        tenant_id="t1",
+        analyst_id="checker-2",
+        status="rejected",
+        note="second",
+    )
+
+    assert len(first_history) == 1
+    assert retry_id == second_id
+    assert len(review_store.review_history("turn-upgrade", "t1")) == 2
     agent_run_store.reset_connection_for_tests()
 
 
