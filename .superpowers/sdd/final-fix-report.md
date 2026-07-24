@@ -753,3 +753,164 @@ Remaining concerns:
   and prevent claiming an entirely clean all-marker contract run.
 - Existing Starlette/httpx, PyO3/dead-code, and frontend chunk-size warnings
   remain non-failing.
+
+## Final coherence and diagnostic baseline closure
+
+Status: `DONE_WITH_CONCERNS`
+
+Fix commits:
+
+- `83213e96` — `fix(copilot): keep review history coherent`
+- `ba8648e8` — `fix(copilot): close grounding and readiness gaps`
+
+Delivered:
+
+- Review retries now deduplicate only against the latest event. An
+  approve → reject → approve sequence appends three events, while an immediate
+  retry reuses the current event ID; latest lookup, history ordering, metrics,
+  and AgentRun review state agree. Legacy migration digests include stable
+  legacy row IDs, preserving identical-content rows even with identical
+  timestamps.
+- Exact-ID/index enforcement and selected-call token grounding now complete
+  before narrative withholding. Missing grounding tokens, no successful
+  selected payload, invalid bindings, and fabricated or unrelated exact IDs
+  withhold unsupported prose in standard and strict modes. Token overlap is
+  evaluated only against the claim's selected successful calls.
+- Landmark name checks now use a maintained, case-insensitive common-given-name
+  lexicon plus explicit person-name labels. A recognized first name fails
+  closed even when followed by a fraud-domain token, while unknown prose
+  bigrams such as `Unusual behavior detected` remain valid.
+- Readiness follows graceful degradation: disabled paths are neutral; one
+  failed enabled path with another usable path returns sanitized 200
+  `degraded`; 503 `not_ready` is reserved for no usable knowledge path.
+  OpenAPI and operator documentation match runtime.
+
+Fresh verification:
+
+```bash
+cd services/investigation-agent
+PYTHONPATH=src:../shared:../../packages/shared-core python3 -m pytest -q
+```
+
+Result: exit 0; `368 passed, 1 skipped`. This includes API-level
+approve/reject/approve coherence, identical legacy-row migration, selected-call
+token grounding, narrative withholding, name PII, and readiness tests.
+
+```bash
+python3 services/investigation-agent/scripts/validate_okf_bundle.py \
+  knowledge/shared --scope shared
+PYTHONPATH=services/investigation-agent/src:services/shared:packages/shared-core \
+python3 -m pytest -q \
+  services/investigation-agent/tests/test_okf_parser.py \
+  services/investigation-agent/tests/test_okf_registry.py \
+  services/investigation-agent/tests/test_okf_exporters.py \
+  services/investigation-agent/tests/test_okf_retrieval.py \
+  services/investigation-agent/tests/test_okf_end_to_end.py \
+  services/investigation-agent/tests/test_citation_quality_gate.py \
+  services/investigation-agent/tests/test_agent_run_deployment.py \
+  services/investigation-agent/tests/test_agent_run_store.py \
+  services/investigation-agent/tests/test_plugin_and_maker_checker.py \
+  services/investigation-agent/tests/test_production_readiness.py \
+  services/investigation-agent/tests/test_okf_cli.py
+python3 infra/scripts/deploy/validate_env_contract.py
+```
+
+Result: exit 0; shared bundle valid; `172 passed`; environment contract covered
+`8/8` required keys. The runtime-backed citation quality gate includes a
+successful-but-unrelated selected-tool adversarial case and still enforces
+exact citation precision `>=99.5%`, actual abstention `>=98%`, and recall@10
+`>=95%`.
+
+Schemathesis baseline comparison:
+
+```bash
+# Current branch diagnostic
+cd services/legacy_v1_decision_api
+PYTHONPATH=src:../shared:../../packages/shared-core \
+DATABASE_URL=sqlite+aiosqlite:/// REDIS_URL=redis://localhost:6379/0 \
+python3 -m pytest -q -m contract tests/
+
+# Detached pre-finding baseline at 89d002d7, in an isolated worktree
+cd /tmp/tarka-contract-baseline/services/legacy_v1_decision_api
+PYTHONPATH=src:../shared:../../packages/shared-core \
+DATABASE_URL=sqlite+aiosqlite:/// REDIS_URL=redis://localhost:6379/0 \
+python3 -m pytest -q -m contract tests/
+```
+
+Result: the current diagnostic reported `34 failed, 79 passed, 358 deselected`;
+the `89d002d7` baseline reported `34 failed, 79 passed, 357 deselected`.
+Programmatic comparison found identical 34-endpoint failure sets:
+`current-only=0`, `baseline-only=0`. The one deselection difference is the new
+non-contract SQLite startup test.
+
+The 34 baseline failures classify as:
+
+- 9 existing permissive request-coercion/accepted-negative-data cases.
+- 2 Redis-unavailable contract-fixture cases.
+- 5 async contract-fixture `MagicMock` mismatches.
+- 18 server errors from contract dependencies not provisioned by the fixture.
+
+No branch-caused Schemathesis failure was found, so no decision schema,
+implementation, or contract test was weakened or changed for this diagnostic.
+The isolated baseline worktree was removed after comparison.
+
+```bash
+cd services/decision-api
+PYTHONPATH=src:../shared:../core/src:../../packages/shared-core \
+DATABASE_URL=sqlite+aiosqlite:/// REDIS_URL=redis://localhost:6379/0 \
+python3 -m pytest -q -m "not contract" tests/
+
+cd ../legacy_v1_decision_api
+PYTHONPATH=src:../shared:../../packages/shared-core \
+DATABASE_URL=sqlite+aiosqlite:/// REDIS_URL=redis://localhost:6379/0 \
+python3 -m pytest -q -m "not contract" tests/
+```
+
+Result: exit 0; source `59 passed, 1 skipped`; deployed legacy `358 passed,
+113 contract tests deselected`.
+
+```bash
+python3 -m ruff --version
+python3 -m ruff check .
+python3 -m ruff format --check services/
+```
+
+Result: exit 0; `ruff 0.15.22`; all checks passed; `1190 files already
+formatted`.
+
+```bash
+npm ci
+npm audit --audit-level=low
+npm run test -w tarka-ui
+python3 infra/scripts/ci/check_frontend_mock_mode.py
+npm run build -w tarka-ui
+```
+
+Result: exit 0; `0 vulnerabilities`; `49` test files and `144` tests passed;
+mock-mode guard passed; production build completed.
+
+```bash
+cargo +stable check --manifest-path services/rule-engine/Cargo.toml
+cargo +stable test --manifest-path services/rule-engine/Cargo.toml
+cargo +stable check --manifest-path packages/tarka-rule-engine/Cargo.toml
+cargo +stable test --manifest-path packages/tarka-rule-engine/Cargo.toml
+```
+
+Result: exit 0; service rule engine `4 passed`; package rule engine `5 passed`;
+doc tests passed.
+
+```bash
+git diff --check
+git diff --name-only -- docs/superpowers/specs docs/superpowers/plans
+git status --porcelain=v2 --untracked-files=all
+```
+
+Result before this report commit: no whitespace errors, no plan/design edits,
+and no generated databases, decision logs, rule packs, or untracked artifacts.
+
+Remaining concerns:
+
+- The 34 baseline Schemathesis failures remain unresolved outside this branch's
+  changes; their exact failure set and categories are documented above.
+- Existing Starlette/httpx, Rust dead-code, npm deprecation, and frontend
+  chunk-size warnings remain non-failing.
