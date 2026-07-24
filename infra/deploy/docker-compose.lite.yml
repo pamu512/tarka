@@ -71,8 +71,8 @@ services:
       EDGE_SECURITY_SIGNALS_ENABLED: ${EDGE_SECURITY_SIGNALS_ENABLED:-false}
       API_KEYS: ${API_KEYS:-}
       API_KEY_TENANT_MAP: ${API_KEY_TENANT_MAP:-}
-      ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-true}
-      TENANT_BINDING_REQUIRED: ${TENANT_BINDING_REQUIRED:-false}
+      ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-false}
+      TENANT_BINDING_REQUIRED: ${TENANT_BINDING_REQUIRED:-true}
       DECISION_API_URL: http://127.0.0.1:8000/decisions
       AUDIT_IMMUTABLE: ${AUDIT_IMMUTABLE:-true}
     ports:
@@ -156,7 +156,7 @@ services:
     environment:
       DATABASE_URL: postgresql://fraud:fraud@postgres:5432/fraud
       REDIS_URL: redis://redis:6379/0
-      ALLOW_INSECURE_NO_AUTH: "true"
+      ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-false}
     ports:
       - "8014:8014"
     depends_on:
@@ -180,7 +180,8 @@ services:
       DECISION_API_URL: http://core-api:8000/decisions
       REDIS_URL: redis://redis:6379/0
       API_KEYS: ${API_KEYS:-}
-      ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-true}
+      ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-false}
+      TENANT_BINDING_REQUIRED: ${TENANT_BINDING_REQUIRED:-true}
       INGEST_SCHEMA_REGISTRY_MODE: ${INGEST_SCHEMA_REGISTRY_MODE:-enforce}
       CLICKHOUSE_HOST: ${CLICKHOUSE_HOST:-clickhouse}
       CLICKHOUSE_DATABASE: fraud

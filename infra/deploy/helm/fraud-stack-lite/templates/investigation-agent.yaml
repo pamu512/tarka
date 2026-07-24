@@ -26,6 +26,22 @@ spec:
               value: "/app/knowledge/shared"
             - name: OKF_TENANT_ROOT
               value: {{ .Values.investigationAgent.okfTenantOverlays.mountPath | quote }}
+          readinessProbe:
+            httpGet:
+              path: /v1/ready
+              port: {{ .Values.investigationAgent.port }}
+            initialDelaySeconds: 8
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /v1/health
+              port: {{ .Values.investigationAgent.port }}
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 4
           {{- if .Values.investigationAgent.okfTenantOverlays.enabled }}
           volumeMounts:
             - name: okf-tenant-overlays
