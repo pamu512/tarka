@@ -171,7 +171,10 @@ class TestFailClosedAuth:
         monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
         main_mod._valid_api_keys = None
         with (
-            patch("investigation_agent.main._llm_tool_loop", new=AsyncMock(side_effect=TestChatTenantBinding._fake_llm)),
+            patch(
+                "investigation_agent.main._llm_tool_loop",
+                new=AsyncMock(side_effect=TestChatTenantBinding._fake_llm),
+            ),
             patch.multiple(
                 "investigation_agent.main.settings",
                 openai_api_key="sk-test",
@@ -218,7 +221,9 @@ class TestChatTenantBinding:
             headers["x-tenant-id"] = header_tenant
             headers["x-analyst-id"] = "analyst-1"
         with (
-            patch("investigation_agent.main._llm_tool_loop", new=AsyncMock(side_effect=self._fake_llm)),
+            patch(
+                "investigation_agent.main._llm_tool_loop", new=AsyncMock(side_effect=self._fake_llm)
+            ),
             patch.multiple(
                 "investigation_agent.main.settings",
                 openai_api_key="sk-test",
@@ -350,8 +355,14 @@ class TestTenantScopedRoutes:
     def test_t1_key_cannot_write_t2_tenant_routes(self, route_id, method, path):
         with (
             patch("investigation_agent.main.is_analyst_allowed", return_value=True),
-            patch("investigation_agent.main._llm_tool_loop", new=AsyncMock(side_effect=TestChatTenantBinding._fake_llm)),
-            patch("investigation_agent.main._forward_case_action", new=AsyncMock(return_value={"upstream": "ok"})) as forward_case_action,
+            patch(
+                "investigation_agent.main._llm_tool_loop",
+                new=AsyncMock(side_effect=TestChatTenantBinding._fake_llm),
+            ),
+            patch(
+                "investigation_agent.main._forward_case_action",
+                new=AsyncMock(return_value={"upstream": "ok"}),
+            ) as forward_case_action,
             TestClient(app) as c,
         ):
             r = getattr(c, method)(
@@ -384,8 +395,14 @@ class TestTenantScopedRoutes:
     def test_t1_key_can_use_representative_t1_routes(self):
         with (
             patch("investigation_agent.main.is_analyst_allowed", return_value=True),
-            patch("investigation_agent.main._llm_tool_loop", new=AsyncMock(side_effect=TestChatTenantBinding._fake_llm)),
-            patch("investigation_agent.main._forward_case_action", new=AsyncMock(return_value={"upstream": "ok"})),
+            patch(
+                "investigation_agent.main._llm_tool_loop",
+                new=AsyncMock(side_effect=TestChatTenantBinding._fake_llm),
+            ),
+            patch(
+                "investigation_agent.main._forward_case_action",
+                new=AsyncMock(return_value={"upstream": "ok"}),
+            ),
             patch(
                 "investigation_agent.main.knowledge_store.ingest_document_async",
                 new=AsyncMock(return_value="doc-1"),
@@ -399,56 +416,86 @@ class TestTenantScopedRoutes:
             ),
             TestClient(app) as c,
         ):
-            assert c.post(
-                "/v1/reports/case-summary",
-                headers=self._headers(),
-                json=self._json_body("case_summary", "t1"),
-            ).status_code == 200
-            assert c.post(
-                "/v1/reports/turn-bundle",
-                headers=self._headers(),
-                json=self._json_body("turn_bundle", "t1"),
-            ).status_code == 200
-            assert c.post(
-                "/v1/plugin/session",
-                headers=self._headers(),
-                json=self._json_body("plugin_session", "t1"),
-            ).status_code == 200
-            assert c.post(
-                "/v1/case-actions",
-                headers=self._headers(),
-                json=self._json_body("case_action", "t1"),
-            ).status_code == 200
-            assert c.post(
-                "/v1/thread-correlations",
-                headers=self._headers(),
-                json=self._json_body("thread_correlation", "t1"),
-            ).status_code == 200
-            assert c.get(
-                "/v1/thread-correlations/slack/ws/thread-1",
-                headers=self._headers(),
-                params={"tenant_id": "t1"},
-            ).status_code == 200
-            assert c.post(
-                "/v1/knowledge/ingest",
-                headers=self._headers(),
-                json=self._json_body("knowledge", "t1"),
-            ).status_code == 200
-            assert c.post(
-                "/v1/feedback",
-                headers=self._headers(),
-                json=self._json_body("feedback", "t1"),
-            ).status_code == 200
-            assert c.get(
-                "/v1/feedback/summary",
-                headers=self._headers(),
-                params={"tenant_id": "t1"},
-            ).status_code == 200
-            assert c.get(
-                "/v1/feedback/recent",
-                headers=self._headers(),
-                params={"tenant_id": "t1"},
-            ).status_code == 200
+            assert (
+                c.post(
+                    "/v1/reports/case-summary",
+                    headers=self._headers(),
+                    json=self._json_body("case_summary", "t1"),
+                ).status_code
+                == 200
+            )
+            assert (
+                c.post(
+                    "/v1/reports/turn-bundle",
+                    headers=self._headers(),
+                    json=self._json_body("turn_bundle", "t1"),
+                ).status_code
+                == 200
+            )
+            assert (
+                c.post(
+                    "/v1/plugin/session",
+                    headers=self._headers(),
+                    json=self._json_body("plugin_session", "t1"),
+                ).status_code
+                == 200
+            )
+            assert (
+                c.post(
+                    "/v1/case-actions",
+                    headers=self._headers(),
+                    json=self._json_body("case_action", "t1"),
+                ).status_code
+                == 200
+            )
+            assert (
+                c.post(
+                    "/v1/thread-correlations",
+                    headers=self._headers(),
+                    json=self._json_body("thread_correlation", "t1"),
+                ).status_code
+                == 200
+            )
+            assert (
+                c.get(
+                    "/v1/thread-correlations/slack/ws/thread-1",
+                    headers=self._headers(),
+                    params={"tenant_id": "t1"},
+                ).status_code
+                == 200
+            )
+            assert (
+                c.post(
+                    "/v1/knowledge/ingest",
+                    headers=self._headers(),
+                    json=self._json_body("knowledge", "t1"),
+                ).status_code
+                == 200
+            )
+            assert (
+                c.post(
+                    "/v1/feedback",
+                    headers=self._headers(),
+                    json=self._json_body("feedback", "t1"),
+                ).status_code
+                == 200
+            )
+            assert (
+                c.get(
+                    "/v1/feedback/summary",
+                    headers=self._headers(),
+                    params={"tenant_id": "t1"},
+                ).status_code
+                == 200
+            )
+            assert (
+                c.get(
+                    "/v1/feedback/recent",
+                    headers=self._headers(),
+                    params={"tenant_id": "t1"},
+                ).status_code
+                == 200
+            )
             main_mod.feedback_store.record_turn(
                 turn_id="turn-t1",
                 tenant_id="t1",
@@ -459,31 +506,46 @@ class TestTenantScopedRoutes:
                 reply_preview="preview",
                 tool_count=0,
             )
-            assert c.post(
-                "/v1/review/turn",
-                headers=self._headers(),
-                json=self._json_body("review", "t1"),
-            ).status_code == 200
-            assert c.get(
-                "/v1/review/turn",
-                headers=self._headers(),
-                params={"tenant_id": "t1", "turn_id": "turn-t1"},
-            ).status_code == 200
-            assert c.get(
-                "/v1/review/metrics",
-                headers=self._headers(),
-                params={"tenant_id": "t1"},
-            ).status_code == 200
-            assert c.post(
-                "/v1/chat",
-                headers=self._headers(),
-                json=self._json_body("chat", "t1"),
-            ).status_code == 200
-            assert c.post(
-                "/v1/saarthi/feature-importance",
-                headers=self._headers(),
-                json=self._json_body("saarthi", "t1"),
-            ).status_code == 200
+            assert (
+                c.post(
+                    "/v1/review/turn",
+                    headers=self._headers(),
+                    json=self._json_body("review", "t1"),
+                ).status_code
+                == 200
+            )
+            assert (
+                c.get(
+                    "/v1/review/turn",
+                    headers=self._headers(),
+                    params={"tenant_id": "t1", "turn_id": "turn-t1"},
+                ).status_code
+                == 200
+            )
+            assert (
+                c.get(
+                    "/v1/review/metrics",
+                    headers=self._headers(),
+                    params={"tenant_id": "t1"},
+                ).status_code
+                == 200
+            )
+            assert (
+                c.post(
+                    "/v1/chat",
+                    headers=self._headers(),
+                    json=self._json_body("chat", "t1"),
+                ).status_code
+                == 200
+            )
+            assert (
+                c.post(
+                    "/v1/saarthi/feature-importance",
+                    headers=self._headers(),
+                    json=self._json_body("saarthi", "t1"),
+                ).status_code
+                == 200
+            )
 
     def test_t1_key_can_batch_ingest_t1_but_not_t2(self):
         files = {"file": ("sample.csv", io.BytesIO(b"a,b\n1,2\n"), "text/csv")}
@@ -575,9 +637,7 @@ class TestTenantScopedRoutes:
         assert second.json().get("replayed") is not True
         assert forward.await_count == 2
 
-    def test_turn_review_other_tenant_turn_is_same_not_found_as_absent(
-        self, tmp_path, monkeypatch
-    ):
+    def test_turn_review_other_tenant_turn_is_same_not_found_as_absent(self, tmp_path, monkeypatch):
         monkeypatch.setenv("INVESTIGATION_DATA_DIR", str(tmp_path))
         main_mod.feedback_store.reset_connection_for_tests()
         main_mod.review_store.reset_connection_for_tests()

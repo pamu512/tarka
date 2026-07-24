@@ -15,7 +15,9 @@ _AGENT_ROOT = _REPO_ROOT / "services" / "investigation-agent"
 _RULES_DIR = _REPO_ROOT / "services" / "legacy_v1_decision_api" / "rules"
 
 
-def _run_export(output: Path, *, include_playbooks: bool = True) -> subprocess.CompletedProcess[str]:
+def _run_export(
+    output: Path, *, include_playbooks: bool = True
+) -> subprocess.CompletedProcess[str]:
     cmd = [
         sys.executable,
         str(_AGENT_ROOT / "scripts" / "export_okf_bundle.py"),
@@ -29,7 +31,13 @@ def _run_export(output: Path, *, include_playbooks: bool = True) -> subprocess.C
     return subprocess.run(cmd, capture_output=True, text=True, check=False)
 
 
-def _run_validate(root: Path, *, scope: str = "shared", tenant_id: str = "") -> subprocess.CompletedProcess[str]:
+def _run_validate(
+    root: Path,
+    *,
+    scope: str = "shared",
+    tenant_id: str = "",
+    shared_root: Path | None = None,
+) -> subprocess.CompletedProcess[str]:
     cmd = [
         sys.executable,
         str(_AGENT_ROOT / "scripts" / "validate_okf_bundle.py"),
@@ -39,6 +47,8 @@ def _run_validate(root: Path, *, scope: str = "shared", tenant_id: str = "") -> 
     ]
     if tenant_id:
         cmd.extend(["--tenant-id", tenant_id])
+    if shared_root is not None:
+        cmd.extend(["--shared-root", str(shared_root)])
     return subprocess.run(cmd, capture_output=True, text=True, check=False)
 
 
@@ -86,4 +96,47 @@ def test_validate_active_knowledge_shared_index_only(tmp_path: Path) -> None:
     if not root.is_dir():
         pytest.skip("knowledge/shared not present")
     result = _run_validate(root, scope="shared")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def _approved_frontmatter(*, tenant_scope: str, source_hash_char: str) -> str:
+    return (
+        "---\n"
+        "type: Reference\n"
+        f"tenant_scope: {tenant_scope}\n"
+        "source_uri: docs/ref\n"
+        f"source_content_hash: {source_hash_char * 64}\n"
+        "approval_status: approved\n"
+        "approved_revision: approved-rev-1\n"
+        "sensitivity: internal\n"
+        "---\n"
+    )
+
+
+def test_validate_tenant_bundle_accepts_shared_root_for_logical_links(
+    tmp_path: Path,
+) -> None:
+    shared = tmp_path / "shared"
+    tenant = tmp_path / "tenants" / "t1"
+    (shared / "rules").mkdir(parents=True)
+    (tenant / "playbooks").mkdir(parents=True)
+    (shared / "index.md").write_text('---\nokf_version: "0.1"\n---\n')
+    (tenant / "index.md").write_text('---\nokf_version: "0.1"\n---\n')
+    (shared / "rules" / "high-amount.md").write_text(
+        _approved_frontmatter(tenant_scope="shared", source_hash_char="a") + "Shared rule body.\n",
+        encoding="utf-8",
+    )
+    (tenant / "playbooks" / "review.md").write_text(
+        _approved_frontmatter(tenant_scope="t1", source_hash_char="b")
+        + "Follow [high amount](/shared/rules/high-amount.md).\n",
+        encoding="utf-8",
+    )
+
+    result = _run_validate(
+        tenant,
+        scope="tenant",
+        tenant_id="t1",
+        shared_root=shared,
+    )
+
     assert result.returncode == 0, result.stdout + result.stderr
