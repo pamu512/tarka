@@ -189,6 +189,90 @@ class TestEvaluateDecision:
                     assert "ml_model" in snap0
 
     @pytest.mark.asyncio
+    async def test_test_bypass_recomputes_response_audit_and_log_identically(
+        self, client
+    ):
+        from decision_api.config import settings
+        from decision_api.main import get_session
+        from entity_lists import ListCheckResult
+
+        mock_session = AsyncMock()
+        captured_audits: list = []
+        mock_session.add = MagicMock(side_effect=captured_audits.append)
+        mock_session.commit = AsyncMock()
+        emitted_log = AsyncMock()
+        published = AsyncMock()
+        broadcast = AsyncMock()
+
+        client.tarka_app.dependency_overrides[get_session] = _override_session_factory(
+            mock_session
+        )
+        try:
+            with (
+                patch.object(settings, "decision_log_include_payload_snapshot", True),
+                patch(
+                    "decision_api.main._list_check_with_circuit",
+                    new=AsyncMock(
+                        return_value=ListCheckResult(
+                            found=True,
+                            list_type="test_bypass",
+                            action="evaluate",
+                            reason="qa-entity",
+                        )
+                    ),
+                ),
+                patch(
+                    "decision_api.main.evaluate_json_rules",
+                    return_value=(["deny-rule"], ["rule:deny"], 100.0, []),
+                ),
+                patch(
+                    "decision_api.main.evaluate_opa_or_raise",
+                    new_callable=AsyncMock,
+                    return_value=None,
+                ),
+                patch(
+                    "decision_api.main._fetch_ml_score_wrapped",
+                    new_callable=AsyncMock,
+                    return_value=(None, {}),
+                ),
+                patch("decision_api.main.emit_decision_log", emitted_log),
+                patch("decision_api.main._publish_decision", published),
+                patch("decision_api.main._broadcast_decision", broadcast),
+            ):
+                response = await client.post(
+                    "/v1/decisions/evaluate",
+                    json={
+                        "tenant_id": "t1",
+                        "event_type": "payment",
+                        "entity_id": "qa-entity",
+                        "payload": {"amount": 9000},
+                    },
+                )
+        finally:
+            client.tarka_app.dependency_overrides.pop(get_session, None)
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        audit = captured_audits[-1]
+        decision_log = emitted_log.await_args.args[0]
+        publication = published.await_args.args[1]
+        snapshot = audit.payload_snapshot
+        assert body["decision"] == audit.decision == decision_log["decision"] == "allow"
+        assert publication["decision"] == "allow"
+        assert body["rule_hits"] == audit.rule_hits == decision_log["rule_hits"]
+        assert body["tags"] == audit.tags == decision_log["tags"]
+        assert body["inference_context"] == snapshot["inference_context"]
+        assert body["inference_context"] == decision_log["inference_context"]
+        assert body["recommended_action"] == snapshot["recommended_action"]
+        assert body["recommended_action"] == decision_log["recommended_action"]
+        assert body["challenge_metadata"] == snapshot["challenge_metadata"]
+        assert body["challenge_metadata"] == decision_log["challenge_metadata"]
+        assert "list:test_bypass" in body["inference_context"]["top_signals"]
+        assert "test_bypass" in body["rule_hits"]
+        assert "list:test_bypass" in body["tags"]
+        assert snapshot["test_bypass"] is True
+
+    @pytest.mark.asyncio
     @pytest.mark.parametrize(
         ("list_type", "action", "expected_decision"),
         [
@@ -201,7 +285,7 @@ class TestEvaluateDecision:
     ):
         from decision_api.config import settings
         from decision_api.main import get_session
-        from entity_lists import ListCheckResult
+        from entity_lists import ListCheckResult, ListEntry
 
         mock_session = AsyncMock()
         captured_audits: list = []
@@ -222,6 +306,19 @@ class TestEvaluateDecision:
                             list_type=list_type,
                             action=action,
                             reason="reviewed-list-entry",
+                            entry=ListEntry(
+                                list_type=list_type,
+                                tenant_id="t1",
+                                entity_id="listed-entity",
+                                reason="reviewed-list-entry",
+                                created_by="reviewer@example.test",
+                                created_at="2026-07-24T00:00:00+00:00",
+                                expires_at="2026-08-24T00:00:00+00:00",
+                                metadata={
+                                    "email": "subject@example.test",
+                                    "ticket_id": "LIST-42",
+                                },
+                            ),
                         )
                     ),
                 ),
@@ -247,9 +344,53 @@ class TestEvaluateDecision:
         assert len(evidence["rule_pack_content_sha256"]) == 64
         assert evidence["condition_trace"]
         assert evidence["engine_build"]
+        assert evidence["list_entry"]["entity_id"] == "listed-entity"
+        assert evidence["list_entry"]["list_type"] == list_type
+        assert evidence["list_entry"]["action"] == action
+        assert evidence["list_entry"]["created_at"] == "2026-07-24T00:00:00+00:00"
+        assert evidence["list_entry"]["expires_at"] == "2026-08-24T00:00:00+00:00"
+        assert evidence["list_entry"]["created_by"] != "reviewer@example.test"
+        assert evidence["list_entry"]["metadata"]["email"] != "subject@example.test"
+        assert evidence["list_entry"]["metadata"]["ticket_id"] == "LIST-42"
         decision_log = emitted_log.await_args.args[0]
         assert decision_log["decision"] == expected_decision
         assert decision_log["payload_snapshot"]["decision_evidence"] == evidence
+
+    def test_early_list_entry_identity_changes_evidence_hash(self):
+        from decision_api.decision_evidence import build_list_decision_evidence_snapshot
+
+        first = build_list_decision_evidence_snapshot(
+            payload={"amount": 77},
+            list_type="whitelist",
+            action="allow",
+            list_entry={
+                "entity_id": "entity-1",
+                "list_type": "whitelist",
+                "action": "allow",
+                "created_at": "2026-07-24T00:00:00+00:00",
+                "expires_at": None,
+                "created_by": "***REDACTED***",
+                "metadata": {"ticket_id": "LIST-1"},
+            },
+        )
+        second = build_list_decision_evidence_snapshot(
+            payload={"amount": 77},
+            list_type="whitelist",
+            action="allow",
+            list_entry={
+                "entity_id": "entity-1",
+                "list_type": "whitelist",
+                "action": "allow",
+                "created_at": "2026-07-24T00:00:01+00:00",
+                "expires_at": None,
+                "created_by": "***REDACTED***",
+                "metadata": {"ticket_id": "LIST-2"},
+            },
+        )
+
+        assert first["rule_pack_content_sha256"] != second["rule_pack_content_sha256"]
+        assert first["list_entry"]["metadata"]["ticket_id"] == "LIST-1"
+        assert second["list_entry"]["metadata"]["ticket_id"] == "LIST-2"
 
     @pytest.mark.asyncio
     async def test_with_device_context(self, client):

@@ -164,6 +164,57 @@ async def complete_evaluate_idempotency(
     return False
 
 
+async def renew_evaluate_idempotency(
+    *,
+    tenant_id: str,
+    idempotency_key: str,
+    request_fingerprint: str,
+    owner_token: str,
+    lease_seconds: int = _DEFAULT_CLAIM_LEASE,
+) -> bool:
+    """Extend only the matching owner's active in-flight lease."""
+    key = _cache_key(tenant_id, idempotency_key)
+    ex = max(1, int(lease_seconds))
+    await redis_tags.connect()
+    if redis_tags._client:
+        changed = await redis_tags._client.eval(
+            """
+            local current = redis.call('GET', KEYS[1])
+            if not current then return 0 end
+            local decoded = cjson.decode(current)
+            if decoded.status ~= 'in_flight'
+              or decoded.request_fingerprint ~= ARGV[1]
+              or decoded.owner_token ~= ARGV[2] then
+              return 0
+            end
+            return redis.call('EXPIRE', KEYS[1], ARGV[3])
+            """,
+            1,
+            key,
+            request_fingerprint,
+            owner_token,
+            ex,
+        )
+        return bool(changed)
+    if redis_tags._kv:
+        async with redis_tags._async_lock:
+            current = _decode(await redis_tags._kv.get(key))
+            if (
+                current is None
+                or current.get("status") != "in_flight"
+                or current.get("request_fingerprint") != request_fingerprint
+                or current.get("owner_token") != owner_token
+            ):
+                return False
+            await redis_tags._kv.set(
+                key,
+                json.dumps(current, separators=(",", ":")),
+                ttl_seconds=ex,
+            )
+            return True
+    return False
+
+
 async def release_evaluate_idempotency(
     *,
     tenant_id: str,
