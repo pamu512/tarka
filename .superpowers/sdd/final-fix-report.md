@@ -452,6 +452,155 @@ Remaining concerns:
 - Existing Starlette/httpx, PyO3/dead-code, and frontend chunk-size warnings
   remain non-failing.
 
+## Final residual findings closure
+
+Status: `DONE_WITH_CONCERNS`
+
+Fix commits:
+
+- `d309c429` — `fix(decision): upgrade durable sqlite audits on startup`
+- `4e67853f` — `fix(copilot): withhold invalid tool-bound narratives`
+- `41d3ecd6` — `fix(copilot): preserve atomic review event history`
+- `07720fd1` — `fix(okf): fail closed on PII and readiness`
+
+Delivered:
+
+- Added identical source/deployed SQLite normal-start upgrades using
+  `PRAGMA table_info/index_list`, additive durable-idempotency columns, and a
+  verified unique tenant/key index. Existing audit rows and nullable legacy
+  keys remain valid; duplicate non-null tenant/key writes fail.
+- Added `tool_call_binding_invalid` to standard/strict narrative withholding
+  and expanded the runtime-backed adversarial fixture with omitted and failed
+  case, graph, audit, and knowledge call bindings.
+- Replaced review upserts with append-only event history. Content-identical
+  retries reuse the existing event, distinct reviewer/status/note events
+  append, latest lookup is deterministic, and the history store/endpoint
+  returns latest-first events. Legacy rows and the pre-history unified table
+  upgrade transactionally and idempotently; event append and AgentRun current
+  review state remain one transaction.
+- Removed the date-like exception for compact NANP-shaped values, including
+  `2026072401`; expanded case-insensitive embedded-name bigram scanning; and
+  centralized fraud/playbook/generic/function vocabulary to retain safe fraud
+  prose.
+- Readiness now returns 200 `ready` only when RAG and every other enabled
+  knowledge path are healthy. Disabled OKF is allowed; enabled-path failures
+  return sanitized 503 `not_ready`. OpenAPI and operator docs match runtime.
+
+Fresh verification:
+
+```bash
+cd services/decision-api
+PYTHONPATH=src:../shared:../core/src:../../packages/shared-core \
+DATABASE_URL=sqlite+aiosqlite:/// REDIS_URL=redis://localhost:6379/0 \
+python3 -m pytest -q -m "not contract" tests/
+```
+
+Result: exit 0; `59 passed, 1 skipped`, including the populated legacy-SQLite
+normal-start upgrade and durable idempotency tests.
+
+```bash
+cd services/legacy_v1_decision_api
+PYTHONPATH=src:../shared:../../packages/shared-core \
+DATABASE_URL=sqlite+aiosqlite:/// REDIS_URL=redis://localhost:6379/0 \
+python3 -m pytest -q -m "not contract" tests/
+```
+
+Result: exit 0; `358 passed, 113 contract tests deselected`, including the
+mirrored populated legacy-SQLite normal-start upgrade and durable idempotency
+tests.
+
+```bash
+cd services/investigation-agent
+PYTHONPATH=src:../shared:../../packages/shared-core python3 -m pytest -q
+```
+
+Result: exit 0; `357 passed, 1 skipped`; review migration/history/rollback,
+narrative withholding, PII, and readiness regressions passed.
+
+```bash
+python3 services/investigation-agent/scripts/validate_okf_bundle.py \
+  knowledge/shared --scope shared
+PYTHONPATH=services/investigation-agent/src:services/shared:packages/shared-core \
+python3 -m pytest -q \
+  services/investigation-agent/tests/test_okf_parser.py \
+  services/investigation-agent/tests/test_okf_registry.py \
+  services/investigation-agent/tests/test_okf_exporters.py \
+  services/investigation-agent/tests/test_okf_retrieval.py \
+  services/investigation-agent/tests/test_okf_end_to_end.py \
+  services/investigation-agent/tests/test_citation_quality_gate.py \
+  services/investigation-agent/tests/test_agent_run_deployment.py \
+  services/investigation-agent/tests/test_agent_run_store.py \
+  services/investigation-agent/tests/test_plugin_and_maker_checker.py \
+  services/investigation-agent/tests/test_production_readiness.py \
+  services/investigation-agent/tests/test_okf_cli.py
+python3 infra/scripts/deploy/validate_env_contract.py
+```
+
+Result: exit 0; shared bundle valid; `165 passed`; environment contract covered
+`8/8` required keys. Runtime-backed citation precision remained `>=99.5%`,
+actual unsupported abstention `>=98%`, and retrieval recall@10 `>=95%`.
+
+```bash
+PYTHONPATH=services/shared:packages/shared-core python3 -m pytest -q \
+  services/shared/tests/test_auth.py \
+  services/shared/tests/test_auth_rbac_tenant_scopes.py
+```
+
+Result: exit 0; `9 passed`.
+
+```bash
+python3 -m ruff --version
+python3 -m ruff check .
+python3 -m ruff format --check services/
+```
+
+Result: exit 0; `ruff 0.15.22`; all checks passed; `1190 files already
+formatted`.
+
+```bash
+npm ci
+npm audit --audit-level=low
+npm run test -w tarka-ui
+python3 infra/scripts/ci/check_frontend_mock_mode.py
+npm run build -w tarka-ui
+```
+
+Result: exit 0; `0 vulnerabilities`; `49` test files and `144` tests passed;
+mock-mode guard passed; production build completed.
+
+```bash
+cargo +stable check --manifest-path services/rule-engine/Cargo.toml
+cargo +stable test --manifest-path services/rule-engine/Cargo.toml
+cargo +stable check --manifest-path packages/tarka-rule-engine/Cargo.toml
+cargo +stable test --manifest-path packages/tarka-rule-engine/Cargo.toml
+```
+
+Result: exit 0; service rule engine `4 passed`; package rule engine `5 passed`;
+doc tests passed.
+
+```bash
+diff -u services/decision-api/src/decision_api/db.py \
+  services/legacy_v1_decision_api/src/decision_api/db.py
+diff -u services/decision-api/tests/test_sqlite_startup_migration.py \
+  services/legacy_v1_decision_api/tests/test_sqlite_startup_migration.py
+git diff --check
+git diff --name-only -- docs/superpowers/specs docs/superpowers/plans
+git status --porcelain=v2 --untracked-files=all
+```
+
+Result before this report commit: source/deployed startup implementations and
+tests were identical; no whitespace errors, plan/design edits, generated
+databases, decision logs, or other untracked artifacts remained.
+
+Remaining concerns:
+
+- The previously reported broader legacy Schemathesis diagnostic remains
+  unresolved at `34 failed, 79 passed, 357 deselected`; it is outside the
+  configured source-of-truth release suite but prevents claiming a clean
+  all-marker contract run.
+- Existing Starlette/httpx, Rust dead-code, npm deprecation, and frontend
+  chunk-size warnings remain non-failing.
+
 ## Durable final release gate
 
 Status: `DONE_WITH_CONCERNS`
