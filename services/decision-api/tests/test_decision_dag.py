@@ -30,6 +30,7 @@ pytestmark = pytest.mark.asyncio
 @pytest.fixture(autouse=True)
 def _patch_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("API_KEYS", "test-key")
+    monkeypatch.setenv("API_KEY_TENANT_MAP", '{"test-key":["t1"]}')
     monkeypatch.delenv("ALLOW_INSECURE_NO_AUTH", raising=False)
     monkeypatch.setenv("DATABASE_URL", "sqlite+aiosqlite:///")
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")

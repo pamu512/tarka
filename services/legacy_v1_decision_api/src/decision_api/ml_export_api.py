@@ -14,6 +14,7 @@ from typing import Any, Literal
 
 import anyio
 import httpx
+import pyarrow
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
@@ -28,6 +29,11 @@ from analytics.ml_export import (
 from decision_api.config import settings
 from decision_api.deps import require_analytics_engine
 from tarka_core.internal_monitor import InternalMonitor
+
+# PyArrow can crash when its native runtime is first initialized in one AnyIO
+# worker and later reused by another event loop's worker. Initialize it while
+# the application module is loaded on the process main thread.
+_PYARROW_MAIN_THREAD_RUNTIME = pyarrow.default_memory_pool()
 
 
 ensure_shared_on_path()

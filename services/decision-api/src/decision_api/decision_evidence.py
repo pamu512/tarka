@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import datetime, timezone
 from typing import Any
 
@@ -31,3 +33,39 @@ def build_decision_evidence_snapshot(
         "json_rule_engine": get_json_rule_engine_metadata(),
         "engine_build": engine_build_identity(),
     }
+
+
+def build_list_decision_evidence_snapshot(
+    *,
+    payload: dict[str, Any] | None,
+    list_type: str,
+    action: str,
+    condition_trace: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Build the normal evidence contract for a list-driven early decision."""
+    policy = {
+        "kind": "entity_list_early_decision",
+        "version": 1,
+        "list_type": str(list_type),
+        "action": str(action),
+    }
+    canonical = json.dumps(
+        policy,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    policy_hash = hashlib.sha256(canonical).hexdigest()
+    return build_decision_evidence_snapshot(
+        feature_map=payload if isinstance(payload, dict) else {},
+        rule_pack_content_sha256=policy_hash,
+        rule_pack_files=[f"entity-list-policy:{list_type}"],
+        condition_trace=list(condition_trace or [])
+        + [
+            {
+                "step": "entity_list_early_decision",
+                "status": "matched",
+                "list_type": str(list_type),
+                "action": str(action),
+            }
+        ],
+    )

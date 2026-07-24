@@ -1,5 +1,6 @@
 """Ensure tests/ is on sys.path for shared helpers (e.g. aggregate_fake_redis)."""
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -17,6 +18,28 @@ if (
     and not (os.environ.get("OIDC_ISSUER") or "").strip()
 ):
     os.environ["ALLOW_INSECURE_NO_AUTH"] = "true"
+
+os.environ.setdefault(
+    "API_KEY_TENANT_MAP",
+    json.dumps(
+        {
+            key: ["t1"]
+            for key in (
+                "cmp-key",
+                "dash-test-key",
+                "k",
+                "kast",
+                "ml-export-job-key",
+                "ml-export-test-key",
+                "ml-export-test-key2",
+                "mv-key",
+                "schemathesis-contract-key",
+                "test-key",
+            )
+        },
+        sort_keys=True,
+    ),
+)
 
 _TESTS_DIR = Path(__file__).resolve().parent
 if str(_TESTS_DIR) not in sys.path:
