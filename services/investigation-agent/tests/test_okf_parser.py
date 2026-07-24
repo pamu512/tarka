@@ -1,44 +1,65 @@
 """OKF v0.1 concept parsing and bundle validation."""
 
+import hashlib
 import json
 from pathlib import Path
 
 import yaml
 
 from investigation_agent.okf_parser import parse_concept, validate_bundle
+from tests.okf_provenance_helpers import rebuild_bundle_provenance
 
 
-def _write_source_manifest(root: Path) -> None:
-    entries: dict[str, dict[str, str]] = {}
-    for path in sorted(root.rglob("*.md")):
-        if path.name in {"index.md", "log.md"}:
-            continue
-        raw = path.read_text(encoding="utf-8")
-        parts = raw.split("---", 2)
-        if len(parts) != 3:
-            continue
-        meta = yaml.safe_load(parts[1])
-        if not isinstance(meta, dict):
-            continue
-        source_uri = str(meta.get("source_uri") or "").strip()
-        source_hash = str(meta.get("source_content_hash") or "").strip()
-        if not source_uri or not source_hash:
-            continue
-        concept_id = path.relative_to(root).with_suffix("").as_posix()
-        entries[concept_id] = {
-            "source_uri": source_uri,
-            "source_content_hash": source_hash,
-        }
+def _canonical_snapshot(source_uri: str, record: dict[str, object]) -> bytes:
+    return (
+        json.dumps(
+            {
+                "schema_id": "tarka.okf_source_snapshot/v1",
+                "source_uri": source_uri,
+                "record": record,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+        + "\n"
+    ).encode()
+
+
+def _write_real_provenance(
+    root: Path,
+    *,
+    source_uri: str,
+    record: dict[str, object],
+) -> tuple[str, Path]:
+    raw = _canonical_snapshot(source_uri, record)
+    source_hash = hashlib.sha256(raw).hexdigest()
+    relative = Path("_provenance") / "sources" / f"{source_hash}.json"
+    snapshot = root / relative
+    snapshot.parent.mkdir(parents=True, exist_ok=True)
+    snapshot.write_bytes(raw)
     (root / "source-manifest.json").write_text(
         json.dumps(
             {
                 "schema_id": "tarka.okf_source_manifest/v1",
-                "concept_sources": entries,
+                "sources": {
+                    source_uri: {
+                        "snapshot_path": relative.as_posix(),
+                        "source_content_hash": source_hash,
+                    }
+                },
             },
             sort_keys=True,
+            separators=(",", ":"),
         )
-        + "\n"
+        + "\n",
+        encoding="utf-8",
     )
+    return source_hash, snapshot
+
+
+def _write_source_manifest(root: Path) -> None:
+    rebuild_bundle_provenance(root)
 
 
 def test_parse_concept_identity_and_links(tmp_path):
@@ -113,20 +134,16 @@ def test_approved_bundle_rejects_source_hash_tampered_from_manifest(tmp_path):
         _valid_shared_frontmatter("a").replace("source_uri: docs/x", "source_uri: docs/canonical")
         + "Canonical body.\n"
     )
-    (root / "source-manifest.json").write_text(
-        json.dumps(
-            {
-                "schema_id": "tarka.okf_source_manifest/v1",
-                "concept_sources": {
-                    "concept": {
-                        "source_uri": "docs/canonical",
-                        "source_content_hash": "b" * 64,
-                    }
-                },
-            },
-            sort_keys=True,
-        )
-        + "\n"
+    _write_source_manifest(root)
+    concept_path = root / "concept.md"
+    concept_path.write_text(
+        concept_path.read_text(encoding="utf-8").replace(
+            yaml.safe_load(concept_path.read_text(encoding="utf-8").split("---", 2)[1])[
+                "source_content_hash"
+            ],
+            "b" * 64,
+        ),
+        encoding="utf-8",
     )
 
     result = validate_bundle(root, scope="shared", tenant_id=None)
@@ -146,31 +163,122 @@ def test_bundle_builds_validated_backlinks(tmp_path):
         _valid_shared_frontmatter("b").replace("source_uri: docs/x", "source_uri: docs/target")
         + "Target.\n"
     )
-    (root / "source-manifest.json").write_text(
-        json.dumps(
-            {
-                "schema_id": "tarka.okf_source_manifest/v1",
-                "concept_sources": {
-                    "source": {
-                        "source_uri": "docs/source",
-                        "source_content_hash": "a" * 64,
-                    },
-                    "target": {
-                        "source_uri": "docs/target",
-                        "source_content_hash": "b" * 64,
-                    },
-                },
-            },
-            sort_keys=True,
-        )
-        + "\n"
-    )
+    _write_source_manifest(root)
 
     result = validate_bundle(root, scope="shared", tenant_id=None)
 
     assert result.valid is True
     assert result.bundle is not None
     assert result.bundle.backlinks == {"target": ("source",)}
+
+
+def test_approved_bundle_rejects_canonical_source_snapshot_tamper(tmp_path):
+    root = tmp_path / "shared"
+    root.mkdir()
+    source_hash, snapshot = _write_real_provenance(
+        root,
+        source_uri="docs/canonical",
+        record={"id": "canonical", "threshold": 100},
+    )
+    (root / "concept.md").write_text(
+        _valid_shared_frontmatter("a")
+        .replace("source_uri: docs/x", "source_uri: docs/canonical")
+        .replace("a" * 64, source_hash)
+        + "Canonical body.\n",
+        encoding="utf-8",
+    )
+    assert validate_bundle(root, scope="shared", tenant_id=None).valid is True
+
+    snapshot.write_text('{"id":"canonical","threshold":900}\n', encoding="utf-8")
+    result = validate_bundle(root, scope="shared", tenant_id=None)
+
+    assert result.valid is False
+    assert "source_snapshot_hash_mismatch" in {issue.code for issue in result.issues}
+
+
+def test_concept_and_manifest_edits_without_snapshot_update_fail_closed(tmp_path):
+    root = tmp_path / "shared"
+    root.mkdir()
+    source_hash, _snapshot = _write_real_provenance(
+        root,
+        source_uri="docs/canonical",
+        record={"id": "canonical", "threshold": 100},
+    )
+    fabricated_hash = "f" * 64
+    (root / "concept.md").write_text(
+        _valid_shared_frontmatter("a")
+        .replace("source_uri: docs/x", "source_uri: docs/canonical")
+        .replace("a" * 64, fabricated_hash)
+        + "Canonical body.\n",
+        encoding="utf-8",
+    )
+    manifest_path = root / "source-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["sources"]["docs/canonical"]["source_content_hash"] = fabricated_hash
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8")
+
+    result = validate_bundle(root, scope="shared", tenant_id=None)
+
+    assert source_hash != fabricated_hash
+    assert result.valid is False
+    assert "source_snapshot_hash_mismatch" in {issue.code for issue in result.issues}
+
+
+def test_approved_bundle_rejects_missing_source_snapshot(tmp_path):
+    root = tmp_path / "shared"
+    root.mkdir()
+    source_hash, snapshot = _write_real_provenance(
+        root,
+        source_uri="docs/canonical",
+        record={"id": "canonical"},
+    )
+    snapshot.unlink()
+    (root / "concept.md").write_text(
+        _valid_shared_frontmatter("a")
+        .replace("source_uri: docs/x", "source_uri: docs/canonical")
+        .replace("a" * 64, source_hash)
+        + "Canonical body.\n",
+        encoding="utf-8",
+    )
+
+    result = validate_bundle(root, scope="shared", tenant_id=None)
+
+    assert result.valid is False
+    assert "source_snapshot_missing" in {issue.code for issue in result.issues}
+
+
+def test_approved_bundle_rejects_duplicate_manifest_source_uri(tmp_path):
+    root = tmp_path / "shared"
+    root.mkdir()
+    source_hash, _snapshot = _write_real_provenance(
+        root,
+        source_uri="docs/canonical",
+        record={"id": "canonical"},
+    )
+    (root / "concept.md").write_text(
+        _valid_shared_frontmatter("a")
+        .replace("source_uri: docs/x", "source_uri: docs/canonical")
+        .replace("a" * 64, source_hash)
+        + "Canonical body.\n",
+        encoding="utf-8",
+    )
+    entry = (
+        '{"snapshot_path":"_provenance/sources/'
+        + source_hash
+        + '.json","source_content_hash":"'
+        + source_hash
+        + '"}'
+    )
+    (root / "source-manifest.json").write_text(
+        '{"schema_id":"tarka.okf_source_manifest/v1","sources":'
+        '{"docs/canonical":' + entry + ',"docs/canonical":' + entry + "}}\n",
+        encoding="utf-8",
+    )
+
+    result = validate_bundle(root, scope="shared", tenant_id=None)
+
+    assert result.valid is False
+    assert "source_manifest_duplicate" in {issue.code for issue in result.issues}
 
 
 def _valid_shared_frontmatter(source_hash_char: str = "e") -> str:

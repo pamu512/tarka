@@ -73,5 +73,119 @@
     "query": "Unknown Unsupported Fraud Guidance",
     "expected_concept_ids": [],
     "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "rules/fabricated-chargeback-ring",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Synthetic identity biometric adjudication",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Merchant collusion terminal rotation",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "ATM cash trapping investigation",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Cheque kiting settlement windows",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Insurance claim staging indicators",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Payroll diversion remediation",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Crypto mixer sanctions workflow",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Gift card resale laundering",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Airline loyalty points theft",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Telecom SIM swap escalation",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Procurement invoice duplicate controls",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Mortgage occupancy misrepresentation",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Healthcare upcoding review",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Customs duty evasion playbook",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Employee expense receipt fabrication",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Ad network click injection",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Warehouse inventory shrinkage analysis",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Government benefit application fraud",
+    "expected_concept_ids": [],
+    "unsupported": true
   }
 ]

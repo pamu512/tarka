@@ -23,6 +23,21 @@ _APPROVED_STATUS = "approved"
 _SHARED_LOGICAL_PREFIX = "/shared/"
 _SOURCE_MANIFEST_NAME = "source-manifest.json"
 _SOURCE_MANIFEST_SCHEMA = "tarka.okf_source_manifest/v1"
+_SOURCE_SNAPSHOT_SCHEMA = "tarka.okf_source_snapshot/v1"
+_SOURCE_SNAPSHOT_ROOT = "_provenance/sources"
+
+
+class _DuplicateJsonKey(ValueError):
+    pass
+
+
+def _reject_duplicate_json_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    out: dict[str, object] = {}
+    for key, value in pairs:
+        if key in out:
+            raise _DuplicateJsonKey(key)
+        out[key] = value
+    return out
 
 
 def _inside(path: Path, root: Path) -> bool:
@@ -265,10 +280,10 @@ def _validate_source_manifest(
     root: Path,
     concepts: dict[str, OkfConcept],
 ) -> list[BundleIssue]:
-    if not concepts:
-        return []
     path = root / _SOURCE_MANIFEST_NAME
     if not path.is_file():
+        if not concepts:
+            return []
         return [
             BundleIssue(
                 "source_manifest_missing",
@@ -277,7 +292,18 @@ def _validate_source_manifest(
             )
         ]
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=_reject_duplicate_json_keys,
+        )
+    except _DuplicateJsonKey as exc:
+        return [
+            BundleIssue(
+                "source_manifest_duplicate",
+                path.as_posix(),
+                f"source manifest contains duplicate key: {exc}",
+            )
+        ]
     except (OSError, json.JSONDecodeError) as exc:
         return [
             BundleIssue(
@@ -294,52 +320,166 @@ def _validate_source_manifest(
                 f"source manifest schema_id must be {_SOURCE_MANIFEST_SCHEMA}",
             )
         ]
-    entries = payload.get("concept_sources")
+    entries = payload.get("sources")
     if not isinstance(entries, dict):
         return [
             BundleIssue(
                 "source_manifest_invalid",
                 path.as_posix(),
-                "source manifest concept_sources must be an object",
+                "source manifest sources must be an object",
             )
         ]
 
     issues: list[BundleIssue] = []
-    for concept_id, concept in sorted(concepts.items()):
-        raw = entries.get(concept_id)
+    concepts_by_uri: dict[str, OkfConcept] = {}
+    for concept in concepts.values():
+        prior = concepts_by_uri.get(concept.source_uri)
+        if prior is not None:
+            issues.append(
+                BundleIssue(
+                    "source_uri_duplicate",
+                    concept.path.as_posix(),
+                    f"source_uri is shared with {prior.concept_id}: {concept.source_uri}",
+                )
+            )
+            continue
+        concepts_by_uri[concept.source_uri] = concept
+
+    validated_sources: dict[str, tuple[str, str]] = {}
+    used_snapshot_paths: set[str] = set()
+    for source_uri, raw in sorted(entries.items()):
+        if not isinstance(source_uri, str) or not source_uri.strip() or not isinstance(raw, dict):
+            issues.append(
+                BundleIssue(
+                    "source_manifest_entry_invalid",
+                    path.as_posix(),
+                    "source manifest entries require a non-empty URI and object value",
+                )
+            )
+            continue
+        snapshot_rel = str(raw.get("snapshot_path") or "").strip()
+        manifest_hash = str(raw.get("source_content_hash") or "").strip().lower()
+        rel = Path(snapshot_rel)
+        if (
+            not snapshot_rel
+            or rel.is_absolute()
+            or ".." in rel.parts
+            or not snapshot_rel.startswith(f"{_SOURCE_SNAPSHOT_ROOT}/")
+            or rel.suffix != ".json"
+        ):
+            issues.append(
+                BundleIssue(
+                    "source_snapshot_path_invalid",
+                    path.as_posix(),
+                    f"invalid source snapshot path for {source_uri}",
+                )
+            )
+            continue
+        if snapshot_rel in used_snapshot_paths:
+            issues.append(
+                BundleIssue(
+                    "source_snapshot_duplicate",
+                    path.as_posix(),
+                    f"source snapshot is referenced more than once: {snapshot_rel}",
+                )
+            )
+        used_snapshot_paths.add(snapshot_rel)
+        snapshot_path = (root / rel).resolve(strict=False)
+        if not _inside(snapshot_path, root):
+            issues.append(
+                BundleIssue(
+                    "source_snapshot_path_invalid",
+                    path.as_posix(),
+                    f"source snapshot escapes bundle for {source_uri}",
+                )
+            )
+            continue
+        if not snapshot_path.is_file():
+            issues.append(
+                BundleIssue(
+                    "source_snapshot_missing",
+                    snapshot_path.as_posix(),
+                    f"source snapshot missing for {source_uri}",
+                )
+            )
+            continue
+        snapshot_bytes = snapshot_path.read_bytes()
+        computed_hash = hashlib.sha256(snapshot_bytes).hexdigest()
+        if not _HASH.fullmatch(manifest_hash) or manifest_hash != computed_hash:
+            issues.append(
+                BundleIssue(
+                    "source_snapshot_hash_mismatch",
+                    snapshot_path.as_posix(),
+                    f"source snapshot hash differs from manifest for {source_uri}",
+                )
+            )
+        try:
+            snapshot_payload = json.loads(
+                snapshot_bytes,
+                object_pairs_hook=_reject_duplicate_json_keys,
+            )
+        except (_DuplicateJsonKey, json.JSONDecodeError, UnicodeDecodeError):
+            snapshot_payload = None
+        if (
+            not isinstance(snapshot_payload, dict)
+            or snapshot_payload.get("schema_id") != _SOURCE_SNAPSHOT_SCHEMA
+            or str(snapshot_payload.get("source_uri") or "").strip() != source_uri
+            or not isinstance(snapshot_payload.get("record"), dict)
+        ):
+            issues.append(
+                BundleIssue(
+                    "source_snapshot_invalid",
+                    snapshot_path.as_posix(),
+                    f"source snapshot schema or URI is invalid for {source_uri}",
+                )
+            )
+        validated_sources[source_uri] = (computed_hash, snapshot_rel)
+
+    for source_uri, concept in sorted(concepts_by_uri.items()):
+        raw = entries.get(source_uri)
         if not isinstance(raw, dict):
             issues.append(
                 BundleIssue(
                     "source_manifest_entry_missing",
                     concept.path.as_posix(),
-                    f"source manifest has no provenance for {concept_id}",
+                    f"source manifest has no provenance for {source_uri}",
                 )
             )
             continue
-        manifest_uri = str(raw.get("source_uri") or "").strip()
-        manifest_hash = str(raw.get("source_content_hash") or "").strip().lower()
-        if manifest_uri != concept.source_uri:
-            issues.append(
-                BundleIssue(
-                    "source_uri_mismatch",
-                    concept.path.as_posix(),
-                    f"source_uri differs from manifest for {concept_id}",
-                )
-            )
-        if manifest_hash != concept.source_content_hash:
+        computed = validated_sources.get(source_uri)
+        computed_hash = computed[0] if computed else ""
+        if computed_hash != concept.source_content_hash:
             issues.append(
                 BundleIssue(
                     "source_hash_mismatch",
                     concept.path.as_posix(),
-                    f"source_content_hash differs from manifest for {concept_id}",
+                    f"source_content_hash differs from canonical snapshot for {concept.concept_id}",
                 )
             )
-    for concept_id in sorted(set(entries) - set(concepts)):
+    for source_uri in sorted(set(entries) - set(concepts_by_uri)):
         issues.append(
             BundleIssue(
                 "source_manifest_orphan",
                 path.as_posix(),
-                f"source manifest references missing concept: {concept_id}",
+                f"source manifest references no concept: {source_uri}",
+            )
+        )
+    snapshot_root = root / _SOURCE_SNAPSHOT_ROOT
+    actual_snapshots = (
+        {
+            snapshot.relative_to(root).as_posix()
+            for snapshot in snapshot_root.rglob("*.json")
+            if snapshot.is_file() and _inside(snapshot, root)
+        }
+        if snapshot_root.is_dir()
+        else set()
+    )
+    for snapshot_rel in sorted(actual_snapshots - used_snapshot_paths):
+        issues.append(
+            BundleIssue(
+                "source_snapshot_orphan",
+                (root / snapshot_rel).as_posix(),
+                "source snapshot is not referenced by the manifest",
             )
         )
     return issues

@@ -68,6 +68,7 @@ def test_turn_review_enforces_maker_checker(monkeypatch):
     import investigation_agent.main as m
 
     monkeypatch.setattr(m.settings, "copilot_maker_checker_required", True, raising=False)
+    monkeypatch.setattr(m.agent_run_store, "update_review_state", lambda **_: True)
     feedback_store.record_turn(
         turn_id="turn-maker-1",
         tenant_id="demo",
@@ -106,6 +107,38 @@ def test_turn_review_enforces_maker_checker(monkeypatch):
         assert body["maker_checker"]["required"] is True
         assert body["maker_checker"]["turn_author_id"] == "analyst-maker"
         assert body["maker_checker"]["reviewer_id"] == "analyst-checker"
+
+
+def test_turn_review_reports_agent_run_state_update_failure(monkeypatch):
+    import investigation_agent.main as m
+
+    monkeypatch.setattr(m.settings, "copilot_maker_checker_required", False, raising=False)
+    feedback_store.record_turn(
+        turn_id="turn-agent-run-failure",
+        tenant_id="demo",
+        analyst_id="analyst-maker",
+        case_id="case-1",
+        playbook_id=None,
+        prompt_version="3.2.0",
+        reply_preview="preview",
+        tool_count=0,
+    )
+    monkeypatch.setattr(m.agent_run_store, "update_review_state", lambda **_: False)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/review/turn",
+            json={
+                "turn_id": "turn-agent-run-failure",
+                "tenant_id": "demo",
+                "analyst_id": "analyst-maker",
+                "reviewer_id": "analyst-checker",
+                "status": "approved",
+            },
+        )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "agent_run_review_state_update_failed"}
 
 
 def test_review_metrics_endpoint(monkeypatch):

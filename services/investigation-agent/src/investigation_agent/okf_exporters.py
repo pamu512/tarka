@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 import os
 import re
@@ -41,15 +42,49 @@ _PII_KEY_HINTS = frozenset(
         "card_number",
     }
 )
+_CASE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _EMAIL_VALUE = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
-_PHONE_VALUE = re.compile(r"(?<!\w)(?:\+?\d[\s().-]*){10,15}(?!\w)")
-_ACCOUNT_VALUE = re.compile(
-    r"\b(?:account|acct|card|iban|routing)\s*(?:number|no\.?|#|id)?\s*[:=-]?\s*[A-Z0-9][A-Z0-9 -]{7,30}\b",
+_PHONE_VALUE = re.compile(
+    r"\b(?:phone|mobile|telephone|tel)\s*(?:number|no\.?|#)?\s*[:=-]?\s*"
+    r"(?:\+?\d[\s().-]*){7,15}(?!\w)",
     re.IGNORECASE,
 )
+_INTERNATIONAL_PHONE_VALUE = re.compile(r"(?<!\w)\+\d(?:[\s().-]*\d){7,14}(?!\w)")
+_ACCOUNT_VALUE = re.compile(
+    r"\b(?:account|acct|card|routing|payment)\s*(?:number|no\.?|#|id)\s*"
+    r"[:=-]?\s*[A-Z0-9][A-Z0-9 -]{5,30}\b",
+    re.IGNORECASE,
+)
+_IBAN_VALUE = re.compile(
+    r"\bIBAN\s*[:=-]?\s*[A-Z]{2}\d{2}(?:[\s-]?[A-Z0-9]){11,30}\b", re.IGNORECASE
+)
 _CARD_VALUE = re.compile(r"(?<!\d)(?:\d[ -]?){13,19}(?!\d)")
+_SSN_VALUE = re.compile(r"\b\d{3}-\d{2}-\d{4}\b")
+_NATIONAL_ID_VALUE = re.compile(
+    r"\b(?:ssn|social security|national id|national identification|tax id|passport|aadhaar|pan)"
+    r"\s*(?:number|no\.?|#)?\s*[:=-]\s*[A-Z0-9][A-Z0-9 -]{5,24}\b",
+    re.IGNORECASE,
+)
+_IP_VALUE = re.compile(
+    r"(?<![A-F0-9:])(?:\d{1,3}\.){3}\d{1,3}(?![A-F0-9:.])"
+    r"|(?<![A-F0-9:])(?:[A-F0-9]{1,4}:){2,7}[A-F0-9]{1,4}(?![A-F0-9:])",
+    re.IGNORECASE,
+)
+_STREET_ADDRESS_VALUE = re.compile(
+    r"\b\d{1,6}\s+[A-Z0-9][A-Z0-9 .'-]{1,48}\s+"
+    r"(?:street|st\.?|road|rd\.?|avenue|ave\.?|boulevard|blvd\.?|lane|ln\.?|"
+    r"drive|dr\.?|court|ct\.?|way)\b",
+    re.IGNORECASE,
+)
+_PERSON_NAME_VALUE = re.compile(
+    r"\b(?:person|customer|cardholder|applicant|beneficiary|full\s+name|name)"
+    r"\s*(?:name)?\s*[:=-]\s*[A-Z][A-Za-z'-]{1,30}"
+    r"(?:\s+[A-Z][A-Za-z'-]{1,30}){1,3}\b"
+)
 _SOURCE_MANIFEST_NAME = "source-manifest.json"
 _SOURCE_MANIFEST_SCHEMA = "tarka.okf_source_manifest/v1"
+_SOURCE_SNAPSHOT_SCHEMA = "tarka.okf_source_snapshot/v1"
+_SOURCE_SNAPSHOT_ROOT = "_provenance/sources"
 _FRONTMATTER = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n", re.DOTALL)
 
 _STAGING_GOVERNANCE = {
@@ -76,6 +111,29 @@ def source_record_hash(record: dict[str, Any]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _canonical_source_snapshot(source_uri: str, record: dict[str, Any]) -> str:
+    return (
+        json.dumps(
+            {
+                "schema_id": _SOURCE_SNAPSHOT_SCHEMA,
+                "source_uri": source_uri,
+                "record": record,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+        + "\n"
+    )
+
+
+def _source_snapshot(source_uri: str, record: dict[str, Any]) -> tuple[str, str, str]:
+    content = _canonical_source_snapshot(source_uri, record)
+    source_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    path = f"{_SOURCE_SNAPSHOT_ROOT}/{source_hash}.json"
+    return path, content, source_hash
+
+
 def render_concept(frontmatter: dict[str, Any], body: str) -> str:
     header = yaml.safe_dump(
         frontmatter,
@@ -87,29 +145,36 @@ def render_concept(frontmatter: dict[str, Any], body: str) -> str:
 
 
 def render_source_manifest(files: dict[str, str]) -> str:
-    """Render deterministic concept-to-canonical-source provenance."""
-    concept_sources: dict[str, dict[str, str]] = {}
+    """Render provenance from canonical source snapshots, independently of concepts."""
+    sources: dict[str, dict[str, str]] = {}
     for rel_path, content in sorted(files.items()):
-        if not rel_path.endswith(".md") or Path(rel_path).name in {"index.md", "log.md"}:
+        if not rel_path.startswith(f"{_SOURCE_SNAPSHOT_ROOT}/") or not rel_path.endswith(".json"):
             continue
-        match = _FRONTMATTER.match(content)
-        if not match:
-            raise OkfExportError(f"{rel_path}: concept frontmatter missing")
-        meta = yaml.safe_load(match.group(1))
-        if not isinstance(meta, dict):
-            raise OkfExportError(f"{rel_path}: concept frontmatter must be an object")
-        source_uri = str(meta.get("source_uri") or "").strip()
-        source_hash = str(meta.get("source_content_hash") or "").strip().lower()
-        if not source_uri or len(source_hash) != 64:
-            raise OkfExportError(f"{rel_path}: source provenance missing")
-        concept_id = Path(rel_path).with_suffix("").as_posix()
-        concept_sources[concept_id] = {
+        try:
+            snapshot = json.loads(content)
+        except json.JSONDecodeError as exc:
+            raise OkfExportError(f"{rel_path}: source snapshot is not valid JSON") from exc
+        if (
+            not isinstance(snapshot, dict)
+            or snapshot.get("schema_id") != _SOURCE_SNAPSHOT_SCHEMA
+            or not isinstance(snapshot.get("record"), dict)
+        ):
+            raise OkfExportError(f"{rel_path}: source snapshot schema is invalid")
+        source_uri = str(snapshot.get("source_uri") or "").strip()
+        if not source_uri:
+            raise OkfExportError(f"{rel_path}: source snapshot URI missing")
+        if source_uri in sources:
+            raise OkfExportError(f"duplicate source provenance: {source_uri}")
+        source_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        if Path(rel_path).stem != source_hash:
+            raise OkfExportError(f"{rel_path}: source snapshot path/hash mismatch")
+        sources[source_uri] = {
+            "snapshot_path": rel_path,
             "source_content_hash": source_hash,
-            "source_uri": source_uri,
         }
     payload = {
         "schema_id": _SOURCE_MANIFEST_SCHEMA,
-        "concept_sources": concept_sources,
+        "sources": sources,
     }
     return (
         json.dumps(
@@ -191,17 +256,20 @@ def _export_rules_from_collection(
             raise OkfExportError(f"duplicate export path: {rel_path}")
         title = str(rule.get("description") or rule_id).strip()
         tags = tuple(str(t).strip() for t in (rule.get("tags") or []) if str(t).strip())
+        record_uri = f"{source_uri}#{rule_id}"
+        snapshot_path, snapshot_content, snapshot_hash = _source_snapshot(record_uri, rule)
         frontmatter = {
             "type": "Fraud Rule",
             "title": title[:256],
             "description": title[:512],
             "tags": list(tags),
-            "source_uri": f"{source_uri}#{rule_id}",
-            "source_content_hash": source_record_hash(rule),
+            "source_uri": record_uri,
+            "source_content_hash": snapshot_hash,
             "approved_revision": revision,
             **_STAGING_GOVERNANCE,
         }
         files[rel_path] = render_concept(frontmatter, _rule_body(rule))
+        files[snapshot_path] = snapshot_content
     return files
 
 
@@ -248,13 +316,15 @@ def export_typologies(payload: dict[str, Any], source_uri: str) -> dict[str, str
             body_lines.append("**Breach thresholds**")
             for level in sorted(thresholds):
                 body_lines.append(f"- {level}: {thresholds[level]}")
+        record_uri = f"{source_uri}#{typology_id}"
+        snapshot_path, snapshot_content, snapshot_hash = _source_snapshot(record_uri, typology)
         frontmatter = {
             "type": "Fraud Typology",
             "title": label,
             "description": label,
             "tags": ["typology"],
-            "source_uri": f"{source_uri}#{typology_id}",
-            "source_content_hash": source_record_hash(typology),
+            "source_uri": record_uri,
+            "source_content_hash": snapshot_hash,
             "approved_revision": revision,
             **_STAGING_GOVERNANCE,
         }
@@ -262,6 +332,7 @@ def export_typologies(payload: dict[str, Any], source_uri: str) -> dict[str, str
         if rel_path in files:
             raise OkfExportError(f"duplicate export path: {rel_path}")
         files[rel_path] = render_concept(frontmatter, "\n".join(body_lines).strip())
+        files[snapshot_path] = snapshot_content
     return dict(sorted(files.items()))
 
 
@@ -280,19 +351,79 @@ def export_playbooks() -> dict[str, str]:
             "vertical": vertical,
             "fragment": fragment,
         }
+        record_uri = f"playbooks/builtin#{playbook_id}"
+        snapshot_path, snapshot_content, snapshot_hash = _source_snapshot(record_uri, record)
         frontmatter = {
             "type": "Investigation Playbook",
             "title": title,
             "description": f"{title} ({vertical})",
             "tags": ["playbook", vertical],
-            "source_uri": f"playbooks/builtin#{playbook_id}",
-            "source_content_hash": source_record_hash(record),
+            "source_uri": record_uri,
+            "source_content_hash": snapshot_hash,
             "approved_revision": revision,
             **_STAGING_GOVERNANCE,
         }
         rel_path = f"playbooks/{playbook_id}.md"
         files[rel_path] = render_concept(frontmatter, fragment)
+        files[snapshot_path] = snapshot_content
     return dict(sorted(files.items()))
+
+
+def _luhn_valid(value: str) -> bool:
+    digits = [int(char) for char in value if char.isdigit()]
+    if not 13 <= len(digits) <= 19 or len(set(digits)) == 1:
+        return False
+    total = 0
+    parity = len(digits) % 2
+    for index, digit in enumerate(digits):
+        if index % 2 == parity:
+            digit *= 2
+            if digit > 9:
+                digit -= 9
+        total += digit
+    return total % 10 == 0
+
+
+def _contains_ip_address(value: str) -> bool:
+    for match in _IP_VALUE.finditer(value):
+        try:
+            ipaddress.ip_address(match.group(0))
+        except ValueError:
+            continue
+        return True
+    return False
+
+
+def _pii_kind(value: str) -> str | None:
+    for kind, pattern in (
+        ("email", _EMAIL_VALUE),
+        ("phone", _PHONE_VALUE),
+        ("phone", _INTERNATIONAL_PHONE_VALUE),
+        ("account", _ACCOUNT_VALUE),
+        ("account", _IBAN_VALUE),
+        ("national_id", _SSN_VALUE),
+        ("national_id", _NATIONAL_ID_VALUE),
+        ("street_address", _STREET_ADDRESS_VALUE),
+        ("person_name", _PERSON_NAME_VALUE),
+    ):
+        if pattern.search(value):
+            return kind
+    if _contains_ip_address(value):
+        return "ip_address"
+    if any(_luhn_valid(match.group(0)) for match in _CARD_VALUE.finditer(value)):
+        return "payment_card"
+    return None
+
+
+def _iter_text_values(value: Any, path: str):
+    if isinstance(value, str):
+        yield path, value
+    elif isinstance(value, list | tuple):
+        for index, item in enumerate(value):
+            yield from _iter_text_values(item, f"{path}[{index}]")
+    elif isinstance(value, dict):
+        for key, item in sorted(value.items(), key=lambda row: str(row[0])):
+            yield from _iter_text_values(item, f"{path}.{key}")
 
 
 def export_landmark_case(case: dict[str, Any], *, tenant_id: str) -> str:
@@ -309,16 +440,20 @@ def export_landmark_case(case: dict[str, Any], *, tenant_id: str) -> str:
             raise LandmarkCaseSanitizationError(
                 f"landmark case contains unsanitized PII field: {key}"
             )
-    for key in ("title", "summary", "lessons"):
-        value = str(case.get(key) or "")
-        if any(
-            pattern.search(value)
-            for pattern in (_EMAIL_VALUE, _PHONE_VALUE, _ACCOUNT_VALUE, _CARD_VALUE)
-        ):
-            raise LandmarkCaseSanitizationError(f"landmark case contains unsanitized PII in {key}")
     case_id = str(case.get("case_id") or "").strip()
-    if not case_id:
-        raise LandmarkCaseSanitizationError("case_id is required")
+    if not _CASE_ID.fullmatch(case_id):
+        raise LandmarkCaseSanitizationError(
+            "case_id must be a safe opaque identifier using letters, digits, dot, underscore, or hyphen"
+        )
+    for key, raw_value in case.items():
+        if key == "source_content_hash":
+            continue
+        for value_path, value in _iter_text_values(raw_value, key):
+            pii_kind = _pii_kind(value)
+            if pii_kind:
+                raise LandmarkCaseSanitizationError(
+                    f"landmark case contains unsanitized PII ({pii_kind}) in {value_path}"
+                )
     source_hash = str(case.get("source_content_hash") or "").strip().lower()
     if len(source_hash) != 64 or not all(c in "0123456789abcdef" for c in source_hash):
         raise LandmarkCaseSanitizationError("source_content_hash must be SHA-256 hex")

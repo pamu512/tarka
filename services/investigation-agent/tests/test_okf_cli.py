@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from tests.okf_provenance_helpers import attach_concept_provenance
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _AGENT_ROOT = _REPO_ROOT / "services" / "investigation-agent"
@@ -122,44 +123,26 @@ def test_validate_tenant_bundle_accepts_shared_root_for_logical_links(
     (tenant / "playbooks").mkdir(parents=True)
     (shared / "index.md").write_text('---\nokf_version: "0.1"\n---\n')
     (tenant / "index.md").write_text('---\nokf_version: "0.1"\n---\n')
-    (shared / "rules" / "high-amount.md").write_text(
+    shared_concept = shared / "rules" / "high-amount.md"
+    shared_concept.write_text(
         _approved_frontmatter(tenant_scope="shared", source_hash_char="a") + "Shared rule body.\n",
         encoding="utf-8",
     )
-    (tenant / "playbooks" / "review.md").write_text(
+    tenant_concept = tenant / "playbooks" / "review.md"
+    tenant_concept.write_text(
         _approved_frontmatter(tenant_scope="t1", source_hash_char="b")
         + "Follow [high amount](/shared/rules/high-amount.md).\n",
         encoding="utf-8",
     )
-    (shared / "source-manifest.json").write_text(
-        json.dumps(
-            {
-                "schema_id": "tarka.okf_source_manifest/v1",
-                "concept_sources": {
-                    "rules/high-amount": {
-                        "source_uri": "docs/ref",
-                        "source_content_hash": "a" * 64,
-                    }
-                },
-            },
-            sort_keys=True,
-        )
-        + "\n"
+    attach_concept_provenance(
+        shared,
+        shared_concept,
+        source_record={"fixture": "shared-high-amount"},
     )
-    (tenant / "source-manifest.json").write_text(
-        json.dumps(
-            {
-                "schema_id": "tarka.okf_source_manifest/v1",
-                "concept_sources": {
-                    "playbooks/review": {
-                        "source_uri": "docs/ref",
-                        "source_content_hash": "b" * 64,
-                    }
-                },
-            },
-            sort_keys=True,
-        )
-        + "\n"
+    attach_concept_provenance(
+        tenant,
+        tenant_concept,
+        source_record={"fixture": "tenant-review"},
     )
 
     result = _run_validate(

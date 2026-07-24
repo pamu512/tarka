@@ -8,6 +8,7 @@ from investigation_agent.integration_contract import (
     effective_disabled_tools,
     runtime_suppressed_tools,
 )
+import investigation_agent.main as main_mod
 from investigation_agent.main import app
 
 
@@ -56,11 +57,22 @@ def test_hide_upstream_can_be_disabled(monkeypatch):
     assert "subgraph" in snap["tools"]["enabled"]
 
 
-def test_health_includes_integration():
-    c = TestClient(app)
-    r = c.get("/v1/health")
-    assert r.status_code == 200
-    data = r.json()
+def test_admin_health_details_include_integration(monkeypatch):
+    monkeypatch.setenv("API_KEYS", "admin-key")
+    monkeypatch.setenv("API_KEY_TENANT_MAP", '{"admin-key":["*"]}')
+    monkeypatch.setenv("OKF_ADMIN_API_KEYS", "admin-key")
+    main_mod._valid_api_keys = None
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                "/v1/admin/health/details",
+                headers={"x-api-key": "admin-key"},
+            )
+    finally:
+        main_mod._valid_api_keys = None
+
+    assert response.status_code == 200
+    data = response.json()
     assert "integration" in data
     assert data["integration"]["contract_version"] == INTEGRATION_CONTRACT_VERSION
     cf = data.get("copilot_features") or {}

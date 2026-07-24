@@ -59,14 +59,46 @@ def test_ready_unhealthy_when_rag_and_okf_unavailable():
     assert r.json()["status"] == "not_ready"
 
 
-def test_health_includes_production_block():
-    with TestClient(app) as client:
-        r = client.get("/v1/health")
-    assert r.status_code == 200
-    prod = r.json().get("production") or {}
-    assert "mode" in prod
-    assert "config_ok" in prod
-    assert "max_request_body_bytes" in prod
+def test_health_exposes_only_stable_status_and_codes():
+    with (
+        patch(
+            "investigation_agent.main.production_config_errors",
+            return_value=["invalid database at /private/config"],
+        ),
+        patch(
+            "investigation_agent.main._okf_readiness_errors",
+            return_value=["invalid source at /private/knowledge"],
+        ),
+        TestClient(app) as client,
+    ):
+        response = client.get("/v1/health")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "warnings": ["production_config_invalid", "okf_unavailable"],
+    }
+    assert "/private/" not in response.text
+
+
+def test_detailed_health_is_authenticated_admin_only(monkeypatch):
+    monkeypatch.setenv("API_KEYS", "admin-key")
+    monkeypatch.setenv("API_KEY_TENANT_MAP", '{"admin-key":["*"]}')
+    monkeypatch.setenv("OKF_ADMIN_API_KEYS", "admin-key")
+    main_mod._valid_api_keys = None
+    try:
+        with TestClient(app) as client:
+            unauthenticated = client.get("/v1/admin/health/details")
+            authenticated = client.get(
+                "/v1/admin/health/details",
+                headers={"x-api-key": "admin-key"},
+            )
+    finally:
+        main_mod._valid_api_keys = None
+
+    assert unauthenticated.status_code == 401
+    assert authenticated.status_code == 200
+    assert "production" in authenticated.json()
 
 
 def test_ready_endpoint():
@@ -100,6 +132,41 @@ def test_health_probes_bypass_api_key_but_data_routes_remain_protected(monkeypat
         assert protected.status_code == 401
     finally:
         main_mod._valid_api_keys = None
+
+
+def test_unauthenticated_readiness_never_leaks_paths_or_raw_errors(monkeypatch):
+    monkeypatch.setenv("API_KEYS", "secure-key")
+    monkeypatch.setenv("API_KEY_TENANT_MAP", '{"secure-key":["t1"]}')
+    monkeypatch.delenv("ALLOW_INSECURE_NO_AUTH", raising=False)
+    main_mod._valid_api_keys = None
+    secret_path = "/var/lib/tarka/private/tenant-a/source-manifest.json"
+    try:
+        with (
+            patch(
+                "investigation_agent.main.runtime_readiness_errors",
+                return_value=[f"rag sqlite unavailable: {secret_path}"],
+            ),
+            patch(
+                "investigation_agent.main._okf_readiness_errors",
+                return_value=[f"invalid source hash at {secret_path}: expected deadbeef"],
+            ),
+            patch.object(config.settings, "okf_enabled", True),
+            TestClient(app) as client,
+        ):
+            ready = client.get("/v1/ready")
+            health = client.get("/v1/health")
+    finally:
+        main_mod._valid_api_keys = None
+
+    assert ready.status_code == 503
+    assert ready.json() == {
+        "status": "not_ready",
+        "errors": ["rag_unavailable", "okf_unavailable"],
+    }
+    public_payload = ready.text + health.text
+    assert secret_path not in public_payload
+    assert "deadbeef" not in public_payload
+    assert "source hash" not in public_payload
 
 
 def test_request_body_too_large_413():

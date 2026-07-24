@@ -83,15 +83,17 @@ def test_one_byte_source_change_alters_source_content_hash():
     rule_b["description"] = "alphb"
     pack_a = {"version": 1, "rules": [rule_a], "tag_rules": []}
     pack_b = {"version": 1, "rules": [rule_b], "tag_rules": []}
-    hash_a = _frontmatter(export_rule_pack(pack_a, "rules/a.json")["rules/r1.md"])[
-        "source_content_hash"
-    ]
-    hash_b = _frontmatter(export_rule_pack(pack_b, "rules/b.json")["rules/r1.md"])[
-        "source_content_hash"
-    ]
+    files_a = export_rule_pack(pack_a, "rules/a.json")
+    files_b = export_rule_pack(pack_b, "rules/b.json")
+    hash_a = _frontmatter(files_a["rules/r1.md"])["source_content_hash"]
+    hash_b = _frontmatter(files_b["rules/r1.md"])["source_content_hash"]
     assert hash_a != hash_b
-    assert hash_a == source_record_hash(rule_a)
-    assert hash_b == source_record_hash(rule_b)
+    assert (
+        hashlib.sha256(files_a[f"_provenance/sources/{hash_a}.json"].encode()).hexdigest() == hash_a
+    )
+    assert (
+        hashlib.sha256(files_b[f"_provenance/sources/{hash_b}.json"].encode()).hexdigest() == hash_b
+    )
 
 
 def test_typology_exports_relative_rule_links():
@@ -120,7 +122,7 @@ def test_export_playbooks_deterministic():
     second = export_playbooks()
     assert first == second
     assert first
-    sample = next(iter(first.values()))
+    sample = next(content for path, content in first.items() if path.endswith(".md"))
     meta = _frontmatter(sample)
     assert meta["type"] == "Investigation Playbook"
     assert meta["tenant_scope"] == "shared"
@@ -177,6 +179,77 @@ def test_landmark_case_rejects_pii_inside_allowed_text_fields(field, value):
 
     with pytest.raises(LandmarkCaseSanitizationError, match="PII"):
         export_landmark_case(case, tenant_id="t1")
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("disposition", "fraud linked to 123-45-6789"),
+        ("approved_revision", "reviewed from 192.0.2.44"),
+        ("typology_ids", ["activity at 742 Evergreen Street"]),
+        ("rule_ids", ["customer name: Jane Example"]),
+        ("evidence_ids", ["IBAN GB82 WEST 1234 5698 7654 32"]),
+        ("summary", "national id: AB-123456789"),
+        ("lessons", "mobile: +44 20 7946 0958"),
+    ],
+)
+def test_landmark_case_scans_every_accepted_textual_value(field, value):
+    case = {
+        "case_id": "case-opaque-17",
+        "title": "Reviewed case",
+        "summary": "Sanitized summary.",
+        "lessons": "Sanitized lesson.",
+        "disposition": "fraud",
+        "approved_revision": "rev-1",
+        "source_content_hash": "c" * 64,
+    }
+    case[field] = value
+
+    with pytest.raises(LandmarkCaseSanitizationError, match="PII"):
+        export_landmark_case(case, tenant_id="t1")
+
+
+@pytest.mark.parametrize(
+    "case_id",
+    [
+        "../case-1",
+        "case/one",
+        "case one",
+        "person@example.test",
+        "123-45-6789",
+        "",
+    ],
+)
+def test_landmark_case_requires_safe_opaque_case_id(case_id):
+    with pytest.raises(LandmarkCaseSanitizationError, match="case_id"):
+        export_landmark_case(
+            {
+                "case_id": case_id,
+                "title": "Reviewed case",
+                "source_content_hash": "c" * 64,
+            },
+            tenant_id="t1",
+        )
+
+
+def test_landmark_case_allows_normal_fraud_terminology():
+    md = export_landmark_case(
+        {
+            "case_id": "case-opaque-18",
+            "title": "Account takeover velocity review",
+            "summary": "Payment fraud indicators triggered device and account review.",
+            "lessons": "Review card-present risk and customer profile consistency.",
+            "disposition": "confirmed_fraud",
+            "typology_ids": ["account_takeover"],
+            "rule_ids": ["payment_velocity"],
+            "evidence_ids": ["ev-pseudonymous-12"],
+            "approved_revision": "rev-2",
+            "source_content_hash": "d" * 64,
+        },
+        tenant_id="t1",
+    )
+
+    assert "Account takeover velocity review" in md
 
 
 def test_merge_export_files_raises_on_duplicate_paths():
@@ -325,10 +398,12 @@ def test_collect_shared_exports_generates_deterministic_source_manifest(tmp_path
 
     assert first == second
     assert manifest["schema_id"] == "tarka.okf_source_manifest/v1"
-    assert manifest["concept_sources"]["rules/r1"]["source_uri"] == "rules/sample.json#r1"
+    source = manifest["sources"]["rules/sample.json#r1"]
+    assert source["snapshot_path"].startswith("_provenance/sources/")
+    snapshot = first[source["snapshot_path"]].encode()
+    assert hashlib.sha256(snapshot).hexdigest() == source["source_content_hash"]
     assert (
-        manifest["concept_sources"]["rules/r1"]["source_content_hash"]
-        == _frontmatter(first["rules/r1.md"])["source_content_hash"]
+        source["source_content_hash"] == _frontmatter(first["rules/r1.md"])["source_content_hash"]
     )
 
 

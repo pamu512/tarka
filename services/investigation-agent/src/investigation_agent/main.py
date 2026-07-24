@@ -1799,24 +1799,26 @@ async def ready():
     rag_errs = runtime_readiness_errors()
     okf_errs = _okf_readiness_errors(app)
     okf_available = bool(settings.okf_enabled) and not okf_errs
+    public_codes = [
+        *(["rag_unavailable"] if rag_errs else []),
+        *(["okf_unavailable"] if okf_errs else []),
+    ]
     if rag_errs and not okf_available:
-        errs = [*rag_errs, *okf_errs]
         if not settings.okf_enabled:
-            errs.append("okf registry disabled")
+            public_codes.append("okf_disabled")
         return JSONResponse(
             status_code=503,
-            content={"status": "not_ready", "errors": errs},
+            content={"status": "not_ready", "errors": public_codes},
         )
     if rag_errs or okf_errs:
         return {
             "status": "degraded",
-            "warnings": [*rag_errs, *okf_errs],
+            "warnings": public_codes,
         }
     return {"status": "ready"}
 
 
-@app.get("/v1/health")
-async def health():
+def _health_details_payload() -> dict[str, Any]:
     gov = normalize_governance_profile(settings.ai_governance_profile)
     eff = effective_disabled_tools(settings)
     prod_cfg = production_config_errors(settings)
@@ -1875,6 +1877,25 @@ async def health():
             else None,
         },
     }
+
+
+@app.get("/v1/health")
+async def health():
+    warnings: list[str] = []
+    if production_config_errors(settings):
+        warnings.append("production_config_invalid")
+    if settings.okf_enabled and _okf_readiness_errors(app):
+        warnings.append("okf_unavailable")
+    return {
+        "status": "ok",
+        **({"warnings": warnings} if warnings else {}),
+    }
+
+
+@app.get("/v1/admin/health/details")
+async def health_details(request: Request):
+    await _require_admin_api_key(request)
+    return _health_details_payload()
 
 
 @app.get("/v1/integration")
@@ -2711,11 +2732,21 @@ async def turn_review_save(rv: TurnReviewBody, request: Request):
         status=rv.status,
         note=rv.note,
     )
-    agent_run_store.update_review_state(
+    agent_run_updated = agent_run_store.update_review_state(
         tenant_id=rv.tenant_id.strip(),
         turn_id=tid,
         review_state=rv.status,
     )
+    if not agent_run_updated:
+        log.error(
+            "agent_run_review_state_update_failed tenant_id=%s turn_id=%s",
+            rv.tenant_id.strip(),
+            tid,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="agent_run_review_state_update_failed",
+        )
     return {
         "ok": True,
         "stored": True,
