@@ -1,0 +1,43 @@
+# Minimal in-cluster profile (Lite-ish).
+# Closest fraud-stack toggles for a small footprint — not a 1:1 of
+# infra/deploy/docker-compose.lite.yml (core-api + signal-api).
+#
+#   helm install tarka infra/deploy/helm/fraud-stack \
+#     -f infra/deploy/helm/fraud-stack/values.yaml \
+#     -f infra/deploy/helm/fraud-stack/presets/lite-on-k8s.yaml
+
+coreApi:
+  enabled: true
+  replicaCount: 1
+
+dataPlane:
+  enabled: true
+  replicaCount: 1
+
+investigationAgent:
+  enabled: true
+  replicaCount: 1
+
+signalApi:
+  enabled: false
+
+graphqlGateway:
+  enabled: false
+
+frontend:
+  enabled: false
+
+calibrationService:
+  enabled: false
+
+counterService:
+  enabled: false
+
+locationService:
+  enabled: false
+
+opa:
+  enabled: false
+
+triton:
+  enabled: false

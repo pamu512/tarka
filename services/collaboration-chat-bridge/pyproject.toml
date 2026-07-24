@@ -28,4 +28,8 @@ build-backend = "setuptools.build_meta"
 py-modules = []
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+asyncio_mode = "auto"

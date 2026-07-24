@@ -6,18 +6,14 @@ import logging
 import time
 from typing import Any
 
-from pydantic import TypeAdapter
 from tarka_core.engine_adapter import merge_features_with_resolved_from_packs
 from tarka_core.internal_monitor import InternalMonitor
 
-from decision_api.ast_evaluator import evaluate_json_ast
-from decision_api.ast_models import JsonAstNode, enforce_ast_limits
 from decision_api.json_rules import (
-    _MAX_CONDITIONS_PER_RULE,
-    _MAX_FIELD_LEN,
     _MAX_RULES_PER_PACK,
-    _match_condition,
     _pack_should_apply,
+    evaluate_rule_when,
+    evaluate_tag_rule_when,
 )
 
 MAX_EVAL_TIME_S = 0.05
@@ -58,49 +54,6 @@ def _redis_tag_set(redis_tags: list[str]) -> set[str]:
     return {str(t) for t in redis_tags}
 
 
-def _rule_when_matches(
-    rule: dict[str, Any],
-    merged_features: dict[str, Any],
-    tenant_id: str,
-    entity_id: str,
-) -> bool:
-    """Evaluate ``when`` / ``when_ast`` against ``merged_features``.
-
-    ``merged_features`` must already include ``custom_signal`` resolutions from
-    :func:`merge_features_with_resolved_from_packs` (parity with Rust feeding one map into ``eval_ast``).
-    """
-    _ = tenant_id, entity_id
-    when = rule.get("when")
-    raw_ast = rule.get("when_ast")
-    has_flat = isinstance(when, list) and len(when) > 0
-    has_ast = raw_ast is not None
-
-    if has_flat and has_ast:
-        return False
-
-    if has_ast:
-        try:
-            node = TypeAdapter(JsonAstNode).validate_python(raw_ast)
-            enforce_ast_limits(node)
-        except Exception:
-            return False
-        return evaluate_json_ast(node, merged_features)
-
-    if not has_flat:
-        return False
-
-    if len(when) > _MAX_CONDITIONS_PER_RULE:
-        return False
-
-    for c in when:
-        if not isinstance(c, dict):
-            return False
-        fld = c.get("field")
-        if not fld or len(str(fld)) > _MAX_FIELD_LEN:
-            return False
-    return all(_match_condition(merged_features, c) for c in when)
-
-
 def _evaluate_one_pack(
     pack: dict[str, Any],
     features: dict[str, Any],
@@ -129,7 +82,9 @@ def _evaluate_one_pack(
             rid = str(rule.get("id") or "unknown")
             if _expired(t0):
                 raise RuleEvaluationBudgetExceeded(rid, phase="rule")
-            if not _rule_when_matches(rule, features, tenant_id, entity_id):
+            if not evaluate_rule_when(
+                rule, features, tenant_id=tenant_id, entity_id=entity_id
+            ):
                 continue
             hits.append(rid)
             for t in rule.get("tags") or []:
@@ -166,8 +121,7 @@ def _evaluate_one_pack(
             any_tag = rule.get("any_tag") or []
             if not isinstance(any_tag, list):
                 continue
-            need = {str(t) for t in any_tag if isinstance(t, str)}
-            if not need or not any(t in redis_set for t in need):
+            if not evaluate_tag_rule_when(tr_id, any_tag, redis_set):
                 continue
             rid = tr_id
             hits.append(rid)

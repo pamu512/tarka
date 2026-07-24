@@ -23,9 +23,26 @@ Or run interactively (omit `--no-input` and flags) to answer prompts from `cooki
 
 ## After generate
 
-1. Set `INTEGRATION_PROFILE_ID` in deployment config to match `integration_profile_id` (see [Investigation agent integration contract](../../docs/docs/guides/investigation-agent-integration-contract.md)).
-2. Implement HTTP calls and response mapping in `adapter.py` (and split modules as the adapter grows).
-3. Add contract/golden tests in your CI; mirror vocabulary from this repo’s `.github/workflows/ci.yml` job **`test-investigation-agent-golden-matrix`** (profiles: `full`, `no_graph`, `no_case`, `no_decision`, `case_only`, `legacy_visible`).
-4. Follow [Saarthi customer API change policy](../../docs/docs/guides/saarthi-customer-api-change-policy.md) for versioning and breaking changes.
+1. Start the upstream mock (repo root):
+
+```bash
+python scripts/integration_adapter_mock/server.py --port 18080
+```
+
+2. Point the scaffold at the mock and run smoke tests:
+
+```bash
+export CASE_API_URL=http://127.0.0.1:18080
+export GRAPH_SERVICE_URL=http://127.0.0.1:18080
+export DECISION_API_URL=http://127.0.0.1:18080
+cd <generated_dir> && pip install -e '.[dev]' && pytest -q
+```
+
+`example_health_probe()` should return ``status: "ok"`` with case/graph/decision checks green.
+
+3. Set `INTEGRATION_PROFILE_ID` in deployment config to match `integration_profile_id` (see [Investigation agent integration contract](../../docs/docs/guides/investigation-agent-integration-contract.md)).
+4. Extend HTTP mapping in `adapter.py` for customer-specific fields; keep the mock path as a regression baseline.
+5. Add contract/golden tests in your CI; mirror vocabulary from this repo’s `.github/workflows/ci.yml` job **`test-investigation-agent-golden-matrix`**.
+6. Follow [Saarthi customer API change policy](../../docs/docs/guides/saarthi-customer-api-change-policy.md) for versioning and breaking changes.
 
 `package_name` must be a valid Python import name (letters, digits, underscores). `adapter_slug` is the directory name; keep them aligned unless you have a strong reason not to.
