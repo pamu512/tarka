@@ -4,15 +4,18 @@ from __future__ import annotations
 import argparse
 import asyncio
 import csv
-import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
 
 """Export decision_audit rows for offline reliability / calibration analysis (CSV).
 
-Reads the **Decision API** database via DATABASE_URL (same DB as `decision_audit`).
-For analyst labels, join the exported CSV with case-api exports or your warehouse.
+Prefer the Decision API when running:
+
+    GET /v1/calibration/reliability-export.csv?tenant_id=acme&limit=5000
+
+This CLI reads the same DB via DATABASE_URL for air-gapped / batch jobs.
 
 Usage::
 
@@ -26,10 +29,14 @@ if str(_dec_src) not in sys.path:
 
 
 async def _run(args: argparse.Namespace) -> int:
-    import os
-
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import create_async_engine
+
+    from decision_api.reliability_export import (
+        RELIABILITY_CSV_FIELDS,
+        audit_row_to_export_dict,
+        parse_inference_json_cell,
+    )
 
     url = args.database_url or os.environ.get("DATABASE_URL", "")
     if not url:
@@ -45,8 +52,10 @@ async def _run(args: argparse.Namespace) -> int:
     is_sqlite = "sqlite" in url.lower()
     if is_sqlite:
         inf_expr = "json_extract(a.payload_snapshot, '$.inference_context')"
+        payload_expr = "a.payload_snapshot"
     else:
         inf_expr = "a.payload_snapshot->'inference_context'"
+        payload_expr = "a.payload_snapshot"
 
     sql = text(
         f"""
@@ -58,6 +67,7 @@ async def _run(args: argparse.Namespace) -> int:
           a.decision,
           a.score,
           {inf_expr} AS inference_json,
+          {payload_expr} AS payload_snapshot,
           a.created_at
         FROM decision_audit a
         WHERE 1=1 {tenant_filter}
@@ -73,49 +83,27 @@ async def _run(args: argparse.Namespace) -> int:
         result = await conn.execute(sql, params)
         rows = result.mappings().all()
 
-    fieldnames = [
-        "trace_id",
-        "tenant_id",
-        "entity_id",
-        "event_type",
-        "decision",
-        "score",
-        "integrity_confidence",
-        "confidence_tier",
-        "calibration_profile",
-        "expected_calibration_version",
-        "y_label",
-        "created_at",
-    ]
     with out_path.open("w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w = csv.DictWriter(f, fieldnames=list(RELIABILITY_CSV_FIELDS))
         w.writeheader()
         for r in rows:
-            inf_raw = r.get("inference_json")
-            if isinstance(inf_raw, str):
-                try:
-                    inf = json.loads(inf_raw)
-                except json.JSONDecodeError:
-                    inf = {}
-            elif isinstance(inf_raw, dict):
-                inf = inf_raw
-            else:
-                inf = {}
+            payload = r.get("payload_snapshot")
+            if not isinstance(payload, dict):
+                inf = parse_inference_json_cell(r.get("inference_json"))
+                payload = {"inference_context": inf}
             w.writerow(
-                {
-                    "trace_id": r["trace_id"],
-                    "tenant_id": r["tenant_id"],
-                    "entity_id": r["entity_id"],
-                    "event_type": r["event_type"],
-                    "decision": r["decision"],
-                    "score": r["score"],
-                    "integrity_confidence": inf.get("integrity_confidence", ""),
-                    "confidence_tier": inf.get("confidence_tier", ""),
-                    "calibration_profile": inf.get("calibration_profile", ""),
-                    "expected_calibration_version": inf.get("expected_calibration_version", ""),
-                    "y_label": "",
-                    "created_at": r["created_at"].isoformat() if r.get("created_at") else "",
-                }
+                audit_row_to_export_dict(
+                    {
+                        "trace_id": r["trace_id"],
+                        "tenant_id": r["tenant_id"],
+                        "entity_id": r["entity_id"],
+                        "event_type": r["event_type"],
+                        "decision": r["decision"],
+                        "score": r["score"],
+                        "payload_snapshot": payload,
+                        "created_at": r["created_at"],
+                    }
+                )
             )
 
     await engine.dispose()

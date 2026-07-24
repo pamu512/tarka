@@ -138,10 +138,10 @@ Publish honest numbers: host SKU, compose profile, commit SHA, warm-up count, an
 
 | Layer | What ships |
 |--------|------------|
-| **Decision engine** | **Rust `tarka-core`** — deterministic evaluation, WASM leaf hooks, forensic **replay** (`crates/tarka-cli`, `tarka replay`). Python integration uses **PyO3** where the `tarka` / `tarka-py` bindings are installed (compiler / flowchart / advanced paths). **HTTP policy seam:** `services/rule_engine` (FastAPI evaluator on the ingest rail). |
+| **Decision engine** | **Rust `tarka-core`** — deterministic evaluation, WASM leaf hooks, forensic **replay** (`crates/tarka-cli`, `tarka replay`). **HTTP evaluate:** `decision-api` via `core-api` `/decisions` (default compose). Orchestrator ingest uses `RULE_EVAL_BACKEND=decision_api`. Python `rule_engine` is legacy dual-run only. |
 | **Intelligence graph** | **JanusGraph** (Gremlin) for topological signals; demo compose under `infra/deploy/janusgraph-cassandra-demo/`. |
-| **Forensics AI** | **Shadow** — FastAPI sidecar `services/shadow_agent`; local **Ollama** models (**Llama 3.2**, **Qwen3-VL** per `scripts/bootstrap_beta.sh` baseline checks). |
-| **Visualizer** | **Next.js** (`tarka_v2_ui/`) — **Knowledge Drop Zone** in decision views: upload priming documents, forward to `POST /v1/investigation/prime`, merge **graph snippet + cluster analysis** into analyst-facing UI (`DecisionDetail`, `KnowledgeDropInsight`). |
+| **Forensics AI** | **Shadow** — ingest sidecar `services/shadow_agent`; library hooks in `services/shadow`; desktop console `tools/shadow` (local only). See `services/SHADOW.md`. |
+| **Visualizer** | **Vite SPA** (`frontend/` / `tarka-ui`) — cases, rules packs, graph, investigation copilot. |
 | **Persistence** | **Postgres** (async SQLAlchemy), Redis where configured; **AuditLog** as the non-negotiable write-ahead for automated decisions. |
 
 ---
@@ -154,9 +154,11 @@ From the **repository root** with Docker running:
 # 1) Strict preflight: Docker, Compose, Python 3.11+, RAM sanity, Ollama baseline model
 ./scripts/bootstrap_beta.sh
 
-# 2) Bring up the compose stack (repo-root docker-compose.yml unless DOCKER_COMPOSE_FILE overrides)
+# 2) Bring up default Lite stack (docker-compose.yml → core-api / decision-api)
 ./scripts/bootstrap_beta.sh --launch
 ```
+
+Default compose is **Lite** (`infra/deploy/docker-compose.lite.yml`). Legacy `core_v2` streams stack: `docker compose -f docker-compose.streams-ai.yml up --build`.
 
 **Unified Python operator CLI** (module install / multi-profile compose)—this is the **`tarka start` path** people mean in ops docs today (`tarka.py` is the entrypoint):
 
@@ -173,7 +175,7 @@ cargo build --release -p tarka-cli
 ./target/release/tarka replay <MANIFEST_UUID>   # ClickHouse + registry + diff vs captured audit
 ```
 
-**Deep links:** [`docs/SYSTEM_DESIGN.md`](docs/SYSTEM_DESIGN.md) (ingest / Shadow bypass), [`docs/onboarding.md`](docs/onboarding.md) (broader platform), [`CONTRIBUTING.md`](CONTRIBUTING.md).
+**Deep links:** [`docs/INDEX.md`](docs/INDEX.md) (triad hub), [`docs/SYSTEM_DESIGN.md`](docs/SYSTEM_DESIGN.md) (ingest / Shadow bypass), [`docs/onboarding.md`](docs/onboarding.md) (broader platform), [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ---
 
@@ -182,7 +184,7 @@ cargo build --release -p tarka-cli
 | Path | Role |
 |------|------|
 | [`frontend/`](frontend/) | React analyst app (canonical workbench) |
-| [`services/`](services/) | Microservices — orchestrator, shadow_agent, rule_engine, case-api, graph-service, … |
+| [`services/`](services/) | Microservices — `core-api` / decision-api, orchestrator, `shadow_agent`, … (Shadow brand: [`services/SHADOW.md`](services/SHADOW.md)) |
 | [`packages/`](packages/) | Internal libs (`deploy-settings`, `shared-core`, SDKs) |
 | [`infra/`](infra/) | `infra/deploy/` (Compose, Helm, OPA) + `infra/scripts/` (CI, policy gates) |
 | [`docs/`](docs/) | Execution kits, runbooks, release notes — see [`docs/REPOSITORY_LAYOUT.md`](docs/REPOSITORY_LAYOUT.md) |

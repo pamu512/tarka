@@ -1,8 +1,8 @@
 """xFraud #68: typed heterogeneous edges on tenant graph schema."""
 
 import pytest
-from custom_schema import TenantSchema, invalidate_cache, save_tenant_schema
-from hetero_schema import validate_typed_edge_or_raise
+from graph_service.custom_schema import TenantSchema, invalidate_cache, save_tenant_schema
+from graph_service.hetero_schema import validate_typed_edge_or_raise
 
 
 def test_validate_skips_when_no_typed_edges_configured():

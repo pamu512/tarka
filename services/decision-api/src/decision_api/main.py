@@ -718,6 +718,10 @@ def _compute_fallback_reason(
         "calibration:unavailable": "circuit_calibration",
         "counter:unavailable": "circuit_counter",
         "location:unavailable": "circuit_location",
+        "consortium:unavailable": "circuit_consortium",
+        "redis:tenant_flags_unavailable": "circuit_redis_tenant_flags",
+        "redis:entity_tags_unavailable": "circuit_redis_entity_tags",
+        "redis:tag_merge_unavailable": "circuit_redis_tag_merge",
         "async_osint:unavailable": "async_osint_redis",
         "counter:fallback_local_agg": "counter_local_aggregate_fallback",
         "lists:disabled_by_tenant": "tenant_disable_entity_lists",
@@ -743,6 +747,45 @@ def _compute_fallback_reason(
         parts.append("rules_only_blend")
         seen.add("rules_only_blend")
     return "; ".join(parts) if parts else None
+
+
+_SIGNAL_UNAVAILABLE_AUDIT: dict[str, str] = {
+    "lists:unavailable": "Signal Entity lists was unavailable",
+    "graph:unavailable": "Signal Graph risk was unavailable",
+    "enrichment:unavailable": "Signal Feature enrichment was unavailable",
+    "ml:unavailable": "Signal ML scoring was unavailable",
+    "opa:unavailable": "Signal Policy (OPA) was unavailable",
+    "calibration:unavailable": "Signal Calibration was unavailable",
+    "counter:unavailable": "Signal Counter service was unavailable",
+    "location:unavailable": "Signal Location intelligence was unavailable",
+    "redis:tag_merge_unavailable": "Signal Redis tag merge was unavailable",
+    "redis:tenant_flags_unavailable": "Signal Redis tenant flags was unavailable",
+    "redis:entity_tags_unavailable": "Signal Redis entity tags was unavailable",
+    "consortium:unavailable": "Signal Consortium cross-tenant signal was unavailable",
+    "async_osint:unavailable": "Signal Async OSINT cache was unavailable",
+}
+
+
+def _signal_availability_notes_from_tags(degrade_tags: list[str]) -> list[str]:
+    """Human-readable audit lines when external signal paths tripped or fell back."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for t in degrade_tags:
+        msg = _SIGNAL_UNAVAILABLE_AUDIT.get(t)
+        if msg and msg not in seen:
+            seen.add(msg)
+            out.append(msg)
+    return out
+
+
+def _decision_runtime_status(degrade_tags: list[str], notes: list[str]) -> str:
+    if notes:
+        return "Degraded"
+    if "load_shedding:active" in degrade_tags:
+        return "Degraded"
+    if "counter:fallback_local_agg" in degrade_tags:
+        return "Degraded"
+    return "Healthy"
 
 
 def _normalize_explainability_tier(raw: str | None) -> str:
@@ -963,6 +1006,7 @@ async def require_api_key(request: Request) -> None:
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    log.info("decision-api canonical package (services/decision-api)")
     from tarka_core.cache import LocalDictCache, RedisCache
     from tarka_core.messaging import LocalAsyncBroker, NatsBroker, NullMessageBroker
 
@@ -1092,12 +1136,20 @@ from decision_api.experiment_api import (  # noqa: E402
 )
 from decision_api.benchmark_export_api import router as benchmark_export_router  # noqa: E402
 from decision_api.drift_query_api import router as drift_query_router  # noqa: E402
+from decision_api.health_deep import run_deep_health, run_unified_health  # noqa: E402
 from decision_api.internal_counters_api import router as internal_counters_router  # noqa: E402
+from decision_api.manifest_compare_api import router as manifest_compare_router  # noqa: E402
+from decision_api.manifest_visualize_api import router as manifest_visualize_router  # noqa: E402
+from decision_api.micro_dev_onboarding import router as micro_dev_onboarding_router  # noqa: E402
 from decision_api.recommend_api import router as recommend_router  # noqa: E402
 from decision_api.replay import router as replay_router  # noqa: E402
 from decision_api.reporting_nl import router as reporting_nl_router  # noqa: E402
 from decision_api.rule_api import router as rule_router  # noqa: E402
-from decision_api.rule_compiler_api import router as rule_compiler_router  # noqa: E402
+from decision_api.ast_rule_api import router as ast_rules_router  # noqa: E402
+from decision_api.rule_compiler_api import (  # noqa: E402
+    rego_deprecation_router,
+    router as rule_compiler_router,
+)
 from decision_api.rule_gitops_api import router as rule_gitops_router  # noqa: E402
 from decision_api.simulation_api import router as simulation_router  # noqa: E402
 from decision_api.vendor_marketplace_api import router as vendor_marketplace_router  # noqa: E402
@@ -1107,6 +1159,7 @@ from decision_api.sandbox_bootstrap import (  # noqa: E402
 )
 
 app.include_router(rule_router)
+app.include_router(ast_rules_router)
 app.include_router(replay_router)
 app.include_router(simulation_router)
 app.include_router(benchmark_export_router)
@@ -1120,14 +1173,18 @@ app.include_router(consortium_router)
 app.include_router(internal_counters_router)
 app.include_router(calibration_router)
 app.include_router(reporting_nl_router)
+app.include_router(rego_deprecation_router)
 app.include_router(rule_compiler_router)
 app.include_router(rule_gitops_router)
 app.include_router(backtest_router)
 app.include_router(ml_export_router)
 app.include_router(feature_store_router)
 app.include_router(analytics_dashboards_router)
+app.include_router(manifest_visualize_router)
+app.include_router(manifest_compare_router)
 app.include_router(vendor_marketplace_router)
 app.include_router(sandbox_bootstrap_router)
+app.include_router(micro_dev_onboarding_router)
 
 
 def _http(request: Request) -> httpx.AsyncClient:
@@ -1146,6 +1203,30 @@ def _external_nats_connected(broker: Any) -> bool:
 @app.get("/v1/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/v1/ready")
+async def ready():
+    """Liveness for compose healthchecks (`/decisions/v1/ready`)."""
+    return {"status": "ok"}
+
+
+@app.get("/health")
+async def health_unified(request: Request):
+    """Unified readiness: Postgres, Redis ping, ClickHouse read/write, Rust rule engine + manifest ingest."""
+    return await run_unified_health(request)
+
+
+@app.get("/v1/health/deep")
+async def health_deep(request: Request):
+    """Deep readiness: Redis ping latency, ClickHouse probes, Rust ingest gate (503 when unhealthy)."""
+    return await run_deep_health(request)
+
+
+@app.get("/health/deep")
+async def health_deep_alias(request: Request):
+    """Alias for operators expecting `/health/deep` (same payload as `/v1/health/deep`)."""
+    return await run_deep_health(request)
 
 
 @app.get("/v1/slo")
@@ -1495,6 +1576,14 @@ async def calibration_status(tenant_id: str, profile: str = "default"):
         "challenge_policy_default": settings.challenge_policy_default,
         "calibration": drift,
     }
+
+
+@app.get("/v1/ops/integrity-policy")
+async def integrity_policy_ops():
+    """Wave 2: publish platform × attestation matrix for ops and CI."""
+    from decision_api.integrity_policy import integrity_policy_matrix
+
+    return integrity_policy_matrix()
 
 
 @app.get("/v1/challenge-policies")
@@ -1985,7 +2074,18 @@ async def _fetch_graph_risk(
     )
     await _maybe_await(r.raise_for_status())
     data = await _maybe_await(r.json())
-    return data if isinstance(data, dict) else None
+    if not isinstance(data, dict):
+        return None
+    from decision_api.graph_risk_freshness import warn_if_graph_risk_stale
+
+    warn_if_graph_risk_stale(
+        data,
+        max_age_minutes=settings.graph_risk_max_age_minutes,
+        tenant_id=tenant_id,
+        entity_id=entity_id,
+        metrics_inc=_metrics_inc_safe,
+    )
+    return data
 
 
 def _blend_scores(rule_score: float, ml_score: float | None) -> float:
@@ -2428,9 +2528,9 @@ async def evaluate_decision(
                         break
 
         # Merge device signals into features so rules engine can see them
-        if body.device_context:
-            for k, v in body.device_context.signals.items():
-                features.setdefault(k, v)
+        from decision_api.device_feature_merge import merge_device_context_into_features
+
+        merge_device_context_into_features(features, body.device_context)
         if body.session_id:
             features.setdefault("session_id", body.session_id)
 
@@ -2835,6 +2935,8 @@ async def evaluate_decision(
             stored_snapshot = raw_snapshot
 
         fb_reason = _compute_fallback_reason(degrade_tags, step_trace)
+        signal_notes = _signal_availability_notes_from_tags(degrade_tags)
+        runtime_decision_status = _decision_runtime_status(degrade_tags, signal_notes)
         snap_extra: dict[str, Any] = {
             **stored_snapshot,
             "inference_context": inf_ctx,
@@ -2873,6 +2975,9 @@ async def evaluate_decision(
         _eb_snap = _metadata_etl_batch_id(body)
         if _eb_snap:
             snap_extra["etl_batch_id"] = _eb_snap
+
+        snap_extra["decision_status"] = runtime_decision_status
+        snap_extra["signal_availability_notes"] = signal_notes
 
         audit = AuditRecord(
             trace_id=trace_id,
@@ -2927,6 +3032,19 @@ async def evaluate_decision(
             tenant_flags,
         )
 
+        from decision_api.challenge_orchestrator import maybe_dispatch_challenge_webhook
+
+        bg.add_task(
+            maybe_dispatch_challenge_webhook,
+            http=http,
+            trace_id=str(trace_id),
+            tenant_id=body.tenant_id,
+            entity_id=body.entity_id,
+            decision=decision,
+            recommended_action=recommended_action,
+            challenge_metadata=ch_meta if isinstance(ch_meta, dict) else None,
+        )
+
         _metrics_inc_safe(f"fraud_decisions_{decision}_total", trace_id=trace_id)
         _metrics_inc_safe("fraud_evaluations_total", trace_id=trace_id)
         if fb_reason:
@@ -2966,6 +3084,8 @@ async def evaluate_decision(
             reasons=reasons,
             ml_score=ml_score if isinstance(ml_score, float) else None,
             inference_context=response_inf_ctx,
+            decision_status=runtime_decision_status,
+            signal_availability_notes=signal_notes,
             recommended_action=recommended_action,
             challenge_policy_id=ch_meta.get("policy_id"),
             challenge_metadata=ch_meta,
@@ -3051,6 +3171,8 @@ async def evaluate_decision(
                 reasons=reasons + [f"test_bypass:{list_check.reason}"],
                 ml_score=ml_score if isinstance(ml_score, float) else None,
                 inference_context=_tb_inf,
+                decision_status=runtime_decision_status,
+                signal_availability_notes=signal_notes,
                 recommended_action=_tb_rec,
                 challenge_policy_id=_tb_meta.get("policy_id"),
                 challenge_metadata=_tb_meta,

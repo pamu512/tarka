@@ -2818,8 +2818,9 @@ async def saarthi_feature_importance(body: SaarthiFeatureImportanceBody):
     return result
 
 
-# ── Collaboration (Slack / Teams / Lark) mounted under /collab (see frontend nginx /api/collab/) ──
+# ── Collaboration (Slack / Teams / Lark) — canonical package collaboration_chat_bridge ──
 os.environ.setdefault("TARKA_CHAT_BRIDGE_SUBAPP", "1")
-from investigation_agent.chat_bridge.main import app as _collaboration_subapp  # noqa: E402
+os.environ.setdefault("INVESTIGATION_AGENT_URL", "")
+from collaboration_chat_bridge.main import app as _collaboration_subapp  # noqa: E402
 
 app.mount("/collab", _collaboration_subapp)

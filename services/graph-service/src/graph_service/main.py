@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from algorithms import (
+from .algorithms import (
     compute_entity_risk,
     detect_communities,
     detect_fraud_rings,
@@ -17,19 +17,20 @@ from algorithms import (
     find_shared_attributes,
     propagate_risk,
 )
-from explainability_usage import record_explainability_event, usage_snapshot
-from checkpoint_registry import (
+from .explainability_usage import record_explainability_event, usage_snapshot
+from .checkpoint_registry import (
     registry_public_view,
     reload_checkpoint_registry,
 )
-from custom_schema import (
+from .custom_schema import (
     TenantSchema,
     invalidate_cache,
     load_tenant_schema,
     save_tenant_schema,
 )
-from graph_risk_model import score_graph_risk_beta
-from graph_runtime import (
+from .graph_risk_model import score_graph_risk_beta
+from .schemas import EntityRiskResponse
+from .graph_runtime import (
     close_graph_backend,
     create_link,
     get_tags,
@@ -345,7 +346,7 @@ async def fraud_rings_endpoint(tenant_id: str, min_size: int = 3):
     return {"rings": result}
 
 
-@app.get("/v1/analytics/entity-risk")
+@app.get("/v1/analytics/entity-risk", response_model=EntityRiskResponse)
 async def entity_risk_endpoint(tenant_id: str, entity_id: str, checkpoint: str | None = None):
     """Optional ``checkpoint`` selects graph profile (OSS #49). See GET /v1/checkpoint-profiles."""
     base = await compute_entity_risk(tenant_id, entity_id, checkpoint=checkpoint)
@@ -362,7 +363,7 @@ async def entity_risk_endpoint(tenant_id: str, entity_id: str, checkpoint: str |
             reasons.append("gnn_beta_high_risk")
             base["risk_factors"] = list(dict.fromkeys(str(x) for x in reasons if str(x).strip()))
         base["gnn_beta"] = beta
-    return base
+    return EntityRiskResponse.model_validate(base)
 
 
 @app.get("/v1/analytics/ring-suspicion", response_model=RingSuspicionResponse)

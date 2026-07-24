@@ -4,9 +4,9 @@ from typing import Any
 
 import asyncpg
 
-from config import settings
-from custom_schema import get_allowed_labels, get_allowed_rels
-from hetero_schema import validate_typed_edge_or_raise
+from .config import settings
+from .custom_schema import get_allowed_labels, get_allowed_rels
+from .hetero_schema import validate_typed_edge_or_raise
 
 _pool: asyncpg.Pool | None = None
 
