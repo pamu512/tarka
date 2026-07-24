@@ -809,6 +809,8 @@ jobs:
       - test-data-plane
       - test-chitragupta
       - test-feature-service
+      - test-ml-scoring
+      - benchmark-latency-evaluate
     strategy:
       fail-fast: false
       matrix:
