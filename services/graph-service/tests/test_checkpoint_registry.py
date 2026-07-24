@@ -1,6 +1,6 @@
 """Checkpoint registry (OSS #49) — no Neo4j required."""
 
-from checkpoint_registry import reload_checkpoint_registry, resolve_profile
+from graph_service.checkpoint_registry import reload_checkpoint_registry, resolve_profile
 
 
 def test_resolve_default_and_minimal():
