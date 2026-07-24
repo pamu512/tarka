@@ -8,7 +8,7 @@ import re as _re
 import sys
 import time
 import uuid
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
 from typing import Any, Literal
 from uuid import UUID
@@ -2102,57 +2102,171 @@ async def evaluate_decision(
                 "message": "Idempotency-Key header is required when TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY is enabled.",
             },
         )
+    if not idem:
+        return await _evaluate_decision_impl(body, request, bg, session)
 
     from decision_api.evaluate_idempotency import (
         canonical_request_fingerprint,
         claim_evaluate_idempotency,
         complete_evaluate_idempotency,
+        release_evaluate_idempotency,
+        renew_evaluate_idempotency,
     )
 
-    idem_fingerprint = canonical_request_fingerprint(body.model_dump(mode="json"))
-    idem_owner_token = ""
-    if idem:
-        claim = await claim_evaluate_idempotency(
-            tenant_id=body.tenant_id,
-            idempotency_key=idem,
-            request_fingerprint=idem_fingerprint,
+    fingerprint = canonical_request_fingerprint(body.model_dump(mode="json"))
+    try:
+        lease_seconds = max(
+            1,
+            int(os.environ.get("TARKA_EVALUATE_IDEMPOTENCY_LEASE_SECONDS", "30")),
         )
-        if claim.state == "completed" and claim.response is not None:
-            return EvaluateResponse.model_validate(claim.response)
-        if claim.state == "mismatch":
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "error": "evaluate_idempotency_payload_mismatch",
-                    "message": "This Idempotency-Key is already bound to a different request.",
-                },
+    except ValueError:
+        lease_seconds = 30
+    try:
+        heartbeat_seconds = float(
+            os.environ.get(
+                "TARKA_EVALUATE_IDEMPOTENCY_HEARTBEAT_SECONDS",
+                str(max(0.25, lease_seconds / 3)),
             )
-        if claim.state != "owned":
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "error": "evaluate_idempotency_in_flight",
-                    "message": "A request with this Idempotency-Key is already being processed.",
-                },
-            )
-        idem_owner_token = claim.owner_token or ""
+        )
+    except ValueError:
+        heartbeat_seconds = max(0.25, lease_seconds / 3)
+    heartbeat_seconds = min(
+        max(0.05, heartbeat_seconds), max(0.05, lease_seconds * 0.8)
+    )
 
-    async def _finish_evaluate(resp: EvaluateResponse) -> EvaluateResponse:
-        if idem_owner_token and idem:
+    claim = await claim_evaluate_idempotency(
+        tenant_id=body.tenant_id,
+        idempotency_key=idem,
+        request_fingerprint=fingerprint,
+        lease_seconds=lease_seconds,
+    )
+    if claim.state == "completed" and claim.response is not None:
+        return EvaluateResponse.model_validate(claim.response)
+    if claim.state == "mismatch":
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "evaluate_idempotency_payload_mismatch",
+                "message": "This Idempotency-Key is already bound to a different request.",
+            },
+        )
+    if claim.state != "owned" or not claim.owner_token:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "evaluate_idempotency_in_flight",
+                "message": "A request with this Idempotency-Key is already being processed.",
+            },
+        )
+
+    owner_token = claim.owner_token
+    lease_lost = asyncio.Event()
+
+    async def _heartbeat() -> None:
+        while True:
+            await asyncio.sleep(heartbeat_seconds)
             try:
-                await complete_evaluate_idempotency(
+                renewed = await renew_evaluate_idempotency(
                     tenant_id=body.tenant_id,
                     idempotency_key=idem,
-                    request_fingerprint=idem_fingerprint,
-                    owner_token=idem_owner_token,
-                    response=resp.model_dump(mode="json"),
+                    request_fingerprint=fingerprint,
+                    owner_token=owner_token,
+                    lease_seconds=lease_seconds,
                 )
             except Exception:
-                log.exception(
-                    "evaluate_idempotency_store_failed tenant_id=%s", body.tenant_id
+                log.critical(
+                    "evaluate_idempotency_heartbeat_failed tenant_id=%s",
+                    body.tenant_id,
+                    exc_info=True,
                 )
-        return resp
+                lease_lost.set()
+                return
+            if not renewed:
+                log.critical(
+                    "evaluate_idempotency_lease_lost tenant_id=%s",
+                    body.tenant_id,
+                )
+                lease_lost.set()
+                return
 
+    async def _stop_heartbeat(task: asyncio.Task[None]) -> None:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+
+    async def _release_claim() -> None:
+        try:
+            released = await release_evaluate_idempotency(
+                tenant_id=body.tenant_id,
+                idempotency_key=idem,
+                request_fingerprint=fingerprint,
+                owner_token=owner_token,
+            )
+            if not released:
+                log.critical(
+                    "evaluate_idempotency_release_ownership_lost tenant_id=%s",
+                    body.tenant_id,
+                )
+        except Exception:
+            log.critical(
+                "evaluate_idempotency_release_failed tenant_id=%s",
+                body.tenant_id,
+                exc_info=True,
+            )
+
+    heartbeat = asyncio.create_task(_heartbeat())
+    try:
+        response = await _evaluate_decision_impl(body, request, bg, session)
+    except BaseException:
+        await _stop_heartbeat(heartbeat)
+        await _release_claim()
+        raise
+
+    await _stop_heartbeat(heartbeat)
+    if lease_lost.is_set():
+        await _release_claim()
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "evaluate_idempotency_lease_lost"},
+        )
+    try:
+        completed = await complete_evaluate_idempotency(
+            tenant_id=body.tenant_id,
+            idempotency_key=idem,
+            request_fingerprint=fingerprint,
+            owner_token=owner_token,
+            response=response.model_dump(mode="json"),
+        )
+    except Exception as exc:
+        log.critical(
+            "evaluate_idempotency_completion_failed tenant_id=%s",
+            body.tenant_id,
+            exc_info=True,
+        )
+        await _release_claim()
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "evaluate_idempotency_completion_failed"},
+        ) from exc
+    if not completed:
+        log.critical(
+            "evaluate_idempotency_completion_ownership_lost tenant_id=%s",
+            body.tenant_id,
+        )
+        await _release_claim()
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "evaluate_idempotency_lease_lost"},
+        )
+    return response
+
+
+async def _evaluate_decision_impl(
+    body: EvaluateRequest,
+    request: Request,
+    bg: BackgroundTasks,
+    session: AsyncSession,
+):
     http = _http(request)
     trace_id = uuid.uuid4()
     replay_ttl_seconds = int(os.environ.get("REPLAY_PAYLOAD_TTL_SECONDS", "300"))
@@ -2242,10 +2356,37 @@ async def evaluate_decision(
             build_list_decision_evidence_snapshot,
         )
 
+        if list_check is None or list_check.entry is None:
+            raise HTTPException(
+                status_code=503,
+                detail={"error": "entity_list_entry_provenance_missing"},
+            )
+        raw_entry = list_check.entry.to_dict()
+        privacy_profile = get_profile(body.region)
+        list_entry = {
+            "tenant_id": str(raw_entry.get("tenant_id") or body.tenant_id),
+            "entity_id": str(raw_entry.get("entity_id") or body.entity_id),
+            "list_type": str(raw_entry.get("list_type") or list_type),
+            "action": str(action),
+            "reason": str(raw_entry.get("reason") or list_check.reason),
+            "created_at": str(raw_entry.get("created_at") or ""),
+            "expires_at": raw_entry.get("expires_at"),
+            "created_by": mask_dict(
+                {"name": str(raw_entry.get("created_by") or "")},
+                privacy_profile,
+            )["name"],
+            "metadata": mask_dict(
+                raw_entry.get("metadata")
+                if isinstance(raw_entry.get("metadata"), dict)
+                else {},
+                privacy_profile,
+            ),
+        }
         evidence = build_list_decision_evidence_snapshot(
             payload=body.payload,
             list_type=list_type,
             action=action,
+            list_entry=list_entry,
             condition_trace=step_trace,
         )
         return {
@@ -2351,20 +2492,18 @@ async def evaluate_decision(
                 challenge_metadata=_wl_meta,
                 payload_snapshot=_wl_snapshot,
             )
-            return await _finish_evaluate(
-                EvaluateResponse(
-                    trace_id=trace_id,
-                    decision="allow",
-                    score=0.0,
-                    tags=["list:whitelist"],
-                    rule_hits=["whitelist_bypass"],
-                    reasons=[f"whitelist:{list_check.reason}"],
-                    ml_score=None,
-                    inference_context=_wl_inf,
-                    recommended_action=_wl_rec,
-                    challenge_policy_id=_wl_meta.get("policy_id"),
-                    challenge_metadata=_wl_meta,
-                )
+            return EvaluateResponse(
+                trace_id=trace_id,
+                decision="allow",
+                score=0.0,
+                tags=["list:whitelist"],
+                rule_hits=["whitelist_bypass"],
+                reasons=[f"whitelist:{list_check.reason}"],
+                ml_score=None,
+                inference_context=_wl_inf,
+                recommended_action=_wl_rec,
+                challenge_policy_id=_wl_meta.get("policy_id"),
+                challenge_metadata=_wl_meta,
             )
 
         if list_check.action == "deny":
@@ -2432,20 +2571,18 @@ async def evaluate_decision(
                 challenge_metadata=_bl_meta,
                 payload_snapshot=_bl_snapshot,
             )
-            return await _finish_evaluate(
-                EvaluateResponse(
-                    trace_id=trace_id,
-                    decision="deny",
-                    score=100.0,
-                    tags=["list:blacklist"],
-                    rule_hits=["blacklist_block"],
-                    reasons=[f"blacklist:{list_check.reason}"],
-                    ml_score=None,
-                    inference_context=_bl_inf,
-                    recommended_action=_bl_rec,
-                    challenge_policy_id=_bl_meta.get("policy_id"),
-                    challenge_metadata=_bl_meta,
-                )
+            return EvaluateResponse(
+                trace_id=trace_id,
+                decision="deny",
+                score=100.0,
+                tags=["list:blacklist"],
+                rule_hits=["blacklist_block"],
+                reasons=[f"blacklist:{list_check.reason}"],
+                ml_score=None,
+                inference_context=_bl_inf,
+                recommended_action=_bl_rec,
+                challenge_policy_id=_bl_meta.get("policy_id"),
+                challenge_metadata=_bl_meta,
             )
 
     async with acquire_eval_capacity(request.app) as cap:
@@ -3043,8 +3180,28 @@ async def evaluate_decision(
             combined_rule_hits = list(combined_rule_hits) + ["test_bypass"]
             merged_tags = list(dict.fromkeys(list(merged_tags) + ["list:test_bypass"]))
             reasons = list(reasons) + [f"test_bypass:{list_check.reason}"]
-            recommended_action = "allow"
+            _tb_plat = _infer_ctx_kwargs(body, features)
+            inf_ctx = build_inference_context(
+                merged_tags,
+                combined_rule_hits,
+                ml_score if isinstance(ml_score, float) else None,
+                final_score,
+                features,
+                ml_detail=ml_detail if isinstance(ml_detail, dict) else None,
+                **_tb_plat,
+            )
+            _tb_base = derive_recommended_action("allow", merged_tags, inf_ctx)
+            recommended_action, ch_meta = apply_challenge_policy(
+                body.challenge_policy_id,
+                _tb_base,
+                "allow",
+                inf_ctx,
+                merged_tags,
+                body.payload,
+            )
+            snap_extra["inference_context"] = inf_ctx
             snap_extra["recommended_action"] = recommended_action
+            snap_extra["challenge_metadata"] = ch_meta
             snap_extra["test_bypass"] = True
 
         audit = AuditRecord(
@@ -3190,7 +3347,7 @@ async def evaluate_decision(
             str(trace_id),
         )
 
-    return await _finish_evaluate(response)
+    return response
 
 
 # ---------- websocket ----------

@@ -40,14 +40,24 @@ def build_list_decision_evidence_snapshot(
     payload: dict[str, Any] | None,
     list_type: str,
     action: str,
+    list_entry: dict[str, Any],
     condition_trace: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Build the normal evidence contract for a list-driven early decision."""
+    canonical_list_entry = json.loads(
+        json.dumps(
+            list_entry,
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
+        )
+    )
     policy = {
         "kind": "entity_list_early_decision",
         "version": 1,
         "list_type": str(list_type),
         "action": str(action),
+        "list_entry": canonical_list_entry,
     }
     canonical = json.dumps(
         policy,
@@ -55,7 +65,7 @@ def build_list_decision_evidence_snapshot(
         separators=(",", ":"),
     ).encode("utf-8")
     policy_hash = hashlib.sha256(canonical).hexdigest()
-    return build_decision_evidence_snapshot(
+    evidence = build_decision_evidence_snapshot(
         feature_map=payload if isinstance(payload, dict) else {},
         rule_pack_content_sha256=policy_hash,
         rule_pack_files=[f"entity-list-policy:{list_type}"],
@@ -69,3 +79,5 @@ def build_list_decision_evidence_snapshot(
             }
         ],
     )
+    evidence["list_entry"] = canonical_list_entry
+    return evidence
