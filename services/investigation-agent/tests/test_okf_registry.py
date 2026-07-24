@@ -2,41 +2,17 @@
 
 from __future__ import annotations
 
-import json
 import shutil
 from pathlib import Path
 
 import pytest
-import yaml
 
 from investigation_agent.okf_registry import OkfRegistry
+from tests.okf_provenance_helpers import rebuild_bundle_provenance
 
 
 def _write_source_manifest(root: Path) -> None:
-    entries: dict[str, dict[str, str]] = {}
-    for path in sorted(root.rglob("*.md")):
-        if path.name in {"index.md", "log.md"}:
-            continue
-        parts = path.read_text(encoding="utf-8").split("---", 2)
-        if len(parts) != 3:
-            continue
-        meta = yaml.safe_load(parts[1])
-        if not isinstance(meta, dict):
-            continue
-        entries[path.relative_to(root).with_suffix("").as_posix()] = {
-            "source_uri": str(meta.get("source_uri") or ""),
-            "source_content_hash": str(meta.get("source_content_hash") or ""),
-        }
-    (root / "source-manifest.json").write_text(
-        json.dumps(
-            {
-                "schema_id": "tarka.okf_source_manifest/v1",
-                "concept_sources": entries,
-            },
-            sort_keys=True,
-        )
-        + "\n"
-    )
+    rebuild_bundle_provenance(root)
 
 
 @pytest.fixture

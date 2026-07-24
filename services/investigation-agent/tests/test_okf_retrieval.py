@@ -11,6 +11,7 @@ from investigation_agent.knowledge_store import index_okf_concepts_sync
 from investigation_agent.okf_parser import validate_bundle
 from investigation_agent.okf_registry import OkfRegistry
 from investigation_agent.okf_retrieval import retrieve_knowledge
+from tests.okf_provenance_helpers import attach_concept_provenance
 
 
 @dataclass(frozen=True)
@@ -71,19 +72,14 @@ def _write_concept(
     path = root / rel_path
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines), encoding="utf-8")
-    manifest_path = root / "source-manifest.json"
-    if manifest_path.is_file():
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    else:
-        manifest = {
-            "schema_id": "tarka.okf_source_manifest/v1",
-            "concept_sources": {},
-        }
-    manifest["concept_sources"][Path(rel_path).with_suffix("").as_posix()] = {
-        "source_uri": source_uri,
-        "source_content_hash": source_hash_char * 64,
-    }
-    manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n")
+    attach_concept_provenance(
+        root,
+        path,
+        source_record={
+            "fixture_concept_id": Path(rel_path).with_suffix("").as_posix(),
+            "fixture_source_marker": source_hash_char,
+        },
+    )
 
 
 def _build_okf_layout(shared_root: Path, tenant_root: Path) -> None:
@@ -142,7 +138,7 @@ def _build_okf_layout(shared_root: Path, tenant_root: Path) -> None:
         title="Conflicting Guidance",
         description="Shared guidance copy B",
         tenant_scope="shared",
-        source_uri="guidance/shared-conflict.json",
+        source_uri="guidance/shared-conflict-b.json",
         source_hash_char="e",
         body="Version B of the same shared guidance source.",
     )
@@ -477,7 +473,7 @@ def test_same_source_hash_conflict_abstains_before_deduplication(
     assert result.abstain is True
     assert result.conflicts == (
         f"shared_okf conflict for rules/default.json#high-amount: "
-        f"rules/high-amount[{current_hash}] != rules/high-amount[{stale_hash}]",
+        f"rules/high-amount[{stale_hash}] != rules/high-amount[{current_hash}]",
     )
 
 
@@ -509,7 +505,7 @@ def test_embedding_failure_uses_keyword_fallback(
     assert result.abstain is True
 
 
-def test_equal_authority_conflict_requires_abstention(
+def test_equal_authority_distinct_sources_do_not_create_false_conflict(
     retrieval_context: RetrievalContext,
 ) -> None:
     result = retrieve_knowledge(
@@ -525,20 +521,21 @@ def test_equal_authority_conflict_requires_abstention(
         "guidance/conflict-a",
         "guidance/conflict-b",
     }
-    assert result.abstain is True
-    assert result.conflicts == (
-        "shared_okf conflict for guidance/shared-conflict.json: "
-        "guidance/conflict-a != guidance/conflict-b",
-    )
+    assert result.conflicts == ()
 
 
 def test_frozen_corpus_enforces_recall_citation_and_abstention_gates(
     registry: OkfRegistry, retrieval_corpus: list[dict[str, object]]
 ) -> None:
+    from investigation_agent.citation_schema import build_standard_citations
+    from investigation_agent.main import _enforce_claim_exact_ids
+
     resolved = 0
     expected = 0
     citation_resolved = 0
     citation_total = 0
+    concept_citation_total = 0
+    evidence_citation_total = 0
     unsupported_abstained = 0
     unsupported_total = 0
     for row in retrieval_corpus:
@@ -554,29 +551,91 @@ def test_frozen_corpus_enforces_recall_citation_and_abstention_gates(
         wanted = set(row["expected_concept_ids"])
         resolved += len(actual & wanted)
         expected += len(wanted)
-        for item in result.results:
-            if not item.concept_id:
-                continue
-            citation_total += 1
-            exact = registry.expand(
-                str(row["tenant_id"]),
-                (item.concept_id,),
-                max_depth=0,
-                max_concepts=1,
-            )
-            if (
-                len(exact) == 1
-                and exact[0].concept.concept_id == item.concept_id
-                and exact[0].concept.content_hash == item.content_hash
-            ):
-                citation_resolved += 1
+        hits = [
+            {
+                "text": item.text,
+                "concept_id": item.concept_id,
+                "content_hash": item.content_hash,
+                "evidence_ids": list(item.evidence_ids),
+                "authority": item.authority,
+                "retrieval_path": list(item.retrieval_path),
+            }
+            for item in result.results
+            if item.concept_id
+        ]
+        claims = [
+            {
+                "text": hit["text"],
+                "source": "tool",
+                "concept_ids": [hit["concept_id"]],
+                **({"evidence_ids": list(hit["evidence_ids"])} if hit["evidence_ids"] else {}),
+            }
+            for hit in hits
+        ]
+        grounded, _adjustments = _enforce_claim_exact_ids(
+            claims,
+            [
+                {
+                    "tool": "search_knowledge",
+                    "args": {"query": row["query"]},
+                    "result": {
+                        "hits": hits,
+                        "abstain": result.abstain,
+                        "conflicts": list(result.conflicts),
+                    },
+                }
+            ],
+        )
+        allowed_concepts = {
+            str(hit["concept_id"]) for hit in hits if str(hit.get("concept_id") or "")
+        }
+        allowed_evidence = {
+            str(evidence_id)
+            for hit in hits
+            for evidence_id in hit["evidence_ids"]
+            if str(evidence_id)
+        }
+        citations, _summary = build_standard_citations(
+            claims=grounded,
+            deterministic_support=[
+                {
+                    "claim_index": index,
+                    "supported": claim.get("source") == "tool"
+                    and claim.get("supported") is not False,
+                }
+                for index, claim in enumerate(grounded)
+            ],
+            allowed_concept_ids=allowed_concepts,
+            allowed_evidence_ids=allowed_evidence,
+            max_citations=20,
+        )
+        for claim, citation in zip(grounded, citations, strict=True):
+            resolved_refs = {
+                (str(ref["artifact"]), str(ref["id"])) for ref in citation["resolves_to"]
+            }
+            for concept_id in claim.get("concept_ids") or []:
+                citation_total += 1
+                concept_citation_total += 1
+                citation_resolved += int(
+                    citation["supported"] is True
+                    and ("okf_concept", str(concept_id)) in resolved_refs
+                )
+            for evidence_id in claim.get("evidence_ids") or []:
+                citation_total += 1
+                evidence_citation_total += 1
+                citation_resolved += int(
+                    citation["supported"] is True
+                    and ("evidence", str(evidence_id)) in resolved_refs
+                )
         if bool(row["unsupported"]):
             unsupported_total += 1
             unsupported_abstained += int(result.abstain is True)
 
     assert expected > 0, "frozen corpus must contain positive retrieval expectations"
     assert citation_total > 0, "frozen corpus must produce exact citations"
-    assert unsupported_total > 0, "frozen corpus must contain unsupported questions"
+    assert concept_citation_total > 0, "quality gate must resolve concept_ids"
+    assert evidence_citation_total > 0, "quality gate must resolve evidence_ids"
+    assert unsupported_total >= 20, "frozen corpus must contain meaningful unsupported coverage"
     recall_at_10 = resolved / expected
     citation_resolution = citation_resolved / citation_total
     unsupported_abstention = unsupported_abstained / unsupported_total

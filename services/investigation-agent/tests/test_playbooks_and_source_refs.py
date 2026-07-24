@@ -5,6 +5,7 @@ from investigation_agent.copilot_hardening import (
     build_source_reference_cards,
     collect_grounding_tokens,
 )
+import investigation_agent.main as main_mod
 from investigation_agent.main import app
 from investigation_agent.personas import build_copilot_system_prompt, list_personas
 from investigation_agent.playbooks import playbooks_catalog_fingerprint
@@ -49,12 +50,23 @@ def test_playbooks_catalog_fingerprint_stable():
     assert all(c in "0123456789abcdef" for c in a)
 
 
-def test_health_includes_playbooks_fingerprint():
-    with TestClient(app) as client:
-        r = client.get("/v1/health")
-    assert r.status_code == 200
-    fp = r.json()["copilot_features"]["playbooks_fingerprint"]
-    assert fp == playbooks_catalog_fingerprint()
+def test_admin_health_details_include_playbooks_fingerprint(monkeypatch):
+    monkeypatch.setenv("API_KEYS", "admin-key")
+    monkeypatch.setenv("API_KEY_TENANT_MAP", '{"admin-key":["*"]}')
+    monkeypatch.setenv("OKF_ADMIN_API_KEYS", "admin-key")
+    main_mod._valid_api_keys = None
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                "/v1/admin/health/details",
+                headers={"x-api-key": "admin-key"},
+            )
+    finally:
+        main_mod._valid_api_keys = None
+
+    assert response.status_code == 200
+    fingerprint = response.json()["copilot_features"]["playbooks_fingerprint"]
+    assert fingerprint == playbooks_catalog_fingerprint()
 
 
 def test_chat_rejects_too_many_messages(monkeypatch):

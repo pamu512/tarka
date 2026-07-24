@@ -408,6 +408,10 @@ class TestTenantScopedRoutes:
                 new=AsyncMock(return_value="doc-1"),
             ),
             patch("investigation_agent.main.knowledge_store.count_docs", return_value=1),
+            patch(
+                "investigation_agent.main.agent_run_store.update_review_state",
+                return_value=True,
+            ),
             patch.multiple(
                 "investigation_agent.main.settings",
                 openai_api_key="sk-test",
