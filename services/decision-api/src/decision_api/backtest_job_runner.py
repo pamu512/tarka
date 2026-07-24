@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import time
@@ -155,7 +154,11 @@ async def run_backtest_job(job_id: uuid.UUID, engine: BaseAnalyticsEngine) -> No
                     act = "deny"
                 elif act not in ("allow", "review", "deny"):
                     act = "allow"
-                if row.get("ground_truth") or row.get("verified_outcome") or row.get("label"):
+                if (
+                    row.get("ground_truth")
+                    or row.get("verified_outcome")
+                    or row.get("label")
+                ):
                     verified_label_rows += 1
                 pred = decision_from_rule_score(float(delta))
                 rows_processed += 1
