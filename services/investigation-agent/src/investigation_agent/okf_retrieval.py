@@ -286,8 +286,6 @@ def _candidate_from_rag_hit(
     title = str(hit.get("title") or "").strip()
     snippet = str(hit.get("snippet") or "").strip()
     text = snippet or title
-    if title and snippet:
-        text = f"{title}\n\n{snippet}"
     return _Candidate(
         text=text,
         authority="memo_rag",
@@ -306,7 +304,10 @@ def _candidate_from_rag_hit(
 def _rag_metadata(hit: dict[str, Any]) -> dict[str, Any]:
     keys = (
         "doc_id",
+        "title",
         "chunk_index",
+        "snippet",
+        "authority",
         "semantic_score",
         "keyword_hits",
         "knowledge_kind",

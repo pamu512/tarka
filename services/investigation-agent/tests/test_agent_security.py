@@ -2,6 +2,7 @@
 
 from unittest.mock import AsyncMock, MagicMock, patch
 from types import SimpleNamespace
+import io
 
 import pytest
 from fastapi.testclient import TestClient
@@ -269,6 +270,274 @@ class TestChatTenantBinding:
                 },
             )
         assert r.status_code == 403
+
+
+class TestTenantScopedRoutes:
+    @pytest.fixture(autouse=True)
+    def _tenant_auth_env(self, monkeypatch):
+        monkeypatch.setenv("API_KEYS", "k-t1")
+        monkeypatch.setenv("API_KEY_TENANT_MAP", '{"k-t1":["t1"]}')
+        monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "false")
+        monkeypatch.setenv("COPILOT_PLUGIN_SHARED_SECRET", "test-secret")
+        monkeypatch.setattr(main_mod.settings, "copilot_plugin_shared_secret", "test-secret")
+        main_mod._valid_api_keys = None
+        yield
+        main_mod._valid_api_keys = None
+
+    @staticmethod
+    def _headers() -> dict[str, str]:
+        return {"x-api-key": "k-t1"}
+
+    @staticmethod
+    def _json_body(route_id: str, tenant_id: str) -> dict[str, object]:
+        base = {"tenant_id": tenant_id, "analyst_id": "analyst-1"}
+        if route_id == "case_summary":
+            return {**base, "reply": "summary"}
+        if route_id == "turn_bundle":
+            return {**base, "reply": "bundle"}
+        if route_id == "plugin_session":
+            return {**base, "case_id": "case-1"}
+        if route_id == "case_action":
+            return {
+                "action": "comment",
+                "tenant_id": tenant_id,
+                "case_id": "case-1",
+                "actor_id": "analyst-1",
+                "platform": "slack",
+                "idempotency_key": f"idem-{tenant_id}",
+                "comment_body": "hello",
+            }
+        if route_id == "thread_correlation":
+            return {
+                "platform": "slack",
+                "workspace_id": "ws",
+                "thread_key": "thread-1",
+                "case_id": "case-1",
+                "tenant_id": tenant_id,
+            }
+        if route_id == "knowledge":
+            return {**base, "title": "memo", "body": "memo body"}
+        if route_id == "feedback":
+            return {**base, "turn_id": f"turn-{tenant_id}", "rating": 1}
+        if route_id == "review":
+            return {**base, "turn_id": f"turn-{tenant_id}", "status": "approved"}
+        if route_id == "chat":
+            return {**base, "messages": [{"role": "user", "content": "hi"}]}
+        if route_id == "saarthi":
+            return {"tenant_id": tenant_id, "trace_id": "trace-1", "risk_score": 0.1}
+        raise AssertionError(route_id)
+
+    @pytest.mark.parametrize(
+        ("route_id", "method", "path"),
+        [
+            ("case_summary", "post", "/v1/reports/case-summary"),
+            ("turn_bundle", "post", "/v1/reports/turn-bundle"),
+            ("plugin_session", "post", "/v1/plugin/session"),
+            ("case_action", "post", "/v1/case-actions"),
+            ("thread_correlation", "post", "/v1/thread-correlations"),
+            ("knowledge", "post", "/v1/knowledge/ingest"),
+            ("feedback", "post", "/v1/feedback"),
+            ("review", "post", "/v1/review/turn"),
+            ("chat", "post", "/v1/chat"),
+            ("saarthi", "post", "/v1/saarthi/feature-importance"),
+        ],
+    )
+    def test_t1_key_cannot_write_t2_tenant_routes(self, route_id, method, path):
+        with (
+            patch("investigation_agent.main.is_analyst_allowed", return_value=True),
+            patch("investigation_agent.main._llm_tool_loop", new=AsyncMock(side_effect=TestChatTenantBinding._fake_llm)),
+            patch("investigation_agent.main._forward_case_action", new=AsyncMock(return_value={"upstream": "ok"})) as forward_case_action,
+            TestClient(app) as c,
+        ):
+            r = getattr(c, method)(
+                path,
+                headers=self._headers(),
+                json=self._json_body(route_id, "t2"),
+            )
+        assert r.status_code == 403
+        if route_id == "case_action":
+            forward_case_action.assert_not_awaited()
+
+    @pytest.mark.parametrize(
+        ("path", "params"),
+        [
+            ("/v1/feedback/summary", {"tenant_id": "t2"}),
+            ("/v1/feedback/recent", {"tenant_id": "t2"}),
+            ("/v1/review/turn", {"tenant_id": "t2", "turn_id": "turn-t2"}),
+            ("/v1/review/metrics", {"tenant_id": "t2"}),
+            (
+                "/v1/thread-correlations/slack/ws/thread-1",
+                {"tenant_id": "t2"},
+            ),
+        ],
+    )
+    def test_t1_key_cannot_read_t2_tenant_routes(self, path, params):
+        with TestClient(app) as c:
+            r = c.get(path, headers=self._headers(), params=params)
+        assert r.status_code == 403
+
+    def test_t1_key_can_use_representative_t1_routes(self):
+        with (
+            patch("investigation_agent.main.is_analyst_allowed", return_value=True),
+            patch("investigation_agent.main._llm_tool_loop", new=AsyncMock(side_effect=TestChatTenantBinding._fake_llm)),
+            patch("investigation_agent.main._forward_case_action", new=AsyncMock(return_value={"upstream": "ok"})),
+            patch(
+                "investigation_agent.main.knowledge_store.ingest_document_async",
+                new=AsyncMock(return_value="doc-1"),
+            ),
+            patch("investigation_agent.main.knowledge_store.count_docs", return_value=1),
+            patch.multiple(
+                "investigation_agent.main.settings",
+                openai_api_key="sk-test",
+                copilot_include_platform_audit_in_prompt=False,
+                copilot_enforce_tool_claim_grounding=False,
+            ),
+            TestClient(app) as c,
+        ):
+            assert c.post(
+                "/v1/reports/case-summary",
+                headers=self._headers(),
+                json=self._json_body("case_summary", "t1"),
+            ).status_code == 200
+            assert c.post(
+                "/v1/reports/turn-bundle",
+                headers=self._headers(),
+                json=self._json_body("turn_bundle", "t1"),
+            ).status_code == 200
+            assert c.post(
+                "/v1/plugin/session",
+                headers=self._headers(),
+                json=self._json_body("plugin_session", "t1"),
+            ).status_code == 200
+            assert c.post(
+                "/v1/case-actions",
+                headers=self._headers(),
+                json=self._json_body("case_action", "t1"),
+            ).status_code == 200
+            assert c.post(
+                "/v1/thread-correlations",
+                headers=self._headers(),
+                json=self._json_body("thread_correlation", "t1"),
+            ).status_code == 200
+            assert c.get(
+                "/v1/thread-correlations/slack/ws/thread-1",
+                headers=self._headers(),
+                params={"tenant_id": "t1"},
+            ).status_code == 200
+            assert c.post(
+                "/v1/knowledge/ingest",
+                headers=self._headers(),
+                json=self._json_body("knowledge", "t1"),
+            ).status_code == 200
+            assert c.post(
+                "/v1/feedback",
+                headers=self._headers(),
+                json=self._json_body("feedback", "t1"),
+            ).status_code == 200
+            assert c.get(
+                "/v1/feedback/summary",
+                headers=self._headers(),
+                params={"tenant_id": "t1"},
+            ).status_code == 200
+            assert c.get(
+                "/v1/feedback/recent",
+                headers=self._headers(),
+                params={"tenant_id": "t1"},
+            ).status_code == 200
+            assert c.post(
+                "/v1/review/turn",
+                headers=self._headers(),
+                json=self._json_body("review", "t1"),
+            ).status_code == 200
+            assert c.get(
+                "/v1/review/turn",
+                headers=self._headers(),
+                params={"tenant_id": "t1", "turn_id": "turn-t1"},
+            ).status_code == 200
+            assert c.get(
+                "/v1/review/metrics",
+                headers=self._headers(),
+                params={"tenant_id": "t1"},
+            ).status_code == 200
+            assert c.post(
+                "/v1/chat",
+                headers=self._headers(),
+                json=self._json_body("chat", "t1"),
+            ).status_code == 200
+            assert c.post(
+                "/v1/saarthi/feature-importance",
+                headers=self._headers(),
+                json=self._json_body("saarthi", "t1"),
+            ).status_code == 200
+
+    def test_t1_key_can_batch_ingest_t1_but_not_t2(self):
+        files = {"file": ("sample.csv", io.BytesIO(b"a,b\n1,2\n"), "text/csv")}
+        with TestClient(app) as c:
+            denied = c.post(
+                "/v1/batch/ingest",
+                headers=self._headers(),
+                data={"tenant_id": "t2", "analyst_id": "analyst-1"},
+                files=files,
+            )
+        assert denied.status_code == 403
+
+        files = {"file": ("sample.csv", io.BytesIO(b"a,b\n1,2\n"), "text/csv")}
+        with patch("investigation_agent.main.is_analyst_allowed", return_value=True):
+            with TestClient(app) as c:
+                allowed = c.post(
+                    "/v1/batch/ingest",
+                    headers=self._headers(),
+                    data={"tenant_id": "t1", "analyst_id": "analyst-1"},
+                    files=files,
+                )
+        assert allowed.status_code == 200
+
+    def test_authenticated_feedback_requires_scope_before_turn_lookup(self):
+        with (
+            patch("investigation_agent.main.feedback_store.lookup_turn") as lookup_turn,
+            TestClient(app) as c,
+        ):
+            r = c.post(
+                "/v1/feedback",
+                headers=self._headers(),
+                json={"turn_id": "turn-with-hidden-scope", "rating": 1},
+            )
+        assert r.status_code == 400
+        lookup_turn.assert_not_called()
+
+    def test_plugin_bootstrap_authorizes_token_tenant(self):
+        token_t2, _ = main_mod._plugin_token_issue(
+            tenant_id="t2",
+            analyst_id="analyst-1",
+            case_id=None,
+            external_case_id=None,
+            origin=None,
+            ttl_seconds=300,
+        )
+        token_t1, _ = main_mod._plugin_token_issue(
+            tenant_id="t1",
+            analyst_id="analyst-1",
+            case_id=None,
+            external_case_id=None,
+            origin=None,
+            ttl_seconds=300,
+        )
+        with (
+            patch("investigation_agent.main.is_analyst_allowed", return_value=True),
+            TestClient(app) as c,
+        ):
+            denied = c.post(
+                "/v1/plugin/bootstrap",
+                headers=self._headers(),
+                json={"token": token_t2},
+            )
+            allowed = c.post(
+                "/v1/plugin/bootstrap",
+                headers=self._headers(),
+                json={"token": token_t1},
+            )
+        assert denied.status_code == 403
+        assert allowed.status_code == 200
 
 
 class TestOkfAdminReload:

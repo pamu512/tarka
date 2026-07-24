@@ -2005,12 +2005,12 @@ async def evidence_summary(body: EvidenceSummaryRequest, request: Request):
 
 
 @app.post("/v1/reports/case-summary")
-async def case_summary_report(rb: CaseSummaryReportBody):
+async def case_summary_report(rb: CaseSummaryReportBody, request: Request):
     """
     Render a case-summary PDF from client-supplied chat fields (same shape as POST /v1/chat response).
     Does not replay or store the conversation server-side.
     """
-    _validate_scope_id("tenant_id", rb.tenant_id)
+    _validate_and_enforce_tenant_scope(request, rb.tenant_id)
     _validate_scope_id("analyst_id", rb.analyst_id)
     if rb.case_id:
         _validate_scope_id("case_id", rb.case_id)
@@ -2035,12 +2035,12 @@ async def case_summary_report(rb: CaseSummaryReportBody):
 
 
 @app.post("/v1/reports/turn-bundle")
-async def turn_bundle_report(rb: TurnBundleReportBody):
+async def turn_bundle_report(rb: TurnBundleReportBody, request: Request):
     """
     Export Markdown + structured JSON for a single turn (paste from POST /v1/chat response).
     For review, Jira, or archival without relying on server-stored transcripts.
     """
-    _validate_scope_id("tenant_id", rb.tenant_id)
+    _validate_and_enforce_tenant_scope(request, rb.tenant_id)
     _validate_scope_id("analyst_id", rb.analyst_id)
     if rb.case_id:
         _validate_scope_id("case_id", rb.case_id)
@@ -2074,7 +2074,7 @@ async def governance_info():
 async def plugin_session(request: Request, response: Response, body: PluginSessionBody):
     correlation_id = _request_correlation_id(request)
     try:
-        _validate_scope_id("tenant_id", body.tenant_id)
+        _validate_and_enforce_tenant_scope(request, body.tenant_id)
         _validate_scope_id("analyst_id", body.analyst_id)
         if body.case_id:
             _validate_scope_id("case_id", body.case_id)
@@ -2132,6 +2132,10 @@ async def plugin_bootstrap(request: Request, response: Response, body: PluginBoo
     case_id = str(payload.get("case_id") or "").strip() or None
     external_case_id = str(payload.get("external_case_id") or "").strip() or None
     origin = str(payload.get("origin") or "").strip() or None
+    try:
+        _validate_and_enforce_tenant_scope(request, tenant_id)
+    except HTTPException as e:
+        raise _plugin_http_exc(int(e.status_code), str(e.detail), correlation_id) from None
     if not is_analyst_allowed(analyst_id):
         raise _plugin_http_exc(403, "Analyst not permitted for this deployment", correlation_id)
 
@@ -2165,6 +2169,12 @@ _thread_correlations: dict[str, dict[str, Any]] = {}
 _CASE_ACTION_IDEM_TTL = 3600  # 1 hour
 _CASE_ACTION_IDEM_MAX = 4096
 _case_action_idempotency: dict[str, tuple[float, dict[str, Any]]] = {}
+
+
+def _thread_correlation_key(
+    tenant_id: str, platform: str, workspace_id: str, thread_key: str
+) -> str:
+    return f"{tenant_id}:{platform}:{workspace_id}:{thread_key}"
 
 
 def _idem_prune() -> None:
@@ -2242,13 +2252,13 @@ async def execute_case_action(request: Request, response: Response, body: CaseAc
     correlation_id = _request_correlation_id(request)
     response.headers["X-Correlation-Id"] = correlation_id
     try:
-        _validate_scope_id("tenant_id", body.tenant_id)
+        _validate_and_enforce_tenant_scope(request, body.tenant_id)
         _validate_scope_id("case_id", body.case_id)
         _validate_scope_id("actor_id", body.actor_id)
     except HTTPException as e:
         raise _plugin_http_exc(int(e.status_code), str(e.detail), correlation_id) from None
 
-    idem_key = body.idempotency_key
+    idem_key = f"{body.tenant_id.strip()}:{body.idempotency_key}"
     cached = _case_action_idempotency.get(idem_key)
     if cached is not None:
         ts, cached_result = cached
@@ -2277,11 +2287,13 @@ async def upsert_thread_correlation(
     correlation_id = _request_correlation_id(request)
     response.headers["X-Correlation-Id"] = correlation_id
     try:
-        _validate_scope_id("tenant_id", body.tenant_id)
+        _validate_and_enforce_tenant_scope(request, body.tenant_id)
         _validate_scope_id("case_id", body.case_id)
     except HTTPException as e:
         raise _plugin_http_exc(int(e.status_code), str(e.detail), correlation_id) from None
-    key = f"{body.platform}:{body.workspace_id}:{body.thread_key}"
+    key = _thread_correlation_key(
+        body.tenant_id.strip(), body.platform, body.workspace_id, body.thread_key
+    )
     now = datetime.now(timezone.utc).isoformat()
     existing = _thread_correlations.get(key)
     created_at = existing["created_at"] if existing else now
@@ -2297,10 +2309,15 @@ async def get_thread_correlation(
     platform: str,
     workspace_id: str,
     thread_key: str,
+    tenant_id: str,
 ):
     correlation_id = _request_correlation_id(request)
     response.headers["X-Correlation-Id"] = correlation_id
-    key = f"{platform}:{workspace_id}:{thread_key}"
+    try:
+        _validate_and_enforce_tenant_scope(request, tenant_id)
+    except HTTPException as e:
+        raise _plugin_http_exc(int(e.status_code), str(e.detail), correlation_id) from None
+    key = _thread_correlation_key(tenant_id.strip(), platform, workspace_id, thread_key)
     entry = _thread_correlations.get(key)
     if entry is None:
         raise _plugin_http_exc(404, "thread correlation not found", correlation_id)
@@ -2309,12 +2326,13 @@ async def get_thread_correlation(
 
 @app.post("/v1/batch/ingest")
 async def batch_ingest(
+    request: Request,
     tenant_id: str = Form(...),
     analyst_id: str = Form(...),
     file: UploadFile = File(...),
 ):
     """Upload CSV, JSON, NDJSON, or XLSX for copilot tabular tools (tenant + analyst scoped, disk-backed TTL)."""
-    _validate_scope_id("tenant_id", tenant_id)
+    _validate_and_enforce_tenant_scope(request, tenant_id)
     _validate_scope_id("analyst_id", analyst_id)
     if not is_analyst_allowed(analyst_id):
         raise HTTPException(status_code=403, detail="Analyst not permitted for this deployment")
@@ -2387,13 +2405,18 @@ async def knowledge_ingest(k: KnowledgeIngestBody, request: Request):
 
 
 @app.post("/v1/feedback")
-async def chat_feedback(fb: ChatFeedbackBody):
+async def chat_feedback(fb: ChatFeedbackBody, request: Request):
     tid = (fb.turn_id or "").strip()
     if not tid:
         raise HTTPException(status_code=400, detail="turn_id required")
     tenant_id = (fb.tenant_id or "").strip()
     analyst_id = (fb.analyst_id or "").strip()
     if not tenant_id or not analyst_id:
+        if not _allow_insecure_no_auth():
+            raise HTTPException(
+                status_code=400,
+                detail="tenant_id and analyst_id required for authenticated feedback",
+            )
         meta = feedback_store.lookup_turn(tid)
         if not meta:
             raise HTTPException(
@@ -2402,7 +2425,7 @@ async def chat_feedback(fb: ChatFeedbackBody):
             )
         tenant_id = str(meta["tenant_id"])
         analyst_id = str(meta["analyst_id"])
-    _validate_scope_id("tenant_id", tenant_id)
+    _validate_and_enforce_tenant_scope(request, tenant_id)
     _validate_scope_id("analyst_id", analyst_id)
     if not is_analyst_allowed(analyst_id):
         raise HTTPException(status_code=403, detail="Analyst not permitted for this deployment")
@@ -2426,25 +2449,25 @@ async def chat_feedback(fb: ChatFeedbackBody):
 
 
 @app.get("/v1/feedback/summary")
-async def feedback_summary(tenant_id: str, days: float = 7.0):
-    _validate_scope_id("tenant_id", tenant_id)
+async def feedback_summary(request: Request, tenant_id: str, days: float = 7.0):
+    _validate_and_enforce_tenant_scope(request, tenant_id)
     return feedback_store.feedback_summary(tenant_id, days=max(0.5, min(days, 365.0)))
 
 
 @app.get("/v1/feedback/recent")
-async def feedback_recent(tenant_id: str, limit: int = 50):
-    _validate_scope_id("tenant_id", tenant_id)
+async def feedback_recent(request: Request, tenant_id: str, limit: int = 50):
+    _validate_and_enforce_tenant_scope(request, tenant_id)
     lim = max(1, min(limit, 200))
     return {"items": feedback_store.list_recent_feedback(tenant_id, lim)}
 
 
 @app.post("/v1/review/turn")
-async def turn_review_save(rv: TurnReviewBody):
+async def turn_review_save(rv: TurnReviewBody, request: Request):
     """Record human sign-off (approved / rejected) for a copilot turn_id (SQLite)."""
     tid = (rv.turn_id or "").strip()
     if not tid:
         raise HTTPException(status_code=400, detail="turn_id required")
-    _validate_scope_id("tenant_id", rv.tenant_id)
+    _validate_and_enforce_tenant_scope(request, rv.tenant_id)
     _validate_scope_id("analyst_id", rv.analyst_id)
     reviewer_id = (rv.reviewer_id or rv.analyst_id).strip()
     _validate_scope_id("reviewer_id", reviewer_id)
@@ -2479,8 +2502,8 @@ async def turn_review_save(rv: TurnReviewBody):
 
 
 @app.get("/v1/review/turn")
-async def turn_review_get(turn_id: str, tenant_id: str):
-    _validate_scope_id("tenant_id", tenant_id)
+async def turn_review_get(request: Request, turn_id: str, tenant_id: str):
+    _validate_and_enforce_tenant_scope(request, tenant_id)
     tid = (turn_id or "").strip()
     if not tid:
         raise HTTPException(status_code=400, detail="turn_id required")
@@ -2491,8 +2514,8 @@ async def turn_review_get(turn_id: str, tenant_id: str):
 
 
 @app.get("/v1/review/metrics")
-async def turn_review_metrics(tenant_id: str, days: float = 30.0):
-    _validate_scope_id("tenant_id", tenant_id)
+async def turn_review_metrics(request: Request, tenant_id: str, days: float = 30.0):
+    _validate_and_enforce_tenant_scope(request, tenant_id)
     return review_store.review_metrics(tenant_id, days=max(0.5, min(days, 365.0)))
 
 
@@ -3183,10 +3206,11 @@ class SaarthiFeatureImportanceBody(BaseModel):
 
 
 @app.post("/v1/saarthi/feature-importance")
-async def saarthi_feature_importance(body: SaarthiFeatureImportanceBody):
+async def saarthi_feature_importance(body: SaarthiFeatureImportanceBody, request: Request):
     """Rank audit signals by relative influence on risk_score (Saarthi / Gemini with heuristic fallback)."""
     from investigation_agent.saarthi_feature_importance import rank_feature_importance_saarthi
 
+    _validate_and_enforce_tenant_scope(request, body.tenant_id)
     payload = body.model_dump()
     result = await rank_feature_importance_saarthi(payload)
     result.pop("_tags", None)
