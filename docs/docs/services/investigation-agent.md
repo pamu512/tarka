@@ -35,6 +35,8 @@ Every normal, refused, and deterministic-fallback run is stored under
 `investigation_agent_data` named volume. The supported Helm charts default to
 `agentRunPersistence.mode: local-sqlite`, create or mount a PVC, and require
 `replicaCount: 1` (the lite chart uses the equivalent `replicas: 1`).
+Those Deployments use the `Recreate` rollout strategy so two pods never overlap
+on the same local SQLite PVC during upgrades.
 
 SQLite cannot provide coherent writes across investigation-agent pods. Before
 horizontal scaling, migrate AgentRun and review-state persistence to an external shared AgentRun store
