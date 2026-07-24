@@ -936,9 +936,10 @@ def _enforce_claim_exact_ids(
     claims: list[dict[str, Any]],
     tool_calls: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[str]]:
+    successful_call_indices: set[int] = set()
     search_hits_by_call: dict[int, list[dict[str, Any]]] = {}
     for call_index, call in enumerate(tool_calls):
-        if not isinstance(call, dict) or call.get("tool") != "search_knowledge":
+        if not isinstance(call, dict):
             continue
         result = call.get("result")
         if not isinstance(result, dict) or any(
@@ -949,6 +950,9 @@ def _enforce_claim_exact_ids(
                 result.get("conflicts"),
             )
         ):
+            continue
+        successful_call_indices.add(call_index)
+        if call.get("tool") != "search_knowledge":
             continue
         successful_hits: list[dict[str, Any]] = []
         for hit in result.get("hits") or []:
@@ -993,11 +997,13 @@ def _enforce_claim_exact_ids(
         claim_tokens = _tokens(text or "")
         return any(len(claim_tokens & _tokens(hit)) >= 2 for hit in hits)
 
-    all_search_hits = [hit for hits in search_hits_by_call.values() for hit in hits]
     out: list[dict[str, Any]] = []
     adjustments: list[str] = []
     for claim in claims:
         c = dict(claim)
+        if c.get("source") != "tool":
+            out.append(c)
+            continue
         raw_indices = c.get("supporting_tool_call_indices")
         indices_valid = (
             isinstance(raw_indices, list)
@@ -1010,21 +1016,40 @@ def _enforce_claim_exact_ids(
             )
         )
         selected_indices = list(dict.fromkeys(raw_indices)) if indices_valid else []
-        selected_search = {
-            index: search_hits_by_call[index]
-            for index in selected_indices
-            if index in search_hits_by_call
-        }
-        has_exact_ids = "concept_ids" in c or "evidence_ids" in c
-        search_contributes = c.get("source") == "tool" and (
-            bool(selected_search)
-            or has_exact_ids
-            or _text_supported(c.get("text"), all_search_hits)
+        selected_calls_successful = bool(selected_indices) and all(
+            index in successful_call_indices for index in selected_indices
         )
-        if not search_contributes:
+        has_exact_ids = "concept_ids" in c or "evidence_ids" in c
+        likely_search_claim = has_exact_ids or _text_supported(
+            c.get("text"),
+            [hit for hits in search_hits_by_call.values() for hit in hits],
+        )
+        if not indices_valid or not selected_calls_successful:
+            c["source"] = "unknown"
+            c["supported"] = False
+            adjustments.append(
+                "search_knowledge_citation_omitted"
+                if likely_search_claim
+                else "tool_call_binding_invalid"
+            )
             out.append(c)
             continue
-        if not indices_valid or not selected_search:
+
+        selected_search_indices = [
+            index
+            for index in selected_indices
+            if isinstance(tool_calls[index], dict)
+            and tool_calls[index].get("tool") == "search_knowledge"
+        ]
+        if not selected_search_indices:
+            out.append(c)
+            continue
+        selected_search = {
+            index: search_hits_by_call[index]
+            for index in selected_search_indices
+            if index in search_hits_by_call
+        }
+        if len(selected_search) != len(selected_search_indices):
             c["source"] = "unknown"
             c["supported"] = False
             adjustments.append("search_knowledge_citation_omitted")
@@ -1113,6 +1138,39 @@ def _enforce_claim_exact_ids(
     return out, adjustments
 
 
+_NARRATIVE_WITHHOLDING_ADJUSTMENTS = frozenset(
+    {
+        "exact_citation_text_unsupported",
+        "search_knowledge_citation_omitted",
+        "unresolved_exact_citation_id",
+    }
+)
+
+
+def _apply_grounding_abstention(
+    reply: str,
+    claims: list[dict[str, Any]],
+    *,
+    adjustments: list[str],
+    assurance_mode: str,
+) -> tuple[str, list[dict[str, Any]], bool]:
+    """Withhold prose whenever exact citation enforcement rejected a claim."""
+    violations = sorted(set(adjustments) & _NARRATIVE_WITHHOLDING_ADJUSTMENTS)
+    if not violations:
+        return reply, claims, False
+    mode = "strict" if assurance_mode == "strict" else "standard"
+    abstention = (
+        "This assistant narrative was withheld because exact tool citations could not "
+        f"be verified in {mode} assurance mode. Review the raw successful tool results "
+        "or retry the investigation."
+    )
+    return (
+        abstention,
+        [{"text": abstention, "source": "unknown", "supported": False}],
+        True,
+    )
+
+
 def _apply_okf_strict_abstention(
     reply: str,
     claims: list[dict[str, Any]],
@@ -1144,10 +1202,10 @@ async def _deterministic_tools_only_fallback(
     reviewer_header: str = "",
     okf_registry: Any | None = None,
     okf_generation_gate: asyncio.Lock | None = None,
-) -> tuple[str, list[dict[str, Any]], list[dict[str, str]]]:
+) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]]]:
     """Deterministic fallback when LLM is unavailable: execute safe read-only tools."""
     tool_calls: list[dict[str, Any]] = []
-    claims: list[dict[str, str]] = []
+    claims: list[dict[str, Any]] = []
 
     async def _run(name: str, args: dict[str, Any]) -> dict[str, Any]:
         try:
@@ -1173,6 +1231,7 @@ async def _deterministic_tools_only_fallback(
 
     if case_id:
         case_result = await _run("get_case", {"case_id": case_id})
+        case_call_index = len(tool_calls) - 1
         if isinstance(case_result, dict):
             c = case_result.get("case")
             if isinstance(c, dict):
@@ -1182,6 +1241,7 @@ async def _deterministic_tools_only_fallback(
                     {
                         "text": f"Case {cid} fetched deterministically (status={status}).",
                         "source": "tool",
+                        "supporting_tool_call_indices": [case_call_index],
                     }
                 )
                 eid = str(c.get("entity_id") or "").strip()
@@ -1190,6 +1250,7 @@ async def _deterministic_tools_only_fallback(
                         "subgraph_with_velocity",
                         {"entity_id": eid, "depth": 2, "max_velocity_nodes": 10},
                     )
+                    graph_call_index = len(tool_calls) - 1
                     if isinstance(graph_result, dict):
                         nodes = graph_result.get("nodes")
                         if isinstance(nodes, list):
@@ -1197,6 +1258,7 @@ async def _deterministic_tools_only_fallback(
                                 {
                                     "text": f"Graph context fetched for entity {eid} ({len(nodes)} nodes).",
                                     "source": "tool",
+                                    "supporting_tool_call_indices": [graph_call_index],
                                 }
                             )
                 trace_id = str(c.get("trace_id") or "").strip()
@@ -1207,16 +1269,19 @@ async def _deterministic_tools_only_fallback(
                         if isinstance(audit_result, dict) and isinstance(
                             audit_result.get("audit"), dict
                         ):
+                            audit_call_index = len(tool_calls) - 1
                             claims.append(
                                 {
                                     "text": f"Decision audit fetched for trace {trace_id}.",
                                     "source": "tool",
+                                    "supporting_tool_call_indices": [audit_call_index],
                                 }
                             )
                     except ValueError:
                         pass
     else:
         cases_result = await _run("list_cases", {"limit": 5})
+        cases_call_index = len(tool_calls) - 1
         if isinstance(cases_result, dict):
             items = cases_result.get("items")
             if isinstance(items, list):
@@ -1224,6 +1289,7 @@ async def _deterministic_tools_only_fallback(
                     {
                         "text": f"Queue snapshot fetched deterministically ({len(items)} cases).",
                         "source": "tool",
+                        "supporting_tool_call_indices": [cases_call_index],
                     }
                 )
 
@@ -3163,6 +3229,10 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             okf_registry=getattr(request.app.state, "okf_registry", None),
             okf_generation_gate=_okf_generation_gate(request.app),
         )
+        claims, _fallback_grounding_adjustments = _enforce_claim_exact_ids(
+            claims,
+            tool_calls,
+        )
         source_refs = build_source_reference_cards(tool_calls)
         turn_id = str(uuid.uuid4())
         answer_sections = parse_structured_sections(reply)
@@ -3314,6 +3384,12 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
     grounding_adj: list[str] = []
     claims, exact_id_adj = _enforce_claim_exact_ids(claims, tool_calls)
     grounding_adj.extend(exact_id_adj)
+    reply, claims, citation_refused = _apply_grounding_abstention(
+        reply,
+        claims,
+        adjustments=exact_id_adj,
+        assurance_mode=settings.copilot_assurance_mode,
+    )
     if settings.copilot_enforce_tool_claim_grounding:
         claims, token_grounding_adj = enforce_tool_claim_grounding(claims, tool_calls)
         grounding_adj.extend(token_grounding_adj)
@@ -3370,7 +3446,7 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
     if settings.copilot_derived_facts or settings.copilot_assurance_mode == "strict":
         derived_facts = extract_derived_facts(tool_calls)
 
-    assurance_refused = False
+    assurance_refused = citation_refused
     assurance_violations: list[str] = []
     if settings.copilot_assurance_mode == "strict":
         assurance_violations = strict_assurance_violations(
