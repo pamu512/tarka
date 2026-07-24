@@ -10,6 +10,7 @@ import types
 
 import pytest
 from pytest_mock import MockerFixture
+from redis.exceptions import NoScriptError
 
 from decision_api.config import settings
 from decision_api.redis_store import RedisTags
@@ -115,6 +116,28 @@ async def test_partitioned_redis_slow_merge_fails_over_to_local_kv(
     assert sorted(roundtrip) == sorted(merged)
 
     await store.close()
+
+
+@pytest.mark.asyncio
+async def test_redis_restart_reloads_merge_script() -> None:
+    store = RedisTags("")
+    calls: list[str] = []
+
+    class _FakeRedis:
+        async def evalsha(self, sha: str, *_args: object) -> str:
+            calls.append(sha)
+            if sha == "stale":
+                raise NoScriptError("script cache cleared")
+            return '["recovered"]'
+
+        async def script_load(self, _script: str) -> str:
+            return "fresh"
+
+    store._client = _FakeRedis()  # type: ignore[assignment]
+    store._merge_sha = "stale"
+
+    assert await store.merge_tags("tenant", "entity", ["recovered"]) == ["recovered"]
+    assert calls == ["stale", "fresh"]
 
 
 @pytest.mark.asyncio
