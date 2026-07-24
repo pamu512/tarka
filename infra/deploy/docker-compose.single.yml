@@ -53,8 +53,11 @@ services:
     environment:
       DECISION_API_URL: http://core-fraud-api:8000
       AI_GOVERNANCE_PROFILE: global
+      INVESTIGATION_DATA_DIR: /var/lib/tarka/investigation-agent
     ports:
       - "8006:8006"
+    volumes:
+      - investigation_agent_data:/var/lib/tarka/investigation-agent
     depends_on:
       - core-fraud-api
 
@@ -64,4 +67,7 @@ services:
       dockerfile: services/ml-scoring/Dockerfile
     ports:
       - "8005:8005"
+
+volumes:
+  investigation_agent_data:
 

@@ -13,7 +13,7 @@ LLM **copilot** for investigations: tool-use loop against Case API, Graph Servic
 |---------|-------------|
 | Chat (sync / SSE) | `POST /v1/chat`, `POST /v1/chat/stream` |
 | Evidence summary (OSS #40) | `POST /v1/evidence/summary` — no LLM; structured `citations[].resolves_to`, `next_actions`, optional typology drivers |
-| Operator checklist | `GET /v1/setup`, `GET /v1/ready`, `GET /v1/health` |
+| Operator checklist | Public stable-code probes: `GET /v1/ready`, `GET /v1/health`; authenticated diagnostics: `GET /v1/setup`, `GET /v1/admin/health/details` |
 | Integration contract | `GET /v1/integration` |
 | Trust / ops data source | Console strip calls Decision API **`GET /v1/ops/evaluation-posture`** + **`GET /v1/slo`** (not this service); see [API Reference — Trust / ops readiness](../api-reference.md#trust-ops-readiness) |
 
@@ -27,6 +27,20 @@ LLM **copilot** for investigations: tool-use loop against Case API, Graph Servic
 ## Configuration
 
 Requires **`OPENAI_API_KEY`** (or compatible base URL) for LLM rounds. Optional upstreams: **`CASE_API_URL`**, **`GRAPH_SERVICE_URL`**, **`DECISION_API_URL`**. Production hardening: **`infra/deploy/docker-compose.production-hardening.yml`**, `COPILOT_PRODUCTION_MODE`, and related envs — see the project doc.
+
+### AgentRun persistence and scaling
+
+Every normal, refused, and deterministic-fallback run is stored under
+`INVESTIGATION_DATA_DIR`. Compose mounts that directory on the
+`investigation_agent_data` named volume. The supported Helm charts default to
+`agentRunPersistence.mode: local-sqlite`, create or mount a PVC, and require
+`replicaCount: 1` (the lite chart uses the equivalent `replicas: 1`).
+
+SQLite cannot provide coherent writes across investigation-agent pods. Before
+horizontal scaling, migrate AgentRun and review-state persistence to an external shared AgentRun store
+with tenant-scoped reads and transactional review updates, deploy a chart wired
+to that store, and only then raise the replica count. The stock charts
+deliberately fail rendering when local SQLite is configured above one replica.
 
 ### OKF curated knowledge bundles
 
