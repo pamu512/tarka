@@ -38,7 +38,6 @@ def _p(
     return row
 
 
-
 PROVIDER_CATALOG: list[dict[str, Any]] = [
     _p("onfido", "Onfido", "kyc", doc_url="https://documentation.onfido.com/"),
     _p("sumsub", "Sumsub", "kyc", doc_url="https://developers.sumsub.com/"),
