@@ -147,6 +147,50 @@ class TestChatHttpGuards:
         assert r.headers.get("X-Frame-Options") == "DENY"
 
 
+class TestFailClosedAuth:
+    def test_unconfigured_auth_fails_closed(self, monkeypatch):
+        monkeypatch.delenv("API_KEYS", raising=False)
+        monkeypatch.delenv("API_KEY_TENANT_MAP", raising=False)
+        monkeypatch.delenv("ALLOW_INSECURE_NO_AUTH", raising=False)
+        main_mod._valid_api_keys = None
+        with TestClient(app) as c:
+            r = c.post(
+                "/v1/chat",
+                json={
+                    "tenant_id": "demo",
+                    "analyst_id": "analyst-1",
+                    "messages": [{"role": "user", "content": "hi"}],
+                },
+            )
+        assert r.status_code == 503
+
+    def test_explicit_insecure_demo_allows_no_auth(self, monkeypatch):
+        monkeypatch.delenv("API_KEYS", raising=False)
+        monkeypatch.delenv("API_KEY_TENANT_MAP", raising=False)
+        monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
+        main_mod._valid_api_keys = None
+        with (
+            patch("investigation_agent.main._llm_tool_loop", new=AsyncMock(side_effect=TestChatTenantBinding._fake_llm)),
+            patch.multiple(
+                "investigation_agent.main.settings",
+                openai_api_key="sk-test",
+                copilot_include_platform_audit_in_prompt=False,
+                copilot_enforce_tool_claim_grounding=False,
+            ),
+            patch("investigation_agent.main.is_analyst_allowed", return_value=True),
+            TestClient(app) as c,
+        ):
+            r = c.post(
+                "/v1/chat",
+                json={
+                    "tenant_id": "demo",
+                    "analyst_id": "analyst-1",
+                    "messages": [{"role": "user", "content": "hi"}],
+                },
+            )
+        assert r.status_code == 200
+
+
 class TestChatTenantBinding:
     @staticmethod
     async def _fake_llm(http, system, messages, tenant_id, analyst_id, tool_defs, **kwargs):
@@ -211,13 +255,29 @@ class TestChatTenantBinding:
         r = self._post_chat(api_key="k-unscoped", body_tenant="t1")
         assert r.status_code == 401
 
+    def test_valid_key_for_t1_cannot_ingest_knowledge_for_t2(self):
+        headers = {"x-api-key": "k-t1"}
+        with TestClient(app) as c:
+            r = c.post(
+                "/v1/knowledge/ingest",
+                headers=headers,
+                json={
+                    "tenant_id": "t2",
+                    "analyst_id": "analyst-1",
+                    "title": "memo",
+                    "body": "memo body",
+                },
+            )
+        assert r.status_code == 403
+
 
 class TestOkfAdminReload:
     @pytest.fixture(autouse=True)
     def _admin_auth_env(self, monkeypatch):
-        monkeypatch.setenv("API_KEYS", "admin-key")
-        monkeypatch.setenv("API_KEY_TENANT_MAP", '{"admin-key":["*"]}')
-        monkeypatch.setenv("SERVICE_API_KEY_ROLE", "admin")
+        monkeypatch.setenv("API_KEYS", "admin-key,normal-key")
+        monkeypatch.setenv("API_KEY_TENANT_MAP", '{"admin-key":["*"],"normal-key":["*"]}')
+        monkeypatch.delenv("SERVICE_API_KEY_ROLE", raising=False)
+        monkeypatch.delenv("OKF_ADMIN_API_KEYS", raising=False)
         main_mod._valid_api_keys = None
         yield
         main_mod._valid_api_keys = None
@@ -234,13 +294,52 @@ class TestOkfAdminReload:
             revision="rev-1",
             issues=(),
         )
-        with TestClient(app) as c:
-            c.app.state.okf_registry = fake_registry
-            r = c.post("/v1/admin/okf/reload", headers={"x-api-key": "admin-key"})
+        with patch.dict("os.environ", {"OKF_ADMIN_API_KEYS": "admin-key"}):
+            with TestClient(app) as c:
+                c.app.state.okf_registry = fake_registry
+                r = c.post("/v1/admin/okf/reload", headers={"x-api-key": "admin-key"})
         assert r.status_code == 200
         assert r.json()["activated"] is True
         assert r.json()["revision"] == "rev-1"
         fake_registry.reload.assert_called_once_with()
+
+    def test_normal_api_key_cannot_reload_okf(self):
+        with TestClient(app) as c:
+            r = c.post("/v1/admin/okf/reload", headers={"x-api-key": "normal-key"})
+        assert r.status_code == 403
+
+    def test_failed_reload_keeps_existing_valid_snapshot_ready(self):
+        issue = SimpleNamespace(code="bad_bundle", path="knowledge/shared/bad.md", message="bad")
+        fake_registry = MagicMock()
+        fake_registry.reload.return_value = SimpleNamespace(
+            activated=False,
+            revision="rev-good",
+            issues=(issue,),
+        )
+        with patch.dict("os.environ", {"OKF_ADMIN_API_KEYS": "admin-key"}):
+            with TestClient(app) as c:
+                c.app.state.okf_registry = fake_registry
+                c.app.state.okf_reload_result = SimpleNamespace(
+                    activated=True,
+                    revision="rev-good",
+                    issues=(),
+                )
+                c.app.state.okf_load_error = None
+                r = c.post("/v1/admin/okf/reload", headers={"x-api-key": "admin-key"})
+                ready = c.get("/v1/ready", headers={"x-api-key": "admin-key"})
+                last_issues = c.app.state.okf_last_reload_issues
+        assert r.status_code == 200
+        assert r.json()["activated"] is False
+        assert ready.status_code == 200
+        assert last_issues == (issue,)
+
+    def test_global_service_api_key_role_does_not_grant_reload(self, monkeypatch):
+        monkeypatch.setenv("SERVICE_API_KEY_ROLE", "admin")
+        fake_registry = MagicMock()
+        with TestClient(app) as c:
+            c.app.state.okf_registry = fake_registry
+            r = c.post("/v1/admin/okf/reload", headers={"x-api-key": "normal-key"})
+        assert r.status_code == 403
 
 
 @pytest.mark.asyncio

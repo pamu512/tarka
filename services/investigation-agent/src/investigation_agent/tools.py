@@ -976,19 +976,23 @@ def _format_knowledge_retrieval_result(result: Any, *, query: str) -> dict[str, 
     for item in getattr(result, "results", ()) or ():
         text = str(getattr(item, "text", "") or "")
         first_line = next((line.strip() for line in text.splitlines() if line.strip()), "")
-        hits.append(
-            {
-                "title": first_line[:200],
-                "snippet": text[:800],
-                "score": float(getattr(item, "score", 0.0) or 0.0),
-                "authority": str(getattr(item, "authority", "") or ""),
-                "concept_id": getattr(item, "concept_id", None),
-                "content_hash": getattr(item, "content_hash", None),
-                "evidence_ids": list(getattr(item, "evidence_ids", ()) or ()),
-                "retrieval_path": list(getattr(item, "retrieval_path", ()) or ()),
-                "stale": bool(getattr(item, "stale", False)),
-            }
-        )
+        hit = {
+            "title": first_line[:200],
+            "snippet": text[:800],
+            "score": float(getattr(item, "score", 0.0) or 0.0),
+            "authority": str(getattr(item, "authority", "") or ""),
+            "concept_id": getattr(item, "concept_id", None),
+            "content_hash": getattr(item, "content_hash", None),
+            "evidence_ids": list(getattr(item, "evidence_ids", ()) or ()),
+            "retrieval_path": list(getattr(item, "retrieval_path", ()) or ()),
+            "stale": bool(getattr(item, "stale", False)),
+        }
+        metadata = getattr(item, "metadata", None)
+        if isinstance(metadata, dict):
+            for key, value in metadata.items():
+                if key not in hit:
+                    hit[key] = value
+        hits.append(hit)
     return {
         "hits": hits,
         "query": query.strip()[:512],
