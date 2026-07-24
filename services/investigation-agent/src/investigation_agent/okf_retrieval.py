@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
 
 from investigation_agent.config import settings
@@ -22,6 +22,7 @@ class KnowledgeResult:
     retrieval_path: tuple[str, ...]
     score: float
     stale: bool
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,7 @@ class _Candidate:
     stale: bool
     source_uri: str | None
     stage: str
+    metadata: dict[str, Any]
 
 
 def retrieve_knowledge(
@@ -207,6 +209,7 @@ def _candidate_from_concept_hit(hit: ConceptHit, *, stage: str) -> _Candidate:
         stale=False,
         source_uri=concept.source_uri,
         stage=stage,
+        metadata={},
     )
 
 
@@ -277,6 +280,7 @@ def _candidate_from_rag_hit(
             source_uri=str(hit.get("source_uri") or current_hit.concept.source_uri).strip()
             or current_hit.concept.source_uri,
             stage="rag",
+            metadata=_rag_metadata(hit),
         )
 
     title = str(hit.get("title") or "").strip()
@@ -295,7 +299,21 @@ def _candidate_from_rag_hit(
         stale=False,
         source_uri=str(hit.get("source_uri") or "").strip() or None,
         stage="rag",
+        metadata=_rag_metadata(hit),
     )
+
+
+def _rag_metadata(hit: dict[str, Any]) -> dict[str, Any]:
+    keys = (
+        "doc_id",
+        "chunk_index",
+        "semantic_score",
+        "keyword_hits",
+        "knowledge_kind",
+        "bundle_scope",
+        "source_uri",
+    )
+    return {key: hit[key] for key in keys if key in hit}
 
 
 def _lookup_concept_hit(
@@ -390,6 +408,7 @@ def _finalize_result(
             retrieval_path=candidate.retrieval_path,
             score=candidate.score,
             stale=candidate.stale,
+            metadata=dict(candidate.metadata),
         )
         for candidate in combined[:limit]
     )

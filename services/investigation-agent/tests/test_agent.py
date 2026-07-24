@@ -455,6 +455,61 @@ class TestSearchKnowledgeOkf:
         assert result["okf_error"] == "okf_unavailable"
         assert "/tmp/okf" not in str(result)
 
+    @pytest.mark.asyncio
+    async def test_search_knowledge_preserves_legacy_rag_metadata_on_successful_combined_retrieval(self):
+        http = AsyncMock()
+        legacy_metadata = {
+            "doc_id": "doc-1",
+            "chunk_index": 3,
+            "semantic_score": 0.77,
+            "keyword_hits": 4,
+            "knowledge_kind": "memo",
+            "bundle_scope": "tenant",
+            "source_uri": "memo://doc-1",
+        }
+        retrieval = KnowledgeRetrievalResult(
+            results=(
+                KnowledgeResult(
+                    text="Legacy memo\n\nMemo body.",
+                    authority="memo_rag",
+                    concept_id=None,
+                    content_hash="memo-hash",
+                    evidence_ids=(),
+                    retrieval_path=(),
+                    score=0.71,
+                    stale=False,
+                    metadata=legacy_metadata,
+                ),
+            ),
+            retrieval_mode="exact+keyword",
+            conflicts=(),
+            abstain=False,
+            bundle_revision="bundle-rev-1",
+        )
+
+        with patch("investigation_agent.tools.settings") as mock_settings:
+            mock_settings.allowed_analysts = "*"
+            mock_settings.copilot_knowledge_embeddings = False
+            mock_settings.copilot_embedding_model = "embed"
+            mock_settings.copilot_rag_keyword_weight = 0.35
+            with patch(
+                "investigation_agent.tools.knowledge_store.retrieve_knowledge_async",
+                new=AsyncMock(return_value=retrieval),
+            ):
+                result = await tool_search_knowledge(
+                    http,
+                    tenant_id="trusted-tenant",
+                    analyst_id="trusted-analyst",
+                    query="legacy memo",
+                    limit=5,
+                    okf_registry=MagicMock(),
+                )
+
+        hit = result["hits"][0]
+        for key, value in legacy_metadata.items():
+            assert hit[key] == value
+        assert hit["content_hash"] == "memo-hash"
+
     def test_okf_abstain_lineage_is_recorded_for_strict_mode(self):
         from investigation_agent.main import (
             _apply_okf_strict_abstention,
@@ -480,8 +535,8 @@ class TestSearchKnowledgeOkf:
         ]
 
         lineage = _knowledge_lineage_from_tool_calls(tool_calls)
-        assert lineage["evidence_ids"] == ["ev-high-amount"]
-        assert lineage["concept_ids"] == ["rules/high-amount"]
+        assert lineage["evidence_ids"] == []
+        assert lineage["concept_ids"] == []
         assert lineage["okf_abstain"] is True
         assert lineage["conflicts"] == ["shared_okf conflict for guidance/a.json: a != b"]
         assert lineage["bundle_revision"] == "bundle-rev-2"
@@ -496,6 +551,25 @@ class TestSearchKnowledgeOkf:
         assert refused is True
         assert "abstain" in reply.lower()
         assert claims == [{"text": reply, "source": "unknown"}]
+
+    def test_abstaining_or_conflicting_search_results_do_not_authorize_exact_ids(self):
+        from investigation_agent.main import _knowledge_lineage_from_tool_calls
+
+        base_hit = {
+            "concept_id": "rules/high-amount",
+            "evidence_ids": ["ev-high-amount"],
+        }
+        for result in (
+            {"hits": [base_hit], "abstain": True, "conflicts": []},
+            {"hits": [base_hit], "abstain": False, "conflicts": ["conflict"]},
+            {"hits": [base_hit], "okf_unavailable": True, "abstain": True},
+            {"hits": [base_hit], "error": "tool_failed"},
+        ):
+            lineage = _knowledge_lineage_from_tool_calls(
+                [{"tool": "search_knowledge", "result": result}]
+            )
+            assert lineage["concept_ids"] == []
+            assert lineage["evidence_ids"] == []
 
     def test_okf_unavailable_lineage_abstains_in_strict_mode(self):
         from investigation_agent.main import (
@@ -582,6 +656,15 @@ class TestSearchKnowledgeOkf:
         assert grounded[1]["supported"] is False
         assert grounded[1]["concept_ids"] == ["rules/fabricated"]
         assert "unresolved_exact_citation_id" in adjustments
+
+    def test_okf_claims_prompt_schema_requests_exact_ids_without_invention(self):
+        from investigation_agent.personas import DEFAULT_COPILOT_PERSONA, build_copilot_system_prompt
+
+        prompt = build_copilot_system_prompt(DEFAULT_COPILOT_PERSONA)
+
+        assert "concept_ids" in prompt
+        assert "evidence_ids" in prompt
+        assert "do not invent" in prompt.lower()
 
 
 class TestOfflineMode:

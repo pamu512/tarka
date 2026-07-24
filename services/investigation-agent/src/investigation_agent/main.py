@@ -180,6 +180,11 @@ def _enforce_effective_tenant_access(request: Request, tenant_id: str) -> None:
         raise HTTPException(status_code=403, detail=f"tenant '{tenant_id}' is outside caller scope")
 
 
+def _validate_and_enforce_tenant_scope(request: Request, tenant_id: str) -> None:
+    _validate_scope_id("tenant_id", tenant_id)
+    _enforce_effective_tenant_access(request, tenant_id)
+
+
 async def require_api_key(request: Request) -> None:
     keys = _get_api_keys()
     if settings.copilot_require_investigation_api_key:
@@ -189,7 +194,15 @@ async def require_api_key(request: Request) -> None:
                 detail="COPILOT_REQUIRE_INVESTIGATION_API_KEY is set but API_KEYS is empty",
             )
     elif not keys:
-        return
+        if _allow_insecure_no_auth():
+            return
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "service auth misconfigured: API_KEYS is empty "
+                "(set API_KEYS or ALLOW_INSECURE_NO_AUTH=true for local development)"
+            ),
+        )
     if request.headers.get("x-api-key", "") not in keys:
         raise HTTPException(status_code=401, detail="invalid or missing API key")
     _api_key_allowed_tenants(request)
@@ -224,6 +237,7 @@ async def lifespan(application: FastAPI):
     application.state.okf_registry = None
     application.state.okf_reload_result = None
     application.state.okf_load_error = None
+    application.state.okf_last_reload_issues = ()
     if settings.okf_enabled:
         try:
             registry = OkfRegistry(
@@ -756,6 +770,11 @@ def _knowledge_lineage_from_tool_calls(tool_calls: list[dict[str, Any]]) -> dict
             retrieval_fallback = fallback.strip()
         if result.get("abstain") is True:
             okf_abstain = True
+        unsafe_for_citations = (
+            bool(result.get("abstain"))
+            or bool(result.get("okf_unavailable"))
+            or bool(result.get("conflicts") or [])
+        )
         for conflict in result.get("conflicts") or []:
             if isinstance(conflict, str) and conflict.strip():
                 conflicts.add(conflict.strip())
@@ -764,6 +783,8 @@ def _knowledge_lineage_from_tool_calls(tool_calls: list[dict[str, Any]]) -> dict
             bundle_revisions.add(bundle_revision.strip())
         hits = result.get("hits") or []
         if not isinstance(hits, list):
+            continue
+        if unsafe_for_citations:
             continue
         for hit in hits:
             if not isinstance(hit, dict):
@@ -1503,9 +1524,13 @@ async def _require_admin_api_key(request: Request) -> None:
     api_key = request.headers.get("x-api-key", "")
     if not keys or api_key not in keys:
         raise HTTPException(status_code=401, detail="admin API key required")
-    role = os.environ.get("SERVICE_API_KEY_ROLE", "admin").strip().lower() or "admin"
-    if role != "admin":
-        raise HTTPException(status_code=403, detail="admin role required")
+    admin_keys = {
+        key.strip()
+        for key in os.environ.get("OKF_ADMIN_API_KEYS", "").split(",")
+        if key.strip()
+    }
+    if api_key not in admin_keys:
+        raise HTTPException(status_code=403, detail="OKF admin key required")
 
 
 @app.post("/v1/admin/okf/reload")
@@ -1523,15 +1548,22 @@ async def okf_reload(request: Request):
     try:
         reload_result = registry.reload()
     except Exception:
-        request.app.state.okf_load_error = "okf_reload_failed"
+        previous = getattr(request.app.state, "okf_reload_result", None)
+        if previous is None or not bool(getattr(previous, "activated", False)):
+            request.app.state.okf_load_error = "okf_reload_failed"
+        request.app.state.okf_last_reload_issues = ("okf_reload_failed",)
         raise HTTPException(status_code=503, detail="okf_reload_failed")
-    request.app.state.okf_reload_result = reload_result
+    request.app.state.okf_last_reload_issues = tuple(reload_result.issues)
     if reload_result.activated:
+        request.app.state.okf_reload_result = reload_result
         request.app.state.okf_load_error = None
     else:
-        request.app.state.okf_load_error = "; ".join(
-            f"{issue.code}:{issue.path}" for issue in reload_result.issues
-        )
+        previous = getattr(request.app.state, "okf_reload_result", None)
+        if previous is None or not bool(getattr(previous, "activated", False)):
+            request.app.state.okf_reload_result = reload_result
+            request.app.state.okf_load_error = "; ".join(
+                f"{issue.code}:{issue.path}" for issue in reload_result.issues
+            )
     return {
         "activated": bool(reload_result.activated),
         "revision": str(reload_result.revision),
@@ -1861,9 +1893,8 @@ async def evidence_summary(body: EvidenceSummaryRequest, request: Request):
     Uses the same internal chat/tooling path as /v1/chat, then returns a compact
     analyst-facing shape keyed to issue #11 acceptance criteria.
     """
-    _validate_scope_id("tenant_id", body.tenant_id)
+    _validate_and_enforce_tenant_scope(request, body.tenant_id)
     _validate_scope_id("analyst_id", body.analyst_id)
-    _enforce_effective_tenant_access(request, body.tenant_id)
     if body.case_id:
         _validate_scope_id("case_id", body.case_id)
     if not is_analyst_allowed(body.analyst_id):
@@ -2326,7 +2357,7 @@ async def batch_ingest(
 
 @app.post("/v1/knowledge/ingest")
 async def knowledge_ingest(k: KnowledgeIngestBody, request: Request):
-    _validate_scope_id("tenant_id", k.tenant_id)
+    _validate_and_enforce_tenant_scope(request, k.tenant_id)
     _validate_scope_id("analyst_id", k.analyst_id)
     if not is_analyst_allowed(k.analyst_id):
         raise HTTPException(status_code=403, detail="Analyst not permitted for this deployment")
@@ -2548,9 +2579,8 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
     if updates:
         body = body.model_copy(update=updates)
 
-    _validate_scope_id("tenant_id", body.tenant_id)
+    _validate_and_enforce_tenant_scope(request, body.tenant_id)
     _validate_scope_id("analyst_id", body.analyst_id)
-    _enforce_effective_tenant_access(request, body.tenant_id)
     if body.case_id:
         _validate_scope_id("case_id", body.case_id)
     if body.batch_id:
