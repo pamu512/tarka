@@ -19,12 +19,12 @@ def test_independent_adversarial_citation_quality_gate() -> None:
     )
     tool_calls = fixture["tool_calls"]
     allowed_concepts = {
-        str(hit["concept_id"]) for call in tool_calls for hit in call["result"]["hits"]
+        str(hit["concept_id"]) for call in tool_calls for hit in call["result"].get("hits", [])
     }
     allowed_evidence = {
         str(evidence_id)
         for call in tool_calls
-        for hit in call["result"]["hits"]
+        for hit in call["result"].get("hits", [])
         for evidence_id in hit["evidence_ids"]
     }
 
@@ -94,8 +94,14 @@ def test_independent_adversarial_citation_quality_gate() -> None:
         "unrelated_valid_ids",
         "omitted_ids",
         "omitted_index",
+        "omitted_case_index",
+        "failed_case_index",
+        "omitted_graph_index",
+        "failed_graph_index",
+        "omitted_audit_index",
+        "failed_audit_index",
     } <= categories
-    assert unsupported_total >= 20
+    assert unsupported_total >= 26
     assert accepted_exact_refs > 0
     citation_resolution_precision = correct_exact_refs / accepted_exact_refs
     unsupported_abstention = unsupported_abstained / unsupported_total

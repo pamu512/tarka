@@ -901,6 +901,25 @@ class TestSearchKnowledgeOkf:
         assert "withheld" in reply.lower() or "abstain" in reply.lower()
         assert claims == [{"text": reply, "source": "unknown", "supported": False}]
 
+    @pytest.mark.parametrize("assurance_mode", ["standard", "strict"])
+    def test_invalid_non_knowledge_tool_binding_withholds_narrative(
+        self,
+        assurance_mode,
+    ):
+        from investigation_agent.main import _apply_grounding_abstention
+
+        unsafe = "Case case-1 is confirmed fraud."
+        reply, claims, refused = _apply_grounding_abstention(
+            unsafe,
+            [{"text": unsafe, "source": "unknown", "supported": False}],
+            adjustments=["tool_call_binding_invalid"],
+            assurance_mode=assurance_mode,
+        )
+
+        assert refused is True
+        assert unsafe not in reply
+        assert claims == [{"text": reply, "source": "unknown", "supported": False}]
+
     def test_okf_claims_prompt_schema_requests_exact_ids_without_invention(self):
         from investigation_agent.personas import (
             DEFAULT_COPILOT_PERSONA,
