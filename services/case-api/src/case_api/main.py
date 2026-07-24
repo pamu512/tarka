@@ -617,6 +617,42 @@ async def get_case_evidence_bundle(
     return bundle
 
 
+@app.get("/v1/cases/{case_id}/evidence-bundle.zip")
+async def get_case_evidence_bundle_zip(
+    case_id: uuid.UUID,
+    request: Request,
+    tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    session: AsyncSession = Depends(get_session),
+):
+    """Wave 5: zip of evidence-bundle JSON for SAR / dispute procurement."""
+    import io
+    import zipfile
+
+    from fastapi.responses import StreamingResponse
+
+    bundle = await get_case_evidence_bundle(case_id, request, tenant_id, session)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(
+            "evidence-bundle.json",
+            json.dumps(bundle, indent=2, default=str),
+        )
+        zf.writestr(
+            "README.txt",
+            (
+                "Tarka evidence bundle (tarka.evidence_bundle/v1).\n"
+                "Join y_label / SAR filings externally; this zip is the audit snapshot.\n"
+            ),
+        )
+    buf.seek(0)
+    filename = f"evidence-{case_id}.zip"
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @app.patch("/v1/cases/{case_id}")
 async def update_case(
     case_id: uuid.UUID,

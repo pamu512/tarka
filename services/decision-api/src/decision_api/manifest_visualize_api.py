@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-import sys
 import uuid
-from pathlib import Path
 from typing import Any
 
 from clickhouse_connect.driver.client import Client
@@ -25,9 +23,9 @@ from analytics.queries import validate_sql_identifier
 from decision_api.config import settings
 from decision_api.deps import get_clickhouse, run_clickhouse_sync
 
-_shared = Path(__file__).resolve().parents[3] / "shared"
-if str(_shared) not in sys.path:
-    sys.path.insert(0, str(_shared))
+from decision_api.shared_path import ensure_services_shared_on_path
+
+ensure_services_shared_on_path()
 from auth_rbac import require_role  # noqa: E402
 
 log = logging.getLogger("decision-api.manifest_visualize")

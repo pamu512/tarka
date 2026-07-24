@@ -1,5 +1,5 @@
 import { useEffect, useState, type KeyboardEvent } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import {
   rules as rulesApi,
@@ -644,12 +644,6 @@ export default function Rules() {
       <div className="flex items-center justify-between px-6 py-4 border-b border-surface-700 shrink-0 gap-4">
         <div>
           <PageTitle module="rules">Rule Builder</PageTitle>
-          <Link
-            to="/rules/version-control"
-            className="text-[11px] text-brand-400 hover:text-brand-300 mt-1 inline-block"
-          >
-            Versioned rule control →
-          </Link>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {dirty && (

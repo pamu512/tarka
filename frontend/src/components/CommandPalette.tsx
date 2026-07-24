@@ -5,6 +5,7 @@ import { useAnalystWorkspace } from "../context/AnalystWorkspaceContext";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { parseCaseDetailRoute, parseCaseOpenInput } from "../utils/caseOpenQuery";
 import { ModuleIcon, type ModuleId } from "./ModuleIcon";
+import { LEAN_NAV, isProductionSurfacePath } from "../config/leanNav";
 
 type CommandItem = {
   id: string;
@@ -17,7 +18,7 @@ type CommandItem = {
 
 type PaletteSection = { title: string; items: CommandItem[] };
 
-const MODULE_ROUTES: Array<{ to: string; label: string; module: ModuleId; keywords: string; tenantQuery?: boolean }> = [
+const MODULE_ROUTES_ALL: Array<{ to: string; label: string; module: ModuleId; keywords: string; tenantQuery?: boolean }> = [
   {
     to: "/command-center",
     label: "Tarka Command Center",
@@ -101,12 +102,6 @@ const MODULE_ROUTES: Array<{ to: string; label: string; module: ModuleId; keywor
     keywords: "audit log warehouse decisions millions virtual scroll search trace",
   },
   { to: "/rules", label: "Rules", module: "rules", keywords: "policy" },
-  {
-    to: "/rules/version-control",
-    label: "Versioned rule control",
-    module: "rules",
-    keywords: "rollback ast snapshot rust engine fraud_rules version deploy",
-  },
   { to: "/entity-lists", label: "Entity lists", module: "entity-lists", keywords: "block allow" },
   { to: "/shadow", label: "Shadow mode", module: "shadow", keywords: "dry run" },
   { to: "/simulation", label: "Simulation", module: "simulation", keywords: "ab test" },
@@ -187,10 +182,13 @@ const MODULE_ROUTES: Array<{ to: string; label: string; module: ModuleId; keywor
     keywords: "payout hold mule score janusgraph funds release automation",
   },
   { to: "/admin", label: "Admin panel", module: "admin", keywords: "platform" },
-  { to: "/notifications", label: "Notifications", module: "notifications", keywords: "alerts" },
   { to: "/settings", label: "Settings", module: "settings", keywords: "theme appearance" },
   { to: "/help", label: "Help & guide", module: "help", keywords: "docs" },
 ];
+
+const MODULE_ROUTES = LEAN_NAV
+  ? MODULE_ROUTES_ALL.filter((r) => isProductionSurfacePath(r.to))
+  : MODULE_ROUTES_ALL;
 
 function normalize(s: string) {
   return s.toLowerCase().trim();

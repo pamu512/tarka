@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from age_client import get_pool
+from .age_client import get_pool
 
 """
 Graph analytics functions using Apache AGE via asyncpg.
@@ -218,7 +218,7 @@ async def explain_paths(
     to_entity_id: str | None = None,
     limit: int = 10,
 ) -> dict:
-    from path_explain import assemble_path_explanation
+    from .path_explain import assemble_path_explanation
 
     rows = await propagate_risk(tenant_id, entity_id, depth=depth, decay=decay)
     subject = await compute_entity_risk(tenant_id, entity_id)
@@ -385,7 +385,7 @@ async def compute_entity_risk(
     *,
     checkpoint: str | None = None,
 ) -> dict:
-    from checkpoint_registry import resolve_profile
+    from .checkpoint_registry import resolve_profile
 
     profile = resolve_profile(checkpoint)
     mult = float(profile.get("risk_score_multiplier") or 1.0)
