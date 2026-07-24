@@ -1,5 +1,6 @@
-# Root stack: Postgres + Redis + Core API + ML sidecar + batch copilot.
-# Usage: docker compose up --build
+# Legacy root stack (core_v2 + copilot_batch). Prefer the OSS golden path:
+#   ALLOW_INSECURE_NO_AUTH=true docker compose -f infra/deploy/docker-compose.lite.yml up --build
+# Usage (legacy): docker compose up --build
 
 name: tarka
 

@@ -93,8 +93,9 @@ export default function Help() {
           jumps straight into the copilot with that case context.
         </p>
         <p>
-          This UI is a <strong className="text-gray-400">prototype</strong>: many actions call real or mock APIs. When
-          backends are offline, the app falls back to synthetic data so you can still click through flows.
+          Default navigation is the analyst loop (Cases, Investigation, Graph, Rules, Simulation, Audit,
+          Integrations, Help). Deterministic rules remain authoritative; the copilot is evidence-grounded and
+          read-only unless a human approves a material action.
         </p>
       </Section>
 

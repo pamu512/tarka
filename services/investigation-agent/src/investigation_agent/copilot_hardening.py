@@ -143,12 +143,23 @@ def collect_grounding_tokens(tool_calls: list[dict[str, Any]]) -> frozenset[str]
 def enforce_tool_claim_grounding(
     claims: list[dict[str, str]],
     tool_calls: list[dict[str, Any]],
+    evidence_by_id: dict[str, Any] | None = None,
 ) -> tuple[list[dict[str, str]], list[str]]:
     """
-    Downgrade source=tool claims that do not overlap grounding tokens from successful tools.
-    Returns (adjusted_claims, human-readable adjustment reasons for logging / client).
+    Prefer exact ``evidence_ids`` citations when provided; otherwise fall back to
+    token overlap with successful tool payloads. Never invent support.
     """
     adjustments: list[str] = []
+    if evidence_by_id:
+        try:
+            from decision_intelligence import validate_claims_against_evidence
+        except ImportError:  # pragma: no cover
+            validate_claims_against_evidence = None  # type: ignore[assignment]
+        if validate_claims_against_evidence is not None:
+            typed = [dict(c) for c in claims]
+            out_ev, adj_ev = validate_claims_against_evidence(typed, evidence_by_id)
+            return out_ev, adj_ev  # type: ignore[return-value]
+
     grounding = collect_grounding_tokens(tool_calls)
     if not grounding:
         out: list[dict[str, str]] = []
@@ -169,6 +180,12 @@ def enforce_tool_claim_grounding(
     for c in claims:
         if c.get("source") != "tool":
             out2.append(dict(c))
+            continue
+        # Exact evidence_id path when claim already carries ids (no evidence map).
+        refs = c.get("evidence_ids") if isinstance(c, dict) else None  # type: ignore[arg-type]
+        if isinstance(refs, list) and refs:
+            out2.append({**dict(c), "source": "unknown", "supported": False})  # type: ignore[dict-item]
+            adjustments.append("evidence_map_required_for_citation")
             continue
         text = (c.get("text") or "").lower()
         ok = any(t in text for t in grounding if len(t) >= 4)

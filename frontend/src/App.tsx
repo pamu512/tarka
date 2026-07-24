@@ -85,7 +85,12 @@ type NavItem = {
 
 const SHOW_DEMO_BADGES = ((import.meta.env.VITE_SHOW_DEMO_BADGES as string | undefined) ?? "false").trim().toLowerCase() === "true";
 
-const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+/** Default analyst loop (category-leader OSS surface). Full ops nav via VITE_FULL_NAV=true. */
+const LEAN_NAV = ((import.meta.env.VITE_FULL_NAV as string | undefined) ?? "false")
+  .trim()
+  .toLowerCase() !== "true";
+
+const NAV_GROUPS_FULL: { label: string; items: NavItem[] }[] = [
   {
     label: "Operations",
     items: [
@@ -167,6 +172,24 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     ],
   },
 ];
+
+const NAV_GROUPS_LEAN: { label: string; items: NavItem[] }[] = [
+  {
+    label: "Analyst",
+    items: [
+      { to: "/cases", label: "Cases", module: "cases", badge: SHOW_DEMO_BADGES ? { count: 3, kind: "action" } : undefined },
+      { to: "/investigation", label: "Investigation", module: "investigation" },
+      { to: "/graph", label: "Graph", module: "graph" },
+      { to: "/rules", label: "Rules", module: "rules" },
+      { to: "/simulation", label: "Simulation", module: "simulation" },
+      { to: "/analytics/audit-log", label: "Audit", module: "analytics" },
+      { to: "/integrations", label: "Integrations", module: "integrations" },
+      { to: "/help", label: "Help", module: "dashboard" },
+    ],
+  },
+];
+
+const NAV_GROUPS = LEAN_NAV ? NAV_GROUPS_LEAN : NAV_GROUPS_FULL;
 
 /** Demo counts are opt-in so production-like runs do not imply false confidence. */
 const NOTIFICATION_ACTIONABLE_COUNT = SHOW_DEMO_BADGES ? 2 : 0;
@@ -270,7 +293,7 @@ export default function App() {
         </nav>
 
         <div className="px-4 py-3 border-t border-surface-700">
-          <div className="text-xs text-gray-500">Tarka v1.0</div>
+          <div className="text-xs text-gray-500">Tarka v1.3.0</div>
           <div className="text-xs text-gray-600 mt-0.5">
             Prove every signal.
           </div>
@@ -291,7 +314,10 @@ export default function App() {
           }
         >
           <Routes>
-            <Route path="/" element={<Navigate to="/command-center" replace />} />
+            <Route
+              path="/"
+              element={<Navigate to={LEAN_NAV ? "/cases" : "/command-center"} replace />}
+            />
             <Route path="/command-center" element={<TarkaCommandCenter />} />
             <Route path="/403-unauthorized" element={<ForbiddenUnauthorized />} />
             <Route path="/dashboard" element={<Dashboard />} />

@@ -108,6 +108,7 @@ async def run_backtest_job(job_id: uuid.UUID, engine: BaseAnalyticsEngine) -> No
     true_positives = 0
     historical_allows = 0
     decides_agree = 0
+    verified_label_rows = 0
     chart_series: list[dict[str, Any]] = []
 
     try:
@@ -139,9 +140,23 @@ async def run_backtest_job(job_id: uuid.UUID, engine: BaseAnalyticsEngine) -> No
                     evaluation_mode="simulation",
                     record_telemetry=False,
                 )
-                act = str(row.get("decision") or "allow").strip().lower()
-                if act not in ("allow", "review", "deny"):
+                # Prefer verified outcomes (ground_truth / label); fall back to historical decision.
+                label_raw = (
+                    row.get("ground_truth")
+                    or row.get("verified_outcome")
+                    or row.get("label")
+                    or row.get("decision")
+                    or "allow"
+                )
+                act = str(label_raw).strip().lower()
+                if act in ("legit", "clear", "false_positive", "fp"):
                     act = "allow"
+                elif act in ("fraud", "chargeback", "true_positive", "tp", "block"):
+                    act = "deny"
+                elif act not in ("allow", "review", "deny"):
+                    act = "allow"
+                if row.get("ground_truth") or row.get("verified_outcome") or row.get("label"):
+                    verified_label_rows += 1
                 pred = decision_from_rule_score(float(delta))
                 rows_processed += 1
                 if hits:
@@ -153,7 +168,7 @@ async def run_backtest_job(job_id: uuid.UUID, engine: BaseAnalyticsEngine) -> No
                 elif pred == "allow":
                     false_negatives += 1
                 else:
-                    # Historical decision is not allow and model predicts not allow (TP vs FN split).
+                    # Labeled not-allow and model predicts not-allow (TP vs FN split).
                     true_positives += 1
                 if pred == act:
                     decides_agree += 1
@@ -197,6 +212,8 @@ async def run_backtest_job(job_id: uuid.UUID, engine: BaseAnalyticsEngine) -> No
             "precision": precision,
             "recall": recall,
             "decision_agreement_rate": decides_agree / max(1, rows_processed),
+            "label_coverage": verified_label_rows / max(1, rows_processed),
+            "verified_label_rows": verified_label_rows,
             "chart_series": chart_series,
             "rule_pack_fingerprint_sha256": fp_sha,
             "analytics_table": tbl,
@@ -208,8 +225,10 @@ async def run_backtest_job(job_id: uuid.UUID, engine: BaseAnalyticsEngine) -> No
                 "review_threshold": settings.review_threshold,
             },
             "scoring_note": (
-                "predicted_decision uses decision_from_rule_score(score_delta) from "
-                "evaluate_adhoc_packs_json (simulation mode)."
+                "Labels prefer ground_truth/verified_outcome/label columns; "
+                "otherwise historical decision is used. Predicted decision uses "
+                "decision_from_rule_score(score_delta) from evaluate_adhoc_packs_json "
+                "(simulation mode)."
             ),
         }
         async with SessionLocal() as session:
