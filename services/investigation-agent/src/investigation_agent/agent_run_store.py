@@ -56,7 +56,8 @@ def _review_digest(
     analyst_id: str,
     status: str,
     note: str | None,
-    legacy_created_at: float | None = None,
+    source_event_id: str | None = None,
+    previous_event_id: int | None = None,
 ) -> str:
     identity: dict[str, Any] = {
         "turn_id": str(turn_id),
@@ -65,8 +66,10 @@ def _review_digest(
         "status": str(status),
         "note": str(note) if note is not None else None,
     }
-    if legacy_created_at is not None:
-        identity["legacy_created_at"] = float(legacy_created_at)
+    if source_event_id is not None:
+        identity["source_event_id"] = str(source_event_id)
+    if previous_event_id is not None:
+        identity["previous_event_id"] = int(previous_event_id)
     encoded = json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(encoded).hexdigest()
 
@@ -124,7 +127,7 @@ def _legacy_review_rows() -> list[tuple[str, str, str, str, str, str | None, flo
                     analyst_id=analyst_id,
                     status=status,
                     note=note,
-                    legacy_created_at=created_at,
+                    source_event_id=f"legacy:{int(row[0])}",
                 ),
                 turn_id,
                 tenant_id,
@@ -156,7 +159,8 @@ def _create_review_history_table(conn: sqlite3.Connection) -> None:
     )
 
 
-def _upgrade_review_history_table(conn: sqlite3.Connection) -> None:
+def _upgrade_review_history_table(conn: sqlite3.Connection) -> set[int]:
+    migrated_current_ids: set[int] = set()
     table = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'copilot_turn_reviews'"
     ).fetchone()
@@ -170,7 +174,7 @@ def _upgrade_review_history_table(conn: sqlite3.Connection) -> None:
         if "event_digest" not in columns:
             rows = conn.execute(
                 """
-                SELECT turn_id, tenant_id, analyst_id, status, note,
+                SELECT id, turn_id, tenant_id, analyst_id, status, note,
                        created_at, updated_at
                 FROM copilot_turn_reviews
                 ORDER BY created_at ASC, id ASC
@@ -190,29 +194,94 @@ def _upgrade_review_history_table(conn: sqlite3.Connection) -> None:
                 [
                     (
                         _review_digest(
-                            turn_id=str(row[0]),
-                            tenant_id=str(row[1]),
-                            analyst_id=str(row[2]),
-                            status=str(row[3]),
-                            note=str(row[4]) if row[4] is not None else None,
-                            legacy_created_at=float(row[5]),
+                            turn_id=str(row[1]),
+                            tenant_id=str(row[2]),
+                            analyst_id=str(row[3]),
+                            status=str(row[4]),
+                            note=str(row[5]) if row[5] is not None else None,
+                            source_event_id=f"unified:{int(row[0])}",
                         ),
-                        str(row[0]),
                         str(row[1]),
                         str(row[2]),
                         str(row[3]),
-                        str(row[4]) if row[4] is not None else None,
-                        float(row[5]),
+                        str(row[4]),
+                        str(row[5]) if row[5] is not None else None,
                         float(row[6]),
+                        float(row[7]),
                     )
                     for row in rows
                 ],
             )
+            migrated_current_ids = {
+                int(row[0])
+                for row in conn.execute("SELECT id FROM copilot_turn_reviews").fetchall()
+            }
             conn.execute("DROP TABLE copilot_turn_reviews_pre_history")
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_reviews_tenant_time "
         "ON copilot_turn_reviews (tenant_id, created_at DESC)"
     )
+    return migrated_current_ids
+
+
+def _import_legacy_review_rows(
+    conn: sqlite3.Connection,
+    legacy_rows: list[tuple[str, str, str, str, str, str | None, float, float]],
+    *,
+    migrated_current_ids: set[int],
+) -> None:
+    unmatched_current_ids = set(migrated_current_ids)
+    for row in legacy_rows:
+        event_digest, turn_id, tenant_id, analyst_id, status, note, created_at, updated_at = row
+        matched = None
+        if unmatched_current_ids:
+            placeholders = ",".join("?" for _ in unmatched_current_ids)
+            matched = conn.execute(
+                f"""
+                SELECT id
+                FROM copilot_turn_reviews
+                WHERE id IN ({placeholders})
+                  AND turn_id = ? AND tenant_id = ? AND analyst_id = ?
+                  AND status = ? AND note IS ? AND created_at = ?
+                ORDER BY id ASC
+                LIMIT 1
+                """,
+                (
+                    *sorted(unmatched_current_ids),
+                    turn_id,
+                    tenant_id,
+                    analyst_id,
+                    status,
+                    note,
+                    created_at,
+                ),
+            ).fetchone()
+        if matched:
+            matched_id = int(matched[0])
+            conn.execute(
+                "UPDATE copilot_turn_reviews SET event_digest = ? WHERE id = ?",
+                (event_digest, matched_id),
+            )
+            unmatched_current_ids.remove(matched_id)
+            continue
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO copilot_turn_reviews (
+                event_digest, turn_id, tenant_id, analyst_id, status,
+                note, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                event_digest,
+                turn_id,
+                tenant_id,
+                analyst_id,
+                status,
+                note,
+                created_at,
+                updated_at,
+            ),
+        )
 
 
 def _get_conn() -> sqlite3.Connection:
@@ -249,15 +318,11 @@ def _get_conn() -> sqlite3.Connection:
                     "CREATE INDEX IF NOT EXISTS idx_agent_runs_tenant_created "
                     "ON copilot_agent_runs (tenant_id, created_at DESC)"
                 )
-                _upgrade_review_history_table(conn)
-                conn.executemany(
-                    """
-                    INSERT OR IGNORE INTO copilot_turn_reviews (
-                        event_digest, turn_id, tenant_id, analyst_id, status,
-                        note, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
+                migrated_current_ids = _upgrade_review_history_table(conn)
+                _import_legacy_review_rows(
+                    conn,
                     legacy_rows,
+                    migrated_current_ids=migrated_current_ids,
                 )
                 conn.commit()
             except Exception:
@@ -605,19 +670,22 @@ def _append_review_event(
     note: str | None,
     created_at: float,
 ) -> tuple[int, bool]:
-    existing = conn.execute(
+    latest = conn.execute(
         """
-        SELECT id
+        SELECT id, analyst_id, status, note
         FROM copilot_turn_reviews
-        WHERE turn_id = ? AND tenant_id = ? AND analyst_id = ?
-          AND status = ? AND note IS ?
+        WHERE turn_id = ? AND tenant_id = ?
         ORDER BY created_at DESC, id DESC
         LIMIT 1
         """,
-        (turn_id, tenant_id, analyst_id, status, note),
+        (turn_id, tenant_id),
     ).fetchone()
-    if existing:
-        return int(existing[0]), False
+    if latest and (
+        str(latest[1]) == analyst_id
+        and str(latest[2]) == status
+        and (str(latest[3]) if latest[3] is not None else None) == note
+    ):
+        return int(latest[0]), False
 
     event_digest = _review_digest(
         turn_id=turn_id,
@@ -625,6 +693,7 @@ def _append_review_event(
         analyst_id=analyst_id,
         status=status,
         note=note,
+        previous_event_id=int(latest[0]) if latest else None,
     )
     inserted = conn.execute(
         """
