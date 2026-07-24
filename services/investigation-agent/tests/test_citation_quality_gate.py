@@ -107,8 +107,10 @@ def test_independent_adversarial_citation_quality_gate() -> None:
         "omitted_audit_index",
         "failed_audit_index",
         "unrelated_successful_tool_payload",
+        "exact_ids_selected_nonknowledge",
+        "exact_ids_from_unselected_knowledge",
     } <= categories
-    assert unsupported_total >= 27
+    assert unsupported_total >= 29
     assert accepted_exact_refs > 0
     citation_resolution_precision = correct_exact_refs / accepted_exact_refs
     unsupported_abstention = unsupported_abstained / unsupported_total

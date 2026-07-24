@@ -1001,7 +1001,12 @@ def _enforce_claim_exact_ids(
     adjustments: list[str] = []
     for claim in claims:
         c = dict(claim)
+        has_exact_ids = "concept_ids" in c or "evidence_ids" in c
         if c.get("source") != "tool":
+            if has_exact_ids:
+                c["source"] = "unknown"
+                c["supported"] = False
+                adjustments.append("search_knowledge_citation_omitted")
             out.append(c)
             continue
         raw_indices = c.get("supporting_tool_call_indices")
@@ -1019,7 +1024,6 @@ def _enforce_claim_exact_ids(
         selected_calls_successful = bool(selected_indices) and all(
             index in successful_call_indices for index in selected_indices
         )
-        has_exact_ids = "concept_ids" in c or "evidence_ids" in c
         likely_search_claim = has_exact_ids or _text_supported(
             c.get("text"),
             [hit for hits in search_hits_by_call.values() for hit in hits],
@@ -1042,6 +1046,10 @@ def _enforce_claim_exact_ids(
             and tool_calls[index].get("tool") == "search_knowledge"
         ]
         if not selected_search_indices:
+            if has_exact_ids:
+                c["source"] = "unknown"
+                c["supported"] = False
+                adjustments.append("search_knowledge_citation_omitted")
             out.append(c)
             continue
         selected_search = {

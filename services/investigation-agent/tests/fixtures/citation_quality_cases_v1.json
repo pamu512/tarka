@@ -214,6 +214,16 @@
       "name": "unrelated_successful_tool_payload",
       "claim": {"text": "Entity entity-1 appears in the selected case.", "source": "tool", "supporting_tool_call_indices": [2]},
       "expected_supported": false
+    },
+    {
+      "name": "exact_ids_selected_nonknowledge",
+      "claim": {"text": "High amount transactions require manual review.", "source": "tool", "supporting_tool_call_indices": [2], "concept_ids": ["rules/high-amount"], "evidence_ids": ["ev-high"]},
+      "expected_supported": false
+    },
+    {
+      "name": "exact_ids_from_unselected_knowledge",
+      "claim": {"text": "Linked beneficiary accounts indicate mule network activity.", "source": "tool", "supporting_tool_call_indices": [0, 2], "concept_ids": ["typologies/mule-network"], "evidence_ids": ["ev-mule"]},
+      "expected_supported": false
     }
   ]
 }
