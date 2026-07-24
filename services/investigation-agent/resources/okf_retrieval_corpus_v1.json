@@ -1,0 +1,77 @@
+[
+  {
+    "tenant_id": "t1",
+    "query": "high-amount",
+    "expected_concept_ids": [
+      "playbooks/high-amount-review",
+      "rules/high-amount",
+      "references/kyc-checklist"
+    ],
+    "unsupported": false
+  },
+  {
+    "tenant_id": "t1",
+    "query": "High Amount Review Playbook",
+    "expected_concept_ids": [
+      "playbooks/high-amount-review",
+      "rules/high-amount",
+      "references/kyc-checklist"
+    ],
+    "unsupported": false
+  },
+  {
+    "tenant_id": "t1",
+    "query": "high-amount-playbook",
+    "expected_concept_ids": [
+      "playbooks/high-amount-review",
+      "rules/high-amount",
+      "references/kyc-checklist"
+    ],
+    "unsupported": false
+  },
+  {
+    "tenant_id": "t1",
+    "query": "rules/high-amount",
+    "expected_concept_ids": [
+      "rules/high-amount"
+    ],
+    "unsupported": false
+  },
+  {
+    "tenant_id": "t1",
+    "query": "KYC Checklist",
+    "expected_concept_ids": [
+      "references/kyc-checklist"
+    ],
+    "unsupported": false
+  },
+  {
+    "tenant_id": "t1",
+    "query": "velocity-playbook",
+    "expected_concept_ids": [
+      "playbooks/velocity-triage",
+      "rules/velocity-spike"
+    ],
+    "unsupported": false
+  },
+  {
+    "tenant_id": "t2",
+    "query": "T2 Secret Playbook",
+    "expected_concept_ids": [
+      "playbooks/t2-secret"
+    ],
+    "unsupported": false
+  },
+  {
+    "tenant_id": "t1",
+    "query": "T2 Secret Playbook",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Unknown Unsupported Fraud Guidance",
+    "expected_concept_ids": [],
+    "unsupported": true
+  }
+]
