@@ -104,7 +104,7 @@ def test_shared_only_snapshot_revision_ignores_unrelated_tenant_updates(
 
     t2 = tenant_root / "t2"
     t2.mkdir()
-    (t2 / "index.md").write_text('---\nokf_version: "0.1"\n---\n')
+    (t2 / "index.md").write_text("---\nokf_version: \"0.1\"\n---\n")
     (t2 / "extra.md").write_text(
         _valid_frontmatter(
             concept_type="Reference",
@@ -139,7 +139,9 @@ def test_t1_cannot_see_t2_concepts(registry: OkfRegistry, tenant_root: Path) -> 
     assert expanded == []
 
 
-def test_tenant_concept_precedence_over_shared(registry: OkfRegistry, tenant_root: Path) -> None:
+def test_tenant_concept_precedence_over_shared(
+    registry: OkfRegistry, tenant_root: Path
+) -> None:
     registry.reload()
     overlay = (
         _valid_frontmatter(
@@ -175,7 +177,7 @@ def test_invalid_reload_keeps_prior_snapshot(registry: OkfRegistry, shared_root:
 def test_expand_bounded_cycle(tmp_path: Path) -> None:
     shared = tmp_path / "shared"
     shared.mkdir()
-    (shared / "index.md").write_text('---\nokf_version: "0.1"\n---\n')
+    (shared / "index.md").write_text("---\nokf_version: \"0.1\"\n---\n")
     fm = _valid_frontmatter(
         concept_type="Reference", tenant_scope="shared", title="A", source_hash_char="1"
     )
@@ -200,7 +202,7 @@ def test_expand_bounded_cycle(tmp_path: Path) -> None:
 def test_expand_respects_max_depth(tmp_path: Path) -> None:
     shared = tmp_path / "shared"
     shared.mkdir()
-    (shared / "index.md").write_text('---\nokf_version: "0.1"\n---\n')
+    (shared / "index.md").write_text("---\nokf_version: \"0.1\"\n---\n")
     (shared / "c0.md").write_text(
         _valid_frontmatter(
             concept_type="Reference", tenant_scope="shared", title="C0", source_hash_char="3"
@@ -234,7 +236,7 @@ def test_expand_follows_tenant_shared_logical_link(tmp_path: Path) -> None:
     tenants = tmp_path / "tenants"
     (shared / "rules").mkdir(parents=True)
     (tenants / "t1" / "playbooks").mkdir(parents=True)
-    (shared / "index.md").write_text('---\nokf_version: "0.1"\n---\n')
+    (shared / "index.md").write_text("---\nokf_version: \"0.1\"\n---\n")
     (shared / "rules" / "high-amount.md").write_text(
         _valid_frontmatter(
             concept_type="Fraud Rule",
@@ -244,7 +246,7 @@ def test_expand_follows_tenant_shared_logical_link(tmp_path: Path) -> None:
         )
         + "Shared rule.\n"
     )
-    (tenants / "t1" / "index.md").write_text('---\nokf_version: "0.1"\n---\n')
+    (tenants / "t1" / "index.md").write_text("---\nokf_version: \"0.1\"\n---\n")
     (tenants / "t1" / "playbooks" / "review.md").write_text(
         _valid_frontmatter(
             concept_type="Investigation Playbook",
@@ -268,10 +270,10 @@ def test_tenant_cannot_link_to_other_tenant_concept(tmp_path: Path) -> None:
     shared = tmp_path / "shared"
     tenants = tmp_path / "tenants"
     shared.mkdir()
-    (shared / "index.md").write_text('---\nokf_version: "0.1"\n---\n')
+    (shared / "index.md").write_text("---\nokf_version: \"0.1\"\n---\n")
     (tenants / "t1").mkdir(parents=True)
     (tenants / "t2").mkdir(parents=True)
-    (tenants / "t1" / "index.md").write_text('---\nokf_version: "0.1"\n---\n')
+    (tenants / "t1" / "index.md").write_text("---\nokf_version: \"0.1\"\n---\n")
     (tenants / "t1" / "linker.md").write_text(
         _valid_frontmatter(
             concept_type="Reference",
@@ -281,7 +283,7 @@ def test_tenant_cannot_link_to_other_tenant_concept(tmp_path: Path) -> None:
         )
         + "See [t2 secret](../t2/secret.md).\n"
     )
-    (tenants / "t2" / "index.md").write_text('---\nokf_version: "0.1"\n---\n')
+    (tenants / "t2" / "index.md").write_text("---\nokf_version: \"0.1\"\n---\n")
     (tenants / "t2" / "secret.md").write_text(
         _valid_frontmatter(
             concept_type="Reference",
@@ -300,7 +302,7 @@ def test_tenant_cannot_link_to_other_tenant_concept(tmp_path: Path) -> None:
 def test_expand_respects_max_concepts(tmp_path: Path) -> None:
     shared = tmp_path / "shared"
     shared.mkdir()
-    (shared / "index.md").write_text('---\nokf_version: "0.1"\n---\n')
+    (shared / "index.md").write_text("---\nokf_version: \"0.1\"\n---\n")
     (shared / "hub.md").write_text(
         _valid_frontmatter(
             concept_type="Reference", tenant_scope="shared", title="Hub", source_hash_char="6"

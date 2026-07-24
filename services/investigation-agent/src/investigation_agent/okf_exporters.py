@@ -184,7 +184,9 @@ def export_typologies(payload: dict[str, Any], source_uri: str) -> dict[str, str
             raise OkfExportError(f"{source_uri}: typologies[{index}] missing id")
         label = str(typology.get("label") or typology_id).strip()
         member_ids = [
-            str(rid).strip() for rid in (typology.get("member_rule_ids") or []) if str(rid).strip()
+            str(rid).strip()
+            for rid in (typology.get("member_rule_ids") or [])
+            if str(rid).strip()
         ]
         body_lines = [label, ""]
         if member_ids:
@@ -216,7 +218,9 @@ def export_typologies(payload: dict[str, Any], source_uri: str) -> dict[str, str
 
 def export_playbooks() -> dict[str, str]:
     """Export built-in investigation playbooks as shared OKF concepts."""
-    revision = hashlib.sha256("|".join(sorted(_PLAYBOOKS)).encode("utf-8")).hexdigest()[:16]
+    revision = hashlib.sha256(
+        "|".join(sorted(_PLAYBOOKS)).encode("utf-8")
+    ).hexdigest()[:16]
     files: dict[str, str] = {}
     for playbook_id in sorted(_PLAYBOOKS):
         entry = _PLAYBOOKS[playbook_id]
@@ -308,7 +312,9 @@ def assert_staging_output_path(output: Path, *, repo_root: Path) -> None:
     tenant_active = (repo_root / "knowledge" / "tenants").resolve()
     for active in (shared_active, tenant_active):
         if output_resolved == active or active in output_resolved.parents:
-            raise StagingPathError(f"refusing to export to active OKF root: {active.as_posix()}")
+            raise StagingPathError(
+                f"refusing to export to active OKF root: {active.as_posix()}"
+            )
 
 
 def write_staging_bundle(staging_root: Path, files: dict[str, str], *, repo_root: Path) -> None:
@@ -333,7 +339,7 @@ def write_staging_bundle(staging_root: Path, files: dict[str, str], *, repo_root
 def shared_bundle_index_md() -> str:
     return (
         "---\n"
-        'okf_version: "0.1"\n'
+        "okf_version: \"0.1\"\n"
         "---\n"
         "# Shared OKF bundle\n"
         "\n"
@@ -376,7 +382,9 @@ def collect_shared_exports(rules_dir: Path, *, include_playbooks: bool) -> dict[
     typology_path = rules_dir / "typology_definitions_v1.json"
     if typology_path.is_file():
         typologies = json.loads(typology_path.read_text(encoding="utf-8"))
-        chunks.append(export_typologies(typologies, "rules/typology_definitions_v1.json"))
+        chunks.append(
+            export_typologies(typologies, "rules/typology_definitions_v1.json")
+        )
 
     if include_playbooks:
         chunks.append(export_playbooks())

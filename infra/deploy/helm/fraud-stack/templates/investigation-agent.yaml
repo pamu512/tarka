@@ -1,4 +1,7 @@
 {{- if .Values.investigationAgent.enabled }}
+{{- if and .Values.investigationAgent.okfTenantOverlays.enabled (not .Values.investigationAgent.okfTenantOverlays.existingClaim) }}
+{{- fail "investigation-agent OKF tenant overlays require investigationAgent.okfTenantOverlays.existingClaim" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -32,6 +35,10 @@ spec:
             {{- end }}
             - name: AI_GOVERNANCE_PROFILE
               value: {{ .Values.investigationAgent.aiGovernanceProfile | default "global" | quote }}
+            - name: OKF_SHARED_ROOT
+              value: "/app/knowledge/shared"
+            - name: OKF_TENANT_ROOT
+              value: {{ .Values.investigationAgent.okfTenantOverlays.mountPath | quote }}
             {{- if .Values.investigationAgent.batchTtlSeconds }}
             - name: BATCH_TTL_SECONDS
               value: {{ .Values.investigationAgent.batchTtlSeconds | quote }}
@@ -48,6 +55,12 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 2
             failureThreshold: 6
+          {{- if .Values.investigationAgent.okfTenantOverlays.enabled }}
+          volumeMounts:
+            - name: okf-tenant-overlays
+              mountPath: {{ .Values.investigationAgent.okfTenantOverlays.mountPath | quote }}
+              readOnly: {{ .Values.investigationAgent.okfTenantOverlays.readOnly }}
+          {{- end }}
           livenessProbe:
             httpGet:
               path: /v1/health
@@ -56,6 +69,12 @@ spec:
             periodSeconds: 15
             timeoutSeconds: 2
             failureThreshold: 4
+      {{- if .Values.investigationAgent.okfTenantOverlays.enabled }}
+      volumes:
+        - name: okf-tenant-overlays
+          persistentVolumeClaim:
+            claimName: {{ .Values.investigationAgent.okfTenantOverlays.existingClaim | quote }}
+      {{- end }}
 ---
 apiVersion: v1
 kind: Service

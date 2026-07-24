@@ -15,7 +15,8 @@ _EMPTY_REVISION = hashlib.sha256(b"").hexdigest()
 
 def _bundle_revision(concepts: dict[str, OkfConcept]) -> str:
     payload = "\n".join(
-        f"{concept_id}:{concept.content_hash}" for concept_id, concept in sorted(concepts.items())
+        f"{concept_id}:{concept.content_hash}"
+        for concept_id, concept in sorted(concepts.items())
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
@@ -75,7 +76,9 @@ class OkfRegistry:
     def reload(self) -> RegistryReloadResult:
         candidate = self._load_all()
         if candidate.issues:
-            return RegistryReloadResult(False, self._snapshot.revision, candidate.issues)
+            return RegistryReloadResult(
+                False, self._snapshot.revision, candidate.issues
+            )
         with self._lock:
             self._snapshot = candidate.snapshot
         return RegistryReloadResult(True, candidate.snapshot.revision, ())
@@ -87,6 +90,16 @@ class OkfRegistry:
         if self._snapshot.shared is not None:
             return self._snapshot.shared.revision
         return self._snapshot.revision
+
+    def active_bundles(self) -> tuple[ParsedBundle, ...]:
+        """Return active approved bundles without exposing tenant views."""
+        snapshot = self._snapshot
+        bundles: list[ParsedBundle] = []
+        if snapshot.shared is not None:
+            bundles.append(snapshot.shared)
+        for tenant_id in sorted(snapshot.tenants):
+            bundles.append(snapshot.tenants[tenant_id])
+        return tuple(bundles)
 
     def resolve(self, tenant_id: str, query: str) -> list[ConceptHit]:
         view = self._view_for(tenant_id)
@@ -166,7 +179,9 @@ class OkfRegistry:
             return None
         return self._shared_only_view()
 
-    def _match_score(self, concept_id: str, concept: OkfConcept, normalized_query: str) -> float:
+    def _match_score(
+        self, concept_id: str, concept: OkfConcept, normalized_query: str
+    ) -> float:
         if _normalize_text(concept_id) == normalized_query:
             return 1.0
         if _normalize_text(concept.title) == normalized_query:
@@ -178,7 +193,9 @@ class OkfRegistry:
 
     def _load_all(self) -> _LoadCandidate:
         issues: list[BundleIssue] = []
-        shared_validation = validate_bundle(self._shared_root, scope="shared", tenant_id=None)
+        shared_validation = validate_bundle(
+            self._shared_root, scope="shared", tenant_id=None
+        )
         if not shared_validation.valid:
             issues.extend(shared_validation.issues)
 
@@ -221,7 +238,7 @@ class OkfRegistry:
         return _TenantView(
             revision=_bundle_revision(concepts),
             concepts=concepts,
-            authority=dict.fromkeys(concepts, "shared"),
+            authority={cid: "shared" for cid in concepts},
         )
 
     def _build_views(
@@ -230,7 +247,7 @@ class OkfRegistry:
         tenant_bundles: dict[str, ParsedBundle],
     ) -> dict[str, _TenantView]:
         shared_concepts = dict(shared_bundle.concepts) if shared_bundle else {}
-        shared_authority = dict.fromkeys(shared_concepts, "shared")
+        shared_authority = {cid: "shared" for cid in shared_concepts}
         views: dict[str, _TenantView] = {}
 
         for tenant_id, tenant_bundle in tenant_bundles.items():

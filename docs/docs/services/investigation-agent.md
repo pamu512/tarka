@@ -40,9 +40,16 @@ Reference deployment env:
 OKF_ENABLED=true
 OKF_SHARED_ROOT=/app/knowledge/shared
 OKF_TENANT_ROOT=/var/lib/tarka/knowledge/tenants
+OKF_ADMIN_API_KEYS=okf-admin-key
 OKF_MAX_LINK_DEPTH=2
 OKF_MAX_CONCEPTS=24
 ```
+
+`POST /v1/admin/okf/reload` requires a key that is present in both
+`API_KEYS` and `OKF_ADMIN_API_KEYS`. The same key must also have tenant scope in
+`API_KEY_TENANT_MAP` (or the deployment must use an equivalent authenticated
+tenant binding configuration), so granting general service access does not grant
+OKF reload privileges.
 
 #### Proposed staging vs approved promotion
 
