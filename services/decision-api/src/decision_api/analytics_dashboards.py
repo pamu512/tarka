@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import sys
-from pathlib import Path
 from typing import Any
 
 from analytics.dashboards import (
@@ -19,9 +17,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from tarka_core.cache import KeyValueCache
 
-_shared = Path(__file__).resolve().parents[3] / "shared"
-if str(_shared) not in sys.path:
-    sys.path.insert(0, str(_shared))
+from decision_api.shared_path import ensure_services_shared_on_path
+
+ensure_services_shared_on_path()
 from auth_rbac import require_role  # noqa: E402
 
 from decision_api.config import settings  # noqa: E402

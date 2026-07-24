@@ -1,8 +1,8 @@
 """Workflow directives and web fetch helpers."""
 
 import pytest
-from web_fetch import WebFetchError, fetch_public_text
-from workflow_bridge import (
+from collaboration_chat_bridge.web_fetch import WebFetchError, fetch_public_text
+from collaboration_chat_bridge.workflow_bridge import (
     resolve_workflow_from_messages,
     strip_workflow_directives_from_text,
 )

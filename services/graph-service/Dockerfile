@@ -10,5 +10,5 @@ COPY services/graph-service/pyproject.toml /app/
 COPY services/graph-service /app
 COPY services/shared /app/shared
 RUN pip install --no-cache-dir -e .
-ENV PYTHONPATH=/app:/app/src:/app/shared
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+ENV PYTHONPATH=/app/src:/app/shared
+CMD ["uvicorn", "graph_service.main:app", "--host", "0.0.0.0", "--port", "8001"]

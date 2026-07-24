@@ -113,7 +113,7 @@ services:
       signal-api:
         condition: service_started
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/decisions/v1/ready')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/decisions/v1/health')"]
       interval: 10s
       timeout: 5s
       retries: 6

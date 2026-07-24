@@ -11,13 +11,14 @@ updates:
           - "*"
 
   - package-ecosystem: pip
-    directory: /services/legacy_v1_decision_api
+    directory: /services/decision-api
     schedule:
       interval: weekly
     groups:
       pip-decision-api:
         patterns:
           - "*"
+
 
   - package-ecosystem: pip
     directory: /services/core

@@ -217,6 +217,29 @@ class MessageBroker(ABC):
         raise NotImplementedError
 
 
+class NullMessageBroker(MessageBroker):
+    """No-op broker when NATS is unavailable or not configured."""
+
+    async def publish(
+        self,
+        subject: str,
+        payload: bytes,
+        *,
+        delivery: PublishDelivery = PublishDelivery.JETSTREAM,
+    ) -> None:
+        return
+
+    async def subscribe(
+        self,
+        subject: str,
+        handler: Callable[[str, bytes], Awaitable[None]],
+    ) -> Any:
+        return None
+
+    async def aclose(self) -> None:
+        return
+
+
 def _coerce_delivery(raw: str) -> PublishDelivery:
     for m in PublishDelivery:
         if m.value == raw:

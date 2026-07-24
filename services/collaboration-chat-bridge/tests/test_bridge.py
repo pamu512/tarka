@@ -7,16 +7,16 @@ import logging
 import time
 
 import pytest
-from agent_client import AgentChatError, AgentUpstreamError
-from main import app
-from rate_limit import MinuteRateLimiter
-from reply_format import (
+from collaboration_chat_bridge.agent_client import AgentChatError, AgentUpstreamError
+from collaboration_chat_bridge.main import app
+from collaboration_chat_bridge.rate_limit import MinuteRateLimiter
+from collaboration_chat_bridge.reply_format import (
     escape_slack_mrkdwn,
     format_slack_blocks,
     normalize_slack_user_text,
 )
-from secrets_util import constant_time_string_equals
-from slack_verify import verify_slack_signature
+from collaboration_chat_bridge.secrets_util import constant_time_string_equals
+from collaboration_chat_bridge.slack_verify import verify_slack_signature
 from httpx import ASGITransport, AsyncClient
 
 

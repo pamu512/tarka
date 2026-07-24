@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from algorithms import (
+from graph_service.algorithms import (
     _clamp_depth,
     compute_entity_risk,
     detect_fraud_rings,
@@ -57,11 +57,39 @@ class TestComputeEntityRisk:
         mock_driver.session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_driver.session.return_value.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)):
+        with patch(
+            "graph_service.algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)
+        ):
             result = await compute_entity_risk("tenant1", "missing-entity")
 
         assert result["risk_score"] == 0
+        assert result["neighbor_device_count"] == 0
         assert "entity_not_found" in result["risk_factors"]
+
+    @pytest.mark.asyncio
+    async def test_neighbor_device_count_in_payload(self):
+        record = _mock_record(
+            {
+                "tags": [],
+                "conn_count": 4,
+                "flagged_neighbors": 0,
+                "community_size": 2,
+                "shared_device_count": 0,
+                "neighbor_device_count": 4,
+            }
+        )
+        mock_result = AsyncMock()
+        mock_result.single = AsyncMock(return_value=record)
+        mock_session = AsyncMock()
+        mock_session.run = AsyncMock(return_value=mock_result)
+        mock_driver = AsyncMock()
+        mock_driver.session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_driver.session.return_value.__aexit__ = AsyncMock(return_value=False)
+        with patch(
+            "graph_service.algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)
+        ):
+            result = await compute_entity_risk("tenant1", "device-hopper")
+        assert result["neighbor_device_count"] == 4
 
     @pytest.mark.asyncio
     async def test_entity_with_high_risk_tags(self):
@@ -84,7 +112,9 @@ class TestComputeEntityRisk:
         mock_driver.session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_driver.session.return_value.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)):
+        with patch(
+            "graph_service.algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)
+        ):
             result = await compute_entity_risk("tenant1", "risky-user")
             result_min = await compute_entity_risk("tenant1", "risky-user", checkpoint="minimal")
 
@@ -115,7 +145,9 @@ class TestComputeEntityRisk:
         mock_driver = AsyncMock()
         mock_driver.session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_driver.session.return_value.__aexit__ = AsyncMock(return_value=False)
-        with patch("algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)):
+        with patch(
+            "graph_service.algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)
+        ):
             await compute_entity_risk("t", "e", checkpoint="standard")
         q = mock_session.run.call_args[0][0]
         assert "[*1..3]" in q
@@ -141,7 +173,9 @@ class TestComputeEntityRisk:
         mock_driver.session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_driver.session.return_value.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)):
+        with patch(
+            "graph_service.algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)
+        ):
             result = await compute_entity_risk("tenant1", "linked-user")
 
         assert result["risk_score"] > 0
@@ -172,7 +206,9 @@ class TestComputeEntityRisk:
         mock_driver.session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_driver.session.return_value.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)):
+        with patch(
+            "graph_service.algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)
+        ):
             result = await compute_entity_risk("tenant1", "clean-user")
 
         assert result["risk_score"] == 0
@@ -199,7 +235,9 @@ class TestComputeEntityRisk:
         mock_driver.session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_driver.session.return_value.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)):
+        with patch(
+            "graph_service.algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)
+        ):
             result = await compute_entity_risk("tenant1", "super-risky")
 
         assert result["risk_score"] <= 100
@@ -257,7 +295,9 @@ class TestDetectFraudRings:
         mock_driver.session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_driver.session.return_value.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)):
+        with patch(
+            "graph_service.algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)
+        ):
             rings = await detect_fraud_rings("tenant1", min_ring_size=3)
 
         assert len(rings) == 1
@@ -280,7 +320,9 @@ class TestDetectFraudRings:
         mock_driver.session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_driver.session.return_value.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)):
+        with patch(
+            "graph_service.algorithms_neo4j.get_driver", AsyncMock(return_value=mock_driver)
+        ):
             rings = await detect_fraud_rings("tenant1")
 
         assert rings == []

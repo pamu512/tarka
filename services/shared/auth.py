@@ -28,7 +28,9 @@ async def require_api_key(request: Request) -> None:
     # Orchestrators and scripts (e.g. infra/scripts/ci/full_stack_smoke.py) probe these without X-API-Key.
     if request.url.path in {
         "/v1/health",
+        "/v1/ready",
         "/v1/health/deep",
+        "/health",
         "/health/deep",
         "/metrics",
     }:

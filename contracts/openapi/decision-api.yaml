@@ -579,6 +579,57 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+  /v1/calibration/reliability-export.csv:
+    get:
+      operationId: calibrationReliabilityExportCsv
+      summary: CSV of decision_audit scores for offline reliability curves
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10000, maximum: 50000 }
+      responses:
+        "200":
+          description: CSV attachment
+          content:
+            text/csv:
+              schema: { type: string }
+        "403":
+          description: Tenant not permitted
+  /v1/calibration/reliability-bins:
+    get:
+      operationId: calibrationReliabilityBins
+      summary: Equal-width reliability bins (proxy labels unless y_label joined)
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10000, maximum: 50000 }
+        - name: n_bins
+          in: query
+          schema: { type: integer, default: 10, minimum: 2, maximum: 50 }
+      responses:
+        "200":
+          description: Binned sketch with caveat when using proxy labels
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/rules/backtest/run:
+    post:
+      operationId: rulesBacktestRunTombstone
+      deprecated: true
+      summary: Removed stub route (410 Gone); use POST /v1/rules/backtest/jobs
+      responses:
+        "410":
+          description: Stub backtest removed
   /v1/ops/calibration-status:
     get:
       operationId: opsCalibrationStatus

@@ -3,10 +3,10 @@ from typing import Any
 
 from neo4j import AsyncDriver, AsyncGraphDatabase
 
-from config import settings
-from custom_schema import get_allowed_labels, get_allowed_rels
-from entity_context_shape import shape_deep_context_from_nodes
-from hetero_schema import validate_typed_edge_or_raise
+from .config import settings
+from .custom_schema import get_allowed_labels, get_allowed_rels
+from .entity_context_shape import shape_deep_context_from_nodes
+from .hetero_schema import validate_typed_edge_or_raise
 
 _driver: AsyncDriver | None = None
 
@@ -65,7 +65,7 @@ async def upsert_entity(
 
     q = f"""
     MERGE (n:{label} {{tenant_id: $tenant_id, external_id: $external_id}})
-    SET n += $properties
+    SET n += $properties, n.updated_at = datetime()
     RETURN elementId(n) AS gid
     """
     async with driver.session() as session:

@@ -29,13 +29,15 @@ This guide documents **shipping surfaces** that align Tarka with enterprise frau
 | Prefix | Role |
 |--------|------|
 | `/v1/rules/visual/compile` | Compile a **visual AST** JSON payload into a deployable JSON rule pack. |
-| `/v1/rules/gitops/approve` | Record **maker/checker** approval metadata (integrate with your SOX/Git system). |
+| `/v1/rules/gitops/approve` | Persist **maker/checker** approval rows (`rule_approvals`) and return `audit_token`. |
 | `/v1/rules/backtest/preview-sql` | Return **ClickHouse SQL** for a 90-day window with **PIT** guidance in the payload. |
-| `/v1/rules/backtest/run` | Stub metrics until a read-only ClickHouse role is wired server-side. |
+| `/v1/rules/backtest/jobs` | Enqueue streaming OLAP backtest (ClickHouse/DuckDB → Rust → Postgres); poll `GET .../jobs/{id}`. |
+| `/v1/rules/backtest/run` | **410 Gone** — former stub route removed; use `/jobs`. |
 | `/v1/reporting/nl-to-sql` | NL → bounded SQL (LLM when configured; template fallback otherwise). |
-| `/v1/feature-store/definitions` | Store feature definitions + **versioned MV DDL** templates. |
-| `/v1/analytics/dashboards/kpis` | Cached KPI stub (Redis TTL **`DASHBOARD_KPI_CACHE_TTL_SECONDS`**); tenant-scoped when API keys bind tenants. |
-| `/v1/vendors/registry`, `/v1/vendors/probe` | Vendor **plugin registry** + admin probe (cost-aware stub). |
+| `/v1/feature-store/definitions` | Durable Postgres definitions + ClickHouse MV DDL execution. |
+| `/v1/analytics/dashboards/kpis` | Live KPI counts from analytics engine; **503** when offline (no null stub dashboards). |
+| `/v1/calibration/reliability-export.csv` | Audit-score CSV for offline reliability curves (Wave 1 trust). |
+| `/v1/vendors/registry`, `/v1/vendors/probe` | Vendor **plugin registry** + admin probe. |
 
 **Code:** `services/decision-api/src/decision_api/rule_compiler_api.py`, `rule_gitops_api.py`, `backtest_api.py`, `reporting_nl.py`, `feature_store_api.py`, `analytics_dashboards.py`, `vendor_marketplace_api.py`, `vendors/`.
 
@@ -70,7 +72,7 @@ Design for indexing **`fraud.decisions.>`** into the graph store without starvin
 
 ## First-party device SDK
 
-- **`packages/tarka-web-sdk`** — consent-gated browser signals; intended for first-party **CNAME** deployment.
+- **`@tarka/sdk`** (`packages/fraud-sdk-typescript`) — browser DecisionClient + consent-gated CNAME helpers (merged former `tarka-web-sdk`).
 
 ## Related
 

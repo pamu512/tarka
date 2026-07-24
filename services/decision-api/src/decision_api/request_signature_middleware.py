@@ -1,17 +1,14 @@
-from __future__ import annotations
+"""Optional HMAC verification for POST bodies (see docs/guides/tls-pinning-and-signed-requests.md)."""
 
-import sys
-from pathlib import Path
+from __future__ import annotations
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import JSONResponse, Response
 
-"""Optional HMAC verification for POST bodies (see docs/guides/tls-pinning-and-signed-requests.md)."""
-# Shared helpers (repo layout: services/shared next to decision-api)
-_shared = Path(__file__).resolve().parents[3] / "shared"
-if str(_shared) not in sys.path:
-    sys.path.insert(0, str(_shared))
+from decision_api.shared_path import ensure_services_shared_on_path
+
+ensure_services_shared_on_path()
 
 from tarka_request_signature import verify_signature  # noqa: E402
 

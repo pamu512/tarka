@@ -8,7 +8,7 @@ from typing import TypeVar
 from gremlin_python.driver.driver_remote_connection import DriverRemoteConnection
 from gremlin_python.process.anonymous_traversal import traversal
 
-from config import settings
+from .config import settings
 
 """Shared Gremlin Server connection for JanusGraph backend (sync driver, thread offload)."""
 log = logging.getLogger("graph-service.janus")

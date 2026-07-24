@@ -1,6 +1,6 @@
 """Tests for graph path explanation assembly (Q2-E03)."""
 
-from path_explain import assemble_path_explanation, validate_annotation_map
+from graph_service.path_explain import assemble_path_explanation, validate_annotation_map
 
 
 def test_assemble_path_explanation_ranks_by_score():

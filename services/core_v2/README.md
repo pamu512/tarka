@@ -1,4 +1,7 @@
-# Core v2
+# Core v2 — **QUARANTINED**
+
+> Prefer **decision-api / core-api**. This tree is only wired by
+> `docker-compose.streams-ai.yml`. See [`DEPRECATED.md`](./DEPRECATED.md).
 
 Minimal decision pipeline: **FastAPI** (`/v1/decide`), a **Rust rules bridge** (`rust_engine` via PyO3), and an **append-only PostgreSQL audit log** (`audit_logs`). No ML inference or growth/automation flows run inside this process.
 

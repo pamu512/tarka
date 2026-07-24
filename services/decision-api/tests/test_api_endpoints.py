@@ -34,6 +34,7 @@ async def client():
             mock_redis.store_nonce = AsyncMock()
             mock_redis.consume_nonce = AsyncMock(return_value=True)
             mock_redis.check_and_store_replay_signature = AsyncMock(return_value=False)
+            mock_redis.get_tenant_flags = AsyncMock(return_value={})
 
             with patch("decision_api.main.load_rules"):
                 with patch("decision_api.main.agg_store") as mock_agg:

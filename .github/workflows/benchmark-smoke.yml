@@ -1,4 +1,5 @@
 # Weekly / manual smoke: keep scripts/benchmarks/latency_evaluate.py runnable against a real API + Redis.
+# Overlaps ci.yml job `benchmark-latency-evaluate` on schedule — keep both until #10 product call.
 # Full load belongs in release docs or k6; this job only sanity-checks the script path.
 name: Benchmark smoke
 
@@ -42,7 +43,7 @@ jobs:
           API_KEYS: ""
           ALLOW_INSECURE_NO_AUTH: "true"
           FEATURE_SERVICE_URL: ""
-          RULES_PATH: ../legacy_v1_decision_api/rules
+          RULES_PATH: rules
         run: |
           set -euo pipefail
           nohup python -m uvicorn decision_api.main:app --host 127.0.0.1 --port 8000 > /tmp/decision-api.log 2>&1 &
@@ -126,7 +127,7 @@ jobs:
           API_KEYS: ""
           ALLOW_INSECURE_NO_AUTH: "true"
           FEATURE_SERVICE_URL: ""
-          RULES_PATH: ../legacy_v1_decision_api/rules
+          RULES_PATH: rules
         run: |
           set -euo pipefail
           nohup python -m uvicorn decision_api.main:app --host 127.0.0.1 --port 8000 > /tmp/decision-api.log 2>&1 &

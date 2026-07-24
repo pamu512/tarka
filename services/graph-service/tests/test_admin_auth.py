@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from main import app
+from graph_service.main import app
 
 
 def test_admin_checkpoint_reload_requires_auth(monkeypatch):

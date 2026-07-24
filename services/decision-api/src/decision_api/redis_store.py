@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import redis.asyncio as redis
-from redis.exceptions import RedisError
+from redis.exceptions import NoScriptError, RedisError
 
 from decision_api.config import settings
 from tarka_core.cache import KeyValueCache
@@ -317,18 +317,23 @@ class RedisTags:
         if self._client and self._merge_sha:
             timeout_s = _redis_merge_timeout_s()
             try:
-                if timeout_s > 0:
-                    eval_result = await asyncio.wait_for(
-                        self._client.evalsha(
+                for attempt in range(2):
+                    try:
+                        request = self._client.evalsha(
                             self._merge_sha, 1, key, str(TAGS_TTL_SECONDS), *new_tags
-                        ),
-                        timeout=timeout_s,
-                    )
-                else:
-                    eval_result = await self._client.evalsha(
-                        self._merge_sha, 1, key, str(TAGS_TTL_SECONDS), *new_tags
-                    )
-                return json.loads(eval_result) if eval_result else sorted(new_tags)
+                        )
+                        eval_result = (
+                            await asyncio.wait_for(request, timeout=timeout_s)
+                            if timeout_s > 0
+                            else await request
+                        )
+                        return (
+                            json.loads(eval_result) if eval_result else sorted(new_tags)
+                        )
+                    except NoScriptError:
+                        if attempt:
+                            raise
+                        self._merge_sha = await self._client.script_load(MERGE_TAGS_LUA)
             except asyncio.TimeoutError as exc:
                 if settings.strict_consistency:
                     raise ConnectionError(

@@ -27,11 +27,10 @@ from decision_api.config import settings
 from decision_api.deps import require_analytics_engine
 from tarka_core.internal_monitor import InternalMonitor
 
-import sys
 
-_shared = Path(__file__).resolve().parents[3] / "shared"
-if str(_shared) not in sys.path:
-    sys.path.insert(0, str(_shared))
+from decision_api.shared_path import ensure_services_shared_on_path
+
+ensure_services_shared_on_path()
 from auth_rbac import require_role  # noqa: E402
 
 log = logging.getLogger("decision-api.ml_export")

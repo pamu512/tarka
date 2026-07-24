@@ -7,6 +7,10 @@ COPY frontend/ .
 # Baked into the UI for regional AI governance banners (us | eu_uk | global).
 ARG VITE_AI_GOVERNANCE_PROFILE=global
 ENV VITE_AI_GOVERNANCE_PROFILE=${VITE_AI_GOVERNANCE_PROFILE}
+# Production default: lean nav (no brochure Command Center / ingress demo routes).
+# Sales demo image: --build-arg VITE_LEAN_NAV=false
+ARG VITE_LEAN_NAV=true
+ENV VITE_LEAN_NAV=${VITE_LEAN_NAV}
 RUN npm run build
 
 FROM nginx:alpine
