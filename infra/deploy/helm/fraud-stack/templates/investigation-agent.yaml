@@ -13,6 +13,8 @@ kind: Deployment
 metadata:
   name: {{ include "tarka.fullname" . }}-investigation-agent
 spec:
+  strategy:
+    type: Recreate
   replicas: {{ .Values.investigationAgent.replicaCount }}
   selector:
     matchLabels:

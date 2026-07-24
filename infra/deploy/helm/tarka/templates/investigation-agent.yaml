@@ -38,6 +38,8 @@ metadata:
     {{- include "tarka.labels" . | nindent 4 }}
     tarka.io/component: investigation-agent
 spec:
+  strategy:
+    type: Recreate
   replicas: {{ .Values.investigationAgent.replicaCount }}
   selector:
     matchLabels:

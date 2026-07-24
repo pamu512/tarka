@@ -49,3 +49,20 @@ def test_horizontal_scaling_upgrade_path_is_documented() -> None:
     )
     assert "external shared AgentRun store" in docs
     assert "replicaCount: 1" in docs
+
+
+def test_helm_local_sqlite_deployments_use_recreate_rollout() -> None:
+    for chart_name in ("fraud-stack", "fraud-stack-lite", "tarka"):
+        template = (
+            _REPO_ROOT
+            / "infra"
+            / "deploy"
+            / "helm"
+            / chart_name
+            / "templates"
+            / "investigation-agent.yaml"
+        ).read_text(encoding="utf-8")
+
+        assert "strategy:" in template, chart_name
+        assert "type: Recreate" in template, chart_name
+        assert "agentRunPersistence.mode" in template, chart_name

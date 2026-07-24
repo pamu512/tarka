@@ -12,6 +12,8 @@ kind: Deployment
 metadata:
   name: investigation-agent
 spec:
+  strategy:
+    type: Recreate
   replicas: {{ .Values.investigationAgent.replicas }}
   selector:
     matchLabels:
