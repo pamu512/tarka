@@ -74,11 +74,49 @@ def test_resolve_shared_concept_by_title(registry: OkfRegistry) -> None:
 
 def test_resolve_tenant_overlay_by_tag(registry: OkfRegistry) -> None:
     registry.reload()
-    hits = registry.resolve("t1", "playbook")
+    hits = registry.resolve("t1", "high-amount")
     ids = {hit.concept.concept_id for hit in hits}
     assert "playbooks/high-amount-review" in ids
     tenant_hits = [h for h in hits if h.concept.concept_id == "playbooks/high-amount-review"]
     assert tenant_hits[0].authority == "tenant"
+
+
+def test_resolve_rejects_partial_title_and_tag(registry: OkfRegistry) -> None:
+    registry.reload()
+    assert registry.resolve("t1", "High Amount") == []
+    assert registry.resolve("t1", "play") == []
+    assert registry.resolve("t1", "high-am") == []
+
+
+def test_resolve_rejects_description_only_query(registry: OkfRegistry) -> None:
+    registry.reload()
+    assert registry.resolve("t1", "Flags transactions above the configured threshold") == []
+    assert registry.resolve("t1", "Analyst steps for high-amount cases") == []
+
+
+def test_shared_only_snapshot_revision_ignores_unrelated_tenant_updates(
+    registry: OkfRegistry, tenant_root: Path
+) -> None:
+    registry.reload()
+    shared_only_rev = registry.snapshot_revision("t-no-overlay")
+    t1_rev = registry.snapshot_revision("t1")
+    assert shared_only_rev != t1_rev
+
+    t2 = tenant_root / "t2"
+    t2.mkdir()
+    (t2 / "index.md").write_text("---\nokf_version: \"0.1\"\n---\n")
+    (t2 / "extra.md").write_text(
+        _valid_frontmatter(
+            concept_type="Reference",
+            tenant_scope="t2",
+            title="T2 Only Concept",
+            source_hash_char="f",
+        )
+        + "Body.\n"
+    )
+    assert registry.reload().activated is True
+    assert registry.snapshot_revision("t-no-overlay") == shared_only_rev
+    assert registry.snapshot_revision("t2") != t1_rev
 
 
 def test_t1_cannot_see_t2_concepts(registry: OkfRegistry, tenant_root: Path) -> None:
