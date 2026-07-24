@@ -13,6 +13,7 @@ import yaml
 from investigation_agent.okf_exporters import (
     LandmarkCaseSanitizationError,
     OkfExportError,
+    StagingPathError,
     assert_staging_output_path,
     collect_shared_exports,
     export_landmark_case,
@@ -154,6 +155,30 @@ def test_landmark_case_allowlist_only():
     assert "](/shared/typologies/velocity_abuse.md)" in md
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("title", "Escalation for analyst@example.test"),
+        ("summary", "Call +1 (415) 555-0199 before closing."),
+        ("lessons", "Card 4111 1111 1111 1111 was reused."),
+        ("summary", "Account number 9988776655443322 was targeted."),
+    ],
+)
+def test_landmark_case_rejects_pii_inside_allowed_text_fields(field, value):
+    case = {
+        "case_id": "c1",
+        "title": "Reviewed case",
+        "summary": "Sanitized summary.",
+        "lessons": "Sanitized lesson.",
+        "approved_revision": "rev-1",
+        "source_content_hash": "c" * 64,
+    }
+    case[field] = value
+
+    with pytest.raises(LandmarkCaseSanitizationError, match="PII"):
+        export_landmark_case(case, tenant_id="t1")
+
+
 def test_merge_export_files_raises_on_duplicate_paths():
     with pytest.raises(OkfExportError, match="duplicate export path"):
         merge_export_files(
@@ -245,6 +270,66 @@ def test_write_staging_bundle_writes_only_under_root(tmp_path):
     }
     write_staging_bundle(staging, files, repo_root=tmp_path)
     assert (staging / "rules" / "r1.md").read_text(encoding="utf-8") == files["rules/r1.md"]
+
+
+def test_write_staging_bundle_replaces_output_and_removes_obsolete_files(tmp_path):
+    staging = tmp_path / "var" / "okf-staging" / "shared"
+    write_staging_bundle(
+        staging,
+        {"index.md": "# first\n", "rules/obsolete.md": "obsolete\n"},
+        repo_root=tmp_path,
+    )
+
+    write_staging_bundle(
+        staging,
+        {"index.md": "# second\n", "rules/current.md": "current\n"},
+        repo_root=tmp_path,
+    )
+
+    assert not (staging / "rules" / "obsolete.md").exists()
+    assert (staging / "rules" / "current.md").read_text() == "current\n"
+
+
+def test_staging_guard_honors_configured_active_roots(tmp_path, monkeypatch):
+    configured_shared = tmp_path / "mounted" / "shared"
+    configured_tenants = tmp_path / "mounted" / "tenants"
+    monkeypatch.setenv("OKF_SHARED_ROOT", str(configured_shared))
+    monkeypatch.setenv("OKF_TENANT_ROOT", str(configured_tenants))
+
+    for active in (configured_shared, configured_tenants / "t1"):
+        with pytest.raises(StagingPathError, match="active"):
+            assert_staging_output_path(active, repo_root=tmp_path)
+
+
+def test_collect_shared_exports_generates_deterministic_source_manifest(tmp_path):
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    (rules_dir / "sample.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "rules": [
+                    {
+                        "id": "r1",
+                        "description": "Sample",
+                        "when": [{"field": "amount", "op": "gte", "value": 10}],
+                    }
+                ],
+            }
+        )
+    )
+
+    first = collect_shared_exports(rules_dir, include_playbooks=False)
+    second = collect_shared_exports(rules_dir, include_playbooks=False)
+    manifest = json.loads(first["source-manifest.json"])
+
+    assert first == second
+    assert manifest["schema_id"] == "tarka.okf_source_manifest/v1"
+    assert manifest["concept_sources"]["rules/r1"]["source_uri"] == "rules/sample.json#r1"
+    assert (
+        manifest["concept_sources"]["rules/r1"]["source_content_hash"]
+        == _frontmatter(first["rules/r1.md"])["source_content_hash"]
+    )
 
 
 def test_source_record_hash_stable_json():

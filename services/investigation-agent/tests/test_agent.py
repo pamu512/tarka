@@ -650,18 +650,107 @@ class TestSearchKnowledgeOkf:
                 "concept_ids": ["rules/fabricated"],
             },
         ]
-        lineage = {
-            "concept_ids": ["rules/high-amount"],
-            "evidence_ids": ["ev-high-amount"],
-        }
+        tool_calls = [
+            {
+                "tool": "search_knowledge",
+                "args": {"query": "high amount"},
+                "result": {
+                    "hits": [
+                        {
+                            "concept_id": "rules/high-amount",
+                            "evidence_ids": ["ev-high-amount"],
+                            "title": "High Amount Rule",
+                            "snippet": "High amount transactions require review.",
+                        }
+                    ],
+                    "abstain": False,
+                    "conflicts": [],
+                },
+            }
+        ]
 
-        grounded, adjustments = _enforce_claim_exact_ids(claims, lineage)
+        grounded, adjustments = _enforce_claim_exact_ids(claims, tool_calls)
 
         assert grounded[0]["source"] == "tool"
         assert grounded[0]["concept_ids"] == ["rules/high-amount"]
         assert grounded[1]["source"] == "unknown"
         assert grounded[1]["supported"] is False
         assert grounded[1]["concept_ids"] == ["rules/fabricated"]
+        assert "unresolved_exact_citation_id" in adjustments
+
+    def test_exact_id_grounding_is_claim_specific_across_multiple_queries(self):
+        from investigation_agent.main import _enforce_claim_exact_ids
+
+        tool_calls = [
+            {
+                "tool": "search_knowledge",
+                "args": {"query": "high amount"},
+                "result": {
+                    "hits": [
+                        {
+                            "concept_id": "rules/high-amount",
+                            "evidence_ids": ["ev-high"],
+                            "title": "High Amount Rule",
+                            "snippet": "High amount transactions require manual review.",
+                        }
+                    ],
+                    "abstain": False,
+                    "conflicts": [],
+                },
+            },
+            {
+                "tool": "search_knowledge",
+                "args": {"query": "mule network"},
+                "result": {
+                    "hits": [
+                        {
+                            "concept_id": "typologies/mule-network",
+                            "evidence_ids": ["ev-mule"],
+                            "title": "Mule Network Typology",
+                            "snippet": "Linked beneficiary accounts indicate mule-network activity.",
+                        }
+                    ],
+                    "abstain": False,
+                    "conflicts": [],
+                },
+            },
+        ]
+        claims = [
+            {
+                "text": "High amount transactions require manual review.",
+                "source": "tool",
+                "concept_ids": ["rules/high-amount"],
+            },
+            {
+                "text": "High amount transactions require manual review.",
+                "source": "tool",
+                "concept_ids": ["typologies/mule-network"],
+            },
+            {
+                "text": "A fabricated policy requires manual review.",
+                "source": "tool",
+                "concept_ids": ["rules/fabricated"],
+            },
+            {
+                "text": "High amount transactions require manual review.",
+                "source": "tool",
+                "concept_ids": [
+                    "rules/high-amount",
+                    "typologies/mule-network",
+                ],
+            },
+        ]
+
+        grounded, adjustments = _enforce_claim_exact_ids(claims, tool_calls)
+
+        assert grounded[0]["source"] == "tool"
+        assert grounded[1]["source"] == "unknown"
+        assert grounded[1]["supported"] is False
+        assert grounded[2]["source"] == "unknown"
+        assert grounded[2]["supported"] is False
+        assert grounded[3]["source"] == "unknown"
+        assert grounded[3]["supported"] is False
+        assert "exact_citation_text_unsupported" in adjustments
         assert "unresolved_exact_citation_id" in adjustments
 
     def test_okf_claims_prompt_schema_requests_exact_ids_without_invention(self):

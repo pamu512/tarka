@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +47,7 @@ class ParsedBundle:
     tenant_id: str | None
     revision: str
     concepts: dict[str, OkfConcept]
+    backlinks: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

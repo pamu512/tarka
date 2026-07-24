@@ -50,8 +50,10 @@ class AgentRun:
     model_revision: str
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     evidence_ids: list[str] = field(default_factory=list)
+    concept_ids: list[str] = field(default_factory=list)
     claims: list[dict[str, Any]] = field(default_factory=list)
     uncertainty: dict[str, Any] = field(default_factory=dict)
+    review_state: str = "pending"
     human_review: dict[str, Any] | None = None
     created_at: str = field(default_factory=_utc_now)
 
@@ -117,8 +119,10 @@ def new_agent_run(
     trace_id: str | None = None,
     tool_calls: list[dict[str, Any]] | None = None,
     evidence_ids: list[str] | None = None,
+    concept_ids: list[str] | None = None,
     claims: list[dict[str, Any]] | None = None,
     uncertainty: dict[str, Any] | None = None,
+    review_state: str = "pending",
 ) -> AgentRun:
     return AgentRun(
         agent_run_id=str(uuid.uuid4()),
@@ -131,8 +135,10 @@ def new_agent_run(
         model_revision=model_revision,
         tool_calls=list(tool_calls or []),
         evidence_ids=list(evidence_ids or []),
+        concept_ids=list(concept_ids or []),
         claims=list(claims or []),
         uncertainty=dict(uncertainty or {}),
+        review_state=(review_state or "pending").strip() or "pending",
     )
 
 

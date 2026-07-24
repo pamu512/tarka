@@ -131,6 +131,36 @@ def test_validate_tenant_bundle_accepts_shared_root_for_logical_links(
         + "Follow [high amount](/shared/rules/high-amount.md).\n",
         encoding="utf-8",
     )
+    (shared / "source-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_id": "tarka.okf_source_manifest/v1",
+                "concept_sources": {
+                    "rules/high-amount": {
+                        "source_uri": "docs/ref",
+                        "source_content_hash": "a" * 64,
+                    }
+                },
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    (tenant / "source-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_id": "tarka.okf_source_manifest/v1",
+                "concept_sources": {
+                    "playbooks/review": {
+                        "source_uri": "docs/ref",
+                        "source_content_hash": "b" * 64,
+                    }
+                },
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
 
     result = _run_validate(
         tenant,
