@@ -68,7 +68,8 @@ fn evaluate_observation_rules_json(rules_json: String, features_json: String) ->
     let features: Value = serde_json::from_str(&features_json)
         .map_err(|e| PyValueError::new_err(format!("features_json: {e}")))?;
     let fmap = features.as_object().cloned().unwrap_or_default();
-    let result: EvaluationResult = evaluate_rules_json(&rules, &fmap);
+    let result: EvaluationResult = evaluate_rules_json(&rules, &fmap)
+        .map_err(PyValueError::new_err)?;
     serde_json::to_string(&result).map_err(|e| PyValueError::new_err(format!("serialize: {e}")))
 }
 

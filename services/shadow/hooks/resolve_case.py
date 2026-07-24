@@ -104,13 +104,12 @@ def shadow_autoresolve_eligible(
 ) -> tuple[bool, float | None, str | None]:
     """
     Return ``(eligible, confidence, skip_reason)`` for autonomous ``RESOLVED_AUTO`` transitions.
+
+    Always ineligible: LLM output must never change case status without human/policy approval.
     """
     confidence = extract_shadow_autoresolve_confidence(shadow_data)
-    if confidence is None or not (confidence > CONFIDENCE_THRESHOLD):
-        return False, confidence, "confidence_not_above_threshold"
-    if not shadow_recommends_autoresolve(shadow_data):
-        return False, confidence, "shadow_does_not_recommend_autoresolve"
-    return True, confidence, None
+    _ = shadow_data
+    return False, confidence, "ai_autoresolve_disabled"
 
 
 def build_autoresolve_reason_code(shadow_data: dict[str, Any]) -> str:
@@ -158,33 +157,17 @@ async def maybe_autoresolve_lifecycle_case(
     client: httpx.AsyncClient | None = None,
     timeout_s: float = 30.0,
 ) -> AutoresolveOutcome:
-    """
-    If ``confidence`` is strictly greater than :data:`CONFIDENCE_THRESHOLD`, ``PUT`` the Case Transition
-    API to move the lifecycle case to :data:`RESOLVED_AUTO_STATUS`.
-
-    Otherwise returns immediately without calling the API. The caller supplies a service token via
-    ``auth_token`` (sent as ``X-Auth-Token``).
-    """
-    if not (confidence > CONFIDENCE_THRESHOLD):
-        return AutoresolveOutcome(False, None, None, "confidence_not_above_threshold")
-
-    base = (orchestrator_base_url or "").strip().rstrip("/")
-    cid = (case_id or "").strip()
-    tok = (auth_token or "").strip()
-    rc = (reason_code or "").strip() or DEFAULT_REASON_CODE
-
-    url = f"{base}/v1/cases/{cid}/status"
-    payload = {"status": RESOLVED_AUTO_STATUS, "reason_code": rc}
-    headers = {"X-Auth-Token": tok}
-
-    if client is not None:
-        resp = await client.put(url, json=payload, headers=headers)
-        return _outcome_from_response(resp)
-
-    timeout = httpx.Timeout(timeout_s)
-    async with httpx.AsyncClient(timeout=timeout) as owned:
-        resp = await owned.put(url, json=payload, headers=headers)
-        return _outcome_from_response(resp)
+    """Never auto-resolve: Shadow is advisory; humans/policy approve material status changes."""
+    _ = (
+        orchestrator_base_url,
+        case_id,
+        confidence,
+        auth_token,
+        reason_code,
+        client,
+        timeout_s,
+    )
+    return AutoresolveOutcome(False, None, None, "ai_autoresolve_disabled")
 
 
 def _outcome_from_response(resp: httpx.Response) -> AutoresolveOutcome:

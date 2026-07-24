@@ -83,7 +83,7 @@ pub async fn load_initial_ruleset_from_redis(
     };
     let v: Value = serde_json::from_str(&blob).map_err(|e| e.to_string())?;
     let rules = flatten_rules_blob(&v);
-    Ok(RuleSet::from_rules_json(&rules, 1))
+    RuleSet::from_rules_json(&rules, 1)
 }
 
 fn flatten_rules_blob(v: &Value) -> Vec<Value> {
@@ -149,7 +149,8 @@ pub async fn apply_hypothesis_deploy_event(
     }
     let rules = resolve_rules_for_event(event, config).await?;
     let version = event.version.unwrap_or_else(|| store.active_version() + 1);
-    store.reload(RuleSet::from_rules_json(&rules, version));
+    let rs = RuleSet::from_rules_json(&rules, version)?;
+    store.reload(rs);
     info!(
         target: "tarka_rule_engine.hot_reload",
         version = version,

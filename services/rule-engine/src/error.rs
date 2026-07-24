@@ -47,6 +47,13 @@ pub enum TarkaEngineError {
         message: String,
     },
 
+    #[error("invalid_rule: rule_id={rule_id} path={path} message={message}")]
+    InvalidRule {
+        rule_id: String,
+        path: String,
+        message: String,
+    },
+
     #[error("engine_not_initialized: sync_packs_json must be called before evaluate_json_rules_rust")]
     EngineNotInitialized,
 
@@ -132,6 +139,17 @@ impl TarkaEngineError {
                 format!("{code}: {message}"),
                 Some(rule_id.as_str()),
                 *ast_node_index,
+                Some(path.as_str()),
+            ),
+            TarkaEngineError::InvalidRule {
+                rule_id,
+                path,
+                message,
+            } => (
+                "invalid_rule",
+                message.clone(),
+                Some(rule_id.as_str()),
+                None,
                 Some(path.as_str()),
             ),
             TarkaEngineError::EngineNotInitialized => ("engine_not_initialized", self.to_string(), None, None, None),

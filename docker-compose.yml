@@ -12,7 +12,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: tarka
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - tarka_pg:/var/lib/postgresql/data
       - ./infra/deploy/initdb:/docker-entrypoint-initdb.d:ro
@@ -26,7 +26,7 @@ services:
     image: redis:7-alpine
     container_name: tarka_redis
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -47,7 +47,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/tarka
       REDIS_URL: redis://redis:6379/0
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
 
   ml_sidecar:
     build:

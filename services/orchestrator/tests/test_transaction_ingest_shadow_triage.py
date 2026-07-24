@@ -56,7 +56,7 @@ def test_should_invoke_shadow_for_flag_with_graph_signals() -> None:
     )
 
 
-def test_modulate_actions_downgrades_flag_on_low_shadow_risk() -> None:
+def test_modulate_actions_never_clears_flag_on_low_shadow_risk() -> None:
     out = modulate_actions_with_shadow_advice(
         ["FLAG"],
         {
@@ -67,10 +67,10 @@ def test_modulate_actions_downgrades_flag_on_low_shadow_risk() -> None:
             "confidence_metrics": {},
         },
     )
-    assert out == ["ALLOW"]
+    assert out == ["FLAG"]
 
 
-def test_modulate_actions_keeps_flag_on_high_shadow_risk() -> None:
+def test_modulate_actions_preserves_deterministic_actions() -> None:
     out = modulate_actions_with_shadow_advice(
         ["FLAG", "SHADOW_REVIEW"],
         {
@@ -81,6 +81,4 @@ def test_modulate_actions_keeps_flag_on_high_shadow_risk() -> None:
             "confidence_metrics": {},
         },
     )
-    assert "SHADOW_REVIEW" not in out
-    assert "FLAG" in out
-    assert "ALLOW" not in out
+    assert out == ["FLAG", "SHADOW_REVIEW"]

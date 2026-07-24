@@ -64,16 +64,30 @@ impl RuleSet {
         self.rules.len()
     }
 
-    pub fn from_rules_json(rules: &[Value], version: u64) -> Self {
-        let parsed: Vec<ParsedRule> = rules.iter().filter_map(parse_rule).collect();
-        Self {
+    pub fn from_rules_json(rules: &[Value], version: u64) -> Result<Self, String> {
+        let mut parsed: Vec<ParsedRule> = Vec::with_capacity(rules.len());
+        for (i, rule) in rules.iter().enumerate() {
+            match parse_rule(rule) {
+                Some(r) => parsed.push(r),
+                None => {
+                    let rid = rule
+                        .get("id")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("unknown");
+                    return Err(format!(
+                        "invalid_rule path=rules[{i}] rule_id={rid}: malformed when/when_ast"
+                    ));
+                }
+            }
+        }
+        Ok(Self {
             version,
             rules: Arc::new(parsed),
-        }
+        })
     }
 
-    pub fn from_rules_blob(blob: &[u8], version: u64) -> Result<Self, serde_json::Error> {
-        let v: Value = serde_json::from_slice(blob)?;
+    pub fn from_rules_blob(blob: &[u8], version: u64) -> Result<Self, String> {
+        let v: Value = serde_json::from_slice(blob).map_err(|e| e.to_string())?;
         let rules = match v {
             Value::Array(arr) => arr,
             Value::Object(mut obj) => obj
@@ -82,7 +96,7 @@ impl RuleSet {
                 .unwrap_or_default(),
             _ => Vec::new(),
         };
-        Ok(Self::from_rules_json(&rules, version))
+        Self::from_rules_json(&rules, version)
     }
 
     pub fn evaluate(&self, features: &Map<String, Value>) -> EvaluationResult {
@@ -90,9 +104,12 @@ impl RuleSet {
     }
 }
 
-pub fn evaluate_rules_json(rules: &[Value], features: &Map<String, Value>) -> EvaluationResult {
-    let parsed: Vec<ParsedRule> = rules.iter().filter_map(parse_rule).collect();
-    evaluate_rules(&parsed, features)
+pub fn evaluate_rules_json(
+    rules: &[Value],
+    features: &Map<String, Value>,
+) -> Result<EvaluationResult, String> {
+    let rs = RuleSet::from_rules_json(rules, 0)?;
+    Ok(rs.evaluate(features))
 }
 
 pub(crate) fn match_condition(features: &Map<String, Value>, condition: &Condition) -> bool {
@@ -304,7 +321,8 @@ mod tests {
                 "when": [{"op": "gte", "field": "amount", "value": 1}]
             })],
             3,
-        );
+        )
+        .expect("valid rules");
         assert_eq!(rs.version(), 3);
         assert_eq!(rs.rule_count(), 1);
     }

@@ -394,39 +394,13 @@ def modulate_actions_with_shadow_advice(
     actions: list[str],
     shadow_data: dict[str, Any] | None,
 ) -> list[str]:
+    """Preserve deterministic rule actions; Shadow is advisory only.
+
+    Previously LLM ``risk_score`` / ``is_fraud`` could clear ``FLAG`` into ``ALLOW``.
+    Category-leader posture: AI never mutates allow/deny/review authority.
     """
-    Apply Shadow structural advice (``risk_score``, ``is_fraud``) to outbound rule actions.
-
-    Never removes ``BLOCK``. Drops ``SHADOW_REVIEW`` once Shadow has returned advice.
-    """
-    if shadow_data is None:
-        return list(actions)
-    if "BLOCK" in actions:
-        return list(actions)
-
-    out = [a for a in actions if a != "SHADOW_REVIEW"]
-    try:
-        risk = float(shadow_data.get("risk_score", 0.0))
-    except (TypeError, ValueError):
-        risk = 0.0
-    is_fraud = bool(shadow_data.get("is_fraud"))
-
-    if is_fraud or risk >= 75.0:
-        out = [a for a in out if a != "ALLOW"]
-        if "FLAG" not in out:
-            out.append("FLAG")
-    elif risk <= 25.0 and not is_fraud:
-        out = [a for a in out if a != "FLAG"]
-        if not out:
-            out = ["ALLOW"]
-        elif "ALLOW" not in out:
-            out.append("ALLOW")
-    else:
-        out = [a for a in out if a != "ALLOW"]
-        if "FLAG" not in out:
-            out.append("FLAG")
-
-    return _dedupe_actions_preserve_order(out)
+    _ = shadow_data
+    return _dedupe_actions_preserve_order(list(actions))
 
 
 def _user_id_from_transaction(transaction: TransactionSchema) -> str | None:
@@ -623,16 +597,17 @@ async def execute_transaction_ingest(
 
     original_actions = list(actions)
     if shadow_sync_invoked and shadow_data is not None:
+        # Shadow may annotate; it must not change decision actions.
         actions = modulate_actions_with_shadow_advice(actions, shadow_data)
         rule_data = {
             **rule_data,
             "actions": actions,
-            "shadow_action_modulation": {
+            "shadow_advice": {
                 "trigger": shadow_sync_trigger,
-                "original_actions": original_actions,
-                "modulated_actions": actions,
+                "deterministic_actions": original_actions,
                 "shadow_risk_score": shadow_data.get("risk_score"),
                 "shadow_is_fraud": shadow_data.get("is_fraud"),
+                "authority": "deterministic_rules",
             },
         }
 

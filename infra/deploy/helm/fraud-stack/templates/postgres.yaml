@@ -1,4 +1,29 @@
 {{- if .Values.postgres.enabled }}
+{{- $isProd := eq (default "dev" .Values.global.environment) "prod" }}
+{{- $persist := .Values.postgres.persistence | default dict }}
+{{- $persistEnabled := default false $persist.enabled }}
+{{- if and $isProd (not $persistEnabled) (not .Values.global.externalServices.postgres.enabled) }}
+{{- fail "production requires postgres.persistence.enabled=true or global.externalServices.postgres.enabled=true" }}
+{{- end }}
+{{- if and $isProd (eq (default "fraud" .Values.postgres.auth.password) "fraud") (not .Values.global.appSecretsName) (not .Values.global.externalServices.postgres.enabled) }}
+{{- fail "production must not use the default postgres password; set postgres.auth.password via secret or values" }}
+{{- end }}
+{{- if and $persistEnabled (not $persist.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "tarka.fullname" . }}-postgres
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ default "20Gi" $persist.size | quote }}
+  {{- if $persist.storageClassName }}
+  storageClassName: {{ $persist.storageClassName | quote }}
+  {{- end }}
+---
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -18,6 +43,11 @@ spec:
           image: {{ .Values.postgres.image | quote }}
           ports:
             - containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.postgres.auth.username | quote }}]
+            initialDelaySeconds: 5
+            periodSeconds: 5
           env:
             - name: POSTGRES_USER
               value: {{ .Values.postgres.auth.username | quote }}
@@ -39,7 +69,12 @@ spec:
               mountPath: /var/lib/postgresql/data
       volumes:
         - name: data
+          {{- if $persistEnabled }}
+          persistentVolumeClaim:
+            claimName: {{ default (printf "%s-postgres" (include "tarka.fullname" .)) $persist.existingClaim | quote }}
+          {{- else }}
           emptyDir: {}
+          {{- end }}
 ---
 apiVersion: v1
 kind: Service
