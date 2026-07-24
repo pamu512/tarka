@@ -5,8 +5,6 @@ from pathlib import Path
 from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-
-from decision_api.config import settings
 from tarka_core.database import (
     build_async_database_url,
     create_audit_async_engine,
@@ -14,6 +12,8 @@ from tarka_core.database import (
     sync_url_for_alembic,
 )
 from tarka_core.sqla_base import Base
+
+from decision_api.config import settings
 
 
 def _app_root() -> Path:
@@ -62,8 +62,9 @@ async def init_db() -> None:
         return
 
     os.environ["ALEMBIC_SYNC_DATABASE_URL"] = sync_url_for_alembic(_database_url)
-    from alembic import command
     from alembic.config import Config
+
+    from alembic import command
 
     cfg_path = _app_root() / "config" / "decision_alembic.ini"
     if not cfg_path.is_file():

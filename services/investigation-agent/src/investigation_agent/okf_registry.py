@@ -3,7 +3,9 @@ from __future__ import annotations
 import hashlib
 import re
 import threading
+from contextlib import contextmanager
 from collections import deque
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,8 +17,7 @@ _EMPTY_REVISION = hashlib.sha256(b"").hexdigest()
 
 def _bundle_revision(concepts: dict[str, OkfConcept]) -> str:
     payload = "\n".join(
-        f"{concept_id}:{concept.content_hash}"
-        for concept_id, concept in sorted(concepts.items())
+        f"{concept_id}:{concept.content_hash}" for concept_id, concept in sorted(concepts.items())
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
@@ -61,11 +62,28 @@ class _LoadCandidate:
     snapshot: _RegistrySnapshot
 
 
+@dataclass(frozen=True)
+class RegistryReloadCandidate:
+    issues: tuple[BundleIssue, ...]
+    revision: str
+    bundles: tuple[ParsedBundle, ...]
+    _snapshot: _RegistrySnapshot
+
+
+def _bundles_from_snapshot(snapshot: _RegistrySnapshot) -> tuple[ParsedBundle, ...]:
+    bundles: list[ParsedBundle] = []
+    if snapshot.shared is not None:
+        bundles.append(snapshot.shared)
+    for tenant_id in sorted(snapshot.tenants):
+        bundles.append(snapshot.tenants[tenant_id])
+    return tuple(bundles)
+
+
 class OkfRegistry:
     def __init__(self, *, shared_root: Path, tenant_root: Path) -> None:
         self._shared_root = shared_root.resolve()
         self._tenant_root = tenant_root.resolve()
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._snapshot = _RegistrySnapshot(
             revision=_EMPTY_REVISION,
             shared=None,
@@ -74,14 +92,40 @@ class OkfRegistry:
         )
 
     def reload(self) -> RegistryReloadResult:
+        candidate = self.prepare_reload()
+        if candidate.issues:
+            return RegistryReloadResult(False, self._snapshot.revision, candidate.issues)
+        return self.activate(candidate)
+
+    def prepare_reload(self) -> RegistryReloadCandidate:
+        """Validate and build a reload candidate without activating it."""
         candidate = self._load_all()
         if candidate.issues:
-            return RegistryReloadResult(
-                False, self._snapshot.revision, candidate.issues
+            return RegistryReloadCandidate(
+                issues=candidate.issues,
+                revision=self._snapshot.revision,
+                bundles=(),
+                _snapshot=self._snapshot,
             )
+        return RegistryReloadCandidate(
+            issues=(),
+            revision=candidate.snapshot.revision,
+            bundles=_bundles_from_snapshot(candidate.snapshot),
+            _snapshot=candidate.snapshot,
+        )
+
+    def activate(self, candidate: RegistryReloadCandidate) -> RegistryReloadResult:
+        if candidate.issues:
+            return RegistryReloadResult(False, self._snapshot.revision, candidate.issues)
         with self._lock:
-            self._snapshot = candidate.snapshot
-        return RegistryReloadResult(True, candidate.snapshot.revision, ())
+            self._snapshot = candidate._snapshot
+        return RegistryReloadResult(True, candidate.revision, ())
+
+    @contextmanager
+    def generation_lock(self) -> Iterator[None]:
+        """Coordinate registry readers with derived index replacement."""
+        with self._lock:
+            yield
 
     def snapshot_revision(self, tenant_id: str) -> str:
         view = self._snapshot.views.get(tenant_id)
@@ -93,13 +137,7 @@ class OkfRegistry:
 
     def active_bundles(self) -> tuple[ParsedBundle, ...]:
         """Return active approved bundles without exposing tenant views."""
-        snapshot = self._snapshot
-        bundles: list[ParsedBundle] = []
-        if snapshot.shared is not None:
-            bundles.append(snapshot.shared)
-        for tenant_id in sorted(snapshot.tenants):
-            bundles.append(snapshot.tenants[tenant_id])
-        return tuple(bundles)
+        return _bundles_from_snapshot(self._snapshot)
 
     def resolve(self, tenant_id: str, query: str) -> list[ConceptHit]:
         view = self._view_for(tenant_id)
@@ -179,9 +217,7 @@ class OkfRegistry:
             return None
         return self._shared_only_view()
 
-    def _match_score(
-        self, concept_id: str, concept: OkfConcept, normalized_query: str
-    ) -> float:
+    def _match_score(self, concept_id: str, concept: OkfConcept, normalized_query: str) -> float:
         if _normalize_text(concept_id) == normalized_query:
             return 1.0
         if _normalize_text(concept.title) == normalized_query:
@@ -193,9 +229,7 @@ class OkfRegistry:
 
     def _load_all(self) -> _LoadCandidate:
         issues: list[BundleIssue] = []
-        shared_validation = validate_bundle(
-            self._shared_root, scope="shared", tenant_id=None
-        )
+        shared_validation = validate_bundle(self._shared_root, scope="shared", tenant_id=None)
         if not shared_validation.valid:
             issues.extend(shared_validation.issues)
 
@@ -238,7 +272,7 @@ class OkfRegistry:
         return _TenantView(
             revision=_bundle_revision(concepts),
             concepts=concepts,
-            authority={cid: "shared" for cid in concepts},
+            authority=dict.fromkeys(concepts, "shared"),
         )
 
     def _build_views(
@@ -247,7 +281,7 @@ class OkfRegistry:
         tenant_bundles: dict[str, ParsedBundle],
     ) -> dict[str, _TenantView]:
         shared_concepts = dict(shared_bundle.concepts) if shared_bundle else {}
-        shared_authority = {cid: "shared" for cid in shared_concepts}
+        shared_authority = dict.fromkeys(shared_concepts, "shared")
         views: dict[str, _TenantView] = {}
 
         for tenant_id, tenant_bundle in tenant_bundles.items():

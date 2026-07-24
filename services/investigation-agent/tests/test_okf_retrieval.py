@@ -25,7 +25,7 @@ class RetrievalContext:
 def _write_index(root: Path, heading: str) -> None:
     root.mkdir(parents=True, exist_ok=True)
     (root / "index.md").write_text(
-        "---\nokf_version: \"0.1\"\n---\n" + heading + "\n",
+        '---\nokf_version: "0.1"\n---\n' + heading + "\n",
         encoding="utf-8",
     )
 
@@ -311,9 +311,9 @@ def test_exact_and_graph_results_precede_rag(
 def test_authority_ranks_before_stage_when_rag_finds_tenant_okf(
     retrieval_context: RetrievalContext,
 ) -> None:
-    tenant_hash = retrieval_context.tenant_bundles["t1"].concepts[
-        "playbooks/high-amount-review"
-    ].content_hash
+    tenant_hash = (
+        retrieval_context.tenant_bundles["t1"].concepts["playbooks/high-amount-review"].content_hash
+    )
 
     result = retrieve_knowledge(
         registry=retrieval_context.registry,
@@ -418,9 +418,7 @@ def test_results_deduplicate_by_concept_and_hash(
         },
     )
 
-    concept_results = [
-        item for item in result.results if item.concept_id == "rules/high-amount"
-    ]
+    concept_results = [item for item in result.results if item.concept_id == "rules/high-amount"]
     memo_results = [item for item in result.results if item.authority == "memo_rag"]
     assert len(concept_results) == 1
     assert concept_results[0].content_hash == fresh_hash
@@ -459,9 +457,7 @@ def test_same_source_hash_conflict_abstains_before_deduplication(
         },
     )
 
-    concept_results = [
-        item for item in result.results if item.concept_id == "rules/high-amount"
-    ]
+    concept_results = [item for item in result.results if item.concept_id == "rules/high-amount"]
     assert len(concept_results) == 1
     assert concept_results[0].content_hash == current_hash
     assert concept_results[0].stale is False

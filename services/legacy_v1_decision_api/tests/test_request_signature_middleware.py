@@ -4,9 +4,10 @@ import json
 
 import httpx
 import pytest
-from decision_api.request_signature_middleware import RequestSignatureMiddleware
 from fastapi import FastAPI
 from tarka_request_signature import build_signature_headers, verify_signature
+
+from decision_api.request_signature_middleware import RequestSignatureMiddleware
 
 
 def test_tarka_request_signature_roundtrip():

@@ -9,7 +9,6 @@ from typing import Any
 
 import httpx
 import sqlglot
-from sqlglot import exp
 from analytics.llm_validator import (
     AnalyticsSqlUnsafeError,
     ClickHouseSchemaRegistry,
@@ -18,6 +17,7 @@ from analytics.llm_validator import (
 )
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+from sqlglot import exp
 
 from decision_api.config import settings
 
@@ -39,9 +39,7 @@ class NaturalLanguageSqlRequest(BaseModel):
 
 def _allowed_tables() -> set[str]:
     raw = settings.nl_sql_allowed_tables or "fraud_decisions"
-    return {
-        t.strip() for t in raw.split(",") if t.strip() and _ALLOWED.match(t.strip())
-    }
+    return {t.strip() for t in raw.split(",") if t.strip() and _ALLOWED.match(t.strip())}
 
 
 def _join_allowlist() -> set[frozenset[str]] | None:

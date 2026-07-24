@@ -52,9 +52,7 @@ class TestRuleGovernanceSecret:
     async def test_mutate_without_secret_403_when_configured(self, client, monkeypatch):
         from decision_api import rule_api
 
-        monkeypatch.setattr(
-            rule_api.settings, "rule_governance_secret", "test-secret-99"
-        )
+        monkeypatch.setattr(rule_api.settings, "rule_governance_secret", "test-secret-99")
         r = await client.post(
             "/v1/rules", json={"name": "Governed Pack", "rules": [], "tag_rules": []}
         )
@@ -65,9 +63,7 @@ class TestRuleGovernanceSecret:
         from decision_api import rule_api
 
         monkeypatch.setattr(rule_api.settings, "rules_path", str(tmp_path))
-        monkeypatch.setattr(
-            rule_api.settings, "rule_governance_secret", "test-secret-99"
-        )
+        monkeypatch.setattr(rule_api.settings, "rule_governance_secret", "test-secret-99")
         r = await client.post(
             "/v1/rules",
             json={"name": "Governed Pack Z", "rules": [], "tag_rules": []},

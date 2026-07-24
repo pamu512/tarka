@@ -2,33 +2,35 @@
 
 from __future__ import annotations
 
+import sys
 import uuid
+from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import sys
-from pathlib import Path
-
 _shared = Path(__file__).resolve().parents[3] / "shared"
 if str(_shared) not in sys.path:
     sys.path.insert(0, str(_shared))
-from auth_rbac import require_role  # noqa: E402
+from auth_rbac import require_role
 
-from decision_api.db import get_session  # noqa: E402
-from decision_api.vendors.base import VendorTier  # noqa: E402
-from decision_api.vendors.cost_router import (  # noqa: E402
+from decision_api.db import get_session
+from decision_api.vendors.base import VendorTier
+from decision_api.vendors.cost_router import (
     PREMIUM_COST_SCORE_THRESHOLD,
     maybe_invoke_vendor,
 )
-from decision_api.vendors.exceptions import (  # noqa: E402
+from decision_api.vendors.exceptions import (
     VendorAuditConfigurationError,
     VendorTimeoutError,
     VendorUpstreamError,
 )
-from decision_api.vendors.registry import get_adapter, list_registered_vendors  # noqa: E402
+from decision_api.vendors.registry import (
+    get_adapter,
+    list_registered_vendors,
+)
 
 router = APIRouter(prefix="/v1/vendors", tags=["vendors"])
 
@@ -69,10 +71,7 @@ async def vendor_probe(
                 "registered_vendors": list_registered_vendors(),
             },
         )
-    if (
-        adapter.tier == VendorTier.PREMIUM
-        and body.base_rule_score < PREMIUM_COST_SCORE_THRESHOLD
-    ):
+    if adapter.tier == VendorTier.PREMIUM and body.base_rule_score < PREMIUM_COST_SCORE_THRESHOLD:
         raise HTTPException(
             status_code=503,
             detail={
@@ -105,9 +104,7 @@ async def vendor_probe(
         raise HTTPException(
             status_code=500,
             detail={
-                "reason_code": getattr(
-                    e, "reason_code", "VENDOR_AUDIT_CONTEXT_MISSING"
-                ),
+                "reason_code": getattr(e, "reason_code", "VENDOR_AUDIT_CONTEXT_MISSING"),
                 "message": str(e),
             },
         ) from e

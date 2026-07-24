@@ -1,4 +1,5 @@
 [tool.ruff]
+extend = "../../pyproject.toml"
 exclude = [".venv"]
 
 [tool.ruff.lint.per-file-ignores]

@@ -4,22 +4,21 @@ from __future__ import annotations
 
 import logging
 import secrets
+import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-import sys
-from pathlib import Path
-
 _shared = Path(__file__).resolve().parents[3] / "shared"
 if str(_shared) not in sys.path:
     sys.path.insert(0, str(_shared))
-from auth_rbac import require_role  # noqa: E402
+from auth_rbac import require_role
 
-from decision_api.deps import get_pg_pool  # noqa: E402
+from decision_api.deps import get_pg_pool
 
 log = logging.getLogger("decision-api")
 

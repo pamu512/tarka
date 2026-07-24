@@ -2,6 +2,9 @@
 {{- if and .Values.investigationAgent.enabled (not .Values.coreApi.enabled) }}
 {{- fail "investigation-agent: requires coreApi.enabled for default CASE/DECISION URLs, or disable investigationAgent when running split APIs." }}
 {{- end }}
+{{- if and .Values.investigationAgent.okfTenantOverlays.enabled (not .Values.investigationAgent.okfTenantOverlays.existingClaim) }}
+{{- fail "investigation-agent OKF tenant overlays require investigationAgent.okfTenantOverlays.existingClaim" }}
+{{- end }}
 {{- if .Values.investigationAgent.enabled }}
 apiVersion: v1
 kind: Service
@@ -75,12 +78,28 @@ spec:
               value: {{ .Values.investigationAgent.env.llmProvider | quote }}
             - name: AI_GOVERNANCE_PROFILE
               value: {{ .Values.investigationAgent.env.aiGovernanceProfile | quote }}
+            - name: OKF_SHARED_ROOT
+              value: "/app/knowledge/shared"
+            - name: OKF_TENANT_ROOT
+              value: {{ .Values.investigationAgent.okfTenantOverlays.mountPath | quote }}
           resources:
             {{- toYaml .Values.investigationAgent.resources | nindent 12 }}
+          {{- if .Values.investigationAgent.okfTenantOverlays.enabled }}
+          volumeMounts:
+            - name: okf-tenant-overlays
+              mountPath: {{ .Values.investigationAgent.okfTenantOverlays.mountPath | quote }}
+              readOnly: {{ .Values.investigationAgent.okfTenantOverlays.readOnly }}
+          {{- end }}
           startupProbe:
             {{- toYaml .Values.investigationAgent.startupProbe | nindent 12 }}
           livenessProbe:
             {{- toYaml .Values.investigationAgent.livenessProbe | nindent 12 }}
           readinessProbe:
             {{- toYaml .Values.investigationAgent.readinessProbe | nindent 12 }}
+      {{- if .Values.investigationAgent.okfTenantOverlays.enabled }}
+      volumes:
+        - name: okf-tenant-overlays
+          persistentVolumeClaim:
+            claimName: {{ .Values.investigationAgent.okfTenantOverlays.existingClaim | quote }}
+      {{- end }}
 {{- end }}

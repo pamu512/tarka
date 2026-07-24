@@ -235,14 +235,16 @@ def test_startup_indexes_bundles_before_ready_and_tool_uses_hybrid_and_fallback(
         embeddings=True,
     )
     monkeypatch.setattr(knowledge_db.emb_mod, "embed_texts", _semantic_embeddings)
-    real_indexer = main_mod.knowledge_store.index_okf_bundle_async
+    real_preparer = main_mod.knowledge_store.prepare_okf_index_rows_async
     indexed_bundles: list[tuple[str, str | None]] = []
 
-    async def spy_indexer(http: Any, bundle: Any, **kwargs: Any) -> int:
-        indexed_bundles.append((bundle.scope, bundle.tenant_id))
-        return await real_indexer(http, bundle, **kwargs)
+    async def spy_preparer(
+        http: Any, bundles: tuple[Any, ...], **kwargs: Any
+    ) -> tuple[tuple[Any, ...], int]:
+        indexed_bundles.extend((bundle.scope, bundle.tenant_id) for bundle in bundles)
+        return await real_preparer(http, bundles, **kwargs)
 
-    monkeypatch.setattr(main_mod.knowledge_store, "index_okf_bundle_async", spy_indexer)
+    monkeypatch.setattr(main_mod.knowledge_store, "prepare_okf_index_rows_async", spy_preparer)
 
     with TestClient(app) as client:
         ready = client.get("/v1/ready")
@@ -342,14 +344,16 @@ def test_admin_reload_refreshes_index_and_failed_reload_keeps_prior_searchable_i
     monkeypatch.setenv("API_KEY_TENANT_MAP", '{"admin-key":["t1"]}')
     monkeypatch.setenv("OKF_ADMIN_API_KEYS", "admin-key")
     main_mod._valid_api_keys = None
-    real_indexer = main_mod.knowledge_store.index_okf_bundle_async
+    real_preparer = main_mod.knowledge_store.prepare_okf_index_rows_async
     indexed_after_reload: list[tuple[str, str | None]] = []
 
-    async def spy_indexer(http: Any, bundle: Any, **kwargs: Any) -> int:
-        indexed_after_reload.append((bundle.scope, bundle.tenant_id))
-        return await real_indexer(http, bundle, **kwargs)
+    async def spy_preparer(
+        http: Any, bundles: tuple[Any, ...], **kwargs: Any
+    ) -> tuple[tuple[Any, ...], int]:
+        indexed_after_reload.extend((bundle.scope, bundle.tenant_id) for bundle in bundles)
+        return await real_preparer(http, bundles, **kwargs)
 
-    monkeypatch.setattr(main_mod.knowledge_store, "index_okf_bundle_async", spy_indexer)
+    monkeypatch.setattr(main_mod.knowledge_store, "prepare_okf_index_rows_async", spy_preparer)
 
     with TestClient(app) as client:
         indexed_after_reload.clear()
@@ -407,6 +411,134 @@ def test_admin_reload_refreshes_index_and_failed_reload_keeps_prior_searchable_i
         assert still_searchable["hits"][0]["concept_id"] == "playbooks/fresh-reload"
 
 
+def test_admin_reload_purges_removed_okf_concepts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    shared_root = tmp_path / "shared"
+    tenant_root = tmp_path / "tenants"
+    _build_bundle_tree(shared_root, tenant_root)
+    _configure_okf_settings(
+        monkeypatch,
+        shared_root=shared_root,
+        tenant_root=tenant_root,
+        embeddings=True,
+    )
+    monkeypatch.setattr(knowledge_db.emb_mod, "embed_texts", _semantic_embeddings)
+    monkeypatch.setenv("API_KEYS", "admin-key")
+    monkeypatch.setenv("API_KEY_TENANT_MAP", '{"admin-key":["t1"]}')
+    monkeypatch.setenv("OKF_ADMIN_API_KEYS", "admin-key")
+    main_mod._valid_api_keys = None
+
+    with TestClient(app) as client:
+        concept_path = tenant_root / "t1" / "playbooks" / "fresh-reload.md"
+        _write_concept(
+            tenant_root / "t1",
+            "playbooks/fresh-reload.md",
+            concept_type="Investigation Playbook",
+            title="Fresh Reload Playbook",
+            tenant_scope="t1",
+            source_uri="playbooks/t1/fresh-reload.json",
+            source_hash_char="f",
+            evidence_ids=("ev-reload",),
+            body="Fresh reload marker guidance for newly approved overlays.",
+        )
+        assert (
+            client.post("/v1/admin/okf/reload", headers={"x-api-key": "admin-key"}).json()[
+                "activated"
+            ]
+            is True
+        )
+        assert (
+            _tool_search(client, tenant_id="t1", query="fresh reload marker")["hits"][0][
+                "concept_id"
+            ]
+            == "playbooks/fresh-reload"
+        )
+
+        concept_path.unlink()
+        purged = client.post("/v1/admin/okf/reload", headers={"x-api-key": "admin-key"})
+        assert purged.status_code == 200
+        assert purged.json()["activated"] is True
+        after_purge = _tool_search(client, tenant_id="t1", query="fresh reload marker")
+        assert "playbooks/fresh-reload" not in {hit["concept_id"] for hit in after_purge["hits"]}
+        row = (
+            knowledge_db._get_conn()
+            .execute(
+                """
+            SELECT COUNT(*) FROM knowledge_chunks
+            WHERE knowledge_kind = 'okf' AND concept_id = 'playbooks/fresh-reload'
+            """
+            )
+            .fetchone()
+        )
+        assert row[0] == 0
+
+
+def test_mid_index_failure_rolls_back_registry_and_search_index(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    shared_root = tmp_path / "shared"
+    tenant_root = tmp_path / "tenants"
+    _build_bundle_tree(shared_root, tenant_root)
+    _configure_okf_settings(
+        monkeypatch,
+        shared_root=shared_root,
+        tenant_root=tenant_root,
+        embeddings=True,
+    )
+    monkeypatch.setattr(knowledge_db.emb_mod, "embed_texts", _semantic_embeddings)
+    monkeypatch.setenv("API_KEYS", "admin-key")
+    monkeypatch.setenv("API_KEY_TENANT_MAP", '{"admin-key":["t1"]}')
+    monkeypatch.setenv("OKF_ADMIN_API_KEYS", "admin-key")
+    main_mod._valid_api_keys = None
+
+    with TestClient(app) as client:
+        prior_revision = client.app.state.okf_reload_result.revision
+        prior_hit = _tool_search(client, tenant_id="t1", query="account activity")
+        assert prior_hit["hits"][0]["concept_id"] == "references/kyc-checklist"
+
+        _write_concept(
+            tenant_root / "t1",
+            "playbooks/mid-failure.md",
+            concept_type="Investigation Playbook",
+            title="Mid Failure Playbook",
+            tenant_scope="t1",
+            source_uri="playbooks/t1/mid-failure.json",
+            source_hash_char="9",
+            evidence_ids=("ev-mid-failure",),
+            body="Mid failure marker guidance for injected rollback.",
+        )
+        original_insert = getattr(knowledge_db, "_insert_okf_index_row", None)
+        inserted = 0
+
+        def fail_after_first_insert(*args: Any, **kwargs: Any) -> None:
+            nonlocal inserted
+            inserted += 1
+            if original_insert is not None:
+                original_insert(*args, **kwargs)
+            if inserted == 1:
+                raise RuntimeError("injected mid-index failure")
+
+        monkeypatch.setattr(
+            knowledge_db,
+            "_insert_okf_index_row",
+            fail_after_first_insert,
+            raising=False,
+        )
+        failed = client.post("/v1/admin/okf/reload", headers={"x-api-key": "admin-key"})
+        assert failed.status_code == 503
+        assert failed.json()["detail"] == "okf_index_failed"
+        assert client.app.state.okf_reload_result.revision == prior_revision
+        ready = client.get("/v1/ready", headers={"x-api-key": "admin-key"})
+        assert ready.status_code == 200
+        still_prior = _tool_search(client, tenant_id="t1", query="account activity")
+        assert still_prior["hits"][0]["concept_id"] == "references/kyc-checklist"
+        not_visible = _tool_search(client, tenant_id="t1", query="mid failure marker")
+        assert "playbooks/mid-failure" not in {hit["concept_id"] for hit in not_visible["hits"]}
+
+
 def test_deployment_config_ships_only_shared_bundle_and_mounts_tenants() -> None:
     dockerfile = (_REPO_ROOT / "services" / "investigation-agent" / "Dockerfile").read_text(
         encoding="utf-8"
@@ -431,37 +563,33 @@ def test_deployment_config_ships_only_shared_bundle_and_mounts_tenants() -> None
     )
     agent = compose["services"]["investigation-agent"]
     assert (
-        "${OKF_TENANT_OVERLAYS_PATH:-./knowledge/tenants}:/var/lib/tarka/knowledge/tenants:ro"
+        "${OKF_TENANT_OVERLAYS_PATH:-../../knowledge/tenants}:/var/lib/tarka/knowledge/tenants:ro"
     ) in agent["volumes"]
     assert agent["environment"]["OKF_TENANT_ROOT"] == "/var/lib/tarka/knowledge/tenants"
     assert "OKF_ADMIN_API_KEYS" in agent["environment"]
+    marker = (_REPO_ROOT / "knowledge" / "tenants" / "README.md").read_text(encoding="utf-8")
+    assert "intentionally empty" in marker
 
-    helm_values = yaml.safe_load(
-        (_REPO_ROOT / "infra" / "deploy" / "helm" / "fraud-stack" / "values.yaml").read_text(
+    for chart_name in ("fraud-stack", "tarka", "fraud-stack-lite"):
+        chart_root = _REPO_ROOT / "infra" / "deploy" / "helm" / chart_name
+        helm_values = yaml.safe_load((chart_root / "values.yaml").read_text(encoding="utf-8"))
+        overlay_values = helm_values["investigationAgent"]["okfTenantOverlays"]
+        assert overlay_values == {
+            "enabled": False,
+            "existingClaim": "",
+            "mountPath": "/var/lib/tarka/knowledge/tenants",
+            "readOnly": True,
+        }
+        helm_template = (chart_root / "templates" / "investigation-agent.yaml").read_text(
             encoding="utf-8"
         )
-    )
-    overlay_values = helm_values["investigationAgent"]["okfTenantOverlays"]
-    assert overlay_values == {
-        "enabled": False,
-        "existingClaim": "",
-        "mountPath": "/var/lib/tarka/knowledge/tenants",
-        "readOnly": True,
-    }
-    helm_template = (
-        _REPO_ROOT
-        / "infra"
-        / "deploy"
-        / "helm"
-        / "fraud-stack"
-        / "templates"
-        / "investigation-agent.yaml"
-    ).read_text(encoding="utf-8")
-    assert "OKF tenant overlays require investigationAgent.okfTenantOverlays.existingClaim" in (
-        helm_template
-    )
-    assert "volumeMounts:" in helm_template
-    assert "persistentVolumeClaim:" in helm_template
+        assert "OKF tenant overlays require investigationAgent.okfTenantOverlays.existingClaim" in (
+            helm_template
+        )
+        assert "OKF_TENANT_ROOT" in helm_template
+        assert "volumeMounts:" in helm_template
+        assert "persistentVolumeClaim:" in helm_template
+        assert "existingClaim" in helm_template
 
     docs = (_REPO_ROOT / "docs" / "docs" / "services" / "investigation-agent.md").read_text(
         encoding="utf-8"

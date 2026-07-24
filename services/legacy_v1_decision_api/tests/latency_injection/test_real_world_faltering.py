@@ -21,8 +21,8 @@ from pytest_mock import MockerFixture
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 
-from tests.aggregate_fake_redis import FakeRedis  # noqa: E402
-from decision_api.aggregates import AggregateStore  # noqa: E402
+from decision_api.aggregates import AggregateStore
+from tests.aggregate_fake_redis import FakeRedis
 
 # Tier-1 synchronous evaluate budget: worst-case injected FFI delay + framework overhead (tests mock upstream deps).
 FFI_LATENCY_INJECTION_S = 0.5
@@ -96,22 +96,16 @@ async def faltering_eval_client():
                                 with patch(
                                     "decision_api.main._get_list_store",
                                     return_value=MagicMock(
-                                        check=AsyncMock(
-                                            return_value=SimpleNamespace(found=False)
-                                        ),
+                                        check=AsyncMock(return_value=SimpleNamespace(found=False)),
                                     ),
                                 ):
-                                    with patch(
-                                        "decision_api.main.fingerprint_store"
-                                    ) as fp:
+                                    with patch("decision_api.main.fingerprint_store") as fp:
                                         fp._client = None
                                         from decision_api.main import app, get_session
 
                                         app.state.http = AsyncMock()
                                         app.dependency_overrides = {}
-                                        app.dependency_overrides[get_session] = (
-                                            _session_override
-                                        )
+                                        app.dependency_overrides[get_session] = _session_override
                                         transport = httpx.ASGITransport(app=app)
                                         async with httpx.AsyncClient(
                                             transport=transport,
@@ -164,9 +158,7 @@ async def faltering_eval_client_live_ml(monkeypatch):
                             with patch(
                                 "decision_api.main._get_list_store",
                                 return_value=MagicMock(
-                                    check=AsyncMock(
-                                        return_value=SimpleNamespace(found=False)
-                                    ),
+                                    check=AsyncMock(return_value=SimpleNamespace(found=False)),
                                 ),
                             ):
                                 with patch("decision_api.main.fingerprint_store") as fp:
@@ -196,9 +188,7 @@ async def faltering_eval_client_live_ml(monkeypatch):
 
                                     app.state.http = AsyncMock()
                                     app.dependency_overrides = {}
-                                    app.dependency_overrides[get_session] = (
-                                        _session_override
-                                    )
+                                    app.dependency_overrides[get_session] = _session_override
                                     transport = httpx.ASGITransport(app=app)
                                     async with httpx.AsyncClient(
                                         transport=transport,
@@ -253,10 +243,7 @@ async def test_slow_rust_ffi_returns_200_rule_score_under_p99_ceiling(
         rr = await faltering_eval_client.post("/v1/decisions/evaluate", json=body)
         samples_ms.append((time.perf_counter() - t1) * 1000.0)
         assert rr.status_code == 200
-        assert (
-            pytest.approx(rr.json()["score"], rel=1e-5, abs=1e-5)
-            == _EXPECTED_RULE_ONLY_SCORE
-        )
+        assert pytest.approx(rr.json()["score"], rel=1e-5, abs=1e-5) == _EXPECTED_RULE_ONLY_SCORE
 
     assert _p99_upper_bound_ms(samples_ms) / 1000.0 < P99_EVAL_LATENCY_CEILING_S
 
@@ -324,9 +311,7 @@ async def test_ml_upstream_malformed_json_rules_only_score(
             json=AsyncMock(return_value={}),
         )
 
-    faltering_eval_client_live_ml._app.state.http.post = AsyncMock(
-        side_effect=post_impl
-    )
+    faltering_eval_client_live_ml._app.state.http.post = AsyncMock(side_effect=post_impl)
 
     mocker.patch(
         "decision_api.main.EvalDAGRuntime.include_ml",

@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -36,8 +36,7 @@ def _references_path() -> Path:
 
 def _safe_profile(profile: str) -> str:
     return (
-        "".join(c if c.isalnum() or c in "._-" else "_" for c in profile.strip())[:120]
-        or "default"
+        "".join(c if c.isalnum() or c in "._-" else "_" for c in profile.strip())[:120] or "default"
     )
 
 
@@ -59,9 +58,7 @@ def _load_reference_map() -> dict[str, dict[str, Any]]:
 
 
 def _save_reference_map(data: dict[str, dict[str, Any]]) -> None:
-    _references_path().write_text(
-        json.dumps(data, indent=2, sort_keys=True), encoding="utf-8"
-    )
+    _references_path().write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
 
 
 class CalibrationSnapshotIn(BaseModel):
@@ -84,7 +81,7 @@ class CalibrationSnapshotIn(BaseModel):
 async def append_snapshot(body: CalibrationSnapshotIn):
     """Append a calibration snapshot (typically from an offline batch or ETL job)."""
     rec = {
-        "ts": datetime.now(timezone.utc).isoformat(),
+        "ts": datetime.now(UTC).isoformat(),
         "tenant_id": body.tenant_id,
         "profile": _safe_profile(body.profile),
         "schema_version": body.schema_version,
@@ -110,7 +107,7 @@ async def set_reference(profile: str, body: CalibrationSnapshotIn):
     safe_profile = _safe_profile(profile)
     ref = {
         "profile": safe_profile,
-        "set_at": datetime.now(timezone.utc).isoformat(),
+        "set_at": datetime.now(UTC).isoformat(),
         "integrity_histogram": body.integrity_histogram,
         "mean_integrity": body.mean_integrity,
         "sample_count": body.sample_count,

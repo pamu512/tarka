@@ -9,7 +9,7 @@ _SRC = Path(__file__).resolve().parents[1] / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from decision_api.rule_content_identity import (  # noqa: E402
+from decision_api.rule_content_identity import (
     packs_content_sha256,
     rule_pack_content_sha256,
 )

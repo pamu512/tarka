@@ -9,6 +9,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from analytics.queries import validate_sql_identifier
 from clickhouse_connect.driver.client import Client
 from clickhouse_connect.driver.exceptions import DatabaseError
 from fastapi import APIRouter, Depends, HTTPException
@@ -20,15 +21,13 @@ from tenacity import (
     wait_random_exponential,
 )
 
-from analytics.queries import validate_sql_identifier
-
 from decision_api.config import settings
 from decision_api.deps import get_clickhouse, run_clickhouse_sync
 
 _shared = Path(__file__).resolve().parents[3] / "shared"
 if str(_shared) not in sys.path:
     sys.path.insert(0, str(_shared))
-from auth_rbac import require_role  # noqa: E402
+from auth_rbac import require_role
 
 log = logging.getLogger("decision-api.manifest_visualize")
 
@@ -144,9 +143,7 @@ def _normalize_step(raw: Any, step_index: int) -> dict[str, Any]:
         )
     snap_str: dict[str, str] = {}
     for sk, sv in snap_raw.items():
-        snap_str[str(sk)] = (
-            sv if isinstance(sv, str) else json.dumps(sv, sort_keys=True)
-        )
+        snap_str[str(sk)] = sv if isinstance(sv, str) else json.dumps(sv, sort_keys=True)
 
     return {
         "rule_id": str(rule_id),
@@ -314,9 +311,7 @@ def _manifest_query_settings() -> dict[str, str] | None:
     return {"tarka_tenant_id": tid}
 
 
-def _query_manifest_row_sync(
-    client: Client, sql: str, parameters: dict[str, Any]
-) -> Any:
+def _query_manifest_row_sync(client: Client, sql: str, parameters: dict[str, Any]) -> Any:
     qs = _manifest_query_settings()
     if qs is not None:
         return client.query(sql, parameters=parameters, settings=qs)
@@ -416,9 +411,7 @@ async def visualize_manifest(
 
     final_u8 = bundle["final_decision"]
     final_bool = (
-        bool(int(final_u8))
-        if isinstance(final_u8, (int, float))
-        else _normalize_bool(final_u8)
+        bool(int(final_u8)) if isinstance(final_u8, (int, float)) else _normalize_bool(final_u8)
     )
 
     return {

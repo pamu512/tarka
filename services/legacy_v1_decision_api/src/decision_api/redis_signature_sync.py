@@ -15,12 +15,12 @@ from typing import Any
 
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from tarka_core.internal_monitor import InternalMonitor
 
 from decision_api.config import settings
 from decision_api.db import SessionLocal
 from decision_api.models import EntitySignatureState
 from decision_api.redis_store import RedisTags, redis_tags
-from tarka_core.internal_monitor import InternalMonitor
 
 log = logging.getLogger("decision-api.redis_signature_sync")
 

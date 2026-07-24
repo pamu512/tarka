@@ -244,6 +244,11 @@ investigationAgent:
     tag: latest
   service:
     port: 8006
+  okfTenantOverlays:
+    enabled: false
+    existingClaim: ""
+    mountPath: /var/lib/tarka/knowledge/tenants
+    readOnly: true
   resources:
     requests:
       cpu: "300m"

@@ -260,3 +260,121 @@ The static end-to-end test validates the Compose mount and Helm PVC/fail-templat
 - `npm audit --audit-level=high` exits 0, but full audit still exits 1 because three low advisories remain; no high or critical advisories remain.
 - Docker and Helm CLIs are absent in this environment, so runtime rendering validation could not be executed here.
 - The review-required surgical Ruff revert conflicts with latest Ruff C420 on pre-existing `okf_registry.py` comprehensions; I preserved the requested source shape and did not weaken project config.
+
+## Review Fix: Remaining Task 7 Blockers (Atomic Reload / Full Gates)
+
+### Changes
+
+- Refactored OKF registry reload into `prepare_reload()` plus `activate()`.
+- Prepared candidate OKF index rows before activation, then replaced all derived OKF SQLite rows in one transaction before activating the candidate.
+- Added rollback-safe insert helper; injected mid-index failures now roll back the SQLite transaction and keep the prior registry snapshot/readiness active.
+- Added registry/index generation locking across reload activation and retrieval so callers cannot observe mixed generations.
+- Added lifecycle/tool tests for:
+  - removed concept purge from SQLite;
+  - injected mid-index rollback keeping prior searchable results/readiness.
+- Fixed C420 and all exact CI Ruff findings; nested service Ruff configs now extend the root repo config instead of unintentionally overriding it.
+- Updated all DOMPurify overrides from 3.4.11 to 3.4.12 and refreshed the lock without `--force`.
+- Corrected Compose tenant overlay source to `../../knowledge/tenants` and added `knowledge/tenants/README.md`.
+- Wired OKF tenant overlay existing-PVC values/fail-closed mounts into `fraud-stack`, `tarka`, and `fraud-stack-lite`.
+
+### Red Evidence
+
+```bash
+cd /workspace/services/investigation-agent && PYTHONPATH=src:../shared:../../packages/shared-core python3 -m pytest -q tests/test_okf_end_to_end.py
+```
+
+Result before the atomic implementation:
+
+```text
+2 failed, 3 passed, 1 warning in 0.90s
+```
+
+Expected failures:
+
+- `test_admin_reload_purges_removed_okf_concepts`: stale OKF row remained in SQLite.
+- `test_mid_index_failure_rolls_back_registry_and_search_index`: injected index failure was not observed and reload returned 200.
+
+### Final Verification
+
+```bash
+cd /workspace && python3 -m ruff check . && python3 -m ruff format --check services/
+```
+
+Result:
+
+```text
+All checks passed!
+1193 files already formatted
+```
+
+```bash
+cd /workspace && python3 services/investigation-agent/scripts/validate_okf_bundle.py knowledge/shared --scope shared && PYTHONPATH=services/investigation-agent/src:services/shared:packages/shared-core python3 -m pytest -q services/investigation-agent/tests/test_okf_parser.py services/investigation-agent/tests/test_okf_registry.py services/investigation-agent/tests/test_okf_exporters.py services/investigation-agent/tests/test_okf_retrieval.py services/investigation-agent/tests/test_okf_end_to_end.py
+```
+
+Result:
+
+```text
+54 passed, 1 warning in 1.26s
+```
+
+```bash
+cd /workspace/services/investigation-agent && PYTHONPATH=src:../shared:../../packages/shared-core python3 -m pytest --cov=investigation_agent --cov-report=xml --cov-report=term-missing --cov-fail-under=52 -m "not golden_profile" tests/
+```
+
+Result:
+
+```text
+245 passed, 1 skipped, 11 deselected, 1 warning in 6.48s
+Required test coverage of 52% reached. Total coverage: 62.53%
+```
+
+```bash
+cd /workspace && npm ci && npm run test -w tarka-ui && python3 infra/scripts/ci/check_frontend_mock_mode.py && npm run build -w tarka-ui
+```
+
+Result:
+
+```text
+found 0 vulnerabilities
+Test Files  49 passed (49)
+Tests       144 passed (144)
+OK: frontend production mock-mode guard passed.
+✓ built in 1.18s
+```
+
+```bash
+cd /workspace && npm audit
+```
+
+Result:
+
+```text
+found 0 vulnerabilities
+```
+
+```bash
+cd /workspace && git diff --check
+```
+
+Result: exit 0, no output.
+
+### Deployment Validation
+
+```bash
+command -v docker || true; docker compose version 2>/dev/null || true
+```
+
+Result: exit 0, no output. Docker Compose is not installed in this environment.
+
+```bash
+command -v helm || true; helm version --short 2>/dev/null || true
+```
+
+Result: exit 0, no output. Helm is not installed in this environment.
+
+Static deployment contract coverage is included in `tests/test_okf_end_to_end.py` for Compose plus all supported investigation-agent Helm charts.
+
+### Concerns / Notes
+
+- Exact CI Ruff required `ruff format services/`, which reformatted 200 service files; this was necessary to make the full-scope CI format gate pass without ignores or scope narrowing.
+- Docker and Helm CLIs are absent in this environment, so live compose config and Helm rendering could not be executed here.

@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
-from decision_api._shared_path import ensure_shared_on_path
-
 import json
 import logging
 from typing import Any
 
+from decision_api._shared_path import ensure_shared_on_path
 
 log = logging.getLogger(__name__)
 
 ensure_shared_on_path()
-from osint_flatten import flatten_light_enrichment_response, flatten_osint_response  # noqa: E402
+from osint_flatten import (
+    flatten_light_enrichment_response,
+    flatten_osint_response,
+)
 
 # Same key shape written by integration-ingress enrichment worker.
 ASYNC_OSINT_REDIS_KEY = "fraud:async_osint:{tenant_id}:{entity_id}"
@@ -76,12 +78,8 @@ async def publish_async_enrichment_request(
         "trace_id": str(trace_id),
         "email": (str(payload.get("email")).strip() if payload.get("email") else None),
         "phone": (str(payload.get("phone")).strip() if payload.get("phone") else None),
-        "ip": (
-            str(payload.get("ip") or payload.get("ip_address") or "").strip() or None
-        ),
-        "domain": (
-            str(payload.get("domain")).strip() if payload.get("domain") else None
-        ),
+        "ip": (str(payload.get("ip") or payload.get("ip_address") or "").strip() or None),
+        "domain": (str(payload.get("domain")).strip() if payload.get("domain") else None),
     }
     if dr in ("EU", "US", "GLOBAL"):
         msg["data_residency_region"] = dr

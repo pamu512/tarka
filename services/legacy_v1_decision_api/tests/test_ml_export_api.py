@@ -9,9 +9,8 @@ from pathlib import Path
 
 import httpx
 import pytest
-from httpx import ASGITransport, AsyncClient
-
 from analytics.engine import DuckDBEngine
+from httpx import ASGITransport, AsyncClient
 
 
 @pytest.mark.asyncio
@@ -201,9 +200,7 @@ async def test_pit_parquet_export_job_polls_to_success(
         job_id = r.json()["job_id"]
         terminal: str | None = None
         last_body: dict | None = None
-        async with AsyncClient(
-            transport=transport, base_url="http://test"
-        ) as poll_client:
+        async with AsyncClient(transport=transport, base_url="http://test") as poll_client:
             for _ in range(80):
                 await asyncio.sleep(0.05)
                 g = await poll_client.get(

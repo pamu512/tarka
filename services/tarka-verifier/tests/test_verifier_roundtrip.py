@@ -90,16 +90,12 @@ def test_http_verify_endpoint_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     from app import create_app
 
     manifest, pk = _sample_signed_manifest(b"q" * 32)
-    monkeypatch.setenv(
-        "TARKA_VERIFIER_VERIFYING_KEY_HEX", binascii.hexlify(pk).decode()
-    )
+    monkeypatch.setenv("TARKA_VERIFIER_VERIFYING_KEY_HEX", binascii.hexlify(pk).decode())
     reset_settings_cache()
 
     client = TestClient(create_app())
     body = {
-        "manifest_protobuf_base64": base64.b64encode(
-            manifest.SerializeToString()
-        ).decode(),
+        "manifest_protobuf_base64": base64.b64encode(manifest.SerializeToString()).decode(),
         "merkle_proof_bytes_base64": base64.b64encode(b"").decode(),
     }
     r = client.post("/v1/verify", json=body)
@@ -111,9 +107,7 @@ def test_http_triggers_pagerduty_on_failure(monkeypatch: pytest.MonkeyPatch) -> 
     from app import create_app
 
     manifest, pk = _sample_signed_manifest(b"w" * 32)
-    monkeypatch.setenv(
-        "TARKA_VERIFIER_VERIFYING_KEY_HEX", binascii.hexlify(pk).decode()
-    )
+    monkeypatch.setenv("TARKA_VERIFIER_VERIFYING_KEY_HEX", binascii.hexlify(pk).decode())
     monkeypatch.setenv("TARKA_VERIFIER_PAGERDUTY_ROUTING_KEY", "test-routing-key")
     reset_settings_cache()
 

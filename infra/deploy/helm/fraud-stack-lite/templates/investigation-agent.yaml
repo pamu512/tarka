@@ -1,3 +1,6 @@
+{{- if and .Values.investigationAgent.okfTenantOverlays.enabled (not .Values.investigationAgent.okfTenantOverlays.existingClaim) }}
+{{- fail "investigation-agent OKF tenant overlays require investigationAgent.okfTenantOverlays.existingClaim" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -18,6 +21,23 @@ spec:
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.investigationAgent.port }}
+          env:
+            - name: OKF_SHARED_ROOT
+              value: "/app/knowledge/shared"
+            - name: OKF_TENANT_ROOT
+              value: {{ .Values.investigationAgent.okfTenantOverlays.mountPath | quote }}
+          {{- if .Values.investigationAgent.okfTenantOverlays.enabled }}
+          volumeMounts:
+            - name: okf-tenant-overlays
+              mountPath: {{ .Values.investigationAgent.okfTenantOverlays.mountPath | quote }}
+              readOnly: {{ .Values.investigationAgent.okfTenantOverlays.readOnly }}
+          {{- end }}
+      {{- if .Values.investigationAgent.okfTenantOverlays.enabled }}
+      volumes:
+        - name: okf-tenant-overlays
+          persistentVolumeClaim:
+            claimName: {{ .Values.investigationAgent.okfTenantOverlays.existingClaim | quote }}
+      {{- end }}
 ---
 apiVersion: v1
 kind: Service

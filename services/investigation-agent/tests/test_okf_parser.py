@@ -89,10 +89,7 @@ def test_reports_link_target_missing_alongside_other_issues(tmp_path):
         "approval_status: approved\napproved_revision: abc123\n"
         "sensitivity: internal\n---\nScoped.\n"
     )
-    (root / "linker.md").write_text(
-        _valid_shared_frontmatter("a")
-        + "See [missing](ghost.md).\n"
-    )
+    (root / "linker.md").write_text(_valid_shared_frontmatter("a") + "See [missing](ghost.md).\n")
     result = validate_bundle(root, scope="shared", tenant_id=None)
     codes = {issue.code for issue in result.issues}
     assert result.valid is False
@@ -108,8 +105,7 @@ def test_reject_duplicate_concept_id(tmp_path, monkeypatch):
     path = root / "rules" / "r1.md"
     path.parent.mkdir()
     path.write_text(
-        _valid_shared_frontmatter("b").replace("type: Reference", "type: Fraud Rule")
-        + "Body.\n"
+        _valid_shared_frontmatter("b").replace("type: Reference", "type: Fraud Rule") + "Body.\n"
     )
 
     def _duplicate_paths(bundle_root: Path) -> list[Path]:
@@ -126,9 +122,7 @@ def test_reject_duplicate_concept_id(tmp_path, monkeypatch):
 def test_reject_frontmatter_on_reserved_index(tmp_path):
     root = tmp_path / "shared"
     (root / "rules").mkdir(parents=True)
-    (root / "rules" / "index.md").write_text(
-        "---\nokf_version: \"0.1\"\n---\n# Rules\n"
-    )
+    (root / "rules" / "index.md").write_text('---\nokf_version: "0.1"\n---\n# Rules\n')
     (root / "rules" / "r1.md").write_text(
         _valid_shared_frontmatter("c").replace("type: Reference", "type: Fraud Rule")
         + "Rule body.\n"
@@ -184,12 +178,11 @@ def test_tenant_resolves_shared_logical_link(tmp_path):
     tenant = tmp_path / "t1"
     (shared / "rules").mkdir(parents=True)
     (tenant / "playbooks").mkdir(parents=True)
-    (shared / "index.md").write_text("---\nokf_version: \"0.1\"\n---\n")
+    (shared / "index.md").write_text('---\nokf_version: "0.1"\n---\n')
     (shared / "rules" / "high-amount.md").write_text(
-        _approved_fm(concept_type="Fraud Rule", source_hash_char="2")
-        + "Shared rule body.\n"
+        _approved_fm(concept_type="Fraud Rule", source_hash_char="2") + "Shared rule body.\n"
     )
-    (tenant / "index.md").write_text("---\nokf_version: \"0.1\"\n---\n")
+    (tenant / "index.md").write_text('---\nokf_version: "0.1"\n---\n')
     (tenant / "playbooks" / "review.md").write_text(
         _approved_fm(
             concept_type="Investigation Playbook",
@@ -200,9 +193,7 @@ def test_tenant_resolves_shared_logical_link(tmp_path):
     )
     shared_bundle = validate_bundle(shared, scope="shared", tenant_id=None).bundle
     assert shared_bundle is not None
-    result = validate_bundle(
-        tenant, scope="tenant", tenant_id="t1", shared_bundle=shared_bundle
-    )
+    result = validate_bundle(tenant, scope="tenant", tenant_id="t1", shared_bundle=shared_bundle)
     assert result.valid is True
     assert result.bundle is not None
     concept = result.bundle.concepts["playbooks/review"]
@@ -214,15 +205,13 @@ def test_tenant_rejects_shared_logical_escape(tmp_path):
     tenant = tmp_path / "t1"
     shared.mkdir()
     tenant.mkdir()
-    (shared / "index.md").write_text("---\nokf_version: \"0.1\"\n---\n")
+    (shared / "index.md").write_text('---\nokf_version: "0.1"\n---\n')
     (tenant / "bad.md").write_text(
         _approved_fm(tenant_scope="t1", source_hash_char="4")
         + "Bad [escape](/shared/../outside.md).\n"
     )
     shared_bundle = validate_bundle(shared, scope="shared", tenant_id=None).bundle
-    result = validate_bundle(
-        tenant, scope="tenant", tenant_id="t1", shared_bundle=shared_bundle
-    )
+    result = validate_bundle(tenant, scope="tenant", tenant_id="t1", shared_bundle=shared_bundle)
     assert result.valid is False
     assert "link_outside_bundle" in {issue.code for issue in result.issues}
 
@@ -232,15 +221,13 @@ def test_tenant_rejects_missing_shared_logical_target(tmp_path):
     tenant = tmp_path / "t1"
     shared.mkdir()
     tenant.mkdir()
-    (shared / "index.md").write_text("---\nokf_version: \"0.1\"\n---\n")
+    (shared / "index.md").write_text('---\nokf_version: "0.1"\n---\n')
     (tenant / "bad.md").write_text(
         _approved_fm(tenant_scope="t1", source_hash_char="5")
         + "Missing [rule](/shared/rules/missing.md).\n"
     )
     shared_bundle = validate_bundle(shared, scope="shared", tenant_id=None).bundle
-    result = validate_bundle(
-        tenant, scope="tenant", tenant_id="t1", shared_bundle=shared_bundle
-    )
+    result = validate_bundle(tenant, scope="tenant", tenant_id="t1", shared_bundle=shared_bundle)
     assert result.valid is False
     assert "link_target_missing" in {issue.code for issue in result.issues}
 
@@ -250,14 +237,12 @@ def test_tenant_rejects_absolute_non_shared_link(tmp_path):
     tenant = tmp_path / "t1"
     shared.mkdir()
     tenant.mkdir()
-    (shared / "index.md").write_text("---\nokf_version: \"0.1\"\n---\n")
+    (shared / "index.md").write_text('---\nokf_version: "0.1"\n---\n')
     (tenant / "bad.md").write_text(
         _approved_fm(tenant_scope="t1", source_hash_char="6")
         + "Bad [/etc/passwd](/secrets/leak.md).\n"
     )
     shared_bundle = validate_bundle(shared, scope="shared", tenant_id=None).bundle
-    result = validate_bundle(
-        tenant, scope="tenant", tenant_id="t1", shared_bundle=shared_bundle
-    )
+    result = validate_bundle(tenant, scope="tenant", tenant_id="t1", shared_bundle=shared_bundle)
     assert result.valid is False
     assert "link_not_shared_logical" in {issue.code for issue in result.issues}

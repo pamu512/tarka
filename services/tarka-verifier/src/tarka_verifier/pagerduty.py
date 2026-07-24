@@ -63,9 +63,7 @@ def trigger_incident(
         raise PagerDutyDeliveryError(f"pagerduty transport failure: {exc}") from exc
 
     if resp.status_code >= 400:
-        raise PagerDutyDeliveryError(
-            f"pagerduty http {resp.status_code}: {resp.text[:2048]}"
-        )
+        raise PagerDutyDeliveryError(f"pagerduty http {resp.status_code}: {resp.text[:2048]}")
 
     try:
         data = resp.json()

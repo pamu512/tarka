@@ -1,17 +1,15 @@
 from decision_api._shared_path import ensure_shared_on_path
 
-
 """CRUD API for whitelist, blacklist, and test bypass management."""
 
 import logging
-
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 ensure_shared_on_path()
-from entity_lists import ALL_LIST_TYPES, ListStore  # noqa: E402
+from entity_lists import ALL_LIST_TYPES, ListStore
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/lists", tags=["lists"])
@@ -66,9 +64,7 @@ async def check_entity(tenant_id: str, entity_id: str):
 async def list_entries(list_type: str, tenant_id: str, limit: int = 200):
     """List all entries in a specific list."""
     if list_type not in ALL_LIST_TYPES:
-        raise HTTPException(
-            400, f"Invalid list_type. Must be one of: {', '.join(ALL_LIST_TYPES)}"
-        )
+        raise HTTPException(400, f"Invalid list_type. Must be one of: {', '.join(ALL_LIST_TYPES)}")
     store = get_store()
     entries = await store.get_all(list_type, tenant_id, limit)
     return {
@@ -83,9 +79,7 @@ async def list_entries(list_type: str, tenant_id: str, limit: int = 200):
 async def add_entry(list_type: str, body: AddEntryRequest):
     """Add an entity to a list (whitelist, blacklist, or test_bypass)."""
     if list_type not in ALL_LIST_TYPES:
-        raise HTTPException(
-            400, f"Invalid list_type. Must be one of: {', '.join(ALL_LIST_TYPES)}"
-        )
+        raise HTTPException(400, f"Invalid list_type. Must be one of: {', '.join(ALL_LIST_TYPES)}")
     store = get_store()
     entry = await store.add(
         list_type,
@@ -103,9 +97,7 @@ async def add_entry(list_type: str, body: AddEntryRequest):
 async def remove_entry(list_type: str, tenant_id: str, entity_id: str):
     """Remove an entity from a list."""
     if list_type not in ALL_LIST_TYPES:
-        raise HTTPException(
-            400, f"Invalid list_type. Must be one of: {', '.join(ALL_LIST_TYPES)}"
-        )
+        raise HTTPException(400, f"Invalid list_type. Must be one of: {', '.join(ALL_LIST_TYPES)}")
     store = get_store()
     removed = await store.remove(list_type, tenant_id, entity_id)
     if not removed:
@@ -117,9 +109,7 @@ async def remove_entry(list_type: str, tenant_id: str, entity_id: str):
 async def bulk_add(list_type: str, body: BulkAddRequest):
     """Bulk add entities to a list."""
     if list_type not in ALL_LIST_TYPES:
-        raise HTTPException(
-            400, f"Invalid list_type. Must be one of: {', '.join(ALL_LIST_TYPES)}"
-        )
+        raise HTTPException(400, f"Invalid list_type. Must be one of: {', '.join(ALL_LIST_TYPES)}")
     store = get_store()
     added = []
     for item in body.entries[:1000]:
@@ -139,9 +129,7 @@ async def bulk_add(list_type: str, body: BulkAddRequest):
 @router.get("/{list_type}/count")
 async def count_entries(list_type: str, tenant_id: str):
     if list_type not in ALL_LIST_TYPES:
-        raise HTTPException(
-            400, f"Invalid list_type. Must be one of: {', '.join(ALL_LIST_TYPES)}"
-        )
+        raise HTTPException(400, f"Invalid list_type. Must be one of: {', '.join(ALL_LIST_TYPES)}")
     store = get_store()
     c = await store.count(list_type, tenant_id)
     return {"list_type": list_type, "tenant_id": tenant_id, "count": c}

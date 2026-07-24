@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
-from datetime import datetime, timedelta, timezone
 from pydantic import ValidationError
 
 from decision_api.backtest_api import BacktestRequest, _window_bounds
 
 
 def test_window_legacy_end_only() -> None:
-    end = datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+    end = datetime(2025, 6, 15, 12, 0, 0, tzinfo=UTC)
     req = BacktestRequest(
         tenant_id="demo",
         end_time=end,
@@ -25,8 +26,8 @@ def test_window_legacy_end_only() -> None:
 
 
 def test_window_explicit_start_end_ok() -> None:
-    st = datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
-    en = datetime(2025, 3, 1, 0, 0, 0, tzinfo=timezone.utc)
+    st = datetime(2025, 1, 1, 0, 0, 0, tzinfo=UTC)
+    en = datetime(2025, 3, 1, 0, 0, 0, tzinfo=UTC)
     req = BacktestRequest(
         tenant_id="demo",
         start_time=st,
@@ -42,7 +43,7 @@ def test_window_explicit_start_end_ok() -> None:
 
 
 def test_window_rejects_over_90_days() -> None:
-    st = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    st = datetime(2025, 1, 1, tzinfo=UTC)
     en = st + timedelta(days=91)
     with pytest.raises(ValidationError):
         BacktestRequest(
@@ -57,7 +58,7 @@ def test_window_rejects_over_90_days() -> None:
 
 
 def test_window_accepts_exactly_90_days() -> None:
-    st = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    st = datetime(2025, 1, 1, tzinfo=UTC)
     en = st + timedelta(days=90)
     req = BacktestRequest(
         tenant_id="demo",
@@ -77,7 +78,7 @@ def test_start_without_end_rejected() -> None:
     with pytest.raises(ValidationError):
         BacktestRequest(
             tenant_id="demo",
-            start_time=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            start_time=datetime(2025, 1, 1, tzinfo=UTC),
             rule_pack={
                 "name": "p",
                 "rules": [{"id": "r1", "when": [], "score_delta": 1.0}],

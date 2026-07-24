@@ -5,9 +5,10 @@ import sys
 from logging.config import fileConfig
 from pathlib import Path
 
-from alembic import context
 from sqlalchemy import create_engine, pool
 from sqlalchemy.engine.url import make_url
+
+from alembic import context
 
 if context.config.config_file_name:
     fileConfig(context.config.config_file_name)
@@ -15,12 +16,12 @@ if context.config.config_file_name:
 _app_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_app_root / "src"))
 
-from tarka_core.database import install_sqlite_migration_compilers  # noqa: E402
+from tarka_core.database import install_sqlite_migration_compilers
 
 install_sqlite_migration_compilers()
 
-from decision_api import models as _models  # noqa: F401, E402
-from decision_api.db import Base  # noqa: E402
+from decision_api import models as _models  # noqa: F401
+from decision_api.db import Base
 
 target_metadata = Base.metadata
 
@@ -30,9 +31,7 @@ _ALEMBIC_VERSION_TABLE = "alembic_version_decision_api"
 
 def _to_sync_url(url: str) -> str:
     if not url:
-        raise RuntimeError(
-            "DATABASE_URL or ALEMBIC_SYNC_DATABASE_URL must be set for migrations"
-        )
+        raise RuntimeError("DATABASE_URL or ALEMBIC_SYNC_DATABASE_URL must be set for migrations")
     if "+asyncpg" in url:
         return url.replace("postgresql+asyncpg", "postgresql+psycopg")
     if "sqlite+aiosqlite" in url:
@@ -42,8 +41,7 @@ def _to_sync_url(url: str) -> str:
 
 def get_url() -> str:
     return _to_sync_url(
-        os.environ.get("ALEMBIC_SYNC_DATABASE_URL")
-        or os.environ.get("DATABASE_URL", "")
+        os.environ.get("ALEMBIC_SYNC_DATABASE_URL") or os.environ.get("DATABASE_URL", "")
     )
 
 

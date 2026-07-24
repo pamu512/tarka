@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import json as _json
-
-from typing import Annotated, Any, Literal, Self, Union
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -63,9 +62,7 @@ class JsonAstCustomSignal(BaseModel):
     @model_validator(mode="after")
     def _params_json_cap(self) -> Self:
         try:
-            blob = _json.dumps(
-                self.params, sort_keys=True, separators=(",", ":")
-            ).encode()
+            blob = _json.dumps(self.params, sort_keys=True, separators=(",", ":")).encode()
         except (TypeError, ValueError) as e:
             raise ValueError("custom_signal.params must be JSON-serializable") from e
         if len(blob) > _MAX_CUSTOM_SIGNAL_PARAMS_JSON_BYTES:
@@ -89,7 +86,7 @@ class JsonAstOr(BaseModel):
 
 
 JsonAstNode = Annotated[
-    Union[JsonAstCondition, JsonAstCustomSignal, JsonAstAnd, JsonAstOr],
+    JsonAstCondition | JsonAstCustomSignal | JsonAstAnd | JsonAstOr,
     Field(discriminator="type"),
 ]
 

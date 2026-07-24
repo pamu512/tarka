@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -50,7 +50,7 @@ def append_experiment_record(
 ) -> dict[str, Any]:
     rec = {
         "id": str(uuid.uuid4()),
-        "ts": datetime.now(timezone.utc).isoformat(),
+        "ts": datetime.now(UTC).isoformat(),
         "experiment_type": experiment_type,
         "scenario": scenario,
         "vertical": vertical,

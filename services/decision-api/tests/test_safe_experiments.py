@@ -9,7 +9,7 @@ _SRC = Path(__file__).resolve().parents[1] / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from decision_api.safe_experiments import experiment_rollout_gate  # noqa: E402
+from decision_api.safe_experiments import experiment_rollout_gate
 
 
 def test_rollout_gate_blocks_undersampled_challenger() -> None:

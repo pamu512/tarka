@@ -22,7 +22,7 @@ os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("API_KEYS", "test-key")
 
-from decision_api.main import TENANT_CONFIG_UNAVAILABLE_DETAIL  # noqa: E402
+from decision_api.main import TENANT_CONFIG_UNAVAILABLE_DETAIL
 
 pytestmark = pytest.mark.asyncio
 
@@ -148,7 +148,6 @@ async def test_evaluation_succeeds_degraded_on_metric_failure(
     assert r.status_code == 200
     assert r.json()["decision"] == "allow"
     assert any(
-        "decision_metrics_inc_failed" in rec.message
-        and "fraud_evaluations_total" in rec.message
+        "decision_metrics_inc_failed" in rec.message and "fraud_evaluations_total" in rec.message
         for rec in caplog.records
     )

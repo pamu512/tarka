@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -77,7 +77,7 @@ def test_simulation_bypasses_canary():
 
 
 def test_effective_at_future_excludes_pack():
-    future = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+    future = (datetime.now(UTC) + timedelta(days=7)).isoformat()
     pack = {
         "version": 1,
         "_source_file": "f.json",
@@ -95,9 +95,7 @@ def test_effective_at_future_excludes_pack():
     import decision_api.json_rules as jr
 
     jr._cached_packs = [pack]
-    h, _, d, _pfc = evaluate_json_rules(
-        {"amount": 50}, [], "t", "e", evaluation_mode="production"
-    )
+    h, _, d, _pfc = evaluate_json_rules({"amount": 50}, [], "t", "e", evaluation_mode="production")
     assert h == [] and d == 0.0
 
 

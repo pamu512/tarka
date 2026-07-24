@@ -43,9 +43,7 @@ class Settings(BaseSettings):
     )
     #: Audit ingest sink :func:`~ingestor.manifest_row.decode_manifest_row` → ``trace_json``.
     clickhouse_evidence_manifests_table: str = Field(
-        default=os.environ.get(
-            "CLICKHOUSE_EVIDENCE_MANIFESTS_TABLE", "evidence_manifests"
-        ).strip()
+        default=os.environ.get("CLICKHOUSE_EVIDENCE_MANIFESTS_TABLE", "evidence_manifests").strip()
         or "evidence_manifests",
         min_length=1,
         max_length=128,
@@ -60,9 +58,7 @@ class Settings(BaseSettings):
 
     #: Persist merged entity tags to Postgres ``entity_signature_state`` after evaluate (SOT for Redis sync).
     redis_signature_sync_persist_on_evaluate: bool = Field(
-        default=os.environ.get("REDIS_SIGNATURE_SYNC_PERSIST_ON_EVALUATE", "true")
-        .strip()
-        .lower()
+        default=os.environ.get("REDIS_SIGNATURE_SYNC_PERSIST_ON_EVALUATE", "true").strip().lower()
         in ("1", "true", "yes", "on"),
     )
     #: Background worker: scan Postgres and repopulate missing/stale ``fraud:tags`` keys in Redis.
@@ -88,18 +84,24 @@ class Settings(BaseSettings):
     #: Bounded INSERT validated to start with INSERT (fail-closed against accidental DDL/DROP).
     clickhouse_health_probe_insert_sql: str = Field(default="", max_length=4096)
     # When true, merge_tags / consume_nonce require a live Redis client (no silent KV-only substitute for those ops).
-    strict_consistency: bool = os.environ.get(
-        "STRICT_CONSISTENCY", ""
-    ).strip().lower() in ("1", "true", "yes", "on")
+    strict_consistency: bool = os.environ.get("STRICT_CONSISTENCY", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
     feature_service_url: str = "http://signal-api:8004/features"
     ml_scoring_url: str = "http://signal-api:8004/ml"
     graph_service_url: str = ""
     calibration_service_url: str = "http://signal-api:8004/calibration"
     counter_service_url: str = "http://signal-api:8004/counters"
     location_service_url: str = "http://signal-api:8004/location"
-    scameter_enabled: bool = os.environ.get(
-        "SCAMETER_ENABLED", "false"
-    ).strip().lower() in ("1", "true", "yes", "on")
+    scameter_enabled: bool = os.environ.get("SCAMETER_ENABLED", "false").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
     scameter_base_url: str = os.environ.get("SCAMETER_BASE_URL", "").strip()
     scameter_api_key: str = os.environ.get("SCAMETER_API_KEY", "").strip()
     external_signal_timeout_seconds: float = float(
@@ -130,9 +132,7 @@ class Settings(BaseSettings):
     list_store_api_key: str = os.environ.get("LIST_STORE_API_KEY", "")
     list_store_file_dir: str = os.environ.get("LIST_STORE_FILE_DIR", "./lists")
 
-    consortium_enabled: bool = (
-        os.environ.get("CONSORTIUM_ENABLED", "true").lower() == "true"
-    )
+    consortium_enabled: bool = os.environ.get("CONSORTIUM_ENABLED", "true").lower() == "true"
     consortium_secret: str = os.environ.get("CONSORTIUM_SECRET", "")
     consortium_id: str = os.environ.get("CONSORTIUM_ID", "default")
     consortium_min_tenants: int = int(os.environ.get("CONSORTIUM_MIN_TENANTS", "2"))
@@ -140,23 +140,22 @@ class Settings(BaseSettings):
     consortium_score_trust_floor: float = float(
         os.environ.get("CONSORTIUM_SCORE_TRUST_FLOOR", "0.2")
     )
-    consortium_score_max_delta: float = float(
-        os.environ.get("CONSORTIUM_SCORE_MAX_DELTA", "35")
-    )
+    consortium_score_max_delta: float = float(os.environ.get("CONSORTIUM_SCORE_MAX_DELTA", "35"))
     consortium_hash_scope: str = (
         os.environ.get("CONSORTIUM_HASH_SCOPE", "consortium").strip().lower()
     )
     evidence_signing_secret: str = os.environ.get("EVIDENCE_SIGNING_SECRET", "")
-    decision_log_enabled: bool = os.environ.get(
-        "DECISION_LOG_ENABLED", "true"
-    ).strip().lower() in ("1", "true", "yes", "on")
+    decision_log_enabled: bool = os.environ.get("DECISION_LOG_ENABLED", "true").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
     decision_log_path: str = os.environ.get(
         "DECISION_LOG_PATH", "./data/decision_logs/decision-log.jsonl"
     )
     decision_log_warehouse_url: str = os.environ.get("DECISION_LOG_WAREHOUSE_URL", "")
-    decision_log_warehouse_api_key: str = os.environ.get(
-        "DECISION_LOG_WAREHOUSE_API_KEY", ""
-    )
+    decision_log_warehouse_api_key: str = os.environ.get("DECISION_LOG_WAREHOUSE_API_KEY", "")
     decision_log_include_payload_snapshot: bool = os.environ.get(
         "DECISION_LOG_INCLUDE_PAYLOAD_SNAPSHOT", "false"
     ).strip().lower() in (
@@ -176,17 +175,13 @@ class Settings(BaseSettings):
     )
 
     # Challenge policy templates (JSON under {rules_path}/challenge_policies/)
-    challenge_policy_default: str = os.environ.get(
-        "CHALLENGE_POLICY_DEFAULT", "default_v1"
-    )
+    challenge_policy_default: str = os.environ.get("CHALLENGE_POLICY_DEFAULT", "default_v1")
 
     # Evaluation step controls (#32): timeouts (seconds), max attempts (1–5), optional REJECT (strict mode)
     eval_step_list_timeout_seconds: float = float(
         os.environ.get("EVAL_STEP_LIST_TIMEOUT_SECONDS", "0.8")
     )
-    eval_step_list_max_attempts: int = int(
-        os.environ.get("EVAL_STEP_LIST_MAX_ATTEMPTS", "2")
-    )
+    eval_step_list_max_attempts: int = int(os.environ.get("EVAL_STEP_LIST_MAX_ATTEMPTS", "2"))
     eval_step_feature_snapshot_timeout_seconds: float = float(
         os.environ.get("EVAL_STEP_FEATURE_SNAPSHOT_TIMEOUT_SECONDS", "2.5")
     )
@@ -196,9 +191,7 @@ class Settings(BaseSettings):
     eval_step_ml_timeout_seconds: float = float(
         os.environ.get("EVAL_STEP_ML_TIMEOUT_SECONDS", "2.5")
     )
-    eval_step_ml_max_attempts: int = int(
-        os.environ.get("EVAL_STEP_ML_MAX_ATTEMPTS", "2")
-    )
+    eval_step_ml_max_attempts: int = int(os.environ.get("EVAL_STEP_ML_MAX_ATTEMPTS", "2"))
     eval_step_graph_risk_timeout_seconds: float = float(
         os.environ.get("EVAL_STEP_GRAPH_RISK_TIMEOUT_SECONDS", "2.5")
     )
@@ -208,9 +201,7 @@ class Settings(BaseSettings):
     eval_step_opa_timeout_seconds: float = float(
         os.environ.get("EVAL_STEP_OPA_TIMEOUT_SECONDS", "2.5")
     )
-    eval_step_opa_max_attempts: int = int(
-        os.environ.get("EVAL_STEP_OPA_MAX_ATTEMPTS", "2")
-    )
+    eval_step_opa_max_attempts: int = int(os.environ.get("EVAL_STEP_OPA_MAX_ATTEMPTS", "2"))
     eval_step_graph_upsert_timeout_seconds: float = float(
         os.environ.get("EVAL_STEP_GRAPH_UPSERT_TIMEOUT_SECONDS", "8.0")
     )
@@ -234,21 +225,13 @@ class Settings(BaseSettings):
     circuit_feature_recovery_seconds: float = float(
         os.environ.get("CIRCUIT_FEATURE_RECOVERY_SECONDS", "30")
     )
-    circuit_ml_failure_threshold: int = int(
-        os.environ.get("CIRCUIT_ML_FAILURE_THRESHOLD", "5")
-    )
-    circuit_ml_recovery_seconds: float = float(
-        os.environ.get("CIRCUIT_ML_RECOVERY_SECONDS", "30")
-    )
-    circuit_opa_failure_threshold: int = int(
-        os.environ.get("CIRCUIT_OPA_FAILURE_THRESHOLD", "5")
-    )
+    circuit_ml_failure_threshold: int = int(os.environ.get("CIRCUIT_ML_FAILURE_THRESHOLD", "5"))
+    circuit_ml_recovery_seconds: float = float(os.environ.get("CIRCUIT_ML_RECOVERY_SECONDS", "30"))
+    circuit_opa_failure_threshold: int = int(os.environ.get("CIRCUIT_OPA_FAILURE_THRESHOLD", "5"))
     circuit_opa_recovery_seconds: float = float(
         os.environ.get("CIRCUIT_OPA_RECOVERY_SECONDS", "30")
     )
-    circuit_list_failure_threshold: int = int(
-        os.environ.get("CIRCUIT_LIST_FAILURE_THRESHOLD", "5")
-    )
+    circuit_list_failure_threshold: int = int(os.environ.get("CIRCUIT_LIST_FAILURE_THRESHOLD", "5"))
     circuit_list_recovery_seconds: float = float(
         os.environ.get("CIRCUIT_LIST_RECOVERY_SECONDS", "30")
     )
@@ -301,9 +284,7 @@ class Settings(BaseSettings):
     )
 
     # ``auto`` uses Rust ``tarka_rule_engine`` when installed, else Python. ``rust`` / ``python`` force a backend.
-    json_rules_engine: str = (
-        os.environ.get("TARKA_JSON_RULES_ENGINE", "auto").strip().lower()
-    )
+    json_rules_engine: str = os.environ.get("TARKA_JSON_RULES_ENGINE", "auto").strip().lower()
     # Rust / PyO3 FFI circuit breaker (sliding window). After threshold failures, circuit opens — no Python drift.
     rust_ffi_circuit_failure_threshold: int = int(
         os.environ.get("RUST_FFI_CIRCUIT_FAILURE_THRESHOLD", "5")
@@ -350,9 +331,7 @@ class Settings(BaseSettings):
         os.environ.get("TARKA_EVALUATION_MODE", "detection").strip().lower()
     )
     # Optional explicit tier label: "community" | "pro" (empty = infer from configured URLs).
-    tarka_deployment_tier: str = (
-        os.environ.get("TARKA_DEPLOYMENT_TIER", "").strip().lower()
-    )
+    tarka_deployment_tier: str = os.environ.get("TARKA_DEPLOYMENT_TIER", "").strip().lower()
     # Audience-level explainability surface: "minimal" (external-safe), "analyst", or "full".
     explainability_tier_default: str = (
         os.environ.get("EXPLAINABILITY_TIER_DEFAULT", "analyst").strip().lower()
@@ -377,18 +356,12 @@ class Settings(BaseSettings):
     )
 
     # Tier-1 reporting / compliance (optional JSON maps and NL→SQL allowlists).
-    nl_sql_allowed_tables: str = os.environ.get(
-        "NL_SQL_ALLOWED_TABLES", "fraud_decisions"
-    ).strip()
+    nl_sql_allowed_tables: str = os.environ.get("NL_SQL_ALLOWED_TABLES", "fraud_decisions").strip()
     # Undirected edges ``a+b`` (comma-separated) allowlisted for JOIN; empty = no JOINs allowed.
     nl_sql_allowed_joins: str = os.environ.get("NL_SQL_ALLOWED_JOINS", "").strip()
-    adverse_action_rule_map_json: str = os.environ.get(
-        "ADVERSE_ACTION_RULE_MAP_JSON", ""
-    ).strip()
+    adverse_action_rule_map_json: str = os.environ.get("ADVERSE_ACTION_RULE_MAP_JSON", "").strip()
     reporting_nl_llm_url: str = os.environ.get("TARKA_REPORTING_NL_LLM_URL", "").strip()
-    reporting_nl_llm_api_key: str = os.environ.get(
-        "TARKA_REPORTING_NL_LLM_API_KEY", ""
-    ).strip()
+    reporting_nl_llm_api_key: str = os.environ.get("TARKA_REPORTING_NL_LLM_API_KEY", "").strip()
     reporting_nl_llm_model: str = os.environ.get(
         "TARKA_REPORTING_NL_LLM_MODEL", "gpt-4o-mini"
     ).strip()
@@ -430,9 +403,7 @@ class Settings(BaseSettings):
     vendor_ipapi_base_url: str = os.environ.get(
         "TARKA_VENDOR_IPAPI_BASE_URL", "http://ip-api.com"
     ).strip()
-    vendor_http_max_attempts: int = int(
-        os.environ.get("TARKA_VENDOR_HTTP_MAX_ATTEMPTS", "3")
-    )
+    vendor_http_max_attempts: int = int(os.environ.get("TARKA_VENDOR_HTTP_MAX_ATTEMPTS", "3"))
     vendor_http_retry_min_wait: float = float(
         os.environ.get("TARKA_VENDOR_HTTP_RETRY_MIN_WAIT", "0.2")
     )
@@ -519,9 +490,7 @@ def dependency_resilience_policy_table() -> dict[str, dict[str, float | int | st
             "on_failure": "SKIP",
         },
         "async_osint_redis": {
-            "timeout_seconds": float(
-                os.environ.get("ASYNC_OSINT_REDIS_TIMEOUT_SECONDS", "0.05")
-            ),
+            "timeout_seconds": float(os.environ.get("ASYNC_OSINT_REDIS_TIMEOUT_SECONDS", "0.05")),
             "max_attempts": int(os.environ.get("ASYNC_OSINT_REDIS_MAX_ATTEMPTS", "1")),
             "circuit_failure_threshold": int(
                 os.environ.get("ASYNC_OSINT_REDIS_CIRCUIT_FAILURE_THRESHOLD", "5")

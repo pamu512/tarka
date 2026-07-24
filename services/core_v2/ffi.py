@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 import structlog
+
 import rust_engine
 
 logger = structlog.get_logger(__name__)

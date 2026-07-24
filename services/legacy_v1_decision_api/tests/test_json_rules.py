@@ -26,16 +26,8 @@ def _force_python_json_rules(monkeypatch):
 class TestMatchCondition:
     def test_contains_missing_field_maps_to_none_token_like_rust(self):
         """Rust ``json_str_pythonish(Null)`` uses the literal letters ``None`` (not JSON ``null``)."""
-        assert (
-            _match_condition(
-                {}, {"field": "missing", "op": "contains", "value": "None"}
-            )
-            is True
-        )
-        assert (
-            _match_condition({}, {"field": "missing", "op": "contains", "value": "xyz"})
-            is False
-        )
+        assert _match_condition({}, {"field": "missing", "op": "contains", "value": "None"}) is True
+        assert _match_condition({}, {"field": "missing", "op": "contains", "value": "xyz"}) is False
         assert (
             _match_condition(
                 {"missing": None},
@@ -46,85 +38,57 @@ class TestMatchCondition:
 
     def test_starts_with_requires_string_actual(self):
         assert (
-            _match_condition(
-                {"n": 123}, {"field": "n", "op": "starts_with", "value": "1"}
-            )
-            is False
+            _match_condition({"n": 123}, {"field": "n", "op": "starts_with", "value": "1"}) is False
         )
 
     def test_regex_subject_json_null(self):
-        assert (
-            _match_condition(
-                {"x": None}, {"field": "x", "op": "regex", "value": "null"}
-            )
-            is True
-        )
+        assert _match_condition({"x": None}, {"field": "x", "op": "regex", "value": "null"}) is True
 
     def test_eq_match(self):
         assert (
-            _match_condition(
-                {"country": "US"}, {"field": "country", "op": "eq", "value": "US"}
-            )
+            _match_condition({"country": "US"}, {"field": "country", "op": "eq", "value": "US"})
             is True
         )
 
     def test_eq_mismatch(self):
         assert (
-            _match_condition(
-                {"country": "UK"}, {"field": "country", "op": "eq", "value": "US"}
-            )
+            _match_condition({"country": "UK"}, {"field": "country", "op": "eq", "value": "US"})
             is False
         )
 
     def test_eq_missing_field(self):
-        assert (
-            _match_condition({}, {"field": "country", "op": "eq", "value": "US"})
-            is False
-        )
+        assert _match_condition({}, {"field": "country", "op": "eq", "value": "US"}) is False
 
     def test_gte_match(self):
         assert (
-            _match_condition(
-                {"amount": 5000}, {"field": "amount", "op": "gte", "value": 1000}
-            )
+            _match_condition({"amount": 5000}, {"field": "amount", "op": "gte", "value": 1000})
             is True
         )
 
     def test_gte_equal(self):
         assert (
-            _match_condition(
-                {"amount": 1000}, {"field": "amount", "op": "gte", "value": 1000}
-            )
+            _match_condition({"amount": 1000}, {"field": "amount", "op": "gte", "value": 1000})
             is True
         )
 
     def test_gte_fail(self):
         assert (
-            _match_condition(
-                {"amount": 500}, {"field": "amount", "op": "gte", "value": 1000}
-            )
+            _match_condition({"amount": 500}, {"field": "amount", "op": "gte", "value": 1000})
             is False
         )
 
     def test_gte_none(self):
-        assert (
-            _match_condition({}, {"field": "amount", "op": "gte", "value": 1000})
-            is False
-        )
+        assert _match_condition({}, {"field": "amount", "op": "gte", "value": 1000}) is False
 
     def test_lte_match(self):
         assert (
-            _match_condition(
-                {"amount": 500}, {"field": "amount", "op": "lte", "value": 1000}
-            )
+            _match_condition({"amount": 500}, {"field": "amount", "op": "lte", "value": 1000})
             is True
         )
 
     def test_lte_fail(self):
         assert (
-            _match_condition(
-                {"amount": 5000}, {"field": "amount", "op": "lte", "value": 1000}
-            )
+            _match_condition({"amount": 5000}, {"field": "amount", "op": "lte", "value": 1000})
             is False
         )
 
@@ -148,9 +112,7 @@ class TestMatchCondition:
 
     def test_in_none_value(self):
         assert (
-            _match_condition(
-                {"country": "US"}, {"field": "country", "op": "in", "value": None}
-            )
+            _match_condition({"country": "US"}, {"field": "country", "op": "in", "value": None})
             is False
         )
 
@@ -173,34 +135,19 @@ class TestMatchCondition:
         )
 
     def test_is_true(self):
-        assert (
-            _match_condition({"is_vpn": True}, {"field": "is_vpn", "op": "is_true"})
-            is True
-        )
+        assert _match_condition({"is_vpn": True}, {"field": "is_vpn", "op": "is_true"}) is True
 
     def test_is_true_false_value(self):
-        assert (
-            _match_condition({"is_vpn": False}, {"field": "is_vpn", "op": "is_true"})
-            is False
-        )
+        assert _match_condition({"is_vpn": False}, {"field": "is_vpn", "op": "is_true"}) is False
 
     def test_is_true_truthy_not_bool(self):
-        assert (
-            _match_condition({"is_vpn": 1}, {"field": "is_vpn", "op": "is_true"})
-            is False
-        )
+        assert _match_condition({"is_vpn": 1}, {"field": "is_vpn", "op": "is_true"}) is False
 
     def test_is_false(self):
-        assert (
-            _match_condition({"is_vpn": False}, {"field": "is_vpn", "op": "is_false"})
-            is True
-        )
+        assert _match_condition({"is_vpn": False}, {"field": "is_vpn", "op": "is_false"}) is True
 
     def test_unknown_op(self):
-        assert (
-            _match_condition({"x": 1}, {"field": "x", "op": "magic", "value": 1})
-            is False
-        )
+        assert _match_condition({"x": 1}, {"field": "x", "op": "magic", "value": 1}) is False
 
     def test_missing_field_key(self):
         assert _match_condition({"x": 1}, {"op": "eq", "value": 1}) is False
@@ -352,9 +299,7 @@ class TestEvaluateJsonRules:
                 "tag_rules": [],
             }
         )
-        hits, tags, delta, _contributing = evaluate_json_rules(
-            {"amount": 6000, "is_vpn": True}, []
-        )
+        hits, tags, delta, _contributing = evaluate_json_rules({"amount": 6000, "is_vpn": True}, [])
         assert hits == ["combo"]
 
     def test_multi_condition_partial_match(self):
@@ -395,9 +340,7 @@ class TestEvaluateJsonRules:
                 ],
             }
         )
-        hits, tags, delta, _contributing = evaluate_json_rules(
-            {}, ["sdk:vpn", "sdk:emulator"]
-        )
+        hits, tags, delta, _contributing = evaluate_json_rules({}, ["sdk:vpn", "sdk:emulator"])
         assert hits == ["escalate_vpn"]
         assert tags == ["escalated"]
         assert delta == 10.0
@@ -447,9 +390,7 @@ class TestEvaluateJsonRules:
         self._load_pack(
             {
                 "version": 1,
-                "rules": [
-                    {"id": "bad_rule", "when": [], "tags": ["x"], "score_delta": 5}
-                ],
+                "rules": [{"id": "bad_rule", "when": [], "tags": ["x"], "score_delta": 5}],
                 "tag_rules": [],
             }
         )
@@ -477,9 +418,7 @@ class TestEvaluateJsonRules:
                 "tag_rules": [],
             }
         )
-        hits, tags, delta, _contributing = evaluate_json_rules(
-            {"is_bot": True, "is_vpn": True}, []
-        )
+        hits, tags, delta, _contributing = evaluate_json_rules({"is_bot": True, "is_vpn": True}, [])
         assert hits == ["r1", "r2"]
         assert sorted(tags) == ["bot", "vpn"]
         assert delta == 55.0

@@ -6,16 +6,17 @@ Create Date: 2026-05-09
 
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
+
 revision: str = "20260509_008"
-down_revision: Union[str, None] = "20260507_007"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "20260507_007"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -30,9 +31,7 @@ def upgrade() -> None:
         sa.Column("score", sa.Float(), nullable=False),
         sa.Column("tags", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("rule_hits", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column(
-            "payload_snapshot", postgresql.JSONB(astext_type=sa.Text()), nullable=True
-        ),
+        sa.Column("payload_snapshot", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -47,9 +46,7 @@ def upgrade() -> None:
             server_default="PENDING",
         ),
         sa.Column("sync_error", sa.Text(), nullable=True),
-        sa.Column(
-            "sync_failure_count", sa.Integer(), nullable=False, server_default="0"
-        ),
+        sa.Column("sync_failure_count", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("sync_next_retry_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -86,8 +83,6 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_inference_logs_trace_id"), table_name="inference_logs")
     op.drop_index(op.f("ix_inference_logs_tenant_id"), table_name="inference_logs")
     op.drop_index(op.f("ix_inference_logs_sync_status"), table_name="inference_logs")
-    op.drop_index(
-        op.f("ix_inference_logs_sync_next_retry_at"), table_name="inference_logs"
-    )
+    op.drop_index(op.f("ix_inference_logs_sync_next_retry_at"), table_name="inference_logs")
     op.drop_index(op.f("ix_inference_logs_entity_id"), table_name="inference_logs")
     op.drop_table("inference_logs")

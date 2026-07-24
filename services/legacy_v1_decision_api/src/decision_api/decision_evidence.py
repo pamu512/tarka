@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from decision_api.json_rules import get_json_rule_engine_metadata
@@ -20,7 +20,7 @@ def build_decision_evidence_snapshot(
     """Immutable evidence fields for ``payload_snapshot.decision_evidence``."""
     features = feature_map if isinstance(feature_map, dict) else {}
     return {
-        "evaluated_at": datetime.now(timezone.utc).isoformat(),
+        "evaluated_at": datetime.now(UTC).isoformat(),
         "feature_map": features,
         "rule_pack_content_sha256": rule_pack_content_sha256,
         "rule_pack_files": sorted(str(x) for x in rule_pack_files if str(x).strip()),
