@@ -49,6 +49,9 @@ _PHONE_VALUE = re.compile(
     r"(?:\+?\d[\s().-]*){7,15}(?!\w)",
     re.IGNORECASE,
 )
+_DOMESTIC_PHONE_VALUE = re.compile(
+    r"(?<!\d)(?:\+?1[\s.-]?)?(?:\(\d{3}\)|\d{3})[\s.-]\d{3}[\s.-]\d{4}(?!\d)"
+)
 _INTERNATIONAL_PHONE_VALUE = re.compile(r"(?<!\w)\+\d(?:[\s().-]*\d){7,14}(?!\w)")
 _ACCOUNT_VALUE = re.compile(
     r"\b(?:account|acct|card|routing|payment)\s*(?:number|no\.?|#|id)\s*"
@@ -80,6 +83,41 @@ _PERSON_NAME_VALUE = re.compile(
     r"\b(?:person|customer|cardholder|applicant|beneficiary|full\s+name|name)"
     r"\s*(?:name)?\s*[:=-]\s*[A-Z][A-Za-z'-]{1,30}"
     r"(?:\s+[A-Z][A-Za-z'-]{1,30}){1,3}\b"
+)
+_TWO_TOKEN_NAME_VALUE = re.compile(
+    r"\b([A-Z][a-z][A-Za-z'-]{1,29})\s+([A-Z][a-z][A-Za-z'-]{1,29})\b"
+)
+_FRAUD_DOMAIN_NAME_TOKENS = frozenset(
+    {
+        "account",
+        "amount",
+        "anomaly",
+        "approved",
+        "card",
+        "case",
+        "chargeback",
+        "confirmed",
+        "customer",
+        "device",
+        "fraud",
+        "friendly",
+        "high",
+        "investigation",
+        "landmark",
+        "manual",
+        "network",
+        "payment",
+        "policy",
+        "profile",
+        "review",
+        "reviewed",
+        "risk",
+        "rule",
+        "sanitized",
+        "takeover",
+        "transaction",
+        "velocity",
+    }
 )
 _SOURCE_MANIFEST_NAME = "source-manifest.json"
 _SOURCE_MANIFEST_SCHEMA = "tarka.okf_source_manifest/v1"
@@ -398,6 +436,7 @@ def _pii_kind(value: str) -> str | None:
     for kind, pattern in (
         ("email", _EMAIL_VALUE),
         ("phone", _PHONE_VALUE),
+        ("phone", _DOMESTIC_PHONE_VALUE),
         ("phone", _INTERNATIONAL_PHONE_VALUE),
         ("account", _ACCOUNT_VALUE),
         ("account", _IBAN_VALUE),
@@ -408,6 +447,10 @@ def _pii_kind(value: str) -> str | None:
     ):
         if pattern.search(value):
             return kind
+    for match in _TWO_TOKEN_NAME_VALUE.finditer(value):
+        tokens = {match.group(1).casefold(), match.group(2).casefold()}
+        if tokens.isdisjoint(_FRAUD_DOMAIN_NAME_TOKENS):
+            return "person_name"
     if _contains_ip_address(value):
         return "ip_address"
     if any(_luhn_valid(match.group(0)) for match in _CARD_VALUE.finditer(value)):
@@ -492,6 +535,50 @@ def export_landmark_case(case: dict[str, Any], *, tenant_id: str) -> str:
         "evidence_ids": [str(x).strip() for x in evidence_ids if str(x).strip()],
     }
     return render_concept(frontmatter, "\n".join(body_lines).strip())
+
+
+def export_landmark_case_bundle(
+    case: dict[str, Any],
+    *,
+    tenant_id: str,
+) -> dict[str, str]:
+    """Export a landmark concept with canonical snapshot and source manifest."""
+    if not isinstance(case, dict):
+        raise LandmarkCaseSanitizationError("landmark case must be an object")
+    tenant = str(tenant_id).strip()
+    if not _CASE_ID.fullmatch(tenant):
+        raise LandmarkCaseSanitizationError("tenant_id must be a safe opaque identifier")
+
+    candidate = dict(case)
+    candidate["source_content_hash"] = "0" * 64
+    export_landmark_case(candidate, tenant_id=tenant)
+
+    record: dict[str, Any] = {}
+    for key in sorted(set(case) - {"source_content_hash"}):
+        raw = case[key]
+        if key in {"typology_ids", "rule_ids", "evidence_ids"}:
+            if not isinstance(raw, list | tuple):
+                raise LandmarkCaseSanitizationError(f"{key} must be a list")
+            record[key] = sorted({str(item).strip() for item in raw if str(item).strip()})
+        elif isinstance(raw, str):
+            record[key] = raw.strip()
+        else:
+            record[key] = raw
+
+    case_id = str(record["case_id"])
+    source_uri = f"landmark-cases/{case_id}"
+    snapshot_path, snapshot_content, source_hash = _source_snapshot(source_uri, record)
+    concept_path = f"landmark-cases/{case_id}.md"
+    concept = export_landmark_case(
+        {**record, "source_content_hash": source_hash},
+        tenant_id=tenant,
+    )
+    files = {
+        concept_path: concept,
+        snapshot_path: snapshot_content,
+    }
+    files[_SOURCE_MANIFEST_NAME] = render_source_manifest(files)
+    return files
 
 
 def assert_staging_output_path(output: Path, *, repo_root: Path) -> None:

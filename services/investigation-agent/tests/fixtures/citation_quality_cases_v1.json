@@ -1,0 +1,154 @@
+{
+  "schema_id": "tarka.citation_quality_cases/v1",
+  "tool_calls": [
+    {
+      "tool": "search_knowledge",
+      "args": {"query": "high amount"},
+      "result": {
+        "hits": [
+          {
+            "concept_id": "rules/high-amount",
+            "evidence_ids": ["ev-high"],
+            "title": "High Amount Rule",
+            "snippet": "High amount transactions require manual review."
+          }
+        ],
+        "abstain": false,
+        "conflicts": []
+      }
+    },
+    {
+      "tool": "search_knowledge",
+      "args": {"query": "mule network"},
+      "result": {
+        "hits": [
+          {
+            "concept_id": "typologies/mule-network",
+            "evidence_ids": ["ev-mule"],
+            "title": "Mule Network Typology",
+            "snippet": "Linked beneficiary accounts indicate mule network activity."
+          }
+        ],
+        "abstain": false,
+        "conflicts": []
+      }
+    }
+  ],
+  "cases": [
+    {
+      "name": "correct_exact_ids",
+      "claim": {
+        "text": "High amount transactions require manual review.",
+        "source": "tool",
+        "supporting_tool_call_indices": [0],
+        "concept_ids": ["rules/high-amount"],
+        "evidence_ids": ["ev-high"]
+      },
+      "expected_supported": true,
+      "expected_refs": [
+        ["okf_concept", "rules/high-amount"],
+        ["evidence", "ev-high"]
+      ]
+    },
+    {
+      "name": "fabricated_ids_1",
+      "claim": {"text": "High amount transactions require manual review.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["rules/high-amount-v2"], "evidence_ids": ["ev-high-v2"]},
+      "expected_supported": false
+    },
+    {
+      "name": "fabricated_ids_2",
+      "claim": {"text": "Manual review is required for high amount transactions.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["rules/high-amount-copy"], "evidence_ids": ["ev-high-copy"]},
+      "expected_supported": false
+    },
+    {
+      "name": "fabricated_ids_3",
+      "claim": {"text": "High amount activity requires manual review.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["rules/high-amount-draft"], "evidence_ids": ["ev-high-draft"]},
+      "expected_supported": false
+    },
+    {
+      "name": "fabricated_ids_4",
+      "claim": {"text": "Review high amount transactions manually.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["rules/high-amount-fake"], "evidence_ids": ["ev-high-fake"]},
+      "expected_supported": false
+    },
+    {
+      "name": "nonexistent_ids_1",
+      "claim": {"text": "High amount transactions require manual review.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["missing/concept-1"], "evidence_ids": ["missing-evidence-1"]},
+      "expected_supported": false
+    },
+    {
+      "name": "nonexistent_ids_2",
+      "claim": {"text": "Manual review is required for high amount transactions.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["missing/concept-2"], "evidence_ids": ["missing-evidence-2"]},
+      "expected_supported": false
+    },
+    {
+      "name": "nonexistent_ids_3",
+      "claim": {"text": "High amount activity requires manual review.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["missing/concept-3"], "evidence_ids": ["missing-evidence-3"]},
+      "expected_supported": false
+    },
+    {
+      "name": "nonexistent_ids_4",
+      "claim": {"text": "Review high amount transactions manually.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["missing/concept-4"], "evidence_ids": ["missing-evidence-4"]},
+      "expected_supported": false
+    },
+    {
+      "name": "unrelated_valid_ids_1",
+      "claim": {"text": "High amount transactions require manual review.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["typologies/mule-network"], "evidence_ids": ["ev-mule"]},
+      "expected_supported": false
+    },
+    {
+      "name": "unrelated_valid_ids_2",
+      "claim": {"text": "Manual review is required for high amount transactions.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["typologies/mule-network"], "evidence_ids": ["ev-mule"]},
+      "expected_supported": false
+    },
+    {
+      "name": "unrelated_valid_ids_3",
+      "claim": {"text": "High amount activity requires manual review.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["typologies/mule-network"], "evidence_ids": ["ev-mule"]},
+      "expected_supported": false
+    },
+    {
+      "name": "unrelated_valid_ids_4",
+      "claim": {"text": "Review high amount transactions manually.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["typologies/mule-network"], "evidence_ids": ["ev-mule"]},
+      "expected_supported": false
+    },
+    {
+      "name": "omitted_ids_1",
+      "claim": {"text": "High amount transactions require manual review.", "source": "tool", "supporting_tool_call_indices": [0]},
+      "expected_supported": false
+    },
+    {
+      "name": "omitted_ids_2",
+      "claim": {"text": "Manual review is required for high amount transactions.", "source": "tool", "supporting_tool_call_indices": [0]},
+      "expected_supported": false
+    },
+    {
+      "name": "omitted_ids_3",
+      "claim": {"text": "High amount activity requires manual review.", "source": "tool", "supporting_tool_call_indices": [0]},
+      "expected_supported": false
+    },
+    {
+      "name": "omitted_ids_4",
+      "claim": {"text": "Review high amount transactions manually.", "source": "tool", "supporting_tool_call_indices": [0]},
+      "expected_supported": false
+    },
+    {
+      "name": "omitted_index_1",
+      "claim": {"text": "High amount transactions require manual review.", "source": "tool", "concept_ids": ["rules/high-amount"], "evidence_ids": ["ev-high"]},
+      "expected_supported": false
+    },
+    {
+      "name": "omitted_index_2",
+      "claim": {"text": "Manual review is required for high amount transactions.", "source": "tool", "concept_ids": ["rules/high-amount"], "evidence_ids": ["ev-high"]},
+      "expected_supported": false
+    },
+    {
+      "name": "omitted_index_3",
+      "claim": {"text": "High amount activity requires manual review.", "source": "tool", "concept_ids": ["rules/high-amount"], "evidence_ids": ["ev-high"]},
+      "expected_supported": false
+    },
+    {
+      "name": "omitted_index_4",
+      "claim": {"text": "Review high amount transactions manually.", "source": "tool", "concept_ids": ["rules/high-amount"], "evidence_ids": ["ev-high"]},
+      "expected_supported": false
+    }
+  ]
+}

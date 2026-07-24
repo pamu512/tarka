@@ -1,5 +1,6 @@
 """Production profile validation, readiness, and request guards."""
 
+from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -167,6 +168,33 @@ def test_unauthenticated_readiness_never_leaks_paths_or_raw_errors(monkeypatch):
     assert secret_path not in public_payload
     assert "deadbeef" not in public_payload
     assert "source hash" not in public_payload
+
+
+def test_openapi_ready_contract_covers_degraded_and_sanitized_failures():
+    import yaml
+
+    contract = yaml.safe_load(
+        (
+            Path(__file__).resolve().parents[3]
+            / "contracts"
+            / "openapi"
+            / "investigation-agent.yaml"
+        ).read_text(encoding="utf-8")
+    )
+    responses = contract["paths"]["/v1/ready"]["get"]["responses"]
+    ok_schema = responses["200"]["content"]["application/json"]["schema"]
+    unavailable_schema = responses["503"]["content"]["application/json"]["schema"]
+
+    assert set(ok_schema["properties"]["status"]["enum"]) == {"ready", "degraded"}
+    assert set(ok_schema["properties"]["warnings"]["items"]["enum"]) == {
+        "rag_unavailable",
+        "okf_unavailable",
+    }
+    assert set(unavailable_schema["properties"]["errors"]["items"]["enum"]) == {
+        "rag_unavailable",
+        "okf_unavailable",
+        "okf_disabled",
+    }
 
 
 def test_request_body_too_large_413():

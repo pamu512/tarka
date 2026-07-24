@@ -17,6 +17,7 @@ from investigation_agent.okf_exporters import (
     assert_staging_output_path,
     collect_shared_exports,
     export_landmark_case,
+    export_landmark_case_bundle,
     export_playbooks,
     export_rule_pack,
     export_typologies,
@@ -250,6 +251,130 @@ def test_landmark_case_allows_normal_fraud_terminology():
     )
 
     assert "Account takeover velocity review" in md
+
+
+def test_landmark_case_rejects_unlabeled_domestic_phone():
+    with pytest.raises(LandmarkCaseSanitizationError, match="phone"):
+        export_landmark_case(
+            {
+                "case_id": "case-opaque-19",
+                "title": "Reviewed case",
+                "summary": "Escalate to 415-555-0199 before disposition.",
+                "source_content_hash": "e" * 64,
+            },
+            tenant_id="t1",
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("title", "Jane Example"),
+        ("summary", "Reviewed by Jane Example"),
+        ("lessons", "Jane Example confirmed the pattern"),
+        ("evidence_ids", ["Jane Example"]),
+    ],
+)
+def test_landmark_case_rejects_likely_unlabeled_person_names(field, value):
+    case = {
+        "case_id": "case-opaque-20",
+        "title": "Reviewed case",
+        "summary": "Sanitized summary.",
+        "lessons": "Sanitized lesson.",
+        "source_content_hash": "f" * 64,
+    }
+    case[field] = value
+
+    with pytest.raises(LandmarkCaseSanitizationError, match="person_name"):
+        export_landmark_case(case, tenant_id="t1")
+
+
+def test_landmark_case_person_name_allowlist_keeps_fraud_domain_phrases():
+    md = export_landmark_case(
+        {
+            "case_id": "case-opaque-21",
+            "title": "Friendly Fraud",
+            "summary": "High Amount review with Account Takeover indicators.",
+            "lessons": "Payment Fraud controls require Manual Review.",
+            "source_content_hash": "a" * 64,
+        },
+        tenant_id="t1",
+    )
+
+    assert "Friendly Fraud" in md
+    assert "High Amount" in md
+
+
+def _write_exported_landmark(root: Path, files: dict[str, str]) -> None:
+    for rel_path, content in files.items():
+        path = root / rel_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if rel_path.endswith(".md"):
+            content = content.replace("approval_status: proposed", "approval_status: approved")
+        path.write_text(content, encoding="utf-8")
+
+
+def test_complete_landmark_export_has_independent_validated_provenance(tmp_path):
+    from investigation_agent.okf_parser import validate_bundle
+
+    files = export_landmark_case_bundle(
+        {
+            "case_id": "case-opaque-22",
+            "title": "High Amount Review",
+            "summary": "Sanitized transaction pattern.",
+            "lessons": "Manual Review remains required.",
+            "disposition": "confirmed_fraud",
+            "evidence_ids": ["ev-pseudonymous-22"],
+            "approved_revision": "rev-22",
+        },
+        tenant_id="t1",
+    )
+    manifest = json.loads(files["source-manifest.json"])
+    entry = manifest["sources"]["landmark-cases/case-opaque-22"]
+    snapshot_path = entry["snapshot_path"]
+    snapshot = files[snapshot_path]
+    concept = files["landmark-cases/case-opaque-22.md"]
+
+    assert hashlib.sha256(snapshot.encode("utf-8")).hexdigest() == entry["source_content_hash"]
+    assert _frontmatter(concept)["source_content_hash"] == entry["source_content_hash"]
+    assert json.loads(snapshot)["record"]["summary"] == "Sanitized transaction pattern."
+
+    root = tmp_path / "t1"
+    _write_exported_landmark(root, files)
+    result = validate_bundle(root, scope="tenant", tenant_id="t1")
+    assert result.valid is True, result.issues
+
+
+@pytest.mark.parametrize("mutation", ["tamper", "missing"])
+def test_complete_landmark_export_rejects_tampered_or_missing_snapshot(tmp_path, mutation):
+    from investigation_agent.okf_parser import validate_bundle
+
+    files = export_landmark_case_bundle(
+        {
+            "case_id": "case-opaque-23",
+            "title": "Reviewed case",
+            "summary": "Sanitized pattern.",
+            "lessons": "Manual Review.",
+            "approved_revision": "rev-23",
+        },
+        tenant_id="t1",
+    )
+    manifest = json.loads(files["source-manifest.json"])
+    snapshot_path = manifest["sources"]["landmark-cases/case-opaque-23"]["snapshot_path"]
+    root = tmp_path / mutation / "t1"
+    _write_exported_landmark(root, files)
+    snapshot = root / snapshot_path
+    if mutation == "tamper":
+        snapshot.write_text(snapshot.read_text(encoding="utf-8") + " ", encoding="utf-8")
+    else:
+        snapshot.unlink()
+
+    result = validate_bundle(root, scope="tenant", tenant_id="t1")
+
+    assert result.valid is False
+    assert {"source_snapshot_hash_mismatch", "source_snapshot_missing"} & {
+        issue.code for issue in result.issues
+    }
 
 
 def test_merge_export_files_raises_on_duplicate_paths():
