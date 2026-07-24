@@ -10,11 +10,19 @@ import uuid
 from typing import Any
 
 from investigation_agent import embeddings as emb_mod
+from investigation_agent.okf_models import OkfConcept, ParsedBundle
 
 """
 SQLite-backed investigation memos with optional embedding vectors (RAG).
 Hybrid retrieval: cosine similarity + keyword overlap when embeddings exist.
 """
+_OKF_ANALYST_ID = "__okf__"
+_SHARED_TENANT_ID = "__shared__"
+_OKF_KIND = "okf"
+_MEMO_KIND = "memo"
+_AUTHORITY_MEMO = 10
+_AUTHORITY_SHARED_OKF = 20
+_AUTHORITY_TENANT_OKF = 30
 _MAX_DOCS_PER_SCOPE = 80
 _MAX_DOC_CHARS = 120_000
 _MAX_CHUNK = 1800
@@ -79,6 +87,7 @@ def _init_schema(c: sqlite3.Connection) -> None:
         )
         """
     )
+    _migrate_schema(c)
     c.execute(
         "CREATE INDEX IF NOT EXISTS idx_knowledge_scope ON knowledge_chunks (tenant_id, analyst_id, created_at)"
     )
@@ -86,6 +95,27 @@ def _init_schema(c: sqlite3.Connection) -> None:
         "CREATE INDEX IF NOT EXISTS idx_knowledge_doc ON knowledge_chunks (tenant_id, analyst_id, doc_id)"
     )
     c.commit()
+
+
+def _migrate_schema(c: sqlite3.Connection) -> None:
+    cols = {row[1] for row in c.execute("PRAGMA table_info(knowledge_chunks)")}
+    additions = [
+        ("knowledge_kind", "TEXT NOT NULL DEFAULT 'memo'"),
+        ("concept_id", "TEXT"),
+        ("bundle_scope", "TEXT"),
+        ("content_hash", "TEXT"),
+        ("source_uri", "TEXT"),
+        ("authority", "INTEGER NOT NULL DEFAULT 10"),
+    ]
+    for name, typedef in additions:
+        if name not in cols:
+            c.execute(f"ALTER TABLE knowledge_chunks ADD COLUMN {name} {typedef}")
+    c.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_knowledge_okf_concept
+        ON knowledge_chunks (tenant_id, knowledge_kind, concept_id, chunk_index)
+        """
+    )
 
 
 def reset_connection_for_tests() -> None:
@@ -139,26 +169,32 @@ def _trim_docs(c: sqlite3.Connection, tenant_id: str, analyst_id: str) -> None:
         """
         SELECT doc_id, MIN(created_at) AS t
         FROM knowledge_chunks
-        WHERE tenant_id = ? AND analyst_id = ?
+        WHERE tenant_id = ? AND analyst_id = ? AND knowledge_kind = ?
         GROUP BY doc_id
         ORDER BY t ASC
         """,
-        (tenant_id, analyst_id),
+        (tenant_id, analyst_id, _MEMO_KIND),
     ).fetchall()
     if len(rows) <= _MAX_DOCS_PER_SCOPE:
         return
     drop = [r[0] for r in rows[: max(0, len(rows) - _MAX_DOCS_PER_SCOPE)]]
     for did in drop:
         c.execute(
-            "DELETE FROM knowledge_chunks WHERE tenant_id = ? AND analyst_id = ? AND doc_id = ?",
-            (tenant_id, analyst_id, did),
+            """
+            DELETE FROM knowledge_chunks
+            WHERE tenant_id = ? AND analyst_id = ? AND doc_id = ? AND knowledge_kind = ?
+            """,
+            (tenant_id, analyst_id, did, _MEMO_KIND),
         )
 
 
 def _prune_expired(c: sqlite3.Connection, tenant_id: str, analyst_id: str, cutoff: float) -> None:
     c.execute(
-        "DELETE FROM knowledge_chunks WHERE tenant_id = ? AND analyst_id = ? AND created_at < ?",
-        (tenant_id, analyst_id, cutoff),
+        """
+        DELETE FROM knowledge_chunks
+        WHERE tenant_id = ? AND analyst_id = ? AND knowledge_kind = ? AND created_at < ?
+        """,
+        (tenant_id, analyst_id, _MEMO_KIND, cutoff),
     )
 
 
@@ -217,10 +253,24 @@ def ingest_chunks_sync(
             c.execute(
                 """
                 INSERT INTO knowledge_chunks
-                (chunk_id, tenant_id, analyst_id, doc_id, chunk_index, title, text, embedding_json, embedding_model, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (chunk_id, tenant_id, analyst_id, doc_id, chunk_index, title, text,
+                 embedding_json, embedding_model, created_at, knowledge_kind, authority)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (cid, tenant_id, analyst_id, doc_id, i, title, ch, ej, embedding_model, now),
+                (
+                    cid,
+                    tenant_id,
+                    analyst_id,
+                    doc_id,
+                    i,
+                    title,
+                    ch,
+                    ej,
+                    embedding_model,
+                    now,
+                    _MEMO_KIND,
+                    _AUTHORITY_MEMO,
+                ),
             )
         _trim_docs(c, tenant_id, analyst_id)
         c.commit()
@@ -280,9 +330,9 @@ def count_docs(tenant_id: str, analyst_id: str) -> int:
     row = c.execute(
         """
         SELECT COUNT(DISTINCT doc_id) FROM knowledge_chunks
-        WHERE tenant_id = ? AND analyst_id = ? AND created_at >= ?
+        WHERE tenant_id = ? AND analyst_id = ? AND knowledge_kind = ? AND created_at >= ?
         """,
-        (tenant_id, analyst_id, cutoff),
+        (tenant_id, analyst_id, _MEMO_KIND, cutoff),
     ).fetchone()
     return int(row[0] or 0) if row else 0
 
@@ -323,16 +373,45 @@ def _search_hybrid(
     c = _get_conn()
     rows = c.execute(
         """
-        SELECT doc_id, chunk_index, title, text, embedding_json
+        SELECT doc_id, chunk_index, title, text, embedding_json,
+               knowledge_kind, concept_id, bundle_scope, content_hash, source_uri, authority
         FROM knowledge_chunks
-        WHERE tenant_id = ? AND analyst_id = ? AND created_at >= ?
+        WHERE (
+          (tenant_id = ? AND analyst_id = ? AND knowledge_kind = ? AND created_at >= ?)
+          OR (tenant_id = ? AND analyst_id = ? AND knowledge_kind = ?)
+          OR (tenant_id = ? AND analyst_id = ? AND knowledge_kind = ?)
+        )
         ORDER BY created_at DESC
         LIMIT ?
         """,
-        (tenant_id, analyst_id, cutoff, _MAX_CHUNKS_SCAN),
+        (
+            tenant_id,
+            analyst_id,
+            _MEMO_KIND,
+            cutoff,
+            tenant_id,
+            _OKF_ANALYST_ID,
+            _OKF_KIND,
+            _SHARED_TENANT_ID,
+            _OKF_ANALYST_ID,
+            _OKF_KIND,
+            _MAX_CHUNKS_SCAN,
+        ),
     ).fetchall()
     scored: list[tuple[float, dict[str, Any]]] = []
-    for doc_id, chunk_index, title, text, ej in rows:
+    for (
+        doc_id,
+        chunk_index,
+        title,
+        text,
+        ej,
+        knowledge_kind,
+        concept_id,
+        bundle_scope,
+        content_hash,
+        source_uri,
+        authority,
+    ) in rows:
         kw = _keyword_score(text, q)
         sem = 0.0
         if query_embedding and ej:
@@ -362,6 +441,12 @@ def _search_hybrid(
                     "score": round(combined, 4),
                     "semantic_score": round(sem, 4) if sem else None,
                     "keyword_hits": int(kw) if kw else None,
+                    "knowledge_kind": knowledge_kind or _MEMO_KIND,
+                    "concept_id": concept_id,
+                    "bundle_scope": bundle_scope,
+                    "content_hash": content_hash,
+                    "source_uri": source_uri,
+                    "authority": int(authority) if authority is not None else _AUTHORITY_MEMO,
                 },
             ),
         )
@@ -409,3 +494,137 @@ async def search_async(
         hybrid_keyword_weight=keyword_weight,
     )
     return {"hits": hits, "query": query.strip()[:512], "retrieval_mode": mode}
+
+
+def _okf_tenant_for_bundle(bundle: ParsedBundle) -> tuple[str, int]:
+    if bundle.scope == "shared":
+        return _SHARED_TENANT_ID, _AUTHORITY_SHARED_OKF
+    tenant_id = (bundle.tenant_id or bundle.scope or "").strip()
+    if not tenant_id:
+        raise ValueError("tenant bundle requires tenant_id")
+    return tenant_id, _AUTHORITY_TENANT_OKF
+
+
+def _okf_index_text(concept: OkfConcept) -> str:
+    parts = [concept.title]
+    if concept.description:
+        parts.append(concept.description)
+    if concept.tags:
+        parts.append("Tags: " + ", ".join(concept.tags))
+    if concept.body:
+        parts.append(concept.body)
+    return "\n\n".join(parts)
+
+
+def index_okf_concepts_sync(
+    bundle: ParsedBundle,
+    *,
+    embeddings: list[list[float]] | None = None,
+    embedding_model: str | None = None,
+) -> int:
+    """Index approved concepts from a parsed bundle; returns count of concepts indexed."""
+    tenant_id, authority = _okf_tenant_for_bundle(bundle)
+    analyst_id = _OKF_ANALYST_ID
+    bundle_scope = bundle.scope
+    indexed = 0
+    now = time.time()
+    c = _get_conn()
+    with _lock:
+        for concept_id, concept in bundle.concepts.items():
+            if concept.approval_status != "approved":
+                continue
+            row = c.execute(
+                """
+                SELECT content_hash FROM knowledge_chunks
+                WHERE tenant_id = ? AND analyst_id = ? AND knowledge_kind = ? AND concept_id = ?
+                LIMIT 1
+                """,
+                (tenant_id, analyst_id, _OKF_KIND, concept_id),
+            ).fetchone()
+            if row and row[0] == concept.content_hash:
+                continue
+            c.execute(
+                """
+                DELETE FROM knowledge_chunks
+                WHERE tenant_id = ? AND analyst_id = ? AND knowledge_kind = ? AND concept_id = ?
+                """,
+                (tenant_id, analyst_id, _OKF_KIND, concept_id),
+            )
+            text = _okf_index_text(concept)
+            chunks = _chunk_text(text) or [concept.title]
+            if embeddings is not None and len(embeddings) != len(chunks):
+                raise ValueError("embeddings length must match chunk count")
+            for i, ch in enumerate(chunks):
+                cid = f"okf:{tenant_id}:{concept_id}:{i}"
+                ej = json.dumps(embeddings[i]) if embeddings is not None else None
+                c.execute(
+                    """
+                    INSERT INTO knowledge_chunks
+                    (chunk_id, tenant_id, analyst_id, doc_id, chunk_index, title, text,
+                     embedding_json, embedding_model, created_at, knowledge_kind, concept_id,
+                     bundle_scope, content_hash, source_uri, authority)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        cid,
+                        tenant_id,
+                        analyst_id,
+                        concept_id,
+                        i,
+                        concept.title[:256],
+                        ch,
+                        ej,
+                        embedding_model,
+                        now,
+                        _OKF_KIND,
+                        concept_id,
+                        bundle_scope,
+                        concept.content_hash,
+                        concept.source_uri,
+                        authority,
+                    ),
+                )
+            indexed += 1
+        c.commit()
+    return indexed
+
+
+async def index_okf_bundle_async(
+    http: Any,
+    bundle: ParsedBundle,
+    *,
+    use_embeddings: bool,
+    api_key: str,
+    base_url: str,
+    embed_model: str,
+) -> int:
+    total = 0
+    for concept in bundle.concepts.values():
+        text = _okf_index_text(concept)
+        chunks = _chunk_text(text) or [concept.title]
+        vecs: list[list[float]] | None = None
+        model: str | None = None
+        if use_embeddings and api_key:
+            try:
+                vecs = await emb_mod.embed_texts(
+                    http,
+                    api_key=api_key,
+                    base_url=base_url,
+                    model=embed_model,
+                    texts=chunks,
+                )
+                model = embed_model
+            except Exception:
+                vecs = None
+                model = None
+        sub = ParsedBundle(
+            root=bundle.root,
+            scope=bundle.scope,
+            tenant_id=bundle.tenant_id,
+            revision=bundle.revision,
+            concepts={concept.concept_id: concept},
+        )
+        total += index_okf_concepts_sync(
+            sub, embeddings=vecs, embedding_model=model
+        )
+    return total
