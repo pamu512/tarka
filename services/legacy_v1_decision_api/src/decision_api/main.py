@@ -929,9 +929,17 @@ def _build_artifact_manifest(
     graph_checkpoint: str | None,
     external_signal_meta: dict[str, Any] | None,
     challenge_policy_id: str | None,
+    rule_pack_content_sha256: str = "",
 ) -> dict[str, Any]:
-    rule_pack_joined = ",".join(
-        sorted(str(x).strip() for x in json_rule_pack_files if str(x).strip())
+    from decision_api.json_rules import _cached_packs
+    from decision_api.rule_content_identity import (
+        contributing_packs_content_sha256,
+        engine_build_identity,
+    )
+
+    content_fp = (rule_pack_content_sha256 or "").strip() or contributing_packs_content_sha256(
+        list(_cached_packs),
+        list(json_rule_pack_files),
     )
     return {
         "decision_api_revision": (
@@ -941,11 +949,8 @@ def _build_artifact_manifest(
         "rule_pack_files": sorted(
             str(x).strip() for x in json_rule_pack_files if str(x).strip()
         ),
-        "rule_pack_fingerprint_sha256": hashlib.sha256(
-            rule_pack_joined.encode("utf-8")
-        ).hexdigest()
-        if rule_pack_joined
-        else "",
+        "rule_pack_fingerprint_sha256": content_fp,
+        "rule_pack_content_sha256": content_fp,
         "score_blend_strategy": settings.score_blend_strategy,
         "counter_version": _audit_counter_version_label(),
         "ml_model": str(inf_ctx.get("ml_model") or ""),
@@ -956,6 +961,7 @@ def _build_artifact_manifest(
         "external_signal_providers": list(
             (external_signal_meta or {}).get("providers") or []
         ),
+        "engine_build": engine_build_identity(),
     }
 
 
@@ -3268,6 +3274,24 @@ async def evaluate_decision(
         if _eb_snap:
             snap_extra["etl_batch_id"] = _eb_snap
 
+        from decision_api.decision_evidence import build_decision_evidence_snapshot
+        from decision_api.json_rules import _cached_packs
+        from decision_api.rule_content_identity import contributing_packs_content_sha256
+
+        _rule_content_fp = contributing_packs_content_sha256(
+            list(_cached_packs), list(json_rule_pack_files)
+        )
+        snap_extra["rule_pack_content_sha256"] = _rule_content_fp
+        snap_extra["decision_evidence"] = build_decision_evidence_snapshot(
+            feature_map=features if isinstance(features, dict) else {},
+            rule_pack_content_sha256=_rule_content_fp,
+            rule_pack_files=list(json_rule_pack_files),
+            condition_trace=list(step_trace),
+            external_signal_meta=external_signal_meta
+            if isinstance(external_signal_meta, dict)
+            else None,
+        )
+
         snap_extra["decision_status"] = runtime_decision_status
         snap_extra["signal_availability_notes"] = signal_notes
 
@@ -3323,6 +3347,7 @@ async def evaluate_decision(
                 if isinstance(external_signal_meta, dict)
                 else None,
                 challenge_policy_id=ch_meta.get("policy_id"),
+                rule_pack_content_sha256=_rule_content_fp,
             ),
         )
         bg.add_task(emit_decision_log, decision_log_record)

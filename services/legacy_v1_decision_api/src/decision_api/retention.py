@@ -14,8 +14,34 @@ log = logging.getLogger("decision-api.retention")
 DEFAULT_RETENTION_DAYS = int(os.environ.get("AUDIT_RETENTION_DAYS", "365"))
 
 
+def _legal_hold_active() -> bool:
+    return os.environ.get("AUDIT_LEGAL_HOLD", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _immutable_audits_enabled() -> bool:
+    # Default on: decision audits are append-only evidence unless explicitly disabled for demos.
+    raw = os.environ.get("AUDIT_IMMUTABLE", "true").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
 async def cleanup_old_audits(retention_days: int = DEFAULT_RETENTION_DAYS) -> int:
-    """Delete audit records older than retention_days. Returns count deleted."""
+    """Delete audit records older than retention_days. Returns count deleted.
+
+    Skips deletion when legal hold is active or immutable audit mode is enabled (default).
+    """
+    if _legal_hold_active() or _immutable_audits_enabled():
+        log.info(
+            "Skipping audit retention cleanup (legal_hold=%s immutable=%s)",
+            _legal_hold_active(),
+            _immutable_audits_enabled(),
+        )
+        return 0
+
     cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
     from decision_api.models import AuditRecord
 
