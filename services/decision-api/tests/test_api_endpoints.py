@@ -14,6 +14,7 @@ import httpx
 @pytest.fixture(autouse=True)
 def _patch_env(monkeypatch):
     monkeypatch.setenv("API_KEYS", "test-key")
+    monkeypatch.setenv("API_KEY_TENANT_MAP", '{"test-key":["t1"]}')
     monkeypatch.delenv("ALLOW_INSECURE_NO_AUTH", raising=False)
     monkeypatch.setenv("DATABASE_URL", "sqlite+aiosqlite:///")
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
@@ -22,18 +23,25 @@ def _patch_env(monkeypatch):
 
 
 @pytest.fixture
-async def client():
+async def client(monkeypatch):
     with patch("decision_api.main.init_db", new_callable=AsyncMock):
         with patch("decision_api.main.redis_tags") as mock_redis:
             mock_redis.connect = AsyncMock()
             mock_redis.close = AsyncMock()
             mock_redis._client = MagicMock()
+            mock_redis._client.set = AsyncMock(return_value=True)
+            mock_redis._client.get = AsyncMock(return_value=None)
+            mock_redis._client.eval = AsyncMock(return_value=1)
             mock_redis.get_tags = AsyncMock(return_value=[])
             mock_redis.merge_tags = AsyncMock(return_value=["sdk:vpn"])
             mock_redis.set_cached_score = AsyncMock()
             mock_redis.store_nonce = AsyncMock()
             mock_redis.consume_nonce = AsyncMock(return_value=True)
             mock_redis.check_and_store_replay_signature = AsyncMock(return_value=False)
+            mock_redis.get_tenant_flags = AsyncMock(return_value={})
+            monkeypatch.setattr(
+                "decision_api.evaluate_idempotency.redis_tags", mock_redis
+            )
 
             with patch("decision_api.main.load_rules"):
                 with patch("decision_api.main.agg_store") as mock_agg:
@@ -179,6 +187,69 @@ class TestEvaluateDecision:
                     assert snap0.get("counter_version") == "default"
                     assert snap0.get("rule_pack_file") == ""
                     assert "ml_model" in snap0
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("list_type", "action", "expected_decision"),
+        [
+            ("whitelist", "allow", "allow"),
+            ("blacklist", "deny", "deny"),
+        ],
+    )
+    async def test_early_list_decisions_persist_full_evidence_and_decision_log(
+        self, client, list_type, action, expected_decision
+    ):
+        from decision_api.config import settings
+        from decision_api.main import get_session
+        from entity_lists import ListCheckResult
+
+        mock_session = AsyncMock()
+        captured_audits: list = []
+        mock_session.add = MagicMock(side_effect=captured_audits.append)
+        mock_session.commit = AsyncMock()
+        emitted_log = AsyncMock()
+        client.tarka_app.dependency_overrides[get_session] = _override_session_factory(
+            mock_session
+        )
+        try:
+            with (
+                patch.object(settings, "decision_log_include_payload_snapshot", True),
+                patch(
+                    "decision_api.main._list_check_with_circuit",
+                    new=AsyncMock(
+                        return_value=ListCheckResult(
+                            found=True,
+                            list_type=list_type,
+                            action=action,
+                            reason="reviewed-list-entry",
+                        )
+                    ),
+                ),
+                patch("decision_api.main.emit_decision_log", emitted_log),
+            ):
+                response = await client.post(
+                    "/v1/decisions/evaluate",
+                    json={
+                        "tenant_id": "t1",
+                        "event_type": "payment",
+                        "entity_id": "listed-entity",
+                        "payload": {"amount": 77, "currency": "USD"},
+                    },
+                )
+        finally:
+            client.tarka_app.dependency_overrides.pop(get_session, None)
+
+        assert response.status_code == 200, response.text
+        audit = captured_audits[-1]
+        evidence = audit.payload_snapshot["decision_evidence"]
+        assert response.json()["decision"] == audit.decision == expected_decision
+        assert evidence["feature_map"] == {"amount": 77, "currency": "USD"}
+        assert len(evidence["rule_pack_content_sha256"]) == 64
+        assert evidence["condition_trace"]
+        assert evidence["engine_build"]
+        decision_log = emitted_log.await_args.args[0]
+        assert decision_log["decision"] == expected_decision
+        assert decision_log["payload_snapshot"]["decision_evidence"] == evidence
 
     @pytest.mark.asyncio
     async def test_with_device_context(self, client):

@@ -2326,20 +2326,69 @@ async def evaluate_decision(
     bg: BackgroundTasks,
     session: AsyncSession = Depends(get_session),
 ):
-    if settings.evaluate_require_idempotency_key:
-        idem = (
-            request.headers.get("Idempotency-Key")
-            or request.headers.get("idempotency-key")
-            or ""
-        ).strip()
-        if not idem:
+    idem = (
+        request.headers.get("Idempotency-Key")
+        or request.headers.get("idempotency-key")
+        or ""
+    ).strip()
+    if settings.evaluate_require_idempotency_key and not idem:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "evaluate_idempotency_required",
+                "message": "Idempotency-Key header is required when TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY is enabled.",
+            },
+        )
+
+    from decision_api.evaluate_idempotency import (
+        canonical_request_fingerprint,
+        claim_evaluate_idempotency,
+        complete_evaluate_idempotency,
+    )
+
+    idem_fingerprint = canonical_request_fingerprint(body.model_dump(mode="json"))
+    idem_owner_token = ""
+    if idem:
+        claim = await claim_evaluate_idempotency(
+            tenant_id=body.tenant_id,
+            idempotency_key=idem,
+            request_fingerprint=idem_fingerprint,
+        )
+        if claim.state == "completed" and claim.response is not None:
+            return EvaluateResponse.model_validate(claim.response)
+        if claim.state == "mismatch":
             raise HTTPException(
-                status_code=422,
+                status_code=409,
                 detail={
-                    "error": "evaluate_idempotency_required",
-                    "message": "Idempotency-Key header is required when TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY is enabled.",
+                    "error": "evaluate_idempotency_payload_mismatch",
+                    "message": "This Idempotency-Key is already bound to a different request.",
                 },
             )
+        if claim.state != "owned":
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "error": "evaluate_idempotency_in_flight",
+                    "message": "A request with this Idempotency-Key is already being processed.",
+                },
+            )
+        idem_owner_token = claim.owner_token or ""
+
+    async def _finish_evaluate(resp: EvaluateResponse) -> EvaluateResponse:
+        if idem_owner_token and idem:
+            try:
+                await complete_evaluate_idempotency(
+                    tenant_id=body.tenant_id,
+                    idempotency_key=idem,
+                    request_fingerprint=idem_fingerprint,
+                    owner_token=idem_owner_token,
+                    response=resp.model_dump(mode="json"),
+                )
+            except Exception:
+                log.exception(
+                    "evaluate_idempotency_store_failed tenant_id=%s", body.tenant_id
+                )
+        return resp
 
     http = _http(request)
     trace_id = uuid.uuid4()
@@ -2427,6 +2476,60 @@ async def evaluate_decision(
     )
     step_trace.append(list_trace)
 
+    def _early_list_snapshot(list_type: str, action: str) -> dict[str, Any]:
+        from decision_api.decision_evidence import (
+            build_list_decision_evidence_snapshot,
+        )
+
+        evidence = build_list_decision_evidence_snapshot(
+            payload=body.payload,
+            list_type=list_type,
+            action=action,
+            condition_trace=step_trace,
+        )
+        return {
+            "decision_evidence": evidence,
+            "rule_pack_content_sha256": evidence["rule_pack_content_sha256"],
+            "json_rule_engine": evidence["json_rule_engine"],
+        }
+
+    def _queue_early_list_decision_log(
+        *,
+        decision: str,
+        score: float,
+        tags: list[str],
+        rule_hits: list[str],
+        reasons: list[str],
+        inference_context: dict[str, Any],
+        recommended_action: str | None,
+        challenge_metadata: dict[str, Any],
+        payload_snapshot: dict[str, Any],
+    ) -> None:
+        evidence = payload_snapshot["decision_evidence"]
+        record = build_decision_log_record(
+            trace_id=str(trace_id),
+            tenant_id=body.tenant_id,
+            entity_id=body.entity_id,
+            event_type=body.event_type.value,
+            decision=decision,
+            score=score,
+            tags=tags,
+            rule_hits=rule_hits,
+            reasons=reasons,
+            ml_score=None,
+            inference_context=inference_context,
+            recommended_action=recommended_action,
+            challenge_policy_id=challenge_metadata.get("policy_id"),
+            challenge_metadata=challenge_metadata,
+            fallback_reason=None,
+            payload_snapshot=payload_snapshot,
+            artifact_manifest={
+                "rule_pack_content_sha256": evidence["rule_pack_content_sha256"],
+                "engine_build": evidence["engine_build"],
+            },
+        )
+        bg.add_task(emit_decision_log, record)
+
     if list_check and list_check.found:
         if list_check.action == "allow":
             _wl_inf = build_inference_context(
@@ -2440,6 +2543,29 @@ async def evaluate_decision(
                 ["list:whitelist"],
                 body.payload,
             )
+            _wl_snapshot = {
+                "whitelisted": True,
+                "reason": list_check.reason,
+                "inference_context": _wl_inf,
+                "recommended_action": _wl_rec,
+                "challenge_metadata": _wl_meta,
+                "step_trace": step_trace,
+                "counter_version": _audit_counter_version_label(),
+                "rule_pack_file": "",
+                "ml_model": _wl_inf.get("ml_model"),
+                **(
+                    {"etl_batch_id": _eb_wl}
+                    if (_eb_wl := _metadata_etl_batch_id(body))
+                    else {}
+                ),
+                "canary_cohort": build_canary_cohort_audit(
+                    body.tenant_id,
+                    body.entity_id,
+                    salt_version=settings.policy_cohort_salt,
+                    experiment_id=settings.policy_experiment_id or None,
+                ),
+                **_early_list_snapshot("whitelist", "allow"),
+            }
             audit = AuditRecord(
                 trace_id=trace_id,
                 tenant_id=body.tenant_id,
@@ -2449,47 +2575,39 @@ async def evaluate_decision(
                 score=0.0,
                 tags=["list:whitelist"],
                 rule_hits=["whitelist_bypass"],
-                payload_snapshot={
-                    "whitelisted": True,
-                    "reason": list_check.reason,
-                    "inference_context": _wl_inf,
-                    "recommended_action": _wl_rec,
-                    "challenge_metadata": _wl_meta,
-                    "step_trace": step_trace,
-                    "counter_version": _audit_counter_version_label(),
-                    "rule_pack_file": "",
-                    "ml_model": _wl_inf.get("ml_model"),
-                    **(
-                        {"etl_batch_id": _eb_wl}
-                        if (_eb_wl := _metadata_etl_batch_id(body))
-                        else {}
-                    ),
-                    "canary_cohort": build_canary_cohort_audit(
-                        body.tenant_id,
-                        body.entity_id,
-                        salt_version=settings.policy_cohort_salt,
-                        experiment_id=settings.policy_experiment_id or None,
-                    ),
-                },
+                payload_snapshot=_wl_snapshot,
             )
             session.add(audit)
             await session.commit()
-            _sn_wl = _signal_availability_notes_from_tags(degrade_tags)
-            _ds_wl = _decision_runtime_status(degrade_tags, _sn_wl)
-            return EvaluateResponse(
-                trace_id=trace_id,
+            _queue_early_list_decision_log(
                 decision="allow",
                 score=0.0,
                 tags=["list:whitelist"],
                 rule_hits=["whitelist_bypass"],
                 reasons=[f"whitelist:{list_check.reason}"],
-                ml_score=None,
                 inference_context=_wl_inf,
-                decision_status=_ds_wl,
-                signal_availability_notes=_sn_wl,
                 recommended_action=_wl_rec,
-                challenge_policy_id=_wl_meta.get("policy_id"),
                 challenge_metadata=_wl_meta,
+                payload_snapshot=_wl_snapshot,
+            )
+            _sn_wl = _signal_availability_notes_from_tags(degrade_tags)
+            _ds_wl = _decision_runtime_status(degrade_tags, _sn_wl)
+            return await _finish_evaluate(
+                EvaluateResponse(
+                    trace_id=trace_id,
+                    decision="allow",
+                    score=0.0,
+                    tags=["list:whitelist"],
+                    rule_hits=["whitelist_bypass"],
+                    reasons=[f"whitelist:{list_check.reason}"],
+                    ml_score=None,
+                    inference_context=_wl_inf,
+                    decision_status=_ds_wl,
+                    signal_availability_notes=_sn_wl,
+                    recommended_action=_wl_rec,
+                    challenge_policy_id=_wl_meta.get("policy_id"),
+                    challenge_metadata=_wl_meta,
+                )
             )
 
         if list_check.action == "deny":
@@ -2510,6 +2628,29 @@ async def evaluate_decision(
                 ["list:blacklist"],
                 body.payload,
             )
+            _bl_snapshot = {
+                "blacklisted": True,
+                "reason": list_check.reason,
+                "inference_context": _bl_inf,
+                "recommended_action": _bl_rec,
+                "challenge_metadata": _bl_meta,
+                "step_trace": step_trace,
+                "counter_version": _audit_counter_version_label(),
+                "rule_pack_file": "",
+                "ml_model": _bl_inf.get("ml_model"),
+                **(
+                    {"etl_batch_id": _eb_bl}
+                    if (_eb_bl := _metadata_etl_batch_id(body))
+                    else {}
+                ),
+                "canary_cohort": build_canary_cohort_audit(
+                    body.tenant_id,
+                    body.entity_id,
+                    salt_version=settings.policy_cohort_salt,
+                    experiment_id=settings.policy_experiment_id or None,
+                ),
+                **_early_list_snapshot("blacklist", "deny"),
+            }
             audit = AuditRecord(
                 trace_id=trace_id,
                 tenant_id=body.tenant_id,
@@ -2519,47 +2660,39 @@ async def evaluate_decision(
                 score=100.0,
                 tags=["list:blacklist"],
                 rule_hits=["blacklist_block"],
-                payload_snapshot={
-                    "blacklisted": True,
-                    "reason": list_check.reason,
-                    "inference_context": _bl_inf,
-                    "recommended_action": _bl_rec,
-                    "challenge_metadata": _bl_meta,
-                    "step_trace": step_trace,
-                    "counter_version": _audit_counter_version_label(),
-                    "rule_pack_file": "",
-                    "ml_model": _bl_inf.get("ml_model"),
-                    **(
-                        {"etl_batch_id": _eb_bl}
-                        if (_eb_bl := _metadata_etl_batch_id(body))
-                        else {}
-                    ),
-                    "canary_cohort": build_canary_cohort_audit(
-                        body.tenant_id,
-                        body.entity_id,
-                        salt_version=settings.policy_cohort_salt,
-                        experiment_id=settings.policy_experiment_id or None,
-                    ),
-                },
+                payload_snapshot=_bl_snapshot,
             )
             session.add(audit)
             await session.commit()
-            _sn_bl = _signal_availability_notes_from_tags(degrade_tags)
-            _ds_bl = _decision_runtime_status(degrade_tags, _sn_bl)
-            return EvaluateResponse(
-                trace_id=trace_id,
+            _queue_early_list_decision_log(
                 decision="deny",
                 score=100.0,
                 tags=["list:blacklist"],
                 rule_hits=["blacklist_block"],
                 reasons=[f"blacklist:{list_check.reason}"],
-                ml_score=None,
                 inference_context=_bl_inf,
-                decision_status=_ds_bl,
-                signal_availability_notes=_sn_bl,
                 recommended_action=_bl_rec,
-                challenge_policy_id=_bl_meta.get("policy_id"),
                 challenge_metadata=_bl_meta,
+                payload_snapshot=_bl_snapshot,
+            )
+            _sn_bl = _signal_availability_notes_from_tags(degrade_tags)
+            _ds_bl = _decision_runtime_status(degrade_tags, _sn_bl)
+            return await _finish_evaluate(
+                EvaluateResponse(
+                    trace_id=trace_id,
+                    decision="deny",
+                    score=100.0,
+                    tags=["list:blacklist"],
+                    rule_hits=["blacklist_block"],
+                    reasons=[f"blacklist:{list_check.reason}"],
+                    ml_score=None,
+                    inference_context=_bl_inf,
+                    decision_status=_ds_bl,
+                    signal_availability_notes=_sn_bl,
+                    recommended_action=_bl_rec,
+                    challenge_policy_id=_bl_meta.get("policy_id"),
+                    challenge_metadata=_bl_meta,
+                )
             )
 
     pre_decision_audit_committed = False
@@ -3297,6 +3430,36 @@ async def evaluate_decision(
         snap_extra["decision_status"] = runtime_decision_status
         snap_extra["signal_availability_notes"] = signal_notes
 
+        # Apply test_bypass before every durable or downstream representation.
+        if list_check and list_check.found and list_check.list_type == "test_bypass":
+            decision = "allow"
+            combined_rule_hits = list(combined_rule_hits) + ["test_bypass"]
+            merged_tags = list(dict.fromkeys(list(merged_tags) + ["list:test_bypass"]))
+            reasons = list(reasons) + [f"test_bypass:{list_check.reason}"]
+            _tb_plat = _infer_ctx_kwargs(body, features)
+            inf_ctx = build_inference_context(
+                merged_tags,
+                combined_rule_hits,
+                ml_score if isinstance(ml_score, float) else None,
+                final_score,
+                features,
+                ml_detail=ml_detail if isinstance(ml_detail, dict) else None,
+                **_tb_plat,
+            )
+            _tb_base = derive_recommended_action("allow", merged_tags, inf_ctx)
+            recommended_action, ch_meta = apply_challenge_policy(
+                body.challenge_policy_id,
+                _tb_base,
+                "allow",
+                inf_ctx,
+                merged_tags,
+                body.payload,
+            )
+            snap_extra["inference_context"] = inf_ctx
+            snap_extra["recommended_action"] = recommended_action
+            snap_extra["challenge_metadata"] = ch_meta
+            snap_extra["test_bypass"] = True
+
         if pre_decision_audit_committed:
             from decision_api.decision_engine import finalize_audit_after_evaluation
 
@@ -3456,50 +3619,7 @@ async def evaluate_decision(
                 str(trace_id),
             )
 
-        # Test bypass: run full evaluation but override decision to allow
-        if list_check and list_check.found and list_check.list_type == "test_bypass":
-            _tb_hits = combined_rule_hits + ["test_bypass"]
-            _tb_plat = _infer_ctx_kwargs(body, features)
-            _tb_extra = supplemental_tags_for_integrity(
-                _tb_plat["platform"], signal_tags
-            )
-            _tb_merged = list(dict.fromkeys(signal_tags + _tb_extra))
-            _tb_inf = build_inference_context(
-                _tb_merged,
-                _tb_hits,
-                ml_score if isinstance(ml_score, float) else None,
-                final_score,
-                features,
-                ml_detail=ml_detail if isinstance(ml_detail, dict) else None,
-                **_tb_plat,
-            )
-            _tb_base = derive_recommended_action("allow", _tb_merged, _tb_inf)
-            _tb_rec, _tb_meta = apply_challenge_policy(
-                body.challenge_policy_id,
-                _tb_base,
-                "allow",
-                _tb_inf,
-                signal_tags,
-                body.payload,
-            )
-            response = EvaluateResponse(
-                trace_id=trace_id,
-                decision="allow",
-                score=final_score,
-                tags=merged_tags + ["list:test_bypass"],
-                rule_hits=_tb_hits,
-                reasons=reasons + [f"test_bypass:{list_check.reason}"],
-                ml_score=ml_score if isinstance(ml_score, float) else None,
-                inference_context=_tb_inf,
-                decision_status=runtime_decision_status,
-                signal_availability_notes=signal_notes,
-                recommended_action=_tb_rec,
-                challenge_policy_id=_tb_meta.get("policy_id"),
-                challenge_metadata=_tb_meta,
-                fallback_reason=fb_reason,
-            )
-
-    return response
+    return await _finish_evaluate(response)
 
 
 # ---------- websocket ----------
