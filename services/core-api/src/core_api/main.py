@@ -27,6 +27,7 @@ from observability import setup_observability  # noqa: E402
 from sqlalchemy import String, cast, or_, select  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
+from auth_rbac import setup_auth  # noqa: E402
 from demo_burst import register_demo_burst_route  # noqa: E402
 from infrastructure.otel import (  # noqa: E402
     init_opentelemetry,
@@ -47,6 +48,8 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Tarka Core API", version="1.0.0", lifespan=lifespan)
     init_opentelemetry(app, dec.app, case.app)
     setup_observability(app, "core-api")
+    # Parent routes (/v1/omni-search, /v1/infra/process-stats) must not bypass mount auth.
+    setup_auth(app)
     register_demo_burst_route(app)
 
     @app.get("/v1/health")

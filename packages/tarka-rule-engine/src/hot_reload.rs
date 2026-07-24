@@ -45,7 +45,16 @@ impl HotReloadRuleStore {
 
     pub fn reload_from_json(&self, rules: &[serde_json::Value], version: Option<u64>) {
         let v = version.unwrap_or_else(|| self.next_version.fetch_add(1, Ordering::SeqCst));
-        self.reload(RuleSet::from_rules_json(rules, v));
+        match RuleSet::from_rules_json(rules, v) {
+            Ok(rs) => self.reload(rs),
+            Err(e) => {
+                tracing::error!(
+                    target: "tarka_rule_engine.hot_reload",
+                    error = %e,
+                    "rejecting malformed ruleset reload (keeping prior rules)"
+                );
+            }
+        }
     }
 
     pub fn active_version(&self) -> u64 {

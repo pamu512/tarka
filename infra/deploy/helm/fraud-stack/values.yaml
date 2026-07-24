@@ -69,12 +69,22 @@ postgres:
   auth:
     username: fraud
     # Empty uses chart default "fraud" in templates for local/in-cluster quickstarts.
+    # Production (global.environment=prod) rejects emptyDir and the default password.
     password: fraud
     database: fraud
+  persistence:
+    enabled: false
+    size: 20Gi
+    storageClassName: ""
+    existingClaim: ""
 
 redis:
   enabled: true
   image: redis:7-alpine
+  # Bind Redis to localhost-only Service when exposing NodePort locally is undesired.
+  auth:
+    enabled: false
+    password: ""
 
 coreApi:
   enabled: true
@@ -84,6 +94,7 @@ coreApi:
   servicePort: 8000
   allowInsecureNoAuth: false
   tenantBindingRequired: true
+  # Required outside demo mode (ALLOW_INSECURE_NO_AUTH). Example: '{"key":["tenant-a"]}'
   apiKeyTenantMap: ""
   resources: {}
   podDisruptionBudget:

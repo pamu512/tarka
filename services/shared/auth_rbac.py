@@ -163,7 +163,22 @@ async def _authenticate(request: Request) -> AuthUser:
             if role not in ROLE_HIERARCHY:
                 role = "admin"
             roles = sorted({"service", role})
-            tenant_ids = key_tenant_map.get(api_key, set()) if key_tenant_map else {"*"}
+            if not key_tenant_map:
+                if allow_insecure:
+                    tenant_ids: set[str] = {"*"}
+                else:
+                    raise HTTPException(
+                        503,
+                        "authentication misconfigured: API_KEY_TENANT_MAP is required when API_KEYS is set "
+                        "(or ALLOW_INSECURE_NO_AUTH=true for local development)",
+                    )
+            else:
+                tenant_ids = set(key_tenant_map.get(api_key, set()))
+                if not tenant_ids:
+                    raise HTTPException(
+                        401,
+                        "API key has no tenant scope; add an entry in API_KEY_TENANT_MAP",
+                    )
             return AuthUser(
                 user_id="service", roles=roles, auth_type="api_key", tenant_ids=tenant_ids
             )

@@ -117,6 +117,26 @@ def _static_check_regex_fields(_: VisualAstPack) -> None:
     return
 
 
+def _leaf_to_when_condition(c: VisualAstLeaf) -> dict[str, Any]:
+    return {"field": c.field, "op": c.op, "value": c.value}
+
+
+def _leaf_to_ast_condition(c: VisualAstLeaf) -> dict[str, Any]:
+    return {
+        "type": "condition",
+        "field": c.field,
+        "op": c.op,
+        "value": c.value,
+    }
+
+
+def _ast_group(kind: str, leaves: list[VisualAstLeaf]) -> dict[str, Any]:
+    children = [_leaf_to_ast_condition(c) for c in leaves]
+    if len(children) == 1:
+        return children[0]
+    return {"type": kind, "children": children}
+
+
 def _compile_to_json_rules(pack: VisualAstPack) -> dict[str, Any]:
     out_rules: list[dict[str, Any]] = []
     for r in pack.rules:
@@ -133,22 +153,32 @@ def _compile_to_json_rules(pack: VisualAstPack) -> dict[str, Any]:
         )
         if not _SAFE_ID.match(rid):
             raise HTTPException(status_code=400, detail=f"invalid_rule_id:{rid}")
-        when: list[dict[str, Any]] = []
-        for c in r.all_of:
-            assert isinstance(c, VisualAstLeaf)
-            when.append({"field": c.field, "op": c.op, "value": c.value})
-        for c in r.any_of:
-            assert isinstance(c, VisualAstLeaf)
-            when.append({"field": c.field, "op": c.op, "value": c.value})
-        out_rules.append(
-            {
-                "id": rid,
-                "when": when,
-                "tags": r.tags,
-                "score_delta": r.score_delta,
-                "description": r.description,
-            }
-        )
+        if not r.all_of and not r.any_of:
+            raise HTTPException(
+                status_code=400, detail=f"rule_requires_conditions:{rid}"
+            )
+        compiled: dict[str, Any] = {
+            "id": rid,
+            "tags": r.tags,
+            "score_delta": r.score_delta,
+            "description": r.description,
+        }
+        # Flat ``when`` is AND-only. any_of must compile to ``when_ast`` or it becomes AND.
+        if r.any_of:
+            children: list[dict[str, Any]] = []
+            if r.all_of:
+                children.append(_ast_group("and", list(r.all_of)))
+            children.append(_ast_group("or", list(r.any_of)))
+            compiled["when_ast"] = (
+                children[0]
+                if len(children) == 1
+                else {"type": "and", "children": children}
+            )
+        else:
+            compiled["when"] = [
+                _leaf_to_when_condition(c) for c in r.all_of if isinstance(c, VisualAstLeaf)
+            ]
+        out_rules.append(compiled)
     return {
         "name": pack.name,
         "rules": out_rules,

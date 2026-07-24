@@ -2080,20 +2080,56 @@ async def evaluate_decision(
     bg: BackgroundTasks,
     session: AsyncSession = Depends(get_session),
 ):
-    if settings.evaluate_require_idempotency_key:
-        idem = (
-            request.headers.get("Idempotency-Key")
-            or request.headers.get("idempotency-key")
-            or ""
-        ).strip()
-        if not idem:
+    idem = (
+        request.headers.get("Idempotency-Key")
+        or request.headers.get("idempotency-key")
+        or ""
+    ).strip()
+    if settings.evaluate_require_idempotency_key and not idem:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "evaluate_idempotency_required",
+                "message": "Idempotency-Key header is required when TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY is enabled.",
+            },
+        )
+
+    from decision_api.evaluate_idempotency import (
+        claim_evaluate_idempotency,
+        complete_evaluate_idempotency,
+    )
+
+    idem_owner = False
+    if idem:
+        claimed, cached = await claim_evaluate_idempotency(
+            tenant_id=body.tenant_id,
+            idempotency_key=idem,
+        )
+        if not claimed:
+            if cached is not None:
+                return EvaluateResponse.model_validate(cached)
             raise HTTPException(
-                status_code=422,
+                status_code=409,
                 detail={
-                    "error": "evaluate_idempotency_required",
-                    "message": "Idempotency-Key header is required when TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY is enabled.",
+                    "error": "evaluate_idempotency_in_flight",
+                    "message": "A request with this Idempotency-Key is already being processed.",
                 },
             )
+        idem_owner = True
+
+    async def _finish_evaluate(resp: EvaluateResponse) -> EvaluateResponse:
+        if idem_owner and idem:
+            try:
+                await complete_evaluate_idempotency(
+                    tenant_id=body.tenant_id,
+                    idempotency_key=idem,
+                    response=resp.model_dump(mode="json"),
+                )
+            except Exception:
+                log.exception(
+                    "evaluate_idempotency_store_failed tenant_id=%s", body.tenant_id
+                )
+        return resp
 
     http = _http(request)
     trace_id = uuid.uuid4()
@@ -2226,18 +2262,20 @@ async def evaluate_decision(
             )
             session.add(audit)
             await session.commit()
-            return EvaluateResponse(
-                trace_id=trace_id,
-                decision="allow",
-                score=0.0,
-                tags=["list:whitelist"],
-                rule_hits=["whitelist_bypass"],
-                reasons=[f"whitelist:{list_check.reason}"],
-                ml_score=None,
-                inference_context=_wl_inf,
-                recommended_action=_wl_rec,
-                challenge_policy_id=_wl_meta.get("policy_id"),
-                challenge_metadata=_wl_meta,
+            return await _finish_evaluate(
+                EvaluateResponse(
+                    trace_id=trace_id,
+                    decision="allow",
+                    score=0.0,
+                    tags=["list:whitelist"],
+                    rule_hits=["whitelist_bypass"],
+                    reasons=[f"whitelist:{list_check.reason}"],
+                    ml_score=None,
+                    inference_context=_wl_inf,
+                    recommended_action=_wl_rec,
+                    challenge_policy_id=_wl_meta.get("policy_id"),
+                    challenge_metadata=_wl_meta,
+                )
             )
 
         if list_check.action == "deny":
@@ -2292,18 +2330,20 @@ async def evaluate_decision(
             )
             session.add(audit)
             await session.commit()
-            return EvaluateResponse(
-                trace_id=trace_id,
-                decision="deny",
-                score=100.0,
-                tags=["list:blacklist"],
-                rule_hits=["blacklist_block"],
-                reasons=[f"blacklist:{list_check.reason}"],
-                ml_score=None,
-                inference_context=_bl_inf,
-                recommended_action=_bl_rec,
-                challenge_policy_id=_bl_meta.get("policy_id"),
-                challenge_metadata=_bl_meta,
+            return await _finish_evaluate(
+                EvaluateResponse(
+                    trace_id=trace_id,
+                    decision="deny",
+                    score=100.0,
+                    tags=["list:blacklist"],
+                    rule_hits=["blacklist_block"],
+                    reasons=[f"blacklist:{list_check.reason}"],
+                    ml_score=None,
+                    inference_context=_bl_inf,
+                    recommended_action=_bl_rec,
+                    challenge_policy_id=_bl_meta.get("policy_id"),
+                    challenge_metadata=_bl_meta,
+                )
             )
 
     async with acquire_eval_capacity(request.app) as cap:
@@ -2874,6 +2914,16 @@ async def evaluate_decision(
         if _eb_snap:
             snap_extra["etl_batch_id"] = _eb_snap
 
+        # Apply test_bypass before audit so response and durable audit stay identical.
+        if list_check and list_check.found and list_check.list_type == "test_bypass":
+            decision = "allow"
+            combined_rule_hits = list(combined_rule_hits) + ["test_bypass"]
+            merged_tags = list(dict.fromkeys(list(merged_tags) + ["list:test_bypass"]))
+            reasons = list(reasons) + [f"test_bypass:{list_check.reason}"]
+            recommended_action = "allow"
+            snap_extra["recommended_action"] = recommended_action
+            snap_extra["test_bypass"] = True
+
         audit = AuditRecord(
             trace_id=trace_id,
             tenant_id=body.tenant_id,
@@ -3016,48 +3066,7 @@ async def evaluate_decision(
             str(trace_id),
         )
 
-        # Test bypass: run full evaluation but override decision to allow
-        if list_check and list_check.found and list_check.list_type == "test_bypass":
-            _tb_hits = combined_rule_hits + ["test_bypass"]
-            _tb_plat = _infer_ctx_kwargs(body, features)
-            _tb_extra = supplemental_tags_for_integrity(
-                _tb_plat["platform"], signal_tags
-            )
-            _tb_merged = list(dict.fromkeys(signal_tags + _tb_extra))
-            _tb_inf = build_inference_context(
-                _tb_merged,
-                _tb_hits,
-                ml_score if isinstance(ml_score, float) else None,
-                final_score,
-                features,
-                ml_detail=ml_detail if isinstance(ml_detail, dict) else None,
-                **_tb_plat,
-            )
-            _tb_base = derive_recommended_action("allow", _tb_merged, _tb_inf)
-            _tb_rec, _tb_meta = apply_challenge_policy(
-                body.challenge_policy_id,
-                _tb_base,
-                "allow",
-                _tb_inf,
-                signal_tags,
-                body.payload,
-            )
-            response = EvaluateResponse(
-                trace_id=trace_id,
-                decision="allow",
-                score=final_score,
-                tags=merged_tags + ["list:test_bypass"],
-                rule_hits=_tb_hits,
-                reasons=reasons + [f"test_bypass:{list_check.reason}"],
-                ml_score=ml_score if isinstance(ml_score, float) else None,
-                inference_context=_tb_inf,
-                recommended_action=_tb_rec,
-                challenge_policy_id=_tb_meta.get("policy_id"),
-                challenge_metadata=_tb_meta,
-                fallback_reason=fb_reason,
-            )
-
-    return response
+    return await _finish_evaluate(response)
 
 
 # ---------- websocket ----------

@@ -157,12 +157,12 @@ def test_evaluate_httpx_micro_timeout_returns_timeout_fallback_instantly(
     out, audit, elapsed_s = asyncio.run(_run())
     assert elapsed_s < 0.5, f"expected fast fallback, took {elapsed_s:.3f}s"
     assert out.transaction_id == tx_id
-    assert out.risk_score == 0.0
-    assert out.is_fraud is False
-    assert out.reasoning == ["TIMEOUT_FALLBACK"]
-    assert out.confidence_metrics == {}
+    assert out.risk_score == 100.0
+    assert out.is_fraud is True
+    assert out.reasoning == ["TIMEOUT_FALLBACK_PRESERVE_REVIEW"]
+    assert out.confidence_metrics.get("preserve_deterministic_decision") is True
     assert audit.case_id == str(tx_id)
-    assert '"is_fraud":false' in audit.action_taken
+    assert '"is_fraud":true' in audit.action_taken
     assert "timeout_fallback" in (audit.agent_notes or "")
     log_text = " ".join(r.message for r in caplog.records)
     assert "shadow_evaluate_ollama_timeout_fallback" in log_text

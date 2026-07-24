@@ -287,13 +287,17 @@ class ShadowAgent:
                 type(exc).__name__,
                 exc,
             )
+            # Fail closed: timeout must not look like a low-risk clear.
             decision = ShadowDecision(
                 transaction_id=tx.entity_id,
-                risk_score=0.0,
-                is_fraud=False,
-                reasoning=["TIMEOUT_FALLBACK"],
-                confidence_metrics={},
-                ai_reasoning="TIMEOUT_FALLBACK",
+                risk_score=100.0,
+                is_fraud=True,
+                reasoning=["TIMEOUT_FALLBACK_PRESERVE_REVIEW"],
+                confidence_metrics={
+                    "timeout_fallback": True,
+                    "preserve_deterministic_decision": True,
+                },
+                ai_reasoning="TIMEOUT_FALLBACK_PRESERVE_REVIEW",
             )
             decision = apply_friendly_fraud_post_rules(decision, ff_signals)
             raw_response_text = json.dumps(

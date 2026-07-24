@@ -76,6 +76,7 @@ fn engine_err_to_py(e: &TarkaEngineError) -> PyErr {
     let payload = e.json_payload_string();
     match e {
         TarkaEngineError::AstValidation { .. } => ASTValidationError::new_err(payload),
+        TarkaEngineError::InvalidRule { .. } => ASTValidationError::new_err(payload),
         TarkaEngineError::RegexCompilation { .. } => RegexCompilationError::new_err(payload),
         TarkaEngineError::JsonParse { .. } | TarkaEngineError::JsonSerialize { .. } => {
             JsonEngineError::new_err(payload)
@@ -444,7 +445,11 @@ fn parse_active_packs(arr: &[Value], exclude_shadow: bool) -> Result<Vec<Arc<Par
                 .map(|v| !v.is_null())
                 .unwrap_or(false);
             if has_flat && has_ast {
-                continue;
+                return Err(TarkaEngineError::InvalidRule {
+                    rule_id: rid,
+                    path: format!("{source_file}.rules"),
+                    message: "cannot set both non-empty when and when_ast".to_string(),
+                });
             }
             let rule_tags: Vec<String> = rule
                 .get("tags")
@@ -462,10 +467,11 @@ fn parse_active_packs(arr: &[Value], exclude_shadow: bool) -> Result<Vec<Arc<Par
                 .unwrap_or(0.0);
 
             if has_ast {
-                let raw = match rule.get("when_ast") {
-                    Some(rv) => rv,
-                    None => continue,
-                };
+                let raw = rule.get("when_ast").ok_or_else(|| TarkaEngineError::InvalidRule {
+                    rule_id: rid.clone(),
+                    path: format!("{source_file}.rules[{rid}].when_ast"),
+                    message: "when_ast missing after presence check".to_string(),
+                })?;
                 let ast =
                     json_ast::parse_ast_strict_in_rule(raw, "when_ast", rid.as_str()).map_err(TarkaEngineError::from)?;
                 rules.push(Rule {
@@ -480,11 +486,26 @@ fn parse_active_packs(arr: &[Value], exclude_shadow: bool) -> Result<Vec<Arc<Par
 
             let when = match when_arr {
                 Some(w) if !w.is_empty() && w.len() <= MAX_CONDITIONS_PER_RULE => w,
-                _ => continue,
+                Some(w) if w.len() > MAX_CONDITIONS_PER_RULE => {
+                    return Err(TarkaEngineError::InvalidRule {
+                        rule_id: rid,
+                        path: format!("{source_file}.rules[{rid}].when"),
+                        message: format!(
+                            "too many conditions ({}, max {MAX_CONDITIONS_PER_RULE})",
+                            w.len()
+                        ),
+                    });
+                }
+                _ => {
+                    return Err(TarkaEngineError::InvalidRule {
+                        rule_id: rid,
+                        path: format!("{source_file}.rules[{rid}]"),
+                        message: "requires non-empty when or when_ast".to_string(),
+                    });
+                }
             };
             let mut conds = Vec::new();
-            let mut skip = false;
-            for c in when {
+            for (ci, c) in when.iter().enumerate() {
                 let op = c
                     .get("op")
                     .and_then(|x| x.as_str())
@@ -492,8 +513,11 @@ fn parse_active_packs(arr: &[Value], exclude_shadow: bool) -> Result<Vec<Arc<Par
                     .to_string();
                 let field = c.get("field").and_then(|x| x.as_str()).unwrap_or("").to_string();
                 if field.is_empty() || field.len() > MAX_FIELD_LEN {
-                    skip = true;
-                    break;
+                    return Err(TarkaEngineError::InvalidRule {
+                        rule_id: rid,
+                        path: format!("{source_file}.rules[{rid}].when[{ci}].field"),
+                        message: "field must be non-empty and within length limit".to_string(),
+                    });
                 }
                 let value = c.get("value").cloned().unwrap_or(Value::Null);
                 let regex_compiled = if op == "regex" {
@@ -513,9 +537,6 @@ fn parse_active_packs(arr: &[Value], exclude_shadow: bool) -> Result<Vec<Arc<Par
                     value,
                     regex_compiled,
                 });
-            }
-            if skip {
-                continue;
             }
             rules.push(Rule {
                 id: rid,
