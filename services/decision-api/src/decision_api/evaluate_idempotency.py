@@ -65,6 +65,8 @@ def _existing_claim(
             "completed",
             response=response if isinstance(response, dict) else None,
         )
+    if payload.get("status") == "blocked":
+        return EvaluateIdempotencyClaim("blocked")
     return EvaluateIdempotencyClaim("in_flight")
 
 
@@ -101,9 +103,9 @@ async def claim_evaluate_idempotency(
                 return _existing_claim(_decode(existing), request_fingerprint)
             await redis_tags._kv.set(key, marker, ttl_seconds=ex)
             return EvaluateIdempotencyClaim("owned", owner_token=owner_token)
-    # No store: fail open for local single-process demos (header still required when configured).
+    # An idempotency key cannot be fenced without a shared store.
     log.warning("evaluate_idempotency_store_unavailable tenant_id=%s", tenant_id)
-    return EvaluateIdempotencyClaim("owned", owner_token=owner_token)
+    return EvaluateIdempotencyClaim("unavailable")
 
 
 async def complete_evaluate_idempotency(
@@ -255,5 +257,57 @@ async def release_evaluate_idempotency(
             ):
                 return False
             await redis_tags._kv.delete(key)
+            return True
+    return False
+
+
+async def block_evaluate_idempotency_outcome(
+    *,
+    tenant_id: str,
+    idempotency_key: str,
+    request_fingerprint: str,
+    reason: str,
+    ttl_seconds: int = _DEFAULT_RESULT_TTL,
+) -> bool:
+    """Fence retries after an audit committed but response completion is uncertain."""
+    key = _cache_key(tenant_id, idempotency_key)
+    ex = max(1, int(ttl_seconds))
+    blob = json.dumps(
+        {
+            "status": "blocked",
+            "request_fingerprint": request_fingerprint,
+            "reason": str(reason)[:128],
+        },
+        separators=(",", ":"),
+    )
+    await redis_tags.connect()
+    if redis_tags._client:
+        changed = await redis_tags._client.eval(
+            """
+            local current = redis.call('GET', KEYS[1])
+            if current then
+              local decoded = cjson.decode(current)
+              if decoded.request_fingerprint ~= ARGV[1] then return 0 end
+              if decoded.status == 'done' then return 1 end
+            end
+            redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[3])
+            return 1
+            """,
+            1,
+            key,
+            request_fingerprint,
+            blob,
+            ex,
+        )
+        return bool(changed)
+    if redis_tags._kv:
+        async with redis_tags._async_lock:
+            current = _decode(await redis_tags._kv.get(key))
+            if current is not None:
+                if current.get("request_fingerprint") != request_fingerprint:
+                    return False
+                if current.get("status") == "done":
+                    return True
+            await redis_tags._kv.set(key, blob, ttl_seconds=ex)
             return True
     return False
