@@ -634,7 +634,5 @@ async def index_okf_bundle_async(
             revision=bundle.revision,
             concepts={concept.concept_id: concept},
         )
-        total += index_okf_concepts_sync(
-            sub, embeddings=vecs, embedding_model=model
-        )
+        total += index_okf_concepts_sync(sub, embeddings=vecs, embedding_model=model)
     return total

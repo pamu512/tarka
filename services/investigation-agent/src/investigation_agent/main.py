@@ -833,7 +833,9 @@ def _enforce_claim_exact_ids(
             if not isinstance(raw, list) or not raw:
                 invalid = True
                 continue
-            refs = [str(item).strip() for item in raw if isinstance(item, str) and str(item).strip()]
+            refs = [
+                str(item).strip() for item in raw if isinstance(item, str) and str(item).strip()
+            ]
             if len(refs) != len(raw) or any(ref not in allowed for ref in refs):
                 invalid = True
         if invalid:
@@ -861,8 +863,7 @@ def _apply_okf_strict_abstention(
         suffix = " Conflicting OKF retrieval was recorded; review the cited bundle revisions before relying on this answer."
     abstention = (
         "I must abstain from answering from OKF retrieval because the relevant concept evidence "
-        "was unsupported or conflicting in strict assurance mode."
-        + suffix
+        "was unsupported or conflicting in strict assurance mode." + suffix
     )
     return abstention, [{"text": abstention, "source": "unknown"}], True
 
@@ -1525,9 +1526,7 @@ async def _require_admin_api_key(request: Request) -> None:
     if not keys or api_key not in keys:
         raise HTTPException(status_code=401, detail="admin API key required")
     admin_keys = {
-        key.strip()
-        for key in os.environ.get("OKF_ADMIN_API_KEYS", "").split(",")
-        if key.strip()
+        key.strip() for key in os.environ.get("OKF_ADMIN_API_KEYS", "").split(",") if key.strip()
     }
     if api_key not in admin_keys:
         raise HTTPException(status_code=403, detail="OKF admin key required")
@@ -2180,9 +2179,7 @@ def _thread_correlation_key(
     return (tenant_id, platform, workspace_id, thread_key)
 
 
-def _case_action_idempotency_key(
-    tenant_id: str, idempotency_key: str
-) -> CaseActionIdempotencyKey:
+def _case_action_idempotency_key(tenant_id: str, idempotency_key: str) -> CaseActionIdempotencyKey:
     return (tenant_id, idempotency_key)
 
 
@@ -2267,9 +2264,7 @@ async def execute_case_action(request: Request, response: Response, body: CaseAc
     except HTTPException as e:
         raise _plugin_http_exc(int(e.status_code), str(e.detail), correlation_id) from None
 
-    idem_key = _case_action_idempotency_key(
-        body.tenant_id.strip(), body.idempotency_key
-    )
+    idem_key = _case_action_idempotency_key(body.tenant_id.strip(), body.idempotency_key)
     cached = _case_action_idempotency.get(idem_key)
     if cached is not None:
         ts, cached_result = cached

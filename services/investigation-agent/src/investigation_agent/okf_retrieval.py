@@ -166,9 +166,7 @@ def _exact_and_expand_candidates(
     max_concepts: int | None,
 ) -> list[_Candidate]:
     exact_hits = registry.resolve(tenant_id, query)
-    raw: list[_Candidate] = [
-        _candidate_from_concept_hit(hit, stage="exact") for hit in exact_hits
-    ]
+    raw: list[_Candidate] = [_candidate_from_concept_hit(hit, stage="exact") for hit in exact_hits]
     if exact_hits:
         expanded_hits = registry.expand(
             tenant_id,
@@ -176,9 +174,7 @@ def _exact_and_expand_candidates(
             max_depth=_effective_max_depth(max_depth),
             max_concepts=_effective_max_concepts(max_concepts),
         )
-        raw.extend(
-            _candidate_from_concept_hit(hit, stage="expand") for hit in expanded_hits
-        )
+        raw.extend(_candidate_from_concept_hit(hit, stage="expand") for hit in expanded_hits)
     return _dedupe_and_sort(raw)
 
 
@@ -390,9 +386,7 @@ def _finalize_result(
 ) -> KnowledgeRetrievalResult:
     all_candidates = [*exact_expand, *rag_candidates]
     conflicts = _detect_conflicts(all_candidates)
-    combined = _dedupe_and_sort(
-        [candidate for candidate in all_candidates if not candidate.stale]
-    )
+    combined = _dedupe_and_sort([candidate for candidate in all_candidates if not candidate.stale])
     authoritative = [
         candidate
         for candidate in combined
@@ -422,9 +416,7 @@ def _finalize_result(
     )
 
 
-def _compose_retrieval_mode(
-    candidates: list[_Candidate], rag_data: dict[str, Any] | None
-) -> str:
+def _compose_retrieval_mode(candidates: list[_Candidate], rag_data: dict[str, Any] | None) -> str:
     parts: list[str] = []
     if any(candidate.stage == "exact" for candidate in candidates):
         parts.append("exact")
@@ -460,7 +452,5 @@ def _detect_conflicts(candidates: list[_Candidate]) -> tuple[str, ...]:
                     if entry.concept_id and entry.content_hash
                 }
             )
-        conflicts.append(
-            f"{authority} conflict for {source_uri}: " + " != ".join(labels)
-        )
+        conflicts.append(f"{authority} conflict for {source_uri}: " + " != ".join(labels))
     return tuple(sorted(conflicts))
