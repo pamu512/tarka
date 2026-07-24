@@ -85,9 +85,11 @@ class OkfRegistry:
 
     def snapshot_revision(self, tenant_id: str) -> str:
         view = self._snapshot.views.get(tenant_id)
-        if view is None:
-            return self._snapshot.revision
-        return view.revision
+        if view is not None:
+            return view.revision
+        if self._snapshot.shared is not None:
+            return self._snapshot.shared.revision
+        return self._snapshot.revision
 
     def resolve(self, tenant_id: str, query: str) -> list[ConceptHit]:
         view = self._view_for(tenant_id)
@@ -172,13 +174,10 @@ class OkfRegistry:
     ) -> float:
         if _normalize_text(concept_id) == normalized_query:
             return 1.0
-        if normalized_query in _normalize_text(concept.title):
+        if _normalize_text(concept.title) == normalized_query:
             return 0.9
-        if normalized_query in _normalize_text(concept.description):
-            return 0.85
         for tag in concept.tags:
-            tag_norm = _normalize_text(tag)
-            if normalized_query == tag_norm or normalized_query in tag_norm:
+            if _normalize_text(tag) == normalized_query:
                 return 0.8
         return 0.0
 
