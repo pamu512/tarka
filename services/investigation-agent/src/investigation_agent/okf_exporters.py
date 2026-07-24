@@ -149,15 +149,78 @@ _PLAYBOOK_DOMAIN_VOCABULARY = {
                 playbook_id.replace("_", " "),
                 str(playbook.get("title") or ""),
                 str(playbook.get("vertical") or "").replace("_", " "),
+                str(playbook.get("fragment") or ""),
             )
         ),
     )
 }
-FRAUD_DOMAIN_VOCABULARY = frozenset(_BASE_FRAUD_DOMAIN_VOCABULARY | _PLAYBOOK_DOMAIN_VOCABULARY)
-_NAME_CONTEXT_PRECEDERS = frozenset(
-    {"analyst", "applicant", "beneficiary", "by", "cardholder", "customer", "from"}
+_GENERIC_FRAUD_PROSE_VOCABULARY = {
+    "analyst",
+    "baseline",
+    "detected",
+    "escalate",
+    "escalated",
+    "event",
+    "initiated",
+    "pseudonymous",
+    "pseudonymized",
+    "required",
+    "requires",
+    "reviewer",
+    "safe",
+    "submitted",
+    "transfer",
+    "triggered",
+    "verified",
+}
+_COMMON_FUNCTION_WORDS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "because",
+        "been",
+        "before",
+        "but",
+        "by",
+        "for",
+        "from",
+        "had",
+        "has",
+        "have",
+        "if",
+        "in",
+        "into",
+        "is",
+        "it",
+        "not",
+        "of",
+        "on",
+        "or",
+        "remains",
+        "than",
+        "that",
+        "the",
+        "then",
+        "this",
+        "to",
+        "was",
+        "were",
+        "when",
+        "while",
+        "with",
+        "without",
+        "yesterday",
+    }
 )
-_NAME_CONTEXT_FOLLOWERS = frozenset({"approved", "confirmed", "reported", "reviewed", "submitted"})
+FRAUD_DOMAIN_VOCABULARY = frozenset(
+    _BASE_FRAUD_DOMAIN_VOCABULARY | _PLAYBOOK_DOMAIN_VOCABULARY | _GENERIC_FRAUD_PROSE_VOCABULARY
+)
+_SAFE_NAME_TOKENS = FRAUD_DOMAIN_VOCABULARY | _COMMON_FUNCTION_WORDS
 _SOURCE_MANIFEST_NAME = "source-manifest.json"
 _SOURCE_MANIFEST_SCHEMA = "tarka.okf_source_manifest/v1"
 _SOURCE_SNAPSHOT_SCHEMA = "tarka.okf_source_snapshot/v1"
@@ -477,11 +540,6 @@ def _contains_compact_domestic_phone(value: str) -> bool:
         national = digits[1:] if len(digits) == 11 else digits
         if len(national) != 10:
             continue
-        year = int(national[:4])
-        month = int(national[4:6])
-        day = int(national[6:8])
-        if 1900 <= year <= 2100 and 1 <= month <= 12 and 1 <= day <= 31:
-            continue
         return True
     return False
 
@@ -492,13 +550,9 @@ def _contains_likely_person_name(value: str) -> bool:
     ]
     for index in range(len(words) - 1):
         pair = {words[index], words[index + 1]}
-        if not pair.isdisjoint(FRAUD_DOMAIN_VOCABULARY):
+        if not pair.isdisjoint(_SAFE_NAME_TOKENS):
             continue
-        whole_value = len(words) == 2
-        preceded = index > 0 and words[index - 1] in _NAME_CONTEXT_PRECEDERS
-        followed = index == 0 and len(words) > 2 and words[index + 2] in _NAME_CONTEXT_FOLLOWERS
-        if whole_value or preceded or followed:
-            return True
+        return True
     return False
 
 

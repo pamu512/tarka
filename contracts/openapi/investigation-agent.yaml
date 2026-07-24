@@ -60,12 +60,11 @@ paths:
     get:
       operationId: agentReady
       description: >
-        Unauthenticated readiness probe for the local SQLite data path plus the
-        RAG and OKF knowledge paths; it does not call the LLM. A 200 ready
-        response means both knowledge paths are healthy. A 200 degraded response
-        means one knowledge path is unavailable while the other remains usable.
-        A sanitized 503 not_ready response means no safe knowledge path is
-        available.
+        Unauthenticated readiness probe for the local SQLite data path and every
+        enabled knowledge path; it does not call the LLM. RAG is required. When
+        OKF is enabled, both RAG and OKF must be healthy for a 200 ready
+        response. Disabled OKF is allowed and is not a degraded or error state.
+        Any enabled unhealthy knowledge path returns sanitized 503 not_ready.
       responses:
         "200":
           description: Ready
@@ -75,12 +74,7 @@ paths:
                 type: object
                 required: [status]
                 properties:
-                  status: { type: string, enum: [ready, degraded] }
-                  warnings:
-                    type: array
-                    items:
-                      type: string
-                      enum: [rag_unavailable, okf_unavailable]
+                  status: { type: string, enum: [ready] }
         "503":
           description: Not ready
           content:
@@ -94,7 +88,7 @@ paths:
                     type: array
                     items:
                       type: string
-                      enum: [rag_unavailable, okf_unavailable, okf_disabled]
+                      enum: [rag_unavailable, okf_unavailable]
   /v1/setup:
     get:
       operationId: setupDiagnostics

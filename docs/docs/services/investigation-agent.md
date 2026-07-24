@@ -128,8 +128,9 @@ unavailable, retrieval falls back to keyword search and reports
 `evidence_ids`, and `retrieval_path` so citations can resolve exact concept and
 evidence IDs.
 
-`GET /v1/ready` is `ready` when OKF and RAG are healthy, `degraded` when one
-knowledge path remains available, and `not_ready` when both are unavailable.
+`GET /v1/ready` is `ready` only when RAG and every other enabled knowledge path
+are healthy. OKF may be disabled without degrading readiness; when enabled, an
+OKF or RAG failure returns sanitized `not_ready` with HTTP 503.
 `POST /v1/admin/okf/reload` is fail-closed for invalid bundles: an invalid
 reload reports issues and keeps the prior active snapshot.
 
