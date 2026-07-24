@@ -488,7 +488,7 @@ fn parse_active_packs(arr: &[Value], exclude_shadow: bool) -> Result<Vec<Arc<Par
                 Some(w) if !w.is_empty() && w.len() <= MAX_CONDITIONS_PER_RULE => w,
                 Some(w) if w.len() > MAX_CONDITIONS_PER_RULE => {
                     return Err(TarkaEngineError::InvalidRule {
-                        rule_id: rid,
+                        rule_id: rid.clone(),
                         path: format!("{source_file}.rules[{rid}].when"),
                         message: format!(
                             "too many conditions ({}, max {MAX_CONDITIONS_PER_RULE})",
@@ -498,7 +498,7 @@ fn parse_active_packs(arr: &[Value], exclude_shadow: bool) -> Result<Vec<Arc<Par
                 }
                 _ => {
                     return Err(TarkaEngineError::InvalidRule {
-                        rule_id: rid,
+                        rule_id: rid.clone(),
                         path: format!("{source_file}.rules[{rid}]"),
                         message: "requires non-empty when or when_ast".to_string(),
                     });
@@ -514,7 +514,7 @@ fn parse_active_packs(arr: &[Value], exclude_shadow: bool) -> Result<Vec<Arc<Par
                 let field = c.get("field").and_then(|x| x.as_str()).unwrap_or("").to_string();
                 if field.is_empty() || field.len() > MAX_FIELD_LEN {
                     return Err(TarkaEngineError::InvalidRule {
-                        rule_id: rid,
+                        rule_id: rid.clone(),
                         path: format!("{source_file}.rules[{rid}].when[{ci}].field"),
                         message: "field must be non-empty and within length limit".to_string(),
                     });

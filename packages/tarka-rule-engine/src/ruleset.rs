@@ -252,10 +252,7 @@ fn parse_rule(rule: &Value) -> Option<ParsedRule> {
         .and_then(|x| x.as_str())
         .unwrap_or("unknown")
         .to_string();
-    let has_flat = rule
-        .get("when")
-        .and_then(|x| x.as_array())
-        .is_some_and(|w| !w.is_empty());
+    let has_flat = rule.get("when").is_some_and(|value| !value.is_null());
     let has_ast = rule
         .get("when_ast")
         .map(|v| !v.is_null())
