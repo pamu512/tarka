@@ -238,12 +238,18 @@ signalApi:
 
 investigationAgent:
   enabled: true
-  replicaCount: 2
+  replicaCount: 1
   image:
     repository: tarka/investigation-agent
     tag: latest
   service:
     port: 8006
+  agentRunPersistence:
+    mode: local-sqlite
+    existingClaim: ""
+    mountPath: /var/lib/tarka/investigation-agent
+    size: 1Gi
+    storageClassName: ""
   okfTenantOverlays:
     enabled: false
     existingClaim: ""

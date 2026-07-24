@@ -149,6 +149,12 @@ investigationAgent:
   tag: latest
   replicaCount: 1
   servicePort: 8006
+  agentRunPersistence:
+    mode: local-sqlite
+    existingClaim: ""
+    mountPath: /var/lib/tarka/investigation-agent
+    size: 1Gi
+    storageClassName: ""
   okfTenantOverlays:
     enabled: false
     existingClaim: ""

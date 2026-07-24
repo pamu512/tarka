@@ -19,23 +19,29 @@ paths:
               schema:
                 type: object
                 properties:
-                  status: { type: string }
-                  ai_governance_profile:
-                    type: string
-                    enum: [us, eu_uk, global]
-                  ai_governance_label: { type: string }
-                  copilot_prompt_version: { type: string }
-                  production:
-                    type: object
-                    description: Production profile flags and config_ok (GET /v1/health).
-                    additionalProperties: true
-                  copilot_features:
-                    type: object
-                    additionalProperties: true
-                  integration:
-                    type: object
-                    description: Same shape as GET /v1/integration (contract_version, profile_id, tools, families).
-                    additionalProperties: true
+                  status: { type: string, enum: [ok] }
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+                      enum: [production_config_invalid, okf_unavailable]
+  /v1/admin/health/details:
+    get:
+      operationId: agentAdminHealthDetails
+      description: >
+        Authenticated operator diagnostics. Requires a configured API key that is
+        also listed in OKF_ADMIN_API_KEYS. Unlike public probes, this response may
+        contain detailed validation messages.
+      responses:
+        "200":
+          description: Detailed operator diagnostics
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401": { description: API key required }
+        "403": { description: Admin API key required }
   /v1/integration:
     get:
       operationId: integrationContract

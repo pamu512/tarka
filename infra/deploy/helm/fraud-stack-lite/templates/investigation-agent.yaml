@@ -1,6 +1,12 @@
 {{- if and .Values.investigationAgent.okfTenantOverlays.enabled (not .Values.investigationAgent.okfTenantOverlays.existingClaim) }}
 {{- fail "investigation-agent OKF tenant overlays require investigationAgent.okfTenantOverlays.existingClaim" }}
 {{- end }}
+{{- if and (eq .Values.investigationAgent.agentRunPersistence.mode "local-sqlite") (gt (int .Values.investigationAgent.replicas) 1) }}
+{{- fail "investigation-agent local-sqlite persistence requires a single replica; configure an external shared AgentRun store before scaling" }}
+{{- end }}
+{{- if ne .Values.investigationAgent.agentRunPersistence.mode "local-sqlite" }}
+{{- fail "investigation-agent chart supports agentRunPersistence.mode=local-sqlite only; use an external shared AgentRun store deployment for horizontal scaling" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -26,6 +32,8 @@ spec:
               value: "/app/knowledge/shared"
             - name: OKF_TENANT_ROOT
               value: {{ .Values.investigationAgent.okfTenantOverlays.mountPath | quote }}
+            - name: INVESTIGATION_DATA_DIR
+              value: {{ .Values.investigationAgent.agentRunPersistence.mountPath | quote }}
           readinessProbe:
             httpGet:
               path: /v1/ready
@@ -42,19 +50,40 @@ spec:
             periodSeconds: 15
             timeoutSeconds: 2
             failureThreshold: 4
-          {{- if .Values.investigationAgent.okfTenantOverlays.enabled }}
           volumeMounts:
+            - name: agent-run-data
+              mountPath: {{ .Values.investigationAgent.agentRunPersistence.mountPath | quote }}
+          {{- if .Values.investigationAgent.okfTenantOverlays.enabled }}
             - name: okf-tenant-overlays
               mountPath: {{ .Values.investigationAgent.okfTenantOverlays.mountPath | quote }}
               readOnly: {{ .Values.investigationAgent.okfTenantOverlays.readOnly }}
           {{- end }}
-      {{- if .Values.investigationAgent.okfTenantOverlays.enabled }}
       volumes:
+        - name: agent-run-data
+          persistentVolumeClaim:
+            claimName: {{ .Values.investigationAgent.agentRunPersistence.existingClaim | default "investigation-agent-data" | quote }}
+      {{- if .Values.investigationAgent.okfTenantOverlays.enabled }}
         - name: okf-tenant-overlays
           persistentVolumeClaim:
             claimName: {{ .Values.investigationAgent.okfTenantOverlays.existingClaim | quote }}
       {{- end }}
 ---
+{{- if not .Values.investigationAgent.agentRunPersistence.existingClaim }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: investigation-agent-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.investigationAgent.agentRunPersistence.storageClassName }}
+  storageClassName: {{ .Values.investigationAgent.agentRunPersistence.storageClassName | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.investigationAgent.agentRunPersistence.size | quote }}
+---
+{{- end }}
 apiVersion: v1
 kind: Service
 metadata:
