@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -30,6 +31,29 @@ def _run_export(
     if include_playbooks:
         cmd.append("--include-playbooks")
     return subprocess.run(cmd, capture_output=True, text=True, check=False)
+
+
+def _run_landmark_export(
+    input_path: Path,
+    output: Path,
+    *,
+    tenant_id: str = "t1",
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [
+            sys.executable,
+            str(_AGENT_ROOT / "scripts" / "export_okf_bundle.py"),
+            "--landmark-input",
+            str(input_path),
+            "--tenant-id",
+            tenant_id,
+            "--output",
+            str(output),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
 
 def _run_validate(
@@ -89,6 +113,61 @@ def test_export_cli_refuses_active_shared_root(tmp_path: Path) -> None:
     result = subprocess.run(cmd, capture_output=True, text=True, check=False, env=env)
     assert result.returncode == 1
     assert "active" in result.stderr.lower()
+
+
+def test_landmark_cli_writes_concept_snapshot_and_manifest(tmp_path: Path) -> None:
+    source = tmp_path / "landmark.json"
+    source.write_text(
+        json.dumps(
+            {
+                "case_id": "case-cli-1",
+                "title": "Money Mule Review",
+                "summary": "Sanitized transaction pattern.",
+                "lessons": "Manual Review remains required.",
+                "approved_revision": "review-rev-1",
+                "evidence_ids": ["ev-pseudonymous-1"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "okf-staging" / "tenants" / "t1"
+
+    result = _run_landmark_export(source, output)
+
+    assert result.returncode == 0, result.stderr
+    concept = output / "landmark-cases" / "case-cli-1.md"
+    manifest = json.loads((output / "source-manifest.json").read_text())
+    entry = manifest["sources"]["landmark-cases/case-cli-1"]
+    snapshot = output / entry["snapshot_path"]
+    assert concept.is_file()
+    assert snapshot.is_file()
+    assert hashlib.sha256(snapshot.read_bytes()).hexdigest() == entry["source_content_hash"]
+
+
+def test_landmark_cli_rejects_pii_and_manual_source_hash(tmp_path: Path) -> None:
+    output = tmp_path / "okf-staging" / "tenants" / "t1"
+    for name, payload in (
+        (
+            "pii",
+            {
+                "case_id": "case-cli-pii",
+                "title": "JANE EXAMPLE",
+            },
+        ),
+        (
+            "manual-hash",
+            {
+                "case_id": "case-cli-hash",
+                "title": "Reviewed case",
+                "source_content_hash": "a" * 64,
+            },
+        ),
+    ):
+        source = tmp_path / f"{name}.json"
+        source.write_text(json.dumps(payload), encoding="utf-8")
+        result = _run_landmark_export(source, output)
+        assert result.returncode == 1
+        assert "pii" in result.stderr.lower() or "source_content_hash" in result.stderr
 
 
 def test_validate_active_knowledge_shared_index_only(tmp_path: Path) -> None:
