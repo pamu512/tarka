@@ -58,10 +58,10 @@
     }
   },
   "optionalDependencies": {
-    "@rolldown/binding-linux-x64-gnu": "1.1.2",
+    "@rolldown/binding-linux-x64-gnu": "1.2.0",
     "@rollup/rollup-linux-x64-gnu": "4.62.2",
-    "@tailwindcss/oxide-linux-x64-gnu": "4.3.1",
-    "lightningcss-linux-x64-gnu": "1.32.0"
+    "@tailwindcss/oxide-linux-x64-gnu": "4.3.3",
+    "lightningcss-linux-x64-gnu": "1.33.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
