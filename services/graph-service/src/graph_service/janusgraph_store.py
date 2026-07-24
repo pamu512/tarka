@@ -8,10 +8,10 @@ from typing import Any
 from gremlin_python.process.graph_traversal import __
 from gremlin_python.process.traversal import Cardinality
 
-from custom_schema import get_allowed_labels, get_allowed_rels
-from entity_context_shape import shape_deep_context_from_nodes
-from hetero_schema import validate_typed_edge_or_raise
-from janusgraph_gremlin import get_traversal_source, run_in_gremlin_thread
+from .custom_schema import get_allowed_labels, get_allowed_rels
+from .entity_context_shape import shape_deep_context_from_nodes
+from .hetero_schema import validate_typed_edge_or_raise
+from .janusgraph_gremlin import get_traversal_source, run_in_gremlin_thread
 
 """JanusGraph / Gremlin implementation of graph CRUD (same contract as neo4j_client)."""
 log = logging.getLogger("graph-service.janus")

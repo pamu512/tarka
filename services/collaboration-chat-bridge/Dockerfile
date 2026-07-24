@@ -10,5 +10,5 @@ COPY services/collaboration-chat-bridge/pyproject.toml /app/
 COPY services/collaboration-chat-bridge /app
 COPY services/shared /app/shared
 RUN pip install --no-cache-dir -e .
-ENV PYTHONPATH=/app:/app/shared
+ENV PYTHONPATH=/app/src:/app:/app/shared
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8009"]

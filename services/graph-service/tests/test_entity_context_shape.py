@@ -1,4 +1,4 @@
-from entity_context_shape import shape_deep_context_from_nodes
+from graph_service.entity_context_shape import shape_deep_context_from_nodes
 
 
 def test_shape_extracts_payment_and_ip_property():

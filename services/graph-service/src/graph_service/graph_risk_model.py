@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 
-from config import settings
+from .config import settings
 
 """Optional GNN-beta adapter for graph risk scoring."""
 
