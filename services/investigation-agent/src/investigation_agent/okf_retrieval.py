@@ -194,6 +194,8 @@ def _effective_max_concepts(max_concepts: int | None) -> int:
 
 def _candidate_from_concept_hit(hit: ConceptHit, *, stage: str) -> _Candidate:
     concept = hit.concept
+    # Registry hits come from the current loaded snapshot, so their hashes are canonical
+    # for this tenant view and can never be "stale" within the retrieval decision.
     return _Candidate(
         text=_concept_text(concept),
         authority=_okf_authority(hit.authority),
@@ -263,18 +265,17 @@ def _candidate_from_rag_hit(
         if current_hit is None:
             return None
         indexed_hash = str(hit.get("content_hash") or "").strip() or None
-        if indexed_hash != current_hit.concept.content_hash:
-            return None
         return _Candidate(
             text=_concept_text(current_hit.concept),
             authority=_okf_authority(current_hit.authority),
             concept_id=current_hit.concept.concept_id,
-            content_hash=current_hit.concept.content_hash,
+            content_hash=indexed_hash or current_hit.concept.content_hash,
             evidence_ids=current_hit.concept.evidence_ids,
             retrieval_path=(current_hit.concept.concept_id,),
             score=score,
-            stale=False,
-            source_uri=current_hit.concept.source_uri,
+            stale=indexed_hash != current_hit.concept.content_hash,
+            source_uri=str(hit.get("source_uri") or current_hit.concept.source_uri).strip()
+            or current_hit.concept.source_uri,
             stage="rag",
         )
 
@@ -341,9 +342,9 @@ def _dedupe_and_sort(candidates: list[_Candidate]) -> list[_Candidate]:
 
 def _candidate_sort_key(candidate: _Candidate) -> tuple[Any, ...]:
     return (
-        _STAGE_RANK.get(candidate.stage, 99),
-        -int(bool(candidate.evidence_ids)),
         -_AUTHORITY_RANK.get(candidate.authority, -1),
+        -int(bool(candidate.evidence_ids)),
+        _STAGE_RANK.get(candidate.stage, 99),
         -candidate.score,
         candidate.concept_id or "",
         candidate.content_hash or "",
@@ -368,8 +369,11 @@ def _finalize_result(
     rag_candidates: list[_Candidate],
     rag_data: dict[str, Any] | None,
 ) -> KnowledgeRetrievalResult:
-    combined = _dedupe_and_sort([*exact_expand, *rag_candidates])
-    conflicts = _detect_conflicts(combined)
+    all_candidates = [*exact_expand, *rag_candidates]
+    conflicts = _detect_conflicts(all_candidates)
+    combined = _dedupe_and_sort(
+        [candidate for candidate in all_candidates if not candidate.stale]
+    )
     authoritative = [
         candidate
         for candidate in combined
@@ -425,8 +429,18 @@ def _detect_conflicts(candidates: list[_Candidate]) -> tuple[str, ...]:
         hashes = {entry.content_hash for entry in entries}
         if len(hashes) <= 1:
             continue
-        concept_ids = sorted({entry.concept_id for entry in entries if entry.concept_id})
+        concept_ids = [entry.concept_id for entry in entries if entry.concept_id]
+        if len(set(concept_ids)) == len(entries):
+            labels = sorted({concept_id for concept_id in concept_ids if concept_id})
+        else:
+            labels = sorted(
+                {
+                    f"{entry.concept_id}[{entry.content_hash}]"
+                    for entry in entries
+                    if entry.concept_id and entry.content_hash
+                }
+            )
         conflicts.append(
-            f"{authority} conflict for {source_uri}: " + " != ".join(concept_ids)
+            f"{authority} conflict for {source_uri}: " + " != ".join(labels)
         )
     return tuple(sorted(conflicts))
