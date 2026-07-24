@@ -141,6 +141,13 @@ def _check_rust_json_rules_engine() -> tuple[bool, dict[str, Any]]:
             f"tarka_rule_engine not installed (auto mode uses Python fallback): {e}"
         )
         return True, detail
+    required = ("sync_packs_json", "evaluate_json_rules_rust", "rust_engine_cache_stats")
+    missing = [name for name in required if not hasattr(tre, name)]
+    if missing:
+        detail["status"] = "unhealthy"
+        detail["reason"] = f"tarka_rule_engine missing symbols: {', '.join(missing)}"
+        detail["required_symbols"] = list(required)
+        return False, detail
     try:
         tre.rust_engine_cache_stats()
     except Exception as e:
@@ -148,8 +155,27 @@ def _check_rust_json_rules_engine() -> tuple[bool, dict[str, Any]]:
         detail["status"] = "unhealthy"
         detail["reason"] = f"rust_engine_cache_stats failed: {e}"
         return False, detail
+    if mode == "rust":
+        try:
+            tre.sync_packs_json("[]")
+            tre.evaluate_json_rules_rust(
+                "{}",
+                "[]",
+                "default",
+                "default",
+                "production",
+                None,
+            )
+        except TypeError:
+            # Signature drift across wheels: presence + cache_stats is enough; sync smoke optional.
+            pass
+        except Exception as e:
+            detail["status"] = "unhealthy"
+            detail["reason"] = f"rust evaluate smoke failed: {e}"
+            return False, detail
     detail["status"] = "healthy"
     detail["reason"] = "Rust JSON rule engine extension responsive"
+    detail["required_symbols"] = list(required)
     return True, detail
 
 

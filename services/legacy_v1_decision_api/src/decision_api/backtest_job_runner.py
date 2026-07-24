@@ -26,8 +26,9 @@ BACKTEST_CHUNK_SIZE = 10_000
 
 
 def rule_pack_fingerprint_sha256(rule_pack: dict[str, Any]) -> str:
-    raw = json.dumps(rule_pack, sort_keys=True, default=str).encode("utf-8")
-    return hashlib.sha256(raw).hexdigest()
+    from decision_api.rule_content_identity import rule_pack_content_sha256
+
+    return rule_pack_content_sha256(rule_pack)
 
 
 def _packs_for_evaluation(rule_pack: dict[str, Any]) -> list[dict[str, Any]]:

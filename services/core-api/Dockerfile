@@ -1,3 +1,17 @@
+FROM python:3.12-slim AS rule-engine-builder
+
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && apt-get install -y --no-install-recommends build-essential curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
+    && . "$HOME/.cargo/env" \
+    && pip install --no-cache-dir maturin
+ENV PATH="/root/.cargo/bin:${PATH}"
+WORKDIR /build
+COPY services/rule-engine /build/rule-engine
+RUN cd /build/rule-engine && maturin build --release --out /wheels
+
 FROM python:3.12-slim
 
 RUN apt-get update \
@@ -29,12 +43,16 @@ COPY packages/shared-core/tarka_shared /app/packages/shared-core/tarka_shared
 COPY services/core-api/config/decision_alembic.ini /app/config/decision_alembic.ini
 COPY services/core-api/config/decision_alembic.ini /app/alembic.ini
 COPY services/core-api/config/case_alembic.ini /app/config/case_alembic.ini
+COPY --from=rule-engine-builder /wheels /wheels
 RUN sed -i -e 's|file:../core|file:/app/core|g' /app/analytics/pyproject.toml \
     && sed -i \
         -e 's|file:../core|file:/app/core|g' \
         -e 's|file:../analytics|file:/app/analytics|g' \
         /app/pyproject.toml \
-    && pip install --no-cache-dir -e .
+    && pip install --no-cache-dir -e . \
+    && pip install --no-cache-dir /wheels/*.whl \
+    && rm -rf /wheels
 ENV PYTHONPATH=/app:/app/core_api:/app/shared:/app/packages/shared-core
 ENV RULES_PATH=/app/rules
+ENV TARKA_JSON_RULES_ENGINE=rust
 CMD ["/bin/sh", "-c", "alembic -c /app/config/decision_alembic.ini upgrade head && alembic -c /app/config/case_alembic.ini upgrade head && exec uvicorn main:app --host 0.0.0.0 --port 8000"]

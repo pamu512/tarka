@@ -276,11 +276,13 @@ async def compile_visual_ast(
     """Compile AST → JSON rule pack."""
     _static_check_regex_fields(body)
     json_pack = _compile_to_json_rules(body)
-    fp = hashlib.sha256(json.dumps(json_pack, sort_keys=True).encode()).hexdigest()
+    from decision_api.rule_content_identity import rule_pack_content_sha256
+
+    fp = rule_pack_content_sha256(json_pack)
     return {
         "rule_pack": json_pack,
         "fingerprint_sha256": fp,
-        "gitops_note": "Commit rule_pack JSON under rules/visual/ and open PR for peer approval before prod deploy.",
+        "gitops_note": "Commit rule_pack JSON under rules/visual/ and open PR for peer approval before prod deploy. Activation must match this content hash.",
     }
 
 
