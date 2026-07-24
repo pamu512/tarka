@@ -1,3 +1,5 @@
+# Criterion p99 regression for tarka-core on PR (release-blocking gate — ROI #10).
+# Absolute Baseline/Proposed delta: workflow_dispatch only — tarka-core-benchmark-regression.yml
 name: Bench
 
 on:

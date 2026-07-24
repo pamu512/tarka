@@ -99,6 +99,13 @@ GRAPH_SERVICE_URL=http://graph-service:8001
 ## Kubernetes with Helm
 
 Helm charts are provided in `infra/deploy/helm/fraud-stack/` (chart name: `tarka`).
+That path is **canonical**. For a small K8s footprint, merge `presets/lite-on-k8s.yaml`.
+Local Lite compose is repo-root `docker-compose.yml` (includes `infra/deploy/docker-compose.lite.yml`).
+
+**Calibration:** runtime scoring/drift is the signal-api mount
+(`CALIBRATION_SERVICE_URL=http://…-signal-api:…/calibration`). Standalone
+`calibration-service` Helm stays disabled by default
+(`services/calibration-service/DEPRECATED.md`).
 
 ### Install
 

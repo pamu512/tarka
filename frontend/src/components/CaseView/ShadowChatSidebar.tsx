@@ -1,31 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  streamShadowLLMChat,
-  type ShadowSidecarChatMessage,
-  type ShadowSidecarStreamEvent,
-} from "../../api/client";
+import { investigation } from "../../api/client";
 import { toUserFacingError } from "../../utils/userFacingErrors";
 
 type ConnState = "idle" | "streaming" | "complete" | "aborted" | "dropped" | "error";
+
+type ChatMessage = { role: "user" | "assistant" | "system"; content: string };
 
 function isAbortError(e: unknown): boolean {
   return e instanceof DOMException && e.name === "AbortError";
 }
 
-function normalizeFinalMessages(raw: unknown): ShadowSidecarChatMessage[] {
-  if (!Array.isArray(raw)) return [];
-  const out: ShadowSidecarChatMessage[] = [];
-  for (const m of raw) {
-    if (typeof m !== "object" || m == null) continue;
-    const role = (m as { role?: string }).role;
-    const content = (m as { content?: string }).content;
-    if (role !== "user" && role !== "assistant" && role !== "system") continue;
-    if (typeof content !== "string") continue;
-    out.push({ role, content });
-  }
-  return out;
-}
+const DEFAULT_ANALYST = "analyst-1";
 
 export type ShadowChatSidebarProps = {
   caseId: string;
@@ -38,10 +24,18 @@ export type ShadowChatSidebarProps = {
 };
 
 /**
- * Case-detail right rail: streaming chat with the Shadow sidecar for this case (`case_id` on every request).
+ * Case-detail right rail: streaming chat with investigation-agent for this case.
+ * (Historically named ShadowChatSidebar; runtime is investigation-agent, not tools/shadow.)
  */
-export function ShadowChatSidebar({ caseId, tenantId, caseTitle, open, onOpenChange, embedded = false }: ShadowChatSidebarProps) {
-  const [messages, setMessages] = useState<ShadowSidecarChatMessage[]>([]);
+export function ShadowChatSidebar({
+  caseId,
+  tenantId,
+  caseTitle,
+  open,
+  onOpenChange,
+  embedded = false,
+}: ShadowChatSidebarProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [streamingText, setStreamingText] = useState("");
   const [conn, setConn] = useState<ConnState>("idle");
@@ -49,8 +43,6 @@ export function ShadowChatSidebar({ caseId, tenantId, caseTitle, open, onOpenCha
   const abortRef = useRef<AbortController | null>(null);
   const gotFinalRef = useRef(false);
   const draftRef = useRef<HTMLTextAreaElement | null>(null);
-
-  const threadId = useMemo(() => `tarka-case-sidebar-${caseId}`, [caseId]);
 
   useEffect(() => {
     return () => abortRef.current?.abort();
@@ -73,7 +65,7 @@ export function ShadowChatSidebar({ caseId, tenantId, caseTitle, open, onOpenCha
   const send = useCallback(async () => {
     const text = draft.trim();
     if (!text || conn === "streaming") return;
-    const userMsg: ShadowSidecarChatMessage = { role: "user", content: text };
+    const userMsg: ChatMessage = { role: "user", content: text };
     const nextMessages = [...messages, userMsg];
     setMessages(nextMessages);
     setDraft("");
@@ -85,35 +77,42 @@ export function ShadowChatSidebar({ caseId, tenantId, caseTitle, open, onOpenCha
     setConn("streaming");
 
     try {
-      await streamShadowLLMChat(
-        {
-          messages: nextMessages,
-          case_id: caseId.trim(),
-          thread_id: threadId,
-        },
+      const result = await investigation.chatWithHistoryStream(
+        nextMessages,
+        tenantId,
+        DEFAULT_ANALYST,
+        caseId.trim() || undefined,
         {
           signal: ac.signal,
-          onEvent: (ev: ShadowSidecarStreamEvent) => {
-            if (ev.type === "delta") {
-              const t = ev.payload?.text;
-              if (t) setStreamingText((s) => s + t);
-            } else if (ev.type === "final") {
-              gotFinalRef.current = true;
-              const normalized = normalizeFinalMessages(ev.payload?.messages);
-              if (normalized.length) setMessages(normalized);
+        },
+        (ev) => {
+          if (ev.type === "delta" && ev.payload && typeof ev.payload === "object") {
+            const t = (ev.payload as { text?: string }).text;
+            if (t) setStreamingText((s) => s + t);
+          } else if (ev.type === "final" && ev.payload && typeof ev.payload === "object") {
+            const p = ev.payload as { reply?: string };
+            const reply = typeof p.reply === "string" ? p.reply : "";
+            gotFinalRef.current = true;
+            if (reply) {
+              setMessages([...nextMessages, { role: "assistant", content: reply }]);
               setStreamingText("");
-            } else if (ev.type === "error") {
-              const code = ev.payload?.code;
-              const msg = ev.payload?.message ?? "Stream error";
-              setLastError(code ? `${code}: ${msg}` : msg);
             }
-          },
+          } else if (ev.type === "error" && ev.payload && typeof ev.payload === "object") {
+            const err = ev.payload as { code?: string; message?: string };
+            const msg = err.message ?? "Stream error";
+            setLastError(err.code ? `${err.code}: ${msg}` : msg);
+          }
         },
       );
+      if (!gotFinalRef.current && result.reply) {
+        gotFinalRef.current = true;
+        setMessages([...nextMessages, { role: "assistant", content: result.reply }]);
+        setStreamingText("");
+      }
       if (!gotFinalRef.current && !ac.signal.aborted) {
         setConn("dropped");
         setLastError(
-          "Stream closed before a final frame. Ensure the Shadow sidecar is running (e.g. port 8742 via Vite proxy).",
+          "Stream closed before a final frame. Ensure investigation-agent is reachable via /api/investigation.",
         );
       } else {
         setConn(ac.signal.aborted ? "aborted" : "complete");
@@ -124,16 +123,21 @@ export function ShadowChatSidebar({ caseId, tenantId, caseTitle, open, onOpenCha
         setLastError(null);
       } else {
         setConn("error");
-        setLastError(toUserFacingError(e, { subject: "Shadow LLM stream", action: "reach the sidecar or LLM" }));
+        setLastError(
+          toUserFacingError(e, {
+            subject: "Investigation copilot",
+            action: "reach investigation-agent",
+          }),
+        );
       }
     } finally {
       abortRef.current = null;
       setStreamingText((t) => (gotFinalRef.current ? "" : t));
     }
-  }, [caseId, conn, draft, messages, threadId]);
+  }, [caseId, conn, draft, messages, tenantId]);
 
   const busy = conn === "streaming";
-  const forensicsHref = `/investigation/shadow-llm?case_id=${encodeURIComponent(caseId)}&tenant_id=${encodeURIComponent(tenantId)}`;
+  const investigationHref = `/investigation?case_id=${encodeURIComponent(caseId)}&tenant_id=${encodeURIComponent(tenantId)}`;
 
   const rail = (
     <div className="flex h-full min-h-0 shrink-0 flex-col border-surface-700 bg-surface-900/90 xl:border-l">
@@ -141,13 +145,13 @@ export function ShadowChatSidebar({ caseId, tenantId, caseTitle, open, onOpenCha
         type="button"
         onClick={() => onOpenChange(true)}
         className="flex min-h-[12rem] flex-1 flex-col items-center justify-start gap-3 py-4 text-brand-300 transition hover:bg-surface-800/80 hover:text-brand-200"
-        title="Open Shadow AI chat"
+        title="Open investigation copilot"
       >
         <span
           className="text-[11px] font-semibold uppercase tracking-widest text-brand-400/90"
           style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
         >
-          Shadow AI
+          Copilot
         </span>
         <span className="text-lg leading-none text-gray-500" aria-hidden>
           ‹
@@ -163,7 +167,9 @@ export function ShadowChatSidebar({ caseId, tenantId, caseTitle, open, onOpenCha
     >
       <div className="flex shrink-0 items-start justify-between gap-2 border-b border-surface-700 px-3 py-2.5">
         <div className="min-w-0">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Shadow AI</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            Investigation copilot
+          </h2>
           <p className="truncate text-[11px] text-gray-500" title={caseTitle ?? caseId}>
             {caseTitle ? caseTitle : `Case ${caseId.slice(0, 8)}…`}
           </p>
@@ -172,7 +178,7 @@ export function ShadowChatSidebar({ caseId, tenantId, caseTitle, open, onOpenCha
           type="button"
           onClick={() => onOpenChange(false)}
           className="shrink-0 rounded-lg border border-surface-600 px-2 py-1 text-[11px] font-medium text-gray-400 hover:bg-surface-800 hover:text-gray-200"
-          aria-label="Close Shadow AI sidebar"
+          aria-label="Close investigation copilot"
         >
           Close
         </button>
@@ -180,8 +186,8 @@ export function ShadowChatSidebar({ caseId, tenantId, caseTitle, open, onOpenCha
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3">
         <p className="text-[11px] leading-relaxed text-gray-500">
-          Ask why signals fired — e.g. why this device was flagged as a mule. Answers use this case&apos;s{" "}
-          <code className="text-gray-400">case_id</code> on the Shadow sidecar.
+          Ask about this case — grounded via investigation-agent tools and{" "}
+          <code className="text-gray-400">case_id</code>.
         </p>
         {messages.length === 0 && !streamingText ? (
           <p className="text-sm text-gray-600">No messages yet.</p>
@@ -195,7 +201,9 @@ export function ShadowChatSidebar({ caseId, tenantId, caseTitle, open, onOpenCha
                 : "mr-4 border-surface-600 bg-surface-950/80 text-gray-200"
             }`}
           >
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">{m.role}</div>
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+              {m.role}
+            </div>
             {m.content}
           </div>
         ))}
@@ -211,7 +219,9 @@ export function ShadowChatSidebar({ caseId, tenantId, caseTitle, open, onOpenCha
       </div>
 
       {lastError ? (
-        <div className="shrink-0 border-t border-surface-800 px-3 py-2 text-[11px] text-rose-200">{lastError}</div>
+        <div className="shrink-0 border-t border-surface-800 px-3 py-2 text-[11px] text-rose-200">
+          {lastError}
+        </div>
       ) : null}
 
       <div className="shrink-0 space-y-2 border-t border-surface-700 bg-surface-950/50 px-3 py-2.5">
@@ -262,8 +272,8 @@ export function ShadowChatSidebar({ caseId, tenantId, caseTitle, open, onOpenCha
             Stop
           </button>
         </div>
-        <Link to={forensicsHref} className="inline-block text-[11px] text-brand-400 hover:text-brand-300">
-          Full Shadow LLM workspace →
+        <Link to={investigationHref} className="inline-block text-[11px] text-brand-400 hover:text-brand-300">
+          Full Investigation workspace →
         </Link>
       </div>
     </div>
@@ -283,7 +293,7 @@ export function ShadowChatSidebar({ caseId, tenantId, caseTitle, open, onOpenCha
         <button
           type="button"
           className="fixed inset-0 z-[180] bg-black/45 xl:hidden"
-          aria-label="Dismiss Shadow AI"
+          aria-label="Dismiss investigation copilot"
           onClick={() => onOpenChange(false)}
         />
       ) : null}
@@ -295,7 +305,7 @@ export function ShadowChatSidebar({ caseId, tenantId, caseTitle, open, onOpenCha
             className="fixed bottom-5 right-5 z-[160] flex items-center gap-2 rounded-full border border-brand-500/40 bg-brand-600/90 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-black/40 xl:hidden"
             onClick={() => onOpenChange(true)}
           >
-            Shadow AI
+            Copilot
           </button>
           <div className="hidden shrink-0 self-stretch xl:flex xl:w-12">{rail}</div>
         </>

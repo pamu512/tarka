@@ -205,6 +205,10 @@ class Settings(BaseSettings):
     eval_step_graph_risk_max_attempts: int = int(
         os.environ.get("EVAL_STEP_GRAPH_RISK_MAX_ATTEMPTS", "2")
     )
+    #: Warn when graph-service ``graph_data_as_of`` is older than this many minutes (0 = off).
+    graph_risk_max_age_minutes: int = int(
+        os.environ.get("GRAPH_RISK_MAX_AGE_MINUTES", "30")
+    )
     eval_step_opa_timeout_seconds: float = float(
         os.environ.get("EVAL_STEP_OPA_TIMEOUT_SECONDS", "2.5")
     )

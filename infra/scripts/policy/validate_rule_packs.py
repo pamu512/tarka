@@ -7,7 +7,7 @@ import os
 import sys
 from pathlib import Path
 
-"""Validate JSON rule packs under legacy decision-api rules (or RULES_PATH).
+"""Validate JSON rule packs under decision-api rules (or RULES_PATH).
 
 Also validates v2 Hetu rule-engine AST packs under services/rule_engine/.
 
@@ -15,11 +15,14 @@ Exit 0 if all packs parse and pass structural validation (same checks as rule_ap
 Used by CI for policy-as-code gate.
 """
 _REPO = Path(__file__).resolve().parents[3]
-_DEC = _REPO / "services" / "legacy_v1_decision_api"
+_DEC = _REPO / "services" / "decision-api"
 _V2_RULE_ENGINE = _REPO / "services" / "rule_engine"
 _SRC = _DEC / "src"
+_SHARED_CORE = _REPO / "packages" / "shared-core"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
+if str(_SHARED_CORE) not in sys.path:
+    sys.path.insert(0, str(_SHARED_CORE))
 
 
 def _validate_v1_packs(rules_dir: Path) -> list[str]:
@@ -55,7 +58,7 @@ def _validate_v2_packs(v2_root: Path) -> list[str]:
         if s not in sys.path:
             sys.path.insert(0, s)
 
-    from rule_engine.ast_schemas import Rule
+    from tarka_shared.ast_schemas import Rule
 
     errors: list[str] = []
     pack_dirs = [

@@ -52,7 +52,7 @@ export default function Help() {
             ["#investigation", "Investigation"],
             ["#policy", "Policy & testing"],
             ["#governance", "Governance"],
-            ["#account", "Notifications & settings"],
+            ["#account", "Settings"],
             ["#basics-advanced", "Basics vs advanced"],
             ["#appearance", "Theme & logo"],
           ].map(([href, label]) => (
@@ -73,8 +73,7 @@ export default function Help() {
           <strong className="text-gray-400">Search / jump</strong> (opens the command palette—also{" "}
           <kbd className="px-1 rounded bg-surface-800 border border-surface-600 text-gray-400">⌘K</kbd> /{" "}
           <kbd className="px-1 rounded bg-surface-800 border border-surface-600 text-gray-400">Ctrl+K</kbd>
-          ) to hop between modules or open cases; then Help, Notifications (amber count when something needs attention),
-          Settings, and Account for appearance.
+          ) to hop between modules or open cases; then Help, Settings, and Account for appearance.
         </p>
         <p>
           <strong className="text-gray-400">Open cases:</strong> when you open cases from the queue, they appear as tabs
@@ -212,14 +211,11 @@ export default function Help() {
         </Sub>
       </Section>
 
-      <Section id="account" title="Notifications & settings">
-        <Sub title="Notifications">
-          <p>Actionable and informational items (demo counts on the nav). Replace with your notification service later.</p>
-        </Sub>
+      <Section id="account" title="Settings">
         <Sub title="Settings">
           <p>
             Workspace and account placeholders. <strong className="text-gray-400">Appearance</strong> lets you choose
-            light, dark, or system default theme.
+            light, dark, or system default theme. In-app notification inbox was removed (no notifications API).
           </p>
         </Sub>
       </Section>
