@@ -28,6 +28,13 @@ class FeatureDefinitionDdlStatus(StrEnum):
 
 class AuditRecord(Base):
     __tablename__ = "decision_audit"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "idempotency_key",
+            name="uq_decision_audit_tenant_idempotency_key",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -43,6 +50,11 @@ class AuditRecord(Base):
     tags: Mapped[list] = mapped_column(JSON, default=list)
     rule_hits: Mapped[list] = mapped_column(JSON, default=list)
     payload_snapshot: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(
+        String(512), nullable=True, index=True
+    )
+    request_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    idempotency_response: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
