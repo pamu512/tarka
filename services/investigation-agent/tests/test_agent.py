@@ -840,6 +840,67 @@ class TestSearchKnowledgeOkf:
         assert "search_knowledge_citation_omitted" in adjustments
         assert "unresolved_exact_citation_id" in adjustments
 
+    def test_all_tool_claims_require_successful_selected_call_indices(self):
+        from investigation_agent.main import _enforce_claim_exact_ids
+
+        tool_calls = [
+            {"tool": "get_case", "result": {"case": {"id": "case-1", "status": "open"}}},
+            {"tool": "list_cases", "result": {"items": [{"id": "case-2"}]}},
+            {"tool": "get_decision_audit", "result": {"error": "upstream_failed"}},
+        ]
+        claims = [
+            {
+                "text": "Case case-1 is open.",
+                "source": "tool",
+                "supporting_tool_call_indices": [0],
+            },
+            {"text": "A case was fetched.", "source": "tool"},
+            {
+                "text": "The failed audit supports this.",
+                "source": "tool",
+                "supporting_tool_call_indices": [2],
+            },
+            {
+                "text": "Queue includes case-2.",
+                "source": "tool",
+                "supporting_tool_call_indices": [1],
+            },
+        ]
+
+        grounded, adjustments = _enforce_claim_exact_ids(claims, tool_calls)
+
+        assert [claim["source"] for claim in grounded] == [
+            "tool",
+            "unknown",
+            "unknown",
+            "tool",
+        ]
+        assert grounded[1]["supported"] is False
+        assert grounded[2]["supported"] is False
+        assert adjustments.count("tool_call_binding_invalid") == 2
+
+    @pytest.mark.parametrize("assurance_mode", ["standard", "strict"])
+    def test_exact_citation_violation_withholds_narrative_in_all_modes(self, assurance_mode):
+        from investigation_agent.main import _apply_grounding_abstention
+
+        reply, claims, refused = _apply_grounding_abstention(
+            "Fabricated claim that must not remain visible.",
+            [
+                {
+                    "text": "Fabricated claim that must not remain visible.",
+                    "source": "unknown",
+                    "supported": False,
+                }
+            ],
+            adjustments=["unresolved_exact_citation_id"],
+            assurance_mode=assurance_mode,
+        )
+
+        assert refused is True
+        assert "Fabricated claim" not in reply
+        assert "withheld" in reply.lower() or "abstain" in reply.lower()
+        assert claims == [{"text": reply, "source": "unknown", "supported": False}]
+
     def test_okf_claims_prompt_schema_requests_exact_ids_without_invention(self):
         from investigation_agent.personas import (
             DEFAULT_COPILOT_PERSONA,

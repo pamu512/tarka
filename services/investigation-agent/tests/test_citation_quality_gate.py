@@ -5,6 +5,7 @@ from pathlib import Path
 
 from investigation_agent.citation_schema import build_standard_citations
 from investigation_agent.main import (
+    _apply_grounding_abstention,
     _enforce_claim_exact_ids,
     _parse_tarka_claims_reply,
 )
@@ -39,9 +40,9 @@ def test_independent_adversarial_citation_quality_gate() -> None:
         raw_reply = "Fixture answer.\nTARKA_CLAIMS_JSON=" + json.dumps(
             {"claims": [case["claim"]]}, separators=(",", ":")
         )
-        _prose, parsed, warning = _parse_tarka_claims_reply(raw_reply)
+        prose, parsed, warning = _parse_tarka_claims_reply(raw_reply)
         assert warning is None, case["name"]
-        grounded, _adjustments = _enforce_claim_exact_ids(parsed, tool_calls)
+        grounded, adjustments = _enforce_claim_exact_ids(parsed, tool_calls)
         citations, _summary = build_standard_citations(
             claims=grounded,
             deterministic_support=[
@@ -69,7 +70,22 @@ def test_independent_adversarial_citation_quality_gate() -> None:
             assert accepted == expected, case["name"]
         else:
             unsupported_total += 1
-            unsupported_abstained += int(card["source"] == "unknown" and card["supported"] is False)
+            withheld_in_all_modes = True
+            for assurance_mode in ("standard", "strict"):
+                safe_reply, _safe_claims, refused = _apply_grounding_abstention(
+                    prose,
+                    grounded,
+                    adjustments=adjustments,
+                    assurance_mode=assurance_mode,
+                )
+                withheld_in_all_modes = withheld_in_all_modes and refused
+                assert "Fixture answer." not in safe_reply, (
+                    assurance_mode,
+                    case["name"],
+                )
+            unsupported_abstained += int(
+                withheld_in_all_modes and card["source"] == "unknown" and card["supported"] is False
+            )
 
     assert {
         "correct_exact_ids",

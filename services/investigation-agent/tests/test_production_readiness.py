@@ -182,6 +182,7 @@ def test_openapi_ready_contract_covers_degraded_and_sanitized_failures():
         ).read_text(encoding="utf-8")
     )
     responses = contract["paths"]["/v1/ready"]["get"]["responses"]
+    description = contract["paths"]["/v1/ready"]["get"]["description"].lower()
     ok_schema = responses["200"]["content"]["application/json"]["schema"]
     unavailable_schema = responses["503"]["content"]["application/json"]["schema"]
 
@@ -195,6 +196,9 @@ def test_openapi_ready_contract_covers_degraded_and_sanitized_failures():
         "okf_unavailable",
         "okf_disabled",
     }
+    assert "rag" in description
+    assert "okf" in description
+    assert "degraded" in description
 
 
 def test_request_body_too_large_413():

@@ -32,6 +32,10 @@ def test_chat_returns_tools_only_deterministic_when_llm_key_missing(monkeypatch,
     assert out["copilot_mode"] == "tools_only_deterministic"
     assert "openai_api_key_missing" in (out.get("degraded_reasons") or [])
     assert isinstance(out.get("tool_calls"), list)
+    assert all(
+        claim.get("source") != "tool" or claim.get("supporting_tool_call_indices")
+        for claim in out.get("claims") or []
+    )
     assert out["agent_run"]["model_provider"] == "deterministic"
     assert out["agent_run"]["prompt_hash"]
     persisted = agent_run_store.get_agent_run(
