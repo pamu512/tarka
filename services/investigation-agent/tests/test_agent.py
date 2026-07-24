@@ -404,6 +404,57 @@ class TestSearchKnowledgeOkf:
         assert result["hits"][0]["retrieval_path"] == ["rules/high-amount"]
         assert result["hits"][0]["authority"] == "shared_okf"
 
+    @pytest.mark.asyncio
+    async def test_search_knowledge_preserves_legacy_rag_hit_fields_on_okf_fallback(self):
+        http = AsyncMock()
+        legacy_hit = {
+            "doc_id": "doc-1",
+            "title": "Legacy memo",
+            "chunk_index": 0,
+            "snippet": "Legacy memo body",
+            "score": 0.42,
+            "semantic_score": None,
+            "keyword_hits": 2,
+            "knowledge_kind": "memo",
+            "content_hash": "memo-hash",
+        }
+
+        with patch("investigation_agent.tools.settings") as mock_settings:
+            mock_settings.allowed_analysts = "*"
+            mock_settings.copilot_knowledge_embeddings = False
+            mock_settings.copilot_embedding_model = "embed"
+            mock_settings.copilot_rag_keyword_weight = 0.35
+            with (
+                patch(
+                    "investigation_agent.tools.knowledge_store.retrieve_knowledge_async",
+                    new=AsyncMock(side_effect=RuntimeError("secret bundle path /tmp/okf")),
+                ),
+                patch(
+                    "investigation_agent.tools.knowledge_store.search_async",
+                    new=AsyncMock(
+                        return_value={
+                            "hits": [legacy_hit],
+                            "query": "legacy memo",
+                            "retrieval_mode": "keyword",
+                        }
+                    ),
+                ),
+            ):
+                result = await tool_search_knowledge(
+                    http,
+                    tenant_id="trusted-tenant",
+                    analyst_id="trusted-analyst",
+                    query="legacy memo",
+                    limit=5,
+                    okf_registry=MagicMock(),
+                )
+
+        assert result["hits"][0] == legacy_hit
+        assert result["okf_unavailable"] is True
+        assert result["abstain"] is True
+        assert result["okf_error"] == "okf_unavailable"
+        assert "/tmp/okf" not in str(result)
+
     def test_okf_abstain_lineage_is_recorded_for_strict_mode(self):
         from investigation_agent.main import (
             _apply_okf_strict_abstention,
@@ -446,6 +497,40 @@ class TestSearchKnowledgeOkf:
         assert "abstain" in reply.lower()
         assert claims == [{"text": reply, "source": "unknown"}]
 
+    def test_okf_unavailable_lineage_abstains_in_strict_mode(self):
+        from investigation_agent.main import (
+            _apply_okf_strict_abstention,
+            _knowledge_lineage_from_tool_calls,
+        )
+
+        tool_calls = [
+            {
+                "tool": "search_knowledge",
+                "args": {"query": "legacy memo"},
+                "result": {
+                    "hits": [{"doc_id": "doc-1", "title": "Legacy memo"}],
+                    "okf_unavailable": True,
+                    "okf_error": "okf_unavailable",
+                    "abstain": True,
+                    "retrieval_mode": "keyword",
+                },
+            }
+        ]
+
+        lineage = _knowledge_lineage_from_tool_calls(tool_calls)
+        assert lineage["okf_unavailable"] is True
+        assert lineage["retrieval_fallback"] == "memo_rag"
+
+        reply, claims, refused = _apply_okf_strict_abstention(
+            "Memo fallback answer.",
+            [{"text": "Memo fallback answer.", "source": "tool"}],
+            assurance_mode="strict",
+            lineage=lineage,
+        )
+        assert refused is True
+        assert "abstain" in reply.lower()
+        assert claims == [{"text": reply, "source": "unknown"}]
+
     def test_okf_claim_parser_preserves_exact_identifier_fields(self):
         from investigation_agent.main import _parse_tarka_claims_reply
 
@@ -467,6 +552,36 @@ class TestSearchKnowledgeOkf:
                 "evidence_ids": ["ev-high-amount"],
             }
         ]
+
+    def test_exact_id_grounding_rejects_fabricated_model_ids(self):
+        from investigation_agent.main import _enforce_claim_exact_ids
+
+        claims = [
+            {
+                "text": "The retrieved high amount rule applies.",
+                "source": "tool",
+                "concept_ids": ["rules/high-amount"],
+                "evidence_ids": ["ev-high-amount"],
+            },
+            {
+                "text": "The fabricated rule applies even though high-amount appears in text.",
+                "source": "tool",
+                "concept_ids": ["rules/fabricated"],
+            },
+        ]
+        lineage = {
+            "concept_ids": ["rules/high-amount"],
+            "evidence_ids": ["ev-high-amount"],
+        }
+
+        grounded, adjustments = _enforce_claim_exact_ids(claims, lineage)
+
+        assert grounded[0]["source"] == "tool"
+        assert grounded[0]["concept_ids"] == ["rules/high-amount"]
+        assert grounded[1]["source"] == "unknown"
+        assert grounded[1]["supported"] is False
+        assert grounded[1]["concept_ids"] == ["rules/fabricated"]
+        assert "unresolved_exact_citation_id" in adjustments
 
 
 class TestOfflineMode:

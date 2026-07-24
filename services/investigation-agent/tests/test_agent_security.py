@@ -1,9 +1,11 @@
 """Security guardrails: injection detection, tenant scoping on tools, output redaction."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
+import investigation_agent.main as main_mod
 from investigation_agent.copilot_hardening import (
     enforce_tool_claim_grounding,
     filter_tool_definitions,
@@ -143,6 +145,102 @@ class TestChatHttpGuards:
         assert r.status_code == 200
         assert r.headers.get("X-Content-Type-Options") == "nosniff"
         assert r.headers.get("X-Frame-Options") == "DENY"
+
+
+class TestChatTenantBinding:
+    @staticmethod
+    async def _fake_llm(http, system, messages, tenant_id, analyst_id, tool_defs, **kwargs):
+        return (
+            f"Tenant {tenant_id} accepted.\n"
+            'TARKA_CLAIMS_JSON={"claims":[{"text":"Tenant scope accepted.","source":"unknown"}]}',
+            [],
+            {},
+            1,
+        )
+
+    @pytest.fixture(autouse=True)
+    def _tenant_auth_env(self, monkeypatch):
+        monkeypatch.setenv("API_KEYS", "k-t1,k-unscoped")
+        monkeypatch.setenv("API_KEY_TENANT_MAP", '{"k-t1":["t1"]}')
+        monkeypatch.delenv("ALLOW_INSECURE_NO_AUTH", raising=False)
+        main_mod._valid_api_keys = None
+        yield
+        main_mod._valid_api_keys = None
+
+    def _post_chat(self, *, api_key: str, body_tenant: str, header_tenant: str | None = None):
+        headers = {"x-api-key": api_key}
+        if header_tenant is not None:
+            headers["x-tenant-id"] = header_tenant
+            headers["x-analyst-id"] = "analyst-1"
+        with (
+            patch("investigation_agent.main._llm_tool_loop", new=AsyncMock(side_effect=self._fake_llm)),
+            patch.multiple(
+                "investigation_agent.main.settings",
+                openai_api_key="sk-test",
+                copilot_include_platform_audit_in_prompt=False,
+                copilot_enforce_tool_claim_grounding=False,
+                copilot_trusted_scope_headers_required=False,
+            ),
+            patch("investigation_agent.main.is_analyst_allowed", return_value=True),
+            TestClient(app) as c,
+        ):
+            return c.post(
+                "/v1/chat",
+                headers=headers,
+                json={
+                    "tenant_id": body_tenant,
+                    "analyst_id": "analyst-1",
+                    "messages": [{"role": "user", "content": "hi"}],
+                },
+            )
+
+    def test_valid_key_for_t1_cannot_request_t2_via_body(self):
+        r = self._post_chat(api_key="k-t1", body_tenant="t2")
+        assert r.status_code == 403
+
+    def test_valid_key_for_t1_cannot_request_t2_via_header(self):
+        r = self._post_chat(api_key="k-t1", body_tenant="t1", header_tenant="t2")
+        assert r.status_code == 403
+
+    def test_valid_key_for_t1_succeeds_for_t1(self):
+        r = self._post_chat(api_key="k-t1", body_tenant="t1")
+        assert r.status_code == 200
+        assert r.json()["agent_run"]["tenant_id"] == "t1"
+
+    def test_unscoped_key_fails_closed(self):
+        r = self._post_chat(api_key="k-unscoped", body_tenant="t1")
+        assert r.status_code == 401
+
+
+class TestOkfAdminReload:
+    @pytest.fixture(autouse=True)
+    def _admin_auth_env(self, monkeypatch):
+        monkeypatch.setenv("API_KEYS", "admin-key")
+        monkeypatch.setenv("API_KEY_TENANT_MAP", '{"admin-key":["*"]}')
+        monkeypatch.setenv("SERVICE_API_KEY_ROLE", "admin")
+        main_mod._valid_api_keys = None
+        yield
+        main_mod._valid_api_keys = None
+
+    def test_okf_reload_requires_api_key(self):
+        with TestClient(app) as c:
+            r = c.post("/v1/admin/okf/reload")
+        assert r.status_code == 401
+
+    def test_okf_reload_uses_atomic_registry_reload(self):
+        fake_registry = MagicMock()
+        fake_registry.reload.return_value = SimpleNamespace(
+            activated=True,
+            revision="rev-1",
+            issues=(),
+        )
+        with TestClient(app) as c:
+            c.app.state.okf_registry = fake_registry
+            r = c.post("/v1/admin/okf/reload", headers={"x-api-key": "admin-key"})
+        assert r.status_code == 200
+        assert r.json()["activated"] is True
+        assert r.json()["revision"] == "rev-1"
+        fake_registry.reload.assert_called_once_with()
 
 
 @pytest.mark.asyncio

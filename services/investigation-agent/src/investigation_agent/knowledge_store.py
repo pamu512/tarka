@@ -4,6 +4,7 @@ from typing import Any
 
 from investigation_agent.knowledge_db import (
     count_docs,
+    health_check as rag_health_check,
     index_okf_bundle_async,
     index_okf_concepts_sync,
     ingest_document_async,
@@ -37,6 +38,7 @@ __all__ = [
     "ingest_document",
     "ingest_document_async",
     "rag_db_path",
+    "rag_health_check",
     "reset_rag_connection_for_tests",
     "retrieve_knowledge",
     "retrieve_knowledge_async",

@@ -181,11 +181,14 @@ def enforce_tool_claim_grounding(
         if c.get("source") != "tool":
             out2.append(dict(c))
             continue
-        # Exact evidence_id path when claim already carries ids (no evidence map).
-        refs = c.get("evidence_ids") if isinstance(c, dict) else None  # type: ignore[arg-type]
-        if isinstance(refs, list) and refs:
-            out2.append({**dict(c), "source": "unknown", "supported": False})  # type: ignore[dict-item]
-            adjustments.append("evidence_map_required_for_citation")
+        # Exact citation ids are validated against tool lineage before this token-overlap pass.
+        exact_refs = []
+        for key in ("concept_ids", "evidence_ids"):
+            refs = c.get(key) if isinstance(c, dict) else None  # type: ignore[arg-type]
+            if isinstance(refs, list):
+                exact_refs.extend(refs)
+        if exact_refs:
+            out2.append(dict(c))
             continue
         text = (c.get("text") or "").lower()
         ok = any(t in text for t in grounding if len(t) >= 4)

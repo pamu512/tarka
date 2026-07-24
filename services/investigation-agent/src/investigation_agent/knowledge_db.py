@@ -127,6 +127,16 @@ def reset_connection_for_tests() -> None:
             _conn = None
 
 
+def health_check() -> tuple[bool, str]:
+    """Open the RAG SQLite database and execute a minimal query."""
+    try:
+        conn = _get_conn()
+        conn.execute("SELECT 1").fetchone()
+        return True, "ok"
+    except Exception as exc:
+        return False, f"{exc.__class__.__name__}: {str(exc)[:200]}"
+
+
 def _chunk_text(text: str) -> list[str]:
     t = text.strip()
     if not t:

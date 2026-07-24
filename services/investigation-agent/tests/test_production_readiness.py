@@ -27,6 +27,37 @@ def test_runtime_readiness_errors_empty():
     assert isinstance(errs, list)
 
 
+def test_runtime_readiness_errors_reports_rag_sql_probe_failure():
+    with patch("investigation_agent.production_config.knowledge_store.rag_health_check") as probe:
+        probe.return_value = (False, "sqlite unavailable")
+        errs = runtime_readiness_errors()
+    assert errs == ["rag sqlite unavailable: sqlite unavailable"]
+
+
+def test_ready_degraded_when_rag_unavailable_but_okf_available():
+    with (
+        patch("investigation_agent.main.runtime_readiness_errors", return_value=["rag down"]),
+        patch("investigation_agent.main._okf_readiness_errors", return_value=[]),
+        patch.object(config.settings, "okf_enabled", True),
+        TestClient(app) as client,
+    ):
+        r = client.get("/v1/ready")
+    assert r.status_code == 200
+    assert r.json()["status"] == "degraded"
+
+
+def test_ready_unhealthy_when_rag_and_okf_unavailable():
+    with (
+        patch("investigation_agent.main.runtime_readiness_errors", return_value=["rag down"]),
+        patch("investigation_agent.main._okf_readiness_errors", return_value=["okf down"]),
+        patch.object(config.settings, "okf_enabled", True),
+        TestClient(app) as client,
+    ):
+        r = client.get("/v1/ready")
+    assert r.status_code == 503
+    assert r.json()["status"] == "not_ready"
+
+
 def test_health_includes_production_block():
     with TestClient(app) as client:
         r = client.get("/v1/health")
