@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from pathlib import Path
 
@@ -20,6 +21,8 @@ _HASH = re.compile(r"^[0-9a-f]{64}$")
 _RESERVED_NAMES = frozenset({"index.md", "log.md"})
 _APPROVED_STATUS = "approved"
 _SHARED_LOGICAL_PREFIX = "/shared/"
+_SOURCE_MANIFEST_NAME = "source-manifest.json"
+_SOURCE_MANIFEST_SCHEMA = "tarka.okf_source_manifest/v1"
 
 
 def _inside(path: Path, root: Path) -> bool:
@@ -258,6 +261,90 @@ def _check_reserved_files(root: Path) -> list[BundleIssue]:
     return issues
 
 
+def _validate_source_manifest(
+    root: Path,
+    concepts: dict[str, OkfConcept],
+) -> list[BundleIssue]:
+    if not concepts:
+        return []
+    path = root / _SOURCE_MANIFEST_NAME
+    if not path.is_file():
+        return [
+            BundleIssue(
+                "source_manifest_missing",
+                path.as_posix(),
+                "approved bundles with concepts require source-manifest.json",
+            )
+        ]
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [
+            BundleIssue(
+                "source_manifest_invalid",
+                path.as_posix(),
+                f"source manifest is not valid JSON: {exc}",
+            )
+        ]
+    if not isinstance(payload, dict) or payload.get("schema_id") != _SOURCE_MANIFEST_SCHEMA:
+        return [
+            BundleIssue(
+                "source_manifest_invalid",
+                path.as_posix(),
+                f"source manifest schema_id must be {_SOURCE_MANIFEST_SCHEMA}",
+            )
+        ]
+    entries = payload.get("concept_sources")
+    if not isinstance(entries, dict):
+        return [
+            BundleIssue(
+                "source_manifest_invalid",
+                path.as_posix(),
+                "source manifest concept_sources must be an object",
+            )
+        ]
+
+    issues: list[BundleIssue] = []
+    for concept_id, concept in sorted(concepts.items()):
+        raw = entries.get(concept_id)
+        if not isinstance(raw, dict):
+            issues.append(
+                BundleIssue(
+                    "source_manifest_entry_missing",
+                    concept.path.as_posix(),
+                    f"source manifest has no provenance for {concept_id}",
+                )
+            )
+            continue
+        manifest_uri = str(raw.get("source_uri") or "").strip()
+        manifest_hash = str(raw.get("source_content_hash") or "").strip().lower()
+        if manifest_uri != concept.source_uri:
+            issues.append(
+                BundleIssue(
+                    "source_uri_mismatch",
+                    concept.path.as_posix(),
+                    f"source_uri differs from manifest for {concept_id}",
+                )
+            )
+        if manifest_hash != concept.source_content_hash:
+            issues.append(
+                BundleIssue(
+                    "source_hash_mismatch",
+                    concept.path.as_posix(),
+                    f"source_content_hash differs from manifest for {concept_id}",
+                )
+            )
+    for concept_id in sorted(set(entries) - set(concepts)):
+        issues.append(
+            BundleIssue(
+                "source_manifest_orphan",
+                path.as_posix(),
+                f"source manifest references missing concept: {concept_id}",
+            )
+        )
+    return issues
+
+
 def validate_bundle(
     root: Path,
     *,
@@ -312,15 +399,26 @@ def validate_bundle(
                 )
             )
 
+    issues.extend(_validate_source_manifest(root, concepts))
+
     if issues:
         return BundleValidation(valid=False, issues=tuple(issues), bundle=None)
 
+    backlink_sets: dict[str, set[str]] = {}
+    for concept in concepts.values():
+        for target_id in concept.links:
+            backlink_sets.setdefault(target_id, set()).add(concept.concept_id)
+    backlinks = {
+        target_id: tuple(sorted(source_ids))
+        for target_id, source_ids in sorted(backlink_sets.items())
+    }
     bundle = ParsedBundle(
         root=root,
         scope=scope,
         tenant_id=tenant_id,
         revision=_bundle_revision(concepts),
         concepts=concepts,
+        backlinks=backlinks,
     )
     return BundleValidation(valid=True, issues=(), bundle=bundle)
 

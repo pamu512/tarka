@@ -71,6 +71,19 @@ def _write_concept(
     path = root / rel_path
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines), encoding="utf-8")
+    manifest_path = root / "source-manifest.json"
+    if manifest_path.is_file():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    else:
+        manifest = {
+            "schema_id": "tarka.okf_source_manifest/v1",
+            "concept_sources": {},
+        }
+    manifest["concept_sources"][Path(rel_path).with_suffix("").as_posix()] = {
+        "source_uri": source_uri,
+        "source_content_hash": source_hash_char * 64,
+    }
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n")
 
 
 def _build_okf_layout(shared_root: Path, tenant_root: Path) -> None:
@@ -519,11 +532,15 @@ def test_equal_authority_conflict_requires_abstention(
     )
 
 
-def test_frozen_corpus_recall_at_10(
+def test_frozen_corpus_enforces_recall_citation_and_abstention_gates(
     registry: OkfRegistry, retrieval_corpus: list[dict[str, object]]
 ) -> None:
     resolved = 0
     expected = 0
+    citation_resolved = 0
+    citation_total = 0
+    unsupported_abstained = 0
+    unsupported_total = 0
     for row in retrieval_corpus:
         result = retrieve_knowledge(
             registry=registry,
@@ -537,6 +554,32 @@ def test_frozen_corpus_recall_at_10(
         wanted = set(row["expected_concept_ids"])
         resolved += len(actual & wanted)
         expected += len(wanted)
-        if row["unsupported"]:
-            assert result.abstain is True
-    assert resolved / max(expected, 1) >= 0.95
+        for item in result.results:
+            if not item.concept_id:
+                continue
+            citation_total += 1
+            exact = registry.expand(
+                str(row["tenant_id"]),
+                (item.concept_id,),
+                max_depth=0,
+                max_concepts=1,
+            )
+            if (
+                len(exact) == 1
+                and exact[0].concept.concept_id == item.concept_id
+                and exact[0].concept.content_hash == item.content_hash
+            ):
+                citation_resolved += 1
+        if bool(row["unsupported"]):
+            unsupported_total += 1
+            unsupported_abstained += int(result.abstain is True)
+
+    assert expected > 0, "frozen corpus must contain positive retrieval expectations"
+    assert citation_total > 0, "frozen corpus must produce exact citations"
+    assert unsupported_total > 0, "frozen corpus must contain unsupported questions"
+    recall_at_10 = resolved / expected
+    citation_resolution = citation_resolved / citation_total
+    unsupported_abstention = unsupported_abstained / unsupported_total
+    assert recall_at_10 >= 0.95
+    assert citation_resolution >= 0.995
+    assert unsupported_abstention >= 0.98

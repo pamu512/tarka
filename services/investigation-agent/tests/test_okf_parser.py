@@ -1,8 +1,44 @@
 """OKF v0.1 concept parsing and bundle validation."""
 
+import json
 from pathlib import Path
 
+import yaml
+
 from investigation_agent.okf_parser import parse_concept, validate_bundle
+
+
+def _write_source_manifest(root: Path) -> None:
+    entries: dict[str, dict[str, str]] = {}
+    for path in sorted(root.rglob("*.md")):
+        if path.name in {"index.md", "log.md"}:
+            continue
+        raw = path.read_text(encoding="utf-8")
+        parts = raw.split("---", 2)
+        if len(parts) != 3:
+            continue
+        meta = yaml.safe_load(parts[1])
+        if not isinstance(meta, dict):
+            continue
+        source_uri = str(meta.get("source_uri") or "").strip()
+        source_hash = str(meta.get("source_content_hash") or "").strip()
+        if not source_uri or not source_hash:
+            continue
+        concept_id = path.relative_to(root).with_suffix("").as_posix()
+        entries[concept_id] = {
+            "source_uri": source_uri,
+            "source_content_hash": source_hash,
+        }
+    (root / "source-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_id": "tarka.okf_source_manifest/v1",
+                "concept_sources": entries,
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
 
 
 def test_parse_concept_identity_and_links(tmp_path):
@@ -63,10 +99,78 @@ def test_unknown_type_is_valid_generic_concept(tmp_path):
         "approval_status: approved\napproved_revision: abc123\n"
         "sensitivity: internal\n---\nCustom body.\n"
     )
+    _write_source_manifest(root)
     result = validate_bundle(root, scope="shared", tenant_id=None)
     assert result.valid is True
     assert result.bundle is not None
     assert result.bundle.concepts["custom"].concept_type == "Custom Fraud Knowledge"
+
+
+def test_approved_bundle_rejects_source_hash_tampered_from_manifest(tmp_path):
+    root = tmp_path / "shared"
+    root.mkdir()
+    (root / "concept.md").write_text(
+        _valid_shared_frontmatter("a").replace("source_uri: docs/x", "source_uri: docs/canonical")
+        + "Canonical body.\n"
+    )
+    (root / "source-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_id": "tarka.okf_source_manifest/v1",
+                "concept_sources": {
+                    "concept": {
+                        "source_uri": "docs/canonical",
+                        "source_content_hash": "b" * 64,
+                    }
+                },
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
+
+    result = validate_bundle(root, scope="shared", tenant_id=None)
+
+    assert result.valid is False
+    assert "source_hash_mismatch" in {issue.code for issue in result.issues}
+
+
+def test_bundle_builds_validated_backlinks(tmp_path):
+    root = tmp_path / "shared"
+    root.mkdir()
+    (root / "source.md").write_text(
+        _valid_shared_frontmatter("a").replace("source_uri: docs/x", "source_uri: docs/source")
+        + "See [target](target.md).\n"
+    )
+    (root / "target.md").write_text(
+        _valid_shared_frontmatter("b").replace("source_uri: docs/x", "source_uri: docs/target")
+        + "Target.\n"
+    )
+    (root / "source-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_id": "tarka.okf_source_manifest/v1",
+                "concept_sources": {
+                    "source": {
+                        "source_uri": "docs/source",
+                        "source_content_hash": "a" * 64,
+                    },
+                    "target": {
+                        "source_uri": "docs/target",
+                        "source_content_hash": "b" * 64,
+                    },
+                },
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
+
+    result = validate_bundle(root, scope="shared", tenant_id=None)
+
+    assert result.valid is True
+    assert result.bundle is not None
+    assert result.bundle.backlinks == {"target": ("source",)}
 
 
 def _valid_shared_frontmatter(source_hash_char: str = "e") -> str:
@@ -90,11 +194,16 @@ def test_reports_link_target_missing_alongside_other_issues(tmp_path):
         "sensitivity: internal\n---\nScoped.\n"
     )
     (root / "linker.md").write_text(_valid_shared_frontmatter("a") + "See [missing](ghost.md).\n")
+    _write_source_manifest(root)
     result = validate_bundle(root, scope="shared", tenant_id=None)
     codes = {issue.code for issue in result.issues}
     assert result.valid is False
     assert result.bundle is None
-    assert codes == {"tenant_scope_mismatch", "link_target_missing"}
+    assert codes == {
+        "tenant_scope_mismatch",
+        "link_target_missing",
+        "source_manifest_orphan",
+    }
 
 
 def test_reject_duplicate_concept_id(tmp_path, monkeypatch):
@@ -113,6 +222,7 @@ def test_reject_duplicate_concept_id(tmp_path, monkeypatch):
         return [path, path]
 
     monkeypatch.setattr(okf_parser_mod, "_iter_concept_paths", _duplicate_paths)
+    _write_source_manifest(root)
     result = validate_bundle(root, scope="shared", tenant_id=None)
     assert result.valid is False
     assert result.bundle is None
@@ -127,6 +237,7 @@ def test_reject_frontmatter_on_reserved_index(tmp_path):
         _valid_shared_frontmatter("c").replace("type: Reference", "type: Fraud Rule")
         + "Rule body.\n"
     )
+    _write_source_manifest(root)
     result = validate_bundle(root, scope="shared", tenant_id=None)
     assert result.valid is False
     assert result.bundle is None
@@ -191,6 +302,8 @@ def test_tenant_resolves_shared_logical_link(tmp_path):
         )
         + "Follow [high amount](/shared/rules/high-amount.md).\n"
     )
+    _write_source_manifest(shared)
+    _write_source_manifest(tenant)
     shared_bundle = validate_bundle(shared, scope="shared", tenant_id=None).bundle
     assert shared_bundle is not None
     result = validate_bundle(tenant, scope="tenant", tenant_id="t1", shared_bundle=shared_bundle)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from typing import Any
 from pathlib import Path
 
@@ -93,6 +94,19 @@ def _write_concept(
         + "\n",
         encoding="utf-8",
     )
+    manifest_path = root / "source-manifest.json"
+    if manifest_path.is_file():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    else:
+        manifest = {
+            "schema_id": "tarka.okf_source_manifest/v1",
+            "concept_sources": {},
+        }
+    manifest["concept_sources"][Path(rel_path).with_suffix("").as_posix()] = {
+        "source_uri": source_uri,
+        "source_content_hash": source_hash_char * 64,
+    }
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n")
 
 
 @pytest.fixture(autouse=True)
@@ -460,6 +474,13 @@ def test_admin_reload_purges_removed_okf_concepts(
         )
 
         concept_path.unlink()
+        manifest_path = tenant_root / "t1" / "source-manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        del manifest["concept_sources"]["playbooks/fresh-reload"]
+        manifest_path.write_text(
+            json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n",
+            encoding="utf-8",
+        )
         purged = client.post("/v1/admin/okf/reload", headers={"x-api-key": "admin-key"})
         assert purged.status_code == 200
         assert purged.json()["activated"] is True

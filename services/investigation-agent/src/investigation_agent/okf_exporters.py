@@ -2,6 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import re
+import shutil
+import tempfile
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +41,16 @@ _PII_KEY_HINTS = frozenset(
         "card_number",
     }
 )
+_EMAIL_VALUE = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
+_PHONE_VALUE = re.compile(r"(?<!\w)(?:\+?\d[\s().-]*){10,15}(?!\w)")
+_ACCOUNT_VALUE = re.compile(
+    r"\b(?:account|acct|card|iban|routing)\s*(?:number|no\.?|#|id)?\s*[:=-]?\s*[A-Z0-9][A-Z0-9 -]{7,30}\b",
+    re.IGNORECASE,
+)
+_CARD_VALUE = re.compile(r"(?<!\d)(?:\d[ -]?){13,19}(?!\d)")
+_SOURCE_MANIFEST_NAME = "source-manifest.json"
+_SOURCE_MANIFEST_SCHEMA = "tarka.okf_source_manifest/v1"
+_FRONTMATTER = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n", re.DOTALL)
 
 _STAGING_GOVERNANCE = {
     "approval_status": "proposed",
@@ -69,6 +84,42 @@ def render_concept(frontmatter: dict[str, Any], body: str) -> str:
         default_flow_style=False,
     ).strip()
     return f"---\n{header}\n---\n{body.strip()}\n"
+
+
+def render_source_manifest(files: dict[str, str]) -> str:
+    """Render deterministic concept-to-canonical-source provenance."""
+    concept_sources: dict[str, dict[str, str]] = {}
+    for rel_path, content in sorted(files.items()):
+        if not rel_path.endswith(".md") or Path(rel_path).name in {"index.md", "log.md"}:
+            continue
+        match = _FRONTMATTER.match(content)
+        if not match:
+            raise OkfExportError(f"{rel_path}: concept frontmatter missing")
+        meta = yaml.safe_load(match.group(1))
+        if not isinstance(meta, dict):
+            raise OkfExportError(f"{rel_path}: concept frontmatter must be an object")
+        source_uri = str(meta.get("source_uri") or "").strip()
+        source_hash = str(meta.get("source_content_hash") or "").strip().lower()
+        if not source_uri or len(source_hash) != 64:
+            raise OkfExportError(f"{rel_path}: source provenance missing")
+        concept_id = Path(rel_path).with_suffix("").as_posix()
+        concept_sources[concept_id] = {
+            "source_content_hash": source_hash,
+            "source_uri": source_uri,
+        }
+    payload = {
+        "schema_id": _SOURCE_MANIFEST_SCHEMA,
+        "concept_sources": concept_sources,
+    }
+    return (
+        json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+        + "\n"
+    )
 
 
 def merge_export_files(*file_maps: dict[str, str]) -> dict[str, str]:
@@ -258,6 +309,13 @@ def export_landmark_case(case: dict[str, Any], *, tenant_id: str) -> str:
             raise LandmarkCaseSanitizationError(
                 f"landmark case contains unsanitized PII field: {key}"
             )
+    for key in ("title", "summary", "lessons"):
+        value = str(case.get(key) or "")
+        if any(
+            pattern.search(value)
+            for pattern in (_EMAIL_VALUE, _PHONE_VALUE, _ACCOUNT_VALUE, _CARD_VALUE)
+        ):
+            raise LandmarkCaseSanitizationError(f"landmark case contains unsanitized PII in {key}")
     case_id = str(case.get("case_id") or "").strip()
     if not case_id:
         raise LandmarkCaseSanitizationError("case_id is required")
@@ -304,30 +362,69 @@ def export_landmark_case(case: dict[str, Any], *, tenant_id: str) -> str:
 def assert_staging_output_path(output: Path, *, repo_root: Path) -> None:
     """Refuse writes to active shared or tenant OKF roots."""
     output_resolved = output.resolve()
-    shared_active = (repo_root / "knowledge" / "shared").resolve()
-    tenant_active = (repo_root / "knowledge" / "tenants").resolve()
+    configured: list[Path] = []
+    for env_name, default in (
+        ("OKF_SHARED_ROOT", repo_root / "knowledge" / "shared"),
+        ("OKF_TENANT_ROOT", repo_root / "knowledge" / "tenants"),
+    ):
+        raw = os.environ.get(env_name, "").strip()
+        active = Path(raw).expanduser() if raw else default
+        if not active.is_absolute():
+            active = repo_root / active
+        configured.append(active.resolve())
+    shared_active, tenant_active = configured
     for active in (shared_active, tenant_active):
-        if output_resolved == active or active in output_resolved.parents:
+        if (
+            output_resolved == active
+            or active in output_resolved.parents
+            or output_resolved in active.parents
+        ):
             raise StagingPathError(f"refusing to export to active OKF root: {active.as_posix()}")
 
 
 def write_staging_bundle(staging_root: Path, files: dict[str, str], *, repo_root: Path) -> None:
-    """Write exported concepts only under the supplied staging root."""
+    """Atomically replace a staging bundle so obsolete files cannot survive."""
     assert_staging_output_path(staging_root, repo_root=repo_root)
     staging_root = staging_root.resolve()
-    staging_resolved = staging_root.resolve()
-    for rel_path, content in sorted(files.items()):
-        rel = Path(rel_path)
-        if rel.is_absolute() or ".." in rel.parts:
-            raise ValueError(f"invalid relative export path: {rel_path}")
-        target = (staging_root / rel).resolve()
-        if staging_resolved not in target.parents and target != staging_resolved:
-            raise ValueError(f"export path escapes staging root: {rel_path}")
-        target.parent.mkdir(parents=True, exist_ok=True)
-        normalized = content.replace("\r\n", "\n").replace("\r", "\n")
-        if not normalized.endswith("\n"):
-            normalized += "\n"
-        target.write_text(normalized, encoding="utf-8", newline="\n")
+    staging_root.parent.mkdir(parents=True, exist_ok=True)
+    temp_root = Path(
+        tempfile.mkdtemp(
+            prefix=f".{staging_root.name}.candidate-",
+            dir=staging_root.parent,
+        )
+    ).resolve()
+    backup = staging_root.parent / (
+        f".{staging_root.name}.previous-{os.getpid()}-{uuid.uuid4().hex}"
+    )
+    try:
+        for rel_path, content in sorted(files.items()):
+            rel = Path(rel_path)
+            if rel.is_absolute() or ".." in rel.parts:
+                raise ValueError(f"invalid relative export path: {rel_path}")
+            target = (temp_root / rel).resolve()
+            if temp_root not in target.parents and target != temp_root:
+                raise ValueError(f"export path escapes staging root: {rel_path}")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            normalized = content.replace("\r\n", "\n").replace("\r", "\n")
+            if not normalized.endswith("\n"):
+                normalized += "\n"
+            target.write_text(normalized, encoding="utf-8", newline="\n")
+
+        if backup.exists():
+            shutil.rmtree(backup)
+        if staging_root.exists():
+            os.replace(staging_root, backup)
+        try:
+            os.replace(temp_root, staging_root)
+        except Exception:
+            if backup.exists() and not staging_root.exists():
+                os.replace(backup, staging_root)
+            raise
+        if backup.exists():
+            shutil.rmtree(backup)
+    finally:
+        if temp_root.exists():
+            shutil.rmtree(temp_root)
 
 
 def shared_bundle_index_md() -> str:
@@ -381,4 +478,8 @@ def collect_shared_exports(rules_dir: Path, *, include_playbooks: bool) -> dict[
     if include_playbooks:
         chunks.append(export_playbooks())
 
-    return merge_export_files(*chunks)
+    concepts = merge_export_files(*chunks)
+    return merge_export_files(
+        concepts,
+        {_SOURCE_MANIFEST_NAME: render_source_manifest(concepts)},
+    )

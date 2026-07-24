@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from investigation_agent import (
+    agent_run_store,
     batch_store,
     copilot_analytics,
     feedback_store,
@@ -191,6 +192,8 @@ def _validate_and_enforce_tenant_scope(request: Request, tenant_id: str) -> None
 
 
 async def require_api_key(request: Request) -> None:
+    if request.url.path in {"/v1/health", "/v1/ready"}:
+        return
     keys = _get_api_keys()
     if settings.copilot_require_investigation_api_key:
         if not keys:
@@ -867,33 +870,170 @@ def _knowledge_lineage_from_tool_calls(tool_calls: list[dict[str, Any]]) -> dict
     }
 
 
-def _enforce_claim_exact_ids(
+def _last_prompt_text(body: Any) -> str:
+    for message in reversed(list(getattr(body, "messages", None) or [])):
+        content = getattr(message, "content", None)
+        if content is None and isinstance(message, dict):
+            content = message.get("content")
+        if content:
+            return str(content)
+    return ""
+
+
+def _create_and_persist_agent_run(
+    *,
+    body: Any,
+    turn_id: str,
+    model_provider: str,
+    model_revision: str,
+    tool_calls: list[dict[str, Any]],
     claims: list[dict[str, Any]],
     lineage: dict[str, Any],
+    uncertainty: dict[str, Any],
+) -> tuple[dict[str, Any], str]:
+    from decision_intelligence import new_agent_run
+
+    payload = new_agent_run(
+        tenant_id=body.tenant_id,
+        prompt=_last_prompt_text(body),
+        model_provider=model_provider,
+        model_revision=model_revision,
+        case_id=body.case_id,
+        entity_id=getattr(body, "entity_id", None),
+        trace_id=getattr(body, "trace_id", None),
+        tool_calls=list(tool_calls),
+        evidence_ids=list(lineage.get("evidence_ids") or []),
+        concept_ids=list(lineage.get("concept_ids") or []),
+        claims=list(claims),
+        uncertainty=dict(uncertainty),
+        review_state="pending",
+    ).to_dict()
+    try:
+        persistence = agent_run_store.persist_agent_run(
+            payload,
+            analyst_id=body.analyst_id,
+            turn_id=turn_id,
+        )
+    except agent_run_store.AgentRunPersistenceError as exc:
+        log.critical(
+            "agent_run_persistence_failed tenant_id=%s turn_id=%s agent_run_id=%s",
+            body.tenant_id,
+            turn_id,
+            payload["agent_run_id"],
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "agent_run_persistence_failed",
+                "agent_run_id": payload["agent_run_id"],
+            },
+        ) from exc
+    return payload, persistence
+
+
+def _enforce_claim_exact_ids(
+    claims: list[dict[str, Any]],
+    tool_calls: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[str]]:
-    allowed_concepts = {str(x) for x in (lineage.get("concept_ids") or []) if str(x)}
-    allowed_evidence = {str(x) for x in (lineage.get("evidence_ids") or []) if str(x)}
+    hits_by_concept: dict[str, list[dict[str, Any]]] = {}
+    hits_by_evidence: dict[str, list[dict[str, Any]]] = {}
+    for call in tool_calls:
+        if not isinstance(call, dict) or call.get("tool") != "search_knowledge":
+            continue
+        result = call.get("result")
+        if not isinstance(result, dict) or any(
+            (
+                result.get("error"),
+                result.get("abstain"),
+                result.get("okf_unavailable"),
+                result.get("conflicts"),
+            )
+        ):
+            continue
+        for hit in result.get("hits") or []:
+            if not isinstance(hit, dict):
+                continue
+            concept_id = str(hit.get("concept_id") or "").strip()
+            if concept_id:
+                hits_by_concept.setdefault(concept_id, []).append(hit)
+            for evidence_id in hit.get("evidence_ids") or []:
+                normalized = str(evidence_id).strip()
+                if normalized:
+                    hits_by_evidence.setdefault(normalized, []).append(hit)
+
+    stopwords = {
+        "about",
+        "according",
+        "applies",
+        "based",
+        "claim",
+        "concept",
+        "evidence",
+        "fraud",
+        "from",
+        "requires",
+        "retrieved",
+        "review",
+        "rule",
+        "that",
+        "the",
+        "this",
+        "tool",
+        "with",
+    }
+
+    def _tokens(value: Any) -> set[str]:
+        try:
+            blob = json.dumps(value, sort_keys=True, default=str)
+        except (TypeError, ValueError):
+            blob = str(value)
+        return {
+            token
+            for token in re.findall(r"[a-z0-9][a-z0-9_-]{3,}", blob.casefold())
+            if token not in stopwords
+        }
+
     out: list[dict[str, Any]] = []
     adjustments: list[str] = []
     for claim in claims:
         c = dict(claim)
-        invalid = False
-        for key, allowed in (("concept_ids", allowed_concepts), ("evidence_ids", allowed_evidence)):
+        unresolved = False
+        selected_hit_groups: list[list[dict[str, Any]]] = []
+        cited_ids: set[str] = set()
+        for key, hit_map in (
+            ("concept_ids", hits_by_concept),
+            ("evidence_ids", hits_by_evidence),
+        ):
             if key not in c:
                 continue
             raw = c.get(key)
             if not isinstance(raw, list) or not raw:
-                invalid = True
+                unresolved = True
                 continue
-            refs = [
-                str(item).strip() for item in raw if isinstance(item, str) and str(item).strip()
-            ]
-            if len(refs) != len(raw) or any(ref not in allowed for ref in refs):
-                invalid = True
-        if invalid:
+            for item in raw:
+                ref_id = item.strip() if isinstance(item, str) else ""
+                matching_hits = hit_map.get(ref_id, [])
+                if not ref_id or not matching_hits:
+                    unresolved = True
+                    continue
+                cited_ids.add(ref_id)
+                selected_hit_groups.append(matching_hits)
+        if unresolved:
             c["source"] = "unknown"
             c["supported"] = False
             adjustments.append("unresolved_exact_citation_id")
+        elif selected_hit_groups:
+            claim_tokens = _tokens(c.get("text") or "")
+            for cited_id in cited_ids:
+                claim_tokens.difference_update(_tokens(cited_id))
+            if any(
+                len(claim_tokens & _tokens(matching_hits)) < 2
+                for matching_hits in selected_hit_groups
+            ):
+                c["source"] = "unknown"
+                c["supported"] = False
+                adjustments.append("exact_citation_text_unsupported")
         out.append(c)
     return out, adjustments
 
@@ -2571,6 +2711,11 @@ async def turn_review_save(rv: TurnReviewBody, request: Request):
         status=rv.status,
         note=rv.note,
     )
+    agent_run_store.update_review_state(
+        tenant_id=rv.tenant_id.strip(),
+        turn_id=tid,
+        review_state=rv.status,
+    )
     return {
         "ok": True,
         "stored": True,
@@ -2582,6 +2727,21 @@ async def turn_review_save(rv: TurnReviewBody, request: Request):
             "enforced": bool(settings.copilot_maker_checker_required and bool(turn_author_id)),
         },
     }
+
+
+@app.get("/v1/agent-runs/{agent_run_id}")
+async def agent_run_get(request: Request, agent_run_id: str, tenant_id: str):
+    _validate_and_enforce_tenant_scope(request, tenant_id)
+    run_id = (agent_run_id or "").strip()
+    if not run_id:
+        raise HTTPException(status_code=400, detail="agent_run_id required")
+    run = agent_run_store.get_agent_run(
+        tenant_id=tenant_id.strip(),
+        agent_run_id=run_id,
+    )
+    if run is None:
+        raise HTTPException(status_code=404, detail="agent_run_id not found")
+    return {"agent_run": run}
 
 
 @app.get("/v1/review/turn")
@@ -2911,6 +3071,27 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             tool_defs_count=len(active_tool_defs),
             plain_chat_enabled=bool(settings.copilot_plain_chat),
         )
+        knowledge_lineage = _knowledge_lineage_from_tool_calls(tool_calls)
+        agent_run_payload, agent_run_persistence = _create_and_persist_agent_run(
+            body=body,
+            turn_id=turn_id,
+            model_provider="deterministic",
+            model_revision="tools-only-v1",
+            tool_calls=tool_calls,
+            claims=claims,
+            lineage=knowledge_lineage,
+            uncertainty={
+                "assurance_refused": False,
+                "deterministic_fallback": True,
+                "okf_abstain": bool(knowledge_lineage.get("okf_abstain")),
+                "okf_unavailable": bool(knowledge_lineage.get("okf_unavailable")),
+                "retrieval_fallback": knowledge_lineage.get("retrieval_fallback"),
+                "conflicts": list(knowledge_lineage.get("conflicts") or []),
+                "bundle_revision": knowledge_lineage.get("bundle_revision"),
+            },
+        )
+        if agent_run_persistence != "persisted":
+            degraded_reasons.append("agent_run_sqlite_degraded")
         out: dict[str, Any] = {
             "reply": reply,
             "tool_calls": tool_calls,
@@ -2925,6 +3106,8 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             "claims_deterministic_support": det_support,
             "citations": citations,
             "citation_verifier": verifier_summary.model_dump(mode="json"),
+            "agent_run": agent_run_payload,
+            "agent_run_persistence": agent_run_persistence,
             "turn_metrics": {
                 "model": _effective_chat_model(),
                 "llm_completion_rounds": 0,
@@ -3017,7 +3200,7 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
     knowledge_lineage = _knowledge_lineage_from_tool_calls(tool_calls)
 
     grounding_adj: list[str] = []
-    claims, exact_id_adj = _enforce_claim_exact_ids(claims, knowledge_lineage)
+    claims, exact_id_adj = _enforce_claim_exact_ids(claims, tool_calls)
     grounding_adj.extend(exact_id_adj)
     if settings.copilot_enforce_tool_claim_grounding:
         claims, token_grounding_adj = enforce_tool_claim_grounding(claims, tool_calls)
@@ -3144,43 +3327,26 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         tool_errors=tool_errors,
         assurance_refused=assurance_refused,
     )
-    agent_run_payload: dict[str, Any] | None = None
-    try:
-        from decision_intelligence import new_agent_run
-
-        _prompt = ""
-        if getattr(body, "messages", None):
-            for _m in reversed(list(body.messages)):
-                _c = getattr(_m, "content", None) or (
-                    _m.get("content") if isinstance(_m, dict) else None
-                )
-                if _c:
-                    _prompt = str(_c)
-                    break
-        agent_run_payload = new_agent_run(
-            tenant_id=body.tenant_id,
-            prompt=_prompt,
-            model_provider="openai_compatible",
-            model_revision=_effective_chat_model(),
-            case_id=body.case_id,
-            entity_id=getattr(body, "entity_id", None),
-            trace_id=getattr(body, "trace_id", None),
-            tool_calls=list(tool_calls),
-            evidence_ids=list(knowledge_lineage.get("evidence_ids") or []),
-            claims=list(claims),
-            uncertainty={
-                "assurance_refused": assurance_refused,
-                "grounding_adjustments": list(grounding_adj),
-                "okf_abstain": bool(knowledge_lineage.get("okf_abstain")),
-                "okf_unavailable": bool(knowledge_lineage.get("okf_unavailable")),
-                "retrieval_fallback": knowledge_lineage.get("retrieval_fallback"),
-                "conflicts": list(knowledge_lineage.get("conflicts") or []),
-                "bundle_revision": knowledge_lineage.get("bundle_revision"),
-                "concept_ids": list(knowledge_lineage.get("concept_ids") or []),
-            },
-        ).to_dict()
-    except Exception:
-        agent_run_payload = None
+    agent_run_payload, agent_run_persistence = _create_and_persist_agent_run(
+        body=body,
+        turn_id=turn_id,
+        model_provider="openai_compatible",
+        model_revision=_effective_chat_model(),
+        tool_calls=tool_calls,
+        claims=claims,
+        lineage=knowledge_lineage,
+        uncertainty={
+            "assurance_refused": assurance_refused,
+            "grounding_adjustments": list(grounding_adj),
+            "okf_abstain": bool(knowledge_lineage.get("okf_abstain")),
+            "okf_unavailable": bool(knowledge_lineage.get("okf_unavailable")),
+            "retrieval_fallback": knowledge_lineage.get("retrieval_fallback"),
+            "conflicts": list(knowledge_lineage.get("conflicts") or []),
+            "bundle_revision": knowledge_lineage.get("bundle_revision"),
+        },
+    )
+    if agent_run_persistence != "persisted":
+        degraded_reasons.append("agent_run_sqlite_degraded")
 
     out: dict[str, Any] = {
         "reply": reply,
@@ -3197,6 +3363,7 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         "citations": citations,
         "citation_verifier": verifier_summary.model_dump(mode="json"),
         "agent_run": agent_run_payload,
+        "agent_run_persistence": agent_run_persistence,
         "turn_metrics": {
             "model": _effective_chat_model(),
             "llm_completion_rounds": llm_rounds,

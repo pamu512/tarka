@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from investigation_agent import config
+import investigation_agent.main as main_mod
 from investigation_agent.main import app
 from investigation_agent.production_config import production_config_errors, runtime_readiness_errors
 
@@ -73,6 +74,32 @@ def test_ready_endpoint():
         r = client.get("/v1/ready")
     assert r.status_code == 200
     assert r.json().get("status") == "ready"
+
+
+def test_health_probes_bypass_api_key_but_data_routes_remain_protected(monkeypatch):
+    monkeypatch.setenv("API_KEYS", "secure-key")
+    monkeypatch.setenv("API_KEY_TENANT_MAP", '{"secure-key":["t1"]}')
+    monkeypatch.delenv("ALLOW_INSECURE_NO_AUTH", raising=False)
+    main_mod._valid_api_keys = None
+    try:
+        with (
+            patch("investigation_agent.main.runtime_readiness_errors", return_value=[]),
+            patch("investigation_agent.main._okf_readiness_errors", return_value=[]),
+            TestClient(app) as client,
+        ):
+            assert client.get("/v1/health").status_code == 200
+            assert client.get("/v1/ready").status_code == 200
+            protected = client.post(
+                "/v1/chat",
+                json={
+                    "tenant_id": "t1",
+                    "analyst_id": "a1",
+                    "messages": [{"role": "user", "content": "hello"}],
+                },
+            )
+        assert protected.status_code == 401
+    finally:
+        main_mod._valid_api_keys = None
 
 
 def test_request_body_too_large_413():

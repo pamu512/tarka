@@ -2,13 +2,41 @@
 
 from __future__ import annotations
 
-import hashlib
+import json
 import shutil
 from pathlib import Path
 
 import pytest
+import yaml
 
 from investigation_agent.okf_registry import OkfRegistry
+
+
+def _write_source_manifest(root: Path) -> None:
+    entries: dict[str, dict[str, str]] = {}
+    for path in sorted(root.rglob("*.md")):
+        if path.name in {"index.md", "log.md"}:
+            continue
+        parts = path.read_text(encoding="utf-8").split("---", 2)
+        if len(parts) != 3:
+            continue
+        meta = yaml.safe_load(parts[1])
+        if not isinstance(meta, dict):
+            continue
+        entries[path.relative_to(root).with_suffix("").as_posix()] = {
+            "source_uri": str(meta.get("source_uri") or ""),
+            "source_content_hash": str(meta.get("source_content_hash") or ""),
+        }
+    (root / "source-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_id": "tarka.okf_source_manifest/v1",
+                "concept_sources": entries,
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
 
 
 @pytest.fixture
@@ -114,6 +142,7 @@ def test_shared_only_snapshot_revision_ignores_unrelated_tenant_updates(
         )
         + "Body.\n"
     )
+    _write_source_manifest(t2)
     assert registry.reload().activated is True
     assert registry.snapshot_revision("t-no-overlay") == shared_only_rev
     assert registry.snapshot_revision("t2") != t1_rev
@@ -132,6 +161,7 @@ def test_t1_cannot_see_t2_concepts(registry: OkfRegistry, tenant_root: Path) -> 
         )
         + "Secret.\n"
     )
+    _write_source_manifest(t2)
     registry.reload()
     hits = registry.resolve("t1", "T2 Secret")
     assert hits == []
@@ -153,6 +183,7 @@ def test_tenant_concept_precedence_over_shared(registry: OkfRegistry, tenant_roo
     tenant_rule = tenant_root / "t1" / "rules" / "high-amount.md"
     tenant_rule.parent.mkdir(parents=True, exist_ok=True)
     tenant_rule.write_text(overlay)
+    _write_source_manifest(tenant_root / "t1")
     assert registry.reload().activated is True
     hits = registry.resolve("t1", "rules/high-amount")
     assert len(hits) == 1
@@ -186,6 +217,7 @@ def test_expand_bounded_cycle(tmp_path: Path) -> None:
         )
         + "Link [a](a.md).\n"
     )
+    _write_source_manifest(shared)
     tenants = tmp_path / "tenants"
     tenants.mkdir()
     reg = OkfRegistry(shared_root=shared, tenant_root=tenants)
@@ -219,6 +251,7 @@ def test_expand_respects_max_depth(tmp_path: Path) -> None:
         )
         + "Leaf.\n"
     )
+    _write_source_manifest(shared)
     tenants = tmp_path / "tenants"
     tenants.mkdir()
     reg = OkfRegistry(shared_root=shared, tenant_root=tenants)
@@ -254,6 +287,8 @@ def test_expand_follows_tenant_shared_logical_link(tmp_path: Path) -> None:
         )
         + "Use [high amount](/shared/rules/high-amount.md).\n"
     )
+    _write_source_manifest(shared)
+    _write_source_manifest(tenants / "t1")
     reg = OkfRegistry(shared_root=shared, tenant_root=tenants)
     assert reg.reload().activated is True
     hits = reg.expand("t1", ("playbooks/review",), max_depth=1, max_concepts=5)
@@ -291,6 +326,8 @@ def test_tenant_cannot_link_to_other_tenant_concept(tmp_path: Path) -> None:
         )
         + "Secret.\n"
     )
+    _write_source_manifest(tenants / "t1")
+    _write_source_manifest(tenants / "t2")
     reg = OkfRegistry(shared_root=shared, tenant_root=tenants)
     result = reg.reload()
     assert result.activated is False
@@ -317,6 +354,7 @@ def test_expand_respects_max_concepts(tmp_path: Path) -> None:
             )
             + f"{name} body.\n"
         )
+    _write_source_manifest(shared)
     tenants = tmp_path / "tenants"
     tenants.mkdir()
     reg = OkfRegistry(shared_root=shared, tenant_root=tenants)
