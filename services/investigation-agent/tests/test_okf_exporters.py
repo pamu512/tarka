@@ -305,6 +305,96 @@ def test_landmark_case_person_name_allowlist_keeps_fraud_domain_phrases():
     assert "High Amount" in md
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("title", "Call 4155550199"),
+        ("summary", "Escalate to 4155550199"),
+        ("lessons", "4155550199"),
+        ("typology_ids", ["4155550199"]),
+        ("rule_ids", ["4155550199"]),
+        ("evidence_ids", ["4155550199"]),
+    ],
+)
+def test_landmark_case_rejects_compact_domestic_phone_across_fields(field, value):
+    case = {
+        "case_id": "case-opaque-compact-phone",
+        "title": "Reviewed case",
+        "summary": "Sanitized summary.",
+        "lessons": "Sanitized lesson.",
+        "source_content_hash": "b" * 64,
+    }
+    case[field] = value
+
+    with pytest.raises(LandmarkCaseSanitizationError, match="phone"):
+        export_landmark_case(case, tenant_id="t1")
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("title", "JANE EXAMPLE"),
+        ("summary", "jane example"),
+        ("lessons", "Reviewed by JANE EXAMPLE"),
+        ("typology_ids", ["jane example"]),
+        ("rule_ids", ["JANE EXAMPLE"]),
+        ("evidence_ids", ["jane example"]),
+    ],
+)
+def test_landmark_case_rejects_case_normalized_person_names(field, value):
+    case = {
+        "case_id": "case-opaque-normalized-name",
+        "title": "Reviewed case",
+        "summary": "Sanitized summary.",
+        "lessons": "Sanitized lesson.",
+        "source_content_hash": "c" * 64,
+    }
+    case[field] = value
+
+    with pytest.raises(LandmarkCaseSanitizationError, match="person_name"):
+        export_landmark_case(case, tenant_id="t1")
+
+
+@pytest.mark.parametrize(
+    "phrase",
+    [
+        "Money Mule",
+        "money mule",
+        "Friendly Fraud",
+        "friendly fraud",
+        "High Amount",
+        "high amount",
+        "Account Takeover",
+        "Manual Review",
+        "Payment Velocity",
+    ],
+)
+def test_landmark_case_central_domain_vocabulary_allows_playbook_terms(phrase):
+    export_landmark_case(
+        {
+            "case_id": "case-opaque-domain-vocabulary",
+            "title": phrase,
+            "summary": f"{phrase} pattern.",
+            "lessons": f"{phrase} controls.",
+            "source_content_hash": "d" * 64,
+        },
+        tenant_id="t1",
+    )
+
+
+def test_compact_phone_guard_does_not_treat_luhn_or_date_like_ids_as_phone():
+    export_landmark_case(
+        {
+            "case_id": "case-opaque-numeric-guards",
+            "title": "Reviewed case",
+            "summary": "Batch 2026072401 and card 79927398713 were pseudonymized.",
+            "evidence_ids": ["batch-2026072401", "token-79927398713"],
+            "source_content_hash": "e" * 64,
+        },
+        tenant_id="t1",
+    )
+
+
 def _write_exported_landmark(root: Path, files: dict[str, str]) -> None:
     for rel_path, content in files.items():
         path = root / rel_path

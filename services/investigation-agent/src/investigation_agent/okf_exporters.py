@@ -52,6 +52,9 @@ _PHONE_VALUE = re.compile(
 _DOMESTIC_PHONE_VALUE = re.compile(
     r"(?<!\d)(?:\+?1[\s.-]?)?(?:\(\d{3}\)|\d{3})[\s.-]\d{3}[\s.-]\d{4}(?!\d)"
 )
+_COMPACT_DOMESTIC_PHONE_VALUE = re.compile(
+    r"(?<![A-Za-z0-9])(?:1)?[2-9]\d{2}[2-9]\d{2}\d{4}(?![A-Za-z0-9])"
+)
 _INTERNATIONAL_PHONE_VALUE = re.compile(r"(?<!\w)\+\d(?:[\s().-]*\d){7,14}(?!\w)")
 _ACCOUNT_VALUE = re.compile(
     r"\b(?:account|acct|card|routing|payment)\s*(?:number|no\.?|#|id)\s*"
@@ -82,43 +85,79 @@ _STREET_ADDRESS_VALUE = re.compile(
 _PERSON_NAME_VALUE = re.compile(
     r"\b(?:person|customer|cardholder|applicant|beneficiary|full\s+name|name)"
     r"\s*(?:name)?\s*[:=-]\s*[A-Z][A-Za-z'-]{1,30}"
-    r"(?:\s+[A-Z][A-Za-z'-]{1,30}){1,3}\b"
+    r"(?:\s+[A-Z][A-Za-z'-]{1,30}){1,3}\b",
+    re.IGNORECASE,
 )
-_TWO_TOKEN_NAME_VALUE = re.compile(
-    r"\b([A-Z][a-z][A-Za-z'-]{1,29})\s+([A-Z][a-z][A-Za-z'-]{1,29})\b"
+_BASE_FRAUD_DOMAIN_VOCABULARY = {
+    "account",
+    "activity",
+    "alert",
+    "aml",
+    "amount",
+    "anomaly",
+    "approved",
+    "ato",
+    "batch",
+    "card",
+    "case",
+    "chargeback",
+    "collusion",
+    "confirmed",
+    "controls",
+    "customer",
+    "device",
+    "dispute",
+    "escalation",
+    "fraud",
+    "friendly",
+    "high",
+    "indicator",
+    "investigation",
+    "landmark",
+    "layering",
+    "learned",
+    "lesson",
+    "manual",
+    "merchant",
+    "money",
+    "mule",
+    "network",
+    "pattern",
+    "payment",
+    "policy",
+    "profile",
+    "promo",
+    "refund",
+    "review",
+    "reviewed",
+    "risk",
+    "rule",
+    "sanitized",
+    "scheme",
+    "summary",
+    "takeover",
+    "transaction",
+    "velocity",
+}
+_PLAYBOOK_DOMAIN_VOCABULARY = {
+    token.casefold()
+    for playbook_id, playbook in _PLAYBOOKS.items()
+    for token in re.findall(
+        r"[A-Za-z]{2,}",
+        " ".join(
+            (
+                playbook_id.replace("_", " "),
+                str(playbook.get("title") or ""),
+                str(playbook.get("vertical") or "").replace("_", " "),
+            )
+        ),
+    )
+}
+FRAUD_DOMAIN_VOCABULARY = frozenset(_BASE_FRAUD_DOMAIN_VOCABULARY | _PLAYBOOK_DOMAIN_VOCABULARY)
+_NAME_CONTEXT_PRECEDERS = frozenset(
+    {"analyst", "applicant", "beneficiary", "by", "cardholder", "customer", "from"}
 )
-_FRAUD_DOMAIN_NAME_TOKENS = frozenset(
-    {
-        "account",
-        "amount",
-        "anomaly",
-        "approved",
-        "card",
-        "case",
-        "chargeback",
-        "confirmed",
-        "customer",
-        "device",
-        "fraud",
-        "friendly",
-        "high",
-        "investigation",
-        "landmark",
-        "manual",
-        "network",
-        "payment",
-        "policy",
-        "profile",
-        "review",
-        "reviewed",
-        "risk",
-        "rule",
-        "sanitized",
-        "takeover",
-        "transaction",
-        "velocity",
-    }
-)
+_NAME_CONTEXT_FOLLOWERS = frozenset({"approved", "confirmed", "reported", "reviewed", "submitted"})
 _SOURCE_MANIFEST_NAME = "source-manifest.json"
 _SOURCE_MANIFEST_SCHEMA = "tarka.okf_source_manifest/v1"
 _SOURCE_SNAPSHOT_SCHEMA = "tarka.okf_source_snapshot/v1"
@@ -432,6 +471,37 @@ def _contains_ip_address(value: str) -> bool:
     return False
 
 
+def _contains_compact_domestic_phone(value: str) -> bool:
+    for match in _COMPACT_DOMESTIC_PHONE_VALUE.finditer(value):
+        digits = match.group(0)
+        national = digits[1:] if len(digits) == 11 else digits
+        if len(national) != 10:
+            continue
+        year = int(national[:4])
+        month = int(national[4:6])
+        day = int(national[6:8])
+        if 1900 <= year <= 2100 and 1 <= month <= 12 and 1 <= day <= 31:
+            continue
+        return True
+    return False
+
+
+def _contains_likely_person_name(value: str) -> bool:
+    words = [
+        match.group(0).casefold() for match in re.finditer(r"\b[A-Za-z][A-Za-z'-]{1,29}\b", value)
+    ]
+    for index in range(len(words) - 1):
+        pair = {words[index], words[index + 1]}
+        if not pair.isdisjoint(FRAUD_DOMAIN_VOCABULARY):
+            continue
+        whole_value = len(words) == 2
+        preceded = index > 0 and words[index - 1] in _NAME_CONTEXT_PRECEDERS
+        followed = index == 0 and len(words) > 2 and words[index + 2] in _NAME_CONTEXT_FOLLOWERS
+        if whole_value or preceded or followed:
+            return True
+    return False
+
+
 def _pii_kind(value: str) -> str | None:
     for kind, pattern in (
         ("email", _EMAIL_VALUE),
@@ -447,10 +517,10 @@ def _pii_kind(value: str) -> str | None:
     ):
         if pattern.search(value):
             return kind
-    for match in _TWO_TOKEN_NAME_VALUE.finditer(value):
-        tokens = {match.group(1).casefold(), match.group(2).casefold()}
-        if tokens.isdisjoint(_FRAUD_DOMAIN_NAME_TOKENS):
-            return "person_name"
+    if _contains_compact_domestic_phone(value):
+        return "phone"
+    if _contains_likely_person_name(value):
+        return "person_name"
     if _contains_ip_address(value):
         return "ip_address"
     if any(_luhn_valid(match.group(0)) for match in _CARD_VALUE.finditer(value)):

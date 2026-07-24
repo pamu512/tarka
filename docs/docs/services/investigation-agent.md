@@ -79,12 +79,26 @@ python services/investigation-agent/scripts/export_okf_bundle.py \
   --include-playbooks
 ```
 
-Review staged Markdown, sanitize landmark cases, and convert accepted concepts
-to `approval_status: approved` with an approved revision and source hash. Normal
-audits remain evidence; landmark cases require sanitization and human review
-before they can become concepts. Promotion is a Git approval step: copy only the
-approved shared revision into `knowledge/shared`, review the diff, and merge via
-the normal branch protection path.
+Review staged Markdown and convert accepted concepts to `approval_status:
+approved` with an approved revision. Normal audits remain evidence; landmark
+cases require sanitization and human review before they can become concepts.
+Promotion is a Git approval step: copy only the approved shared revision into
+`knowledge/shared`, review the diff, and merge via the normal branch protection
+path.
+
+Export a sanitized landmark input into a complete tenant staging bundle:
+
+```bash
+python services/investigation-agent/scripts/export_okf_bundle.py \
+  --landmark-input /secure/review/case-opaque-22.json \
+  --tenant-id t1 \
+  --output /tmp/okf-staging/tenants/t1
+```
+
+The input must not contain `source_content_hash`. The command validates every
+accepted textual field for PII, then generates the concept, an independent
+canonical source snapshot, and `source-manifest.json` together. Promote all
+three artifacts as one reviewed revision; never paste or manually trust a hash.
 
 Tenant overlays follow the same approval rule but are mounted by operators under
 `OKF_TENANT_ROOT`; they are validated against the promoted shared root:
