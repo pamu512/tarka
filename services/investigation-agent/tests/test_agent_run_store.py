@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import sqlite3
+import time
+
 import pytest
 from decision_intelligence import new_agent_run
 from investigation_agent import agent_run_store, review_store
@@ -210,4 +213,150 @@ def test_review_transaction_failure_rolls_back_and_retry_succeeds(tmp_path, monk
         )["review_state"]
         == "rejected"
     )
+    agent_run_store.reset_connection_for_tests()
+
+
+def test_unified_store_migrates_legacy_reviews_once_across_restart(tmp_path, monkeypatch):
+    monkeypatch.setenv("INVESTIGATION_DATA_DIR", str(tmp_path))
+    agent_run_store.reset_connection_for_tests()
+    legacy = sqlite3.connect(tmp_path / "copilot_turn_reviews.sqlite3")
+    legacy.execute(
+        """
+        CREATE TABLE copilot_turn_reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            turn_id TEXT NOT NULL,
+            tenant_id TEXT NOT NULL,
+            analyst_id TEXT NOT NULL,
+            status TEXT NOT NULL,
+            note TEXT,
+            created_at REAL NOT NULL
+        )
+        """
+    )
+    legacy.execute(
+        """
+        INSERT INTO copilot_turn_reviews (
+            turn_id, tenant_id, analyst_id, status, note, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            "legacy-turn",
+            "t1",
+            "legacy-reviewer",
+            "approved",
+            "historical",
+            time.time(),
+        ),
+    )
+    legacy.commit()
+    legacy.close()
+
+    first = review_store.latest_review("legacy-turn", "t1")
+    agent_run_store.reset_connection_for_tests()
+    second = review_store.latest_review("legacy-turn", "t1")
+    metrics = review_store.review_metrics("t1", days=365)
+
+    assert first is not None
+    assert first["status"] == "approved"
+    assert second["id"] == first["id"]
+    assert metrics["total_reviews"] == 1
+    agent_run_store.reset_connection_for_tests()
+
+
+def test_emergency_agent_run_is_rehydrated_and_reviewed_atomically(tmp_path, monkeypatch):
+    monkeypatch.setenv("INVESTIGATION_DATA_DIR", str(tmp_path))
+    agent_run_store.reset_connection_for_tests()
+    run = new_agent_run(
+        tenant_id="t1",
+        prompt="Emergency review",
+        model_provider="deterministic",
+        model_revision="tools-only-v1",
+        tool_calls=[],
+        evidence_ids=[],
+        concept_ids=[],
+        claims=[],
+        uncertainty={"persistence_degraded": True},
+        review_state="pending",
+    ).to_dict()
+
+    original_persist = agent_run_store._persist_sqlite
+
+    def _sqlite_unavailable(*_args, **_kwargs):
+        raise OSError("sqlite unavailable")
+
+    monkeypatch.setattr(agent_run_store, "_persist_sqlite", _sqlite_unavailable)
+    assert (
+        agent_run_store.persist_agent_run(
+            run,
+            analyst_id="maker",
+            turn_id="emergency-turn",
+        )
+        == "degraded_emergency"
+    )
+    monkeypatch.setattr(agent_run_store, "_persist_sqlite", original_persist)
+
+    review_id = agent_run_store.save_review_transactionally(
+        turn_id="emergency-turn",
+        tenant_id="t1",
+        analyst_id="checker",
+        status="rejected",
+        note="rehydrated",
+    )
+    agent_run_store.emergency_path().unlink()
+    agent_run_store.reset_connection_for_tests()
+    recovered = agent_run_store.get_agent_run(
+        tenant_id="t1",
+        agent_run_id=run["agent_run_id"],
+    )
+
+    assert review_id > 0
+    assert recovered is not None
+    assert recovered["review_state"] == "rejected"
+    assert review_store.review_metrics("t1")["total_reviews"] == 1
+    agent_run_store.reset_connection_for_tests()
+
+
+def test_emergency_read_rehydrates_sqlite_for_restart(tmp_path, monkeypatch):
+    monkeypatch.setenv("INVESTIGATION_DATA_DIR", str(tmp_path))
+    agent_run_store.reset_connection_for_tests()
+    run = new_agent_run(
+        tenant_id="t1",
+        prompt="Recover this run",
+        model_provider="deterministic",
+        model_revision="tools-only-v1",
+        tool_calls=[],
+        evidence_ids=[],
+        concept_ids=[],
+        claims=[],
+        uncertainty={"persistence_degraded": True},
+        review_state="pending",
+    ).to_dict()
+    original_persist = agent_run_store._persist_sqlite
+    monkeypatch.setattr(
+        agent_run_store,
+        "_persist_sqlite",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("sqlite unavailable")),
+    )
+    agent_run_store.persist_agent_run(
+        run,
+        analyst_id="maker",
+        turn_id="recover-turn",
+    )
+    monkeypatch.setattr(agent_run_store, "_persist_sqlite", original_persist)
+
+    assert (
+        agent_run_store.get_agent_run(
+            tenant_id="t1",
+            agent_run_id=run["agent_run_id"],
+        )
+        == run
+    )
+    agent_run_store.emergency_path().unlink()
+    agent_run_store.reset_connection_for_tests()
+    restarted = agent_run_store.get_agent_run(
+        tenant_id="t1",
+        agent_run_id=run["agent_run_id"],
+    )
+
+    assert restarted == run
     agent_run_store.reset_connection_for_tests()
