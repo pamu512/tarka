@@ -2330,11 +2330,96 @@ def _mark_authoritative_audit_committed(request: Request) -> None:
     request.state.evaluate_idempotency_audit_commits = current + 1
 
 
-async def _commit_authoritative_audit(request: Request, session: AsyncSession) -> None:
-    """Fence the idempotency owner immediately before committing an audit."""
+async def _load_durable_idempotency_audit(
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    idempotency_key: str,
+) -> AuditRecord | None:
+    result = await session.execute(
+        select(AuditRecord).where(
+            AuditRecord.tenant_id == tenant_id,
+            AuditRecord.idempotency_key == idempotency_key,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+def _durable_idempotency_response(
+    audit: AuditRecord,
+    *,
+    request_fingerprint: str,
+) -> EvaluateResponse:
+    if audit.request_fingerprint != request_fingerprint:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "evaluate_idempotency_payload_mismatch",
+                "message": "This Idempotency-Key is already bound to a different request.",
+            },
+        )
+    if not isinstance(audit.idempotency_response, dict):
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "evaluate_idempotency_durable_result_incomplete"},
+        )
+    return EvaluateResponse.model_validate(audit.idempotency_response)
+
+
+async def _commit_authoritative_audit(
+    request: Request,
+    session: AsyncSession,
+    *,
+    audit: AuditRecord | None = None,
+    response: EvaluateResponse | None = None,
+) -> EvaluateResponse | None:
+    """Commit one authoritative audit, recovering unique or ambiguous outcomes."""
+    idempotency_key = str(
+        getattr(request.state, "evaluate_durable_idempotency_key", "") or ""
+    )
+    request_fingerprint = str(
+        getattr(request.state, "evaluate_durable_request_fingerprint", "") or ""
+    )
     await _assert_authoritative_audit_owner(request)
-    await session.commit()
+    if idempotency_key:
+        if audit is None or response is None or not request_fingerprint:
+            raise RuntimeError("durable idempotency commit requires audit and response")
+        audit.idempotency_key = idempotency_key
+        audit.request_fingerprint = request_fingerprint
+        audit.idempotency_response = response.model_dump(mode="json")
+    try:
+        await session.commit()
+    except Exception as commit_error:
+        try:
+            await session.rollback()
+        except Exception:
+            log.exception("durable_idempotency_commit_rollback_failed")
+        if not idempotency_key:
+            raise commit_error
+        try:
+            existing = await _load_durable_idempotency_audit(
+                session,
+                tenant_id=str(audit.tenant_id),
+                idempotency_key=idempotency_key,
+            )
+        except Exception:
+            from decision_api.db import SessionLocal
+
+            async with SessionLocal() as recovery_session:
+                existing = await _load_durable_idempotency_audit(
+                    recovery_session,
+                    tenant_id=str(audit.tenant_id),
+                    idempotency_key=idempotency_key,
+                )
+        if existing is None:
+            raise commit_error
+        request.state.evaluate_idempotency_audit_commits = 1
+        return _durable_idempotency_response(
+            existing,
+            request_fingerprint=request_fingerprint,
+        )
     _mark_authoritative_audit_committed(request)
+    return None
 
 
 @app.post("/v1/decisions/evaluate", response_model=EvaluateResponse)
@@ -2349,6 +2434,11 @@ async def evaluate_decision(
         or request.headers.get("idempotency-key")
         or ""
     ).strip()
+    if len(idem) > 512:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "evaluate_idempotency_key_too_long"},
+        )
     if settings.evaluate_require_idempotency_key and not idem:
         raise HTTPException(
             status_code=422,
@@ -2361,7 +2451,6 @@ async def evaluate_decision(
         return await _evaluate_decision_impl(body, request, bg, session)
 
     from decision_api.evaluate_idempotency import (
-        block_evaluate_idempotency_outcome,
         canonical_request_fingerprint,
         claim_evaluate_idempotency,
         complete_evaluate_idempotency,
@@ -2370,6 +2459,21 @@ async def evaluate_decision(
     )
 
     fingerprint = canonical_request_fingerprint(body.model_dump(mode="json"))
+    request.state.evaluate_durable_idempotency_key = idem
+    request.state.evaluate_durable_request_fingerprint = fingerprint
+    request.state.evaluate_idempotency_audit_commits = 0
+    request.state.evaluate_idempotency_commit_window = False
+    if session is not None:
+        existing = await _load_durable_idempotency_audit(
+            session,
+            tenant_id=body.tenant_id,
+            idempotency_key=idem,
+        )
+        if existing is not None:
+            return _durable_idempotency_response(
+                existing,
+                request_fingerprint=fingerprint,
+            )
     try:
         lease_seconds = max(
             1,
@@ -2402,15 +2506,22 @@ async def evaluate_decision(
         max(0.05, heartbeat_seconds), max(0.05, lease_seconds * 0.8)
     )
 
-    claim = await claim_evaluate_idempotency(
-        tenant_id=body.tenant_id,
-        idempotency_key=idem,
-        request_fingerprint=fingerprint,
-        lease_seconds=lease_seconds,
-    )
-    if claim.state == "completed" and claim.response is not None:
-        return EvaluateResponse.model_validate(claim.response)
-    if claim.state == "mismatch":
+    try:
+        claim = await claim_evaluate_idempotency(
+            tenant_id=body.tenant_id,
+            idempotency_key=idem,
+            request_fingerprint=fingerprint,
+            lease_seconds=lease_seconds,
+        )
+    except Exception:
+        claim = None
+        log.warning(
+            "evaluate_idempotency_admission_unavailable tenant_id=%s",
+            body.tenant_id,
+            exc_info=True,
+        )
+    claim_state = claim.state if claim is not None else "unavailable"
+    if claim_state == "mismatch":
         raise HTTPException(
             status_code=409,
             detail={
@@ -2418,17 +2529,12 @@ async def evaluate_decision(
                 "message": "This Idempotency-Key is already bound to a different request.",
             },
         )
-    if claim.state == "blocked":
+    if claim_state in {"blocked", "completed"}:
         raise HTTPException(
             status_code=409,
-            detail={"error": "evaluate_idempotency_outcome_uncertain"},
+            detail={"error": "evaluate_idempotency_admission_stale"},
         )
-    if claim.state == "unavailable":
-        raise HTTPException(
-            status_code=503,
-            detail={"error": "evaluate_idempotency_store_unavailable"},
-        )
-    if claim.state != "owned" or not claim.owner_token:
+    if claim_state not in {"owned", "unavailable"}:
         raise HTTPException(
             status_code=409,
             detail={
@@ -2437,17 +2543,12 @@ async def evaluate_decision(
             },
         )
 
-    owner_token = claim.owner_token
+    owner_token = claim.owner_token if claim is not None else None
     lease_lost = asyncio.Event()
-    request.state.evaluate_idempotency_audit_commits = 0
-    request.state.evaluate_idempotency_commit_window = False
 
     async def _assert_owner_for_commit() -> None:
-        if lease_lost.is_set():
-            raise HTTPException(
-                status_code=503,
-                detail={"error": "evaluate_idempotency_lease_lost"},
-            )
+        if not owner_token or lease_lost.is_set():
+            return
         try:
             renewed = await renew_evaluate_idempotency(
                 tenant_id=body.tenant_id,
@@ -2456,32 +2557,27 @@ async def evaluate_decision(
                 owner_token=owner_token,
                 lease_seconds=commit_lease_seconds,
             )
-        except Exception as exc:
-            log.critical(
-                "evaluate_idempotency_commit_fence_failed tenant_id=%s",
+        except Exception:
+            renewed = False
+            log.warning(
+                "evaluate_idempotency_admission_renew_failed tenant_id=%s",
                 body.tenant_id,
                 exc_info=True,
             )
-            lease_lost.set()
-            raise HTTPException(
-                status_code=503,
-                detail={"error": "evaluate_idempotency_lease_lost"},
-            ) from exc
         if not renewed:
-            log.critical(
-                "evaluate_idempotency_commit_fence_ownership_lost tenant_id=%s",
+            log.warning(
+                "evaluate_idempotency_admission_ownership_lost tenant_id=%s",
                 body.tenant_id,
             )
             lease_lost.set()
-            raise HTTPException(
-                status_code=503,
-                detail={"error": "evaluate_idempotency_lease_lost"},
-            )
-        request.state.evaluate_idempotency_commit_window = True
+        else:
+            request.state.evaluate_idempotency_commit_window = True
 
     request.state.evaluate_idempotency_assert_owner = _assert_owner_for_commit
 
     async def _heartbeat() -> None:
+        if not owner_token:
+            return
         while True:
             await asyncio.sleep(heartbeat_seconds)
             try:
@@ -2519,6 +2615,8 @@ async def evaluate_decision(
             await task
 
     async def _release_claim() -> None:
+        if not owner_token:
+            return
         try:
             released = await release_evaluate_idempotency(
                 tenant_id=body.tenant_id,
@@ -2538,83 +2636,54 @@ async def evaluate_decision(
                 exc_info=True,
             )
 
-    async def _block_post_commit(reason: str) -> None:
-        try:
-            blocked = await block_evaluate_idempotency_outcome(
-                tenant_id=body.tenant_id,
-                idempotency_key=idem,
-                request_fingerprint=fingerprint,
-                reason=reason,
-            )
-        except Exception:
-            blocked = False
-            log.critical(
-                "evaluate_idempotency_post_commit_block_failed tenant_id=%s reason=%s",
-                body.tenant_id,
-                reason,
-                exc_info=True,
-            )
-        if not blocked:
-            log.critical(
-                "evaluate_idempotency_post_commit_outcome_unfenced tenant_id=%s reason=%s",
-                body.tenant_id,
-                reason,
-            )
-
     heartbeat = asyncio.create_task(_heartbeat())
     try:
         response = await _evaluate_decision_impl(body, request, bg, session)
     except BaseException:
         committed = request.state.evaluate_idempotency_audit_commits > 0
-        if committed:
-            await _block_post_commit("evaluation_failed_after_audit_commit")
+        if committed and session is not None:
+            existing = await _load_durable_idempotency_audit(
+                session,
+                tenant_id=body.tenant_id,
+                idempotency_key=idem,
+            )
+            if existing is not None:
+                await _stop_heartbeat(heartbeat)
+                return _durable_idempotency_response(
+                    existing,
+                    request_fingerprint=fingerprint,
+                )
         await _stop_heartbeat(heartbeat)
         if not committed:
             await _release_claim()
         raise
 
     try:
-        if lease_lost.is_set():
-            committed = request.state.evaluate_idempotency_audit_commits > 0
-            if committed:
-                await _block_post_commit("lease_lost_after_audit_commit")
-                raise HTTPException(
-                    status_code=503,
-                    detail={"error": "evaluate_idempotency_completion_uncertain"},
+        if owner_token:
+            try:
+                completed = await complete_evaluate_idempotency(
+                    tenant_id=body.tenant_id,
+                    idempotency_key=idem,
+                    request_fingerprint=fingerprint,
+                    owner_token=owner_token,
+                    response=response.model_dump(mode="json"),
                 )
-            await _release_claim()
-            raise HTTPException(
-                status_code=503,
-                detail={"error": "evaluate_idempotency_lease_lost"},
-            )
-        try:
-            completed = await complete_evaluate_idempotency(
-                tenant_id=body.tenant_id,
-                idempotency_key=idem,
-                request_fingerprint=fingerprint,
-                owner_token=owner_token,
-                response=response.model_dump(mode="json"),
-            )
-        except Exception as exc:
-            log.critical(
-                "evaluate_idempotency_completion_failed tenant_id=%s",
+            except Exception:
+                completed = False
+                log.warning(
+                    "evaluate_idempotency_cache_completion_failed tenant_id=%s",
+                    body.tenant_id,
+                    exc_info=True,
+                )
+            if not completed:
+                log.warning(
+                    "evaluate_idempotency_cache_completion_not_owned tenant_id=%s",
+                    body.tenant_id,
+                )
+        if lease_lost.is_set():
+            log.warning(
+                "evaluate_idempotency_cache_lease_lost_after_durable_commit tenant_id=%s",
                 body.tenant_id,
-                exc_info=True,
-            )
-            await _block_post_commit("completion_failed_after_audit_commit")
-            raise HTTPException(
-                status_code=503,
-                detail={"error": "evaluate_idempotency_completion_uncertain"},
-            ) from exc
-        if not completed:
-            log.critical(
-                "evaluate_idempotency_completion_ownership_lost tenant_id=%s",
-                body.tenant_id,
-            )
-            await _block_post_commit("completion_ownership_lost_after_audit_commit")
-            raise HTTPException(
-                status_code=503,
-                detail={"error": "evaluate_idempotency_completion_uncertain"},
             )
         return response
     finally:
@@ -2831,33 +2900,9 @@ async def _evaluate_decision_impl(
                 ),
                 **_early_list_snapshot("whitelist", "allow"),
             }
-            audit = AuditRecord(
-                trace_id=trace_id,
-                tenant_id=body.tenant_id,
-                entity_id=body.entity_id,
-                event_type=body.event_type.value,
-                decision="allow",
-                score=0.0,
-                tags=["list:whitelist"],
-                rule_hits=["whitelist_bypass"],
-                payload_snapshot=_wl_snapshot,
-            )
-            session.add(audit)
-            await _commit_authoritative_audit(request, session)
-            _queue_early_list_decision_log(
-                decision="allow",
-                score=0.0,
-                tags=["list:whitelist"],
-                rule_hits=["whitelist_bypass"],
-                reasons=[f"whitelist:{list_check.reason}"],
-                inference_context=_wl_inf,
-                recommended_action=_wl_rec,
-                challenge_metadata=_wl_meta,
-                payload_snapshot=_wl_snapshot,
-            )
             _sn_wl = _signal_availability_notes_from_tags(degrade_tags)
             _ds_wl = _decision_runtime_status(degrade_tags, _sn_wl)
-            return EvaluateResponse(
+            response = EvaluateResponse(
                 trace_id=trace_id,
                 decision="allow",
                 score=0.0,
@@ -2872,6 +2917,38 @@ async def _evaluate_decision_impl(
                 challenge_policy_id=_wl_meta.get("policy_id"),
                 challenge_metadata=_wl_meta,
             )
+            audit = AuditRecord(
+                trace_id=trace_id,
+                tenant_id=body.tenant_id,
+                entity_id=body.entity_id,
+                event_type=body.event_type.value,
+                decision="allow",
+                score=0.0,
+                tags=["list:whitelist"],
+                rule_hits=["whitelist_bypass"],
+                payload_snapshot=_wl_snapshot,
+            )
+            session.add(audit)
+            replay = await _commit_authoritative_audit(
+                request,
+                session,
+                audit=audit,
+                response=response,
+            )
+            if replay is not None:
+                return replay
+            _queue_early_list_decision_log(
+                decision="allow",
+                score=0.0,
+                tags=["list:whitelist"],
+                rule_hits=["whitelist_bypass"],
+                reasons=[f"whitelist:{list_check.reason}"],
+                inference_context=_wl_inf,
+                recommended_action=_wl_rec,
+                challenge_metadata=_wl_meta,
+                payload_snapshot=_wl_snapshot,
+            )
+            return response
 
         if list_check.action == "deny":
             _bl_inf = build_inference_context(
@@ -2914,33 +2991,9 @@ async def _evaluate_decision_impl(
                 ),
                 **_early_list_snapshot("blacklist", "deny"),
             }
-            audit = AuditRecord(
-                trace_id=trace_id,
-                tenant_id=body.tenant_id,
-                entity_id=body.entity_id,
-                event_type=body.event_type.value,
-                decision="deny",
-                score=100.0,
-                tags=["list:blacklist"],
-                rule_hits=["blacklist_block"],
-                payload_snapshot=_bl_snapshot,
-            )
-            session.add(audit)
-            await _commit_authoritative_audit(request, session)
-            _queue_early_list_decision_log(
-                decision="deny",
-                score=100.0,
-                tags=["list:blacklist"],
-                rule_hits=["blacklist_block"],
-                reasons=[f"blacklist:{list_check.reason}"],
-                inference_context=_bl_inf,
-                recommended_action=_bl_rec,
-                challenge_metadata=_bl_meta,
-                payload_snapshot=_bl_snapshot,
-            )
             _sn_bl = _signal_availability_notes_from_tags(degrade_tags)
             _ds_bl = _decision_runtime_status(degrade_tags, _sn_bl)
-            return EvaluateResponse(
+            response = EvaluateResponse(
                 trace_id=trace_id,
                 decision="deny",
                 score=100.0,
@@ -2955,6 +3008,38 @@ async def _evaluate_decision_impl(
                 challenge_policy_id=_bl_meta.get("policy_id"),
                 challenge_metadata=_bl_meta,
             )
+            audit = AuditRecord(
+                trace_id=trace_id,
+                tenant_id=body.tenant_id,
+                entity_id=body.entity_id,
+                event_type=body.event_type.value,
+                decision="deny",
+                score=100.0,
+                tags=["list:blacklist"],
+                rule_hits=["blacklist_block"],
+                payload_snapshot=_bl_snapshot,
+            )
+            session.add(audit)
+            replay = await _commit_authoritative_audit(
+                request,
+                session,
+                audit=audit,
+                response=response,
+            )
+            if replay is not None:
+                return replay
+            _queue_early_list_decision_log(
+                decision="deny",
+                score=100.0,
+                tags=["list:blacklist"],
+                rule_hits=["blacklist_block"],
+                reasons=[f"blacklist:{list_check.reason}"],
+                inference_context=_bl_inf,
+                recommended_action=_bl_rec,
+                challenge_metadata=_bl_meta,
+                payload_snapshot=_bl_snapshot,
+            )
+            return response
 
     pre_decision_audit_committed = False
     async with acquire_eval_capacity(request.app) as cap:
@@ -3282,7 +3367,9 @@ async def _evaluate_decision_impl(
             supplemental_tags_for_integrity(_plat_kw["platform"], signal_tags)
         )
 
-        if settings.pre_rule_engine_audit_commit:
+        if settings.pre_rule_engine_audit_commit and not getattr(
+            request.state, "evaluate_durable_idempotency_key", None
+        ):
             from decision_api.db import ENGINE_KIND
             from decision_api.decision_engine import DecisionEngine
 
@@ -3723,6 +3810,39 @@ async def _evaluate_decision_impl(
             snap_extra["challenge_metadata"] = ch_meta
             snap_extra["test_bypass"] = True
 
+        response_tier = _resolve_response_explainability_tier(request)
+        response_inf_ctx = _shape_inference_context_for_tier(inf_ctx, response_tier)
+        region_profile = get_profile(body.region)
+        if region_profile.mask_pii_in_responses:
+            response_inf_ctx = mask_dict(response_inf_ctx, region_profile)
+
+        response_graph_explanation = graph_decision_explanation
+        if (
+            response_graph_explanation is not None
+            and region_profile.mask_pii_in_responses
+        ):
+            response_graph_explanation = mask_dict(
+                response_graph_explanation, region_profile
+            )
+
+        response = EvaluateResponse(
+            trace_id=trace_id,
+            decision=decision,
+            score=final_score,
+            tags=merged_tags,
+            rule_hits=combined_rule_hits,
+            reasons=reasons,
+            ml_score=ml_score if isinstance(ml_score, float) else None,
+            inference_context=response_inf_ctx,
+            decision_status=runtime_decision_status,
+            signal_availability_notes=signal_notes,
+            recommended_action=recommended_action,
+            challenge_policy_id=ch_meta.get("policy_id"),
+            challenge_metadata=ch_meta,
+            fallback_reason=fb_reason,
+            graph_decision_explanation=response_graph_explanation,
+        )
+
         if pre_decision_audit_committed:
             from decision_api.decision_engine import finalize_audit_after_evaluation
 
@@ -3750,7 +3870,14 @@ async def _evaluate_decision_impl(
                 payload_snapshot=snap_extra,
             )
             session.add(audit)
-            await _commit_authoritative_audit(request, session)
+            replay = await _commit_authoritative_audit(
+                request,
+                session,
+                audit=audit,
+                response=response,
+            )
+            if replay is not None:
+                return replay
 
         decision_log_record = build_decision_log_record(
             trace_id=str(trace_id),
@@ -3806,39 +3933,6 @@ async def _evaluate_decision_impl(
         if signal_tags:
             for st in signal_tags:
                 _metrics_inc_safe(f"fraud_signal_tag_{st}_total", trace_id=trace_id)
-
-        response_tier = _resolve_response_explainability_tier(request)
-        response_inf_ctx = _shape_inference_context_for_tier(inf_ctx, response_tier)
-        region_profile = get_profile(body.region)
-        if region_profile.mask_pii_in_responses:
-            response_inf_ctx = mask_dict(response_inf_ctx, region_profile)
-
-        response_graph_explanation = graph_decision_explanation
-        if (
-            response_graph_explanation is not None
-            and region_profile.mask_pii_in_responses
-        ):
-            response_graph_explanation = mask_dict(
-                response_graph_explanation, region_profile
-            )
-
-        response = EvaluateResponse(
-            trace_id=trace_id,
-            decision=decision,
-            score=final_score,
-            tags=merged_tags,
-            rule_hits=combined_rule_hits,
-            reasons=reasons,
-            ml_score=ml_score if isinstance(ml_score, float) else None,
-            inference_context=response_inf_ctx,
-            decision_status=runtime_decision_status,
-            signal_availability_notes=signal_notes,
-            recommended_action=recommended_action,
-            challenge_policy_id=ch_meta.get("policy_id"),
-            challenge_metadata=ch_meta,
-            fallback_reason=fb_reason,
-            graph_decision_explanation=response_graph_explanation,
-        )
 
         bg.add_task(
             _broadcast_decision,

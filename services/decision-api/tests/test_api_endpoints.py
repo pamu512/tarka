@@ -639,6 +639,9 @@ class TestEvaluateDecision:
         mock_session = AsyncMock()
         mock_session.add = MagicMock()
         mock_session.commit = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute = AsyncMock(return_value=mock_result)
         from decision_api.main import get_session
 
         with patch(
