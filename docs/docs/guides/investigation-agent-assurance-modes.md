@@ -15,7 +15,7 @@ This guide describes **optional** controls that make the OSS copilot **more cons
 
 | Endpoint | Purpose |
 |----------|---------|
-| `POST /v1/review/turn` | Body: `turn_id`, `tenant_id`, `analyst_id`, `status` (`approved` \| `rejected`), optional `note`. Persists to SQLite (`COPILOT_REVIEW_DB_NAME` under `INVESTIGATION_DATA_DIR`). |
+| `POST /v1/review/turn` | Body: `turn_id`, `tenant_id`, `analyst_id`, `status` (`approved` \| `rejected`), optional `note`. Upserts one tenant/turn review and the AgentRun review state in one SQLite transaction (`COPILOT_AGENT_RUN_DB_NAME` under `INVESTIGATION_DATA_DIR`). |
 | `GET /v1/review/turn?turn_id=&tenant_id=` | Latest review row for that turn, if any. |
 
 The UI or a case workflow can require **approved** before exporting labels or attaching copilot output to a case record. Enforcement is **your** orchestration layer; the agent only stores the record.

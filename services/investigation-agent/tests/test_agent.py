@@ -619,7 +619,7 @@ class TestSearchKnowledgeOkf:
             "High amount requires review.\n"
             'TARKA_CLAIMS_JSON={"claims":[{"text":"High amount requires review.",'
             '"source":"tool","concept_ids":["rules/high-amount"],'
-            '"evidence_ids":["ev-high-amount"]}]}'
+            '"evidence_ids":["ev-high-amount"],"supporting_tool_call_indices":[0]}]}'
         )
 
         _, claims, warning = _parse_tarka_claims_reply(raw)
@@ -631,6 +631,7 @@ class TestSearchKnowledgeOkf:
                 "source": "tool",
                 "concept_ids": ["rules/high-amount"],
                 "evidence_ids": ["ev-high-amount"],
+                "supporting_tool_call_indices": [0],
             }
         ]
 
@@ -643,11 +644,14 @@ class TestSearchKnowledgeOkf:
                 "source": "tool",
                 "concept_ids": ["rules/high-amount"],
                 "evidence_ids": ["ev-high-amount"],
+                "supporting_tool_call_indices": [0],
             },
             {
                 "text": "The fabricated rule applies even though high-amount appears in text.",
                 "source": "tool",
                 "concept_ids": ["rules/fabricated"],
+                "evidence_ids": ["ev-fabricated"],
+                "supporting_tool_call_indices": [0],
             },
         ]
         tool_calls = [
@@ -720,16 +724,22 @@ class TestSearchKnowledgeOkf:
                 "text": "High amount transactions require manual review.",
                 "source": "tool",
                 "concept_ids": ["rules/high-amount"],
+                "evidence_ids": ["ev-high"],
+                "supporting_tool_call_indices": [0],
             },
             {
                 "text": "High amount transactions require manual review.",
                 "source": "tool",
                 "concept_ids": ["typologies/mule-network"],
+                "evidence_ids": ["ev-mule"],
+                "supporting_tool_call_indices": [1],
             },
             {
                 "text": "A fabricated policy requires manual review.",
                 "source": "tool",
                 "concept_ids": ["rules/fabricated"],
+                "evidence_ids": ["ev-fabricated"],
+                "supporting_tool_call_indices": [0],
             },
             {
                 "text": "High amount transactions require manual review.",
@@ -738,6 +748,8 @@ class TestSearchKnowledgeOkf:
                     "rules/high-amount",
                     "typologies/mule-network",
                 ],
+                "evidence_ids": ["ev-high", "ev-mule"],
+                "supporting_tool_call_indices": [0, 1],
             },
         ]
 
@@ -753,6 +765,81 @@ class TestSearchKnowledgeOkf:
         assert "exact_citation_text_unsupported" in adjustments
         assert "unresolved_exact_citation_id" in adjustments
 
+    def test_search_grounding_rejects_omitted_unrelated_and_fabricated_citations(self):
+        from investigation_agent.main import _enforce_claim_exact_ids
+
+        tool_calls = [
+            {
+                "tool": "search_knowledge",
+                "result": {
+                    "hits": [
+                        {
+                            "concept_id": "rules/high-amount",
+                            "evidence_ids": ["ev-high"],
+                            "title": "High Amount Rule",
+                            "snippet": "High amount transactions require manual review.",
+                        }
+                    ],
+                    "abstain": False,
+                    "conflicts": [],
+                },
+            },
+            {
+                "tool": "search_knowledge",
+                "result": {
+                    "hits": [
+                        {
+                            "concept_id": "typologies/mule-network",
+                            "evidence_ids": ["ev-mule"],
+                            "title": "Mule Network",
+                            "snippet": "Linked beneficiary accounts indicate mule activity.",
+                        }
+                    ],
+                    "abstain": False,
+                    "conflicts": [],
+                },
+            },
+        ]
+        claims = [
+            {
+                "text": "High amount transactions require manual review.",
+                "source": "tool",
+            },
+            {
+                "text": "High amount transactions require manual review.",
+                "source": "tool",
+                "concept_ids": ["typologies/mule-network"],
+                "evidence_ids": ["ev-mule"],
+                "supporting_tool_call_indices": [0],
+            },
+            {
+                "text": "High amount transactions require manual review.",
+                "source": "tool",
+                "concept_ids": ["rules/fabricated"],
+                "evidence_ids": ["ev-fabricated"],
+                "supporting_tool_call_indices": [0],
+            },
+            {
+                "text": "High amount transactions require manual review.",
+                "source": "tool",
+                "concept_ids": ["rules/high-amount"],
+                "evidence_ids": ["ev-high"],
+                "supporting_tool_call_indices": [0],
+            },
+        ]
+
+        grounded, adjustments = _enforce_claim_exact_ids(claims, tool_calls)
+
+        assert [claim["source"] for claim in grounded] == [
+            "unknown",
+            "unknown",
+            "unknown",
+            "tool",
+        ]
+        assert all(claim.get("supported") is False for claim in grounded[:3])
+        assert "search_knowledge_citation_omitted" in adjustments
+        assert "unresolved_exact_citation_id" in adjustments
+
     def test_okf_claims_prompt_schema_requests_exact_ids_without_invention(self):
         from investigation_agent.personas import (
             DEFAULT_COPILOT_PERSONA,
@@ -763,6 +850,7 @@ class TestSearchKnowledgeOkf:
 
         assert "concept_ids" in prompt
         assert "evidence_ids" in prompt
+        assert "supporting_tool_call_indices" in prompt
         assert "do not invent" in prompt.lower()
 
 

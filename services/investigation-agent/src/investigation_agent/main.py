@@ -936,9 +936,8 @@ def _enforce_claim_exact_ids(
     claims: list[dict[str, Any]],
     tool_calls: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[str]]:
-    hits_by_concept: dict[str, list[dict[str, Any]]] = {}
-    hits_by_evidence: dict[str, list[dict[str, Any]]] = {}
-    for call in tool_calls:
+    search_hits_by_call: dict[int, list[dict[str, Any]]] = {}
+    for call_index, call in enumerate(tool_calls):
         if not isinstance(call, dict) or call.get("tool") != "search_knowledge":
             continue
         result = call.get("result")
@@ -951,16 +950,12 @@ def _enforce_claim_exact_ids(
             )
         ):
             continue
+        successful_hits: list[dict[str, Any]] = []
         for hit in result.get("hits") or []:
-            if not isinstance(hit, dict):
-                continue
-            concept_id = str(hit.get("concept_id") or "").strip()
-            if concept_id:
-                hits_by_concept.setdefault(concept_id, []).append(hit)
-            for evidence_id in hit.get("evidence_ids") or []:
-                normalized = str(evidence_id).strip()
-                if normalized:
-                    hits_by_evidence.setdefault(normalized, []).append(hit)
+            if isinstance(hit, dict):
+                successful_hits.append(hit)
+        if successful_hits:
+            search_hits_by_call[call_index] = successful_hits
 
     stopwords = {
         "about",
@@ -994,46 +989,126 @@ def _enforce_claim_exact_ids(
             if token not in stopwords
         }
 
+    def _text_supported(text: Any, hits: list[dict[str, Any]]) -> bool:
+        claim_tokens = _tokens(text or "")
+        return any(len(claim_tokens & _tokens(hit)) >= 2 for hit in hits)
+
+    all_search_hits = [hit for hits in search_hits_by_call.values() for hit in hits]
     out: list[dict[str, Any]] = []
     adjustments: list[str] = []
     for claim in claims:
         c = dict(claim)
-        unresolved = False
-        selected_hit_groups: list[list[dict[str, Any]]] = []
-        cited_ids: set[str] = set()
-        for key, hit_map in (
-            ("concept_ids", hits_by_concept),
-            ("evidence_ids", hits_by_evidence),
+        raw_indices = c.get("supporting_tool_call_indices")
+        indices_valid = (
+            isinstance(raw_indices, list)
+            and bool(raw_indices)
+            and all(
+                isinstance(index, int)
+                and not isinstance(index, bool)
+                and 0 <= index < len(tool_calls)
+                for index in raw_indices
+            )
+        )
+        selected_indices = list(dict.fromkeys(raw_indices)) if indices_valid else []
+        selected_search = {
+            index: search_hits_by_call[index]
+            for index in selected_indices
+            if index in search_hits_by_call
+        }
+        has_exact_ids = "concept_ids" in c or "evidence_ids" in c
+        search_contributes = c.get("source") == "tool" and (
+            bool(selected_search)
+            or has_exact_ids
+            or _text_supported(c.get("text"), all_search_hits)
+        )
+        if not search_contributes:
+            out.append(c)
+            continue
+        if not indices_valid or not selected_search:
+            c["source"] = "unknown"
+            c["supported"] = False
+            adjustments.append("search_knowledge_citation_omitted")
+            out.append(c)
+            continue
+
+        selected_hits = [hit for hits in selected_search.values() for hit in hits]
+        concept_ids = c.get("concept_ids")
+        evidence_ids = c.get("evidence_ids")
+        if not isinstance(concept_ids, list) or not concept_ids:
+            c["source"] = "unknown"
+            c["supported"] = False
+            adjustments.append("search_knowledge_citation_omitted")
+            out.append(c)
+            continue
+
+        normalized_concepts = {
+            item.strip() for item in concept_ids if isinstance(item, str) and item.strip()
+        }
+        normalized_evidence = {
+            item.strip() for item in (evidence_ids or []) if isinstance(item, str) and item.strip()
+        }
+        unresolved = len(normalized_concepts) != len(concept_ids) or (
+            isinstance(evidence_ids, list) and len(normalized_evidence) != len(evidence_ids)
+        )
+        cited_hit_groups: list[list[dict[str, Any]]] = []
+        for concept_id in normalized_concepts:
+            matching = [
+                hit
+                for hit in selected_hits
+                if str(hit.get("concept_id") or "").strip() == concept_id
+            ]
+            unresolved = unresolved or not matching
+            cited_hit_groups.append(matching)
+        cited_concept_hits = [hit for matching_hits in cited_hit_groups for hit in matching_hits]
+        if any(hit.get("evidence_ids") for hit in cited_concept_hits) and (
+            not isinstance(evidence_ids, list) or not evidence_ids
         ):
-            if key not in c:
-                continue
-            raw = c.get(key)
-            if not isinstance(raw, list) or not raw:
-                unresolved = True
-                continue
-            for item in raw:
-                ref_id = item.strip() if isinstance(item, str) else ""
-                matching_hits = hit_map.get(ref_id, [])
-                if not ref_id or not matching_hits:
-                    unresolved = True
-                    continue
-                cited_ids.add(ref_id)
-                selected_hit_groups.append(matching_hits)
+            c["source"] = "unknown"
+            c["supported"] = False
+            adjustments.append("search_knowledge_citation_omitted")
+            out.append(c)
+            continue
+        for evidence_id in normalized_evidence:
+            matching = [
+                hit
+                for hit in selected_hits
+                if evidence_id
+                in {
+                    str(item).strip() for item in hit.get("evidence_ids") or [] if str(item).strip()
+                }
+            ]
+            unresolved = unresolved or not matching
+            cited_hit_groups.append(matching)
         if unresolved:
             c["source"] = "unknown"
             c["supported"] = False
             adjustments.append("unresolved_exact_citation_id")
-        elif selected_hit_groups:
-            claim_tokens = _tokens(c.get("text") or "")
-            for cited_id in cited_ids:
-                claim_tokens.difference_update(_tokens(cited_id))
-            if any(
-                len(claim_tokens & _tokens(matching_hits)) < 2
-                for matching_hits in selected_hit_groups
-            ):
-                c["source"] = "unknown"
-                c["supported"] = False
-                adjustments.append("exact_citation_text_unsupported")
+            out.append(c)
+            continue
+
+        def _hit_is_cited(
+            hit: dict[str, Any],
+            concepts: set[str] = normalized_concepts,
+            evidence: set[str] = normalized_evidence,
+        ) -> bool:
+            if str(hit.get("concept_id") or "").strip() in concepts:
+                return True
+            return bool(
+                evidence
+                & {str(item).strip() for item in hit.get("evidence_ids") or [] if str(item).strip()}
+            )
+
+        call_specific_support = all(
+            any(_hit_is_cited(hit) for hit in hits)
+            and _text_supported(c.get("text"), [hit for hit in hits if _hit_is_cited(hit)])
+            for hits in selected_search.values()
+        )
+        if not call_specific_support or any(
+            not _text_supported(c.get("text"), matching_hits) for matching_hits in cited_hit_groups
+        ):
+            c["source"] = "unknown"
+            c["supported"] = False
+            adjustments.append("exact_citation_text_unsupported")
         out.append(c)
     return out, adjustments
 
@@ -1656,6 +1731,15 @@ def _parse_tarka_claims_reply(raw_reply: str) -> tuple[str, list[dict[str, Any]]
                 ]
                 if ids:
                     claim_out[key] = ids
+            raw_indices = c.get("supporting_tool_call_indices")
+            if isinstance(raw_indices, list):
+                indices = [
+                    item
+                    for item in raw_indices[:24]
+                    if isinstance(item, int) and not isinstance(item, bool) and item >= 0
+                ]
+                if indices:
+                    claim_out["supporting_tool_call_indices"] = indices
             out.append(claim_out)
 
     if not out:
@@ -2725,28 +2809,25 @@ async def turn_review_save(rv: TurnReviewBody, request: Request):
         raise HTTPException(
             status_code=400, detail="maker-checker requires reviewer different from turn author"
         )
-    row_id = review_store.save_review(
-        turn_id=tid,
-        tenant_id=rv.tenant_id.strip(),
-        analyst_id=reviewer_id,
-        status=rv.status,
-        note=rv.note,
-    )
-    agent_run_updated = agent_run_store.update_review_state(
-        tenant_id=rv.tenant_id.strip(),
-        turn_id=tid,
-        review_state=rv.status,
-    )
-    if not agent_run_updated:
+    try:
+        row_id = agent_run_store.save_review_transactionally(
+            turn_id=tid,
+            tenant_id=rv.tenant_id.strip(),
+            analyst_id=reviewer_id,
+            status=rv.status,
+            note=rv.note,
+        )
+    except agent_run_store.AgentRunPersistenceError as exc:
         log.error(
-            "agent_run_review_state_update_failed tenant_id=%s turn_id=%s",
+            "agent_run_review_transaction_failed tenant_id=%s turn_id=%s",
             rv.tenant_id.strip(),
             tid,
+            exc_info=True,
         )
         raise HTTPException(
             status_code=503,
-            detail="agent_run_review_state_update_failed",
-        )
+            detail="agent_run_review_transaction_failed",
+        ) from exc
     return {
         "ok": True,
         "stored": True,

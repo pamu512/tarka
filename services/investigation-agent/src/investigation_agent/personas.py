@@ -87,10 +87,12 @@ _WORKFLOW_AND_TAIL = (
     "After your prose answer, append one line break then the marker TARKA_CLAIMS_JSON= immediately "
     "followed by compact JSON (no markdown code fence). Schema:\n"
     '{"claims":[{"text":"short sentence","source":"tool",'
-    '"concept_ids":["rules/id-from-tool"],"evidence_ids":["ev_id_from_tool"]},'
+    '"supporting_tool_call_indices":[0],"concept_ids":["rules/id-from-tool"],'
+    '"evidence_ids":["ev_id_from_tool"]},'
     '{"text":"...","source":"unknown"}]}\n'
     '- Use source "tool" only for facts directly supported by tool results in this turn.\n'
-    "- Include concept_ids/evidence_ids only when exact identifiers appeared in this turn's tool results; do not invent, infer, or rewrite identifiers.\n"
+    "- For every tool-sourced claim, include supporting_tool_call_indices using zero-based positions from this turn's tool calls.\n"
+    "- When a selected call is search_knowledge, include its exact concept_ids and evidence_ids from the selected hit; do not invent, infer, omit, or rewrite identifiers.\n"
     '- Use source "unknown" for hypotheses, process guidance, or anything not strictly from tools.\n'
     "- Escape double quotes inside claim text per JSON string rules.\n"
     '- If you have no factual claims, use {"claims":[]}.\n\n'

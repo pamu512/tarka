@@ -95,7 +95,7 @@ flowchart LR
 | **Memo ingest → RAG** | Client → agent → disk | `tenant_id`, `analyst_id`, title, body; optional embedding vectors | `INVESTIGATION_DATA_DIR`, `COPILOT_RAG_DB_NAME`, `COPILOT_KNOWLEDGE_EMBEDDINGS`, `OPENAI_API_KEY` (if embedding) |
 | **RAG → LLM** | SQLite → agent → LLM | Chunks retrieved by `search_knowledge` enter **tool results**, then may appear in LLM context | Same as tool truncation + tool allowlist |
 | **Feedback** | Client → agent → disk | `turn_id`, rating, note, optional tags; tenant/analyst resolved or supplied | `INVESTIGATION_DATA_DIR`, `COPILOT_FEEDBACK_DB_NAME` |
-| **Turn review** | Client → agent → disk | `turn_id`, tenant, analyst, approved/rejected, note | `COPILOT_REVIEW_DB_NAME` |
+| **Turn review** | Client → agent → disk | `turn_id`, tenant, analyst, approved/rejected, note; updated atomically with AgentRun | `COPILOT_AGENT_RUN_DB_NAME` |
 | **Logs / metrics** | investigation-agent → your observability | e.g. tool counts, tenant/analyst ids, model id—**no** full prompt dump by default in doc’d design; verify your log config | Log redaction, retention, SIEM policy |
 
 ### 5.3 On-disk persistence (same host as agent by default)
@@ -104,7 +104,7 @@ flowchart LR
 |-------|-----|---------|
 | RAG / knowledge chunks | `INVESTIGATION_DATA_DIR` + `COPILOT_RAG_DB_NAME` | Memo text; optional `embedding_json` |
 | Feedback + turn metadata | `INVESTIGATION_DATA_DIR` + `COPILOT_FEEDBACK_DB_NAME` | Ratings, `record_turn` row |
-| Human sign-off | `INVESTIGATION_DATA_DIR` + `COPILOT_REVIEW_DB_NAME` | Approved/rejected records |
+| AgentRun + human sign-off | `INVESTIGATION_DATA_DIR` + `COPILOT_AGENT_RUN_DB_NAME` | AgentRun and one approved/rejected row per tenant/turn, updated transactionally |
 
 **Encryption at rest** for these files is **environment-dependent** (disk encryption, volume policies)—not enforced by the application layer in the OSS reference.
 

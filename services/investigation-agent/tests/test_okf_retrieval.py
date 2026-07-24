@@ -567,6 +567,7 @@ def test_frozen_corpus_enforces_recall_citation_and_abstention_gates(
             {
                 "text": hit["text"],
                 "source": "tool",
+                "supporting_tool_call_indices": [0],
                 "concept_ids": [hit["concept_id"]],
                 **({"evidence_ids": list(hit["evidence_ids"])} if hit["evidence_ids"] else {}),
             }

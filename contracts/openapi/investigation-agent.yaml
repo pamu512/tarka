@@ -69,19 +69,28 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [status]
                 properties:
-                  status: { type: string, enum: [ready] }
+                  status: { type: string, enum: [ready, degraded] }
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+                      enum: [rag_unavailable, okf_unavailable]
         "503":
           description: Not ready
           content:
             application/json:
               schema:
                 type: object
+                required: [status, errors]
                 properties:
                   status: { type: string, enum: [not_ready] }
                   errors:
                     type: array
-                    items: { type: string }
+                    items:
+                      type: string
+                      enum: [rag_unavailable, okf_unavailable, okf_disabled]
   /v1/setup:
     get:
       operationId: setupDiagnostics
@@ -755,6 +764,15 @@ paths:
                     properties:
                       text: { type: string }
                       source: { type: string, enum: [tool, unknown] }
+                      supporting_tool_call_indices:
+                        type: array
+                        items: { type: integer, minimum: 0 }
+                      concept_ids:
+                        type: array
+                        items: { type: string }
+                      evidence_ids:
+                        type: array
+                        items: { type: string }
       responses:
         "200":
           description: PDF bytes
@@ -798,6 +816,15 @@ paths:
                     properties:
                       text: { type: string }
                       source: { type: string, enum: [tool, unknown] }
+                      supporting_tool_call_indices:
+                        type: array
+                        items: { type: integer, minimum: 0 }
+                      concept_ids:
+                        type: array
+                        items: { type: string }
+                      evidence_ids:
+                        type: array
+                        items: { type: string }
                 tool_calls:
                   type: array
                   nullable: true
@@ -916,6 +943,15 @@ paths:
                       properties:
                         text: { type: string }
                         source: { type: string, enum: [tool, unknown] }
+                        supporting_tool_call_indices:
+                          type: array
+                          items: { type: integer, minimum: 0 }
+                        concept_ids:
+                          type: array
+                          items: { type: string }
+                        evidence_ids:
+                          type: array
+                          items: { type: string }
                   source_refs:
                     type: array
                     description: Structured summary of tool touches (ids + ok/error) for transparency
