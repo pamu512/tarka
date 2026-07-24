@@ -10,12 +10,10 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import sys
-from pathlib import Path
 
-_shared = Path(__file__).resolve().parents[3] / "shared"
-if str(_shared) not in sys.path:
-    sys.path.insert(0, str(_shared))
+from decision_api.shared_path import ensure_services_shared_on_path
+
+ensure_services_shared_on_path()
 from auth_rbac import require_role  # noqa: E402
 
 from analytics import queries  # noqa: E402
@@ -179,3 +177,18 @@ async def get_backtest_job(
         "created_at": job.created_at.isoformat() if job.created_at else None,
         "updated_at": job.updated_at.isoformat() if job.updated_at else None,
     }
+
+
+@router.post("/run", deprecated=True)
+async def backtest_run_tombstone(_user=Depends(require_role("analyst"))) -> None:
+    """Removed: never returned stub metrics. Use ``POST /v1/rules/backtest/jobs``."""
+    raise HTTPException(
+        status_code=410,
+        detail={
+            "reason_code": "BACKTEST_RUN_REMOVED",
+            "message": (
+                "POST /v1/rules/backtest/run was deleted (it returned stub null metrics). "
+                "Use POST /v1/rules/backtest/jobs and GET /v1/rules/backtest/jobs/{job_id}."
+            ),
+        },
+    )

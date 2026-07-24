@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from config import settings
+from .config import settings
 
 """Dispatch graph persistence to Neo4j or JanusGraph based on GRAPH_BACKEND (no HTTP API changes)."""
 
@@ -84,10 +84,10 @@ async def query_entity_deep_context(tenant_id: str, external_id: str) -> dict[st
 
 async def close_graph_backend() -> None:
     if settings.graph_backend == "janusgraph":
-        from janusgraph_gremlin import close_janus_connection
+        from .janusgraph_gremlin import close_janus_connection
 
         close_janus_connection()
         return
-    from neo4j_client import close_driver
+    from .neo4j_client import close_driver
 
     await close_driver()

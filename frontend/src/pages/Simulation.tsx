@@ -66,6 +66,8 @@ export default function Simulation() {
 
   const [simResult, setSimResult] = useState<SimResult | null>(null);
   const [sampleEvents, setSampleEvents] = useState<SampleEvent[]>([]);
+  const [guardrails, setGuardrails] = useState<Record<string, unknown> | null>(null);
+  const [allowUnderpowered, setAllowUnderpowered] = useState(false);
 
   const [ruleSetA, setRuleSetA] = useState("[\n  {\n    \"id\": \"rule-a-1\",\n    \"when\": [{\"field\": \"score\", \"op\": \"gte\", \"value\": 80}],\n    \"score_delta\": 30\n  }\n]");
   const [ruleSetB, setRuleSetB] = useState("[\n  {\n    \"id\": \"rule-b-1\",\n    \"when\": [{\"field\": \"score\", \"op\": \"gte\", \"value\": 70}],\n    \"score_delta\": 25\n  }\n]");
@@ -101,10 +103,13 @@ export default function Simulation() {
     setSimResult(null);
     setSampleEvents([]);
     try {
-      const options = customMode ? JSON.parse(customParams) : undefined;
+      const options = customMode
+        ? { ...JSON.parse(customParams), allow_underpowered: allowUnderpowered }
+        : { allow_underpowered: allowUnderpowered };
       const resp = await simulation.run(scenario, options);
       const result = (resp.result ?? resp) as SimResult;
       setSimResult(result);
+      setGuardrails((resp.experiment_guardrails as Record<string, unknown>) ?? null);
       const events = resp.sample_events ?? resp.sample_decisions ?? [];
       setSampleEvents((events as SampleEvent[]).slice(0, 10));
     } catch (e) {
@@ -125,8 +130,13 @@ export default function Simulation() {
         scenario,
         rule_set_a: JSON.parse(ruleSetA),
         rule_set_b: JSON.parse(ruleSetB),
+        allow_underpowered: allowUnderpowered,
       });
       setAbResult(resp as ABResult);
+      setGuardrails(
+        ((resp as { experiment_guardrails?: Record<string, unknown> }).experiment_guardrails) ??
+          null,
+      );
     } catch (e) {
       setError(toUserFacingError(e, { subject: "A/B test", action: "run A/B test" }));
     } finally {
@@ -156,9 +166,14 @@ export default function Simulation() {
       const resp = await simulation.benchmarkVertical({
         scenario,
         vertical: selectedVertical,
+        allow_underpowered: allowUnderpowered,
       });
       const data = resp as unknown as VerticalBenchmarkResult;
       setVerticalResult(data);
+      setGuardrails(
+        ((resp as { experiment_guardrails?: Record<string, unknown> }).experiment_guardrails) ??
+          null,
+      );
       const entry: VerticalBenchmarkHistoryEntry = {
         ts: new Date().toISOString(),
         scenario: data.scenario,
@@ -270,6 +285,19 @@ export default function Simulation() {
             />
           </div>
         )}
+
+        <label className="mt-4 flex items-start gap-2 text-xs text-gray-400 cursor-pointer">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={allowUnderpowered}
+            onChange={(e) => setAllowUnderpowered(e.target.checked)}
+          />
+          <span>
+            Allow underpowered runs (&lt;200 events). Required for custom profiles below the
+            holdout minimum — results must not be treated as production KPIs.
+          </span>
+        </label>
       </div>
 
       {/* Simulate Tab */}
@@ -284,6 +312,18 @@ export default function Simulation() {
             Run Simulation
           </button>
 
+          {guardrails && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-amber-200/90 text-xs space-y-1">
+              <div className="font-semibold text-amber-100">Experiment guardrails</div>
+              <div>
+                Events: {String(guardrails.events_evaluated ?? "—")} · Min recommended:{" "}
+                {String(guardrails.minimum_recommended_events ?? 200)}
+                {guardrails.low_sample_warning ? " · low sample warning" : ""}
+              </div>
+              {Array.isArray(guardrails.notes) &&
+                (guardrails.notes as string[]).map((n) => <div key={n}>{n}</div>)}
+            </div>
+          )}
           {simResult && <SimulationResults result={simResult} sampleEvents={sampleEvents} />}
         </>
       )}

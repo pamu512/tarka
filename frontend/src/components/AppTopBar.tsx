@@ -26,35 +26,6 @@ function IconUser({ className = "w-5 h-5" }: { className?: string }) {
 const iconBtn =
   "relative flex h-10 w-10 items-center justify-center rounded-xl text-gray-500 hover:text-gray-200 hover:bg-surface-800/90 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50";
 
-function NotificationNavLink({ actionableCount }: { actionableCount: number }) {
-  const show = actionableCount > 0;
-  const label = show
-    ? `Notifications, ${actionableCount} need attention`
-    : "Notifications";
-  const shown = actionableCount > 99 ? "99+" : String(actionableCount);
-
-  return (
-    <NavLink
-      to="/notifications"
-      className={({ isActive }: { isActive: boolean }) =>
-        `${iconBtn} ${isActive ? "text-brand-400 bg-brand-600/15 hover:bg-brand-600/20" : ""}`
-      }
-      aria-label={label}
-      title={label}
-    >
-      <ModuleIcon module="notifications" className="w-[1.25rem] h-[1.25rem]" aria-hidden />
-      {show ? (
-        <span
-          className="absolute -right-0.5 -top-0.5 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold tabular-nums text-black ring-2 ring-white dark:ring-surface-950"
-          aria-hidden
-        >
-          {shown}
-        </span>
-      ) : null}
-    </NavLink>
-  );
-}
-
 function AccountMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -89,14 +60,9 @@ function AccountMenu() {
       </button>
       {open ? (
         <div
-          className="absolute right-0 z-50 mt-1.5 w-56 rounded-xl border border-surface-700 bg-surface-900 py-1 shadow-xl shadow-black/40"
           role="menu"
+          className="absolute right-0 mt-1 w-52 rounded-xl border border-surface-700 bg-surface-900 py-1 shadow-lg z-50"
         >
-          <div className="border-b border-surface-700 px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-600">Signed in</div>
-            <div className="mt-0.5 text-sm font-medium text-gray-100">Demo operator</div>
-            <div className="text-xs text-gray-500">demo@tarka.local</div>
-          </div>
           <NavLink
             to="/settings"
             role="menuitem"
@@ -152,7 +118,7 @@ function PageContextTitle() {
   );
 }
 
-export function AppTopBar({ notificationActionableCount }: { notificationActionableCount: number }) {
+export function AppTopBar() {
   return (
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-2 border-b border-surface-700 bg-surface-900/95 px-2 sm:px-4 backdrop-blur-sm">
       <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -179,7 +145,6 @@ export function AppTopBar({ notificationActionableCount }: { notificationActiona
       >
         <ModuleIcon module="help" className="w-[1.25rem] h-[1.25rem]" aria-hidden />
       </NavLink>
-      <NotificationNavLink actionableCount={notificationActionableCount} />
       <NavLink
         to="/settings"
         className={({ isActive }: { isActive: boolean }) =>

@@ -73,13 +73,13 @@ def run_import_rules(
     rule_engine_base: str | None = None,
 ) -> tuple[int, str | None]:
     """
-    Load JSON from ``filepath``, validate each object as :class:`rule_engine.ast_schemas.Rule`,
+    Load JSON from ``filepath``, validate each object as :class:`tarka_shared.ast_schemas.Rule`,
     upsert rows into ``engine_rules``, then ``POST /v1/rules/reload`` unless ``skip_reload``.
 
     Returns ``(rule_count, reload_error_or_none)``.
     """
     try:
-        from rule_engine.ast_schemas import Rule
+        from tarka_shared.ast_schemas import Rule
         from sqlalchemy import create_engine
         from sqlalchemy.orm import Session
 

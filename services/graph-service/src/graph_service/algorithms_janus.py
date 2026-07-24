@@ -7,9 +7,9 @@ from typing import Any
 
 import networkx as nx
 
-from config import settings
-from janusgraph_gremlin import get_traversal_source, run_in_gremlin_thread
-from janusgraph_store import _vertex_external_id
+from .config import settings
+from .janusgraph_gremlin import get_traversal_source, run_in_gremlin_thread
+from .janusgraph_store import _vertex_external_id
 
 """
 Graph analytics when GRAPH_BACKEND=janusgraph (Gremlin).
@@ -36,7 +36,7 @@ def _clamp_depth(depth: int) -> int:
 
 
 def _tags_list_from_vertex(g, v: Any) -> list[str]:
-    from janusgraph_store import _tags_decode
+    from .janusgraph_store import _tags_decode
 
     try:
         raw = g.V(v).values("tags").limit(1).next()
@@ -186,7 +186,7 @@ async def explain_paths(
     to_entity_id: str | None = None,
     limit: int = 10,
 ) -> dict:
-    from path_explain import assemble_path_explanation
+    from .path_explain import assemble_path_explanation
 
     rows = await propagate_risk(tenant_id, entity_id, depth=depth, decay=decay)
     subject = await compute_entity_risk(tenant_id, entity_id)
@@ -276,7 +276,7 @@ async def detect_fraud_rings(tenant_id: str, min_ring_size: int = 3) -> list[dic
 async def compute_entity_risk(
     tenant_id: str, entity_id: str, *, checkpoint: str | None = None
 ) -> dict:
-    from checkpoint_registry import resolve_profile
+    from .checkpoint_registry import resolve_profile
 
     profile = resolve_profile(checkpoint)
     mult = float(profile.get("risk_score_multiplier") or 1.0)
@@ -292,6 +292,7 @@ async def compute_entity_risk(
                 "risk_factors": ["entity_not_found"],
                 "connected_flagged_count": 0,
                 "community_size": 0,
+                "neighbor_device_count": 0,
                 "graph_checkpoint": checkpoint,
                 "graph_profile": profile.get("_profile_name"),
                 "graph_profile_max_neighbor_hops": hop_cap,
@@ -315,6 +316,13 @@ async def compute_entity_risk(
                 flagged += 1
 
         conn_count = len(neighbors)
+        neighbor_device_ids: set[str] = set()
+        for nb in neighbors:
+            with contextlib.suppress(Exception):
+                did = nb.value("device_id")
+                if did is not None and str(did).strip():
+                    neighbor_device_ids.add(str(did).strip())
+        neighbor_device_count = len(neighbor_device_ids)
         device_id = None
         with contextlib.suppress(Exception):
             device_id = v.value("device_id")
@@ -376,16 +384,30 @@ async def compute_entity_risk(
             score += 5
             factors.append(f"moderate_connectivity:{conn_count}")
 
-        return {
+        score = min(round(score * mult), 100)
+
+        from .graph_data_freshness import graph_data_as_of_iso
+
+        freshness_props: dict[str, Any] = {}
+        for key in ("updated_at", "last_seen", "tags_updated_at", "observed_at"):
+            with contextlib.suppress(Exception):
+                freshness_props[key] = v.value(key)
+        freshness = graph_data_as_of_iso(freshness_props)
+
+        out = {
             "entity_id": entity_id,
-            "risk_score": min(round(score * mult), 100),
+            "risk_score": score,
             "risk_factors": factors,
             "connected_flagged_count": flagged,
             "community_size": community_size,
+            "neighbor_device_count": neighbor_device_count,
             "graph_checkpoint": checkpoint,
             "graph_profile": profile.get("_profile_name"),
             "graph_profile_multiplier": mult,
             "graph_profile_max_neighbor_hops": hop_depth,
         }
+        if freshness:
+            out["graph_data_as_of"] = freshness
+        return out
 
     return await run_in_gremlin_thread(sync)

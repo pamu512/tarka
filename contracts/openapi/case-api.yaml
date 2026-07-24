@@ -350,6 +350,48 @@ paths:
       responses:
         "200":
           description: OK
+  /v1/cases/{case_id}/evidence-bundle:
+    get:
+      operationId: getCaseEvidenceBundle
+      summary: JSON evidence bundle for procurement / audit export
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/cases/{case_id}/evidence-bundle.zip:
+    get:
+      operationId: getCaseEvidenceBundleZip
+      summary: Zip download of evidence-bundle JSON + README
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: application/zip attachment
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
   /v1/cases/{case_id}/sla:
     get:
       operationId: caseSla

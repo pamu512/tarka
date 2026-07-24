@@ -331,7 +331,7 @@ class _RuleEngineAsgiClient:
 
 
 def _e2e_flag_ruleset() -> tuple[Any, ...]:
-    from rule_engine.ast_schemas import Action, ConditionNode, FieldRef, Operator, Rule
+    from tarka_shared.ast_schemas import Action, ConditionNode, FieldRef, Operator, Rule
 
     return (
         Rule(

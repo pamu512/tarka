@@ -184,7 +184,12 @@ def _build_batch_table(
             pa.array(tenant_ids, type=pa.string()),
             pa.array(trace_ids, type=pa.string()),
             pa.array(entity_ids, type=pa.string()),
-            pa.array(eval_ts, type=pa.timestamp("us", tz="UTC")),
+            # Build us-epoch ints then cast — constructing tz timestamps from
+            # datetime objects has segfaulted under pyarrow on CI runners.
+            pa.array(
+                [int(dt.timestamp() * 1_000_000) for dt in eval_ts],
+                type=pa.timestamp("us", tz="UTC"),
+            ),
             pa.array(decisions, type=pa.string()),
             pa.array(scores, type=pa.float64()),
             pa.array(cm_labels, type=pa.string()),

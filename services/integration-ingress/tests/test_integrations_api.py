@@ -57,6 +57,20 @@ async def test_catalog_contains_20(client):
 
 
 @pytest.mark.asyncio
+async def test_catalog_marks_callable_decision_api_plugins(client):
+    r = await client.get("/v1/integrations/catalog")
+    assert r.status_code == 200
+    by_id = {p["id"]: p for p in r.json()["providers"]}
+    fp = by_id["fingerprint"]
+    assert fp["callable"] is True
+    assert fp["decision_api_plugin"] == "fingerprint"
+    assert "FINGERPRINT" in (fp.get("bootstrap_env") or "")
+    assert by_id["incognia"]["decision_api_plugin"] == "incognia"
+    assert by_id["opensanctions"]["decision_api_plugin"] == "opensanctions"
+    assert by_id["jira"].get("callable") is False
+
+
+@pytest.mark.asyncio
 async def test_preflight_probes_returns_quality(client):
     r = await client.post(
         "/v1/integrations/preflight-probes", json={"provider_ids": ["stripe_radar"]}

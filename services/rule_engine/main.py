@@ -152,6 +152,10 @@ def create_app(*, graph_context_provider: object = _GRAPH_PROVIDER_UNSET) -> Fas
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        logger.warning(
+            "rule_engine_http_deprecated: evaluate/deploy via :8778 is archived; "
+            "prefer decision-api evaluate (see services/rule_engine/DEPRECATED.md)",
+        )
         app.state.ruleset = load_active_ruleset()
         if graph_context_provider is _GRAPH_PROVIDER_UNSET:
             neo = Neo4jGraphContextProvider.try_from_env()

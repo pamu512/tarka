@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from custom_schema import load_tenant_schema
+from .custom_schema import load_tenant_schema
 
 """Heterogeneous graph edge validation (xFraud-style typed endpoints).
 

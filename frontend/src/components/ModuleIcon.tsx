@@ -239,19 +239,3 @@ export function ModuleIcon({ module, ...props }: { module: ModuleId } & IconProp
   const Cmp = ICONS[module];
   return <Cmp {...props} />;
 }
-
-/** Product mark — aligns with “prove every signal” (shield + signal) */
-export function TarkaMark(p: IconProps) {
-  const x = iconBase({ ...p, className: p.className ?? "w-8 h-8 text-brand-400" });
-  return (
-    <svg viewBox="0 0 32 32" fill="none" aria-hidden {...x}>
-      <path
-        d="M16 3L5 8v8c0 5.5 4 10.5 11 13 7-2.5 11-7.5 11-13V8L16 3z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinejoin="round"
-      />
-      <path d="M11 16h10M16 11v10" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-    </svg>
-  );
-}

@@ -7,7 +7,7 @@ Single reference for **default HTTP ports**, **Docker Compose service names** (i
 | Logical surface | Host port (typical) | Compose service | Mount prefix (in-process) | Notes |
 |-----------------|---------------------|-----------------|---------------------------|--------|
 | **Core API** (decision + case) | 8000 | `core-api` | `/decisions`, `/cases` | Single Uvicorn; probes use `/decisions/v1/ready`. OpenAPI: [decision-api.yaml](../../../contracts/openapi/decision-api.yaml), [case-api.yaml](../../../contracts/openapi/case-api.yaml) — call with mount prefix. |
-| **Signal API** (feature + ML + calibration + counter + location) | 8004 | `signal-api` | `/features`, `/ml`, `/calibration`, `/counters`, `/location` | OpenAPI: [feature-service.yaml](../../../contracts/openapi/feature-service.yaml), [ml-scoring.yaml](../../../contracts/openapi/ml-scoring.yaml), etc. — add mount prefix when using the macroservice. |
+| **Signal API** (feature + ML + calibration + counter + location) | 8004 | `signal-api` | `/features`, `/ml`, `/calibration`, `/counters`, `/location` | OpenAPI: [feature-service.yaml](../../../contracts/openapi/feature-service.yaml), [ml-scoring.yaml](../../../contracts/openapi/ml-scoring.yaml), etc. — add mount prefix when using the macroservice. **Calibration owner:** decision-api `CALIBRATION_SERVICE_URL` → `http://signal-api:8004/calibration` (standalone `calibration-service` image is opt-in only; see `services/calibration-service/DEPRECATED.md`). |
 | **Data plane** (ingest + analytics) | 8007 | `data-plane` | `/v1/…` (ingest + analytics routes on one port) | `streaming` / `analytics` / `full` profiles; NATS + optional ClickHouse. |
 
 ## Other application services
@@ -42,9 +42,11 @@ From any container on the default Compose network, use **service name + containe
 
 ## Helm (Kubernetes)
 
+**Canonical chart:** `infra/deploy/helm/fraud-stack/` (install name/chart name `tarka`).
+
 Service names follow `{{ release-name }}-<component>` (see `infra/deploy/helm/fraud-stack/templates/*.yaml`). Key toggles: **`coreApi`**, **`signalApi`**, **`dataPlane`**, **`graphqlGateway`**, etc. Ports default like the table unless overridden in `values.yaml`.
 
-Templates wire **`DECISION_API_URL`** / **`CASE_API_URL`** with **`/decisions`** and **`/cases`** suffixes where consumers expect the consolidated **core-api** service.
+Templates wire **`DECISION_API_URL`** / **`CASE_API_URL`** with **`/decisions`** and **`/cases`** suffixes where consumers expect the consolidated **core-api** service. **`CALIBRATION_SERVICE_URL`** targets signal-api `/calibration` when `signalApi` is enabled.
 
 ## Localhost without Docker
 

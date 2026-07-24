@@ -23,7 +23,6 @@ package-dir = {"shadow" = "."}
 packages = [
   "shadow",
   "shadow.hooks",
-  "shadow.inference",
   "shadow.models",
   "shadow.prompts",
   "shadow.tools",

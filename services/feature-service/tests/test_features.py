@@ -182,6 +182,35 @@ class TestSnapshotEndpoint:
         r = client.post("/v1/snapshot", json={"tenant_id": "t1"})
         assert r.status_code == 422
 
+    def test_device_fingerprint_not_derived_without_payload(self, client):
+        r = client.post(
+            "/v1/snapshot",
+            json={
+                "tenant_id": "t1",
+                "entity_id": "e1",
+                "event_type": "login",
+                "payload": {},
+            },
+        )
+        assert r.status_code == 200
+        features = r.json()["features"]
+        assert "device_fingerprint" not in features
+
+    def test_device_fingerprint_pass_through_from_payload(self, client):
+        r = client.post(
+            "/v1/snapshot",
+            json={
+                "tenant_id": "t1",
+                "entity_id": "e1",
+                "event_type": "login",
+                "payload": {"device_fingerprint": "fp-abc"},
+            },
+        )
+        assert r.status_code == 200
+        features = r.json()["features"]
+        assert features["device_fingerprint"] == "fp-abc"
+        assert isinstance(features["device_fingerprint"], str)
+
 
 class TestVelocityQueryEndpoint:
     @pytest.fixture

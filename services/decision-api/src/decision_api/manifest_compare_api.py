@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import sys
 import uuid
-from pathlib import Path
 from typing import Any
 
 from clickhouse_connect.driver.client import Client
@@ -21,9 +19,9 @@ from decision_api.manifest_visualize_api import (
     _parse_trace_json,
 )
 
-_shared = Path(__file__).resolve().parents[3] / "shared"
-if str(_shared) not in sys.path:
-    sys.path.insert(0, str(_shared))
+from decision_api.shared_path import ensure_services_shared_on_path
+
+ensure_services_shared_on_path()
 from auth_rbac import require_role  # noqa: E402
 
 log = logging.getLogger("decision-api.manifest_compare")

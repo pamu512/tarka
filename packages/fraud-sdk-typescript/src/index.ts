@@ -873,3 +873,9 @@ export {
   computeInTransitIntegrityHash,
   type UnifiedSignalWireForHash,
 } from "./integrity.js";
+
+export {
+  collectDeviceContext,
+  publishDeviceContext,
+  type TarkaSdkOptions,
+} from "./cname_consent.js";

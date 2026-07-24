@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from config import settings
+from .config import settings
 
 """
 Graph analytics entrypoint: Neo4j (Cypher) or JanusGraph (Gremlin) per GRAPH_BACKEND.
@@ -16,7 +16,7 @@ def _clamp_depth(depth: int) -> int:
 
 
 if settings.graph_backend == "janusgraph":
-    from algorithms_janus import (
+    from .algorithms_janus import (
         compute_entity_risk,
         detect_communities,
         detect_fraud_rings,
@@ -25,7 +25,7 @@ if settings.graph_backend == "janusgraph":
         propagate_risk,
     )
 elif settings.graph_backend == "age":
-    from algorithms_age import (
+    from .algorithms_age import (
         compute_entity_risk,
         detect_communities,
         detect_fraud_rings,
@@ -34,7 +34,7 @@ elif settings.graph_backend == "age":
         propagate_risk,
     )
 else:
-    from algorithms_neo4j import (
+    from .algorithms_neo4j import (
         compute_entity_risk,
         detect_communities,
         detect_fraud_rings,

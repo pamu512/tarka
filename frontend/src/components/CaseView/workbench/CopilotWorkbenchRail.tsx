@@ -8,7 +8,7 @@ import { trackPanelUsage, trackWorkbenchTask } from "../../../workbench/workbenc
 
 const DEFAULT_ANALYST = "analyst-1";
 
-/** Embedded copilot rail: Shadow sidecar + investigation citations (E02). */
+/** Embedded copilot rail: investigation-agent chat + evidence citations (E02). */
 export function CopilotWorkbenchRail() {
   const { caseId, tenantId, caseData, copilotRailOpen, setCopilotRailOpen, isPanelOpen } = useCaseWorkbench();
   const [citations, setCitations] = useState<InvestigationEvidenceSummaryCitation[]>([]);

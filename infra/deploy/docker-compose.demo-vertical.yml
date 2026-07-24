@@ -1,11 +1,12 @@
 # Optional merge: shared API key for core-api (decisions + cases) + data-plane so the demo vertical smoke
 # can POST evaluate, create a case (analyst role), and POST /v1/events with one x-api-key.
+# Also rebuilds frontend with the full brochure demo surface (Command Center, etc.).
 #
 #   docker compose -f infra/deploy/docker-compose.lite.yml -f infra/deploy/docker-compose.demo-vertical.yml --profile ingest up -d --build
 #   export DEMO_API_KEY=tarka-demo-vertical
 #   python3 infra/scripts/ci/demo_vertical_smoke.py
 #
-# Omit this file to keep default lite auth (empty API_KEYS + optional ALLOW_INSECURE for curl-only demos).
+# Omit this file to keep default lite auth + lean production UI (VITE_LEAN_NAV=true).
 
 name: tarka-lite
 services:
@@ -18,3 +19,9 @@ services:
       API_KEYS: tarka-demo-vertical
       SERVICE_API_KEY_ROLE: admin
       ALLOW_INSECURE_NO_AUTH: "true"
+  frontend:
+    build:
+      context: ../..
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_LEAN_NAV: "false"
