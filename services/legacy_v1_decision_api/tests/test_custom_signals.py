@@ -7,10 +7,6 @@ import time
 
 import pytest
 from pydantic import TypeAdapter, ValidationError
-
-from decision_api.ast_evaluator import evaluate_json_ast
-from decision_api.ast_models import EvaluateAstRequest, JsonAstNode
-from decision_api.pack_evaluator import evaluate_packs_python
 from tarka_core.engine_adapter import (
     SignalResolver,
     merge_features_with_resolved_from_ast,
@@ -18,6 +14,10 @@ from tarka_core.engine_adapter import (
     register_custom_signal,
     unregister_custom_signal,
 )
+
+from decision_api.ast_evaluator import evaluate_json_ast
+from decision_api.ast_models import EvaluateAstRequest, JsonAstNode
+from decision_api.pack_evaluator import evaluate_packs_python
 
 
 def test_pydantic_accepts_custom_signal_in_tree() -> None:
@@ -168,9 +168,7 @@ def test_evaluate_ast_request_optional_tenant_entity() -> None:
 
 
 def test_pack_evaluator_hits_rule_with_custom_signal() -> None:
-    register_custom_signal(
-        "flag", lambda _p, features, **__: 1 if features.get("base") else 0
-    )
+    register_custom_signal("flag", lambda _p, features, **__: 1 if features.get("base") else 0)
 
     packs = [
         {

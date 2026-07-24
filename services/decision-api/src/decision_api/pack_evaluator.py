@@ -29,9 +29,7 @@ class RuleEvaluationBudgetExceeded(RuntimeError):
     def __init__(self, rule_id: str, *, phase: str = "rule") -> None:
         self.rule_id = rule_id
         self.phase = phase
-        super().__init__(
-            f"rule evaluation exceeded budget at {phase} (rule_id={rule_id})"
-        )
+        super().__init__(f"rule evaluation exceeded budget at {phase} (rule_id={rule_id})")
 
 
 def _expired(t0: float) -> bool:
@@ -114,9 +112,7 @@ def _evaluate_one_pack(
     tags: list[str] = []
     delta = 0.0
     telemetry: list[dict[str, Any]] = []
-    apply, _reason = _pack_should_apply(
-        pack, tenant_id, entity_id, evaluation_mode=evaluation_mode
-    )
+    apply, _reason = _pack_should_apply(pack, tenant_id, entity_id, evaluation_mode=evaluation_mode)
     if not apply:
         return hits, tags, delta, None, telemetry
 
@@ -158,9 +154,7 @@ def _evaluate_one_pack(
             if not isinstance(rule, dict):
                 continue
             rid_raw = rule.get("id")
-            tr_id = (
-                "tagrule" if not rid_raw or str(rid_raw).strip() == "" else str(rid_raw)
-            )
+            tr_id = "tagrule" if not rid_raw or str(rid_raw).strip() == "" else str(rid_raw)
             if _expired(t0):
                 raise RuleEvaluationBudgetExceeded(tr_id, phase="tag_rule")
             any_tag = rule.get("any_tag") or []
@@ -212,9 +206,7 @@ def evaluate_packs_python(
     )
     base = dict(features) if isinstance(features, dict) else {}
     eligible = _iter_eligible_packs(packs, exclude_shadow=exclude_shadow)
-    fmap = merge_features_with_resolved_from_packs(
-        base, eligible, tenant_id=tid, entity_id=eid
-    )
+    fmap = merge_features_with_resolved_from_packs(base, eligible, tenant_id=tid, entity_id=eid)
     redis_set = _redis_tag_set(redis_tags)
 
     hits: list[str] = []

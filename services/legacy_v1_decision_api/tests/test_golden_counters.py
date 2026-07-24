@@ -3,8 +3,10 @@
 import asyncio
 
 import pytest
-from .aggregate_fake_redis import FakeRedis
+
 from decision_api.aggregates import AggregateStore
+
+from .aggregate_fake_redis import FakeRedis
 
 # Fixed epoch-like base so windows are deterministic relative to "now".
 T0 = 1_700_000_000.0
@@ -24,9 +26,7 @@ class TestGoldenEventCounts:
     async def test_seven_events_in_one_hour_window(self, golden_store):
         s, _ = golden_store
         for i in range(7):
-            await s.record_event(
-                "golden_tenant", "golden_entity", f"ev-{i}", {}, ts=T0 + float(i)
-            )
+            await s.record_event("golden_tenant", "golden_entity", f"ev-{i}", {}, ts=T0 + float(i))
         assert await s.count("golden_tenant", "golden_entity", 3600) == 7
         assert await s.count("golden_tenant", "golden_entity", 300) == 7
 
@@ -110,9 +110,7 @@ class TestConcurrentRecordEvents:
 
         await asyncio.gather(*(one(i) for i in range(n)))
         assert await s.count("golden_tenant", "golden_entity", 3600) == n
-        feats = await s.compute_features(
-            "golden_tenant", "golden_entity", {"amount": 0.0}
-        )
+        feats = await s.compute_features("golden_tenant", "golden_entity", {"amount": 0.0})
         assert feats["event_count_1h"] == n
         assert abs(feats["sum_amount_1h"] - float(n)) < 1e-6
 

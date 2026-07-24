@@ -6,16 +6,17 @@ Create Date: 2026-05-10
 
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
+
 revision: str = "20260510_009"
-down_revision: Union[str, None] = "20260509_008"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "20260509_008"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -35,9 +36,7 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.PrimaryKeyConstraint(
-            "tenant_id", "entity_id", name="pk_entity_signature_state"
-        ),
+        sa.PrimaryKeyConstraint("tenant_id", "entity_id", name="pk_entity_signature_state"),
     )
     op.create_index(
         "ix_entity_signature_state_updated_at",
@@ -48,7 +47,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(
-        "ix_entity_signature_state_updated_at", table_name="entity_signature_state"
-    )
+    op.drop_index("ix_entity_signature_state_updated_at", table_name="entity_signature_state")
     op.drop_table("entity_signature_state")

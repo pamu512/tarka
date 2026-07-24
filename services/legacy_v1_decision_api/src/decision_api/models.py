@@ -29,12 +29,8 @@ class FeatureDefinitionDdlStatus(StrEnum):
 class AuditRecord(Base):
     __tablename__ = "decision_audit"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    trace_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), unique=True, index=True
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    trace_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), unique=True, index=True)
     tenant_id: Mapped[str] = mapped_column(String(128), index=True)
     entity_id: Mapped[str] = mapped_column(String(512), index=True)
     event_type: Mapped[str] = mapped_column(String(64))
@@ -43,9 +39,7 @@ class AuditRecord(Base):
     tags: Mapped[list] = mapped_column(JSON, default=list)
     rule_hits: Mapped[list] = mapped_column(JSON, default=list)
     payload_snapshot: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class FeatureDefinition(Base):
@@ -61,9 +55,7 @@ class FeatureDefinition(Base):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -99,9 +91,7 @@ class BacktestRun(Base):
 
     __tablename__ = "backtest_runs"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     status: Mapped[BacktestRunStatus] = mapped_column(
         SAEnum(BacktestRunStatus, native_enum=False, length=32),
@@ -137,13 +127,9 @@ class RuleApproval(Base):
 
     __tablename__ = "rule_approvals"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     pack_name: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
-    fingerprint_sha256: Mapped[str] = mapped_column(
-        String(64), nullable=False, index=True
-    )
+    fingerprint_sha256: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     actor_user_id: Mapped[str] = mapped_column(String(256), nullable=False)
     audit_token: Mapped[str] = mapped_column(String(512), nullable=False, unique=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -156,12 +142,8 @@ class VendorIntegrationAudit(Base):
 
     __tablename__ = "vendor_integration_audit"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    trace_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), index=True, nullable=False
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    trace_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), index=True, nullable=False)
     tenant_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     entity_id: Mapped[str] = mapped_column(String(512), nullable=False, index=True)
     vendor_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
@@ -194,4 +176,4 @@ class EntitySignatureState(Base):
 
 
 # Inference audit rows mirrored to ClickHouse (``tarka_core.models.InferenceLog``).
-from tarka_core.models import InferenceLog  # noqa: E402, F401
+from tarka_core.models import InferenceLog  # noqa: F401

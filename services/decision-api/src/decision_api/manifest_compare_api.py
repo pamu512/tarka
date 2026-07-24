@@ -24,7 +24,7 @@ from decision_api.manifest_visualize_api import (
 _shared = Path(__file__).resolve().parents[3] / "shared"
 if str(_shared) not in sys.path:
     sys.path.insert(0, str(_shared))
-from auth_rbac import require_role  # noqa: E402
+from auth_rbac import require_role
 
 log = logging.getLogger("decision-api.manifest_compare")
 

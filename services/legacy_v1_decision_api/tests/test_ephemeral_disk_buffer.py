@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from tarka_core.messaging import (
     EphemeralDiskBufferBroker,
     MessageBroker,
@@ -27,7 +26,7 @@ class _CaptureBroker(MessageBroker):
     ) -> None:
         self.items.append((subject, payload, delivery))
 
-    async def subscribe(self, subject: str, handler):  # noqa: ANN001
+    async def subscribe(self, subject: str, handler):
         return None
 
     async def aclose(self) -> None:
@@ -68,9 +67,7 @@ async def test_replay_stops_on_target_failure(tmp_path: Path) -> None:
             super().__init__()
             self._n = 0
 
-        async def publish(
-            self, subject, payload, *, delivery=PublishDelivery.JETSTREAM
-        ):  # noqa: ANN001
+        async def publish(self, subject, payload, *, delivery=PublishDelivery.JETSTREAM):
             self._n += 1
             if self._n == 2:
                 raise RuntimeError("simulated NATS outage")

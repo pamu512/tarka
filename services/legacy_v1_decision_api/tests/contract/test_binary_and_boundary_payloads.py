@@ -33,12 +33,8 @@ _DEEP_JSON_CHECKS = settings(
 
 # Hand-crafted protobuf wire edge cases (length-delimited / varint / invalid wire types).
 _PROTO_MISHAP_SEEDS = [
-    bytes(
-        [0x08, 0x80, 0x80, 0x80, 0x80, 0x80, 0x01]
-    ),  # varint field 1, non-terminal high bits
-    bytes(
-        [0x0A, 0xFF, 0xFF, 0xFF, 0x0F]
-    ),  # LEN field 1, absurd declared length, no payload
+    bytes([0x08, 0x80, 0x80, 0x80, 0x80, 0x80, 0x01]),  # varint field 1, non-terminal high bits
+    bytes([0x0A, 0xFF, 0xFF, 0xFF, 0x0F]),  # LEN field 1, absurd declared length, no payload
     bytes([0x12, 0x05, 0x41, 0x42, 0x43]),  # string len 5, truncated payload
     bytes([0x1A, 0x00]),  # empty length-delimited
     bytes([0xFF, 0xFF, 0xFF, 0xFF, 0x0F]),  # max-tag style varint noise

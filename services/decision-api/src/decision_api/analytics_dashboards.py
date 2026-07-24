@@ -16,16 +16,19 @@ from analytics.dashboards import (
 )
 from analytics.engine import BaseAnalyticsEngine
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-
 from tarka_core.cache import KeyValueCache
 
 _shared = Path(__file__).resolve().parents[3] / "shared"
 if str(_shared) not in sys.path:
     sys.path.insert(0, str(_shared))
-from auth_rbac import require_role  # noqa: E402
+from auth_rbac import require_role
 
-from decision_api.config import settings  # noqa: E402
-from decision_api.deps import get_kv_cache, require_analytics_engine, run_analytics_sync  # noqa: E402
+from decision_api.config import settings
+from decision_api.deps import (
+    get_kv_cache,
+    require_analytics_engine,
+    run_analytics_sync,
+)
 
 log = logging.getLogger("decision-api")
 
@@ -60,13 +63,9 @@ def _analytics_table_qualified() -> str:
 _KPI_MAX_EXECUTION_SECONDS = 5
 
 
-async def _count_events_for_tenant(
-    engine: BaseAnalyticsEngine, tenant_id: str, table: str
-) -> int:
+async def _count_events_for_tenant(engine: BaseAnalyticsEngine, tenant_id: str, table: str) -> int:
     def _run():
-        return engine.get_kpi(
-            tenant_id, table, max_execution_seconds=_KPI_MAX_EXECUTION_SECONDS
-        )
+        return engine.get_kpi(tenant_id, table, max_execution_seconds=_KPI_MAX_EXECUTION_SECONDS)
 
     try:
         payload = await run_analytics_sync(_run)
@@ -119,12 +118,7 @@ async def get_dashboard_kpis(
     Uses ``require_analytics_engine`` (503 when offline). KPI queries run via ``run_analytics_sync``.
     """
     auth = getattr(request.state, "auth_user", None)
-    if (
-        auth
-        and auth.tenant_ids
-        and "*" not in auth.tenant_ids
-        and tenant_id not in auth.tenant_ids
-    ):
+    if auth and auth.tenant_ids and "*" not in auth.tenant_ids and tenant_id not in auth.tenant_ids:
         raise HTTPException(403, "tenant not permitted for this credential")
 
     table = _analytics_table_qualified()
@@ -188,12 +182,7 @@ async def get_dashboard_summary(
     Responses are cached per ``tenant_id``, period, timezone, and analytics backend to avoid hammering OLAP.
     """
     auth = getattr(request.state, "auth_user", None)
-    if (
-        auth
-        and auth.tenant_ids
-        and "*" not in auth.tenant_ids
-        and tenant_id not in auth.tenant_ids
-    ):
+    if auth and auth.tenant_ids and "*" not in auth.tenant_ids and tenant_id not in auth.tenant_ids:
         raise HTTPException(403, "tenant not permitted for this credential")
 
     table = _analytics_table_qualified()

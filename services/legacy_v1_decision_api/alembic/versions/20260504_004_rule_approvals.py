@@ -6,16 +6,17 @@ Create Date: 2026-05-04
 
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
+
 revision: str = "20260504_004"
-down_revision: Union[str, None] = "20260504_003"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "20260504_003"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -51,7 +52,5 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_index(op.f("ix_rule_approvals_pack_name"), table_name="rule_approvals")
-    op.drop_index(
-        op.f("ix_rule_approvals_fingerprint_sha256"), table_name="rule_approvals"
-    )
+    op.drop_index(op.f("ix_rule_approvals_fingerprint_sha256"), table_name="rule_approvals")
     op.drop_table("rule_approvals")

@@ -1,7 +1,7 @@
 from typing import Any
 
 
-def graph_score_delta(risk_score: float | int | None) -> float:
+def graph_score_delta(risk_score: float | None) -> float:
     if risk_score is None:
         return 0.0
     try:

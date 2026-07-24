@@ -13,7 +13,7 @@ this module documents the salt semantics and exposes helpers for audit metadata.
 
 
 def _cohort_digest_hex(tenant_id: str, entity_id: str, salt: str) -> str:
-    raw = f"{tenant_id}|{entity_id}|{salt}".encode("utf-8")
+    raw = f"{tenant_id}|{entity_id}|{salt}".encode()
     return hashlib.sha256(raw).hexdigest()
 
 

@@ -53,8 +53,8 @@ async def sb_client(monkeypatch):
     pytest.importorskip("asyncpg")
     monkeypatch.setenv("API_KEYS", "test-key")
     monkeypatch.delenv("ALLOW_INSECURE_NO_AUTH", raising=False)
-    from decision_api.config import settings
     import decision_api.main as _main_mod
+    from decision_api.config import settings
 
     monkeypatch.setattr(settings, "api_keys", "test-key")
     monkeypatch.setattr(_main_mod, "_valid_api_keys", None)
@@ -106,9 +106,7 @@ async def test_sandbox_bootstrap_idempotent(monkeypatch, sb_client):
     def _capture(pack):
         captured.append(pack)
 
-    monkeypatch.setattr(
-        "decision_api.sandbox_bootstrap.set_plg_sandbox_runtime_pack", _capture
-    )
+    monkeypatch.setattr("decision_api.sandbox_bootstrap.set_plg_sandbox_runtime_pack", _capture)
 
     r1 = await sb_client.post("/v1/sandbox/bootstrap")
     assert r1.status_code == 200, r1.text

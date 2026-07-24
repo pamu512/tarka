@@ -9,7 +9,7 @@ import sys
 import time
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 from uuid import UUID
 
@@ -98,9 +98,7 @@ except ImportError:
                 "timeout_seconds": float(
                     os.environ.get("ASYNC_OSINT_REDIS_TIMEOUT_SECONDS", "0.08")
                 ),
-                "max_attempts": int(
-                    os.environ.get("ASYNC_OSINT_REDIS_MAX_ATTEMPTS", "1")
-                ),
+                "max_attempts": int(os.environ.get("ASYNC_OSINT_REDIS_MAX_ATTEMPTS", "1")),
                 "circuit_failure_threshold": int(
                     os.environ.get("ASYNC_OSINT_REDIS_CIRCUIT_FAILURE_THRESHOLD", "5")
                 ),
@@ -119,18 +117,18 @@ except ImportError:
         }
 
 
-from decision_api.currency import normalize_amount
-from decision_api.db import get_session, init_db
-from decision_api.decision_log import build_decision_log_record, emit_decision_log
-from decision_api.entity_link_store import entity_link_store
-from decision_api.eval_dag import EvalDAGRuntime
-from decision_api.eval_load_guard import EvalLoadGuard, acquire_eval_capacity
 from decision_api.async_osint_redis import (
     merge_cached_async_osint,
     publish_async_enrichment_request,
 )
-from decision_api.eval_steps import run_evaluation_step
+from decision_api.currency import normalize_amount
+from decision_api.db import get_session, init_db
+from decision_api.decision_log import build_decision_log_record, emit_decision_log
 from decision_api.device_scoring import extract_device_entropy_tags
+from decision_api.entity_link_store import entity_link_store
+from decision_api.eval_dag import EvalDAGRuntime
+from decision_api.eval_load_guard import EvalLoadGuard, acquire_eval_capacity
+from decision_api.eval_steps import run_evaluation_step
 from decision_api.fingerprint_store import fingerprint_store
 from decision_api.json_rules import (
     evaluate_json_rules,
@@ -145,10 +143,17 @@ from decision_api.redis_store import redis_tags
 from decision_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
-from circuit import AsyncCircuitBreaker, CircuitOpenError  # noqa: E402
-from entity_lists import ListCheckResult, create_list_store  # noqa: E402
-from event_time import event_time_unix_for_evaluate  # noqa: E402
-from privacy import get_profile, mask_dict  # noqa: E402
+# ---------- observability ----------
+from auth_rbac import require_role, setup_auth
+from circuit import AsyncCircuitBreaker, CircuitOpenError
+from entity_lists import ListCheckResult, create_list_store
+from event_time import event_time_unix_for_evaluate
+from observability import get_metrics, setup_observability
+from privacy import get_profile, mask_dict
+from rate_limiter import setup_rate_limiter
+from security_headers import setup_security_headers
+from tarka_shared.tracing import setup_tracing
+from tenant_binding import parse_api_key_tenant_map
 
 from decision_api.aggregates import agg_store
 from decision_api.attestation_taxonomy import attestation_signal_tags
@@ -194,14 +199,6 @@ from decision_api.typology_predicate_registry import (
     reload_predicate_registry,
 )
 
-# ---------- observability ----------
-from auth_rbac import require_role, setup_auth  # noqa: E402
-from observability import get_metrics, setup_observability  # noqa: E402
-from rate_limiter import setup_rate_limiter  # noqa: E402
-from security_headers import setup_security_headers  # noqa: E402
-from tenant_binding import parse_api_key_tenant_map  # noqa: E402
-from tarka_shared.tracing import setup_tracing  # noqa: E402
-
 log = logging.getLogger("decision-api")
 
 TENANT_CONFIG_UNAVAILABLE_DETAIL = "Tenant configuration unavailable"
@@ -238,9 +235,7 @@ def _upstream_headers() -> dict[str, str]:
     """Shared auth headers for outbound service calls."""
     key = settings.upstream_api_key.strip() if settings.upstream_api_key.strip() else ""
     if not key:
-        key = (
-            settings.api_keys.split(",")[0].strip() if settings.api_keys.strip() else ""
-        )
+        key = settings.api_keys.split(",")[0].strip() if settings.api_keys.strip() else ""
     return {"x-api-key": key} if key else {}
 
 
@@ -318,9 +313,7 @@ def _load_graph_routing_policy(force: bool = False) -> dict[str, Any] | None:
     return _graph_routing_policy
 
 
-def _graph_routing_match_when(
-    when: list[dict[str, Any]] | None, ctx: dict[str, Any]
-) -> bool:
+def _graph_routing_match_when(when: list[dict[str, Any]] | None, ctx: dict[str, Any]) -> bool:
     if not when:
         return True
     for cond in when:
@@ -393,9 +386,7 @@ def decide_graph_routing(
             if "graph_checkpoint" in rule:
                 gc = rule.get("graph_checkpoint")
                 result["graph_checkpoint"] = (
-                    gc
-                    if isinstance(gc, str) or gc is None
-                    else result["graph_checkpoint"]
+                    gc if isinstance(gc, str) or gc is None else result["graph_checkpoint"]
                 )
             result["matched_rule_id"] = rule.get("id")
             break
@@ -506,9 +497,7 @@ async def _fetch_counter_snapshot_wrapped(
     if not settings.counter_service_url:
         return None
     try:
-        return await _circuit_counter.call(
-            lambda: _fetch_counter_snapshot(http, body, features)
-        )
+        return await _circuit_counter.call(lambda: _fetch_counter_snapshot(http, body, features))
     except CircuitOpenError:
         _circuit_metrics_inc("tarka_circuit_open_total_counter")
         degrade_tags.append("counter:unavailable")
@@ -618,9 +607,7 @@ async def _fetch_calibration_adjustment(
         return None
     url = settings.calibration_service_url.rstrip("/") + "/v1/score"
     profile = str(
-        features.get("calibration_profile")
-        or body.payload.get("calibration_profile")
-        or "default"
+        features.get("calibration_profile") or body.payload.get("calibration_profile") or "default"
     )
     r = await http.post(
         url,
@@ -649,9 +636,7 @@ async def _fetch_calibration_adjustment_wrapped(
         return None
     try:
         return await _circuit_calibration.call(
-            lambda: _fetch_calibration_adjustment(
-                http, body, baseline_confidence, features
-            )
+            lambda: _fetch_calibration_adjustment(http, body, baseline_confidence, features)
         )
     except CircuitOpenError:
         _circuit_metrics_inc("tarka_circuit_open_total_calibration")
@@ -768,9 +753,7 @@ def _shape_inference_context_for_tier(
     top_signals = out.get("top_signals")
     if isinstance(top_signals, list):
         out["top_signals"] = list(
-            dict.fromkeys(
-                str(s).split(":", 1)[0] for s in top_signals if str(s).strip()
-            )
+            dict.fromkeys(str(s).split(":", 1)[0] for s in top_signals if str(s).strip())
         )
 
     driver_explain = out.get("driver_explain")
@@ -797,9 +780,7 @@ def _resolve_response_explainability_tier(request: Request) -> str:
     requested_raw = request.headers.get("x-tarka-explainability-tier")
     default_tier = _normalize_explainability_tier(settings.explainability_tier_default)
     user = getattr(request.state, "auth_user", None)
-    can_view_analyst = bool(
-        user and hasattr(user, "has_role") and user.has_role("analyst")
-    )
+    can_view_analyst = bool(user and hasattr(user, "has_role") and user.has_role("analyst"))
 
     if requested_raw is not None:
         requested = _normalize_explainability_tier(requested_raw)
@@ -842,9 +823,7 @@ def _build_artifact_manifest(
             os.environ.get("GIT_SHA") or os.environ.get("COMMIT_SHA") or ""
         ).strip(),
         "inference_schema_version": INFERENCE_SCHEMA_VERSION,
-        "rule_pack_files": sorted(
-            str(x).strip() for x in json_rule_pack_files if str(x).strip()
-        ),
+        "rule_pack_files": sorted(str(x).strip() for x in json_rule_pack_files if str(x).strip()),
         # Content-addressed identity (canonical pack JSON), not filenames.
         "rule_pack_fingerprint_sha256": content_fp,
         "rule_pack_content_sha256": content_fp,
@@ -855,9 +834,7 @@ def _build_artifact_manifest(
         "policy_experiment_id": str(inf_ctx.get("policy_experiment_id") or ""),
         "challenge_policy_id": challenge_policy_id or "",
         "consortium_hash_scope": settings.consortium_hash_scope,
-        "external_signal_providers": list(
-            (external_signal_meta or {}).get("providers") or []
-        ),
+        "external_signal_providers": list((external_signal_meta or {}).get("providers") or []),
         "engine_build": engine_build_identity(),
     }
 
@@ -938,9 +915,7 @@ def _get_api_keys() -> frozenset[str]:
     if _valid_api_keys is None:
         raw = settings.api_keys.strip()
         _valid_api_keys = (
-            frozenset(k.strip() for k in raw.split(",") if k.strip())
-            if raw
-            else frozenset()
+            frozenset(k.strip() for k in raw.split(",") if k.strip()) if raw else frozenset()
         )
     return _valid_api_keys
 
@@ -1039,9 +1014,7 @@ async def lifespan(application: FastAPI):
 
     install_vendor_plugins_from_settings()
 
-    application.state.eval_load_guard = EvalLoadGuard(
-        settings.tarka_max_concurrent_evaluations
-    )
+    application.state.eval_load_guard = EvalLoadGuard(settings.tarka_max_concurrent_evaluations)
 
     retention_task = None
     if DEFAULT_RETENTION_DAYS > 0:
@@ -1085,32 +1058,44 @@ if settings.request_signature_secret:
         max_skew_seconds=settings.request_signature_max_skew_seconds,
     )
 
-from decision_api.analytics_dashboards import router as analytics_dashboards_router  # noqa: E402
-from decision_api.backtest_api import router as backtest_router  # noqa: E402
-from decision_api.ml_export_api import router as ml_export_router  # noqa: E402
-from decision_api.calibration_api import router as calibration_router  # noqa: E402
-from decision_api.captcha import router as captcha_router  # noqa: E402
-from decision_api.compliance_api import router as compliance_router  # noqa: E402
-from decision_api.consortium_api import router as consortium_router  # noqa: E402
-from decision_api.feature_store_api import router as feature_store_router  # noqa: E402
-from decision_api.experiment_api import (  # noqa: E402
+from decision_api.analytics_dashboards import (
+    router as analytics_dashboards_router,
+)
+from decision_api.backtest_api import router as backtest_router
+from decision_api.benchmark_export_api import (
+    router as benchmark_export_router,
+)
+from decision_api.calibration_api import router as calibration_router
+from decision_api.captcha import router as captcha_router
+from decision_api.compliance_api import router as compliance_router
+from decision_api.consortium_api import router as consortium_router
+from decision_api.drift_query_api import router as drift_query_router
+from decision_api.experiment_api import (
     experiment_registry_line_count,
+)
+from decision_api.experiment_api import (
     router as experiment_router,
 )
-from decision_api.benchmark_export_api import router as benchmark_export_router  # noqa: E402
-from decision_api.drift_query_api import router as drift_query_router  # noqa: E402
-from decision_api.internal_counters_api import router as internal_counters_router  # noqa: E402
-from decision_api.recommend_api import router as recommend_router  # noqa: E402
-from decision_api.replay import router as replay_router  # noqa: E402
-from decision_api.reporting_nl import router as reporting_nl_router  # noqa: E402
-from decision_api.rule_api import router as rule_router  # noqa: E402
-from decision_api.rule_compiler_api import router as rule_compiler_router  # noqa: E402
-from decision_api.rule_gitops_api import router as rule_gitops_router  # noqa: E402
-from decision_api.simulation_api import router as simulation_router  # noqa: E402
-from decision_api.vendor_marketplace_api import router as vendor_marketplace_router  # noqa: E402
-from decision_api.sandbox_bootstrap import (  # noqa: E402
+from decision_api.feature_store_api import router as feature_store_router
+from decision_api.internal_counters_api import (
+    router as internal_counters_router,
+)
+from decision_api.ml_export_api import router as ml_export_router
+from decision_api.recommend_api import router as recommend_router
+from decision_api.replay import router as replay_router
+from decision_api.reporting_nl import router as reporting_nl_router
+from decision_api.rule_api import router as rule_router
+from decision_api.rule_compiler_api import router as rule_compiler_router
+from decision_api.rule_gitops_api import router as rule_gitops_router
+from decision_api.sandbox_bootstrap import (
     maybe_hydrate_sandbox_plg_pack,
+)
+from decision_api.sandbox_bootstrap import (
     router as sandbox_bootstrap_router,
+)
+from decision_api.simulation_api import router as simulation_router
+from decision_api.vendor_marketplace_api import (
+    router as vendor_marketplace_router,
 )
 
 app.include_router(rule_router)
@@ -1169,9 +1154,7 @@ async def slo_status():
         "current": {
             **cur,
             "redis_connected": redis_tags.is_tag_store_available,
-            "nats_connected": _external_nats_connected(
-                getattr(app.state, "message_broker", None)
-            ),
+            "nats_connected": _external_nats_connected(getattr(app.state, "message_broker", None)),
             "evaluate_require_idempotency_key": settings.evaluate_require_idempotency_key,
         },
     }
@@ -1191,8 +1174,7 @@ async def evaluation_posture(request: Request):
         has_graph = bool((settings.graph_service_url or "").strip())
         has_nats = bool((settings.nats_url or "").strip())
         has_ml_plane = bool(
-            (settings.feature_service_url or "").strip()
-            or (settings.ml_scoring_url or "").strip()
+            (settings.feature_service_url or "").strip() or (settings.ml_scoring_url or "").strip()
         )
         if not has_graph and not has_nats and not has_ml_plane:
             deployment_tier = "community"
@@ -1200,15 +1182,9 @@ async def evaluation_posture(request: Request):
             deployment_tier = "pro"
 
     data = load_typology_definitions()
-    typologies = (
-        data.get("typologies") if isinstance(data.get("typologies"), list) else []
-    )
+    typologies = data.get("typologies") if isinstance(data.get("typologies"), list) else []
     typology_count = len(
-        [
-            t
-            for t in typologies
-            if isinstance(t, dict) and str(t.get("id") or "").strip()
-        ]
+        [t for t in typologies if isinstance(t, dict) and str(t.get("id") or "").strip()]
     )
 
     registry = load_predicate_registry()
@@ -1233,9 +1209,7 @@ async def evaluation_posture(request: Request):
         {
             "id": "redis",
             "ok": redis_tags.is_tag_store_available,
-            "detail": "connected"
-            if redis_tags.is_tag_store_available
-            else "not_connected",
+            "detail": "connected" if redis_tags.is_tag_store_available else "not_connected",
         },
         {
             "id": "graph_service_configured",
@@ -1245,9 +1219,7 @@ async def evaluation_posture(request: Request):
         {
             "id": "feature_service_configured",
             "ok": bool((settings.feature_service_url or "").strip()),
-            "detail": "set"
-            if (settings.feature_service_url or "").strip()
-            else "empty",
+            "detail": "set" if (settings.feature_service_url or "").strip() else "empty",
         },
         {
             "id": "ml_scoring_configured",
@@ -1272,9 +1244,7 @@ async def evaluation_posture(request: Request):
         last_reload_iso = None
     else:
         last_reload_iso = (
-            datetime.fromtimestamp(last_reload, tz=timezone.utc)
-            .isoformat()
-            .replace("+00:00", "Z")
+            datetime.fromtimestamp(last_reload, tz=UTC).isoformat().replace("+00:00", "Z")
         )
 
     runbook = "https://github.com/pamu512/tarka/blob/master/docs/docs/guides/deployment-profiles-community-vs-pro.md"
@@ -1419,9 +1389,7 @@ async def ops_governance():
             await _maybe_await(r.raise_for_status())
             data = await _maybe_await(r.json())
             cal_status = (
-                data
-                if isinstance(data, dict)
-                else {"hint": "invalid_calibration_response"}
+                data if isinstance(data, dict) else {"hint": "invalid_calibration_response"}
             )
         except Exception:
             cal_status = {"hint": "calibration_service_unavailable"}
@@ -1486,11 +1454,7 @@ async def calibration_status(tenant_id: str, profile: str = "default"):
             )
             await _maybe_await(r.raise_for_status())
             data = await _maybe_await(r.json())
-            drift = (
-                data
-                if isinstance(data, dict)
-                else {"hint": "invalid_calibration_response"}
-            )
+            drift = data if isinstance(data, dict) else {"hint": "invalid_calibration_response"}
         except Exception:
             drift = {"hint": "calibration_service_unavailable"}
     else:
@@ -1620,9 +1584,7 @@ def extract_captcha_tags(dc: dict | None) -> list[str]:
     return tags
 
 
-def _infer_ctx_kwargs(
-    body: EvaluateRequest, features: dict[str, Any]
-) -> dict[str, Any]:
+def _infer_ctx_kwargs(body: EvaluateRequest, features: dict[str, Any]) -> dict[str, Any]:
     """Platform + optional TLS pinning hint for inference / integrity policy."""
     plat = "web"
     if body.device_context:
@@ -1701,9 +1663,7 @@ async def _maybe_await(value: Any) -> Any:
 # ---------- downstream helpers ----------
 
 
-def _feature_snapshot_fallback(
-    body: EvaluateRequest, redis_tag_list: list[str]
-) -> dict[str, Any]:
+def _feature_snapshot_fallback(body: EvaluateRequest, redis_tag_list: list[str]) -> dict[str, Any]:
     return {
         "tenant_id": body.tenant_id,
         "entity_id": body.entity_id,
@@ -1881,12 +1841,7 @@ async def _graph_upsert(
         lo_f = float(lo_raw) if lo_raw is not None else None
     except (TypeError, ValueError):
         la_f, lo_f = None, None
-    if (
-        la_f is not None
-        and lo_f is not None
-        and -90 <= la_f <= 90
-        and -180 <= lo_f <= 180
-    ):
+    if la_f is not None and lo_f is not None and -90 <= la_f <= 90 and -180 <= lo_f <= 180:
         cell = _quantize_place_cell(la_f, lo_f)
         gtags = list(geo_extra_tags or [])
         await http.post(
@@ -2088,9 +2043,7 @@ async def evaluate_decision(
     session: AsyncSession = Depends(get_session),
 ):
     idem = (
-        request.headers.get("Idempotency-Key")
-        or request.headers.get("idempotency-key")
-        or ""
+        request.headers.get("Idempotency-Key") or request.headers.get("idempotency-key") or ""
     ).strip()
     if settings.evaluate_require_idempotency_key and not idem:
         raise HTTPException(
@@ -2133,9 +2086,7 @@ async def evaluate_decision(
                     response=resp.model_dump(mode="json"),
                 )
             except Exception:
-                log.exception(
-                    "evaluate_idempotency_store_failed tenant_id=%s", body.tenant_id
-                )
+                log.exception("evaluate_idempotency_store_failed tenant_id=%s", body.tenant_id)
         return resp
 
     http = _http(request)
@@ -2165,9 +2116,7 @@ async def evaluate_decision(
                 "entity_id": body.entity_id,
                 "session_id": body.session_id,
                 "payload": body.payload,
-                "device_id": body.device_context.device_id
-                if body.device_context
-                else None,
+                "device_id": body.device_context.device_id if body.device_context else None,
             },
             sort_keys=True,
             default=str,
@@ -2255,9 +2204,7 @@ async def evaluate_decision(
                     "rule_pack_file": "",
                     "ml_model": _wl_inf.get("ml_model"),
                     **(
-                        {"etl_batch_id": _eb_wl}
-                        if (_eb_wl := _metadata_etl_batch_id(body))
-                        else {}
+                        {"etl_batch_id": _eb_wl} if (_eb_wl := _metadata_etl_batch_id(body)) else {}
                     ),
                     "canary_cohort": build_canary_cohort_audit(
                         body.tenant_id,
@@ -2323,9 +2270,7 @@ async def evaluate_decision(
                     "rule_pack_file": "",
                     "ml_model": _bl_inf.get("ml_model"),
                     **(
-                        {"etl_batch_id": _eb_bl}
-                        if (_eb_bl := _metadata_etl_batch_id(body))
-                        else {}
+                        {"etl_batch_id": _eb_bl} if (_eb_bl := _metadata_etl_batch_id(body)) else {}
                     ),
                     "canary_cohort": build_canary_cohort_audit(
                         body.tenant_id,
@@ -2491,9 +2436,7 @@ async def evaluate_decision(
         if payload_currency and "amount" in body.payload:
             try:
                 original_amount = float(body.payload["amount"])
-                normalized = await normalize_amount(
-                    original_amount, payload_currency, "USD", http
-                )
+                normalized = await normalize_amount(original_amount, payload_currency, "USD", http)
                 features["amount"] = normalized
                 features["original_amount"] = original_amount
                 features["original_currency"] = payload_currency
@@ -2505,9 +2448,7 @@ async def evaluate_decision(
         if settings.counter_service_url:
             counter_meta, counter_trace = await run_evaluation_step(
                 "counter_snapshot",
-                lambda: _fetch_counter_snapshot_wrapped(
-                    http, body, features, degrade_tags
-                ),
+                lambda: _fetch_counter_snapshot_wrapped(http, body, features, degrade_tags),
                 timeout_seconds=settings.eval_step_feature_snapshot_timeout_seconds,
                 max_attempts=settings.eval_step_feature_snapshot_max_attempts,
                 on_failure="SKIP",
@@ -2519,13 +2460,9 @@ async def evaluate_decision(
                 if isinstance(counters, dict):
                     features.update(counters)
                 if counter_meta.get("definition_id"):
-                    features["counter_definition_id"] = counter_meta.get(
-                        "definition_id"
-                    )
+                    features["counter_definition_id"] = counter_meta.get("definition_id")
                 if counter_meta.get("definition_version") is not None:
-                    features["counter_definition_version"] = counter_meta.get(
-                        "definition_version"
-                    )
+                    features["counter_definition_version"] = counter_meta.get("definition_version")
             elif agg_store._client:
                 # Adapter shim while services roll out; keeps evaluate path functional during outages.
                 degrade_tags.append("counter:fallback_local_agg")
@@ -2563,9 +2500,7 @@ async def evaluate_decision(
         if settings.location_service_url:
             location_meta, location_trace = await run_evaluation_step(
                 "location_eval",
-                lambda: _fetch_location_evaluation_wrapped(
-                    http, body, features, degrade_tags
-                ),
+                lambda: _fetch_location_evaluation_wrapped(http, body, features, degrade_tags),
                 timeout_seconds=settings.eval_step_feature_snapshot_timeout_seconds,
                 max_attempts=settings.eval_step_feature_snapshot_max_attempts,
                 on_failure="SKIP",
@@ -2580,9 +2515,7 @@ async def evaluate_decision(
                 except (TypeError, ValueError):
                     pass
                 try:
-                    features["copresence_risk"] = float(
-                        location_meta.get("copresence_risk")
-                    )
+                    features["copresence_risk"] = float(location_meta.get("copresence_risk"))
                 except (TypeError, ValueError):
                     pass
                 try:
@@ -2621,9 +2554,7 @@ async def evaluate_decision(
 
         # Platform integrity supplements (must run before JSON tag_rules so policy can match integrity:*)
         _plat_kw = _infer_ctx_kwargs(body, features)
-        signal_tags.extend(
-            supplemental_tags_for_integrity(_plat_kw["platform"], signal_tags)
-        )
+        signal_tags.extend(supplemental_tags_for_integrity(_plat_kw["platform"], signal_tags))
 
         # Run rules + OPA + ML in parallel (OPA and ML don't need each other)
         rule_hits, rule_tags, score_delta, json_rule_pack_files = evaluate_json_rules(
@@ -2701,12 +2632,7 @@ async def evaluate_decision(
                 10.0 + score_delta + consortium_delta + graph_delta + replay_delta_cc
             )
             challenger_rule_score = (
-                10.0
-                + ch_json_delta
-                + opa_delta
-                + consortium_delta
-                + graph_delta
-                + replay_delta_cc
+                10.0 + ch_json_delta + opa_delta + consortium_delta + graph_delta + replay_delta_cc
             )
             policy_routing = build_policy_routing_audit(
                 cohort_bucket=cohort_bucket_0_99(
@@ -2738,9 +2664,7 @@ async def evaluate_decision(
             rule_hits.append("graph_network_risk")
         replay_delta = 20.0 if is_replayed else 0.0
         base_score = 10.0 + score_delta + consortium_delta + graph_delta + replay_delta
-        final_score = _blend_scores(
-            base_score, ml_score if isinstance(ml_score, float) else None
-        )
+        final_score = _blend_scores(base_score, ml_score if isinstance(ml_score, float) else None)
 
         calibration_meta: dict[str, Any] | None = None
         if settings.calibration_service_url:
@@ -2787,11 +2711,7 @@ async def evaluate_decision(
                     except (TypeError, ValueError):
                         pass
             else:
-                reason = (
-                    "load_shedding"
-                    if _dag.load_shed
-                    else "skipped_due_to_dependency_failure"
-                )
+                reason = "load_shedding" if _dag.load_shed else "skipped_due_to_dependency_failure"
                 step_trace.append(
                     {
                         "step": "calibration_adjustment",
@@ -2801,9 +2721,7 @@ async def evaluate_decision(
                     }
                 )
 
-        merged_tags = await redis_tags.merge_tags(
-            body.tenant_id, body.entity_id, all_new_tags
-        )
+        merged_tags = await redis_tags.merge_tags(body.tenant_id, body.entity_id, all_new_tags)
         await redis_tags.set_cached_score(body.tenant_id, body.entity_id, final_score)
 
         combined_rule_hits = rule_hits + replay_rule_hits
@@ -2843,9 +2761,7 @@ async def evaluate_decision(
             policy_experiment_id=settings.policy_experiment_id or None,
             **_plat_kw,
         )
-        recommended_action = derive_recommended_action(
-            decision, merged_signal_tags, inf_ctx
-        )
+        recommended_action = derive_recommended_action(decision, merged_signal_tags, inf_ctx)
         recommended_action, ch_meta = apply_challenge_policy(
             body.challenge_policy_id,
             recommended_action,
@@ -2864,9 +2780,7 @@ async def evaluate_decision(
         )
 
         # Apply region-aware PII masking before storage
-        region = (
-            getattr(body, "region", settings.default_region) or settings.default_region
-        )
+        region = getattr(body, "region", settings.default_region) or settings.default_region
         privacy_profile = get_profile(region)
         raw_snapshot: dict[str, Any] = {
             "payload": body.payload,
@@ -2938,9 +2852,7 @@ async def evaluate_decision(
             if isinstance(external_signal_meta, dict)
             else None,
         )
-        snap_extra["json_rule_engine"] = snap_extra["decision_evidence"][
-            "json_rule_engine"
-        ]
+        snap_extra["json_rule_engine"] = snap_extra["decision_evidence"]["json_rule_engine"]
 
         # Apply test_bypass before audit so response and durable audit stay identical.
         if list_check and list_check.found and list_check.list_type == "test_bypass":
@@ -3010,13 +2922,9 @@ async def evaluate_decision(
         _metrics_inc_safe("fraud_evaluations_total", trace_id=trace_id)
         if fb_reason:
             _metrics_inc_safe("fraud_fallback_total", trace_id=trace_id)
-            reason_key = (
-                _re.sub(r"[^a-zA-Z0-9_]+", "_", str(fb_reason)).strip("_").lower()[:64]
-            )
+            reason_key = _re.sub(r"[^a-zA-Z0-9_]+", "_", str(fb_reason)).strip("_").lower()[:64]
             if reason_key:
-                _metrics_inc_safe(
-                    f"fraud_fallback_total_{reason_key}", trace_id=trace_id
-                )
+                _metrics_inc_safe(f"fraud_fallback_total_{reason_key}", trace_id=trace_id)
         if signal_tags:
             for st in signal_tags:
                 _metrics_inc_safe(f"fraud_signal_tag_{st}_total", trace_id=trace_id)
@@ -3028,13 +2936,8 @@ async def evaluate_decision(
             response_inf_ctx = mask_dict(response_inf_ctx, region_profile)
 
         response_graph_explanation = graph_decision_explanation
-        if (
-            response_graph_explanation is not None
-            and region_profile.mask_pii_in_responses
-        ):
-            response_graph_explanation = mask_dict(
-                response_graph_explanation, region_profile
-            )
+        if response_graph_explanation is not None and region_profile.mask_pii_in_responses:
+            response_graph_explanation = mask_dict(response_graph_explanation, region_profile)
 
         response = EvaluateResponse(
             trace_id=trace_id,
@@ -3080,7 +2983,7 @@ async def evaluate_decision(
                 "signal_tags": signal_tags,
                 "ml_score": ml_score if isinstance(ml_score, float) else None,
                 "payload": body.payload,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
             },
         )
 
@@ -3140,10 +3043,10 @@ async def ws_decision_feed(ws: WebSocket):
 
 
 # ---------- rule builder UI ----------
-from pathlib import Path as _Path  # noqa: E402
+from pathlib import Path as _Path
 
-from fastapi.responses import FileResponse  # noqa: E402
-from fastapi.staticfiles import StaticFiles  # noqa: E402
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 _STATIC_DIR = _Path(__file__).resolve().parent.parent.parent / "static"
 if _STATIC_DIR.is_dir():
@@ -3170,12 +3073,8 @@ async def get_audit(
     if detail_level in {"analyst", "full"} and not (
         user and hasattr(user, "has_role") and user.has_role("analyst")
     ):
-        raise HTTPException(
-            status_code=403, detail="analyst role required for full audit detail"
-        )
-    result = await session.execute(
-        select(AuditRecord).where(AuditRecord.trace_id == trace_id)
-    )
+        raise HTTPException(status_code=403, detail="analyst role required for full audit detail")
+    result = await session.execute(select(AuditRecord).where(AuditRecord.trace_id == trace_id))
     row = result.scalar_one_or_none()
     if not row or str(row.tenant_id) != tenant_id:
         raise HTTPException(status_code=404, detail="not found")
@@ -3252,10 +3151,7 @@ async def analyst_entity_velocity(
             "driver_reasons": [
                 d
                 for d in inf["driver_reasons"]
-                if any(
-                    x in d
-                    for x in ("velocity", "travel", "device", "entity", "ml_score")
-                )
+                if any(x in d for x in ("velocity", "travel", "device", "entity", "ml_score"))
             ],
         },
         "anomaly_flags": _velocity_anomaly_flags(raw_features),

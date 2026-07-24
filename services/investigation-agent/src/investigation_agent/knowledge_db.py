@@ -7,6 +7,7 @@ import sqlite3
 import threading
 import time
 import uuid
+from dataclasses import dataclass
 from typing import Any
 
 from investigation_agent import embeddings as emb_mod
@@ -32,6 +33,26 @@ _KEYWORD_MAX_TOKENS = 24
 
 _lock = threading.Lock()
 _conn: sqlite3.Connection | None = None
+
+
+@dataclass(frozen=True)
+class _OkfIndexRow:
+    chunk_id: str
+    tenant_id: str
+    analyst_id: str
+    doc_id: str
+    chunk_index: int
+    title: str
+    text: str
+    embedding_json: str | None
+    embedding_model: str | None
+    created_at: float
+    knowledge_kind: str
+    concept_id: str
+    bundle_scope: str
+    content_hash: str
+    source_uri: str
+    authority: int
 
 
 def ttl_seconds() -> int:
@@ -381,33 +402,34 @@ def _search_hybrid(
     now = time.time()
     cutoff = now - ttl_seconds()
     c = _get_conn()
-    rows = c.execute(
-        """
-        SELECT doc_id, chunk_index, title, text, embedding_json,
-               knowledge_kind, concept_id, bundle_scope, content_hash, source_uri, authority
-        FROM knowledge_chunks
-        WHERE (
-          (tenant_id = ? AND analyst_id = ? AND knowledge_kind = ? AND created_at >= ?)
-          OR (tenant_id = ? AND analyst_id = ? AND knowledge_kind = ?)
-          OR (tenant_id = ? AND analyst_id = ? AND knowledge_kind = ?)
-        )
-        ORDER BY created_at DESC
-        LIMIT ?
-        """,
-        (
-            tenant_id,
-            analyst_id,
-            _MEMO_KIND,
-            cutoff,
-            tenant_id,
-            _OKF_ANALYST_ID,
-            _OKF_KIND,
-            _SHARED_TENANT_ID,
-            _OKF_ANALYST_ID,
-            _OKF_KIND,
-            _MAX_CHUNKS_SCAN,
-        ),
-    ).fetchall()
+    with _lock:
+        rows = c.execute(
+            """
+            SELECT doc_id, chunk_index, title, text, embedding_json,
+                   knowledge_kind, concept_id, bundle_scope, content_hash, source_uri, authority
+            FROM knowledge_chunks
+            WHERE (
+              (tenant_id = ? AND analyst_id = ? AND knowledge_kind = ? AND created_at >= ?)
+              OR (tenant_id = ? AND analyst_id = ? AND knowledge_kind = ?)
+              OR (tenant_id = ? AND analyst_id = ? AND knowledge_kind = ?)
+            )
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (
+                tenant_id,
+                analyst_id,
+                _MEMO_KIND,
+                cutoff,
+                tenant_id,
+                _OKF_ANALYST_ID,
+                _OKF_KIND,
+                _SHARED_TENANT_ID,
+                _OKF_ANALYST_ID,
+                _OKF_KIND,
+                _MAX_CHUNKS_SCAN,
+            ),
+        ).fetchall()
     scored: list[tuple[float, dict[str, Any]]] = []
     for (
         doc_id,
@@ -565,38 +587,179 @@ def index_okf_concepts_sync(
             if embeddings is not None and len(embeddings) != len(chunks):
                 raise ValueError("embeddings length must match chunk count")
             for i, ch in enumerate(chunks):
-                cid = f"okf:{tenant_id}:{concept_id}:{i}"
-                ej = json.dumps(embeddings[i]) if embeddings is not None else None
-                c.execute(
-                    """
-                    INSERT INTO knowledge_chunks
-                    (chunk_id, tenant_id, analyst_id, doc_id, chunk_index, title, text,
-                     embedding_json, embedding_model, created_at, knowledge_kind, concept_id,
-                     bundle_scope, content_hash, source_uri, authority)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        cid,
-                        tenant_id,
-                        analyst_id,
-                        concept_id,
-                        i,
-                        concept.title[:256],
-                        ch,
-                        ej,
-                        embedding_model,
-                        now,
-                        _OKF_KIND,
-                        concept_id,
-                        bundle_scope,
-                        concept.content_hash,
-                        concept.source_uri,
-                        authority,
+                embedding_json = json.dumps(embeddings[i]) if embeddings is not None else None
+                _insert_okf_index_row(
+                    c,
+                    _okf_index_row(
+                        tenant_id=tenant_id,
+                        authority=authority,
+                        bundle_scope=bundle_scope,
+                        concept=concept,
+                        chunk_index=i,
+                        chunk_text=ch,
+                        embedding_json=embedding_json,
+                        embedding_model=embedding_model,
+                        created_at=now,
                     ),
                 )
             indexed += 1
         c.commit()
     return indexed
+
+
+def replace_okf_index_rows_sync(rows: tuple[_OkfIndexRow, ...]) -> None:
+    """Replace all derived OKF rows atomically."""
+    c = _get_conn()
+    with _lock:
+        try:
+            c.execute("BEGIN IMMEDIATE")
+            c.execute(
+                "DELETE FROM knowledge_chunks WHERE knowledge_kind = ?",
+                (_OKF_KIND,),
+            )
+            for row in rows:
+                _insert_okf_index_row(c, row)
+            c.commit()
+        except Exception:
+            c.rollback()
+            raise
+
+
+async def prepare_okf_index_rows_async(
+    http: Any,
+    bundles: tuple[ParsedBundle, ...],
+    *,
+    use_embeddings: bool,
+    api_key: str,
+    base_url: str,
+    embed_model: str,
+) -> tuple[tuple[_OkfIndexRow, ...], int]:
+    rows: list[_OkfIndexRow] = []
+    indexed = 0
+    now = time.time()
+    for bundle in bundles:
+        tenant_id, authority = _okf_tenant_for_bundle(bundle)
+        for concept in bundle.concepts.values():
+            if concept.approval_status != "approved":
+                continue
+            chunks = _chunk_text(_okf_index_text(concept)) or [concept.title]
+            vecs: list[list[float]] | None = None
+            model: str | None = None
+            if use_embeddings and api_key:
+                try:
+                    vecs = await emb_mod.embed_texts(
+                        http,
+                        api_key=api_key,
+                        base_url=base_url,
+                        model=embed_model,
+                        texts=chunks,
+                    )
+                    model = embed_model
+                except Exception:
+                    vecs = None
+                    model = None
+            if vecs is not None and len(vecs) != len(chunks):
+                raise ValueError("embeddings length must match chunk count")
+            for i, chunk in enumerate(chunks):
+                embedding_json = json.dumps(vecs[i]) if vecs is not None else None
+                rows.append(
+                    _okf_index_row(
+                        tenant_id=tenant_id,
+                        authority=authority,
+                        bundle_scope=bundle.scope,
+                        concept=concept,
+                        chunk_index=i,
+                        chunk_text=chunk,
+                        embedding_json=embedding_json,
+                        embedding_model=model,
+                        created_at=now,
+                    )
+                )
+            indexed += 1
+    return tuple(rows), indexed
+
+
+async def replace_okf_bundles_async(
+    http: Any,
+    bundles: tuple[ParsedBundle, ...],
+    *,
+    use_embeddings: bool,
+    api_key: str,
+    base_url: str,
+    embed_model: str,
+) -> int:
+    rows, indexed = await prepare_okf_index_rows_async(
+        http,
+        bundles,
+        use_embeddings=use_embeddings,
+        api_key=api_key,
+        base_url=base_url,
+        embed_model=embed_model,
+    )
+    replace_okf_index_rows_sync(rows)
+    return indexed
+
+
+def _okf_index_row(
+    *,
+    tenant_id: str,
+    authority: int,
+    bundle_scope: str,
+    concept: OkfConcept,
+    chunk_index: int,
+    chunk_text: str,
+    embedding_json: str | None,
+    embedding_model: str | None,
+    created_at: float,
+) -> _OkfIndexRow:
+    return _OkfIndexRow(
+        chunk_id=f"okf:{tenant_id}:{concept.concept_id}:{chunk_index}",
+        tenant_id=tenant_id,
+        analyst_id=_OKF_ANALYST_ID,
+        doc_id=concept.concept_id,
+        chunk_index=chunk_index,
+        title=concept.title[:256],
+        text=chunk_text,
+        embedding_json=embedding_json,
+        embedding_model=embedding_model,
+        created_at=created_at,
+        knowledge_kind=_OKF_KIND,
+        concept_id=concept.concept_id,
+        bundle_scope=bundle_scope,
+        content_hash=concept.content_hash,
+        source_uri=concept.source_uri,
+        authority=authority,
+    )
+
+
+def _insert_okf_index_row(c: sqlite3.Connection, row: _OkfIndexRow) -> None:
+    c.execute(
+        """
+        INSERT INTO knowledge_chunks
+        (chunk_id, tenant_id, analyst_id, doc_id, chunk_index, title, text,
+         embedding_json, embedding_model, created_at, knowledge_kind, concept_id,
+         bundle_scope, content_hash, source_uri, authority)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            row.chunk_id,
+            row.tenant_id,
+            row.analyst_id,
+            row.doc_id,
+            row.chunk_index,
+            row.title,
+            row.text,
+            row.embedding_json,
+            row.embedding_model,
+            row.created_at,
+            row.knowledge_kind,
+            row.concept_id,
+            row.bundle_scope,
+            row.content_hash,
+            row.source_uri,
+            row.authority,
+        ),
+    )
 
 
 async def index_okf_bundle_async(
@@ -634,7 +797,5 @@ async def index_okf_bundle_async(
             revision=bundle.revision,
             concepts={concept.concept_id: concept},
         )
-        total += index_okf_concepts_sync(
-            sub, embeddings=vecs, embedding_model=model
-        )
+        total += index_okf_concepts_sync(sub, embeddings=vecs, embedding_model=model)
     return total

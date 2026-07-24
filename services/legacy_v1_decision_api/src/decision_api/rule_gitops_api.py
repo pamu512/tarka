@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from decision_api._shared_path import ensure_shared_on_path
-
 import logging
 import secrets
 from datetime import datetime
@@ -13,11 +11,12 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from decision_api._shared_path import ensure_shared_on_path
 
 ensure_shared_on_path()
-from auth_rbac import require_role  # noqa: E402
+from auth_rbac import require_role
 
-from decision_api.deps import get_pg_pool  # noqa: E402
+from decision_api.deps import get_pg_pool
 
 log = logging.getLogger("decision-api")
 

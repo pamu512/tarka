@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-import logging
+from tarka_core.internal_monitor import InternalMonitor
 
 from decision_api.integrity_policy import haversine_km
-from tarka_core.internal_monitor import InternalMonitor
 
 """Derive session geo + consistency hints from device signals and IP/OSINT features."""
 _GEO_SOURCES_TRUST_GPS = frozenset({"browser_gps", "android_gps", "ios_gps"})
@@ -38,7 +38,7 @@ def _parse_iso_ts(raw: Any) -> float | None:
         s2 = s.replace("Z", "+00:00")
         dt = datetime.fromisoformat(s2)
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt.timestamp()
     except (ValueError, TypeError):
         return None
@@ -81,7 +81,7 @@ def merge_session_geo_from_device_and_features(features: dict[str, Any]) -> list
 
     ts_parsed = _parse_iso_ts(geo_ts)
     if ts_parsed is None and gla is not None and glo is not None:
-        ts_parsed = datetime.now(timezone.utc).timestamp()
+        ts_parsed = datetime.now(UTC).timestamp()
 
     src_s = str(geo_src).strip().lower() if geo_src is not None else ""
     if gla is not None and glo is not None and -90 <= gla <= 90 and -180 <= glo <= 180:
@@ -104,7 +104,7 @@ def merge_session_geo_from_device_and_features(features: dict[str, Any]) -> list
     elif ipla is not None and iplo is not None:
         features.setdefault("session_last_lat", ipla)
         features.setdefault("session_last_lon", iplo)
-        features.setdefault("session_last_ts", datetime.now(timezone.utc).timestamp())
+        features.setdefault("session_last_ts", datetime.now(UTC).timestamp())
         features.setdefault("geo_source_resolved", "ip_geolocation")
 
     # Device vs IP distance (OSS / provider-agnostic)
@@ -123,11 +123,7 @@ def merge_session_geo_from_device_and_features(features: dict[str, Any]) -> list
     # Optional: coarse timezone label vs IANA timezone (weak signal)
     if isinstance(dev_tz, str) and dev_tz and isinstance(ip_tz, str) and ip_tz:
         hint = _tz_region_hint(dev_tz)
-        ip_part = (
-            ip_tz.split("/")[-1].replace("_", " ").lower()
-            if "/" in ip_tz
-            else ip_tz.lower()
-        )
+        ip_part = ip_tz.split("/")[-1].replace("_", " ").lower() if "/" in ip_tz else ip_tz.lower()
         if hint and ip_part and hint not in ip_part and ip_part not in hint:
             tags.append("sdk:geo_tz_mismatch")
 

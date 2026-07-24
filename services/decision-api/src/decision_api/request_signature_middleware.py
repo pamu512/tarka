@@ -13,7 +13,7 @@ _shared = Path(__file__).resolve().parents[3] / "shared"
 if str(_shared) not in sys.path:
     sys.path.insert(0, str(_shared))
 
-from tarka_request_signature import verify_signature  # noqa: E402
+from tarka_request_signature import verify_signature
 
 
 class RequestSignatureMiddleware(BaseHTTPMiddleware):
@@ -32,9 +32,7 @@ class RequestSignatureMiddleware(BaseHTTPMiddleware):
         self._path_prefixes = path_prefixes
         self._max_skew = max_skew_seconds
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         if request.method != "POST" or not self._secret:
             return await call_next(request)
         path = request.url.path
@@ -43,9 +41,7 @@ class RequestSignatureMiddleware(BaseHTTPMiddleware):
 
         body = await request.body()
         hdrs = {k: v for k, v in request.headers.items()}
-        if not verify_signature(
-            body, hdrs, secret=self._secret, max_skew_seconds=self._max_skew
-        ):
+        if not verify_signature(body, hdrs, secret=self._secret, max_skew_seconds=self._max_skew):
             return JSONResponse(
                 status_code=401,
                 content={"detail": "invalid or missing request signature"},

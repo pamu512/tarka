@@ -2,31 +2,29 @@
 
 from __future__ import annotations
 
-from decision_api._shared_path import ensure_shared_on_path
-
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, Self
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from decision_api._shared_path import ensure_shared_on_path
 
 ensure_shared_on_path()
-from auth_rbac import require_role  # noqa: E402
+from analytics import queries
+from analytics.engine import BaseAnalyticsEngine
+from auth_rbac import require_role
 
-from analytics import queries  # noqa: E402
-from analytics.engine import BaseAnalyticsEngine  # noqa: E402
-
-from decision_api.backtest_job_runner import (  # noqa: E402
+from decision_api.backtest_job_runner import (
     rule_pack_fingerprint_sha256,
     run_backtest_job,
 )
-from decision_api.config import settings  # noqa: E402
-from decision_api.db import get_session  # noqa: E402
-from decision_api.deps import require_analytics_engine  # noqa: E402
-from decision_api.models import BacktestRun, BacktestRunStatus  # noqa: E402
+from decision_api.config import settings
+from decision_api.db import get_session
+from decision_api.deps import require_analytics_engine
+from decision_api.models import BacktestRun, BacktestRunStatus
 
 router = APIRouter(prefix="/v1/rules/backtest", tags=["backtest"])
 
@@ -35,8 +33,8 @@ _MAX_BACKTEST_WINDOW = timedelta(days=90)
 
 def _ensure_utc(dt: datetime) -> datetime:
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
 
 
 class BacktestRequest(BaseModel):
@@ -66,7 +64,7 @@ class BacktestRequest(BaseModel):
 
 
 def _window_bounds(req: BacktestRequest) -> tuple[str, str]:
-    end = req.end_time or datetime.now(timezone.utc)
+    end = req.end_time or datetime.now(UTC)
     end = _ensure_utc(end)
     if req.start_time is None:
         start = end - _MAX_BACKTEST_WINDOW
@@ -82,9 +80,7 @@ async def backtest_preview_sql(
 ) -> dict[str, Any]:
     """Return dialect-specific parameterized SQL for ops (binds documented below)."""
     start_s, end_s = _window_bounds(body)
-    table = queries.validate_sql_identifier(
-        settings.clickhouse_analytics_events_table.strip()
-    )
+    table = queries.validate_sql_identifier(settings.clickhouse_analytics_events_table.strip())
     max_sec = max(5, min(int(body.clickhouse_max_execution_seconds), 600))
     ch_sql = queries.render_backtest_pit_decision_counts_clickhouse(table, max_sec)
     duck_sql = queries.render_backtest_pit_decision_counts_duckdb(table)
@@ -120,9 +116,7 @@ async def enqueue_backtest_job(
     if not body.rule_pack.get("rules"):
         raise HTTPException(status_code=400, detail="rule_pack.rules required")
     start_s, end_s = _window_bounds(body)
-    table = queries.validate_sql_identifier(
-        settings.clickhouse_analytics_events_table.strip()
-    )
+    table = queries.validate_sql_identifier(settings.clickhouse_analytics_events_table.strip())
     fp = rule_pack_fingerprint_sha256(body.rule_pack)
     job = BacktestRun(
         tenant_id=body.tenant_id,

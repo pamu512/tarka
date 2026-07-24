@@ -65,7 +65,11 @@ from investigation_agent.integration_contract import (
     build_integration_snapshot,
     effective_disabled_tools,
 )
-from investigation_agent.okf_registry import OkfRegistry
+from investigation_agent.okf_registry import (
+    OkfRegistry,
+    RegistryReloadCandidate,
+    RegistryReloadResult,
+)
 from investigation_agent.personas import (
     DEFAULT_COPILOT_PERSONA,
     CopilotPersona,
@@ -208,20 +212,32 @@ async def require_api_key(request: Request) -> None:
     _api_key_allowed_tenants(request)
 
 
-async def _index_okf_active_bundles(application: FastAPI, registry: OkfRegistry) -> int:
-    indexed = 0
-    for bundle in registry.active_bundles():
-        indexed += await knowledge_store.index_okf_bundle_async(
-            application.state.http,
-            bundle,
-            use_embeddings=settings.copilot_knowledge_embeddings
-            and bool(effective_embedding_api_key()),
-            api_key=effective_embedding_api_key(),
-            base_url=effective_embedding_base_url(),
-            embed_model=settings.copilot_embedding_model,
-        )
+def _format_okf_issues(issues: tuple[Any, ...]) -> str:
+    return "; ".join(
+        f"{getattr(issue, 'code', 'issue')}:{getattr(issue, 'path', '')}" for issue in issues
+    )
+
+
+async def _index_and_activate_okf_candidate(
+    application: FastAPI,
+    registry: OkfRegistry,
+    candidate: RegistryReloadCandidate,
+) -> RegistryReloadResult:
+    rows, indexed = await knowledge_store.prepare_okf_index_rows_async(
+        application.state.http,
+        candidate.bundles,
+        use_embeddings=settings.copilot_knowledge_embeddings
+        and bool(effective_embedding_api_key()),
+        api_key=effective_embedding_api_key(),
+        base_url=effective_embedding_base_url(),
+        embed_model=settings.copilot_embedding_model,
+    )
+    with registry.generation_lock():
+        knowledge_store.replace_okf_index_rows_sync(rows)
+        reload_result = registry.activate(candidate)
+    application.state.okf_indexed_concepts = indexed
     application.state.okf_index_error = None
-    return indexed
+    return reload_result
 
 
 @asynccontextmanager
@@ -262,20 +278,22 @@ async def lifespan(application: FastAPI):
                 shared_root=Path(settings.okf_shared_root),
                 tenant_root=Path(settings.okf_tenant_root),
             )
-            reload_result = registry.reload()
+            candidate = registry.prepare_reload()
             application.state.okf_registry = registry
-            application.state.okf_reload_result = reload_result
-            if not reload_result.activated:
-                application.state.okf_load_error = "; ".join(
-                    f"{issue.code}:{issue.path}" for issue in reload_result.issues
+            application.state.okf_last_reload_issues = tuple(candidate.issues)
+            if candidate.issues:
+                application.state.okf_reload_result = RegistryReloadResult(
+                    False, candidate.revision, candidate.issues
                 )
+                application.state.okf_load_error = _format_okf_issues(candidate.issues)
             else:
-                application.state.okf_indexed_concepts = await _index_okf_active_bundles(
-                    application, registry
+                application.state.okf_reload_result = await _index_and_activate_okf_candidate(
+                    application, registry, candidate
                 )
         except Exception as exc:
             log.warning("okf_registry_load_failed", exc_info=True)
             application.state.okf_load_error = str(exc)[:500]
+            application.state.okf_index_error = str(exc)[:500]
     yield
     await application.state.http.aclose()
 
@@ -855,7 +873,9 @@ def _enforce_claim_exact_ids(
             if not isinstance(raw, list) or not raw:
                 invalid = True
                 continue
-            refs = [str(item).strip() for item in raw if isinstance(item, str) and str(item).strip()]
+            refs = [
+                str(item).strip() for item in raw if isinstance(item, str) and str(item).strip()
+            ]
             if len(refs) != len(raw) or any(ref not in allowed for ref in refs):
                 invalid = True
         if invalid:
@@ -883,8 +903,7 @@ def _apply_okf_strict_abstention(
         suffix = " Conflicting OKF retrieval was recorded; review the cited bundle revisions before relying on this answer."
     abstention = (
         "I must abstain from answering from OKF retrieval because the relevant concept evidence "
-        "was unsupported or conflicting in strict assurance mode."
-        + suffix
+        "was unsupported or conflicting in strict assurance mode." + suffix
     )
     return abstention, [{"text": abstention, "source": "unknown"}], True
 
@@ -1550,9 +1569,7 @@ async def _require_admin_api_key(request: Request) -> None:
     if not keys or api_key not in keys:
         raise HTTPException(status_code=401, detail="admin API key required")
     admin_keys = {
-        key.strip()
-        for key in os.environ.get("OKF_ADMIN_API_KEYS", "").split(",")
-        if key.strip()
+        key.strip() for key in os.environ.get("OKF_ADMIN_API_KEYS", "").split(",") if key.strip()
     }
     if api_key not in admin_keys:
         raise HTTPException(status_code=403, detail="OKF admin key required")
@@ -1570,43 +1587,49 @@ async def okf_reload(request: Request):
             tenant_root=Path(settings.okf_tenant_root),
         )
         request.app.state.okf_registry = registry
+    previous = getattr(request.app.state, "okf_reload_result", None)
     try:
-        reload_result = registry.reload()
+        candidate = registry.prepare_reload()
     except Exception:
-        previous = getattr(request.app.state, "okf_reload_result", None)
         if previous is None or not bool(getattr(previous, "activated", False)):
             request.app.state.okf_load_error = "okf_reload_failed"
         request.app.state.okf_last_reload_issues = ("okf_reload_failed",)
         raise HTTPException(status_code=503, detail="okf_reload_failed")
-    request.app.state.okf_last_reload_issues = tuple(reload_result.issues)
-    if reload_result.activated:
-        try:
-            request.app.state.okf_indexed_concepts = await _index_okf_active_bundles(
-                request.app, registry
-            )
-        except Exception as exc:
-            log.warning("okf_index_refresh_failed", exc_info=True)
-            request.app.state.okf_index_error = str(exc)[:500]
-            request.app.state.okf_load_error = "okf_index_failed"
-            request.app.state.okf_last_reload_issues = ("okf_index_failed",)
-            raise HTTPException(status_code=503, detail="okf_index_failed") from exc
-        else:
-            request.app.state.okf_reload_result = reload_result
-            request.app.state.okf_load_error = None
-    else:
-        previous = getattr(request.app.state, "okf_reload_result", None)
+    request.app.state.okf_last_reload_issues = tuple(candidate.issues)
+    if candidate.issues:
+        reload_result = RegistryReloadResult(False, candidate.revision, candidate.issues)
         if previous is None or not bool(getattr(previous, "activated", False)):
             request.app.state.okf_reload_result = reload_result
-            request.app.state.okf_load_error = "; ".join(
-                f"{issue.code}:{issue.path}" for issue in reload_result.issues
-            )
+            request.app.state.okf_load_error = _format_okf_issues(candidate.issues)
+        return {
+            "activated": False,
+            "revision": str(reload_result.revision),
+            "issues": [
+                {"code": issue.code, "path": issue.path, "message": issue.message}
+                for issue in reload_result.issues
+            ],
+        }
+    try:
+        reload_result = await _index_and_activate_okf_candidate(
+            request.app,
+            registry,
+            candidate,
+        )
+    except Exception as exc:
+        log.warning("okf_index_refresh_failed", exc_info=True)
+        if previous is None or not bool(getattr(previous, "activated", False)):
+            request.app.state.okf_index_error = str(exc)[:500]
+            request.app.state.okf_load_error = "okf_index_failed"
+        request.app.state.okf_last_reload_issues = ("okf_index_failed",)
+        raise HTTPException(status_code=503, detail="okf_index_failed") from exc
+    else:
+        request.app.state.okf_reload_result = reload_result
+        request.app.state.okf_load_error = None
+        request.app.state.okf_index_error = None
     return {
-        "activated": bool(reload_result.activated),
+        "activated": True,
         "revision": str(reload_result.revision),
-        "issues": [
-            {"code": issue.code, "path": issue.path, "message": issue.message}
-            for issue in reload_result.issues
-        ],
+        "issues": [],
     }
 
 
@@ -2216,9 +2239,7 @@ def _thread_correlation_key(
     return (tenant_id, platform, workspace_id, thread_key)
 
 
-def _case_action_idempotency_key(
-    tenant_id: str, idempotency_key: str
-) -> CaseActionIdempotencyKey:
+def _case_action_idempotency_key(tenant_id: str, idempotency_key: str) -> CaseActionIdempotencyKey:
     return (tenant_id, idempotency_key)
 
 
@@ -2303,9 +2324,7 @@ async def execute_case_action(request: Request, response: Response, body: CaseAc
     except HTTPException as e:
         raise _plugin_http_exc(int(e.status_code), str(e.detail), correlation_id) from None
 
-    idem_key = _case_action_idempotency_key(
-        body.tenant_id.strip(), body.idempotency_key
-    )
+    idem_key = _case_action_idempotency_key(body.tenant_id.strip(), body.idempotency_key)
     cached = _case_action_idempotency.get(idem_key)
     if cached is not None:
         ts, cached_result = cached

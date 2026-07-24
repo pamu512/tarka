@@ -6,7 +6,6 @@ import asyncio
 import json
 
 import pytest
-
 from tarka_core.cache import LocalDictCache
 from tarka_core.messaging import LocalAsyncBroker, PublishDelivery
 

@@ -34,9 +34,7 @@ def normalize_attestation_object(
         raw_provider = "play_integrity"
     if raw_provider in ("apple_app_attest", "devicecheck", "appattest"):
         raw_provider = "app_attest"
-    if raw_provider in _CANONICAL_PROVIDERS:
-        out["provider"] = raw_provider
-    elif raw_provider:
+    if raw_provider in _CANONICAL_PROVIDERS or raw_provider:
         out["provider"] = raw_provider
     elif plat == "android":
         out["provider"] = "play_integrity"

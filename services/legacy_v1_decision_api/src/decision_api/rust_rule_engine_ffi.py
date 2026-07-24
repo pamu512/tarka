@@ -192,9 +192,7 @@ def evaluate_json_rules_via_rust(
         tenant_id=tid,
         entity_id=eid,
     )
-    pack_files = [
-        str(p.get("_source_file") or "") for p in packs if isinstance(p, dict)
-    ][:120]
+    pack_files = [str(p.get("_source_file") or "") for p in packs if isinstance(p, dict)][:120]
     ctx = _summarize_rust_eval_inputs(
         merged_features,
         redis_tags=redis_tags,
@@ -292,9 +290,7 @@ def evaluate_cached_packs_via_rust(
         evaluation_mode=mode,
         signal_tags=signal_tags,
         adhoc_pack_files=[
-            str(p.get("_source_file") or "")
-            for p in jr._cached_packs
-            if isinstance(p, dict)
+            str(p.get("_source_file") or "") for p in jr._cached_packs if isinstance(p, dict)
         ][:120],
     )
     try:

@@ -58,17 +58,13 @@ def test_deep_and_chain_one_false_short_circuits_logically() -> None:
         "type": "and",
         "children": [mid, {"type": "condition", "op": "eq", "field": "c", "value": 3}],
     }
-    req = EvaluateAstRequest.model_validate(
-        {"features": {"a": 1, "b": 999, "c": 3}, "ast": root}
-    )
+    req = EvaluateAstRequest.model_validate({"features": {"a": 1, "b": 999, "c": 3}, "ast": root})
     assert evaluate_json_ast(req.ast, req.features) is False
 
 
 def test_deep_or_chain_one_true() -> None:
     """OR over many false branches and one true branch."""
-    children = [
-        {"type": "condition", "op": "eq", "field": "n", "value": i} for i in range(12)
-    ]
+    children = [{"type": "condition", "op": "eq", "field": "n", "value": i} for i in range(12)]
     children.append({"type": "condition", "op": "eq", "field": "n", "value": 42})
     raw = {"type": "or", "children": children}
     req = EvaluateAstRequest.model_validate({"features": {"n": 42}, "ast": raw})
@@ -231,9 +227,7 @@ def test_rule_fail_closed_invalid_when_ast_skips_rule() -> None:
 
 def test_ast_condition_regex_empty_pattern_never_matches() -> None:
     raw = {"type": "condition", "op": "regex", "field": "email", "value": ""}
-    req = EvaluateAstRequest.model_validate(
-        {"features": {"email": "a@b.c"}, "ast": raw}
-    )
+    req = EvaluateAstRequest.model_validate({"features": {"email": "a@b.c"}, "ast": raw})
     assert evaluate_json_ast(req.ast, req.features) is False
 
 

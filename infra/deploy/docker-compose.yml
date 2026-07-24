@@ -198,7 +198,7 @@ services:
     ports:
       - "8006:8006"
     volumes:
-      - ${OKF_TENANT_OVERLAYS_PATH:-./knowledge/tenants}:/var/lib/tarka/knowledge/tenants:ro
+      - ${OKF_TENANT_OVERLAYS_PATH:-../../knowledge/tenants}:/var/lib/tarka/knowledge/tenants:ro
     depends_on:
       - core-api
     healthcheck:

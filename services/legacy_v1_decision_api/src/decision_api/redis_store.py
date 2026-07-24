@@ -3,15 +3,16 @@ import json
 import logging
 import os
 import sys
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Any
 
 import redis.asyncio as redis
 from redis.exceptions import RedisError
-
-from decision_api.config import settings
 from tarka_core.cache import KeyValueCache
 from tarka_core.internal_monitor import InternalMonitor
+
+from decision_api.config import settings
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +43,8 @@ def _fallback_lock_file_path() -> Path:
 def _acquire_kv_fallback_lock(lock_path: Path):
     """Open ``lock_path`` and take an exclusive OS-level lock (multi-worker / multi-process safe)."""
     lock_path.parent.mkdir(parents=True, exist_ok=True)
-    lf = open(lock_path, "a+b")
+    stack = ExitStack()
+    lf = stack.enter_context(lock_path.open("a+b"))
     try:
         if sys.platform == "win32":
             import msvcrt
@@ -57,8 +59,9 @@ def _acquire_kv_fallback_lock(lock_path: Path):
 
             fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
     except Exception:
-        lf.close()
+        stack.close()
         raise
+    stack.pop_all()
     return lf
 
 
@@ -107,9 +110,7 @@ return cjson.encode(result)
 
 def _consortium_metrics_recompute(current: dict[str, Any]) -> dict[str, Any]:
     """Normalize and recompute consortium quality metrics for share + feedback paths."""
-    tenants = sorted(
-        {str(x).strip() for x in (current.get("tenants") or []) if str(x).strip()}
-    )
+    tenants = sorted({str(x).strip() for x in (current.get("tenants") or []) if str(x).strip()})
     trust_map_raw = current.get("tenant_trust")
     trust_map: dict[str, float] = {}
     if isinstance(trust_map_raw, dict):
@@ -145,9 +146,7 @@ def _consortium_metrics_recompute(current: dict[str, Any]) -> dict[str, Any]:
         report_count = report_count_default
 
     try:
-        max_severity = max(
-            0.0, min(5.0, float(current.get("max_severity", 0.0) or 0.0))
-        )
+        max_severity = max(0.0, min(5.0, float(current.get("max_severity", 0.0) or 0.0)))
     except (TypeError, ValueError):
         max_severity = 0.0
 
@@ -159,18 +158,14 @@ def _consortium_metrics_recompute(current: dict[str, Any]) -> dict[str, Any]:
         avg_trust = sum(trust_map.values()) / max(1, len(trust_map))
         weighted_report_score = float(report_count) * avg_trust
 
-    weighted_tenant_score = (
-        sum(float(v) for v in trust_map.values()) if trust_map else 0.0
-    )
+    weighted_tenant_score = sum(float(v) for v in trust_map.values()) if trust_map else 0.0
     false_positive_count = max(0, int(current.get("false_positive_count", 0) or 0))
     confirmed_fraud_count = max(0, int(current.get("confirmed_fraud_count", 0) or 0))
     denom = max(1, false_positive_count + confirmed_fraud_count)
     false_positive_rate = false_positive_count / denom
     coverage = min(1.0, len(tenants) / 10.0)
     trust_norm = min(1.5, weighted_tenant_score / max(1.0, len(tenants)))
-    quality_score = max(
-        0.2, (coverage * trust_norm) * max(0.2, 1.0 - false_positive_rate)
-    )
+    quality_score = max(0.2, (coverage * trust_norm) * max(0.2, 1.0 - false_positive_rate))
 
     current.update(
         {
@@ -305,9 +300,7 @@ class RedisTags:
         finally:
             await _kv_fallback_lock_release(lock_handle)
 
-    async def merge_tags(
-        self, tenant_id: str, entity_id: str, new_tags: list[str]
-    ) -> list[str]:
+    async def merge_tags(self, tenant_id: str, entity_id: str, new_tags: list[str]) -> list[str]:
         """Atomically merge new_tags into existing using server-side Lua (Redis) or locked read-modify-write (Micro)."""
         await self.connect()
         key = self._key_tags(tenant_id, entity_id)
@@ -329,7 +322,7 @@ class RedisTags:
                         self._merge_sha, 1, key, str(TAGS_TTL_SECONDS), *new_tags
                     )
                 return json.loads(eval_result) if eval_result else sorted(new_tags)
-            except asyncio.TimeoutError as exc:
+            except TimeoutError as exc:
                 if settings.strict_consistency:
                     raise ConnectionError(
                         "Redis merge_tags exceeded REDIS_MERGE_TIMEOUT_SECONDS while STRICT_CONSISTENCY is enabled",
@@ -398,9 +391,7 @@ class RedisTags:
         except ValueError:
             return None
 
-    async def set_cached_score(
-        self, tenant_id: str, entity_id: str, score: float
-    ) -> None:
+    async def set_cached_score(self, tenant_id: str, entity_id: str, score: float) -> None:
         await self.connect()
         key = self._key_score(tenant_id, entity_id)
         if self._client:
@@ -465,9 +456,7 @@ class RedisTags:
         except json.JSONDecodeError:
             return {}
 
-    async def set_tenant_flags(
-        self, tenant_id: str, flags: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def set_tenant_flags(self, tenant_id: str, flags: dict[str, Any]) -> dict[str, Any]:
         """Replace tenant flags document (admin / ops)."""
         await self.connect()
         key = f"{TENANT_FLAGS_PREFIX}{tenant_id}"
@@ -478,9 +467,7 @@ class RedisTags:
             await self._kv.set(key, blob, ttl_seconds=None)
         return dict(flags)
 
-    async def patch_tenant_flags(
-        self, tenant_id: str, updates: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def patch_tenant_flags(self, tenant_id: str, updates: dict[str, Any]) -> dict[str, Any]:
         """Merge updates into tenant flags."""
         cur = await self.get_tenant_flags(tenant_id)
         for k, v in updates.items():
@@ -519,9 +506,7 @@ class RedisTags:
     def _key_consortium_tenant_trust(self, consortium_id: str) -> str:
         return f"{CONSORTIUM_PREFIX}{consortium_id}:tenant_trust"
 
-    async def _kv_trust_lookup_nolock(
-        self, consortium_id: str, tenant_id: str
-    ) -> float:
+    async def _kv_trust_lookup_nolock(self, consortium_id: str, tenant_id: str) -> float:
         """Read tenant trust from the JSON trust-map key (caller serializes writes for Micro)."""
         if not self._kv:
             return 1.0
@@ -583,9 +568,7 @@ class RedisTags:
             "trust_score": score,
         }
 
-    async def get_consortium_tenant_trust(
-        self, consortium_id: str, tenant_id: str
-    ) -> float:
+    async def get_consortium_tenant_trust(self, consortium_id: str, tenant_id: str) -> float:
         await self.connect()
         if self._client:
             key = self._key_consortium_tenant_trust(consortium_id)
@@ -632,31 +615,23 @@ class RedisTags:
                     "signal_counts": signal_counts,
                     "report_count": report_count,
                     "max_severity": max_severity,
-                    "weighted_report_score": float(
-                        current.get("weighted_report_score", 0.0)
-                    )
+                    "weighted_report_score": float(current.get("weighted_report_score", 0.0))
                     + float(trust_map[reporter_tenant]),
                     "false_positive_count": int(current.get("false_positive_count", 0)),
-                    "confirmed_fraud_count": int(
-                        current.get("confirmed_fraud_count", 0)
-                    ),
+                    "confirmed_fraud_count": int(current.get("confirmed_fraud_count", 0)),
                 }
             )
 
         if self._client:
             raw = await self._client.get(key)
-            seed = await self.get_consortium_tenant_trust(
-                consortium_id, reporter_tenant
-            )
+            seed = await self.get_consortium_tenant_trust(consortium_id, reporter_tenant)
             updated = await _body(raw, seed)
             await self._client.setex(key, ttl, json.dumps(updated))
             return updated
         if self._kv:
             async with self._async_lock:
                 raw = await self._kv.get(key)
-                seed = await self._kv_trust_lookup_nolock(
-                    consortium_id, reporter_tenant
-                )
+                seed = await self._kv_trust_lookup_nolock(consortium_id, reporter_tenant)
                 updated = await _body(raw, seed)
                 await self._kv.set(key, json.dumps(updated), ttl_seconds=ttl)
                 return updated
@@ -675,9 +650,7 @@ class RedisTags:
             "quality_score": 0.2,
         }
 
-    async def check_consortium_signal(
-        self, consortium_id: str, signal_hash: str
-    ) -> dict[str, Any]:
+    async def check_consortium_signal(self, consortium_id: str, signal_hash: str) -> dict[str, Any]:
         await self.connect()
         key = self._key_consortium(consortium_id, signal_hash)
         if self._client:

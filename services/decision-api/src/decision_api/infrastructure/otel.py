@@ -75,9 +75,7 @@ def init_opentelemetry(*fastapi_apps: FastAPI) -> None:
         )
 
     if _INIT_ATTEMPTED:
-        raise OtelConfigurationError(
-            "init_opentelemetry() was already called in this process"
-        )
+        raise OtelConfigurationError("init_opentelemetry() was already called in this process")
     _INIT_ATTEMPTED = True
 
     disabled = (os.environ.get("OTEL_SDK_DISABLED") or "").strip().lower()
@@ -119,9 +117,7 @@ def shutdown_opentelemetry() -> None:
             try:
                 _redis_instrumentor.uninstrument()
             except Exception as exc:
-                logger.warning(
-                    "Redis OpenTelemetry uninstrument failed: %s", exc, exc_info=True
-                )
+                logger.warning("Redis OpenTelemetry uninstrument failed: %s", exc, exc_info=True)
             _redis_instrumentor = None
         return
 
@@ -134,9 +130,7 @@ def shutdown_opentelemetry() -> None:
         try:
             _redis_instrumentor.uninstrument()
         except Exception as exc:
-            logger.warning(
-                "Redis OpenTelemetry uninstrument failed: %s", exc, exc_info=True
-            )
+            logger.warning("Redis OpenTelemetry uninstrument failed: %s", exc, exc_info=True)
         _redis_instrumentor = None
 
     trace.set_tracer_provider(trace.NoOpTracerProvider())

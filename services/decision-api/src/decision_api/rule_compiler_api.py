@@ -5,18 +5,17 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from typing import Annotated, Any, Union
+import sys
+from pathlib import Path
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-import sys
-from pathlib import Path
-
 _shared = Path(__file__).resolve().parents[3] / "shared"
 if str(_shared) not in sys.path:
     sys.path.insert(0, str(_shared))
-from auth_rbac import require_role  # noqa: E402
+from auth_rbac import require_role
 
 router = APIRouter(prefix="/v1/rules/visual", tags=["visual-rules"])
 rego_deprecation_router = APIRouter(prefix="/v1/rules/rego", tags=["rules"])
@@ -33,25 +32,23 @@ class VisualAstLeaf(BaseModel):
     """Leaf: ``field`` / ``op`` / ``value``."""
 
     model_config = ConfigDict(extra="forbid")
-    op: str = Field(
-        ..., description="one of: eq, ne, gt, gte, lt, lte, in, not_in, ==, etc."
-    )
+    op: str = Field(..., description="one of: eq, ne, gt, gte, lt, lte, in, not_in, ==, etc.")
     field: str = Field(..., max_length=256)
     value: Any = None
 
 
 class VisualAstBranchAll(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    all_of: list["VisualAstNode"]
+    all_of: list[VisualAstNode]
 
 
 class VisualAstBranchAny(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    any_of: list["VisualAstNode"]
+    any_of: list[VisualAstNode]
 
 
 VisualAstNode = Annotated[
-    Union[VisualAstBranchAll, VisualAstBranchAny, VisualAstLeaf],
+    VisualAstBranchAll | VisualAstBranchAny | VisualAstLeaf,
     Field(union_mode="left_to_right"),
 ]
 
@@ -154,9 +151,7 @@ def _compile_to_json_rules(pack: VisualAstPack) -> dict[str, Any]:
         if not _SAFE_ID.match(rid):
             raise HTTPException(status_code=400, detail=f"invalid_rule_id:{rid}")
         if not r.all_of and not r.any_of:
-            raise HTTPException(
-                status_code=400, detail=f"rule_requires_conditions:{rid}"
-            )
+            raise HTTPException(status_code=400, detail=f"rule_requires_conditions:{rid}")
         compiled: dict[str, Any] = {
             "id": rid,
             "tags": r.tags,
@@ -170,9 +165,7 @@ def _compile_to_json_rules(pack: VisualAstPack) -> dict[str, Any]:
                 children.append(_ast_group("and", list(r.all_of)))
             children.append(_ast_group("or", list(r.any_of)))
             compiled["when_ast"] = (
-                children[0]
-                if len(children) == 1
-                else {"type": "and", "children": children}
+                children[0] if len(children) == 1 else {"type": "and", "children": children}
             )
         else:
             compiled["when"] = [
@@ -214,9 +207,7 @@ async def evaluate_visual_dry_run(
     from decision_api.json_rules import evaluate_adhoc_packs_json
 
     if not body.visual_pack.rules:
-        raise HTTPException(
-            status_code=400, detail="visual_pack.rules must be non-empty"
-        )
+        raise HTTPException(status_code=400, detail="visual_pack.rules must be non-empty")
     _static_check_regex_fields(body.visual_pack)
     json_pack = _compile_to_json_rules(body.visual_pack)
     pack: dict[str, Any] = {

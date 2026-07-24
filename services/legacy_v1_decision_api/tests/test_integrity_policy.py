@@ -18,9 +18,4 @@ def test_haversine_short_distance():
 
 
 def test_trusted_zone():
-    assert (
-        trusted_zone_hit(
-            40.71, -74.01, [{"lat": 40.71, "lon": -74.01, "radius_km": 50}]
-        )
-        is True
-    )
+    assert trusted_zone_hit(40.71, -74.01, [{"lat": 40.71, "lon": -74.01, "radius_km": 50}]) is True

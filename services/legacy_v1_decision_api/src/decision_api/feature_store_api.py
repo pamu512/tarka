@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from decision_api._shared_path import ensure_shared_on_path
-
 import hashlib
 import json
 import logging
 import re
-
 from datetime import datetime
 from typing import Any
 
@@ -17,12 +14,18 @@ from clickhouse_connect.driver.client import Client
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-ensure_shared_on_path()
-from auth_rbac import require_role  # noqa: E402
+from decision_api._shared_path import ensure_shared_on_path
 
-from decision_api.config import settings  # noqa: E402
-from decision_api.deps import get_clickhouse, get_pg_pool, run_clickhouse_sync  # noqa: E402
-from decision_api.feature_store_engine import (  # noqa: E402
+ensure_shared_on_path()
+from auth_rbac import require_role
+
+from decision_api.config import settings
+from decision_api.deps import (
+    get_clickhouse,
+    get_pg_pool,
+    run_clickhouse_sync,
+)
+from decision_api.feature_store_engine import (
     FeatureMVInput,
     execute_feature_ddl,
     generate_clickhouse_ddl,
@@ -91,8 +94,7 @@ def _validate_admin_clickhouse_ddl(sql: str) -> str:
     if not any(head.startswith(p) for p in _ALLOWED_CLICKHOUSE_DDL_PREFIXES):
         raise HTTPException(
             status_code=400,
-            detail="SQL must begin with one of: "
-            + ", ".join(_ALLOWED_CLICKHOUSE_DDL_PREFIXES),
+            detail="SQL must begin with one of: " + ", ".join(_ALLOWED_CLICKHOUSE_DDL_PREFIXES),
         )
     return raw
 
@@ -179,9 +181,7 @@ async def create_definition(
         raise HTTPException(status_code=422, detail=str(e)) from e
 
     definition_json = body.model_dump()
-    fingerprint = hashlib.sha256(
-        json.dumps(definition_json, sort_keys=True).encode()
-    ).hexdigest()
+    fingerprint = hashlib.sha256(json.dumps(definition_json, sort_keys=True).encode()).hexdigest()
     row_id = None
     try:
         async with pool.acquire() as conn:
