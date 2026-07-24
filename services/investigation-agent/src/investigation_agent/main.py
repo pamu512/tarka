@@ -2164,17 +2164,26 @@ async def plugin_bootstrap(request: Request, response: Response, body: PluginBoo
 
 # ---------- case-actions & thread-correlations (Q2-E08, proxied by collaboration-chat-bridge) ----------
 
-_thread_correlations: dict[str, dict[str, Any]] = {}
+ThreadCorrelationKey = tuple[str, str, str, str]
+CaseActionIdempotencyKey = tuple[str, str]
+
+_thread_correlations: dict[ThreadCorrelationKey, dict[str, Any]] = {}
 
 _CASE_ACTION_IDEM_TTL = 3600  # 1 hour
 _CASE_ACTION_IDEM_MAX = 4096
-_case_action_idempotency: dict[str, tuple[float, dict[str, Any]]] = {}
+_case_action_idempotency: dict[CaseActionIdempotencyKey, tuple[float, dict[str, Any]]] = {}
 
 
 def _thread_correlation_key(
     tenant_id: str, platform: str, workspace_id: str, thread_key: str
-) -> str:
-    return f"{tenant_id}:{platform}:{workspace_id}:{thread_key}"
+) -> ThreadCorrelationKey:
+    return (tenant_id, platform, workspace_id, thread_key)
+
+
+def _case_action_idempotency_key(
+    tenant_id: str, idempotency_key: str
+) -> CaseActionIdempotencyKey:
+    return (tenant_id, idempotency_key)
 
 
 def _idem_prune() -> None:
@@ -2258,7 +2267,9 @@ async def execute_case_action(request: Request, response: Response, body: CaseAc
     except HTTPException as e:
         raise _plugin_http_exc(int(e.status_code), str(e.detail), correlation_id) from None
 
-    idem_key = f"{body.tenant_id.strip()}:{body.idempotency_key}"
+    idem_key = _case_action_idempotency_key(
+        body.tenant_id.strip(), body.idempotency_key
+    )
     cached = _case_action_idempotency.get(idem_key)
     if cached is not None:
         ts, cached_result = cached
@@ -2473,9 +2484,9 @@ async def turn_review_save(rv: TurnReviewBody, request: Request):
     _validate_scope_id("reviewer_id", reviewer_id)
     if not is_analyst_allowed(reviewer_id):
         raise HTTPException(status_code=403, detail="Analyst not permitted for this deployment")
-    meta = feedback_store.lookup_turn(tid)
-    if meta and str(meta.get("tenant_id")) != rv.tenant_id.strip():
-        raise HTTPException(status_code=400, detail="turn_id does not match tenant scope")
+    meta = feedback_store.lookup_turn_for_tenant(tid, rv.tenant_id.strip())
+    if meta is None:
+        raise HTTPException(status_code=404, detail="turn_id not found")
     turn_author_id = (str(meta.get("analyst_id", "")) if meta else "").strip() or None
     if settings.copilot_maker_checker_required and turn_author_id and reviewer_id == turn_author_id:
         raise HTTPException(
