@@ -219,7 +219,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
     SKIP_PATHS = frozenset(
         {
             "/v1/health",
+            "/v1/ready",
             "/v1/health/deep",
+            "/health",
             "/health/deep",
             "/metrics",
             "/v1/slo",

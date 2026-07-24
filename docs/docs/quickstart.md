@@ -26,7 +26,7 @@ cd tarka
 ## 2. Start the OSS lite stack (one command)
 
 ```bash
-ALLOW_INSECURE_NO_AUTH=true docker compose -f infra/deploy/docker-compose.lite.yml up --build -d
+ALLOW_INSECURE_NO_AUTH=true TENANT_BINDING_REQUIRED=false docker compose -f infra/deploy/docker-compose.lite.yml up --build -d
 ```
 
 This starts Postgres, Redis, **core-api** (decisions + cases on **:8000**), signal-api, integration-ingress, and the analyst UI.
@@ -41,7 +41,7 @@ curl -sf http://127.0.0.1:8000/decisions/v1/health
 Optional graph profile (Neo4j/Gremlin + graph-service):
 
 ```bash
-ALLOW_INSECURE_NO_AUTH=true docker compose -f infra/deploy/docker-compose.lite.yml --profile graph up --build -d
+ALLOW_INSECURE_NO_AUTH=true TENANT_BINDING_REQUIRED=false docker compose -f infra/deploy/docker-compose.lite.yml --profile graph up --build -d
 ```
 
 Local LLM / Shadow is an **advanced add-on**, not required for this path (see `infra/deploy/local-ai/`).

@@ -13,7 +13,7 @@ _SHARED = Path(__file__).resolve().parents[1]
 if str(_SHARED) not in sys.path:
     sys.path.insert(0, str(_SHARED))
 
-from auth_rbac import _authenticate  # noqa: E402
+from auth_rbac import AuthMiddleware, _authenticate  # noqa: E402
 
 
 def _request(headers: dict[str, str] | None = None) -> Request:
@@ -61,3 +61,16 @@ def test_api_key_wildcard_only_via_explicit_map(monkeypatch: pytest.MonkeyPatch)
 
     user = asyncio.run(_authenticate(_request({"x-api-key": "k1"})))
     assert user.allows_tenant("any-tenant")
+
+
+def test_auth_middleware_exempts_only_documented_probe_paths() -> None:
+    expected_probes = {
+        "/v1/health",
+        "/v1/ready",
+        "/v1/health/deep",
+        "/health",
+        "/health/deep",
+    }
+    assert expected_probes <= AuthMiddleware.SKIP_PATHS
+    assert "/v1/chat" not in AuthMiddleware.SKIP_PATHS
+    assert "/v1/decisions/evaluate" not in AuthMiddleware.SKIP_PATHS

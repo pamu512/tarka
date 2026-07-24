@@ -192,6 +192,13 @@ jobs:
           PYTHONPATH: services/decision-api/src:services/shared:packages/shared-core
           DATABASE_URL: sqlite+aiosqlite:///
           REDIS_URL: redis://localhost:6379/0
+      - name: Run complete source decision-api suite
+        run: pytest -m "not contract" tests/
+        working-directory: services/decision-api
+        env:
+          PYTHONPATH: src:../shared:../core/src:../../packages/shared-core
+          DATABASE_URL: sqlite+aiosqlite:///
+          REDIS_URL: redis://localhost:6379/0
       - name: Upload coverage
         uses: actions/upload-artifact@v7
         with:
