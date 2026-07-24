@@ -167,6 +167,29 @@ def lookup_turn(turn_id: str) -> dict[str, Any] | None:
     }
 
 
+def lookup_turn_for_tenant(turn_id: str, tenant_id: str) -> dict[str, Any] | None:
+    c = _get_conn()
+    row = c.execute(
+        """
+        SELECT turn_id, tenant_id, analyst_id, case_id, playbook_id, persona, workflow_id
+        FROM copilot_turns
+        WHERE turn_id = ? AND tenant_id = ?
+        """,
+        (turn_id, tenant_id),
+    ).fetchone()
+    if not row:
+        return None
+    return {
+        "turn_id": row[0],
+        "tenant_id": row[1],
+        "analyst_id": row[2],
+        "case_id": row[3],
+        "playbook_id": row[4],
+        "persona": row[5],
+        "workflow_id": row[6],
+    }
+
+
 def save_feedback(
     *,
     turn_id: str,

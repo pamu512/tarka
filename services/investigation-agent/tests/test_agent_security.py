@@ -320,7 +320,12 @@ class TestTenantScopedRoutes:
         if route_id == "feedback":
             return {**base, "turn_id": f"turn-{tenant_id}", "rating": 1}
         if route_id == "review":
-            return {**base, "turn_id": f"turn-{tenant_id}", "status": "approved"}
+            return {
+                **base,
+                "turn_id": f"turn-{tenant_id}",
+                "reviewer_id": "reviewer-1",
+                "status": "approved",
+            }
         if route_id == "chat":
             return {**base, "messages": [{"role": "user", "content": "hi"}]}
         if route_id == "saarthi":
@@ -444,6 +449,16 @@ class TestTenantScopedRoutes:
                 headers=self._headers(),
                 params={"tenant_id": "t1"},
             ).status_code == 200
+            main_mod.feedback_store.record_turn(
+                turn_id="turn-t1",
+                tenant_id="t1",
+                analyst_id="analyst-1",
+                case_id=None,
+                playbook_id=None,
+                prompt_version="test",
+                reply_preview="preview",
+                tool_count=0,
+            )
             assert c.post(
                 "/v1/review/turn",
                 headers=self._headers(),
@@ -491,6 +506,118 @@ class TestTenantScopedRoutes:
                     files=files,
                 )
         assert allowed.status_code == 200
+
+    def test_thread_correlation_colon_values_do_not_cross_tenant_read(self, monkeypatch):
+        monkeypatch.setenv("API_KEYS", "k-ta,k-t")
+        monkeypatch.setenv("API_KEY_TENANT_MAP", '{"k-ta":["t:a"],"k-t":["t"]}')
+        main_mod._valid_api_keys = None
+        main_mod._thread_correlations.clear()
+
+        with TestClient(app) as c:
+            stored = c.post(
+                "/v1/thread-correlations",
+                headers={"x-api-key": "k-ta"},
+                json={
+                    "platform": "slack",
+                    "workspace_id": "b",
+                    "thread_key": "c",
+                    "case_id": "case-secret",
+                    "tenant_id": "t:a",
+                },
+            )
+            leaked = c.get(
+                "/v1/thread-correlations/a/slack:b/c",
+                headers={"x-api-key": "k-t"},
+                params={"tenant_id": "t"},
+            )
+
+        assert stored.status_code == 200
+        assert leaked.status_code == 404
+
+    def test_case_action_colon_values_do_not_cross_tenant_replay(self, monkeypatch):
+        monkeypatch.setenv("API_KEYS", "k-ta,k-t")
+        monkeypatch.setenv("API_KEY_TENANT_MAP", '{"k-ta":["t:a"],"k-t":["t"]}')
+        main_mod._valid_api_keys = None
+        main_mod._case_action_idempotency.clear()
+
+        def body(tenant_id: str, idempotency_key: str) -> dict[str, object]:
+            return {
+                "action": "comment",
+                "tenant_id": tenant_id,
+                "case_id": "case-1",
+                "actor_id": "analyst-1",
+                "platform": "slack",
+                "idempotency_key": idempotency_key,
+                "comment_body": "hello",
+            }
+
+        forward = AsyncMock(side_effect=[{"marker": "first"}, {"marker": "second"}])
+        with (
+            patch("investigation_agent.main.is_analyst_allowed", return_value=True),
+            patch("investigation_agent.main._forward_case_action", new=forward),
+            TestClient(app) as c,
+        ):
+            first = c.post(
+                "/v1/case-actions",
+                headers={"x-api-key": "k-ta"},
+                json=body("t:a", "b"),
+            )
+            second = c.post(
+                "/v1/case-actions",
+                headers={"x-api-key": "k-t"},
+                json=body("t", "a:b"),
+            )
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert first.json()["marker"] == "first"
+        assert second.json()["marker"] == "second"
+        assert second.json().get("replayed") is not True
+        assert forward.await_count == 2
+
+    def test_turn_review_other_tenant_turn_is_same_not_found_as_absent(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.setenv("INVESTIGATION_DATA_DIR", str(tmp_path))
+        main_mod.feedback_store.reset_connection_for_tests()
+        main_mod.review_store.reset_connection_for_tests()
+        main_mod.feedback_store.record_turn(
+            turn_id="turn-secret",
+            tenant_id="t2",
+            analyst_id="analyst-2",
+            case_id=None,
+            playbook_id=None,
+            prompt_version="test",
+            reply_preview="secret",
+            tool_count=0,
+        )
+
+        def review_body(turn_id: str) -> dict[str, str]:
+            return {
+                "turn_id": turn_id,
+                "tenant_id": "t1",
+                "analyst_id": "analyst-1",
+                "status": "approved",
+            }
+
+        with (
+            patch("investigation_agent.main.is_analyst_allowed", return_value=True),
+            TestClient(app) as c,
+        ):
+            other_tenant = c.post(
+                "/v1/review/turn",
+                headers=self._headers(),
+                json=review_body("turn-secret"),
+            )
+            absent = c.post(
+                "/v1/review/turn",
+                headers=self._headers(),
+                json=review_body("turn-absent"),
+            )
+
+        assert other_tenant.status_code == 404
+        assert absent.status_code == 404
+        assert other_tenant.json() == absent.json() == {"detail": "turn_id not found"}
 
     def test_authenticated_feedback_requires_scope_before_turn_lookup(self):
         with (
