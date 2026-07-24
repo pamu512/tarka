@@ -356,6 +356,29 @@ def test_landmark_case_rejects_case_normalized_person_names(field, value):
 
 
 @pytest.mark.parametrize(
+    "value",
+    [
+        "Jane Example initiated the transfer",
+        "JANE EXAMPLE initiated the transfer",
+        "jane example initiated the transfer",
+        "The customer transfer was initiated by Jane Example yesterday",
+    ],
+)
+def test_landmark_case_rejects_embedded_person_name_bigrams(value):
+    with pytest.raises(LandmarkCaseSanitizationError, match="person_name"):
+        export_landmark_case(
+            {
+                "case_id": "case-opaque-embedded-name",
+                "title": "Reviewed case",
+                "summary": value,
+                "lessons": "Manual Review remains required.",
+                "source_content_hash": "c" * 64,
+            },
+            tenant_id="t1",
+        )
+
+
+@pytest.mark.parametrize(
     "phrase",
     [
         "Money Mule",
@@ -382,13 +405,50 @@ def test_landmark_case_central_domain_vocabulary_allows_playbook_terms(phrase):
     )
 
 
-def test_compact_phone_guard_does_not_treat_luhn_or_date_like_ids_as_phone():
+@pytest.mark.parametrize(
+    "value",
+    [
+        "Money Mule activity requires Manual Review.",
+        "Friendly Fraud indicators include customer transfer disputes.",
+        "High Amount account takeover patterns require customer review.",
+        "Customer transfer velocity triggered the fraud policy.",
+        "The analyst reviewed the account and escalated the case.",
+    ],
+)
+def test_landmark_case_allows_normal_fraud_and_playbook_prose(value):
+    export_landmark_case(
+        {
+            "case_id": "case-opaque-safe-prose",
+            "title": "Reviewed case",
+            "summary": value,
+            "lessons": value,
+            "source_content_hash": "d" * 64,
+        },
+        tenant_id="t1",
+    )
+
+
+def test_compact_phone_rejects_date_like_nanp_sequence():
+    with pytest.raises(LandmarkCaseSanitizationError, match="phone"):
+        export_landmark_case(
+            {
+                "case_id": "case-opaque-date-phone",
+                "title": "Reviewed case",
+                "summary": "Batch 2026072401 requires review.",
+                "evidence_ids": ["batch-2026072401"],
+                "source_content_hash": "e" * 64,
+            },
+            tenant_id="t1",
+        )
+
+
+def test_compact_phone_guard_allows_non_nanp_opaque_number():
     export_landmark_case(
         {
             "case_id": "case-opaque-numeric-guards",
             "title": "Reviewed case",
-            "summary": "Batch 2026072401 and card 79927398713 were pseudonymized.",
-            "evidence_ids": ["batch-2026072401", "token-79927398713"],
+            "summary": "Token 79927398713 was pseudonymized.",
+            "evidence_ids": ["token-79927398713"],
             "source_content_hash": "e" * 64,
         },
         tenant_id="t1",

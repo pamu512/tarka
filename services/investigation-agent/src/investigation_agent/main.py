@@ -1944,28 +1944,20 @@ async def okf_reload(request: Request):
 @app.get("/v1/ready")
 async def ready():
     """
-    Readiness probe: OKF/RAG knowledge availability. Does not call the LLM.
+    Readiness probe: every enabled knowledge path must be healthy.
     Use with GET /v1/health for liveness vs readiness in orchestrators.
     """
     rag_errs = runtime_readiness_errors()
     okf_errs = _okf_readiness_errors(app)
-    okf_available = bool(settings.okf_enabled) and not okf_errs
     public_codes = [
         *(["rag_unavailable"] if rag_errs else []),
         *(["okf_unavailable"] if okf_errs else []),
     ]
-    if rag_errs and not okf_available:
-        if not settings.okf_enabled:
-            public_codes.append("okf_disabled")
+    if public_codes:
         return JSONResponse(
             status_code=503,
             content={"status": "not_ready", "errors": public_codes},
         )
-    if rag_errs or okf_errs:
-        return {
-            "status": "degraded",
-            "warnings": public_codes,
-        }
     return {"status": "ready"}
 
 
