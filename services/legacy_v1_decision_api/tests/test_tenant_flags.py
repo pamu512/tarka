@@ -23,7 +23,9 @@ def test_compute_fallback_reason_from_tags():
 
 
 def test_compute_fallback_reason_redis_and_consortium():
-    r = _compute_fallback_reason(["redis:tenant_flags_unavailable", "consortium:unavailable"], [])
+    r = _compute_fallback_reason(
+        ["redis:tenant_flags_unavailable", "consortium:unavailable"], []
+    )
     assert r
     assert "circuit_redis_tenant_flags" in r
     assert "circuit_consortium" in r
@@ -40,7 +42,9 @@ def test_signal_availability_notes_and_decision_status():
 
 
 def test_compute_fallback_reason_covers_async_osint_and_counter_fallback():
-    r = _compute_fallback_reason(["async_osint:unavailable", "counter:fallback_local_agg"], [])
+    r = _compute_fallback_reason(
+        ["async_osint:unavailable", "counter:fallback_local_agg"], []
+    )
     assert r
     assert "async_osint_redis" in r
     assert "counter_local_aggregate_fallback" in r

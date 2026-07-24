@@ -12,7 +12,9 @@ _IPV4_RE = re.compile(
     r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b"
 )
 # Loose email (unicode-friendly local part excluded — ASCII-focused for fraud stacks).
-_EMAIL_RE = re.compile(r"\b([A-Za-z0-9._%+-]{1,256})@([A-Za-z0-9.-]+\.[A-Za-z]{2,63})\b")
+_EMAIL_RE = re.compile(
+    r"\b([A-Za-z0-9._%+-]{1,256})@([A-Za-z0-9.-]+\.[A-Za-z]{2,63})\b"
+)
 # Simple IPv6 (compressed forms not exhaustive — extend if needed).
 _IPV6_RE = re.compile(
     r"\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b"
@@ -82,7 +84,9 @@ def redact_scalar_string(value: str) -> str:
         parts = out.split()
         if len(parts) >= 2 and all(len(p) >= 2 for p in parts[:2]):
             # Likely "First Last" style token run — mask each word's interior.
-            return " ".join(_mask_edges(p) if len(p) > 2 else mask_email_like(p) for p in parts)
+            return " ".join(
+                _mask_edges(p) if len(p) > 2 else mask_email_like(p) for p in parts
+            )
     return out
 
 
@@ -179,7 +183,9 @@ def evidence_manifest_json_redact_input_map(manifest: dict[str, Any]) -> dict[st
         # Proto JSON uses snake_case values: string_value, bool_value, etc.
         nv: dict[str, Any] = {}
         for fk, fv in branch.items():
-            if fk == "string_value" and isinstance(fv, str) or isinstance(fv, str):
+            if fk == "string_value" and isinstance(fv, str):
+                nv[fk] = redact_by_key_hint(str(sig_key), fv)
+            elif isinstance(fv, str):
                 nv[fk] = redact_by_key_hint(str(sig_key), fv)
             else:
                 nv[fk] = fv

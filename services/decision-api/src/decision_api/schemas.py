@@ -29,7 +29,9 @@ class DeviceContextIn(BaseModel):
     def _normalize_attestation(self) -> DeviceContextIn:
         if self.attestation is None:
             return self
-        normalized = normalize_attestation_object(self.attestation, platform=self.platform)
+        normalized = normalize_attestation_object(
+            self.attestation, platform=self.platform
+        )
         if normalized is None:
             object.__setattr__(self, "attestation", None)
         else:

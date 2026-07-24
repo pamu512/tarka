@@ -1,15 +1,13 @@
 """Counter manifest parity with AggregateStore.compute_features."""
 
 import pytest
-
+from .aggregate_fake_redis import FakeRedis
 from decision_api.aggregates import AggregateStore
 from decision_api.counter_manifest import (
     expected_feature_names,
     load_counter_manifest_v1,
     manifest_version,
 )
-
-from .aggregate_fake_redis import FakeRedis
 
 T0 = 1_700_000_000.0
 

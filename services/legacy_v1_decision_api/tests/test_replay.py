@@ -4,14 +4,13 @@ import uuid
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastapi import HTTPException
-
 from decision_api.replay import (
     ReplayCondition,
     ReplayRequest,
     ReplayRule,
     replay_events,
 )
+from fastapi import HTTPException
 
 
 def _audit_row(
@@ -79,7 +78,9 @@ async def test_replay_limit_mode_empty_audits_404():
     body = ReplayRequest(
         tenant_id="t1",
         rules_override=[
-            ReplayRule(when=[ReplayCondition(field="amount", op="gte", value=0)], score_delta=0)
+            ReplayRule(
+                when=[ReplayCondition(field="amount", op="gte", value=0)], score_delta=0
+            )
         ],
         limit=10,
         trace_ids=[],

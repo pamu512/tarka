@@ -530,6 +530,7 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
+      - run: npm audit --audit-level=low
       - run: npm run test -w tarka-ui
       - name: Guard production build mock mode
         run: python infra/scripts/ci/check_frontend_mock_mode.py
@@ -865,10 +866,17 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - name: Helm lint
-        run: helm lint infra/deploy/helm/fraud-stack
-      - name: Helm template (default values)
-        run: helm template tarka infra/deploy/helm/fraud-stack -f infra/deploy/helm/fraud-stack/values.yaml >/tmp/tarka-default.yaml
+      - name: Helm lint supported deployment charts
+        run: |
+          for chart in fraud-stack tarka fraud-stack-lite; do
+            helm lint "infra/deploy/helm/${chart}"
+          done
+      - name: Helm template supported deployment charts (default values)
+        run: |
+          for chart in fraud-stack tarka fraud-stack-lite; do
+            helm template "tarka-${chart}" "infra/deploy/helm/${chart}" \
+              -f "infra/deploy/helm/${chart}/values.yaml" >"/tmp/tarka-${chart}-default.yaml"
+          done
       - name: Validate cloud preset generation
         run: python3 infra/scripts/ci/cloud_preset_smoke.py
       - name: Helm template (generated core-on-aws preset)

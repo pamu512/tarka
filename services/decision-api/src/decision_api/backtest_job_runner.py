@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import time
@@ -10,9 +11,9 @@ from typing import Any
 
 from analytics.engine import BaseAnalyticsEngine
 from analytics.historical_stream import iter_backtest_row_chunks
-from tarka_core.internal_monitor import InternalMonitor
 
 from decision_api.config import settings
+from tarka_core.internal_monitor import InternalMonitor
 from decision_api.db import SessionLocal
 from decision_api.deps import run_analytics_sync
 from decision_api.json_rules import evaluate_adhoc_packs_json
@@ -71,7 +72,9 @@ async def run_backtest_job(job_id: uuid.UUID, engine: BaseAnalyticsEngine) -> No
     """Execute a persisted job; enforces a **wall-clock** budget (default 60s) across all chunks + Rust work."""
     wall_s = max(1.0, float(getattr(settings, "backtest_job_timeout_seconds", 60.0)))
     deadline = time.monotonic() + wall_s
-    ch_chunk_sec = max(5, min(45, int(settings.clickhouse_statement_timeout_ms) // 1000))
+    ch_chunk_sec = max(
+        5, min(45, int(settings.clickhouse_statement_timeout_ms) // 1000)
+    )
 
     async with SessionLocal() as session:
         job = await session.get(BacktestRun, job_id)
@@ -115,9 +118,7 @@ async def run_backtest_job(job_id: uuid.UUID, engine: BaseAnalyticsEngine) -> No
                     job = await session.get(BacktestRun, job_id)
                     if job:
                         job.status = BacktestRunStatus.failed_timeout
-                        job.error_detail = (
-                            "FAILED_TIMEOUT: exceeded wall clock budget for streaming backtest"
-                        )
+                        job.error_detail = "FAILED_TIMEOUT: exceeded wall clock budget for streaming backtest"
                         job.rows_processed = rows_processed
                         await session.commit()
                 return

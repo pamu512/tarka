@@ -103,6 +103,11 @@ knowledge path remains available, and `not_ready` when both are unavailable.
 `POST /v1/admin/okf/reload` is fail-closed for invalid bundles: an invalid
 reload reports issues and keeps the prior active snapshot.
 
+Admin reload is process-local. In multi-replica Kubernetes deployments, promote
+the approved shared bundle/PVC revision and perform a rolling restart (or an
+equivalent per-replica reload orchestration) so every investigation-agent replica
+loads and indexes the same OKF revision.
+
 Rollback is selecting the prior approved revision, mounting or promoting that
 revision, and rebuilding the active OKF index:
 

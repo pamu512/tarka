@@ -47,14 +47,20 @@ class ReplayEventIn(BaseModel):
 class CounterReplayRequest(BaseModel):
     """Replay events into a scratch Redis (isolated DB index recommended)."""
 
-    scratch_redis_url: str = Field(min_length=8, description="e.g. redis://localhost:6379/15")
-    events: list[ReplayEventIn] = Field(default_factory=list, max_length=MAX_REPLAY_EVENTS)
+    scratch_redis_url: str = Field(
+        min_length=8, description="e.g. redis://localhost:6379/15"
+    )
+    events: list[ReplayEventIn] = Field(
+        default_factory=list, max_length=MAX_REPLAY_EVENTS
+    )
 
 
 class CounterReplayFromAuditRequest(BaseModel):
     """Replay aggregates from stored audit rows (payload → counter fields) into scratch Redis."""
 
-    scratch_redis_url: str = Field(min_length=8, description="e.g. redis://localhost:6379/15")
+    scratch_redis_url: str = Field(
+        min_length=8, description="e.g. redis://localhost:6379/15"
+    )
     tenant_id: str = Field(min_length=1, max_length=128)
     entity_id: str = Field(min_length=1, max_length=512)
     limit: int = Field(default=2000, ge=1, le=MAX_REPLAY_FROM_AUDIT)
@@ -149,7 +155,9 @@ def _catalog_meta() -> dict[str, Any]:
         meta["last_parity_run"] = {
             "generated_at": parity.get("generated_at"),
             "ok": bool((parity.get("replay") or {}).get("ok"))
-            and (parity.get("diff") is None or bool((parity.get("diff") or {}).get("ok"))),
+            and (
+                parity.get("diff") is None or bool((parity.get("diff") or {}).get("ok"))
+            ),
             "agg_key_version": parity.get("agg_key_version"),
             "scratch_redis_url": parity.get("scratch_redis_url"),
             "reference_redis_url": parity.get("reference_redis_url"),
@@ -157,11 +165,15 @@ def _catalog_meta() -> dict[str, Any]:
     return meta
 
 
-async def apply_replay_events(store: AggregateStore, events: list[ReplayEventIn]) -> int:
+async def apply_replay_events(
+    store: AggregateStore, events: list[ReplayEventIn]
+) -> int:
     n = 0
     for ev in events:
         eid = ev.event_id or uuid.uuid4().hex
-        await store.record_event(ev.tenant_id, ev.entity_id, eid, dict(ev.fields), ts=ev.ts)
+        await store.record_event(
+            ev.tenant_id, ev.entity_id, eid, dict(ev.fields), ts=ev.ts
+        )
         n += 1
     return n
 
@@ -188,7 +200,9 @@ async def get_counter_catalog_merged() -> dict[str, Any]:
         manifest["redis_key_version"] = ver
         manifest["agg_key_version"] = ver
     by_name = {
-        str(x.get("name", "")): x for x in (cat.get("counters") or []) if isinstance(x, dict)
+        str(x.get("name", "")): x
+        for x in (cat.get("counters") or [])
+        if isinstance(x, dict)
     }
     feats = manifest.get("feature_outputs") or []
     merged: list[dict[str, Any]] = []
@@ -346,7 +360,9 @@ class CounterReplayJobStatus(BaseModel):
 async def _run_replay_job(job_id: str, body: CounterReplayRequest) -> None:
     _replay_jobs[job_id]["status"] = "running"
     try:
-        client = aioredis.from_url(body.scratch_redis_url.strip(), decode_responses=True)
+        client = aioredis.from_url(
+            body.scratch_redis_url.strip(), decode_responses=True
+        )
         try:
             store = AggregateStore(client)
             recorded = await apply_replay_events(store, body.events)

@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from decision_api.inference_build import build_inference_context
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]

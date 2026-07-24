@@ -40,7 +40,9 @@ def test_predicate_ref_skipped_when_pin_mismatch(tmp_path: Path):
                 "label": "V",
                 "member_rule_ids": ["velocity_high_1h"],
                 "weight_per_rule_hit": 35,
-                "feature_predicates": [{"predicate_ref": "vel_event_1h_threshold", "bonus": 15}],
+                "feature_predicates": [
+                    {"predicate_ref": "vel_event_1h_threshold", "bonus": 15}
+                ],
                 "breach_thresholds": {"warning": 40, "alert": 75},
                 "disposition": {"pass": "allow", "warning": "review", "alert": "deny"},
             }

@@ -1,7 +1,6 @@
 """Internal counter manifest + replay API."""
 
 import os
-from datetime import UTC
 from unittest.mock import patch
 
 import httpx
@@ -111,7 +110,9 @@ class TestInternalCountersReplay:
         def _from_url(url: str, **kwargs):
             return fake
 
-        with patch("decision_api.internal_counters_api.aioredis.from_url", new=_from_url):
+        with patch(
+            "decision_api.internal_counters_api.aioredis.from_url", new=_from_url
+        ):
             r = await client.post(
                 "/v1/internal/counters/replay",
                 json={
@@ -138,7 +139,7 @@ class TestReplayFromAudit:
     @pytest.mark.asyncio
     async def test_replay_from_audit_writes_redis(self, client, monkeypatch):
         import uuid
-        from datetime import datetime
+        from datetime import datetime, timezone
         from unittest.mock import AsyncMock, MagicMock
 
         from decision_api.internal_counters_api import (
@@ -156,7 +157,7 @@ class TestReplayFromAudit:
         row.entity_id = "e_audit"
         row.trace_id = uuid.uuid4()
         row.payload_snapshot = {"payload": {"amount": 100.0, "ip_address": "10.0.0.1"}}
-        row.created_at = datetime(2024, 1, 15, 12, 0, 0, tzinfo=UTC)
+        row.created_at = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
 
         exec_result = MagicMock()
         exec_result.scalars.return_value.all.return_value = [row]
@@ -170,7 +171,9 @@ class TestReplayFromAudit:
         def _from_url(url: str, **kwargs):
             return fake
 
-        with patch("decision_api.internal_counters_api.aioredis.from_url", new=_from_url):
+        with patch(
+            "decision_api.internal_counters_api.aioredis.from_url", new=_from_url
+        ):
             body = CounterReplayFromAuditRequest(
                 scratch_redis_url="redis://localhost:6379/15",
                 tenant_id="t_audit",

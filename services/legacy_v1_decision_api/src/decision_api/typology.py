@@ -105,7 +105,9 @@ def evaluate_typologies(
                     bonus = float(pred.get("bonus", 0))
                     score += bonus
                     val = pred.get("value", cond.get("value"))
-                    feat_contrib.append(f"{label}:{cond.get('field')}:{cond.get('op')}:{val}")
+                    feat_contrib.append(
+                        f"{label}:{cond.get('field')}:{cond.get('op')}:{val}"
+                    )
             except Exception:
                 continue
 

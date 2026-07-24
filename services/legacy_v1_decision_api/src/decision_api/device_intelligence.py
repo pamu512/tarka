@@ -119,7 +119,9 @@ class BiometricProfile:
             avg_speed_px_ms=float(mouse.get("avg_speed_px_ms", 0)),
             std_speed_px_ms=float(mouse.get("std_speed_px_ms", 0)),
             click_count_total=int(mouse.get("click_count", 0)),
-            time_to_first_interaction_ms=float(session.get("time_to_first_interaction_ms", -1)),
+            time_to_first_interaction_ms=float(
+                session.get("time_to_first_interaction_ms", -1)
+            ),
             paste_count_per_session=float(session.get("paste_count", 0)),
             tab_switches_per_session=float(session.get("tab_switches", 0)),
             zero_mouse_movement_rate=float(bot.get("zero_mouse_movement", False)),
@@ -158,7 +160,9 @@ class BiometricProfile:
             entity_id=self.entity_id,
             device_id=self.device_id,
             tenant_id=self.tenant_id,
-            avg_inter_key_ms=weighted_avg(self.avg_inter_key_ms, other.avg_inter_key_ms),
+            avg_inter_key_ms=weighted_avg(
+                self.avg_inter_key_ms, other.avg_inter_key_ms
+            ),
             std_inter_key_ms=combined_std(
                 self.std_inter_key_ms,
                 other.std_inter_key_ms,
@@ -307,7 +311,9 @@ class DeviceIntelligenceStore:
 
         # Get existing profile
         existing_raw = await self._client.get(key)
-        new_profile = BiometricProfile.from_signals(tenant_id, entity_id, device_id, behavior)
+        new_profile = BiometricProfile.from_signals(
+            tenant_id, entity_id, device_id, behavior
+        )
 
         if existing_raw:
             existing_dict = json.loads(existing_raw)
@@ -325,12 +331,18 @@ class DeviceIntelligenceStore:
                 time_to_first_interaction_ms=existing_dict["session"][
                     "time_to_first_interaction_ms"
                 ],
-                paste_count_per_session=existing_dict["session"]["paste_count_per_session"],
-                tab_switches_per_session=existing_dict["session"]["tab_switches_per_session"],
+                paste_count_per_session=existing_dict["session"][
+                    "paste_count_per_session"
+                ],
+                tab_switches_per_session=existing_dict["session"][
+                    "tab_switches_per_session"
+                ],
                 zero_mouse_movement_rate=existing_dict["bot_indicators"][
                     "zero_mouse_movement_rate"
                 ],
-                constant_typing_rate=existing_dict["bot_indicators"]["constant_typing_rate"],
+                constant_typing_rate=existing_dict["bot_indicators"][
+                    "constant_typing_rate"
+                ],
                 no_scroll_rate=existing_dict["bot_indicators"]["no_scroll_rate"],
                 sample_count=existing_dict["sample_count"],
                 first_seen=existing_dict["first_seen"],
@@ -367,7 +379,9 @@ class DeviceIntelligenceStore:
             avg_speed_px_ms=data["mouse"]["avg_speed_px_ms"],
             std_speed_px_ms=data["mouse"]["std_speed_px_ms"],
             click_count_total=data["mouse"]["click_count_total"],
-            time_to_first_interaction_ms=data["session"]["time_to_first_interaction_ms"],
+            time_to_first_interaction_ms=data["session"][
+                "time_to_first_interaction_ms"
+            ],
             paste_count_per_session=data["session"]["paste_count_per_session"],
             tab_switches_per_session=data["session"]["tab_switches_per_session"],
             zero_mouse_movement_rate=data["bot_indicators"]["zero_mouse_movement_rate"],
@@ -534,8 +548,12 @@ class DeviceIntelligenceStore:
         now = time.time()
 
         # Record this IP appearance
-        await self._client.zadd(f"{DEVICE_IP_VELOCITY_PREFIX}{device_id}:ips", {ip: now})
-        await self._client.expire(f"{DEVICE_IP_VELOCITY_PREFIX}{device_id}:ips", IP_VELOCITY_TTL)
+        await self._client.zadd(
+            f"{DEVICE_IP_VELOCITY_PREFIX}{device_id}:ips", {ip: now}
+        )
+        await self._client.expire(
+            f"{DEVICE_IP_VELOCITY_PREFIX}{device_id}:ips", IP_VELOCITY_TTL
+        )
 
         # Record tenant appearance from this IP
         await self._client.sadd(f"{key}:tenants", tenant_id)
@@ -555,7 +573,11 @@ class DeviceIntelligenceStore:
             "ip": ip,
             "unique_ips_24h": unique_ips,
             "unique_tenants_24h": unique_tenants,
-            "velocity_risk": "high" if unique_ips > 5 else "medium" if unique_ips > 2 else "low",
+            "velocity_risk": "high"
+            if unique_ips > 5
+            else "medium"
+            if unique_ips > 2
+            else "low",
         }
 
     async def get_device_intelligence_summary(
@@ -599,7 +621,9 @@ class DeviceIntelligenceStore:
             "risk_factors": risk_factors,
             "has_biometric_profile": bio is not None,
             "has_reputation_history": rep is not None,
-            "is_consortium_shared": consortium.get("is_shared", False) if consortium else False,
+            "is_consortium_shared": consortium.get("is_shared", False)
+            if consortium
+            else False,
             "biometrics": bio.to_dict() if bio else None,
             "reputation": rep.to_dict() if rep else None,
             "consortium": consortium,

@@ -330,9 +330,7 @@ def find_divergence_explanation(
 
     if category in ("logic_operator", "operands", "state_snapshot_raw"):
         culprit_rule_id = sa["rule_id"]
-        human = (
-            f"Rule '{culprit_rule_id}' at step {first_idx} differs on {category.replace('_', ' ')}."
-        )
+        human = f"Rule '{culprit_rule_id}' at step {first_idx} differs on {category.replace('_', ' ')}."
         return {
             "decisions_match": decisions_match,
             "paths_structurally_identical": False,

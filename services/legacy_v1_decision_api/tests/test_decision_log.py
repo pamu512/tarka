@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from decision_api.config import settings
 from decision_api.decision_log import build_decision_log_record, emit_decision_log
 
@@ -42,7 +41,9 @@ async def test_emit_decision_log_appends_hash_chain(tmp_path, monkeypatch):
     await emit_decision_log(_record("trace-2", artifact_manifest={"ml_model": "m2"}))
 
     rows = [
-        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
     ]
     assert len(rows) == 2
     assert rows[0]["artifact_manifest"]["ml_model"] == "m1"

@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete
 
@@ -42,11 +42,13 @@ async def cleanup_old_audits(retention_days: int = DEFAULT_RETENTION_DAYS) -> in
         )
         return 0
 
-    cutoff = datetime.now(UTC) - timedelta(days=retention_days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
     from decision_api.models import AuditRecord
 
     async with async_engine.begin() as conn:
-        result = await conn.execute(delete(AuditRecord).where(AuditRecord.created_at < cutoff))
+        result = await conn.execute(
+            delete(AuditRecord).where(AuditRecord.created_at < cutoff)
+        )
         count = result.rowcount
 
     if count > 0:

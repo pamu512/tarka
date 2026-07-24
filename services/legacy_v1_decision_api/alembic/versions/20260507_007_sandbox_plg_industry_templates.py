@@ -6,17 +6,16 @@ Create Date: 2026-05-07
 
 """
 
-from collections.abc import Sequence
+from typing import Sequence, Union
 
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
-from alembic import op
-
 revision: str = "20260507_007"
-down_revision: str | None = "20260506_006"
-branch_labels: str | Sequence[str] | None = None
-depends_on: str | Sequence[str] | None = None
+down_revision: Union[str, None] = "20260506_006"
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
@@ -31,9 +30,15 @@ def upgrade() -> None:
             server_default="plg_industry_v1",
         ),
         sa.Column("approval_status", sa.String(length=32), nullable=False),
-        sa.Column("visual_ast_pack", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("compiled_rules", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("merged_pack_fingerprint_sha256", sa.String(length=64), nullable=False),
+        sa.Column(
+            "visual_ast_pack", postgresql.JSONB(astext_type=sa.Text()), nullable=False
+        ),
+        sa.Column(
+            "compiled_rules", postgresql.JSONB(astext_type=sa.Text()), nullable=False
+        ),
+        sa.Column(
+            "merged_pack_fingerprint_sha256", sa.String(length=64), nullable=False
+        ),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -63,7 +68,9 @@ def upgrade() -> None:
     op.create_table(
         "sandbox_plg_bundle_state",
         sa.Column("bundle_key", sa.String(length=64), nullable=False),
-        sa.Column("merged_pack_json", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column(
+            "merged_pack_json", postgresql.JSONB(astext_type=sa.Text()), nullable=False
+        ),
         sa.Column("fingerprint_sha256", sa.String(length=64), nullable=False),
         sa.Column(
             "updated_at",

@@ -73,8 +73,14 @@ def test_decision_api_full_schema_contract(case):
 
 def test_checked_in_yaml_contract_loads_and_has_paths():
     """Ensure the git-tracked portable contract stays compatible with Schemathesis."""
-    ops = [r.ok() for r in SCHEMA_FROM_CONTRACT_YAML.get_all_operations() if isinstance(r, Ok)]
-    assert len(ops) >= 5, "expected multiple operations in contracts/openapi/decision-api.yaml"
+    ops = [
+        r.ok()
+        for r in SCHEMA_FROM_CONTRACT_YAML.get_all_operations()
+        if isinstance(r, Ok)
+    ]
+    assert len(ops) >= 5, (
+        "expected multiple operations in contracts/openapi/decision-api.yaml"
+    )
 
 
 def test_generation_budget_meets_min_total_floor():

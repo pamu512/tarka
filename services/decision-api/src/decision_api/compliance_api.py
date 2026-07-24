@@ -4,7 +4,7 @@ import hashlib
 import hmac
 import json
 import logging
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -32,7 +32,7 @@ router = APIRouter(prefix="/v1/compliance", tags=["compliance"])
 # Shared privacy module import helper
 # ---------------------------------------------------------------------------
 
-from privacy import (
+from privacy import (  # noqa: E402
     PRIVACY_PROFILES,
     anonymize_record,
     get_data_processing_record,
@@ -51,7 +51,9 @@ def _bundle_hash(payload: dict[str, Any]) -> str:
 def _hash_chain(records: list[dict[str, Any]]) -> str:
     current = ""
     for item in records:
-        current = hashlib.sha256(f"{current}:{_canonical_json(item)}".encode()).hexdigest()
+        current = hashlib.sha256(
+            f"{current}:{_canonical_json(item)}".encode("utf-8")
+        ).hexdigest()
     return current
 
 
@@ -62,7 +64,9 @@ def _bundle_signature(payload: dict[str, Any]) -> str:
         or settings.attestation_hmac_secret
         or "tarka-evidence-dev-secret"
     ).encode("utf-8")
-    return hmac.new(key, _canonical_json(payload).encode("utf-8"), hashlib.sha256).hexdigest()
+    return hmac.new(
+        key, _canonical_json(payload).encode("utf-8"), hashlib.sha256
+    ).hexdigest()
 
 
 def _signing_key_id() -> str:
@@ -149,7 +153,9 @@ async def dsar_access(
     """Right to Access — export all data held about an entity."""
     profile = get_profile(body.region)
     if not profile.right_to_access:
-        raise HTTPException(400, f"Right to access not applicable under {profile.regulation_name}")
+        raise HTTPException(
+            400, f"Right to access not applicable under {profile.regulation_name}"
+        )
 
     stmt = (
         select(AuditRecord)
@@ -181,7 +187,7 @@ async def dsar_access(
         "regulation": profile.regulation_name,
         "records_found": len(exported),
         "data": exported,
-        "exported_at": datetime.now(UTC).isoformat(),
+        "exported_at": datetime.now(timezone.utc).isoformat(),
         "note": "This export contains all data held about the data subject in the decision engine.",
     }
 
@@ -199,7 +205,9 @@ async def dsar_erasure(
     """Right to Erasure — delete all data for an entity."""
     profile = get_profile(body.region)
     if not profile.right_to_erasure:
-        raise HTTPException(400, f"Right to erasure not applicable under {profile.regulation_name}")
+        raise HTTPException(
+            400, f"Right to erasure not applicable under {profile.regulation_name}"
+        )
 
     count_stmt = (
         select(AuditRecord)
@@ -220,7 +228,9 @@ async def dsar_erasure(
     for rec in records:
         if rec.payload_snapshot:
             rec.payload_snapshot = anonymize_record(rec.payload_snapshot)
-        rec.entity_id = f"erased:{hashlib.sha256(body.entity_id.encode()).hexdigest()[:12]}"
+        rec.entity_id = (
+            f"erased:{hashlib.sha256(body.entity_id.encode()).hexdigest()[:12]}"
+        )
         anonymized_count += 1
 
     await session.commit()
@@ -256,7 +266,9 @@ async def dsar_portability(
     """Right to Data Portability — export in machine-readable JSON."""
     profile = get_profile(body.region)
     if not profile.right_to_portability:
-        raise HTTPException(400, f"Data portability not applicable under {profile.regulation_name}")
+        raise HTTPException(
+            400, f"Data portability not applicable under {profile.regulation_name}"
+        )
 
     stmt = (
         select(AuditRecord)
@@ -272,7 +284,7 @@ async def dsar_portability(
         "export_format": "tarka_portable_v1",
         "entity_id": body.entity_id,
         "tenant_id": body.tenant_id,
-        "exported_at": datetime.now(UTC).isoformat(),
+        "exported_at": datetime.now(timezone.utc).isoformat(),
         "records": [
             {
                 "trace_id": str(r.trace_id),
@@ -482,7 +494,7 @@ async def control_evidence_export(
 
     bundle = {
         "tenant_id": tenant_id,
-        "exported_at": datetime.now(UTC).isoformat(),
+        "exported_at": datetime.now(timezone.utc).isoformat(),
         "controls": [
             {
                 "id": "CC8.1",
@@ -530,7 +542,9 @@ async def verify_evidence(body: EvidenceVerifyRequest):
         bundle["integrity"] = integrity_copy
     expected_hash = _bundle_hash(bundle)
     bundle["integrity"] = {
-        **(bundle.get("integrity") if isinstance(bundle.get("integrity"), dict) else {}),
+        **(
+            bundle.get("integrity") if isinstance(bundle.get("integrity"), dict) else {}
+        ),
         "bundle_hash": expected_hash,
     }
     expected_sig = _bundle_signature(bundle)

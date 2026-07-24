@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from typing import Any
@@ -915,6 +916,7 @@ async def tool_search_knowledge(
     query: str,
     limit: int = 5,
     okf_registry: Any | None = None,
+    okf_generation_gate: asyncio.Lock | None = None,
 ) -> dict[str, Any]:
     """Search approved OKF concepts first, then analyst-ingested memos (tenant scoped)."""
     if not _analyst_allowed(analyst_id):
@@ -939,6 +941,7 @@ async def tool_search_knowledge(
                 query=q,
                 limit=lim,
                 keyword_weight=settings.copilot_rag_keyword_weight,
+                generation_gate=okf_generation_gate,
             )
             return _limit_result(_format_knowledge_retrieval_result(result, query=q))
         except Exception:

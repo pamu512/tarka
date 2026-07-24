@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from fastapi import APIRouter, Depends
+
 from tarka_core.engine_adapter import merge_features_with_resolved_from_ast
 
 from decision_api.ast_evaluator import evaluate_json_ast
@@ -14,7 +15,7 @@ from decision_api.ast_models import EvaluateAstRequest, EvaluateAstResponse
 _shared = Path(__file__).resolve().parents[3] / "shared"
 if str(_shared) not in sys.path:
     sys.path.insert(0, str(_shared))
-from auth_rbac import require_role
+from auth_rbac import require_role  # noqa: E402
 
 router = APIRouter(prefix="/v1/json-rules", tags=["json-rules"])
 

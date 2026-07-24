@@ -23,7 +23,9 @@ def _coerce_amount(payload: dict[str, Any]) -> tuple[float | None, str | None]:
     except (TypeError, ValueError):
         return None, None
     cur = payload.get("currency")
-    cur_s = str(cur).strip().upper()[:8] if cur is not None and str(cur).strip() else None
+    cur_s = (
+        str(cur).strip().upper()[:8] if cur is not None and str(cur).strip() else None
+    )
     return amt, cur_s
 
 

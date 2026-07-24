@@ -46,7 +46,9 @@ def _validate_ch_insert_sql(sql: str) -> bool:
 def _ingest_buffer_check(stats: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
     cap = int(stats.get("capacity") or 0)
     inf = int(stats.get("in_flight") or 0)
-    threshold_pct = int(stats.get("buffer_pressure_percent") or _BUFFER_PRESSURE_PERCENT)
+    threshold_pct = int(
+        stats.get("buffer_pressure_percent") or _BUFFER_PRESSURE_PERCENT
+    )
     accepting = bool(stats.get("accepting_new_requests", True))
 
     detail: dict[str, Any] = {
@@ -64,14 +66,17 @@ def _ingest_buffer_check(stats: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
 
     if not accepting:
         detail["status"] = "unhealthy"
-        detail["reason"] = "engine not accepting new evaluations (shutdown or fatal gate state)"
+        detail["reason"] = (
+            "engine not accepting new evaluations (shutdown or fatal gate state)"
+        )
         return False, detail
 
     # Mirror `IngestGate::try_enter` buffer-pressure predicate (Rust).
     if inf * 100 > cap * threshold_pct:
         detail["status"] = "unhealthy"
         detail["reason"] = (
-            f"ingest buffer past high-water mark ({threshold_pct}%): in_flight={inf} capacity={cap}"
+            f"ingest buffer past high-water mark ({threshold_pct}%): "
+            f"in_flight={inf} capacity={cap}"
         )
         return False, detail
 
@@ -120,17 +125,21 @@ def _check_rust_json_rules_engine() -> tuple[bool, dict[str, Any]]:
     detail: dict[str, Any] = {"backend": mode}
     if mode == "python":
         detail["status"] = "skipped"
-        detail["reason"] = "TARKA_JSON_RULES_ENGINE=python (Rust extension not required)"
+        detail["reason"] = (
+            "TARKA_JSON_RULES_ENGINE=python (Rust extension not required)"
+        )
         return True, detail
     try:
-        import tarka_rule_engine as tre
+        import tarka_rule_engine as tre  # noqa: PLC0415
     except ImportError as e:
         if mode == "rust":
             detail["status"] = "unhealthy"
             detail["reason"] = f"tarka_rule_engine required but not importable: {e}"
             return False, detail
         detail["status"] = "skipped"
-        detail["reason"] = f"tarka_rule_engine not installed (auto mode uses Python fallback): {e}"
+        detail["reason"] = (
+            f"tarka_rule_engine not installed (auto mode uses Python fallback): {e}"
+        )
         return True, detail
     required = ("sync_packs_json", "evaluate_json_rules_rust", "rust_engine_cache_stats")
     missing = [name for name in required if not hasattr(tre, name)]
@@ -242,7 +251,9 @@ async def _check_clickhouse(
     read_detail: dict[str, Any]
     t0 = time.perf_counter()
     try:
-        with anyio.fail_after(max(1.0, settings.clickhouse_statement_timeout_ms / 1000.0)):
+        with anyio.fail_after(
+            max(1.0, settings.clickhouse_statement_timeout_ms / 1000.0)
+        ):
             await run_clickhouse_sync(ch_client, lambda: ch_client.query("SELECT 1"))
     except TimeoutError:
         read_ok = False
@@ -304,8 +315,12 @@ async def _check_clickhouse(
     else:
         tw = time.perf_counter()
         try:
-            with anyio.fail_after(max(1.0, settings.clickhouse_statement_timeout_ms / 1000.0)):
-                await run_clickhouse_sync(ch_client, lambda: ch_client.command(insert_sql))
+            with anyio.fail_after(
+                max(1.0, settings.clickhouse_statement_timeout_ms / 1000.0)
+            ):
+                await run_clickhouse_sync(
+                    ch_client, lambda: ch_client.command(insert_sql)
+                )
         except TimeoutError:
             write_detail = {
                 "status": "unhealthy",

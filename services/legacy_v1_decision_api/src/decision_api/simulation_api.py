@@ -147,7 +147,9 @@ class ABTestRequest(BaseModel):
         default_factory=list,
         description="Override rules for set A (empty = production)",
     )
-    rule_set_b: list[dict] = Field(default_factory=list, description="Override rules for set B")
+    rule_set_b: list[dict] = Field(
+        default_factory=list, description="Override rules for set B"
+    )
 
 
 def _eval_with_override_rules(
@@ -263,7 +265,9 @@ async def benchmark_vertical_pack(body: VerticalBenchmarkRequest):
 
     events = generate_scenario(profile)
     baseline = [_eval_with_override_rules(e, []) for e in events]
-    vertical = [_eval_with_override_rules(e, vertical_pack.get("rules", [])) for e in events]
+    vertical = [
+        _eval_with_override_rules(e, vertical_pack.get("rules", [])) for e in events
+    ]
     result_base = analyze_simulation(events, baseline)
     result_vertical = analyze_simulation(events, vertical)
     n = len(events)
@@ -293,7 +297,9 @@ async def benchmark_vertical_pack(body: VerticalBenchmarkRequest):
             "score_separation": round(
                 result_vertical.score_separation - result_base.score_separation, 2
             ),
-            "false_positives": result_vertical.false_positives - result_base.false_positives,
-            "false_negatives": result_vertical.false_negatives - result_base.false_negatives,
+            "false_positives": result_vertical.false_positives
+            - result_base.false_positives,
+            "false_negatives": result_vertical.false_negatives
+            - result_base.false_negatives,
         },
     }

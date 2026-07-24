@@ -23,7 +23,9 @@ def load_predicate_registry() -> dict[str, Any]:
         return _REGISTRY
     p = registry_path()
     if not p.is_file():
-        log.warning("typology predicate registry not found: %s — predicate_ref disabled", p)
+        log.warning(
+            "typology predicate registry not found: %s — predicate_ref disabled", p
+        )
         _REGISTRY = {"registry_id": "none", "version": 0, "predicates": []}
         return _REGISTRY
     try:
@@ -40,7 +42,9 @@ def reload_predicate_registry() -> None:
     load_predicate_registry()
 
 
-def predicate_when_by_id(registry: dict[str, Any], predicate_id: str) -> dict[str, Any] | None:
+def predicate_when_by_id(
+    registry: dict[str, Any], predicate_id: str
+) -> dict[str, Any] | None:
     for p in registry.get("predicates") or []:
         if str(p.get("id") or "") == predicate_id:
             when = p.get("when")

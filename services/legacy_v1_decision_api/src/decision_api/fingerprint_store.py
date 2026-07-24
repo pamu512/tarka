@@ -170,7 +170,9 @@ class FingerprintStore:
         await pipe2.execute()
         return record
 
-    async def get_fingerprint(self, tenant_id: str, fp_hash: str) -> FingerprintRecord | None:
+    async def get_fingerprint(
+        self, tenant_id: str, fp_hash: str
+    ) -> FingerprintRecord | None:
         client = _require_client(self._client)
         raw = await client.get(self._fp_key(tenant_id, fp_hash))
         if not raw:

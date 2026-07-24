@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from decision_api.entity_link_store import LINK_VENDOR_PREFIX, EntityLinkStore
 
 

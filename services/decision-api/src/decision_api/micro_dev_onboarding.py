@@ -13,6 +13,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.engine import make_url
+
 from tarka_core.internal_monitor import InternalMonitor
 
 from decision_api.db import ENGINE_KIND, engine
@@ -40,7 +41,9 @@ def _analytics_uses_duckdb() -> bool:
     return _analytics_store_raw() in ("duck", "duckdb", "local")
 
 
-def _public_probe_detail(reason_code: str, detail: dict[str, Any] | None = None) -> dict[str, Any]:
+def _public_probe_detail(
+    reason_code: str, detail: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """Strip filesystem paths and exception text before returning to HTTP clients."""
     out: dict[str, Any] = {"reason_code": reason_code}
     if not detail:

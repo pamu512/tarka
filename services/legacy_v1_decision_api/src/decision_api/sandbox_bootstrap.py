@@ -10,7 +10,6 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from tarka_core.templates import list_industry_template_items
 
 from decision_api.deps import get_pg_pool
 from decision_api.json_rules import (
@@ -22,6 +21,7 @@ from decision_api.sandbox_plg_pack import (
     build_merged_plg_industry_pack,
     merged_pack_fingerprint,
 )
+from tarka_core.templates import list_industry_template_items
 
 log = logging.getLogger("decision-api")
 

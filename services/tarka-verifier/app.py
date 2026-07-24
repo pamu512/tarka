@@ -71,7 +71,9 @@ def create_app() -> FastAPI:
             ) from exc
 
         try:
-            manifest_raw = base64.b64decode(body.manifest_protobuf_base64, validate=True)
+            manifest_raw = base64.b64decode(
+                body.manifest_protobuf_base64, validate=True
+            )
             proof_raw = base64.b64decode(body.merkle_proof_bytes_base64, validate=True)
         except binascii.Error as exc:
             raise HTTPException(
@@ -85,7 +87,9 @@ def create_app() -> FastAPI:
         sig_override: bytes | None = None
         if body.signature_bytes_base64 is not None:
             try:
-                sig_override = base64.b64decode(body.signature_bytes_base64, validate=True)
+                sig_override = base64.b64decode(
+                    body.signature_bytes_base64, validate=True
+                )
             except binascii.Error as exc:
                 raise HTTPException(
                     status_code=422,

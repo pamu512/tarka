@@ -1,5 +1,6 @@
 """Investigation agent with proper LLM tool-use loop."""
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -218,6 +219,14 @@ def _format_okf_issues(issues: tuple[Any, ...]) -> str:
     )
 
 
+def _okf_generation_gate(application: FastAPI) -> asyncio.Lock:
+    gate = getattr(application.state, "okf_generation_gate", None)
+    if gate is None:
+        gate = asyncio.Lock()
+        application.state.okf_generation_gate = gate
+    return gate
+
+
 async def _index_and_activate_okf_candidate(
     application: FastAPI,
     registry: OkfRegistry,
@@ -232,9 +241,8 @@ async def _index_and_activate_okf_candidate(
         base_url=effective_embedding_base_url(),
         embed_model=settings.copilot_embedding_model,
     )
-    with registry.generation_lock():
-        knowledge_store.replace_okf_index_rows_sync(rows)
-        reload_result = registry.activate(candidate)
+    knowledge_store.replace_okf_index_rows_sync(rows)
+    reload_result = registry.activate(candidate)
     application.state.okf_indexed_concepts = indexed
     application.state.okf_index_error = None
     return reload_result
@@ -272,24 +280,26 @@ async def lifespan(application: FastAPI):
     application.state.okf_index_error = None
     application.state.okf_indexed_concepts = 0
     application.state.okf_last_reload_issues = ()
+    application.state.okf_generation_gate = asyncio.Lock()
     if settings.okf_enabled:
         try:
             registry = OkfRegistry(
                 shared_root=Path(settings.okf_shared_root),
                 tenant_root=Path(settings.okf_tenant_root),
             )
-            candidate = registry.prepare_reload()
-            application.state.okf_registry = registry
-            application.state.okf_last_reload_issues = tuple(candidate.issues)
-            if candidate.issues:
-                application.state.okf_reload_result = RegistryReloadResult(
-                    False, candidate.revision, candidate.issues
-                )
-                application.state.okf_load_error = _format_okf_issues(candidate.issues)
-            else:
-                application.state.okf_reload_result = await _index_and_activate_okf_candidate(
-                    application, registry, candidate
-                )
+            async with _okf_generation_gate(application):
+                candidate = registry.prepare_reload()
+                application.state.okf_registry = registry
+                application.state.okf_last_reload_issues = tuple(candidate.issues)
+                if candidate.issues:
+                    application.state.okf_reload_result = RegistryReloadResult(
+                        False, candidate.revision, candidate.issues
+                    )
+                    application.state.okf_load_error = _format_okf_issues(candidate.issues)
+                else:
+                    application.state.okf_reload_result = await _index_and_activate_okf_candidate(
+                        application, registry, candidate
+                    )
         except Exception as exc:
             log.warning("okf_registry_load_failed", exc_info=True)
             application.state.okf_load_error = str(exc)[:500]
@@ -564,6 +574,7 @@ async def _execute_tool(
     *,
     reviewer_header: str = "",
     okf_registry: Any | None = None,
+    okf_generation_gate: asyncio.Lock | None = None,
 ) -> dict[str, Any]:
     permitted, gate_err = check_safe_action_gate(
         name,
@@ -670,6 +681,7 @@ async def _execute_tool(
             norm["query"],
             norm["limit"],
             okf_registry=okf_registry,
+            okf_generation_gate=okf_generation_gate,
         )
     elif name == "compare_entity_queue_snapshot":
         result = await fn(http, norm["entity_id"], tenant_id, analyst_id, norm["list_limit"])
@@ -916,6 +928,7 @@ async def _deterministic_tools_only_fallback(
     case_id: str | None,
     reviewer_header: str = "",
     okf_registry: Any | None = None,
+    okf_generation_gate: asyncio.Lock | None = None,
 ) -> tuple[str, list[dict[str, Any]], list[dict[str, str]]]:
     """Deterministic fallback when LLM is unavailable: execute safe read-only tools."""
     tool_calls: list[dict[str, Any]] = []
@@ -931,6 +944,7 @@ async def _deterministic_tools_only_fallback(
                 analyst_id,
                 reviewer_header=reviewer_header,
                 okf_registry=okf_registry,
+                okf_generation_gate=okf_generation_gate,
             )
         except Exception:
             result = {
@@ -1106,6 +1120,7 @@ async def _llm_tool_loop(
     *,
     reviewer_header: str = "",
     okf_registry: Any | None = None,
+    okf_generation_gate: asyncio.Lock | None = None,
 ) -> tuple[str, list[dict[str, Any]], dict[str, Any]]:
     """Run the tool-use loop: send to LLM, execute any tool calls, repeat."""
     all_tool_calls: list[dict[str, Any]] = []
@@ -1162,6 +1177,7 @@ async def _llm_tool_loop(
                     analyst_id,
                     reviewer_header=reviewer_header,
                     okf_registry=okf_registry,
+                    okf_generation_gate=okf_generation_gate,
                 )
                 all_tool_calls.append({"tool": fn_name, "args": fn_args, "result": result})
                 conversation.append(
@@ -1580,57 +1596,58 @@ async def okf_reload(request: Request):
     await _require_admin_api_key(request)
     if not settings.okf_enabled:
         raise HTTPException(status_code=409, detail="OKF is disabled")
-    registry = getattr(request.app.state, "okf_registry", None)
-    if registry is None:
-        registry = OkfRegistry(
-            shared_root=Path(settings.okf_shared_root),
-            tenant_root=Path(settings.okf_tenant_root),
-        )
-        request.app.state.okf_registry = registry
-    previous = getattr(request.app.state, "okf_reload_result", None)
-    try:
-        candidate = registry.prepare_reload()
-    except Exception:
-        if previous is None or not bool(getattr(previous, "activated", False)):
-            request.app.state.okf_load_error = "okf_reload_failed"
-        request.app.state.okf_last_reload_issues = ("okf_reload_failed",)
-        raise HTTPException(status_code=503, detail="okf_reload_failed")
-    request.app.state.okf_last_reload_issues = tuple(candidate.issues)
-    if candidate.issues:
-        reload_result = RegistryReloadResult(False, candidate.revision, candidate.issues)
-        if previous is None or not bool(getattr(previous, "activated", False)):
+    async with _okf_generation_gate(request.app):
+        registry = getattr(request.app.state, "okf_registry", None)
+        if registry is None:
+            registry = OkfRegistry(
+                shared_root=Path(settings.okf_shared_root),
+                tenant_root=Path(settings.okf_tenant_root),
+            )
+            request.app.state.okf_registry = registry
+        previous = getattr(request.app.state, "okf_reload_result", None)
+        try:
+            candidate = registry.prepare_reload()
+        except Exception:
+            if previous is None or not bool(getattr(previous, "activated", False)):
+                request.app.state.okf_load_error = "okf_reload_failed"
+            request.app.state.okf_last_reload_issues = ("okf_reload_failed",)
+            raise HTTPException(status_code=503, detail="okf_reload_failed")
+        request.app.state.okf_last_reload_issues = tuple(candidate.issues)
+        if candidate.issues:
+            reload_result = RegistryReloadResult(False, candidate.revision, candidate.issues)
+            if previous is None or not bool(getattr(previous, "activated", False)):
+                request.app.state.okf_reload_result = reload_result
+                request.app.state.okf_load_error = _format_okf_issues(candidate.issues)
+            return {
+                "activated": False,
+                "revision": str(reload_result.revision),
+                "issues": [
+                    {"code": issue.code, "path": issue.path, "message": issue.message}
+                    for issue in reload_result.issues
+                ],
+            }
+        try:
+            reload_result = await _index_and_activate_okf_candidate(
+                request.app,
+                registry,
+                candidate,
+            )
+        except Exception as exc:
+            log.warning("okf_index_refresh_failed", exc_info=True)
+            if previous is None or not bool(getattr(previous, "activated", False)):
+                request.app.state.okf_index_error = str(exc)[:500]
+                request.app.state.okf_load_error = "okf_index_failed"
+            request.app.state.okf_last_reload_issues = ("okf_index_failed",)
+            raise HTTPException(status_code=503, detail="okf_index_failed") from exc
+        else:
             request.app.state.okf_reload_result = reload_result
-            request.app.state.okf_load_error = _format_okf_issues(candidate.issues)
+            request.app.state.okf_load_error = None
+            request.app.state.okf_index_error = None
         return {
-            "activated": False,
+            "activated": True,
             "revision": str(reload_result.revision),
-            "issues": [
-                {"code": issue.code, "path": issue.path, "message": issue.message}
-                for issue in reload_result.issues
-            ],
+            "issues": [],
         }
-    try:
-        reload_result = await _index_and_activate_okf_candidate(
-            request.app,
-            registry,
-            candidate,
-        )
-    except Exception as exc:
-        log.warning("okf_index_refresh_failed", exc_info=True)
-        if previous is None or not bool(getattr(previous, "activated", False)):
-            request.app.state.okf_index_error = str(exc)[:500]
-            request.app.state.okf_load_error = "okf_index_failed"
-        request.app.state.okf_last_reload_issues = ("okf_index_failed",)
-        raise HTTPException(status_code=503, detail="okf_index_failed") from exc
-    else:
-        request.app.state.okf_reload_result = reload_result
-        request.app.state.okf_load_error = None
-        request.app.state.okf_index_error = None
-    return {
-        "activated": True,
-        "revision": str(reload_result.revision),
-        "issues": [],
-    }
 
 
 @app.get("/v1/ready")
@@ -2872,6 +2889,7 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             case_id=body.case_id,
             reviewer_header=reviewer_header,
             okf_registry=getattr(request.app.state, "okf_registry", None),
+            okf_generation_gate=_okf_generation_gate(request.app),
         )
         source_refs = build_source_reference_cards(tool_calls)
         turn_id = str(uuid.uuid4())
@@ -2991,6 +3009,7 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         active_tool_defs,
         reviewer_header=reviewer_header,
         okf_registry=getattr(request.app.state, "okf_registry", None),
+        okf_generation_gate=_okf_generation_gate(request.app),
     )
 
     prose, claims, claims_warn = _parse_tarka_claims_reply(raw_reply)

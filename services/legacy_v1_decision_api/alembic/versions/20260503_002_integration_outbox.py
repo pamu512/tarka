@@ -6,17 +6,16 @@ Create Date: 2026-05-03
 
 """
 
-from collections.abc import Sequence
+from typing import Sequence, Union
 
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
-from alembic import op
-
 revision: str = "20260503_002"
-down_revision: str | None = "20260402_001"
-branch_labels: str | Sequence[str] | None = None
-depends_on: str | Sequence[str] | None = None
+down_revision: Union[str, None] = "20260402_001"
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
@@ -50,6 +49,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_integration_outbox_aggregate_key"), table_name="integration_outbox")
-    op.drop_index(op.f("ix_integration_outbox_event_type"), table_name="integration_outbox")
+    op.drop_index(
+        op.f("ix_integration_outbox_aggregate_key"), table_name="integration_outbox"
+    )
+    op.drop_index(
+        op.f("ix_integration_outbox_event_type"), table_name="integration_outbox"
+    )
     op.drop_table("integration_outbox")

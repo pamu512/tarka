@@ -25,7 +25,9 @@ async def test_evaluate_visual_dry_run_rule_hit(
             "rules": [
                 {
                     "id": "high_amount",
-                    "all_of": [{"field": "transaction_amount", "op": "gte", "value": 5000}],
+                    "all_of": [
+                        {"field": "transaction_amount", "op": "gte", "value": 5000}
+                    ],
                     "any_of": [],
                     "tags": ["t:hit"],
                     "score_delta": 12,

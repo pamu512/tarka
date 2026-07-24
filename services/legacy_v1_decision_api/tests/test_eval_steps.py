@@ -3,7 +3,6 @@
 import asyncio
 
 import pytest
-
 from decision_api.eval_steps import run_evaluation_step
 
 

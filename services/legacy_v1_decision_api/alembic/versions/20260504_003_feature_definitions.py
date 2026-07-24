@@ -6,17 +6,16 @@ Create Date: 2026-05-04
 
 """
 
-from collections.abc import Sequence
+from typing import Sequence, Union
 
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
-from alembic import op
-
 revision: str = "20260504_003"
-down_revision: str | None = "20260503_002"
-branch_labels: str | Sequence[str] | None = None
-depends_on: str | Sequence[str] | None = None
+down_revision: Union[str, None] = "20260503_002"
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
@@ -26,8 +25,12 @@ def upgrade() -> None:
         sa.Column("tenant_id", sa.String(length=128), nullable=False),
         sa.Column("name", sa.String(length=128), nullable=False),
         sa.Column("version", sa.Integer(), nullable=False),
-        sa.Column("definition", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("ddl_status", sa.String(length=16), server_default="pending", nullable=False),
+        sa.Column(
+            "definition", postgresql.JSONB(astext_type=sa.Text()), nullable=False
+        ),
+        sa.Column(
+            "ddl_status", sa.String(length=16), server_default="pending", nullable=False
+        ),
         sa.Column("clickhouse_error", sa.Text(), nullable=True),
         sa.Column(
             "created_at",
@@ -62,5 +65,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_feature_definitions_tenant_id"), table_name="feature_definitions")
+    op.drop_index(
+        op.f("ix_feature_definitions_tenant_id"), table_name="feature_definitions"
+    )
     op.drop_table("feature_definitions")

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from google.protobuf.message import DecodeError
+
 from tarka.evidence.wire.v1.evidence_pb2 import EvidenceManifest
 from tarka.merkle_wire import merkle_proof_root
 from tarka.verifier import ManifestVerifier, VerificationFailureReason
@@ -101,7 +102,9 @@ def verify_evidence_bundle(
     if n == 0:
         proof_ok = merkle_proof_bytes == b""
         if not proof_ok:
-            detail["merkle_proof_error"] = "empty trace requires empty rs_merkle proof bytes"
+            detail["merkle_proof_error"] = (
+                "empty trace requires empty rs_merkle proof bytes"
+            )
     else:
         indices = list(range(n))
         try:
@@ -122,7 +125,9 @@ def verify_evidence_bundle(
             failures.add("MERKLE_PROOF_EMBEDDED_MISMATCH")
             detail["merkle_proof_embedded_mismatch"] = True
 
-    ok = bool(sealed.status and proof_ok and "MERKLE_PROOF_EMBEDDED_MISMATCH" not in failures)
+    ok = bool(
+        sealed.status and proof_ok and "MERKLE_PROOF_EMBEDDED_MISMATCH" not in failures
+    )
 
     merkle_hex = None
     if manifest.merkle_root and len(manifest.merkle_root) == 32:

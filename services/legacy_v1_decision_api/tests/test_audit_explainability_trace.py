@@ -1,6 +1,6 @@
 """Traceability: decision inference drivers must persist to audit and remain ordered."""
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -69,7 +69,7 @@ async def test_audit_endpoint_returns_ordered_driver_explain_and_reasons(monkeyp
             "inference_context": inf_ctx,
             "recommended_action": "step_up_mfa",
         },
-        created_at=datetime.now(UTC),
+        created_at=datetime.now(timezone.utc),
     )
 
     with patch("decision_api.main.init_db", new_callable=AsyncMock):
@@ -101,7 +101,9 @@ async def test_audit_endpoint_returns_ordered_driver_explain_and_reasons(monkeyp
                         async with httpx.AsyncClient(
                             transport=transport, base_url="http://testserver"
                         ) as c:
-                            r = await c.get(f"/v1/audit/{trace_id}", params={"tenant_id": "t1"})
+                            r = await c.get(
+                                f"/v1/audit/{trace_id}", params={"tenant_id": "t1"}
+                            )
                     finally:
                         app.dependency_overrides.pop(get_session, None)
 
@@ -129,8 +131,10 @@ async def test_audit_endpoint_blocks_analyst_detail_without_role(monkeypatch):
         score=68.2,
         tags=[],
         rule_hits=[],
-        payload_snapshot={"inference_context": {"driver_reasons": [], "driver_explain": []}},
-        created_at=datetime.now(UTC),
+        payload_snapshot={
+            "inference_context": {"driver_reasons": [], "driver_explain": []}
+        },
+        created_at=datetime.now(timezone.utc),
     )
 
     with patch("decision_api.main.init_db", new_callable=AsyncMock):

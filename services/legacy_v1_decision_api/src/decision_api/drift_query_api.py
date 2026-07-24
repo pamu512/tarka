@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from decision_api._shared_path import ensure_shared_on_path
+
+
 from fastapi import APIRouter, Depends, Query
 
-from decision_api._shared_path import ensure_shared_on_path
 from decision_api.calibration_api import compute_drift_for_tenant
 
 ensure_shared_on_path()
-from auth_rbac import require_role
+from auth_rbac import require_role  # noqa: E402
 
 router = APIRouter(prefix="/v1/drift", tags=["drift"])
 

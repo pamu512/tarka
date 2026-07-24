@@ -9,13 +9,13 @@ import sys
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Dict
 from uuid import UUID
 
+from redis.exceptions import RedisError
 import structlog
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from redis.exceptions import RedisError
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -76,7 +76,7 @@ async def _publish_decision_to_speed_layer(payload_json: str) -> None:
             client.publish(SPEED_LAYER_CHANNEL, payload_json),
             timeout=connect_timeout,
         )
-    except TimeoutError as exc:
+    except asyncio.TimeoutError as exc:
         logger.error(
             "speed_layer_publish_timeout",
             channel=SPEED_LAYER_CHANNEL,
@@ -132,7 +132,7 @@ class TransactionPayload(BaseModel):
         description="Strictly positive, finite floating-point amount.",
     )
     timestamp: datetime
-    metadata: dict[str, Any]
+    metadata: Dict[str, Any]
 
     @field_validator("amount")
     @classmethod
@@ -145,7 +145,9 @@ class TransactionPayload(BaseModel):
 
     @field_validator("metadata")
     @classmethod
-    def validate_metadata_is_string_keyed_mapping(cls, value: dict[str, Any]) -> dict[str, Any]:
+    def validate_metadata_is_string_keyed_mapping(
+        cls, value: Dict[str, Any]
+    ) -> Dict[str, Any]:
         if not isinstance(value, dict):
             raise ValueError("metadata must be a dictionary")
         for key in value:

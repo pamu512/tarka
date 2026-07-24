@@ -1,5 +1,4 @@
 import pytest
-
 from decision_api.simulation_api import _eval_with_override_rules
 from decision_api.vertical_packs import get_vertical_pack, list_vertical_packs
 
