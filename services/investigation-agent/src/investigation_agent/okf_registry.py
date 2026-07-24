@@ -198,7 +198,10 @@ class OkfRegistry:
                     continue
                 tenant_id = tenant_dir.name
                 tenant_validation = validate_bundle(
-                    tenant_dir, scope="tenant", tenant_id=tenant_id
+                    tenant_dir,
+                    scope="tenant",
+                    tenant_id=tenant_id,
+                    shared_bundle=shared_bundle,
                 )
                 if not tenant_validation.valid:
                     issues.extend(tenant_validation.issues)

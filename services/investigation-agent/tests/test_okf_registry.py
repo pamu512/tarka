@@ -231,6 +231,74 @@ def test_expand_respects_max_depth(tmp_path: Path) -> None:
     assert {h.concept.concept_id for h in one_hop} == {"c0", "c1"}
 
 
+def test_expand_follows_tenant_shared_logical_link(tmp_path: Path) -> None:
+    shared = tmp_path / "shared"
+    tenants = tmp_path / "tenants"
+    (shared / "rules").mkdir(parents=True)
+    (tenants / "t1" / "playbooks").mkdir(parents=True)
+    (shared / "index.md").write_text("---\nokf_version: \"0.1\"\n---\n")
+    (shared / "rules" / "high-amount.md").write_text(
+        _valid_frontmatter(
+            concept_type="Fraud Rule",
+            tenant_scope="shared",
+            title="High Amount Rule",
+            source_hash_char="7",
+        )
+        + "Shared rule.\n"
+    )
+    (tenants / "t1" / "index.md").write_text("---\nokf_version: \"0.1\"\n---\n")
+    (tenants / "t1" / "playbooks" / "review.md").write_text(
+        _valid_frontmatter(
+            concept_type="Investigation Playbook",
+            tenant_scope="t1",
+            title="Review",
+            source_hash_char="8",
+        )
+        + "Use [high amount](/shared/rules/high-amount.md).\n"
+    )
+    reg = OkfRegistry(shared_root=shared, tenant_root=tenants)
+    assert reg.reload().activated is True
+    hits = reg.expand("t1", ("playbooks/review",), max_depth=1, max_concepts=5)
+    ids = {hit.concept.concept_id for hit in hits}
+    assert "playbooks/review" in ids
+    assert "rules/high-amount" in ids
+    authorities = {hit.concept.concept_id: hit.authority for hit in hits}
+    assert authorities["rules/high-amount"] == "shared"
+
+
+def test_tenant_cannot_link_to_other_tenant_concept(tmp_path: Path) -> None:
+    shared = tmp_path / "shared"
+    tenants = tmp_path / "tenants"
+    shared.mkdir()
+    (shared / "index.md").write_text("---\nokf_version: \"0.1\"\n---\n")
+    (tenants / "t1").mkdir(parents=True)
+    (tenants / "t2").mkdir(parents=True)
+    (tenants / "t1" / "index.md").write_text("---\nokf_version: \"0.1\"\n---\n")
+    (tenants / "t1" / "linker.md").write_text(
+        _valid_frontmatter(
+            concept_type="Reference",
+            tenant_scope="t1",
+            title="Linker",
+            source_hash_char="9",
+        )
+        + "See [t2 secret](../t2/secret.md).\n"
+    )
+    (tenants / "t2" / "index.md").write_text("---\nokf_version: \"0.1\"\n---\n")
+    (tenants / "t2" / "secret.md").write_text(
+        _valid_frontmatter(
+            concept_type="Reference",
+            tenant_scope="t2",
+            title="T2 Secret",
+            source_hash_char="a",
+        )
+        + "Secret.\n"
+    )
+    reg = OkfRegistry(shared_root=shared, tenant_root=tenants)
+    result = reg.reload()
+    assert result.activated is False
+    assert any(issue.code == "link_outside_bundle" for issue in result.issues)
+
+
 def test_expand_respects_max_concepts(tmp_path: Path) -> None:
     shared = tmp_path / "shared"
     shared.mkdir()

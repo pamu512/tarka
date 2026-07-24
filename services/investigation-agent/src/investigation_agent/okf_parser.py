@@ -18,6 +18,8 @@ _FRONTMATTER = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n(.*)\Z", re.DOTALL)
 _LINK = re.compile(r"\[[^\]]+\]\(([^)]+\.md(?:#[^)]+)?)\)")
 _HASH = re.compile(r"^[0-9a-f]{64}$")
 _RESERVED_NAMES = frozenset({"index.md", "log.md"})
+_APPROVED_STATUS = "approved"
+_SHARED_LOGICAL_PREFIX = "/shared/"
 
 
 def _inside(path: Path, root: Path) -> bool:
@@ -35,14 +37,93 @@ def _concept_id_for(path: Path, root: Path) -> str:
 def _resolve_link_target(href: str, source: Path, root: Path) -> Path:
     target_href = href.split("#", 1)[0]
     if target_href.startswith("/"):
-        return (root / target_href.lstrip("/")).resolve(strict=False)
+        raise OkfParseError(
+            "link_not_relative",
+            source,
+            f"shared bundles require relative markdown links: {href}",
+        )
     return (source.parent / target_href).resolve(strict=False)
 
 
-def _resolve_link_ids(body: str, source: Path, root: Path) -> tuple[str, ...]:
+def _shared_logical_concept_id(href: str, source: Path) -> str:
+    target_href = href.split("#", 1)[0]
+    if not target_href.startswith(_SHARED_LOGICAL_PREFIX):
+        raise OkfParseError(
+            "link_not_shared_logical",
+            source,
+            f"tenant bundles require /shared/<concept-id>.md links: {href}",
+        )
+    if ".." in Path(target_href).parts:
+        raise OkfParseError(
+            "link_outside_bundle",
+            source,
+            f"link target escapes bundle: {href}",
+        )
+    remainder = target_href[len(_SHARED_LOGICAL_PREFIX) :]
+    if not remainder.endswith(".md") or remainder == ".md":
+        raise OkfParseError(
+            "link_not_shared_logical",
+            source,
+            f"tenant shared link must end with .md: {href}",
+        )
+    concept_id = remainder[: -len(".md")]
+    if not concept_id or concept_id.startswith("/"):
+        raise OkfParseError(
+            "link_not_shared_logical",
+            source,
+            f"invalid shared logical link: {href}",
+        )
+    return concept_id
+
+
+def _resolve_link_ids(
+    body: str,
+    source: Path,
+    root: Path,
+    *,
+    scope: str,
+    shared_concepts: dict[str, OkfConcept] | None,
+) -> tuple[str, ...]:
     link_ids: list[str] = []
     for match in _LINK.finditer(body):
         href = match.group(1)
+        target_href = href.split("#", 1)[0]
+        if scope == "shared":
+            if target_href.startswith(_SHARED_LOGICAL_PREFIX) or (
+                target_href.startswith("/") and not target_href.startswith(_SHARED_LOGICAL_PREFIX)
+            ):
+                raise OkfParseError(
+                    "link_not_relative",
+                    source,
+                    f"shared bundles require relative markdown links: {href}",
+                )
+            target = _resolve_link_target(href, source, root)
+            if not _inside(target, root):
+                raise OkfParseError(
+                    "link_outside_bundle",
+                    source,
+                    f"link target escapes bundle: {href}",
+                )
+            link_ids.append(_concept_id_for(target, root))
+            continue
+
+        if target_href.startswith("/"):
+            concept_id = _shared_logical_concept_id(href, source)
+            if shared_concepts is None:
+                raise OkfParseError(
+                    "shared_bundle_required",
+                    source,
+                    "tenant bundle validation requires an approved shared bundle",
+                )
+            if concept_id not in shared_concepts:
+                raise OkfParseError(
+                    "link_target_missing",
+                    source,
+                    f"missing shared link target: {concept_id}",
+                )
+            link_ids.append(concept_id)
+            continue
+
         target = _resolve_link_target(href, source, root)
         if not _inside(target, root):
             raise OkfParseError(
@@ -55,7 +136,12 @@ def _resolve_link_ids(body: str, source: Path, root: Path) -> tuple[str, ...]:
 
 
 def parse_concept(
-    path: Path, root: Path, scope: str, tenant_id: str | None
+    path: Path,
+    root: Path,
+    scope: str,
+    tenant_id: str | None,
+    *,
+    shared_concepts: dict[str, OkfConcept] | None = None,
 ) -> OkfConcept:
     raw = path.read_text(encoding="utf-8")
     match = _FRONTMATTER.match(raw)
@@ -65,7 +151,13 @@ def parse_concept(
     if not isinstance(meta, dict) or not str(meta.get("type") or "").strip():
         raise OkfParseError("type_missing", path, "frontmatter.type is required")
     concept_id = _concept_id_for(path, root)
-    links = _resolve_link_ids(match.group(2), path, root)
+    links = _resolve_link_ids(
+        match.group(2),
+        path,
+        root,
+        scope=scope,
+        shared_concepts=shared_concepts,
+    )
     required = (
         "source_uri",
         "source_content_hash",
@@ -88,6 +180,13 @@ def parse_concept(
             path,
             f"expected tenant_scope={expected_scope}",
         )
+    approval_status = str(meta["approval_status"]).strip()
+    if approval_status != _APPROVED_STATUS:
+        raise OkfParseError(
+            "approval_status_not_approved",
+            path,
+            f"approval_status must be {_APPROVED_STATUS!r}, got {approval_status!r}",
+        )
     source_hash = str(meta["source_content_hash"]).strip().lower()
     if not _HASH.fullmatch(source_hash):
         raise OkfParseError(
@@ -107,7 +206,7 @@ def parse_concept(
         timestamp=str(meta["timestamp"]).strip() if meta.get("timestamp") else None,
         source_uri=str(meta["source_uri"]).strip(),
         source_content_hash=source_hash,
-        approval_status=str(meta["approval_status"]).strip(),
+        approval_status=approval_status,
         approved_revision=str(meta["approved_revision"]).strip(),
         sensitivity=str(meta["sensitivity"]).strip(),
         tenant_scope=str(meta["tenant_scope"]).strip(),
@@ -161,18 +260,30 @@ def _check_reserved_files(root: Path) -> list[BundleIssue]:
 
 
 def validate_bundle(
-    root: Path, *, scope: str, tenant_id: str | None
+    root: Path,
+    *,
+    scope: str,
+    tenant_id: str | None,
+    shared_bundle: ParsedBundle | None = None,
 ) -> BundleValidation:
     root = root.resolve()
     issues: list[BundleIssue] = []
     issues.extend(_check_reserved_files(root))
+
+    shared_concepts = shared_bundle.concepts if shared_bundle is not None else None
 
     concepts: dict[str, OkfConcept] = {}
     concept_paths = _iter_concept_paths(root)
 
     for path in concept_paths:
         try:
-            concept = parse_concept(path, root, scope, tenant_id)
+            concept = parse_concept(
+                path,
+                root,
+                scope,
+                tenant_id,
+                shared_concepts=shared_concepts,
+            )
         except OkfParseError as exc:
             issues.append(BundleIssue(exc.code, exc.path.as_posix(), exc.message))
             continue
@@ -190,14 +301,17 @@ def validate_bundle(
 
     for concept in concepts.values():
         for link_id in concept.links:
-            if link_id not in concepts:
-                issues.append(
-                    BundleIssue(
-                        "link_target_missing",
-                        concept.path.as_posix(),
-                        f"missing link target: {link_id}",
-                    )
+            if link_id in concepts:
+                continue
+            if scope == "tenant" and shared_concepts and link_id in shared_concepts:
+                continue
+            issues.append(
+                BundleIssue(
+                    "link_target_missing",
+                    concept.path.as_posix(),
+                    f"missing link target: {link_id}",
                 )
+            )
 
     if issues:
         return BundleValidation(valid=False, issues=tuple(issues), bundle=None)

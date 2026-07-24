@@ -37,8 +37,8 @@ _PII_KEY_HINTS = frozenset(
     }
 )
 
-_SHARED_GOVERNANCE = {
-    "approval_status": "approved",
+_STAGING_GOVERNANCE = {
+    "approval_status": "proposed",
     "sensitivity": "internal",
     "tenant_scope": "shared",
 }
@@ -50,6 +50,10 @@ class LandmarkCaseSanitizationError(ValueError):
 
 class StagingPathError(ValueError):
     """Raised when a write target is an active OKF bundle root."""
+
+
+class OkfExportError(ValueError):
+    """Raised when legacy source records cannot be exported deterministically."""
 
 
 def source_record_hash(record: dict[str, Any]) -> str:
@@ -65,6 +69,17 @@ def render_concept(frontmatter: dict[str, Any], body: str) -> str:
         default_flow_style=False,
     ).strip()
     return f"---\n{header}\n---\n{body.strip()}\n"
+
+
+def merge_export_files(*file_maps: dict[str, str]) -> dict[str, str]:
+    """Merge export path maps; duplicate paths raise deterministically."""
+    merged: dict[str, str] = {}
+    for files in file_maps:
+        for rel_path, content in files.items():
+            if rel_path in merged:
+                raise OkfExportError(f"duplicate export path: {rel_path}")
+            merged[rel_path] = content
+    return dict(sorted(merged.items()))
 
 
 def _pack_revision(pack: dict[str, Any]) -> str:
@@ -102,46 +117,71 @@ def _rule_body(rule: dict[str, Any]) -> str:
     return "\n".join(lines).strip() or f"Rule `{rule.get('id', 'unknown')}`."
 
 
+def _export_rules_from_collection(
+    pack: dict[str, Any],
+    source_uri: str,
+    collection: str,
+    revision: str,
+) -> dict[str, str]:
+    files: dict[str, str] = {}
+    entries = pack.get(collection)
+    if entries is None:
+        return files
+    if not isinstance(entries, list):
+        raise OkfExportError(f"{source_uri}: {collection} must be a list")
+    for index, rule in enumerate(entries):
+        if not isinstance(rule, dict):
+            raise OkfExportError(f"{source_uri}: {collection}[{index}] must be an object")
+        rule_id = str(rule.get("id") or "").strip()
+        if not rule_id:
+            raise OkfExportError(f"{source_uri}: {collection}[{index}] missing id")
+        rel_path = f"rules/{rule_id}.md"
+        if rel_path in files:
+            raise OkfExportError(f"duplicate export path: {rel_path}")
+        title = str(rule.get("description") or rule_id).strip()
+        tags = tuple(str(t).strip() for t in (rule.get("tags") or []) if str(t).strip())
+        frontmatter = {
+            "type": "Fraud Rule",
+            "title": title[:256],
+            "description": title[:512],
+            "tags": list(tags),
+            "source_uri": f"{source_uri}#{rule_id}",
+            "source_content_hash": source_record_hash(rule),
+            "approved_revision": revision,
+            **_STAGING_GOVERNANCE,
+        }
+        files[rel_path] = render_concept(frontmatter, _rule_body(rule))
+    return files
 
 
 def export_rule_pack(pack: dict[str, Any], source_uri: str) -> dict[str, str]:
     """Export rules and tag_rules from a legacy pack into OKF concept files."""
+    if not isinstance(pack, dict):
+        raise OkfExportError(f"{source_uri}: pack must be an object")
     revision = _pack_revision(pack)
-    files: dict[str, str] = {}
-    for collection in ("rules", "tag_rules"):
-        for rule in pack.get(collection) or []:
-            if not isinstance(rule, dict):
-                continue
-            rule_id = str(rule.get("id") or "").strip()
-            if not rule_id:
-                continue
-            rel_path = f"rules/{rule_id}.md"
-            title = str(rule.get("description") or rule_id).strip()
-            tags = tuple(str(t).strip() for t in (rule.get("tags") or []) if str(t).strip())
-            frontmatter = {
-                "type": "Fraud Rule",
-                "title": title[:256],
-                "description": title[:512],
-                "tags": list(tags),
-                "source_uri": f"{source_uri}#{rule_id}",
-                "source_content_hash": source_record_hash(rule),
-                "approved_revision": revision,
-                **_SHARED_GOVERNANCE,
-            }
-            files[rel_path] = render_concept(frontmatter, _rule_body(rule))
-    return dict(sorted(files.items()))
+    return merge_export_files(
+        _export_rules_from_collection(pack, source_uri, "rules", revision),
+        _export_rules_from_collection(pack, source_uri, "tag_rules", revision),
+    )
 
 
 def export_typologies(payload: dict[str, Any], source_uri: str) -> dict[str, str]:
     """Export typology definitions with relative links to member rules."""
+    if not isinstance(payload, dict):
+        raise OkfExportError(f"{source_uri}: typologies payload must be an object")
     revision = source_record_hash(payload)[:16]
     files: dict[str, str] = {}
-    for typology in payload.get("typologies") or []:
+    typologies = payload.get("typologies")
+    if typologies is None:
+        return files
+    if not isinstance(typologies, list):
+        raise OkfExportError(f"{source_uri}: typologies must be a list")
+    for index, typology in enumerate(typologies):
         if not isinstance(typology, dict):
-            continue
+            raise OkfExportError(f"{source_uri}: typologies[{index}] must be an object")
         typology_id = str(typology.get("id") or "").strip()
         if not typology_id:
-            continue
+            raise OkfExportError(f"{source_uri}: typologies[{index}] missing id")
         label = str(typology.get("label") or typology_id).strip()
         member_ids = [
             str(rid).strip()
@@ -167,9 +207,11 @@ def export_typologies(payload: dict[str, Any], source_uri: str) -> dict[str, str
             "source_uri": f"{source_uri}#{typology_id}",
             "source_content_hash": source_record_hash(typology),
             "approved_revision": revision,
-            **_SHARED_GOVERNANCE,
+            **_STAGING_GOVERNANCE,
         }
         rel_path = f"typologies/{typology_id}.md"
+        if rel_path in files:
+            raise OkfExportError(f"duplicate export path: {rel_path}")
         files[rel_path] = render_concept(frontmatter, "\n".join(body_lines).strip())
     return dict(sorted(files.items()))
 
@@ -199,7 +241,7 @@ def export_playbooks() -> dict[str, str]:
             "source_uri": f"playbooks/builtin#{playbook_id}",
             "source_content_hash": source_record_hash(record),
             "approved_revision": revision,
-            **_SHARED_GOVERNANCE,
+            **_STAGING_GOVERNANCE,
         }
         rel_path = f"playbooks/{playbook_id}.md"
         files[rel_path] = render_concept(frontmatter, fragment)
@@ -208,6 +250,8 @@ def export_playbooks() -> dict[str, str]:
 
 def export_landmark_case(case: dict[str, Any], *, tenant_id: str) -> str:
     """Export a sanitized landmark case for a tenant overlay bundle."""
+    if not isinstance(case, dict):
+        raise LandmarkCaseSanitizationError("landmark case must be an object")
     extra = set(case) - LANDMARK_CASE_ALLOWLIST
     if extra:
         raise LandmarkCaseSanitizationError(
@@ -238,12 +282,12 @@ def export_landmark_case(case: dict[str, Any], *, tenant_id: str) -> str:
     if typology_ids:
         body_lines.append("**Typologies**")
         for tid in sorted(str(x).strip() for x in typology_ids if str(x).strip()):
-            body_lines.append(f"- [{tid}](../../shared/typologies/{tid}.md)")
+            body_lines.append(f"- [{tid}](/shared/typologies/{tid}.md)")
         body_lines.append("")
     if rule_ids:
         body_lines.append("**Rules**")
         for rid in sorted(str(x).strip() for x in rule_ids if str(x).strip()):
-            body_lines.append(f"- [{rid}](../../shared/rules/{rid}.md)")
+            body_lines.append(f"- [{rid}](/shared/rules/{rid}.md)")
         body_lines.append("")
     frontmatter = {
         "type": "Landmark Case",
@@ -252,7 +296,7 @@ def export_landmark_case(case: dict[str, Any], *, tenant_id: str) -> str:
         "tags": ["landmark-case"],
         "source_uri": f"landmark-cases/{case_id}",
         "source_content_hash": source_hash,
-        "approval_status": "approved",
+        "approval_status": "proposed",
         "approved_revision": str(case.get("approved_revision") or "").strip(),
         "sensitivity": "internal",
         "tenant_scope": str(tenant_id).strip(),
@@ -322,26 +366,27 @@ def is_rule_pack_file(path: Path) -> bool:
 
 def collect_shared_exports(rules_dir: Path, *, include_playbooks: bool) -> dict[str, str]:
     """Build a shared staging bundle from legacy rule JSON on disk."""
-    files: dict[str, str] = {"index.md": shared_bundle_index_md()}
+    chunks: list[dict[str, str]] = [{"index.md": shared_bundle_index_md()}]
     for path in sorted(rules_dir.glob("*.json")):
         if not is_rule_pack_file(path):
             continue
         raw = path.read_text(encoding="utf-8")
         pack = json.loads(raw)
         if not isinstance(pack, dict):
-            continue
+            raise OkfExportError(f"rules/{path.name}: pack must be an object")
         if not (pack.get("rules") or pack.get("tag_rules")):
             continue
         source_uri = f"rules/{path.name}"
-        files.update(export_rule_pack(pack, source_uri))
+        chunks.append(export_rule_pack(pack, source_uri))
 
     typology_path = rules_dir / "typology_definitions_v1.json"
     if typology_path.is_file():
         typologies = json.loads(typology_path.read_text(encoding="utf-8"))
-        if isinstance(typologies, dict):
-            files.update(export_typologies(typologies, "rules/typology_definitions_v1.json"))
+        chunks.append(
+            export_typologies(typologies, "rules/typology_definitions_v1.json")
+        )
 
     if include_playbooks:
-        files.update(export_playbooks())
+        chunks.append(export_playbooks())
 
-    return dict(sorted(files.items()))
+    return merge_export_files(*chunks)

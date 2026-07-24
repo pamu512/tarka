@@ -12,11 +12,14 @@ import yaml
 
 from investigation_agent.okf_exporters import (
     LandmarkCaseSanitizationError,
+    OkfExportError,
     assert_staging_output_path,
+    collect_shared_exports,
     export_landmark_case,
     export_playbooks,
     export_rule_pack,
     export_typologies,
+    merge_export_files,
     render_concept,
     source_record_hash,
     write_staging_bundle,
@@ -64,6 +67,7 @@ def test_export_rule_pack_byte_identical_across_runs():
     assert meta["source_uri"] == "rules/sample.json#sample_rule"
     assert meta["type"] == "Fraud Rule"
     assert meta["tenant_scope"] == "shared"
+    assert meta["approval_status"] == "proposed"
 
 
 def test_one_byte_source_change_alters_source_content_hash():
@@ -146,6 +150,71 @@ def test_landmark_case_allowlist_only():
     meta = _frontmatter(md)
     assert meta["type"] == "Landmark Case"
     assert meta["tenant_scope"] == "t1"
+    assert meta["approval_status"] == "proposed"
+    assert "](/shared/typologies/velocity_abuse.md)" in md
+
+
+def test_merge_export_files_raises_on_duplicate_paths():
+    with pytest.raises(OkfExportError, match="duplicate export path"):
+        merge_export_files(
+            {"rules/r1.md": "a"},
+            {"rules/r1.md": "b"},
+        )
+
+
+def test_export_rule_pack_rejects_duplicate_ids_within_pack():
+    pack = {
+        "version": 1,
+        "rules": [
+            {"id": "dup", "when": [], "tags": [], "score_delta": 1},
+            {"id": "dup", "when": [], "tags": [], "score_delta": 2},
+        ],
+        "tag_rules": [],
+    }
+    with pytest.raises(OkfExportError, match="duplicate export path"):
+        export_rule_pack(pack, "rules/a.json")
+
+
+def test_collect_shared_exports_rejects_duplicate_rule_across_packs(tmp_path):
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    (rules_dir / "a.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "rules": [{"id": "shared_id", "when": [], "tags": [], "score_delta": 1}],
+                "tag_rules": [],
+            }
+        )
+    )
+    (rules_dir / "b.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "rules": [{"id": "shared_id", "when": [], "tags": [], "score_delta": 2}],
+                "tag_rules": [],
+            }
+        )
+    )
+    with pytest.raises(OkfExportError, match="duplicate export path"):
+        collect_shared_exports(rules_dir, include_playbooks=False)
+
+
+def test_export_rule_pack_rejects_malformed_rule(tmp_path):
+    with pytest.raises(OkfExportError, match="must be an object"):
+        export_rule_pack({"version": 1, "rules": ["bad"], "tag_rules": []}, "rules/x.json")
+    with pytest.raises(OkfExportError, match="missing id"):
+        export_rule_pack(
+            {"version": 1, "rules": [{"when": [], "tags": [], "score_delta": 1}], "tag_rules": []},
+            "rules/x.json",
+        )
+
+
+def test_export_typologies_rejects_malformed_entry():
+    with pytest.raises(OkfExportError, match="must be an object"):
+        export_typologies({"typologies": [1]}, "rules/t.json")
+    with pytest.raises(OkfExportError, match="missing id"):
+        export_typologies({"typologies": [{"label": "x"}]}, "rules/t.json")
 
 
 def test_write_staging_bundle_refuses_active_shared_root(tmp_path):

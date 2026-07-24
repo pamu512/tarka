@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -9,7 +10,9 @@ from investigation_agent.okf_exporters import collect_shared_exports, write_stag
 
 
 def _repo_root() -> Path:
-    # services/investigation-agent/scripts/this_file -> repo root
+    override = os.environ.get("OKF_REPO_ROOT", "").strip()
+    if override:
+        return Path(override).resolve()
     return Path(__file__).resolve().parents[3]
 
 
