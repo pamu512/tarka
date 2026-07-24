@@ -4,6 +4,8 @@ from typing import Any
 
 from investigation_agent.knowledge_db import (
     count_docs,
+    index_okf_bundle_async,
+    index_okf_concepts_sync,
     ingest_document_async,
     ingest_document_sync,
     search_async,
@@ -21,6 +23,8 @@ from investigation_agent.knowledge_db import (
 
 __all__ = [
     "count_docs",
+    "index_okf_bundle_async",
+    "index_okf_concepts_sync",
     "ingest_document",
     "ingest_document_async",
     "rag_db_path",
