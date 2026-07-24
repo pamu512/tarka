@@ -451,3 +451,156 @@ Remaining concerns:
   cases that require their external contract environment.
 - Existing Starlette/httpx, PyO3/dead-code, and frontend chunk-size warnings
   remain non-failing.
+
+## Durable final release gate
+
+Status: `DONE_WITH_CONCERNS`
+
+Fix commits:
+
+- `0e11d0a2` — `fix(decision): make evaluate idempotency durable`
+- `3bc9c668` — `fix(copilot): recover unified review persistence`
+- `10055f4e` — `fix(copilot): bind tool claims and abstain safely`
+- `1145db56` — `fix(okf): promote sanitized landmark bundles`
+
+Delivered:
+
+- Added source/deployed audit-model uniqueness on
+  `(tenant_id, idempotency_key)`, durable request fingerprints and serialized
+  responses, and the deployable decision migration. Redis is admission/cache
+  only; unique or ambiguous commits roll back and reconstruct the one committed
+  response. Whitelist, blacklist, normal, and test-bypass commits all use the
+  durable path.
+- Added Redis-loss concurrency, fingerprint mismatch, cache-completion failure,
+  and ambiguous-commit regressions in both decision trees.
+- Transactionally migrated legacy review rows into the unified AgentRun store
+  and rehydrated emergency JSONL runs into SQLite before atomic review updates.
+- Added compact domestic-phone and case-insensitive name detection while
+  centralizing fraud/playbook vocabulary to preserve safe domain phrases.
+- Required successful selected tool-call indices for every tool claim and exact
+  selected-hit IDs for knowledge claims. Exact-ID violations now withhold prose
+  in standard and strict modes.
+- Exposed sanitized landmark concept + canonical snapshot + manifest export in
+  the operator CLI, rejected caller-supplied hashes, and documented promotion.
+- Clarified readiness semantics for SQLite, RAG, OKF, and degraded responses.
+
+Fresh verification:
+
+```bash
+cd services/legacy_v1_decision_api
+tmp_db=$(mktemp /tmp/decision-migration-XXXXXX.sqlite3)
+PYTHONPATH=src:../shared:../../packages/shared-core \
+DATABASE_URL="sqlite+aiosqlite:///$tmp_db" python3 -m alembic upgrade head
+```
+
+Result: exit 0; all 10 revisions applied through `20260724_010`. The deployed
+legacy tree is the repository's migration owner and is copied into both
+deployable decision images; the source tree has no separate Alembic entrypoint.
+
+```bash
+cd services/decision-api
+PYTHONPATH=src:../shared:../core/src:../../packages/shared-core \
+DATABASE_URL=sqlite+aiosqlite:/// REDIS_URL=redis://localhost:6379/0 \
+python3 -m pytest -q -m "not contract" tests/
+```
+
+Result: exit 0; `58 passed, 1 skipped`.
+
+```bash
+cd services/legacy_v1_decision_api
+PYTHONPATH=src:../shared:../../packages/shared-core \
+DATABASE_URL=sqlite+aiosqlite:/// REDIS_URL=redis://localhost:6379/0 \
+python3 -m pytest -q -m "not contract" tests/
+```
+
+Result: exit 0; `357 passed, 113 contract tests deselected`.
+
+```bash
+cd services/investigation-agent
+PYTHONPATH=src:../shared:../../packages/shared-core python3 -m pytest -q
+```
+
+Result: exit 0; `341 passed, 1 skipped`.
+
+```bash
+python3 services/investigation-agent/scripts/validate_okf_bundle.py \
+  knowledge/shared --scope shared
+PYTHONPATH=services/investigation-agent/src:services/shared:packages/shared-core \
+python3 -m pytest -q \
+  services/investigation-agent/tests/test_okf_parser.py \
+  services/investigation-agent/tests/test_okf_registry.py \
+  services/investigation-agent/tests/test_okf_exporters.py \
+  services/investigation-agent/tests/test_okf_retrieval.py \
+  services/investigation-agent/tests/test_okf_end_to_end.py \
+  services/investigation-agent/tests/test_citation_quality_gate.py \
+  services/investigation-agent/tests/test_agent_run_deployment.py \
+  services/investigation-agent/tests/test_agent_run_store.py \
+  services/investigation-agent/tests/test_production_readiness.py \
+  services/investigation-agent/tests/test_okf_cli.py
+python3 infra/scripts/deploy/validate_env_contract.py
+```
+
+Result: exit 0; shared bundle valid; `146 passed`; deployment/environment
+contract covered `8/8` required keys. The runtime-backed gates enforce
+recall@10 `>=95%`, exact concept+evidence citation precision `>=99.5%`, and
+actual unsupported abstention `>=98%` over at least 20 adversarial cases.
+
+```bash
+PYTHONPATH=services/shared:packages/shared-core python3 -m pytest -q \
+  services/shared/tests/test_auth.py \
+  services/shared/tests/test_auth_rbac_tenant_scopes.py
+```
+
+Result: exit 0; `9 passed`.
+
+```bash
+python3 -m ruff --version
+python3 -m ruff check .
+python3 -m ruff format --check services/
+```
+
+Result: exit 0; `ruff 0.15.22`; all checks passed; `1188 files already
+formatted`.
+
+```bash
+npm ci
+npm audit --audit-level=low
+npm run test -w tarka-ui
+python3 infra/scripts/ci/check_frontend_mock_mode.py
+npm run build -w tarka-ui
+```
+
+Result: exit 0; `0 vulnerabilities`; `49` test files and `144` tests passed;
+mock-mode guard passed; production build completed.
+
+```bash
+cargo +stable check --manifest-path services/rule-engine/Cargo.toml
+cargo +stable test --manifest-path services/rule-engine/Cargo.toml
+cargo +stable check --manifest-path packages/tarka-rule-engine/Cargo.toml
+cargo +stable test --manifest-path packages/tarka-rule-engine/Cargo.toml
+```
+
+Result: exit 0; service rule engine `4 passed`; package rule engine `5 passed`;
+doc tests passed.
+
+Final repository checks:
+
+```bash
+git diff --check
+git diff --name-only -- docs/superpowers/specs docs/superpowers/plans
+git status --porcelain=v2 --untracked-files=all
+```
+
+Result before report commit: no whitespace errors, no plan/design changes, and
+no generated SQLite, decision-log, rule-pack, or staging-bundle artifacts.
+
+Remaining concerns:
+
+- A diagnostic run of the broader legacy Schemathesis contract marker reported
+  `34 failed, 79 passed, 357 deselected` across simulation, lists, consortium,
+  calibration, reporting, rule, feature-store, analytics, admin, and evaluate
+  endpoints. These failures are outside the configured decision source-of-truth
+  suite and include existing schema-fuzz behavior, but they remain unresolved
+  and prevent claiming an entirely clean all-marker contract run.
+- Existing Starlette/httpx, PyO3/dead-code, and frontend chunk-size warnings
+  remain non-failing.
