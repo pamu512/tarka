@@ -209,6 +209,11 @@
       "name": "failed_audit_index",
       "claim": {"text": "The failed decision audit confirms the outcome.", "source": "tool", "supporting_tool_call_indices": [7]},
       "expected_supported": false
+    },
+    {
+      "name": "unrelated_successful_tool_payload",
+      "claim": {"text": "Entity entity-1 appears in the selected case.", "source": "tool", "supporting_tool_call_indices": [2]},
+      "expected_supported": false
     }
   ]
 }

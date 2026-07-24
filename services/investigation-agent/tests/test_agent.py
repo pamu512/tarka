@@ -902,9 +902,18 @@ class TestSearchKnowledgeOkf:
         assert claims == [{"text": reply, "source": "unknown", "supported": False}]
 
     @pytest.mark.parametrize("assurance_mode", ["standard", "strict"])
+    @pytest.mark.parametrize(
+        "adjustment",
+        [
+            "tool_call_binding_invalid",
+            "tool_claim_missing_grounding_token",
+            "no_successful_tool_payloads_for_grounding",
+        ],
+    )
     def test_invalid_non_knowledge_tool_binding_withholds_narrative(
         self,
         assurance_mode,
+        adjustment,
     ):
         from investigation_agent.main import _apply_grounding_abstention
 
@@ -912,7 +921,7 @@ class TestSearchKnowledgeOkf:
         reply, claims, refused = _apply_grounding_abstention(
             unsafe,
             [{"text": unsafe, "source": "unknown", "supported": False}],
-            adjustments=["tool_call_binding_invalid"],
+            adjustments=[adjustment],
             assurance_mode=assurance_mode,
         )
 

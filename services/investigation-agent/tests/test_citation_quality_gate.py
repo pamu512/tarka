@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from investigation_agent.citation_schema import build_standard_citations
+from investigation_agent.copilot_hardening import enforce_tool_claim_grounding
 from investigation_agent.main import (
     _apply_grounding_abstention,
     _enforce_claim_exact_ids,
@@ -43,6 +44,11 @@ def test_independent_adversarial_citation_quality_gate() -> None:
         prose, parsed, warning = _parse_tarka_claims_reply(raw_reply)
         assert warning is None, case["name"]
         grounded, adjustments = _enforce_claim_exact_ids(parsed, tool_calls)
+        grounded, token_adjustments = enforce_tool_claim_grounding(
+            grounded,
+            tool_calls,
+        )
+        adjustments.extend(token_adjustments)
         citations, _summary = build_standard_citations(
             claims=grounded,
             deterministic_support=[
@@ -100,8 +106,9 @@ def test_independent_adversarial_citation_quality_gate() -> None:
         "failed_graph_index",
         "omitted_audit_index",
         "failed_audit_index",
+        "unrelated_successful_tool_payload",
     } <= categories
-    assert unsupported_total >= 26
+    assert unsupported_total >= 27
     assert accepted_exact_refs > 0
     citation_resolution_precision = correct_exact_refs / accepted_exact_refs
     unsupported_abstention = unsupported_abstained / unsupported_total

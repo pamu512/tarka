@@ -36,7 +36,7 @@ def test_runtime_readiness_errors_reports_rag_sql_probe_failure():
     assert errs == ["rag sqlite unavailable: sqlite unavailable"]
 
 
-def test_ready_unhealthy_when_enabled_rag_is_unavailable():
+def test_ready_degraded_when_rag_unavailable_but_okf_healthy():
     with (
         patch("investigation_agent.main.runtime_readiness_errors", return_value=["rag down"]),
         patch("investigation_agent.main._okf_readiness_errors", return_value=[]),
@@ -44,11 +44,11 @@ def test_ready_unhealthy_when_enabled_rag_is_unavailable():
         TestClient(app) as client,
     ):
         r = client.get("/v1/ready")
-    assert r.status_code == 503
-    assert r.json() == {"status": "not_ready", "errors": ["rag_unavailable"]}
+    assert r.status_code == 200
+    assert r.json() == {"status": "degraded", "warnings": ["rag_unavailable"]}
 
 
-def test_ready_unhealthy_when_enabled_okf_is_unavailable():
+def test_ready_degraded_when_okf_unavailable_but_rag_healthy():
     with (
         patch("investigation_agent.main.runtime_readiness_errors", return_value=[]),
         patch("investigation_agent.main._okf_readiness_errors", return_value=["okf down"]),
@@ -57,10 +57,10 @@ def test_ready_unhealthy_when_enabled_okf_is_unavailable():
     ):
         response = client.get("/v1/ready")
 
-    assert response.status_code == 503
+    assert response.status_code == 200
     assert response.json() == {
-        "status": "not_ready",
-        "errors": ["okf_unavailable"],
+        "status": "degraded",
+        "warnings": ["okf_unavailable"],
     }
 
 
@@ -86,7 +86,26 @@ def test_ready_unhealthy_when_rag_and_okf_unavailable():
     ):
         r = client.get("/v1/ready")
     assert r.status_code == 503
-    assert r.json()["status"] == "not_ready"
+    assert r.json() == {
+        "status": "not_ready",
+        "errors": ["rag_unavailable", "okf_unavailable"],
+    }
+
+
+def test_ready_unhealthy_when_only_enabled_rag_is_unavailable():
+    with (
+        patch("investigation_agent.main.runtime_readiness_errors", return_value=["rag down"]),
+        patch("investigation_agent.main._okf_readiness_errors", return_value=[]),
+        patch.object(config.settings, "okf_enabled", False),
+        TestClient(app) as client,
+    ):
+        response = client.get("/v1/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "not_ready",
+        "errors": ["rag_unavailable"],
+    }
 
 
 def test_health_exposes_only_stable_status_and_codes():
@@ -199,7 +218,7 @@ def test_unauthenticated_readiness_never_leaks_paths_or_raw_errors(monkeypatch):
     assert "source hash" not in public_payload
 
 
-def test_openapi_ready_contract_requires_all_enabled_knowledge_paths():
+def test_openapi_ready_contract_covers_graceful_knowledge_degradation():
     import yaml
 
     contract = yaml.safe_load(
@@ -215,15 +234,20 @@ def test_openapi_ready_contract_requires_all_enabled_knowledge_paths():
     ok_schema = responses["200"]["content"]["application/json"]["schema"]
     unavailable_schema = responses["503"]["content"]["application/json"]["schema"]
 
-    assert set(ok_schema["properties"]["status"]["enum"]) == {"ready"}
+    assert set(ok_schema["properties"]["status"]["enum"]) == {"ready", "degraded"}
+    assert set(ok_schema["properties"]["warnings"]["items"]["enum"]) == {
+        "rag_unavailable",
+        "okf_unavailable",
+    }
     assert set(unavailable_schema["properties"]["errors"]["items"]["enum"]) == {
         "rag_unavailable",
         "okf_unavailable",
     }
     assert "rag" in description
     assert "okf" in description
-    assert "enabled" in description
     assert "disabled" in description
+    assert "degraded" in description
+    assert "all usable" in description
 
 
 def test_request_body_too_large_413():
