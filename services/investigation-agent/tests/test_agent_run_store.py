@@ -151,6 +151,20 @@ def test_review_and_agent_run_are_atomic_and_retry_idempotent(tmp_path, monkeypa
         status="rejected",
         note="new evidence",
     )
+    third_id = agent_run_store.save_review_transactionally(
+        turn_id="turn-atomic",
+        tenant_id="t1",
+        analyst_id="checker",
+        status="approved",
+        note="verified",
+    )
+    third_retry_id = agent_run_store.save_review_transactionally(
+        turn_id="turn-atomic",
+        tenant_id="t1",
+        analyst_id="checker",
+        status="approved",
+        note="verified",
+    )
 
     reviewed = agent_run_store.get_agent_run(
         tenant_id="t1",
@@ -161,11 +175,13 @@ def test_review_and_agent_run_are_atomic_and_retry_idempotent(tmp_path, monkeypa
 
     assert retry_id == first_id
     assert distinct_id != first_id
-    assert reviewed["review_state"] == "rejected"
-    assert review_store.latest_review("turn-atomic", "t1")["id"] == distinct_id
-    assert [row["id"] for row in history] == [distinct_id, first_id]
-    assert metrics["total_reviews"] == 2
-    assert metrics["approved"] == 1
+    assert third_id not in {first_id, distinct_id}
+    assert third_retry_id == third_id
+    assert reviewed["review_state"] == "approved"
+    assert review_store.latest_review("turn-atomic", "t1")["id"] == third_id
+    assert [row["id"] for row in history] == [third_id, distinct_id, first_id]
+    assert metrics["total_reviews"] == 3
+    assert metrics["approved"] == 2
     assert metrics["rejected"] == 1
     agent_run_store.reset_connection_for_tests()
 
@@ -266,7 +282,7 @@ def test_unified_store_migrates_legacy_reviews_once_across_restart(tmp_path, mon
                 "legacy-reviewer-2",
                 "rejected",
                 "second event",
-                base_time + 1,
+                base_time,
             ),
             (
                 "legacy-turn",
@@ -274,7 +290,7 @@ def test_unified_store_migrates_legacy_reviews_once_across_restart(tmp_path, mon
                 "legacy-reviewer-1",
                 "approved",
                 "first event",
-                base_time + 2,
+                base_time,
             ),
         ],
     )
