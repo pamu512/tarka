@@ -6,6 +6,7 @@ import os
 import sqlite3
 import threading
 import time
+from contextlib import suppress
 from pathlib import Path
 from typing import Any, Literal
 
@@ -39,57 +40,136 @@ def emergency_path() -> Path:
     return _data_dir() / "copilot_agent_runs.emergency.jsonl"
 
 
+def legacy_review_db_path() -> Path:
+    name = (
+        os.environ.get("COPILOT_REVIEW_DB_NAME", "copilot_turn_reviews.sqlite3").strip()
+        or "copilot_turn_reviews.sqlite3"
+    )
+    return _data_dir() / name
+
+
+def _legacy_review_rows() -> list[tuple[str, str, str, str, str | None, float, float]]:
+    path = legacy_review_db_path()
+    if not path.is_file() or path.resolve() == db_path().resolve():
+        return []
+    legacy = sqlite3.connect(path)
+    try:
+        table = legacy.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'copilot_turn_reviews'"
+        ).fetchone()
+        if not table:
+            raise AgentRunPersistenceError("legacy review database has no review table")
+        columns = {
+            str(row[1])
+            for row in legacy.execute("PRAGMA table_info(copilot_turn_reviews)").fetchall()
+        }
+        required = {
+            "id",
+            "turn_id",
+            "tenant_id",
+            "analyst_id",
+            "status",
+            "note",
+            "created_at",
+        }
+        if not required <= columns:
+            raise AgentRunPersistenceError("legacy review database schema is incomplete")
+        updated_expr = "updated_at" if "updated_at" in columns else "created_at"
+        rows = legacy.execute(
+            "SELECT turn_id, tenant_id, analyst_id, status, note, created_at, "
+            f"{updated_expr} FROM copilot_turn_reviews "
+            "ORDER BY created_at ASC, id ASC"
+        ).fetchall()
+    finally:
+        legacy.close()
+
+    latest: dict[tuple[str, str], tuple[str, str, str, str, str | None, float, float]] = {}
+    for row in rows:
+        status = str(row[3])
+        if status not in {"approved", "rejected"}:
+            raise AgentRunPersistenceError("legacy review status is invalid")
+        normalized = (
+            str(row[0]),
+            str(row[1]),
+            str(row[2]),
+            status,
+            str(row[4]) if row[4] is not None else None,
+            float(row[5]),
+            float(row[6]),
+        )
+        latest[(normalized[1], normalized[0])] = normalized
+    return list(latest.values())
+
+
 def _get_conn() -> sqlite3.Connection:
     global _conn
     with _lock:
         if _conn is None:
-            _conn = sqlite3.connect(db_path(), check_same_thread=False)
-            _conn.execute("PRAGMA journal_mode=WAL")
-            _conn.execute("PRAGMA synchronous=FULL")
-            _conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS copilot_agent_runs (
-                    agent_run_id TEXT PRIMARY KEY,
-                    tenant_id TEXT NOT NULL,
-                    analyst_id TEXT NOT NULL,
-                    turn_id TEXT NOT NULL,
-                    prompt_hash TEXT NOT NULL,
-                    model_provider TEXT NOT NULL,
-                    model_revision TEXT NOT NULL,
-                    review_state TEXT NOT NULL,
-                    payload_json TEXT NOT NULL,
-                    created_at TEXT NOT NULL
+            legacy_rows = _legacy_review_rows()
+            conn = sqlite3.connect(db_path(), check_same_thread=False)
+            try:
+                conn.execute("PRAGMA journal_mode=WAL")
+                conn.execute("PRAGMA synchronous=FULL")
+                conn.execute("BEGIN IMMEDIATE")
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS copilot_agent_runs (
+                        agent_run_id TEXT PRIMARY KEY,
+                        tenant_id TEXT NOT NULL,
+                        analyst_id TEXT NOT NULL,
+                        turn_id TEXT NOT NULL,
+                        prompt_hash TEXT NOT NULL,
+                        model_provider TEXT NOT NULL,
+                        model_revision TEXT NOT NULL,
+                        review_state TEXT NOT NULL,
+                        payload_json TEXT NOT NULL,
+                        created_at TEXT NOT NULL
+                    )
+                    """
                 )
-                """
-            )
-            _conn.execute(
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_runs_tenant_turn "
-                "ON copilot_agent_runs (tenant_id, turn_id)"
-            )
-            _conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_agent_runs_tenant_created "
-                "ON copilot_agent_runs (tenant_id, created_at DESC)"
-            )
-            _conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS copilot_turn_reviews (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    turn_id TEXT NOT NULL,
-                    tenant_id TEXT NOT NULL,
-                    analyst_id TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    note TEXT,
-                    created_at REAL NOT NULL,
-                    updated_at REAL NOT NULL,
-                    UNIQUE (tenant_id, turn_id)
+                conn.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_runs_tenant_turn "
+                    "ON copilot_agent_runs (tenant_id, turn_id)"
                 )
-                """
-            )
-            _conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_reviews_tenant_time "
-                "ON copilot_turn_reviews (tenant_id, created_at DESC)"
-            )
-            _conn.commit()
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_agent_runs_tenant_created "
+                    "ON copilot_agent_runs (tenant_id, created_at DESC)"
+                )
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS copilot_turn_reviews (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        turn_id TEXT NOT NULL,
+                        tenant_id TEXT NOT NULL,
+                        analyst_id TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        note TEXT,
+                        created_at REAL NOT NULL,
+                        updated_at REAL NOT NULL,
+                        UNIQUE (tenant_id, turn_id)
+                    )
+                    """
+                )
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_reviews_tenant_time "
+                    "ON copilot_turn_reviews (tenant_id, created_at DESC)"
+                )
+                conn.executemany(
+                    """
+                    INSERT OR IGNORE INTO copilot_turn_reviews (
+                        turn_id, tenant_id, analyst_id, status, note,
+                        created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    legacy_rows,
+                )
+                conn.commit()
+            except Exception:
+                if conn.in_transaction:
+                    conn.rollback()
+                conn.close()
+                raise
+            _conn = conn
         return _conn
 
 
@@ -122,6 +202,52 @@ def _validated_payload(payload: dict[str, Any]) -> dict[str, Any]:
     return dict(payload)
 
 
+def _insert_agent_run(
+    conn: sqlite3.Connection,
+    payload: dict[str, Any],
+    *,
+    analyst_id: str,
+    turn_id: str,
+    ignore_existing: bool,
+) -> None:
+    run = _validated_payload(payload)
+    blob = json.dumps(run, sort_keys=True, separators=(",", ":"), default=str)
+    mode = "INSERT OR IGNORE" if ignore_existing else "INSERT"
+    changed = conn.execute(
+        f"""
+        {mode} INTO copilot_agent_runs (
+            agent_run_id, tenant_id, analyst_id, turn_id, prompt_hash,
+            model_provider, model_revision, review_state, payload_json, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            str(run["agent_run_id"]),
+            str(run["tenant_id"]),
+            str(analyst_id),
+            str(turn_id),
+            str(run["prompt_hash"]),
+            str(run["model_provider"]),
+            str(run["model_revision"]),
+            str(run["review_state"]),
+            blob,
+            str(run["created_at"]),
+        ),
+    )
+    if ignore_existing and changed.rowcount == 0:
+        existing = conn.execute(
+            """
+            SELECT agent_run_id
+            FROM copilot_agent_runs
+            WHERE tenant_id = ? AND turn_id = ?
+            """,
+            (str(run["tenant_id"]), str(turn_id)),
+        ).fetchone()
+        if not existing or str(existing[0]) != str(run["agent_run_id"]):
+            raise AgentRunPersistenceError(
+                "emergency AgentRun conflicts with persisted tenant turn"
+            )
+
+
 def _persist_sqlite(
     payload: dict[str, Any],
     *,
@@ -129,27 +255,13 @@ def _persist_sqlite(
     turn_id: str,
 ) -> None:
     conn = _get_conn()
-    blob = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
     with _lock:
-        conn.execute(
-            """
-            INSERT INTO copilot_agent_runs (
-                agent_run_id, tenant_id, analyst_id, turn_id, prompt_hash,
-                model_provider, model_revision, review_state, payload_json, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                str(payload["agent_run_id"]),
-                str(payload["tenant_id"]),
-                str(analyst_id),
-                str(turn_id),
-                str(payload["prompt_hash"]),
-                str(payload["model_provider"]),
-                str(payload["model_revision"]),
-                str(payload["review_state"]),
-                blob,
-                str(payload["created_at"]),
-            ),
+        _insert_agent_run(
+            conn,
+            payload,
+            analyst_id=analyst_id,
+            turn_id=turn_id,
+            ignore_existing=False,
         )
         conn.commit()
 
@@ -232,21 +344,6 @@ def _load_emergency_record(
     return None
 
 
-def _load_emergency(
-    *,
-    tenant_id: str,
-    agent_run_id: str | None,
-    turn_id: str | None,
-) -> dict[str, Any] | None:
-    record = _load_emergency_record(
-        tenant_id=tenant_id,
-        agent_run_id=agent_run_id,
-        turn_id=turn_id,
-    )
-    run = record.get("agent_run") if isinstance(record, dict) else None
-    return run if isinstance(run, dict) else None
-
-
 def get_agent_run(
     *,
     tenant_id: str,
@@ -276,11 +373,38 @@ def get_agent_run(
     if row:
         payload = json.loads(str(row[0]))
         return payload if isinstance(payload, dict) else None
-    return _load_emergency(
+    record = _load_emergency_record(
         tenant_id=tenant_id,
         agent_run_id=agent_run_id,
         turn_id=turn_id,
     )
+    run = record.get("agent_run") if isinstance(record, dict) else None
+    if not isinstance(run, dict):
+        return None
+    conn = None
+    try:
+        conn = _get_conn()
+        with _lock:
+            conn.execute("BEGIN IMMEDIATE")
+            _insert_agent_run(
+                conn,
+                run,
+                analyst_id=str(record.get("analyst_id") or ""),
+                turn_id=str(record.get("turn_id") or turn_id or ""),
+                ignore_existing=True,
+            )
+            conn.commit()
+    except Exception:
+        with suppress(Exception):
+            if conn is not None and conn.in_transaction:
+                conn.rollback()
+        log.exception(
+            "agent_run_emergency_rehydrate_failed tenant_id=%s agent_run_id=%s turn_id=%s",
+            tenant_id,
+            agent_run_id,
+            turn_id,
+        )
+    return run
 
 
 def update_review_state(*, tenant_id: str, turn_id: str, review_state: str) -> bool:
@@ -386,12 +510,41 @@ def save_review_transactionally(
     """Upsert one review and its AgentRun state in the same SQLite transaction."""
     if status not in {"approved", "rejected"}:
         raise AgentRunPersistenceError("review status must be approved or rejected")
+    emergency_record = _load_emergency_record(
+        tenant_id=tenant_id,
+        agent_run_id=None,
+        turn_id=turn_id,
+    )
     conn = _get_conn()
     now = time.time()
     note_s = (note or "")[:2000] or None
     try:
         with _lock:
             conn.execute("BEGIN IMMEDIATE")
+            existing_run = conn.execute(
+                """
+                SELECT 1 FROM copilot_agent_runs
+                WHERE tenant_id = ? AND turn_id = ?
+                """,
+                (tenant_id, turn_id),
+            ).fetchone()
+            if not existing_run:
+                emergency_run = (
+                    emergency_record.get("agent_run")
+                    if isinstance(emergency_record, dict)
+                    else None
+                )
+                if not isinstance(emergency_run, dict):
+                    raise AgentRunPersistenceError(
+                        "AgentRun is absent from SQLite and emergency audit"
+                    )
+                _insert_agent_run(
+                    conn,
+                    emergency_run,
+                    analyst_id=str(emergency_record.get("analyst_id") or ""),
+                    turn_id=turn_id,
+                    ignore_existing=True,
+                )
             conn.execute(
                 """
                 INSERT INTO copilot_turn_reviews (
