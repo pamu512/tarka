@@ -48,10 +48,16 @@ impl HotReloadRuleStore {
         match RuleSet::from_rules_json(rules, v) {
             Ok(rs) => self.reload(rs),
             Err(e) => {
+                #[cfg(feature = "hot-reload")]
                 tracing::error!(
                     target: "tarka_rule_engine.hot_reload",
                     error = %e,
                     "rejecting malformed ruleset reload (keeping prior rules)"
+                );
+                #[cfg(not(feature = "hot-reload"))]
+                eprintln!(
+                    "tarka_rule_engine.hot_reload: rejecting malformed ruleset reload \
+                     (keeping prior rules): {e}"
                 );
             }
         }
