@@ -1,11 +1,46 @@
-# Tarka v2 ingest path: rule engine + shadow sidecar + orchestrator (see docs/SYSTEM_DESIGN.md).
+# Tarka v2 ingest path: decision-api (Rust packs) + shadow + orchestrator.
 # Build context is repo root (../.. relative to this file). Run from repo root:
 #   docker compose -f infra/deploy/docker-compose.v2-ingest.yml up -d --build
+#
+# Rollback / dual-run: also start the Python AST sidecar:
+#   docker compose -f infra/deploy/docker-compose.v2-ingest.yml --profile legacy-python-rules up -d --build
+#   then set RULE_EVAL_BACKEND=python or RULE_EVAL_DUAL_RUN=true on orchestrator.
 
 name: tarka-v2-ingest
 
 services:
+  decision-api:
+    build:
+      context: ../..
+      dockerfile: services/decision-api/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      TARKA_DB_ENGINE: sqlite
+      ALLOW_INSECURE_NO_AUTH: "true"
+      RULES_PATH: /repo/services/decision-api/rules
+      FEATURE_SERVICE_URL: ""
+      GRAPH_SERVICE_URL: ""
+      OPA_URL: ""
+      ML_SCORING_URL: ""
+      REDIS_URL: ""
+      NATS_URL: ""
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/v1/health', timeout=5).read()",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 8
+      start_period: 40s
+
+  # Optional: Python AST evaluate/deploy (:8778) for dual-run / emergency rollback.
   rule_engine:
+    profiles: ["legacy-python-rules"]
     build:
       context: ../..
       dockerfile: services/rule_engine/Dockerfile
@@ -53,11 +88,18 @@ services:
     ports:
       - "8790:8790"
     environment:
+      RULE_EVAL_BACKEND: decision_api
+      DECISION_API_URL: http://decision-api:8000
+      # When decision-api enforces API_KEYS, set the same key here (or DECISION_API_KEY):
+      # DECISION_API_KEY: ${API_KEYS:-}
+      # Optional dual-run / rollback (requires --profile legacy-python-rules):
+      # RULE_EVAL_DUAL_RUN: "true"
+      # RULE_EVAL_BACKEND: python
       RULE_ENGINE_URL: http://rule_engine:8778
       SHADOW_AGENT_URL: http://shadow_agent:8801
       SHADOW_API_KEY: ${TARKA_SHADOW_API_KEY:-dev-shadow-token-change-me}
     depends_on:
-      rule_engine:
+      decision-api:
         condition: service_healthy
       shadow_agent:
         condition: service_healthy

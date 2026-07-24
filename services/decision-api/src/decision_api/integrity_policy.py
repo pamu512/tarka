@@ -12,6 +12,88 @@ _INTEGRITY_EXPECTATIONS: dict[str, list[tuple[str, float]]] = {
     "server": [],
 }
 
+# What counts as high-confidence integrity evidence per platform (Wave 2 matrix).
+_ATTESTATION_PROVIDERS: dict[str, dict[str, Any]] = {
+    "web": {
+        "high_confidence_signals": [
+            "tls_pinning_verified",
+            "replay_signature_ok",
+            "captcha_passed",
+        ],
+        "attestation_provider": None,
+        "min_integrity_confidence": 0.55,
+    },
+    "android": {
+        "high_confidence_signals": [
+            "play_integrity_verified",
+            "replay_signature_ok",
+            "not_emulator",
+            "not_repackaged",
+        ],
+        "attestation_provider": "play_integrity",
+        "min_integrity_confidence": 0.7,
+    },
+    "ios": {
+        "high_confidence_signals": [
+            "app_attest_verified",
+            "replay_signature_ok",
+            "not_repackaged",
+        ],
+        "attestation_provider": "app_attest",
+        "min_integrity_confidence": 0.7,
+    },
+    "server": {
+        "high_confidence_signals": ["hmac_request_ok", "replay_signature_ok"],
+        "attestation_provider": None,
+        "min_integrity_confidence": 0.5,
+    },
+}
+
+
+def integrity_policy_matrix() -> dict[str, Any]:
+    """Public matrix for ops / CI: platforms, tamper markers, attestation providers."""
+    platforms: dict[str, Any] = {}
+    for plat, rules in _INTEGRITY_EXPECTATIONS.items():
+        att = _ATTESTATION_PROVIDERS.get(plat, {})
+        platforms[plat] = {
+            "tamper_markers_clear_required": [m for m, _ in rules],
+            "attestation_provider": att.get("attestation_provider"),
+            "high_confidence_signals": list(att.get("high_confidence_signals") or []),
+            "min_integrity_confidence_for_auto_action": att.get(
+                "min_integrity_confidence"
+            ),
+        }
+    return {
+        "schema_id": "tarka.integrity_policy_matrix/v1",
+        "platforms": platforms,
+        "note": (
+            "High-confidence auto-actions should require min_integrity_confidence "
+            "and platform attestation when attestation_provider is set."
+        ),
+    }
+
+
+def platform_meets_high_confidence(
+    platform: str,
+    *,
+    integrity_confidence: float,
+    verified_signals: list[str] | None = None,
+) -> bool:
+    """True when confidence and optional verified signal names meet the matrix bar."""
+    plat = (platform or "web").strip().lower()
+    att = _ATTESTATION_PROVIDERS.get(plat, _ATTESTATION_PROVIDERS["web"])
+    min_c = float(att.get("min_integrity_confidence") or 0.5)
+    if integrity_confidence < min_c:
+        return False
+    required = list(att.get("high_confidence_signals") or [])
+    if not required:
+        return True
+    have = {s.strip().lower() for s in (verified_signals or []) if s}
+    # At least one named high-confidence signal when attestation is configured.
+    if att.get("attestation_provider"):
+        return any(r.lower() in have for r in required)
+    return True
+
 
 def supplemental_tags_for_integrity(platform: str, signal_tags: list[str]) -> list[str]:
     """Emit integrity:* tags when platform expectations are violated."""

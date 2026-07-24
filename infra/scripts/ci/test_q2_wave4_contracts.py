@@ -26,7 +26,7 @@ class TestGraphPathExplanationSchema(unittest.TestCase):
 
 class TestPathExplainAssembly(unittest.TestCase):
     def test_assemble_minimal(self) -> None:
-        from path_explain import assemble_path_explanation
+        from graph_service.path_explain import assemble_path_explanation
 
         out = assemble_path_explanation(
             "tenant-1",
