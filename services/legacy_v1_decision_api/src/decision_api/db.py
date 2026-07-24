@@ -4,6 +4,7 @@ from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Literal
 
+from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from decision_api.config import settings
@@ -46,6 +47,64 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
+def _sqlite_index_columns(connection: Connection, index_name: str) -> tuple[str, ...]:
+    escaped = index_name.replace("'", "''")
+    return tuple(
+        str(row[2])
+        for row in connection.exec_driver_sql(
+            f"PRAGMA index_info('{escaped}')"
+        ).fetchall()
+    )
+
+
+def _upgrade_sqlite_durable_idempotency(connection: Connection) -> None:
+    """Upgrade an existing SQLite decision_audit table without rebuilding it."""
+    columns = {
+        str(row[1])
+        for row in connection.exec_driver_sql(
+            "PRAGMA table_info('decision_audit')"
+        ).fetchall()
+    }
+    if not columns:
+        return
+    for column_name, column_type in (
+        ("idempotency_key", "VARCHAR(512)"),
+        ("request_fingerprint", "VARCHAR(64)"),
+        ("idempotency_response", "JSON"),
+    ):
+        if column_name not in columns:
+            connection.exec_driver_sql(
+                f"ALTER TABLE decision_audit ADD COLUMN {column_name} {column_type}"
+            )
+
+    index_name = "uq_decision_audit_tenant_idempotency_key"
+    indexes = {
+        str(row[1]): bool(row[2])
+        for row in connection.exec_driver_sql(
+            "PRAGMA index_list('decision_audit')"
+        ).fetchall()
+    }
+    if index_name in indexes:
+        if not indexes[index_name] or _sqlite_index_columns(connection, index_name) != (
+            "tenant_id",
+            "idempotency_key",
+        ):
+            raise RuntimeError(
+                f"SQLite index {index_name} has an incompatible definition"
+            )
+        return
+    if not any(
+        unique
+        and _sqlite_index_columns(connection, existing_name)
+        == ("tenant_id", "idempotency_key")
+        for existing_name, unique in indexes.items()
+    ):
+        connection.exec_driver_sql(
+            "CREATE UNIQUE INDEX uq_decision_audit_tenant_idempotency_key "
+            "ON decision_audit (tenant_id, idempotency_key)"
+        )
+
+
 async def init_db() -> None:
     from decision_api import models as _models  # noqa: F401
 
@@ -59,6 +118,7 @@ async def init_db() -> None:
     if _engine_kind == "sqlite":
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            await conn.run_sync(_upgrade_sqlite_durable_idempotency)
         return
 
     os.environ["ALEMBIC_SYNC_DATABASE_URL"] = sync_url_for_alembic(_database_url)
