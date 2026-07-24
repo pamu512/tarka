@@ -914,8 +914,9 @@ async def tool_search_knowledge(
     analyst_id: str,
     query: str,
     limit: int = 5,
+    okf_registry: Any | None = None,
 ) -> dict[str, Any]:
-    """Keyword search over analyst-ingested investigation memos (tenant scoped)."""
+    """Search approved OKF concepts first, then analyst-ingested memos (tenant scoped)."""
     if not _analyst_allowed(analyst_id):
         return {"error": "forbidden"}
     q = str(query or "").strip()
@@ -923,6 +924,26 @@ async def tool_search_knowledge(
         return {"error": "query required"}
     lim = max(1, min(int(limit or 5), 15))
     use_emb = settings.copilot_knowledge_embeddings and bool(effective_embedding_api_key())
+    if okf_registry is not None and bool(getattr(settings, "okf_enabled", True)):
+        try:
+            result = await knowledge_store.retrieve_knowledge_async(
+                http,
+                registry=okf_registry,
+                use_embeddings=use_emb,
+                api_key=effective_embedding_api_key(),
+                base_url=effective_embedding_base_url(),
+                embed_model=settings.copilot_embedding_model,
+                tenant_id=tenant_id,
+                analyst_id=analyst_id,
+                query=q,
+                limit=lim,
+                keyword_weight=settings.copilot_rag_keyword_weight,
+            )
+            return _limit_result(_format_knowledge_retrieval_result(result, query=q))
+        except Exception:
+            # OKF is an availability enhancement; memo RAG remains a safe read-only fallback.
+            pass
+
     data = await knowledge_store.search_async(
         http,
         use_embeddings=use_emb,
@@ -935,7 +956,41 @@ async def tool_search_knowledge(
         limit=lim,
         keyword_weight=settings.copilot_rag_keyword_weight,
     )
-    return _limit_result(data)
+    out = dict(data) if isinstance(data, dict) else {"hits": []}
+    out.setdefault("query", q[:512])
+    out.setdefault("retrieval_mode", "keyword")
+    out.setdefault("conflicts", [])
+    out.setdefault("abstain", False)
+    out.setdefault("bundle_revision", "")
+    return _limit_result(out)
+
+
+def _format_knowledge_retrieval_result(result: Any, *, query: str) -> dict[str, Any]:
+    hits: list[dict[str, Any]] = []
+    for item in getattr(result, "results", ()) or ():
+        text = str(getattr(item, "text", "") or "")
+        first_line = next((line.strip() for line in text.splitlines() if line.strip()), "")
+        hits.append(
+            {
+                "title": first_line[:200],
+                "snippet": text[:800],
+                "score": float(getattr(item, "score", 0.0) or 0.0),
+                "authority": str(getattr(item, "authority", "") or ""),
+                "concept_id": getattr(item, "concept_id", None),
+                "content_hash": getattr(item, "content_hash", None),
+                "evidence_ids": list(getattr(item, "evidence_ids", ()) or ()),
+                "retrieval_path": list(getattr(item, "retrieval_path", ()) or ()),
+                "stale": bool(getattr(item, "stale", False)),
+            }
+        )
+    return {
+        "hits": hits,
+        "query": query.strip()[:512],
+        "retrieval_mode": str(getattr(result, "retrieval_mode", "") or "keyword"),
+        "conflicts": list(getattr(result, "conflicts", ()) or ()),
+        "abstain": bool(getattr(result, "abstain", False)),
+        "bundle_revision": str(getattr(result, "bundle_revision", "") or ""),
+    }
 
 
 async def tool_compare_entity_queue_snapshot(
@@ -1495,8 +1550,8 @@ TOOL_DEFINITIONS = [
         "function": {
             "name": "search_knowledge",
             "description": (
-                "Search investigation memos the analyst uploaded via POST /v1/knowledge/ingest "
-                "(runbooks, policy excerpts, past writeups). Use for institutional context; "
+                "Search approved OKF concepts before investigation memos uploaded via POST /v1/knowledge/ingest "
+                "(runbooks, policy excerpts, past writeups). Returns exact OKF concept/evidence ids when available; "
                 "still verify facts with case/graph/audit tools."
             ),
             "parameters": {

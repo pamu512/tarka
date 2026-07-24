@@ -65,6 +65,7 @@ from investigation_agent.integration_contract import (
     build_integration_snapshot,
     effective_disabled_tools,
 )
+from investigation_agent.okf_registry import OkfRegistry
 from investigation_agent.personas import (
     DEFAULT_COPILOT_PERSONA,
     CopilotPersona,
@@ -173,6 +174,25 @@ async def lifespan(application: FastAPI):
         timeout=httpx.Timeout(30.0, connect=5.0),
         limits=httpx.Limits(max_connections=50, max_keepalive_connections=10),
     )
+    application.state.okf_registry = None
+    application.state.okf_reload_result = None
+    application.state.okf_load_error = None
+    if settings.okf_enabled:
+        try:
+            registry = OkfRegistry(
+                shared_root=Path(settings.okf_shared_root),
+                tenant_root=Path(settings.okf_tenant_root),
+            )
+            reload_result = registry.reload()
+            application.state.okf_registry = registry
+            application.state.okf_reload_result = reload_result
+            if not reload_result.activated:
+                application.state.okf_load_error = "; ".join(
+                    f"{issue.code}:{issue.path}" for issue in reload_result.issues
+                )
+        except Exception as exc:
+            log.warning("okf_registry_load_failed", exc_info=True)
+            application.state.okf_load_error = str(exc)[:500]
     yield
     await application.state.http.aclose()
 
@@ -442,6 +462,7 @@ async def _execute_tool(
     analyst_id: str,
     *,
     reviewer_header: str = "",
+    okf_registry: Any | None = None,
 ) -> dict[str, Any]:
     permitted, gate_err = check_safe_action_gate(
         name,
@@ -541,7 +562,14 @@ async def _execute_tool(
             norm["trace_ids"],
         )
     elif name == "search_knowledge":
-        result = await fn(http, tenant_id, analyst_id, norm["query"], norm["limit"])
+        result = await fn(
+            http,
+            tenant_id,
+            analyst_id,
+            norm["query"],
+            norm["limit"],
+            okf_registry=okf_registry,
+        )
     elif name == "compare_entity_queue_snapshot":
         result = await fn(http, norm["entity_id"], tenant_id, analyst_id, norm["list_limit"])
     elif name == "screen_sanctions_pep":
@@ -655,6 +683,80 @@ def _degraded_reasons_for_mode(
     return out
 
 
+def _knowledge_lineage_from_tool_calls(tool_calls: list[dict[str, Any]]) -> dict[str, Any]:
+    evidence_ids: set[str] = set()
+    concept_ids: set[str] = set()
+    conflicts: set[str] = set()
+    bundle_revisions: set[str] = set()
+    okf_abstain = False
+
+    for call in tool_calls:
+        if not isinstance(call, dict) or call.get("tool") != "search_knowledge":
+            continue
+        result = call.get("result")
+        if not isinstance(result, dict):
+            continue
+        if result.get("error"):
+            continue
+        if result.get("abstain") is True:
+            okf_abstain = True
+        for conflict in result.get("conflicts") or []:
+            if isinstance(conflict, str) and conflict.strip():
+                conflicts.add(conflict.strip())
+        bundle_revision = result.get("bundle_revision")
+        if isinstance(bundle_revision, str) and bundle_revision.strip():
+            bundle_revisions.add(bundle_revision.strip())
+        hits = result.get("hits") or []
+        if not isinstance(hits, list):
+            continue
+        for hit in hits:
+            if not isinstance(hit, dict):
+                continue
+            concept_id = hit.get("concept_id")
+            if isinstance(concept_id, str) and concept_id.strip():
+                concept_ids.add(concept_id.strip())
+            for evidence_id in hit.get("evidence_ids") or []:
+                if isinstance(evidence_id, str) and evidence_id.strip():
+                    evidence_ids.add(evidence_id.strip())
+
+    sorted_bundle_revisions = sorted(bundle_revisions)
+    bundle_revision: str | list[str] | None
+    if not sorted_bundle_revisions:
+        bundle_revision = None
+    elif len(sorted_bundle_revisions) == 1:
+        bundle_revision = sorted_bundle_revisions[0]
+    else:
+        bundle_revision = sorted_bundle_revisions
+    return {
+        "evidence_ids": sorted(evidence_ids),
+        "concept_ids": sorted(concept_ids),
+        "okf_abstain": okf_abstain,
+        "conflicts": sorted(conflicts),
+        "bundle_revision": bundle_revision,
+    }
+
+
+def _apply_okf_strict_abstention(
+    reply: str,
+    claims: list[dict[str, Any]],
+    *,
+    assurance_mode: str,
+    lineage: dict[str, Any],
+) -> tuple[str, list[dict[str, Any]], bool]:
+    if assurance_mode != "strict" or not bool(lineage.get("okf_abstain")):
+        return reply, claims, False
+    conflicts = lineage.get("conflicts")
+    suffix = ""
+    if isinstance(conflicts, list) and conflicts:
+        suffix = " Conflicting OKF retrieval was recorded; review the cited bundle revisions before relying on this answer."
+    abstention = (
+        "I must abstain from answering from OKF retrieval because the relevant concept evidence "
+        "was unsupported or conflicting in strict assurance mode."
+        + suffix
+    )
+    return abstention, [{"text": abstention, "source": "unknown"}], True
+
+
 async def _deterministic_tools_only_fallback(
     *,
     http: httpx.AsyncClient,
@@ -662,6 +764,7 @@ async def _deterministic_tools_only_fallback(
     analyst_id: str,
     case_id: str | None,
     reviewer_header: str = "",
+    okf_registry: Any | None = None,
 ) -> tuple[str, list[dict[str, Any]], list[dict[str, str]]]:
     """Deterministic fallback when LLM is unavailable: execute safe read-only tools."""
     tool_calls: list[dict[str, Any]] = []
@@ -676,6 +779,7 @@ async def _deterministic_tools_only_fallback(
                 tenant_id,
                 analyst_id,
                 reviewer_header=reviewer_header,
+                okf_registry=okf_registry,
             )
         except Exception:
             result = {
@@ -850,6 +954,7 @@ async def _llm_tool_loop(
     tool_defs: list[dict[str, Any]],
     *,
     reviewer_header: str = "",
+    okf_registry: Any | None = None,
 ) -> tuple[str, list[dict[str, Any]], dict[str, Any]]:
     """Run the tool-use loop: send to LLM, execute any tool calls, repeat."""
     all_tool_calls: list[dict[str, Any]] = []
@@ -905,6 +1010,7 @@ async def _llm_tool_loop(
                     tenant_id,
                     analyst_id,
                     reviewer_header=reviewer_header,
+                    okf_registry=okf_registry,
                 )
                 all_tool_calls.append({"tool": fn_name, "args": fn_args, "result": result})
                 conversation.append(
@@ -1182,10 +1288,10 @@ def _validate_output(reply: str) -> str:
     return reply
 
 
-def _parse_tarka_claims_reply(raw_reply: str) -> tuple[str, list[dict[str, str]], str | None]:
+def _parse_tarka_claims_reply(raw_reply: str) -> tuple[str, list[dict[str, Any]], str | None]:
     """
     Split prose from mandatory claims trailer. Returns (prose, claims, warning_or_none).
-    Each claim: {"text": str, "source": "tool" | "unknown"}.
+    Each claim includes text/source and may carry exact concept_ids/evidence_ids.
     """
     fallback = "Assistant did not emit a valid TARKA_CLAIMS_JSON trailer; treat the narrative as unverified (source=unknown)."
     if _TARKA_CLAIMS_MARKER not in raw_reply:
@@ -1222,7 +1328,7 @@ def _parse_tarka_claims_reply(raw_reply: str) -> tuple[str, list[dict[str, str]]
             "claims_not_array",
         )
 
-    out: list[dict[str, str]] = []
+    out: list[dict[str, Any]] = []
     for c in claims_in[:_MAX_PARSED_CLAIMS]:
         if not isinstance(c, dict):
             continue
@@ -1231,7 +1337,19 @@ def _parse_tarka_claims_reply(raw_reply: str) -> tuple[str, list[dict[str, str]]
         if src not in ("tool", "unknown"):
             src = "unknown"
         if text:
-            out.append({"text": text, "source": src})
+            claim_out: dict[str, Any] = {"text": text, "source": src}
+            for key in ("concept_ids", "evidence_ids"):
+                raw_ids = c.get(key)
+                if not isinstance(raw_ids, list):
+                    continue
+                ids = [
+                    str(item).strip()[:256]
+                    for item in raw_ids[:24]
+                    if isinstance(item, str) and str(item).strip()
+                ]
+                if ids:
+                    claim_out[key] = ids
+            out.append(claim_out)
 
     if not out:
         return (
@@ -1279,18 +1397,40 @@ async def _request_guards_and_security_headers(request: Request, call_next):
     return response
 
 
+def _okf_readiness_errors(application: FastAPI) -> list[str]:
+    if not settings.okf_enabled:
+        return []
+    load_error = getattr(application.state, "okf_load_error", None)
+    if load_error:
+        return [f"okf registry unavailable: {load_error}"]
+    reload_result = getattr(application.state, "okf_reload_result", None)
+    if reload_result is not None and not bool(getattr(reload_result, "activated", False)):
+        return ["okf registry unavailable: reload did not activate"]
+    return []
+
+
 @app.get("/v1/ready")
 async def ready():
     """
-    Readiness probe: data directory writable (SQLite/RAG). Does not call the LLM.
+    Readiness probe: OKF/RAG knowledge availability. Does not call the LLM.
     Use with GET /v1/health for liveness vs readiness in orchestrators.
     """
-    errs = runtime_readiness_errors()
-    if errs:
+    rag_errs = runtime_readiness_errors()
+    okf_errs = _okf_readiness_errors(app)
+    okf_available = bool(settings.okf_enabled) and not okf_errs
+    if rag_errs and not okf_available:
+        errs = [*rag_errs, *okf_errs]
+        if not settings.okf_enabled:
+            errs.append("okf registry disabled")
         return JSONResponse(
             status_code=503,
             content={"status": "not_ready", "errors": errs},
         )
+    if rag_errs or okf_errs:
+        return {
+            "status": "degraded",
+            "warnings": [*rag_errs, *okf_errs],
+        }
     return {"status": "ready"}
 
 
@@ -1343,6 +1483,15 @@ async def health():
             "copilot_personas": [p["id"] for p in list_personas()],
             "workflows_fingerprint": workflows_catalog_fingerprint(),
             "copilot_workflows": [w["id"] for w in list_workflows()],
+        },
+        "okf": {
+            "enabled": settings.okf_enabled,
+            "available": bool(settings.okf_enabled) and not bool(_okf_readiness_errors(app)),
+            "reload_activated": bool(
+                getattr(getattr(app.state, "okf_reload_result", None), "activated", False)
+            )
+            if getattr(app.state, "okf_reload_result", None) is not None
+            else None,
         },
     }
 
@@ -2468,6 +2617,7 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             analyst_id=body.analyst_id,
             case_id=body.case_id,
             reviewer_header=reviewer_header,
+            okf_registry=getattr(request.app.state, "okf_registry", None),
         )
         source_refs = build_source_reference_cards(tool_calls)
         turn_id = str(uuid.uuid4())
@@ -2586,6 +2736,7 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         body.analyst_id,
         active_tool_defs,
         reviewer_header=reviewer_header,
+        okf_registry=getattr(request.app.state, "okf_registry", None),
     )
 
     prose, claims, claims_warn = _parse_tarka_claims_reply(raw_reply)
@@ -2641,12 +2792,8 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
     turn_id = str(uuid.uuid4())
     answer_sections = parse_structured_sections(reply)
     det_support = deterministic_claim_support(claims, tool_calls)
-    citations, verifier_summary = build_standard_citations(
-        claims=claims,
-        deterministic_support=det_support,
-        case_id=body.case_id,
-    )
     ack_warns = tool_error_acknowledgment_warnings(reply, tool_calls)
+    knowledge_lineage = _knowledge_lineage_from_tool_calls(tool_calls)
 
     derived_facts: list[dict[str, Any]] = []
     if settings.copilot_derived_facts or settings.copilot_assurance_mode == "strict":
@@ -2668,6 +2815,25 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             det_support = deterministic_claim_support(claims, tool_calls)
             ack_warns = []
             grounding_adj = []
+
+        reply, claims, okf_refused = _apply_okf_strict_abstention(
+            reply,
+            claims,
+            assurance_mode=settings.copilot_assurance_mode,
+            lineage=knowledge_lineage,
+        )
+        if okf_refused:
+            assurance_refused = True
+            answer_sections = parse_structured_sections(reply)
+            det_support = deterministic_claim_support(claims, tool_calls)
+            ack_warns = []
+            grounding_adj = []
+
+    citations, verifier_summary = build_standard_citations(
+        claims=claims,
+        deterministic_support=det_support,
+        case_id=body.case_id,
+    )
 
     judge_assessments = None
     judge_error: str | None = None
@@ -2722,10 +2888,15 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             entity_id=getattr(body, "entity_id", None),
             trace_id=getattr(body, "trace_id", None),
             tool_calls=list(tool_calls),
+            evidence_ids=list(knowledge_lineage.get("evidence_ids") or []),
             claims=list(claims),
             uncertainty={
                 "assurance_refused": assurance_refused,
                 "grounding_adjustments": list(grounding_adj),
+                "okf_abstain": bool(knowledge_lineage.get("okf_abstain")),
+                "conflicts": list(knowledge_lineage.get("conflicts") or []),
+                "bundle_revision": knowledge_lineage.get("bundle_revision"),
+                "concept_ids": list(knowledge_lineage.get("concept_ids") or []),
             },
         ).to_dict()
     except Exception:

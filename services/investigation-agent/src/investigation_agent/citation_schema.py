@@ -15,6 +15,7 @@ class CitationArtifact(str, Enum):
     CASE = "case"
     JSON_RULE = "json_rule"
     TYPOLOGY = "typology"
+    OKF_CONCEPT = "okf_concept"
     TOOL = "tool"
     UNKNOWN = "unknown"
 
@@ -82,6 +83,30 @@ def _merge_resolution_refs(*groups: list[dict[str, str]] | None) -> list[dict[st
     return out
 
 
+def _exact_refs_from_claim(
+    claim: dict[str, Any],
+) -> tuple[list[dict[str, str]], bool]:
+    """Return exact citation refs from model claims, plus whether any were unresolved."""
+    refs: list[dict[str, str]] = []
+    unresolved = False
+    for field, artifact in (
+        ("concept_ids", CitationArtifact.OKF_CONCEPT.value),
+        ("evidence_ids", "evidence"),
+    ):
+        if field not in claim:
+            continue
+        raw = claim.get(field)
+        if not isinstance(raw, list) or not raw:
+            unresolved = True
+            continue
+        for item in raw:
+            if not isinstance(item, str) or not item.strip():
+                unresolved = True
+                continue
+            refs.append({"artifact": artifact, "id": item.strip()})
+    return refs, unresolved
+
+
 def build_standard_citations(
     *,
     claims: list[dict[str, Any]],
@@ -126,7 +151,16 @@ def build_standard_citations(
             )
         if i == 0 and case_id:
             resolves.append({"artifact": CitationArtifact.CASE.value, "id": case_id.strip()})
-        merged = _merge_resolution_refs(resolves, audit_resolution_refs if i == 0 else [])
+        exact_refs, unresolved_exact_refs = _exact_refs_from_claim(claim)
+        merged = _merge_resolution_refs(
+            resolves,
+            exact_refs,
+            audit_resolution_refs if i == 0 else [],
+        )
+        if unresolved_exact_refs:
+            source = "unknown"
+            supported = False
+            confidence = "low"
 
         card = CopilotCitation(
             claim_index=i,
