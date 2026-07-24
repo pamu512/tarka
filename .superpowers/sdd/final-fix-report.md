@@ -291,3 +291,163 @@ Follow-up concerns:
 - Helm is unavailable on this worker, so the new Helm failure guards were verified by deployment contract tests and template inspection rather than a local `helm template` invocation.
 - The configured legacy CI suite excludes 113 Schemathesis contract cases; the complete 349-test non-contract suite passed.
 - Existing Starlette/httpx, PyO3, Rust dead-code, and frontend chunk-size warnings remain non-failing.
+
+## Remaining re-review closure
+
+Status: `DONE_WITH_CONCERNS`
+
+Fix commits:
+
+- `eff1712e` — `fix(decision): fence idempotent audit commits`
+- `91f76589` — `fix(copilot): make review and grounding fail closed`
+- `38e9826e` — `fix(deploy): prevent sqlite rollout overlap`
+
+Delivered:
+
+- Kept the idempotency heartbeat active through response completion, renewed the
+  owner token immediately before each source/deployed audit commit with an
+  extended commit lease, released only pre-commit failures, and wrote a
+  long-lived blocked outcome after post-commit completion uncertainty.
+- Added deterministic races proving ownership loss writes zero audits, delayed
+  commits retain one owner/one audit, and completion CAS failure leaves one
+  audit while blocking retries.
+- Co-located AgentRun and human review rows in one SQLite store and transaction,
+  with unique tenant/turn review upsert, rollback on injected failure, and
+  idempotent retry metrics.
+- Added unlabeled domestic-phone and conservative two-token person-name
+  detection while preserving fraud-domain phrases.
+- Required claim-specific tool-call indices plus exact selected-hit concept and
+  evidence IDs for `search_knowledge`, updated prompt/OpenAPI schemas, and added
+  an independent 21-case parser/enforcer/adapter quality fixture.
+- Added complete landmark concept + canonical snapshot + manifest export,
+  validated by the parser with missing/tampered snapshot regressions.
+- Set all local-SQLite Helm Deployments to `Recreate` and corrected the ready
+  OpenAPI response contract for `ready`, `degraded`, and sanitized 503 codes.
+
+Fresh verification:
+
+```bash
+cd services/decision-api
+PYTHONPATH=src:../shared:../core/src:../../packages/shared-core \
+DATABASE_URL=sqlite+aiosqlite:/// REDIS_URL=redis://localhost:6379/0 \
+python3 -m pytest -q tests/test_evaluate_idempotency.py
+```
+
+Result: exit 0; `9 passed`.
+
+```bash
+cd services/legacy_v1_decision_api
+PYTHONPATH=src:../shared:../../packages/shared-core \
+DATABASE_URL=sqlite+aiosqlite:/// REDIS_URL=redis://localhost:6379/0 \
+python3 -m pytest -q tests/test_evaluate_idempotency.py
+```
+
+Result: exit 0; `9 passed`.
+
+```bash
+cd services/decision-api
+PYTHONPATH=src:../shared:../core/src:../../packages/shared-core \
+DATABASE_URL=sqlite+aiosqlite:/// REDIS_URL=redis://localhost:6379/0 \
+python3 -m pytest -q -m "not contract" tests/
+```
+
+Result: exit 0; `57 passed, 1 skipped`.
+
+```bash
+cd services/legacy_v1_decision_api
+PYTHONPATH=src:../shared:../../packages/shared-core \
+DATABASE_URL=sqlite+aiosqlite:/// REDIS_URL=redis://localhost:6379/0 \
+python3 -m pytest -q -m "not contract" tests/
+```
+
+Result: exit 0; `356 passed, 113 contract tests deselected`.
+
+```bash
+cd services/investigation-agent
+PYTHONPATH=src:../shared:../../packages/shared-core python3 -m pytest -q
+```
+
+Result: exit 0; `311 passed, 1 skipped`.
+
+```bash
+PYTHONPATH=services/shared:packages/shared-core python3 -m pytest -q \
+  services/shared/tests/test_auth.py \
+  services/shared/tests/test_auth_rbac_tenant_scopes.py
+```
+
+Result: exit 0; `9 passed`.
+
+```bash
+python3 services/investigation-agent/scripts/validate_okf_bundle.py \
+  knowledge/shared --scope shared
+PYTHONPATH=services/investigation-agent/src:services/shared:packages/shared-core \
+python3 -m pytest -q \
+  services/investigation-agent/tests/test_okf_parser.py \
+  services/investigation-agent/tests/test_okf_registry.py \
+  services/investigation-agent/tests/test_okf_exporters.py \
+  services/investigation-agent/tests/test_okf_retrieval.py \
+  services/investigation-agent/tests/test_okf_end_to_end.py \
+  services/investigation-agent/tests/test_citation_quality_gate.py \
+  services/investigation-agent/tests/test_agent_run_deployment.py \
+  services/investigation-agent/tests/test_agent_run_store.py \
+  services/investigation-agent/tests/test_production_readiness.py
+python3 infra/scripts/deploy/validate_env_contract.py
+```
+
+Result: exit 0; shared bundle valid; `114 passed`; environment contract covered
+`8/8` required keys. The retrieval corpus enforced recall@10 `>=95%`, exact
+citation resolution `>=99.5%`, and unsupported abstention `>=98%`; the
+independent adversarial fixture enforced exact concept+evidence precision
+`>=99.5%` and unsupported abstention `>=98%` over 20 unsupported cases.
+
+```bash
+python3 -m ruff --version
+python3 -m ruff check .
+python3 -m ruff format --check services/
+```
+
+Result: exit 0; `ruff 0.15.22`; all checks passed; `1185 files already formatted`.
+
+```bash
+npm ci
+npm audit --audit-level=low
+npm run test -w tarka-ui
+python3 infra/scripts/ci/check_frontend_mock_mode.py
+npm run build -w tarka-ui
+```
+
+Result: exit 0; `0 vulnerabilities`; `49` files and `144` tests passed;
+mock-mode guard passed; build completed.
+
+```bash
+cargo +stable check --manifest-path services/rule-engine/Cargo.toml
+cargo +stable test --manifest-path services/rule-engine/Cargo.toml
+cargo +stable check --manifest-path packages/tarka-rule-engine/Cargo.toml
+cargo +stable test --manifest-path packages/tarka-rule-engine/Cargo.toml
+```
+
+Result: exit 0; rule-engine `4 passed`; tarka-rule-engine `5 passed`; doc tests
+passed.
+
+```bash
+diff -u services/decision-api/src/decision_api/evaluate_idempotency.py \
+  services/legacy_v1_decision_api/src/decision_api/evaluate_idempotency.py
+diff -u services/decision-api/tests/test_evaluate_idempotency.py \
+  services/legacy_v1_decision_api/tests/test_evaluate_idempotency.py
+git diff --check
+git diff --name-only -- docs/superpowers/specs docs/superpowers/plans
+git status --porcelain=v2 --untracked-files=all
+```
+
+Result: exit 0; idempotency source/deployed files are identical; no whitespace
+errors; no plan/design changes; no generated or untracked artifacts remained.
+
+Remaining concerns:
+
+- Helm and Docker CLIs are unavailable on this worker, so `Recreate` was
+  verified through all three static deployment contracts and template
+  inspection; CI retains live Helm lint/render coverage.
+- The configured legacy CI source-of-truth excludes 113 Schemathesis contract
+  cases that require their external contract environment.
+- Existing Starlette/httpx, PyO3/dead-code, and frontend chunk-size warnings
+  remain non-failing.
