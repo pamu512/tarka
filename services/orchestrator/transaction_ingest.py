@@ -30,11 +30,22 @@ from shadow_autoresolve import (
     try_shadow_autoresolve_after_ingest,
 )
 from shadow_graph_payload import build_shadow_analyze_payload
+from decision_evaluate_bridge import (
+    MissingTenantIdError,
+    compare_rule_eval_outcomes,
+    log_rule_eval_dual_run_diff,
+    map_tx_to_evaluate_request,
+    post_decision_evaluate,
+    wire_rule_data_from_evaluate,
+)
 from routes.evaluate import finalize_live_evaluation_wire_payload
 from shadow_hypothesis_audit import evaluate_transaction_shadow_matches
 from tarka_shared.audit_errors import AuditPersistenceError
 
 logger = logging.getLogger(__name__)
+
+_RULE_EVAL_PYTHON = "python"
+_RULE_EVAL_DECISION_API = "decision_api"
 
 
 def _transaction_envelope_for_audit(transaction: TransactionSchema) -> dict[str, Any]:
@@ -517,6 +528,120 @@ async def _invoke_shadow_agent(
         return None, "SIDECAR_UNREACHABLE"
 
 
+def _rule_eval_backend(request: Request) -> str:
+    raw = getattr(request.app.state, "rule_eval_backend", None)
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip().lower()
+    return _RULE_EVAL_PYTHON
+
+
+def _rule_eval_dual_run(request: Request) -> bool:
+    return bool(getattr(request.app.state, "rule_eval_dual_run", False))
+
+
+def _tenant_header_from_request(request: Request) -> str | None:
+    return request.headers.get("X-Tenant-Id") or request.headers.get("x-tenant-id")
+
+
+async def _rule_data_from_decision_api(
+    *,
+    client: httpx.AsyncClient,
+    request: Request,
+    transaction: TransactionSchema,
+    tid: str,
+) -> dict[str, Any]:
+    decision_base = getattr(request.app.state, "decision_api_url", None)
+    if not isinstance(decision_base, str) or not decision_base.strip():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error": "decision_api_url_required",
+                "message": (
+                    "decision-api evaluate requires DECISION_API_URL "
+                    "(e.g. http://core-api:8000/decisions)."
+                ),
+            },
+        )
+    try:
+        evaluate_body = map_tx_to_evaluate_request(
+            transaction,
+            tenant_header=_tenant_header_from_request(request),
+        )
+    except MissingTenantIdError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={
+                "error": "tenant_id_required",
+                "message": str(exc),
+            },
+        ) from exc
+    evaluate = await post_decision_evaluate(
+        client,
+        decision_api_url=decision_base.strip(),
+        body=evaluate_body,
+    )
+    return wire_rule_data_from_evaluate(evaluate, transaction_id=tid)
+
+
+async def _rule_data_from_python(
+    *,
+    client: httpx.AsyncClient,
+    rule_url: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    rule_response = await client.post(rule_url, json=payload)
+    rule_response.raise_for_status()
+    parsed = rule_response.json()
+    if not isinstance(parsed, dict):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "error": "rule_engine_invalid_response_shape",
+                "type": type(parsed).__name__,
+            },
+        )
+    return parsed
+
+
+async def _maybe_dual_run_python_compare(
+    *,
+    client: httpx.AsyncClient,
+    rule_url: str,
+    payload: dict[str, Any],
+    decision_rule_data: dict[str, Any],
+    tid: str,
+) -> dict[str, Any]:
+    """Best-effort Python evaluate for diffs; never fails the ingest request."""
+    try:
+        python_rule_data = await _rule_data_from_python(
+            client=client,
+            rule_url=rule_url,
+            payload=payload,
+        )
+    except Exception as exc:
+        log_rule_eval_dual_run_diff(
+            transaction_id=tid,
+            diff={},
+            python_error=f"{type(exc).__name__}: {exc}",
+        )
+        return {
+            "python_ok": False,
+            "python_error": f"{type(exc).__name__}: {exc}",
+            "side_effects": "decision_api",
+        }
+
+    diff = compare_rule_eval_outcomes(
+        decision_api_rule_data=decision_rule_data,
+        python_rule_data=python_rule_data,
+    )
+    log_rule_eval_dual_run_diff(transaction_id=tid, diff=diff)
+    return {
+        "python_ok": True,
+        "side_effects": "decision_api",
+        **diff,
+    }
+
+
 async def execute_transaction_ingest(
     *,
     request: Request,
@@ -525,6 +650,10 @@ async def execute_transaction_ingest(
     """Run ``/v1/ingest`` policy + optional Shadow + durable audit rows for one envelope."""
     payload = transaction.model_dump(mode="json")
     tid = str(transaction.entity_id)
+    backend = _rule_eval_backend(request)
+    dual_run = _rule_eval_dual_run(request)
+    # Dual-run prefers decision-api for side effects (Phase 1).
+    use_decision_api = dual_run or backend == _RULE_EVAL_DECISION_API
     rule_url = f"{request.app.state.rule_engine_url}/v1/evaluate"
     rule_timeout = httpx.Timeout(30.0, connect=10.0)
     shadow_read_s = float(request.app.state.shadow_analyze_timeout_seconds)
@@ -532,6 +661,7 @@ async def execute_transaction_ingest(
     shadow_base_st: str | None = request.app.state.shadow_agent_url
     shadow_key_st: str | None = request.app.state.shadow_api_key
     actions: list[str] = []
+    rule_data: dict[str, Any]
 
     gc = getattr(request.app.state, "graph_client", None)
 
@@ -542,9 +672,28 @@ async def execute_transaction_ingest(
 
     try:
         async with httpx.AsyncClient(timeout=rule_timeout) as client:
-            rule_response = await client.post(rule_url, json=payload)
-            rule_response.raise_for_status()
-            rule_data = rule_response.json()
+            if use_decision_api:
+                rule_data = await _rule_data_from_decision_api(
+                    client=client,
+                    request=request,
+                    transaction=transaction,
+                    tid=tid,
+                )
+                if dual_run:
+                    dual_meta = await _maybe_dual_run_python_compare(
+                        client=client,
+                        rule_url=rule_url,
+                        payload=payload,
+                        decision_rule_data=rule_data,
+                        tid=tid,
+                    )
+                    rule_data = {**rule_data, "rule_eval_dual_run": dual_meta}
+            else:
+                rule_data = await _rule_data_from_python(
+                    client=client,
+                    rule_url=rule_url,
+                    payload=payload,
+                )
 
             actions = actions_from_rule_payload(rule_data)
             sdn_client = getattr(request.app.state, "shadow_dispatch_nats", None)

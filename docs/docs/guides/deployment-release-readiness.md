@@ -12,21 +12,17 @@ For **staged security cutover** (tenant binding, keys, Copilot/bridge headers, i
 
 Publish immutable tags for each enabled service image:
 
-- `tarka-decision-api`
-- `tarka-case-api`
+- `tarka-core-api` (mounts decision + case)
+- `tarka-signal-api` (features + ml + calibration + counters + location mounts)
 - `tarka-integration-ingress`
-- `tarka-feature-service`
-- `tarka-ml-scoring`
 - `tarka-graph-service`
 - `tarka-investigation-agent`
 - `tarka-event-ingest`
 - `tarka-analytics-sink`
 - `tarka-graphql-gateway`
 - `tarka-frontend`
-- `tarka-counter-service`
-- `tarka-location-service`
 
-**Optional / external images (not in the default Helm surface):** publish tags for any **separately operated** services you connect via URL (for example a **calibration** implementation reached by **`CALIBRATION_SERVICE_URL`** on decision-api). **Collaboration chat** does **not** use a second image — it is **embedded** in `tarka-investigation-agent` (`/v1/chat/…`).
+**Optional split images (Helm `enabled: false` by default):** `tarka-feature-service`, `tarka-ml-scoring`, `tarka-counter-service`, `tarka-location-service`, `tarka-calibration-service` — prefer signal-api / core-api unless you deliberately scale a mount as its own Deployment. **Collaboration chat** is **embedded** in `tarka-investigation-agent` (`/v1/chat/…`).
 
 Guideline: pin deployed tags to release identifiers or commit SHAs, not `latest`.
 
@@ -45,7 +41,7 @@ Default-branch PRs must pass these **lint** job steps (see `.github/workflows/ci
 
 | Gate | Script | Scope |
 | --- | --- | --- |
-| Legacy rule packs (v1) | `infra/scripts/policy/validate_rule_packs.py` | `services/legacy_v1_decision_api/rules/*.json` |
+| Legacy rule packs (v1) | `infra/scripts/policy/validate_rule_packs.py` | `services/decision-api/rules/*.json` (symlink to legacy until migrated) |
 | Hetu rule-engine AST packs (v2) | same script | `services/rule_engine/rule_packs/` (+ test fixtures) |
 | OPA bundle | `infra/scripts/policy/validate_opa_bundle.py` | `infra/deploy/opa/*.rego` (`opa check --strict` + eval smoke) |
 | Default deployment profile drift | `infra/scripts/policy/validate_deployment_profile_manifest.py` | `infra/deploy/profiles/default-deployment-profile.yaml` vs Helm `values.yaml` + `docker-compose.production-hardening.yml` |

@@ -31,7 +31,7 @@ class FraudRulesVersion(Base):
     rules_payload: Mapped[list[dict[str, Any]]] = mapped_column(
         JSON,
         nullable=False,
-        doc="JSON array of validated :class:`rule_engine.ast_schemas.Rule` objects.",
+        doc="JSON array of validated :class:`tarka_shared.ast_schemas.Rule` objects.",
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

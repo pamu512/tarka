@@ -30,6 +30,23 @@ _MIN_SIM_N = 200
 router = APIRouter(prefix="/v1/simulation", tags=["simulation"])
 
 
+def _reject_underpowered(n: int, allow: bool) -> None:
+    if n < _MIN_SIM_N and not allow:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "reason_code": "SIMULATION_UNDERPOWERED",
+                "message": (
+                    f"Simulation has {n} events; minimum recommended is {_MIN_SIM_N}. "
+                    "Pass allow_underpowered=true to override (results must not be treated as KPIs)."
+                ),
+                "events_evaluated": n,
+                "minimum_recommended_events": _MIN_SIM_N,
+                "holdout_required": True,
+            },
+        )
+
+
 @router.get("/scenarios")
 async def list_scenarios():
     """List available built-in simulation scenarios."""
@@ -60,6 +77,10 @@ class RunSimulationRequest(BaseModel):
     custom_profile: SyntheticProfile | None = None
     evaluate_rules: bool = True
     include_ml: bool = False
+    allow_underpowered: bool = Field(
+        default=False,
+        description="If false (default), reject runs below minimum_recommended_events.",
+    )
 
 
 @router.post("/run")
@@ -76,6 +97,7 @@ async def run_simulation(body: RunSimulationRequest, request: Request):
         )
 
     events = generate_scenario(profile)
+    _reject_underpowered(len(events), body.allow_underpowered)
     decisions = []
 
     for event in events:
@@ -150,6 +172,7 @@ class ABTestRequest(BaseModel):
     rule_set_b: list[dict] = Field(
         default_factory=list, description="Override rules for set B"
     )
+    allow_underpowered: bool = False
 
 
 def _eval_with_override_rules(
@@ -204,6 +227,7 @@ async def ab_test(body: ABTestRequest):
         raise HTTPException(400, f"Unknown scenario: {body.scenario}")
 
     events = generate_scenario(profile)
+    _reject_underpowered(len(events), body.allow_underpowered)
 
     decisions_a = [_eval_with_override_rules(e, body.rule_set_a) for e in events]
     decisions_b = [_eval_with_override_rules(e, body.rule_set_b) for e in events]
@@ -245,6 +269,7 @@ class VerticalBenchmarkRequest(BaseModel):
         42,
         description="RNG seed for reproducible simulation events (publishable scorecards)",
     )
+    allow_underpowered: bool = False
 
 
 @router.post("/benchmark/vertical")
@@ -264,6 +289,7 @@ async def benchmark_vertical_pack(body: VerticalBenchmarkRequest):
         raise HTTPException(404, f"Unknown vertical pack: {body.vertical}")
 
     events = generate_scenario(profile)
+    _reject_underpowered(len(events), body.allow_underpowered)
     baseline = [_eval_with_override_rules(e, []) for e in events]
     vertical = [
         _eval_with_override_rules(e, vertical_pack.get("rules", [])) for e in events

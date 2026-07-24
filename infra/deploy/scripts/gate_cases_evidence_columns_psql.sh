@@ -5,8 +5,8 @@
 #   export DATABASE_URL="postgresql://fraud:fraud@localhost:5432/fraud"   # sync URL, no +asyncpg
 #   ./infra/deploy/scripts/gate_cases_evidence_columns_psql.sh
 #
-# Or from docker-compose.single.yml:
-#   docker compose -f infra/deploy/docker-compose.single.yml exec -T postgres \
+# Or from Lite compose:
+#   docker compose -f infra/deploy/docker-compose.lite.yml exec -T postgres \
 #     psql -U fraud -d fraud -v ON_ERROR_STOP=1 -c "SELECT ..."
 #
 set -euo pipefail
