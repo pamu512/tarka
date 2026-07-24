@@ -976,11 +976,13 @@ def _format_knowledge_retrieval_result(result: Any, *, query: str) -> dict[str, 
     for item in getattr(result, "results", ()) or ():
         text = str(getattr(item, "text", "") or "")
         first_line = next((line.strip() for line in text.splitlines() if line.strip()), "")
+        authority_label = str(getattr(item, "authority", "") or "")
         hit = {
             "title": first_line[:200],
             "snippet": text[:800],
             "score": float(getattr(item, "score", 0.0) or 0.0),
-            "authority": str(getattr(item, "authority", "") or ""),
+            "authority": authority_label,
+            "authority_label": authority_label,
             "concept_id": getattr(item, "concept_id", None),
             "content_hash": getattr(item, "content_hash", None),
             "evidence_ids": list(getattr(item, "evidence_ids", ()) or ()),
@@ -990,7 +992,9 @@ def _format_knowledge_retrieval_result(result: Any, *, query: str) -> dict[str, 
         metadata = getattr(item, "metadata", None)
         if isinstance(metadata, dict):
             for key, value in metadata.items():
-                if key not in hit:
+                if key in {"title", "snippet", "authority"}:
+                    hit[key] = value
+                elif key not in hit:
                     hit[key] = value
         hits.append(hit)
     return {

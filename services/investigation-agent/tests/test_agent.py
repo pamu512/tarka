@@ -458,27 +458,31 @@ class TestSearchKnowledgeOkf:
     @pytest.mark.asyncio
     async def test_search_knowledge_preserves_legacy_rag_metadata_on_successful_combined_retrieval(self):
         http = AsyncMock()
-        legacy_metadata = {
+        raw_legacy_hit = {
             "doc_id": "doc-1",
+            "title": "Legacy memo",
             "chunk_index": 3,
+            "snippet": "Legacy memo body only.",
+            "score": 0.71,
             "semantic_score": 0.77,
             "keyword_hits": 4,
             "knowledge_kind": "memo",
             "bundle_scope": "tenant",
             "source_uri": "memo://doc-1",
+            "authority": 10,
         }
         retrieval = KnowledgeRetrievalResult(
             results=(
                 KnowledgeResult(
-                    text="Legacy memo\n\nMemo body.",
+                    text=raw_legacy_hit["snippet"],
                     authority="memo_rag",
                     concept_id=None,
                     content_hash="memo-hash",
                     evidence_ids=(),
                     retrieval_path=(),
-                    score=0.71,
+                    score=raw_legacy_hit["score"],
                     stale=False,
-                    metadata=legacy_metadata,
+                    metadata=raw_legacy_hit,
                 ),
             ),
             retrieval_mode="exact+keyword",
@@ -506,9 +510,10 @@ class TestSearchKnowledgeOkf:
                 )
 
         hit = result["hits"][0]
-        for key, value in legacy_metadata.items():
+        for key, value in raw_legacy_hit.items():
             assert hit[key] == value
         assert hit["content_hash"] == "memo-hash"
+        assert hit["authority_label"] == "memo_rag"
 
     def test_okf_abstain_lineage_is_recorded_for_strict_mode(self):
         from investigation_agent.main import (
