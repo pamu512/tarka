@@ -16,9 +16,9 @@ agg_store = AggregateStore()
 __all__ = [
     "AGG_PREFIX",
     "AGG_VAL_PREFIX",
-    "DISTINCT_FIELDS",
     "MAX_WINDOW",
     "NUMERIC_FIELDS",
+    "DISTINCT_FIELDS",
     "AggregateStore",
     "agg_store",
 ]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from investigation_agent.knowledge_db import (
@@ -79,6 +80,7 @@ async def retrieve_knowledge_async(
     query: str,
     limit: int = 5,
     keyword_weight: float = 0.35,
+    generation_gate: asyncio.Lock | None = None,
 ) -> KnowledgeRetrievalResult:
     return await _retrieve_knowledge_async(
         registry=registry,
@@ -98,4 +100,5 @@ async def retrieve_knowledge_async(
             limit=int(kwargs["limit"]),
             keyword_weight=keyword_weight,
         ),
+        generation_gate=generation_gate,
     )

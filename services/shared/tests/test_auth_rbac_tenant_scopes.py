@@ -26,7 +26,9 @@ def _request(headers: dict[str, str] | None = None) -> Request:
         "path": "/v1/x",
         "raw_path": b"/v1/x",
         "query_string": b"",
-        "headers": [(k.lower().encode(), v.encode()) for k, v in (headers or {}).items()],
+        "headers": [
+            (k.lower().encode(), v.encode()) for k, v in (headers or {}).items()
+        ],
         "client": ("127.0.0.1", 123),
         "server": ("test", 80),
     }

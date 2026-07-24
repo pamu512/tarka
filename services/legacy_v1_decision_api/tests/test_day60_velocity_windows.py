@@ -1,10 +1,8 @@
 """Day 60 / Epic C gate C-4: deterministic event_count_5m, 1h, 24h from shared AggregateStore."""
 
 import pytest
-
-from decision_api.aggregates import AggregateStore
-
 from .aggregate_fake_redis import FakeRedis
+from decision_api.aggregates import AggregateStore
 
 T0 = 1_700_000_000.0
 

@@ -456,9 +456,7 @@ class TestSearchKnowledgeOkf:
         assert "/tmp/okf" not in str(result)
 
     @pytest.mark.asyncio
-    async def test_search_knowledge_preserves_legacy_rag_metadata_on_successful_combined_retrieval(
-        self,
-    ):
+    async def test_search_knowledge_preserves_legacy_rag_metadata_on_successful_combined_retrieval(self):
         http = AsyncMock()
         raw_legacy_hit = {
             "doc_id": "doc-1",
@@ -665,10 +663,7 @@ class TestSearchKnowledgeOkf:
         assert "unresolved_exact_citation_id" in adjustments
 
     def test_okf_claims_prompt_schema_requests_exact_ids_without_invention(self):
-        from investigation_agent.personas import (
-            DEFAULT_COPILOT_PERSONA,
-            build_copilot_system_prompt,
-        )
+        from investigation_agent.personas import DEFAULT_COPILOT_PERSONA, build_copilot_system_prompt
 
         prompt = build_copilot_system_prompt(DEFAULT_COPILOT_PERSONA)
 

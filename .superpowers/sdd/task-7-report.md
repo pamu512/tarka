@@ -378,3 +378,137 @@ Static deployment contract coverage is included in `tests/test_okf_end_to_end.py
 
 - Exact CI Ruff required `ruff format services/`, which reformatted 200 service files; this was necessary to make the full-scope CI format gate pass without ignores or scope narrowing.
 - Docker and Helm CLIs are absent in this environment, so live compose config and Helm rendering could not be executed here.
+
+## Review Fix: Final Task 7 Blockers (Surgical Churn Revert / Async Gate)
+
+### Changes
+
+- Reverted the broad churn from `93a2c86c` outside the intended Task 7 surface:
+  removed nested Ruff `extend` additions, restored `tarka-verifier` files,
+  restored unrelated ContextVar/SIM115/C420 edits outside OKF, and removed the
+  full-service formatting sweep from the effective `d72f01d7..HEAD` diff.
+- Replaced the registry `threading.RLock` generation guard with an app-level
+  shared `asyncio.Lock` used by startup load/index/activation, admin reload, and
+  async OKF retrieval/tool dispatch.
+- Added deterministic async concurrency coverage for:
+  - retrieval suspended in RAG while a reload waits on the generation gate;
+  - concurrent reload candidates serialized from preparation through activation,
+    leaving the later active tenant data visible.
+- Added CI enforcement for `npm audit --audit-level=low` in the existing
+  frontend job.
+- Expanded existing Helm CI to lint/render all supported charts:
+  `fraud-stack`, `tarka`, and `fraud-stack-lite`.
+- Documented that admin reload is process-local and that multi-replica
+  Kubernetes promotion requires a rolling restart or equivalent per-replica
+  orchestration after approved bundle/PVC updates.
+
+### Final Verification
+
+```bash
+cd /workspace/services/investigation-agent && PYTHONPATH=src:../shared:../../packages/shared-core python3 -m pytest -q tests/test_okf_end_to_end.py::test_async_retrieval_holds_generation_gate_until_rag_completes tests/test_okf_end_to_end.py::test_concurrent_reloads_serialize_candidate_preparation_through_activation
+```
+
+Result:
+
+```text
+2 passed, 1 warning in 0.79s
+```
+
+```bash
+cd /workspace && python3 services/investigation-agent/scripts/validate_okf_bundle.py knowledge/shared --scope shared && PYTHONPATH=services/investigation-agent/src:services/shared:packages/shared-core python3 -m pytest -q services/investigation-agent/tests/test_okf_parser.py services/investigation-agent/tests/test_okf_registry.py services/investigation-agent/tests/test_okf_exporters.py services/investigation-agent/tests/test_okf_retrieval.py services/investigation-agent/tests/test_okf_end_to_end.py
+```
+
+Result:
+
+```text
+56 passed, 1 warning in 1.23s
+```
+
+```bash
+cd /workspace/services/investigation-agent && PYTHONPATH=src:../shared:../../packages/shared-core python3 -m pytest --cov=investigation_agent --cov-report=xml --cov-report=term-missing --cov-fail-under=52 -m "not golden_profile" tests/
+```
+
+Result:
+
+```text
+247 passed, 1 skipped, 11 deselected, 1 warning in 6.81s
+Required test coverage of 52% reached. Total coverage: 62.58%
+```
+
+```bash
+cd /workspace && npm ci && npm audit --audit-level=low && npm run test -w tarka-ui && python3 infra/scripts/ci/check_frontend_mock_mode.py && npm run build -w tarka-ui
+```
+
+Result:
+
+```text
+found 0 vulnerabilities
+found 0 vulnerabilities
+Test Files  49 passed (49)
+Tests       144 passed (144)
+OK: frontend production mock-mode guard passed.
+✓ built in 1.29s
+```
+
+```bash
+cd /workspace && npm audit --audit-level=low
+```
+
+Result:
+
+```text
+found 0 vulnerabilities
+```
+
+```bash
+cd /workspace && python3 -m ruff check .; ruff_check_status=$?; python3 -m ruff format --check services/; ruff_format_status=$?; echo ruff_check_status=$ruff_check_status; echo ruff_format_status=$ruff_format_status; exit 0
+```
+
+Result:
+
+```text
+ruff_check_status=1
+ruff_format_status=1
+```
+
+The exact full Ruff gates still fail after removing the prior config inheritance
+changes. The failures are pre-existing, unrelated nested-service Ruff findings
+(`services/core_v2`, `services/decision-api`, `services/legacy_v1_decision_api`,
+`services/tarka-verifier`, and unchanged OKF helper tests). I did not re-add
+config inheritance or mass-format/fix unrelated files because that would
+reintroduce the broad churn explicitly requested for reversion. Changed Task 7
+Python files pass:
+
+```bash
+cd /workspace && python3 -m ruff check services/investigation-agent/src/investigation_agent/knowledge_db.py services/investigation-agent/src/investigation_agent/knowledge_store.py services/investigation-agent/src/investigation_agent/main.py services/investigation-agent/src/investigation_agent/okf_registry.py services/investigation-agent/src/investigation_agent/okf_retrieval.py services/investigation-agent/src/investigation_agent/tools.py services/investigation-agent/tests/test_agent_security.py services/investigation-agent/tests/test_okf_end_to_end.py
+cd /workspace && python3 -m ruff format --check services/investigation-agent/src/investigation_agent/knowledge_db.py services/investigation-agent/src/investigation_agent/knowledge_store.py services/investigation-agent/src/investigation_agent/main.py services/investigation-agent/src/investigation_agent/okf_registry.py services/investigation-agent/src/investigation_agent/okf_retrieval.py services/investigation-agent/src/investigation_agent/tools.py services/investigation-agent/tests/test_agent_security.py services/investigation-agent/tests/test_okf_end_to_end.py
+```
+
+Result:
+
+```text
+All checks passed!
+8 files already formatted
+```
+
+```bash
+command -v docker || true; docker compose version 2>/dev/null || true
+command -v helm || true; helm version --short 2>/dev/null || true
+```
+
+Result: exit 0, no output. Docker Compose and Helm are not installed locally;
+static deployment contract coverage is included in
+`tests/test_okf_end_to_end.py`, and CI now installs Helm for lint/render gates.
+
+```bash
+cd /workspace && git diff --check
+```
+
+Result: exit 0, no output.
+
+### Final Concerns / Notes
+
+- Exact full-scope Ruff remains red on unrelated pre-existing nested-service
+  findings once the broad config-inheritance workaround is removed.
+- Docker Compose and Helm CLIs are absent in this environment; live deployment
+  rendering could not be executed locally.

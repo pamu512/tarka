@@ -20,11 +20,11 @@ from decision_api.vendors.registry import (
 
 __all__ = [
     "BaseVendorPlugin",
-    "NormalizedVendorSignal",
     "VendorAdapter",
-    "VendorAuditConfigurationError",
     "VendorFetchContext",
     "VendorTier",
+    "NormalizedVendorSignal",
+    "VendorAuditConfigurationError",
     "VendorTimeoutError",
     "VendorUpstreamError",
     "get_adapter",

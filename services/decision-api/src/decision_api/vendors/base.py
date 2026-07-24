@@ -7,7 +7,7 @@ import time
 import uuid
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
@@ -22,6 +22,9 @@ from decision_api.vendors.exceptions import (
     VendorUpstreamError,
 )
 
+if TYPE_CHECKING:
+    pass
+
 
 class VendorTier(str, Enum):
     CHEAP = "cheap"
@@ -30,7 +33,7 @@ class VendorTier(str, Enum):
 
 
 class NormalizedVendorSignal:
-    __slots__ = ("raw_meta", "reason_codes", "score_0_100", "vendor_id")
+    __slots__ = ("vendor_id", "score_0_100", "reason_codes", "raw_meta")
 
     def __init__(
         self,
@@ -162,7 +165,9 @@ class BaseVendorPlugin(VendorAdapter):
             )
         return signals[0]
 
-    async def fetch_signals(self, ctx: VendorFetchContext) -> list[NormalizedVendorSignal]:
+    async def fetch_signals(
+        self, ctx: VendorFetchContext
+    ) -> list[NormalizedVendorSignal]:
         """HTTP GET with tenacity + overall budget, audit raw body + latency, then parse (no silent empty)."""
         url = self._build_get_url(ctx.features)
         budget_s = ctx.budget_ms / 1000.0
@@ -177,7 +182,7 @@ class BaseVendorPlugin(VendorAdapter):
             )
             raw_text = resp.text
             http_status = resp.status_code
-        except TimeoutError:
+        except asyncio.TimeoutError:
             latency_ms = (time.perf_counter() - t0) * 1000
             await self._persist_integration_audit(
                 ctx,

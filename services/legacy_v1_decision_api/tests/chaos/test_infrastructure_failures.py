@@ -10,7 +10,6 @@ import types
 
 import pytest
 from pytest_mock import MockerFixture
-from tarka_core.cache import LocalDictCache
 
 from decision_api.config import settings
 from decision_api.redis_store import RedisTags
@@ -24,6 +23,7 @@ from decision_api.rust_rule_engine_exceptions import (
     RustRuleEngineInvocationFailed,
 )
 from decision_api.rust_rule_engine_ffi import evaluate_json_rules_via_rust
+from tarka_core.cache import LocalDictCache
 
 
 def test_rust_ffi_burst_trips_sliding_window_circuit(

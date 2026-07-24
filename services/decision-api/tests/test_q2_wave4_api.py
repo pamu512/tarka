@@ -30,14 +30,16 @@ async def test_drift_query_envelope():
 
 def test_benchmark_export_persistence(tmp_path, monkeypatch):
     monkeypatch.setenv("RULES_PATH", str(tmp_path))
-    from decision_api.benchmark_export_api import _append_export, _load_latest_export
     from decision_api.config import settings
+    from decision_api.benchmark_export_api import _append_export, _load_latest_export
 
     settings.rules_path = str(tmp_path)
     artifact = {
         "schema_id": "tarka.tenant_benchmark_export/v1",
         "tenant_id": "tenant-export",
-        "verticals": {"fintech": {"events_evaluated": 200, "delta": {"f1_score": 0.01}}},
+        "verticals": {
+            "fintech": {"events_evaluated": 200, "delta": {"f1_score": 0.01}}
+        },
     }
     _append_export({"export_id": "abc123", **artifact})
     loaded = _load_latest_export("tenant-export")
@@ -57,8 +59,8 @@ def test_benchmark_run_vertical_seed42(monkeypatch, tmp_path):
     except Exception as exc:
         pytest.skip(f"rust rule engine unavailable: {exc}")
     monkeypatch.setenv("RULES_PATH", str(tmp_path))
-    from decision_api.benchmark_export_api import _run_vertical_benchmark
     from decision_api.config import settings
+    from decision_api.benchmark_export_api import _run_vertical_benchmark
 
     settings.rules_path = str(tmp_path)
     artifact = _run_vertical_benchmark("tenant-export", seed=42)

@@ -13,7 +13,12 @@ from decision_api.device_scoring import (
 
 def _seal(payload: dict) -> dict:
     raw = json.dumps(payload, separators=(",", ":"))
-    enc = __import__("base64").urlsafe_b64encode(raw.encode("utf-8")).decode("ascii").rstrip("=")
+    enc = (
+        __import__("base64")
+        .urlsafe_b64encode(raw.encode("utf-8"))
+        .decode("ascii")
+        .rstrip("=")
+    )
     digest = hashlib.sha256(enc.encode("utf-8")).hexdigest()
     return {"v": 1, "enc": enc, "int": digest}
 

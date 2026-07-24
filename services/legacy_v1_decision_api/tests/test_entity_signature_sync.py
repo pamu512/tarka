@@ -8,7 +8,6 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
-from tarka_core.cache import LocalDictCache
 
 from decision_api.db import Base
 from decision_api.models import EntitySignatureState
@@ -18,6 +17,7 @@ from decision_api.redis_signature_sync import (
     upsert_entity_signature_state,
 )
 from decision_api.redis_store import RedisTags
+from tarka_core.cache import LocalDictCache
 
 
 def test_canonical_tags_blob_sorted_unique() -> None:

@@ -15,11 +15,15 @@ PLG_BUNDLE_KEY = "plg_industry_v1"
 
 def merged_pack_fingerprint(pack: dict[str, Any]) -> str:
     rid = sorted(str(r.get("id") or "") for r in (pack.get("rules") or []))
-    basis = json.dumps({"rules": rid, "tag_rules": pack.get("tag_rules") or []}, sort_keys=True)
+    basis = json.dumps(
+        {"rules": rid, "tag_rules": pack.get("tag_rules") or []}, sort_keys=True
+    )
     return hashlib.sha256(basis.encode("utf-8")).hexdigest()
 
 
-def build_merged_plg_industry_pack() -> tuple[dict[str, Any], dict[str, Any], list[str]]:
+def build_merged_plg_industry_pack() -> tuple[
+    dict[str, Any], dict[str, Any], list[str]
+]:
     """Return ``(merged_runtime_pack, per_template_compiled_without_meta, template_keys)``."""
     from tarka_core.templates import list_industry_template_items
 

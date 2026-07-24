@@ -144,7 +144,7 @@ async def init_redis_pool() -> None:
         )
         client = redis.Redis(connection_pool=pool)
         await asyncio.wait_for(client.ping(), timeout=connect_timeout)
-    except TimeoutError as exc:
+    except asyncio.TimeoutError as exc:
         logger.warning(
             "redis_pool_init_degraded",
             reason="ping_timeout",
@@ -207,7 +207,7 @@ async def get_redis() -> AsyncGenerator[redis.Redis | None, None]:
     ping_timeout = float(os.environ.get("REDIS_DEPENDENCY_PING_TIMEOUT", "0.5"))
     try:
         await asyncio.wait_for(client.ping(), timeout=ping_timeout)
-    except TimeoutError as exc:
+    except asyncio.TimeoutError as exc:
         logger.warning(
             "get_redis_degraded",
             reason="ping_timeout",

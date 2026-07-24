@@ -4,26 +4,25 @@ import logging
 import re
 import time
 from contextvars import ContextVar
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from tarka_core.internal_monitor import InternalMonitor
-
 from decision_api.config import settings
+from tarka_core.internal_monitor import InternalMonitor
 
 log = logging.getLogger(__name__)
 
 # Last JSON rule engine metadata for audit/API (Rust vs Python, parity fallback flag).
-_JSON_RULE_ENGINE_META: ContextVar[dict[str, Any] | None] = ContextVar(
+_JSON_RULE_ENGINE_META: ContextVar[dict[str, Any]] = ContextVar(
     "json_rule_engine_metadata",
-    default=None,
+    default={"engine": "unknown", "fallback_active": False},
 )
 
 
 def get_json_rule_engine_metadata() -> dict[str, Any]:
     """Snapshot of engine used for the most recent evaluation in this async task."""
-    return dict(_JSON_RULE_ENGINE_META.get() or {"engine": "unknown", "fallback_active": False})
+    return dict(_JSON_RULE_ENGINE_META.get())
 
 
 def _set_json_rule_engine_metadata(meta: dict[str, Any]) -> None:
@@ -57,7 +56,9 @@ _plg_sandbox_runtime_pack: dict[str, Any] | None = None
 
 def _attach_plg_sandbox_pack(active: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Strip any stale sandbox artifact from disk list, then append runtime PLG pack if configured."""
-    filtered = [p for p in active if p.get("_source_file") != SANDBOX_PLG_INDUSTRY_SOURCE_FILE]
+    filtered = [
+        p for p in active if p.get("_source_file") != SANDBOX_PLG_INDUSTRY_SOURCE_FILE
+    ]
     if _plg_sandbox_runtime_pack is None:
         return filtered
     merged = dict(_plg_sandbox_runtime_pack)
@@ -155,11 +156,15 @@ def _sync_rust_engine_packs() -> None:
         )
 
 
-def build_emergency_static_rule_tuple() -> tuple[list[str], list[str], float, list[str]]:
+def build_emergency_static_rule_tuple() -> tuple[
+    list[str], list[str], float, list[str]
+]:
     """Fixed JSON-rule tuple when Rust FFI circuit is open and emergency policy is configured."""
     hits = json.loads(settings.rust_ffi_emergency_rule_hits_json or "[]")
     tags = json.loads(settings.rust_ffi_emergency_tags_json or "[]")
-    contrib = json.loads(settings.rust_ffi_emergency_contributing_pack_files_json or "[]")
+    contrib = json.loads(
+        settings.rust_ffi_emergency_contributing_pack_files_json or "[]"
+    )
     if not isinstance(hits, list):
         hits = ["rust_circuit_open"]
     if not isinstance(tags, list):
@@ -283,9 +288,9 @@ def _json_value_display_for_regex(v: Any) -> str:
 def _json_collection_equals(actual: Any, elem: Any) -> bool:
     """Approximate ``serde_json::Value`` equality for ``in`` / ``not_in`` list membership."""
     try:
-        return json.dumps(actual, sort_keys=True, separators=(",", ":"), default=str) == json.dumps(
-            elem, sort_keys=True, separators=(",", ":"), default=str
-        )
+        return json.dumps(
+            actual, sort_keys=True, separators=(",", ":"), default=str
+        ) == json.dumps(elem, sort_keys=True, separators=(",", ":"), default=str)
     except (TypeError, ValueError):
         return actual == elem
 
@@ -367,7 +372,7 @@ def _match_condition(features: dict[str, Any], condition: dict[str, Any]) -> boo
 
 def _pack_experiment_bucket(tenant_id: str, entity_id: str, pack_key: str) -> int:
     """Deterministic 0..99 bucket for canary rollout (same entity always same bucket per pack)."""
-    raw = f"{tenant_id}|{entity_id}|{pack_key}".encode()
+    raw = f"{tenant_id}|{entity_id}|{pack_key}".encode("utf-8")
     h = hashlib.sha256(raw).hexdigest()
     return int(h[:8], 16) % 100
 
@@ -386,8 +391,8 @@ def _parse_effective_at(raw: Any) -> datetime | None:
             s = s[:-1] + "+00:00"
         dt = datetime.fromisoformat(s)
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=UTC)
-        return dt.astimezone(UTC)
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
     except ValueError as exc:
         InternalMonitor.log_suppressed_error(
             exc,
@@ -397,7 +402,7 @@ def _parse_effective_at(raw: Any) -> datetime | None:
         )
     try:
         dtnaive = datetime.strptime(s, "%Y-%m-%dT%H:%M:%S")
-        return dtnaive.replace(tzinfo=UTC)
+        return dtnaive.replace(tzinfo=timezone.utc)
     except ValueError:
         return None
 
@@ -415,14 +420,14 @@ def _pack_should_apply(
     if evaluation_mode == "challenger":
         eff = _parse_effective_at(pack.get("effective_at"))
         if eff is not None:
-            now = datetime.now(UTC)
+            now = datetime.now(timezone.utc)
             if now < eff:
                 return False, "before_effective_at"
         return True, None
 
     eff = _parse_effective_at(pack.get("effective_at"))
     if eff is not None:
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         if now < eff:
             return False, "before_effective_at"
 
@@ -479,11 +484,11 @@ def evaluate_json_rules(
     When ``TARKA_JSON_RULES_ENGINE`` selects Rust (``auto``/``rust`` with extension present),
     failures do **not** fall back to Python — see FFI circuit breaker in ``rust_rule_engine_ffi``.
     """
-    from decision_api.pack_evaluator import evaluate_packs_python
     from decision_api.rust_rule_engine_ffi import (
         evaluate_cached_packs_via_rust,
         should_use_rust_json_engine,
     )
+    from decision_api.pack_evaluator import evaluate_packs_python
 
     cfg_mode = _configured_json_rules_engine_mode()
     tid = (tenant_id or "").strip() or "default"
@@ -520,7 +525,9 @@ def evaluate_json_rules(
         fallback_active=fallback_active,
     )
     _apply_telemetry_from_rust(out)
-    _set_json_rule_engine_metadata({"engine": "python", "fallback_active": fallback_active})
+    _set_json_rule_engine_metadata(
+        {"engine": "python", "fallback_active": fallback_active}
+    )
     return _rust_eval_to_tuple(out)
 
 
@@ -536,11 +543,11 @@ def evaluate_adhoc_packs_json(
     record_telemetry: bool = False,
 ) -> tuple[list[str], list[str], float, list[str]]:
     """Evaluate arbitrary pack JSON (shadow packs, recommendation preview)."""
-    from decision_api.pack_evaluator import evaluate_packs_python
     from decision_api.rust_rule_engine_ffi import (
         evaluate_json_rules_via_rust,
         should_use_rust_json_engine,
     )
+    from decision_api.pack_evaluator import evaluate_packs_python
 
     cfg_mode = _configured_json_rules_engine_mode()
     tid = (tenant_id or "").strip() or "default"
@@ -580,7 +587,9 @@ def evaluate_adhoc_packs_json(
     )
     if record_telemetry:
         _apply_telemetry_from_rust(out)
-    _set_json_rule_engine_metadata({"engine": "python", "fallback_active": fallback_active})
+    _set_json_rule_engine_metadata(
+        {"engine": "python", "fallback_active": fallback_active}
+    )
     return _rust_eval_to_tuple(out)
 
 

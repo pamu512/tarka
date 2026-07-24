@@ -3,9 +3,7 @@ from __future__ import annotations
 import hashlib
 import re
 import threading
-from contextlib import contextmanager
 from collections import deque
-from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -83,7 +81,7 @@ class OkfRegistry:
     def __init__(self, *, shared_root: Path, tenant_root: Path) -> None:
         self._shared_root = shared_root.resolve()
         self._tenant_root = tenant_root.resolve()
-        self._lock = threading.RLock()
+        self._lock = threading.Lock()
         self._snapshot = _RegistrySnapshot(
             revision=_EMPTY_REVISION,
             shared=None,
@@ -120,12 +118,6 @@ class OkfRegistry:
         with self._lock:
             self._snapshot = candidate._snapshot
         return RegistryReloadResult(True, candidate.revision, ())
-
-    @contextmanager
-    def generation_lock(self) -> Iterator[None]:
-        """Coordinate registry readers with derived index replacement."""
-        with self._lock:
-            yield
 
     def snapshot_revision(self, tenant_id: str) -> str:
         view = self._snapshot.views.get(tenant_id)

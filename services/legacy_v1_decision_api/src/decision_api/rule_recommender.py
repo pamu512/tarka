@@ -100,7 +100,9 @@ def analyze_features(
 
         for key, val in features.items():
             try:
-                fval = float(val) if not isinstance(val, bool) else (1.0 if val else 0.0)
+                fval = (
+                    float(val) if not isinstance(val, bool) else (1.0 if val else 0.0)
+                )
             except (TypeError, ValueError):
                 continue
             if is_fraud:
@@ -158,7 +160,9 @@ def analyze_features(
 
         op = "gte" if f_mean > l_mean else "lte"
 
-        desc = f"{'Higher' if f_mean > l_mean else 'Lower'} {feat} correlates with fraud"
+        desc = (
+            f"{'Higher' if f_mean > l_mean else 'Lower'} {feat} correlates with fraud"
+        )
         if best_threshold is not None:
             desc += f" (threshold: {best_threshold:.2f})"
 
@@ -213,16 +217,17 @@ def generate_recommendations(
             if val is None:
                 continue
             try:
-                fval = float(val) if not isinstance(val, bool) else (1.0 if val else 0.0)
+                fval = (
+                    float(val) if not isinstance(val, bool) else (1.0 if val else 0.0)
+                )
             except (TypeError, ValueError):
                 continue
 
-            if (
-                insight.suggested_op == "gte"
-                and fval >= insight.suggested_threshold
-                or insight.suggested_op == "lte"
-                and fval <= insight.suggested_threshold
-            ):
+            if insight.suggested_op == "gte" and fval >= insight.suggested_threshold:
+                matches += 1
+                if rec.get("decision") in ("deny", "review"):
+                    fraud_matches += 1
+            elif insight.suggested_op == "lte" and fval <= insight.suggested_threshold:
                 matches += 1
                 if rec.get("decision") in ("deny", "review"):
                     fraud_matches += 1
@@ -289,8 +294,12 @@ def generate_recommendations(
                     continue
 
                 try:
-                    fv1 = float(v1) if not isinstance(v1, bool) else (1.0 if v1 else 0.0)
-                    fv2 = float(v2) if not isinstance(v2, bool) else (1.0 if v2 else 0.0)
+                    fv1 = (
+                        float(v1) if not isinstance(v1, bool) else (1.0 if v1 else 0.0)
+                    )
+                    fv2 = (
+                        float(v2) if not isinstance(v2, bool) else (1.0 if v2 else 0.0)
+                    )
                 except (TypeError, ValueError):
                     continue
 
@@ -373,7 +382,9 @@ class RuleRecommender:
     def ingest(self, records: list[dict[str, Any]]) -> None:
         self._observations.extend(records)
 
-    def analyze(self, min_support: int = 10, min_precision: float = 0.6) -> list[dict[str, Any]]:
+    def analyze(
+        self, min_support: int = 10, min_precision: float = 0.6
+    ) -> list[dict[str, Any]]:
         if len(self._observations) < 20:
             return [
                 {
@@ -383,7 +394,9 @@ class RuleRecommender:
                 }
             ]
 
-        positive = [o for o in self._observations if o.get("decision") in ("deny", "review")]
+        positive = [
+            o for o in self._observations if o.get("decision") in ("deny", "review")
+        ]
         negative = [o for o in self._observations if o.get("decision") == "allow"]
 
         if not positive or not negative:
@@ -422,7 +435,9 @@ class RuleRecommender:
                     "precision": round(precision, 3),
                     "coverage": round(coverage, 3),
                     "support": rec.support,
-                    "quality_score": round(precision * coverage * math.log(max(rec.support, 2)), 3),
+                    "quality_score": round(
+                        precision * coverage * math.log(max(rec.support, 2)), 3
+                    ),
                 }
             )
 

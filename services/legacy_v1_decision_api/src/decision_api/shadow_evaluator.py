@@ -28,7 +28,6 @@ from typing import Any
 
 from clickhouse_connect.driver.client import Client
 from fastapi import HTTPException, Request
-from tarka_core.internal_monitor import InternalMonitor
 
 from decision_api.config import Settings
 from decision_api.deps import run_clickhouse_sync
@@ -41,6 +40,7 @@ from decision_api.rust_rule_engine_exceptions import (
     RustRuleEngineCircuitOpenError,
     RustRuleEngineInvocationFailed,
 )
+from tarka_core.internal_monitor import InternalMonitor
 
 log = logging.getLogger("decision-api.shadow_evaluator")
 
@@ -113,7 +113,10 @@ def _evaluate_json_rules_http_equivalent(
             get_json_rule_engine_metadata(),
         )
     except RustRuleEngineCircuitOpenError as e:
-        if getattr(settings, "rust_ffi_circuit_open_behavior", "503") == "emergency_static":
+        if (
+            getattr(settings, "rust_ffi_circuit_open_behavior", "503")
+            == "emergency_static"
+        ):
             h, t, d, pf = build_emergency_static_rule_tuple()
             meta = {
                 "engine": "emergency_static",
@@ -307,7 +310,9 @@ class ShadowEvaluator:
         """
         timeout_s = float(self._settings.shadow_evaluator_timeout_seconds)
 
-        async def run_prod() -> tuple[list[str], list[str], float, list[str], dict[str, Any]]:
+        async def run_prod() -> tuple[
+            list[str], list[str], float, list[str], dict[str, Any]
+        ]:
             return await asyncio.to_thread(
                 _evaluate_json_rules_http_equivalent,
                 features,
@@ -340,7 +345,7 @@ class ShadowEvaluator:
                 ),
                 timeout=timeout_s,
             )
-        except TimeoutError:
+        except asyncio.TimeoutError:
             timed_out = True
             log.warning(
                 "shadow_evaluator_timeout trace_id=%s timeout_s=%s",

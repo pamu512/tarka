@@ -64,7 +64,9 @@ def build_graph_decision_explanation_v1(
             },
         ]
         if ":" in code:
-            ev.append({"kind": "graph_signal", "ref": f"metric:{code}", "role": "risk_factor"})
+            ev.append(
+                {"kind": "graph_signal", "ref": f"metric:{code}", "role": "risk_factor"}
+            )
         why_links.append({"factor_id": fid, "evidence": ev})
 
     out: dict[str, Any] = {

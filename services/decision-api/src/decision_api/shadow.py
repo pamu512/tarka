@@ -9,7 +9,7 @@ import logging
 import os
 import threading
 from collections import deque
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 log = logging.getLogger("decision-api.shadow")
@@ -39,7 +39,9 @@ def load_shadow_rules() -> None:
         except Exception as e:
             log.warning("Failed to load shadow rule pack %s: %s", fname, e)
     _shadow_enabled = len(_shadow_packs) > 0
-    log.info("Loaded %d shadow rule packs from %s", len(_shadow_packs), _shadow_rules_path)
+    log.info(
+        "Loaded %d shadow rule packs from %s", len(_shadow_packs), _shadow_rules_path
+    )
 
 
 def evaluate_shadow(features: dict[str, Any], tags: list[str]) -> dict[str, Any] | None:
@@ -120,7 +122,7 @@ def record_observation(
                 "shadow_decision": shadow.get("shadow_decision"),
                 "shadow_score": shadow.get("shadow_score"),
                 "diverged": production.get("decision") != shadow.get("shadow_decision"),
-                "timestamp": datetime.now(UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
 

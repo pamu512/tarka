@@ -15,7 +15,9 @@ def _utc_now() -> str:
 
 
 def content_hash(payload: Any) -> str:
-    raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+    raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode(
+        "utf-8"
+    )
     return hashlib.sha256(raw).hexdigest()
 
 

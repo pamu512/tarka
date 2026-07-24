@@ -138,7 +138,9 @@ async def replay_events(
             try:
                 parsed.append(uuid_lib.UUID(str(raw).strip()))
             except (ValueError, AttributeError, TypeError):
-                raise HTTPException(status_code=400, detail=f"invalid trace_id: {raw!r}")
+                raise HTTPException(
+                    status_code=400, detail=f"invalid trace_id: {raw!r}"
+                )
         stmt = select(AuditRecord).where(
             AuditRecord.tenant_id == body.tenant_id,
             AuditRecord.trace_id.in_(parsed),
@@ -178,7 +180,9 @@ async def replay_events(
             **snapshot.get("metadata", {}),
         }
 
-        new_hits, new_tags, score_delta = _evaluate_override_rules(features, body.rules_override)
+        new_hits, new_tags, score_delta = _evaluate_override_rules(
+            features, body.rules_override
+        )
         new_score = max(0.0, min(100.0, rec.score + score_delta))
         new_decision = _decide(new_score)
         changed = new_decision != rec.decision

@@ -84,9 +84,13 @@ async def test_ddl_execute_rejects_disallowed_prefix(client):
 @pytest.mark.asyncio
 async def test_ddl_execute_propagates_clickhouse_error(client):
     ch = client.tarka_ch
-    ch.command.side_effect = RuntimeError("DB::Exception: Syntax error: failed at position 15")
+    ch.command.side_effect = RuntimeError(
+        "DB::Exception: Syntax error: failed at position 15"
+    )
 
-    with patch("decision_api.feature_store_api.run_clickhouse_sync", new_callable=AsyncMock) as rs:
+    with patch(
+        "decision_api.feature_store_api.run_clickhouse_sync", new_callable=AsyncMock
+    ) as rs:
         rs.side_effect = lambda _c, fn: fn()
 
         r = await client.post(
@@ -100,12 +104,16 @@ async def test_ddl_execute_propagates_clickhouse_error(client):
 @pytest.mark.asyncio
 async def test_ddl_execute_ok_when_clickhouse_succeeds(client):
     ch = client.tarka_ch
-    with patch("decision_api.feature_store_api.run_clickhouse_sync", new_callable=AsyncMock) as rs:
+    with patch(
+        "decision_api.feature_store_api.run_clickhouse_sync", new_callable=AsyncMock
+    ) as rs:
         rs.side_effect = lambda _c, fn: fn()
 
         r = await client.post(
             "/v1/feature-store/ddl/execute",
-            json={"sql": "CREATE TABLE IF NOT EXISTS tarka_ddl_test_y (id Int64) ENGINE = Memory"},
+            json={
+                "sql": "CREATE TABLE IF NOT EXISTS tarka_ddl_test_y (id Int64) ENGINE = Memory"
+            },
         )
     assert r.status_code == 200
     assert r.json() == {"ok": True, "executed": True}

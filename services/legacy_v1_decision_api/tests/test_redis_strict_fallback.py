@@ -3,10 +3,10 @@
 import asyncio
 
 import pytest
-from tarka_core.cache import LocalDictCache
 
 from decision_api.config import settings
 from decision_api.redis_store import RedisTags
+from tarka_core.cache import LocalDictCache
 
 
 @pytest.fixture

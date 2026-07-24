@@ -6,17 +6,16 @@ Create Date: 2026-04-02
 
 """
 
-from collections.abc import Sequence
+from typing import Sequence, Union
 
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
-from alembic import op
-
 revision: str = "20260402_001"
-down_revision: str | None = None
-branch_labels: str | Sequence[str] | None = None
-depends_on: str | Sequence[str] | None = None
+down_revision: Union[str, None] = None
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
@@ -31,7 +30,9 @@ def upgrade() -> None:
         sa.Column("score", sa.Float(), nullable=False),
         sa.Column("tags", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("rule_hits", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("payload_snapshot", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column(
+            "payload_snapshot", postgresql.JSONB(astext_type=sa.Text()), nullable=True
+        ),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -52,7 +53,9 @@ def upgrade() -> None:
         ["tenant_id"],
         unique=False,
     )
-    op.create_index(op.f("ix_decision_audit_trace_id"), "decision_audit", ["trace_id"], unique=True)
+    op.create_index(
+        op.f("ix_decision_audit_trace_id"), "decision_audit", ["trace_id"], unique=True
+    )
 
 
 def downgrade() -> None:

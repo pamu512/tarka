@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +14,7 @@ from decision_api.config import settings
 from decision_api.experiment_api import append_experiment_record
 
 ensure_shared_on_path()
-from auth_rbac import require_role
+from auth_rbac import require_role  # noqa: E402
 
 router = APIRouter(prefix="/v1/simulation/benchmark", tags=["simulation"])
 
@@ -98,7 +98,9 @@ def _run_vertical_benchmark(
         random.seed(seed)
         events = generate_scenario(profile)
         baseline = [_eval_with_override_rules(e, []) for e in events]
-        vertical_decisions = [_eval_with_override_rules(e, pack.get("rules", [])) for e in events]
+        vertical_decisions = [
+            _eval_with_override_rules(e, pack.get("rules", [])) for e in events
+        ]
         result_base = analyze_simulation(events, baseline)
         result_vertical = analyze_simulation(events, vertical_decisions)
         n = len(events)
@@ -109,8 +111,10 @@ def _run_vertical_benchmark(
             "score_separation": round(
                 result_vertical.score_separation - result_base.score_separation, 2
             ),
-            "false_positives": result_vertical.false_positives - result_base.false_positives,
-            "false_negatives": result_vertical.false_negatives - result_base.false_negatives,
+            "false_positives": result_vertical.false_positives
+            - result_base.false_positives,
+            "false_negatives": result_vertical.false_negatives
+            - result_base.false_negatives,
         }
         vertical_results[vertical] = {
             "events_evaluated": n,
@@ -121,7 +125,7 @@ def _run_vertical_benchmark(
     artifact = {
         "schema_id": SCHEMA_ID,
         "tenant_id": tenant_id,
-        "generated_at": datetime.now(UTC).isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "release": "v1.2.0-day60",
         "request_template": {"scenario": scenario, "seed": seed},
         "verticals": vertical_results,
@@ -162,7 +166,8 @@ async def create_benchmark_export(
 ):
     """Run reproducible vertical benchmark (seed 42 default) and persist tenant export."""
     verticals = (
-        tuple(v.strip().lower() for v in body.verticals if str(v).strip()) or DEFAULT_VERTICALS
+        tuple(v.strip().lower() for v in body.verticals if str(v).strip())
+        or DEFAULT_VERTICALS
     )
     artifact = _run_vertical_benchmark(
         body.tenant_id.strip(),

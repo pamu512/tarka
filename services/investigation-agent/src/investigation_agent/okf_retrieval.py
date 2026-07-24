@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
+from collections.abc import AsyncIterator
 from typing import Any, Awaitable, Callable
 
 from investigation_agent.config import settings
@@ -60,39 +63,38 @@ def retrieve_knowledge(
     max_depth: int | None = None,
     max_concepts: int | None = None,
 ) -> KnowledgeRetrievalResult:
-    with registry.generation_lock():
-        exact_expand = _exact_and_expand_candidates(
-            registry=registry,
-            tenant_id=tenant_id,
-            query=query,
-            max_depth=max_depth,
-            max_concepts=max_concepts,
-        )
-        rag_data: dict[str, Any] | None = None
-        rag_candidates: list[_Candidate] = []
-        normalized_limit = _normalize_limit(limit)
-        if rag_search is not None and len(exact_expand) < normalized_limit:
-            rag_data = _normalize_rag_payload(
-                rag_search(
-                    tenant_id=tenant_id,
-                    analyst_id=analyst_id,
-                    query=query,
-                    limit=normalized_limit - len(exact_expand),
-                )
-            )
-            rag_candidates = _rag_candidates(
-                registry=registry,
+    exact_expand = _exact_and_expand_candidates(
+        registry=registry,
+        tenant_id=tenant_id,
+        query=query,
+        max_depth=max_depth,
+        max_concepts=max_concepts,
+    )
+    rag_data: dict[str, Any] | None = None
+    rag_candidates: list[_Candidate] = []
+    normalized_limit = _normalize_limit(limit)
+    if rag_search is not None and len(exact_expand) < normalized_limit:
+        rag_data = _normalize_rag_payload(
+            rag_search(
                 tenant_id=tenant_id,
-                hits=rag_data["hits"],
+                analyst_id=analyst_id,
+                query=query,
+                limit=normalized_limit - len(exact_expand),
             )
-        return _finalize_result(
+        )
+        rag_candidates = _rag_candidates(
             registry=registry,
             tenant_id=tenant_id,
-            limit=normalized_limit,
-            exact_expand=exact_expand,
-            rag_candidates=rag_candidates,
-            rag_data=rag_data,
+            hits=rag_data["hits"],
         )
+    return _finalize_result(
+        registry=registry,
+        tenant_id=tenant_id,
+        limit=normalized_limit,
+        exact_expand=exact_expand,
+        rag_candidates=rag_candidates,
+        rag_data=rag_data,
+    )
 
 
 async def retrieve_knowledge_async(
@@ -105,8 +107,9 @@ async def retrieve_knowledge_async(
     rag_search: Callable[..., Awaitable[dict[str, Any]]] | None = None,
     max_depth: int | None = None,
     max_concepts: int | None = None,
+    generation_gate: asyncio.Lock | None = None,
 ) -> KnowledgeRetrievalResult:
-    with registry.generation_lock():
+    async with _maybe_generation_gate(generation_gate):
         exact_expand = _exact_and_expand_candidates(
             registry=registry,
             tenant_id=tenant_id,
@@ -139,6 +142,15 @@ async def retrieve_knowledge_async(
             rag_candidates=rag_candidates,
             rag_data=rag_data,
         )
+
+
+@asynccontextmanager
+async def _maybe_generation_gate(generation_gate: asyncio.Lock | None) -> AsyncIterator[None]:
+    if generation_gate is None:
+        yield
+        return
+    async with generation_gate:
+        yield
 
 
 def _normalize_limit(limit: int) -> int:

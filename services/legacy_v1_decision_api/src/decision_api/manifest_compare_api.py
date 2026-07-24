@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from decision_api._shared_path import ensure_shared_on_path
+
 import asyncio
 import logging
+
 import uuid
 from typing import Any
 
@@ -11,7 +14,6 @@ from clickhouse_connect.driver.client import Client
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from decision_api._shared_path import ensure_shared_on_path
 from decision_api.deps import get_clickhouse
 from decision_api.manifest_compare_logic import build_full_manifest_comparison
 from decision_api.manifest_visualize_api import (
@@ -21,7 +23,7 @@ from decision_api.manifest_visualize_api import (
 )
 
 ensure_shared_on_path()
-from auth_rbac import require_role
+from auth_rbac import require_role  # noqa: E402
 
 log = logging.getLogger("decision-api.manifest_compare")
 

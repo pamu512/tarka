@@ -10,9 +10,8 @@ import pytest
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 
-from decision_api.aggregates import AggregateStore
-
 from .aggregate_fake_redis import FakeRedis
+from decision_api.aggregates import AggregateStore
 
 """Evaluate path + AggregateStore: counters must reach rule features (parity / TPS guard)."""
 
@@ -86,7 +85,9 @@ async def aggregate_eval_client():
                                         "decision_api.main._get_list_store",
                                         return_value=list_store,
                                     ):
-                                        with patch("decision_api.main.fingerprint_store") as fp:
+                                        with patch(
+                                            "decision_api.main.fingerprint_store"
+                                        ) as fp:
                                             fp._client = None
                                             from decision_api.main import (
                                                 app,
@@ -106,7 +107,9 @@ async def aggregate_eval_client():
                                                 c._captured = captured
                                                 c._mock_redis = mock_redis
                                                 yield c
-                                            app.dependency_overrides.pop(get_session, None)
+                                            app.dependency_overrides.pop(
+                                                get_session, None
+                                            )
 
 
 @pytest.mark.asyncio
@@ -133,7 +136,9 @@ async def test_evaluate_second_request_sees_prior_aggregate_counts(
     assert feats_first.get("event_count_1h", 0) == 0, (
         "first request should not see prior aggregates"
     )
-    assert int(feats_second.get("event_count_1h", 0)) >= 1, "second request must see recorded event"
+    assert int(feats_second.get("event_count_1h", 0)) >= 1, (
+        "second request must see recorded event"
+    )
 
 
 @pytest.mark.asyncio

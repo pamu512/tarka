@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+from decision_api._shared_path import ensure_shared_on_path
+
 import logging
 import uuid
-from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
+from collections.abc import Callable
 from typing import Any, Literal
 
 import anyio
 import httpx
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from pydantic import BaseModel, Field, field_validator
+
 from analytics.engine import BaseAnalyticsEngine
 from analytics.ml_export import (
     PitMlExportStats,
@@ -19,16 +24,14 @@ from analytics.ml_export import (
     pit_export_uri_for_sink,
     run_point_in_time_ml_export,
 )
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from pydantic import BaseModel, Field, field_validator
-from tarka_core.internal_monitor import InternalMonitor
 
-from decision_api._shared_path import ensure_shared_on_path
 from decision_api.config import settings
 from decision_api.deps import require_analytics_engine
+from tarka_core.internal_monitor import InternalMonitor
+
 
 ensure_shared_on_path()
-from auth_rbac import require_role
+from auth_rbac import require_role  # noqa: E402
 
 log = logging.getLogger("decision-api.ml_export")
 
@@ -68,7 +71,9 @@ def _job_get(job_id: str) -> dict[str, Any] | None:
 def _upstream_headers() -> dict[str, str]:
     key = settings.upstream_api_key.strip() if settings.upstream_api_key.strip() else ""
     if not key:
-        key = settings.api_keys.split(",")[0].strip() if settings.api_keys.strip() else ""
+        key = (
+            settings.api_keys.split(",")[0].strip() if settings.api_keys.strip() else ""
+        )
     return {"x-api-key": key} if key else {}
 
 
@@ -114,7 +119,9 @@ class PitParquetExportRequest(BaseModel):
         if v is None:
             return None
         if len(v) > 32:
-            raise ValueError("dispute_outcome_allowlist must contain at most 32 entries")
+            raise ValueError(
+                "dispute_outcome_allowlist must contain at most 32 entries"
+            )
         return v
 
 
@@ -155,7 +162,9 @@ def _sync_run_export(
     *,
     on_progress: Callable[[PitMlExportStats], None] | None = None,
 ) -> dict[str, Any]:
-    tbl = (req.analytics_table or settings.clickhouse_analytics_events_table or "").strip()
+    tbl = (
+        req.analytics_table or settings.clickhouse_analytics_events_table or ""
+    ).strip()
     if not tbl:
         raise RuntimeError("analytics_table is empty")
     base = Path(settings.ml_export_local_dir).expanduser()
@@ -186,7 +195,9 @@ def _sync_run_export(
         out_path=out_path,
         label_fetcher=label_fetch,
         chunk_size=int(req.chunk_size),
-        clickhouse_max_execution_seconds=max(30, settings.clickhouse_statement_timeout_ms // 1000),
+        clickhouse_max_execution_seconds=max(
+            30, settings.clickhouse_statement_timeout_ms // 1000
+        ),
         max_rows=int(settings.ml_export_max_rows),
         payload_json_keys=req.payload_json_keys,
         dispute_outcome_allowlist=allow,
@@ -203,7 +214,8 @@ def _sync_run_export(
 
     prefix = (settings.ml_export_s3_prefix or "pit-exports").strip().strip("/")
     safe_tenant = (
-        "".join(c for c in req.tenant_id if c.isalnum() or c in ("_", "-"))[:80] or "tenant"
+        "".join(c for c in req.tenant_id if c.isalnum() or c in ("_", "-"))[:80]
+        or "tenant"
     )
     object_key = f"{prefix}/{safe_tenant}/pit_ml_{uuid.uuid4().hex[:16]}.parquet"
     uri, presigned = pit_export_uri_for_sink(
@@ -259,7 +271,9 @@ async def _run_pit_export_job(
         return
     except httpx.RequestError as e:
         log.warning("case-api unreachable (job): %s", e)
-        _job_update(job_id, status="FAILED", error=f"case-api unreachable: {e}", result=None)
+        _job_update(
+            job_id, status="FAILED", error=f"case-api unreachable: {e}", result=None
+        )
         return
     except Exception as e:  # pragma: no cover — defensive
         log.exception("pit export job failed")
@@ -298,7 +312,7 @@ async def enqueue_pit_parquet_job(
 
     job_id = uuid.uuid4().hex
     max_rows = int(settings.ml_export_max_rows)
-    now = datetime.now(UTC).isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     with _jobs_lock:
         _jobs[job_id] = {
             "status": "PENDING",
@@ -325,7 +339,11 @@ async def get_pit_parquet_job(
     if row is None:
         raise HTTPException(status_code=404, detail="unknown job_id")
     res_raw = row.get("result")
-    result = PitParquetExportResponse.model_validate(res_raw) if isinstance(res_raw, dict) else None
+    result = (
+        PitParquetExportResponse.model_validate(res_raw)
+        if isinstance(res_raw, dict)
+        else None
+    )
     return PitParquetJobStatusResponse(
         job_id=job_id.strip(),
         status=row["status"],

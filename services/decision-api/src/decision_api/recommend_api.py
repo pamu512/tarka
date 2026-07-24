@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import UTC
 from pathlib import Path
 from typing import Any
 
@@ -59,7 +58,9 @@ async def analyze(
     records_raw = list(result.scalars().all())
 
     if len(records_raw) < 20:
-        raise HTTPException(400, f"Need at least 20 records for analysis, found {len(records_raw)}")
+        raise HTTPException(
+            400, f"Need at least 20 records for analysis, found {len(records_raw)}"
+        )
 
     records = [
         {
@@ -126,11 +127,11 @@ async def preview_recommendation(
     if not tenant_id or not rule:
         raise HTTPException(400, "tenant_id and rule are required")
 
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
 
     from decision_api.json_rules import evaluate_adhoc_packs_json
 
-    cutoff = datetime.now(UTC) - timedelta(days=30)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
     stmt = (
         select(AuditRecord)
         .where(AuditRecord.tenant_id == tenant_id)
@@ -187,9 +188,9 @@ async def generate_recommendations_endpoint(
     session: AsyncSession = Depends(get_session),
 ):
     """Legacy endpoint — delegates to /analyze."""
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
 
-    cutoff = datetime.now(UTC) - timedelta(days=30)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
     stmt = (
         select(AuditRecord)
         .where(AuditRecord.tenant_id == body.tenant_id)
@@ -201,7 +202,9 @@ async def generate_recommendations_endpoint(
     records_raw = list(result.scalars().all())
 
     if not records_raw:
-        raise HTTPException(404, f"No audit records found for tenant '{body.tenant_id}'")
+        raise HTTPException(
+            404, f"No audit records found for tenant '{body.tenant_id}'"
+        )
 
     from decision_api.rule_recommender import RuleRecommender
 
@@ -209,7 +212,9 @@ async def generate_recommendations_endpoint(
     for rec in records_raw:
         snapshot = rec.payload_snapshot or {}
         features = {**snapshot.get("payload", {}), **snapshot.get("metadata", {})}
-        observations.append({"decision": rec.decision, "score": rec.score, "features": features})
+        observations.append(
+            {"decision": rec.decision, "score": rec.score, "features": features}
+        )
 
     recommender = RuleRecommender()
     recommender.ingest(observations)

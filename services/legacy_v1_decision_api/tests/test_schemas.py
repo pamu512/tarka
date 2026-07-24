@@ -1,19 +1,20 @@
 """Unit tests for Pydantic schemas."""
 
 import pytest
-from pydantic import ValidationError
-
 from decision_api.schemas import (
     DeviceContextIn,
     EvaluateRequest,
     EvaluateResponse,
     EventType,
 )
+from pydantic import ValidationError
 
 
 class TestEvaluateRequest:
     def test_minimal_valid(self):
-        r = EvaluateRequest(tenant_id="t1", event_type="login", entity_id="u1", payload={})
+        r = EvaluateRequest(
+            tenant_id="t1", event_type="login", entity_id="u1", payload={}
+        )
         assert r.tenant_id == "t1"
         assert r.event_type == EventType.login
         assert r.device_context is None
@@ -36,7 +37,9 @@ class TestEvaluateRequest:
 
     def test_invalid_event_type(self):
         with pytest.raises(ValidationError):
-            EvaluateRequest(tenant_id="t1", event_type="invalid_type", entity_id="u1", payload={})
+            EvaluateRequest(
+                tenant_id="t1", event_type="invalid_type", entity_id="u1", payload={}
+            )
 
     def test_missing_required(self):
         with pytest.raises(ValidationError):
@@ -133,5 +136,7 @@ class TestDeviceContextIn:
         assert d.attestation is None
 
     def test_with_signals(self):
-        d = DeviceContextIn(device_id="abc", signals={"is_vpn": True, "canvas_fp_hash": "abc123"})
+        d = DeviceContextIn(
+            device_id="abc", signals={"is_vpn": True, "canvas_fp_hash": "abc123"}
+        )
         assert d.signals["is_vpn"] is True

@@ -3,16 +3,15 @@ import os
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 
-from decision_api.main import (
-    _graph_routing_match_when,
-    decide_graph_routing,
-)
+from decision_api.main import _graph_routing_match_when, decide_graph_routing  # noqa: E402
 
 
 class TestGraphRoutingMatchWhen:
     def test_empty_when_always_true(self):
         assert _graph_routing_match_when([], {"event_type": "login", "base_score": 10})
-        assert _graph_routing_match_when(None, {"event_type": "login", "base_score": 10})
+        assert _graph_routing_match_when(
+            None, {"event_type": "login", "base_score": 10}
+        )
 
     def test_string_equality(self):
         when = [{"op": "eq", "field": "event_type", "value": "login"}]
@@ -21,11 +20,15 @@ class TestGraphRoutingMatchWhen:
 
     def test_numeric_operators(self):
         ctx = {"base_score": 30}
-        assert _graph_routing_match_when([{"op": "lt", "field": "base_score", "value": 40}], ctx)
+        assert _graph_routing_match_when(
+            [{"op": "lt", "field": "base_score", "value": 40}], ctx
+        )
         assert not _graph_routing_match_when(
             [{"op": "lt", "field": "base_score", "value": 10}], ctx
         )
-        assert _graph_routing_match_when([{"op": "gte", "field": "base_score", "value": 30}], ctx)
+        assert _graph_routing_match_when(
+            [{"op": "gte", "field": "base_score", "value": 30}], ctx
+        )
         assert not _graph_routing_match_when(
             [{"op": "gt", "field": "base_score", "value": 30}], ctx
         )

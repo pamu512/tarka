@@ -7,6 +7,7 @@ import json
 import os
 from typing import Any
 
+
 _VOLATILE_PACK_KEYS = frozenset({"_source_file", "_loaded_at", "_runtime"})
 
 
@@ -49,7 +50,13 @@ def contributing_packs_content_sha256(
 
 def engine_build_identity() -> dict[str, str]:
     return {
-        "git_sha": (os.environ.get("GIT_SHA") or os.environ.get("COMMIT_SHA") or "").strip(),
-        "json_rules_engine": (os.environ.get("TARKA_JSON_RULES_ENGINE") or "auto").strip(),
-        "rule_engine_wheel": (os.environ.get("TARKA_RULE_ENGINE_BUILD_ID") or "").strip(),
+        "git_sha": (
+            os.environ.get("GIT_SHA") or os.environ.get("COMMIT_SHA") or ""
+        ).strip(),
+        "json_rules_engine": (
+            os.environ.get("TARKA_JSON_RULES_ENGINE") or "auto"
+        ).strip(),
+        "rule_engine_wheel": (
+            os.environ.get("TARKA_RULE_ENGINE_BUILD_ID") or ""
+        ).strip(),
     }

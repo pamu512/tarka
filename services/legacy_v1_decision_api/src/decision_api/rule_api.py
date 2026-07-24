@@ -1,17 +1,18 @@
 from __future__ import annotations
 
+from decision_api._shared_path import ensure_shared_on_path
 import json
 import os
 import re
+
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from decision_api._shared_path import ensure_shared_on_path
 from decision_api.config import settings
 from decision_api.json_rules import get_rule_hit_telemetry, load_rules
 from decision_api.rule_pack_validation import validate_rule_pack as _validate_rule_pack
@@ -28,7 +29,7 @@ _SAFE_FILENAME_RE = re.compile(r"^[a-zA-Z0-9_-]{1,120}\.json$")
 _SAFE_SLUG_RE = re.compile(r"[^a-z0-9_-]+")
 
 ensure_shared_on_path()
-from auth_rbac import require_role
+from auth_rbac import require_role  # noqa: E402
 
 
 class Condition(BaseModel):
@@ -83,7 +84,7 @@ def _append_rule_change(
 ) -> None:
     """Append-only audit for lightweight governance (not a full CMDB)."""
     rec = {
-        "ts": datetime.now(UTC).isoformat(),
+        "ts": datetime.now(timezone.utc).isoformat(),
         "action": action,
         "file": filename,
         "actor": actor,
@@ -198,7 +199,9 @@ async def install_vertical_pack(
     vertical_name: str,
     overwrite: bool = False,
     x_actor: str | None = Header(default=None, alias="X-Actor"),
-    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
 ):
     _require_rule_governance(x_rule_governance_secret)
     pack = get_vertical_pack(vertical_name)
@@ -254,7 +257,9 @@ async def get_rule_pack(filename: str):
 async def create_rule_pack(
     body: RulePackIn,
     x_actor: str | None = Header(default=None, alias="X-Actor"),
-    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
 ):
     _require_rule_governance(x_rule_governance_secret)
     slug = _slugify_pack_name(body.name)
@@ -295,7 +300,9 @@ async def update_rule_pack(
     filename: str,
     body: RulePackIn,
     x_actor: str | None = Header(default=None, alias="X-Actor"),
-    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
 ):
     _require_rule_governance(x_rule_governance_secret)
     fpath = _existing_pack_path(filename)
@@ -326,7 +333,9 @@ async def update_rule_pack(
 async def delete_rule_pack(
     filename: str,
     x_actor: str | None = Header(default=None, alias="X-Actor"),
-    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
 ):
     _require_rule_governance(x_rule_governance_secret)
     fpath = _existing_pack_path(filename)
@@ -341,7 +350,9 @@ async def add_rule(
     filename: str,
     body: RuleIn,
     x_actor: str | None = Header(default=None, alias="X-Actor"),
-    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
 ):
     _require_rule_governance(x_rule_governance_secret)
     fpath = _existing_pack_path(filename)
@@ -369,7 +380,9 @@ async def set_pack_mode(
     filename: str,
     body: RulePackMode,
     x_actor: str | None = Header(default=None, alias="X-Actor"),
-    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
 ):
     _require_rule_governance(x_rule_governance_secret)
     """Set a rule pack to active, shadow, or disabled mode."""
@@ -394,7 +407,9 @@ async def remove_rule(
     filename: str,
     rule_id: str,
     x_actor: str | None = Header(default=None, alias="X-Actor"),
-    x_rule_governance_secret: str | None = Header(default=None, alias="X-Rule-Governance-Secret"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
 ):
     _require_rule_governance(x_rule_governance_secret)
     fpath = _existing_pack_path(filename)

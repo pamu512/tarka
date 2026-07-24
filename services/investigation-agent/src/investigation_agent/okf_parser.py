@@ -220,7 +220,8 @@ def parse_concept(
 
 def _bundle_revision(concepts: dict[str, OkfConcept]) -> str:
     payload = "\n".join(
-        f"{concept_id}:{concept.content_hash}" for concept_id, concept in sorted(concepts.items())
+        f"{concept_id}:{concept.content_hash}"
+        for concept_id, concept in sorted(concepts.items())
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 

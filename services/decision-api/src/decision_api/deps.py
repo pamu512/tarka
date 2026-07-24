@@ -8,13 +8,14 @@ from typing import TypeVar
 
 import anyio
 import asyncpg
-from analytics.engine import BaseAnalyticsEngine
 from clickhouse_connect.driver.client import Client
 from fastapi import FastAPI, HTTPException, Request
-from tarka_core.cache import KeyValueCache
-from tarka_core.messaging import MessageBroker
+
+from analytics.engine import BaseAnalyticsEngine
 
 from decision_api.config import settings
+from tarka_core.cache import KeyValueCache
+from tarka_core.messaging import MessageBroker
 
 log = logging.getLogger("decision-api")
 
@@ -86,7 +87,9 @@ async def open_analytics_infra(application: FastAPI) -> None:
             try:
                 await run_clickhouse_sync(client, client.close)
             except Exception as close_exc:
-                log.warning("ClickHouse client close after failed health check: %s", close_exc)
+                log.warning(
+                    "ClickHouse client close after failed health check: %s", close_exc
+                )
             application.state.analytics_engine = None
             application.state.clickhouse_client = None
             return

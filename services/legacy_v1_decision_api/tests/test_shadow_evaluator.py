@@ -95,7 +95,7 @@ async def test_wait_for_timeout_fallback_production_only(
     from decision_api.shadow_evaluator import ShadowEvaluator
 
     async def immediate_timeout(_coro: object, timeout: float | None = None) -> None:
-        raise TimeoutError
+        raise asyncio.TimeoutError
 
     prod_calls = 0
 

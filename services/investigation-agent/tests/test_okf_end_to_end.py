@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 from pathlib import Path
 
@@ -14,6 +15,8 @@ import investigation_agent.main as main_mod
 from investigation_agent.citation_schema import build_standard_citations
 from investigation_agent.knowledge_db import ingest_document_sync, reset_connection_for_tests
 from investigation_agent.main import app
+from investigation_agent.okf_registry import OkfRegistry
+from investigation_agent.okf_retrieval import retrieve_knowledge_async
 from investigation_agent.tools import tool_search_knowledge
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -539,6 +542,147 @@ def test_mid_index_failure_rolls_back_registry_and_search_index(
         assert "playbooks/mid-failure" not in {hit["concept_id"] for hit in not_visible["hits"]}
 
 
+@pytest.mark.asyncio
+async def test_async_retrieval_holds_generation_gate_until_rag_completes(
+    tmp_path: Path,
+) -> None:
+    shared_root = tmp_path / "shared"
+    tenant_root = tmp_path / "tenants"
+    _build_bundle_tree(shared_root, tenant_root)
+    registry = OkfRegistry(shared_root=shared_root, tenant_root=tenant_root)
+    assert registry.reload().activated is True
+
+    gate = asyncio.Lock()
+    rag_started = asyncio.Event()
+    allow_rag_finish = asyncio.Event()
+    reload_entered = asyncio.Event()
+
+    async def rag_search(**_kwargs: Any) -> dict[str, Any]:
+        rag_started.set()
+        await allow_rag_finish.wait()
+        return {
+            "hits": [
+                {
+                    "title": "Analyst memo",
+                    "snippet": "Memo filler for high amount review.",
+                    "score": 0.25,
+                    "knowledge_kind": "memo",
+                    "authority": 10,
+                }
+            ],
+            "retrieval_mode": "keyword",
+        }
+
+    retrieval_task = asyncio.create_task(
+        retrieve_knowledge_async(
+            registry=registry,
+            tenant_id="t1",
+            analyst_id="analyst-1",
+            query="High Amount Rule",
+            limit=4,
+            rag_search=rag_search,
+            generation_gate=gate,
+        )
+    )
+    await rag_started.wait()
+
+    async def reload_attempt() -> None:
+        async with gate:
+            reload_entered.set()
+
+    reload_task = asyncio.create_task(reload_attempt())
+    await asyncio.sleep(0)
+    assert reload_entered.is_set() is False
+
+    allow_rag_finish.set()
+    result = await retrieval_task
+    await reload_task
+
+    assert reload_entered.is_set() is True
+    assert result.bundle_revision == registry.snapshot_revision("t1")
+    returned = {
+        item.concept_id: item.content_hash for item in result.results if item.concept_id is not None
+    }
+    active = {
+        hit.concept.concept_id: hit.concept.content_hash
+        for hit in registry.expand(
+            "t1",
+            ("rules/high-amount",),
+            max_depth=2,
+            max_concepts=4,
+        )
+    }
+    assert returned.items() <= active.items()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_reloads_serialize_candidate_preparation_through_activation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    shared_root = tmp_path / "shared"
+    tenant_root = tmp_path / "tenants"
+    _build_bundle_tree(shared_root, tenant_root)
+    _configure_okf_settings(
+        monkeypatch,
+        shared_root=shared_root,
+        tenant_root=tenant_root,
+        embeddings=False,
+    )
+    registry = OkfRegistry(shared_root=shared_root, tenant_root=tenant_root)
+    first_entered = asyncio.Event()
+    first_can_finish = asyncio.Event()
+    second_prepared = asyncio.Event()
+    gate = asyncio.Lock()
+
+    async def reload_once(label: str) -> str:
+        async with gate:
+            candidate = registry.prepare_reload()
+            assert not candidate.issues
+            if label == "first":
+                first_entered.set()
+                await first_can_finish.wait()
+            else:
+                second_prepared.set()
+            rows, _indexed = await main_mod.knowledge_store.prepare_okf_index_rows_async(
+                None,
+                candidate.bundles,
+                use_embeddings=False,
+                api_key="",
+                base_url="",
+                embed_model="",
+            )
+            main_mod.knowledge_store.replace_okf_index_rows_sync(rows)
+            result = registry.activate(candidate)
+            return result.revision
+
+    first_task = asyncio.create_task(reload_once("first"))
+    await first_entered.wait()
+    _write_concept(
+        tenant_root / "t1",
+        "playbooks/newer-reload.md",
+        concept_type="Investigation Playbook",
+        title="Newer Reload Playbook",
+        tenant_scope="t1",
+        source_uri="playbooks/t1/newer-reload.json",
+        source_hash_char="d",
+        evidence_ids=("ev-newer",),
+        body="Newer reload marker.",
+    )
+    second_task = asyncio.create_task(reload_once("second"))
+    await asyncio.sleep(0)
+    assert second_prepared.is_set() is False
+
+    first_can_finish.set()
+    first_revision = await first_task
+    second_revision = await second_task
+
+    assert first_revision != second_revision
+    assert registry.resolve("t1", "Newer Reload Playbook")[0].concept.concept_id == (
+        "playbooks/newer-reload"
+    )
+
+
 def test_deployment_config_ships_only_shared_bundle_and_mounts_tenants() -> None:
     dockerfile = (_REPO_ROOT / "services" / "investigation-agent" / "Dockerfile").read_text(
         encoding="utf-8"
@@ -591,9 +735,17 @@ def test_deployment_config_ships_only_shared_bundle_and_mounts_tenants() -> None
         assert "persistentVolumeClaim:" in helm_template
         assert "existingClaim" in helm_template
 
+    ci_workflow = (_REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "npm audit --audit-level=low" in ci_workflow
+    for chart_name in ("fraud-stack", "tarka", "fraud-stack-lite"):
+        assert "infra/deploy/helm/${chart}" in ci_workflow
+        assert chart_name in ci_workflow
+
     docs = (_REPO_ROOT / "docs" / "docs" / "services" / "investigation-agent.md").read_text(
         encoding="utf-8"
     )
     assert "OKF_ADMIN_API_KEYS" in docs
     assert "API_KEYS" in docs
     assert "API_KEY_TENANT_MAP" in docs
+    assert "Admin reload is process-local" in docs
+    assert "rolling restart" in docs

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 import pytest
 import pytest_asyncio
@@ -68,7 +68,7 @@ async def test_decide_returns_200_and_persists_audit_row(pipeline_client):
     payload = {
         "entity_id": str(entity),
         "amount": 5000.01,
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "metadata": {"channel": "pytest"},
     }
 
@@ -123,7 +123,7 @@ async def test_hostile_missing_amount_returns_422_and_no_db_writes(pipeline_clie
     entity = uuid.uuid4()
     payload = {
         "entity_id": str(entity),
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "metadata": {"channel": "pytest-hostile"},
     }
 
@@ -133,7 +133,9 @@ async def test_hostile_missing_amount_returns_422_and_no_db_writes(pipeline_clie
     body = response.json()
     _assert_pydantic_v2_validation_error_payload(body)
     assert any(
-        "amount" in entry.get("loc", []) for entry in body["detail"] if isinstance(entry, dict)
+        "amount" in entry.get("loc", [])
+        for entry in body["detail"]
+        if isinstance(entry, dict)
     )
 
     assert await _audit_log_row_count(session_factory) == 0
@@ -149,7 +151,7 @@ async def test_hostile_amount_string_returns_422_and_no_db_writes(pipeline_clien
     payload = {
         "entity_id": str(entity),
         "amount": "not-a-number",
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "metadata": {"channel": "pytest-hostile"},
     }
 
@@ -159,7 +161,9 @@ async def test_hostile_amount_string_returns_422_and_no_db_writes(pipeline_clien
     body = response.json()
     _assert_pydantic_v2_validation_error_payload(body)
     assert any(
-        "amount" in entry.get("loc", []) for entry in body["detail"] if isinstance(entry, dict)
+        "amount" in entry.get("loc", [])
+        for entry in body["detail"]
+        if isinstance(entry, dict)
     )
 
     assert await _audit_log_row_count(session_factory) == 0
@@ -178,7 +182,7 @@ async def test_hostile_deep_metadata_rust_serde_fails_returns_400_empty_db(
     payload = {
         "entity_id": str(entity),
         "amount": 100.0,
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "metadata": _nested_wrap_metadata(RUST_SERDE_JSON_PARSE_BREAK_DEPTH),
     }
 
