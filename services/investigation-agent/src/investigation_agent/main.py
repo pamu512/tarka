@@ -1142,6 +1142,7 @@ _NARRATIVE_WITHHOLDING_ADJUSTMENTS = frozenset(
     {
         "exact_citation_text_unsupported",
         "search_knowledge_citation_omitted",
+        "tool_call_binding_invalid",
         "unresolved_exact_citation_id",
     }
 )
