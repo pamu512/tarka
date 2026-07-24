@@ -35,10 +35,10 @@ uuid = { version = "1", features = ["serde", "v4", "v7"] }
 sysinfo = { version = "0.32", default-features = false, features = ["system", "network"] }
 wasmtime = { version = "36", default-features = true, features = ["runtime", "cranelift"] }
 wasmparser = "0.218"
-opentelemetry = "0.31"
-opentelemetry_sdk = { version = "0.31", features = ["trace", "rt-tokio"] }
-opentelemetry-otlp = { version = "0.31", features = ["trace", "grpc-tonic"] }
-tracing-opentelemetry = "0.32"
+opentelemetry = "0.32"
+opentelemetry_sdk = { version = "0.32", features = ["trace", "rt-tokio"] }
+opentelemetry-otlp = { version = "0.32", features = ["trace", "grpc-tonic"] }
+tracing-opentelemetry = "0.33"
 ureq = { version = "2.9", default-features = false, features = ["tls"] }
 
 [build-dependencies]
