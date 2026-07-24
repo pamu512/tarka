@@ -176,7 +176,9 @@ def _compile_to_json_rules(pack: VisualAstPack) -> dict[str, Any]:
             )
         else:
             compiled["when"] = [
-                _leaf_to_when_condition(c) for c in r.all_of if isinstance(c, VisualAstLeaf)
+                _leaf_to_when_condition(c)
+                for c in r.all_of
+                if isinstance(c, VisualAstLeaf)
             ]
         out_rules.append(compiled)
     return {

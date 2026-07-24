@@ -512,3 +512,53 @@ Result: exit 0, no output.
   findings once the broad config-inheritance workaround is removed.
 - Docker Compose and Helm CLIs are absent in this environment; live deployment
   rendering could not be executed locally.
+
+## Review Fix: Ruff Reproducibility Pin
+
+### Changes
+
+- Updated `.github/workflows/ci.yml` to install `ruff==0.15.22` in the existing
+  Ruff audit job, matching repository reference commit `59318f85` and CI run
+  `30059764068`.
+- Installed Ruff 0.15.22 locally and ran the exact CI commands.
+- To make the exact pinned gates pass on this branch, applied only the changes
+  reported by Ruff 0.15.22 itself:
+  - removed two unused `hashlib` imports reported by `ruff check .`;
+  - formatted the 18 files reported by `ruff format --check services/`.
+
+### Verification
+
+```bash
+cd /workspace && python3 -m pip install --user ruff==0.15.22 && python3 -m ruff --version
+```
+
+Result:
+
+```text
+Successfully installed ruff-0.15.22
+ruff 0.15.22
+```
+
+```bash
+cd /workspace && PATH="$HOME/.local/bin:$PATH" ruff --version && PATH="$HOME/.local/bin:$PATH" ruff check . && PATH="$HOME/.local/bin:$PATH" ruff format --check services/
+```
+
+Result:
+
+```text
+ruff 0.15.22
+All checks passed!
+1177 files already formatted
+```
+
+```bash
+cd /workspace && git diff --check
+```
+
+Result: exit 0, no output.
+
+### Diff Note
+
+The prior Task 7 functional diff remains unchanged. The additional working-tree
+delta for this review fix is the CI pin plus the exact source/format changes
+required by Ruff 0.15.22 to make the pinned full-repo gates pass.

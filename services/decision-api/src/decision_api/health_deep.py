@@ -141,7 +141,11 @@ def _check_rust_json_rules_engine() -> tuple[bool, dict[str, Any]]:
             f"tarka_rule_engine not installed (auto mode uses Python fallback): {e}"
         )
         return True, detail
-    required = ("sync_packs_json", "evaluate_json_rules_rust", "rust_engine_cache_stats")
+    required = (
+        "sync_packs_json",
+        "evaluate_json_rules_rust",
+        "rust_engine_cache_stats",
+    )
     missing = [name for name in required if not hasattr(tre, name)]
     if missing:
         detail["status"] = "unhealthy"

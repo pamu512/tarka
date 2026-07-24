@@ -19,13 +19,17 @@ def test_one_byte_rule_edit_changes_content_identity() -> None:
     a = {
         "version": 1,
         "name": "demo",
-        "rules": [{"id": "r1", "when": [{"field": "amount", "op": "gte", "value": 100}]}],
+        "rules": [
+            {"id": "r1", "when": [{"field": "amount", "op": "gte", "value": 100}]}
+        ],
         "_source_file": "a.json",
     }
     b = {
         "version": 1,
         "name": "demo",
-        "rules": [{"id": "r1", "when": [{"field": "amount", "op": "gte", "value": 101}]}],
+        "rules": [
+            {"id": "r1", "when": [{"field": "amount", "op": "gte", "value": 101}]}
+        ],
         "_source_file": "a.json",
     }
     assert rule_pack_content_sha256(a) != rule_pack_content_sha256(b)
@@ -36,7 +40,9 @@ def test_filename_alone_does_not_change_content_identity() -> None:
     a = {
         "version": 1,
         "name": "demo",
-        "rules": [{"id": "r1", "when": [{"field": "amount", "op": "gte", "value": 100}]}],
+        "rules": [
+            {"id": "r1", "when": [{"field": "amount", "op": "gte", "value": 100}]}
+        ],
         "_source_file": "a.json",
     }
     b = {**a, "_source_file": "renamed.json"}

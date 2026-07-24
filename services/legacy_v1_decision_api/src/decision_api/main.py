@@ -937,7 +937,9 @@ def _build_artifact_manifest(
         engine_build_identity,
     )
 
-    content_fp = (rule_pack_content_sha256 or "").strip() or contributing_packs_content_sha256(
+    content_fp = (
+        rule_pack_content_sha256 or ""
+    ).strip() or contributing_packs_content_sha256(
         list(_cached_packs),
         list(json_rule_pack_files),
     )
