@@ -113,6 +113,7 @@ if not _shared_inserted:
     fallback = Path(__file__).resolve().parents[3] / "shared"
     sys.path.insert(0, str(fallback))
 from observability import get_metrics, setup_observability  # noqa: E402
+from tenant_binding import parse_api_key_tenant_map  # noqa: E402
 from tarka_shared.tracing import setup_tracing  # noqa: E402
 
 _TARKA_CLAIMS_MARKER = "\nTARKA_CLAIMS_JSON="
@@ -134,6 +135,51 @@ def _get_api_keys() -> frozenset[str]:
     return _valid_api_keys
 
 
+def _allow_insecure_no_auth() -> bool:
+    return os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _api_key_allowed_tenants(request: Request) -> set[str] | None:
+    keys = _get_api_keys()
+    api_key = request.headers.get("x-api-key", "")
+    if not api_key or api_key not in keys:
+        return None
+    tenant_map = parse_api_key_tenant_map()
+    if not tenant_map:
+        if _allow_insecure_no_auth():
+            return {"*"}
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "authentication misconfigured: API_KEY_TENANT_MAP is required when API_KEYS is set "
+                "(or ALLOW_INSECURE_NO_AUTH=true for local development)"
+            ),
+        )
+    allowed = set(tenant_map.get(api_key, set()))
+    if not allowed:
+        raise HTTPException(
+            status_code=401,
+            detail="API key has no tenant scope; add an entry in API_KEY_TENANT_MAP",
+        )
+    return allowed
+
+
+def _enforce_effective_tenant_access(request: Request, tenant_id: str) -> None:
+    auth_user = getattr(request.state, "auth_user", None)
+    allowed = getattr(auth_user, "tenant_ids", None) if auth_user is not None else None
+    if not allowed:
+        allowed = _api_key_allowed_tenants(request)
+    if not allowed:
+        return
+    if "*" not in allowed and tenant_id not in allowed:
+        raise HTTPException(status_code=403, detail=f"tenant '{tenant_id}' is outside caller scope")
+
+
 async def require_api_key(request: Request) -> None:
     keys = _get_api_keys()
     if settings.copilot_require_investigation_api_key:
@@ -146,6 +192,7 @@ async def require_api_key(request: Request) -> None:
         return
     if request.headers.get("x-api-key", "") not in keys:
         raise HTTPException(status_code=401, detail="invalid or missing API key")
+    _api_key_allowed_tenants(request)
 
 
 @asynccontextmanager
@@ -689,6 +736,8 @@ def _knowledge_lineage_from_tool_calls(tool_calls: list[dict[str, Any]]) -> dict
     conflicts: set[str] = set()
     bundle_revisions: set[str] = set()
     okf_abstain = False
+    okf_unavailable = False
+    retrieval_fallback: str | None = None
 
     for call in tool_calls:
         if not isinstance(call, dict) or call.get("tool") != "search_knowledge":
@@ -698,6 +747,13 @@ def _knowledge_lineage_from_tool_calls(tool_calls: list[dict[str, Any]]) -> dict
             continue
         if result.get("error"):
             continue
+        if result.get("okf_unavailable") is True:
+            okf_unavailable = True
+            okf_abstain = True
+            retrieval_fallback = retrieval_fallback or "memo_rag"
+        fallback = result.get("retrieval_fallback")
+        if isinstance(fallback, str) and fallback.strip():
+            retrieval_fallback = fallback.strip()
         if result.get("abstain") is True:
             okf_abstain = True
         for conflict in result.get("conflicts") or []:
@@ -731,9 +787,40 @@ def _knowledge_lineage_from_tool_calls(tool_calls: list[dict[str, Any]]) -> dict
         "evidence_ids": sorted(evidence_ids),
         "concept_ids": sorted(concept_ids),
         "okf_abstain": okf_abstain,
+        "okf_unavailable": okf_unavailable,
+        "retrieval_fallback": retrieval_fallback,
         "conflicts": sorted(conflicts),
         "bundle_revision": bundle_revision,
     }
+
+
+def _enforce_claim_exact_ids(
+    claims: list[dict[str, Any]],
+    lineage: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    allowed_concepts = {str(x) for x in (lineage.get("concept_ids") or []) if str(x)}
+    allowed_evidence = {str(x) for x in (lineage.get("evidence_ids") or []) if str(x)}
+    out: list[dict[str, Any]] = []
+    adjustments: list[str] = []
+    for claim in claims:
+        c = dict(claim)
+        invalid = False
+        for key, allowed in (("concept_ids", allowed_concepts), ("evidence_ids", allowed_evidence)):
+            if key not in c:
+                continue
+            raw = c.get(key)
+            if not isinstance(raw, list) or not raw:
+                invalid = True
+                continue
+            refs = [str(item).strip() for item in raw if isinstance(item, str) and str(item).strip()]
+            if len(refs) != len(raw) or any(ref not in allowed for ref in refs):
+                invalid = True
+        if invalid:
+            c["source"] = "unknown"
+            c["supported"] = False
+            adjustments.append("unresolved_exact_citation_id")
+        out.append(c)
+    return out, adjustments
 
 
 def _apply_okf_strict_abstention(
@@ -743,7 +830,9 @@ def _apply_okf_strict_abstention(
     assurance_mode: str,
     lineage: dict[str, Any],
 ) -> tuple[str, list[dict[str, Any]], bool]:
-    if assurance_mode != "strict" or not bool(lineage.get("okf_abstain")):
+    if assurance_mode != "strict" or not (
+        bool(lineage.get("okf_abstain")) or bool(lineage.get("okf_unavailable"))
+    ):
         return reply, claims, False
     conflicts = lineage.get("conflicts")
     suffix = ""
@@ -1409,6 +1498,50 @@ def _okf_readiness_errors(application: FastAPI) -> list[str]:
     return []
 
 
+async def _require_admin_api_key(request: Request) -> None:
+    keys = _get_api_keys()
+    api_key = request.headers.get("x-api-key", "")
+    if not keys or api_key not in keys:
+        raise HTTPException(status_code=401, detail="admin API key required")
+    role = os.environ.get("SERVICE_API_KEY_ROLE", "admin").strip().lower() or "admin"
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="admin role required")
+
+
+@app.post("/v1/admin/okf/reload")
+async def okf_reload(request: Request):
+    await _require_admin_api_key(request)
+    if not settings.okf_enabled:
+        raise HTTPException(status_code=409, detail="OKF is disabled")
+    registry = getattr(request.app.state, "okf_registry", None)
+    if registry is None:
+        registry = OkfRegistry(
+            shared_root=Path(settings.okf_shared_root),
+            tenant_root=Path(settings.okf_tenant_root),
+        )
+        request.app.state.okf_registry = registry
+    try:
+        reload_result = registry.reload()
+    except Exception:
+        request.app.state.okf_load_error = "okf_reload_failed"
+        raise HTTPException(status_code=503, detail="okf_reload_failed")
+    request.app.state.okf_reload_result = reload_result
+    if reload_result.activated:
+        request.app.state.okf_load_error = None
+    else:
+        request.app.state.okf_load_error = "; ".join(
+            f"{issue.code}:{issue.path}" for issue in reload_result.issues
+        )
+    return {
+        "activated": bool(reload_result.activated),
+        "revision": str(reload_result.revision),
+        "issues": [
+            {"code": issue.code, "path": issue.path, "message": issue.message}
+            for issue in reload_result.issues
+        ],
+    }
+
+
 @app.get("/v1/ready")
 async def ready():
     """
@@ -1730,6 +1863,7 @@ async def evidence_summary(body: EvidenceSummaryRequest, request: Request):
     """
     _validate_scope_id("tenant_id", body.tenant_id)
     _validate_scope_id("analyst_id", body.analyst_id)
+    _enforce_effective_tenant_access(request, body.tenant_id)
     if body.case_id:
         _validate_scope_id("case_id", body.case_id)
     if not is_analyst_allowed(body.analyst_id):
@@ -2416,6 +2550,7 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
 
     _validate_scope_id("tenant_id", body.tenant_id)
     _validate_scope_id("analyst_id", body.analyst_id)
+    _enforce_effective_tenant_access(request, body.tenant_id)
     if body.case_id:
         _validate_scope_id("case_id", body.case_id)
     if body.batch_id:
@@ -2741,10 +2876,14 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
 
     prose, claims, claims_warn = _parse_tarka_claims_reply(raw_reply)
     reply = _validate_output(prose)
+    knowledge_lineage = _knowledge_lineage_from_tool_calls(tool_calls)
 
     grounding_adj: list[str] = []
+    claims, exact_id_adj = _enforce_claim_exact_ids(claims, knowledge_lineage)
+    grounding_adj.extend(exact_id_adj)
     if settings.copilot_enforce_tool_claim_grounding:
-        claims, grounding_adj = enforce_tool_claim_grounding(claims, tool_calls)
+        claims, token_grounding_adj = enforce_tool_claim_grounding(claims, tool_calls)
+        grounding_adj.extend(token_grounding_adj)
 
     tool_names = [t.get("tool") for t in tool_calls if isinstance(t, dict)]
     tool_errors = sum(
@@ -2793,7 +2932,6 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
     answer_sections = parse_structured_sections(reply)
     det_support = deterministic_claim_support(claims, tool_calls)
     ack_warns = tool_error_acknowledgment_warnings(reply, tool_calls)
-    knowledge_lineage = _knowledge_lineage_from_tool_calls(tool_calls)
 
     derived_facts: list[dict[str, Any]] = []
     if settings.copilot_derived_facts or settings.copilot_assurance_mode == "strict":
@@ -2833,6 +2971,8 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         claims=claims,
         deterministic_support=det_support,
         case_id=body.case_id,
+        allowed_concept_ids=set(knowledge_lineage.get("concept_ids") or []),
+        allowed_evidence_ids=set(knowledge_lineage.get("evidence_ids") or []),
     )
 
     judge_assessments = None
@@ -2894,6 +3034,8 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
                 "assurance_refused": assurance_refused,
                 "grounding_adjustments": list(grounding_adj),
                 "okf_abstain": bool(knowledge_lineage.get("okf_abstain")),
+                "okf_unavailable": bool(knowledge_lineage.get("okf_unavailable")),
+                "retrieval_fallback": knowledge_lineage.get("retrieval_fallback"),
                 "conflicts": list(knowledge_lineage.get("conflicts") or []),
                 "bundle_revision": knowledge_lineage.get("bundle_revision"),
                 "concept_ids": list(knowledge_lineage.get("concept_ids") or []),

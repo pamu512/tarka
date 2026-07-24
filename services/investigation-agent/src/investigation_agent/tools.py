@@ -924,6 +924,7 @@ async def tool_search_knowledge(
         return {"error": "query required"}
     lim = max(1, min(int(limit or 5), 15))
     use_emb = settings.copilot_knowledge_embeddings and bool(effective_embedding_api_key())
+    okf_unavailable = False
     if okf_registry is not None and bool(getattr(settings, "okf_enabled", True)):
         try:
             result = await knowledge_store.retrieve_knowledge_async(
@@ -942,7 +943,7 @@ async def tool_search_knowledge(
             return _limit_result(_format_knowledge_retrieval_result(result, query=q))
         except Exception:
             # OKF is an availability enhancement; memo RAG remains a safe read-only fallback.
-            pass
+            okf_unavailable = True
 
     data = await knowledge_store.search_async(
         http,
@@ -962,6 +963,11 @@ async def tool_search_knowledge(
     out.setdefault("conflicts", [])
     out.setdefault("abstain", False)
     out.setdefault("bundle_revision", "")
+    if okf_unavailable:
+        out["okf_unavailable"] = True
+        out["okf_error"] = "okf_unavailable"
+        out["retrieval_fallback"] = "memo_rag"
+        out["abstain"] = True
     return _limit_result(out)
 
 
