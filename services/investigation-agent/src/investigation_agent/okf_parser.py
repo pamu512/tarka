@@ -188,17 +188,16 @@ def validate_bundle(
             continue
         concepts[concept.concept_id] = concept
 
-    if not issues:
-        for concept in concepts.values():
-            for link_id in concept.links:
-                if link_id not in concepts:
-                    issues.append(
-                        BundleIssue(
-                            "link_target_missing",
-                            concept.path.as_posix(),
-                            f"missing link target: {link_id}",
-                        )
+    for concept in concepts.values():
+        for link_id in concept.links:
+            if link_id not in concepts:
+                issues.append(
+                    BundleIssue(
+                        "link_target_missing",
+                        concept.path.as_posix(),
+                        f"missing link target: {link_id}",
                     )
+                )
 
     if issues:
         return BundleValidation(valid=False, issues=tuple(issues), bundle=None)
