@@ -361,6 +361,9 @@ def test_landmark_case_rejects_case_normalized_person_names(field, value):
         "Jane Example initiated the transfer",
         "JANE EXAMPLE initiated the transfer",
         "jane example initiated the transfer",
+        "Jane Merchant initiated the transfer",
+        "JANE MERCHANT initiated the transfer",
+        "jane merchant initiated the transfer",
         "The customer transfer was initiated by Jane Example yesterday",
     ],
 )
@@ -371,6 +374,20 @@ def test_landmark_case_rejects_embedded_person_name_bigrams(value):
                 "case_id": "case-opaque-embedded-name",
                 "title": "Reviewed case",
                 "summary": value,
+                "lessons": "Manual Review remains required.",
+                "source_content_hash": "c" * 64,
+            },
+            tenant_id="t1",
+        )
+
+
+def test_landmark_case_rejects_labeled_uncommon_person_name():
+    with pytest.raises(LandmarkCaseSanitizationError, match="person_name"):
+        export_landmark_case(
+            {
+                "case_id": "case-opaque-labeled-name",
+                "title": "Reviewed case",
+                "summary": "Customer name: Zephyr Quill initiated the transfer.",
                 "lessons": "Manual Review remains required.",
                 "source_content_hash": "c" * 64,
             },
@@ -413,6 +430,7 @@ def test_landmark_case_central_domain_vocabulary_allows_playbook_terms(phrase):
         "High Amount account takeover patterns require customer review.",
         "Customer transfer velocity triggered the fraud policy.",
         "The analyst reviewed the account and escalated the case.",
+        "Unusual behavior detected.",
     ],
 )
 def test_landmark_case_allows_normal_fraud_and_playbook_prose(value):

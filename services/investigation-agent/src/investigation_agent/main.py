@@ -1143,6 +1143,8 @@ _NARRATIVE_WITHHOLDING_ADJUSTMENTS = frozenset(
         "exact_citation_text_unsupported",
         "search_knowledge_citation_omitted",
         "tool_call_binding_invalid",
+        "tool_claim_missing_grounding_token",
+        "no_successful_tool_payloads_for_grounding",
         "unresolved_exact_citation_id",
     }
 )
@@ -1155,13 +1157,13 @@ def _apply_grounding_abstention(
     adjustments: list[str],
     assurance_mode: str,
 ) -> tuple[str, list[dict[str, Any]], bool]:
-    """Withhold prose whenever exact citation enforcement rejected a claim."""
+    """Withhold prose whenever deterministic claim grounding rejected a claim."""
     violations = sorted(set(adjustments) & _NARRATIVE_WITHHOLDING_ADJUSTMENTS)
     if not violations:
         return reply, claims, False
     mode = "strict" if assurance_mode == "strict" else "standard"
     abstention = (
-        "This assistant narrative was withheld because exact tool citations could not "
+        "This assistant narrative was withheld because tool grounding could not "
         f"be verified in {mode} assurance mode. Review the raw successful tool results "
         "or retry the investigation."
     )
@@ -1944,21 +1946,25 @@ async def okf_reload(request: Request):
 @app.get("/v1/ready")
 async def ready():
     """
-    Readiness probe: every enabled knowledge path must be healthy.
+    Readiness probe: at least one enabled knowledge path must be healthy.
     Use with GET /v1/health for liveness vs readiness in orchestrators.
     """
     rag_errs = runtime_readiness_errors()
-    okf_errs = _okf_readiness_errors(app)
+    okf_enabled = bool(settings.okf_enabled)
+    okf_errs = _okf_readiness_errors(app) if okf_enabled else []
     public_codes = [
         *(["rag_unavailable"] if rag_errs else []),
         *(["okf_unavailable"] if okf_errs else []),
     ]
-    if public_codes:
+    if not public_codes:
+        return {"status": "ready"}
+    usable_paths = int(not rag_errs) + int(okf_enabled and not okf_errs)
+    if usable_paths == 0:
         return JSONResponse(
             status_code=503,
             content={"status": "not_ready", "errors": public_codes},
         )
-    return {"status": "ready"}
+    return {"status": "degraded", "warnings": public_codes}
 
 
 def _health_details_payload() -> dict[str, Any]:
@@ -3396,15 +3402,15 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
     grounding_adj: list[str] = []
     claims, exact_id_adj = _enforce_claim_exact_ids(claims, tool_calls)
     grounding_adj.extend(exact_id_adj)
-    reply, claims, citation_refused = _apply_grounding_abstention(
-        reply,
-        claims,
-        adjustments=exact_id_adj,
-        assurance_mode=settings.copilot_assurance_mode,
-    )
     if settings.copilot_enforce_tool_claim_grounding:
         claims, token_grounding_adj = enforce_tool_claim_grounding(claims, tool_calls)
         grounding_adj.extend(token_grounding_adj)
+    reply, claims, citation_refused = _apply_grounding_abstention(
+        reply,
+        claims,
+        adjustments=grounding_adj,
+        assurance_mode=settings.copilot_assurance_mode,
+    )
 
     tool_names = [t.get("tool") for t in tool_calls if isinstance(t, dict)]
     tool_errors = sum(
