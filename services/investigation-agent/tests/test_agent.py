@@ -7,6 +7,7 @@ from investigation_agent.tools import (
     TOOL_DEFINITIONS,
     TOOL_DISPATCH,
     _analyst_allowed,
+    tool_search_knowledge,
     tool_export_outcome_labeled_dataset,
     tool_get_case,
     tool_get_entity_tags,
@@ -15,6 +16,7 @@ from investigation_agent.tools import (
     tool_run_replay_ab_comparison,
     tool_subgraph,
 )
+from investigation_agent.okf_retrieval import KnowledgeResult, KnowledgeRetrievalResult
 
 # ---------- _analyst_allowed ----------
 
@@ -343,6 +345,128 @@ class TestReplayAbComparison:
         assert body["trace_ids"] == [tid]
         assert out.get("trace_ids_mode") is True
         assert out["comparison"].get("paired_traces") == 1
+
+
+class TestSearchKnowledgeOkf:
+    @pytest.mark.asyncio
+    async def test_search_knowledge_uses_authenticated_scope_and_returns_okf_fields(self):
+        http = AsyncMock()
+        registry = MagicMock()
+        retrieval = KnowledgeRetrievalResult(
+            results=(
+                KnowledgeResult(
+                    text="High Amount Rule\n\nTransactions above threshold require review.",
+                    authority="shared_okf",
+                    concept_id="rules/high-amount",
+                    content_hash="a" * 64,
+                    evidence_ids=("ev-high-amount",),
+                    retrieval_path=("rules/high-amount",),
+                    score=1.0,
+                    stale=False,
+                ),
+            ),
+            retrieval_mode="exact",
+            conflicts=(),
+            abstain=False,
+            bundle_revision="bundle-rev-1",
+        )
+
+        with patch("investigation_agent.tools.settings") as mock_settings:
+            mock_settings.allowed_analysts = "*"
+            mock_settings.copilot_knowledge_embeddings = False
+            mock_settings.copilot_embedding_model = "embed"
+            mock_settings.copilot_rag_keyword_weight = 0.35
+            with patch(
+                "investigation_agent.tools.knowledge_store.retrieve_knowledge_async",
+                new=AsyncMock(return_value=retrieval),
+            ) as retrieve:
+                result = await tool_search_knowledge(
+                    http,
+                    tenant_id="trusted-tenant",
+                    analyst_id="trusted-analyst",
+                    query="high-amount",
+                    limit=5,
+                    okf_registry=registry,
+                )
+
+        retrieve.assert_awaited_once()
+        kwargs = retrieve.await_args.kwargs
+        assert kwargs["tenant_id"] == "trusted-tenant"
+        assert kwargs["analyst_id"] == "trusted-analyst"
+        assert "bundle_path" not in kwargs
+        assert result["retrieval_mode"] == "exact"
+        assert result["bundle_revision"] == "bundle-rev-1"
+        assert result["abstain"] is False
+        assert result["conflicts"] == []
+        assert result["hits"][0]["concept_id"] == "rules/high-amount"
+        assert result["hits"][0]["content_hash"] == "a" * 64
+        assert result["hits"][0]["evidence_ids"] == ["ev-high-amount"]
+        assert result["hits"][0]["retrieval_path"] == ["rules/high-amount"]
+        assert result["hits"][0]["authority"] == "shared_okf"
+
+    def test_okf_abstain_lineage_is_recorded_for_strict_mode(self):
+        from investigation_agent.main import (
+            _apply_okf_strict_abstention,
+            _knowledge_lineage_from_tool_calls,
+        )
+
+        tool_calls = [
+            {
+                "tool": "search_knowledge",
+                "args": {"query": "unsupported policy"},
+                "result": {
+                    "hits": [
+                        {
+                            "concept_id": "rules/high-amount",
+                            "evidence_ids": ["ev-high-amount"],
+                        }
+                    ],
+                    "abstain": True,
+                    "conflicts": ["shared_okf conflict for guidance/a.json: a != b"],
+                    "bundle_revision": "bundle-rev-2",
+                },
+            }
+        ]
+
+        lineage = _knowledge_lineage_from_tool_calls(tool_calls)
+        assert lineage["evidence_ids"] == ["ev-high-amount"]
+        assert lineage["concept_ids"] == ["rules/high-amount"]
+        assert lineage["okf_abstain"] is True
+        assert lineage["conflicts"] == ["shared_okf conflict for guidance/a.json: a != b"]
+        assert lineage["bundle_revision"] == "bundle-rev-2"
+
+        reply, claims, refused = _apply_okf_strict_abstention(
+            "The unsupported policy applies.",
+            [{"text": "The unsupported policy applies.", "source": "tool"}],
+            assurance_mode="strict",
+            lineage=lineage,
+        )
+
+        assert refused is True
+        assert "abstain" in reply.lower()
+        assert claims == [{"text": reply, "source": "unknown"}]
+
+    def test_okf_claim_parser_preserves_exact_identifier_fields(self):
+        from investigation_agent.main import _parse_tarka_claims_reply
+
+        raw = (
+            "High amount requires review.\n"
+            'TARKA_CLAIMS_JSON={"claims":[{"text":"High amount requires review.",'
+            '"source":"tool","concept_ids":["rules/high-amount"],'
+            '"evidence_ids":["ev-high-amount"]}]}'
+        )
+
+        _, claims, warning = _parse_tarka_claims_reply(raw)
+
+        assert warning is None
+        assert claims == [
+            {
+                "text": "High amount requires review.",
+                "source": "tool",
+                "concept_ids": ["rules/high-amount"],
+                "evidence_ids": ["ev-high-amount"],
+            }
+        ]
 
 
 class TestOfflineMode:
