@@ -601,6 +601,172 @@ Remaining concerns:
 - Existing Starlette/httpx, Rust dead-code, npm deprecation, and frontend
   chunk-size warnings remain non-failing.
 
+## Selected-call exact-reference release gate
+
+Status: `DONE_WITH_CONCERNS`
+
+Fix commit:
+
+- `ccd28320` — `fix(copilot): bind exact references to selected knowledge`
+
+Delivered:
+
+- Claims containing `concept_ids` or `evidence_ids` now require at least one
+  selected, successful `search_knowledge` call. Exact references resolve only
+  against hits from those selected knowledge calls.
+- Selecting only case/graph/audit calls with exact references is unsupported.
+  Mixed selections cannot use an ID returned by an unselected knowledge call.
+  Non-knowledge tool claims without exact references retain selected-call and
+  token-grounding enforcement.
+- Exact-reference claims with a non-tool source also fail closed instead of
+  retaining apparently cited prose.
+- Runtime-backed unit and quality fixtures cover non-knowledge-only selection,
+  mixed selection with an ID from an unselected knowledge call, and correct
+  selected-knowledge grounding. The two adversarial additions are withheld in
+  both standard and strict modes.
+
+Fresh verification:
+
+```bash
+cd services/investigation-agent
+PYTHONPATH=src:../shared:../../packages/shared-core \
+python3 -m pytest -q \
+  tests/test_agent.py::TestSearchKnowledgeOkf::test_search_grounding_rejects_omitted_unrelated_and_fabricated_citations \
+  tests/test_agent.py::TestSearchKnowledgeOkf::test_exact_ids_require_selected_successful_knowledge_call \
+  tests/test_citation_quality_gate.py
+```
+
+Result: exit 0; `3 passed`.
+
+```bash
+cd services/investigation-agent
+PYTHONPATH=src:../shared:../../packages/shared-core \
+python3 -m pytest -q tests/
+```
+
+Result: exit 0; `369 passed, 1 skipped`. The only warning is the existing
+Starlette/httpx deprecation warning.
+
+```bash
+cd services/investigation-agent
+PYTHONPATH=src:../shared:../../packages/shared-core \
+python3 -m pytest -q \
+  tests/test_citation_quality_gate.py tests/test_okf_retrieval.py
+```
+
+Result: exit 0; `8 passed`. The independent citation fixture has one valid
+two-reference case and 29 unsupported cases, including both new selected-call
+attacks. It accepts only the two correct references (100% exact-reference
+precision) and withholds all 29 unsupported narratives in both assurance modes
+(100% actual abstention); the retrieval recall gate also passed.
+
+```bash
+python3 -m ruff --version
+python3 -m ruff check .
+python3 -m ruff format --check services/
+```
+
+Result: exit 0; `ruff 0.15.22`; all checks passed; `1190 files already
+formatted`.
+
+Whole-branch Schemathesis diagnostic:
+
+```bash
+# Current branch
+cd services/legacy_v1_decision_api
+PYTHONPATH=src:../shared:../../packages/shared-core \
+DATABASE_URL=sqlite+aiosqlite:/// REDIS_URL=redis://localhost:6379/0 \
+python3 -m pytest -q -m contract tests/
+```
+
+Result: `34 failed, 79 passed, 358 deselected, 155 warnings in 117.56s`.
+The exact current operation IDs are:
+
+- `POST /v1/simulation/run`
+- `POST /v1/simulation/ab-test`
+- `POST /v1/simulation/benchmark/vertical`
+- `POST /v1/simulation/benchmark/export`
+- `POST /v1/simulation/experiments`
+- `GET /v1/lists/check/{tenant_id}/{entity_id}`
+- `GET /v1/lists/stats/{tenant_id}`
+- `POST /v1/consortium/share`
+- `GET /v1/consortium/check/{tenant_id}/{entity_id}`
+- `POST /v1/consortium/trust`
+- `POST /v1/consortium/feedback`
+- `POST /v1/internal/counters/replay`
+- `POST /v1/internal/counters/replay/from-audit`
+- `POST /v1/calibration/snapshots`
+- `POST /v1/calibration/reference/{profile}`
+- `GET /v1/calibration/summary`
+- `POST /v1/reporting/nl-to-sql`
+- `POST /v1/rules/visual/mermaid`
+- `POST /v1/rules/gitops/approve`
+- `POST /v1/rules/backtest/preview-sql`
+- `POST /v1/rules/backtest/jobs`
+- `POST /v1/ml/export/pit-parquet/jobs`
+- `POST /v1/ml/export/pit-parquet`
+- `POST /v1/feature-store/definitions`
+- `GET /v1/feature-store/definitions`
+- `POST /v1/feature-store/ddl/execute`
+- `GET /v1/analytics/dashboards/kpis`
+- `GET /v1/analytics/dashboards/summary`
+- `GET /v1/manifest/{manifest_id}/visualize`
+- `POST /v1/compare/manifests`
+- `POST /v1/sandbox/bootstrap`
+- `GET /v1/admin/tenants/{tenant_id}/flags`
+- `PATCH /v1/admin/tenants/{tenant_id}/flags`
+- `POST /v1/decisions/evaluate`
+
+Their concrete message classes remain 9 accepted-negative-data failures, 2
+Redis-unavailable fixture failures, 5 async-`MagicMock` fixture failures, and
+18 unprovisioned contract-dependency server errors.
+
+The requested actual branch base was checked out detached at
+`07d661e4302e381f23aec755f88cc130e6eea1b1` in
+`/tmp/tarka-branch-base-07d`. The exact same command was run there. It emitted
+only `.....` (the five binary/boundary tests), then made no further progress for
+ten minutes and was interrupted. The first parameterized operation was
+confirmed by collection to be
+`test_decision_api_full_schema_contract[GET /v1/rules/telemetry]`.
+
+The stall was reproduced independently:
+
+```bash
+cd /tmp/tarka-branch-base-07d/services/legacy_v1_decision_api
+timeout 60s env \
+  PYTHONPATH=src:../shared:../../packages/shared-core \
+  DATABASE_URL=sqlite+aiosqlite:/// REDIS_URL=redis://localhost:6379/0 \
+  python3 -m pytest -vv \
+  tests/contract/test_schemathesis_decision_api.py -k telemetry
+```
+
+Result: 108 tests collected, 107 deselected, the base
+`GET /v1/rules/telemetry` case started, and `timeout` returned exit `124`
+without a test result. The same focused operation on current returned exit 0:
+`1 passed, 107 deselected in 9.70s`.
+
+Because the specified base cannot complete even its first Schemathesis
+operation in this environment, no exact base failure-ID/message set exists to
+compare. This report therefore does **not** claim whole-branch baseline
+equivalence. The detached worktree and all of its generated test state were
+removed; no worktree artifact was committed.
+
+```bash
+git diff --check
+git diff --name-only -- docs/superpowers/specs docs/superpowers/plans
+git status --porcelain=v2 --untracked-files=all
+```
+
+Result before this report commit: no whitespace errors, no plan/design edits,
+and no generated databases, decision logs, rule packs, worktree files, or
+untracked artifacts.
+
+Remaining concern:
+
+- The exact current-vs-`07d661e4` Schemathesis comparison is indeterminate due
+  to the reproducible base stall above. No equivalence is asserted, and the 34
+  current diagnostic failures remain unresolved.
+
 ## Durable final release gate
 
 Status: `DONE_WITH_CONCERNS`
