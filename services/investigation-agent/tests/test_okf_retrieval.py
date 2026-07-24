@@ -302,9 +302,51 @@ def test_exact_and_graph_results_precede_rag(
         "playbooks/high-amount-review",
         "references/kyc-checklist",
     )
+    assert all(item.stale is False for item in result.results if item.concept_id)
     assert result.abstain is False
     assert result.conflicts == ()
     assert result.retrieval_mode == "exact+expand+keyword"
+
+
+def test_authority_ranks_before_stage_when_rag_finds_tenant_okf(
+    retrieval_context: RetrievalContext,
+) -> None:
+    tenant_hash = retrieval_context.tenant_bundles["t1"].concepts[
+        "playbooks/high-amount-review"
+    ].content_hash
+
+    result = retrieve_knowledge(
+        registry=retrieval_context.registry,
+        tenant_id="t1",
+        analyst_id="analyst-1",
+        query="High Amount Rule",
+        limit=3,
+        rag_search=lambda **_: {
+            "hits": [
+                {
+                    "title": "High Amount Review Playbook",
+                    "snippet": "Tenant-specific OKF guidance discovered through RAG.",
+                    "score": 0.93,
+                    "knowledge_kind": "okf",
+                    "concept_id": "playbooks/high-amount-review",
+                    "bundle_scope": "t1",
+                    "content_hash": tenant_hash,
+                    "source_uri": "playbooks/t1/high-amount-review.json",
+                    "authority": 30,
+                }
+            ],
+            "retrieval_mode": "keyword",
+        },
+    )
+
+    assert [item.concept_id for item in result.results[:2]] == [
+        "playbooks/high-amount-review",
+        "rules/high-amount",
+    ]
+    assert [item.authority for item in result.results[:2]] == [
+        "tenant_okf",
+        "shared_okf",
+    ]
 
 
 def test_results_deduplicate_by_concept_and_hash(
@@ -384,6 +426,50 @@ def test_results_deduplicate_by_concept_and_hash(
     assert concept_results[0].content_hash == fresh_hash
     assert all(item.content_hash != stale_hash for item in result.results)
     assert len(memo_results) == 1
+
+
+def test_same_source_hash_conflict_abstains_before_deduplication(
+    retrieval_context: RetrievalContext,
+) -> None:
+    shared_bundle = retrieval_context.shared_bundle
+    current_hash = shared_bundle.concepts["rules/high-amount"].content_hash
+    stale_hash = "8" * 64
+
+    result = retrieve_knowledge(
+        registry=retrieval_context.registry,
+        tenant_id="t1",
+        analyst_id="analyst-1",
+        query="High Amount Rule",
+        limit=5,
+        rag_search=lambda **_: {
+            "hits": [
+                {
+                    "title": "High Amount Rule",
+                    "snippet": "Stale indexed copy of the shared rule.",
+                    "score": 0.98,
+                    "knowledge_kind": "okf",
+                    "concept_id": "rules/high-amount",
+                    "bundle_scope": "shared",
+                    "content_hash": stale_hash,
+                    "source_uri": "rules/default.json#high-amount",
+                    "authority": 20,
+                }
+            ],
+            "retrieval_mode": "keyword",
+        },
+    )
+
+    concept_results = [
+        item for item in result.results if item.concept_id == "rules/high-amount"
+    ]
+    assert len(concept_results) == 1
+    assert concept_results[0].content_hash == current_hash
+    assert concept_results[0].stale is False
+    assert result.abstain is True
+    assert result.conflicts == (
+        f"shared_okf conflict for rules/default.json#high-amount: "
+        f"rules/high-amount[{current_hash}] != rules/high-amount[{stale_hash}]",
+    )
 
 
 def test_embedding_failure_uses_keyword_fallback(

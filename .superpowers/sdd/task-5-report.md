@@ -107,3 +107,62 @@ Result:
 
 1. The frozen corpus is intentionally focused on exact title/tag/concept-id and bounded link-expansion cases for this task; it is useful for Task 5 coverage but not yet a broad production evaluation set.
 2. The new async facade is exported from `knowledge_store.py`, but application/tool wiring is intentionally deferred so Task 6 can connect it to request lifecycle state and citation handling cleanly.
+
+## Review Fix Round
+
+### Red run for review findings
+
+```bash
+python3 -m pytest -q tests/test_okf_retrieval.py
+```
+
+Result before review-fix implementation:
+
+```text
+.F.F...                                                                  [100%]
+=================================== FAILURES ===================================
+_________ test_authority_ranks_before_stage_when_rag_finds_tenant_okf __________
+...
+E       AssertionError: assert ['rules/high-...mount-review'] == ['playbooks/h.../high-amount']
+...
+_________ test_same_source_hash_conflict_abstains_before_deduplication _________
+...
+E       AssertionError: assert False is True
+...
+=========================== short test summary info ============================
+FAILED tests/test_okf_retrieval.py::test_authority_ranks_before_stage_when_rag_finds_tenant_okf
+FAILED tests/test_okf_retrieval.py::test_same_source_hash_conflict_abstains_before_deduplication
+2 failed, 5 passed in 0.30s
+```
+
+### Green run after review fixes
+
+```bash
+python3 -m pytest -q tests/test_okf_retrieval.py
+```
+
+Result:
+
+```text
+.......                                                                  [100%]
+7 passed in 0.29s
+```
+
+### Required regression runs after review fixes
+
+```bash
+python3 -m pytest -q tests/test_knowledge_store.py tests/test_okf_registry.py
+```
+
+Result:
+
+```text
+....................                                                     [100%]
+20 passed in 0.21s
+```
+
+### Review-fix notes
+
+- Updated ordering so authority is the primary sort key, with evidence presence, stage, and score breaking ties within the same authority tier.
+- Conflict detection now runs on the pre-deduplicated candidate set, so same-source hash conflicts still abstain even when returned results collapse to a single canonical concept.
+- Registry-backed exact and expanded candidates now document and assert the canonical-hash invariant explicitly; stale indexed OKF RAG hits remain excluded from returned authoritative results.
