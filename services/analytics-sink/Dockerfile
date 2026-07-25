@@ -8,8 +8,8 @@ RUN apt-get update \
 WORKDIR /app
 RUN pip install --no-cache-dir pip -U
 COPY services/analytics-sink/pyproject.toml /app/
-COPY services/analytics-sink /app
+COPY services/analytics-sink/src/analytics_sink /app/src/analytics_sink
 COPY services/shared /app/shared
 RUN pip install --no-cache-dir -e .
-ENV PYTHONPATH=/app:/app/shared
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8008"]
+ENV PYTHONPATH=/app/src:/app/shared
+CMD ["uvicorn", "analytics_sink.main:app", "--host", "0.0.0.0", "--port", "8008"]
