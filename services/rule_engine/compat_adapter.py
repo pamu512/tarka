@@ -100,10 +100,15 @@ def map_evaluate_to_legacy_rule_response(
     recommended = evaluate.get("recommended_action")
     if isinstance(recommended, str):
         rec = recommended.strip().lower().replace(" ", "_")
-        if rec.startswith("step_up") or rec.startswith("challenge") or rec in {
-            "mfa",
-            "step_up_mfa",
-        }:
+        if (
+            rec.startswith("step_up")
+            or rec.startswith("challenge")
+            or rec
+            in {
+                "mfa",
+                "step_up_mfa",
+            }
+        ):
             if "FLAG" not in actions:
                 actions.append("FLAG")
 
