@@ -28,8 +28,8 @@ from typing import Any
 import duckdb
 from ingestor.manifest_schema import TransactionSchema
 
-from analytics.provider import AnalyticsProvider
-from analytics.transaction_cursor import (
+from orchestrator_analytics.provider import AnalyticsProvider
+from orchestrator_analytics.transaction_cursor import (
     decode_transaction_cursor,
     encode_transaction_cursor,
 )

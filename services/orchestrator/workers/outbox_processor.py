@@ -176,7 +176,7 @@ async def build_processor_deps(
             "env=GRAPH_BACKEND|NEO4J_URI|GREMLIN_REMOTE_URL",
         )
 
-    from analytics.cloud_provider import _try_connect_clickhouse  # noqa: PLC0415
+    from orchestrator_analytics.cloud_provider import _try_connect_clickhouse  # noqa: PLC0415
 
     clickhouse_client = _try_connect_clickhouse()
     if clickhouse_client is None:
