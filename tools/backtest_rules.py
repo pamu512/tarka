@@ -22,7 +22,7 @@ Example::
       --rule-json-file ./rules/amount_block.json
 
     python tools/backtest_rules.py \\
-      --parquet services/orchestrator/analytics/data/seed_data.parquet \\
+      --parquet services/orchestrator/orchestrator_analytics/data/seed_data.parquet \\
       --tenant default \\
       --timestamp-column event_time \\
       --block-if-amount-gt 5000

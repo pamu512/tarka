@@ -31,7 +31,7 @@ def hil_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     import models.outbox  # noqa: F401, PLC0415
     import tarka_shared.audit_trail  # noqa: F401, PLC0415
 
-    from analytics.hil_context_store import InMemoryHilContextOverrideStore
+    from orchestrator_analytics.hil_context_store import InMemoryHilContextOverrideStore
     from main import create_app  # noqa: E402
 
     redis = AsyncMock()

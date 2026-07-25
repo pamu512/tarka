@@ -12,7 +12,7 @@ import logging
 from collections.abc import Sequence
 from typing import Any
 
-from analytics.provider import AnalyticsProvider
+from orchestrator_analytics.provider import AnalyticsProvider
 
 logger = logging.getLogger(__name__)
 

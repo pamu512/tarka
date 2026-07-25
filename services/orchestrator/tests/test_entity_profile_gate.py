@@ -29,7 +29,7 @@ def test_entity_profile_unifies_postgres_graph_duck() -> None:
     import tarka_shared.audit_trail  # noqa: F401, PLC0415
     import tarka_shared.engine_rules  # noqa: F401, PLC0415
     from ingestor.manifest_schema import TransactionSchema  # noqa: E402
-    from analytics.duck_provider import DuckAnalyticsProvider  # noqa: E402
+    from orchestrator_analytics.duck_provider import DuckAnalyticsProvider  # noqa: E402
     from graph.client import GraphClient  # noqa: E402
     from main import create_app  # noqa: E402
     from models.cases import CaseORM, CaseStatus  # noqa: E402
