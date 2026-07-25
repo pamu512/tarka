@@ -26,8 +26,8 @@ import signal
 import sys
 from typing import Any
 
-from analytics.factory import build_analytics_provider
-from analytics.provider import AnalyticsProvider
+from orchestrator_analytics.factory import build_analytics_provider
+from orchestrator_analytics.provider import AnalyticsProvider
 from workers.sdk_envelope_duck import envelope_bytes_to_transaction
 
 logger = logging.getLogger(__name__)

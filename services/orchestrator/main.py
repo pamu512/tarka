@@ -30,8 +30,8 @@ from pydantic import ValidationError
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse, Response
 
-from analytics.deps import get_analytics
-from analytics.provider import AnalyticsProvider
+from orchestrator_analytics.deps import get_analytics
+from orchestrator_analytics.provider import AnalyticsProvider
 from anumana_browser_ingest import handle_browser_telemetry_ingest
 from audit_case_worker import resolve_audit_database_url
 from case_export import CaseExportNotFoundError, build_compliance_export_zip
