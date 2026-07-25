@@ -1,4 +1,4 @@
-"""Wire ``tarka_vendor_finops`` to integration-ingress settings and Postgres audit."""
+"""Wire ``integration_ingress.vendor_finops`` to settings and Postgres audit."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from integration_ingress.models import OsintFinopsAudit
 
 if TYPE_CHECKING:
     from redis.asyncio import Redis
-    from tarka_vendor_finops.router import IntegrationRouter
+    from integration_ingress.vendor_finops.router import IntegrationRouter
 
 
 def _ttl_overrides_from_settings() -> dict[str, int]:
@@ -40,7 +40,7 @@ def build_finops_router(redis: Redis | None) -> IntegrationRouter | None:
     """Return a router when FinOps + Redis are enabled; otherwise ``None``."""
     if redis is None or not settings.osint_finops_enabled:
         return None
-    from tarka_vendor_finops.router import IntegrationRouter  # noqa: PLC0415
+    from integration_ingress.vendor_finops.router import IntegrationRouter  # noqa: PLC0415
 
     return IntegrationRouter(
         redis=redis,
