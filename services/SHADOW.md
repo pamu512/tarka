@@ -5,7 +5,7 @@
 | Path | Package / name | Use |
 |------|----------------|-----|
 | [`shadow_agent/`](shadow_agent/) | `tarka-shadow-agent` | **Production ingest sidecar** — `POST /v1/analyze`, audit write, Ollama. Wired from orchestrator via `SHADOW_AGENT_URL`. |
-| [`shadow/`](shadow/) | `tarka-shadow` | **Python library only** — hooks (`resolve_case`), NATS OSINT helpers, prompts. Imported by orchestrator; not a container in default compose. |
+| [`orchestrator/shadow/`](orchestrator/shadow/) | `tarka-shadow` | **Python library only** — hooks (`resolve_case`), NATS OSINT helpers, prompts. Owned by orchestrator; `services/shadow` remains a one-release install/compat surface. |
 | [`../tools/shadow/`](../tools/shadow/) | desktop console | **Analyst workstation** — Vite/Tauri + local sidecar (`:8742`). Not part of default Lite / prod Helm. Frontend proxies `/api/shadow-llm` for local-only use. |
 
 ## Naming rules
