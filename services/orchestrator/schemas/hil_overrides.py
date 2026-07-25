@@ -8,7 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from analytics.hil_context_store import HilOverrideType
+from orchestrator_analytics.hil_context_store import HilOverrideType
 from config import get_settings
 from schemas.operational import _IDEMPOTENCY_KEY_RE, _OPERATOR_ID_RE
 

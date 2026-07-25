@@ -9,11 +9,11 @@ from typing import TYPE_CHECKING, Any
 
 import asyncio
 
-from analytics import business_context as biz_ctx
+from orchestrator_analytics import business_context as biz_ctx
 from graph.client import GraphClient
 
 if TYPE_CHECKING:
-    from analytics.provider import AnalyticsProvider
+    from orchestrator_analytics.provider import AnalyticsProvider
 
 logger = logging.getLogger(__name__)
 

@@ -106,6 +106,7 @@ def _try_setup_observability(app: FastAPI) -> None:
             from tarka_shared.tracing import setup_tracing
         except ImportError:
             from observability import setup_observability  # type: ignore[no-redef]
+
             try:
                 from tracing import setup_tracing  # type: ignore[no-redef]
             except ImportError:

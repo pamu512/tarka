@@ -16,8 +16,8 @@ for _p in (_SRC_ORCH, _SRC_INGESTOR):
 
 def test_factory_selects_local_for_development(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ENVIRONMENT", "development")
-    from analytics.duck_provider import LocalAnalytics
-    from analytics.factory import build_analytics_provider
+    from orchestrator_analytics.duck_provider import LocalAnalytics
+    from orchestrator_analytics.factory import build_analytics_provider
 
     p = build_analytics_provider()
     try:
@@ -28,8 +28,8 @@ def test_factory_selects_local_for_development(monkeypatch: pytest.MonkeyPatch) 
 
 def test_factory_selects_cloud_for_production(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ENVIRONMENT", "production")
-    from analytics.cloud_provider import CloudAnalytics
-    from analytics.factory import build_analytics_provider
+    from orchestrator_analytics.cloud_provider import CloudAnalytics
+    from orchestrator_analytics.factory import build_analytics_provider
 
     p = build_analytics_provider()
     try:
