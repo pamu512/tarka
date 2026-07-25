@@ -558,6 +558,13 @@ def index_okf_concepts_sync(
     tenant_id, authority = _okf_tenant_for_bundle(bundle)
     analyst_id = _OKF_ANALYST_ID
     bundle_scope = bundle.scope
+    if embeddings is not None:
+        approved = [c for c in bundle.concepts.values() if c.approval_status == "approved"]
+        if len(approved) > 1:
+            raise ValueError(
+                "embeddings argument only supported for single-concept bundles; "
+                "use prepare_okf_index_rows_async for multi-concept bundles"
+            )
     indexed = 0
     now = time.time()
     c = _get_conn()
