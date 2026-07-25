@@ -56,18 +56,25 @@ def test_hide_upstream_can_be_disabled(monkeypatch):
     assert "subgraph" in snap["tools"]["enabled"]
 
 
-def test_health_includes_integration():
-    c = TestClient(app)
-    r = c.get("/v1/health")
-    assert r.status_code == 200
-    data = r.json()
-    assert "integration" in data
-    assert data["integration"]["contract_version"] == INTEGRATION_CONTRACT_VERSION
-    cf = data.get("copilot_features") or {}
-    assert cf.get("evidence_bundle_format") == "dual"
-    assert cf.get("evidence_bundle_v1") is True
-    assert "workflows_fingerprint" in cf
-    assert "sop_case_summary_v1" in (cf.get("copilot_workflows") or [])
+def test_health_includes_integration(monkeypatch):
+    monkeypatch.setenv("API_KEYS", "admin-key")
+    monkeypatch.setenv("OKF_ADMIN_API_KEYS", "admin-key")
+    import investigation_agent.main as main_mod
+    main_mod._valid_api_keys = None
+    try:
+        c = TestClient(app)
+        r = c.get("/v1/admin/health/details", headers={"x-api-key": "admin-key"})
+        assert r.status_code == 200
+        data = r.json()
+        assert "integration" in data
+        assert data["integration"]["contract_version"] == INTEGRATION_CONTRACT_VERSION
+        cf = data.get("copilot_features") or {}
+        assert cf.get("evidence_bundle_format") == "dual"
+        assert cf.get("evidence_bundle_v1") is True
+        assert "workflows_fingerprint" in cf
+        assert "sop_case_summary_v1" in (cf.get("copilot_workflows") or [])
+    finally:
+        main_mod._valid_api_keys = None
 
 
 def test_integration_endpoint():
