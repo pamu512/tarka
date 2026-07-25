@@ -645,8 +645,7 @@ def _purge_orphan_okf_rows(
 ) -> None:
     """Delete OKF index rows whose concept_id is no longer approved in the bundle."""
     approved_ids = tuple(
-        cid for cid, concept in bundle.concepts.items()
-        if concept.approval_status == "approved"
+        cid for cid, concept in bundle.concepts.items() if concept.approval_status == "approved"
     )
     if approved_ids:
         placeholders = ",".join("?" * len(approved_ids))
@@ -858,7 +857,9 @@ async def index_okf_bundle_async(
             revision=bundle.revision,
             concepts={concept.concept_id: concept},
         )
-        total += index_okf_concepts_sync(sub, embeddings=vecs, embedding_model=model, purge_missing=False)
+        total += index_okf_concepts_sync(
+            sub, embeddings=vecs, embedding_model=model, purge_missing=False
+        )
     tenant_id, _ = _okf_tenant_for_bundle(bundle)
     c = _get_conn()
     with _lock:

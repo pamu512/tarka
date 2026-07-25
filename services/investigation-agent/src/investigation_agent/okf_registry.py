@@ -136,7 +136,9 @@ class OkfRegistry:
         """Return active approved bundles without exposing tenant views."""
         return _bundles_from_snapshot(self._snapshot)
 
-    def resolve(self, tenant_id: str, query: str, *, _pin: _RegistrySnapshot | None = None) -> list[ConceptHit]:
+    def resolve(
+        self, tenant_id: str, query: str, *, _pin: _RegistrySnapshot | None = None
+    ) -> list[ConceptHit]:
         view = self._view_for(tenant_id, _pin=_pin)
         if view is None:
             return []
@@ -207,7 +209,9 @@ class OkfRegistry:
 
         return hits
 
-    def _view_for(self, tenant_id: str, *, _pin: _RegistrySnapshot | None = None) -> _TenantView | None:
+    def _view_for(
+        self, tenant_id: str, *, _pin: _RegistrySnapshot | None = None
+    ) -> _TenantView | None:
         snapshot = _pin if _pin is not None else self._snapshot
         view = snapshot.views.get(tenant_id)
         if view is not None:
