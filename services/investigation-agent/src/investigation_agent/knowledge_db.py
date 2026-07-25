@@ -495,7 +495,11 @@ def _search_hybrid(
         )
     scored.sort(key=lambda x: -x[0])
     lim = max(1, min(limit, 15))
-    return [x[1] for x in scored[:lim]]
+    # ponytail: separate caps so stale/dropped OKF rows don't crowd out memo results
+    okf = [x for x in scored if x[1].get("knowledge_kind") == _OKF_KIND][:lim]
+    memo = [x for x in scored if x[1].get("knowledge_kind") != _OKF_KIND][:lim]
+    merged = sorted(okf + memo, key=lambda x: -x[0])
+    return [x[1] for x in merged]
 
 
 async def search_async(
@@ -564,8 +568,13 @@ def index_okf_concepts_sync(
     *,
     embeddings: list[list[float]] | None = None,
     embedding_model: str | None = None,
+    purge_missing: bool = True,
 ) -> int:
-    """Index approved concepts from a parsed bundle; returns count of concepts indexed."""
+    """Index approved concepts from a parsed bundle; returns count of concepts indexed.
+
+    When *purge_missing* is True (default), OKF rows for concept IDs in the same
+    bundle scope that are no longer in the bundle's approved set are deleted.
+    """
     tenant_id, authority = _okf_tenant_for_bundle(bundle)
     analyst_id = _OKF_ANALYST_ID
     bundle_scope = bundle.scope
@@ -621,8 +630,42 @@ def index_okf_concepts_sync(
                     ),
                 )
             indexed += 1
+        if purge_missing:
+            _purge_orphan_okf_rows(c, tenant_id, analyst_id, bundle_scope, bundle)
         c.commit()
     return indexed
+
+
+def _purge_orphan_okf_rows(
+    c: sqlite3.Connection,
+    tenant_id: str,
+    analyst_id: str,
+    bundle_scope: str,
+    bundle: ParsedBundle,
+) -> None:
+    """Delete OKF index rows whose concept_id is no longer approved in the bundle."""
+    approved_ids = tuple(
+        cid for cid, concept in bundle.concepts.items()
+        if concept.approval_status == "approved"
+    )
+    if approved_ids:
+        placeholders = ",".join("?" * len(approved_ids))
+        c.execute(
+            f"""
+            DELETE FROM knowledge_chunks
+            WHERE tenant_id = ? AND analyst_id = ? AND knowledge_kind = ?
+              AND bundle_scope = ? AND concept_id NOT IN ({placeholders})
+            """,
+            (tenant_id, analyst_id, _OKF_KIND, bundle_scope, *approved_ids),
+        )
+    else:
+        c.execute(
+            """
+            DELETE FROM knowledge_chunks
+            WHERE tenant_id = ? AND analyst_id = ? AND knowledge_kind = ? AND bundle_scope = ?
+            """,
+            (tenant_id, analyst_id, _OKF_KIND, bundle_scope),
+        )
 
 
 def replace_okf_index_rows_sync(rows: tuple[_OkfIndexRow, ...]) -> None:
@@ -815,5 +858,10 @@ async def index_okf_bundle_async(
             revision=bundle.revision,
             concepts={concept.concept_id: concept},
         )
-        total += index_okf_concepts_sync(sub, embeddings=vecs, embedding_model=model)
+        total += index_okf_concepts_sync(sub, embeddings=vecs, embedding_model=model, purge_missing=False)
+    tenant_id, _ = _okf_tenant_for_bundle(bundle)
+    c = _get_conn()
+    with _lock:
+        _purge_orphan_okf_rows(c, tenant_id, _OKF_ANALYST_ID, bundle.scope, bundle)
+        c.commit()
     return total
