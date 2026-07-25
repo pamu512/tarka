@@ -143,33 +143,64 @@ def collect_grounding_tokens(tool_calls: list[dict[str, Any]]) -> frozenset[str]
 def enforce_tool_claim_grounding(
     claims: list[dict[str, str]],
     tool_calls: list[dict[str, Any]],
+    evidence_by_id: dict[str, Any] | None = None,
 ) -> tuple[list[dict[str, str]], list[str]]:
     """
-    Downgrade source=tool claims that do not overlap grounding tokens from successful tools.
-    Returns (adjusted_claims, human-readable adjustment reasons for logging / client).
+    Prefer exact ``evidence_ids`` citations when provided; otherwise fall back to
+    token overlap with successful tool payloads. Never invent support.
     """
     adjustments: list[str] = []
-    grounding = collect_grounding_tokens(tool_calls)
-    if not grounding:
-        out: list[dict[str, str]] = []
-        for c in claims:
-            if c.get("source") == "tool":
-                out.append(
-                    {
-                        "text": c.get("text", ""),
-                        "source": "unknown",
-                    },
-                )
-                adjustments.append("no_successful_tool_payloads_for_grounding")
-            else:
-                out.append(dict(c))
-        return out, adjustments
+    if evidence_by_id:
+        try:
+            from decision_intelligence import validate_claims_against_evidence
+        except ImportError:  # pragma: no cover
+            validate_claims_against_evidence = None  # type: ignore[assignment]
+        if validate_claims_against_evidence is not None:
+            typed = [dict(c) for c in claims]
+            out_ev, adj_ev = validate_claims_against_evidence(typed, evidence_by_id)
+            return out_ev, adj_ev  # type: ignore[return-value]
 
     out2: list[dict[str, str]] = []
     for c in claims:
         if c.get("source") != "tool":
             out2.append(dict(c))
             continue
+        raw_indices = c.get("supporting_tool_call_indices")
+        indices_valid = (
+            isinstance(raw_indices, list)
+            and bool(raw_indices)
+            and all(
+                isinstance(index, int)
+                and not isinstance(index, bool)
+                and 0 <= index < len(tool_calls)
+                for index in raw_indices
+            )
+        )
+        selected_calls = (
+            [tool_calls[index] for index in dict.fromkeys(raw_indices)] if indices_valid else []
+        )
+        if not selected_calls or not all(
+            _tool_call_succeeded(call.get("result")) for call in selected_calls
+        ):
+            out2.append(
+                {
+                    "text": c.get("text", ""),
+                    "source": "unknown",
+                    "supported": False,
+                },
+            )
+            adjustments.append("no_successful_tool_payloads_for_grounding")
+            continue
+        # Exact citation ids are validated against tool lineage before this token-overlap pass.
+        exact_refs = []
+        for key in ("concept_ids", "evidence_ids"):
+            refs = c.get(key) if isinstance(c, dict) else None  # type: ignore[arg-type]
+            if isinstance(refs, list):
+                exact_refs.extend(refs)
+        if exact_refs:
+            out2.append(dict(c))
+            continue
+        grounding = collect_grounding_tokens(selected_calls)
         text = (c.get("text") or "").lower()
         ok = any(t in text for t in grounding if len(t) >= 4)
         if ok:
@@ -179,6 +210,7 @@ def enforce_tool_claim_grounding(
                 {
                     "text": c.get("text", ""),
                     "source": "unknown",
+                    "supported": False,
                 },
             )
             adjustments.append("tool_claim_missing_grounding_token")

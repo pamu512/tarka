@@ -527,8 +527,6 @@ def test_equal_authority_distinct_sources_do_not_create_false_conflict(
 def test_frozen_corpus_enforces_recall_citation_and_abstention_gates(
     registry: OkfRegistry, retrieval_corpus: list[dict[str, object]]
 ) -> None:
-    # ponytail: citation_schema/main grounding lands in a later PR; build exact
-    # resolves_to here so the corpus still gates retrieval→citation IDs.
     from investigation_agent.citation_schema import build_standard_citations
 
     resolved = 0
@@ -553,26 +551,28 @@ def test_frozen_corpus_enforces_recall_citation_and_abstention_gates(
         resolved += len(actual & wanted)
         expected += len(wanted)
         claims = []
+        allowed_concepts: set[str] = set()
+        allowed_evidence: set[str] = set()
         for item in result.results:
             if not item.concept_id:
                 continue
-            resolves_to = [{"artifact": "okf_concept", "id": item.concept_id}]
-            for evidence_id in item.evidence_ids:
-                resolves_to.append({"artifact": "evidence", "id": evidence_id})
-            claims.append(
-                {
-                    "text": item.text,
-                    "source": "tool",
-                    "concept_ids": [item.concept_id],
-                    "evidence_ids": list(item.evidence_ids),
-                    "resolves_to": resolves_to,
-                }
-            )
+            allowed_concepts.add(item.concept_id)
+            allowed_evidence.update(item.evidence_ids)
+            claim = {
+                "text": item.text,
+                "source": "tool",
+                "concept_ids": [item.concept_id],
+            }
+            if item.evidence_ids:
+                claim["evidence_ids"] = list(item.evidence_ids)
+            claims.append(claim)
         citations, _summary = build_standard_citations(
             claims=claims,
             deterministic_support=[
                 {"claim_index": index, "supported": True} for index in range(len(claims))
             ],
+            allowed_concept_ids=allowed_concepts,
+            allowed_evidence_ids=allowed_evidence,
             max_citations=20,
         )
         for claim, citation in zip(claims, citations, strict=True):

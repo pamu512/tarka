@@ -83,6 +83,37 @@ def _merge_resolution_refs(*groups: list[dict[str, str]] | None) -> list[dict[st
     return out
 
 
+def _exact_refs_from_claim(
+    claim: dict[str, Any],
+    *,
+    allowed_concept_ids: set[str],
+    allowed_evidence_ids: set[str],
+) -> tuple[list[dict[str, str]], bool]:
+    """Return exact citation refs from model claims, plus whether any were unresolved."""
+    refs: list[dict[str, str]] = []
+    unresolved = False
+    for field, artifact, allowed in (
+        ("concept_ids", CitationArtifact.OKF_CONCEPT.value, allowed_concept_ids),
+        ("evidence_ids", "evidence", allowed_evidence_ids),
+    ):
+        if field not in claim:
+            continue
+        raw = claim.get(field)
+        if not isinstance(raw, list) or not raw:
+            unresolved = True
+            continue
+        for item in raw:
+            if not isinstance(item, str) or not item.strip():
+                unresolved = True
+                continue
+            ref_id = item.strip()
+            if ref_id not in allowed:
+                unresolved = True
+                continue
+            refs.append({"artifact": artifact, "id": ref_id})
+    return refs, unresolved
+
+
 def build_standard_citations(
     *,
     claims: list[dict[str, Any]],
@@ -90,6 +121,8 @@ def build_standard_citations(
     trace_id: str | None = None,
     case_id: str | None = None,
     audit_resolution_refs: list[dict[str, str]] | None = None,
+    allowed_concept_ids: set[str] | None = None,
+    allowed_evidence_ids: set[str] | None = None,
     max_citations: int = 12,
 ) -> tuple[list[dict[str, Any]], CitationVerifierSummary]:
     supports_by_idx: dict[int, bool] = {}
@@ -111,6 +144,9 @@ def build_standard_citations(
         source_raw = str(claim.get("source") or "unknown")
         source: Literal["tool", "unknown"] = "tool" if source_raw == "tool" else "unknown"
         supported = supports_by_idx.get(i)
+        if claim.get("supported") is False:
+            supported = False
+            source = "unknown"
         confidence = _confidence_for_claim(source=source, supported=supported)
 
         resolves: list[dict[str, str]] = []
@@ -118,8 +154,11 @@ def build_standard_citations(
         if isinstance(raw_resolves, list):
             for x in raw_resolves:
                 if isinstance(x, dict):
+                    artifact = str(x.get("artifact") or "").strip()
+                    if artifact in {CitationArtifact.OKF_CONCEPT.value, "evidence"}:
+                        continue
                     resolves.append(
-                        {"artifact": str(x.get("artifact") or ""), "id": str(x.get("id") or "")},
+                        {"artifact": artifact, "id": str(x.get("id") or "")},
                     )
         if i == 0 and trace_id:
             resolves.append(
@@ -127,7 +166,20 @@ def build_standard_citations(
             )
         if i == 0 and case_id:
             resolves.append({"artifact": CitationArtifact.CASE.value, "id": case_id.strip()})
-        merged = _merge_resolution_refs(resolves, audit_resolution_refs if i == 0 else [])
+        exact_refs, unresolved_exact_refs = _exact_refs_from_claim(
+            claim,
+            allowed_concept_ids=set(allowed_concept_ids or set()),
+            allowed_evidence_ids=set(allowed_evidence_ids or set()),
+        )
+        merged = _merge_resolution_refs(
+            resolves,
+            exact_refs,
+            audit_resolution_refs if i == 0 else [],
+        )
+        if unresolved_exact_refs:
+            source = "unknown"
+            supported = False
+            confidence = "low"
 
         card = CopilotCitation(
             claim_index=i,

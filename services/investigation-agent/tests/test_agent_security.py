@@ -215,26 +215,46 @@ class TestCopilotHardening:
 
     def test_enforce_tool_claim_grounding_downgrades_ungrounded(self):
         tid = "12345678-1234-1234-1234-123456789abc"
+        unrelated_tid = "87654321-4321-4321-4321-cba987654321"
         tool_calls = [
             {
                 "tool": "get_case",
                 "args": {"case_id": "c1"},
                 "result": {"case": {"id": "c1", "trace_id": tid}},
-            }
+            },
+            {
+                "tool": "get_case",
+                "args": {"case_id": "c2"},
+                "result": {"case": {"id": "c2", "trace_id": unrelated_tid}},
+            },
         ]
         claims = [
-            {"text": f"The trace_id {tid} appears in case data.", "source": "tool"},
-            {"text": "Synthetic fact with no id overlap.", "source": "tool"},
+            {
+                "text": f"The trace_id {tid} appears in case data.",
+                "source": "tool",
+                "supporting_tool_call_indices": [0],
+            },
+            {
+                "text": "Synthetic fact with no id overlap.",
+                "source": "tool",
+                "supporting_tool_call_indices": [0],
+            },
+            {
+                "text": f"The trace_id {unrelated_tid} appears in selected case data.",
+                "source": "tool",
+                "supporting_tool_call_indices": [0],
+            },
         ]
         out_claims, adjustments = enforce_tool_claim_grounding(claims, tool_calls)
         assert out_claims[0]["source"] == "tool"
         assert out_claims[1]["source"] == "unknown"
+        assert out_claims[2]["source"] == "unknown"
         assert any("tool_claim_missing_grounding_token" in a for a in adjustments)
 
 
 class TestChatInjectionPolicy:
     @staticmethod
-    async def _fake_llm_ok(http, system, messages, tenant_id, analyst_id, tool_defs):
+    async def _fake_llm_ok(http, system, messages, tenant_id, analyst_id, tool_defs, **kwargs):
         return ('Ack.\nTARKA_CLAIMS_JSON={"claims":[]}', [], {}, 1)
 
     def test_injection_sanitize_continues_and_sets_flag(self):
@@ -298,7 +318,7 @@ class TestChatInjectionPolicy:
     def test_platform_audit_omitted_from_system_when_disabled(self):
         captured: dict[str, str] = {}
 
-        async def capture(http, system, messages, tenant_id, analyst_id, tool_defs):
+        async def capture(http, system, messages, tenant_id, analyst_id, tool_defs, **kwargs):
             captured["system"] = system
             return ('ok\nTARKA_CLAIMS_JSON={"claims":[]}', [], {}, 1)
 

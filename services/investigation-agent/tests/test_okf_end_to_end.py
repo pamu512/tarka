@@ -343,17 +343,18 @@ async def test_prepare_indexes_bundles_and_hybrid_retrieval_fallback(
         if hit["authority"] == "tenant_okf"
         for evidence_id in hit["evidence_ids"]
     ]
-    resolves_to = [{"artifact": "okf_concept", "id": cid} for cid in claim_concepts]
-    resolves_to.extend({"artifact": "evidence", "id": eid} for eid in claim_evidence)
     citations, summary = build_standard_citations(
         claims=[
             {
                 "text": "Use the high amount rule and linked playbook.",
                 "source": "tool",
-                "resolves_to": resolves_to,
+                "concept_ids": claim_concepts,
+                "evidence_ids": claim_evidence,
             }
         ],
         deterministic_support=[{"claim_index": 0, "supported": True}],
+        allowed_concept_ids=set(claim_concepts),
+        allowed_evidence_ids=set(claim_evidence),
     )
     resolved = {(item["artifact"], item["id"]) for item in citations[0]["resolves_to"]}
     assert summary.supported_count == 1

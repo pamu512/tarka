@@ -515,6 +515,8 @@ async def _execute_tool(
     analyst_id: str,
     *,
     reviewer_header: str = "",
+    okf_registry: Any | None = None,
+    okf_generation_gate: asyncio.Lock | None = None,
 ) -> dict[str, Any]:
     permitted, gate_err = check_safe_action_gate(
         name,
@@ -614,7 +616,15 @@ async def _execute_tool(
             norm["trace_ids"],
         )
     elif name == "search_knowledge":
-        result = await fn(http, tenant_id, analyst_id, norm["query"], norm["limit"])
+        result = await fn(
+            http,
+            tenant_id,
+            analyst_id,
+            norm["query"],
+            norm["limit"],
+            okf_registry=okf_registry,
+            okf_generation_gate=okf_generation_gate,
+        )
     elif name == "compare_entity_queue_snapshot":
         result = await fn(http, norm["entity_id"], tenant_id, analyst_id, norm["list_limit"])
     elif name == "screen_sanctions_pep":
@@ -728,6 +738,349 @@ def _degraded_reasons_for_mode(
     return out
 
 
+def _knowledge_lineage_from_tool_calls(tool_calls: list[dict[str, Any]]) -> dict[str, Any]:
+    evidence_ids: set[str] = set()
+    concept_ids: set[str] = set()
+    conflicts: set[str] = set()
+    bundle_revisions: set[str] = set()
+    okf_abstain = False
+    okf_unavailable = False
+    retrieval_fallback: str | None = None
+
+    for call in tool_calls:
+        if not isinstance(call, dict) or call.get("tool") != "search_knowledge":
+            continue
+        result = call.get("result")
+        if not isinstance(result, dict):
+            continue
+        if result.get("error"):
+            continue
+        if result.get("okf_unavailable") is True:
+            okf_unavailable = True
+            okf_abstain = True
+            retrieval_fallback = retrieval_fallback or "memo_rag"
+        fallback = result.get("retrieval_fallback")
+        if isinstance(fallback, str) and fallback.strip():
+            retrieval_fallback = fallback.strip()
+        if result.get("abstain") is True:
+            okf_abstain = True
+        unsafe_for_citations = (
+            bool(result.get("abstain"))
+            or bool(result.get("okf_unavailable"))
+            or bool(result.get("conflicts") or [])
+        )
+        for conflict in result.get("conflicts") or []:
+            if isinstance(conflict, str) and conflict.strip():
+                conflicts.add(conflict.strip())
+        bundle_revision = result.get("bundle_revision")
+        if isinstance(bundle_revision, str) and bundle_revision.strip():
+            bundle_revisions.add(bundle_revision.strip())
+        hits = result.get("hits") or []
+        if not isinstance(hits, list):
+            continue
+        if unsafe_for_citations:
+            continue
+        for hit in hits:
+            if not isinstance(hit, dict):
+                continue
+            concept_id = hit.get("concept_id")
+            if isinstance(concept_id, str) and concept_id.strip():
+                concept_ids.add(concept_id.strip())
+            for evidence_id in hit.get("evidence_ids") or []:
+                if isinstance(evidence_id, str) and evidence_id.strip():
+                    evidence_ids.add(evidence_id.strip())
+
+    sorted_bundle_revisions = sorted(bundle_revisions)
+    bundle_revision: str | list[str] | None
+    if not sorted_bundle_revisions:
+        bundle_revision = None
+    elif len(sorted_bundle_revisions) == 1:
+        bundle_revision = sorted_bundle_revisions[0]
+    else:
+        bundle_revision = sorted_bundle_revisions
+    return {
+        "evidence_ids": sorted(evidence_ids),
+        "concept_ids": sorted(concept_ids),
+        "okf_abstain": okf_abstain,
+        "okf_unavailable": okf_unavailable,
+        "retrieval_fallback": retrieval_fallback,
+        "conflicts": sorted(conflicts),
+        "bundle_revision": bundle_revision,
+    }
+
+
+def _enforce_claim_exact_ids(
+    claims: list[dict[str, Any]],
+    tool_calls: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    successful_call_indices: set[int] = set()
+    search_hits_by_call: dict[int, list[dict[str, Any]]] = {}
+    for call_index, call in enumerate(tool_calls):
+        if not isinstance(call, dict):
+            continue
+        result = call.get("result")
+        if not isinstance(result, dict) or any(
+            (
+                result.get("error"),
+                result.get("abstain"),
+                result.get("okf_unavailable"),
+                result.get("conflicts"),
+            )
+        ):
+            continue
+        successful_call_indices.add(call_index)
+        if call.get("tool") != "search_knowledge":
+            continue
+        successful_hits: list[dict[str, Any]] = []
+        for hit in result.get("hits") or []:
+            if isinstance(hit, dict):
+                successful_hits.append(hit)
+        if successful_hits:
+            search_hits_by_call[call_index] = successful_hits
+
+    stopwords = {
+        "about",
+        "according",
+        "applies",
+        "based",
+        "claim",
+        "concept",
+        "evidence",
+        "fraud",
+        "from",
+        "requires",
+        "retrieved",
+        "review",
+        "rule",
+        "that",
+        "the",
+        "this",
+        "tool",
+        "with",
+    }
+
+    def _tokens(value: Any) -> set[str]:
+        try:
+            blob = json.dumps(value, sort_keys=True, default=str)
+        except (TypeError, ValueError):
+            blob = str(value)
+        return {
+            token
+            for token in re.findall(r"[a-z0-9][a-z0-9_-]{3,}", blob.casefold())
+            if token not in stopwords
+        }
+
+    def _text_supported(text: Any, hits: list[dict[str, Any]]) -> bool:
+        claim_tokens = _tokens(text or "")
+        return any(len(claim_tokens & _tokens(hit)) >= 2 for hit in hits)
+
+    out: list[dict[str, Any]] = []
+    adjustments: list[str] = []
+    for claim in claims:
+        c = dict(claim)
+        has_exact_ids = "concept_ids" in c or "evidence_ids" in c
+        if c.get("source") != "tool":
+            if has_exact_ids:
+                c["source"] = "unknown"
+                c["supported"] = False
+                adjustments.append("search_knowledge_citation_omitted")
+            out.append(c)
+            continue
+        raw_indices = c.get("supporting_tool_call_indices")
+        indices_valid = (
+            isinstance(raw_indices, list)
+            and bool(raw_indices)
+            and all(
+                isinstance(index, int)
+                and not isinstance(index, bool)
+                and 0 <= index < len(tool_calls)
+                for index in raw_indices
+            )
+        )
+        selected_indices = list(dict.fromkeys(raw_indices)) if indices_valid else []
+        selected_calls_successful = bool(selected_indices) and all(
+            index in successful_call_indices for index in selected_indices
+        )
+        likely_search_claim = has_exact_ids or _text_supported(
+            c.get("text"),
+            [hit for hits in search_hits_by_call.values() for hit in hits],
+        )
+        if not indices_valid or not selected_calls_successful:
+            c["source"] = "unknown"
+            c["supported"] = False
+            adjustments.append(
+                "search_knowledge_citation_omitted"
+                if likely_search_claim
+                else "tool_call_binding_invalid"
+            )
+            out.append(c)
+            continue
+
+        selected_search_indices = [
+            index
+            for index in selected_indices
+            if isinstance(tool_calls[index], dict)
+            and tool_calls[index].get("tool") == "search_knowledge"
+        ]
+        if not selected_search_indices:
+            if has_exact_ids:
+                c["source"] = "unknown"
+                c["supported"] = False
+                adjustments.append("search_knowledge_citation_omitted")
+            out.append(c)
+            continue
+        selected_search = {
+            index: search_hits_by_call[index]
+            for index in selected_search_indices
+            if index in search_hits_by_call
+        }
+        if len(selected_search) != len(selected_search_indices):
+            c["source"] = "unknown"
+            c["supported"] = False
+            adjustments.append("search_knowledge_citation_omitted")
+            out.append(c)
+            continue
+
+        selected_hits = [hit for hits in selected_search.values() for hit in hits]
+        concept_ids = c.get("concept_ids")
+        evidence_ids = c.get("evidence_ids")
+        if not isinstance(concept_ids, list) or not concept_ids:
+            c["source"] = "unknown"
+            c["supported"] = False
+            adjustments.append("search_knowledge_citation_omitted")
+            out.append(c)
+            continue
+
+        normalized_concepts = {
+            item.strip() for item in concept_ids if isinstance(item, str) and item.strip()
+        }
+        normalized_evidence = {
+            item.strip() for item in (evidence_ids or []) if isinstance(item, str) and item.strip()
+        }
+        unresolved = len(normalized_concepts) != len(concept_ids) or (
+            isinstance(evidence_ids, list) and len(normalized_evidence) != len(evidence_ids)
+        )
+        cited_hit_groups: list[list[dict[str, Any]]] = []
+        for concept_id in normalized_concepts:
+            matching = [
+                hit
+                for hit in selected_hits
+                if str(hit.get("concept_id") or "").strip() == concept_id
+            ]
+            unresolved = unresolved or not matching
+            cited_hit_groups.append(matching)
+        cited_concept_hits = [hit for matching_hits in cited_hit_groups for hit in matching_hits]
+        if any(hit.get("evidence_ids") for hit in cited_concept_hits) and (
+            not isinstance(evidence_ids, list) or not evidence_ids
+        ):
+            c["source"] = "unknown"
+            c["supported"] = False
+            adjustments.append("search_knowledge_citation_omitted")
+            out.append(c)
+            continue
+        for evidence_id in normalized_evidence:
+            matching = [
+                hit
+                for hit in selected_hits
+                if evidence_id
+                in {
+                    str(item).strip() for item in hit.get("evidence_ids") or [] if str(item).strip()
+                }
+            ]
+            unresolved = unresolved or not matching
+            cited_hit_groups.append(matching)
+        if unresolved:
+            c["source"] = "unknown"
+            c["supported"] = False
+            adjustments.append("unresolved_exact_citation_id")
+            out.append(c)
+            continue
+
+        def _hit_is_cited(
+            hit: dict[str, Any],
+            concepts: set[str] = normalized_concepts,
+            evidence: set[str] = normalized_evidence,
+        ) -> bool:
+            if str(hit.get("concept_id") or "").strip() in concepts:
+                return True
+            return bool(
+                evidence
+                & {str(item).strip() for item in hit.get("evidence_ids") or [] if str(item).strip()}
+            )
+
+        call_specific_support = all(
+            any(_hit_is_cited(hit) for hit in hits)
+            and _text_supported(c.get("text"), [hit for hit in hits if _hit_is_cited(hit)])
+            for hits in selected_search.values()
+        )
+        if not call_specific_support or any(
+            not _text_supported(c.get("text"), matching_hits) for matching_hits in cited_hit_groups
+        ):
+            c["source"] = "unknown"
+            c["supported"] = False
+            adjustments.append("exact_citation_text_unsupported")
+        out.append(c)
+    return out, adjustments
+
+
+_NARRATIVE_WITHHOLDING_ADJUSTMENTS = frozenset(
+    {
+        "exact_citation_text_unsupported",
+        "search_knowledge_citation_omitted",
+        "tool_call_binding_invalid",
+        "tool_claim_missing_grounding_token",
+        "no_successful_tool_payloads_for_grounding",
+        "unresolved_exact_citation_id",
+    }
+)
+
+
+def _apply_grounding_abstention(
+    reply: str,
+    claims: list[dict[str, Any]],
+    *,
+    adjustments: list[str],
+    assurance_mode: str,
+) -> tuple[str, list[dict[str, Any]], bool]:
+    """Withhold prose whenever deterministic claim grounding rejected a claim."""
+    violations = sorted(set(adjustments) & _NARRATIVE_WITHHOLDING_ADJUSTMENTS)
+    if not violations:
+        return reply, claims, False
+    mode = "strict" if assurance_mode == "strict" else "standard"
+    abstention = (
+        "This assistant narrative was withheld because tool grounding could not "
+        f"be verified in {mode} assurance mode. Review the raw successful tool results "
+        "or retry the investigation."
+    )
+    return (
+        abstention,
+        [{"text": abstention, "source": "unknown", "supported": False}],
+        True,
+    )
+
+
+def _apply_okf_strict_abstention(
+    reply: str,
+    claims: list[dict[str, Any]],
+    *,
+    assurance_mode: str,
+    lineage: dict[str, Any],
+) -> tuple[str, list[dict[str, Any]], bool]:
+    if assurance_mode != "strict" or not (
+        bool(lineage.get("okf_abstain")) or bool(lineage.get("okf_unavailable"))
+    ):
+        return reply, claims, False
+    conflicts = lineage.get("conflicts")
+    suffix = ""
+    if isinstance(conflicts, list) and conflicts:
+        suffix = " Conflicting OKF retrieval was recorded; review the cited bundle revisions before relying on this answer."
+    abstention = (
+        "I must abstain from answering from OKF retrieval because the relevant concept evidence "
+        "was unsupported or conflicting in strict assurance mode." + suffix
+    )
+    return abstention, [{"text": abstention, "source": "unknown"}], True
+
+
 async def _deterministic_tools_only_fallback(
     *,
     http: httpx.AsyncClient,
@@ -735,10 +1088,12 @@ async def _deterministic_tools_only_fallback(
     analyst_id: str,
     case_id: str | None,
     reviewer_header: str = "",
-) -> tuple[str, list[dict[str, Any]], list[dict[str, str]]]:
+    okf_registry: Any | None = None,
+    okf_generation_gate: asyncio.Lock | None = None,
+) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]]]:
     """Deterministic fallback when LLM is unavailable: execute safe read-only tools."""
     tool_calls: list[dict[str, Any]] = []
-    claims: list[dict[str, str]] = []
+    claims: list[dict[str, Any]] = []
 
     async def _run(name: str, args: dict[str, Any]) -> dict[str, Any]:
         try:
@@ -749,6 +1104,8 @@ async def _deterministic_tools_only_fallback(
                 tenant_id,
                 analyst_id,
                 reviewer_header=reviewer_header,
+                okf_registry=okf_registry,
+                okf_generation_gate=okf_generation_gate,
             )
         except Exception:
             result = {
@@ -767,10 +1124,12 @@ async def _deterministic_tools_only_fallback(
             if isinstance(c, dict):
                 cid = str(c.get("id") or case_id)
                 status = str(c.get("status") or "unknown")
+                case_call_index = len(tool_calls) - 1
                 claims.append(
                     {
                         "text": f"Case {cid} fetched deterministically (status={status}).",
                         "source": "tool",
+                        "supporting_tool_call_indices": [case_call_index],
                     }
                 )
                 eid = str(c.get("entity_id") or "").strip()
@@ -782,10 +1141,12 @@ async def _deterministic_tools_only_fallback(
                     if isinstance(graph_result, dict):
                         nodes = graph_result.get("nodes")
                         if isinstance(nodes, list):
+                            graph_call_index = len(tool_calls) - 1
                             claims.append(
                                 {
                                     "text": f"Graph context fetched for entity {eid} ({len(nodes)} nodes).",
                                     "source": "tool",
+                                    "supporting_tool_call_indices": [graph_call_index],
                                 }
                             )
                 trace_id = str(c.get("trace_id") or "").strip()
@@ -796,10 +1157,12 @@ async def _deterministic_tools_only_fallback(
                         if isinstance(audit_result, dict) and isinstance(
                             audit_result.get("audit"), dict
                         ):
+                            audit_call_index = len(tool_calls) - 1
                             claims.append(
                                 {
                                     "text": f"Decision audit fetched for trace {trace_id}.",
                                     "source": "tool",
+                                    "supporting_tool_call_indices": [audit_call_index],
                                 }
                             )
                     except ValueError:
@@ -809,10 +1172,12 @@ async def _deterministic_tools_only_fallback(
         if isinstance(cases_result, dict):
             items = cases_result.get("items")
             if isinstance(items, list):
+                cases_call_index = len(tool_calls) - 1
                 claims.append(
                     {
                         "text": f"Queue snapshot fetched deterministically ({len(items)} cases).",
                         "source": "tool",
+                        "supporting_tool_call_indices": [cases_call_index],
                     }
                 )
 
@@ -923,6 +1288,8 @@ async def _llm_tool_loop(
     tool_defs: list[dict[str, Any]],
     *,
     reviewer_header: str = "",
+    okf_registry: Any | None = None,
+    okf_generation_gate: asyncio.Lock | None = None,
 ) -> tuple[str, list[dict[str, Any]], dict[str, Any]]:
     """Run the tool-use loop: send to LLM, execute any tool calls, repeat."""
     all_tool_calls: list[dict[str, Any]] = []
@@ -978,6 +1345,8 @@ async def _llm_tool_loop(
                     tenant_id,
                     analyst_id,
                     reviewer_header=reviewer_header,
+                    okf_registry=okf_registry,
+                    okf_generation_gate=okf_generation_gate,
                 )
                 all_tool_calls.append({"tool": fn_name, "args": fn_args, "result": result})
                 conversation.append(
@@ -1255,10 +1624,10 @@ def _validate_output(reply: str) -> str:
     return reply
 
 
-def _parse_tarka_claims_reply(raw_reply: str) -> tuple[str, list[dict[str, str]], str | None]:
+def _parse_tarka_claims_reply(raw_reply: str) -> tuple[str, list[dict[str, Any]], str | None]:
     """
     Split prose from mandatory claims trailer. Returns (prose, claims, warning_or_none).
-    Each claim: {"text": str, "source": "tool" | "unknown"}.
+    Each claim includes text/source and may carry exact concept_ids/evidence_ids.
     """
     fallback = "Assistant did not emit a valid TARKA_CLAIMS_JSON trailer; treat the narrative as unverified (source=unknown)."
     if _TARKA_CLAIMS_MARKER not in raw_reply:
@@ -1295,7 +1664,7 @@ def _parse_tarka_claims_reply(raw_reply: str) -> tuple[str, list[dict[str, str]]
             "claims_not_array",
         )
 
-    out: list[dict[str, str]] = []
+    out: list[dict[str, Any]] = []
     for c in claims_in[:_MAX_PARSED_CLAIMS]:
         if not isinstance(c, dict):
             continue
@@ -1304,7 +1673,28 @@ def _parse_tarka_claims_reply(raw_reply: str) -> tuple[str, list[dict[str, str]]
         if src not in ("tool", "unknown"):
             src = "unknown"
         if text:
-            out.append({"text": text, "source": src})
+            claim_out: dict[str, Any] = {"text": text, "source": src}
+            for key in ("concept_ids", "evidence_ids"):
+                raw_ids = c.get(key)
+                if not isinstance(raw_ids, list):
+                    continue
+                ids = [
+                    str(item).strip()[:256]
+                    for item in raw_ids[:24]
+                    if isinstance(item, str) and str(item).strip()
+                ]
+                if ids:
+                    claim_out[key] = ids
+            raw_indices = c.get("supporting_tool_call_indices")
+            if isinstance(raw_indices, list):
+                indices = [
+                    item
+                    for item in raw_indices[:24]
+                    if isinstance(item, int) and not isinstance(item, bool) and item >= 0
+                ]
+                if indices:
+                    claim_out["supporting_tool_call_indices"] = indices
+            out.append(claim_out)
 
     if not out:
         return (
@@ -2664,15 +3054,24 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             analyst_id=body.analyst_id,
             case_id=body.case_id,
             reviewer_header=reviewer_header,
+            okf_registry=getattr(request.app.state, "okf_registry", None),
+            okf_generation_gate=_okf_generation_gate(request.app),
+        )
+        claims, _fallback_grounding_adjustments = _enforce_claim_exact_ids(
+            claims,
+            tool_calls,
         )
         source_refs = build_source_reference_cards(tool_calls)
         turn_id = str(uuid.uuid4())
         answer_sections = parse_structured_sections(reply)
         det_support = deterministic_claim_support(claims, tool_calls)
+        knowledge_lineage = _knowledge_lineage_from_tool_calls(tool_calls)
         citations, verifier_summary = build_standard_citations(
             claims=claims,
             deterministic_support=det_support,
             case_id=body.case_id,
+            allowed_concept_ids=set(knowledge_lineage.get("concept_ids") or []),
+            allowed_evidence_ids=set(knowledge_lineage.get("evidence_ids") or []),
         )
         mode = _chat_mode(
             llm_available=False,
@@ -2782,14 +3181,26 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         body.analyst_id,
         active_tool_defs,
         reviewer_header=reviewer_header,
+        okf_registry=getattr(request.app.state, "okf_registry", None),
+        okf_generation_gate=_okf_generation_gate(request.app),
     )
 
     prose, claims, claims_warn = _parse_tarka_claims_reply(raw_reply)
     reply = _validate_output(prose)
+    knowledge_lineage = _knowledge_lineage_from_tool_calls(tool_calls)
 
     grounding_adj: list[str] = []
+    claims, exact_id_adj = _enforce_claim_exact_ids(claims, tool_calls)
+    grounding_adj.extend(exact_id_adj)
     if settings.copilot_enforce_tool_claim_grounding:
-        claims, grounding_adj = enforce_tool_claim_grounding(claims, tool_calls)
+        claims, token_grounding_adj = enforce_tool_claim_grounding(claims, tool_calls)
+        grounding_adj.extend(token_grounding_adj)
+    reply, claims, citation_refused = _apply_grounding_abstention(
+        reply,
+        claims,
+        adjustments=grounding_adj,
+        assurance_mode=settings.copilot_assurance_mode,
+    )
 
     tool_names = [t.get("tool") for t in tool_calls if isinstance(t, dict)]
     tool_errors = sum(
@@ -2837,18 +3248,13 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
     turn_id = str(uuid.uuid4())
     answer_sections = parse_structured_sections(reply)
     det_support = deterministic_claim_support(claims, tool_calls)
-    citations, verifier_summary = build_standard_citations(
-        claims=claims,
-        deterministic_support=det_support,
-        case_id=body.case_id,
-    )
     ack_warns = tool_error_acknowledgment_warnings(reply, tool_calls)
 
     derived_facts: list[dict[str, Any]] = []
     if settings.copilot_derived_facts or settings.copilot_assurance_mode == "strict":
         derived_facts = extract_derived_facts(tool_calls)
 
-    assurance_refused = False
+    assurance_refused = citation_refused
     assurance_violations: list[str] = []
     if settings.copilot_assurance_mode == "strict":
         assurance_violations = strict_assurance_violations(
@@ -2864,6 +3270,27 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             det_support = deterministic_claim_support(claims, tool_calls)
             ack_warns = []
             grounding_adj = []
+
+        reply, claims, okf_refused = _apply_okf_strict_abstention(
+            reply,
+            claims,
+            assurance_mode=settings.copilot_assurance_mode,
+            lineage=knowledge_lineage,
+        )
+        if okf_refused:
+            assurance_refused = True
+            answer_sections = parse_structured_sections(reply)
+            det_support = deterministic_claim_support(claims, tool_calls)
+            ack_warns = []
+            grounding_adj = []
+
+    citations, verifier_summary = build_standard_citations(
+        claims=claims,
+        deterministic_support=det_support,
+        case_id=body.case_id,
+        allowed_concept_ids=set(knowledge_lineage.get("concept_ids") or []),
+        allowed_evidence_ids=set(knowledge_lineage.get("evidence_ids") or []),
+    )
 
     judge_assessments = None
     judge_error: str | None = None

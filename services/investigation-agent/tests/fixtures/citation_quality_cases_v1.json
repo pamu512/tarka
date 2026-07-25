@@ -1,0 +1,229 @@
+{
+  "schema_id": "tarka.citation_quality_cases/v1",
+  "tool_calls": [
+    {
+      "tool": "search_knowledge",
+      "args": {"query": "high amount"},
+      "result": {
+        "hits": [
+          {
+            "concept_id": "rules/high-amount",
+            "evidence_ids": ["ev-high"],
+            "title": "High Amount Rule",
+            "snippet": "High amount transactions require manual review."
+          }
+        ],
+        "abstain": false,
+        "conflicts": []
+      }
+    },
+    {
+      "tool": "search_knowledge",
+      "args": {"query": "mule network"},
+      "result": {
+        "hits": [
+          {
+            "concept_id": "typologies/mule-network",
+            "evidence_ids": ["ev-mule"],
+            "title": "Mule Network Typology",
+            "snippet": "Linked beneficiary accounts indicate mule network activity."
+          }
+        ],
+        "abstain": false,
+        "conflicts": []
+      }
+    },
+    {
+      "tool": "get_case",
+      "args": {"case_id": "case-1"},
+      "result": {"case": {"id": "case-1", "status": "open"}}
+    },
+    {
+      "tool": "get_case",
+      "args": {"case_id": "case-failed"},
+      "result": {"error": "case_service_unavailable"}
+    },
+    {
+      "tool": "subgraph_with_velocity",
+      "args": {"entity_id": "entity-1"},
+      "result": {"nodes": [{"id": "entity-1"}], "edges": []}
+    },
+    {
+      "tool": "subgraph_with_velocity",
+      "args": {"entity_id": "entity-failed"},
+      "result": {"error": "graph_service_unavailable"}
+    },
+    {
+      "tool": "get_decision_audit",
+      "args": {"trace_id": "11111111-1111-1111-1111-111111111111"},
+      "result": {"audit": {"trace_id": "11111111-1111-1111-1111-111111111111"}}
+    },
+    {
+      "tool": "get_decision_audit",
+      "args": {"trace_id": "22222222-2222-2222-2222-222222222222"},
+      "result": {"error": "audit_service_unavailable"}
+    }
+  ],
+  "cases": [
+    {
+      "name": "correct_exact_ids",
+      "claim": {
+        "text": "High amount transactions require manual review.",
+        "source": "tool",
+        "supporting_tool_call_indices": [0],
+        "concept_ids": ["rules/high-amount"],
+        "evidence_ids": ["ev-high"]
+      },
+      "expected_supported": true,
+      "expected_refs": [
+        ["okf_concept", "rules/high-amount"],
+        ["evidence", "ev-high"]
+      ]
+    },
+    {
+      "name": "fabricated_ids_1",
+      "claim": {"text": "High amount transactions require manual review.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["rules/high-amount-v2"], "evidence_ids": ["ev-high-v2"]},
+      "expected_supported": false
+    },
+    {
+      "name": "fabricated_ids_2",
+      "claim": {"text": "Manual review is required for high amount transactions.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["rules/high-amount-copy"], "evidence_ids": ["ev-high-copy"]},
+      "expected_supported": false
+    },
+    {
+      "name": "fabricated_ids_3",
+      "claim": {"text": "High amount activity requires manual review.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["rules/high-amount-draft"], "evidence_ids": ["ev-high-draft"]},
+      "expected_supported": false
+    },
+    {
+      "name": "fabricated_ids_4",
+      "claim": {"text": "Review high amount transactions manually.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["rules/high-amount-fake"], "evidence_ids": ["ev-high-fake"]},
+      "expected_supported": false
+    },
+    {
+      "name": "nonexistent_ids_1",
+      "claim": {"text": "High amount transactions require manual review.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["missing/concept-1"], "evidence_ids": ["missing-evidence-1"]},
+      "expected_supported": false
+    },
+    {
+      "name": "nonexistent_ids_2",
+      "claim": {"text": "Manual review is required for high amount transactions.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["missing/concept-2"], "evidence_ids": ["missing-evidence-2"]},
+      "expected_supported": false
+    },
+    {
+      "name": "nonexistent_ids_3",
+      "claim": {"text": "High amount activity requires manual review.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["missing/concept-3"], "evidence_ids": ["missing-evidence-3"]},
+      "expected_supported": false
+    },
+    {
+      "name": "nonexistent_ids_4",
+      "claim": {"text": "Review high amount transactions manually.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["missing/concept-4"], "evidence_ids": ["missing-evidence-4"]},
+      "expected_supported": false
+    },
+    {
+      "name": "unrelated_valid_ids_1",
+      "claim": {"text": "High amount transactions require manual review.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["typologies/mule-network"], "evidence_ids": ["ev-mule"]},
+      "expected_supported": false
+    },
+    {
+      "name": "unrelated_valid_ids_2",
+      "claim": {"text": "Manual review is required for high amount transactions.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["typologies/mule-network"], "evidence_ids": ["ev-mule"]},
+      "expected_supported": false
+    },
+    {
+      "name": "unrelated_valid_ids_3",
+      "claim": {"text": "High amount activity requires manual review.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["typologies/mule-network"], "evidence_ids": ["ev-mule"]},
+      "expected_supported": false
+    },
+    {
+      "name": "unrelated_valid_ids_4",
+      "claim": {"text": "Review high amount transactions manually.", "source": "tool", "supporting_tool_call_indices": [0], "concept_ids": ["typologies/mule-network"], "evidence_ids": ["ev-mule"]},
+      "expected_supported": false
+    },
+    {
+      "name": "omitted_ids_1",
+      "claim": {"text": "High amount transactions require manual review.", "source": "tool", "supporting_tool_call_indices": [0]},
+      "expected_supported": false
+    },
+    {
+      "name": "omitted_ids_2",
+      "claim": {"text": "Manual review is required for high amount transactions.", "source": "tool", "supporting_tool_call_indices": [0]},
+      "expected_supported": false
+    },
+    {
+      "name": "omitted_ids_3",
+      "claim": {"text": "High amount activity requires manual review.", "source": "tool", "supporting_tool_call_indices": [0]},
+      "expected_supported": false
+    },
+    {
+      "name": "omitted_ids_4",
+      "claim": {"text": "Review high amount transactions manually.", "source": "tool", "supporting_tool_call_indices": [0]},
+      "expected_supported": false
+    },
+    {
+      "name": "omitted_index_1",
+      "claim": {"text": "High amount transactions require manual review.", "source": "tool", "concept_ids": ["rules/high-amount"], "evidence_ids": ["ev-high"]},
+      "expected_supported": false
+    },
+    {
+      "name": "omitted_index_2",
+      "claim": {"text": "Manual review is required for high amount transactions.", "source": "tool", "concept_ids": ["rules/high-amount"], "evidence_ids": ["ev-high"]},
+      "expected_supported": false
+    },
+    {
+      "name": "omitted_index_3",
+      "claim": {"text": "High amount activity requires manual review.", "source": "tool", "concept_ids": ["rules/high-amount"], "evidence_ids": ["ev-high"]},
+      "expected_supported": false
+    },
+    {
+      "name": "omitted_index_4",
+      "claim": {"text": "Review high amount transactions manually.", "source": "tool", "concept_ids": ["rules/high-amount"], "evidence_ids": ["ev-high"]},
+      "expected_supported": false
+    },
+    {
+      "name": "omitted_case_index",
+      "claim": {"text": "Case case-1 is open.", "source": "tool"},
+      "expected_supported": false
+    },
+    {
+      "name": "failed_case_index",
+      "claim": {"text": "Case case-failed is confirmed.", "source": "tool", "supporting_tool_call_indices": [3]},
+      "expected_supported": false
+    },
+    {
+      "name": "omitted_graph_index",
+      "claim": {"text": "Entity entity-1 appears in the graph.", "source": "tool"},
+      "expected_supported": false
+    },
+    {
+      "name": "failed_graph_index",
+      "claim": {"text": "Entity entity-failed appears in the graph.", "source": "tool", "supporting_tool_call_indices": [5]},
+      "expected_supported": false
+    },
+    {
+      "name": "omitted_audit_index",
+      "claim": {"text": "The decision audit confirms the outcome.", "source": "tool"},
+      "expected_supported": false
+    },
+    {
+      "name": "failed_audit_index",
+      "claim": {"text": "The failed decision audit confirms the outcome.", "source": "tool", "supporting_tool_call_indices": [7]},
+      "expected_supported": false
+    },
+    {
+      "name": "unrelated_successful_tool_payload",
+      "claim": {"text": "Entity entity-1 appears in the selected case.", "source": "tool", "supporting_tool_call_indices": [2]},
+      "expected_supported": false
+    },
+    {
+      "name": "exact_ids_selected_nonknowledge",
+      "claim": {"text": "High amount transactions require manual review.", "source": "tool", "supporting_tool_call_indices": [2], "concept_ids": ["rules/high-amount"], "evidence_ids": ["ev-high"]},
+      "expected_supported": false
+    },
+    {
+      "name": "exact_ids_from_unselected_knowledge",
+      "claim": {"text": "Linked beneficiary accounts indicate mule network activity.", "source": "tool", "supporting_tool_call_indices": [0, 2], "concept_ids": ["typologies/mule-network"], "evidence_ids": ["ev-mule"]},
+      "expected_supported": false
+    }
+  ]
+}
