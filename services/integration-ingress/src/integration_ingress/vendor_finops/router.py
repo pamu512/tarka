@@ -11,7 +11,7 @@ from typing import Any, Protocol
 
 from redis.asyncio import Redis
 
-from tarka_vendor_finops.cache import VendorSignalCache, cache_ttl_for_vendor
+from integration_ingress.vendor_finops.cache import VendorSignalCache, cache_ttl_for_vendor
 
 log = logging.getLogger(__name__)
 

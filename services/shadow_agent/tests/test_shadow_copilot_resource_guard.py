@@ -1,4 +1,4 @@
-"""Unit tests for hardware-first Shadow Copilot tiering (no model loads)."""
+"""Regression: hardware-first Shadow Copilot RAM tiering (lives under shadow_agent)."""
 
 from __future__ import annotations
 

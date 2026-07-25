@@ -11,6 +11,9 @@ paths:
   /v1/health:
     get:
       operationId: agentHealth
+      description: >
+        Unauthenticated liveness probe. Returns only stable status and sanitized
+        warning codes (no paths, hashes, or raw validation detail).
       responses:
         "200":
           description: OK
@@ -19,23 +22,56 @@ paths:
               schema:
                 type: object
                 properties:
-                  status: { type: string }
-                  ai_governance_profile:
-                    type: string
-                    enum: [us, eu_uk, global]
-                  ai_governance_label: { type: string }
-                  copilot_prompt_version: { type: string }
-                  production:
-                    type: object
-                    description: Production profile flags and config_ok (GET /v1/health).
-                    additionalProperties: true
-                  copilot_features:
-                    type: object
-                    additionalProperties: true
-                  integration:
-                    type: object
-                    description: Same shape as GET /v1/integration (contract_version, profile_id, tools, families).
-                    additionalProperties: true
+                  status: { type: string, enum: [ok] }
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+                      enum: [production_config_invalid, okf_unavailable]
+  /v1/admin/health/details:
+    get:
+      operationId: agentAdminHealthDetails
+      description: >
+        Authenticated operator diagnostics. Requires a configured API key that is
+        also listed in OKF_ADMIN_API_KEYS. Unlike public probes, this response may
+        contain detailed validation messages.
+      responses:
+        "200":
+          description: Detailed operator diagnostics
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401": { description: API key required }
+        "403": { description: Admin API key required }
+  /v1/admin/okf/reload:
+    post:
+      operationId: okfAdminReload
+      description: >
+        Reload approved OKF shared/tenant bundles and refresh the concept index.
+        Requires an API key present in both API_KEYS and OKF_ADMIN_API_KEYS.
+        A failed reload keeps the previous active generation when one exists.
+      responses:
+        "200":
+          description: Reload attempted (activated may be false when validation issues are present)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [activated, revision, issues]
+                properties:
+                  activated: { type: boolean }
+                  revision: { type: string }
+                  issues:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        "401": { description: API key required }
+        "403": { description: OKF admin key required }
+        "409": { description: OKF disabled }
+        "503": { description: Reload or index failed }
   /v1/integration:
     get:
       operationId: integrationContract
@@ -54,8 +90,11 @@ paths:
     get:
       operationId: agentReady
       description: >
-        Readiness probe — SQLite/RAG data directory writable. Does not call the LLM.
-        Returns 503 if the data path is not writable.
+        Unauthenticated readiness probe for RAG and OKF; it does not call the
+        LLM. Disabled knowledge paths are neutral. A 200 ready response means
+        every enabled path is healthy. A 200 degraded response means one enabled
+        path failed while another remains usable. A sanitized 503 not_ready
+        response means all usable knowledge paths are unavailable.
       responses:
         "200":
           description: Ready
@@ -63,19 +102,28 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [status]
                 properties:
-                  status: { type: string, enum: [ready] }
+                  status: { type: string, enum: [ready, degraded] }
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+                      enum: [rag_unavailable, okf_unavailable]
         "503":
           description: Not ready
           content:
             application/json:
               schema:
                 type: object
+                required: [status, errors]
                 properties:
                   status: { type: string, enum: [not_ready] }
                   errors:
                     type: array
-                    items: { type: string }
+                    items:
+                      type: string
+                      enum: [rag_unavailable, okf_unavailable]
   /v1/setup:
     get:
       operationId: setupDiagnostics
@@ -1014,7 +1062,7 @@ components:
       properties:
         artifact:
           type: string
-          enum: [decision_trace, case, json_rule, typology, tool, unknown]
+          enum: [decision_trace, case, json_rule, typology, okf_concept, evidence, tool, unknown]
         id:
           type: string
     CopilotCitation:

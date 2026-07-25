@@ -35,7 +35,7 @@ declare -a SALVAGE_PATHS=(
     "services/decision-api/src/decision_api/inference_build"
     
     # 4. Omnipresent Copilot
-    "services/agent/shadow_copilot"
+    "services/shadow_agent/shadow_copilot"
     "services/investigation-agent/src/investigation_agent/copilot_hardening"
     "services/collaboration-chat-bridge/src/collaboration_chat_bridge/workflow_bridge"
     "services/investigation-agent/src/investigation_agent/llm_health"

@@ -244,6 +244,13 @@ class Settings(BaseSettings):
         ),
     )
 
+    # --- OKF curated knowledge bundles ---
+    okf_enabled: bool = True
+    okf_shared_root: str = "knowledge/shared"
+    okf_tenant_root: str = "knowledge/tenants"
+    okf_max_link_depth: int = Field(default=2, ge=0, le=5)
+    okf_max_concepts: int = Field(default=24, ge=1, le=100)
+
 
 settings = Settings()
 
