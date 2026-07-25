@@ -5,7 +5,6 @@ requires-python = ">=3.11"
 dependencies = [
   "structlog>=26.1.0",
   "tarka-core @ file:../core",
-  "tarka-vendor-finops @ file:../integration",
   "fastapi>=0.139.0",
   "uvicorn[standard]>=0.51.0",
   "httpx>=0.28.1",

@@ -961,6 +961,8 @@ async def tool_search_knowledge(
         keyword_weight=settings.copilot_rag_keyword_weight,
     )
     out = dict(data) if isinstance(data, dict) else {"hits": []}
+    if isinstance(out.get("hits"), list):
+        out["hits"] = [h for h in out["hits"] if h.get("knowledge_kind", "memo") != "okf"]
     out.setdefault("query", q[:512])
     out.setdefault("retrieval_mode", "keyword")
     out.setdefault("conflicts", [])
