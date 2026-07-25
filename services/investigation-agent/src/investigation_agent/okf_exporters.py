@@ -536,7 +536,11 @@ def export_typologies(payload: dict[str, Any], source_uri: str) -> dict[str, str
 
 def export_playbooks() -> dict[str, str]:
     """Export built-in investigation playbooks as shared OKF concepts."""
-    revision = hashlib.sha256("|".join(sorted(_PLAYBOOKS)).encode("utf-8")).hexdigest()[:16]
+    h = hashlib.sha256()
+    for k in sorted(_PLAYBOOKS):
+        e = _PLAYBOOKS[k]
+        h.update(f"{k}\0{e['title']}\0{e['vertical']}\0{e['fragment']}".encode("utf-8"))
+    revision = h.hexdigest()[:16]
     files: dict[str, str] = {}
     for playbook_id in sorted(_PLAYBOOKS):
         entry = _PLAYBOOKS[playbook_id]
@@ -606,7 +610,7 @@ def _contains_likely_person_name(value: str) -> bool:
     words = [
         match.group(0).casefold() for match in re.finditer(r"\b[A-Za-z][A-Za-z'-]{1,29}\b", value)
     ]
-    return any(words[index] in _COMMON_GIVEN_NAMES for index in range(len(words) - 1))
+    return any(words[index] in _COMMON_GIVEN_NAMES for index in range(len(words)))
 
 
 def _pii_kind(value: str) -> str | None:
@@ -681,6 +685,13 @@ def export_landmark_case(case: dict[str, Any], *, tenant_id: str) -> str:
     typology_ids = case.get("typology_ids") or []
     rule_ids = case.get("rule_ids") or []
     evidence_ids = case.get("evidence_ids") or []
+    for _id_key, _id_val in (
+        ("typology_ids", typology_ids),
+        ("rule_ids", rule_ids),
+        ("evidence_ids", evidence_ids),
+    ):
+        if _id_val and not isinstance(_id_val, list | tuple):
+            raise LandmarkCaseSanitizationError(f"{_id_key} must be a list")
     body_lines = [
         str(case.get("summary") or "").strip(),
         "",
@@ -761,18 +772,19 @@ def export_landmark_case_bundle(
 def assert_staging_output_path(output: Path, *, repo_root: Path) -> None:
     """Refuse writes to active shared or tenant OKF roots."""
     output_resolved = output.resolve()
-    configured: list[Path] = []
+    blocked: set[Path] = set()
     for env_name, default in (
         ("OKF_SHARED_ROOT", repo_root / "knowledge" / "shared"),
         ("OKF_TENANT_ROOT", repo_root / "knowledge" / "tenants"),
     ):
+        blocked.add(default.resolve())
         raw = os.environ.get(env_name, "").strip()
-        active = Path(raw).expanduser() if raw else default
-        if not active.is_absolute():
-            active = repo_root / active
-        configured.append(active.resolve())
-    shared_active, tenant_active = configured
-    for active in (shared_active, tenant_active):
+        if raw:
+            active = Path(raw).expanduser()
+            if not active.is_absolute():
+                active = repo_root / active
+            blocked.add(active.resolve())
+    for active in blocked:
         if (
             output_resolved == active
             or active in output_resolved.parents
