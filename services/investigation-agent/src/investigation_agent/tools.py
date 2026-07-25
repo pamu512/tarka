@@ -935,6 +935,8 @@ async def tool_search_knowledge(
         limit=lim,
         keyword_weight=settings.copilot_rag_keyword_weight,
     )
+    if isinstance(data, dict) and isinstance(data.get("hits"), list):
+        data["hits"] = [h for h in data["hits"] if h.get("knowledge_kind", "memo") != "okf"]
     return _limit_result(data)
 
 

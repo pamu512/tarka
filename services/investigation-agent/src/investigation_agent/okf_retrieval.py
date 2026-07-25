@@ -63,12 +63,14 @@ def retrieve_knowledge(
     max_depth: int | None = None,
     max_concepts: int | None = None,
 ) -> KnowledgeRetrievalResult:
+    _pin = registry.pin()
     exact_expand = _exact_and_expand_candidates(
         registry=registry,
         tenant_id=tenant_id,
         query=query,
         max_depth=max_depth,
         max_concepts=max_concepts,
+        _pin=_pin,
     )
     rag_data: dict[str, Any] | None = None
     rag_candidates: list[_Candidate] = []
@@ -86,6 +88,7 @@ def retrieve_knowledge(
             registry=registry,
             tenant_id=tenant_id,
             hits=rag_data["hits"],
+            _pin=_pin,
         )
     return _finalize_result(
         registry=registry,
@@ -94,6 +97,7 @@ def retrieve_knowledge(
         exact_expand=exact_expand,
         rag_candidates=rag_candidates,
         rag_data=rag_data,
+        _pin=_pin,
     )
 
 
@@ -110,12 +114,14 @@ async def retrieve_knowledge_async(
     generation_gate: asyncio.Lock | None = None,
 ) -> KnowledgeRetrievalResult:
     async with _maybe_generation_gate(generation_gate):
+        _pin = registry.pin()
         exact_expand = _exact_and_expand_candidates(
             registry=registry,
             tenant_id=tenant_id,
             query=query,
             max_depth=max_depth,
             max_concepts=max_concepts,
+            _pin=_pin,
         )
         rag_data: dict[str, Any] | None = None
         rag_candidates: list[_Candidate] = []
@@ -133,6 +139,7 @@ async def retrieve_knowledge_async(
                 registry=registry,
                 tenant_id=tenant_id,
                 hits=rag_data["hits"],
+                _pin=_pin,
             )
         return _finalize_result(
             registry=registry,
@@ -141,6 +148,7 @@ async def retrieve_knowledge_async(
             exact_expand=exact_expand,
             rag_candidates=rag_candidates,
             rag_data=rag_data,
+            _pin=_pin,
         )
 
 
@@ -178,8 +186,9 @@ def _exact_and_expand_candidates(
     query: str,
     max_depth: int | None,
     max_concepts: int | None,
+    _pin: Any = None,
 ) -> list[_Candidate]:
-    exact_hits = registry.resolve(tenant_id, query)
+    exact_hits = registry.resolve(tenant_id, query, _pin=_pin)
     raw: list[_Candidate] = [_candidate_from_concept_hit(hit, stage="exact") for hit in exact_hits]
     if exact_hits:
         expanded_hits = registry.expand(
@@ -187,6 +196,7 @@ def _exact_and_expand_candidates(
             [hit.concept.concept_id for hit in exact_hits],
             max_depth=_effective_max_depth(max_depth),
             max_concepts=_effective_max_concepts(max_concepts),
+            _pin=_pin,
         )
         raw.extend(_candidate_from_concept_hit(hit, stage="expand") for hit in expanded_hits)
     return _dedupe_and_sort(raw)
@@ -241,6 +251,7 @@ def _rag_candidates(
     registry: OkfRegistry,
     tenant_id: str,
     hits: list[Any],
+    _pin: Any = None,
 ) -> list[_Candidate]:
     lookup_cache: dict[str, ConceptHit | None] = {}
     candidates: list[_Candidate] = []
@@ -252,6 +263,7 @@ def _rag_candidates(
             tenant_id=tenant_id,
             hit=raw_hit,
             lookup_cache=lookup_cache,
+            _pin=_pin,
         )
         if candidate is not None:
             candidates.append(candidate)
@@ -264,6 +276,7 @@ def _candidate_from_rag_hit(
     tenant_id: str,
     hit: dict[str, Any],
     lookup_cache: dict[str, ConceptHit | None],
+    _pin: Any = None,
 ) -> _Candidate | None:
     knowledge_kind = str(hit.get("knowledge_kind") or "memo").strip().lower()
     concept_id = str(hit.get("concept_id") or "").strip()
@@ -274,6 +287,7 @@ def _candidate_from_rag_hit(
             tenant_id=tenant_id,
             concept_id=concept_id,
             lookup_cache=lookup_cache,
+            _pin=_pin,
         )
         if current_hit is None:
             return None
@@ -333,6 +347,7 @@ def _lookup_concept_hit(
     tenant_id: str,
     concept_id: str,
     lookup_cache: dict[str, ConceptHit | None],
+    _pin: Any = None,
 ) -> ConceptHit | None:
     cached = lookup_cache.get(concept_id)
     if concept_id in lookup_cache:
@@ -342,6 +357,7 @@ def _lookup_concept_hit(
         [concept_id],
         max_depth=0,
         max_concepts=1,
+        _pin=_pin,
     )
     current = next((hit for hit in hits if hit.concept.concept_id == concept_id), None)
     lookup_cache[concept_id] = current
@@ -397,6 +413,7 @@ def _finalize_result(
     exact_expand: list[_Candidate],
     rag_candidates: list[_Candidate],
     rag_data: dict[str, Any] | None,
+    _pin: Any = None,
 ) -> KnowledgeRetrievalResult:
     all_candidates = [*exact_expand, *rag_candidates]
     conflicts = _detect_conflicts(all_candidates)
@@ -426,7 +443,7 @@ def _finalize_result(
         retrieval_mode=retrieval_mode,
         conflicts=conflicts,
         abstain=not authoritative or bool(conflicts),
-        bundle_revision=registry.snapshot_revision(tenant_id),
+        bundle_revision=registry.snapshot_revision(tenant_id, _pin=_pin),
     )
 
 
