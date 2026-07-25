@@ -1,6 +1,6 @@
 import json
 
-from tarka_vendor_finops.cache import VendorSignalCache
+from integration_ingress.vendor_finops.cache import VendorSignalCache
 
 
 def test_unwrap_positive_and_negative() -> None:
