@@ -606,7 +606,7 @@ def _contains_likely_person_name(value: str) -> bool:
     words = [
         match.group(0).casefold() for match in re.finditer(r"\b[A-Za-z][A-Za-z'-]{1,29}\b", value)
     ]
-    return any(words[index] in _COMMON_GIVEN_NAMES for index in range(len(words) - 1))
+    return any(words[index] in _COMMON_GIVEN_NAMES for index in range(len(words)))
 
 
 def _pii_kind(value: str) -> str | None:
@@ -681,6 +681,9 @@ def export_landmark_case(case: dict[str, Any], *, tenant_id: str) -> str:
     typology_ids = case.get("typology_ids") or []
     rule_ids = case.get("rule_ids") or []
     evidence_ids = case.get("evidence_ids") or []
+    for _id_key, _id_val in (("typology_ids", typology_ids), ("rule_ids", rule_ids), ("evidence_ids", evidence_ids)):
+        if _id_val and not isinstance(_id_val, list | tuple):
+            raise LandmarkCaseSanitizationError(f"{_id_key} must be a list")
     body_lines = [
         str(case.get("summary") or "").strip(),
         "",
