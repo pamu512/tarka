@@ -53,12 +53,11 @@ def test_health_includes_playbooks_fingerprint(monkeypatch):
     monkeypatch.setenv("API_KEYS", "admin-key")
     monkeypatch.setenv("OKF_ADMIN_API_KEYS", "admin-key")
     import investigation_agent.main as main_mod
+
     main_mod._valid_api_keys = None
     try:
         with TestClient(app) as client:
-            r = client.get(
-                "/v1/admin/health/details", headers={"x-api-key": "admin-key"}
-            )
+            r = client.get("/v1/admin/health/details", headers={"x-api-key": "admin-key"})
         assert r.status_code == 200
         fp = r.json()["copilot_features"]["playbooks_fingerprint"]
         assert fp == playbooks_catalog_fingerprint()
