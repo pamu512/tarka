@@ -1,5 +1,6 @@
 """Investigation agent with proper LLM tool-use loop."""
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -64,6 +65,11 @@ from investigation_agent.integration_contract import (
     INTEGRATION_CONTRACT_VERSION,
     build_integration_snapshot,
     effective_disabled_tools,
+)
+from investigation_agent.okf_registry import (
+    OkfRegistry,
+    RegistryReloadCandidate,
+    RegistryReloadResult,
 )
 from investigation_agent.personas import (
     DEFAULT_COPILOT_PERSONA,
@@ -134,6 +140,8 @@ def _get_api_keys() -> frozenset[str]:
 
 
 async def require_api_key(request: Request) -> None:
+    if request.url.path in {"/v1/health", "/v1/ready"}:
+        return
     keys = _get_api_keys()
     if settings.copilot_require_investigation_api_key:
         if not keys:
@@ -145,6 +153,41 @@ async def require_api_key(request: Request) -> None:
         return
     if request.headers.get("x-api-key", "") not in keys:
         raise HTTPException(status_code=401, detail="invalid or missing API key")
+
+
+def _format_okf_issues(issues: tuple[Any, ...]) -> str:
+    return "; ".join(
+        f"{getattr(issue, 'code', 'issue')}:{getattr(issue, 'path', '')}" for issue in issues
+    )
+
+
+def _okf_generation_gate(application: FastAPI) -> asyncio.Lock:
+    gate = getattr(application.state, "okf_generation_gate", None)
+    if gate is None:
+        gate = asyncio.Lock()
+        application.state.okf_generation_gate = gate
+    return gate
+
+
+async def _index_and_activate_okf_candidate(
+    application: FastAPI,
+    registry: OkfRegistry,
+    candidate: RegistryReloadCandidate,
+) -> RegistryReloadResult:
+    rows, indexed = await knowledge_store.prepare_okf_index_rows_async(
+        application.state.http,
+        candidate.bundles,
+        use_embeddings=settings.copilot_knowledge_embeddings
+        and bool(effective_embedding_api_key()),
+        api_key=effective_embedding_api_key(),
+        base_url=effective_embedding_base_url(),
+        embed_model=settings.copilot_embedding_model,
+    )
+    knowledge_store.replace_okf_index_rows_sync(rows)
+    reload_result = registry.activate(candidate)
+    application.state.okf_indexed_concepts = indexed
+    application.state.okf_index_error = None
+    return reload_result
 
 
 @asynccontextmanager
@@ -173,6 +216,36 @@ async def lifespan(application: FastAPI):
         timeout=httpx.Timeout(30.0, connect=5.0),
         limits=httpx.Limits(max_connections=50, max_keepalive_connections=10),
     )
+    application.state.okf_registry = None
+    application.state.okf_reload_result = None
+    application.state.okf_load_error = None
+    application.state.okf_index_error = None
+    application.state.okf_indexed_concepts = 0
+    application.state.okf_last_reload_issues = ()
+    application.state.okf_generation_gate = asyncio.Lock()
+    if settings.okf_enabled:
+        try:
+            registry = OkfRegistry(
+                shared_root=Path(settings.okf_shared_root),
+                tenant_root=Path(settings.okf_tenant_root),
+            )
+            async with _okf_generation_gate(application):
+                candidate = registry.prepare_reload()
+                application.state.okf_registry = registry
+                application.state.okf_last_reload_issues = tuple(candidate.issues)
+                if candidate.issues:
+                    application.state.okf_reload_result = RegistryReloadResult(
+                        False, candidate.revision, candidate.issues
+                    )
+                    application.state.okf_load_error = _format_okf_issues(candidate.issues)
+                else:
+                    application.state.okf_reload_result = await _index_and_activate_okf_candidate(
+                        application, registry, candidate
+                    )
+        except Exception as exc:
+            log.warning("okf_registry_load_failed", exc_info=True)
+            application.state.okf_load_error = str(exc)[:500]
+            application.state.okf_index_error = str(exc)[:500]
     yield
     await application.state.http.aclose()
 
@@ -1279,23 +1352,118 @@ async def _request_guards_and_security_headers(request: Request, call_next):
     return response
 
 
+def _okf_readiness_errors(application: FastAPI) -> list[str]:
+    if not settings.okf_enabled:
+        return []
+    load_error = getattr(application.state, "okf_load_error", None)
+    if load_error:
+        return [f"okf registry unavailable: {load_error}"]
+    index_error = getattr(application.state, "okf_index_error", None)
+    if index_error:
+        return [f"okf index unavailable: {index_error}"]
+    reload_result = getattr(application.state, "okf_reload_result", None)
+    if reload_result is not None and not bool(getattr(reload_result, "activated", False)):
+        return ["okf registry unavailable: reload did not activate"]
+    return []
+
+
+async def _require_admin_api_key(request: Request) -> None:
+    keys = _get_api_keys()
+    api_key = request.headers.get("x-api-key", "")
+    if not keys or api_key not in keys:
+        raise HTTPException(status_code=401, detail="admin API key required")
+    admin_keys = {
+        key.strip() for key in os.environ.get("OKF_ADMIN_API_KEYS", "").split(",") if key.strip()
+    }
+    if api_key not in admin_keys:
+        raise HTTPException(status_code=403, detail="OKF admin key required")
+
+
+@app.post("/v1/admin/okf/reload")
+async def okf_reload(request: Request):
+    await _require_admin_api_key(request)
+    if not settings.okf_enabled:
+        raise HTTPException(status_code=409, detail="OKF is disabled")
+    async with _okf_generation_gate(request.app):
+        registry = getattr(request.app.state, "okf_registry", None)
+        if registry is None:
+            registry = OkfRegistry(
+                shared_root=Path(settings.okf_shared_root),
+                tenant_root=Path(settings.okf_tenant_root),
+            )
+            request.app.state.okf_registry = registry
+        previous = getattr(request.app.state, "okf_reload_result", None)
+        try:
+            candidate = registry.prepare_reload()
+        except Exception:
+            if previous is None or not bool(getattr(previous, "activated", False)):
+                request.app.state.okf_load_error = "okf_reload_failed"
+            request.app.state.okf_last_reload_issues = ("okf_reload_failed",)
+            raise HTTPException(status_code=503, detail="okf_reload_failed")
+        request.app.state.okf_last_reload_issues = tuple(candidate.issues)
+        if candidate.issues:
+            reload_result = RegistryReloadResult(False, candidate.revision, candidate.issues)
+            # Failed reload keeps previous active generation when one exists.
+            if previous is None or not bool(getattr(previous, "activated", False)):
+                request.app.state.okf_reload_result = reload_result
+                request.app.state.okf_load_error = _format_okf_issues(candidate.issues)
+            return {
+                "activated": False,
+                "revision": str(reload_result.revision),
+                "issues": [
+                    {"code": issue.code, "path": issue.path, "message": issue.message}
+                    for issue in reload_result.issues
+                ],
+            }
+        try:
+            reload_result = await _index_and_activate_okf_candidate(
+                request.app,
+                registry,
+                candidate,
+            )
+        except Exception as exc:
+            log.warning("okf_index_refresh_failed", exc_info=True)
+            if previous is None or not bool(getattr(previous, "activated", False)):
+                request.app.state.okf_index_error = str(exc)[:500]
+                request.app.state.okf_load_error = "okf_index_failed"
+            request.app.state.okf_last_reload_issues = ("okf_index_failed",)
+            raise HTTPException(status_code=503, detail="okf_index_failed") from exc
+        else:
+            request.app.state.okf_reload_result = reload_result
+            request.app.state.okf_load_error = None
+            request.app.state.okf_index_error = None
+        return {
+            "activated": True,
+            "revision": str(reload_result.revision),
+            "issues": [],
+        }
+
+
 @app.get("/v1/ready")
 async def ready():
     """
-    Readiness probe: data directory writable (SQLite/RAG). Does not call the LLM.
+    Readiness probe: at least one enabled knowledge path must be healthy.
     Use with GET /v1/health for liveness vs readiness in orchestrators.
     """
-    errs = runtime_readiness_errors()
-    if errs:
+    rag_errs = runtime_readiness_errors()
+    okf_enabled = bool(settings.okf_enabled)
+    okf_errs = _okf_readiness_errors(app) if okf_enabled else []
+    public_codes = [
+        *(["rag_unavailable"] if rag_errs else []),
+        *(["okf_unavailable"] if okf_errs else []),
+    ]
+    if not public_codes:
+        return {"status": "ready"}
+    usable_paths = int(not rag_errs) + int(okf_enabled and not okf_errs)
+    if usable_paths == 0:
         return JSONResponse(
             status_code=503,
-            content={"status": "not_ready", "errors": errs},
+            content={"status": "not_ready", "errors": public_codes},
         )
-    return {"status": "ready"}
+    return {"status": "degraded", "warnings": public_codes}
 
 
-@app.get("/v1/health")
-async def health():
+def _health_details_payload() -> dict[str, Any]:
     gov = normalize_governance_profile(settings.ai_governance_profile)
     eff = effective_disabled_tools(settings)
     prod_cfg = production_config_errors(settings)
@@ -1344,7 +1512,35 @@ async def health():
             "workflows_fingerprint": workflows_catalog_fingerprint(),
             "copilot_workflows": [w["id"] for w in list_workflows()],
         },
+        "okf": {
+            "enabled": settings.okf_enabled,
+            "available": bool(settings.okf_enabled) and not bool(_okf_readiness_errors(app)),
+            "reload_activated": bool(
+                getattr(getattr(app.state, "okf_reload_result", None), "activated", False)
+            )
+            if getattr(app.state, "okf_reload_result", None) is not None
+            else None,
+        },
     }
+
+
+@app.get("/v1/health")
+async def health():
+    warnings: list[str] = []
+    if production_config_errors(settings):
+        warnings.append("production_config_invalid")
+    if settings.okf_enabled and _okf_readiness_errors(app):
+        warnings.append("okf_unavailable")
+    return {
+        "status": "ok",
+        **({"warnings": warnings} if warnings else {}),
+    }
+
+
+@app.get("/v1/admin/health/details")
+async def health_details(request: Request):
+    await _require_admin_api_key(request)
+    return _health_details_payload()
 
 
 @app.get("/v1/integration")

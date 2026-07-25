@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from typing import TYPE_CHECKING
+
+from investigation_agent import knowledge_store
 
 """
 Fail-fast checks when COPILOT_PRODUCTION_MODE=true.
@@ -15,17 +16,10 @@ if TYPE_CHECKING:
 
 
 def runtime_readiness_errors() -> list[str]:
-    """Best-effort writable probe for SQLite/RAG data dir (k8s readiness)."""
-    try:
-        from investigation_agent.knowledge_store import rag_db_path
-
-        p = Path(rag_db_path()).resolve().parent
-        p.mkdir(parents=True, exist_ok=True)
-        probe = p / ".saarthi_write_probe"
-        probe.write_text("1", encoding="utf-8")
-        probe.unlink(missing_ok=True)
-    except OSError:
-        return ["investigation data directory not writable"]
+    """Best-effort SQLite/RAG probe for k8s readiness."""
+    ok, detail = knowledge_store.rag_health_check()
+    if not ok:
+        return [f"rag sqlite unavailable: {detail}"]
     return []
 
 
