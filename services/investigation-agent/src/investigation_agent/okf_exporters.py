@@ -768,18 +768,19 @@ def export_landmark_case_bundle(
 def assert_staging_output_path(output: Path, *, repo_root: Path) -> None:
     """Refuse writes to active shared or tenant OKF roots."""
     output_resolved = output.resolve()
-    configured: list[Path] = []
+    blocked: set[Path] = set()
     for env_name, default in (
         ("OKF_SHARED_ROOT", repo_root / "knowledge" / "shared"),
         ("OKF_TENANT_ROOT", repo_root / "knowledge" / "tenants"),
     ):
+        blocked.add(default.resolve())
         raw = os.environ.get(env_name, "").strip()
-        active = Path(raw).expanduser() if raw else default
-        if not active.is_absolute():
-            active = repo_root / active
-        configured.append(active.resolve())
-    shared_active, tenant_active = configured
-    for active in (shared_active, tenant_active):
+        if raw:
+            active = Path(raw).expanduser()
+            if not active.is_absolute():
+                active = repo_root / active
+            blocked.add(active.resolve())
+    for active in blocked:
         if (
             output_resolved == active
             or active in output_resolved.parents
