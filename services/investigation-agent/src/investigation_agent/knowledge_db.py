@@ -575,6 +575,8 @@ def index_okf_concepts_sync(
     When *purge_missing* is True (default), OKF rows for concept IDs in the same
     bundle scope that are no longer in the bundle's approved set are deleted.
     """
+    if embeddings is not None and len(bundle.concepts) > 1:
+        raise ValueError("embeddings can only be supplied for single-concept bundles")
     tenant_id, authority = _okf_tenant_for_bundle(bundle)
     analyst_id = _OKF_ANALYST_ID
     bundle_scope = bundle.scope
