@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from analytics.hil_context_store import HilContextOverrideStore, HilContextStoreError
+from orchestrator_analytics.hil_context_store import HilContextOverrideStore, HilContextStoreError
 from config import get_settings
 from database import TarkaDatabaseException
 from middleware.idempotency import release_lock, verify_and_lock_event

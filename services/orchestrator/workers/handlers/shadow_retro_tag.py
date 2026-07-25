@@ -11,7 +11,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from analytics.evidence_manifest_fetch import fetch_most_recent_evidence_manifest
+from orchestrator_analytics.evidence_manifest_fetch import fetch_most_recent_evidence_manifest
 from database import atomic_transaction
 from label_propagation import (
     LabelPropagationError,

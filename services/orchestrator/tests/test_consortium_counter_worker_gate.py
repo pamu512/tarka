@@ -16,7 +16,7 @@ for _p in (_SRC_ORCH,):
 
 
 def test_build_consortium_threat_counter_commands_from_label_event() -> None:
-    from analytics.consortium_threat_matrix import (
+    from orchestrator_analytics.consortium_threat_matrix import (
         build_consortium_threat_counter_commands,
     )
     from messaging.labels_jetstream import NORMALIZED_LABEL_EVENT_SCHEMA
@@ -47,7 +47,7 @@ def test_build_consortium_threat_counter_commands_from_label_event() -> None:
 
 def test_apply_consortium_threat_counter_increments_uses_lua_script() -> None:
     async def _run() -> None:
-        from analytics.consortium_threat_matrix import (
+        from orchestrator_analytics.consortium_threat_matrix import (
             ConsortiumThreatCounterCommand,
             apply_consortium_threat_counter_increments,
             verify_consortium_threat_counter_increments,

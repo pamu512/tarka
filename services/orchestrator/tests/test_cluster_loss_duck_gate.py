@@ -18,7 +18,7 @@ for _p in (_SRC_ORCH, _SRC_INGESTOR):
 
 def test_cluster_loss_matches_device_hash_and_coalesced_device_keys() -> None:
     from ingestor.manifest_schema import TransactionSchema  # noqa: PLC0415
-    from analytics.duck_provider import DuckAnalyticsProvider  # noqa: PLC0415
+    from orchestrator_analytics.duck_provider import DuckAnalyticsProvider  # noqa: PLC0415
 
     dh = "a1b2c3d4e5f6deadbeef00devicehashgate123"
     duck = DuckAnalyticsProvider()

@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 
-from analytics.provider import AnalyticsProvider
+from orchestrator_analytics.provider import AnalyticsProvider
 
 
 def get_analytics(request: Request) -> AnalyticsProvider | None:

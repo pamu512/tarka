@@ -7,7 +7,7 @@ import os
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from analytics.provider import AnalyticsProvider
+    from orchestrator_analytics.provider import AnalyticsProvider
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +38,8 @@ def build_analytics_provider() -> AnalyticsProvider:
     * ``production`` / ``staging`` / ``cloud`` / … → :class:`~orchestrator.analytics.cloud_provider.CloudAnalytics`
     * everything else (``local``, ``development``, ``demo``, …) → :class:`~orchestrator.analytics.duck_provider.LocalAnalytics`
     """
-    from analytics.cloud_provider import CloudAnalytics
-    from analytics.duck_provider import LocalAnalytics
+    from orchestrator_analytics.cloud_provider import CloudAnalytics
+    from orchestrator_analytics.duck_provider import LocalAnalytics
 
     env = _normalized_environment()
     if env in _CLOUD_ENV_HINTS:
