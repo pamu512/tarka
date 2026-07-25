@@ -20,7 +20,7 @@ def client(mock_js):
         nc.drain = AsyncMock()
         mock_connect.return_value = (nc, mock_js)
         with patch("event_ingest.main.asyncio.create_task"):
-            from main import app
+            from event_ingest.main import app
             from fastapi.testclient import TestClient
 
             with TestClient(app) as c:

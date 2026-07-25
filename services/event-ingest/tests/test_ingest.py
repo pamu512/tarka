@@ -5,7 +5,7 @@ import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from main import _payload_for_decision_api
+from event_ingest.main import _payload_for_decision_api
 
 os.environ.setdefault("NATS_URL", "nats://localhost:4222")
 
@@ -31,7 +31,7 @@ def client(mock_js):
         mock_connect.return_value = (nc, mock_js)
 
         with patch("event_ingest.main.asyncio.create_task"):
-            from main import app
+            from event_ingest.main import app
             from fastapi.testclient import TestClient
 
             with TestClient(app) as c:
@@ -77,7 +77,7 @@ class TestHealthEndpoint:
 class TestIdempotency:
     def test_same_key_second_call_duplicate(self, client, mock_js):
         import fakeredis.aioredis as fake_aioredis
-        from main import app
+        from event_ingest.main import app
 
         app.state.redis = fake_aioredis.FakeRedis(decode_responses=True)
         body = {"tenant_id": "t1", "event_type": "login", "entity_id": "u1", "payload": {}}
@@ -133,7 +133,7 @@ class TestIngestEvent:
 class TestBatchIdempotency:
     def test_batch_duplicate_returns_cached(self, client, mock_js):
         import fakeredis.aioredis as fake_aioredis
-        from main import app
+        from event_ingest.main import app
 
         app.state.redis = fake_aioredis.FakeRedis(decode_responses=True)
         batch = {
@@ -156,7 +156,7 @@ class TestBatchIdempotency:
 
     def test_batch_idempotency_key_in_json_body(self, client, mock_js):
         import fakeredis.aioredis as fake_aioredis
-        from main import app
+        from event_ingest.main import app
 
         app.state.redis = fake_aioredis.FakeRedis(decode_responses=True)
         batch = {
@@ -258,7 +258,7 @@ class TestNatsNotConnected:
                 mock_connect.return_value = (nc, None)
 
                 with patch("event_ingest.main.asyncio.create_task"):
-                    from main import app
+                    from event_ingest.main import app
                     from fastapi.testclient import TestClient
 
                     with TestClient(app) as c:

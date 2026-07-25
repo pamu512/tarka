@@ -13,7 +13,6 @@ COPY services/core /app/core
 COPY services/analytics /app/analytics
 COPY services/shared /app/shared
 COPY adapters /app/adapters
-COPY services/core-api/main.py /app/main.py
 COPY services/core-api/pyproject.toml /app/
 COPY services/decision-api/src/decision_api /app/decision_api
 COPY services/decision-api/alembic /app/decision_migrations
@@ -22,7 +21,7 @@ COPY services/decision-api/static /app/static
 COPY services/case-api/src/case_api /app/case_api
 COPY services/case-api/static /app/case-api/static
 COPY services/case-api/alembic /app/case_migrations
-COPY services/core-api/src/core_api /app/core_api
+COPY services/core-api/src /app/src
 COPY packages/shared-core/tarka_shared /app/packages/shared-core/tarka_shared
 COPY services/core-api/config/decision_alembic.ini /app/config/decision_alembic.ini
 COPY services/core-api/config/decision_alembic.ini /app/alembic.ini
@@ -33,6 +32,6 @@ RUN sed -i -e 's|file:../core|file:/app/core|g' /app/analytics/pyproject.toml \
         -e 's|file:../analytics|file:/app/analytics|g' \
         /app/pyproject.toml \
     && pip install --no-cache-dir -e .
-ENV PYTHONPATH=/app:/app/core_api:/app/shared:/app/packages/shared-core
+ENV PYTHONPATH=/app/src:/app:/app/shared:/app/packages/shared-core
 ENV RULES_PATH=/app/rules
-CMD ["/bin/sh", "-c", "alembic -c /app/config/decision_alembic.ini upgrade head && alembic -c /app/config/case_alembic.ini upgrade head && exec uvicorn main:app --host 0.0.0.0 --port 8000"]
+CMD ["/bin/sh", "-c", "alembic -c /app/config/decision_alembic.ini upgrade head && alembic -c /app/config/case_alembic.ini upgrade head && exec uvicorn core_api.main:app --host 0.0.0.0 --port 8000"]
