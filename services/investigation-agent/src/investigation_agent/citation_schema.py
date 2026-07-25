@@ -15,6 +15,7 @@ class CitationArtifact(str, Enum):
     CASE = "case"
     JSON_RULE = "json_rule"
     TYPOLOGY = "typology"
+    OKF_CONCEPT = "okf_concept"
     TOOL = "tool"
     UNKNOWN = "unknown"
 
