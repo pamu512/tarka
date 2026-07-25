@@ -7,14 +7,23 @@ import sqlite3
 import threading
 import time
 import uuid
+from dataclasses import dataclass
 from typing import Any
 
 from investigation_agent import embeddings as emb_mod
+from investigation_agent.okf_models import OkfConcept, ParsedBundle
 
 """
 SQLite-backed investigation memos with optional embedding vectors (RAG).
 Hybrid retrieval: cosine similarity + keyword overlap when embeddings exist.
 """
+_OKF_ANALYST_ID = "__okf__"
+_SHARED_TENANT_ID = "__shared__"
+_OKF_KIND = "okf"
+_MEMO_KIND = "memo"
+_AUTHORITY_MEMO = 10
+_AUTHORITY_SHARED_OKF = 20
+_AUTHORITY_TENANT_OKF = 30
 _MAX_DOCS_PER_SCOPE = 80
 _MAX_DOC_CHARS = 120_000
 _MAX_CHUNK = 1800
@@ -24,6 +33,26 @@ _KEYWORD_MAX_TOKENS = 24
 
 _lock = threading.Lock()
 _conn: sqlite3.Connection | None = None
+
+
+@dataclass(frozen=True)
+class _OkfIndexRow:
+    chunk_id: str
+    tenant_id: str
+    analyst_id: str
+    doc_id: str
+    chunk_index: int
+    title: str
+    text: str
+    embedding_json: str | None
+    embedding_model: str | None
+    created_at: float
+    knowledge_kind: str
+    concept_id: str
+    bundle_scope: str
+    content_hash: str
+    source_uri: str
+    authority: int
 
 
 def ttl_seconds() -> int:
@@ -79,6 +108,7 @@ def _init_schema(c: sqlite3.Connection) -> None:
         )
         """
     )
+    _migrate_schema(c)
     c.execute(
         "CREATE INDEX IF NOT EXISTS idx_knowledge_scope ON knowledge_chunks (tenant_id, analyst_id, created_at)"
     )
@@ -88,6 +118,27 @@ def _init_schema(c: sqlite3.Connection) -> None:
     c.commit()
 
 
+def _migrate_schema(c: sqlite3.Connection) -> None:
+    cols = {row[1] for row in c.execute("PRAGMA table_info(knowledge_chunks)")}
+    additions = [
+        ("knowledge_kind", "TEXT NOT NULL DEFAULT 'memo'"),
+        ("concept_id", "TEXT"),
+        ("bundle_scope", "TEXT"),
+        ("content_hash", "TEXT"),
+        ("source_uri", "TEXT"),
+        ("authority", "INTEGER NOT NULL DEFAULT 10"),
+    ]
+    for name, typedef in additions:
+        if name not in cols:
+            c.execute(f"ALTER TABLE knowledge_chunks ADD COLUMN {name} {typedef}")
+    c.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_knowledge_okf_concept
+        ON knowledge_chunks (tenant_id, knowledge_kind, concept_id, chunk_index)
+        """
+    )
+
+
 def reset_connection_for_tests() -> None:
     """Close singleton (tests only)."""
     global _conn
@@ -95,6 +146,16 @@ def reset_connection_for_tests() -> None:
         if _conn:
             _conn.close()
             _conn = None
+
+
+def health_check() -> tuple[bool, str]:
+    """Open the RAG SQLite database and execute a minimal query."""
+    try:
+        conn = _get_conn()
+        conn.execute("SELECT 1").fetchone()
+        return True, "ok"
+    except Exception as exc:
+        return False, f"{exc.__class__.__name__}: {str(exc)[:200]}"
 
 
 def _chunk_text(text: str) -> list[str]:
@@ -139,26 +200,32 @@ def _trim_docs(c: sqlite3.Connection, tenant_id: str, analyst_id: str) -> None:
         """
         SELECT doc_id, MIN(created_at) AS t
         FROM knowledge_chunks
-        WHERE tenant_id = ? AND analyst_id = ?
+        WHERE tenant_id = ? AND analyst_id = ? AND knowledge_kind = ?
         GROUP BY doc_id
         ORDER BY t ASC
         """,
-        (tenant_id, analyst_id),
+        (tenant_id, analyst_id, _MEMO_KIND),
     ).fetchall()
     if len(rows) <= _MAX_DOCS_PER_SCOPE:
         return
     drop = [r[0] for r in rows[: max(0, len(rows) - _MAX_DOCS_PER_SCOPE)]]
     for did in drop:
         c.execute(
-            "DELETE FROM knowledge_chunks WHERE tenant_id = ? AND analyst_id = ? AND doc_id = ?",
-            (tenant_id, analyst_id, did),
+            """
+            DELETE FROM knowledge_chunks
+            WHERE tenant_id = ? AND analyst_id = ? AND doc_id = ? AND knowledge_kind = ?
+            """,
+            (tenant_id, analyst_id, did, _MEMO_KIND),
         )
 
 
 def _prune_expired(c: sqlite3.Connection, tenant_id: str, analyst_id: str, cutoff: float) -> None:
     c.execute(
-        "DELETE FROM knowledge_chunks WHERE tenant_id = ? AND analyst_id = ? AND created_at < ?",
-        (tenant_id, analyst_id, cutoff),
+        """
+        DELETE FROM knowledge_chunks
+        WHERE tenant_id = ? AND analyst_id = ? AND knowledge_kind = ? AND created_at < ?
+        """,
+        (tenant_id, analyst_id, _MEMO_KIND, cutoff),
     )
 
 
@@ -217,10 +284,24 @@ def ingest_chunks_sync(
             c.execute(
                 """
                 INSERT INTO knowledge_chunks
-                (chunk_id, tenant_id, analyst_id, doc_id, chunk_index, title, text, embedding_json, embedding_model, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (chunk_id, tenant_id, analyst_id, doc_id, chunk_index, title, text,
+                 embedding_json, embedding_model, created_at, knowledge_kind, authority)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (cid, tenant_id, analyst_id, doc_id, i, title, ch, ej, embedding_model, now),
+                (
+                    cid,
+                    tenant_id,
+                    analyst_id,
+                    doc_id,
+                    i,
+                    title,
+                    ch,
+                    ej,
+                    embedding_model,
+                    now,
+                    _MEMO_KIND,
+                    _AUTHORITY_MEMO,
+                ),
             )
         _trim_docs(c, tenant_id, analyst_id)
         c.commit()
@@ -280,9 +361,9 @@ def count_docs(tenant_id: str, analyst_id: str) -> int:
     row = c.execute(
         """
         SELECT COUNT(DISTINCT doc_id) FROM knowledge_chunks
-        WHERE tenant_id = ? AND analyst_id = ? AND created_at >= ?
+        WHERE tenant_id = ? AND analyst_id = ? AND knowledge_kind = ? AND created_at >= ?
         """,
-        (tenant_id, analyst_id, cutoff),
+        (tenant_id, analyst_id, _MEMO_KIND, cutoff),
     ).fetchone()
     return int(row[0] or 0) if row else 0
 
@@ -321,18 +402,48 @@ def _search_hybrid(
     now = time.time()
     cutoff = now - ttl_seconds()
     c = _get_conn()
-    rows = c.execute(
-        """
-        SELECT doc_id, chunk_index, title, text, embedding_json
-        FROM knowledge_chunks
-        WHERE tenant_id = ? AND analyst_id = ? AND created_at >= ?
-        ORDER BY created_at DESC
-        LIMIT ?
-        """,
-        (tenant_id, analyst_id, cutoff, _MAX_CHUNKS_SCAN),
-    ).fetchall()
+    with _lock:
+        rows = c.execute(
+            """
+            SELECT doc_id, chunk_index, title, text, embedding_json,
+                   knowledge_kind, concept_id, bundle_scope, content_hash, source_uri, authority
+            FROM knowledge_chunks
+            WHERE (
+              (tenant_id = ? AND analyst_id = ? AND knowledge_kind = ? AND created_at >= ?)
+              OR (tenant_id = ? AND analyst_id = ? AND knowledge_kind = ?)
+              OR (tenant_id = ? AND analyst_id = ? AND knowledge_kind = ?)
+            )
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (
+                tenant_id,
+                analyst_id,
+                _MEMO_KIND,
+                cutoff,
+                tenant_id,
+                _OKF_ANALYST_ID,
+                _OKF_KIND,
+                _SHARED_TENANT_ID,
+                _OKF_ANALYST_ID,
+                _OKF_KIND,
+                _MAX_CHUNKS_SCAN,
+            ),
+        ).fetchall()
     scored: list[tuple[float, dict[str, Any]]] = []
-    for doc_id, chunk_index, title, text, ej in rows:
+    for (
+        doc_id,
+        chunk_index,
+        title,
+        text,
+        ej,
+        knowledge_kind,
+        concept_id,
+        bundle_scope,
+        content_hash,
+        source_uri,
+        authority,
+    ) in rows:
         kw = _keyword_score(text, q)
         sem = 0.0
         if query_embedding and ej:
@@ -362,6 +473,12 @@ def _search_hybrid(
                     "score": round(combined, 4),
                     "semantic_score": round(sem, 4) if sem else None,
                     "keyword_hits": int(kw) if kw else None,
+                    "knowledge_kind": knowledge_kind or _MEMO_KIND,
+                    "concept_id": concept_id,
+                    "bundle_scope": bundle_scope,
+                    "content_hash": content_hash,
+                    "source_uri": source_uri,
+                    "authority": int(authority) if authority is not None else _AUTHORITY_MEMO,
                 },
             ),
         )
@@ -409,3 +526,276 @@ async def search_async(
         hybrid_keyword_weight=keyword_weight,
     )
     return {"hits": hits, "query": query.strip()[:512], "retrieval_mode": mode}
+
+
+def _okf_tenant_for_bundle(bundle: ParsedBundle) -> tuple[str, int]:
+    if bundle.scope == "shared":
+        return _SHARED_TENANT_ID, _AUTHORITY_SHARED_OKF
+    tenant_id = (bundle.tenant_id or bundle.scope or "").strip()
+    if not tenant_id:
+        raise ValueError("tenant bundle requires tenant_id")
+    return tenant_id, _AUTHORITY_TENANT_OKF
+
+
+def _okf_index_text(concept: OkfConcept) -> str:
+    parts = [concept.title]
+    if concept.description:
+        parts.append(concept.description)
+    if concept.tags:
+        parts.append("Tags: " + ", ".join(concept.tags))
+    if concept.body:
+        parts.append(concept.body)
+    return "\n\n".join(parts)
+
+
+def index_okf_concepts_sync(
+    bundle: ParsedBundle,
+    *,
+    embeddings: list[list[float]] | None = None,
+    embedding_model: str | None = None,
+) -> int:
+    """Index approved concepts from a parsed bundle; returns count of concepts indexed."""
+    tenant_id, authority = _okf_tenant_for_bundle(bundle)
+    analyst_id = _OKF_ANALYST_ID
+    bundle_scope = bundle.scope
+    indexed = 0
+    now = time.time()
+    c = _get_conn()
+    with _lock:
+        for concept_id, concept in bundle.concepts.items():
+            if concept.approval_status != "approved":
+                continue
+            row = c.execute(
+                """
+                SELECT content_hash FROM knowledge_chunks
+                WHERE tenant_id = ? AND analyst_id = ? AND knowledge_kind = ? AND concept_id = ?
+                LIMIT 1
+                """,
+                (tenant_id, analyst_id, _OKF_KIND, concept_id),
+            ).fetchone()
+            if row and row[0] == concept.content_hash:
+                continue
+            c.execute(
+                """
+                DELETE FROM knowledge_chunks
+                WHERE tenant_id = ? AND analyst_id = ? AND knowledge_kind = ? AND concept_id = ?
+                """,
+                (tenant_id, analyst_id, _OKF_KIND, concept_id),
+            )
+            text = _okf_index_text(concept)
+            chunks = _chunk_text(text) or [concept.title]
+            if embeddings is not None and len(embeddings) != len(chunks):
+                raise ValueError("embeddings length must match chunk count")
+            for i, ch in enumerate(chunks):
+                embedding_json = json.dumps(embeddings[i]) if embeddings is not None else None
+                _insert_okf_index_row(
+                    c,
+                    _okf_index_row(
+                        tenant_id=tenant_id,
+                        authority=authority,
+                        bundle_scope=bundle_scope,
+                        concept=concept,
+                        chunk_index=i,
+                        chunk_text=ch,
+                        embedding_json=embedding_json,
+                        embedding_model=embedding_model,
+                        created_at=now,
+                    ),
+                )
+            indexed += 1
+        c.commit()
+    return indexed
+
+
+def replace_okf_index_rows_sync(rows: tuple[_OkfIndexRow, ...]) -> None:
+    """Replace all derived OKF rows atomically."""
+    c = _get_conn()
+    with _lock:
+        try:
+            c.execute("BEGIN IMMEDIATE")
+            c.execute(
+                "DELETE FROM knowledge_chunks WHERE knowledge_kind = ?",
+                (_OKF_KIND,),
+            )
+            for row in rows:
+                _insert_okf_index_row(c, row)
+            c.commit()
+        except Exception:
+            c.rollback()
+            raise
+
+
+async def prepare_okf_index_rows_async(
+    http: Any,
+    bundles: tuple[ParsedBundle, ...],
+    *,
+    use_embeddings: bool,
+    api_key: str,
+    base_url: str,
+    embed_model: str,
+) -> tuple[tuple[_OkfIndexRow, ...], int]:
+    rows: list[_OkfIndexRow] = []
+    indexed = 0
+    now = time.time()
+    for bundle in bundles:
+        tenant_id, authority = _okf_tenant_for_bundle(bundle)
+        for concept in bundle.concepts.values():
+            if concept.approval_status != "approved":
+                continue
+            chunks = _chunk_text(_okf_index_text(concept)) or [concept.title]
+            vecs: list[list[float]] | None = None
+            model: str | None = None
+            if use_embeddings and api_key:
+                try:
+                    vecs = await emb_mod.embed_texts(
+                        http,
+                        api_key=api_key,
+                        base_url=base_url,
+                        model=embed_model,
+                        texts=chunks,
+                    )
+                    model = embed_model
+                except Exception:
+                    vecs = None
+                    model = None
+            if vecs is not None and len(vecs) != len(chunks):
+                raise ValueError("embeddings length must match chunk count")
+            for i, chunk in enumerate(chunks):
+                embedding_json = json.dumps(vecs[i]) if vecs is not None else None
+                rows.append(
+                    _okf_index_row(
+                        tenant_id=tenant_id,
+                        authority=authority,
+                        bundle_scope=bundle.scope,
+                        concept=concept,
+                        chunk_index=i,
+                        chunk_text=chunk,
+                        embedding_json=embedding_json,
+                        embedding_model=model,
+                        created_at=now,
+                    )
+                )
+            indexed += 1
+    return tuple(rows), indexed
+
+
+async def replace_okf_bundles_async(
+    http: Any,
+    bundles: tuple[ParsedBundle, ...],
+    *,
+    use_embeddings: bool,
+    api_key: str,
+    base_url: str,
+    embed_model: str,
+) -> int:
+    rows, indexed = await prepare_okf_index_rows_async(
+        http,
+        bundles,
+        use_embeddings=use_embeddings,
+        api_key=api_key,
+        base_url=base_url,
+        embed_model=embed_model,
+    )
+    replace_okf_index_rows_sync(rows)
+    return indexed
+
+
+def _okf_index_row(
+    *,
+    tenant_id: str,
+    authority: int,
+    bundle_scope: str,
+    concept: OkfConcept,
+    chunk_index: int,
+    chunk_text: str,
+    embedding_json: str | None,
+    embedding_model: str | None,
+    created_at: float,
+) -> _OkfIndexRow:
+    return _OkfIndexRow(
+        chunk_id=f"okf:{tenant_id}:{concept.concept_id}:{chunk_index}",
+        tenant_id=tenant_id,
+        analyst_id=_OKF_ANALYST_ID,
+        doc_id=concept.concept_id,
+        chunk_index=chunk_index,
+        title=concept.title[:256],
+        text=chunk_text,
+        embedding_json=embedding_json,
+        embedding_model=embedding_model,
+        created_at=created_at,
+        knowledge_kind=_OKF_KIND,
+        concept_id=concept.concept_id,
+        bundle_scope=bundle_scope,
+        content_hash=concept.content_hash,
+        source_uri=concept.source_uri,
+        authority=authority,
+    )
+
+
+def _insert_okf_index_row(c: sqlite3.Connection, row: _OkfIndexRow) -> None:
+    c.execute(
+        """
+        INSERT INTO knowledge_chunks
+        (chunk_id, tenant_id, analyst_id, doc_id, chunk_index, title, text,
+         embedding_json, embedding_model, created_at, knowledge_kind, concept_id,
+         bundle_scope, content_hash, source_uri, authority)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            row.chunk_id,
+            row.tenant_id,
+            row.analyst_id,
+            row.doc_id,
+            row.chunk_index,
+            row.title,
+            row.text,
+            row.embedding_json,
+            row.embedding_model,
+            row.created_at,
+            row.knowledge_kind,
+            row.concept_id,
+            row.bundle_scope,
+            row.content_hash,
+            row.source_uri,
+            row.authority,
+        ),
+    )
+
+
+async def index_okf_bundle_async(
+    http: Any,
+    bundle: ParsedBundle,
+    *,
+    use_embeddings: bool,
+    api_key: str,
+    base_url: str,
+    embed_model: str,
+) -> int:
+    total = 0
+    for concept in bundle.concepts.values():
+        text = _okf_index_text(concept)
+        chunks = _chunk_text(text) or [concept.title]
+        vecs: list[list[float]] | None = None
+        model: str | None = None
+        if use_embeddings and api_key:
+            try:
+                vecs = await emb_mod.embed_texts(
+                    http,
+                    api_key=api_key,
+                    base_url=base_url,
+                    model=embed_model,
+                    texts=chunks,
+                )
+                model = embed_model
+            except Exception:
+                vecs = None
+                model = None
+        sub = ParsedBundle(
+            root=bundle.root,
+            scope=bundle.scope,
+            tenant_id=bundle.tenant_id,
+            revision=bundle.revision,
+            concepts={concept.concept_id: concept},
+        )
+        total += index_okf_concepts_sync(sub, embeddings=vecs, embedding_model=model)
+    return total
