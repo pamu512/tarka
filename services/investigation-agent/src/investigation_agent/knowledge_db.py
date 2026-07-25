@@ -403,31 +403,42 @@ def _search_hybrid(
     cutoff = now - ttl_seconds()
     c = _get_conn()
     with _lock:
+        # ponytail: separate subqueries so the memo LIMIT cannot crowd out OKF rows
         rows = c.execute(
             """
             SELECT doc_id, chunk_index, title, text, embedding_json,
                    knowledge_kind, concept_id, bundle_scope, content_hash, source_uri, authority
-            FROM knowledge_chunks
-            WHERE (
-              (tenant_id = ? AND analyst_id = ? AND knowledge_kind = ? AND created_at >= ?)
-              OR (tenant_id = ? AND analyst_id = ? AND knowledge_kind = ?)
-              OR (tenant_id = ? AND analyst_id = ? AND knowledge_kind = ?)
+            FROM (
+              SELECT doc_id, chunk_index, title, text, embedding_json,
+                     knowledge_kind, concept_id, bundle_scope, content_hash, source_uri, authority
+              FROM knowledge_chunks
+              WHERE tenant_id = ? AND analyst_id = ? AND knowledge_kind = ? AND created_at >= ?
+              ORDER BY created_at DESC
+              LIMIT ?
             )
-            ORDER BY created_at DESC
-            LIMIT ?
+            UNION ALL
+            SELECT doc_id, chunk_index, title, text, embedding_json,
+                   knowledge_kind, concept_id, bundle_scope, content_hash, source_uri, authority
+            FROM knowledge_chunks
+            WHERE tenant_id = ? AND analyst_id = ? AND knowledge_kind = ?
+            UNION ALL
+            SELECT doc_id, chunk_index, title, text, embedding_json,
+                   knowledge_kind, concept_id, bundle_scope, content_hash, source_uri, authority
+            FROM knowledge_chunks
+            WHERE tenant_id = ? AND analyst_id = ? AND knowledge_kind = ?
             """,
             (
                 tenant_id,
                 analyst_id,
                 _MEMO_KIND,
                 cutoff,
+                _MAX_CHUNKS_SCAN,
                 tenant_id,
                 _OKF_ANALYST_ID,
                 _OKF_KIND,
                 _SHARED_TENANT_ID,
                 _OKF_ANALYST_ID,
                 _OKF_KIND,
-                _MAX_CHUNKS_SCAN,
             ),
         ).fetchall()
     scored: list[tuple[float, dict[str, Any]]] = []
