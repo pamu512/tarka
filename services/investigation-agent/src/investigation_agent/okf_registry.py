@@ -119,20 +119,25 @@ class OkfRegistry:
             self._snapshot = candidate._snapshot
         return RegistryReloadResult(True, candidate.revision, ())
 
-    def snapshot_revision(self, tenant_id: str) -> str:
-        view = self._snapshot.views.get(tenant_id)
+    def pin(self) -> _RegistrySnapshot:
+        """Capture the current snapshot for consistent multi-step reads."""
+        return self._snapshot
+
+    def snapshot_revision(self, tenant_id: str, *, _pin: _RegistrySnapshot | None = None) -> str:
+        snapshot = _pin if _pin is not None else self._snapshot
+        view = snapshot.views.get(tenant_id)
         if view is not None:
             return view.revision
-        if self._snapshot.shared is not None:
-            return self._snapshot.shared.revision
-        return self._snapshot.revision
+        if snapshot.shared is not None:
+            return snapshot.shared.revision
+        return snapshot.revision
 
     def active_bundles(self) -> tuple[ParsedBundle, ...]:
         """Return active approved bundles without exposing tenant views."""
         return _bundles_from_snapshot(self._snapshot)
 
-    def resolve(self, tenant_id: str, query: str) -> list[ConceptHit]:
-        view = self._view_for(tenant_id)
+    def resolve(self, tenant_id: str, query: str, *, _pin: _RegistrySnapshot | None = None) -> list[ConceptHit]:
+        view = self._view_for(tenant_id, _pin=_pin)
         if view is None:
             return []
         normalized_query = _normalize_text(query)
@@ -161,8 +166,9 @@ class OkfRegistry:
         *,
         max_depth: int,
         max_concepts: int,
+        _pin: _RegistrySnapshot | None = None,
     ) -> list[ConceptHit]:
-        view = self._view_for(tenant_id)
+        view = self._view_for(tenant_id, _pin=_pin)
         if view is None or max_concepts <= 0:
             return []
 
@@ -201,13 +207,14 @@ class OkfRegistry:
 
         return hits
 
-    def _view_for(self, tenant_id: str) -> _TenantView | None:
-        view = self._snapshot.views.get(tenant_id)
+    def _view_for(self, tenant_id: str, *, _pin: _RegistrySnapshot | None = None) -> _TenantView | None:
+        snapshot = _pin if _pin is not None else self._snapshot
+        view = snapshot.views.get(tenant_id)
         if view is not None:
             return view
-        if self._snapshot.shared is None:
+        if snapshot.shared is None:
             return None
-        return self._shared_only_view()
+        return self._shared_only_view(_pin=_pin)
 
     def _match_score(self, concept_id: str, concept: OkfConcept, normalized_query: str) -> float:
         if _normalize_text(concept_id) == normalized_query:
@@ -258,9 +265,10 @@ class OkfRegistry:
         )
         return _LoadCandidate((), snapshot)
 
-    def _shared_only_view(self) -> _TenantView:
-        assert self._snapshot.shared is not None
-        concepts = dict(self._snapshot.shared.concepts)
+    def _shared_only_view(self, *, _pin: _RegistrySnapshot | None = None) -> _TenantView:
+        snapshot = _pin if _pin is not None else self._snapshot
+        assert snapshot.shared is not None
+        concepts = dict(snapshot.shared.concepts)
         return _TenantView(
             revision=_bundle_revision(concepts),
             concepts=concepts,
