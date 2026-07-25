@@ -60,6 +60,7 @@ def test_health_includes_integration(monkeypatch):
     monkeypatch.setenv("API_KEYS", "admin-key")
     monkeypatch.setenv("OKF_ADMIN_API_KEYS", "admin-key")
     import investigation_agent.main as main_mod
+
     main_mod._valid_api_keys = None
     try:
         c = TestClient(app)
