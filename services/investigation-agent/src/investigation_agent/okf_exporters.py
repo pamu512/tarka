@@ -536,7 +536,11 @@ def export_typologies(payload: dict[str, Any], source_uri: str) -> dict[str, str
 
 def export_playbooks() -> dict[str, str]:
     """Export built-in investigation playbooks as shared OKF concepts."""
-    revision = hashlib.sha256("|".join(sorted(_PLAYBOOKS)).encode("utf-8")).hexdigest()[:16]
+    h = hashlib.sha256()
+    for k in sorted(_PLAYBOOKS):
+        e = _PLAYBOOKS[k]
+        h.update(f"{k}\0{e['title']}\0{e['vertical']}\0{e['fragment']}".encode("utf-8"))
+    revision = h.hexdigest()[:16]
     files: dict[str, str] = {}
     for playbook_id in sorted(_PLAYBOOKS):
         entry = _PLAYBOOKS[playbook_id]
