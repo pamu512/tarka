@@ -138,7 +138,7 @@ investigationAgent:
   tag: latest
   replicaCount: 1
   servicePort: 8006
-  # Local SQLite under INVESTIGATION_DATA_DIR (knowledge/feedback/review). Single replica only.
+  # Local SQLite under INVESTIGATION_DATA_DIR (knowledge/feedback/review/AgentRun). Single replica only.
   dataPersistence:
     mode: local-sqlite
     existingClaim: ""

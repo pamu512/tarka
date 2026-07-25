@@ -465,6 +465,34 @@ paths:
                         created_at: { type: number }
                         case_id: { type: string, nullable: true }
                         playbook_id: { type: string, nullable: true }
+  /v1/agent-runs/{agent_run_id}:
+    get:
+      operationId: agentRunGet
+      description: >
+        Tenant-scoped AgentRun retrieval. Cross-tenant reads return 404.
+      parameters:
+        - name: agent_run_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: AgentRun payload
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agent_run]
+                properties:
+                  agent_run:
+                    type: object
+                    additionalProperties: true
+        "404":
+          description: AgentRun not found for tenant
   /v1/review/turn:
     post:
       operationId: turnReviewSave
@@ -533,6 +561,45 @@ paths:
                       status: { type: string }
                       note: { type: string, nullable: true }
                       created_at: { type: number }
+  /v1/review/history:
+    get:
+      operationId: turnReviewHistory
+      description: Append-only human review event history for one tenant-scoped turn, latest first.
+      parameters:
+        - name: turn_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 100, minimum: 1, maximum: 500 }
+      responses:
+        "200":
+          description: Review event history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reviews, count]
+                properties:
+                  count: { type: integer }
+                  reviews:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        turn_id: { type: string }
+                        tenant_id: { type: string }
+                        analyst_id: { type: string }
+                        status: { type: string }
+                        note: { type: string, nullable: true }
+                        created_at: { type: number }
   /v1/review/metrics:
     get:
       operationId: turnReviewMetrics
@@ -987,6 +1054,15 @@ paths:
                   injection_sanitized: { type: boolean }
                   turn_id: { type: string }
                   prompt_version: { type: string }
+                  agent_run:
+                    type: object
+                    description: Durable AgentRun audit record for this chat turn.
+                    additionalProperties: true
+                  agent_run_persistence:
+                    type: string
+                    description: >
+                      Persistence outcome for the AgentRun
+                      (`persisted` or `degraded_emergency`).
                   copilot_mode:
                     type: string
                     enum: [full, tools_only_deterministic, read_only_summary, offline]

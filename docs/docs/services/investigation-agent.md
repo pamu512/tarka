@@ -27,3 +27,17 @@ LLM **copilot** for investigations: tool-use loop against Case API, Graph Servic
 ## Configuration
 
 Requires **`OPENAI_API_KEY`** (or compatible base URL) for LLM rounds. Optional upstreams: **`CASE_API_URL`**, **`GRAPH_SERVICE_URL`**, **`DECISION_API_URL`**. Production hardening: **`infra/deploy/docker-compose.production-hardening.yml`**, `COPILOT_PRODUCTION_MODE`, and related envs — see the project doc.
+
+AgentRun, review history, feedback, and knowledge SQLite files live under
+`INVESTIGATION_DATA_DIR`. Compose mounts that directory on the
+`investigation_agent_data` named volume. The fraud-stack Helm chart defaults to
+`dataPersistence.mode: local-sqlite`, creates or mounts a PVC, and requires
+`replicaCount: 1`. Those Deployments use the `Recreate` rollout strategy so two
+pods never overlap on the same local SQLite PVC during upgrades.
+
+SQLite cannot provide coherent writes across investigation-agent pods. Before
+horizontal scaling, migrate AgentRun and review-state persistence to an
+external shared AgentRun store with tenant-scoped reads and transactional
+review updates, deploy a chart wired to that store, and only then raise the
+replica count. The stock chart deliberately fails rendering when local SQLite
+is configured above one replica.

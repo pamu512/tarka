@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import pytest
+from decision_intelligence import new_agent_run
 from fastapi.testclient import TestClient
-from investigation_agent import feedback_store, review_store
+from investigation_agent import agent_run_store, feedback_store, review_store
 from investigation_agent.main import app
 
 
@@ -68,6 +69,11 @@ def test_turn_review_enforces_maker_checker(monkeypatch):
     import investigation_agent.main as m
 
     monkeypatch.setattr(m.settings, "copilot_maker_checker_required", True, raising=False)
+    monkeypatch.setattr(
+        m.agent_run_store,
+        "save_review_transactionally",
+        lambda **_: 1,
+    )
     feedback_store.record_turn(
         turn_id="turn-maker-1",
         tenant_id="demo",
@@ -108,6 +114,46 @@ def test_turn_review_enforces_maker_checker(monkeypatch):
         assert body["maker_checker"]["reviewer_id"] == "analyst-checker"
 
 
+def test_turn_review_reports_agent_run_state_update_failure(monkeypatch):
+    import investigation_agent.main as m
+
+    monkeypatch.setattr(m.settings, "copilot_maker_checker_required", False, raising=False)
+    feedback_store.record_turn(
+        turn_id="turn-agent-run-failure",
+        tenant_id="demo",
+        analyst_id="analyst-maker",
+        case_id="case-1",
+        playbook_id=None,
+        prompt_version="3.2.0",
+        reply_preview="preview",
+        tool_count=0,
+    )
+
+    def _transaction_failure(**_kwargs):
+        raise m.agent_run_store.AgentRunPersistenceError("injected failure")
+
+    monkeypatch.setattr(
+        m.agent_run_store,
+        "save_review_transactionally",
+        _transaction_failure,
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/review/turn",
+            json={
+                "turn_id": "turn-agent-run-failure",
+                "tenant_id": "demo",
+                "analyst_id": "analyst-maker",
+                "reviewer_id": "analyst-checker",
+                "status": "approved",
+            },
+        )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "agent_run_review_transaction_failed"}
+
+
 def test_review_metrics_endpoint(monkeypatch):
     import investigation_agent.main as m
 
@@ -135,3 +181,122 @@ def test_review_metrics_endpoint(monkeypatch):
     assert data["approved"] == 1
     assert data["rejected"] == 1
     assert data["unique_reviewers"] == 2
+
+
+def test_review_history_endpoint_returns_latest_first(monkeypatch):
+    import investigation_agent.main as m
+
+    monkeypatch.setattr(m.settings, "copilot_maker_checker_required", False, raising=False)
+    first_id = review_store.save_review(
+        turn_id="turn-history",
+        tenant_id="demo",
+        analyst_id="checker-1",
+        status="approved",
+        note="first",
+    )
+    second_id = review_store.save_review(
+        turn_id="turn-history",
+        tenant_id="demo",
+        analyst_id="checker-2",
+        status="rejected",
+        note="second",
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/v1/review/history",
+            params={"turn_id": "turn-history", "tenant_id": "demo"},
+        )
+
+    assert response.status_code == 200, response.text
+    assert [row["id"] for row in response.json()["reviews"]] == [
+        second_id,
+        first_id,
+    ]
+
+
+def test_review_api_approve_reject_approve_keeps_current_and_history_coherent(
+    monkeypatch,
+):
+    import investigation_agent.main as m
+
+    monkeypatch.setattr(m.settings, "copilot_maker_checker_required", False, raising=False)
+    run = new_agent_run(
+        tenant_id="demo",
+        prompt="Review coherence",
+        model_provider="deterministic",
+        model_revision="tools-only-v1",
+        tool_calls=[],
+        evidence_ids=[],
+        concept_ids=[],
+        claims=[],
+        uncertainty={},
+        review_state="pending",
+    ).to_dict()
+    assert (
+        agent_run_store.persist_agent_run(
+            run,
+            analyst_id="analyst-maker",
+            turn_id="turn-api-history",
+        )
+        == "persisted"
+    )
+    feedback_store.record_turn(
+        turn_id="turn-api-history",
+        tenant_id="demo",
+        analyst_id="analyst-maker",
+        case_id="case-1",
+        playbook_id=None,
+        prompt_version="3.2.0",
+        reply_preview="preview",
+        tool_count=0,
+    )
+
+    def payload(status, note):
+        return {
+            "turn_id": "turn-api-history",
+            "tenant_id": "demo",
+            "analyst_id": "analyst-maker",
+            "reviewer_id": "analyst-checker",
+            "status": status,
+            "note": note,
+        }
+
+    with TestClient(app) as client:
+        first = client.post("/v1/review/turn", json=payload("approved", "verified"))
+        immediate_retry = client.post(
+            "/v1/review/turn",
+            json=payload("approved", "verified"),
+        )
+        second = client.post("/v1/review/turn", json=payload("rejected", "new evidence"))
+        third = client.post("/v1/review/turn", json=payload("approved", "verified"))
+        third_retry = client.post(
+            "/v1/review/turn",
+            json=payload("approved", "verified"),
+        )
+        latest = client.get(
+            "/v1/review/turn",
+            params={"turn_id": "turn-api-history", "tenant_id": "demo"},
+        )
+        history = client.get(
+            "/v1/review/history",
+            params={"turn_id": "turn-api-history", "tenant_id": "demo"},
+        )
+
+    first_id = first.json()["review_id"]
+    second_id = second.json()["review_id"]
+    third_id = third.json()["review_id"]
+    assert immediate_retry.json()["review_id"] == first_id
+    assert third_id not in {first_id, second_id}
+    assert third_retry.json()["review_id"] == third_id
+    assert latest.json()["review"]["id"] == third_id
+    assert [row["id"] for row in history.json()["reviews"]] == [
+        third_id,
+        second_id,
+        first_id,
+    ]
+    persisted = agent_run_store.get_agent_run(
+        tenant_id="demo",
+        agent_run_id=run["agent_run_id"],
+    )
+    assert persisted["review_state"] == "approved"

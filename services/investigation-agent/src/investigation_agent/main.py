@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from investigation_agent import (
+    agent_run_store,
     batch_store,
     copilot_analytics,
     feedback_store,
@@ -692,6 +693,68 @@ def _merge_usage(usages: list[dict[str, Any]]) -> dict[str, Any]:
     if tt == 0 and (pt or ct):
         tt = pt + ct
     return {"prompt_tokens": pt, "completion_tokens": ct, "total_tokens": tt}
+
+
+def _last_prompt_text(body: Any) -> str:
+    for message in reversed(list(getattr(body, "messages", None) or [])):
+        content = getattr(message, "content", None)
+        if content is None and isinstance(message, dict):
+            content = message.get("content")
+        if content:
+            return str(content)
+    return ""
+
+
+def _create_and_persist_agent_run(
+    *,
+    body: Any,
+    turn_id: str,
+    model_provider: str,
+    model_revision: str,
+    tool_calls: list[dict[str, Any]],
+    claims: list[dict[str, Any]],
+    lineage: dict[str, Any],
+    uncertainty: dict[str, Any],
+) -> tuple[dict[str, Any], str]:
+    from decision_intelligence import new_agent_run
+
+    payload = new_agent_run(
+        tenant_id=body.tenant_id,
+        prompt=_last_prompt_text(body),
+        model_provider=model_provider,
+        model_revision=model_revision,
+        case_id=body.case_id,
+        entity_id=getattr(body, "entity_id", None),
+        trace_id=getattr(body, "trace_id", None),
+        tool_calls=list(tool_calls),
+        evidence_ids=list(lineage.get("evidence_ids") or []),
+        concept_ids=list(lineage.get("concept_ids") or []),
+        claims=list(claims),
+        uncertainty=dict(uncertainty),
+        review_state="pending",
+    ).to_dict()
+    try:
+        persistence = agent_run_store.persist_agent_run(
+            payload,
+            analyst_id=body.analyst_id,
+            turn_id=turn_id,
+        )
+    except agent_run_store.AgentRunPersistenceError as exc:
+        log.critical(
+            "agent_run_persistence_failed tenant_id=%s turn_id=%s agent_run_id=%s",
+            body.tenant_id,
+            turn_id,
+            payload["agent_run_id"],
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "agent_run_persistence_failed",
+                "agent_run_id": payload["agent_run_id"],
+            },
+        ) from exc
+    return payload, persistence
 
 
 def _chat_mode(
@@ -2722,21 +2785,33 @@ async def turn_review_save(rv: TurnReviewBody):
     _validate_scope_id("reviewer_id", reviewer_id)
     if not is_analyst_allowed(reviewer_id):
         raise HTTPException(status_code=403, detail="Analyst not permitted for this deployment")
-    meta = feedback_store.lookup_turn(tid)
-    if meta and str(meta.get("tenant_id")) != rv.tenant_id.strip():
-        raise HTTPException(status_code=400, detail="turn_id does not match tenant scope")
+    meta = feedback_store.lookup_turn_for_tenant(tid, rv.tenant_id.strip())
+    if meta is None:
+        raise HTTPException(status_code=404, detail="turn_id not found")
     turn_author_id = (str(meta.get("analyst_id", "")) if meta else "").strip() or None
     if settings.copilot_maker_checker_required and turn_author_id and reviewer_id == turn_author_id:
         raise HTTPException(
             status_code=400, detail="maker-checker requires reviewer different from turn author"
         )
-    row_id = review_store.save_review(
-        turn_id=tid,
-        tenant_id=rv.tenant_id.strip(),
-        analyst_id=reviewer_id,
-        status=rv.status,
-        note=rv.note,
-    )
+    try:
+        row_id = agent_run_store.save_review_transactionally(
+            turn_id=tid,
+            tenant_id=rv.tenant_id.strip(),
+            analyst_id=reviewer_id,
+            status=rv.status,
+            note=rv.note,
+        )
+    except agent_run_store.AgentRunPersistenceError as exc:
+        log.error(
+            "agent_run_review_transaction_failed tenant_id=%s turn_id=%s",
+            rv.tenant_id.strip(),
+            tid,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="agent_run_review_transaction_failed",
+        ) from exc
     return {
         "ok": True,
         "stored": True,
@@ -2748,6 +2823,21 @@ async def turn_review_save(rv: TurnReviewBody):
             "enforced": bool(settings.copilot_maker_checker_required and bool(turn_author_id)),
         },
     }
+
+
+@app.get("/v1/agent-runs/{agent_run_id}")
+async def agent_run_get(agent_run_id: str, tenant_id: str):
+    _validate_scope_id("tenant_id", tenant_id)
+    run_id = (agent_run_id or "").strip()
+    if not run_id:
+        raise HTTPException(status_code=400, detail="agent_run_id required")
+    run = agent_run_store.get_agent_run(
+        tenant_id=tenant_id.strip(),
+        agent_run_id=run_id,
+    )
+    if run is None:
+        raise HTTPException(status_code=404, detail="agent_run_id not found")
+    return {"agent_run": run}
 
 
 @app.get("/v1/review/turn")
@@ -2767,6 +2857,23 @@ async def turn_review_metrics(tenant_id: str, days: float = 30.0):
     _validate_scope_id("tenant_id", tenant_id)
     return review_store.review_metrics(tenant_id, days=max(0.5, min(days, 365.0)))
 
+
+@app.get("/v1/review/history")
+async def turn_review_history(
+    turn_id: str,
+    tenant_id: str,
+    limit: int = 100,
+):
+    _validate_scope_id("tenant_id", tenant_id)
+    tid = (turn_id or "").strip()
+    if not tid:
+        raise HTTPException(status_code=400, detail="turn_id required")
+    rows = review_store.review_history(
+        tid,
+        tenant_id.strip(),
+        limit=max(1, min(limit, 500)),
+    )
+    return {"reviews": rows, "count": len(rows)}
 
 @app.post("/v1/chat/stream")
 async def chat_stream(body: ChatRequest, request: Request):
@@ -3084,6 +3191,26 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             tool_defs_count=len(active_tool_defs),
             plain_chat_enabled=bool(settings.copilot_plain_chat),
         )
+        agent_run_payload, agent_run_persistence = _create_and_persist_agent_run(
+            body=body,
+            turn_id=turn_id,
+            model_provider="deterministic",
+            model_revision="tools-only-v1",
+            tool_calls=tool_calls,
+            claims=claims,
+            lineage=knowledge_lineage,
+            uncertainty={
+                "assurance_refused": False,
+                "deterministic_fallback": True,
+                "okf_abstain": bool(knowledge_lineage.get("okf_abstain")),
+                "okf_unavailable": bool(knowledge_lineage.get("okf_unavailable")),
+                "retrieval_fallback": knowledge_lineage.get("retrieval_fallback"),
+                "conflicts": list(knowledge_lineage.get("conflicts") or []),
+                "bundle_revision": knowledge_lineage.get("bundle_revision"),
+            },
+        )
+        if agent_run_persistence != "persisted":
+            degraded_reasons.append("agent_run_sqlite_degraded")
         out: dict[str, Any] = {
             "reply": reply,
             "tool_calls": tool_calls,
@@ -3098,6 +3225,8 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             "claims_deterministic_support": det_support,
             "citations": citations,
             "citation_verifier": verifier_summary.model_dump(mode="json"),
+            "agent_run": agent_run_payload,
+            "agent_run_persistence": agent_run_persistence,
             "turn_metrics": {
                 "model": _effective_chat_model(),
                 "llm_completion_rounds": 0,
@@ -3323,6 +3452,26 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         tool_errors=tool_errors,
         assurance_refused=assurance_refused,
     )
+    agent_run_payload, agent_run_persistence = _create_and_persist_agent_run(
+        body=body,
+        turn_id=turn_id,
+        model_provider="openai_compatible",
+        model_revision=_effective_chat_model(),
+        tool_calls=tool_calls,
+        claims=claims,
+        lineage=knowledge_lineage,
+        uncertainty={
+            "assurance_refused": assurance_refused,
+            "grounding_adjustments": list(grounding_adj),
+            "okf_abstain": bool(knowledge_lineage.get("okf_abstain")),
+            "okf_unavailable": bool(knowledge_lineage.get("okf_unavailable")),
+            "retrieval_fallback": knowledge_lineage.get("retrieval_fallback"),
+            "conflicts": list(knowledge_lineage.get("conflicts") or []),
+            "bundle_revision": knowledge_lineage.get("bundle_revision"),
+        },
+    )
+    if agent_run_persistence != "persisted":
+        degraded_reasons.append("agent_run_sqlite_degraded")
     out: dict[str, Any] = {
         "reply": reply,
         "tool_calls": tool_calls,
@@ -3337,6 +3486,8 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         "claims_deterministic_support": det_support,
         "citations": citations,
         "citation_verifier": verifier_summary.model_dump(mode="json"),
+        "agent_run": agent_run_payload,
+        "agent_run_persistence": agent_run_persistence,
         "turn_metrics": {
             "model": _effective_chat_model(),
             "llm_completion_rounds": llm_rounds,
