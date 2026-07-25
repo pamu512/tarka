@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, Protocol
 
-from analytics.cloud_provider import _try_connect_clickhouse
+from orchestrator_analytics.cloud_provider import _try_connect_clickhouse
 
 logger = logging.getLogger(__name__)
 

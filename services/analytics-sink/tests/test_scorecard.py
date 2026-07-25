@@ -1,7 +1,7 @@
 import os
 from unittest.mock import MagicMock, patch
 
-from main import app
+from analytics_sink.main import app
 from fastapi.testclient import TestClient
 
 os.environ.setdefault("ALLOW_INSECURE_NO_AUTH", "true")

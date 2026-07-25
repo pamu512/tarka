@@ -4,12 +4,12 @@ import json
 from unittest.mock import AsyncMock
 
 import pytest
-from main import _publish_evaluate_dlq
+from event_ingest.main import _publish_evaluate_dlq
 
 
 @pytest.mark.asyncio
 async def test_publish_evaluate_dlq_envelope(monkeypatch):
-    import main as main_mod
+    import event_ingest.main as main_mod
 
     monkeypatch.setattr(main_mod.settings, "ingest_dlq_subject", "fraud.events.dlq")
     js = AsyncMock()
@@ -33,7 +33,7 @@ async def test_publish_evaluate_dlq_envelope(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_publish_skips_when_subject_empty(monkeypatch):
-    import main as main_mod
+    import event_ingest.main as main_mod
 
     monkeypatch.setattr(main_mod.settings, "ingest_dlq_subject", "")
     js = AsyncMock()

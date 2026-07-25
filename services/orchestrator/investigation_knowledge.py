@@ -8,13 +8,13 @@ import re
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from analytics.provider import AnalyticsProvider
+    from orchestrator_analytics.provider import AnalyticsProvider
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from analytics import business_context as biz_ctx
+from orchestrator_analytics import business_context as biz_ctx
 from graph.client import GraphClient
 from models.cases import CaseORM, CaseStatus
 

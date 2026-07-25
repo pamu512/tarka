@@ -8,8 +8,8 @@ RUN apt-get update \
 WORKDIR /app
 RUN pip install --no-cache-dir pip -U
 COPY services/event-ingest/pyproject.toml /app/
-COPY services/event-ingest /app
+COPY services/event-ingest/src/event_ingest /app/src/event_ingest
 COPY services/shared /app/shared
 RUN pip install --no-cache-dir -e .
-ENV PYTHONPATH=/app:/app/shared
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8007"]
+ENV PYTHONPATH=/app/src:/app/shared
+CMD ["uvicorn", "event_ingest.main:app", "--host", "0.0.0.0", "--port", "8007"]

@@ -13,10 +13,10 @@ from fastapi import FastAPI
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from analytics.cloud_provider import CloudAnalytics
-from analytics.factory import _normalized_environment, build_analytics_provider
-from analytics.hil_context_store import build_hil_context_override_store
-from analytics.provider import AnalyticsProvider
+from orchestrator_analytics.cloud_provider import CloudAnalytics
+from orchestrator_analytics.factory import _normalized_environment, build_analytics_provider
+from orchestrator_analytics.hil_context_store import build_hil_context_override_store
+from orchestrator_analytics.provider import AnalyticsProvider
 from audit_case_worker import build_audit_engine
 from deps.v1_api_guard import V1_PROTECTED_ROUTE_DEPENDENCIES, build_v1_rate_limiter
 from graph.client import GraphClient, graph_client_from_environment
