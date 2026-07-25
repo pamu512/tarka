@@ -563,8 +563,14 @@ def validate_bundle(
     return BundleValidation(valid=True, issues=(), bundle=bundle)
 
 
-def parse_bundle(root: Path, *, scope: str, tenant_id: str | None) -> ParsedBundle:
-    result = validate_bundle(root, scope=scope, tenant_id=tenant_id)
+def parse_bundle(
+    root: Path,
+    *,
+    scope: str,
+    tenant_id: str | None,
+    shared_bundle: ParsedBundle | None = None,
+) -> ParsedBundle:
+    result = validate_bundle(root, scope=scope, tenant_id=tenant_id, shared_bundle=shared_bundle)
     if not result.valid or result.bundle is None:
         summary = "; ".join(f"{issue.code}@{issue.path}" for issue in result.issues)
         raise ValueError(summary or "invalid OKF bundle")
