@@ -1,0 +1,191 @@
+[
+  {
+    "tenant_id": "t1",
+    "query": "high-amount",
+    "expected_concept_ids": [
+      "playbooks/high-amount-review",
+      "rules/high-amount",
+      "references/kyc-checklist"
+    ],
+    "unsupported": false
+  },
+  {
+    "tenant_id": "t1",
+    "query": "High Amount Review Playbook",
+    "expected_concept_ids": [
+      "playbooks/high-amount-review",
+      "rules/high-amount",
+      "references/kyc-checklist"
+    ],
+    "unsupported": false
+  },
+  {
+    "tenant_id": "t1",
+    "query": "high-amount-playbook",
+    "expected_concept_ids": [
+      "playbooks/high-amount-review",
+      "rules/high-amount",
+      "references/kyc-checklist"
+    ],
+    "unsupported": false
+  },
+  {
+    "tenant_id": "t1",
+    "query": "rules/high-amount",
+    "expected_concept_ids": [
+      "rules/high-amount"
+    ],
+    "unsupported": false
+  },
+  {
+    "tenant_id": "t1",
+    "query": "KYC Checklist",
+    "expected_concept_ids": [
+      "references/kyc-checklist"
+    ],
+    "unsupported": false
+  },
+  {
+    "tenant_id": "t1",
+    "query": "velocity-playbook",
+    "expected_concept_ids": [
+      "playbooks/velocity-triage",
+      "rules/velocity-spike"
+    ],
+    "unsupported": false
+  },
+  {
+    "tenant_id": "t2",
+    "query": "T2 Secret Playbook",
+    "expected_concept_ids": [
+      "playbooks/t2-secret"
+    ],
+    "unsupported": false
+  },
+  {
+    "tenant_id": "t1",
+    "query": "T2 Secret Playbook",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Unknown Unsupported Fraud Guidance",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "rules/fabricated-chargeback-ring",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Synthetic identity biometric adjudication",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Merchant collusion terminal rotation",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "ATM cash trapping investigation",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Cheque kiting settlement windows",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Insurance claim staging indicators",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Payroll diversion remediation",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Crypto mixer sanctions workflow",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Gift card resale laundering",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Airline loyalty points theft",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Telecom SIM swap escalation",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Procurement invoice duplicate controls",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Mortgage occupancy misrepresentation",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Healthcare upcoding review",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Customs duty evasion playbook",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Employee expense receipt fabrication",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Ad network click injection",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Warehouse inventory shrinkage analysis",
+    "expected_concept_ids": [],
+    "unsupported": true
+  },
+  {
+    "tenant_id": "t1",
+    "query": "Government benefit application fraud",
+    "expected_concept_ids": [],
+    "unsupported": true
+  }
+]
