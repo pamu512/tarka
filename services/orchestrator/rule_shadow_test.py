@@ -149,6 +149,10 @@ def run_shadow_test_against_transactions(
             from evaluator import evaluate_node
         except ImportError:
             from tarka_shared.ast_schemas import Action, LogicalNode
+
+            # REMOVAL GATE: migrate shadow-test AST eval to tarka_rule_engine /
+            # decision-api simulation once parity harness covers LogicalNode roots
+            # (rg -n 'rule_engine.evaluator|from evaluator import evaluate_node').
             from rule_engine.evaluator import evaluate_node
     except ImportError as exc:  # pragma: no cover — Docker / CI install ``rule_engine``
         raise RuntimeError("rule_engine package is required for shadow tests") from exc

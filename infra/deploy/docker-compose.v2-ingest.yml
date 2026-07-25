@@ -38,12 +38,20 @@ services:
       retries: 8
       start_period: 40s
 
-  # Optional: Python AST evaluate/deploy (:8778) for dual-run / emergency rollback.
+  # Optional: compatibility listener (:8778). Prefer RULE_ENGINE_COMPAT_MODE=decision_api
+  # so evaluate/reload proxy to decision-api (tarka_rule_engine) for one release.
   rule_engine:
     profiles: ["legacy-python-rules"]
     build:
       context: ../..
       dockerfile: services/rule_engine/Dockerfile
+    environment:
+      RULE_ENGINE_COMPAT_MODE: decision_api
+      DECISION_API_URL: http://decision-api:8000
+      ALLOW_INSECURE_NO_AUTH: "true"
+    depends_on:
+      decision-api:
+        condition: service_healthy
     ports:
       - "8778:8778"
     healthcheck:
