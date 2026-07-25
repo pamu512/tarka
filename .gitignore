@@ -57,6 +57,7 @@ services/**/*.db
 
 # Investigation agent local data dir (feedback, RAG, review DB paths in dev)
 services/investigation-agent/var/
+/var/okf-staging/
 
 # decision-api local runtime logs (evaluate JSONL, etc.)
 services/decision-api/data/
