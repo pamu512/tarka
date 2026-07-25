@@ -190,6 +190,12 @@ def create_app(*, graph_context_provider: object = _GRAPH_PROVIDER_UNSET) -> Fas
 
     @application.post("/v1/evaluate")
     async def v1_evaluate(transaction: TransactionSchema, request: Request) -> dict[str, Any]:
+        # REMOVAL GATE: drop compat branch when RULE_ENGINE_COMPAT_MODE callers are gone.
+        from compat_adapter import compat_mode, evaluate_via_decision_api
+
+        if compat_mode() == "decision_api":
+            return await evaluate_via_decision_api(transaction.model_dump(mode="json"))
+
         ruleset: tuple[Rule, ...] = getattr(request.app.state, "ruleset", _DEMO_RULESET)
         graph_ctx: dict[str, Any] | None = None
         graph_fail_open = False
@@ -321,7 +327,15 @@ def create_app(*, graph_context_provider: object = _GRAPH_PROVIDER_UNSET) -> Fas
 
     @application.post("/v1/rules/reload")
     async def v1_rules_reload(request: Request) -> dict[str, Any]:
-        """Reload the in-process rules cache from ``fraud_rules`` (active row) or legacy ``engine_rules``."""
+        """Reload the in-process rules cache from ``fraud_rules`` (active row) or legacy ``engine_rules``.
+
+        Removal gate: when ``RULE_ENGINE_COMPAT_MODE=decision_api``, proxies to
+        ``POST {DECISION_API_URL}/v1/admin/rules/reload`` (tarka_rule_engine packs).
+        """
+        from compat_adapter import compat_mode, proxy_rules_reload_to_decision_api
+
+        if compat_mode() == "decision_api":
+            return await proxy_rules_reload_to_decision_api()
         rs = load_active_ruleset()
         request.app.state.ruleset = rs
         return {"ok": True, "count": len(rs)}
@@ -330,6 +344,10 @@ def create_app(*, graph_context_provider: object = _GRAPH_PROVIDER_UNSET) -> Fas
     async def v1_rules_deploy(body: RulesDeployBody, request: Request) -> RulesDeployResponse:
         """
         Append a new immutable ``fraud_rules`` version and make it active (previous rows unchanged).
+
+        Removal gate: retire this AST deploy surface once callers use decision-api
+        GitOps / ``POST /v1/admin/rules/reload`` only
+        (rg -n '/v1/rules/deploy' --glob '*.{py,ts,tsx,yml,md}').
         """
         if rules_database_url() is None:
             raise HTTPException(
