@@ -30,4 +30,4 @@ build-backend = "setuptools.build_meta"
 py-modules = []
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]

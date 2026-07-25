@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from main import _flush_batch
+from analytics_sink.main import _flush_batch
 
 # ---------- _flush_batch ----------
 
@@ -100,7 +100,7 @@ class TestQueryEndpoints:
         with patch("analytics_sink.main._ch_client", mock_ch):
             with patch("analytics_sink.main._init_clickhouse"):
                 with patch("analytics_sink.main.asyncio.create_task"):
-                    from main import app
+                    from analytics_sink.main import app
                     from fastapi.testclient import TestClient
 
                     with TestClient(app) as c:
