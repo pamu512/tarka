@@ -1,9 +1,20 @@
 {{- if .Values.investigationAgent.enabled }}
+{{- if and .Values.investigationAgent.okfTenantOverlays.enabled (not .Values.investigationAgent.okfTenantOverlays.existingClaim) }}
+{{- fail "investigation-agent OKF tenant overlays require investigationAgent.okfTenantOverlays.existingClaim" }}
+{{- end }}
+{{- if and (eq .Values.investigationAgent.dataPersistence.mode "local-sqlite") (gt (int .Values.investigationAgent.replicaCount) 1) }}
+{{- fail "investigation-agent local-sqlite persistence requires a single replica; scale only after moving SQLite state to shared storage" }}
+{{- end }}
+{{- if ne .Values.investigationAgent.dataPersistence.mode "local-sqlite" }}
+{{- fail "investigation-agent chart supports dataPersistence.mode=local-sqlite only" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "tarka.fullname" . }}-investigation-agent
 spec:
+  strategy:
+    type: Recreate
   replicas: {{ .Values.investigationAgent.replicaCount }}
   selector:
     matchLabels:
@@ -32,6 +43,12 @@ spec:
             {{- end }}
             - name: AI_GOVERNANCE_PROFILE
               value: {{ .Values.investigationAgent.aiGovernanceProfile | default "global" | quote }}
+            - name: OKF_SHARED_ROOT
+              value: "/app/knowledge/shared"
+            - name: OKF_TENANT_ROOT
+              value: {{ .Values.investigationAgent.okfTenantOverlays.mountPath | quote }}
+            - name: INVESTIGATION_DATA_DIR
+              value: {{ .Values.investigationAgent.dataPersistence.mountPath | quote }}
             {{- if .Values.investigationAgent.batchTtlSeconds }}
             - name: BATCH_TTL_SECONDS
               value: {{ .Values.investigationAgent.batchTtlSeconds | quote }}
@@ -48,6 +65,14 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 2
             failureThreshold: 6
+          volumeMounts:
+            - name: investigation-agent-data
+              mountPath: {{ .Values.investigationAgent.dataPersistence.mountPath | quote }}
+          {{- if .Values.investigationAgent.okfTenantOverlays.enabled }}
+            - name: okf-tenant-overlays
+              mountPath: {{ .Values.investigationAgent.okfTenantOverlays.mountPath | quote }}
+              readOnly: {{ .Values.investigationAgent.okfTenantOverlays.readOnly }}
+          {{- end }}
           livenessProbe:
             httpGet:
               path: /v1/health
@@ -56,7 +81,32 @@ spec:
             periodSeconds: 15
             timeoutSeconds: 2
             failureThreshold: 4
+      volumes:
+        - name: investigation-agent-data
+          persistentVolumeClaim:
+            claimName: {{ .Values.investigationAgent.dataPersistence.existingClaim | default (printf "%s-investigation-agent-data" (include "tarka.fullname" .)) | quote }}
+      {{- if .Values.investigationAgent.okfTenantOverlays.enabled }}
+        - name: okf-tenant-overlays
+          persistentVolumeClaim:
+            claimName: {{ .Values.investigationAgent.okfTenantOverlays.existingClaim | quote }}
+      {{- end }}
 ---
+{{- if not .Values.investigationAgent.dataPersistence.existingClaim }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ printf "%s-investigation-agent-data" (include "tarka.fullname" .) }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.investigationAgent.dataPersistence.storageClassName }}
+  storageClassName: {{ .Values.investigationAgent.dataPersistence.storageClassName | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.investigationAgent.dataPersistence.size | quote }}
+---
+{{- end }}
 apiVersion: v1
 kind: Service
 metadata:
