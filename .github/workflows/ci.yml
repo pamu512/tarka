@@ -376,6 +376,20 @@ jobs:
           pip install -e "../collaboration-chat-bridge"
           pip install -e ".[dev]" sqlalchemy
         working-directory: services/investigation-agent
+      - name: Validate active OKF shared bundle
+        run: >
+          python services/investigation-agent/scripts/validate_okf_bundle.py
+          knowledge/shared --scope shared
+      - name: OKF parser, registry, exporter, retrieval, and end-to-end gates
+        run: |
+          pytest -q \
+            services/investigation-agent/tests/test_okf_parser.py \
+            services/investigation-agent/tests/test_okf_registry.py \
+            services/investigation-agent/tests/test_okf_exporters.py \
+            services/investigation-agent/tests/test_okf_retrieval.py \
+            services/investigation-agent/tests/test_okf_end_to_end.py
+        env:
+          PYTHONPATH: services/investigation-agent/src:services/shared:packages/shared-core:services/collaboration-chat-bridge/src
       - name: Run tests
         run: pytest --cov=investigation_agent --cov-report=xml --cov-report=term-missing --cov-fail-under=52 -m "not golden_profile" tests/
         working-directory: services/investigation-agent
