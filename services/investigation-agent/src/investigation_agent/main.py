@@ -828,6 +828,9 @@ async def _maybe_prefetch_rag_to_system(
     hits = data.get("hits") if isinstance(data, dict) else None
     if not isinstance(hits, list) or not hits:
         return system
+    hits = [h for h in hits if isinstance(h, dict) and h.get("knowledge_kind", "memo") != "okf"]
+    if not hits:
+        return system
     lines = [
         "",
         "REFERENCE KNOWLEDGE (prefetched from investigation memos; verify critical facts):",
