@@ -20,7 +20,7 @@ import os
 import signal
 from typing import Any
 
-from analytics.consortium_threat_matrix import (
+from orchestrator_analytics.consortium_threat_matrix import (
     ConsortiumThreatMatrixError,
     apply_consortium_threat_counter_increments,
     apply_consortium_threat_counter_increments_clickhouse,
@@ -222,7 +222,7 @@ async def build_consortium_counter_deps() -> ConsortiumCounterDeps:
 
     redis_client = redis_mod.from_url(redis_url, decode_responses=False)
 
-    from analytics.cloud_provider import _try_connect_clickhouse  # noqa: PLC0415
+    from orchestrator_analytics.cloud_provider import _try_connect_clickhouse  # noqa: PLC0415
 
     clickhouse_client = _try_connect_clickhouse()
     if clickhouse_client is None:

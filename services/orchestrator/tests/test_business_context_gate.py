@@ -12,7 +12,7 @@ _SRC_ORCH = Path(__file__).resolve().parents[1]
 if str(_SRC_ORCH) not in sys.path:
     sys.path.insert(0, str(_SRC_ORCH))
 
-from analytics import business_context as biz_ctx  # noqa: E402
+from orchestrator_analytics import business_context as biz_ctx  # noqa: E402
 
 
 class _UnreachableAnalytics:

@@ -7,7 +7,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from analytics.velocity_counters import (
+from orchestrator_analytics.velocity_counters import (
     apply_velocity_counter_increments,
     clickhouse_configured,
     ensure_velocity_counters_table,

@@ -14,8 +14,8 @@ from ingestor.manifest_schema import TransactionSchema
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from analytics import business_context as biz_ctx
-from analytics.provider import AnalyticsProvider
+from orchestrator_analytics import business_context as biz_ctx
+from orchestrator_analytics.provider import AnalyticsProvider
 from entity_resolution import annotate_graph_links
 from graph.client import GraphClient
 from models.cases import CaseORM, CaseStatus
