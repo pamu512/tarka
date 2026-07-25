@@ -16,9 +16,9 @@ from tarka_shared.config_validation import log_runtime_warnings
 from tarka_shared.observability import get_metrics, setup_observability
 from tarka_shared.tracing import setup_tracing
 
-from analytics import ensure_schema, query_decisions, write_event
-from config import settings
-from streaming import ensure_group, parse_stream_event, publish_event
+from .analytics import ensure_schema, query_decisions, write_event
+from .config import settings
+from .streaming import ensure_group, parse_stream_event, publish_event
 
 log = logging.getLogger("data-platform")
 
