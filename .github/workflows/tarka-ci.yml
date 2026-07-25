@@ -94,7 +94,8 @@ jobs:
       - name: Pytest — Shadow (hooks + NATS tools)
         working-directory: services/shadow
         env:
-          PYTHONPATH: ${{ github.workspace }}/services
+          # Canonical shadow package is under orchestrator; services/shadow is install/compat only.
+          PYTHONPATH: ${{ github.workspace }}/services/orchestrator:${{ github.workspace }}/services
         run: pytest tests -q
 
       - name: Pytest — Shadow Agent

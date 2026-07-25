@@ -6,7 +6,7 @@ from decimal import Decimal
 from unittest.mock import AsyncMock
 
 import pytest
-from tarka_vendor_finops.router import IntegrationRouter
+from integration_ingress.vendor_finops.router import IntegrationRouter
 
 
 @pytest.mark.asyncio
