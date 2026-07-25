@@ -685,7 +685,11 @@ def export_landmark_case(case: dict[str, Any], *, tenant_id: str) -> str:
     typology_ids = case.get("typology_ids") or []
     rule_ids = case.get("rule_ids") or []
     evidence_ids = case.get("evidence_ids") or []
-    for _id_key, _id_val in (("typology_ids", typology_ids), ("rule_ids", rule_ids), ("evidence_ids", evidence_ids)):
+    for _id_key, _id_val in (
+        ("typology_ids", typology_ids),
+        ("rule_ids", rule_ids),
+        ("evidence_ids", evidence_ids),
+    ):
         if _id_val and not isinstance(_id_val, list | tuple):
             raise LandmarkCaseSanitizationError(f"{_id_key} must be a list")
     body_lines = [
