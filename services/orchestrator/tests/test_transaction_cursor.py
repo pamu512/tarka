@@ -1,6 +1,6 @@
 """Unit tests for analytics transaction keyset cursors (no DuckDB required)."""
 
-from analytics.transaction_cursor import (
+from orchestrator_analytics.transaction_cursor import (
     decode_transaction_cursor,
     encode_transaction_cursor,
 )

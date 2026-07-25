@@ -4,8 +4,8 @@ import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from config import settings
-from ingest_contract import IngestContractError, parse_ingest_event_body
+from event_ingest.config import settings
+from event_ingest.ingest_contract import IngestContractError, parse_ingest_event_body
 
 os.environ.setdefault("NATS_URL", "nats://localhost:4222")
 
@@ -26,7 +26,7 @@ def client(mock_js):
         mock_connect.return_value = (nc, mock_js)
 
         with patch("event_ingest.main.asyncio.create_task"):
-            from main import app
+            from event_ingest.main import app
             from fastapi.testclient import TestClient
 
             with TestClient(app) as c:

@@ -7,7 +7,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from analytics.hil_context_store import (
+from orchestrator_analytics.hil_context_store import (
     HilContextOverrideStore,
     HilContextStoreError,
     HilOverrideType,

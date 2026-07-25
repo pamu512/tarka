@@ -13,7 +13,7 @@ for _p in (_SRC_ORCH, _SRC_INGESTOR):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-from analytics.duck_provider import DuckAnalyticsProvider  # noqa: E402
+from orchestrator_analytics.duck_provider import DuckAnalyticsProvider  # noqa: E402
 from workers.anumana_nats_duck_sink import (  # noqa: E402
     flush_redis_to_analytics,
     rpop_many,
