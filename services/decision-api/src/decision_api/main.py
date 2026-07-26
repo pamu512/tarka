@@ -29,12 +29,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decision_api.config import settings
-from decision_api.evaluate.score import (
-    blend_scores as _blend_scores,
-    compute_fallback_reason as _compute_fallback_reason,
-    decision_runtime_status as _decision_runtime_status,
-    signal_availability_notes_from_tags as _signal_availability_notes_from_tags,
-)
 from decision_api.deps import close_analytics_infra, open_analytics_infra
 
 try:
@@ -125,21 +119,13 @@ except ImportError:
         }
 
 
-from decision_api.currency import normalize_amount
 from decision_api.db import get_session, init_db
-from decision_api.decision_log import build_decision_log_record, emit_decision_log
 from decision_api.entity_link_store import entity_link_store
-from decision_api.eval_dag import EvalDAGRuntime
-from decision_api.eval_load_guard import EvalLoadGuard, acquire_eval_capacity
-from decision_api.async_osint_redis import (
-    merge_cached_async_osint,
-    publish_async_enrichment_request,
-)
+from decision_api.eval_load_guard import EvalLoadGuard
 from decision_api.eval_steps import run_evaluation_step
-from decision_api.device_scoring import extract_device_entropy_tags
 from decision_api.fingerprint_store import fingerprint_store
 from decision_api.json_rules import (
-    evaluate_json_rules,
+    evaluate_json_rules,  # noqa: F401 — evaluate pipeline + tests patch via main
     load_rules,
 )
 from decision_api.json_rules import (
@@ -153,46 +139,28 @@ from decision_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from circuit import AsyncCircuitBreaker, CircuitOpenError  # noqa: E402
 from entity_lists import ListCheckResult, create_list_store  # noqa: E402
-from event_time import event_time_unix_for_evaluate  # noqa: E402
-from privacy import get_profile, mask_dict  # noqa: E402
 
 from decision_api.aggregates import agg_store
 from decision_api.attestation_taxonomy import attestation_signal_tags
 from decision_api.challenge_policy import (
-    apply_challenge_policy,
     load_challenge_policies,
 )
-from decision_api.consortium import consortium_score_delta, hash_entity_id
-from decision_api.graph_decision_explanation import build_graph_decision_explanation_v1
-from decision_api.graph_intel import graph_score_delta, graph_tags_from_risk
 from decision_api.inference_build import (
     SCHEMA_VERSION as INFERENCE_SCHEMA_VERSION,
 )
 from decision_api.inference_build import (
     build_inference_context,
-    derive_recommended_action,
 )
-from decision_api.integrity_policy import supplemental_tags_for_integrity
 from decision_api.lists_api import get_store as _get_list_store
 from decision_api.lists_api import router as lists_router
 from decision_api.lists_api import set_store
-from decision_api.location_context import merge_session_geo_from_device_and_features
-from decision_api.policy_routing import (
-    build_canary_cohort_audit,
-    build_policy_routing_audit,
-    cohort_bucket_0_99,
-    decision_from_rule_score,
-)
 from decision_api.schemas import EvaluateRequest, EvaluateResponse
 from decision_api.shadow import evaluate_shadow, load_shadow_rules, record_observation
-from decision_api.tags import derive_contextual_tags
 from decision_api.tenant_flags import tenant_flag_enabled
 from decision_api.trusted_zones import load_trusted_zones_for_tenant
 from decision_api.typology import (
-    evaluate_typologies,
     load_typology_definitions,
     reload_typology_definitions,
-    summarize_typologies,
 )
 from decision_api.typology_predicate_registry import (
     load_predicate_registry,

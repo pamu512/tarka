@@ -1,6 +1,7 @@
 """Unit tests for signal tag extraction and score blending."""
 
-from decision_api.main import _blend_scores, extract_signal_tags
+from decision_api.evaluate.score import blend_scores as _blend_scores
+from decision_api.main import extract_signal_tags
 
 
 class TestExtractSignalTags:
@@ -78,41 +79,41 @@ class TestBlendScores:
     def test_average_strategy(self):
         from unittest.mock import patch
 
-        with patch("decision_api.main.settings") as s:
+        with patch("decision_api.evaluate.score.settings") as s:
             s.score_blend_strategy = "average"
             assert _blend_scores(60.0, 80.0) == 70.0
 
     def test_max_strategy(self):
         from unittest.mock import patch
 
-        with patch("decision_api.main.settings") as s:
+        with patch("decision_api.evaluate.score.settings") as s:
             s.score_blend_strategy = "max"
             assert _blend_scores(60.0, 80.0) == 80.0
 
     def test_rules_only_strategy(self):
         from unittest.mock import patch
 
-        with patch("decision_api.main.settings") as s:
+        with patch("decision_api.evaluate.score.settings") as s:
             s.score_blend_strategy = "rules_only"
             assert _blend_scores(60.0, 80.0) == 60.0
 
     def test_none_ml_score(self):
         from unittest.mock import patch
 
-        with patch("decision_api.main.settings") as s:
+        with patch("decision_api.evaluate.score.settings") as s:
             s.score_blend_strategy = "average"
             assert _blend_scores(60.0, None) == 60.0
 
     def test_clamp_high(self):
         from unittest.mock import patch
 
-        with patch("decision_api.main.settings") as s:
+        with patch("decision_api.evaluate.score.settings") as s:
             s.score_blend_strategy = "average"
             assert _blend_scores(120.0, 200.0) == 100.0
 
     def test_clamp_low(self):
         from unittest.mock import patch
 
-        with patch("decision_api.main.settings") as s:
+        with patch("decision_api.evaluate.score.settings") as s:
             s.score_blend_strategy = "average"
             assert _blend_scores(-50.0, None) == 0.0
