@@ -2273,10 +2273,8 @@ async def analyst_entity_velocity(
         "anomaly_flags": _velocity_anomaly_flags(raw_features),
     }
 
-# Late bind after helpers exist; importlib avoids E402 on bottom-of-file import.
-import importlib as _importlib
-
-_bind_evaluate_main = _importlib.import_module(
-    "decision_api.evaluate.pipeline"
+# Late bind after helpers exist (__import__ avoids E402 bottom-of-file import).
+_bind_evaluate_main = __import__(
+    "decision_api.evaluate.pipeline", fromlist=["bind_main"]
 ).bind_main
 _bind_evaluate_main(sys.modules[__name__])
