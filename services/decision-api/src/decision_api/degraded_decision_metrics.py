@@ -6,7 +6,10 @@ from typing import Any, Callable
 
 # Map degrade tag prefixes / exact tags → metric suffix (snake).
 _TAG_METRIC_KEYS: tuple[tuple[str, str], ...] = (
-    ("circuit_open", "circuit_open"),  # unused exact; circuits use tarka_circuit_* already
+    (
+        "circuit_open",
+        "circuit_open",
+    ),  # unused exact; circuits use tarka_circuit_* already
     ("load_shedding:active", "load_shed"),
     ("feature:missing_", "missing_feature"),
     ("feature:catalog_fail_closed", "catalog_fail_closed"),

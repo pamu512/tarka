@@ -134,7 +134,9 @@ def schedule_decision_outcomes(
         )
 
 
-def _emit_decision_metrics(ctx: DecisionOutcomeContext, metrics_inc: MetricsInc) -> None:
+def _emit_decision_metrics(
+    ctx: DecisionOutcomeContext, metrics_inc: MetricsInc
+) -> None:
     try:
         metrics_inc(f"fraud_decisions_{ctx.decision}_total", trace_id=ctx.trace_id)
         metrics_inc("fraud_evaluations_total", trace_id=ctx.trace_id)

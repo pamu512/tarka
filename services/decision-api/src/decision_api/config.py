@@ -210,9 +210,10 @@ class Settings(BaseSettings):
         os.environ.get("GRAPH_RISK_MAX_AGE_MINUTES", "30")
     )
     #: Default freshness action when stale: ``warn`` | ``skip`` | ``fail_closed``.
-    graph_risk_freshness_default_policy: str = os.environ.get(
-        "GRAPH_RISK_FRESHNESS_DEFAULT_POLICY", "warn"
-    ).strip().lower() or "warn"
+    graph_risk_freshness_default_policy: str = (
+        os.environ.get("GRAPH_RISK_FRESHNESS_DEFAULT_POLICY", "warn").strip().lower()
+        or "warn"
+    )
     #: Per-event overrides, e.g. ``payment:fail_closed,login:skip`` (empty = default policy only).
     graph_risk_freshness_policy_by_event: str = os.environ.get(
         "GRAPH_RISK_FRESHNESS_POLICY_BY_EVENT", ""
