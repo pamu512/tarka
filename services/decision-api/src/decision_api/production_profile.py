@@ -34,9 +34,7 @@ def assert_production_env(env: Mapping[str, str]) -> None:
     """Raise ``RuntimeError`` if production checks fail."""
     errors = check_production_env(env)
     if errors:
-        raise RuntimeError(
-            "production profile checks failed: " + "; ".join(errors)
-        )
+        raise RuntimeError("production profile checks failed: " + "; ".join(errors))
 
 
 def deployment_profile_is_production(env: Mapping[str, str]) -> bool:
