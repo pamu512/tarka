@@ -21,11 +21,6 @@ from decision_api.config import settings
 from decision_api.consortium import consortium_score_delta, hash_entity_id
 from decision_api.currency import normalize_amount
 from decision_api.decision_log import build_decision_log_record, emit_decision_log
-from decision_api.decision_outcome import (
-    DecisionOutcomeContext,
-    force_deny_from_degrade_tags,
-    schedule_decision_outcomes,
-)
 from decision_api.device_scoring import extract_device_entropy_tags
 from decision_api.eval_dag import EvalDAGRuntime
 from decision_api.eval_load_guard import acquire_eval_capacity
@@ -36,10 +31,12 @@ from decision_api.evaluate.score import (
     decision_runtime_status as _decision_runtime_status,
     signal_availability_notes_from_tags as _signal_availability_notes_from_tags,
 )
-from decision_api.feature_catalog import apply_feature_catalog_v1
 from decision_api.graph_decision_explanation import build_graph_decision_explanation_v1
 from decision_api.graph_intel import graph_score_delta, graph_tags_from_risk
-from decision_api.inference_build import build_inference_context, derive_recommended_action
+from decision_api.inference_build import (
+    build_inference_context,
+    derive_recommended_action,
+)
 from decision_api.integrity_policy import supplemental_tags_for_integrity
 from decision_api.location_context import merge_session_geo_from_device_and_features
 from decision_api.models import AuditRecord
@@ -52,8 +49,6 @@ from decision_api.policy_routing import (
 from decision_api.schemas import EvaluateRequest, EvaluateResponse
 from decision_api.tags import derive_contextual_tags
 from decision_api.typology import evaluate_typologies, summarize_typologies
-from decision_api.device_feature_merge import merge_device_context_into_features
-
 from event_time import event_time_unix_for_evaluate
 from privacy import get_profile, mask_dict
 
@@ -114,9 +109,8 @@ async def run_evaluate_decision(
     extract_captcha_tags = m.extract_captcha_tags
     decide_graph_routing = m.decide_graph_routing
     dependency_resilience_policy_table = m.dependency_resilience_policy_table
-    # Prefer main-module symbols so tests that patch decision_api.main.* still apply.
+    # Prefer main-module symbol so tests that patch decision_api.main.* still apply.
     evaluate_json_rules = m.evaluate_json_rules
-    evaluate_opa_or_raise = m.evaluate_opa_or_raise
 
     if settings.evaluate_require_idempotency_key:
         idem = (
