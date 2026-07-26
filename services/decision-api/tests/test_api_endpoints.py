@@ -61,6 +61,9 @@ class TestHealthEndpoint:
         slo = r.json()
         assert slo.get("service") == "decision-api"
         assert "current" in slo
+        assert "degraded_decisions" in slo
+        assert "total" in slo["degraded_decisions"]
+        assert "by_reason" in slo["degraded_decisions"]
 
         r = await client.get("/v1/health")
         assert r.status_code == 200

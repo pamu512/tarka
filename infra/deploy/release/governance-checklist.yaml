@@ -56,6 +56,12 @@ items:
     owner: security-engineering
     ci_required: true
 
+  - id: production-auth-idempotency-fail-closed
+    title: Production profile fail-closed (API_KEYS, no ALLOW_INSECURE_NO_AUTH, evaluate idempotency required)
+    section: tenant-security
+    owner: security-engineering
+    ci_required: true
+
   - id: evidence-signing-enabled
     title: Evidence-signing and audit controls enabled for regulated workloads
     section: tenant-security

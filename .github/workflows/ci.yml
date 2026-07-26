@@ -76,6 +76,13 @@ jobs:
         run: |
           pip install pyyaml
           python3 scripts/release/validate_governance_checklist.py
+      - name: Production profile fail-closed fixtures
+        run: |
+          python3 scripts/release/assert_production_profile.py \
+            --env-file infra/deploy/release/fixtures/production-profile.ok.env
+          python3 scripts/release/assert_production_profile.py \
+            --env-file infra/deploy/release/fixtures/production-profile.bad.env \
+            --expect-fail
       - name: tarka-deploy-settings schema gate (Q1-E07)
         run: |
           pip install -e packages/deploy-settings pytest
@@ -184,6 +191,14 @@ jobs:
           --ignore=tests/test_ml_export_api.py
           --ignore=tests/latency_injection/test_real_world_faltering.py
           tests/
+        working-directory: services/decision-api
+        env:
+          PYTHONPATH: src:../shared:../../packages/shared-core:../..
+          DATABASE_URL: sqlite+aiosqlite:///
+          REDIS_URL: redis://localhost:6379/0
+      - name: Rule batch regression gate
+        run: >
+          pytest tests/test_rules_batch.py -q
         working-directory: services/decision-api
         env:
           PYTHONPATH: src:../shared:../../packages/shared-core:../..

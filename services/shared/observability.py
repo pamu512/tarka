@@ -329,6 +329,11 @@ class Metrics:
             "http_client_errors_total_observed": errors_4xx,
         }
 
+    def custom_counters_matching(self, prefix: str) -> dict[str, int]:
+        """Return custom counter name→value for names starting with *prefix*."""
+        p = prefix or ""
+        return {name: int(val) for name, val in self._custom_counters.items() if name.startswith(p)}
+
     def to_prometheus(self) -> str:
         lines: list[str] = []
         lines.append("# HELP http_requests_total Total HTTP requests")

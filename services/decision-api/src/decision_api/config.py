@@ -209,6 +209,24 @@ class Settings(BaseSettings):
     graph_risk_max_age_minutes: int = int(
         os.environ.get("GRAPH_RISK_MAX_AGE_MINUTES", "30")
     )
+    #: Default freshness action when stale: ``warn`` | ``skip`` | ``fail_closed``.
+    graph_risk_freshness_default_policy: str = (
+        os.environ.get("GRAPH_RISK_FRESHNESS_DEFAULT_POLICY", "warn").strip().lower()
+        or "warn"
+    )
+    #: Per-event overrides, e.g. ``payment:fail_closed,login:skip`` (empty = default policy only).
+    graph_risk_freshness_policy_by_event: str = os.environ.get(
+        "GRAPH_RISK_FRESHNESS_POLICY_BY_EVENT", ""
+    ).strip()
+    #: Comma-separated event types that deny when FeatureCatalog required fields are missing.
+    #: Recommended production: ``payment``. Empty = degrade tags only.
+    feature_catalog_fail_closed_event_types: str = os.environ.get(
+        "FEATURE_CATALOG_FAIL_CLOSED_EVENT_TYPES", ""
+    ).strip()
+    #: When true and ``case_api_url`` set, auto-create a case on deny/review outcomes.
+    case_create_on_deny_review: bool = os.environ.get(
+        "CASE_CREATE_ON_DENY_REVIEW", ""
+    ).strip().lower() in ("1", "true", "yes", "on")
     eval_step_opa_timeout_seconds: float = float(
         os.environ.get("EVAL_STEP_OPA_TIMEOUT_SECONDS", "2.5")
     )
@@ -356,6 +374,10 @@ class Settings(BaseSettings):
     # Optional explicit tier label: "community" | "pro" (empty = infer from configured URLs).
     tarka_deployment_tier: str = (
         os.environ.get("TARKA_DEPLOYMENT_TIER", "").strip().lower()
+    )
+    #: When ``production``, lifespan refuses boot if auth/idempotency fail-closed checks fail.
+    tarka_deployment_profile: str = (
+        os.environ.get("TARKA_DEPLOYMENT_PROFILE", "").strip().lower()
     )
     # Audience-level explainability surface: "minimal" (external-safe), "analyst", or "full".
     explainability_tier_default: str = (

@@ -2,6 +2,8 @@
 
 This guide ties together **high-volume ingestion**, **client SDKs**, **idempotency**, **consumer observability**, and the **v1.2 replay** script.
 
+Envelope fields, adapters, and error codes: [Ingest Contract v1](ingest-contract-v1.md).
+
 ## Two ways to score an event
 
 | Path | When to use | Entry point |
