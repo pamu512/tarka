@@ -1,11 +1,11 @@
 """Tenant kill-switch flags (R2.3) and fallback_reason helper (R2.4)."""
 
-from decision_api.main import (
-    _compute_fallback_reason,
-    _decision_runtime_status,
-    _shape_inference_context_for_tier,
-    _signal_availability_notes_from_tags,
+from decision_api.evaluate.score import (
+    compute_fallback_reason as _compute_fallback_reason,
+    decision_runtime_status as _decision_runtime_status,
+    signal_availability_notes_from_tags as _signal_availability_notes_from_tags,
 )
+from decision_api.main import _shape_inference_context_for_tier
 from decision_api.tenant_flags import tenant_flag_enabled
 
 
