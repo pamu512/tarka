@@ -5,10 +5,10 @@ requires-python = ">=3.11"
 dependencies = [
   "PyYAML==6.0.3",
   "structlog>=26.1.0",
-  "fastapi>=0.139.0",
+  "fastapi>=0.140.7",
   "fpdf2>=2.8.7",
   "python-multipart>=0.0.32",
-  "uvicorn[standard]>=0.50.2",
+  "uvicorn[standard]>=0.51.0",
   "httpx>=0.28.1",
   "openpyxl>=3.1.5",
   "pydantic>=2.13.4",
