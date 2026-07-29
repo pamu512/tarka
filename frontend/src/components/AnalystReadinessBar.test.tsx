@@ -1,20 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import type { EvaluationPostureResponse } from "../api/client";
+import type { EvaluationPostureResponse } from "../api/v1/decisions";
 import { AnalystReadinessBar } from "./AnalystReadinessBar";
 
 vi.mock("../api/client", () => ({
   cases: {
     health: vi.fn(),
   },
+}));
+
+vi.mock("../api/v1/decisions", () => ({
   decisions: {
     evaluationPosture: vi.fn(),
     slo: vi.fn(),
   },
 }));
 
-import { cases, decisions } from "../api/client";
+import { cases } from "../api/client";
+import { decisions } from "../api/v1/decisions";
 
 const mockEvaluationPosture = vi.mocked(decisions.evaluationPosture);
 const mockSlo = vi.mocked(decisions.slo);

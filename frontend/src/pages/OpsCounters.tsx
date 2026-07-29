@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { decisions, features } from "../api/client";
+import { features } from "../api/client";
+import { decisions } from "../api/v1/decisions";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";

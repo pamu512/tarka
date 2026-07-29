@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
-import { decisions, type AuditEntry } from "@/api/client";
+import { decisions, type AuditEntry } from "@/api/v1/decisions";
 import { useToast } from "@/context/ToastContext";
 import { buildShadowThoughtTrace, isDeterministicAiBypass, type ThoughtTraceStep } from "@/lib/shadow-thought-trace";
 import { cn } from "@/lib/utils";
