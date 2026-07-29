@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { decisions, type CounterCatalogEntry } from "../../../../api/client";
+import type { CounterCatalogEntry } from "../../../../api/client";
+import { decisions } from "../../../../api/v1/decisions";
 import { CounterTransparencyChip } from "../CopilotCitationCards";
 import { useCaseWorkbench } from "../../../../context/CaseWorkbenchContext";
 import { toUserFacingApiError } from "../../../../api/client";

@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { cases, type CaseApiHealthResponse } from "../api/client";
 import {
-  cases,
   decisions,
-  type CaseApiHealthResponse,
   type DecisionApiSloResponse,
   type EvaluationPostureResponse,
-} from "../api/client";
+} from "../api/v1/decisions";
 import { SupportIdHint } from "./SupportIdHint";
 import { safeExternalHref } from "../utils/externalLinks";
 import { toUserFacingError } from "../utils/userFacingErrors";

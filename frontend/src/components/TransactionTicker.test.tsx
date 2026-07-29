@@ -7,8 +7,8 @@ const { recentAudit } = vi.hoisted(() => ({
   recentAudit: vi.fn(),
 }));
 
-vi.mock("@/api/client", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/api/client")>();
+vi.mock("@/api/v1/decisions", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/v1/decisions")>();
   return {
     ...actual,
     decisions: {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { PageTitle } from "../components/PageTitle";
 import { useTheme, type ThemePreference } from "../context/ThemeContext";
-import { decisions } from "../api/client";
+import { decisions } from "../api/v1/decisions";
 import { MarketplaceSdkApiKeyPanel } from "../components/settings/MarketplaceSdkApiKeyPanel";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { toUserFacingError } from "../utils/userFacingErrors";

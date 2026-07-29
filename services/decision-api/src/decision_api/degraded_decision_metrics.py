@@ -20,6 +20,7 @@ _TAG_METRIC_KEYS: tuple[tuple[str, str], ...] = (
     ("ml:unavailable", "ml_unavailable"),
     ("lists:unavailable", "lists_unavailable"),
     ("opa:unavailable", "opa_unavailable"),
+    ("async_enrich:stale", "async_enrich_stale"),
 )
 
 

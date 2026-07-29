@@ -25,6 +25,11 @@ services:
       ALLOW_INSECURE_NO_AUTH: "false"
       TENANT_BINDING_REQUIRED: "true"
       TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY: "true"
+      # Fraud spine Phase 2 — fail-closed catalog/freshness + CQRS lag budget on evaluate
+      FEATURE_CATALOG_FAIL_CLOSED_EVENT_TYPES: "payment"
+      GRAPH_RISK_FRESHNESS_DEFAULT_POLICY: "warn"
+      GRAPH_RISK_FRESHNESS_POLICY_BY_EVENT: "payment:fail_closed,login:skip"
+      ASYNC_ENRICH_MAX_AGE_MINUTES: "60"
 
   integration-ingress:
     environment:

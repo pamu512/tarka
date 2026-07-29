@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } 
 import { AuditLogVirtualTable } from "@/components/audit/AuditLogVirtualTable";
 import { PageTitle } from "@/components/PageTitle";
 import { SupportIdHint } from "@/components/SupportIdHint";
-import { decisions, type AuditRecentItem } from "@/api/client";
+import { decisions, type AuditRecentItem } from "@/api/v1/decisions";
 import { useTenantEnvironment } from "@/context/TenantEnvironmentContext";
 import { toUserFacingError } from "@/utils/userFacingErrors";
 

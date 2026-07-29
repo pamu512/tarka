@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  decisions,
-  type RuleDetail,
-  type RuleReplayResponse,
-  type RuleReplayRulePayload,
-} from "../api/client";
+import { type RuleDetail, type RuleReplayRulePayload } from "../api/client";
+import { decisions, type RuleReplayResponse } from "../api/v1/decisions";
 import { SupportIdHint } from "./SupportIdHint";
 import { toUserFacingError } from "../utils/userFacingErrors";
 

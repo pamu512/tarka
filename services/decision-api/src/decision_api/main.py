@@ -414,48 +414,17 @@ async def _fetch_graph_risk_wrapped(
     graph_checkpoint: str | None = None,
     event_type: str | None = None,
 ) -> dict[str, Any] | None:
-    if tenant_flag_enabled(tenant_flags, "disable_graph"):
-        degrade_tags.append("graph:disabled_by_tenant")
-        return None
-    try:
-        data = await _circuit_graph.call(
-            lambda: _fetch_graph_risk(http, tenant_id, entity_id, graph_checkpoint)
-        )
-    except CircuitOpenError:
-        _circuit_metrics_inc("tarka_circuit_open_total_graph")
-        degrade_tags.append("graph:unavailable")
-        return None
-    if not isinstance(data, dict):
-        return None
-    from decision_api.graph_risk_freshness import (
-        evaluate_graph_risk_freshness,
-        parse_freshness_policy_by_event,
-    )
+    from decision_api.evaluate.enrichment import fetch_graph_risk_wrapped
 
-    default_policy = settings.graph_risk_freshness_default_policy
-    if default_policy not in ("warn", "skip", "fail_closed"):
-        default_policy = "warn"
-    result = evaluate_graph_risk_freshness(
-        data,
-        max_age_minutes=settings.graph_risk_max_age_minutes,
-        tenant_id=tenant_id,
-        entity_id=entity_id,
-        event_type=event_type,
-        default_policy=default_policy,  # type: ignore[arg-type]
-        policy_by_event_type=parse_freshness_policy_by_event(
-            settings.graph_risk_freshness_policy_by_event
-        ),
-        metrics_inc=_metrics_inc_safe,
+    return await fetch_graph_risk_wrapped(
+        http,
+        tenant_id,
+        entity_id,
+        degrade_tags,
+        tenant_flags,
+        graph_checkpoint,
+        event_type,
     )
-    if result.action == "skip":
-        if "graph:stale_skipped" not in degrade_tags:
-            degrade_tags.append("graph:stale_skipped")
-        return None
-    if result.action == "fail_closed":
-        if "graph:stale_fail_closed" not in degrade_tags:
-            degrade_tags.append("graph:stale_fail_closed")
-        return None
-    return data
 
 
 async def _fetch_feature_snapshot_wrapped(
@@ -465,17 +434,11 @@ async def _fetch_feature_snapshot_wrapped(
     degrade_tags: list[str],
     tenant_flags: dict[str, Any],
 ) -> dict[str, Any]:
-    if tenant_flag_enabled(tenant_flags, "disable_feature_service"):
-        degrade_tags.append("enrichment:disabled_by_tenant")
-        return _feature_snapshot_fallback(body, redis_tag_list)
-    try:
-        return await _circuit_feature.call(
-            lambda: _fetch_feature_snapshot(http, body, redis_tag_list)
-        )
-    except CircuitOpenError:
-        _circuit_metrics_inc("tarka_circuit_open_total_feature")
-        degrade_tags.append("enrichment:unavailable")
-        return _feature_snapshot_fallback(body, redis_tag_list)
+    from decision_api.evaluate.enrichment import fetch_feature_snapshot_wrapped
+
+    return await fetch_feature_snapshot_wrapped(
+        http, body, redis_tag_list, degrade_tags, tenant_flags
+    )
 
 
 async def _fetch_counter_snapshot(
@@ -791,10 +754,18 @@ def _build_artifact_manifest(
     graph_checkpoint: str | None,
     external_signal_meta: dict[str, Any] | None,
     challenge_policy_id: str | None,
+    policy_set_id: str | None = None,
 ) -> dict[str, Any]:
     rule_pack_joined = ",".join(
         sorted(str(x).strip() for x in json_rule_pack_files if str(x).strip())
     )
+    if policy_set_id is None:
+        try:
+            from decision_api.policy_set import current_policy_set_id
+
+            policy_set_id = current_policy_set_id()
+        except Exception:
+            policy_set_id = ""
     return {
         "decision_api_revision": (
             os.environ.get("GIT_SHA") or os.environ.get("COMMIT_SHA") or ""
@@ -808,6 +779,7 @@ def _build_artifact_manifest(
         ).hexdigest()
         if rule_pack_joined
         else "",
+        "policy_set_id": policy_set_id or "",
         "score_blend_strategy": settings.score_blend_strategy,
         "counter_version": _audit_counter_version_label(),
         "ml_model": str(inf_ctx.get("ml_model") or ""),
@@ -1538,6 +1510,14 @@ async def list_challenge_policy_templates():
     return {"policies": get_policy_summaries()}
 
 
+@app.get("/v1/policy/posture")
+async def policy_posture():
+    """Versioned policy-set posture: JSON packs + typology + challenge policies."""
+    from decision_api.policy_set import get_policy_set_manifest
+
+    return get_policy_set_manifest()
+
+
 @app.post("/v1/admin/shadow/reload")
 async def reload_shadow(_=Depends(require_role("admin"))):
     load_shadow_rules()
@@ -1730,35 +1710,17 @@ async def _maybe_await(value: Any) -> Any:
 def _feature_snapshot_fallback(
     body: EvaluateRequest, redis_tag_list: list[str]
 ) -> dict[str, Any]:
-    return {
-        "tenant_id": body.tenant_id,
-        "entity_id": body.entity_id,
-        "event_type": body.event_type.value,
-        "features": dict(body.payload),
-        "redis_tags": redis_tag_list,
-    }
+    from decision_api.evaluate.enrichment import feature_snapshot_fallback
+
+    return feature_snapshot_fallback(body, redis_tag_list)
 
 
 async def _fetch_feature_snapshot(
     http: httpx.AsyncClient, body: EvaluateRequest, redis_tag_list: list[str]
 ) -> dict[str, Any]:
-    if not settings.feature_service_url:
-        return _feature_snapshot_fallback(body, redis_tag_list)
-    url = settings.feature_service_url.rstrip("/") + "/v1/snapshot"
-    r = await http.post(
-        url,
-        json={
-            "tenant_id": body.tenant_id,
-            "entity_id": body.entity_id,
-            "event_type": body.event_type.value,
-            "payload": body.payload,
-        },
-        headers=_upstream_headers(),
-        timeout=settings.eval_step_feature_snapshot_timeout_seconds,
-    )
-    await _maybe_await(r.raise_for_status())
-    payload = await _maybe_await(r.json())
-    return payload if isinstance(payload, dict) else {}
+    from decision_api.evaluate.enrichment import fetch_feature_snapshot
+
+    return await fetch_feature_snapshot(http, body, redis_tag_list)
 
 
 async def _fetch_ml_score(
@@ -2005,22 +1967,9 @@ async def _fetch_graph_risk(
     entity_id: str,
     graph_checkpoint: str | None = None,
 ) -> dict[str, Any] | None:
-    if not settings.graph_service_url:
-        return None
-    url = settings.graph_service_url.rstrip("/") + "/v1/analytics/entity-risk"
-    params: dict[str, Any] = {"tenant_id": tenant_id, "entity_id": entity_id}
-    if graph_checkpoint:
-        params["checkpoint"] = graph_checkpoint
-    r = await http.get(
-        url,
-        params=params,
-        timeout=settings.eval_step_graph_risk_timeout_seconds,
-    )
-    await _maybe_await(r.raise_for_status())
-    data = await _maybe_await(r.json())
-    if not isinstance(data, dict):
-        return None
-    return data
+    from decision_api.evaluate.enrichment import fetch_graph_risk
+
+    return await fetch_graph_risk(http, tenant_id, entity_id, graph_checkpoint)
 
 
 # ---------- decision / shadow message publishing ----------
@@ -2275,6 +2224,13 @@ async def analyst_entity_velocity(
 
 
 # Late bind after helpers exist (__import__ avoids E402 bottom-of-file import).
+_enrich_mod = __import__("decision_api.evaluate.enrichment", fromlist=["bind_runtime"])
+_enrich_mod.bind_runtime(
+    circuit_graph=_circuit_graph,
+    circuit_feature=_circuit_feature,
+    metrics_inc=_metrics_inc_safe,
+    upstream_headers=_upstream_headers,
+)
 _bind_evaluate_main = __import__(
     "decision_api.evaluate.pipeline", fromlist=["bind_main"]
 ).bind_main

@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { decisions, type DriftQueryResponse, type TenantBenchmarkExport } from "../../../../api/client";
+import {
+  decisions,
+  type DriftQueryResponse,
+  type TenantBenchmarkExport,
+} from "../../../../api/v1/decisions";
 import { DegradedModeBanner } from "../../../DegradedModeBanner";
 import { useCaseWorkbench } from "../../../../context/CaseWorkbenchContext";
 import { toUserFacingApiError } from "../../../../api/client";
