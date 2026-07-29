@@ -1,7 +1,7 @@
 """DecisionOutcomeHandler — single post-decision act path (Phase 0).
 
-Consolidates: decision log emit, challenge webhook, metrics, WS broadcast,
-NATS/local publish, optional case create for deny/review.
+Consolidates: decision log emit, challenge webhook, enforcement adapters,
+metrics, WS broadcast, NATS/local publish, optional case create for deny/review.
 """
 
 from __future__ import annotations
@@ -11,6 +11,11 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable, Awaitable
+
+from decision_api.enforcement import (
+    apply_enforcement_adapters,
+    resolve_enforcement_action,
+)
 
 log = logging.getLogger("decision-api.outcome")
 
@@ -89,6 +94,27 @@ def schedule_decision_outcomes(
         trace_id=ctx.trace_id,
     )
 
+    enforcement_action = resolve_enforcement_action(
+        ctx.decision, ctx.recommended_action
+    )
+
+    bg.add_task(
+        apply_enforcement_adapters,
+        http=http,
+        trace_id=ctx.trace_id,
+        tenant_id=ctx.tenant_id,
+        entity_id=ctx.entity_id,
+        event_type=ctx.event_type,
+        decision=ctx.decision,
+        score=ctx.score,
+        tags=ctx.tags,
+        recommended_action=ctx.recommended_action,
+        challenge_metadata=ctx.challenge_metadata
+        if isinstance(ctx.challenge_metadata, dict)
+        else None,
+        metrics_inc=metrics_inc,
+    )
+
     bg.add_task(
         broadcast_decision,
         {
@@ -99,6 +125,7 @@ def schedule_decision_outcomes(
             "decision": ctx.decision,
             "score": ctx.score,
             "tags": ctx.tags,
+            "enforcement_action": enforcement_action,
         },
     )
 
@@ -117,6 +144,8 @@ def schedule_decision_outcomes(
             "signal_tags": ctx.signal_tags,
             "ml_score": ctx.ml_score,
             "payload": ctx.payload,
+            "enforcement_action": enforcement_action,
+            "recommended_action": ctx.recommended_action,
             "created_at": datetime.now(timezone.utc).isoformat(),
         },
     )
