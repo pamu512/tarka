@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from 'react-router';
 import { cases, type SarTransportBoardCard, type SarTransportBoardResponse } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";

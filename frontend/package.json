@@ -28,18 +28,19 @@
     "axios": "^1.18.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dompurify": "3.4.12",
     "framer-motion": "^12.38.0",
     "graphql": "^16.12.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.577.0",
     "maplibre-gl": "^5.24.0",
-    "monaco-editor": "^0.55.1",
+    "monaco-editor": "0.56.0",
     "pdfjs-dist": "^5.7.284",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "react-force-graph-2d": "^1.29.0",
     "react-map-gl": "^8.1.1",
-    "react-router-dom": "^7.15.1",
+    "react-router": "8.3.0",
     "recharts": "^3.8.1",
     "tailwind-merge": "^3.4.0",
     "vis-data": "^8.0.3",
@@ -48,18 +49,18 @@
   },
   "overrides": {
     "uuid": "11.1.1",
-    "dompurify": "3.4.11",
+    "dompurify": "3.4.12",
     "postcss": "8.5.23",
     "monaco-editor": {
-      "dompurify": "3.4.11"
+      "dompurify": "3.4.12"
     },
     "jspdf": {
-      "dompurify": "3.4.11"
+      "dompurify": "3.4.12"
     }
   },
   "optionalDependencies": {
     "@rolldown/binding-linux-x64-gnu": "1.2.0",
-    "@rollup/rollup-linux-x64-gnu": "4.62.2",
+    "@rollup/rollup-linux-x64-gnu": "4.62.3",
     "@tailwindcss/oxide-linux-x64-gnu": "4.3.3",
     "lightningcss-linux-x64-gnu": "1.33.0"
   },

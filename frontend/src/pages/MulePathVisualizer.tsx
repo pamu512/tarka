@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from 'react-router';
 
 import { graph, type MulePathHop, type MulePathResponse } from "../api/client";
 import { MulePathDiagram } from "../components/investigation/MulePathDiagram";

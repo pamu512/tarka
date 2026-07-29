@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Edge, Node } from "@xyflow/react";
-import { Link } from "react-router-dom";
+import { Link } from 'react-router';
 import { rules, shadow, type RulePack } from "../../api/client";
 import { packRuleRecordToFlow } from "../RuleBuilder/jsonAstToReactFlow";
 import { RuleBuilderCanvas } from "../RuleBuilder/RuleBuilderCanvas";

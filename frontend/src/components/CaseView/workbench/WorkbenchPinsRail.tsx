@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from 'react-router';
 import { useAnalystWorkspace } from "../../../context/AnalystWorkspaceContext";
 import { useCaseWorkbench } from "../../../context/CaseWorkbenchContext";
 import { buildCaseComparisonHref } from "../../../utils/caseComparisonUrl";

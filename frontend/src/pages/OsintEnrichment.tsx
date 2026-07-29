@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from 'react-router';
 import { osint } from "../api/client";
 import { EncryptedFieldToggle } from "../components/compliance/EncryptedFieldToggle";
 import { PageTitle } from "../components/PageTitle";

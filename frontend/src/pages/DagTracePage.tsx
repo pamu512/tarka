@@ -1,5 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from 'react-router';
 
 import { toUserFacingApiError } from "../api/client";
 import { decisions, type AuditEntry } from "../api/v1/decisions";

@@ -36,7 +36,7 @@ sysinfo = { version = "0.32", default-features = false, features = ["system", "n
 wasmtime = { version = "36", default-features = true, features = ["runtime", "cranelift"] }
 wasmparser = "0.218"
 opentelemetry = "0.32"
-opentelemetry_sdk = { version = "0.32", features = ["trace", "rt-tokio"] }
+opentelemetry_sdk = { version = "0.32.1", features = ["trace", "rt-tokio"] }
 opentelemetry-otlp = { version = "0.32", features = ["trace", "grpc-tonic"] }
 tracing-opentelemetry = "0.33"
 ureq = { version = "2.9", default-features = false, features = ["tls"] }
