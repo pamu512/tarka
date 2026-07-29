@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from 'react-router';
 import { cases, type GraphPathExplanation } from "../../../../api/client";
 import { DegradedModeBanner } from "../../../DegradedModeBanner";
 import { useCaseWorkbench } from "../../../../context/CaseWorkbenchContext";

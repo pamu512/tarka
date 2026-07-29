@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from 'react-router';
 import { cases, type Case } from "../api/client";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { useToast } from "../context/ToastContext";

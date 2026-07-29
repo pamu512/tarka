@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from 'react-router';
 import { investigation } from "../../api/client";
 import { toUserFacingError } from "../../utils/userFacingErrors";
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink } from 'react-router';
 import { usePageMeta } from "../context/PageMetaContext";
 import { requestOpenCommandPalette } from "./CommandPalette";
 import { ModuleIcon } from "./ModuleIcon";

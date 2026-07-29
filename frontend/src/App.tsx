@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
-import { Routes, Route, NavLink, Navigate } from "react-router-dom";
+import { Routes, Route, NavLink, Navigate } from 'react-router';
 import { MicroDevOnboardingGate } from "./components/MicroDevOnboardingGate";
 import { RequireRole } from "./components/rbac/RequireRole";
 import { getDataSourceSnapshot, subscribeDataSource } from "./api/dataSourceState";

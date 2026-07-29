@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactElement } from "react";
-import { Link } from "react-router-dom";
+import { Link } from 'react-router';
 
 import { integrations, type KycHandoverCaseRow } from "../../api/client";
 import { toUserFacingError } from "../../utils/userFacingErrors";

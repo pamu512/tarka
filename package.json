@@ -19,14 +19,14 @@
     "jsdom": "^26.1.0"
   },
   "overrides": {
-    "dompurify": "3.4.11",
+    "dompurify": "3.4.12",
     "postcss": "8.5.23",
     "@babel/core": "7.29.6",
     "monaco-editor": {
-      "dompurify": "3.4.11"
+      "dompurify": "3.4.12"
     },
     "jspdf": {
-      "dompurify": "3.4.11"
+      "dompurify": "3.4.12"
     }
   }
 }

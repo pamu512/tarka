@@ -1,5 +1,5 @@
 import type { SarFilingIntentDetail, SarIntentDetailResponse } from "../api/client";
-import { Link } from "react-router-dom";
+import { Link } from 'react-router';
 import {
   evaluateSarFilingReadinessFromDetail,
   evaluateSarFilingReadinessFromIntentSummary,
