@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from "vitest";
 
 import { TenantEnvironmentProvider } from "../context/TenantEnvironmentContext";

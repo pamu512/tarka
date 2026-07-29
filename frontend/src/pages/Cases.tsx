@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useId } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { cases, type Case, type CaseCreateRequest, type CaseDeskActivity, type CaseOpsKpis, toUserFacingApiError } from "../api/client";
 import { useAnalystWorkspace } from "../context/AnalystWorkspaceContext";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";

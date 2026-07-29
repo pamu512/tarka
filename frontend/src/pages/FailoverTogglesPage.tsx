@@ -1,5 +1,5 @@
 import { useCallback, useState, type ReactElement } from "react";
-import { Link } from "react-router-dom";
+import { Link } from 'react-router';
 
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useParams, useNavigate, useSearchParams } from 'react-router';
 import { useAnalystWorkspace } from "../context/AnalystWorkspaceContext";
 import { CaseWorkbenchProvider, useCaseWorkbench } from "../context/CaseWorkbenchContext";
 import { useRegisterPageMeta } from "../context/PageMetaContext";

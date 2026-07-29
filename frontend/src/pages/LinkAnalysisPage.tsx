@@ -1,5 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from 'react-router';
 
 import { graph } from "../api/client";
 import { GraphContextPanel } from "../components/GraphContextPanel";

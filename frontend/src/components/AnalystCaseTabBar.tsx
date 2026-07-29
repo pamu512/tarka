@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useAnalystWorkspace } from "../context/AnalystWorkspaceContext";
 import { isCaseWorkbenchTab } from "../workbench/workbenchContract";
 import { ModuleIcon } from "./ModuleIcon";

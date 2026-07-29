@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from 'react-router';
 import { disputes, type DisputeEntry, type DisputeStats } from "../api/client";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { PageTitle } from "../components/PageTitle";
