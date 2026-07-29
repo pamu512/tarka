@@ -76,3 +76,12 @@ Common reason codes: `ingest_tenant_id_empty`, `ingest_entity_id_empty`,
 - **Public async ingest contract:** event-ingest (+ shared-core helpers)
 - **Sync decision brain:** decision-api evaluate only
 - **Orchestrator:** ingress + outbox side-effects; must not reimplement scoring
+
+## Sync evaluate vs async enrichment (CQRS)
+
+| Path | Owns | Must not |
+|------|------|----------|
+| **Sync** `POST /v1/decisions/evaluate` | Score + decision latency; may **read** Redis cache `fraud:async_osint:{tenant}:{entity}` | Wait on enrichment workers / OSINT HTTP |
+| **Async** `fraud.enrichment.request` → integration-ingress | Refresh Redis blob (`updated_at`) | Block the evaluate response |
+
+Lag budget: `ASYNC_ENRICH_MAX_AGE_MINUTES` (default 60). Stale cache → degrade tag `async_enrich:stale` + metric; features still merge (fail soft). See Phase 2 Wave A+B design under `docs/superpowers/specs/`.

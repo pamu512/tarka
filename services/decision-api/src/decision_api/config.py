@@ -227,6 +227,10 @@ class Settings(BaseSettings):
     case_create_on_deny_review: bool = os.environ.get(
         "CASE_CREATE_ON_DENY_REVIEW", ""
     ).strip().lower() in ("1", "true", "yes", "on")
+    #: CQRS lag budget: warn (degrade tag) when async OSINT Redis cache ``updated_at`` is older (0 = off).
+    async_enrich_max_age_minutes: int = int(
+        os.environ.get("ASYNC_ENRICH_MAX_AGE_MINUTES", "60")
+    )
     eval_step_opa_timeout_seconds: float = float(
         os.environ.get("EVAL_STEP_OPA_TIMEOUT_SECONDS", "2.5")
     )

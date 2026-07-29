@@ -67,6 +67,18 @@ def test_map_tx_metadata_overrides() -> None:
     assert body["payload"]["canvas_fingerprint"] == "ab" * 32
 
 
+def test_map_tx_passes_ingest_contract_v1() -> None:
+    """Mapped body must satisfy shared Ingest Contract v1 identity fields."""
+    from tarka_shared.ingest_contract_v1 import validate_required_envelope_fields
+
+    body = map_tx_to_evaluate_request(_tx(tenant_id="t-contract"), tenant_header=None)
+    # map already validates; re-check is idempotent
+    again = validate_required_envelope_fields(body)
+    assert again["tenant_id"] == "t-contract"
+    assert again["entity_id"]
+    assert again["event_type"] == "payment"
+
+
 @pytest.mark.parametrize(
     ("decision", "expected"),
     [

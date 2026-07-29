@@ -199,3 +199,7 @@ class EvaluateResponse(BaseModel):
         default=None,
         description="When graph risk ran: tarka.graph_decision_explanation/v1 factor→evidence mapping for case/analyst UI",
     )
+    policy_set_id: str | None = Field(
+        default=None,
+        description="sha256 identity of active JSON packs + typology + challenge policies (tarka.policy_set/v1)",
+    )

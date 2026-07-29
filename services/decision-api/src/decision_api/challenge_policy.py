@@ -23,6 +23,12 @@ def load_challenge_policies(*, force: bool = False) -> None:
     d = base / "challenge_policies"
     if not d.is_dir():
         log.info("challenge_policies directory missing: %s", d)
+        try:
+            from decision_api.policy_set import bump_policy_set_generation
+
+            bump_policy_set_generation()
+        except Exception:
+            pass
         return
     for f in sorted(d.glob("*.json")):
         try:
@@ -37,6 +43,20 @@ def load_challenge_policies(*, force: bool = False) -> None:
         except Exception as e:
             log.warning("challenge policy %s: %s", f.name, e)
     log.info("Loaded %d challenge policy template(s) from %s", len(_policies), d)
+    try:
+        from decision_api.policy_set import bump_policy_set_generation
+
+        bump_policy_set_generation()
+    except Exception:
+        pass
+
+
+def iter_loaded_policies() -> list[tuple[str, dict[str, Any]]]:
+    """Return ``(policy_id, policy_dict)`` pairs for policy-set hashing."""
+    load_challenge_policies()
+    if not _policies:
+        return []
+    return [(pid, _policies[pid]) for pid in sorted(_policies.keys())]
 
 
 def list_policy_ids() -> list[str]:
