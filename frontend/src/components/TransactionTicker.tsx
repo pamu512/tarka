@@ -1,7 +1,8 @@
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { memo, startTransition, useEffect, useRef, useState, type KeyboardEvent } from "react";
 
-import { decisions, type AuditRecentItem, type AuditRuleResult } from "@/api/client";
+import type { AuditRuleResult } from "@/api/client";
+import { decisions, type AuditRecentItem } from "@/api/v1/decisions";
 import { cn } from "@/lib/utils";
 import { toUserFacingError } from "@/utils/userFacingErrors";
 

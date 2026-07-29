@@ -188,6 +188,12 @@ def load_rules() -> None:
         _cached_packs = _attach_plg_sandbox_pack([])
         _shadow_mode_packs = []
         _sync_rust_engine_packs()
+        try:
+            from decision_api.policy_set import bump_policy_set_generation
+
+            bump_policy_set_generation()
+        except Exception:
+            pass
         return
     active: list[dict[str, Any]] = []
     shadow: list[dict[str, Any]] = []
@@ -217,11 +223,22 @@ def load_rules() -> None:
         len(_cached_packs),
     )
     _sync_rust_engine_packs()
+    try:
+        from decision_api.policy_set import bump_policy_set_generation
+
+        bump_policy_set_generation()
+    except Exception:
+        pass
 
 
 def get_shadow_packs() -> list[dict[str, Any]]:
     """Return packs with mode == 'shadow'."""
     return list(_shadow_mode_packs)
+
+
+def get_active_packs_snapshot() -> list[dict[str, Any]]:
+    """Return a shallow copy of in-memory active JSON packs (for policy-set hashing)."""
+    return list(_cached_packs)
 
 
 def governance_summary() -> dict[str, Any]:

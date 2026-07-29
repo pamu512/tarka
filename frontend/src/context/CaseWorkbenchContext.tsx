@@ -10,7 +10,6 @@ import {
 import { useSearchParams } from "react-router-dom";
 import {
   cases,
-  decisions,
   graph,
   type Case,
   type EntityRiskResult,
@@ -18,6 +17,7 @@ import {
   normalizeInferenceContext,
   toUserFacingApiError,
 } from "../api/client";
+import { decisions } from "../api/v1/decisions";
 import { useAnalystWorkspace } from "./AnalystWorkspaceContext";
 import {
   DEFAULT_WORKBENCH_PANELS,

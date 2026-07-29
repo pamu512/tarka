@@ -1452,6 +1452,20 @@ export const decisions = {
   slo() {
     return request<DecisionApiSloResponse>("/api/decisions/v1/slo");
   },
+
+  /** Fraud spine Wave C — versioned policy-set posture (JSON packs + typology + challenge). */
+  policyPosture() {
+    return request<{
+      schema: string;
+      policy_set_id: string;
+      components: Record<string, unknown>;
+      counts: {
+        json_packs: number;
+        typologies: number;
+        challenge_policies: number;
+      };
+    }>("/api/decisions/v1/policy/posture");
+  },
 };
 
 /** Headers for decision-api routes that require ``X-API-Key`` (same env as rule builder). */

@@ -1,8 +1,8 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import type { AuditEntry } from "../api/client";
-import { decisions, toUserFacingApiError } from "../api/client";
+import { toUserFacingApiError } from "../api/client";
+import { decisions, type AuditEntry } from "../api/v1/decisions";
 import { DagTraceVisualizer } from "../components/DagTraceVisualizer";
 import { PageTitle } from "../components/PageTitle";
 

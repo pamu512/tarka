@@ -131,6 +131,9 @@ async def run_evaluate_decision(
     trace_id = uuid.uuid4()
     replay_ttl_seconds = int(os.environ.get("REPLAY_PAYLOAD_TTL_SECONDS", "300"))
     degrade_tags: list[str] = []
+    from decision_api.policy_set import current_policy_set_id
+
+    policy_set_id = current_policy_set_id() or None
     tenant_flags = await _load_tenant_flags_for_evaluate(body.tenant_id)
 
     # Extract SDK signal tags
@@ -270,6 +273,7 @@ async def run_evaluate_decision(
                 recommended_action=_wl_rec,
                 challenge_policy_id=_wl_meta.get("policy_id"),
                 challenge_metadata=_wl_meta,
+                policy_set_id=policy_set_id,
             )
 
         if list_check.action == "deny":
@@ -336,6 +340,7 @@ async def run_evaluate_decision(
                 recommended_action=_bl_rec,
                 challenge_policy_id=_bl_meta.get("policy_id"),
                 challenge_metadata=_bl_meta,
+                policy_set_id=policy_set_id,
             )
 
     async with acquire_eval_capacity(request.app) as cap:
@@ -601,7 +606,13 @@ async def run_evaluate_decision(
         async def _merge_async_osint_redis() -> bool:
             if agg_store._client:
                 await merge_cached_async_osint(
-                    agg_store._client, body.tenant_id, body.entity_id, features
+                    agg_store._client,
+                    body.tenant_id,
+                    body.entity_id,
+                    features,
+                    degrade_tags=degrade_tags,
+                    max_age_minutes=settings.async_enrich_max_age_minutes,
+                    metrics_inc=_metrics_inc_safe,
                 )
             return True
 
@@ -932,6 +943,8 @@ async def run_evaluate_decision(
 
         snap_extra["decision_status"] = runtime_decision_status
         snap_extra["signal_availability_notes"] = signal_notes
+        if policy_set_id:
+            snap_extra["policy_set_id"] = policy_set_id
 
         audit = AuditRecord(
             trace_id=trace_id,
@@ -972,6 +985,7 @@ async def run_evaluate_decision(
                 if isinstance(external_signal_meta, dict)
                 else None,
                 challenge_policy_id=ch_meta.get("policy_id"),
+                policy_set_id=policy_set_id,
             ),
         )
         from decision_api.challenge_orchestrator import maybe_dispatch_challenge_webhook
@@ -1011,6 +1025,7 @@ async def run_evaluate_decision(
             challenge_metadata=ch_meta,
             fallback_reason=fb_reason,
             graph_decision_explanation=response_graph_explanation,
+            policy_set_id=policy_set_id,
         )
 
         schedule_decision_outcomes(
@@ -1105,6 +1120,7 @@ async def run_evaluate_decision(
                 challenge_policy_id=_tb_meta.get("policy_id"),
                 challenge_metadata=_tb_meta,
                 fallback_reason=fb_reason,
+                policy_set_id=policy_set_id,
             )
 
     return response
