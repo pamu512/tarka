@@ -137,7 +137,9 @@ def map_tx_to_evaluate_request(
     device_ctx = _device_context_from_metadata(meta)
     if device_ctx is not None:
         body["device_context"] = device_ctx
-    return body
+    from tarka_shared.ingest_contract_v1 import validate_required_envelope_fields
+
+    return validate_required_envelope_fields(body)
 
 
 def _dedupe_preserve(actions: list[str]) -> list[str]:

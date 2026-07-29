@@ -40,6 +40,12 @@ def reload_typology_definitions() -> None:
     global _DEFINITIONS
     _DEFINITIONS = None
     load_typology_definitions()
+    try:
+        from decision_api.policy_set import bump_policy_set_generation
+
+        bump_policy_set_generation()
+    except Exception:
+        pass
 
 
 def _resolve_feature_predicate(

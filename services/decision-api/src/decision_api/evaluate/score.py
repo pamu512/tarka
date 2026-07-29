@@ -20,6 +20,7 @@ _SIGNAL_UNAVAILABLE_AUDIT: dict[str, str] = {
     "redis:entity_tags_unavailable": "Signal Redis entity tags was unavailable",
     "consortium:unavailable": "Signal Consortium cross-tenant signal was unavailable",
     "async_osint:unavailable": "Signal Async OSINT cache was unavailable",
+    "async_enrich:stale": "Async OSINT cache exceeded lag budget (stale)",
 }
 
 
@@ -50,6 +51,7 @@ def compute_fallback_reason(
         "redis:entity_tags_unavailable": "circuit_redis_entity_tags",
         "redis:tag_merge_unavailable": "circuit_redis_tag_merge",
         "async_osint:unavailable": "async_osint_redis",
+        "async_enrich:stale": "async_enrich_stale",
         "counter:fallback_local_agg": "counter_local_aggregate_fallback",
         "lists:disabled_by_tenant": "tenant_disable_entity_lists",
         "graph:disabled_by_tenant": "tenant_disable_graph",
