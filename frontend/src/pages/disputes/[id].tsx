@@ -3,7 +3,7 @@
  * Route: `/disputes/:id`
  */
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from 'react-router';
 import { disputes, type DisputeEntry } from "../../api/client";
 import { PageTitle } from "../../components/PageTitle";
 import { safeExternalHref } from "../../utils/externalLinks";

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link } from 'react-router';
 import { compliance } from "../api/client";
 import { ComplianceResidencyAuditViewer } from "../components/compliance/ComplianceResidencyAuditViewer";
 import { DataResidencyMatrix } from "../components/compliance/DataResidencyMatrix";

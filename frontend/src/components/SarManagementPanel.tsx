@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from 'react-router';
 import type { SarFilingIntentDetail } from "../api/client";
 import {
   SAR_PIPELINE_STEP_LABELS,

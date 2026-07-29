@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from 'react-router';
 import { integrations, type IntegrationScorecardsPayload } from "../api/client";
 import { VendorIntegrationConfigModal, type VendorProvider } from "../components/integrations/VendorIntegrationConfigModal";
 import { PageTitle } from "../components/PageTitle";

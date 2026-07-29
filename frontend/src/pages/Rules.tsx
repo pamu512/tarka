@@ -1,5 +1,5 @@
 import { useEffect, useState, type KeyboardEvent } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from 'react-router';
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import {
   rules as rulesApi,

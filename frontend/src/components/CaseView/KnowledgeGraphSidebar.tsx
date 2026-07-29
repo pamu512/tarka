@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from 'react-router';
 
 import { graph, type RiskPropagationResult } from "../../api/client";
 import { normalizeSimilarEntities } from "../../utils/similarGraphEntities";

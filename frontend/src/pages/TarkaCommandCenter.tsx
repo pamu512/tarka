@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
-import { Link } from "react-router-dom";
+import { Link } from 'react-router';
 
 import { integrations, type CommandCenterModuleTile, type CommandCenterResponse } from "../api/client";
 import { ModuleIcon, type ModuleId } from "../components/ModuleIcon";
