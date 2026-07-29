@@ -3,13 +3,13 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import {
   cases,
-  decisions,
   graph,
   type Case,
   type EntityRiskResult,
   type InferenceContext,
   normalizeInferenceContext,
 } from "../api/client";
+import { decisions } from "../api/v1/decisions";
 import { PageTitle } from "../components/PageTitle";
 import PriorityBadge from "../components/PriorityBadge";
 import StatusBadge from "../components/StatusBadge";
