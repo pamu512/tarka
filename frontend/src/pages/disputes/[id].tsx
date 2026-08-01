@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from 'react-router';
-import { disputes, type DisputeEntry } from "../../api/client";
+import { disputes, type DisputeEntry } from "../../api/v1/disputes";
 import { PageTitle } from "../../components/PageTitle";
 import { safeExternalHref } from "../../utils/externalLinks";
 import { toUserFacingError } from "../../utils/userFacingErrors";
