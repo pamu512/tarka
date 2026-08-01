@@ -16,16 +16,6 @@ import httpx
 
 log = logging.getLogger("decision-api.challenge")
 
-_STEP_UP_ACTIONS = frozenset(
-    {
-        "step_up_mfa",
-        "step_up_attestation",
-        "step_up_auth",
-        "challenge",
-        "step_up",
-    }
-)
-
 
 def challenge_webhook_configured() -> bool:
     return bool(os.environ.get("TARKA_CHALLENGE_WEBHOOK_URL", "").strip())
@@ -49,8 +39,9 @@ async def maybe_dispatch_challenge_webhook(
 
     Returns delivery summary or None when not configured / not applicable.
     """
-    action = (recommended_action or "").strip().lower()
-    if action not in _STEP_UP_ACTIONS:
+    from decision_api.enforcement import is_step_up_recommended
+
+    if not is_step_up_recommended(recommended_action):
         return None
     url = os.environ.get("TARKA_CHALLENGE_WEBHOOK_URL", "").strip()
     if not url:

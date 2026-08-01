@@ -1395,6 +1395,7 @@ async def get_typology_predicate_registry(_=Depends(require_role("admin"))):
 
 def _integrity_ingress_ops_block() -> dict[str, Any]:
     from decision_api.challenge_orchestrator import challenge_webhook_configured
+    from decision_api.enforcement import enforcement_webhook_configured
     from decision_api.integrity_policy import integrity_ingress_status
 
     replay_ttl = int(os.environ.get("REPLAY_PAYLOAD_TTL_SECONDS", "300"))
@@ -1405,6 +1406,7 @@ def _integrity_ingress_ops_block() -> dict[str, Any]:
         ),
         integrity_soft_tags=bool(settings.integrity_soft_tags),
         challenge_webhook_configured=challenge_webhook_configured(),
+        enforcement_webhook_configured=enforcement_webhook_configured(),
         replay_payload_ttl_seconds=replay_ttl,
     )
 
@@ -2188,6 +2190,7 @@ async def get_audit(
             "driver_explain": inf_ctx_out.get("driver_explain", []),
         },
         "recommended_action": snap.get("recommended_action"),
+        "enforcement_action": snap.get("enforcement_action"),
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }
     ge = snap.get("graph_decision_explanation")

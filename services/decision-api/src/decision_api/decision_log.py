@@ -107,6 +107,7 @@ def build_decision_log_record(
     fallback_reason: str | None,
     payload_snapshot: dict[str, Any],
     artifact_manifest: dict[str, Any] | None = None,
+    enforcement_action: str | None = None,
 ) -> dict[str, Any]:
     payload = (
         payload_snapshot
@@ -128,6 +129,7 @@ def build_decision_log_record(
         "ml_score": ml_score,
         "inference_context": inference_context,
         "recommended_action": recommended_action,
+        "enforcement_action": enforcement_action,
         "challenge_policy_id": challenge_policy_id,
         "challenge_metadata": challenge_metadata or {},
         "fallback_reason": fallback_reason,

@@ -19,8 +19,10 @@ def test_integrity_ingress_status_shape():
     assert s["request_signature_required"] is True
     assert s["integrity_soft_tags"] is True
     assert s["challenge_webhook_configured"] is False
+    assert s["enforcement_webhook_configured"] is False
     assert s["replay_payload_ttl_seconds"] == 120
     assert "/v1/decisions/evaluate" in s["request_signature_path_prefixes"]
+    assert "decide-to-act" in s["decide_to_act_docs"]
 
 
 def test_apply_tags_hmac_and_replay_ok():
