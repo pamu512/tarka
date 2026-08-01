@@ -27,6 +27,19 @@ Trusted places are merged from:
 
 When current location falls into a trusted zone, impossible-travel and geo inconsistency penalties are softened.
 
+## Co-presence demo (productize path)
+
+Location Service scores co-presence from counter-style features (e.g. `distinct_session_id_24h` > 1). Decision API merges `location_meta.copresence_risk` into evaluate features / `inference_context` so JSON rules can hit on it.
+
+```bash
+# Lite stack (location mounted at /location) or LOCATION_API=http://host:port
+python3 scripts/oss/copresence_demo.py
+```
+
+Example rule pack (shadow by default): `services/decision-api/rules/location_copresence_v1.json`.
+
+Graph `SEEN_AT` / place peers also feed colocation heuristics inside `build_inference_context` when peer counts are present; the demo above proves the location-service → feature path without requiring a full graph seed.
+
 ## Analyst usage
 
 - Case detail shows location confidence and risk metrics.

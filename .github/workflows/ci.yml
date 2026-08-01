@@ -58,12 +58,10 @@ jobs:
         run: |
           pip install pyyaml
           python3 infra/scripts/ci/test_q2_wave4_contracts.py
-      - name: Validate JSON rule packs (policy-as-code gate)
+      - name: Policy-as-code gate (make policy-check)
         run: |
           pip install pydantic sqlalchemy
-          python infra/scripts/policy/validate_rule_packs.py
-      - name: Validate OPA policy bundle (Q1-E01)
-        run: python infra/scripts/policy/validate_opa_bundle.py
+          make policy-check
       - name: Validate default deployment profile manifest drift (Q1-E01)
         run: |
           pip install pyyaml

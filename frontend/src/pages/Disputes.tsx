@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from 'react-router';
-import { disputes, type DisputeEntry, type DisputeStats } from "../api/client";
+import { disputes, type DisputeEntry, type DisputeStats } from "../api/v1/disputes";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { PageTitle } from "../components/PageTitle";
 import { toUserFacingError } from "../utils/userFacingErrors";
