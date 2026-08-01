@@ -391,10 +391,14 @@ export default function Cases() {
           {typeof opsKpis.label_boost_cases === "number" ? (
             <KpiCard label="Label-boost queue" value={String(opsKpis.label_boost_cases)} />
           ) : null}
-          {cohort && cohort.delta_percent_vs_prior != null ? (
+          {cohort ? (
             <KpiCard
               label="Cases vs prior 7d"
-              value={`${cohort.delta_percent_vs_prior >= 0 ? "+" : ""}${cohort.delta_percent_vs_prior.toFixed(0)}%`}
+              value={
+                cohort.delta_percent_vs_prior != null
+                  ? `${cohort.delta_percent_vs_prior >= 0 ? "+" : ""}${cohort.delta_percent_vs_prior.toFixed(0)}%`
+                  : `${cohort.cases_created_recent} / ${cohort.cases_created_prior}`
+              }
             />
           ) : null}
           {deskActivity ? (
@@ -402,6 +406,21 @@ export default function Cases() {
           ) : null}
         </div>
       )}
+
+      {cohort ? (
+        <div className="rounded-xl border border-surface-700 bg-surface-900/40 px-4 py-3 text-sm text-gray-300 space-y-1">
+          <div className="font-medium text-gray-200">Cohort volume (7d vs prior)</div>
+          <p className="text-xs text-gray-500 leading-relaxed">
+            From <span className="font-mono">/v1/cases/analytics/cohort-compare</span> —{" "}
+            <span className="text-gray-300 font-mono">{cohort.cases_created_recent}</span> cases this window vs{" "}
+            <span className="text-gray-300 font-mono">{cohort.cases_created_prior}</span> prior
+            {cohort.delta_percent_vs_prior != null
+              ? ` (${cohort.delta_percent_vs_prior >= 0 ? "+" : ""}${cohort.delta_percent_vs_prior.toFixed(0)}%)`
+              : " (no prior baseline)"}
+            .
+          </p>
+        </div>
+      ) : null}
 
       {caseList.some((c) => c.status === "open") ? (
         <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 px-4 py-3 text-sm text-gray-300 space-y-1">

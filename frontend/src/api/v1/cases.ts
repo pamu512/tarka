@@ -1,8 +1,8 @@
 /**
  * Versioned case-api client (`/api/cases/v1/*`).
  *
- * Case Detail / evidence / SAR / dispute UI should import from this module
- * (not the god `client.ts` barrel) as mockData / client continue to shrink.
+ * Case Detail / evidence / SAR UI should import from this module
+ * (not the god `client.ts` barrel). Disputes list/detail prefer `api/v1/disputes`.
  */
 
 export {

@@ -4,6 +4,7 @@ import { buildTransactionSeed } from "../domain/transactionSeed";
 import { mapAnalyticsTransactionRow } from "../utils/mapAnalyticsTransactionRow";
 import { getCasesMockResponse } from "./mockData.cases";
 import { getDecisionsMockResponse } from "./mockData.decisions";
+import { getDisputesMockResponse } from "./mockData.disputes";
 import { getInvestigationMockResponse } from "./mockData.investigation";
 import { type AnyObj, mockRandomAlpha } from "./mockData.shared";
 
@@ -736,40 +737,6 @@ function mockShieldItemFromKey(k: (typeof mockMarketplaceSdkKeys)[number]) {
   };
 }
 
-let mockDisputes: AnyObj[] = [
-  {
-    id: "d1",
-    case_id: "c1",
-    tenant_id: "demo",
-    entity_id: "fraud_frank",
-    trace_id: "tr-1001",
-    dispute_type: "chargeback",
-    status: "open",
-    reason_code: "fraudulent",
-    amount: 1499.99,
-    currency: "USD",
-    merchant_id: "CryptoExchange",
-    card_network: "visa",
-    original_decision: "deny",
-    original_score: 92,
-    original_rule_hits: ["velocity"],
-    original_ml_score: 0.86,
-    outcome: null,
-    resolution_notes: null,
-    filed_at: nowIso(),
-    resolved_at: null,
-    created_at: nowIso(),
-    updated_at: nowIso(),
-    evidence_pdf_url: "https://www.w3.org/WAI/WCAG21/working-examples/pdf-note/note.pdf",
-    shadow_evidence_report_markdown:
-      "## Shadow AI evidence report (sample)\n\n" +
-      "- **Ingress IP:** `198.51.100.77`\n" +
-      "- **Device hash:** `deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef`\n" +
-      "- **Authorization:** 3DS2 frictionless + e-sign `ESIGN-127-GATE`\n\n" +
-      "### Cryptographic event anchor\n\n" +
-      "SHA-256 event digest (hex): `bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbcccccccccccccccccccccccccccccccc`\n",
-  },
-];
 let mockListEntries: AnyObj[] = [
   { list_type: "blocklist", tenant_id: "demo", entity_id: "fraud_frank", reason: "Known fraud ring", created_by: "seed", expires_at: null, metadata: {}, created_at: nowIso() },
   { list_type: "watchlist", tenant_id: "demo", entity_id: "mule_ivan", reason: "Mule behavior", created_by: "seed", expires_at: null, metadata: {}, created_at: nowIso() },
@@ -1249,6 +1216,9 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
 
   const casesMock = getCasesMockResponse({ url, path, method, body });
   if (casesMock !== null) return casesMock;
+
+  const disputesMock = getDisputesMockResponse({ url, path, method, body });
+  if (disputesMock !== null) return disputesMock;
 
   if (path === "/api/v1/demo/simulate_attack" && method === "POST") {
     const n = 4;
@@ -3168,23 +3138,6 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   if (path.includes("/api/ingress/v1/vault/kms")) return { provider: "local", active_key_id: "kms-local-1", rotation_enabled: true, rotation_interval_seconds: 86400, config_valid: true, config_issues: [] };
   if (path.includes("/api/ingress/v1/vault/rotation-jobs")) return { jobs: [{ id: "job-1", status: "completed", old_key_id: "k1", new_key_id: "k2", processed: 150, rotated: 150, failed: 0 }] };
   if (path.includes("/api/ingress/v1/slo")) return { service: "integration-ingress", availability_target: 99.9, latency_target_ms_p95: 300, error_budget_window_days: 30, current: { kms_provider: "local", rotation_jobs: 1, rotation_failures: 0 } };
-
-  if (path.includes("/api/cases/v1/disputes/stats")) return { total: mockDisputes.length, by_status: { open: 1 }, by_type: { chargeback: 1 }, by_outcome: {}, total_amount: 1499.99, win_rate: 0.62 };
-  if (path.includes("/api/cases/v1/disputes/entity/")) return { entity_id: "fraud_frank", total_disputes: 1, fraud_confirmed_count: 1, false_positive_count: 0, total_disputed_amount: 1499.99, risk_indicator: "high", disputes: mockDisputes };
-  if (path.includes("/api/cases/v1/disputes") && method === "GET") {
-    const single = path.match(/\/api\/cases\/v1\/disputes\/([^/?]+)$/);
-    if (single && single[1] !== "stats") {
-      const found = mockDisputes.find((d) => String(d.id) === single[1]);
-      return found ?? mockDisputes[0];
-    }
-    return { items: mockDisputes };
-  }
-  if (path.includes("/api/cases/v1/disputes") && method === "POST") {
-    const d = { id: id("d"), status: "open", created_at: nowIso(), updated_at: nowIso(), ...body };
-    mockDisputes = [d, ...mockDisputes];
-    return d;
-  }
-  if (path.includes("/api/cases/v1/disputes") && method === "PATCH") return { ...mockDisputes[0], ...body, updated_at: nowIso() };
 
   if (path.includes("/api/decisions/v1/lists/stats/")) return { tenant_id: "demo", stats: { blocklist: 1, allowlist: 1, watchlist: 1 } };
   if (path.includes("/api/decisions/v1/lists/check/")) return { found: true, list_type: "watchlist", action: "review", reason: "Synthetic watchlist hit" };
