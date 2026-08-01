@@ -8,10 +8,12 @@ type Ingress = {
   request_signature_required?: boolean;
   integrity_soft_tags?: boolean;
   challenge_webhook_configured?: boolean;
+  enforcement_webhook_configured?: boolean;
   replay_payload_ttl_seconds?: number;
   request_signature_max_skew_seconds?: number;
   request_signature_path_prefixes?: string[];
   docs?: string;
+  decide_to_act_docs?: string;
 };
 
 export default function OpsIntegrity() {
@@ -49,7 +51,7 @@ export default function OpsIntegrity() {
       <div className="space-y-1">
         <PageTitle module="compliance">Integrity &amp; challenge</PageTitle>
         <p className="text-sm text-gray-500">
-          Replay / HMAC / pinning ingress flags + platform integrity matrix + challenge webhook readiness.
+          Replay / HMAC / pinning ingress flags + platform integrity matrix + challenge / enforcement webhook readiness.
         </p>
       </div>
 
@@ -78,6 +80,10 @@ export default function OpsIntegrity() {
           <span className="font-mono text-brand-300">{String(ingress?.challenge_webhook_configured ?? "—")}</span>
         </div>
         <div>
+          Enforcement webhook configured:{" "}
+          <span className="font-mono text-brand-300">{String(ingress?.enforcement_webhook_configured ?? "—")}</span>
+        </div>
+        <div>
           Replay payload TTL:{" "}
           <span className="font-mono text-brand-300">
             {ingress?.replay_payload_ttl_seconds != null ? `${ingress.replay_payload_ttl_seconds}s` : "—"}
@@ -91,6 +97,11 @@ export default function OpsIntegrity() {
           {ingress?.docs ? (
             <span className="ml-2">
               · <span className="font-mono">{ingress.docs}</span>
+            </span>
+          ) : null}
+          {ingress?.decide_to_act_docs ? (
+            <span className="ml-2">
+              · <span className="font-mono">{ingress.decide_to_act_docs}</span>
             </span>
           ) : null}
         </div>

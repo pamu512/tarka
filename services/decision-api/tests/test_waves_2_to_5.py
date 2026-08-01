@@ -84,6 +84,28 @@ async def test_challenge_webhook_dispatch(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_challenge_webhook_hyphen_alias(monkeypatch):
+    class FakeResp:
+        status_code = 204
+
+    class FakeHttp:
+        async def post(self, url, content=None, headers=None, timeout=None):
+            return FakeResp()
+
+    monkeypatch.setenv("TARKA_CHALLENGE_WEBHOOK_URL", "https://hooks.example/challenge")
+    out = await maybe_dispatch_challenge_webhook(
+        http=FakeHttp(),  # type: ignore[arg-type]
+        trace_id="t2",
+        tenant_id="acme",
+        entity_id="u1",
+        decision="review",
+        recommended_action="step-up-attestation",
+        challenge_metadata=None,
+    )
+    assert out and out["ok"] is True
+
+
+@pytest.mark.asyncio
 async def test_simulation_rejects_underpowered(monkeypatch):
     monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
     from decision_api.simulation_api import router
