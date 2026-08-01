@@ -68,6 +68,9 @@ export default function Simulation() {
   const [sampleEvents, setSampleEvents] = useState<SampleEvent[]>([]);
   const [guardrails, setGuardrails] = useState<Record<string, unknown> | null>(null);
   const [allowUnderpowered, setAllowUnderpowered] = useState(false);
+  const [experiments, setExperiments] = useState<Array<Record<string, unknown>>>([]);
+  const [experimentsBusy, setExperimentsBusy] = useState(false);
+  const MIN_HOLD_OUT_N = 200;
 
   const [ruleSetA, setRuleSetA] = useState("[\n  {\n    \"id\": \"rule-a-1\",\n    \"when\": [{\"field\": \"score\", \"op\": \"gte\", \"value\": 80}],\n    \"score_delta\": 30\n  }\n]");
   const [ruleSetB, setRuleSetB] = useState("[\n  {\n    \"id\": \"rule-b-1\",\n    \"when\": [{\"field\": \"score\", \"op\": \"gte\", \"value\": 70}],\n    \"score_delta\": 25\n  }\n]");
@@ -91,9 +94,22 @@ export default function Simulation() {
     }
   }, []);
 
+  const fetchExperiments = useCallback(async () => {
+    setExperimentsBusy(true);
+    try {
+      const out = await simulation.listExperiments(25);
+      setExperiments(out.experiments ?? []);
+    } catch (e) {
+      setError(toUserFacingError(e, { subject: "Experiment registry", action: "list simulation experiments" }));
+    } finally {
+      setExperimentsBusy(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchScenarios();
-  }, [fetchScenarios]);
+    void fetchExperiments();
+  }, [fetchScenarios, fetchExperiments]);
 
   async function handleRunSimulation() {
     const scenario = customMode ? "custom" : selectedScenario;
@@ -294,10 +310,75 @@ export default function Simulation() {
             onChange={(e) => setAllowUnderpowered(e.target.checked)}
           />
           <span>
-            Allow underpowered runs (&lt;200 events). Required for custom profiles below the
-            holdout minimum — results must not be treated as production KPIs.
+            Allow underpowered runs (&lt;{MIN_HOLD_OUT_N} events). Server rejects with{" "}
+            <span className="font-mono text-gray-500">SIMULATION_UNDERPOWERED</span> /{" "}
+            <span className="font-mono text-gray-500">holdout_required</span> unless checked —
+            overrides must not be treated as production KPIs.
           </span>
         </label>
+        {allowUnderpowered ? (
+          <div className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+            Underpowered override on — holdout sample size gate bypassed for this run.
+          </div>
+        ) : null}
+      </div>
+
+      <div className="bg-surface-900 border border-surface-700 rounded-xl p-5 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-300">Experiment registry</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Recent <span className="font-mono">GET /v1/simulation/experiments</span> rows — compare{" "}
+              <span className="font-mono">events_evaluated</span> to min {MIN_HOLD_OUT_N}.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={experimentsBusy}
+            onClick={() => void fetchExperiments()}
+            className="text-xs px-3 py-1.5 rounded-lg border border-surface-600 text-gray-200 hover:border-brand-500 disabled:opacity-50"
+          >
+            {experimentsBusy ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
+        {experiments.length === 0 ? (
+          <p className="text-xs text-gray-600">No registry rows yet. Run a simulation to append.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-surface-700">
+            <table className="min-w-full text-sm">
+              <thead className="bg-surface-800 text-left text-gray-500 text-xs">
+                <tr>
+                  <th className="px-3 py-2">When</th>
+                  <th className="px-3 py-2">Type</th>
+                  <th className="px-3 py-2">Scenario</th>
+                  <th className="px-3 py-2">n</th>
+                  <th className="px-3 py-2">Holdout</th>
+                </tr>
+              </thead>
+              <tbody>
+                {experiments.map((row) => {
+                  const n = Number(row.events_evaluated ?? 0);
+                  const under = Number.isFinite(n) && n < MIN_HOLD_OUT_N;
+                  return (
+                    <tr key={String(row.id ?? row.ts)} className="border-t border-surface-700/80">
+                      <td className="px-3 py-2 font-mono text-[11px] text-gray-400">{String(row.ts ?? "")}</td>
+                      <td className="px-3 py-2 text-gray-300">{String(row.experiment_type ?? "—")}</td>
+                      <td className="px-3 py-2 text-gray-400">{String(row.scenario ?? "—")}</td>
+                      <td className="px-3 py-2 tabular-nums text-gray-300">{Number.isFinite(n) ? n : "—"}</td>
+                      <td className="px-3 py-2 text-xs">
+                        {under ? (
+                          <span className="text-amber-300">underpowered (&lt;{MIN_HOLD_OUT_N})</span>
+                        ) : (
+                          <span className="text-gray-500">ok</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Simulate Tab */}
