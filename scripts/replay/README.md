@@ -81,6 +81,29 @@ With **`COUNTER_REPLAY_TOKEN`** set and header **`X-Tarka-Counter-Replay-Token`*
 
 [`fixtures/parity_smoke.jsonl`](fixtures/parity_smoke.jsonl) — used by [`.github/workflows/counter-parity-smoke.yml`](../../.github/workflows/counter-parity-smoke.yml).
 
+## Audit-shaped offline parity (one command)
+
+[`fixtures/audit_payload_snapshot.jsonl`](fixtures/audit_payload_snapshot.jsonl) mirrors `decision_audit.payload_snapshot` rows (no Postgres in CI). Convert + replay + optional reference diff:
+
+```bash
+# Seed reference Redis from velocity JSONL, then prove audit-shaped path matches
+python scripts/replay/replay_aggregates.py \
+  --input scripts/replay/fixtures/parity_smoke.jsonl \
+  --redis-url redis://127.0.0.1:6379/12
+
+python scripts/replay/run_audit_offline_parity.py \
+  --mode fixture \
+  --scratch-url redis://127.0.0.1:6379/13 \
+  --reference-url redis://127.0.0.1:6379/12 \
+  --report /tmp/audit_parity.json \
+  --agg-key-version ci_parity_v1
+```
+
+- `--mode file --audit-input PATH` — same payload_snapshot shape from a local export.
+- `--mode export --tenant-id … --entity-id …` — runs `export_audit_to_jsonl.py` (needs `DATABASE_URL`) then parity.
+
+Converter unit tests: `pytest scripts/replay/test_audit_snapshot_to_replay.py -q`.
+
 ## CI parity gate (threshold)
 
 The weekly **[Counter parity smoke](../../.github/workflows/counter-parity-smoke.yml)** job is the **replay parity gate**: the same fixture is replayed into **two** empty Redis DB indices with the same `AGG_KEY_VERSION`, then **`diff_aggregate_redis.py`** compares aggregate ZSETs. The **threshold is zero drift** — the diff step must exit **0** (any missing key or member/score mismatch exits **1** and fails CI). For offline reports with a reference Redis, **`run_offline_parity.py`** writes JSON you can archive; treat **no diff** as the pass condition for parity checks.
