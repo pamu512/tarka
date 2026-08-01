@@ -22,6 +22,7 @@ from decision_api.consortium import consortium_score_delta, hash_entity_id
 from decision_api.currency import normalize_amount
 from decision_api.decision_log import build_decision_log_record, emit_decision_log
 from decision_api.device_scoring import extract_device_entropy_tags
+from decision_api.enforcement import resolve_enforcement_action
 from decision_api.eval_dag import EvalDAGRuntime
 from decision_api.eval_load_guard import acquire_eval_capacity
 from decision_api.eval_steps import run_evaluation_step
@@ -267,6 +268,7 @@ async def run_evaluate_decision(
                     "reason": list_check.reason,
                     "inference_context": _wl_inf,
                     "recommended_action": _wl_rec,
+                    "enforcement_action": resolve_enforcement_action("allow", _wl_rec),
                     "challenge_metadata": _wl_meta,
                     "step_trace": step_trace,
                     "counter_version": _audit_counter_version_label(),
@@ -297,6 +299,7 @@ async def run_evaluate_decision(
                 ml_score=None,
                 inference_context=_wl_inf,
                 recommended_action=_wl_rec,
+                enforcement_action=resolve_enforcement_action("allow", _wl_rec),
                 challenge_policy_id=_wl_meta.get("policy_id"),
                 challenge_metadata=_wl_meta,
                 policy_set_id=policy_set_id,
@@ -334,6 +337,7 @@ async def run_evaluate_decision(
                     "reason": list_check.reason,
                     "inference_context": _bl_inf,
                     "recommended_action": _bl_rec,
+                    "enforcement_action": resolve_enforcement_action("deny", _bl_rec),
                     "challenge_metadata": _bl_meta,
                     "step_trace": step_trace,
                     "counter_version": _audit_counter_version_label(),
@@ -364,6 +368,7 @@ async def run_evaluate_decision(
                 ml_score=None,
                 inference_context=_bl_inf,
                 recommended_action=_bl_rec,
+                enforcement_action=resolve_enforcement_action("deny", _bl_rec),
                 challenge_policy_id=_bl_meta.get("policy_id"),
                 challenge_metadata=_bl_meta,
                 policy_set_id=policy_set_id,
@@ -898,6 +903,7 @@ async def run_evaluate_decision(
             merged_tags,
             body.payload,
         )
+        enforcement_action = resolve_enforcement_action(decision, recommended_action)
 
         graph_decision_explanation = build_graph_decision_explanation_v1(
             trace_id=str(trace_id),
@@ -932,6 +938,7 @@ async def run_evaluate_decision(
             **stored_snapshot,
             "inference_context": inf_ctx,
             "recommended_action": recommended_action,
+            "enforcement_action": enforcement_action,
             "challenge_metadata": ch_meta,
             "step_trace": step_trace,
             "typologies": typology_results,
@@ -999,6 +1006,7 @@ async def run_evaluate_decision(
             ml_score=ml_score if isinstance(ml_score, float) else None,
             inference_context=inf_ctx,
             recommended_action=recommended_action,
+            enforcement_action=enforcement_action,
             challenge_policy_id=ch_meta.get("policy_id"),
             challenge_metadata=ch_meta,
             fallback_reason=fb_reason,
@@ -1047,6 +1055,7 @@ async def run_evaluate_decision(
             decision_status=runtime_decision_status,
             signal_availability_notes=signal_notes,
             recommended_action=recommended_action,
+            enforcement_action=enforcement_action,
             challenge_policy_id=ch_meta.get("policy_id"),
             challenge_metadata=ch_meta,
             fallback_reason=fb_reason,
@@ -1143,6 +1152,7 @@ async def run_evaluate_decision(
                 decision_status=runtime_decision_status,
                 signal_availability_notes=signal_notes,
                 recommended_action=_tb_rec,
+                enforcement_action=resolve_enforcement_action("allow", _tb_rec),
                 challenge_policy_id=_tb_meta.get("policy_id"),
                 challenge_metadata=_tb_meta,
                 fallback_reason=fb_reason,

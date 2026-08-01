@@ -43,6 +43,18 @@ class EnforcementIntent:
     recommended_action: str | None
 
 
+def is_step_up_recommended(recommended_action: str | None) -> bool:
+    """True when recommended_action is a step-up / challenge class hint."""
+    rec = (recommended_action or "").strip().lower().replace(" ", "_").replace("-", "_")
+    if not rec:
+        return False
+    return (
+        rec in _STEP_UP_ACTIONS
+        or rec.startswith("step_up")
+        or rec.startswith("challenge")
+    )
+
+
 def resolve_enforcement_action(
     decision: str,
     recommended_action: str | None = None,
@@ -51,12 +63,7 @@ def resolve_enforcement_action(
     d = (decision or "").strip().lower()
     if d == "deny":
         return "block"
-    rec = (recommended_action or "").strip().lower().replace(" ", "_")
-    if (
-        rec in _STEP_UP_ACTIONS
-        or rec.startswith("step_up")
-        or rec.startswith("challenge")
-    ):
+    if is_step_up_recommended(recommended_action):
         return "step_up"
     return "allow"
 
