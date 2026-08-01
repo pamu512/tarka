@@ -160,6 +160,8 @@ From the **repository root** with Docker running:
 
 Default compose is **Lite** (`infra/deploy/docker-compose.lite.yml`). Legacy `core_v2` streams stack: `docker compose -f docker-compose.streams-ai.yml up --build`.
 
+**15-minute first decision:** [docs/docs/guides/oss-15-minute-first-decision.md](docs/docs/guides/oss-15-minute-first-decision.md) → `python3 scripts/oss/first_decision_smoke.py`
+
 **Unified Python operator CLI** (module install / multi-profile compose)—this is the **`tarka start` path** people mean in ops docs today (`tarka.py` is the entrypoint):
 
 ```bash
