@@ -73,6 +73,14 @@ async def test_challenge_webhook_dispatch(monkeypatch):
     sig = seen["headers"]["x-tarka-signature"]
     expect = hmac.new(b"sekret", seen["body"], hashlib.sha256).hexdigest()
     assert sig == expect
+    import json
+
+    payload = json.loads(seen["body"])
+    assert payload["schema_id"] == "tarka.challenge_webhook/v1"
+    assert payload["trace_id"] == "t1"
+    assert payload["tenant_id"] == "acme"
+    assert payload["recommended_action"] == "step_up_mfa"
+    assert seen["headers"]["x-tarka-challenge-event"] == "step_up"
 
 
 @pytest.mark.asyncio
