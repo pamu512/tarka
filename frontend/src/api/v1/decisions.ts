@@ -33,5 +33,9 @@ export const decisionsOps = {
   policyPosture: () => decisions.policyPosture(),
   calibrationStatus: (tenantId: string, profile?: string) =>
     decisions.calibrationStatus(tenantId, profile),
+  reliabilityBins: (tenantId: string, limit?: number, nBins?: number) =>
+    decisions.reliabilityBins(tenantId, limit, nBins),
+  reliabilityExportCsv: (tenantId: string, limit?: number) =>
+    decisions.reliabilityExportCsv(tenantId, limit),
   counterCatalog: () => decisions.counterCatalog(),
 };

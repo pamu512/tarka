@@ -215,15 +215,28 @@ export function getDecisionsMockResponse(req: DecisionsMockRequest): unknown | n
       },
       experiment_registry_lines: 0,
       drift_smoke: { script: "scripts/benchmarks/drift_score_smoke.py", note: "Baseline vs shifted separation guard." },
+      integrity_ingress: {
+        schema_id: "tarka.integrity_ingress/v1",
+        request_signature_required: false,
+        request_signature_max_skew_seconds: 300,
+        request_signature_path_prefixes: ["/v1/decisions/evaluate"],
+        integrity_soft_tags: true,
+        replay_payload_ttl_seconds: 300,
+        challenge_webhook_configured: false,
+        integrity_policy_endpoint: "GET /v1/ops/integrity-policy",
+        docs: "docs/docs/guides/tls-pinning-and-signed-requests.md",
+      },
     };
   }
   if (path.includes("/api/decisions/v1/internal/counters/catalog")) {
     return {
       catalog_version: "1",
       manifest_version: "1.0.0",
-      redis_key_version: null,
+      redis_key_version: "local_v1",
       counters: [
+        { name: "event_count_5m", title: "Events (5 min)", category: "volume", kind: "event_count", window_seconds: 300 },
         { name: "event_count_1h", title: "Events (1 hour)", category: "volume", kind: "event_count", window_seconds: 3600 },
+        { name: "event_count_24h", title: "Events (24 hour)", category: "volume", kind: "event_count", window_seconds: 86400 },
       ],
     };
   }
@@ -558,6 +571,27 @@ export function getDecisionsMockResponse(req: DecisionsMockRequest): unknown | n
       ],
     };
   }
+  if (path.includes("/api/decisions/v1/calibration/reliability-bins")) {
+    return {
+      schema_id: "tarka.reliability_bins/v1",
+      tenant_id: "demo",
+      rows_scanned: 120,
+      caveat: "proxy_label_from_decision — join real y_label for true reliability diagrams",
+      labeled_rows: 120,
+      proxy_label_rows: 120,
+      label_source: "proxy_from_decision",
+      bins: [
+        { lo: 0, hi: 0.2, n: 40, mean_score: 0.1, positive_rate: 0.05 },
+        { lo: 0.2, hi: 0.4, n: 30, mean_score: 0.3, positive_rate: 0.15 },
+        { lo: 0.4, hi: 0.6, n: 25, mean_score: 0.5, positive_rate: 0.4 },
+        { lo: 0.6, hi: 0.8, n: 15, mean_score: 0.7, positive_rate: 0.65 },
+        { lo: 0.8, hi: 1.0, n: 10, mean_score: 0.9, positive_rate: 0.85 },
+      ],
+    };
+  }
+  if (path.includes("/api/decisions/v1/calibration/reliability-export.csv")) {
+    return "trace_id,tenant_id,score,confidence_tier,proxy_label_from_decision\ndemo-1,demo,0.42,medium,0\n";
+  }
 
   if (path.includes("/api/decisions/v1/policy/posture")) {
     return {
@@ -582,6 +616,42 @@ export function getDecisionsMockResponse(req: DecisionsMockRequest): unknown | n
         challenge_policies: [{ policy_id: "default_v1", version: 1, sha256: "d".repeat(64) }],
       },
       counts: { json_packs: 1, typologies: 2, challenge_policies: 1 },
+      integrity: {
+        ingress: {
+          schema_id: "tarka.integrity_ingress/v1",
+          request_signature_required: false,
+          integrity_soft_tags: true,
+          challenge_webhook_configured: false,
+          replay_payload_ttl_seconds: 300,
+          request_signature_path_prefixes: ["/v1/decisions/evaluate"],
+          docs: "docs/docs/guides/tls-pinning-and-signed-requests.md",
+        },
+        matrix: {
+          schema_id: "tarka.integrity_policy_matrix/v1",
+          platforms: {
+            web: {
+              attestation_provider: null,
+              high_confidence_signals: ["tls_pinning_verified", "replay_signature_ok", "captcha_passed"],
+              min_integrity_confidence_for_auto_action: 0.55,
+            },
+            android: {
+              attestation_provider: "play_integrity",
+              high_confidence_signals: ["play_integrity_verified", "replay_signature_ok"],
+              min_integrity_confidence_for_auto_action: 0.7,
+            },
+            ios: {
+              attestation_provider: "app_attest",
+              high_confidence_signals: ["app_attest_verified", "replay_signature_ok"],
+              min_integrity_confidence_for_auto_action: 0.7,
+            },
+            server: {
+              attestation_provider: null,
+              high_confidence_signals: ["hmac_request_ok", "replay_signature_ok"],
+              min_integrity_confidence_for_auto_action: 0.5,
+            },
+          },
+        },
+      },
     };
   }
 
