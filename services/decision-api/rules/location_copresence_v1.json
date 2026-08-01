@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "name": "location_copresence_v1",
+  "mode": "shadow",
+  "description": "Example pack: elevate when location-service / inference copresence_risk is high (session co-location). Shadow by default — flip mode to active after review.",
+  "rules": [
+    {
+      "id": "copresence_risk_elevated",
+      "when": [{ "op": "gte", "field": "copresence_risk", "value": 0.5 }],
+      "tags": ["location:copresence_elevated"],
+      "score_delta": 18,
+      "description": "copresence_risk from location evaluate / inference_context >= 0.5 (distinct sessions / shared place)"
+    },
+    {
+      "id": "impossible_travel_elevated",
+      "when": [{ "op": "gte", "field": "impossible_travel_risk", "value": 0.45 }],
+      "tags": ["location:impossible_travel"],
+      "score_delta": 22,
+      "description": "impossible_travel_risk suggests physically implausible movement"
+    }
+  ],
+  "tag_rules": [
+    {
+      "id": "escalate_copresence_with_velocity",
+      "any_tag": ["location:copresence_elevated", "velocity:high_1h"],
+      "tags": ["escalated:copresence_velocity"],
+      "score_delta": 12,
+      "description": "Co-presence elevation combined with high 1h velocity"
+    }
+  ]
+}

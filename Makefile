@@ -11,10 +11,15 @@ COMPOSE := $(COMPOSE_CMD) -f $(COMPOSE_FILE)
 
 MODEL_PATH := $(ROOT)/services/ml_sidecar/models/baseline_fraud_v1.onnx
 
-.PHONY: build up down logs audit test-ml train-model verify-model help
+.PHONY: build up down logs audit test-ml train-model verify-model policy-check help
 
 help:
-	@echo "Targets: build up down logs audit test-ml train-model verify-model"
+	@echo "Targets: build up down logs audit test-ml train-model verify-model policy-check"
+
+# Policy-as-code: JSON rule packs + v2 AST packs (+ optional OPA bundle lint).
+policy-check:
+	cd "$(ROOT)" && python3 infra/scripts/policy/validate_rule_packs.py
+	cd "$(ROOT)" && python3 infra/scripts/policy/validate_opa_bundle.py
 
 build:
 	$(COMPOSE) build
