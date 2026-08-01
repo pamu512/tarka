@@ -12,6 +12,7 @@ import { TarkaLogo } from "./components/TarkaLogo";
 import { LEAN_NAV, INCLUDE_DEMO_SURFACE, leanHomePath, isProductionSurfacePath } from "./config/leanNav";
 import MlLifecycle from "./pages/MlLifecycle";
 import OpsCalibration from "./pages/OpsCalibration";
+import OpsIntegrity from "./pages/OpsIntegrity";
 import { TarkaRbacRole } from "./security/rbacConstants";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -146,6 +147,7 @@ const NAV_GROUPS_ALL: { label: string; items: NavItem[] }[] = [
       { to: "/compliance/kyc-handover", label: "KYC handover", module: "compliance" },
       { to: "/compliance/regional-risk", label: "Regional risk", module: "compliance" },
       { to: "/ops/calibration", label: "Calibration & drift", module: "analytics" },
+      { to: "/ops/integrity", label: "Integrity & challenge", module: "compliance" },
       { to: "/ops/counters", label: "Counters catalog", module: "compliance" },
       { to: "/ops/features", label: "Feature tools", module: "compliance" },
       { to: "/ops/pipelines", label: "ETL / pipelines", module: "compliance" },
@@ -324,6 +326,7 @@ export default function App() {
             <Route path="/analytics/audit-log" element={<AuditLogExplorer />} />
             <Route path="/transactions/live" element={<TransactionsLiveGrid />} />
             <Route path="/ops/calibration" element={<OpsCalibration />} />
+            <Route path="/ops/integrity" element={<OpsIntegrity />} />
             <Route path="/investigation" element={<Investigation />} />
             <Route path="/investigation/dag-trace" element={<DagTracePage />} />
             <Route path="/investigation/shadow-llm" element={<ShadowLlmForensics />} />

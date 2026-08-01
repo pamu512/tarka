@@ -1393,6 +1393,22 @@ async def get_typology_predicate_registry(_=Depends(require_role("admin"))):
     return {"ok": True, **registry_public_view()}
 
 
+def _integrity_ingress_ops_block() -> dict[str, Any]:
+    from decision_api.challenge_orchestrator import challenge_webhook_configured
+    from decision_api.integrity_policy import integrity_ingress_status
+
+    replay_ttl = int(os.environ.get("REPLAY_PAYLOAD_TTL_SECONDS", "300"))
+    return integrity_ingress_status(
+        request_signature_required=bool(settings.request_signature_secret),
+        request_signature_max_skew_seconds=int(
+            settings.request_signature_max_skew_seconds
+        ),
+        integrity_soft_tags=bool(settings.integrity_soft_tags),
+        challenge_webhook_configured=challenge_webhook_configured(),
+        replay_payload_ttl_seconds=replay_ttl,
+    )
+
+
 @app.get("/v1/ops/governance")
 async def ops_governance():
     """Rollout posture: active rule packs (canary, effective_at), shadow count, inference contract version."""
@@ -1461,6 +1477,7 @@ async def ops_governance():
             ],
             "evaluate_response": "fallback_reason when degraded (R2.4)",
         },
+        "integrity_ingress": _integrity_ingress_ops_block(),
     }
 
 
@@ -1512,10 +1529,17 @@ async def list_challenge_policy_templates():
 
 @app.get("/v1/policy/posture")
 async def policy_posture():
-    """Versioned policy-set posture: JSON packs + typology + challenge policies."""
+    """Versioned policy-set posture: JSON packs + typology + challenge policies + integrity."""
+    from decision_api.integrity_policy import integrity_policy_matrix
     from decision_api.policy_set import get_policy_set_manifest
 
-    return get_policy_set_manifest()
+    manifest = get_policy_set_manifest()
+    # Integrity is ops context — not part of policy_set_id hash.
+    manifest["integrity"] = {
+        "ingress": _integrity_ingress_ops_block(),
+        "matrix": integrity_policy_matrix(),
+    }
+    return manifest
 
 
 @app.post("/v1/admin/shadow/reload")

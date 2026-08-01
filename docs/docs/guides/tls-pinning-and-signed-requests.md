@@ -36,6 +36,7 @@ Canonical helpers: **`services/shared/tarka_request_signature.py`** and **`packa
 
 - **Server (decision-api):** set **`REQUEST_SIGNATURE_SECRET`** to enable optional verification on **`POST /v1/decisions/evaluate`** (same HMAC). When unset, evaluate is unchanged (many teams still terminate signing at **Envoy / Kong / Cloudflare**).
 - **Client:** compute HMAC in the app and add headers; **never** embed the secret in the client for public apps — use **per-install** keys from your backend or mTLS instead.
+- **Production hardening overlay:** [`infra/deploy/docker-compose.production-hardening.yml`](../../../infra/deploy/docker-compose.production-hardening.yml) sets **`INTEGRITY_SOFT_TAGS=true`** (evaluate emits soft `integrity:*` tags when HMAC/pinning evidence is absent) and documents `REQUEST_SIGNATURE_*` / challenge webhook env. Ops: `GET /v1/ops/governance` → `integrity_ingress`, `GET /v1/policy/posture` → `integrity`, UI `/ops/integrity`.
 
 Edge gateways with **mTLS** to decision-api remain a common pattern for multi-hop setups.
 

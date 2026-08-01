@@ -73,6 +73,61 @@ def integrity_policy_matrix() -> dict[str, Any]:
     }
 
 
+def integrity_ingress_status(
+    *,
+    request_signature_required: bool,
+    request_signature_max_skew_seconds: int,
+    integrity_soft_tags: bool,
+    challenge_webhook_configured: bool,
+    replay_payload_ttl_seconds: int = 300,
+    request_signature_path_prefixes: tuple[str, ...] = ("/v1/decisions/evaluate",),
+) -> dict[str, Any]:
+    """Ops-facing ingress integrity flags (signing / soft tags / challenge webhook)."""
+    return {
+        "schema_id": "tarka.integrity_ingress/v1",
+        "request_signature_required": bool(request_signature_required),
+        "request_signature_max_skew_seconds": int(request_signature_max_skew_seconds),
+        "request_signature_path_prefixes": list(request_signature_path_prefixes),
+        "integrity_soft_tags": bool(integrity_soft_tags),
+        "replay_payload_ttl_seconds": int(replay_payload_ttl_seconds),
+        "challenge_webhook_configured": bool(challenge_webhook_configured),
+        "integrity_policy_endpoint": "GET /v1/ops/integrity-policy",
+        "docs": "docs/docs/guides/tls-pinning-and-signed-requests.md",
+    }
+
+
+def apply_evaluate_integrity_tags(
+    signal_tags: list[str],
+    *,
+    hmac_ok: bool | None,
+    request_signature_required: bool,
+    integrity_soft_tags: bool,
+    tls_pinning_verified: bool | None,
+    is_replayed: bool,
+) -> list[str]:
+    """Append ingress integrity tags for evaluate (idempotent-ish; caller owns dedupe)."""
+    out: list[str] = []
+    if hmac_ok is True:
+        out.append("ingress:hmac_request_ok")
+    elif request_signature_required and integrity_soft_tags and hmac_ok is not True:
+        # Middleware normally 401s before evaluate when secret is set; soft path for tests.
+        out.append("integrity:hmac_request_missing")
+    elif integrity_soft_tags and not request_signature_required:
+        out.append("integrity:hmac_not_configured")
+
+    if not is_replayed:
+        out.append("ingress:replay_signature_ok")
+
+    if tls_pinning_verified is True:
+        out.append("ingress:tls_pinning_verified")
+    elif integrity_soft_tags and tls_pinning_verified is not True:
+        out.append("integrity:tls_pinning_unverified")
+
+    # Dedupe while preserving order against existing tags.
+    have = set(signal_tags)
+    return [t for t in out if t not in have]
+
+
 def platform_meets_high_confidence(
     platform: str,
     *,
