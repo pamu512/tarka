@@ -6,16 +6,20 @@ import { useRegisterPageMeta } from "../context/PageMetaContext";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { useToast } from "../context/ToastContext";
 import {
-  cases,
   graph,
-  type Case,
   type EntityRiskResult,
   type GraphEdge,
   type GraphNode,
   type InferenceContext,
   type SubgraphResponse,
-  toUserFacingApiError,
 } from "../api/client";
+import {
+  cases,
+  disputes,
+  type Case,
+  toUserFacingApiError,
+} from "../api/v1/cases";
+import { buildEvidenceActPack, type EvidenceActPack } from "../utils/evidenceActPack";
 import StatusBadge from "../components/StatusBadge";
 import PriorityBadge from "../components/PriorityBadge";
 import { PageTitle } from "../components/PageTitle";
@@ -226,6 +230,9 @@ function CaseDetailWorkbench() {
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [labelInput, setLabelInput] = useState("");
   const [bundleBusy, setBundleBusy] = useState(false);
+  const [zipBusy, setZipBusy] = useState(false);
+  const [actPack, setActPack] = useState<EvidenceActPack | null>(null);
+  const [actBusy, setActBusy] = useState<"load" | "sar" | "dispute" | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [tuneRuleOpen, setTuneRuleOpen] = useState(false);
 
@@ -300,6 +307,7 @@ function CaseDetailWorkbench() {
     setBundleBusy(true);
     try {
       const bundle = await cases.evidenceBundle(caseId, caseData.tenant_id);
+      setActPack(buildEvidenceActPack(bundle, { decisionExplain }));
       const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -312,6 +320,117 @@ function CaseDetailWorkbench() {
       toast(toUserFacingApiError(e, { subject: "Evidence bundle", action: "download evidence bundle" }), "error");
     } finally {
       setBundleBusy(false);
+    }
+  };
+
+  const handleDownloadEvidenceZip = async () => {
+    if (!caseId || !caseData) return;
+    setZipBusy(true);
+    try {
+      const blob = await cases.evidenceBundleZip(caseId, caseData.tenant_id);
+      const isJson = blob.type.includes("json");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = isJson
+        ? `evidence-bundle-${caseId.slice(0, 8)}.json`
+        : `evidence-${caseId.slice(0, 8)}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast(isJson ? "ZIP unavailable — downloaded JSON" : "Evidence ZIP downloaded", "success");
+      const bundle = await cases.evidenceBundle(caseId, caseData.tenant_id);
+      setActPack(buildEvidenceActPack(bundle, { decisionExplain }));
+    } catch (e) {
+      toast(toUserFacingApiError(e, { subject: "Evidence ZIP", action: "download evidence zip" }), "error");
+    } finally {
+      setZipBusy(false);
+    }
+  };
+
+  const handleLoadActPack = async () => {
+    if (!caseId || !caseData) return;
+    setActBusy("load");
+    try {
+      const bundle = await cases.evidenceBundle(caseId, caseData.tenant_id);
+      setActPack(buildEvidenceActPack(bundle, { decisionExplain }));
+      toast("Act pack ready", "success");
+    } catch (e) {
+      toast(toUserFacingApiError(e, { subject: "Act pack", action: "load evidence act pack" }), "error");
+    } finally {
+      setActBusy(null);
+    }
+  };
+
+  const handleCopyActPack = async () => {
+    if (!actPack) {
+      await handleLoadActPack();
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(actPack, null, 2));
+      toast("Act pack copied", "success");
+    } catch {
+      toast("Could not copy act pack", "error");
+    }
+  };
+
+  const handleGenerateSarFromEvidence = async () => {
+    if (!caseId || !caseData) return;
+    setActBusy("sar");
+    try {
+      if (!actPack) {
+        const bundle = await cases.evidenceBundle(caseId, caseData.tenant_id);
+        setActPack(buildEvidenceActPack(bundle, { decisionExplain }));
+      }
+      const out = (await cases.generateSar(caseId, caseData.tenant_id, "generic_json")) as {
+        sar_filing_intent_id?: string;
+        id?: string;
+      };
+      const intentId = out.sar_filing_intent_id ?? out.id;
+      toast("SAR intent generated from evidence", "success");
+      if (intentId) {
+        navigate(
+          `/cases/${caseId}/sar-intent/${encodeURIComponent(String(intentId))}?tenant_id=${encodeURIComponent(caseData.tenant_id)}`,
+        );
+      }
+    } catch (e) {
+      toast(toUserFacingApiError(e, { subject: "SAR generate", action: "generate SAR from evidence" }), "error");
+    } finally {
+      setActBusy(null);
+    }
+  };
+
+  const handleOpenDisputeFromEvidence = async () => {
+    if (!caseId || !caseData) return;
+    const trace = caseData.trace_id?.trim();
+    if (!trace) {
+      toast("Case has no trace_id — cannot open dispute from evidence", "error");
+      return;
+    }
+    setActBusy("dispute");
+    try {
+      let pack = actPack;
+      if (!pack) {
+        const bundle = await cases.evidenceBundle(caseId, caseData.tenant_id);
+        pack = buildEvidenceActPack(bundle, { decisionExplain });
+        setActPack(pack);
+      }
+      const d = await disputes.create({
+        tenant_id: caseData.tenant_id,
+        entity_id: caseData.entity_id,
+        trace_id: trace,
+        case_id: caseId,
+        dispute_type: "chargeback",
+        reason_code: pack.recommended_action
+          ? `evidence:${pack.recommended_action}`
+          : "evidence_act_pack",
+      });
+      toast("Dispute opened from evidence", "success");
+      navigate(`/disputes/${d.id}`);
+    } catch (e) {
+      toast(toUserFacingApiError(e, { subject: "Dispute", action: "open dispute from evidence" }), "error");
+    } finally {
+      setActBusy(null);
     }
   };
 
@@ -967,6 +1086,101 @@ function CaseDetailWorkbench() {
           ) : null}
         </div>
       ) : null}
+
+      <div className="rounded-xl border border-surface-700 bg-surface-900/80 p-4 space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-200">Evidence → act</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Download audit bundle, copy act pack, then start SAR or dispute with case context.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={bundleBusy || actBusy !== null}
+              onClick={() => void handleDownloadEvidenceBundle()}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-surface-700 text-gray-200 hover:bg-surface-600 border border-surface-600 disabled:opacity-50"
+            >
+              {bundleBusy ? "…" : "JSON"}
+            </button>
+            <button
+              type="button"
+              disabled={zipBusy || actBusy !== null}
+              onClick={() => void handleDownloadEvidenceZip()}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-surface-700 text-gray-200 hover:bg-surface-600 border border-surface-600 disabled:opacity-50"
+            >
+              {zipBusy ? "…" : "ZIP"}
+            </button>
+            <button
+              type="button"
+              disabled={actBusy !== null}
+              onClick={() => void handleLoadActPack()}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-surface-700 text-gray-200 hover:bg-surface-600 border border-surface-600 disabled:opacity-50"
+            >
+              {actBusy === "load" ? "…" : "Load act pack"}
+            </button>
+            <button
+              type="button"
+              disabled={actBusy !== null}
+              onClick={() => void handleCopyActPack()}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-surface-700 text-gray-200 hover:bg-surface-600 border border-surface-600 disabled:opacity-50"
+            >
+              Copy act pack
+            </button>
+          </div>
+        </div>
+        {actPack ? (
+          <dl className="grid gap-1 sm:grid-cols-2 text-xs text-gray-400">
+            <div>
+              Decision: <span className="font-mono text-brand-300">{actPack.decision ?? "—"}</span>
+              {actPack.score != null ? (
+                <span className="ml-1 tabular-nums text-gray-500">({actPack.score})</span>
+              ) : null}
+            </div>
+            <div>
+              Recommended:{" "}
+              <span className="text-gray-200">
+                {actPack.recommended_action
+                  ? humanizeRecommendedAction(actPack.recommended_action)
+                  : "—"}
+              </span>
+            </div>
+            <div>
+              Confidence: <span className="font-mono text-gray-300">{actPack.confidence_tier ?? "—"}</span>
+            </div>
+            <div className="truncate" title={actPack.content_sha256 ?? undefined}>
+              Hash: <span className="font-mono text-gray-500">{actPack.content_sha256?.slice(0, 16) ?? "—"}</span>
+            </div>
+            {actPack.top_drivers.length > 0 ? (
+              <div className="sm:col-span-2 text-gray-500">
+                Drivers: {actPack.top_drivers.slice(0, 4).join(" · ")}
+              </div>
+            ) : null}
+          </dl>
+        ) : (
+          <p className="text-xs text-gray-600">Load act pack or download a bundle to populate summary.</p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={actBusy !== null}
+            onClick={() => void handleGenerateSarFromEvidence()}
+            className="text-xs font-medium px-3 py-2 rounded-lg bg-brand-600/20 text-brand-300 hover:bg-brand-600/30 border border-brand-500/30 disabled:opacity-50"
+          >
+            {actBusy === "sar" ? "Generating SAR…" : "Generate SAR intent"}
+          </button>
+          <button
+            type="button"
+            disabled={actBusy !== null || !caseData.trace_id}
+            title={!caseData.trace_id ? "Requires case trace_id" : undefined}
+            onClick={() => void handleOpenDisputeFromEvidence()}
+            className="text-xs font-medium px-3 py-2 rounded-lg bg-surface-800 text-gray-200 hover:bg-surface-700 border border-surface-600 disabled:opacity-50"
+          >
+            {actBusy === "dispute" ? "Opening dispute…" : "Open dispute"}
+          </button>
+        </div>
+      </div>
 
       <SarManagementPanel caseId={caseData.id} tenantId={caseData.tenant_id} />
 
