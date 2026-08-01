@@ -223,8 +223,10 @@ export function getDecisionsMockResponse(req: DecisionsMockRequest): unknown | n
         integrity_soft_tags: true,
         replay_payload_ttl_seconds: 300,
         challenge_webhook_configured: false,
+        enforcement_webhook_configured: false,
         integrity_policy_endpoint: "GET /v1/ops/integrity-policy",
         docs: "docs/docs/guides/tls-pinning-and-signed-requests.md",
+        decide_to_act_docs: "docs/docs/guides/decide-to-act-enforcement.md",
       },
     };
   }
@@ -622,9 +624,11 @@ export function getDecisionsMockResponse(req: DecisionsMockRequest): unknown | n
           request_signature_required: false,
           integrity_soft_tags: true,
           challenge_webhook_configured: false,
+          enforcement_webhook_configured: false,
           replay_payload_ttl_seconds: 300,
           request_signature_path_prefixes: ["/v1/decisions/evaluate"],
           docs: "docs/docs/guides/tls-pinning-and-signed-requests.md",
+          decide_to_act_docs: "docs/docs/guides/decide-to-act-enforcement.md",
         },
         matrix: {
           schema_id: "tarka.integrity_policy_matrix/v1",

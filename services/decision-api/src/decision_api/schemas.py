@@ -183,6 +183,10 @@ class EvaluateResponse(BaseModel):
         description="Audit lines for humans, e.g. 'Signal Graph risk was unavailable' when a circuit tripped.",
     )
     recommended_action: str | None = None
+    enforcement_action: str | None = Field(
+        default=None,
+        description='Platform protect verb: "allow" | "step_up" | "block" (from decision + recommended_action)',
+    )
     challenge_policy_id: str | None = Field(
         default=None,
         description="Resolved challenge template id (may differ from request if default applied)",

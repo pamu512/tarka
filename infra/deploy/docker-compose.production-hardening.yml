@@ -38,6 +38,9 @@ services:
       # Challenge step-up webhook (tenant-owned; signed if secret set)
       # TARKA_CHALLENGE_WEBHOOK_URL: "https://example.com/hooks/tarka-challenge"
       # TARKA_CHALLENGE_WEBHOOK_SECRET: "${TARKA_CHALLENGE_WEBHOOK_SECRET}"
+      # Platform enforcement webhook (allow|step_up|block) — tarka.enforcement/v1
+      # TARKA_ENFORCEMENT_WEBHOOK_URL: "https://example.com/hooks/tarka-enforcement"
+      # TARKA_ENFORCEMENT_WEBHOOK_SECRET: "${TARKA_ENFORCEMENT_WEBHOOK_SECRET}"
 
   integration-ingress:
     environment:

@@ -79,10 +79,11 @@ def integrity_ingress_status(
     request_signature_max_skew_seconds: int,
     integrity_soft_tags: bool,
     challenge_webhook_configured: bool,
+    enforcement_webhook_configured: bool = False,
     replay_payload_ttl_seconds: int = 300,
     request_signature_path_prefixes: tuple[str, ...] = ("/v1/decisions/evaluate",),
 ) -> dict[str, Any]:
-    """Ops-facing ingress integrity flags (signing / soft tags / challenge webhook)."""
+    """Ops-facing ingress integrity flags (signing / soft tags / act webhooks)."""
     return {
         "schema_id": "tarka.integrity_ingress/v1",
         "request_signature_required": bool(request_signature_required),
@@ -91,8 +92,10 @@ def integrity_ingress_status(
         "integrity_soft_tags": bool(integrity_soft_tags),
         "replay_payload_ttl_seconds": int(replay_payload_ttl_seconds),
         "challenge_webhook_configured": bool(challenge_webhook_configured),
+        "enforcement_webhook_configured": bool(enforcement_webhook_configured),
         "integrity_policy_endpoint": "GET /v1/ops/integrity-policy",
         "docs": "docs/docs/guides/tls-pinning-and-signed-requests.md",
+        "decide_to_act_docs": "docs/docs/guides/decide-to-act-enforcement.md",
     }
 
 
