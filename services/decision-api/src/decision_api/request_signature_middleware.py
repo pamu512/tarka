@@ -52,4 +52,6 @@ class RequestSignatureMiddleware(BaseHTTPMiddleware):
             return {"type": "http.request", "body": body, "more_body": False}
 
         request = Request(request.scope, receive)
+        # Evaluate reads this for ingress:hmac_request_ok (Wave B integrity baseline).
+        request.state.tarka_request_signature_ok = True
         return await call_next(request)

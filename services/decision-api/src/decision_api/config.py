@@ -174,6 +174,11 @@ class Settings(BaseSettings):
     request_signature_max_skew_seconds: int = int(
         os.environ.get("REQUEST_SIGNATURE_MAX_SKEW_SECONDS", "300")
     )
+    # When true, evaluate emits soft integrity:* tags if HMAC/pinning evidence is absent
+    # (fail-soft; does not 401). Pair with production-hardening compose.
+    integrity_soft_tags: bool = os.environ.get(
+        "INTEGRITY_SOFT_TAGS", ""
+    ).strip().lower() in ("1", "true", "yes", "on")
 
     # Challenge policy templates (JSON under {rules_path}/challenge_policies/)
     challenge_policy_default: str = os.environ.get(
