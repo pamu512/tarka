@@ -5,13 +5,24 @@ import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
+type ReliabilityBins = {
+  schema_id?: string;
+  labeled_rows?: number;
+  proxy_label_rows?: number;
+  label_source?: string;
+  caveat?: string | null;
+  bins?: Array<Record<string, unknown>>;
+};
+
 export default function OpsCalibration() {
   const { tenantId } = useTenantEnvironment();
   const [profile, setProfile] = useState("default");
   const [status, setStatus] = useState<Record<string, unknown> | null>(null);
   const [drift, setDrift] = useState<Record<string, unknown> | null>(null);
   const [summary, setSummary] = useState<Array<Record<string, unknown>>>([]);
+  const [bins, setBins] = useState<ReliabilityBins | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [exportBusy, setExportBusy] = useState(false);
 
   useEffect(() => {
     if (!tenantId.trim()) return;
@@ -35,7 +46,38 @@ export default function OpsCalibration() {
     })();
   }, [tenantId, profile]);
 
+  async function loadBins() {
+    setErr(null);
+    try {
+      const out = await decisions.reliabilityBins(tenantId.trim(), 5000, 10);
+      setBins(out as ReliabilityBins);
+    } catch (e) {
+      setErr(toUserFacingError(e, { subject: "Reliability bins", action: "load reliability bins" }));
+      setBins(null);
+    }
+  }
+
+  async function downloadCsv() {
+    setExportBusy(true);
+    setErr(null);
+    try {
+      const csv = await decisions.reliabilityExportCsv(tenantId.trim(), 10_000);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = `reliability_${tenantId.trim() || "tenant"}.csv`;
+      a.click();
+      URL.revokeObjectURL(href);
+    } catch (e) {
+      setErr(toUserFacingError(e, { subject: "Reliability CSV", action: "download reliability export" }));
+    } finally {
+      setExportBusy(false);
+    }
+  }
+
   const cal = (status?.calibration as Record<string, unknown> | undefined) ?? {};
+  const binRows = bins?.bins ?? [];
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -78,6 +120,9 @@ export default function OpsCalibration() {
           <h3 className="text-gray-300 font-medium mb-2">Ops status</h3>
           <dl className="space-y-1 text-gray-400">
             <div>
+              Profile: <span className="font-mono text-brand-300">{profile || "default"}</span>
+            </div>
+            <div>
               Inference schema:{" "}
               <span className="font-mono text-brand-300">{String(status?.inference_schema_version ?? "—")}</span>
             </div>
@@ -104,6 +149,64 @@ export default function OpsCalibration() {
             </div>
           </dl>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-surface-700 bg-surface-900 p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-medium text-gray-300">Reliability bins / export</h3>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void loadBins()}
+              className="px-3 py-1.5 text-xs rounded border border-surface-600 hover:border-brand-500 text-gray-200"
+            >
+              Load bins
+            </button>
+            <button
+              type="button"
+              disabled={exportBusy || !tenantId.trim()}
+              onClick={() => void downloadCsv()}
+              className="px-3 py-1.5 text-xs rounded border border-surface-600 hover:border-brand-500 text-gray-200 disabled:opacity-50"
+            >
+              {exportBusy ? "Downloading…" : "Download CSV"}
+            </button>
+          </div>
+        </div>
+        {bins?.caveat ? <p className="text-xs text-amber-200/80">{bins.caveat}</p> : null}
+        {bins ? (
+          <p className="text-xs text-gray-500">
+            {String(bins.schema_id ?? "")} · labeled {String(bins.labeled_rows ?? 0)} · source{" "}
+            <span className="font-mono">{String(bins.label_source ?? "—")}</span>
+          </p>
+        ) : (
+          <p className="text-xs text-gray-500">Load bins from recent decision_audit (proxy labels unless y_label filled).</p>
+        )}
+        {binRows.length > 0 ? (
+          <div className="overflow-x-auto rounded-lg border border-surface-700">
+            <table className="min-w-full text-sm">
+              <thead className="bg-surface-800 text-left text-gray-400">
+                <tr>
+                  <th className="px-3 py-2">Bin</th>
+                  <th className="px-3 py-2">n</th>
+                  <th className="px-3 py-2">Mean score</th>
+                  <th className="px-3 py-2">Positive rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {binRows.map((b, i) => (
+                  <tr key={i} className="border-t border-surface-700/80">
+                    <td className="px-3 py-2 font-mono text-xs text-brand-300">
+                      {String(b.lo ?? "")}–{String(b.hi ?? "")}
+                    </td>
+                    <td className="px-3 py-2 tabular-nums text-gray-400">{String(b.n ?? 0)}</td>
+                    <td className="px-3 py-2 tabular-nums text-gray-400">{String(b.mean_score ?? "—")}</td>
+                    <td className="px-3 py-2 tabular-nums text-gray-400">{String(b.positive_rate ?? "—")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </div>
 
       <div className="rounded-xl border border-surface-700 overflow-hidden">
@@ -146,8 +249,8 @@ export default function OpsCalibration() {
       </div>
 
       <p className="text-xs text-gray-500">
-        Offline reliability export: <span className="font-mono">scripts/calibration/export_reliability_dataset.py</span>.
-        Pin a reference with <span className="font-mono">POST /v1/calibration/reference/{"{profile}"}</span>.
+        Runbook: <span className="font-mono">docs/docs/guides/calibration-ops-runbook.md</span>. Pin a reference with{" "}
+        <span className="font-mono">POST /v1/calibration/reference/{"{profile}"}</span>.
       </p>
     </div>
   );

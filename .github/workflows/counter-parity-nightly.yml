@@ -29,7 +29,7 @@ jobs:
           python-version: "3.12"
       - name: Install redis client
         run: pip install redis
-      - name: Offline parity report
+      - name: Offline parity report (velocity JSONL)
         env:
           AGG_KEY_VERSION: ci_parity_v1
         run: |
@@ -43,10 +43,26 @@ jobs:
             --reference-url redis://127.0.0.1:6379/14 \
             --report artifacts/counter-parity-nightly.json \
             --agg-key-version ci_parity_v1
+      - name: Audit-shaped offline parity
+        env:
+          AGG_KEY_VERSION: ci_parity_v1
+        run: |
+          mkdir -p artifacts
+          python3 scripts/replay/replay_aggregates.py \
+            --input scripts/replay/fixtures/parity_smoke.jsonl \
+            --redis-url redis://127.0.0.1:6379/12
+          python3 scripts/replay/run_audit_offline_parity.py \
+            --mode fixture \
+            --scratch-url redis://127.0.0.1:6379/13 \
+            --reference-url redis://127.0.0.1:6379/12 \
+            --report artifacts/counter-parity-audit-shaped.json \
+            --agg-key-version ci_parity_v1
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: counter-parity-nightly
-          path: artifacts/counter-parity-nightly.json
+          path: |
+            artifacts/counter-parity-nightly.json
+            artifacts/counter-parity-audit-shaped.json
           if-no-files-found: ignore

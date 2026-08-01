@@ -6,13 +6,18 @@ import { SupportIdHint } from "../components/SupportIdHint";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
+const DEFAULT_EXPECTED_HINT = '{\n  "event_count_1h": 2\n}';
+
 export default function OpsCounters() {
   const { tenantId } = useTenantEnvironment();
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [gov, setGov] = useState<Record<string, unknown> | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [entityId, setEntityId] = useState("parity-smoke");
+  const [expectedJson, setExpectedJson] = useState("");
+  const [liveMsg, setLiveMsg] = useState<string | null>(null);
   const [parityMsg, setParityMsg] = useState<string | null>(null);
-  const [parityBusy, setParityBusy] = useState(false);
+  const [busy, setBusy] = useState<"live" | "parity" | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -26,26 +31,80 @@ export default function OpsCounters() {
     })();
   }, []);
 
+  async function queryLiveVelocity() {
+    setBusy("live");
+    setLiveMsg(null);
+    setErr(null);
+    try {
+      const out = await features.velocityQuery({
+        tenant_id: tenantId,
+        entity_id: entityId.trim() || "parity-smoke",
+        payload: {},
+      });
+      setLiveMsg(JSON.stringify(out, null, 2));
+    } catch (e) {
+      setErr(toUserFacingError(e, { subject: "Live velocity", action: "query Redis velocity counters" }));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function runParityVerify() {
-    setParityBusy(true);
+    setBusy("parity");
     setParityMsg(null);
     setErr(null);
+    const raw = expectedJson.trim();
+    if (!raw) {
+      setErr(
+        "Parity verify needs expected counters JSON (e.g. event_count_1h). Query live velocity first, or paste golden expectations.",
+      );
+      setBusy(null);
+      return;
+    }
+    let expected: Record<string, number>;
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("expected must be a JSON object");
+      }
+      expected = {};
+      for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+        const n = Number(v);
+        if (!Number.isFinite(n)) {
+          throw new Error(`expected.${k} must be a number`);
+        }
+        expected[k] = n;
+      }
+      if (Object.keys(expected).length === 0) {
+        throw new Error("expected object has no keys");
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Invalid expected JSON");
+      setBusy(null);
+      return;
+    }
     try {
       const out = await features.parityVerify({
         tenant_id: tenantId,
-        entity_id: "parity-smoke",
-        expected: {},
-        epsilon: 0,
+        entity_id: entityId.trim() || "parity-smoke",
+        expected,
+        epsilon: 0.5,
       });
       setParityMsg(JSON.stringify(out, null, 2));
     } catch (e) {
       setErr(toUserFacingError(e, { subject: "Counter parity", action: "run parity verify" }));
     } finally {
-      setParityBusy(false);
+      setBusy(null);
     }
   }
 
   const counters = (data?.counters as Array<Record<string, unknown>> | undefined) ?? [];
+  const manifestVersion = String(data?.manifest_version ?? "—");
+  const catalogVersion = String(data?.catalog_version ?? "—");
+  const redisKeyVersion =
+    data?.redis_key_version != null && String(data.redis_key_version).trim() !== ""
+      ? String(data.redis_key_version)
+      : "(unset — legacy AGG_KEY_VERSION)";
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -63,33 +122,82 @@ export default function OpsCounters() {
           />
         </div>
       )}
-      {gov && (
-        <div className="rounded-xl border border-surface-700 bg-surface-900 p-4 text-sm text-gray-300">
-          <div>
+      <div className="rounded-xl border border-surface-700 bg-surface-900 p-4 text-sm text-gray-300 grid gap-2 sm:grid-cols-3">
+        <div>
+          Manifest: <span className="font-mono text-brand-300">{manifestVersion}</span>
+        </div>
+        <div>
+          Catalog: <span className="font-mono text-brand-300">{catalogVersion}</span>
+        </div>
+        <div>
+          Redis key version: <span className="font-mono text-brand-300">{redisKeyVersion}</span>
+        </div>
+        {gov?.inference_schema_version != null ? (
+          <div className="sm:col-span-3 text-xs text-gray-500">
             Inference schema:{" "}
-            <span className="font-mono text-brand-300">{String(gov.inference_schema_version ?? "")}</span>
+            <span className="font-mono text-gray-400">{String(gov.inference_schema_version)}</span>
+            {gov.counter_catalog && typeof gov.counter_catalog === "object" ? (
+              <span className="ml-2">
+                ·{" "}
+                {(gov.counter_catalog as { note?: string }).note ||
+                  `See ${(gov.counter_catalog as { endpoint?: string }).endpoint ?? "GET /v1/internal/counters/catalog"}`}
+              </span>
+            ) : null}
           </div>
-          {gov.counter_catalog && typeof gov.counter_catalog === "object" ? (
-            <div className="mt-2 text-xs text-gray-500">
-              {(gov.counter_catalog as { note?: string }).note ||
-                `See ${(gov.counter_catalog as { endpoint?: string }).endpoint ?? "GET /v1/internal/counters/catalog"}`}
-            </div>
-          ) : null}
+        ) : null}
+      </div>
+      <div className="rounded-xl border border-surface-700 bg-surface-900 p-4 space-y-3">
+        <h3 className="text-sm font-medium text-gray-300">Live velocity &amp; parity</h3>
+        <p className="text-xs text-gray-500">
+          Requires feature-service Redis shared with decision-api writers. Empty expected JSON is rejected — paste
+          golden counters after seeding (fixture replay or evaluate).
+        </p>
+        <label className="block text-xs text-gray-400">
+          Entity id
+          <input
+            className="mt-1 w-full max-w-md rounded-lg border border-surface-600 bg-surface-950 px-2 py-1.5 font-mono text-sm text-gray-200"
+            value={entityId}
+            onChange={(e) => setEntityId(e.target.value)}
+          />
+        </label>
+        <label className="block text-xs text-gray-400">
+          Expected counters JSON (optional until parity)
+          <textarea
+            className="mt-1 w-full max-w-xl rounded-lg border border-surface-600 bg-surface-950 px-2 py-1.5 font-mono text-[11px] text-gray-300 min-h-[72px]"
+            placeholder={DEFAULT_EXPECTED_HINT}
+            value={expectedJson}
+            onChange={(e) => setExpectedJson(e.target.value)}
+          />
+        </label>
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            disabled={parityBusy}
-            onClick={() => void runParityVerify()}
-            className="mt-3 px-3 py-1.5 text-xs rounded border border-surface-600 hover:border-brand-500 text-gray-200 disabled:opacity-50"
+            disabled={busy !== null}
+            onClick={() => void queryLiveVelocity()}
+            className="px-3 py-1.5 text-xs rounded border border-surface-600 hover:border-brand-500 text-gray-200 disabled:opacity-50"
           >
-            {parityBusy ? "Running parity…" : "Run parity verify"}
+            {busy === "live" ? "Querying…" : "Query live velocity"}
           </button>
-          {parityMsg && (
-            <pre className="mt-2 max-h-48 overflow-auto text-[11px] text-gray-400 font-mono whitespace-pre-wrap">
-              {parityMsg}
-            </pre>
-          )}
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={() => void runParityVerify()}
+            className="px-3 py-1.5 text-xs rounded border border-surface-600 hover:border-brand-500 text-gray-200 disabled:opacity-50"
+          >
+            {busy === "parity" ? "Running parity…" : "Run parity verify"}
+          </button>
         </div>
-      )}
+        {liveMsg && (
+          <pre className="max-h-48 overflow-auto text-[11px] text-gray-400 font-mono whitespace-pre-wrap">
+            {liveMsg}
+          </pre>
+        )}
+        {parityMsg && (
+          <pre className="max-h-48 overflow-auto text-[11px] text-gray-400 font-mono whitespace-pre-wrap">
+            {parityMsg}
+          </pre>
+        )}
+      </div>
       <div className="overflow-x-auto rounded-xl border border-surface-700">
         <table className="min-w-full text-sm">
           <thead className="bg-surface-800 text-left text-gray-400">
@@ -117,8 +225,8 @@ export default function OpsCounters() {
         </table>
       </div>
       <p className="text-xs text-gray-500">
-        Redis key version: set <span className="font-mono">AGG_KEY_VERSION</span> for migrations. Offline replay:{" "}
-        <span className="font-mono">scripts/replay/run_offline_parity.py</span>.
+        Offline audit → replay: <span className="font-mono">scripts/replay/run_audit_offline_parity.py</span>. Docs:{" "}
+        <span className="font-mono">docs/docs/guides/counter-replay-parity.md</span>.
       </p>
     </div>
   );

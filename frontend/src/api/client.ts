@@ -1443,6 +1443,37 @@ export const decisions = {
     }>(`/api/decisions/v1/calibration/summary?${q}`);
   },
 
+  reliabilityBins(tenantId: string, limit: number = 5000, nBins: number = 10) {
+    const q = new URLSearchParams({
+      tenant_id: tenantId,
+      limit: String(limit),
+      n_bins: String(nBins),
+    });
+    return request<{
+      schema_id: string;
+      tenant_id?: string;
+      rows_scanned?: number;
+      caveat?: string;
+      bins?: Array<Record<string, unknown>>;
+      [key: string]: unknown;
+    }>(`/api/decisions/v1/calibration/reliability-bins?${q}`);
+  },
+
+  async reliabilityExportCsv(tenantId: string, limit: number = 10_000): Promise<string> {
+    const q = new URLSearchParams({ tenant_id: tenantId, limit: String(limit) });
+    const url = `/api/decisions/v1/calibration/reliability-export.csv?${q}`;
+    const res = await fetch(url, { headers: { Accept: "text/csv" } });
+    const text = await res.text();
+    if (!res.ok) {
+      if (USE_API_MOCKS) {
+        const mock = await loadMockResponse(url, { method: "GET" });
+        if (typeof mock === "string") return mock;
+      }
+      throw apiRequestErrorFromHttp(res.status, res.statusText, text, res.headers);
+    }
+    return text;
+  },
+
   /** OSS #36 — detection vs compliance posture + dependency hints for analyst banner. */
   evaluationPosture() {
     return request<EvaluationPostureResponse>("/api/decisions/v1/ops/evaluation-posture");
@@ -1766,6 +1797,25 @@ export const cases = {
   evidenceBundle(caseId: string, tenantId: string) {
     const q = new URLSearchParams({ tenant_id: tenantId });
     return request<Record<string, unknown>>(`/api/cases/v1/cases/${caseId}/evidence-bundle?${q}`);
+  },
+
+  async evidenceBundleZip(caseId: string, tenantId: string): Promise<Blob> {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    const url = `/api/cases/v1/cases/${caseId}/evidence-bundle.zip?${q}`;
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        const ct = res.headers.get("content-type") ?? "";
+        if (ct.includes("zip") || ct.includes("octet-stream")) {
+          return res.blob();
+        }
+      }
+    } catch {
+      /* fall through — mock / offline */
+    }
+    // ponytail: no JSZip dep — offline/mock falls back to JSON blob (caller may rename .json)
+    const bundle = await cases.evidenceBundle(caseId, tenantId);
+    return new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
   },
 
   generateSar(caseId: string, tenantId: string, format: string = "fincen_xml") {
@@ -2544,6 +2594,13 @@ export const simulation = {
       method: "POST",
       body: JSON.stringify(body),
     });
+  },
+
+  listExperiments(limit: number = 30) {
+    const q = new URLSearchParams({ limit: String(limit) });
+    return request<{ experiments: Array<Record<string, unknown>> }>(
+      `/api/decisions/v1/simulation/experiments?${q}`,
+    );
   },
 };
 
