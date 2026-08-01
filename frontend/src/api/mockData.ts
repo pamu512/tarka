@@ -2,6 +2,7 @@ import { ACCESS_GROUPS, requiresMakerChecker } from "../config/accessModuleCatal
 import { deterministicAuditRecentItem } from "../domain/auditExplorerDeterministic";
 import { buildTransactionSeed } from "../domain/transactionSeed";
 import { mapAnalyticsTransactionRow } from "../utils/mapAnalyticsTransactionRow";
+import { getCasesMockResponse } from "./mockData.cases";
 import { getDecisionsMockResponse } from "./mockData.decisions";
 import { getInvestigationMockResponse } from "./mockData.investigation";
 import { type AnyObj, mockRandomAlpha } from "./mockData.shared";
@@ -1246,6 +1247,9 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   const decisionsMock = getDecisionsMockResponse({ url, path, method, body });
   if (decisionsMock !== null) return decisionsMock;
 
+  const casesMock = getCasesMockResponse({ url, path, method, body });
+  if (casesMock !== null) return casesMock;
+
   if (path === "/api/v1/demo/simulate_attack" && method === "POST") {
     const n = 4;
     const results = Array.from({ length: n }, (_, i) => ({
@@ -1386,16 +1390,6 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
     }
   }
 
-  if (path.includes("/api/cases/v1/health")) {
-    return {
-      status: "ok",
-      database_backend: "postgresql",
-      database_url: "postgresql+asyncpg://fraud:***@localhost:5432/fraud_cases",
-      database_fallback_active: false,
-      database_fallback_reason: null,
-      database_bootstrap_mode: "alembic_head",
-    };
-  }
   if (path.includes("/api/ingest/v1/ingest/stats") && method === "GET") {
     return {
       service: "event-ingest",
@@ -1408,16 +1402,6 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       },
       total_contract_rejects: 3,
       note: "Demo totals for offline UI; live service may return zeros until contract validation rejects traffic.",
-    };
-  }
-  if (path.includes("/evidence-bundle")) {
-    return {
-      bundle_version: "1",
-      tenant_id: "demo",
-      case: { id: "case-demo", title: "Demo case", trace_id: "tr-demo" },
-      decision_audit: { trace_id: "tr-demo", decision: "review", score: 74 },
-      bundle_signature: "mock",
-      signing_key_id: "mock",
     };
   }
   if (path.includes("/api/cases/v1/cases/ops/sar-transport/board")) {
@@ -1892,6 +1876,30 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   if (path.includes("/api/decisions/v1/rules") && ["POST", "PUT", "DELETE"].includes(method)) return { ok: true };
 
   if (path.includes("/api/decisions/v1/simulation/scenarios")) return { scenarios: { ecommerce: { description: "Synthetic e-commerce scenario" } } };
+  if (path.includes("/api/decisions/v1/simulation/experiments")) {
+    return {
+      experiments: [
+        {
+          id: "exp-mock-1",
+          ts: nowIso(),
+          experiment_type: "simulation_run",
+          scenario: "baseline",
+          events_evaluated: 500,
+          notes: "mock registry row",
+          meta: { holdout_ok: true, minimum_recommended_events: 200 },
+        },
+        {
+          id: "exp-mock-2",
+          ts: nowIso(),
+          experiment_type: "ab_test",
+          scenario: "high_fraud",
+          events_evaluated: 80,
+          notes: "underpowered override",
+          meta: { allow_underpowered: true, minimum_recommended_events: 200 },
+        },
+      ],
+    };
+  }
   if (path.includes("/api/decisions/v1/simulation/run")) return { result: { scenario: "ecommerce", precision: 0.87 }, sample_events: [{ id: "ev1" }], sample_decisions: [{ decision: "deny", score: 82 }] };
   if (path.includes("/api/decisions/v1/simulation/ab-test")) return { winner: "A", confidence: 0.81 };
   if (path.includes("/api/decisions/v1/simulation/benchmark/vertical")) return { scenario: "ecommerce", vertical: "fintech", baseline: { deny_rate: 0.2 }, vertical_pack: { deny_rate: 0.27 }, delta: { deny_rate: 0.07 } };
