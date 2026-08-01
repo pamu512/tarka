@@ -37,10 +37,10 @@ from decision_api.inference_build import (
     build_inference_context,
     derive_recommended_action,
 )
-    from decision_api.integrity_policy import (
-        apply_evaluate_integrity_tags,
-        supplemental_tags_for_integrity,
-    )
+from decision_api.integrity_policy import (
+    apply_evaluate_integrity_tags,
+    supplemental_tags_for_integrity,
+)
 from decision_api.location_context import merge_session_geo_from_device_and_features
 from decision_api.models import AuditRecord
 from decision_api.policy_routing import (
