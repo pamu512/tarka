@@ -37,7 +37,10 @@ from decision_api.inference_build import (
     build_inference_context,
     derive_recommended_action,
 )
-from decision_api.integrity_policy import supplemental_tags_for_integrity
+    from decision_api.integrity_policy import (
+        apply_evaluate_integrity_tags,
+        supplemental_tags_for_integrity,
+    )
 from decision_api.location_context import merge_session_geo_from_device_and_features
 from decision_api.models import AuditRecord
 from decision_api.policy_routing import (
@@ -171,6 +174,29 @@ async def run_evaluate_decision(
     if is_replayed:
         signal_tags.append("ingress:replay_payload")
         replay_rule_hits.append("ingress_replay_detected")
+
+    hmac_ok = getattr(request.state, "tarka_request_signature_ok", None)
+    if hmac_ok is not True:
+        hmac_ok = None
+    else:
+        hmac_ok = True
+    pin_raw = None
+    if isinstance(body.metadata, dict) and "tls_pinning_verified" in body.metadata:
+        raw_pin = body.metadata.get("tls_pinning_verified")
+        if isinstance(raw_pin, bool):
+            pin_raw = raw_pin
+        elif isinstance(raw_pin, str):
+            pin_raw = raw_pin.strip().lower() in ("1", "true", "yes", "on")
+    signal_tags.extend(
+        apply_evaluate_integrity_tags(
+            signal_tags,
+            hmac_ok=hmac_ok,
+            request_signature_required=bool(settings.request_signature_secret),
+            integrity_soft_tags=bool(settings.integrity_soft_tags),
+            tls_pinning_verified=pin_raw,
+            is_replayed=bool(is_replayed),
+        )
+    )
 
     # Record fingerprint & detect shared devices
     if body.device_context and fingerprint_store._client:
