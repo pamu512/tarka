@@ -70,6 +70,8 @@ export default function Simulation() {
   const [allowUnderpowered, setAllowUnderpowered] = useState(false);
   const [experiments, setExperiments] = useState<Array<Record<string, unknown>>>([]);
   const [experimentsBusy, setExperimentsBusy] = useState(false);
+  const [expTypeFilter, setExpTypeFilter] = useState("");
+  const [expKpiOnly, setExpKpiOnly] = useState(false);
   const MIN_HOLD_OUT_N = 200;
 
   const [ruleSetA, setRuleSetA] = useState("[\n  {\n    \"id\": \"rule-a-1\",\n    \"when\": [{\"field\": \"score\", \"op\": \"gte\", \"value\": 80}],\n    \"score_delta\": 30\n  }\n]");
@@ -97,19 +99,25 @@ export default function Simulation() {
   const fetchExperiments = useCallback(async () => {
     setExperimentsBusy(true);
     try {
-      const out = await simulation.listExperiments(25);
+      const out = await simulation.listExperiments(25, {
+        experiment_type: expTypeFilter.trim() || undefined,
+        kpi_eligible: expKpiOnly ? true : undefined,
+      });
       setExperiments(out.experiments ?? []);
     } catch (e) {
       setError(toUserFacingError(e, { subject: "Experiment registry", action: "list simulation experiments" }));
     } finally {
       setExperimentsBusy(false);
     }
-  }, []);
+  }, [expTypeFilter, expKpiOnly]);
 
   useEffect(() => {
     fetchScenarios();
+  }, [fetchScenarios]);
+
+  useEffect(() => {
     void fetchExperiments();
-  }, [fetchScenarios, fetchExperiments]);
+  }, [fetchExperiments]);
 
   async function handleRunSimulation() {
     const scenario = customMode ? "custom" : selectedScenario;
@@ -328,8 +336,8 @@ export default function Simulation() {
           <div>
             <h2 className="text-sm font-semibold text-gray-300">Experiment registry</h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Recent <span className="font-mono">GET /v1/simulation/experiments</span> rows — compare{" "}
-              <span className="font-mono">events_evaluated</span> to min {MIN_HOLD_OUT_N}.
+              Filtered <span className="font-mono">GET /v1/simulation/experiments</span> —{" "}
+              <span className="font-mono">kpi_eligible</span> means n ≥ {MIN_HOLD_OUT_N} (override never makes a KPI).
             </p>
           </div>
           <button
@@ -341,8 +349,31 @@ export default function Simulation() {
             {experimentsBusy ? "Refreshing…" : "Refresh"}
           </button>
         </div>
+        <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400">
+          <label className="flex items-center gap-1.5">
+            Type
+            <select
+              value={expTypeFilter}
+              onChange={(e) => setExpTypeFilter(e.target.value)}
+              className="rounded-md border border-surface-600 bg-surface-950 px-2 py-1 text-gray-200"
+            >
+              <option value="">All</option>
+              <option value="simulation_run">simulation_run</option>
+              <option value="ab_test">ab_test</option>
+              <option value="vertical_benchmark">vertical_benchmark</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={expKpiOnly}
+              onChange={(e) => setExpKpiOnly(e.target.checked)}
+            />
+            KPI-eligible only
+          </label>
+        </div>
         {experiments.length === 0 ? (
-          <p className="text-xs text-gray-600">No registry rows yet. Run a simulation to append.</p>
+          <p className="text-xs text-gray-600">No registry rows match filters. Run a simulation or clear filters.</p>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-surface-700">
             <table className="min-w-full text-sm">
@@ -353,12 +384,16 @@ export default function Simulation() {
                   <th className="px-3 py-2">Scenario</th>
                   <th className="px-3 py-2">n</th>
                   <th className="px-3 py-2">Holdout</th>
+                  <th className="px-3 py-2">KPI</th>
                 </tr>
               </thead>
               <tbody>
                 {experiments.map((row) => {
                   const n = Number(row.events_evaluated ?? 0);
-                  const under = Number.isFinite(n) && n < MIN_HOLD_OUT_N;
+                  const under =
+                    row.underpowered === true ||
+                    (row.underpowered !== false && Number.isFinite(n) && n < MIN_HOLD_OUT_N);
+                  const kpi = row.kpi_eligible === true;
                   return (
                     <tr key={String(row.id ?? row.ts)} className="border-t border-surface-700/80">
                       <td className="px-3 py-2 font-mono text-[11px] text-gray-400">{String(row.ts ?? "")}</td>
@@ -367,9 +402,16 @@ export default function Simulation() {
                       <td className="px-3 py-2 tabular-nums text-gray-300">{Number.isFinite(n) ? n : "—"}</td>
                       <td className="px-3 py-2 text-xs">
                         {under ? (
-                          <span className="text-amber-300">underpowered (&lt;{MIN_HOLD_OUT_N})</span>
+                          <span className="text-amber-300">underpowered</span>
                         ) : (
                           <span className="text-gray-500">ok</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-xs">
+                        {kpi ? (
+                          <span className="text-emerald-300/90">eligible</span>
+                        ) : (
+                          <span className="text-rose-300/80">not a KPI</span>
                         )}
                       </td>
                     </tr>

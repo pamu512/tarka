@@ -2596,11 +2596,28 @@ export const simulation = {
     });
   },
 
-  listExperiments(limit: number = 30) {
+  listExperiments(
+    limit: number = 30,
+    filters?: {
+      experiment_type?: string;
+      population_id?: string;
+      since?: string;
+      until?: string;
+      holdout_ok?: boolean;
+      kpi_eligible?: boolean;
+    },
+  ) {
     const q = new URLSearchParams({ limit: String(limit) });
-    return request<{ experiments: Array<Record<string, unknown>> }>(
-      `/api/decisions/v1/simulation/experiments?${q}`,
-    );
+    if (filters?.experiment_type) q.set("experiment_type", filters.experiment_type);
+    if (filters?.population_id) q.set("population_id", filters.population_id);
+    if (filters?.since) q.set("since", filters.since);
+    if (filters?.until) q.set("until", filters.until);
+    if (filters?.holdout_ok != null) q.set("holdout_ok", String(filters.holdout_ok));
+    if (filters?.kpi_eligible != null) q.set("kpi_eligible", String(filters.kpi_eligible));
+    return request<{
+      experiments: Array<Record<string, unknown>>;
+      filters?: Record<string, unknown>;
+    }>(`/api/decisions/v1/simulation/experiments?${q}`);
   },
 };
 

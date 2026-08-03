@@ -62,6 +62,10 @@ jobs:
         run: |
           pip install pydantic sqlalchemy
           make policy-check
+      - name: Golden evaluate / device-context contracts
+        run: |
+          pip install pydantic
+          make contract-check
       - name: Validate default deployment profile manifest drift (Q1-E01)
         run: |
           pip install pyyaml
