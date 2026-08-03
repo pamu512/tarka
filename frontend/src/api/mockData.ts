@@ -1847,28 +1847,46 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
 
   if (path.includes("/api/decisions/v1/simulation/scenarios")) return { scenarios: { ecommerce: { description: "Synthetic e-commerce scenario" } } };
   if (path.includes("/api/decisions/v1/simulation/experiments")) {
-    return {
-      experiments: [
-        {
-          id: "exp-mock-1",
-          ts: nowIso(),
-          experiment_type: "simulation_run",
-          scenario: "baseline",
-          events_evaluated: 500,
-          notes: "mock registry row",
-          meta: { holdout_ok: true, minimum_recommended_events: 200 },
-        },
-        {
-          id: "exp-mock-2",
-          ts: nowIso(),
-          experiment_type: "ab_test",
-          scenario: "high_fraud",
-          events_evaluated: 80,
-          notes: "underpowered override",
-          meta: { allow_underpowered: true, minimum_recommended_events: 200 },
-        },
-      ],
-    };
+    let experiments = [
+      {
+        id: "exp-mock-1",
+        ts: nowIso(),
+        experiment_type: "simulation_run",
+        scenario: "baseline",
+        events_evaluated: 500,
+        notes: "mock registry row",
+        underpowered: false,
+        holdout_ok: true,
+        kpi_eligible: true,
+        minimum_recommended_events: 200,
+        meta: { holdout_ok: true, minimum_recommended_events: 200 },
+      },
+      {
+        id: "exp-mock-2",
+        ts: nowIso(),
+        experiment_type: "ab_test",
+        scenario: "high_fraud",
+        events_evaluated: 80,
+        notes: "underpowered override",
+        underpowered: true,
+        holdout_ok: true,
+        kpi_eligible: false,
+        allow_underpowered: true,
+        minimum_recommended_events: 200,
+        meta: { allow_underpowered: true, minimum_recommended_events: 200 },
+      },
+    ];
+    try {
+      const u = new URL(url, "http://local");
+      const et = u.searchParams.get("experiment_type");
+      if (et) experiments = experiments.filter((e) => e.experiment_type === et);
+      const kpi = u.searchParams.get("kpi_eligible");
+      if (kpi === "true") experiments = experiments.filter((e) => e.kpi_eligible);
+      if (kpi === "false") experiments = experiments.filter((e) => !e.kpi_eligible);
+    } catch {
+      /* ignore bad mock URL */
+    }
+    return { experiments, filters: {} };
   }
   if (path.includes("/api/decisions/v1/simulation/run")) return { result: { scenario: "ecommerce", precision: 0.87 }, sample_events: [{ id: "ev1" }], sample_decisions: [{ decision: "deny", score: 82 }] };
   if (path.includes("/api/decisions/v1/simulation/ab-test")) return { winner: "A", confidence: 0.81 };
