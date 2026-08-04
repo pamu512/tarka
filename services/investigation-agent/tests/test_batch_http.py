@@ -14,6 +14,9 @@ def test_batch_ingest_csv_multipart():
     assert "batch_id" in j
     assert j["row_count"] == 2
     assert "entity_id" in j["columns"]
+    assert j.get("storage_mode") == "disk"
+    assert j.get("durability") == "disk_ttl"
+    assert j.get("durable_until")
 
 
 def test_governance_endpoint():

@@ -12,7 +12,11 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-_MANDATORY_FILING_KEYS = ("filer_tin", "financial_institution_name")
+_MANDATORY_FILING_KEYS = (
+    "filer_tin",
+    "financial_institution_name",
+    "report_id",
+)
 
 
 def build_sftp_destination() -> str | None:
@@ -91,11 +95,18 @@ def build_sar_filing_data(body: dict[str, Any], report: Any) -> dict[str, Any]:
         "financial_institution_name": fin_name,
         "report_id": getattr(report, "report_id", None),
         "format": getattr(report, "format", None),
+        "xml_content": getattr(report, "xml_content", None),
+        "narrative": getattr(report, "narrative", None),
     }
 
 
 def validate_pre_filing(filing_data: dict[str, Any]) -> list[str]:
-    """Return blocking validation errors for mandatory filing_data fields (empty list == OK)."""
+    """Return blocking validation errors for mandatory filing_data fields (empty list == OK).
+
+    Deeper than TIN/name only (SR-10): requires report_id, narrative when present
+    on the payload path, and non-empty well-formed XML when format is fincen_xml.
+    Not a full FinCEN XSD validator.
+    """
     errors: list[str] = []
     for key in _MANDATORY_FILING_KEYS:
         val = filing_data.get(key)
@@ -104,4 +115,23 @@ def validate_pre_filing(filing_data: dict[str, Any]) -> list[str]:
             continue
         if isinstance(val, str) and not val.strip():
             errors.append(f"empty_field:{key}")
+
+    narrative = filing_data.get("narrative")
+    if narrative is not None and isinstance(narrative, str) and not narrative.strip():
+        errors.append("empty_field:narrative")
+
+    fmt = str(filing_data.get("format") or "").strip().lower()
+    if fmt == "fincen_xml":
+        xml = filing_data.get("xml_content")
+        if xml is None:
+            errors.append("missing_field:xml_content")
+        elif not isinstance(xml, str) or not xml.strip():
+            errors.append("empty_field:xml_content")
+        else:
+            stripped = xml.strip()
+            if not stripped.startswith("<"):
+                errors.append("invalid_xml:not_markup")
+            elif "EFilingBatch" not in stripped and "eFilingBatch" not in stripped:
+                # ponytail: substring gate — upgrade path is XSD validate against FinCEN schema
+                errors.append("invalid_xml:missing_efiling_batch")
     return errors

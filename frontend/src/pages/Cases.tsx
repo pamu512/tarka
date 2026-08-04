@@ -50,6 +50,8 @@ export default function Cases() {
     cases_created_recent: number;
     cases_created_prior: number;
     delta_percent_vs_prior: number | null;
+    status_mix_recent?: Record<string, number>;
+    priority_mix_recent?: Record<string, number>;
   } | null>(null);
   const [deskActivity, setDeskActivity] = useState<CaseDeskActivity | null>(null);
   const [savedViewSelection, setSavedViewSelection] = useState("");
@@ -109,6 +111,8 @@ export default function Cases() {
           cases_created_recent: cohR.value.cases_created_recent,
           cases_created_prior: cohR.value.cases_created_prior,
           delta_percent_vs_prior: cohR.value.delta_percent_vs_prior,
+          status_mix_recent: cohR.value.status_mix_recent,
+          priority_mix_recent: cohR.value.priority_mix_recent,
         });
       } else {
         setCohort(null);
@@ -409,7 +413,7 @@ export default function Cases() {
 
       {cohort ? (
         <div className="rounded-xl border border-surface-700 bg-surface-900/40 px-4 py-3 text-sm text-gray-300 space-y-1">
-          <div className="font-medium text-gray-200">Cohort volume (7d vs prior)</div>
+          <div className="font-medium text-gray-200">Cohort volume + mix (7d vs prior)</div>
           <p className="text-xs text-gray-500 leading-relaxed">
             From <span className="font-mono">/v1/cases/analytics/cohort-compare</span> —{" "}
             <span className="text-gray-300 font-mono">{cohort.cases_created_recent}</span> cases this window vs{" "}
@@ -419,6 +423,26 @@ export default function Cases() {
               : " (no prior baseline)"}
             .
           </p>
+          {cohort.status_mix_recent ? (
+            <p className="text-xs text-gray-500">
+              Status mix:{" "}
+              <span className="text-gray-300 font-mono">
+                {Object.entries(cohort.status_mix_recent)
+                  .map(([k, v]) => `${k}=${v}`)
+                  .join(" · ") || "—"}
+              </span>
+            </p>
+          ) : null}
+          {cohort.priority_mix_recent ? (
+            <p className="text-xs text-gray-500">
+              Priority mix:{" "}
+              <span className="text-gray-300 font-mono">
+                {Object.entries(cohort.priority_mix_recent)
+                  .map(([k, v]) => `${k}=${v}`)
+                  .join(" · ") || "—"}
+              </span>
+            </p>
+          ) : null}
         </div>
       ) : null}
 

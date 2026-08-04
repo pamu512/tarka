@@ -1,0 +1,33 @@
+{
+  "tenant_id": "demo",
+  "entity_id": "golden-evaluate-user",
+  "event_type": "payment",
+  "session_id": "sess-golden-v1",
+  "payload": {
+    "amount": 42.0,
+    "currency": "USD",
+    "channel": "card_not_present"
+  },
+  "device_context": {
+    "device_id": "fp_golden_web_v1_deadbeef",
+    "platform": "web",
+    "signals": {
+      "is_emulator": false,
+      "is_vpn": false,
+      "is_bot": false,
+      "webdriver_detected": false,
+      "headless_detected": false,
+      "canvas_fp_hash": "a1b2c3d4e5f67890",
+      "screen_res": "1920x1080",
+      "language": "en-US",
+      "ip_address": "203.0.113.10",
+      "ip_geo_country": "US",
+      "ip_is_proxy": false,
+      "ip_is_datacenter": false
+    },
+    "attestation": null
+  },
+  "metadata": {
+    "golden_fixture": "evaluate-request-minimal.v1"
+  }
+}

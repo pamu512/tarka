@@ -99,6 +99,13 @@ def parse_evaluate_response(data: dict[str, Any]) -> EvaluateResponse:
         out["ml_score"] = _require_float(data, "ml_score")
     if data.get("recommended_action") is not None:
         out["recommended_action"] = _require_str(data, "recommended_action")
+    if data.get("enforcement_action") is not None:
+        enf = _require_str(data, "enforcement_action")
+        if enf not in ("allow", "step_up", "block"):
+            raise EvaluateResponseValidationError(
+                f"invalid enforcement_action: {enf!r}"
+            )
+        out["enforcement_action"] = enf
     if data.get("challenge_policy_id") is not None:
         out["challenge_policy_id"] = _require_str(data, "challenge_policy_id")
     if data.get("challenge_metadata") is not None:
