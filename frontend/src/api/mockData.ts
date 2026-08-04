@@ -1478,6 +1478,10 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       cases_created_prior: 10,
       delta: 2,
       delta_percent_vs_prior: 20,
+      status_mix_recent: { open: 7, investigating: 3, closed: 2 },
+      status_mix_prior: { open: 5, investigating: 3, closed: 2 },
+      priority_mix_recent: { high: 4, medium: 6, low: 2 },
+      priority_mix_prior: { high: 3, medium: 5, low: 2 },
     };
   }
   if (path.includes("/api/cases/v1/cases/playbooks")) {

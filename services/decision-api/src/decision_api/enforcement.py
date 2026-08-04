@@ -12,9 +12,13 @@ import json
 import logging
 import os
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any, Callable, Literal
 
 log = logging.getLogger("decision-api.enforcement")
+
+ENFORCEMENT_JOURNAL_SCHEMA = "tarka.enforcement_delivery/v1"
 
 EnforcementAction = Literal["allow", "step_up", "block"]
 
@@ -81,6 +85,63 @@ def resolve_enforcement_intent(
 
 def enforcement_webhook_configured() -> bool:
     return bool(os.environ.get("TARKA_ENFORCEMENT_WEBHOOK_URL", "").strip())
+
+
+def enforcement_journal_path() -> Path:
+    override = os.environ.get("TARKA_ENFORCEMENT_JOURNAL_PATH", "").strip()
+    if override:
+        return Path(override)
+    try:
+        from decision_api.config import settings
+
+        return Path(settings.rules_path) / "enforcement_delivery.jsonl"
+    except Exception:
+        return Path("./rules") / "enforcement_delivery.jsonl"
+
+
+def append_enforcement_journal(record: dict[str, Any]) -> None:
+    """Append-only delivery journal (ack / fail / skipped). Fail soft."""
+    path = enforcement_journal_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        line = json.dumps(record, sort_keys=True, default=str) + "\n"
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(line)
+    except Exception:
+        log.debug("enforcement_journal_append_failed", exc_info=True)
+
+
+def enforcement_journal_line_count() -> int:
+    path = enforcement_journal_path()
+    if not path.is_file():
+        return 0
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            return sum(1 for line in fh if line.strip())
+    except Exception:
+        return 0
+
+
+def read_enforcement_journal(limit: int = 50) -> list[dict[str, Any]]:
+    """Return newest journal records (tail), oldest-first within the window."""
+    path = enforcement_journal_path()
+    lim = max(1, min(int(limit), 500))
+    if not path.is_file():
+        return []
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            lines = [ln.strip() for ln in fh if ln.strip()]
+    except Exception:
+        return []
+    out: list[dict[str, Any]] = []
+    for ln in lines[-lim:]:
+        try:
+            row = json.loads(ln)
+            if isinstance(row, dict):
+                out.append(row)
+        except json.JSONDecodeError:
+            continue
+    return out
 
 
 def _sign(body: bytes, secret: str) -> str:
@@ -151,7 +212,23 @@ async def apply_enforcement_adapters(
             log.debug("enforcement_metric_failed", exc_info=True)
 
     url = os.environ.get("TARKA_ENFORCEMENT_WEBHOOK_URL", "").strip()
+    ts = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    base_journal: dict[str, Any] = {
+        "schema_id": ENFORCEMENT_JOURNAL_SCHEMA,
+        "ts": ts,
+        "trace_id": trace_id,
+        "tenant_id": tenant_id,
+        "entity_id": entity_id,
+        "enforcement_action": intent.action,
+        "decision": intent.decision,
+        "recommended_action": intent.recommended_action,
+    }
+
     if not url:
+        append_enforcement_journal(
+            {**base_journal, "status": "skipped", "reason": "webhook_unset"}
+        )
+        summary["journal"] = {"status": "skipped"}
         return summary
 
     payload = _build_payload(
@@ -184,6 +261,15 @@ async def apply_enforcement_adapters(
             "status_code": status,
             "ok": ok,
         }
+        jstatus = "acked" if ok else "non_2xx"
+        append_enforcement_journal(
+            {
+                **base_journal,
+                "status": jstatus,
+                "http_status": status,
+            }
+        )
+        summary["journal"] = {"status": jstatus}
         if not ok:
             log.warning(
                 "enforcement_webhook_non_2xx status=%s action=%s trace_id=%s",
@@ -203,4 +289,12 @@ async def apply_enforcement_adapters(
             "ok": False,
             "error": str(e)[:200],
         }
+        append_enforcement_journal(
+            {
+                **base_journal,
+                "status": "error",
+                "error": str(e)[:200],
+            }
+        )
+        summary["journal"] = {"status": "error"}
     return summary
