@@ -968,9 +968,7 @@ async def cohort_compare_cases(
         q = select(func.count()).select_from(Case).where(*cond)
         return int((await session.execute(q)).scalar_one())
 
-    async def _mix(
-        col: Any, start: datetime, end: datetime | None
-    ) -> dict[str, int]:
+    async def _mix(col: Any, start: datetime, end: datetime | None) -> dict[str, int]:
         cond = [Case.tenant_id == tenant_id, Case.created_at >= start]
         if end is not None:
             cond.append(Case.created_at < end)

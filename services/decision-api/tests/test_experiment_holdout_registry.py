@@ -6,7 +6,10 @@ import json
 
 import pytest
 from decision_api.config import settings
-from decision_api.experiment_api import append_experiment_record, list_experiment_records
+from decision_api.experiment_api import (
+    append_experiment_record,
+    list_experiment_records,
+)
 
 
 @pytest.fixture

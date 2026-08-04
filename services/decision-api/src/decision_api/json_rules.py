@@ -102,14 +102,18 @@ def _get_rule_hit_redis():
         return None
     if _rule_hit_redis_client is not None:
         return _rule_hit_redis_client
-    url = (getattr(settings, "redis_url", None) or os.environ.get("REDIS_URL") or "").strip()
+    url = (
+        getattr(settings, "redis_url", None) or os.environ.get("REDIS_URL") or ""
+    ).strip()
     if not url:
         _rule_hit_redis_failed = True
         return None
     try:
         import redis as redis_sync
 
-        client = redis_sync.from_url(url, decode_responses=True, socket_connect_timeout=0.5)
+        client = redis_sync.from_url(
+            url, decode_responses=True, socket_connect_timeout=0.5
+        )
         client.ping()
         _rule_hit_redis_client = client
         return client

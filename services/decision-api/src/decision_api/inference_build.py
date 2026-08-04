@@ -509,7 +509,9 @@ def derive_recommended_action(
         action = "step_up_mfa" if tier == "low" else "manual_review"
     elif "ingress:replay_payload" in tags:
         action = "step_up_attestation"
-    elif inference.get("tamper_risk", 0) >= 0.5 or inference.get("replay_risk", 0) >= 0.5:
+    elif (
+        inference.get("tamper_risk", 0) >= 0.5 or inference.get("replay_risk", 0) >= 0.5
+    ):
         action = "step_up_attestation"
     elif tier == "low":
         action = "step_up_mfa"
@@ -517,11 +519,7 @@ def derive_recommended_action(
         action = "step_up_mfa"
 
     # Integrity matrix: do not auto step-up when confidence is below platform floor.
-    if (
-        action
-        and action.startswith("step_up")
-        and "integrity_confidence" in inference
-    ):
+    if action and action.startswith("step_up") and "integrity_confidence" in inference:
         try:
             conf = float(inference["integrity_confidence"])
         except (TypeError, ValueError):
