@@ -153,7 +153,7 @@ def _require_rule_governance(x_rule_governance_secret: str | None) -> None:
 
 @router.get("/telemetry")
 async def rule_hit_telemetry():
-    """N3/N4: per-rule hit counts since process start (in-memory) + aggregate in /metrics."""
+    """N3/N4: per-rule hit counts (Redis when available, else process memory) + /metrics."""
     return get_rule_hit_telemetry()
 
 

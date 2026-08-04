@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useState } from "react";
 import { Link } from 'react-router';
-import { cases, type SarTransportBoardCard, type SarTransportBoardResponse } from "../api/client";
+import { cases, type SarTransportBoardCard, type SarTransportBoardResponse } from "../api/v1/cases";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { toUserFacingError } from "../utils/userFacingErrors";
