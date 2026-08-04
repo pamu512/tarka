@@ -2236,6 +2236,7 @@ async def batch_ingest(
             "ttl_hours": batch_store.ttl_seconds() // 3600,
         },
         "storage_mode": batch_store.storage_mode(),
+        "durability": "disk_ttl",
         "durable_until": durable_until,
     }
 

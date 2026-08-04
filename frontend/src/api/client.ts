@@ -1924,6 +1924,10 @@ export const cases = {
       cases_created_prior: number;
       delta: number;
       delta_percent_vs_prior: number | null;
+      status_mix_recent?: Record<string, number>;
+      status_mix_prior?: Record<string, number>;
+      priority_mix_recent?: Record<string, number>;
+      priority_mix_prior?: Record<string, number>;
     }>(`/api/cases/v1/cases/analytics/cohort-compare?${q}`);
   },
 

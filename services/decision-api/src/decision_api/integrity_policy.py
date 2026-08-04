@@ -131,6 +131,13 @@ def apply_evaluate_integrity_tags(
     return [t for t in out if t not in have]
 
 
+def min_integrity_confidence_for_platform(platform: str) -> float:
+    """Matrix floor for auto step-up / challenge recommendations."""
+    plat = (platform or "web").strip().lower()
+    att = _ATTESTATION_PROVIDERS.get(plat, _ATTESTATION_PROVIDERS["web"])
+    return float(att.get("min_integrity_confidence") or 0.5)
+
+
 def platform_meets_high_confidence(
     platform: str,
     *,
@@ -140,7 +147,7 @@ def platform_meets_high_confidence(
     """True when confidence and optional verified signal names meet the matrix bar."""
     plat = (platform or "web").strip().lower()
     att = _ATTESTATION_PROVIDERS.get(plat, _ATTESTATION_PROVIDERS["web"])
-    min_c = float(att.get("min_integrity_confidence") or 0.5)
+    min_c = min_integrity_confidence_for_platform(plat)
     if integrity_confidence < min_c:
         return False
     required = list(att.get("high_confidence_signals") or [])

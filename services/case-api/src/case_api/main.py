@@ -956,38 +956,43 @@ async def cohort_compare_cases(
     session: AsyncSession = Depends(get_session),
     period_days: int = 7,
 ):
-    """Compare case volume: last *period_days* vs prior window of equal length."""
+    """Compare case volume + status/priority mix: last *period_days* vs prior window."""
     now = datetime.now(UTC)
     recent_start = now - timedelta(days=period_days)
     prior_start = now - timedelta(days=2 * period_days)
-    q_recent = (
-        select(func.count())
-        .select_from(Case)
-        .where(
-            Case.tenant_id == tenant_id,
-            Case.created_at >= recent_start,
-        )
-    )
-    q_prior = (
-        select(func.count())
-        .select_from(Case)
-        .where(
-            Case.tenant_id == tenant_id,
-            Case.created_at >= prior_start,
-            Case.created_at < recent_start,
-        )
-    )
-    n_recent = (await session.execute(q_recent)).scalar_one()
-    n_prior = (await session.execute(q_prior)).scalar_one()
+
+    async def _count_window(start: datetime, end: datetime | None) -> int:
+        cond = [Case.tenant_id == tenant_id, Case.created_at >= start]
+        if end is not None:
+            cond.append(Case.created_at < end)
+        q = select(func.count()).select_from(Case).where(*cond)
+        return int((await session.execute(q)).scalar_one())
+
+    async def _mix(
+        col: Any, start: datetime, end: datetime | None
+    ) -> dict[str, int]:
+        cond = [Case.tenant_id == tenant_id, Case.created_at >= start]
+        if end is not None:
+            cond.append(Case.created_at < end)
+        q = select(col, func.count()).where(*cond).group_by(col)
+        rows = (await session.execute(q)).all()
+        return {str(k or "unknown"): int(v) for k, v in rows}
+
+    n_recent = await _count_window(recent_start, None)
+    n_prior = await _count_window(prior_start, recent_start)
     delta = float(n_recent - n_prior)
     pct = (delta / n_prior * 100.0) if n_prior else None
     return {
         "tenant_id": tenant_id,
         "period_days": period_days,
-        "cases_created_recent": int(n_recent),
-        "cases_created_prior": int(n_prior),
+        "cases_created_recent": n_recent,
+        "cases_created_prior": n_prior,
         "delta": delta,
         "delta_percent_vs_prior": pct,
+        "status_mix_recent": await _mix(Case.status, recent_start, None),
+        "status_mix_prior": await _mix(Case.status, prior_start, recent_start),
+        "priority_mix_recent": await _mix(Case.priority, recent_start, None),
+        "priority_mix_prior": await _mix(Case.priority, prior_start, recent_start),
     }
 
 

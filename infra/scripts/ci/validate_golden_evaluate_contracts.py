@@ -117,6 +117,19 @@ def main() -> int:
         )
 
     validate_pydantic_parse(evaluate, device)
+
+    # SDK surface must know about enforcement_action (Wave 1 thin-fix).
+    ts_sdk = (
+        _REPO / "packages" / "fraud-sdk-typescript" / "src" / "index.ts"
+    ).read_text(encoding="utf-8")
+    if "enforcement_action" not in ts_sdk:
+        _fail("packages/fraud-sdk-typescript EvaluateResponse missing enforcement_action")
+    py_sdk = (
+        _REPO / "packages" / "fraud-sdk-python" / "src" / "fraud_stack_sdk" / "client.py"
+    ).read_text(encoding="utf-8")
+    if "enforcement_action" not in py_sdk:
+        _fail("packages/fraud-sdk-python EvaluateResponse missing enforcement_action")
+
     print(
         f"OK: validated golden evaluate/device_context fixtures under {_GOLDEN.relative_to(_REPO)}"
     )
