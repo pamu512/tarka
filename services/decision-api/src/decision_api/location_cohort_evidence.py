@@ -6,12 +6,14 @@ from typing import Any
 
 SCHEMA_ID = "tarka.location_cohort_evidence/v1"
 
+# Known co-presence tags only — broad location:/graph: prefixes catch degrade tags
+# (e.g. location:unavailable) and would undermine fail-soft emission.
 _COHORT_TAG_PREFIXES = (
-    "location:",
-    "sdk:shared_device",
-    "graph:",
-    "vendor:incognia",
+    "location:copresence_elevated",
+    "location:impossible_travel",
     "escalated:copresence",
+    "sdk:shared_device",
+    "vendor:incognia",
 )
 
 
