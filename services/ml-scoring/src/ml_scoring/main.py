@@ -413,8 +413,10 @@ async def adaptive_drift_action(body: dict | None = None):
         try:
             target = registry.rollback_to_previous(model_name)
             result["rollback_to"] = target
-        except Exception as e:
-            result["rollback_error"] = str(e)[:200]
+        except Exception:
+            # Do not return exception text to clients (CodeQL: info exposure).
+            log.exception("adaptive_drift_rollback_failed model_name=%s", model_name)
+            result["rollback_error"] = "rollback_failed"
             result["ok"] = False
     if action in {"disable_ml", "rollback_and_disable"}:
         DISABLE_ML = True
