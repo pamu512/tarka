@@ -68,6 +68,8 @@ jobs:
           if-no-files-found: ignore
       - name: Wave 5 — QA desk smoke
         run: python3 scripts/oss/qa_desk_smoke.py
+      - name: Missed-mark bridge — SAR transport honesty
+        run: python3 scripts/oss/sar_transport_honesty_smoke.py
       - name: Wave 5/6 — counter replay job (dry-run + ops parity seed)
         run: |
           python3 scripts/oss/counter_replay_job.py --dry-run \

@@ -14,8 +14,9 @@
 - [ ] Has tests?
 - [ ] Passes Ruff?
 - [ ] Updates AuditLog schema?
+- [ ] Partner fusion: fixture SHA still pinned **or** live tenant proof SHA attached **or** waiver noted (`docs/compliance/partner-fusion-proof-runbook.md`)
 
-If the last item is not applicable, write **`AuditLog schema: N/A`** in the Summary above (no migration or ORM change to audit tables).
+If AuditLog schema is not applicable, write **`AuditLog schema: N/A`** in the Summary above (no migration or ORM change to audit tables).
 
 ## Rule engine / AST (read carefully)
 

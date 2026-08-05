@@ -97,21 +97,28 @@ Also see [`latency_evaluate.py`](scripts/benchmarks/latency_evaluate.py) and [`.
 
 ---
 
-## Install and run (beta)
+## Start here (fraud desk)
 
-From the **repository root** with Docker running:
+Day-1 path — **decision + cases**, no JanusGraph/Ollama required (~8 GB class host):
 
 ```bash
-# 1) Strict preflight: Docker, Compose, Python 3.11+, RAM sanity, Ollama baseline model
-./scripts/bootstrap_beta.sh
-
-# 2) Bring up default Lite stack (docker-compose.yml → core-api / decision-api)
-./scripts/bootstrap_beta.sh --launch
+docker compose \
+  -f infra/deploy/docker-compose.lite.yml \
+  -f infra/deploy/docker-compose.fraud-desk.yml \
+  up --build
 ```
 
-Default compose is **Lite** (`infra/deploy/docker-compose.lite.yml`). Legacy `core_v2` streams stack: `docker compose -f docker-compose.streams-ai.yml up --build`.
-
+Enforces lean nav + `VITE_DESK_STRICT` (case/calibration/QA never auto-mock).  
 **15-minute first decision:** [docs/docs/guides/oss-15-minute-first-decision.md](docs/docs/guides/oss-15-minute-first-decision.md) → `python3 scripts/oss/first_decision_smoke.py`
+
+### Full triad (optional)
+
+Graph + local Shadow/Ollama needs the **24 GB** baseline below. Only after the desk path works:
+
+```bash
+./scripts/bootstrap_beta.sh --launch
+# or Lite with graph: docker compose -f infra/deploy/docker-compose.lite.yml --profile graph up --build
+```
 
 **Unified Python operator CLI** (module install / multi-profile compose)—this is the **`tarka start` path** people mean in ops docs today (`tarka.py` is the entrypoint):
 
