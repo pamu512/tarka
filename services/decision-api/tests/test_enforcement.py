@@ -9,6 +9,7 @@ from decision_api.decision_outcome import (
 from decision_api.enforcement import (
     ENFORCEMENT_SCHEMA,
     apply_enforcement_adapters,
+    read_enforcement_journal,
     resolve_enforcement_action,
 )
 
@@ -32,8 +33,11 @@ def test_resolve_enforcement_action(
 
 
 @pytest.mark.asyncio
-async def test_apply_enforcement_metrics_without_webhook(monkeypatch) -> None:
+async def test_apply_enforcement_metrics_without_webhook(monkeypatch, tmp_path) -> None:
     monkeypatch.delenv("TARKA_ENFORCEMENT_WEBHOOK_URL", raising=False)
+    monkeypatch.setenv(
+        "TARKA_ENFORCEMENT_JOURNAL_PATH", str(tmp_path / "enforcement_delivery.jsonl")
+    )
     seen: list[str] = []
 
     class _Http:
@@ -53,14 +57,18 @@ async def test_apply_enforcement_metrics_without_webhook(monkeypatch) -> None:
     )
     assert out["enforcement_action"] == "block"
     assert out["webhook"] is None
+    assert out["journal"]["status"] == "skipped"
     assert "tarka_enforcement_block_total" in seen
     assert "tarka_enforcement_total" in seen
 
 
 @pytest.mark.asyncio
-async def test_apply_enforcement_webhook(monkeypatch) -> None:
+async def test_apply_enforcement_webhook(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("TARKA_ENFORCEMENT_WEBHOOK_URL", "http://hooks.test/enf")
     monkeypatch.setenv("TARKA_ENFORCEMENT_WEBHOOK_SECRET", "sekrit")
+    monkeypatch.setenv(
+        "TARKA_ENFORCEMENT_JOURNAL_PATH", str(tmp_path / "enforcement_delivery.jsonl")
+    )
     posts: list[dict] = []
 
     class _Resp:
@@ -88,6 +96,7 @@ async def test_apply_enforcement_webhook(monkeypatch) -> None:
     )
     assert out["enforcement_action"] == "step_up"
     assert out["webhook"]["ok"] is True
+    assert out["journal"]["status"] == "acked"
     assert posts[0]["url"] == "http://hooks.test/enf"
     assert posts[0]["headers"]["x-tarka-enforcement-event"] == "step_up"
     assert "x-tarka-signature" in posts[0]["headers"]
@@ -96,6 +105,9 @@ async def test_apply_enforcement_webhook(monkeypatch) -> None:
     body = json.loads(posts[0]["content"].decode("utf-8"))
     assert body["schema_id"] == ENFORCEMENT_SCHEMA
     assert body["enforcement_action"] == "step_up"
+    rows = read_enforcement_journal(10)
+    assert rows and rows[-1]["status"] == "acked"
+    assert rows[-1]["enforcement_action"] == "step_up"
 
 
 def test_schedule_enqueues_enforcement() -> None:

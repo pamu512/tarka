@@ -11,11 +11,13 @@ fuzzy name matching with optional country / date-of-birth filters.
 ``NormalizedVendorSignal``). Do not merge the two paths without an explicit
 shared adapter; they serve different latency and audit contracts.
 
-**Persistence (SR-17):** Every adapter invocation appends a row to
+**Persistence (SR-16):** Every adapter invocation inserts a row into
 ``sanctions_screening_logs`` (Postgres) before returning. If persistence fails,
 the request fails with **503 SCREENING_PERSISTENCE_FAILED** (no ephemeral-only
-screening). The on-disk FtM cache is the dataset artifact; in-process
-``_entities`` is a rebuildable search index, not the audit record of record.
+screening). After a successful insert, a fail-soft JSONL mirror is appended
+(``SANCTIONS_SCREENING_JOURNAL_PATH``). The on-disk FtM cache is the dataset
+artifact; in-process ``_entities`` is a rebuildable search index, not the
+audit record of record.
 """
 
 import asyncio
@@ -24,6 +26,7 @@ import logging
 import os
 import time
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -41,10 +44,30 @@ _CACHE_DIR = Path(os.environ.get("SANCTIONS_CACHE_DIR", "/tmp/sanctions_cache"))
 _CACHE_FILE = _CACHE_DIR / "entities.ftm.json"
 _CACHE_TTL_SECONDS = int(os.environ.get("SANCTIONS_CACHE_TTL", str(24 * 3600)))
 _DOWNLOAD_TIMEOUT = int(os.environ.get("SANCTIONS_DOWNLOAD_TIMEOUT", "300"))
+_SCREENING_JOURNAL_SCHEMA = "tarka.sanctions_screening_journal/v1"
 
 _MAX_MATCH_ROWS_IN_LOG = 10
 _MAX_ENTITY_NAME_LEN = 512
 _MAX_TENANT_ID_LEN = 128
+
+
+def screening_journal_path() -> Path:
+    override = os.environ.get("SANCTIONS_SCREENING_JOURNAL_PATH", "").strip()
+    if override:
+        return Path(override)
+    return _CACHE_DIR / "sanctions_screening_journal.jsonl"
+
+
+def append_screening_journal(record: dict[str, Any]) -> None:
+    """Fail-soft JSONL mirror after Postgres commit (SR-16)."""
+    path = screening_journal_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        line = json.dumps(record, sort_keys=True, default=str) + "\n"
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(line)
+    except Exception:
+        log.debug("sanctions_screening_journal_append_failed", exc_info=True)
 
 
 async def _persist_screening_log(
@@ -78,7 +101,24 @@ async def _persist_screening_log(
                     "message": "Could not persist sanctions screening log.",
                 },
             ) from e
-    return log_row.id
+    log_id = log_row.id
+    append_screening_journal(
+        {
+            "schema_id": _SCREENING_JOURNAL_SCHEMA,
+            "ts": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            "screening_log_id": str(log_id),
+            "tenant_id": tid,
+            "entity_name": ename,
+            "match_found": bool(match_found),
+            "match_count": int(match_details.get("match_count") or 0)
+            if isinstance(match_details, dict)
+            else 0,
+            "subject_id": (match_details or {}).get("subject_id")
+            if isinstance(match_details, dict)
+            else None,
+        }
+    )
+    return log_id
 
 
 def _levenshtein(s: str, t: str) -> int:
@@ -199,13 +239,34 @@ class SanctionsScreener:
             self._loaded = True
             log.info("loaded %d sanctioned entities into memory", len(self._entities))
 
+    def dataset_cache_meta(self) -> dict[str, Any]:
+        """Explain helpers: cache path, mtime, age (seconds)."""
+        path = self.cache_file
+        meta: dict[str, Any] = {
+            "dataset_cache_path": str(path),
+            "score_threshold": self.score_threshold,
+            "cache_ttl_seconds": self.cache_ttl,
+        }
+        try:
+            if path.is_file():
+                mtime = path.stat().st_mtime
+                meta["dataset_cache_mtime_unix"] = mtime
+                meta["dataset_cache_age_seconds"] = max(0.0, time.time() - mtime)
+            else:
+                meta["dataset_cache_mtime_unix"] = None
+                meta["dataset_cache_age_seconds"] = None
+        except OSError:
+            meta["dataset_cache_mtime_unix"] = None
+            meta["dataset_cache_age_seconds"] = None
+        return meta
+
     async def screen(
         self,
         name: str,
         country: str | None = None,
         dob: str | None = None,
     ) -> list[dict[str, Any]]:
-        """Screen a name against the sanctions list."""
+        """Screen a name against the sanctions list (explained fuzzy hits)."""
         await self.load()
         name_lower = name.lower().strip()
         if not name_lower:
@@ -213,28 +274,39 @@ class SanctionsScreener:
 
         hits: list[dict[str, Any]] = []
         for ent in self._entities:
-            best_score = max(
-                (_similarity(name_lower, n) for n in ent["names"]),
-                default=0.0,
-            )
-            if best_score < self.score_threshold:
+            best_name = ""
+            best_raw = 0.0
+            for n in ent["names"]:
+                s = _similarity(name_lower, n)
+                if s > best_raw:
+                    best_raw = s
+                    best_name = n
+            if best_raw < self.score_threshold:
                 continue
 
+            score = best_raw
+            dampens: list[str] = []
             if country:
                 c_low = country.lower().strip()
                 if ent["countries"] and c_low not in ent["countries"]:
-                    best_score *= 0.8
+                    score *= 0.8
+                    dampens.append("country_mismatch_x0.8")
 
             if dob and ent["dobs"] and not any(dob in d for d in ent["dobs"]):
-                best_score *= 0.9
+                score *= 0.9
+                dampens.append("dob_mismatch_x0.9")
 
-            if best_score >= self.score_threshold:
+            if score >= self.score_threshold:
                 hits.append(
                     {
                         "id": ent["id"],
                         "caption": ent["caption"],
                         "schema": ent["schema"],
-                        "score": round(best_score, 4),
+                        "matched_name": best_name,
+                        "score_raw": round(best_raw, 4),
+                        "score": round(score, 4),
+                        "score_threshold": self.score_threshold,
+                        "score_dampens": dampens,
                         "countries": ent["countries"],
                         "dobs": ent["dobs"],
                         "topics": ent["topics"],
@@ -303,6 +375,7 @@ async def verify_sanctions(
     has_match = len(matches) > 0
     top_score = matches[0]["score"] if matches else 0.0
 
+    cache_meta = screener.dataset_cache_meta()
     match_details: dict[str, Any] = {
         "adapter": "sanctions",
         "subject_id": subject_id,
@@ -311,7 +384,9 @@ async def verify_sanctions(
         "query_dob": raw.get("dob"),
         "match_count": len(matches),
         "matches": matches[:_MAX_MATCH_ROWS_IN_LOG],
-        "dataset_cache_path": str(screener.cache_file),
+        **cache_meta,
+        "index_scope": "process_memory_rebuilt_from_disk_cache",
+        "explain_schema": "tarka.sanctions_match_explain/v1",
     }
 
     log_id = await _persist_screening_log(
@@ -338,7 +413,9 @@ async def verify_sanctions(
             "match_count": len(matches),
             "matches": matches[:10],
             "screening_log_id": str(log_id),
-            "dataset_cache_path": str(screener.cache_file),
+            "screening_journal_path": str(screening_journal_path()),
+            **cache_meta,
             "index_scope": "process_memory_rebuilt_from_disk_cache",
+            "explain_schema": "tarka.sanctions_match_explain/v1",
         },
     }

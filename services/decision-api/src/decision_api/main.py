@@ -1411,9 +1411,28 @@ def _integrity_ingress_ops_block() -> dict[str, Any]:
     )
 
 
+@app.get("/v1/ops/enforcement-journal")
+async def ops_enforcement_journal(limit: int = 50):
+    """Tail of append-only enforcement delivery journal (ack / non_2xx / error / skipped)."""
+    from decision_api.enforcement import (
+        enforcement_journal_line_count,
+        enforcement_journal_path,
+        read_enforcement_journal,
+    )
+
+    return {
+        "schema_id": "tarka.enforcement_delivery_list/v1",
+        "path": str(enforcement_journal_path()),
+        "line_count": enforcement_journal_line_count(),
+        "items": read_enforcement_journal(limit),
+    }
+
+
 @app.get("/v1/ops/governance")
 async def ops_governance():
     """Rollout posture: active rule packs (canary, effective_at), shadow count, inference contract version."""
+    from decision_api.enforcement import enforcement_journal_line_count
+
     exp_ct = experiment_registry_line_count()
     g = rules_governance_summary()
     cal_status: dict[str, Any]
@@ -1444,6 +1463,7 @@ async def ops_governance():
             "file": "decision_api/data/counter_catalog.json (merged with counter_manifest_v1.json)",
         },
         "experiment_registry_lines": exp_ct,
+        "enforcement_journal_lines": enforcement_journal_line_count(),
         "calibration_status": cal_status,
         "drift_smoke": {
             "script": "scripts/benchmarks/drift_score_smoke.py",

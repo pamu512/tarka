@@ -186,6 +186,8 @@ export interface EvaluateResponse {
   ml_score?: number | null;
   inference_context: InferenceContext;
   recommended_action?: string | null;
+  /** Platform protect verb: allow | step_up | block (from decision + recommended_action). */
+  enforcement_action?: "allow" | "step_up" | "block" | null;
   /** When graph risk ran: tarka.graph_decision_explanation/v1 (see contracts/schemas). */
   graph_decision_explanation?: Record<string, unknown> | null;
 }

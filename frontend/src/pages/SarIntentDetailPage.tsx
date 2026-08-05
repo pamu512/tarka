@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from 'react-router';
-import { cases, type SarIntentDetailResponse } from "../api/client";
+import { cases, type SarIntentDetailResponse } from "../api/v1/cases";
 import { SarApproveForFilingControls } from "../components/SarApproveForFilingControls";
 import { SarInvestigativeNotesEditor } from "../components/SarInvestigativeNotesEditor";
 import { SarRegulatoryProgressBar } from "../components/SarRegulatoryProgressBar";

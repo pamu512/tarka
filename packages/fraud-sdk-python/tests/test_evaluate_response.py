@@ -51,6 +51,21 @@ def test_parse_accepts_optional_graph_decision_explanation():
     assert out["graph_decision_explanation"]["schema_id"] == "tarka.graph_decision_explanation/v1"
 
 
+def test_parse_accepts_enforcement_action():
+    body = _minimal_evaluate_json()
+    body["enforcement_action"] = "step_up"
+    body["recommended_action"] = "step_up_mfa"
+    out = parse_evaluate_response(body)
+    assert out["enforcement_action"] == "step_up"
+
+
+def test_parse_rejects_bad_enforcement_action():
+    body = _minimal_evaluate_json()
+    body["enforcement_action"] = "maybe"
+    with pytest.raises(EvaluateResponseValidationError):
+        parse_evaluate_response(body)
+
+
 def test_parse_rejects_bad_decision():
     bad = _minimal_evaluate_json()
     bad["decision"] = "maybe"

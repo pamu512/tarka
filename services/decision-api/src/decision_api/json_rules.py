@@ -37,11 +37,15 @@ def _configured_json_rules_engine_mode() -> str:
     return "auto"
 
 
-# N3/N4: rule hit counts — memory + optional file durability (Wave 6).
+# N3/N4: rule hit counts — memory + optional file durability (Wave 6)
+# and optional Redis HINCRBY dual-write (SR-15) when RULE_HIT_TELEMETRY_REDIS != 0.
 _rule_hit_counts: dict[str, int] = {}
 _telemetry_started_at_unix: float = time.time()
 _telemetry_dirty: int = 0
 _TELEMETRY_FLUSH_EVERY = 25
+_RULE_HIT_REDIS_HASH = "tarka:rule_hits:v1"
+_rule_hit_redis_client: Any = None
+_rule_hit_redis_failed = False
 
 
 def _telemetry_path() -> Path | None:
@@ -161,6 +165,69 @@ def _telemetry_key(pack_file: str, rule_id: str, kind: str) -> str:
     return f"{pf}|{rid}|{k}"
 
 
+def _rule_hit_redis_enabled() -> bool:
+    v = os.environ.get("RULE_HIT_TELEMETRY_REDIS", "1").strip().lower()
+    return v not in ("0", "false", "no", "off")
+
+
+def _get_rule_hit_redis():
+    """Lazy sync Redis client for HINCRBY dual-write (fail soft)."""
+    global _rule_hit_redis_client, _rule_hit_redis_failed
+    if not _rule_hit_redis_enabled() or _rule_hit_redis_failed:
+        return None
+    if _rule_hit_redis_client is not None:
+        return _rule_hit_redis_client
+    url = (
+        getattr(settings, "redis_url", None) or os.environ.get("REDIS_URL") or ""
+    ).strip()
+    if not url:
+        _rule_hit_redis_failed = True
+        return None
+    try:
+        import redis as redis_sync
+
+        client = redis_sync.from_url(
+            url, decode_responses=True, socket_connect_timeout=0.5
+        )
+        client.ping()
+        _rule_hit_redis_client = client
+        return client
+    except Exception:
+        _rule_hit_redis_failed = True
+        log.debug("rule_hit_redis_unavailable", exc_info=True)
+        return None
+
+
+def _incr_rule_hit_redis(key: str) -> None:
+    client = _get_rule_hit_redis()
+    if client is None:
+        return
+    try:
+        client.hincrby(_RULE_HIT_REDIS_HASH, key, 1)
+    except Exception:
+        log.debug("rule_hit_redis_hincrby_failed", exc_info=True)
+
+
+def _rows_from_hit_map(counts: dict[str, int]) -> tuple[list[dict[str, Any]], int]:
+    rows: list[dict[str, Any]] = []
+    total = 0
+    for key, n in sorted(counts.items()):
+        parts = key.split("|", 2)
+        pack_file = parts[0] if len(parts) > 0 else "unknown"
+        rule_id = parts[1] if len(parts) > 1 else "unknown"
+        kind = parts[2] if len(parts) > 2 else "rule"
+        total += int(n)
+        rows.append(
+            {
+                "pack_file": pack_file,
+                "rule_id": rule_id,
+                "kind": kind,
+                "hits": int(n),
+            }
+        )
+    return rows, total
+
+
 def record_rule_hit(pack_file: str, rule_id: str, kind: str = "rule") -> None:
     """Increment per-rule hit telemetry (N3) and optional Prometheus aggregate (N4)."""
     global _telemetry_dirty
@@ -171,6 +238,7 @@ def record_rule_hit(pack_file: str, rule_id: str, kind: str = "rule") -> None:
     if _telemetry_dirty >= _TELEMETRY_FLUSH_EVERY:
         _telemetry_dirty = 0
         _flush_telemetry_file()
+    _incr_rule_hit_redis(key)
     try:
         from observability import get_metrics
 
@@ -182,33 +250,42 @@ def record_rule_hit(pack_file: str, rule_id: str, kind: str = "rule") -> None:
 
 
 def get_rule_hit_telemetry() -> dict[str, Any]:
-    """Snapshot of rule hit counts (memory + file-backed when RULE_TELEMETRY_PATH / rules_path set)."""
+    """Snapshot: Redis when available, else file-backed or process memory."""
     _ensure_telemetry_loaded()
-    rows: list[dict[str, Any]] = []
-    total = 0
-    for key, n in sorted(_rule_hit_counts.items()):
-        parts = key.split("|", 2)
-        pack_file = parts[0] if len(parts) > 0 else "unknown"
-        rule_id = parts[1] if len(parts) > 1 else "unknown"
-        kind = parts[2] if len(parts) > 2 else "rule"
-        total += n
-        rows.append(
-            {
-                "pack_file": pack_file,
-                "rule_id": rule_id,
-                "kind": kind,
-                "hits": n,
-            }
-        )
+    client = _get_rule_hit_redis()
+    if client is not None:
+        try:
+            raw = client.hgetall(_RULE_HIT_REDIS_HASH) or {}
+            counts = {str(k): int(v) for k, v in raw.items()}
+            # Prefer Redis when it has data; if empty but this process has hits, use memory
+            # (incr may have failed after a successful ping).
+            if counts or not _rule_hit_counts:
+                rows, total = _rows_from_hit_map(counts)
+                return {
+                    "since_unix": _telemetry_started_at_unix,
+                    "since_process_start": False,
+                    "durability": "redis",
+                    "redis_hash": _RULE_HIT_REDIS_HASH,
+                    "total_hits": total,
+                    "unique_keys": len(rows),
+                    "rows": rows,
+                }
+        except Exception:
+            log.debug("rule_hit_redis_read_failed", exc_info=True)
+
     path = _telemetry_path()
-    durable = path is not None
-    if durable and _telemetry_dirty:
+    explicit = bool((os.environ.get("RULE_TELEMETRY_PATH") or "").strip())
+    # File durability only when explicitly configured or a telemetry file already exists.
+    # Avoid labeling default rules_path as file-backed before anything is flushed.
+    file_backed = explicit or (path is not None and path.is_file())
+    if file_backed and _telemetry_dirty:
         _flush_telemetry_file()
+    rows, total = _rows_from_hit_map(_rule_hit_counts)
     return {
         "since_unix": _telemetry_started_at_unix,
-        "since_process_start": not durable,
-        "durability": "file" if durable else "process_memory",
-        "path": str(path) if path else None,
+        "since_process_start": not file_backed,
+        "durability": "file" if file_backed else "process_memory",
+        "path": str(path) if file_backed and path else None,
         "total_hits": total,
         "unique_keys": len(rows),
         "rows": rows,

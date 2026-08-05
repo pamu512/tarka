@@ -84,6 +84,22 @@ def test_derive_recommended_action_deny_and_review():
     )
 
 
+def test_derive_recommended_action_integrity_gates_step_up():
+    # Below web floor (0.55) → manual_review instead of auto step-up.
+    low = {
+        "confidence_tier": "low",
+        "platform": "web",
+        "integrity_confidence": 0.4,
+        "tamper_risk": 0.0,
+        "replay_risk": 0.0,
+    }
+    assert derive_recommended_action("allow", [], low) == "manual_review"
+    # Deny still blocks regardless of integrity.
+    assert derive_recommended_action("deny", [], low) == "block"
+    ok = {**low, "integrity_confidence": 0.8}
+    assert derive_recommended_action("allow", [], ok) == "step_up_mfa"
+
+
 def test_build_inference_context_ml_detail():
     ctx = build_inference_context(
         signal_tags=[],
@@ -107,21 +123,43 @@ def test_build_inference_context_ml_detail():
 
 
 def test_derive_recommended_action_allow_attestation():
-    inf_high = {"confidence_tier": "high", "tamper_risk": 0.0, "replay_risk": 0.0}
+    inf_high = {
+        "confidence_tier": "high",
+        "tamper_risk": 0.0,
+        "replay_risk": 0.0,
+        "integrity_confidence": 0.9,
+        "platform": "web",
+    }
     assert (
         derive_recommended_action("allow", ["ingress:replay_payload"], inf_high)
         == "step_up_attestation"
     )
     assert (
-        derive_recommended_action("allow", [], {"tamper_risk": 0.6})
+        derive_recommended_action(
+            "allow",
+            [],
+            {"tamper_risk": 0.6, "integrity_confidence": 0.9, "platform": "web"},
+        )
         == "step_up_attestation"
     )
     assert (
-        derive_recommended_action("allow", [], {"confidence_tier": "low"})
+        derive_recommended_action(
+            "allow",
+            [],
+            {"confidence_tier": "low", "integrity_confidence": 0.9, "platform": "web"},
+        )
         == "step_up_mfa"
     )
     assert (
-        derive_recommended_action("allow", [], {"impossible_travel_risk": 0.6})
+        derive_recommended_action(
+            "allow",
+            [],
+            {
+                "impossible_travel_risk": 0.6,
+                "integrity_confidence": 0.9,
+                "platform": "web",
+            },
+        )
         == "step_up_mfa"
     )
     assert derive_recommended_action("allow", [], inf_high) is None
