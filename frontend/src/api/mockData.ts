@@ -1470,6 +1470,35 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       ],
     };
   }
+  if (path.includes("/api/cases/v1/cases/ops/qa-sample")) {
+    return {
+      tenant_id: "demo",
+      rate: 0.1,
+      seed: "mock",
+      candidates: mockCases.filter((c) => ["resolved", "closed"].includes(String(c.status))).length,
+      sampled: 1,
+      queued: mockCases.slice(0, 1).map((c) => String(c.id)),
+    };
+  }
+  if (path.includes("/api/cases/v1/cases/ops/qa-review")) {
+    return {
+      case_id: String(body?.case_id ?? "c1"),
+      original_status: String(body?.original_status ?? "resolved"),
+      qa_status: String(body?.qa_status ?? "resolved"),
+      agree: String(body?.qa_status ?? "resolved") === String(body?.original_status ?? "resolved"),
+    };
+  }
+  if (path.includes("/api/cases/v1/cases/ops/qa-metrics")) {
+    return {
+      tenant_id: "demo",
+      pending: 1,
+      reviewed: 2,
+      agree: 1,
+      disagree: 1,
+      agreement_rate: 0.5,
+      disagreement_rate: 0.5,
+    };
+  }
   if (path.includes("/api/cases/v1/cases/analytics/cohort-compare")) {
     return {
       tenant_id: "demo",

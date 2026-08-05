@@ -24,6 +24,7 @@ Lift Engineering, Risk/Strategy, and Fraud Ops lenses and competitive module sco
 | 3 | QA sampling; production `metadata.shadow`; challenge webhooks; rule telemetry |
 | 4 | Harden + formal rescore with evidence SHAs |
 | 5 | Evidence gates + smallest ops slice — see [maturity-wave5-design](./2026-08-05-maturity-wave5-design.md) |
+| 6 | Honest 4.2 across lenses + six-caps — see [maturity-wave6-design](./2026-08-05-maturity-wave6-design.md) |
 
 ## Acceptance rule
 

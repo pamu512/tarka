@@ -34,6 +34,8 @@ describe("leanNav", () => {
     const { isProductionSurfacePath } = await loadLeanNav();
     expect(isProductionSurfacePath("/cases")).toBe(true);
     expect(isProductionSurfacePath("/cases/abc")).toBe(true);
+    expect(isProductionSurfacePath("/ops/qa")).toBe(true);
+    expect(isProductionSurfacePath("/ops/integrity")).toBe(true);
     expect(isProductionSurfacePath("/disputes/x")).toBe(true);
     expect(isProductionSurfacePath("/403-unauthorized")).toBe(true);
     expect(isProductionSurfacePath("/admin")).toBe(true);

@@ -1,0 +1,9 @@
+{
+  "schema_id": "tarka.counter_replay_job/v1",
+  "generated_at": "2026-08-05T00:00:00+00:00",
+  "ok": true,
+  "mode": "dry_run",
+  "events": 3,
+  "fixture": "scripts/replay/fixtures/parity_smoke.jsonl",
+  "hint": "Seed for OpsCounters last_parity_run; nightly Redis dual-diff overwrites via COUNTER_PARITY_REPORT_PATH"
+}

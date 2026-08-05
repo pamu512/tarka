@@ -152,12 +152,21 @@ def _catalog_meta() -> dict[str, Any]:
         "redis_key_version": agg,
     }
     if parity:
+        # Accept run_offline_parity.py shape or Wave5 counter_replay_job schema.
+        if parity.get("schema_id") == "tarka.counter_replay_job/v1" or (
+            "mode" in parity and "replay" not in parity
+        ):
+            ok = bool(parity.get("ok"))
+        else:
+            ok = bool((parity.get("replay") or {}).get("ok")) and (
+                parity.get("diff") is None
+                or bool((parity.get("diff") or {}).get("ok"))
+            )
         meta["last_parity_run"] = {
             "generated_at": parity.get("generated_at"),
-            "ok": bool((parity.get("replay") or {}).get("ok"))
-            and (
-                parity.get("diff") is None or bool((parity.get("diff") or {}).get("ok"))
-            ),
+            "ok": ok,
+            "mode": parity.get("mode"),
+            "events": parity.get("events"),
             "agg_key_version": parity.get("agg_key_version"),
             "scratch_redis_url": parity.get("scratch_redis_url"),
             "reference_redis_url": parity.get("reference_redis_url"),
