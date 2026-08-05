@@ -1039,9 +1039,7 @@ async def qa_metrics(tenant_id: str, session: AsyncSession = Depends(get_session
     from .qa_sampling import disagreement_metrics
 
     rows = (
-        await session.execute(
-            select(Case.status, Case.labels).where(Case.tenant_id == tenant_id)
-        )
+        await session.execute(select(Case.status, Case.labels).where(Case.tenant_id == tenant_id))
     ).all()
     reviews: list[dict] = []
     pending = 0

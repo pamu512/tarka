@@ -87,9 +87,10 @@ def graph_writeback_hints(
                 },
             }
         )
-    if any(t.startswith("vendor:incognia") for t in tags) or features.get(
-        "vendor_incognia_risk"
-    ) is not None:
+    if (
+        any(t.startswith("vendor:incognia") for t in tags)
+        or features.get("vendor_incognia_risk") is not None
+    ):
         place_id = str(
             features.get("vendor_incognia_place_id")
             or f"incognia:{tenant_id}:{entity_id}"

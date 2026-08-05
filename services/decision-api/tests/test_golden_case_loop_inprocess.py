@@ -89,4 +89,6 @@ async def test_golden_y_label_post_is_healthy(golden_client):
     body = r.json()
     posture = body.get("posture") or {}
     assert posture.get("healthy") is True, body
-    assert float(body.get("label_coverage") or posture.get("label_coverage") or 0) >= 0.2
+    assert (
+        float(body.get("label_coverage") or posture.get("label_coverage") or 0) >= 0.2
+    )

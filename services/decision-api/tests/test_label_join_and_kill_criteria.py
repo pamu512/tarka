@@ -19,8 +19,22 @@ def test_y_label_from_ground_truth():
 
 def test_apply_y_labels_and_posture():
     rows = [
-        {"trace_id": "t1", "entity_id": "e1", "y_label": "", "proxy_label_from_decision": "1", "score": "80", "integrity_confidence": "0.8"},
-        {"trace_id": "t2", "entity_id": "e2", "y_label": "", "proxy_label_from_decision": "0", "score": "20", "integrity_confidence": "0.2"},
+        {
+            "trace_id": "t1",
+            "entity_id": "e1",
+            "y_label": "",
+            "proxy_label_from_decision": "1",
+            "score": "80",
+            "integrity_confidence": "0.8",
+        },
+        {
+            "trace_id": "t2",
+            "entity_id": "e2",
+            "y_label": "",
+            "proxy_label_from_decision": "0",
+            "score": "20",
+            "integrity_confidence": "0.2",
+        },
     ]
     meta = apply_y_labels(rows, {"t1": "1"}, labels_by_entity={"e2": "0"})
     assert meta["y_label_joined"] == 2
@@ -29,7 +43,9 @@ def test_apply_y_labels_and_posture():
     bins = reliability_bins(rows, n_bins=5, use_proxy_labels=False)
     assert bins["label_source"] == "y_label"
     assert bins["label_coverage"] == 1.0
-    posture = label_coverage_posture(label_coverage=bins["label_coverage"], proxy_only=False)
+    posture = label_coverage_posture(
+        label_coverage=bins["label_coverage"], proxy_only=False
+    )
     assert posture["healthy"] is True
     bad = label_coverage_posture(label_coverage=0.0, proxy_only=True)
     assert bad["healthy"] is False
@@ -58,7 +74,10 @@ def test_evaluate_shadow_request_helper():
 def test_partner_fusion_signals():
     from types import SimpleNamespace
 
-    from decision_api.partner_fusion import graph_writeback_hints, signals_to_feature_tags
+    from decision_api.partner_fusion import (
+        graph_writeback_hints,
+        signals_to_feature_tags,
+    )
 
     # ponytail: avoid vendors/ import (pulls tenacity); fusion only needs duck-typed attrs
     sigs = [
