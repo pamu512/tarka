@@ -42,6 +42,7 @@ from decision_api.integrity_policy import (
     apply_evaluate_integrity_tags,
     supplemental_tags_for_integrity,
 )
+from decision_api.location_cohort_evidence import build_location_cohort_evidence
 from decision_api.location_context import merge_session_geo_from_device_and_features
 from decision_api.models import AuditRecord
 from decision_api.policy_routing import (
@@ -1033,6 +1034,16 @@ async def run_evaluate_decision(
             snap_extra["partner_evidence"] = partner_evidence
         if partner_graph_hints:
             snap_extra["partner_graph_writeback"] = partner_graph_hints
+        location_cohort_evidence = build_location_cohort_evidence(
+            tags=merged_tags,
+            inference_context=inf_ctx,
+            location_meta=location_meta if isinstance(location_meta, dict) else None,
+            graph_meta=graph_risk if isinstance(graph_risk, dict) else None,
+            partner_graph_hints=partner_graph_hints,
+            canary_cohort=snap_extra.get("canary_cohort"),
+        )
+        if location_cohort_evidence is not None:
+            snap_extra["location_cohort_evidence"] = location_cohort_evidence
 
         audit = AuditRecord(
             trace_id=trace_id,
