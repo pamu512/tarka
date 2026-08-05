@@ -16,3 +16,14 @@ Canonical **key set** (and example numeric shape) for **`inference_context`** v2
 
 - **Python / TypeScript SDKs** should expose the same logical fields as `contracts/openapi/decision-api.yaml` **`InferenceContext`**.
 - Add **device-context** golden tests separately under `contracts/json-schema/` when expanding SDK collectors.
+
+## Evaluate / device-context golden (Wave A)
+
+| Fixture | Schema gate |
+|---------|-------------|
+| `device-context-web.v1.json` | `contracts/json-schema/device-context.json` + `DeviceContextIn` |
+| `evaluate-request-minimal.v1.json` | `fraud-event.json` envelope + nested device-context + `EvaluateRequest` |
+
+**CI:** `make contract-check` → `infra/scripts/ci/validate_golden_evaluate_contracts.py` (also in `audit-stubs`).
+
+Nested `device_context` in the evaluate fixture **must equal** `device-context-web.v1.json` so collectors and evaluate stay aligned.

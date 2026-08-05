@@ -143,6 +143,8 @@ async def run_simulation(body: RunSimulationRequest, request: Request):
         events_evaluated=n,
         notes="POST /v1/simulation/run",
         meta={"include_ml": body.include_ml},
+        allow_underpowered=body.allow_underpowered,
+        minimum_recommended_events=_MIN_SIM_N,
     )
     low_n = n < _MIN_SIM_N
     return {
@@ -153,10 +155,14 @@ async def run_simulation(body: RunSimulationRequest, request: Request):
             "events_evaluated": n,
             "minimum_recommended_events": _MIN_SIM_N,
             "low_sample_warning": low_n,
+            "underpowered": low_n,
+            "holdout_ok": (not low_n) or body.allow_underpowered,
+            "kpi_eligible": not low_n,
             "notes": [
                 "Use fixed scenario seeds and frozen rule packs when comparing runs.",
                 "Large metric swings with the same profile often mean insufficient sample size or non-deterministic rules.",
                 "Do not treat simulation precision/recall as production KPIs without labeled production holdouts.",
+                "kpi_eligible is false when underpowered even if allow_underpowered was set.",
             ],
         },
     }
@@ -240,6 +246,8 @@ async def ab_test(body: ABTestRequest):
         scenario=body.scenario,
         events_evaluated=n,
         notes="POST /v1/simulation/ab-test",
+        allow_underpowered=body.allow_underpowered,
+        minimum_recommended_events=_MIN_SIM_N,
     )
 
     return {
@@ -250,6 +258,9 @@ async def ab_test(body: ABTestRequest):
         "experiment_guardrails": {
             "minimum_recommended_events": _MIN_SIM_N,
             "low_sample_warning": n < _MIN_SIM_N,
+            "underpowered": n < _MIN_SIM_N,
+            "holdout_ok": (n >= _MIN_SIM_N) or body.allow_underpowered,
+            "kpi_eligible": n >= _MIN_SIM_N,
         },
         "comparison": {
             "precision_delta": round(result_b.precision - result_a.precision, 4),
@@ -303,6 +314,8 @@ async def benchmark_vertical_pack(body: VerticalBenchmarkRequest):
         vertical=body.vertical.lower(),
         events_evaluated=n,
         notes="POST /v1/simulation/benchmark/vertical",
+        allow_underpowered=body.allow_underpowered,
+        minimum_recommended_events=_MIN_SIM_N,
     )
 
     vert_metrics = result_vertical.model_dump()
@@ -328,7 +341,9 @@ async def benchmark_vertical_pack(body: VerticalBenchmarkRequest):
         "experiment_guardrails": {
             "minimum_recommended_events": _MIN_SIM_N,
             "low_sample_warning": n < _MIN_SIM_N,
-            "promote_gate": promote,
+            "underpowered": n < _MIN_SIM_N,
+            "holdout_ok": (n >= _MIN_SIM_N) or body.allow_underpowered,
+            "kpi_eligible": n >= _MIN_SIM_N,
         },
         "promote_gate": promote,
         "delta": {

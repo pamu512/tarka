@@ -50,6 +50,7 @@ class EvaluateResponse(TypedDict, total=False):
     ml_score: float | None
     inference_context: InferenceContext
     recommended_action: str | None
+    enforcement_action: NotRequired[str | None]
     challenge_policy_id: NotRequired[str | None]
     challenge_metadata: NotRequired[dict[str, Any] | None]
     graph_decision_explanation: NotRequired[dict[str, Any] | None]

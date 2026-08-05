@@ -8,6 +8,7 @@ from tarka_core.internal_monitor import InternalMonitor
 from decision_api.integrity_policy import (
     adjust_integrity_confidence,
     haversine_km,
+    min_integrity_confidence_for_platform,
     parse_session_geo,
     trusted_zone_hit,
 )
@@ -458,6 +459,7 @@ def build_inference_context(
         "expected_calibration_version": exp_cal_ver,
         "confidence_tier_label": _confidence_tier_label(confidence_tier),
         "driver_explain": driver_explain,
+        "platform": (platform or "web").strip().lower() or "web",
         "integrity_confidence": round(integrity_confidence, 4),
         "tamper_risk": round(tamper_risk, 4),
         "network_trust": round(network_trust, 4),
@@ -502,15 +504,27 @@ def derive_recommended_action(
     if decision == "deny":
         return "block"
 
+    action: str | None = None
     if decision == "review":
-        return "step_up_mfa" if tier == "low" else "manual_review"
+        action = "step_up_mfa" if tier == "low" else "manual_review"
+    elif "ingress:replay_payload" in tags:
+        action = "step_up_attestation"
+    elif (
+        inference.get("tamper_risk", 0) >= 0.5 or inference.get("replay_risk", 0) >= 0.5
+    ):
+        action = "step_up_attestation"
+    elif tier == "low":
+        action = "step_up_mfa"
+    elif inference.get("impossible_travel_risk", 0) >= 0.55:
+        action = "step_up_mfa"
 
-    if "ingress:replay_payload" in tags:
-        return "step_up_attestation"
-    if inference.get("tamper_risk", 0) >= 0.5 or inference.get("replay_risk", 0) >= 0.5:
-        return "step_up_attestation"
-    if tier == "low":
-        return "step_up_mfa"
-    if inference.get("impossible_travel_risk", 0) >= 0.55:
-        return "step_up_mfa"
-    return None
+    # Integrity matrix: do not auto step-up when confidence is below platform floor.
+    if action and action.startswith("step_up") and "integrity_confidence" in inference:
+        try:
+            conf = float(inference["integrity_confidence"])
+        except (TypeError, ValueError):
+            conf = 0.0
+        plat = str(inference.get("platform") or "web")
+        if conf < min_integrity_confidence_for_platform(plat):
+            return "manual_review"
+    return action
