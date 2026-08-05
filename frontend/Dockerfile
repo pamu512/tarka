@@ -11,6 +11,11 @@ ENV VITE_AI_GOVERNANCE_PROFILE=${VITE_AI_GOVERNANCE_PROFILE}
 # Sales demo image: --build-arg VITE_LEAN_NAV=false
 ARG VITE_LEAN_NAV=true
 ENV VITE_LEAN_NAV=${VITE_LEAN_NAV}
+# Desk-strict: case/calibration/QA never auto-mock (missed-mark bridge)
+ARG VITE_DESK_STRICT=true
+ENV VITE_DESK_STRICT=${VITE_DESK_STRICT}
+ARG VITE_USE_API_MOCKS=false
+ENV VITE_USE_API_MOCKS=${VITE_USE_API_MOCKS}
 RUN npm run build
 
 FROM nginx:alpine

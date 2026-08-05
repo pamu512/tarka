@@ -10,6 +10,7 @@ import {
   type SaarthiFeatureImportanceResponse,
 } from "../lib/saarthi/featureImportance";
 import { reportDataOutcome } from "./dataSourceState";
+import { deskStrictEnabled, mocksAllowedForUrl } from "./deskMockPolicy";
 import { assertIntegrationSecretsTransportSecure } from "../utils/integrationSecretsTransport";
 import {
   extractSupportIdFromMessage,
@@ -37,10 +38,23 @@ if (IS_PRODUCTION_BUILD && MOCK_MODE === "true") {
  * - `VITE_USE_API_MOCKS=false` -> never allow fallback
  * - `VITE_USE_API_MOCKS=auto` (default) -> allow in dev, never in production
  *
+ * Desk-strict (default ON via VITE_DESK_STRICT): case/calibration/QA routes never
+ * use auto mock fallback — only explicit VITE_USE_API_MOCKS=true.
+ *
  * Production: mocks are disabled; mock helpers are loaded only via dynamic import so they are not in the main chunk.
  */
 const USE_API_MOCKS =
   !IS_PRODUCTION_BUILD && (MOCK_MODE === "true" || (MOCK_MODE !== "false" && import.meta.env.DEV));
+
+const DESK_STRICT = deskStrictEnabled(import.meta.env.VITE_DESK_STRICT as string | undefined);
+
+function allowMocksForRequest(url: string): boolean {
+  return mocksAllowedForUrl(url, {
+    useApiMocks: USE_API_MOCKS,
+    mockMode: MOCK_MODE,
+    deskStrict: DESK_STRICT,
+  });
+}
 
 /** ``GET /v1/entities/{id}/deep-context`` — JanusGraph neighborhood + current risk snapshot. */
 export interface GraphEntityDeepContext {
@@ -1263,7 +1277,7 @@ function normalizeNetworkFetchError(error: unknown): unknown {
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const allowMockFallback = USE_API_MOCKS;
+  const allowMockFallback = allowMocksForRequest(url);
   try {
     const res = await fetch(url, {
       ...init,
@@ -1457,6 +1471,36 @@ export const decisions = {
       bins?: Array<Record<string, unknown>>;
       [key: string]: unknown;
     }>(`/api/decisions/v1/calibration/reliability-bins?${q}`);
+  },
+
+  /** Join case disposition into y_label for calibration (missed-mark bridge B2). */
+  joinDispositionLabels(
+    tenantId: string,
+    body: {
+      labels_by_trace?: Record<string, string>;
+      labels_by_entity?: Record<string, string>;
+      allow_proxy_labels?: boolean;
+    },
+    nBins: number = 10,
+  ) {
+    const q = new URLSearchParams({
+      tenant_id: tenantId,
+      n_bins: String(nBins),
+      limit: "5000",
+    });
+    return request<{
+      schema_id: string;
+      posture?: { healthy?: boolean; hint?: string };
+      join?: Record<string, unknown>;
+      [key: string]: unknown;
+    }>(`/api/decisions/v1/calibration/reliability-bins?${q}`, {
+      method: "POST",
+      body: JSON.stringify({
+        labels_by_trace: body.labels_by_trace ?? {},
+        labels_by_entity: body.labels_by_entity ?? {},
+        allow_proxy_labels: body.allow_proxy_labels ?? false,
+      }),
+    });
   },
 
   async reliabilityExportCsv(tenantId: string, limit: number = 10_000): Promise<string> {

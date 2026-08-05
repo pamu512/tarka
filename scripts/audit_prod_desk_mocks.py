@@ -30,6 +30,16 @@ def main() -> int:
     if "forbidden in production builds" not in text:
         errors.append("client.ts missing production mock forbid Error message")
 
+    policy = _REPO / "frontend" / "src" / "api" / "deskMockPolicy.ts"
+    if not policy.is_file():
+        errors.append("missing deskMockPolicy.ts (VITE_DESK_STRICT)")
+    else:
+        pol = policy.read_text(encoding="utf-8")
+        if "deskStrictEnabled" not in pol or "isDeskApiPath" not in pol:
+            errors.append("deskMockPolicy.ts missing desk-strict helpers")
+    if "allowMocksForRequest" not in text and "mocksAllowedForUrl" not in text:
+        errors.append("client.ts must use desk-strict mock allowlist")
+
     desk_files = [
         _REPO / "frontend" / "src" / "api" / "v1" / "decisions.ts",
         _REPO / "frontend" / "src" / "api" / "v1" / "disputes.ts",

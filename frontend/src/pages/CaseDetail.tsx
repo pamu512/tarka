@@ -260,6 +260,26 @@ function CaseDetailWorkbench() {
       setStatusUpdating(true);
       try {
         await cases.update(caseId, caseData.tenant_id, { status: newStatus as Case["status"] });
+        // Bridge B2: close the calibration loop when resolving/closing with a trace_id
+        const terminal = ["resolved", "closed", "resolved_fraud", "resolved_legit"].includes(
+          newStatus.toLowerCase(),
+        );
+        const trace = caseData.trace_id?.trim();
+        if (terminal && trace) {
+          const st = newStatus.toLowerCase();
+          const label = st.includes("fraud") ? "FRAUD" : "LEGITIMATE";
+          try {
+            const { decisions: decisionsApi } = await import("../api/client");
+            await decisionsApi.joinDispositionLabels(caseData.tenant_id, {
+              labels_by_trace: { [trace]: label },
+              allow_proxy_labels: false,
+            });
+            toast("Disposition joined to calibration (y_label)", "success");
+          } catch {
+            // Non-blocking: case status already saved
+            toast("Case updated; calibration label join skipped (decision-api unavailable)", "info");
+          }
+        }
         await refreshCase();
         trackWorkbenchTask("case_status_update", { caseId, tenantId: caseData.tenant_id, detail: newStatus });
       } catch (e) {
