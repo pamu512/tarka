@@ -49,6 +49,23 @@ jobs:
         run: python3 scripts/oss/golden_case_loop_smoke.py
       - name: Wave 5 — partner fusion fixture smoke
         run: python3 scripts/oss/partner_fusion_fixture_smoke.py
+      - name: Partner fusion tenant proof (fixture + SHA pin)
+        run: |
+          python3 scripts/oss/partner_fusion_tenant_proof.py --mode fixture \
+            --out artifacts/partner-fusion-proof.json
+          test -f artifacts/partner-fusion-proof.sha256
+          # Pin must match committed stable digest (fail if fusion mapping drifts silently)
+          diff -u docs/compliance/partner-fusion-proof.stable.sha256 \
+            artifacts/partner-fusion-proof.sha256
+      - name: Upload partner fusion proof artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: partner-fusion-proof
+          path: |
+            artifacts/partner-fusion-proof.json
+            artifacts/partner-fusion-proof.sha256
+          if-no-files-found: ignore
       - name: Wave 5 — QA desk smoke
         run: python3 scripts/oss/qa_desk_smoke.py
       - name: Wave 5/6 — counter replay job (dry-run + ops parity seed)

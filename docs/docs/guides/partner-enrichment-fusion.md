@@ -32,3 +32,21 @@ Use tags such as `vendor:fingerprint` / `vendor:incognia:*` in JSON rules. Examp
 ## Scorecards
 
 `GET /api/ingress/v1/integrations/scorecards?tenant_id=...` — fail closed when credentials incomplete.
+
+## Tenant proof (evaluate → audit → case evidence)
+
+Highest-leverage diligence gate. See [partner-fusion-proof-runbook.md](../../../compliance/partner-fusion-proof-runbook.md).
+
+```bash
+# CI / no keys
+python3 scripts/oss/partner_fusion_tenant_proof.py --mode fixture
+
+# One live tenant (requires vendor keys + request/account ids)
+export DECISION_API_URL=...
+export FINGERPRINT_REQUEST_ID=...
+export INCOGNIA_ACCOUNT_ID=...
+export REQUIRE_LIVE_PARTNER_PROOF=1
+python3 scripts/oss/partner_fusion_tenant_proof.py --mode live
+```
+
+Fixture stable SHA is pinned at `docs/compliance/partner-fusion-proof.stable.sha256` — refresh when the fixture or fusion mapping changes.

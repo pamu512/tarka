@@ -16,6 +16,9 @@ _PATHS = [
     "docs/docs/guides/shadow-and-ab-testing.md",
     "docs/docs/guides/partner-enrichment-fusion.md",
     "docs/docs/guides/calibration-ops-runbook.md",
+    "docs/compliance/partner-fusion-proof-runbook.md",
+    "docs/compliance/partner-fusion-proof.stable.sha256",
+    "scripts/oss/partner_fusion_tenant_proof.py",
     "scripts/audit_stubs.py",
 ]
 
