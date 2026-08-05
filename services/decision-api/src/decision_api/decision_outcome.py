@@ -43,6 +43,8 @@ class DecisionOutcomeContext:
     fallback_reason: str | None = None
     decision_log_record: dict[str, Any] | None = None
     degrade_tags: list[str] = field(default_factory=list)
+    # Production shadow duplicate: skip mutating side effects (graph, challenge, cases).
+    shadow_request: bool = False
 
 
 def schedule_decision_outcomes(
@@ -68,21 +70,22 @@ def schedule_decision_outcomes(
     if ctx.decision_log_record is not None:
         bg.add_task(emit_decision_log, ctx.decision_log_record)
 
-    if graph_upsert is not None:
+    if not ctx.shadow_request and graph_upsert is not None:
         bg.add_task(graph_upsert, *graph_upsert_args)
 
-    bg.add_task(
-        maybe_dispatch_challenge_webhook,
-        http=http,
-        trace_id=ctx.trace_id,
-        tenant_id=ctx.tenant_id,
-        entity_id=ctx.entity_id,
-        decision=ctx.decision,
-        recommended_action=ctx.recommended_action,
-        challenge_metadata=ctx.challenge_metadata
-        if isinstance(ctx.challenge_metadata, dict)
-        else None,
-    )
+    if not ctx.shadow_request:
+        bg.add_task(
+            maybe_dispatch_challenge_webhook,
+            http=http,
+            trace_id=ctx.trace_id,
+            tenant_id=ctx.tenant_id,
+            entity_id=ctx.entity_id,
+            decision=ctx.decision,
+            recommended_action=ctx.recommended_action,
+            challenge_metadata=ctx.challenge_metadata
+            if isinstance(ctx.challenge_metadata, dict)
+            else None,
+        )
 
     _emit_decision_metrics(ctx, metrics_inc)
 
@@ -98,22 +101,23 @@ def schedule_decision_outcomes(
         ctx.decision, ctx.recommended_action
     )
 
-    bg.add_task(
-        apply_enforcement_adapters,
-        http=http,
-        trace_id=ctx.trace_id,
-        tenant_id=ctx.tenant_id,
-        entity_id=ctx.entity_id,
-        event_type=ctx.event_type,
-        decision=ctx.decision,
-        score=ctx.score,
-        tags=ctx.tags,
-        recommended_action=ctx.recommended_action,
-        challenge_metadata=ctx.challenge_metadata
-        if isinstance(ctx.challenge_metadata, dict)
-        else None,
-        metrics_inc=metrics_inc,
-    )
+    if not ctx.shadow_request:
+        bg.add_task(
+            apply_enforcement_adapters,
+            http=http,
+            trace_id=ctx.trace_id,
+            tenant_id=ctx.tenant_id,
+            entity_id=ctx.entity_id,
+            event_type=ctx.event_type,
+            decision=ctx.decision,
+            score=ctx.score,
+            tags=ctx.tags,
+            recommended_action=ctx.recommended_action,
+            challenge_metadata=ctx.challenge_metadata
+            if isinstance(ctx.challenge_metadata, dict)
+            else None,
+            metrics_inc=metrics_inc,
+        )
 
     bg.add_task(
         broadcast_decision,
@@ -153,7 +157,11 @@ def schedule_decision_outcomes(
     if shadow_evaluation is not None:
         bg.add_task(shadow_evaluation, *shadow_args)
 
-    if case_create_on_deny_review and ctx.decision in ("deny", "review"):
+    if (
+        not ctx.shadow_request
+        and case_create_on_deny_review
+        and ctx.decision in ("deny", "review")
+    ):
         bg.add_task(
             maybe_create_case_for_outcome,
             http=http,

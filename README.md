@@ -73,64 +73,15 @@ Smaller hosts run **subgraphs** of the stack; do not expect comfortable local in
 
 ## Performance & Benchmarks
 
-Numbers below are **reference envelopes** for capacity planning—not marketing SLOs. Reproduce local figures with [`scripts/benchmarks/`](scripts/benchmarks/) (see [`scripts/benchmarks/README.md`](scripts/benchmarks/README.md)); treat the enterprise column as a **hypothetical projection** from horizontal scale-out, not a shipped guarantee.
+Reproduce **local** figures only from this README. Hypothetical enterprise scale-out projections (if any) live exclusively in [`scripts/benchmarks/README.md`](scripts/benchmarks/README.md) and must never be cited as shipped SLOs.
 
-### Reference environments
-
-| Profile | Hardware & dependencies |
-|---------|-------------------------|
-| **Local Dev Baseline** | **Apple M5 Pro** (24 GB unified memory); **Ollama** on-host (**Llama 3.2** / **Qwen3-VL:30b**); **Redis** single-node (`redis:7-alpine` in Compose); lite/full compose on SSD. |
-| **Enterprise Cloud (projection)** | **AWS c6i.16xlarge** (64 vCPUs, 128 GB RAM); **Amazon ElastiCache for Redis** (cluster mode enabled, **3 shards**); dedicated model hosting endpoints (no laptop-bound inference). |
-
-### Comparative metrics
-
-| Metric | Local Dev Baseline | Enterprise Cloud (Hypothetical Projection) |
-|--------|-------------------:|-------------------------------------------:|
-| **Ingress throughput (TPS)** | **3,200 TPS** sustained on evaluate path (single API replica, warm Redis) | **102,400 TPS** (3,200 × **8×** pipeline × **4×** compute; decoupled ingress + rule-engine workers) |
-| **Token-gated replay latency** | **P95 52 ms** · **P99 98 ms** (`tarka replay` + registry lookup, warm local stack) | **P95 1.6 ms** · **P99 3.1 ms** (52 ms ÷ 32, 98 ms ÷ 32; **4×** compute × **8×** I/O on manifest + registry path) |
-| **Counter parity execution time** (per **1M** events) | **4.1 min** (246 s) end-to-end replay + ZSET diff (single Redis DB) | **30.8 s** (246 s ÷ **8×**; sharded ElastiCache replay + diff) |
-| **Feature-service contract evaluation** | **5m 14 ms** · **1h 31 ms** · **24h 92 ms** per entity (single Redis aggregate store) | **5m 1.8 ms** · **1h 3.9 ms** · **24h 11.5 ms** (14/31/92 ms ÷ **8×** Redis memory throughput per window) |
-
-### Reproducing benchmark results
-
-Bring up the **lite** decision stack (Decision API on `http://127.0.0.1:8000`), then run the vertical benchmark harness from the **repository root** with a fixed seed and strict gates:
+**Local Dev Baseline:** Apple M-series / 24 GB class host; Redis single-node; lite compose on SSD. Bring up Decision API on `http://127.0.0.1:8000`, then:
 
 ```bash
 python scripts/benchmarks/vertical_benchmark_smoke.py --seed 42 --threshold strict
 ```
 
-Successful stdout ends with a **runcard** summary and a pass line (vertical packs exercised with reproducible deltas):
-
-```text
-Vertical benchmark smoke -> http://127.0.0.1:8000/v1/simulation/benchmark/vertical scenario=baseline seed=42 threshold=strict
-[ok] fintech: events=512 f1=0.041 precision=0.018 recall=0.062
-[ok] ecommerce: events=512 f1=0.038 precision=0.021 recall=0.055
-[ok] gaming: events=512 f1=0.044 precision=0.019 recall=0.058
-
-=== Tarka local dev baseline runcard ===
-seed: 42 | threshold: strict | verticals: fintech, ecommerce, gaming
-Ingress validation ........................ GREEN  (decision API benchmark/vertical reachable)
-Counter parity match ...................... GREEN  (deterministic seed; vertical deltas in band)
-Rule-pack evaluation latency .............. GREEN  (strict delta gates satisfied per vertical)
-Feature contract (5m / 1h / 24h) ........ GREEN  (events_evaluated >= min; lookback path warm)
-
-vertical benchmark smoke passed
-```
-
-Pair this smoke with [`latency_evaluate.py`](scripts/benchmarks/latency_evaluate.py) and the counter-parity workflow when you need to pin **ingress TPS**, **replay percentiles**, or **1M-event parity** wall times from the table above.
-
-> **Note:** Local results may fluctuate depending on concurrent unified memory allocation if you run large on-host vision or language models (for example **Qwen3-VL:30b**) alongside the data plane on the same **M5 Pro** host.
-
-Enterprise figures apply the scaling laws to the local baseline column: **ingress** and **replay** multiply throughput by **8×** (ElastiCache cluster on a **25 Gbps** dataplane vs single-thread loopback Redis) and by **4×** where FastAPI, the rule engine, and background workers no longer contend on one laptop SoC; **counter parity** and **feature lookbacks** divide wall time or latency by **8×** when Redis memory bandwidth is the binding constraint. On **c6i.16xlarge**, dedicated vCPU pools isolate evaluate, replay, and aggregate workers, while **three ElastiCache shards** move hot-window reads off the application event loop and onto provisioned memory bands.
-
-**How to read the table**
-
-- **Ingress TPS** — `POST /v1/decisions/evaluate` (or equivalent ingest rail) under fixed payload size; measure with [`latency_evaluate.py`](scripts/benchmarks/latency_evaluate.py) or `hey` wrappers. Local ceiling is usually **Redis + rule-engine CPU**, not network.
-- **Token-gated replay** — forensic replay that requires a valid service token before manifest fetch; budget **P95 under ~50 ms** on laptop-class hosts aligns with internal decision-plane targets.
-- **Counter parity** — replay the same JSONL fixture into two Redis logical DBs and diff sorted sets ([`counter-parity-smoke.yml`](.github/workflows/counter-parity-smoke.yml)); wall time scales ~linearly with event count until Redis CPU saturates.
-- **Feature-service lookbacks** — contract evaluation for **5m / 1h / 24h** velocity windows (Day 60 parity gates); enterprise projection assumes window state is **shard-local** with no cross-AZ cold reads.
-
-Publish honest numbers: host SKU, compose profile, commit SHA, warm-up count, and payload schema. See the benchmarks README checklist before citing TPS in release notes.
+Also see [`latency_evaluate.py`](scripts/benchmarks/latency_evaluate.py) and [`.github/workflows/counter-parity-smoke.yml`](.github/workflows/counter-parity-smoke.yml). Publish honest numbers: host SKU, compose profile, commit SHA, warm-up count, payload schema.
 
 ---
 

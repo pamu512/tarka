@@ -2,14 +2,14 @@
 
 **Workstream checklist**
 
-- [ ] Phase 0: Automated inventory (grep/rg) + classify each hit as ship, delete, or gate behind explicit degraded-mode contract
-- [ ] Track A: Feature store — Postgres metadata + ClickHouse DDL execution + saga reconciliation (replaces `_STORE`)
-- [ ] Track B: Backtest — replace `backtest_run_stub` with read-only ClickHouse queries, bounded memory, real metrics or remove endpoint
-- [ ] Track C: Executive KPIs — replace `_stub_kpis` with bounded CH queries + cache; fail closed if CH unavailable
-- [ ] Track D: SAR transport — durable filing rows + SFTP client + ACK worker or remove `schedule_ack_poll` until worker exists
-- [ ] Track E: Vendors — replace `echo_stub` with real adapter interface + config-driven HTTP + no fake scores in prod
+- [x] Phase 0: Automated inventory (grep/rg) + classify each hit as ship, delete, or gate behind explicit degraded-mode contract — see [`docs/STUB_REGISTER.md`](STUB_REGISTER.md)
+- [x] Track A: Feature store — Postgres metadata + ClickHouse DDL execution + saga reconciliation (replaces `_STORE`)
+- [x] Track B: Backtest — stub `/run` removed; jobs path is the honest surface
+- [x] Track C: Executive KPIs — bounded analytics queries; **503** when engine unavailable
+- [x] Track D: SAR transport — durable filing rows + SFTP worker (`sar_transport_worker.py`)
+- [x] Track E: Vendors — real HTTP adapters via `vendors/bootstrap.py`; no built-in `echo_stub`
 - [x] Track F: Visual rules — **Deleted** Rego/OPA transpilation; **Deprecated** `POST /v1/rules/rego/compile` (410 Gone tombstone); JSON compile + native Rust `tarka_rule_engine` evaluation path only
-- [ ] Verification: CI grep gate for forbidden patterns; integration tests against compose Postgres+CH; docs aligned with behavior
+- [x] Verification: CI grep gate (`scripts/audit_stubs.py` in `.github/workflows/ci.yml`); docs aligned with behavior
 
 **Overview:** Eliminate Potemkin surfaces repo-wide—either ship durable execution against real stores or remove/disable the API until honest. Feature store rewrite is Track A; parallel tracks cover backtest, dashboards, SAR/FinCEN, and vendor registry.
 

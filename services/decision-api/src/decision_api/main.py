@@ -1484,8 +1484,18 @@ async def ops_governance():
 
 
 @app.get("/v1/ops/calibration-status")
-async def calibration_status(tenant_id: str, profile: str = "default"):
-    """Small ops view that combines drift hint with governance context."""
+async def calibration_status(
+    tenant_id: str,
+    profile: str = "default",
+    session: AsyncSession = Depends(get_session),
+):
+    """Small ops view that combines drift hint with label-coverage posture."""
+    from decision_api.label_join import label_coverage_posture
+    from decision_api.reliability_export import (
+        audit_row_to_export_dict,
+        reliability_bins,
+    )
+
     if settings.calibration_service_url:
         try:
             r = await app.state.http.get(
@@ -1504,12 +1514,65 @@ async def calibration_status(tenant_id: str, profile: str = "default"):
             drift = {"hint": "calibration_service_unavailable"}
     else:
         drift = {"hint": "calibration_service_not_configured"}
+
+    # Label coverage from recent audits (proxy-only ⇒ not healthy).
+    label_posture: dict[str, Any] = {
+        "healthy": False,
+        "status": "no_audit_rows",
+        "label_coverage": 0.0,
+        "hint": "no_audit_rows",
+    }
+    try:
+        stmt = (
+            select(AuditRecord)
+            .where(AuditRecord.tenant_id == tenant_id)
+            .order_by(AuditRecord.created_at.desc())
+            .limit(500)
+        )
+        result = await session.execute(stmt)
+        records = result.scalars().all()
+        export_rows = [
+            audit_row_to_export_dict(
+                {
+                    "trace_id": rec.trace_id,
+                    "tenant_id": rec.tenant_id,
+                    "entity_id": rec.entity_id,
+                    "event_type": rec.event_type,
+                    "decision": rec.decision,
+                    "score": rec.score,
+                    "payload_snapshot": rec.payload_snapshot,
+                    "created_at": rec.created_at,
+                }
+            )
+            for rec in records
+        ]
+        bins = reliability_bins(export_rows, n_bins=10, use_proxy_labels=True)
+        label_posture = label_coverage_posture(
+            label_coverage=float(bins.get("label_coverage") or 0.0),
+            proxy_only=bins.get("label_source") == "proxy_from_decision",
+        )
+        label_posture["label_source"] = bins.get("label_source")
+        label_posture["rows_scanned"] = len(export_rows)
+    except Exception:
+        label_posture = {
+            "healthy": False,
+            "status": "label_coverage_unavailable",
+            "label_coverage": 0.0,
+            "hint": "label_coverage_unavailable",
+        }
+
+    healthy = bool(label_posture.get("healthy")) and drift.get("hint") not in {
+        "calibration_service_unavailable",
+        "elevated_drift_recalibrate",
+    }
     return {
         "tenant_id": tenant_id,
         "profile": profile,
         "inference_schema_version": INFERENCE_SCHEMA_VERSION,
         "challenge_policy_default": settings.challenge_policy_default,
         "calibration": drift,
+        "label_coverage": label_posture,
+        "healthy": healthy,
     }
 
 

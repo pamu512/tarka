@@ -99,3 +99,15 @@ Workflow **[`.github/workflows/benchmark-smoke.yml`](../../.github/workflows/ben
 - Redis + Decision API + **`vertical_benchmark_smoke.py`** (baseline-vs-vertical pack shape gate).
 
 These jobs sanity-check scripts and scoring behavior; they are not publishable load or calibration proofs.
+
+## Hypothetical enterprise projections (non-SLO)
+
+The following are **capacity-planning thought experiments** only — not shipped guarantees. Do not paste into root README or release notes as product metrics.
+
+| Metric | Local Dev Baseline (illustrative) | Enterprise Cloud (Hypothetical Projection) |
+|--------|----------------------------------:|-------------------------------------------:|
+| Ingress throughput (TPS) | ~3,200 (single API replica, warm Redis) | local × pipeline × compute scale-out factors |
+| Token-gated replay P95 | ~52 ms | lower when registry I/O is dedicated |
+| Counter parity (1M events) | ~4.1 min | lower with sharded Redis |
+
+Always publish measured local runcards with commit SHA instead of scaled projections.

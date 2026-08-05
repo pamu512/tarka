@@ -37,6 +37,24 @@ jobs:
         run: python3 scripts/audit_stubs.py
       - name: Tier-1 Honesty gate — audit_stubs self-test (stdlib unittest)
         run: python3 infra/scripts/ci/test_audit_stubs.py
+      - name: Wave 5 — prod desk mock forbid gate
+        run: python3 scripts/audit_prod_desk_mocks.py
+      - name: Wave 5 — golden case loop (offline)
+        run: python3 scripts/oss/golden_case_loop_smoke.py
+      - name: Wave 5 — partner fusion fixture smoke
+        run: python3 scripts/oss/partner_fusion_fixture_smoke.py
+      - name: Wave 5 — QA desk smoke
+        run: python3 scripts/oss/qa_desk_smoke.py
+      - name: Wave 5 — counter replay job (dry-run artifact)
+        run: python3 scripts/oss/counter_replay_job.py --dry-run
+      - name: Upload Wave 5 counter replay artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: counter-replay-job
+          path: artifacts/counter-replay-job.json
+          if-no-files-found: ignore
+
 
   lint:
     needs: audit-stubs

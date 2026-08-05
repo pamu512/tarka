@@ -950,6 +950,122 @@ async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_sess
     }
 
 
+@app.get("/v1/cases/ops/qa-sample")
+async def qa_sample_closed_cases(
+    tenant_id: str,
+    rate: float = 0.1,
+    seed: str | None = None,
+    limit: int = 50,
+    session: AsyncSession = Depends(get_session),
+):
+    """Sample closed/resolved cases into a QA second-review queue (labels ``qa:pending``)."""
+    from uuid import UUID as _UUID
+
+    from .qa_sampling import sample_case_ids
+
+    rows = (
+        await session.execute(
+            select(Case.id, Case.status, Case.labels).where(
+                Case.tenant_id == tenant_id,
+                func.lower(Case.status).in_(("resolved", "closed")),
+            )
+        )
+    ).all()
+    candidates = [str(cid) for cid, _st, _lbl in rows]
+    picked = sample_case_ids(candidates, rate=rate, seed=seed, limit=limit)
+    queued: list[str] = []
+    for cid in picked:
+        try:
+            uid = _UUID(cid)
+        except ValueError:
+            continue
+        case = await session.get(Case, uid)
+        if case is None:
+            continue
+        labels = list(case.labels or [])
+        if "qa:pending" not in labels:
+            labels.append("qa:pending")
+            case.labels = labels
+            queued.append(cid)
+    await session.commit()
+    return {
+        "tenant_id": tenant_id,
+        "rate": rate,
+        "seed": seed,
+        "candidates": len(candidates),
+        "sampled": len(picked),
+        "queued": queued,
+    }
+
+
+@app.post("/v1/cases/ops/qa-review")
+async def qa_submit_review(
+    body: dict,
+    session: AsyncSession = Depends(get_session),
+):
+    """Record QA disposition vs original; updates case labels for metrics."""
+    from uuid import UUID as _UUID
+
+    case_id = str(body.get("case_id") or "").strip()
+    qa_status = str(body.get("qa_status") or "").strip().lower()
+    original_status = str(body.get("original_status") or "").strip().lower()
+    if not case_id or not qa_status:
+        raise HTTPException(status_code=400, detail="case_id and qa_status required")
+    try:
+        uid = _UUID(case_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="case_id must be a UUID") from e
+    case = await session.get(Case, uid)
+    if case is None:
+        raise HTTPException(status_code=404, detail="case not found")
+    orig = original_status or (case.status or "").lower()
+    labels = [x for x in (case.labels or []) if not str(x).startswith("qa:")]
+    agree = orig == qa_status
+    labels.append("qa:agree" if agree else "qa:disagree")
+    labels.append(f"qa:review:{qa_status}"[:64])
+    case.labels = labels
+    await session.commit()
+    return {
+        "case_id": case_id,
+        "original_status": orig,
+        "qa_status": qa_status,
+        "agree": agree,
+    }
+
+
+@app.get("/v1/cases/ops/qa-metrics")
+async def qa_metrics(tenant_id: str, session: AsyncSession = Depends(get_session)):
+    """Agreement metrics from ``qa:agree`` / ``qa:disagree`` labels."""
+    from .qa_sampling import disagreement_metrics
+
+    rows = (
+        await session.execute(
+            select(Case.status, Case.labels).where(Case.tenant_id == tenant_id)
+        )
+    ).all()
+    reviews: list[dict] = []
+    pending = 0
+    for st, labels in rows:
+        lbls = set(labels or [])
+        if "qa:pending" in lbls and "qa:agree" not in lbls and "qa:disagree" not in lbls:
+            pending += 1
+        if "qa:agree" in lbls or "qa:disagree" in lbls:
+            qa_st = ""
+            for x in lbls:
+                if str(x).startswith("qa:review:"):
+                    qa_st = str(x).split(":", 2)[-1]
+            reviews.append(
+                {
+                    "original_status": st,
+                    "qa_status": qa_st or ("agree" if "qa:agree" in lbls else "disagree"),
+                }
+            )
+    metrics = disagreement_metrics(reviews)
+    metrics["pending"] = pending
+    metrics["tenant_id"] = tenant_id
+    return metrics
+
+
 @app.get("/v1/cases/analytics/cohort-compare")
 async def cohort_compare_cases(
     tenant_id: str,
