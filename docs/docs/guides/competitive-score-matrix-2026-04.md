@@ -37,17 +37,17 @@ For a **finer-grained, module-by-module** rescoring after recent parity work —
 Use these rows for **positioning and gap planning**. Competitors stay on the April 2026 benchmark row unless you rerun a formal competitive review.
 
 
-| Capability                                    | Tarka baseline Apr 2026 | Tarka **v1.2** (realigned) | Tarka **v1.3** (projected) | Fingerprint | Incognia | Sift | Uber/Grab style benchmark |
-| --------------------------------------------- | ----------------------- | -------------------------- | -------------------------- | ----------- | -------- | ---- | ------------------------- |
-| Inference normalization (cross-SDK + service) | 2.5                     | **3.0**                    | **3.25**                   | 4.5         | 4.0      | 4.0  | 4.5                       |
-| Replay/tamper/MitM hardening                  | 2.5                     | **2.75**                   | **2.75**                   | 4.5         | 3.5      | 3.5  | 4.0                       |
-| Counter/velocity platform maturity            | 2.0                     | **2.75**                   | **2.75**                   | 4.0         | 3.0      | 3.5  | 5.0                       |
-| Location/co-location coherence                | 1.5                     | **2.0**                    | **2.25**                   | 3.5         | 5.0      | 3.0  | 4.0                       |
-| Analyst decision acceleration                 | 2.0                     | **2.75**                   | **3.25**                   | 3.5         | 3.5      | 4.5  | 4.5                       |
-| Rule/risk operations safety                   | 3.0                     | **3.5**                    | **4.0**                    | 4.0         | 3.5      | 4.0  | 4.5                       |
+| Capability                                    | Tarka baseline Apr 2026 | Tarka **v1.2** (realigned) | Tarka **v1.3** (projected) | Tarka **Wave5 honest** (2026-08-05) | **Target 4.0–4.2** | Fingerprint | Incognia | Sift | Uber/Grab style benchmark |
+| --------------------------------------------- | ----------------------- | -------------------------- | -------------------------- | ----------------------------------- | ------------------ | ----------- | -------- | ---- | ------------------------- |
+| Inference normalization (cross-SDK + service) | 2.5                     | **3.0**                    | **3.25**                   | **3.55**                            | 4.1                | 4.5         | 4.0      | 4.0  | 4.5                       |
+| Replay/tamper/MitM hardening                  | 2.5                     | **2.75**                   | **2.75**                   | **2.85**                            | 3.5                | 4.5         | 3.5      | 3.5  | 4.0                       |
+| Counter/velocity platform maturity            | 2.0                     | **2.75**                   | **2.75**                   | **2.9**                             | 4.1                | 4.0         | 3.0      | 3.5  | 5.0                       |
+| Location/co-location coherence                | 1.5                     | **2.0**                    | **2.25**                   | **3.0** (hybrid path)               | 4.0                | 3.5         | 5.0      | 3.0  | 4.0                       |
+| Analyst decision acceleration                 | 2.0                     | **2.75**                   | **3.25**                   | **3.2**                             | 4.1                | 3.5         | 3.5      | 4.5  | 4.5                       |
+| Rule/risk operations safety                   | 3.0                     | **3.5**                    | **4.0**                    | **3.75**                            | 4.2                | 4.0         | 3.5      | 4.0  | 4.5                       |
 
 
-**Means (Tarka only, six capabilities):** baseline **2.25** · v1.2 **~2.79** (after location bump) · v1.3 **~3.04** (location **2.25** vs **2.0** on v1.2; other rows unchanged from matrix above).
+**Means (Tarka only, six capabilities):** baseline **2.25** · v1.2 **~2.79** · v1.3 **~3.04** · **Wave5 honest ~3.21** · target **~4.0** (gates in [maturity-wave5-design](../../../superpowers/specs/2026-08-05-maturity-wave5-design.md); partner fusion guide: [partner-enrichment-fusion.md](./partner-enrichment-fusion.md)). Do **not** cite the old aspirational ~4.05 hybrid column externally.)
 
 ---
 

@@ -21,6 +21,11 @@ from auth_rbac import require_role  # noqa: E402
 from decision_api.config import settings  # noqa: E402
 from decision_api.db import get_session  # noqa: E402
 from decision_api.models import AuditRecord  # noqa: E402
+from decision_api.label_join import (  # noqa: E402
+    apply_y_labels,
+    label_coverage_posture,
+    y_label_from_ground_truth,
+)
 from decision_api.reliability_export import (  # noqa: E402
     RELIABILITY_CSV_FIELDS,
     audit_row_to_export_dict,
@@ -326,6 +331,65 @@ async def reliability_export_csv(
     )
 
 
+class ReliabilityBinsBody(BaseModel):
+    """Optional ground-truth map: trace_id → FRAUD/LEGITIMATE (or 0/1)."""
+
+    labels_by_trace: dict[str, str] = Field(default_factory=dict)
+    labels_by_entity: dict[str, str] = Field(default_factory=dict)
+    allow_proxy_labels: bool = True
+
+
+def _normalize_label_maps(
+    labels_by_trace: dict[str, str],
+    labels_by_entity: dict[str, str],
+) -> tuple[dict[str, str], dict[str, str]]:
+    by_t = {
+        str(k).strip(): y_label_from_ground_truth(v)
+        for k, v in (labels_by_trace or {}).items()
+        if str(k).strip() and y_label_from_ground_truth(v)
+    }
+    by_e = {
+        str(k).strip(): y_label_from_ground_truth(v)
+        for k, v in (labels_by_entity or {}).items()
+        if str(k).strip() and y_label_from_ground_truth(v)
+    }
+    return by_t, by_e
+
+
+async def _reliability_bins_payload(
+    *,
+    request: Request,
+    tenant_id: str,
+    limit: int,
+    n_bins: int,
+    session: AsyncSession,
+    labels_by_trace: dict[str, str] | None = None,
+    labels_by_entity: dict[str, str] | None = None,
+    allow_proxy_labels: bool = True,
+) -> dict[str, Any]:
+    _enforce_tenant(request, tenant_id)
+    rows = await _load_audit_export_rows(session, tenant_id=tenant_id, limit=limit)
+    export_rows = [audit_row_to_export_dict(r) for r in rows]
+    by_t, by_e = _normalize_label_maps(labels_by_trace or {}, labels_by_entity or {})
+    join_meta = apply_y_labels(export_rows, by_t, labels_by_entity=by_e)
+    try:
+        payload = reliability_bins(
+            export_rows, n_bins=n_bins, use_proxy_labels=allow_proxy_labels
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    posture = label_coverage_posture(
+        label_coverage=float(payload.get("label_coverage") or 0.0),
+        proxy_only=payload.get("label_source") == "proxy_from_decision",
+    )
+    payload["tenant_id"] = tenant_id
+    payload["rows_scanned"] = len(export_rows)
+    payload["csv_fields"] = list(RELIABILITY_CSV_FIELDS)
+    payload["join"] = join_meta
+    payload["posture"] = posture
+    return payload
+
+
 @router.get("/reliability-bins")
 async def reliability_export_bins(
     request: Request,
@@ -336,14 +400,34 @@ async def reliability_export_bins(
     _user=Depends(require_role("analyst")),
 ) -> dict[str, Any]:
     """Equal-width reliability bins from recent audit rows (proxy labels unless y_label filled)."""
-    _enforce_tenant(request, tenant_id)
-    rows = await _load_audit_export_rows(session, tenant_id=tenant_id, limit=limit)
-    export_rows = [audit_row_to_export_dict(r) for r in rows]
-    try:
-        payload = reliability_bins(export_rows, n_bins=n_bins, use_proxy_labels=True)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    payload["tenant_id"] = tenant_id
-    payload["rows_scanned"] = len(export_rows)
-    payload["csv_fields"] = list(RELIABILITY_CSV_FIELDS)
-    return payload
+    return await _reliability_bins_payload(
+        request=request,
+        tenant_id=tenant_id,
+        limit=limit,
+        n_bins=n_bins,
+        session=session,
+        allow_proxy_labels=True,
+    )
+
+
+@router.post("/reliability-bins")
+async def reliability_export_bins_with_labels(
+    body: ReliabilityBinsBody,
+    request: Request,
+    tenant_id: str = Query(..., max_length=128),
+    limit: int = Query(10_000, ge=1, le=_EXPORT_MAX),
+    n_bins: int = Query(10, ge=2, le=50),
+    session: AsyncSession = Depends(get_session),
+    _user=Depends(require_role("analyst")),
+) -> dict[str, Any]:
+    """Reliability bins with explicit y_label join (dispositions / chargebacks)."""
+    return await _reliability_bins_payload(
+        request=request,
+        tenant_id=tenant_id,
+        limit=limit,
+        n_bins=n_bins,
+        session=session,
+        labels_by_trace=body.labels_by_trace,
+        labels_by_entity=body.labels_by_entity,
+        allow_proxy_labels=body.allow_proxy_labels,
+    )
