@@ -167,6 +167,25 @@ def test_fit_only_on_train_window(tmp_path):
     assert result["report_rows"] == 20
 
 
+def test_train_end_split(tmp_path):
+    mod = _load_mod()
+    rows = _calibrated_rows(start_day=1, count=40, invert=False)
+    parsed = [
+        {"created_at": r["created_at"], "score": r["integrity_confidence"], "y_label": int(r["y_label"])}
+        for r in rows
+    ]
+    result = mod.retrain(
+        parsed,
+        train_end="2026-01-01T12:00:00+00:00",
+        train_fraction=None,
+        ece_threshold=0.05,
+        force=False,
+    )
+    assert result["split_meta"]["split"] == "train_end"
+    assert result["train_rows"] == 13
+    assert result["report_rows"] == 27
+
+
 def test_platt_and_ece_helpers():
     mod = _load_mod()
     scores = [0.05, 0.08, 0.92, 0.95] * 25
