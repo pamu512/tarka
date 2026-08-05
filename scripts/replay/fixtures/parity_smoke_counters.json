@@ -1,0 +1,44 @@
+{
+  "schema_id": "tarka.counter_parity_golden/v1",
+  "tenant_id": "parity_smoke",
+  "clock_at": 1700000320.0,
+  "agg_key_version": "ci_parity_v1",
+  "entities": {
+    "entity_a": {
+      "payload_fields": {
+        "amount": 1.0,
+        "ip_address": "x",
+        "device_id": "dz",
+        "session_id": "sz"
+      },
+      "counters": {
+        "event_count_5m": 2,
+        "event_count_1h": 2,
+        "event_count_24h": 2,
+        "event_count_7d": 2,
+        "sum_amount_1h": 30.0,
+        "avg_amount_1h": 15.0,
+        "sum_amount_24h": 30.0,
+        "avg_amount_24h": 15.0,
+        "distinct_ip_address_24h": 2,
+        "distinct_device_id_24h": 2,
+        "distinct_session_id_24h": 2
+      }
+    },
+    "entity_b": {
+      "payload_fields": {
+        "amount": 1.0
+      },
+      "counters": {
+        "event_count_5m": 1,
+        "event_count_1h": 1,
+        "event_count_24h": 1,
+        "event_count_7d": 1,
+        "sum_amount_1h": 5.0,
+        "avg_amount_1h": 5.0,
+        "sum_amount_24h": 5.0,
+        "avg_amount_24h": 5.0
+      }
+    }
+  }
+}

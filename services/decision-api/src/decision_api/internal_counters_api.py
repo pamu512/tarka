@@ -143,6 +143,25 @@ def _load_last_parity_run() -> dict[str, Any] | None:
     return data
 
 
+def _parity_health_ok(parity: dict[str, Any]) -> bool:
+    """True only when artifact proves dual-diff parity (dry_run alone is not proof)."""
+    schema = parity.get("schema_id")
+    mode = parity.get("mode")
+    if schema == "tarka.counter_parity/v1":
+        return mode == "dual_diff" and bool(parity.get("matched"))
+    if mode == "dry_run":
+        return False
+    if schema == "tarka.counter_replay_job/v1" or ("mode" in parity and "replay" not in parity):
+        if mode in ("redis_dual_diff", "dual_diff"):
+            return bool(parity.get("ok"))
+        return bool(parity.get("ok")) and mode not in ("fixture_validate", "dry_run")
+    replay = parity.get("replay") or {}
+    diff = parity.get("diff")
+    if replay and diff is not None:
+        return bool(replay.get("ok")) and bool((diff or {}).get("ok"))
+    return bool(parity.get("ok")) and mode not in ("fixture_validate", "dry_run")
+
+
 def _catalog_meta() -> dict[str, Any]:
     parity = _load_last_parity_run()
     agg = _agg_key_version()
@@ -152,18 +171,11 @@ def _catalog_meta() -> dict[str, Any]:
         "redis_key_version": agg,
     }
     if parity:
-        # Accept run_offline_parity.py shape or Wave5 counter_replay_job schema.
-        if parity.get("schema_id") == "tarka.counter_replay_job/v1" or (
-            "mode" in parity and "replay" not in parity
-        ):
-            ok = bool(parity.get("ok"))
-        else:
-            ok = bool((parity.get("replay") or {}).get("ok")) and (
-                parity.get("diff") is None or bool((parity.get("diff") or {}).get("ok"))
-            )
+        ok = _parity_health_ok(parity)
         meta["last_parity_run"] = {
-            "generated_at": parity.get("generated_at"),
+            "generated_at": parity.get("ts") or parity.get("generated_at"),
             "ok": ok,
+            "matched": parity.get("matched") if "matched" in parity else ok,
             "mode": parity.get("mode"),
             "events": parity.get("events"),
             "agg_key_version": parity.get("agg_key_version"),
