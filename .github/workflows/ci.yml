@@ -39,20 +39,31 @@ jobs:
         run: python3 infra/scripts/ci/test_audit_stubs.py
       - name: Wave 5 — prod desk mock forbid gate
         run: python3 scripts/audit_prod_desk_mocks.py
+      - name: Wave 6 — integrity posture gate
+        run: python3 scripts/audit_integrity_posture.py
+      - name: Wave 6 — request signature HMAC gate
+        run: |
+          python3 -m pip install "fastapi>=0.115" "httpx>=0.27" "starlette>=0.40"
+          python3 scripts/audit_request_signature_gate.py
       - name: Wave 5 — golden case loop (offline)
         run: python3 scripts/oss/golden_case_loop_smoke.py
       - name: Wave 5 — partner fusion fixture smoke
         run: python3 scripts/oss/partner_fusion_fixture_smoke.py
       - name: Wave 5 — QA desk smoke
         run: python3 scripts/oss/qa_desk_smoke.py
-      - name: Wave 5 — counter replay job (dry-run artifact)
-        run: python3 scripts/oss/counter_replay_job.py --dry-run
+      - name: Wave 5/6 — counter replay job (dry-run + ops parity seed)
+        run: |
+          python3 scripts/oss/counter_replay_job.py --dry-run \
+            --report artifacts/counter-replay-job.json
+          cp artifacts/counter-replay-job.json rules/counter_parity_last.json
       - name: Upload Wave 5 counter replay artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: counter-replay-job
-          path: artifacts/counter-replay-job.json
+          path: |
+            artifacts/counter-replay-job.json
+            rules/counter_parity_last.json
           if-no-files-found: ignore
 
 

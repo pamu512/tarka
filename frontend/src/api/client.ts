@@ -1936,6 +1936,49 @@ export const cases = {
     return request<CaseDeskActivity>(`/api/cases/v1/cases/ops/desk-activity?${q}`);
   },
 
+  qaSample(
+    tenantId: string,
+    opts: { rate?: number; seed?: string; limit?: number } = {},
+  ) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    if (opts.rate != null) q.set("rate", String(opts.rate));
+    if (opts.seed) q.set("seed", opts.seed);
+    if (opts.limit != null) q.set("limit", String(opts.limit));
+    return request<{
+      tenant_id: string;
+      rate: number;
+      seed: string | null;
+      candidates: number;
+      sampled: number;
+      queued: string[];
+    }>(`/api/cases/v1/cases/ops/qa-sample?${q}`);
+  },
+
+  qaReview(body: { case_id: string; qa_status: string; original_status?: string }) {
+    return request<{
+      case_id: string;
+      original_status: string;
+      qa_status: string;
+      agree: boolean;
+    }>("/api/cases/v1/cases/ops/qa-review", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+
+  qaMetrics(tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<{
+      tenant_id: string;
+      pending: number;
+      reviewed: number;
+      agree?: number;
+      disagree?: number;
+      agreement_rate: number | null;
+      disagreement_rate: number | null;
+    }>(`/api/cases/v1/cases/ops/qa-metrics?${q}`);
+  },
+
   sarTransportBoard(tenantId: string) {
     const q = new URLSearchParams({ tenant_id: tenantId });
     return request<SarTransportBoardResponse>(`/api/cases/v1/cases/ops/sar-transport/board?${q}`);
