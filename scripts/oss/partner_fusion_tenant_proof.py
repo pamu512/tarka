@@ -299,11 +299,28 @@ def main() -> int:
     print(json.dumps({"ok": proof.get("ok"), "mode": proof.get("mode"),
                       "sha256": proof.get("stable_sha256") or proof.get("content_sha256"),
                       "out": str(args.out)}, indent=2))
+    evidence = list(
+        (proof.get("audit_snapshot") or {}).get("partner_evidence") or []
+    )
     if require_live and proof.get("mode") != "live":
+        print(
+            "REQUIRE_LIVE_PARTNER_PROOF: proof mode is not live",
+            file=sys.stderr,
+        )
         return 1
-    if require_live and not proof.get("ok"):
+    if require_live and not evidence:
+        print(
+            "REQUIRE_LIVE_PARTNER_PROOF: audit_snapshot.partner_evidence empty",
+            file=sys.stderr,
+        )
         return 1
-    return 0 if proof.get("ok") else 1
+    if proof.get("mode") == "live" and not evidence:
+        print(
+            "live proof: no partner_evidence in audit snapshot",
+            file=sys.stderr,
+        )
+        return 1
+    return 0 if proof.get("ok") and evidence else 1
 
 
 if __name__ == "__main__":
