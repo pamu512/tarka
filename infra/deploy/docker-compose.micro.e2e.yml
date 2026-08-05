@@ -3,6 +3,10 @@
 #   export E2E_API_KEY="playwright-e2e-micro-key"
 #   docker compose -f infra/deploy/docker-compose.micro.yml -f infra/deploy/docker-compose.micro.e2e.yml up -d --build
 #
+# Mock-free QA desk gate (Engineering 4.7 — PR-gated via ops-qa-desk-e2e.yml):
+#   ./scripts/e2e/reset-micro-for-playwright.sh
+#   cd frontend && E2E_QA_DESK=1 npx playwright test e2e/ops-qa-desk.spec.ts
+#
 # Grants case-api / SAR mutating routes (analyst+) via X-API-Key without changing ALLOW_INSECURE_NO_AUTH.
 
 services:
@@ -10,3 +14,8 @@ services:
     environment:
       API_KEYS: "${E2E_API_KEY:-playwright-e2e-micro-key}"
       SERVICE_API_KEY_ROLE: "admin"
+
+# Base compose marks micro_internal as internal (no host ingress). Playwright hits localhost.
+networks:
+  micro_internal:
+    internal: false
