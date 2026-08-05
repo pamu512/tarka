@@ -120,6 +120,7 @@ def _flush_telemetry_file() -> None:
             exc, context="flush_rule_telemetry", domain="rules"
         )
 
+
 _MAX_FIELD_LEN = 128
 _MAX_VALUE_LEN = 1024
 _MAX_RULES_PER_PACK = 200

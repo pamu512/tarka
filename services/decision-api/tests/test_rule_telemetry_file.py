@@ -10,6 +10,10 @@ from decision_api import json_rules
 def test_rule_telemetry_flushes_to_file(tmp_path, monkeypatch):
     path = tmp_path / "rule_hit_telemetry.json"
     monkeypatch.setenv("RULE_TELEMETRY_PATH", str(path))
+    # Isolate from CI Redis service container (SR-15 dual-write prefers Redis when up).
+    monkeypatch.setenv("RULE_HIT_TELEMETRY_REDIS", "0")
+    monkeypatch.setattr(json_rules, "_rule_hit_redis_client", None)
+    monkeypatch.setattr(json_rules, "_rule_hit_redis_failed", False)
     # reset module state for isolation
     json_rules._rule_hit_counts.clear()
     json_rules._telemetry_dirty = 0

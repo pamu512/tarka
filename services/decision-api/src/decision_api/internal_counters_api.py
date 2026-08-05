@@ -159,8 +159,7 @@ def _catalog_meta() -> dict[str, Any]:
             ok = bool(parity.get("ok"))
         else:
             ok = bool((parity.get("replay") or {}).get("ok")) and (
-                parity.get("diff") is None
-                or bool((parity.get("diff") or {}).get("ok"))
+                parity.get("diff") is None or bool((parity.get("diff") or {}).get("ok"))
             )
         meta["last_parity_run"] = {
             "generated_at": parity.get("generated_at"),
