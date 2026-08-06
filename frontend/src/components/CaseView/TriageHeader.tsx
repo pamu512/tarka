@@ -21,8 +21,13 @@ export type TriageHeaderProps = {
   verdict: string;
   /** Risk / fraud score 0–100. */
   riskScore: number;
-  /** Exactly three scan-layer signals (Velocity, Graph, Geo order recommended). */
-  flashCards: readonly [TriageFlashCard, TriageFlashCard, TriageFlashCard];
+  /** Scan-layer signals (Velocity, Graph, Loyalty, Geo enrichment). */
+  flashCards: readonly [
+    TriageFlashCard,
+    TriageFlashCard,
+    TriageFlashCard,
+    TriageFlashCard,
+  ];
   /** Single-line Saarthi / ML “why” — sight layer narrative. */
   saarthiLine: string | null;
   className?: string;
@@ -121,7 +126,7 @@ export function TriageHeader({
         </div>
 
         {/* Flash cards — secondary */}
-        <div className="lg:col-span-7 grid grid-cols-3 gap-2 min-h-0 min-w-0">
+        <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-2 min-h-0 min-w-0">
           {flashCards.map((card) => {
             const tone = card.tone ?? "neutral";
             const b = flashToneBorder[tone];

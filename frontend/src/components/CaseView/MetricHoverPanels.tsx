@@ -81,9 +81,58 @@ export function GeoHoverBody({ ctx }: { ctx: InferenceContext | null }) {
   if (!ctx) return <p className="text-gray-500 text-[11px]">No inference bundle.</p>;
   return (
     <div className="space-y-2">
+      <p className="text-[10px] text-gray-500 leading-snug">
+        Optional enrichment — not account linker.
+      </p>
       <MonoRow k="Geo consistency risk" v={ctx.geo_consistency_risk.toFixed(3)} />
       <MonoRow k="Impossible travel (proxy)" v={ctx.impossible_travel_risk.toFixed(3)} />
       <MonoRow k="Location confidence" v={`${(ctx.location_confidence * 100).toFixed(1)}%`} />
+    </div>
+  );
+}
+
+/** Loyalty economics gates — advisory benefit eligibility, not order block. */
+export function LoyaltyEconomicsHoverBody({
+  gates,
+}: {
+  gates: {
+    status?: string;
+    gates?: Record<string, { eligible?: boolean | null; status?: string; reasons?: string[] }>;
+    policy?: { order_decision_untouched?: boolean };
+  } | null;
+}) {
+  if (!gates) {
+    return (
+      <p className="text-gray-500 text-[11px] leading-snug">
+        Loyalty economics feeds not attached — dispatch / redeem / order gates require program config and
+        feed snapshot on evaluate metadata.
+      </p>
+    );
+  }
+  const names = ["dispatch", "redeem", "order"] as const;
+  return (
+    <div className="space-y-2">
+      <p className="text-[10px] text-gray-500 leading-snug">
+        Benefit gates (dispatch / redeem / order). Related ≠ abusive. Does not block the purchase decision.
+      </p>
+      <MonoRow k="Engine status" v={gates.status ?? "—"} />
+      {names.map((name) => {
+        const g = gates.gates?.[name];
+        const eligible =
+          g?.eligible === true ? "yes" : g?.eligible === false ? "no" : "—";
+        return (
+          <MonoRow
+            key={name}
+            k={`${name} gate`}
+            v={`${eligible} (${g?.status ?? "—"})`}
+          />
+        );
+      })}
+      {gates.policy?.order_decision_untouched ? (
+        <p className="text-[10px] text-gray-600 pt-1 border-t border-surface-700">
+          order_decision_untouched: host checkout remains outside this module.
+        </p>
+      ) : null}
     </div>
   );
 }
