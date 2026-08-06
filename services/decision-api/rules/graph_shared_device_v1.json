@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "name": "graph_shared_device_v1",
+  "mode": "shadow",
+  "description": "Graph/device relatedness — not geo linker. Shadow by default — flip mode to active after review.",
+  "rules": [],
+  "tag_rules": [
+    {
+      "id": "shared_device_sdk",
+      "any_tag": ["sdk:shared_device"],
+      "tags": ["graph:shared_device_elevated"],
+      "score_delta": 16,
+      "description": "Fingerprint store reports multiple entities on same device fingerprint (sdk:shared_device)"
+    },
+    {
+      "id": "shared_device_ring",
+      "any_tag": ["ring_shared_device"],
+      "tags": ["graph:ring_shared_device"],
+      "score_delta": 18,
+      "description": "Graph analytics risk_factors include shared_devices linkage (ring_shared_device)"
+    },
+    {
+      "id": "escalate_shared_device_with_velocity",
+      "any_tag": ["sdk:shared_device", "velocity:high_1h"],
+      "tags": ["escalated:graph_shared_device_velocity"],
+      "score_delta": 12,
+      "description": "Shared-device elevation combined with high 1h velocity"
+    }
+  ]
+}
