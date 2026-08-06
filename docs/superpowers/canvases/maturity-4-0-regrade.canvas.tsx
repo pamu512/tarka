@@ -17,37 +17,37 @@ import {
 } from "cursor/canvas";
 
 /**
- * Critical regrade — Done well / Could-be-better / Missed the mark.
- * Blindspots, logic fallacies, and bad assumptions marked CRITICAL.
+ * Critical regrade — post S4/S5 (2026-08-06).
+ * Done well / Could-be-better / Missed the mark.
+ * Blindspots, fallacies, assumptions = CRITICAL.
  */
 export default function Maturity40Regrade() {
   return (
     <Stack gap={24} style={{ padding: 24 }}>
       <Stack gap={8}>
-        <H1>Critical regrade — three buckets</H1>
+        <H1>Critical regrade — post S4 / S5</H1>
         <Text tone="secondary">
-          2026-08-06 · maturity-4-0-local. Scores from evidence buckets, not aim
-          bands. Blindspots / fallacies / assumptions = CRITICAL. A++ closed.
+          2026-08-06 · maturity-4-0-local. Bucket scores from durable evidence
+          only. Aim bands are not current. A++ / product-wide 4.2 closed.
         </Text>
         <Row gap={8} wrap>
           <Pill tone="success">Done well</Pill>
           <Pill tone="warning">Could-be-better</Pill>
-          <Pill tone="danger">Missed the mark</Pill>
-          <Pill tone="danger">CRITICAL fallacies</Pill>
+          <Pill tone="deleted">Missed the mark</Pill>
+          <Pill tone="deleted">CRITICAL C1–C7</Pill>
         </Row>
       </Stack>
 
-      <Callout tone="danger" title="CRITICAL — scoring fallacy (walked back)">
-        Treating “in-repo floor ≥4.0” as product effectiveness was itself a
-        logic error. Wiring + one CI green ≠ an effective loyalty-abuse or
-        risk model. Scores below reflect buckets, not aspirational floors.
+      <Callout tone="danger" title="CRITICAL — scoring fallacy (still binding)">
+        Wiring + CI green ≠ loyalty-abuse effectiveness. In-repo floor ≥4.0 was
+        walked back. Scores below are buckets, not aspirational bands.
       </Callout>
 
       <Grid columns={4} gap={16}>
         <Stat value="4.5" label="Engineering" tone="success" />
         <Stat value="4.2" label="Risk / Strategy" tone="success" />
         <Stat value="~3.6" label="Overall (critical)" tone="warning" />
-        <Stat value="~3.6" label="Six-cap mean" tone="warning" />
+        <Stat value="~3.7" label="Six-cap mean" tone="warning" />
       </Grid>
 
       <Divider />
@@ -70,13 +70,13 @@ export default function Maturity40Regrade() {
             "C1",
             "Fallacy",
             "Related accounts (graph) ⇒ loyalty abuse",
-            "False positive households; false negative burn rings without economics",
+            "False + households; false − burn rings without economics",
           ],
           [
             "C2",
-            "Assumption",
+            "Assumption (posture landed)",
             "Signup / early location available to link accounts",
-            "False under Apple/Google/web privacy — location is sparse enrichment",
+            "Product posture dual-write landed: relatedness = graph; location = optional enrichment. S1 live pin still open — Location 2.5",
           ],
           [
             "C3",
@@ -88,7 +88,7 @@ export default function Maturity40Regrade() {
             "C4",
             "Fallacy",
             "In-repo L1 / aim-band floor = product maturity score",
-            "Inflates Inference/Counters/Rule when closed-loop proof missing",
+            "Inflates Inference when closed-loop proof missing",
           ],
           [
             "C5",
@@ -100,13 +100,13 @@ export default function Maturity40Regrade() {
             "C6",
             "Fallacy (mitigated)",
             "Fixture partner SHA = live tenant enrichment",
-            "Closed as process: live.status LIVE|WAIVED fail-closed in CI — location still 2.5 until LIVE pin (aim Risk 4.5)",
+            "Process closed: LIVE|WAIVED fail-closed; location 2.5 until LIVE pin",
           ],
           [
             "C7",
-            "Blindspot",
+            "Blindspot (posture landed)",
             "Equal-weight Location pillar for loyalty-first thesis",
-            "Wrong competitive emphasis vs graph + economics",
+            "Product posture dual-write landed: Location demoted to enrichment; graph + loyalty economics primary. S1 live pin still open",
           ],
         ]}
       />
@@ -134,7 +134,7 @@ export default function Maturity40Regrade() {
           ],
           [
             "Risk / Strategy honesty",
-            "live.status LIVE|WAIVED + REQUIRE_LIVE_PARTNER_PROOF; kill_criteria promote CI; evidence index",
+            "live.status LIVE|WAIVED + REQUIRE_LIVE_PARTNER_PROOF; promote kill CI; evidence index",
             "Risk/Strategy 4.2 (4.5 = LIVE .live.sha256)",
           ],
           [
@@ -148,18 +148,18 @@ export default function Maturity40Regrade() {
             "Replay 4.0 (not MitM product)",
           ],
           [
-            "Counter vanity kill + S4",
-            "PR CI dual_diff Redis; matched:true required (dry_run not proof)",
-            "Counters → 4.0 Done well",
+            "S4 counter matched:true",
+            "PR CI Redis dual_diff; dry_run cannot greenwash",
+            "Counters 4.0",
           ],
           [
             "S5 install kill gate",
-            "/install same metrics body + evaluate_kill_criteria → 409",
-            "Rule/risk → 4.0 Done well",
+            "/install shares promote metrics + evaluate_kill_criteria → 409",
+            "Rule/risk 4.0",
           ],
           [
             "Claim discipline (late)",
-            "L1∧L2∧L3 lock; S9 loyalty prereq doc; Wave6 4.2 walked back",
+            "L1∧L2∧L3 lock; S9 loyalty prereq; Wave6 4.2 walked back",
             "Process credit — not a pillar score",
           ],
         ]}
@@ -174,7 +174,7 @@ export default function Maturity40Regrade() {
           [
             "Fraud Ops desk",
             "Challenge webhook often httpx-mocked; 4.4 needs live Micro sink",
-            "Ops 4.3 overstates live dispatch",
+            "Ops ~3.8 — triad real, live dispatch overstated",
           ],
           [
             "ECE / labels",
@@ -197,23 +197,23 @@ export default function Maturity40Regrade() {
         rows={[
           [
             "Loyalty abuse effectiveness",
-            "Graph + generic velocity sold the story; no cluster LTV / loyalty÷LTV / churn economics (C1, C3)",
-            "Inference loyalty vertical: fail — platform plumbing ≠ model",
+            "Graph + generic velocity sold the story; no cluster LTV / loyalty÷LTV / churn (C1, C3)",
+            "Inference loyalty vertical: fail — plumbing ≠ model",
           ],
           [
             "Location as primary linker",
-            "Invested scoreboard weight in hybrid location; loyalty rings don’t need signup GPS (C2, C7)",
-            "Location 2.5 — enrichment only until live+useful",
+            "Scoreboard weight on hybrid location; loyalty rings don’t need signup GPS (C2, C7)",
+            "Location 2.5 — enrichment only; product posture dual-write landed (relatedness_evidence). S1 live pin still open",
           ],
           [
             "L2 live enrichment (data)",
-            "OSS WAIVED — no named-tenant .live.sha256 yet; L3 still playbook/sim (C5)",
-            "Location 2.5; Risk strategy 4.2; Risk 4.5 blocked until LIVE",
+            "OSS WAIVED — no named-tenant .live.sha256; L3 still playbook/sim (C5)",
+            "Location 2.5; Risk 4.5 blocked until LIVE",
           ],
           [
             "Product-wide 4.x claims",
             "Brochure / aim-band language outran closed-loop proof (C4)",
-            "Overall ~3.5 — not 4.0 / 4.2 / A++",
+            "Overall ~3.6 — not 4.0 / 4.2 / A++",
           ],
         ]}
       />
@@ -249,7 +249,7 @@ export default function Maturity40Regrade() {
             "Counters",
             "4.0",
             "Done well",
-            "S4: PR CI dual_diff + matched:true (not dry_run vanity)",
+            "S4: PR CI dual_diff + matched:true",
           ],
           [
             "Location (hybrid)",
@@ -273,9 +273,8 @@ export default function Maturity40Regrade() {
       />
 
       <Text tone="secondary" size="small">
-        Mean = (3.4+4.0+4.0+2.5+4.2+4.0)/6 ≈ 3.68 → report ~3.7. Lenses:
-        Engineering 4.5 · Risk/Strategy 4.2 · Fraud Ops ~3.8 (desk triad haircut for
-        mocked webhook + no loyalty economics). Overall ~3.6. No product-wide 4.2.
+        Mean = (3.4+4.0+4.0+2.5+4.2+4.0)/6 ≈ 3.68 → report ~3.7. Lenses below.
+        No product-wide 4.2.
       </Text>
 
       <Stack gap={8}>
@@ -296,7 +295,7 @@ export default function Maturity40Regrade() {
               tone: "neutral",
             },
             {
-              name: "Critical now (buckets)",
+              name: "Critical now (post S4/S5)",
               data: [3.4, 4.0, 4.0, 2.5, 4.2, 4.0],
               tone: "danger",
             },
@@ -304,6 +303,9 @@ export default function Maturity40Regrade() {
           height={240}
           yMax={5}
         />
+        <Text tone="secondary" size="small">
+          Source: critical bucket regrade · 2026-08-06 · post S4/S5 evidence
+        </Text>
       </Stack>
 
       <Divider />
@@ -312,7 +314,7 @@ export default function Maturity40Regrade() {
       <Table
         headers={["Lens", "Score", "Bucket", "Notes"]}
         columnAlign={["left", "right", "left", "left"]}
-        rowTone={["success", "danger", "warning"]}
+        rowTone={["success", "success", "warning"]}
         rows={[
           [
             "Engineering",
@@ -322,15 +324,15 @@ export default function Maturity40Regrade() {
           ],
           [
             "Risk / Strategy",
-            "3.2",
-            "Missed",
-            "C2/C6/C7 — location theater + wrong loyalty linker thesis",
+            "4.2",
+            "Done well",
+            "Honesty gate real; location data still Missed (2.5); 4.5 needs LIVE pin",
           ],
           [
             "Fraud Ops",
             "3.8",
             "Could-be-better",
-            "Desk triad / promote gates; C1/C3 block loyalty effectiveness",
+            "Desk triad + kill gates; mocked webhook + C1/C3 block loyalty OR",
           ],
         ]}
       />
@@ -338,23 +340,24 @@ export default function Maturity40Regrade() {
       <Divider />
 
       <H2>Loyalty abuse — prerequisite (C3 / S9)</H2>
-      <Callout tone="danger" title="CRITICAL blindspot — model ineffective without upstream">
-        Engine + contract landed (`loyalty_economics.py`, multi-gate schema); tenant
-        feeds still required: order velocity, churn, LTV, loyalty÷LTV, baselines.
-        Graph = relatedness only. Guide:
+      <Callout
+        tone="danger"
+        title="CRITICAL blindspot — model ineffective without upstream"
+      >
+        Engine + contract landed; tenant feeds still required: order velocity,
+        churn, LTV, loyalty÷LTV, baselines. Graph = relatedness only. Guide:
         docs/docs/guides/loyalty-abuse-model-prerequisites.md
       </Callout>
 
       <Grid columns={2} gap={16}>
         <Card>
-          <CardHeader trailing={<Pill tone="danger" size="sm">Closed</Pill>}>
+          <CardHeader trailing={<Pill tone="deleted" size="sm">Closed</Pill>}>
             A++ / 4.5 claim
           </CardHeader>
           <CardBody>
             <Text size="small">
-              Forbidden while any CRITICAL row (C1–C7) is open for the claim
-              surface. Loyalty-abuse product claim additionally requires S9
-              upstream feeds.
+              Forbidden while any CRITICAL row (C1–C7) binds the claim surface.
+              Loyalty-abuse product claim also requires S9 upstream feeds.
             </Text>
           </CardBody>
         </Card>
@@ -364,9 +367,9 @@ export default function Maturity40Regrade() {
           </CardHeader>
           <CardBody>
             <Text size="small">
-              1) S9 upstream + cluster economics model. 2) Reweight location as
-              enrichment not linker. 3) Live L2 partner only if it feeds real
-              decisions. 4) Stop scoring aim bands as current.
+              1) S9 upstream + cluster economics. 2) Reweight location as
+              enrichment. 3) Live L2 partner only if it feeds decisions. 4)
+              Live challenge Micro sink for Ops ≥4.4.
             </Text>
           </CardBody>
         </Card>

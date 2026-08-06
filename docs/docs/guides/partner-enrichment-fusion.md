@@ -1,6 +1,6 @@
 # Partner enrichment fusion (hybrid device/location)
 
-**Posture:** Tarka does not replace Fingerprint / Incognia. Score 4.0 on device/location means partner signals are first-class in **evaluate → graph writeback hints → case evidence**.
+**Posture:** Tarka does not replace Fingerprint / Incognia. **Partner enrichment quality** (device fingerprint / location signals as **optional**) means vendor signals are first-class in **evaluate → graph writeback hints → case evidence** when configured — they enrich relatedness and geo fraud signals; they do **not** link loyalty rings by themselves.
 
 ## Configure
 
