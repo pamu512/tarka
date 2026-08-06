@@ -342,3 +342,9 @@ RETURN n.external_id, labels(n), n.tags,
        count(DISTINCT neighbor) AS connections
 ORDER BY connections DESC
 ```
+
+---
+
+## Decision API rule pack (shadow)
+
+The optional shadow pack `graph_shared_device_v1.json` targets graph/device relatedness tags (`sdk:shared_device`, `ring_shared_device`) — not geo co-presence. It is separate from `location_copresence_v1.json`, which handles session co-location and impossible-travel enrichment. Shared-device linkage answers **who is related via device graph**; location packs answer **optional geo enrichment**. Flip `mode` from `shadow` to `active` after calibration review.
