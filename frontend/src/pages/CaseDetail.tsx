@@ -39,6 +39,7 @@ import {
   InferenceNetworkTrustHoverBody,
   InferenceReplayHoverBody,
   InferenceTamperHoverBody,
+  LoyaltyEconomicsHoverBody,
   QueueScoreHoverBody,
   VelocityHoverBody,
 } from "../components/CaseView/MetricHoverPanels";
@@ -75,6 +76,10 @@ import { AnalystWorkbenchLayout } from "../components/CaseView/workbench/Analyst
 import { BridgeConfirmDialog } from "../components/CaseView/workbench/panels/BridgeConfirmDialog";
 import { trackWorkbenchTask } from "../workbench/workbenchTelemetry";
 import { isHeroHotkeyEventIgnored } from "../utils/heroHotkeys";
+import {
+  buildTriageFlashCards,
+  extractLoyaltyEconomicsGates,
+} from "../utils/triageFlashCards";
 import { Network, type Options } from "vis-network";
 import { DataSet } from "vis-data";
 
@@ -105,49 +110,6 @@ function firstSightSentence(text: string): string {
   const split = t.split(/(?<=[.!?])\s+/);
   const one = (split[0] ?? t).trim();
   return one.length > 220 ? `${one.slice(0, 217)}…` : one;
-}
-
-/** Scan-layer flash cards: Velocity, Graph, Geo-inconsistency proxy. */
-function buildTriageFlashCards(
-  ctx: InferenceContext | null,
-  graphRisk: EntityRiskResult | null,
-): [TriageFlashCard, TriageFlashCard, TriageFlashCard] {
-  const velocity: TriageFlashCard = !ctx
-    ? { title: "Velocity", value: "—", tone: "neutral" }
-    : ctx.velocity_events_24h >= 40
-      ? { title: "Velocity", value: "High", tone: "critical" }
-      : ctx.velocity_events_24h >= 12
-        ? { title: "Velocity", value: "Elevated", tone: "warn" }
-        : { title: "Velocity", value: "Normal", tone: "ok" };
-
-  let graph: TriageFlashCard;
-  if (!graphRisk) {
-    graph = { title: "Graph", value: "—", tone: "neutral" };
-  } else {
-    const rs = graphRisk.risk_score;
-    const factorHit = graphRisk.risk_factors?.find((f) => /mule|ring|sybil|farm/i.test(f)) ?? null;
-    if (rs >= 0.65) {
-      graph = {
-        title: "Graph",
-        value: factorHit ?? "Mule ring",
-        tone: "critical",
-      };
-    } else if (rs >= 0.35) {
-      graph = { title: "Graph", value: "Elevated", tone: "warn" };
-    } else {
-      graph = { title: "Graph", value: "Low linkage", tone: "ok" };
-    }
-  }
-
-  const geo: TriageFlashCard = !ctx
-    ? { title: "Geo", value: "—", tone: "neutral" }
-    : ctx.impossible_travel_risk > 0.35 || ctx.geo_consistency_risk > 0.55
-      ? { title: "Geo", value: "Inconsistent", tone: "critical" }
-      : ctx.geo_consistency_risk > 0.22
-        ? { title: "Geo", value: "Suspect", tone: "warn" }
-        : { title: "Geo", value: "Consistent", tone: "ok" };
-
-  return [velocity, graph, geo];
 }
 
 /** Best-effort parse of evaluate payload / nested envelopes for triage financial hints (DuckDB cohort rolls up same trace keys when wired). */
@@ -459,10 +421,12 @@ function CaseDetailWorkbench() {
     setPdfBusy(true);
     try {
       const ctx = decisionExplain?.inference_context ?? null;
-      const [v, g, geo] = buildTriageFlashCards(ctx, graphRisk);
+      const loyaltyGates = extractLoyaltyEconomicsGates(decisionExplain?.evaluate_payload ?? undefined);
+      const [v, g, l, geo] = buildTriageFlashCards(ctx, graphRisk, loyaltyGates);
       const flashPlain = [
         { title: v.title, value: v.value },
         { title: g.title, value: g.value },
+        { title: l.title, value: l.value },
         { title: geo.title, value: geo.value },
       ];
       const fm = extractTransactionMoney(decisionExplain?.evaluate_payload ?? undefined);
@@ -674,15 +638,18 @@ function CaseDetailWorkbench() {
     TriageFlashCard,
     TriageFlashCard,
     TriageFlashCard,
+    TriageFlashCard,
   ] => {
     const ctx = decisionExplain?.inference_context ?? null;
-    const [velocity, graph, geo] = buildTriageFlashCards(ctx, graphRisk);
+    const loyaltyGates = extractLoyaltyEconomicsGates(decisionExplain?.evaluate_payload ?? undefined);
+    const [velocity, graph, loyalty, geo] = buildTriageFlashCards(ctx, graphRisk, loyaltyGates);
     return [
       { ...velocity, hoverDetail: <VelocityHoverBody ctx={ctx} /> },
       { ...graph, hoverDetail: <GraphMetricHoverBody risk={graphRisk} inference={ctx} /> },
+      { ...loyalty, hoverDetail: <LoyaltyEconomicsHoverBody gates={loyaltyGates} /> },
       { ...geo, hoverDetail: <GeoHoverBody ctx={ctx} /> },
     ];
-  }, [decisionExplain?.inference_context, graphRisk]);
+  }, [decisionExplain?.inference_context, decisionExplain?.evaluate_payload, graphRisk]);
 
   const sightLine = useMemo(() => {
     const ml = decisionExplain?.inference_context?.ml_summary?.trim();
