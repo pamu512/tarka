@@ -18,7 +18,7 @@ fi
 
 echo "Removing durable Micro data at ${TARKA_MICRO_DATA_DIR}..."
 rm -rf "${TARKA_MICRO_DATA_DIR}"
-mkdir -p "${TARKA_MICRO_DATA_DIR}/decision_logs" "${TARKA_MICRO_DATA_DIR}/lists" "${TARKA_MICRO_DATA_DIR}/ml_exports"
+mkdir -p "${TARKA_MICRO_DATA_DIR}/decision_logs" "${TARKA_MICRO_DATA_DIR}/lists" "${TARKA_MICRO_DATA_DIR}/ml_exports" "${TARKA_MICRO_DATA_DIR}/challenge-sink"
 TARKA_MICRO_DATA_DIR="$(cd "${TARKA_MICRO_DATA_DIR}" && pwd)"
 export TARKA_MICRO_DATA_DIR
 

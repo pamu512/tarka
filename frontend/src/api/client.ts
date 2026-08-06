@@ -295,7 +295,7 @@ export interface AuditExplorerResponse {
 export interface Case {
   id: string;
   title: string;
-  status: "open" | "investigating" | "resolved" | "closed";
+  status: "open" | "investigating" | "resolved" | "closed" | "resolved_fraud" | "resolved_legit" | "sar_filed" | string;
   priority: "critical" | "high" | "medium" | "low";
   entity_id: string;
   tenant_id: string;
@@ -312,6 +312,12 @@ export interface Case {
   updated_at: string;
   /** Optional evidence-locker graph (nodes + links) when case-api forwards Postgres ``graph_snapshot`` JSONB. */
   graph_snapshot?: Record<string, unknown> | null;
+  maker_checker?: {
+    pending?: boolean;
+    target_status?: string | null;
+    requester?: string | null;
+    status?: string;
+  };
 }
 
 export interface CaseComment {
@@ -1145,6 +1151,8 @@ export interface CaseOpsKpis {
   median_case_age_hours: number;
   by_status?: Record<string, number>;
   sla_breached_open_or_investigating?: number;
+  /** SLA breaches for open/investigating cases grouped by priority (bridge C2). */
+  sla_breached_by_priority?: Record<string, number>;
   /** Cases with fraud/chargeback label boosts in queue score */
   label_boost_cases?: number;
 }
@@ -1469,8 +1477,48 @@ export const decisions = {
       rows_scanned?: number;
       caveat?: string;
       bins?: Array<Record<string, unknown>>;
+      posture?: { healthy?: boolean; hint?: string; status?: string };
       [key: string]: unknown;
     }>(`/api/decisions/v1/calibration/reliability-bins?${q}`);
+  },
+
+  /** Per-rule precision/FP after disposition labels (missed-mark bridge C3). */
+  rulePrecisionAfterLabels(
+    tenantId: string,
+    body: {
+      labels_by_trace?: Record<string, string>;
+      labels_by_entity?: Record<string, string>;
+    } = {},
+    limit: number = 5000,
+  ) {
+    const q = new URLSearchParams({
+      tenant_id: tenantId,
+      limit: String(limit),
+      min_labeled_hits: "5",
+    });
+    return request<{
+      schema_id: string;
+      labeled_rows?: number;
+      label_coverage?: number;
+      posture?: { healthy?: boolean; hint?: string; status?: string };
+      rules?: Array<{
+        rule_id: string;
+        labeled_hits: number;
+        fraud_hits: number;
+        fp_hits: number;
+        precision: number;
+        fp_rate: number;
+        enough_support: boolean;
+      }>;
+      [key: string]: unknown;
+    }>(`/api/decisions/v1/calibration/rule-precision-after-labels?${q}`, {
+      method: "POST",
+      body: JSON.stringify({
+        labels_by_trace: body.labels_by_trace ?? {},
+        labels_by_entity: body.labels_by_entity ?? {},
+        allow_proxy_labels: false,
+      }),
+    });
   },
 
   /** Join case disposition into y_label for calibration (missed-mark bridge B2). */
@@ -1499,8 +1547,48 @@ export const decisions = {
         labels_by_trace: body.labels_by_trace ?? {},
         labels_by_entity: body.labels_by_entity ?? {},
         allow_proxy_labels: body.allow_proxy_labels ?? false,
+        persist_labels: true,
       }),
     });
+  },
+
+  /** Desk-executable step-up challenge webhook (critical regrade flag #4). */
+  dispatchChallenge(body: {
+    tenant_id: string;
+    trace_id: string;
+    entity_id: string;
+    decision: string;
+    recommended_action: string;
+    challenge_metadata?: Record<string, unknown>;
+  }) {
+    return request<{
+      schema_id: string;
+      ok?: boolean;
+      delivery?: Record<string, unknown>;
+      [key: string]: unknown;
+    }>("/api/decisions/v1/calibration/challenge/dispatch", {
+      method: "POST",
+      body: JSON.stringify({
+        tenant_id: body.tenant_id,
+        trace_id: body.trace_id,
+        entity_id: body.entity_id,
+        decision: body.decision,
+        recommended_action: body.recommended_action,
+        challenge_metadata: body.challenge_metadata ?? {},
+      }),
+    });
+  },
+
+  /** Desk-facing shadow promote-gate posture (Fraud Ops 4.2). */
+  shadowPromoteGate() {
+    return request<{
+      schema_id: string;
+      vertical?: string;
+      blocked?: { promote_allowed?: boolean; blockers?: string[] };
+      allowed?: { promote_allowed?: boolean };
+      recipe_path?: string;
+      smoke?: string;
+    }>("/api/decisions/v1/calibration/shadow-promote-gate");
   },
 
   async reliabilityExportCsv(tenantId: string, limit: number = 10_000): Promise<string> {
@@ -1775,11 +1863,17 @@ export const cases = {
   update(
     caseId: string,
     tenantId: string,
-    data: Partial<Pick<Case, "status" | "priority" | "assigned_team" | "title">>,
+    data: Partial<Pick<Case, "status" | "priority" | "assigned_team" | "title">> & {
+      disposition_reason_code?: string;
+      maker_checker_approve?: boolean;
+    },
   ) {
     const q = new URLSearchParams({ tenant_id: tenantId });
+    const actor =
+      (typeof localStorage !== "undefined" && localStorage.getItem("tarka.desk_actor")) || "analyst-web";
     return request<Case>(`/api/cases/v1/cases/${caseId}?${q}`, {
       method: "PATCH",
+      headers: { "X-Actor-Id": actor },
       body: JSON.stringify(data),
     });
   },
@@ -2320,10 +2414,25 @@ export const rules = {
     );
   },
 
-  installVerticalPack(verticalName: string, overwrite: boolean = false) {
-    return request<{ installed: string; vertical: string; rules: number }>(
+  installVerticalPack(
+    verticalName: string,
+    metrics: {
+      precision: number;
+      recall: number;
+      f1_score: number;
+      false_positive_rate?: number;
+      events_evaluated: number;
+    },
+    overwrite: boolean = false,
+  ) {
+    return request<{
+      installed: string;
+      vertical: string;
+      rules: number;
+      promote_gate?: Record<string, unknown>;
+    }>(
       `/api/decisions/v1/rules/vertical-packs/${verticalName}/install?overwrite=${overwrite ? "true" : "false"}`,
-      { method: "POST", headers: _ruleActorHeaders() },
+      { method: "POST", headers: _ruleActorHeaders(), body: JSON.stringify(metrics) },
     );
   },
 };

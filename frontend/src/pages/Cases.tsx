@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useId } from "react";
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { cases, type Case, type CaseCreateRequest, type CaseDeskActivity, type CaseOpsKpis, toUserFacingApiError } from "../api/client";
+import { cases, type Case, type CaseCreateRequest, type CaseDeskActivity, type CaseOpsKpis, toUserFacingApiError } from "../api/v1/cases";
 import { useAnalystWorkspace } from "../context/AnalystWorkspaceContext";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { useToast } from "../context/ToastContext";
@@ -391,6 +391,20 @@ export default function Cases() {
           <KpiCard label="Median Age" value={`${opsKpis.median_case_age_hours.toFixed(1)}h`} />
           {typeof opsKpis.sla_breached_open_or_investigating === "number" ? (
             <KpiCard label="SLA breached (open)" value={String(opsKpis.sla_breached_open_or_investigating)} />
+          ) : null}
+          {priorityFilter && opsKpis.sla_breached_by_priority ? (
+            <KpiCard
+              label={`SLA clock (${priorityFilter})`}
+              value={String(opsKpis.sla_breached_by_priority[priorityFilter] ?? 0)}
+            />
+          ) : opsKpis.sla_breached_by_priority && Object.keys(opsKpis.sla_breached_by_priority).length > 0 ? (
+            <KpiCard
+              label="SLA by queue"
+              value={Object.entries(opsKpis.sla_breached_by_priority)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([k, v]) => `${k}:${v}`)
+                .join(" · ")}
+            />
           ) : null}
           {typeof opsKpis.label_boost_cases === "number" ? (
             <KpiCard label="Label-boost queue" value={String(opsKpis.label_boost_cases)} />

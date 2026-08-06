@@ -1,0 +1,54 @@
+{
+  "schema_id": "tarka.loyalty_warehouse_pack/v1",
+  "entity_id": "e-wh-ok",
+  "as_of": "2026-08-06T12:00:00Z",
+  "loyalty_feed_snapshot": {
+    "as_of": "2026-08-06T12:00:00Z",
+    "feeds_present": ["orders", "refunds", "loyalty_ledger", "lifecycle"],
+    "feeds_complete": true,
+    "orders": [
+      {
+        "entity_id": "e-wh-ok",
+        "order_id": "o1",
+        "ts": "2026-08-06T12:00:00Z",
+        "amount_minor": 1000,
+        "currency": "USD",
+        "status": "paid"
+      }
+    ],
+    "refunds": [],
+    "loyalty_ledger": [
+      {
+        "entity_id": "e-wh-ok",
+        "ts": "2026-08-06T12:00:00Z",
+        "direction": "burn",
+        "value_minor": 50,
+        "program_id": "default"
+      }
+    ],
+    "lifecycle": [
+      {
+        "entity_id": "e-wh-ok",
+        "created_at": "2025-01-01T00:00:00Z",
+        "last_active_at": "2026-08-06T12:00:00Z"
+      }
+    ]
+  },
+  "loyalty_program_config": {
+    "schema_id": "tarka.loyalty_program_config/v1",
+    "program_id": "default",
+    "config_version": "1",
+    "effective_at": "2026-01-01T00:00:00Z",
+    "acquisition_cost_minor": 2500,
+    "retention_cost_minor": 500,
+    "target_loyalty_ltv_ratio": 0.12,
+    "ineligible_above_ratio": 0.25,
+    "restore_at_or_below_ratio": 0.12,
+    "min_dwell_seconds": 86400,
+    "window": "trailing_90d",
+    "velocity_window": "trailing_7d",
+    "new_member_grace_days": 0,
+    "vip_entity_ids": [],
+    "max_feed_age_seconds": 315360000
+  }
+}

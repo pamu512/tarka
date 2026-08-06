@@ -25,6 +25,13 @@ import {
   type CaseWorkbenchTab,
   type WorkbenchPanelId,
 } from "../workbench/workbenchContract";
+import {
+  auditCapability,
+  calibrationCapability,
+  graphCapability,
+  initialCapabilityStatus,
+  type CapabilityStatus,
+} from "../workbench/capabilityStatus";
 import { trackPanelUsage, trackWorkbenchEvent, trackWorkbenchTask } from "../workbench/workbenchTelemetry";
 
 const VELOCITY_SPARKLINE_POLL_MS = 15_000;
@@ -50,6 +57,8 @@ type CaseWorkbenchValue = {
   decisionExplain: DecisionExplain | null;
   graphRisk: EntityRiskResult | null;
   velocityArtifactsUpdatedAt: string | null;
+  capabilityStatus: CapabilityStatus;
+  calibrationHint: string | null;
   activeTab: CaseWorkbenchTab;
   setActiveTab: (tab: CaseWorkbenchTab) => void;
   copilotRailOpen: boolean;
@@ -85,6 +94,8 @@ export function CaseWorkbenchProvider({
   const [decisionExplain, setDecisionExplain] = useState<DecisionExplain | null>(null);
   const [graphRisk, setGraphRisk] = useState<EntityRiskResult | null>(null);
   const [velocityArtifactsUpdatedAt, setVelocityArtifactsUpdatedAt] = useState<string | null>(null);
+  const [capabilityStatus, setCapabilityStatus] = useState<CapabilityStatus>(initialCapabilityStatus);
+  const [calibrationHint, setCalibrationHint] = useState<string | null>(null);
   const [advancedDevView, setAdvancedDevView] = useState(false);
   const [copilotRailOpen, setCopilotRailOpenState] = useState(true);
   const [panelState, setPanelState] = useState<Record<WorkbenchPanelId, boolean>>(() => ({
@@ -153,8 +164,10 @@ export function CaseWorkbenchProvider({
 
   const refreshVelocityArtifacts = useCallback(async () => {
     if (!caseData) return;
+    const hasTrace = Boolean(caseData.trace_id?.trim());
+    let auditOk = false;
     try {
-      if (caseData.trace_id) {
+      if (hasTrace) {
         const audit = await decisions.getAudit(caseData.trace_id, caseData.tenant_id, {
           detail_level: "analyst",
         });
@@ -169,19 +182,51 @@ export function CaseWorkbenchProvider({
           evaluate_payload: audit.evaluate_payload ?? null,
         });
         setVelocityArtifactsUpdatedAt(new Date().toISOString());
+        auditOk = true;
       } else {
         setDecisionExplain(null);
         setVelocityArtifactsUpdatedAt(null);
       }
     } catch {
       setDecisionExplain(null);
+      auditOk = false;
     }
+
+    let graphOk = false;
     try {
       const risk = await graph.entityRisk(caseData.entity_id, caseData.tenant_id);
       setGraphRisk(risk);
+      graphOk = true;
     } catch {
       setGraphRisk(null);
+      graphOk = false;
     }
+
+    let calOk = false;
+    let calHealthy: boolean | null = null;
+    let calHint: string | null = null;
+    try {
+      const bins = await decisions.reliabilityBins(caseData.tenant_id, 2000, 10);
+      calOk = true;
+      const posture = bins.posture;
+      calHealthy = posture?.healthy ?? null;
+      calHint =
+        posture?.healthy === false
+          ? String(posture.hint || posture.status || "insufficient labels")
+          : posture?.healthy === true
+            ? "healthy"
+            : null;
+    } catch {
+      calOk = false;
+      calHint = null;
+    }
+
+    setCalibrationHint(calHint);
+    setCapabilityStatus({
+      audit: auditCapability(hasTrace, hasTrace ? auditOk : null),
+      graph: graphCapability(graphOk),
+      calibration: calibrationCapability(calOk, calHealthy),
+    });
   }, [caseData]);
 
   useEffect(() => {
@@ -234,6 +279,8 @@ export function CaseWorkbenchProvider({
       decisionExplain,
       graphRisk,
       velocityArtifactsUpdatedAt,
+      capabilityStatus,
+      calibrationHint,
       activeTab,
       setActiveTab,
       copilotRailOpen,
@@ -258,6 +305,8 @@ export function CaseWorkbenchProvider({
       decisionExplain,
       graphRisk,
       velocityArtifactsUpdatedAt,
+      capabilityStatus,
+      calibrationHint,
       activeTab,
       setActiveTab,
       copilotRailOpen,

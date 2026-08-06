@@ -53,46 +53,50 @@ Use these rows for **positioning and gap planning**. Competitors stay on the Apr
 
 **Critical correction (same day):** Wave6/bridge blanket **4.2** walked back, then flag-fix + Engineering honesty stack. **Do not** re-advertise product-wide 4.2 or A++.
 
-### Critical regrade — three buckets (2026-08-06, post S4/S5)
+### Critical regrade — three buckets (2026-08-06, post Critical A–E)
 
-**Method:** Done well / Could-be-better / Missed the mark. Blindspots, logic fallacies, and bad assumptions marked **CRITICAL**. Aim bands are targets, **not** current scores. See [maturity-4-0-regrade.canvas.tsx](../../../superpowers/canvases/maturity-4-0-regrade.canvas.tsx) (synced IDE canvas: post S4 dual_diff `matched:true` + S5 install kill gate).
+**Method:** Done well / Could-be-better / Missed the mark. Blindspots, logic fallacies, and bad assumptions marked **CRITICAL**. Aim bands are targets, **not** current scores. See [maturity-4-0-regrade.canvas.tsx](../../../superpowers/canvases/maturity-4-0-regrade.canvas.tsx).
 
 #### CRITICAL findings (C1–C7)
 
 | ID | Type | Finding |
 | --- | --- | --- |
 | C1 | Fallacy | Related (graph) ⇒ loyalty abuse |
-| C2 | Assumption | Signup/early location available to link accounts (false under privacy) |
-| C3 | Blindspot | No order velocity · churn · LTV · loyalty÷LTV on clusters ([prerequisites](./loyalty-abuse-model-prerequisites.md)) |
+| C2 | Assumption (mitigated) | Signup location as linker — product posture: location = enrichment |
+| C3 | Blindspot (partial) | Fixture + HTTP warehouse contract landed; named-tenant DB still external |
 | C4 | Fallacy (hygiene) | In-repo L1 / “floor ≥4.0” = product maturity — see [CLAIM_LOCK.md](../../compliance/CLAIM_LOCK.md) |
 | C5 | Fallacy (path ready) | Four-week sim ≠ L3 — ledger [l3-ops-ledger.md](../../../superpowers/playbooks/l3-ops-ledger.md) **NOT STARTED** |
-| C6 | Fallacy (mitigated) | Fixture ≠ live — `LIVE\|WAIVED` gate; 2026-08-06 live **BLOCKED** ([attempt log](../../compliance/partner-fusion-proof.live.attempt.md)) |
-| C7 | Blindspot | Equal-weight Location pillar for a loyalty-first thesis |
+| C6 | Fallacy (mitigated) | Fixture ≠ live — `LIVE\|WAIVED` gate; OSS **WAIVED** ([runbook LIVE cut](../../compliance/partner-fusion-proof-runbook.md)) |
+| C7 | Blindspot (mitigated) | Location reweighted to enrichment vs graph + loyalty economics |
 
-#### Six-cap (bucket-driven)
+#### Capability scores (bucket-driven)
 
 | Cap | Score | Bucket | Why |
 | --- | ----- | ------ | --- |
-| Inference | **4.5** | Done well | A+B claim gate (`inference_ab_claim_gate.py`): ECE fixture + S9 feed smoke; bar=`fixture_ci` |
-| Replay/tamper | **4.0** | Done well | HMAC/integrity CI; not MitM product |
-| Counters | **4.0** | Done well | S4: PR CI `dual_diff` Redis + `matched:true` required |
-| Location (hybrid) | **2.5** | Missed | No live pin; wrong weight vs graph+economics (C2, C7) |
+| Inference | **4.5** | Done well | A+B claim gate; bar=`fixture_ci` (+ warehouse HTTP contract) |
+| Replay/tamper | **4.2** | Done well | HMAC/integrity CI + challenge Micro sink path (not MitM product) |
+| Counters | **4.2** | Done well | S4: PR CI `dual_diff` Redis + `matched:true` required |
+| Location (hybrid) | **2.5** | Missed (enrichment) | WAIVED live pin; **excluded from overall mean** (C7) |
 | Analyst | **4.2** | Done well | ops-qa Actions green |
-| Rule/risk ops | **4.0** | Done well | S5: `/install` + promote share kill_criteria → 409 |
+| Rule/risk ops | **4.2** | Done well | S5: `/install` + promote share kill_criteria → 409 |
 
-**Means:** six-cap ≈ **3.9** · overall ≈ **3.8** · Engineering **4.5** · Risk/Strategy **4.2** · Fraud Ops **~3.8**. Location remains **2.5**. Inference **4.5** is **fixture_ci** bar — not live warehouse L3 / named-tenant loyalty effectiveness.
+**Overall methodology (C7):** **Primary-five mean** = mean(Inference, Replay, Counters, Analyst, Rule/risk) — Location is **enrichment**, scored separately for Incognia-class comparison, **not** averaged into product overall.
 
-**Claim lock:** A++ / product-wide 4.2+ **CLOSED** — [CLAIM_LOCK.md](../../compliance/CLAIM_LOCK.md). Live loyalty-abuse product language still needs warehouse feeds. Risk **4.5** and location ≥4.0 hybrid require replacing `WAIVED` with LIVE pin ([attempt log](../../compliance/partner-fusion-proof.live.attempt.md)). L3 clock [NOT STARTED](../../../superpowers/playbooks/l3-ops-ledger.md).
+- **Overall (primary-five)** ≈ **(4.5+4.2+4.2+4.2+4.2)/5 = 4.26 → report ~4.3**
+- **Equal-weight six-cap** (legacy / Incognia comparison) ≈ **3.9** — Location 2.5 still pulls this down
+- Engineering **4.5** · Risk/Strategy **4.2** (WAIVED ceiling) · Fraud Ops **~4.1**
+
+**Claim lock:** A++ / “native Incognia Location ≥4.0” / LIVE-without-pin **CLOSED**. Overall **~4.3** is primary-five only — do not market as equal-weight six-cap or LIVE partner proof. Risk **4.5** / Location enrichment ≥4.0 still require real LIVE pin — never forge `.live.sha256`.
 
 #### Bucket summary
 
 | Bucket | Credit |
 | --- | --- |
-| **Done well** | Engineering 4.5; Inference 4.5 (A+B fixture_ci); Risk/Strategy 4.2; Analyst 4.2; Replay/Counters/Rule-risk 4.0; S4/S5 |
-| **Could-be-better** | Fraud Ops live webhook; Risk 4.5 (live pin); live loyalty warehouse beyond fixture |
-| **Missed the mark** | Live loyalty-abuse effectiveness; location-as-linker; L2 *data* enrichment absent (process mitigated); product-wide 4.x claims |
+| **Done well** | Engineering 4.5; Inference 4.5; primary Replay/Counters/Rule **4.2**; Analyst 4.2; Risk 4.2 honesty; challenge Micro sink; location posture dual-write |
+| **Could-be-better** | Fraud Ops merchant CRM; live loyalty warehouse DB; Risk 4.5 (LIVE pin) |
+| **Missed the mark** | Live loyalty-abuse effectiveness; L2 data enrichment (WAIVED); equal-weight six-cap / A++ brochure claims |
 
-> **Location = enrichment (product posture, 2026-08-06):** **Relatedness** is graph linkage (device / payment / referral / peers) plus **loyalty economics** gates — not signup GPS. The Location six-cap row is **hybrid enrichment** (partner Place/SEEN_AT, geo copresence, impossible travel) compared to Incognia; it is **not** the loyalty linker. Missed-mark **C2** (privacy-sparse location at signup) and **C7** (equal-weight Location pillar) are addressed in product posture by the [location enrichment reweight](../../../superpowers/specs/2026-08-06-location-enrichment-reweight-design.md) program — live Location ≥4.0 still gated by **S1** (partner pin).
+> **Location = enrichment (product posture, 2026-08-06):** **Relatedness** is graph linkage (device / payment / referral / peers) plus **loyalty economics** gates — not signup GPS. The Location six-cap row is **hybrid enrichment** (partner Place/SEEN_AT, geo copresence, impossible travel) compared to Incognia; it is **not** the loyalty linker and is **excluded from primary-five overall** (~4.3). Live Location enrichment ≥4.0 still gated by **S1** (partner LIVE pin).
 
 ---
 

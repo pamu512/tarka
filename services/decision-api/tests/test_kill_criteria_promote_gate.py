@@ -121,3 +121,49 @@ async def test_promote_unknown_vertical_pack(client):
         },
     )
     assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_install_endpoint_returns_conflict_when_kill_fires(
+    client, monkeypatch, tmp_path
+):
+    monkeypatch.setattr("decision_api.rule_api.settings.rules_path", str(tmp_path))
+    monkeypatch.setattr(
+        "decision_api.rule_api.evaluate_kill_criteria",
+        lambda *a, **k: {"promote_allowed": False, "blockers": ["min_precision"]},
+    )
+    r = await client.post(
+        "/v1/rules/vertical-packs/fintech/install",
+        json={
+            "precision": 0.1,
+            "recall": 0.9,
+            "f1_score": 0.2,
+            "events_evaluated": 500,
+        },
+    )
+    assert r.status_code == 409
+    detail = r.json()["detail"]
+    assert "min_precision" in detail["blockers"]
+
+
+@pytest.mark.asyncio
+async def test_install_endpoint_installs_when_kill_passes(
+    client, monkeypatch, tmp_path
+):
+    monkeypatch.setattr("decision_api.rule_api.settings.rules_path", str(tmp_path))
+    with patch("decision_api.rule_api.load_rules"):
+        r = await client.post(
+            "/v1/rules/vertical-packs/fintech/install",
+            json={
+                "precision": 0.9,
+                "recall": 0.9,
+                "f1_score": 0.9,
+                "false_positive_rate": 0.05,
+                "events_evaluated": 500,
+            },
+        )
+    assert r.status_code == 201
+    data = r.json()
+    assert data["vertical"] == "fintech"
+    assert data["rules"] >= 1
+    assert data["promote_gate"]["promote_allowed"] is True

@@ -1,6 +1,6 @@
 # Missed-Mark Bridge Implementation Plan
 
-> **Status:** Track A done · Track B mostly done · Track C pending  
+> **Status:** Tracks A–D complete (narrative closed)  
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Bridge residual “missed the mark” findings from the end-user review so Day-1 desk, strategy loop, and ops economics are honest and productized — without native vendor-network claims.
@@ -66,7 +66,7 @@
 ### Task B2: Disposition → `y_label` closed loop from CaseDetail ✅
 
 - [x] `decisions.joinDispositionLabels` + CaseDetail terminal status join toast  
-- [ ] Reason-code enum enforcement (partial — status heuristic only)  
+- [x] Reason-code enum enforcement (`dispositionReasonCodes` + case-api `disposition.py`)  
 
 ### Task B3: Challenge action layer (minimum executable) ✅
 
@@ -80,36 +80,32 @@
 
 **Files:** `services/case-api/...`, `CaseDetail.tsx`
 
-- [ ] Config: `CASE_MAKER_CHECKER_STATUSES=resolved_fraud,sar_filed,...`  
-- [ ] Second distinct actor required before commit; audit both  
-- [ ] UI: request review / approve review states  
-- [ ] Tests for same-actor rejection  
-- [ ] Commit
+- [x] Config: `CASE_MAKER_CHECKER_STATUSES=resolved_fraud,sar_filed,...`  
+- [x] Second distinct actor required before commit; audit both  
+- [x] UI: request review / approve review states  
+- [x] Tests for same-actor rejection  
 
 ### Task C2: Per-queue SLA clocks
 
 **Files:** case-api ops KPIs, `Cases.tsx`
 
-- [ ] Expose SLA breach counts **by queue/priority** (not only global)  
-- [ ] Cases queue header shows clock for active filter  
-- [ ] Commit
+- [x] Expose SLA breach counts **by queue/priority** (not only global)  
+- [x] Cases queue header shows clock for active filter  
 
 ### Task C3: Rule performance after my labels
 
 **Files:** decision-api rule analytics or new thin endpoint, `RulePerformance.tsx`
 
-- [ ] API: precision/FP proxy using `y_label` joined rows per `rule_id` (windowed)  
-- [ ] UI panel: “After dispositions (N labels)” with empty-state when coverage low  
-- [ ] Refuse green “healthy” styling when coverage &lt; threshold (reuse posture helpers)  
-- [ ] Commit
+- [x] API: precision/FP proxy using `y_label` joined rows per `rule_id` (windowed)  
+- [x] UI panel: “After dispositions (N labels)” with empty-state when coverage low  
+- [x] Refuse green “healthy” styling when coverage &lt; threshold (reuse posture helpers)  
 
 ### Task C4: Enable mock-free QA e2e in CI micro profile
 
 **Files:** `frontend/e2e/ops-qa-desk.spec.ts`, `docker-compose.micro.e2e.yml` / CI job
 
-- [ ] Wire `E2E_QA_DESK=1` on existing micro e2e job if present; else document manual gate  
-- [ ] Golden path: sample → pending → agree/disagree → metrics  
-- [ ] Commit
+- [x] Wire `E2E_QA_DESK=1` on existing micro e2e job if present; else document manual gate  
+- [x] Golden path: sample → pending → agree/disagree → metrics  
 
 ---
 
@@ -119,17 +115,15 @@
 
 **Files:** regrade canvas, `competitive-score-matrix-2026-04.md` footnotes
 
-- [ ] Mark each original missed mark Closed / Partial / Won’t with evidence path  
-- [ ] Downgrade any 4.2 claim that still lacks Track A–C gates  
-- [ ] Commit
+- [x] Mark each original missed mark Closed / Partial / Won’t with evidence path  
+- [x] Downgrade any 4.2 claim that still lacks Track A–C gates *(none — A–C complete; no inflation; 2 Partials documented)*  
 
 ### Task D2: One golden analyst path doc
 
 **Files:** new or update `docs/docs/guides/golden-analyst-loop.md`
 
-- [ ] Queue → CaseDetail (graph+rules+shadow) → reason-coded disposition → QA sample → calibration  
-- [ ] Link fraud-desk compose + partner proof + QA e2e  
-- [ ] Commit
+- [x] Queue → CaseDetail (graph+rules+shadow) → reason-coded disposition → QA sample → calibration  
+- [x] Link fraud-desk compose + partner proof + QA e2e  
 
 ---
 

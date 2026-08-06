@@ -75,6 +75,11 @@ from .template_apply import (
     apply_investigation_template_transaction,
     resolve_playbook_or_template,
 )
+from .disposition import (
+    apply_status_with_maker_checker,
+    maker_checker_public,
+    parse_maker_checker_statuses,
+)
 from .workflow import evaluate_workflows, get_workflows, is_sla_breached, load_workflows
 
 from audit_trail import AuditTrail, create_audit_model  # noqa: E402
@@ -665,17 +670,62 @@ async def update_case(
     case = await _case_for_tenant(session, case_id, tenant_id)
 
     body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="JSON object body required")
     old_state = CaseOut.model_validate(case).model_dump(mode="json")
+    # Distinct actors for maker-checker when API key auth collapses to one user_id.
+    actor_hdr = (request.headers.get("X-Actor-Id") or "").strip()
+    actor_id = actor_hdr or user.user_id
 
-    for field in ("status", "priority", "assigned_team", "title"):
+    for field in ("priority", "assigned_team", "title"):
         if field in body:
             setattr(case, field, body[field])
+
+    approve = bool(body.get("maker_checker_approve"))
+    reason_raw = body.get("disposition_reason_code")
+    reason_code = str(reason_raw).strip() if reason_raw is not None else None
+    status_requested = body.get("status") if "status" in body else None
+    if approve or status_requested is not None or reason_code:
+        try:
+            mc = apply_status_with_maker_checker(
+                current_status=case.status,
+                current_labels=list(case.labels or []),
+                actor=actor_id,
+                requested_status=str(status_requested) if status_requested is not None else None,
+                reason_code=reason_code,
+                approve=approve,
+                maker_statuses=parse_maker_checker_statuses(settings.case_maker_checker_statuses),
+            )
+        except ValueError as e:
+            raise HTTPException(
+                status_code=409,
+                detail={"reason_code": "MAKER_CHECKER_REJECTED", "message": str(e)},
+            ) from e
+        case.labels = mc.labels
+        if mc.status_applied:
+            case.status = mc.status
+        if approve or mc.pending:
+            await _trail.record(
+                session,
+                actor=actor_id,
+                action="maker_checker_approve" if approve else "maker_checker_request",
+                resource_type="case",
+                resource_id=str(case_id),
+                changes={
+                    "detail": mc.detail,
+                    "target_status": mc.target_status,
+                    "pending": mc.pending,
+                    "disposition_reason_code": reason_code,
+                },
+                tenant_id=case.tenant_id,
+            )
 
     await session.commit()
     await session.refresh(case)
     new_state = CaseOut.model_validate(case).model_dump(mode="json")
+    new_state["maker_checker"] = maker_checker_public(case.labels, case.status)
 
-    diff = _trail.diff(old_state, new_state)
+    diff = _trail.diff(old_state, CaseOut.model_validate(case).model_dump(mode="json"))
     if diff:
         await _trail.record(
             session,
@@ -689,7 +739,7 @@ async def update_case(
         await session.commit()
 
     await _broadcast({"event": "case_updated", "case": new_state})
-    return CaseOut.model_validate(case)
+    return new_state
 
 
 @app.post("/v1/cases/{case_id}/comments", status_code=201)
@@ -856,6 +906,7 @@ async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_sess
             "median_case_age_hours": 0.0,
             "by_status": {},
             "sla_breached_open_or_investigating": 0,
+            "sla_breached_by_priority": {},
             "label_boost_cases": 0,
         }
 
@@ -915,6 +966,7 @@ async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_sess
     ).all()
     queue_scores: list[float] = []
     sla_breached = 0
+    sla_by_priority: dict[str, int] = {}
     label_boost_cases = 0
     for pr, st, labels, ca, slo in lean:
         lbls = set(labels or [])
@@ -935,6 +987,8 @@ async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_sess
             )
         ):
             sla_breached += 1
+            key = (pr or "medium").lower()
+            sla_by_priority[key] = sla_by_priority.get(key, 0) + 1
 
     return {
         "tenant_id": tenant_id,
@@ -946,6 +1000,7 @@ async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_sess
         "median_case_age_hours": round(median_age, 2),
         "by_status": by_status,
         "sla_breached_open_or_investigating": sla_breached,
+        "sla_breached_by_priority": sla_by_priority,
         "label_boost_cases": label_boost_cases,
     }
 

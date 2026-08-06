@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -81,6 +82,44 @@ def test_bad_ece_does_not_write_candidate(tmp_path):
     assert report["gate_passed"] is False
     assert report["candidate_written"] is False
     assert report["ece"] > 0.05
+
+
+def test_committed_fixture_passes_ece_gate(tmp_path):
+    """Track A: CI fixture must pass chronological ECE gate (not production L3)."""
+    fixture = _REPO / "scripts" / "replay" / "fixtures" / "calibration_retrain_labels.json"
+    assert fixture.is_file()
+    candidate = tmp_path / "candidate.json"
+    artifact = tmp_path / "artifact.json"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(_SCRIPT),
+            "--labels",
+            str(fixture),
+            "--out",
+            str(candidate),
+            "--artifact-out",
+            str(artifact),
+            "--train-fraction",
+            "0.7",
+            "--ece-threshold",
+            "0.05",
+        ],
+        cwd=str(_REPO),
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "PYTHONPATH": str(_REPO / "services" / "decision-api" / "src"),
+        },
+    )
+    assert proc.returncode == 0, proc.stderr + proc.stdout
+    report = json.loads(artifact.read_text(encoding="utf-8"))
+    assert report["gate_passed"] is True
+    assert report["candidate_written"] is True
+    assert report["report_rows"] >= 1
+    cand = json.loads(candidate.read_text(encoding="utf-8"))
+    assert cand["schema_id"] == "tarka.platt_calibration/v1"
 
 
 def test_good_ece_writes_candidate(tmp_path):

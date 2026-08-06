@@ -6,6 +6,7 @@ import { useRegisterPageMeta } from "../context/PageMetaContext";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { useToast } from "../context/ToastContext";
 import {
+  decisions,
   graph,
   type EntityRiskResult,
   type GraphEdge,
@@ -192,6 +193,8 @@ function CaseDetailWorkbench() {
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [labelInput, setLabelInput] = useState("");
   const [bundleBusy, setBundleBusy] = useState(false);
+  const [challengeDispatchBusy, setChallengeDispatchBusy] = useState(false);
+  const [challengeDeliveryLine, setChallengeDeliveryLine] = useState<string | null>(null);
   const [zipBusy, setZipBusy] = useState(false);
   const [actPack, setActPack] = useState<EvidenceActPack | null>(null);
   const [actBusy, setActBusy] = useState<"load" | "sar" | "dispute" | null>(null);
@@ -415,6 +418,44 @@ function CaseDetailWorkbench() {
       setActBusy(null);
     }
   };
+
+  async function handleDispatchChallenge() {
+    if (!caseData || !decisionExplain?.recommended_action) return;
+    const ra = decisionExplain.recommended_action.trim();
+    const normalized = ra.toLowerCase().replace(/[\s-]+/g, "_");
+    if (!normalized.startsWith("step_up") && !normalized.startsWith("challenge")) {
+      toast("Recommended action is not a step-up challenge", "info");
+      return;
+    }
+    setChallengeDispatchBusy(true);
+    setChallengeDeliveryLine(null);
+    try {
+      const resp = await decisions.dispatchChallenge({
+        tenant_id: caseData.tenant_id,
+        trace_id: caseData.trace_id,
+        entity_id: caseData.entity_id,
+        decision: decisionExplain.decision,
+        recommended_action: ra,
+      });
+      const delivery = resp.delivery ?? {};
+      const ok = resp.ok === true || delivery.ok === true;
+      const status = delivery.status_code != null ? String(delivery.status_code) : "";
+      const line = ok
+        ? `Challenge delivered${status ? ` (HTTP ${status})` : ""}`
+        : `Challenge dispatch failed${delivery.error ? `: ${String(delivery.error)}` : ""}`;
+      setChallengeDeliveryLine(line);
+      toast(line, ok ? "success" : "error");
+    } catch (e) {
+      const msg = toUserFacingApiError(e, {
+        subject: "Challenge dispatch",
+        action: "dispatch step-up challenge webhook",
+      });
+      setChallengeDeliveryLine(msg);
+      toast(msg, "error");
+    } finally {
+      setChallengeDispatchBusy(false);
+    }
+  }
 
   const handleEvidenceExportPdf = useCallback(() => {
     if (!caseData) return;
@@ -936,6 +977,26 @@ function CaseDetailWorkbench() {
                   {decisionExplain.recommended_action}
                 </code>
               ) : null}
+              {(() => {
+                const ra = decisionExplain.recommended_action.trim().toLowerCase().replace(/[\s-]+/g, "_");
+                const isStepUp = ra.startsWith("step_up") || ra.startsWith("challenge");
+                if (!isStepUp) return null;
+                return (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={challengeDispatchBusy}
+                      onClick={() => void handleDispatchChallenge()}
+                      className="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-amber-500/40 bg-amber-950/40 text-amber-100 hover:bg-amber-950/60 disabled:opacity-50"
+                    >
+                      {challengeDispatchBusy ? "Dispatching…" : "Dispatch challenge"}
+                    </button>
+                    {challengeDeliveryLine ? (
+                      <span className="text-[11px] text-gray-400">{challengeDeliveryLine}</span>
+                    ) : null}
+                  </div>
+                );
+              })()}
             </div>
           ) : null}
           {decisionExplain ? (
