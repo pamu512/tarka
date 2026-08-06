@@ -189,6 +189,34 @@ def test_cluster_unit_when_peers():
     assert out["unit"] == "cluster"
 
 
+def test_dispatch_ineligible_order_eligible_with_policy():
+    # ratio 0.15 — between target 0.12 and ineligible 0.25
+    # churn_proxy true (new account low repeat)
+    # gate_policies: dispatch.churn_flips true; order only flips above ineligible_above
+    cfg = _cfg(
+        gate_policies={
+            "dispatch": {"churn_flips": True},
+            "redeem": {"churn_flips": False},
+            "order": {"churn_flips": False},
+        }
+    )
+    snap = _complete_feeds(loyalty_cost=150, ltv_orders=1000)
+    snap["lifecycle"] = [{
+        "entity_id": "e1",
+        "created_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "last_active_at": snap["as_of"],
+    }]
+    out = evaluate_loyalty_economics(
+        entity_id="e1", feed_snapshot=snap, program_config=cfg
+    )
+    assert out["metrics"]["loyalty_ltv_ratio"] == 0.15
+    assert out["metrics"]["churn_proxy"]["flagged"] is True
+    assert out["gates"]["order"]["eligible"] is True
+    assert out["gates"]["dispatch"]["eligible"] is False
+    assert "churn_proxy_above_target" in out["gates"]["dispatch"]["reasons"]
+    assert "churn_proxy_above_target" not in out["gates"]["order"]["reasons"]
+
+
 def test_cluster_rollup_includes_peer_entities():
     now = datetime(2026, 8, 6, 12, 0, tzinfo=timezone.utc)
     as_of = now.isoformat().replace("+00:00", "Z")

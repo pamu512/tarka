@@ -1,11 +1,14 @@
 """Pure loyalty economics multi-gate engine (dispatch / redeem / order).
 
-Gate policy v1 defaults (same outcome across gates unless extended via gate_policies):
+Gate policy v1 defaults (same outcome across gates unless extended via ``gate_policies``):
 - VIP allowlist → all gates eligible, reason ``vip_allowlist``.
 - New-member grace → all eligible, reason ``new_member_grace``.
-- ``loyalty_ltv_ratio > ineligible_above_ratio`` → ineligible, reason ``loyalty_ltv_above_threshold``.
+- ``loyalty_ltv_ratio > ineligible_above_ratio`` (scaled by per-gate ``ratio_weight``) →
+  ineligible, reason ``loyalty_ltv_above_threshold``.
 - ``loyalty_ltv_ratio <= restore_at_or_below_ratio`` → eligible only after dwell in restore band.
 - Between thresholds → keep prior ineligibility when ``prior_gate_state.ineligible_since`` set.
+- Per-gate ``churn_flips``: when true, churn proxy + ratio > ``target_loyalty_ltv_ratio`` may
+  flip ineligible even below ``ineligible_above_ratio`` (dispatch vs order independence).
 
 Never sets ``eligible: true`` on missing/incomplete/stale/config_missing feeds.
 ``policy.order_decision_untouched`` is always ``True`` — this path does not deny orders.
@@ -252,6 +255,98 @@ def _dwell_seconds(since_iso: str | None, now: datetime) -> float:
     return max(0.0, (now - since).total_seconds())
 
 
+def _resolve_gate_policy(cfg: dict, gate_name: str) -> dict[str, float | bool]:
+    policies = cfg.get("gate_policies")
+    raw: dict[str, Any] = {}
+    if isinstance(policies, dict):
+        gate_raw = policies.get(gate_name)
+        if isinstance(gate_raw, dict):
+            raw = gate_raw
+    try:
+        ratio_weight = float(raw.get("ratio_weight", 1.0))
+    except (TypeError, ValueError):
+        ratio_weight = 1.0
+    if ratio_weight <= 0:
+        ratio_weight = 1.0
+    return {
+        "ratio_weight": ratio_weight,
+        "churn_flips": bool(raw.get("churn_flips", False)),
+    }
+
+
+def _base_gate_eligibility(
+    *,
+    ratio: float,
+    ineligible_above: float,
+    restore_at_or_below: float,
+    min_dwell: int,
+    prior_ineligible: bool,
+    restore_since: str | None,
+    now: datetime,
+    reasons_base: list[str],
+    is_vip: bool,
+    in_grace: bool,
+) -> tuple[bool, list[str]]:
+    if is_vip:
+        return True, ["vip_allowlist"]
+    if in_grace:
+        return True, ["new_member_grace"]
+    if ratio > ineligible_above:
+        return False, reasons_base + ["loyalty_ltv_above_threshold"]
+    if ratio <= restore_at_or_below:
+        if not prior_ineligible:
+            return True, list(reasons_base)
+        dwell = _dwell_seconds(restore_since, now)
+        if dwell >= min_dwell:
+            return True, list(reasons_base)
+        return False, reasons_base + ["dwell_not_met"]
+    if prior_ineligible:
+        return False, reasons_base + ["hysteresis_band_prior_ineligible"]
+    return True, list(reasons_base)
+
+
+def _evaluate_gate(
+    *,
+    gate_name: str,
+    cfg: dict,
+    ratio: float,
+    ineligible_above: float,
+    restore_at_or_below: float,
+    target_ratio: float,
+    min_dwell: int,
+    prior_ineligible: bool,
+    restore_since: str | None,
+    now: datetime,
+    reasons_base: list[str],
+    is_vip: bool,
+    in_grace: bool,
+    churn: bool,
+) -> tuple[bool, list[str]]:
+    policy = _resolve_gate_policy(cfg, gate_name)
+    effective_ineligible = ineligible_above / float(policy["ratio_weight"])
+    eligible, gate_reasons = _base_gate_eligibility(
+        ratio=ratio,
+        ineligible_above=effective_ineligible,
+        restore_at_or_below=restore_at_or_below,
+        min_dwell=min_dwell,
+        prior_ineligible=prior_ineligible,
+        restore_since=restore_since,
+        now=now,
+        reasons_base=reasons_base,
+        is_vip=is_vip,
+        in_grace=in_grace,
+    )
+    if (
+        eligible
+        and policy["churn_flips"]
+        and churn
+        and ratio > target_ratio
+    ):
+        eligible = False
+        gate_reasons = list(gate_reasons) + ["churn_proxy_above_target"]
+    return eligible, gate_reasons
+
+
 def evaluate_loyalty_economics(
     *,
     entity_id: str,
@@ -329,6 +424,7 @@ def evaluate_loyalty_economics(
     try:
         ineligible_above = float(cfg["ineligible_above_ratio"])
         restore_at_or_below = float(cfg["restore_at_or_below_ratio"])
+        target_ratio = float(cfg["target_loyalty_ltv_ratio"])
         min_dwell = int(cfg["min_dwell_seconds"])
         grace_days = int(cfg["new_member_grace_days"])
     except (TypeError, ValueError):
@@ -348,26 +444,6 @@ def evaluate_loyalty_economics(
     if churn:
         reasons_base.append("churn_proxy_new_low_repeat")
 
-    if is_vip:
-        eligible, gate_reasons = True, ["vip_allowlist"]
-    elif in_grace:
-        eligible, gate_reasons = True, ["new_member_grace"]
-    elif ratio > ineligible_above:
-        eligible, gate_reasons = False, reasons_base + ["loyalty_ltv_above_threshold"]
-    elif ratio <= restore_at_or_below:
-        if not prior_ineligible:
-            eligible, gate_reasons = True, reasons_base
-        else:
-            dwell = _dwell_seconds(restore_since, now)
-            if dwell >= min_dwell:
-                eligible, gate_reasons = True, reasons_base
-            else:
-                eligible, gate_reasons = False, reasons_base + ["dwell_not_met"]
-    elif prior_ineligible:
-        eligible, gate_reasons = False, reasons_base + ["hysteresis_band_prior_ineligible"]
-    else:
-        eligible, gate_reasons = True, reasons_base
-
     has_spend = "spend" in feeds and isinstance(feeds.get("spend"), list)
     top_status = "ok" if has_spend else "partial_derived"
 
@@ -382,15 +458,30 @@ def evaluate_loyalty_economics(
         "window": str(cfg.get("window", "trailing_90d")),
     }
     gate_as_of = as_of_str or _iso(now)
-    gates = {
-        name: _gate(
+    gates = {}
+    for name in _GATE_NAMES:
+        eligible, gate_reasons = _evaluate_gate(
+            gate_name=name,
+            cfg=cfg,
+            ratio=ratio,
+            ineligible_above=ineligible_above,
+            restore_at_or_below=restore_at_or_below,
+            target_ratio=target_ratio,
+            min_dwell=min_dwell,
+            prior_ineligible=prior_ineligible,
+            restore_since=restore_since,
+            now=now,
+            reasons_base=reasons_base,
+            is_vip=is_vip,
+            in_grace=in_grace,
+            churn=churn,
+        )
+        gates[name] = _gate(
             eligible=eligible,
             status="ok",
-            reasons=list(gate_reasons),
+            reasons=gate_reasons,
             as_of=gate_as_of,
         )
-        for name in _GATE_NAMES
-    }
     base["gates"] = gates
     base["policy"]["config_version"] = str(cfg.get("config_version", ""))
     base["policy"]["hysteresis"] = {

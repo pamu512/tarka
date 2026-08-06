@@ -83,6 +83,20 @@ Missing refunds while orders present, or missing ledger, → `feeds_incomplete` 
 
 See [`rules/loyalty_program_config.example.json`](../../../rules/loyalty_program_config.example.json). Ingress key: `metadata.loyalty_program_config`.
 
+Optional per-gate policy knobs (`gate_policies`) let dispatch / redeem / order diverge — e.g. dispatch may flip ineligible on churn + ratio above target while order stays eligible below `ineligible_above_ratio`:
+
+```json
+{
+  "gate_policies": {
+    "dispatch": { "ratio_weight": 1.0, "churn_flips": true },
+    "redeem": { "ratio_weight": 1.0, "churn_flips": false },
+    "order": { "ratio_weight": 1.0, "churn_flips": false }
+  }
+}
+```
+
+`churn_flips: true` — when churn proxy is flagged and `loyalty_ltv_ratio > target_loyalty_ltv_ratio`, that gate may be ineligible even if ratio is below `ineligible_above_ratio`. `ratio_weight > 1` lowers the effective ineligible threshold for that gate.
+
 ### Multi-gate output status
 
 Engine output schema: `tarka.loyalty_economics_gates/v1`. Full gate vector contract (dispatch / redeem / order independence, metrics, hysteresis): [loyalty-economics-multi-gate-design § Multi-gate output contract](../../superpowers/specs/2026-08-06-loyalty-economics-multi-gate-design.md#multi-gate-output-contract).
