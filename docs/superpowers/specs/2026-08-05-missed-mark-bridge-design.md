@@ -1,7 +1,7 @@
 # Missed-Mark Bridge Design
 
 **Date:** 2026-08-05  
-**Status:** Draft for approval  
+**Status:** Bridge Tracks A–D complete (narrative closed)  
 **Source:** [end-user product review](../../../../.cursor/projects/Users-pamu-Documents-GitHub-tarka/canvases/end-user-product-review.canvas.tsx) “Missed the mark” + residual gaps after Waves 0–6  
 **Branch:** `maturity-4-0-local`
 
@@ -22,23 +22,22 @@ Close the **residual** missed-mark findings so Engineering, Risk/Strategy, and F
 | Ops QA sampling product | `/ops/qa` + case-api ops routes |
 | SAR transport Potemkin (Track D claim) | Worker + fail-closed when SFTP unset — **re-verify E2E** |
 
-## Residual gaps (bridge scope)
+## Residual gaps (bridge scope) — Track D disposition
 
-### Engineering
-1. **Brochure desk** — `mockData.ts` ~3.4k lines; DEV auto-fallback still teaches fake workflows  
-2. **Operator fragmentation** — many compose/CLI entrypoints; no single “fraud desk” profile  
-3. **Hardware gate** — full triad still marketed as happy path vs Lite-first
+| # | Missed mark | Disposition | Evidence |
+|---|-------------|-------------|----------|
+| 1 | Brochure desk / DEV mock fallback | **Closed** | `VITE_DESK_STRICT` + `deskMockPolicy` + `audit_prod_desk_mocks` |
+| 2 | No fraud-desk profile | **Closed** | `docker-compose.fraud-desk.yml` + README Start here |
+| 3 | Hardware triad as happy path | **Closed** | Lite-first + fraud-desk front door |
+| 4 | Live tenant partner proof | **Waiver** | Fixture pin `3d1ab910…`; live opt-in or `WAIVED` line in PR/runbook |
+| 5 | Challenge / step-up layer | **Closed** | `challenge_orchestrator` + `decision-to-customer-journey.md` |
+| 6 | Disposition → `y_label` | **Closed** | Reason-code enum + join + maker-checker |
+| 7 | Demo > production truth | **Closed** | Lean nav default + desk-strict |
+| 8 | Queue economics | **Closed** | SLA-by-priority + `CASE_MAKER_CHECKER_STATUSES` |
+| 9 | Rule FP after labels | **Closed** | `rule-precision-after-labels` + Rule performance panel |
+| 10 | SAR honesty E2E | **Closed** | SAR smoke CI + `.github/workflows/ops-qa-desk-e2e.yml` |
 
-### Risk / Strategy
-4. **Network-effect gap** — hybrid proof is fixture-CI; **live tenant proof** still optional  
-5. **Action layer** — challenge/step-up orchestration incomplete vs `recommended_action`  
-6. **Label pipeline as product** — dispositions → `y_label` not default closed loop in desk UX
-
-### Fraud Ops
-7. **Demo > production truth** — demo badges / lean-off routes still over-teach  
-8. **Queue economics** — SLA clocks per queue, maker-checker on high-impact dispositions as defaults  
-9. **Feedback loop** — rule FP / precision after labels not visible without eng help  
-10. **SAR honesty verification** — prove worker path E2E or hide SAR UI until green
+Regrade artifact: canvas `maturity-4-0-regrade.canvas.tsx`.
 
 ## Explicit non-goals
 

@@ -13,6 +13,7 @@ import { LEAN_NAV, INCLUDE_DEMO_SURFACE, leanHomePath, isProductionSurfacePath }
 import MlLifecycle from "./pages/MlLifecycle";
 import OpsCalibration from "./pages/OpsCalibration";
 import OpsQaDesk from "./pages/OpsQaDesk";
+import OpsShadow from "./pages/OpsShadow";
 import OpsIntegrity from "./pages/OpsIntegrity";
 import { TarkaRbacRole } from "./security/rbacConstants";
 
@@ -149,6 +150,7 @@ const NAV_GROUPS_ALL: { label: string; items: NavItem[] }[] = [
       { to: "/compliance/regional-risk", label: "Regional risk", module: "compliance" },
       { to: "/ops/calibration", label: "Calibration & drift", module: "analytics" },
       { to: "/ops/qa", label: "QA sampling desk", module: "cases" },
+      { to: "/ops/shadow", label: "Shadow promote gate", module: "analytics" },
       { to: "/ops/integrity", label: "Integrity & challenge", module: "compliance" },
       { to: "/ops/counters", label: "Counters catalog", module: "compliance" },
       { to: "/ops/features", label: "Feature tools", module: "compliance" },
@@ -318,7 +320,6 @@ export default function App() {
               }
             />
             <Route path="/entity-lists" element={<EntityLists />} />
-            <Route path="/shadow" element={<ShadowMode />} />
             <Route path="/simulation" element={<Simulation />} />
             <Route path="/ops/backtest" element={<BacktestJobConfigurator />} />
             <Route path="/graph" element={<GraphExplorer />} />
@@ -329,6 +330,7 @@ export default function App() {
             <Route path="/transactions/live" element={<TransactionsLiveGrid />} />
             <Route path="/ops/calibration" element={<OpsCalibration />} />
             <Route path="/ops/qa" element={<OpsQaDesk />} />
+            <Route path="/ops/shadow" element={<OpsShadow />} />
             <Route path="/ops/integrity" element={<OpsIntegrity />} />
             <Route path="/investigation" element={<Investigation />} />
             <Route path="/investigation/dag-trace" element={<DagTracePage />} />
@@ -348,6 +350,7 @@ export default function App() {
             {INCLUDE_DEMO_SURFACE ? (
               <>
                 <Route path="/command-center" element={<TarkaCommandCenter />} />
+                <Route path="/shadow" element={<ShadowMode />} />
                 <Route path="/exec-dashboards" element={<ExecutiveDashboards />} />
                 <Route path="/ops/workload" element={<WorkloadBalancer />} />
                 <Route path="/graph/mule-path" element={<MulePathVisualizer />} />
@@ -376,6 +379,7 @@ export default function App() {
             ) : (
               <>
                 <Route path="/command-center" element={<Navigate to="/cases" replace />} />
+                <Route path="/shadow" element={<Navigate to="/ops/shadow" replace />} />
                 <Route path="/exec-dashboards" element={<Navigate to="/cases" replace />} />
                 <Route path="/ops/workload" element={<Navigate to="/cases" replace />} />
                 <Route path="/graph/mule-path" element={<Navigate to="/graph" replace />} />

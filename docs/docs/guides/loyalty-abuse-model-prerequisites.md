@@ -118,9 +118,12 @@ Engine output schema: `tarka.loyalty_economics_gates/v1`. Full gate vector contr
 | Graph related accounts | Available when `GRAPH_SERVICE_URL` set |
 | Generic event velocity | Partial (counters / inference velocity) |
 | Promo redemption dashboards | Partial / demo-adjacent |
-| Cluster LTV + loyalty÷LTV + churn economics | **Missing** — prerequisite not met |
+| Multi-gate engine + evaluate attach | **Landed** — `loyalty_economics.py` + pipeline; never denies order |
+| S9 fixture completeness in CI (Track B) | **Landed** — `scripts/oss/loyalty_economics_feed_smoke.py` + `fixtures/loyalty_economics_cases.json` |
+| HTTP warehouse pack contract (Track C) | **Landed** — `loyalty_warehouse.py` + mock HTTP smoke; named-tenant DB still external |
+| Live tenant warehouse feeds + baselines | **Missing** — still required for production loyalty-abuse effectiveness |
 
-Until upstream feeds and baselines exist, do **not** claim an effective loyalty-abuse model on related accounts. Treat Inference / Fraud Ops stretch for loyalty vertical as **blocked on this prerequisite**.
+Fixture CI + warehouse HTTP contract prove the ingress path (complete → gates; incomplete → never `eligible: true`). They do **not** replace named-tenant order/LTV/ledger databases. Do **not** claim live loyalty-abuse effectiveness without those upstreams. Critical Inference **4.5** (A+B) uses bar=`fixture_ci` via `scripts/oss/inference_ab_claim_gate.py` — disclosed, not production L3.
 
 ## Claim language
 

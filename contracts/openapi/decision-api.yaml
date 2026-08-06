@@ -1461,7 +1461,10 @@ components:
           format: float
           minimum: 0
           maximum: 1
-          description: Alias of colocation_risk for multi-session / shared-device narratives
+          deprecated: true
+          description: >-
+            Deprecated alias of colocation_risk. Prefer shared_device_risk /
+            graph_peer_risk / geo_copresence_risk.
         impossible_travel_risk:
           type: number
           format: float

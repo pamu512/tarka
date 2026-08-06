@@ -17,6 +17,30 @@ def test_y_label_from_ground_truth():
     assert y_label_from_ground_truth("nope") == ""
 
 
+def test_y_label_store_persists(tmp_path, monkeypatch):
+    monkeypatch.setenv("CALIBRATION_DATA_DIR", str(tmp_path))
+    from decision_api.y_label_store import load_y_labels, merge_y_labels
+
+    snap = merge_y_labels("demo", by_trace={"t1": "1"}, by_entity={"e1": "0"})
+    assert snap["trace_labels"] == 1
+    assert snap["entity_labels"] == 1
+    loaded = load_y_labels("demo")
+    assert loaded["by_trace"]["t1"] == "1"
+    assert loaded["by_entity"]["e1"] == "0"
+    merge_y_labels("demo", by_trace={"t2": "0"})
+    again = load_y_labels("demo")
+    assert again["by_trace"]["t1"] == "1"
+    assert again["by_trace"]["t2"] == "0"
+
+
+def test_reliability_bins_body_proxy_off_by_default():
+    from decision_api.calibration_api import ReliabilityBinsBody
+
+    body = ReliabilityBinsBody()
+    assert body.allow_proxy_labels is False
+    assert body.persist_labels is True
+
+
 def test_apply_y_labels_and_posture():
     rows = [
         {
@@ -69,6 +93,34 @@ def test_evaluate_shadow_request_helper():
     assert is_shadow_evaluate_request({"shadow": True}) is True
     assert is_shadow_evaluate_request({"shadow": "true"}) is True
     assert is_shadow_evaluate_request({}) is False
+
+
+def test_rule_precision_after_labels():
+    from decision_api.rule_label_metrics import rule_precision_after_labels
+
+    out = rule_precision_after_labels(
+        [
+            {
+                "y_label": "0",
+                "decision": "deny",
+                "rule_hits": ["velocity_guard"],
+            },
+            {
+                "y_label": "1",
+                "decision": "deny",
+                "rule_hits": ["velocity_guard"],
+            },
+            {"y_label": "", "decision": "allow", "rule_hits": ["noise"]},
+        ],
+        min_labeled_hits=1,
+        min_coverage=0.2,
+    )
+    assert out["labeled_rows"] == 2
+    assert out["posture"]["healthy"] is True
+    row = next(r for r in out["rules"] if r["rule_id"] == "velocity_guard")
+    assert row["labeled_hits"] == 2
+    assert row["fp_hits"] == 1
+    assert row["precision"] == 0.5
 
 
 def test_partner_fusion_signals():

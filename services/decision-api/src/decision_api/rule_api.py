@@ -244,44 +244,10 @@ def _install_vertical_pack_core(
     }
 
 
-@router.post("/vertical-packs/{vertical_name}/install", status_code=201)
-async def install_vertical_pack(
-    vertical_name: str,
-    overwrite: bool = False,
-    x_actor: str | None = Header(default=None, alias="X-Actor"),
-    x_rule_governance_secret: str | None = Header(
-        default=None, alias="X-Rule-Governance-Secret"
-    ),
-):
-    _require_rule_governance(x_rule_governance_secret)
-    result = _install_vertical_pack_core(
-        vertical_name,
-        overwrite=overwrite,
-    )
-    _append_rule_change(
-        "install_vertical",
-        result["installed"],
-        actor=_actor_from_headers(x_actor),
-        detail={"vertical": vertical_name.lower(), "overwrite": overwrite},
-    )
-    return {
-        "installed": result["installed"],
-        "vertical": result["vertical"],
-        "rules": result["rules"],
-    }
-
-
-@router.post("/vertical-packs/{vertical_name}/promote", status_code=201)
-async def promote_vertical_pack(
-    vertical_name: str,
-    body: PromoteVerticalPackBody,
-    overwrite: bool = False,
-    x_actor: str | None = Header(default=None, alias="X-Actor"),
-    x_rule_governance_secret: str | None = Header(
-        default=None, alias="X-Rule-Governance-Secret"
-    ),
-):
-    _require_rule_governance(x_rule_governance_secret)
+def _kill_gate_for_vertical(
+    vertical_name: str, body: PromoteVerticalPackBody
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Return (pack, gate). Raises 404 if unknown; caller enforces promote_allowed."""
     pack = get_vertical_pack(vertical_name)
     if not pack:
         raise HTTPException(404, f"unknown vertical pack '{vertical_name}'")
@@ -297,16 +263,76 @@ async def promote_vertical_pack(
         pack.get("kill_criteria"),
         events_evaluated=body.events_evaluated,
     )
+    gate = {**gate, "metrics": metrics}
+    return pack, gate
+
+
+@router.post("/vertical-packs/{vertical_name}/install", status_code=201)
+async def install_vertical_pack(
+    vertical_name: str,
+    body: PromoteVerticalPackBody,
+    overwrite: bool = False,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
+):
+    """Install pack only when kill_criteria pass (same bar as promote — S5)."""
+    _require_rule_governance(x_rule_governance_secret)
+    _pack, gate = _kill_gate_for_vertical(vertical_name, body)
+    if not gate["promote_allowed"]:
+        raise HTTPException(
+            409,
+            detail={"blockers": gate["blockers"], "promote_gate": gate},
+        )
+    result = _install_vertical_pack_core(
+        vertical_name,
+        overwrite=overwrite,
+    )
+    _append_rule_change(
+        "install_vertical",
+        result["installed"],
+        actor=_actor_from_headers(x_actor),
+        detail={
+            "vertical": vertical_name.lower(),
+            "overwrite": overwrite,
+            "events_evaluated": body.events_evaluated,
+            "metrics": gate.get("metrics"),
+            "promote_gate": {k: v for k, v in gate.items() if k != "metrics"},
+        },
+    )
+    return {
+        "installed": result["installed"],
+        "vertical": result["vertical"],
+        "rules": result["rules"],
+        "promote_gate": {k: v for k, v in gate.items() if k != "metrics"},
+    }
+
+
+@router.post("/vertical-packs/{vertical_name}/promote", status_code=201)
+async def promote_vertical_pack(
+    vertical_name: str,
+    body: PromoteVerticalPackBody,
+    overwrite: bool = False,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
+):
+    _require_rule_governance(x_rule_governance_secret)
+    _pack, gate = _kill_gate_for_vertical(vertical_name, body)
     if not gate["promote_allowed"]:
         raise HTTPException(
             409,
             detail={"blockers": gate["blockers"], "promote_gate": gate},
         )
     actor = _actor_from_headers(x_actor)
+    metrics = gate.get("metrics") or {}
     result = _install_vertical_pack_core(
         vertical_name,
         overwrite=overwrite,
     )
+    gate_public = {k: v for k, v in gate.items() if k != "metrics"}
     _append_rule_change(
         "promote_vertical",
         result["installed"],
@@ -316,7 +342,7 @@ async def promote_vertical_pack(
             "overwrite": overwrite,
             "events_evaluated": body.events_evaluated,
             "metrics": metrics,
-            "promote_gate": gate,
+            "promote_gate": gate_public,
         },
     )
     return {
@@ -324,7 +350,7 @@ async def promote_vertical_pack(
         "vertical": result["vertical"],
         "rules": result["rules"],
         "promoted": True,
-        "promote_gate": gate,
+        "promote_gate": gate_public,
     }
 
 

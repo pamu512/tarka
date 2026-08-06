@@ -98,6 +98,27 @@ git commit -m "docs: pin live partner fusion proof for <tenant>"
 
 **Do not** copy fixture SHA into `partner-fusion-proof.live.sha256`. L1 and L2 pins are separate.
 
+## How to cut a LIVE pin (Risk 4.5 / Location ≥4.0 path)
+
+Do **not** copy `partner-fusion-proof.stable.sha256` into `.live.sha256`. Fixture ≠ live.
+
+1. Obtain named-tenant Fingerprint/Incognia (or equivalent) credentials in a **private** env (never commit secrets).
+2. Run the live partner fusion proof path from this runbook (`mode=live`) against that tenant.
+3. Write the resulting content digest to `docs/compliance/partner-fusion-proof.live.sha256`.
+4. Set `docs/compliance/partner-fusion-proof.live.status` to a single line: `LIVE`.
+5. CI with `REQUIRE_LIVE_PARTNER_PROOF=1` must pass `scripts/oss/partner_fusion_live_status_gate.py`.
+6. Only then regrade Risk/Strategy toward **4.5** and Location hybrid toward **≥4.0**.
+
+### OSS / Critical A–E ceiling (2026-08-06)
+
+Current status remains:
+
+```
+WAIVED — reason: no live vendor credentials in OSS CI
+```
+
+Under this WAIVED ceiling: Risk/Strategy stays **4.2**; Location stays **2.5**. Claiming Risk **4.5** or Location **4.0** without a real LIVE pin is a scoring fallacy.
+
 ## What “pass” means
 
 | Field | Required |
@@ -113,7 +134,7 @@ git commit -m "docs: pin live partner fusion proof for <tenant>"
 | Bar | Requirement |
 |-----|-------------|
 | **CI / OSS release (L1)** | Fixture mode green; `partner-fusion-proof.stable.sha256` matches artifact |
-| **Customer diligence / L2 hybrid claim** | Live mode green; `partner-fusion-proof.live.sha256` committed **or** explicit waiver: `Partner live proof: WAIVED — reason: …` |
+| **Customer diligence / L2 hybrid claim** | Live mode green; `partner-fusion-proof.live.sha256` committed **or** machine-readable `partner-fusion-proof.live.status` with `WAIVED — reason: …` (CI: `REQUIRE_LIVE_PARTNER_PROOF=1` + `partner_fusion_live_status_gate.py`) |
 | **PR touching fusion** | Checkbox in `.github/pull_request_template.md` |
 
 ## Related
