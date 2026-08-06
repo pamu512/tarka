@@ -2,7 +2,7 @@
 
 **Status:** Prerequisite (not implemented as a closed economic model)  
 **Date:** 2026-08-06  
-**Design:** [loyalty-economics-multi-gate-design](../../../superpowers/specs/2026-08-06-loyalty-economics-multi-gate-design.md) — hygiene feeds + program config + hybrid derive; independent gates **dispatch / redeem / order** (not checkout-only).  
+**Design:** [loyalty-economics-multi-gate-design](../../superpowers/specs/2026-08-06-loyalty-economics-multi-gate-design.md) — hygiene feeds + program config + hybrid derive; independent gates **dispatch / redeem / order** (not checkout-only).  
 **Related:** [graph-analysis](./graph-analysis.md), [competitive-score-matrix-2026-04](./competitive-score-matrix-2026-04.md), regrade canvas
 
 ## Why this exists
@@ -81,11 +81,11 @@ Missing refunds while orders present, or missing ledger, → `feeds_incomplete` 
 
 ### Program config example (Layer 2)
 
-See [`rules/loyalty_program_config.example.json`](../../../../rules/loyalty_program_config.example.json). Ingress key: `metadata.loyalty_program_config`.
+See [`rules/loyalty_program_config.example.json`](../../../rules/loyalty_program_config.example.json). Ingress key: `metadata.loyalty_program_config`.
 
 ### Multi-gate output status
 
-Engine output schema: `tarka.loyalty_economics_gates/v1`. Full gate vector contract (dispatch / redeem / order independence, metrics, hysteresis): [loyalty-economics-multi-gate-design § Multi-gate output contract](../../../superpowers/specs/2026-08-06-loyalty-economics-multi-gate-design.md#multi-gate-output-contract).
+Engine output schema: `tarka.loyalty_economics_gates/v1`. Full gate vector contract (dispatch / redeem / order independence, metrics, hysteresis): [loyalty-economics-multi-gate-design § Multi-gate output contract](../../superpowers/specs/2026-08-06-loyalty-economics-multi-gate-design.md#multi-gate-output-contract).
 
 | Condition | `status` | Gate `eligible` |
 | --- | --- | --- |
