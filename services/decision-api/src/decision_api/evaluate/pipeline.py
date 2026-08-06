@@ -43,6 +43,7 @@ from decision_api.integrity_policy import (
     supplemental_tags_for_integrity,
 )
 from decision_api.location_cohort_evidence import build_location_cohort_evidence
+from decision_api.loyalty_economics import evaluate_loyalty_economics
 from decision_api.location_context import merge_session_geo_from_device_and_features
 from decision_api.models import AuditRecord
 from decision_api.policy_routing import (
@@ -1044,6 +1045,31 @@ async def run_evaluate_decision(
         )
         if location_cohort_evidence is not None:
             snap_extra["location_cohort_evidence"] = location_cohort_evidence
+
+        _meta = body.metadata if isinstance(body.metadata, dict) else {}
+        if _meta.get("loyalty_feed_snapshot") is not None or _meta.get(
+            "loyalty_program_config"
+        ) is not None:
+            _loyalty_gates = evaluate_loyalty_economics(
+                entity_id=str(body.entity_id),
+                feed_snapshot=_meta.get("loyalty_feed_snapshot"),
+                program_config=_meta.get("loyalty_program_config"),
+                cluster_entity_ids=_meta.get("loyalty_cluster_entity_ids"),
+                scope=_meta.get("loyalty_scope"),
+                prior_gate_state=_meta.get("loyalty_prior_gate_state"),
+            )
+            snap_extra["loyalty_economics_gates"] = _loyalty_gates
+            for gname, tag in (
+                ("dispatch", "loyalty:dispatch_ineligible"),
+                ("redeem", "loyalty:redeem_ineligible"),
+                ("order", "loyalty:order_benefit_ineligible"),
+            ):
+                g = (_loyalty_gates.get("gates") or {}).get(gname) or {}
+                if g.get("status") == "ok" and g.get("eligible") is False:
+                    if tag not in signal_tags:
+                        signal_tags.append(tag)
+                    if tag not in merged_tags:
+                        merged_tags.append(tag)
 
         audit = AuditRecord(
             trace_id=trace_id,
