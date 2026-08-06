@@ -195,7 +195,7 @@ async def cohort_eval_client():
 
 @pytest.mark.asyncio
 async def test_evaluate_surfaces_cohort_partner_evidence(cohort_eval_client):
-    """Evaluate audit must include location_cohort_evidence.cohort when signals present."""
+    """Evaluate audit must dual-write relatedness + location_cohort evidence when signals present."""
     c = cohort_eval_client
     r = await c.post(
         "/v1/decisions/evaluate",
@@ -211,10 +211,17 @@ async def test_evaluate_surfaces_cohort_partner_evidence(cohort_eval_client):
     assert r.status_code == 200
     assert len(c._captured) == 1
     snap = c._captured[0].payload_snapshot
+    relatedness = snap.get("relatedness_evidence")
     evidence = snap.get("location_cohort_evidence")
+    assert relatedness is not None
     assert evidence is not None
+    assert relatedness["schema_id"] == "tarka.relatedness_evidence/v1"
+    assert evidence["schema_id"] == "tarka.location_cohort_evidence/v1"
+    assert "cohort" in relatedness
     assert "cohort" in evidence
+    assert relatedness["geo_enrichment"]["copresence_risk"] >= 0.5
     assert evidence["copresence"]["copresence_risk"] >= 0.5
+    assert "location:copresence_elevated" in (relatedness.get("tags") or [])
     assert "location:copresence_elevated" in (evidence.get("tags") or [])
 
 
