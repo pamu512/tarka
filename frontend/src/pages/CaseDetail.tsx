@@ -40,7 +40,6 @@ import {
   InferenceNetworkTrustHoverBody,
   InferenceReplayHoverBody,
   InferenceTamperHoverBody,
-  LoyaltyEconomicsHoverBody,
   QueueScoreHoverBody,
   VelocityHoverBody,
 } from "../components/CaseView/MetricHoverPanels";
@@ -79,7 +78,6 @@ import { trackWorkbenchTask } from "../workbench/workbenchTelemetry";
 import { isHeroHotkeyEventIgnored } from "../utils/heroHotkeys";
 import {
   buildTriageFlashCards,
-  extractLoyaltyEconomicsGates,
 } from "../utils/triageFlashCards";
 import { Network, type Options } from "vis-network";
 import { DataSet } from "vis-data";
@@ -462,12 +460,10 @@ function CaseDetailWorkbench() {
     setPdfBusy(true);
     try {
       const ctx = decisionExplain?.inference_context ?? null;
-      const loyaltyGates = extractLoyaltyEconomicsGates(decisionExplain?.evaluate_payload ?? undefined);
-      const [v, g, l, geo] = buildTriageFlashCards(ctx, graphRisk, loyaltyGates);
+      const [v, g, geo] = buildTriageFlashCards(ctx, graphRisk);
       const flashPlain = [
         { title: v.title, value: v.value },
         { title: g.title, value: g.value },
-        { title: l.title, value: l.value },
         { title: geo.title, value: geo.value },
       ];
       const fm = extractTransactionMoney(decisionExplain?.evaluate_payload ?? undefined);
@@ -679,18 +675,15 @@ function CaseDetailWorkbench() {
     TriageFlashCard,
     TriageFlashCard,
     TriageFlashCard,
-    TriageFlashCard,
   ] => {
     const ctx = decisionExplain?.inference_context ?? null;
-    const loyaltyGates = extractLoyaltyEconomicsGates(decisionExplain?.evaluate_payload ?? undefined);
-    const [velocity, graph, loyalty, geo] = buildTriageFlashCards(ctx, graphRisk, loyaltyGates);
+    const [velocity, graph, geo] = buildTriageFlashCards(ctx, graphRisk);
     return [
       { ...velocity, hoverDetail: <VelocityHoverBody ctx={ctx} /> },
       { ...graph, hoverDetail: <GraphMetricHoverBody risk={graphRisk} inference={ctx} /> },
-      { ...loyalty, hoverDetail: <LoyaltyEconomicsHoverBody gates={loyaltyGates} /> },
       { ...geo, hoverDetail: <GeoHoverBody ctx={ctx} /> },
     ];
-  }, [decisionExplain?.inference_context, decisionExplain?.evaluate_payload, graphRisk]);
+  }, [decisionExplain?.inference_context, graphRisk]);
 
   const sightLine = useMemo(() => {
     const ml = decisionExplain?.inference_context?.ml_summary?.trim();

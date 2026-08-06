@@ -91,52 +91,6 @@ export function GeoHoverBody({ ctx }: { ctx: InferenceContext | null }) {
   );
 }
 
-/** Loyalty economics gates — advisory benefit eligibility, not order block. */
-export function LoyaltyEconomicsHoverBody({
-  gates,
-}: {
-  gates: {
-    status?: string;
-    gates?: Record<string, { eligible?: boolean | null; status?: string; reasons?: string[] }>;
-    policy?: { order_decision_untouched?: boolean };
-  } | null;
-}) {
-  if (!gates) {
-    return (
-      <p className="text-gray-500 text-[11px] leading-snug">
-        Loyalty economics feeds not attached — dispatch / redeem / order gates require program config and
-        feed snapshot on evaluate metadata.
-      </p>
-    );
-  }
-  const names = ["dispatch", "redeem", "order"] as const;
-  return (
-    <div className="space-y-2">
-      <p className="text-[10px] text-gray-500 leading-snug">
-        Benefit gates (dispatch / redeem / order). Related ≠ abusive. Does not block the purchase decision.
-      </p>
-      <MonoRow k="Engine status" v={gates.status ?? "—"} />
-      {names.map((name) => {
-        const g = gates.gates?.[name];
-        const eligible =
-          g?.eligible === true ? "yes" : g?.eligible === false ? "no" : "—";
-        return (
-          <MonoRow
-            key={name}
-            k={`${name} gate`}
-            v={`${eligible} (${g?.status ?? "—"})`}
-          />
-        );
-      })}
-      {gates.policy?.order_decision_untouched ? (
-        <p className="text-[10px] text-gray-600 pt-1 border-t border-surface-700">
-          order_decision_untouched: host checkout remains outside this module.
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
 export function QueueScoreHoverBody({ score }: { score: number | null | undefined }) {
   return (
     <div className="space-y-2">

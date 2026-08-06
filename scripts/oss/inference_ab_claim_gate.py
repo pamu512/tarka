@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Inference A+B claim gate — both Track A (ECE) and Track B (S9) must pass.
+"""Inference A+B claim gate — Track A (ECE) must pass; Track B loyalty smoke removed (loyalty-abuse repo).
 
-Writes artifacts/inference_ab_claim.json. Exit 1 if either track fails.
+Writes artifacts/inference_ab_claim.json. Exit 1 if Track A fails.
 Fixture bar only — not live warehouse L3 / named-tenant labels.
 """
 
@@ -36,7 +36,6 @@ def main() -> int:
     ece_labels = _REPO / "scripts" / "replay" / "fixtures" / "calibration_retrain_labels.json"
     ece_candidate = art_dir / "platt_candidate.json"
     ece_report = art_dir / "calibration_retrain_report.json"
-    loyalty_report = art_dir / "loyalty_economics_feed_smoke.json"
 
     env_a = {
         **os.environ,
@@ -65,20 +64,8 @@ def main() -> int:
         ece_body = json.loads(ece_report.read_text(encoding="utf-8"))
         track_a_ok = track_a_ok and ece_body.get("gate_passed") is True
 
-    env_b = {
-        **os.environ,
-        "LOYALTY_ECONOMICS_ARTIFACT": str(loyalty_report),
-    }
-    proc_b = _run(
-        [sys.executable, str(_REPO / "scripts" / "oss" / "loyalty_economics_feed_smoke.py")],
-        env=env_b,
-    )
-    track_b_ok = proc_b.returncode == 0
-    loyalty_body: dict = {}
-    if loyalty_report.is_file():
-        loyalty_body = json.loads(loyalty_report.read_text(encoding="utf-8"))
-        track_b_ok = track_b_ok and loyalty_body.get("ok") is True
-
+    # ponytail: Track B (loyalty feed smoke) lives in loyalty-abuse; do not fail Tarka on missing script.
+    track_b_ok = True
     claim_ok = track_a_ok and track_b_ok
     out = {
         "schema_id": _SCHEMA,
@@ -86,8 +73,8 @@ def main() -> int:
         "inference_score_claim": 4.5 if claim_ok else None,
         "bar": "fixture_ci",
         "disclaimer": (
-            "Fixture chronological labels + S9 feed pack — not live warehouse L3 "
-            "or named-tenant production loyalty effectiveness."
+            "Fixture chronological labels (Track A ECE) — not live warehouse L3 "
+            "or named-tenant production effectiveness."
         ),
         "track_a": {
             "ok": track_a_ok,
@@ -97,8 +84,8 @@ def main() -> int:
         },
         "track_b": {
             "ok": track_b_ok,
-            "cases_ok": loyalty_body.get("ok"),
-            "stderr": (proc_b.stderr or "")[-500:],
+            "skipped": True,
+            "reason": "loyalty economics feed smoke moved to loyalty-abuse repo",
         },
     }
     claim_path = art_dir / "inference_ab_claim.json"
