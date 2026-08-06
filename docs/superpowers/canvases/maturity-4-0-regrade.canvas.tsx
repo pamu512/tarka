@@ -25,10 +25,10 @@ export default function Maturity40Regrade() {
   return (
     <Stack gap={24} style={{ padding: 24 }}>
       <Stack gap={8}>
-        <H1>Critical regrade — post S4 / S5</H1>
+        <H1>Critical regrade — Inference A+B claim</H1>
         <Text tone="secondary">
-          2026-08-06 · maturity-4-0-local. Bucket scores from durable evidence
-          only. Aim bands are not current. A++ / product-wide 4.2 closed.
+          2026-08-06 · maturity-4-0-local. Inference 4.5 on fixture_ci bar
+          (ECE + S9). Aim bands are not current. A++ / product-wide 4.2 closed.
         </Text>
         <Row gap={8} wrap>
           <Pill tone="success">Done well</Pill>
@@ -46,8 +46,8 @@ export default function Maturity40Regrade() {
       <Grid columns={4} gap={16}>
         <Stat value="4.5" label="Engineering" tone="success" />
         <Stat value="4.2" label="Risk / Strategy" tone="success" />
-        <Stat value="~3.6" label="Overall (critical)" tone="warning" />
-        <Stat value="~3.7" label="Six-cap mean" tone="warning" />
+        <Stat value="4.5" label="Inference (fixture_ci)" tone="success" />
+        <Stat value="~3.9" label="Six-cap mean" tone="warning" />
       </Grid>
 
       <Divider />
@@ -74,39 +74,39 @@ export default function Maturity40Regrade() {
           ],
           [
             "C2",
-            "Assumption (posture landed)",
+            "Assumption",
             "Signup / early location available to link accounts",
-            "Product posture dual-write landed: relatedness = graph; location = optional enrichment. S1 live pin still open — Location 2.5",
+            "False under Apple/Google/web privacy — sparse enrichment only",
           ],
           [
             "C3",
-            "Blindspot",
-            "S9: engine+contract landed; tenant feeds still required",
-            "Loyalty-abuse model ineffective until upstream baselines exist",
+            "Blindspot (partial)",
+            "S9: engine+fixture CI landed; live warehouse feeds still required",
+            "Contract proven; production loyalty effectiveness still open",
           ],
           [
             "C4",
-            "Fallacy",
-            "In-repo L1 / aim-band floor = product maturity score",
-            "Inflates Inference when closed-loop proof missing",
+            "Fallacy (hygiene)",
+            "In-repo L1 / aim-band floor = product maturity",
+            "CLAIM_LOCK.md — Wave6 4.2 withdrawn; A++ closed",
           ],
           [
             "C5",
-            "Fallacy",
-            "Four-week sim / playbook = L3 ops evidence",
-            "Banner says NOT PRODUCTION L3 — still easy to over-claim",
+            "Fallacy (path ready)",
+            "Four-week sim ≠ L3 ops",
+            "l3-ops-ledger NOT STARTED — sim never advances clock",
           ],
           [
             "C6",
             "Fallacy (mitigated)",
-            "Fixture partner SHA = live tenant enrichment",
-            "Process closed: LIVE|WAIVED fail-closed; location 2.5 until LIVE pin",
+            "Fixture partner SHA ≠ live tenant",
+            "2026-08-06 live BLOCKED (no creds); WAIVED status + attempt log",
           ],
           [
             "C7",
-            "Blindspot (posture landed)",
+            "Blindspot",
             "Equal-weight Location pillar for loyalty-first thesis",
-            "Product posture dual-write landed: Location demoted to enrichment; graph + loyalty economics primary. S1 live pin still open",
+            "Wrong competitive emphasis vs graph + economics",
           ],
         ]}
       />
@@ -125,12 +125,18 @@ export default function Maturity40Regrade() {
           "success",
           "success",
           "success",
+          "success",
         ]}
         rows={[
           [
             "Engineering honesty",
             "Lean mock audit + self-test; typed desk v1; stub AST; promote 409",
             "Engineering 4.5",
+          ],
+          [
+            "Inference A+B (fixture_ci)",
+            "ECE retrain gate + S9 loyalty feed smoke + combined claim gate",
+            "Inference 4.5",
           ],
           [
             "Risk / Strategy honesty",
@@ -159,7 +165,7 @@ export default function Maturity40Regrade() {
           ],
           [
             "Claim discipline (late)",
-            "L1∧L2∧L3 lock; S9 loyalty prereq; Wave6 4.2 walked back",
+            "Product-wide 4.2 closed; live loyalty warehouse still open",
             "Process credit — not a pillar score",
           ],
         ]}
@@ -169,7 +175,7 @@ export default function Maturity40Regrade() {
       <Table
         headers={["Area", "Gap", "Cost"]}
         columnAlign={["left", "left", "left"]}
-        rowTone={["warning", "warning", "warning"]}
+        rowTone={["warning", "warning", "warning", "warning"]}
         rows={[
           [
             "Fraud Ops desk",
@@ -178,8 +184,13 @@ export default function Maturity40Regrade() {
           ],
           [
             "ECE / labels",
-            "calibration_fit + retrain CLI unused on real chronological labels",
-            "Inference stretch fake without S3",
+            "Track A CI fixture ECE green; live tenant chronological labels still absent",
+            "Fixture L3 path only — not production weeks",
+          ],
+          [
+            "Loyalty economics (Track B)",
+            "S9 fixture CI green; live warehouse feeds + baselines still missing",
+            "C3 partially closed (contract); live effectiveness open",
           ],
           [
             "Scoring process",
@@ -196,14 +207,14 @@ export default function Maturity40Regrade() {
         rowTone={["danger", "danger", "danger", "danger"]}
         rows={[
           [
-            "Loyalty abuse effectiveness",
-            "Graph + generic velocity sold the story; no cluster LTV / loyalty÷LTV / churn (C1, C3)",
-            "Inference loyalty vertical: fail — plumbing ≠ model",
+            "Loyalty abuse effectiveness (live)",
+            "Fixture S9 + engine real; live warehouse LTV/ledger/baselines still absent (C1, C3)",
+            "Contract proven in CI — production effectiveness still open",
           ],
           [
             "Location as primary linker",
             "Scoreboard weight on hybrid location; loyalty rings don’t need signup GPS (C2, C7)",
-            "Location 2.5 — enrichment only; product posture dual-write landed (relatedness_evidence). S1 live pin still open",
+            "Location 2.5 — enrichment only until live+useful",
           ],
           [
             "L2 live enrichment (data)",
@@ -213,7 +224,7 @@ export default function Maturity40Regrade() {
           [
             "Product-wide 4.x claims",
             "Brochure / aim-band language outran closed-loop proof (C4)",
-            "Overall ~3.6 — not 4.0 / 4.2 / A++",
+            "Overall ~3.8 — not product-wide 4.2 / A++",
           ],
         ]}
       />
@@ -225,7 +236,7 @@ export default function Maturity40Regrade() {
         headers={["Capability", "Score", "Bucket", "Why"]}
         columnAlign={["left", "right", "left", "left"]}
         rowTone={[
-          "danger",
+          "success",
           "success",
           "success",
           "danger",
@@ -235,9 +246,9 @@ export default function Maturity40Regrade() {
         rows={[
           [
             "Inference",
-            "3.4",
-            "Missed",
-            "Labels/ECE plumbing real; loyalty economics absent (C3); live ECE unused",
+            "4.5",
+            "Done well",
+            "A+B claim gate ok; bar=fixture_ci (not live warehouse L3)",
           ],
           [
             "Replay/tamper",
@@ -273,8 +284,8 @@ export default function Maturity40Regrade() {
       />
 
       <Text tone="secondary" size="small">
-        Mean = (3.4+4.0+4.0+2.5+4.2+4.0)/6 ≈ 3.68 → report ~3.7. Lenses below.
-        No product-wide 4.2.
+        Mean = (4.5+4.0+4.0+2.5+4.2+4.0)/6 ≈ 3.87 → report ~3.9. Overall ~3.8.
+        No product-wide 4.2. Inference 4.5 ≠ live loyalty product claim.
       </Text>
 
       <Stack gap={8}>
@@ -295,8 +306,8 @@ export default function Maturity40Regrade() {
               tone: "neutral",
             },
             {
-              name: "Critical now (post S4/S5)",
-              data: [3.4, 4.0, 4.0, 2.5, 4.2, 4.0],
+              name: "Critical now (Inf 4.5 claim)",
+              data: [4.5, 4.0, 4.0, 2.5, 4.2, 4.0],
               tone: "danger",
             },
           ]}
@@ -304,7 +315,7 @@ export default function Maturity40Regrade() {
           yMax={5}
         />
         <Text tone="secondary" size="small">
-          Source: critical bucket regrade · 2026-08-06 · post S4/S5 evidence
+          Source: critical bucket regrade · 2026-08-06 · Inference A+B fixture_ci
         </Text>
       </Stack>
 
@@ -367,9 +378,9 @@ export default function Maturity40Regrade() {
           </CardHeader>
           <CardBody>
             <Text size="small">
-              1) S9 upstream + cluster economics. 2) Reweight location as
-              enrichment. 3) Live L2 partner only if it feeds decisions. 4)
-              Live challenge Micro sink for Ops ≥4.4.
+              1) Live warehouse feeds for production loyalty. 2) Reweight
+              location / LIVE partner pin. 3) Ops live Micro sink. 4) Keep
+              product-wide 4.2 closed until location moves.
             </Text>
           </CardBody>
         </Card>

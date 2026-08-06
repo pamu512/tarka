@@ -281,14 +281,14 @@ Weighted equally across the **twelve** modules above (each module mean vs column
 | Benchmark column        | Approx mean score                   |
 | ----------------------- | ----------------------------------- |
 | **Tarka (post-parity)** | **3.0**                             |
-| **Tarka (Wave6 honest)** | **4.2** (lenses + six-caps; hybrid device/location) |
+| **Tarka (Wave6 liberal — historical, do not cite)** | ~~4.2~~ withdrawn — use [CLAIM_LOCK.md](../../compliance/CLAIM_LOCK.md) + critical matrix three-bucket scores |
 | **OSS / composable**    | **2.5**                             |
 | **Full-stack paid**     | **4.1**                             |
 | **Device enrichment**   | **3.6** (across applicable modules) |
 | **Location enrichment** | **3.5** (across applicable modules) |
 
 
-**Interpretation:** Wave 6 evidence gates lift Tarka to **~4.2** on the self-operated hybrid bar (partner device/location, productized counters/QA/calibration/HMAC). Still behind **device/location vendor networks** on native co-presence / global reputation — by design.
+**Interpretation:** Wave 6 **liberal 4.2 is withdrawn**. Cite the critical three-bucket regrade in [competitive-score-matrix-2026-04.md](./competitive-score-matrix-2026-04.md). Still behind **device/location vendor networks** on native co-presence / global reputation — by design; location is enrichment, not the loyalty linker.
 
 ---
 

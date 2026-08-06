@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Emit a machine-readable index of customer control evidence docs (maturity Wave 4)."""
+"""Emit a machine-readable index of customer control evidence docs (maturity Wave 4 + Risk 4.2)."""
 
 from __future__ import annotations
 
@@ -18,7 +18,13 @@ _PATHS = [
     "docs/docs/guides/calibration-ops-runbook.md",
     "docs/compliance/partner-fusion-proof-runbook.md",
     "docs/compliance/partner-fusion-proof.stable.sha256",
+    "docs/compliance/partner-fusion-proof.live.status",
+    "docs/compliance/partner-fusion-proof.live.attempt.md",
+    "docs/compliance/CLAIM_LOCK.md",
+    "docs/superpowers/playbooks/l3-ops-ledger.md",
     "scripts/oss/partner_fusion_tenant_proof.py",
+    "scripts/oss/partner_fusion_live_status_gate.py",
+    "services/decision-api/tests/test_kill_criteria_promote_gate.py",
     "scripts/audit_stubs.py",
 ]
 
@@ -38,7 +44,13 @@ def main() -> int:
     dest = out_dir / "control-evidence-index.json"
     dest.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     print(dest)
-    return 1 if payload["missing"] else 0
+    if payload["missing"]:
+        print("export_control_evidence_index: FAIL missing:", file=__import__("sys").stderr)
+        for m in payload["missing"]:
+            print(f"  - {m}", file=__import__("sys").stderr)
+        return 1
+    print("export_control_evidence_index: OK")
+    return 0
 
 
 if __name__ == "__main__":
