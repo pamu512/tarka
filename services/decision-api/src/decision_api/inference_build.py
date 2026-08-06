@@ -191,12 +191,13 @@ def build_inference_context(
                 level=logging.DEBUG,
             )
     # --- Epic E: shared-device / velocity heuristics (co-location & impossible travel proxies) ---
-    colocation_risk = _clamp01(0.75 if "sdk:shared_device" in signal_set else 0.0)
+    shared_device_risk = _clamp01(0.75 if "sdk:shared_device" in signal_set else 0.0)
     distinct_sess = int(features.get("distinct_session_id_24h") or 0)
     if distinct_sess >= 2:
-        colocation_risk = max(
-            colocation_risk, _clamp01(0.35 + 0.1 * min(distinct_sess, 5))
+        shared_device_risk = max(
+            shared_device_risk, _clamp01(0.35 + 0.1 * min(distinct_sess, 5))
         )
+    graph_peer_risk = 0.0
     # Graph SEEN_AT / Place peer count when feature-service or graph_meta supplies it.
     peer = int(features.get("graph_seen_at_peer_count_24h") or 0)
     if graph_meta and isinstance(graph_meta, dict):
@@ -209,7 +210,9 @@ def build_inference_context(
         except (TypeError, ValueError):
             pass
     if peer >= 2:
-        colocation_risk = max(colocation_risk, _clamp01(0.4 + 0.1 * min(peer, 6)))
+        graph_peer_risk = _clamp01(0.4 + 0.1 * min(peer, 6))
+
+    geo_copresence_risk = 0.0
 
     ev1h = int(features.get("event_count_1h") or 0)
     ev24 = int(features.get("event_count_24h") or 0)
@@ -280,8 +283,8 @@ def build_inference_context(
                 level=logging.DEBUG,
             )
         try:
-            colocation_risk = _clamp01(
-                float(location_meta.get("copresence_risk", colocation_risk))
+            geo_copresence_risk = _clamp01(
+                float(location_meta.get("copresence_risk", geo_copresence_risk))
             )
         except (TypeError, ValueError) as exc:
             InternalMonitor.log_suppressed_error(
@@ -417,6 +420,9 @@ def build_inference_context(
         driver_reasons.append("geo_or_timezone_inconsistency")
     if ml_score is not None and ml_score >= 70.0:
         driver_reasons.append("ml_score_elevated")
+    colocation_risk = _clamp01(
+        max(shared_device_risk, graph_peer_risk, geo_copresence_risk)
+    )
     if colocation_risk >= 0.5:
         driver_reasons.append("device_seen_across_multiple_entities")
     if distinct_sess >= 2:
@@ -468,6 +474,9 @@ def build_inference_context(
         "top_signals": ordered_top,
         "confidence_tier": confidence_tier,
         "driver_reasons": driver_reasons,
+        "shared_device_risk": round(shared_device_risk, 4),
+        "graph_peer_risk": round(graph_peer_risk, 4),
+        "geo_copresence_risk": round(geo_copresence_risk, 4),
         "colocation_risk": round(colocation_risk, 4),
         "copresence_risk": round(colocation_risk, 4),
         "impossible_travel_risk": round(impossible_travel_risk, 4),
