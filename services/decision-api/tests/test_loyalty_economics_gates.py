@@ -104,6 +104,22 @@ def test_config_missing():
         entity_id="e1", feed_snapshot=_complete_feeds(), program_config=None
     )
     assert out["status"] == "config_missing"
+    for gate in ("dispatch", "redeem", "order"):
+        assert out["gates"][gate]["eligible"] is None
+
+
+def test_stale_feed_all_gates_null():
+    now = datetime(2026, 8, 6, 12, 0, tzinfo=timezone.utc)
+    stale_as_of = (now - timedelta(seconds=90000)).isoformat().replace("+00:00", "Z")
+    out = evaluate_loyalty_economics(
+        entity_id="e1",
+        feed_snapshot=_complete_feeds(as_of=stale_as_of),
+        program_config=_cfg(max_feed_age_seconds=86400),
+        now=now,
+    )
+    assert out["status"] == "stale"
+    for gate in ("dispatch", "redeem", "order"):
+        assert out["gates"][gate]["eligible"] is None
 
 
 def test_ratio_breach_order_ineligible_dispatch_may_differ():
@@ -120,6 +136,7 @@ def test_ratio_breach_order_ineligible_dispatch_may_differ():
     assert out["gates"]["order"]["status"] == "ok"
     # v1 default policy: dispatch also ineligible on ratio breach (churn weight same)
     assert out["gates"]["dispatch"]["eligible"] is False
+    assert out["gates"]["redeem"]["eligible"] is False
 
 
 def test_healthy_ratio_all_eligible():
@@ -128,6 +145,7 @@ def test_healthy_ratio_all_eligible():
         feed_snapshot=_complete_feeds(loyalty_cost=50, ltv_orders=1000),
         program_config=_cfg(),
     )
+    assert out["status"] == "partial_derived"
     assert out["gates"]["order"]["eligible"] is True
     assert out["gates"]["redeem"]["eligible"] is True
     assert out["gates"]["dispatch"]["eligible"] is True
@@ -169,6 +187,72 @@ def test_cluster_unit_when_peers():
         cluster_entity_ids=["e1", "e2"],
     )
     assert out["unit"] == "cluster"
+
+
+def test_cluster_rollup_includes_peer_entities():
+    now = datetime(2026, 8, 6, 12, 0, tzinfo=timezone.utc)
+    as_of = now.isoformat().replace("+00:00", "Z")
+    snap = {
+        "as_of": as_of,
+        "orders": [
+            {
+                "entity_id": "e1",
+                "order_id": "o1",
+                "ts": as_of,
+                "amount_minor": 500,
+                "currency": "USD",
+                "status": "paid",
+            },
+            {
+                "entity_id": "e2",
+                "order_id": "o2",
+                "ts": as_of,
+                "amount_minor": 500,
+                "currency": "USD",
+                "status": "paid",
+            },
+        ],
+        "refunds": [],
+        "loyalty_ledger": [
+            {
+                "entity_id": "e1",
+                "ts": as_of,
+                "direction": "burn",
+                "value_minor": 200,
+                "program_id": "default",
+            },
+            {
+                "entity_id": "e2",
+                "ts": as_of,
+                "direction": "burn",
+                "value_minor": 200,
+                "program_id": "default",
+            },
+        ],
+        "lifecycle": [
+            {
+                "entity_id": "e1",
+                "created_at": "2025-01-01T00:00:00Z",
+                "last_active_at": as_of,
+            },
+            {
+                "entity_id": "e2",
+                "created_at": "2025-01-01T00:00:00Z",
+                "last_active_at": as_of,
+            },
+        ],
+    }
+    out = evaluate_loyalty_economics(
+        entity_id="e1",
+        feed_snapshot=snap,
+        program_config=_cfg(),
+        cluster_entity_ids=["e1", "e2"],
+        now=now,
+    )
+    assert out["unit"] == "cluster"
+    assert out["metrics"]["ltv_minor"] == 1000
+    assert out["metrics"]["loyalty_cost_minor"] == 400
+    assert out["metrics"]["loyalty_ltv_ratio"] == 0.4
 
 
 @pytest.fixture
