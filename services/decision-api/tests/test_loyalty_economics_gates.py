@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
+from decision_api.inference_build import derive_recommended_action
 from decision_api.loyalty_economics import SCHEMA_ID, evaluate_loyalty_economics
 
 
@@ -392,3 +393,24 @@ async def test_evaluate_attaches_loyalty_gates_without_deny(loyalty_eval_client)
     assert gates["gates"]["order"]["eligible"] is False
     assert gates["policy"]["order_decision_untouched"] is True
     assert "loyalty:order_benefit_ineligible" in body["tags"]
+
+
+def test_loyalty_tags_do_not_derive_deny():
+    """Advisory loyalty tags alone must not map to block/deny recommended_action."""
+    inf = {
+        "confidence_tier": "high",
+        "tamper_risk": 0.0,
+        "replay_risk": 0.0,
+        "impossible_travel_risk": 0.0,
+    }
+    rec = derive_recommended_action(
+        "allow",
+        [
+            "loyalty:order_benefit_ineligible",
+            "loyalty:dispatch_ineligible",
+            "loyalty:redeem_ineligible",
+        ],
+        inf,
+    )
+    assert rec != "block"
+    assert "deny" not in str(rec).lower()
