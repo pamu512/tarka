@@ -92,7 +92,7 @@ paths:
   /v1/rules/vertical-packs/{vertical_name}/install:
     post:
       operationId: installVerticalPack
-      summary: Install vertical pack when kill_criteria pass (same bar as promote)
+      summary: Install vertical pack into active rules directory
       parameters:
         - name: vertical_name
           in: path
@@ -106,12 +106,6 @@ paths:
           schema:
             type: boolean
             default: false
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/VerticalPackPromoteBody"
       responses:
         "201":
           description: Vertical pack installed
@@ -122,9 +116,9 @@ paths:
         "404":
           description: Unknown vertical pack
         "409":
-          description: Kill criteria blocked install, or pack exists without overwrite
+          description: Existing installed vertical pack requires overwrite=true
         "422":
-          description: Validation errors in target pack or metrics body
+          description: Validation errors in target pack
   /v1/simulation/benchmark/vertical:
     post:
       operationId: benchmarkVerticalPack
@@ -1000,20 +994,6 @@ components:
           type: object
           additionalProperties:
             $ref: "#/components/schemas/VerticalPackSummary"
-    VerticalPackPromoteBody:
-      type: object
-      required: [precision, recall, events_evaluated]
-      properties:
-        precision: { type: number, minimum: 0, maximum: 1 }
-        recall: { type: number, minimum: 0, maximum: 1 }
-        f1_score: { type: number, minimum: 0, maximum: 1, default: 0 }
-        false_positive_rate:
-          type: number
-          minimum: 0
-          maximum: 1
-          nullable: true
-        events_evaluated: { type: integer, minimum: 0 }
-      additionalProperties: false
     VerticalPackInstallResponse:
       type: object
       required: [installed, vertical, rules]
@@ -1026,9 +1006,6 @@ components:
         rules:
           type: integer
           minimum: 0
-        promote_gate:
-          type: object
-          additionalProperties: true
     VerticalBenchmarkRequest:
       type: object
       properties:
