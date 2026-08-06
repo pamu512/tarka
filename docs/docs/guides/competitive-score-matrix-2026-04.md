@@ -37,7 +37,7 @@ For a **finer-grained, module-by-module** rescoring after recent parity work —
 Use these rows for **positioning and gap planning**. Competitors stay on the April 2026 benchmark row unless you rerun a formal competitive review.
 
 
-| Capability                                    | Tarka baseline Apr 2026 | Tarka **v1.2** (realigned) | Tarka **v1.3** (projected) | Tarka **Wave6 honest** (2026-08-05) | Fingerprint | Incognia | Sift | Uber/Grab style benchmark |
+| Capability                                    | Tarka baseline Apr 2026 | Tarka **v1.2** (realigned) | Tarka **v1.3** (projected) | Tarka **Wave6 liberal (historical — do not cite)** | Fingerprint | Incognia | Sift | Uber/Grab style benchmark |
 | --------------------------------------------- | ----------------------- | -------------------------- | -------------------------- | ----------------------------------- | ----------- | -------- | ---- | ------------------------- |
 | Inference normalization (cross-SDK + service) | 2.5                     | **3.0**                    | **3.25**                   | **4.2**                             | 4.5         | 4.0      | 4.0  | 4.5                       |
 | Replay/tamper/MitM hardening                  | 2.5                     | **2.75**                   | **2.75**                   | **4.2**                             | 4.5         | 3.5      | 3.5  | 4.0                       |
@@ -47,7 +47,7 @@ Use these rows for **positioning and gap planning**. Competitors stay on the Apr
 | Rule/risk operations safety                   | 3.0                     | **3.5**                    | **4.0**                    | **4.2**                             | 4.0         | 3.5      | 4.0  | 4.5                       |
 
 
-**Means (Tarka only, six capabilities):** baseline **2.25** · v1.2 **~2.79** · v1.3 **~3.04** · **Wave6 honest 4.2** (evidence: y_label healthy posture UI + join; HMAC signature CI gate + integrity tags; counter replay job + OpsCounters `last_parity_run`; partner fusion audit contract + fixture smoke; `/ops/qa` desk + QA APIs; file-backed rule telemetry + kill_criteria). Hybrid location/device = partner fusion quality, not native Incognia network — see [partner-enrichment-fusion.md](./partner-enrichment-fusion.md), [maturity-wave6-design](../../../superpowers/specs/2026-08-05-maturity-wave6-design.md).)
+**Means (Tarka only, six capabilities):** baseline **2.25** · v1.2 **~2.79** · v1.3 **~3.04** · Wave6 column **4.2 is historical liberal — withdrawn** (see [CLAIM_LOCK.md](../../compliance/CLAIM_LOCK.md)). Current critical scores are in the three-bucket section below. Hybrid location/device = partner enrichment quality, not native Incognia network — see [partner-enrichment-fusion.md](./partner-enrichment-fusion.md).
 
 ### Missed-mark bridge honesty (2026-08-05 Track D)
 
@@ -64,33 +64,33 @@ Use these rows for **positioning and gap planning**. Competitors stay on the Apr
 | C1 | Fallacy | Related (graph) ⇒ loyalty abuse |
 | C2 | Assumption | Signup/early location available to link accounts (false under privacy) |
 | C3 | Blindspot | No order velocity · churn · LTV · loyalty÷LTV on clusters ([prerequisites](./loyalty-abuse-model-prerequisites.md)) |
-| C4 | Fallacy | In-repo L1 / “floor ≥4.0” = product maturity |
-| C5 | Fallacy | Four-week sim/playbook = L3 ops |
-| C6 | Fallacy (mitigated) | Fixture ≠ live — enforced via `partner-fusion-proof.live.status` LIVE\|WAIVED (`REQUIRE_LIVE_PARTNER_PROOF=1`); location still not live-enriched |
+| C4 | Fallacy (hygiene) | In-repo L1 / “floor ≥4.0” = product maturity — see [CLAIM_LOCK.md](../../compliance/CLAIM_LOCK.md) |
+| C5 | Fallacy (path ready) | Four-week sim ≠ L3 — ledger [l3-ops-ledger.md](../../../superpowers/playbooks/l3-ops-ledger.md) **NOT STARTED** |
+| C6 | Fallacy (mitigated) | Fixture ≠ live — `LIVE\|WAIVED` gate; 2026-08-06 live **BLOCKED** ([attempt log](../../compliance/partner-fusion-proof.live.attempt.md)) |
 | C7 | Blindspot | Equal-weight Location pillar for a loyalty-first thesis |
 
 #### Six-cap (bucket-driven)
 
 | Cap | Score | Bucket | Why |
 | --- | ----- | ------ | --- |
-| Inference | **3.4** | Missed | Plumbing ≠ loyalty economics (C3); live ECE unused |
+| Inference | **4.5** | Done well | A+B claim gate (`inference_ab_claim_gate.py`): ECE fixture + S9 feed smoke; bar=`fixture_ci` |
 | Replay/tamper | **4.0** | Done well | HMAC/integrity CI; not MitM product |
 | Counters | **4.0** | Done well | S4: PR CI `dual_diff` Redis + `matched:true` required |
 | Location (hybrid) | **2.5** | Missed | No live pin; wrong weight vs graph+economics (C2, C7) |
 | Analyst | **4.2** | Done well | ops-qa Actions green |
 | Rule/risk ops | **4.0** | Done well | S5: `/install` + promote share kill_criteria → 409 |
 
-**Means:** six-cap ≈ **3.7** · overall ≈ **3.6** · Engineering **4.5** · Risk/Strategy **4.2** (strategy honesty stack; **4.5** = LIVE `.live.sha256`) · Fraud Ops **~3.8** (desk triad haircut: mocked webhook + no loyalty economics). Location remains **2.5**.
+**Means:** six-cap ≈ **3.9** · overall ≈ **3.8** · Engineering **4.5** · Risk/Strategy **4.2** · Fraud Ops **~3.8**. Location remains **2.5**. Inference **4.5** is **fixture_ci** bar — not live warehouse L3 / named-tenant loyalty effectiveness.
 
-**Claim lock:** A++ / product-wide 4.2+ **CLOSED** while C1–C5/C7 bind the claim surface. Loyalty-abuse product claim also requires S9 upstream. Risk **4.5** and location ≥4.0 hybrid require replacing `WAIVED` with LIVE pin.
+**Claim lock:** A++ / product-wide 4.2+ **CLOSED** — [CLAIM_LOCK.md](../../compliance/CLAIM_LOCK.md). Live loyalty-abuse product language still needs warehouse feeds. Risk **4.5** and location ≥4.0 hybrid require replacing `WAIVED` with LIVE pin ([attempt log](../../compliance/partner-fusion-proof.live.attempt.md)). L3 clock [NOT STARTED](../../../superpowers/playbooks/l3-ops-ledger.md).
 
 #### Bucket summary
 
 | Bucket | Credit |
 | --- | --- |
-| **Done well** | Engineering honesty; Risk/Strategy LIVE\|WAIVED gate + promote CI + evidence index; Analyst ops-qa Actions; Replay CI; S4 matched:true CI; S5 install kill gate |
-| **Could-be-better** | Fraud Ops live webhook; ECE on real labels; Risk 4.5 (live pin); Counters/Rule-risk stretch past 4.0 |
-| **Missed the mark** | Loyalty-abuse effectiveness; location-as-linker; L2 *data* enrichment absent (process mitigated); product-wide 4.x claims |
+| **Done well** | Engineering 4.5; Inference 4.5 (A+B fixture_ci); Risk/Strategy 4.2; Analyst 4.2; Replay/Counters/Rule-risk 4.0; S4/S5 |
+| **Could-be-better** | Fraud Ops live webhook; Risk 4.5 (live pin); live loyalty warehouse beyond fixture |
+| **Missed the mark** | Live loyalty-abuse effectiveness; location-as-linker; L2 *data* enrichment absent (process mitigated); product-wide 4.x claims |
 
 > **Location = enrichment (product posture, 2026-08-06):** **Relatedness** is graph linkage (device / payment / referral / peers) plus **loyalty economics** gates — not signup GPS. The Location six-cap row is **hybrid enrichment** (partner Place/SEEN_AT, geo copresence, impossible travel) compared to Incognia; it is **not** the loyalty linker. Missed-mark **C2** (privacy-sparse location at signup) and **C7** (equal-weight Location pillar) are addressed in product posture by the [location enrichment reweight](../../../superpowers/specs/2026-08-06-location-enrichment-reweight-design.md) program — live Location ≥4.0 still gated by **S1** (partner pin).
 

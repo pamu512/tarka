@@ -10,7 +10,9 @@
 > **Synthetic sim ≠ production L3.**  
 > `scripts/oss/shadow_four_week_sim.py` is a **wiring/smoke dry-run only**. Its JSON artifact carries `banner: "NOT PRODUCTION L3"`.  
 > **Do not** use sim output, fixture SHA, or this checklist alone to claim L3 or critical 4.5.  
-> L3 requires ≥4 consecutive weeks of **live** shadow vs host-action logging, real outcome/label joins, and ECE-gated retrain (Task 7).
+> L3 requires ≥4 consecutive weeks of **live** shadow vs host-action logging, real outcome/label joins, and ECE-gated retrain (Task 7).  
+> **Ops clock / ledger:** [l3-ops-ledger.md](./l3-ops-ledger.md) — status **NOT STARTED** until Week 1 is live on a named tenant.  
+> **Product claim lock:** [CLAIM_LOCK.md](../../compliance/CLAIM_LOCK.md).
 
 ## Prerequisites
 
