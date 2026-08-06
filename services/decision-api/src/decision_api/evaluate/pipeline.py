@@ -43,6 +43,7 @@ from decision_api.integrity_policy import (
     supplemental_tags_for_integrity,
 )
 from decision_api.location_cohort_evidence import build_location_cohort_evidence
+from decision_api.relatedness_evidence import build_relatedness_evidence
 from decision_api.loyalty_economics import evaluate_loyalty_economics
 from decision_api.location_context import merge_session_geo_from_device_and_features
 from decision_api.models import AuditRecord
@@ -1035,7 +1036,7 @@ async def run_evaluate_decision(
             snap_extra["partner_evidence"] = partner_evidence
         if partner_graph_hints:
             snap_extra["partner_graph_writeback"] = partner_graph_hints
-        location_cohort_evidence = build_location_cohort_evidence(
+        _rel_kw = dict(
             tags=merged_tags,
             inference_context=inf_ctx,
             location_meta=location_meta if isinstance(location_meta, dict) else None,
@@ -1043,6 +1044,10 @@ async def run_evaluate_decision(
             partner_graph_hints=partner_graph_hints,
             canary_cohort=snap_extra.get("canary_cohort"),
         )
+        relatedness_evidence = build_relatedness_evidence(**_rel_kw)
+        if relatedness_evidence is not None:
+            snap_extra["relatedness_evidence"] = relatedness_evidence
+        location_cohort_evidence = build_location_cohort_evidence(**_rel_kw)
         if location_cohort_evidence is not None:
             snap_extra["location_cohort_evidence"] = location_cohort_evidence
 

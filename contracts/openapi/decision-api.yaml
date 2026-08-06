@@ -92,7 +92,7 @@ paths:
   /v1/rules/vertical-packs/{vertical_name}/install:
     post:
       operationId: installVerticalPack
-      summary: Install vertical pack into active rules directory
+      summary: Install vertical pack when kill_criteria pass (same bar as promote)
       parameters:
         - name: vertical_name
           in: path
@@ -106,6 +106,12 @@ paths:
           schema:
             type: boolean
             default: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerticalPackPromoteBody"
       responses:
         "201":
           description: Vertical pack installed
@@ -116,9 +122,9 @@ paths:
         "404":
           description: Unknown vertical pack
         "409":
-          description: Existing installed vertical pack requires overwrite=true
+          description: Kill criteria blocked install, or pack exists without overwrite
         "422":
-          description: Validation errors in target pack
+          description: Validation errors in target pack or metrics body
   /v1/simulation/benchmark/vertical:
     post:
       operationId: benchmarkVerticalPack
@@ -333,6 +339,19 @@ paths:
                     nullable: true
                     description: Optional ETL / ingest batch lineage (e.g. from event-ingest v1 envelope etl_batch_id)
                   inference_context: { type: object, additionalProperties: true }
+                  relatedness_evidence:
+                    type: object
+                    nullable: true
+                    additionalProperties: true
+                    description: >-
+                      Primary relatedness audit block (schema tarka.relatedness_evidence/v1) when graph/device/geo signals present.
+                  location_cohort_evidence:
+                    type: object
+                    nullable: true
+                    additionalProperties: true
+                    deprecated: true
+                    description: >-
+                      Deprecated alias of relatedness_evidence (schema tarka.location_cohort_evidence/v1); dual-written for migration.
                   decision_explain: { type: object, additionalProperties: true }
                   graph_decision_explanation:
                     type: object
@@ -981,6 +1000,20 @@ components:
           type: object
           additionalProperties:
             $ref: "#/components/schemas/VerticalPackSummary"
+    VerticalPackPromoteBody:
+      type: object
+      required: [precision, recall, events_evaluated]
+      properties:
+        precision: { type: number, minimum: 0, maximum: 1 }
+        recall: { type: number, minimum: 0, maximum: 1 }
+        f1_score: { type: number, minimum: 0, maximum: 1, default: 0 }
+        false_positive_rate:
+          type: number
+          minimum: 0
+          maximum: 1
+          nullable: true
+        events_evaluated: { type: integer, minimum: 0 }
+      additionalProperties: false
     VerticalPackInstallResponse:
       type: object
       required: [installed, vertical, rules]
@@ -993,6 +1026,9 @@ components:
         rules:
           type: integer
           minimum: 0
+        promote_gate:
+          type: object
+          additionalProperties: true
     VerticalBenchmarkRequest:
       type: object
       properties:
@@ -1421,12 +1457,34 @@ components:
           format: float
           minimum: 0
           maximum: 1
+          deprecated: true
+          description: >-
+            Deprecated composite — max(shared_device_risk, graph_peer_risk, geo_copresence_risk).
+            Prefer split fields for triage; retained for backward compatibility.
+        shared_device_risk:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Device/shared-device relatedness contribution (0–1).
+        graph_peer_risk:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Graph peer / SEEN_AT peer relatedness contribution (0–1).
+        geo_copresence_risk:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Location-service geo copresence contribution (0–1); 0 when no location meta.
         copresence_risk:
           type: number
           format: float
           minimum: 0
           maximum: 1
-          description: Alias of colocation risk for multi-session / shared-device narratives
+          description: Alias of colocation_risk for multi-session / shared-device narratives
         impossible_travel_risk:
           type: number
           format: float

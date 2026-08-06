@@ -74,6 +74,64 @@ def test_build_inference_context_colocation_and_travel():
     assert ctx["impossible_travel_risk"] > 0
 
 
+def test_colocation_risk_is_max_of_split_components():
+    ctx_device = build_inference_context(
+        signal_tags=["sdk:shared_device"],
+        rule_hits=[],
+        ml_score=None,
+        final_score=50.0,
+        features={},
+    )
+    assert ctx_device["shared_device_risk"] > 0
+    assert ctx_device["graph_peer_risk"] == 0.0
+    assert ctx_device["geo_copresence_risk"] == 0.0
+    assert ctx_device["colocation_risk"] == ctx_device["shared_device_risk"]
+
+    ctx_geo = build_inference_context(
+        signal_tags=[],
+        rule_hits=[],
+        ml_score=None,
+        final_score=50.0,
+        features={},
+        location_meta={"copresence_risk": 0.7},
+    )
+    assert ctx_geo["geo_copresence_risk"] == 0.7
+    assert ctx_geo["shared_device_risk"] == 0.0
+    assert ctx_geo["graph_peer_risk"] == 0.0
+    assert ctx_geo["colocation_risk"] == 0.7
+
+    ctx_graph = build_inference_context(
+        signal_tags=[],
+        rule_hits=[],
+        ml_score=None,
+        final_score=50.0,
+        features={"graph_seen_at_peer_count_24h": 4},
+        graph_meta={"seen_at_peer_count_24h": 4},
+    )
+    assert ctx_graph["graph_peer_risk"] > 0
+    assert ctx_graph["colocation_risk"] == max(
+        ctx_graph["shared_device_risk"],
+        ctx_graph["graph_peer_risk"],
+        ctx_graph["geo_copresence_risk"],
+    )
+
+    ctx_all = build_inference_context(
+        signal_tags=["sdk:shared_device"],
+        rule_hits=[],
+        ml_score=None,
+        final_score=50.0,
+        features={"graph_seen_at_peer_count_24h": 6},
+        graph_meta={"seen_at_peer_count_24h": 6},
+        location_meta={"copresence_risk": 0.55},
+    )
+    assert ctx_all["colocation_risk"] == max(
+        ctx_all["shared_device_risk"],
+        ctx_all["graph_peer_risk"],
+        ctx_all["geo_copresence_risk"],
+    )
+    assert ctx_all["copresence_risk"] == ctx_all["colocation_risk"]
+
+
 def test_derive_recommended_action_deny_and_review():
     inf = {"confidence_tier": "high", "tamper_risk": 0.0, "replay_risk": 0.0}
     assert derive_recommended_action("deny", [], inf) == "block"
