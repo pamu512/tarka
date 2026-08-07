@@ -70,6 +70,104 @@ def append_screening_journal(record: dict[str, Any]) -> None:
         log.debug("sanctions_screening_journal_append_failed", exc_info=True)
 
 
+def read_screening_journal(*, limit: int = 50) -> list[dict[str, Any]]:
+    """Tail recent journal rows (newest last in file → returned newest-first)."""
+    lim = max(1, min(int(limit or 50), 500))
+    path = screening_journal_path()
+    if not path.is_file():
+        return []
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    out: list[dict[str, Any]] = []
+    for line in reversed(lines):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(row, dict):
+            out.append(row)
+        if len(out) >= lim:
+            break
+    return out
+
+
+def refresh_stamp_path() -> Path:
+    override = os.environ.get("SANCTIONS_REFRESH_STAMP_PATH", "").strip()
+    if override:
+        return Path(override)
+    return _CACHE_DIR / "sanctions_refresh_stamp.json"
+
+
+def load_refresh_stamp() -> dict[str, Any]:
+    path = refresh_stamp_path()
+    if not path.is_file():
+        return {
+            "last_refresh_at": None,
+            "last_refresh_by": None,
+            "force_download": None,
+            "refresh_count": 0,
+        }
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {
+            "last_refresh_at": None,
+            "last_refresh_by": None,
+            "force_download": None,
+            "refresh_count": 0,
+        }
+    if not isinstance(data, dict):
+        return {
+            "last_refresh_at": None,
+            "last_refresh_by": None,
+            "force_download": None,
+            "refresh_count": 0,
+        }
+    return {
+        "last_refresh_at": data.get("last_refresh_at"),
+        "last_refresh_by": data.get("last_refresh_by"),
+        "force_download": data.get("force_download"),
+        "refresh_count": int(data.get("refresh_count") or 0),
+    }
+
+
+def record_refresh_stamp(*, actor: str, force_download: bool) -> dict[str, Any]:
+    prev = load_refresh_stamp()
+    stamp = {
+        "schema_id": "tarka.sanctions_refresh_stamp/v1",
+        "last_refresh_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "last_refresh_by": (actor or "operator").strip()[:128] or "operator",
+        "force_download": bool(force_download),
+        "refresh_count": int(prev.get("refresh_count") or 0) + 1,
+    }
+    path = refresh_stamp_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(stamp, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    except OSError:
+        log.debug("sanctions_refresh_stamp_write_failed", exc_info=True)
+    return stamp
+
+
+def schedule_posture() -> dict[str, Any]:
+    """Cron/schedule honesty — Motiva-class continuous needs an operator schedule."""
+    expr = os.environ.get("TARKA_SANCTIONS_REFRESH_SCHEDULE", "").strip()
+    return {
+        "configured": bool(expr),
+        "expression": expr or None,
+        "env": "TARKA_SANCTIONS_REFRESH_SCHEDULE",
+        "note": (
+            "Set a cron/k8s CronJob that POSTs /v1/ops/sanctions-screening-refresh. "
+            "Unset schedule ≠ Marble Motiva continuous lists."
+        ),
+    }
+
+
 async def _persist_screening_log(
     tenant_id: str,
     entity_name: str,
@@ -290,6 +388,18 @@ class SanctionsScreener:
                             break
         except OSError:
             journal_lines = 0
+        stamp = load_refresh_stamp()
+        schedule = schedule_posture()
+        cache_ready = continuous_status == "ready"
+        # Cache ready ≠ Motiva-class continuous; ops need a refresh schedule + stamp.
+        continuous_ops_ready = bool(cache_ready and schedule["configured"] and stamp.get("last_refresh_at"))
+        blockers: list[str] = []
+        if not cache_ready:
+            blockers.append(f"cache_{continuous_status}")
+        if not schedule["configured"]:
+            blockers.append("refresh_schedule_unset")
+        if not stamp.get("last_refresh_at"):
+            blockers.append("no_refresh_stamp")
         return {
             "schema_id": "tarka.sanctions_screening_ops_posture/v1",
             "continuous_bulk": {
@@ -301,8 +411,13 @@ class SanctionsScreener:
                 "cache_fresh": cache_fresh,
                 "screening_journal_lines": journal_lines,
                 "refresh": "POST /v1/ops/sanctions-screening-refresh",
+                "journal": "GET /v1/ops/sanctions-screening-journal",
+                "last_refresh_at": stamp.get("last_refresh_at"),
+                "last_refresh_by": stamp.get("last_refresh_by"),
+                "refresh_count": stamp.get("refresh_count") or 0,
                 **meta,
             },
+            "schedule": schedule,
             "realtime_match_api": {
                 "plugin": "opensanctions",
                 "plane": "decision_api.vendors.plugins.opensanctions",
@@ -313,12 +428,15 @@ class SanctionsScreener:
             },
             "vs_marble": (
                 "Bulk FtM cache + journaled screens ≠ Marble Motiva+ES continuous list "
-                "product. Do not market as continuous warehouse screening until cache is "
-                "fresh, loaded, and screens persist to sanctions_screening_logs."
+                "product. continuous_ops_ready requires fresh cache + configured refresh "
+                "schedule + at least one admin refresh stamp."
             ),
-            "ready_for_continuous_claim": continuous_status == "ready",
+            "ready_for_continuous_claim": cache_ready,
+            "continuous_ops_ready": continuous_ops_ready,
+            "continuous_ops_blockers": blockers,
             "honesty": (
-                "Persistence-required screening (SR-16). Empty/missing cache is not a pass."
+                "Persistence-required screening (SR-16). Empty/missing cache is not a pass. "
+                "Do not claim Motiva-class continuous lists from cache alone."
             ),
         }
 

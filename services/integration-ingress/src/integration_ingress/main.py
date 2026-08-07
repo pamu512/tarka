@@ -863,19 +863,42 @@ async def sanctions_screening_posture(_user: AuthUser = Depends(require_role("an
     return _get_screener().screening_ops_posture()
 
 
+@app.get("/v1/ops/sanctions-screening-journal")
+async def sanctions_screening_journal(
+    limit: int = 50,
+    _user: AuthUser = Depends(require_role("analyst")),
+):
+    """Tail recent sanctions screening journal rows (JSONL mirror after Postgres)."""
+    from integration_ingress.sanctions import read_screening_journal, screening_journal_path
+
+    lim = max(1, min(int(limit or 50), 500))
+    rows = read_screening_journal(limit=lim)
+    return {
+        "schema_id": "tarka.sanctions_screening_journal_tail/v1",
+        "path": str(screening_journal_path()),
+        "limit": lim,
+        "count": len(rows),
+        "rows": rows,
+        "honesty": "Journal is a fail-soft mirror; Postgres sanctions_screening_logs is system of record.",
+    }
+
+
 @app.post("/v1/ops/sanctions-screening-refresh")
 async def sanctions_screening_refresh(
     force_download: bool = True,
     _user: AuthUser = Depends(require_role("admin")),
 ):
     """Reload OpenSanctions FtM cache into memory (admin). Does not forge LIVE partner pins."""
-    from integration_ingress.sanctions import _get_screener
+    from integration_ingress.sanctions import _get_screener, record_refresh_stamp
 
     screener = _get_screener()
     await screener.load(force_download=force_download)
+    actor = getattr(_user, "sub", None) or getattr(_user, "user_id", None) or "admin"
+    stamp = record_refresh_stamp(actor=str(actor), force_download=bool(force_download))
     out = screener.screening_ops_posture()
     out["refreshed"] = True
     out["force_download"] = bool(force_download)
+    out["refresh_stamp"] = stamp
     return out
 
 
