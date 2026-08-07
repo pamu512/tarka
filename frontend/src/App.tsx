@@ -328,6 +328,7 @@ export default function App() {
             <Route path="/graph/link-analysis" element={<LinkAnalysisPage />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/analytics/rule-performance" element={<RulePerformance />} />
+            <Route path="/analytics/promo-abuse" element={<PromoAbuseDashboard />} />
             <Route path="/analytics/audit-log" element={<AuditLogExplorer />} />
             <Route path="/transactions/live" element={<TransactionsLiveGrid />} />
             <Route path="/ops/calibration" element={<OpsCalibration />} />
@@ -345,6 +346,7 @@ export default function App() {
             <Route path="/ops/infra" element={<OpsInfraDashboard />} />
             <Route path="/ops/features" element={<FeatureTools />} />
             <Route path="/integrations" element={<Integrations />} />
+            <Route path="/integrations/seller-integrity" element={<SellerIntegrityDashboard />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/help" element={<Help />} />
             <Route path="/admin" element={<AdminPanel />} />
@@ -357,7 +359,6 @@ export default function App() {
                 <Route path="/exec-dashboards" element={<ExecutiveDashboards />} />
                 <Route path="/ops/workload" element={<WorkloadBalancer />} />
                 <Route path="/graph/mule-path" element={<MulePathVisualizer />} />
-                <Route path="/analytics/promo-abuse" element={<PromoAbuseDashboard />} />
                 <Route path="/analytics/review-rings" element={<ReviewRingClusters />} />
                 <Route path="/ops/ml-lifecycle" element={<MlLifecycle />} />
                 <Route path="/ops/ml-parquet-export" element={<PitMlParquetExport />} />
@@ -375,7 +376,6 @@ export default function App() {
                 <Route path="/ops/backups" element={<AutomatedBackupIndicators />} />
                 <Route path="/integrations/webhook-logs" element={<WebhookLogs />} />
                 <Route path="/integrations/rate-limit-shields" element={<RateLimitShields />} />
-                <Route path="/integrations/seller-integrity" element={<SellerIntegrityDashboard />} />
                 <Route path="/integrations/payout-delay" element={<PayoutDelayAutomation />} />
                 <Route path="*" element={<Navigate to={leanHomePath()} replace />} />
               </>
@@ -386,7 +386,6 @@ export default function App() {
                 <Route path="/exec-dashboards" element={<Navigate to="/cases" replace />} />
                 <Route path="/ops/workload" element={<Navigate to="/cases" replace />} />
                 <Route path="/graph/mule-path" element={<Navigate to="/graph" replace />} />
-                <Route path="/analytics/promo-abuse" element={<Navigate to="/analytics" replace />} />
                 <Route path="/analytics/review-rings" element={<Navigate to="/analytics" replace />} />
                 <Route path="/ops/ml-lifecycle" element={<Navigate to="/ops/calibration" replace />} />
                 <Route path="/ops/ml-parquet-export" element={<Navigate to="/ops/calibration" replace />} />
@@ -404,7 +403,6 @@ export default function App() {
                 <Route path="/ops/backups" element={<Navigate to="/ops/infra" replace />} />
                 <Route path="/integrations/webhook-logs" element={<Navigate to="/integrations" replace />} />
                 <Route path="/integrations/rate-limit-shields" element={<Navigate to="/integrations" replace />} />
-                <Route path="/integrations/seller-integrity" element={<Navigate to="/integrations" replace />} />
                 <Route path="/integrations/payout-delay" element={<Navigate to="/integrations" replace />} />
                 {/* Stale / unknown paths not in isProductionSurfacePath allowlist */}
                 <Route path="*" element={<Navigate to={leanHomePath()} replace />} />

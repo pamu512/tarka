@@ -139,8 +139,14 @@ class DisputeOut(BaseModel):
     updated_at: datetime | None
     latest_decision_reprocess: dict | None = None
     is_friendly_fraud_risk: bool | None = None
+    # Same-origin path for dispute review iframe (computed; not a DB column).
+    evidence_pdf_url: str | None = None
 
     model_config = {"from_attributes": True}
+
+    def model_post_init(self, __context: object) -> None:
+        if not self.evidence_pdf_url:
+            self.evidence_pdf_url = f"/api/cases/v1/disputes/{self.id}/evidence-pdf"
 
 
 class LabelDraftRowIn(BaseModel):
