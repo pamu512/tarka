@@ -252,7 +252,7 @@ async def lifespan(application: FastAPI):
     init_residency_matrix_store(json_path=settings.residency_matrix_json_path)
     if not (settings.ingress_internal_token or "").strip():
         logger.warning(
-            "INGRESS_INTERNAL_TOKEN is empty; internal S2S routes require admin JWT",
+            "INGRESS_INTERNAL_TOKEN is empty; /v1/internal/* S2S create routes will 401 until set",
         )
     if settings.kms_startup_self_check:
         issues = _validate_kms_config()
