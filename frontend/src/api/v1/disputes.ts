@@ -7,6 +7,10 @@
 
 export {
   disputes,
+  type DisputeAlertState,
+  type DisputeDeadlineQueueItem,
+  type DisputeDeadlineQueueResponse,
   type DisputeEntry,
+  type DisputeReprocessExternalResponse,
   type DisputeStats,
 } from "../client";

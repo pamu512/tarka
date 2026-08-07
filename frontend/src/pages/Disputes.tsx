@@ -3,9 +3,8 @@ import { Link } from 'react-router';
 import { disputes, type DisputeEntry, type DisputeStats } from "../api/v1/disputes";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { PageTitle } from "../components/PageTitle";
+import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { toUserFacingError } from "../utils/userFacingErrors";
-
-const TENANT = "demo";
 
 const STATUS_COLORS: Record<string, string> = {
   filed: "bg-blue-600",
@@ -25,6 +24,7 @@ const OUTCOME_COLORS: Record<string, string> = {
 };
 
 export default function Disputes() {
+  const { tenantId } = useTenantEnvironment();
   const [items, setItems] = useState<DisputeEntry[]>([]);
   const [stats, setStats] = useState<DisputeStats | null>(null);
   const [filter, setFilter] = useState<string>("");
@@ -34,11 +34,12 @@ export default function Disputes() {
   const [selected, setSelected] = useState<DisputeEntry | null>(null);
 
   const load = useCallback(async () => {
+    if (!tenantId.trim()) return;
     setLoading(true);
     try {
       const [listRes, statsRes] = await Promise.all([
-        disputes.list(TENANT, filter ? { status: filter } : undefined),
-        disputes.stats(TENANT),
+        disputes.list(tenantId.trim(), filter ? { status: filter } : undefined),
+        disputes.stats(tenantId.trim()),
       ]);
       setItems(listRes.items);
       setStats(statsRes);
@@ -48,7 +49,7 @@ export default function Disputes() {
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, tenantId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -181,6 +182,7 @@ function StatsBar({ stats }: { stats: DisputeStats }) {
 }
 
 function CreateDisputeModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const { tenantId } = useTenantEnvironment();
   const [form, setForm] = useState({
     entity_id: "", trace_id: "", dispute_type: "chargeback", reason_code: "", amount: "0", currency: "USD", merchant_id: "", card_network: "",
   });
@@ -192,7 +194,7 @@ function CreateDisputeModal({ onClose, onCreated }: { onClose: () => void; onCre
     setError(null);
     try {
       await disputes.create({
-        tenant_id: TENANT,
+        tenant_id: tenantId.trim(),
         entity_id: form.entity_id,
         trace_id: form.trace_id,
         dispute_type: form.dispute_type,

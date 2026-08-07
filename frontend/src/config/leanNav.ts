@@ -26,6 +26,7 @@ export const LEAN_NAV_PATHS = new Set<string>([
   "/analytics/rule-performance",
   "/ops/calibration",
   "/ops/qa",
+  "/ops/dispute-deadlines",
   "/ops/shadow",
   "/ops/counters",
   "/ops/sar-transport",

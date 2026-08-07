@@ -54,6 +54,69 @@ export function getDisputesMockResponse(args: {
     return null;
   }
 
+  if (path.includes("/api/cases/v1/disputes/ops/deadline-queue")) {
+    const now = Date.now();
+    const filed = new Date(now - 8 * 3600 * 1000).toISOString();
+    const deadlineNear = new Date(now + 45 * 60 * 1000).toISOString();
+    const deadlineBreached = new Date(now - 30 * 60 * 1000).toISOString();
+    return {
+      schema: "tarka.dispute_deadline_queue/v1",
+      tenant_id: "demo",
+      generated_at: new Date(now).toISOString(),
+      items: [
+        {
+          dispute_id: "d1",
+          tenant_id: "demo",
+          status: "filed",
+          dispute_type: "chargeback",
+          filed_at: filed,
+          provider_response_deadline_at: deadlineBreached,
+          seconds_remaining: 0,
+          alert_state: "breached",
+          suggested_alert_hooks: ["POST /v1/disputes/{dispute_id}/reprocess-external?tenant_id=..."],
+          external_reprocess_count: 1,
+          last_external_reprocess_at: null,
+        },
+        {
+          dispute_id: "d2",
+          tenant_id: "demo",
+          status: "investigating",
+          dispute_type: "chargeback",
+          filed_at: filed,
+          provider_response_deadline_at: deadlineNear,
+          seconds_remaining: 45 * 60,
+          alert_state: "near_breach",
+          suggested_alert_hooks: ["POST /v1/disputes/{dispute_id}/reprocess-external?tenant_id=..."],
+          external_reprocess_count: 0,
+          last_external_reprocess_at: null,
+        },
+        {
+          dispute_id: "d3",
+          tenant_id: "demo",
+          status: "evidence_submitted",
+          dispute_type: "chargeback",
+          filed_at: filed,
+          provider_response_deadline_at: new Date(now + 48 * 3600 * 1000).toISOString(),
+          seconds_remaining: 48 * 3600,
+          alert_state: "ok",
+          suggested_alert_hooks: [],
+          external_reprocess_count: 0,
+          last_external_reprocess_at: null,
+        },
+      ],
+    };
+  }
+  if (path.match(/\/api\/cases\/v1\/disputes\/[^/]+\/reprocess-external$/)) {
+    return {
+      ok: true,
+      dispute_id: "d1",
+      tenant_id: "demo",
+      reprocessed_at: nowIso(),
+      external_reprocess_count: 2,
+      reason: String(body.reason ?? ""),
+      idempotent_replay: false,
+    };
+  }
   if (path.includes("/api/cases/v1/disputes/stats")) {
     return {
       total: mockDisputes.length,

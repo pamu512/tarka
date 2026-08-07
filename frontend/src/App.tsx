@@ -13,6 +13,7 @@ import { LEAN_NAV, INCLUDE_DEMO_SURFACE, leanHomePath, isProductionSurfacePath }
 import MlLifecycle from "./pages/MlLifecycle";
 import OpsCalibration from "./pages/OpsCalibration";
 import OpsQaDesk from "./pages/OpsQaDesk";
+import DisputeDeadlineQueue from "./pages/DisputeDeadlineQueue";
 import OpsShadow from "./pages/OpsShadow";
 import OpsIntegrity from "./pages/OpsIntegrity";
 import { TarkaRbacRole } from "./security/rbacConstants";
@@ -97,6 +98,7 @@ const NAV_GROUPS_ALL: { label: string; items: NavItem[] }[] = [
       { to: "/cases", label: "Cases", module: "cases", badge: SHOW_DEMO_BADGES ? { count: 3, kind: "action" } : undefined },
       { to: "/ops/workload", label: "Workload Balancer", module: "cases" },
       { to: "/disputes", label: "Disputes", module: "disputes", badge: SHOW_DEMO_BADGES ? { count: 1, kind: "action" } : undefined },
+      { to: "/ops/dispute-deadlines", label: "Dispute deadlines", module: "disputes" },
     ],
   },
   {
@@ -330,6 +332,7 @@ export default function App() {
             <Route path="/transactions/live" element={<TransactionsLiveGrid />} />
             <Route path="/ops/calibration" element={<OpsCalibration />} />
             <Route path="/ops/qa" element={<OpsQaDesk />} />
+            <Route path="/ops/dispute-deadlines" element={<DisputeDeadlineQueue />} />
             <Route path="/ops/shadow" element={<OpsShadow />} />
             <Route path="/ops/integrity" element={<OpsIntegrity />} />
             <Route path="/investigation" element={<Investigation />} />
