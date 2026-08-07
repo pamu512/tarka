@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-07  
 **Branch base:** `master` @ `cb8d604d` (post Marketplace P0 merge)  
-**Status:** Approved design — pending plan + implementation  
+**Status:** Implemented (2026-08-07)  
 **Predecessor:** [`2026-08-07-marketplace-p0-packs-payout-collusion-design.md`](./2026-08-07-marketplace-p0-packs-payout-collusion-design.md) (Implemented)
 
 > **PRIVATE / INTERNAL ONLY — ratings & gradings.**  
