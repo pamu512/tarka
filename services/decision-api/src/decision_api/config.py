@@ -450,6 +450,14 @@ class Settings(BaseSettings):
         default="",
         description="X-Internal-Token for integration-ingress S2S payout hold calls",
     )
+    loyalty_abuse_url: str = Field(
+        default="",
+        description="Loyalty-abuse service base URL for redeem checkpoint bridge",
+    )
+    loyalty_abuse_api_key: str = Field(
+        default="",
+        description="Bearer token for loyalty-abuse POST /v1/evaluate",
+    )
     ml_export_local_dir: str = Field(
         default="./data/ml_exports", description="Tarka Micro: Parquet write directory"
     )

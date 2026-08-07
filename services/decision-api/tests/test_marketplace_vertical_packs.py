@@ -12,7 +12,7 @@ os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 
 from decision_api.vertical_packs import get_vertical_pack, list_vertical_packs
 
-REQUIRED = ("marketplace", "qcommerce", "logistics", "food_delivery")
+REQUIRED = ("marketplace", "qcommerce", "logistics", "food_delivery", "offline_payment")
 ACTION_TAGS = {"action:payout_hold", "action:payout_delay"}
 RISK_TAGS = {
     "risk:collusion_shared_device",
@@ -20,6 +20,8 @@ RISK_TAGS = {
     "risk:courier_spoof",
     "risk:refund_burst",
     "risk:multi_account_partner",
+    "risk:cod_abuse",
+    "risk:address_hop",
 }
 
 
@@ -78,7 +80,7 @@ def test_marketplace_verticals_listed_with_rule_floor():
         assert tags & ACTION_TAGS or tags & RISK_TAGS
 
 
-@pytest.mark.parametrize("vertical_name", ["marketplace", "qcommerce"])
+@pytest.mark.parametrize("vertical_name", ["marketplace", "qcommerce", "offline_payment"])
 @pytest.mark.asyncio
 async def test_install_endpoint_returns_conflict_when_kill_fires(
     client, monkeypatch, tmp_path, vertical_name
@@ -102,7 +104,7 @@ async def test_install_endpoint_returns_conflict_when_kill_fires(
     assert "min_precision" in detail["blockers"]
 
 
-@pytest.mark.parametrize("vertical_name", ["marketplace", "qcommerce"])
+@pytest.mark.parametrize("vertical_name", ["marketplace", "qcommerce", "offline_payment"])
 @pytest.mark.asyncio
 async def test_install_endpoint_installs_when_kill_passes(
     client, monkeypatch, tmp_path, vertical_name
