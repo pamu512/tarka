@@ -12,7 +12,7 @@ from urllib.parse import quote_plus, urlparse
 
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tarka_core.tenant_config import tenant_config_from_mapping
@@ -56,7 +56,7 @@ from integration_ingress.webhook_ingress import (
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
 from audit_trail import AuditTrail, create_audit_model  # noqa: E402
-from auth_rbac import get_current_user, require_role, setup_auth  # noqa: E402
+from auth_rbac import AuthUser, get_current_user, require_role, setup_auth  # noqa: E402
 from observability import get_metrics, setup_observability  # noqa: E402
 from privacy import get_profile  # noqa: E402
 
@@ -1250,12 +1250,13 @@ async def compliance_regional_risk_toggle_patch(
 @app.get("/v1/ops/command-center")
 async def ops_command_center(
     tenant_id: str = "demo",
+    session: AsyncSession = Depends(get_session),
     _user=Depends(require_role("analyst")),
 ):
     """Tarka Command Center — unified analyst cockpit aggregate (Prompt 188)."""
     from integration_ingress.command_center import build_command_center_payload
 
-    return build_command_center_payload(tenant_id=tenant_id)
+    return await build_command_center_payload(tenant_id=tenant_id, session=session)
 
 
 @app.get("/v1/marketplace/seller-integrity")
@@ -1281,21 +1282,52 @@ class PayoutDelayConfigPatchBody(BaseModel):
     mule_score_hold_threshold: int | None = None
 
 
+class PayoutHoldCreateBody(BaseModel):
+    tenant_id: str = "demo"
+    payout_id: str
+    entity_id: str
+    status: str = "held"
+    hold_reason: str | None = None
+    held_by: str | None = None
+    decision_id: str | None = None
+    trace_id: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    amount: float | None = None
+    currency: str | None = None
+    mule_score: float | None = None
+    hold_duration_hours: int | None = None
+
+
+async def _require_internal_or_admin(
+    request: Request,
+    x_internal_token: str | None = Header(None, alias="X-Internal-Token"),
+) -> AuthUser:
+    expected = (settings.ingress_internal_token or "").strip()
+    if expected and (x_internal_token or "").strip() == expected:
+        return AuthUser("internal-service", ["admin"], "internal_token")
+    user: AuthUser | None = getattr(request.state, "auth_user", None)
+    if user and user.has_role("admin"):
+        return user
+    raise HTTPException(401, "internal token or admin role required")
+
+
 @app.get("/v1/marketplace/payout-delay")
 async def marketplace_payout_delay_list(
     tenant_id: str = "demo",
     limit: int = 35,
+    session: AsyncSession = Depends(get_session),
     _user=Depends(require_role("analyst")),
 ):
     """Payout delay automation — holds when JanusGraph mule_score exceeds threshold (Prompt 183)."""
     from integration_ingress.payout_delay_automation import build_payout_delay_payload
 
-    return build_payout_delay_payload(tenant_id=tenant_id, limit=limit)
+    return await build_payout_delay_payload(session, tenant_id=tenant_id, limit=limit)
 
 
 @app.patch("/v1/marketplace/payout-delay/config")
 async def marketplace_payout_delay_config_patch(
     body: PayoutDelayConfigPatchBody,
+    session: AsyncSession = Depends(get_session),
     _user=Depends(require_role("analyst")),
 ):
     from integration_ingress.payout_delay_automation import (
@@ -1308,26 +1340,59 @@ async def marketplace_payout_delay_config_patch(
         automation_enabled=body.automation_enabled,
         mule_score_hold_threshold=body.mule_score_hold_threshold,
     )
-    return build_payout_delay_payload(tenant_id=body.tenant_id)
+    return await build_payout_delay_payload(session, tenant_id=body.tenant_id)
 
 
 @app.post("/v1/marketplace/payout-delay/{payout_id}/release")
 async def marketplace_payout_delay_release(
     payout_id: str,
     tenant_id: str = "demo",
-    _user=Depends(require_role("analyst")),
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_role("analyst")),
 ):
     from integration_ingress.payout_delay_automation import (
         build_payout_delay_payload,
         release_payout_hold,
     )
 
-    release = release_payout_hold(tenant_id=tenant_id, payout_id=payout_id)
+    release = await release_payout_hold(
+        session,
+        tenant_id=tenant_id,
+        payout_id=payout_id,
+        released_by=user.user_id,
+    )
     return {
         "ok": True,
         "release": release,
-        "board": build_payout_delay_payload(tenant_id=tenant_id),
+        "board": await build_payout_delay_payload(session, tenant_id=tenant_id),
     }
+
+
+@app.post("/v1/internal/marketplace/payout-holds", status_code=201)
+async def internal_create_payout_hold(
+    body: PayoutHoldCreateBody,
+    session: AsyncSession = Depends(get_session),
+    _auth=Depends(_require_internal_or_admin),
+):
+    from integration_ingress.payout_hold_store import upsert_hold
+
+    row = await upsert_hold(
+        session,
+        tenant_id=body.tenant_id,
+        payout_id=body.payout_id,
+        entity_id=body.entity_id,
+        status=body.status,
+        hold_reason=body.hold_reason,
+        held_by=body.held_by,
+        decision_id=body.decision_id,
+        trace_id=body.trace_id,
+        tags=body.tags,
+        amount=body.amount,
+        currency=body.currency,
+        mule_score=body.mule_score,
+        hold_duration_hours=body.hold_duration_hours,
+    )
+    return row
 
 
 class MarketplaceBlockWebhookDispatchBody(BaseModel):

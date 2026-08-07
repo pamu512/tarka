@@ -32,7 +32,20 @@ def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def build_command_center_payload(*, tenant_id: str) -> dict[str, Any]:
+def _payout_board_empty(tenant_id: str) -> dict[str, Any]:
+    cfg = _load_sibling("payout_delay_automation").get_payout_delay_config(tenant_id)
+    return {
+        "summary": {
+            "held_count": 0,
+            "held_amount_usd": 0.0,
+            "pending_count": 0,
+            "released_count": 0,
+            "automation_active": bool(cfg.get("automation_enabled")),
+        },
+    }
+
+
+async def build_command_center_payload(*, tenant_id: str, session: Any | None = None) -> dict[str, Any]:
     """Aggregate high-signal KPIs and module deep-links for the analyst landing cockpit."""
     tid = (tenant_id or "demo").strip() or "demo"
 
@@ -49,9 +62,12 @@ def build_command_center_payload(*, tenant_id: str) -> dict[str, Any]:
     seller = _load_sibling("seller_integrity").build_seller_integrity_payload(
         tenant_id=tid, limit=40
     )
-    payout = _load_sibling("payout_delay_automation").build_payout_delay_payload(
-        tenant_id=tid, limit=35
-    )
+    if session is not None:
+        payout = await _load_sibling("payout_delay_automation").build_payout_delay_payload(
+            session, tenant_id=tid, limit=35
+        )
+    else:
+        payout = _payout_board_empty(tid)
     kyc = _load_sibling("kyc_handover").build_kyc_handover_board(tenant_id=tid)
     regional = _load_sibling("regional_risk_toggles").build_regional_risk_payload(tenant_id=tid)
 

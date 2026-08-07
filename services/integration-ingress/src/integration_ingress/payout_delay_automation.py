@@ -6,6 +6,10 @@ import hashlib
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from integration_ingress.payout_hold_store import list_holds, release_hold, upsert_hold
+
 DEFAULT_MULE_SCORE_HOLD_THRESHOLD = 72
 DEFAULT_PAYOUT_LIMIT = 35
 JANUS_PROPERTY = "mule_score"
@@ -16,7 +20,6 @@ def _now_iso() -> str:
 
 
 _CONFIG_BY_TENANT: dict[str, dict[str, Any]] = {}
-_RELEASED_PAYOUT_IDS: set[str] = set()
 
 
 def get_payout_delay_config(tenant_id: str) -> dict[str, Any]:
@@ -47,26 +50,34 @@ def update_payout_delay_config(
     return dict(cfg)
 
 
-def release_payout_hold(*, tenant_id: str, payout_id: str) -> dict[str, Any] | None:
-    tid = (tenant_id or "demo").strip() or "demo"
-    key = f"{tid}:{payout_id.strip()}"
-    _RELEASED_PAYOUT_IDS.add(key)
-    return {
-        "tenant_id": tid,
-        "payout_id": payout_id,
-        "released_at": _now_iso(),
-        "released_by": "analyst",
-    }
+async def release_payout_hold(
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    payout_id: str,
+    released_by: str = "analyst",
+) -> dict[str, Any] | None:
+    released = await release_hold(session, tenant_id, payout_id, released_by=released_by)
+    if released is None:
+        tid = (tenant_id or "demo").strip() or "demo"
+        return {
+            "tenant_id": tid,
+            "payout_id": payout_id,
+            "released_at": _now_iso(),
+            "released_by": released_by,
+            "status": "released",
+        }
+    return released
 
 
-def _payout_row(index: int, *, tenant_id: str) -> dict[str, Any]:
+def _mule_score_candidate(index: int, *, tenant_id: str) -> dict[str, Any]:
+    """Explicit JanusGraph mule_score input for automation (not list filler)."""
     seed = hashlib.sha256(f"{tenant_id}:payout_delay:{index}".encode()).hexdigest()
     bucket = int(seed[0:3], 16) % 11
     mule_score = min(99, 28 + bucket * 7 + (int(seed[3:5], 16) % 18))
     amount = 1200 + (int(seed[5:9], 16) % 48000)
     payout_id = f"payout_{seed[:12]}"
     entity_id = f"ent_{seed[12:20]}"
-    created = datetime.now(UTC) - timedelta(minutes=index * 17 + 4)
 
     return {
         "payout_id": payout_id,
@@ -79,45 +90,86 @@ def _payout_row(index: int, *, tenant_id: str) -> dict[str, Any]:
         "mule_score": mule_score,
         "mule_score_source": "janusgraph",
         "janusgraph_vertex_id": f"v-{entity_id}",
-        "status": "pending",
-        "hold_reason": None,
-        "held_at": None,
-        "held_by": None,
-        "created_at": created.isoformat(),
-        "scheduled_release_at": None,
     }
 
 
-def _apply_automation(
-    payout: dict[str, Any], cfg: dict[str, Any], *, tenant_id: str
-) -> dict[str, Any]:
-    tid = tenant_id
-    pid = str(payout["payout_id"])
-    release_key = f"{tid}:{pid}"
-    row = dict(payout)
+def _hold_to_payout_row(hold: dict[str, Any]) -> dict[str, Any]:
+    entity_id = str(hold.get("entity_id") or "")
+    payout_id = str(hold.get("payout_id") or "")
+    amount = hold.get("amount")
+    mule = hold.get("mule_score")
+    held_at = hold.get("held_at")
+    suffix = entity_id[-4:] if len(entity_id) >= 4 else entity_id or "????"
 
-    if release_key in _RELEASED_PAYOUT_IDS:
-        row["status"] = "released"
-        row["hold_reason"] = None
-        row["held_by"] = None
-        return row
+    return {
+        "payout_id": payout_id,
+        "tenant_id": hold.get("tenant_id") or "demo",
+        "entity_id": entity_id,
+        "beneficiary_label": f"Beneficiary ·••{suffix}",
+        "amount_usd": round(float(amount), 2) if amount is not None else 0.0,
+        "currency": hold.get("currency") or "USD",
+        "channel": "ach",
+        "mule_score": int(mule) if mule is not None else 0,
+        "mule_score_source": "janusgraph" if mule is not None else "evaluate",
+        "janusgraph_vertex_id": f"v-{entity_id}" if entity_id else "",
+        "status": hold.get("status") or "held",
+        "hold_reason": hold.get("hold_reason"),
+        "held_at": held_at,
+        "held_by": hold.get("held_by"),
+        "created_at": held_at or _now_iso(),
+        "scheduled_release_at": hold.get("scheduled_release_at"),
+    }
+
+
+async def _sync_mule_automation_holds(
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    cfg: dict[str, Any],
+    limit: int,
+) -> bool:
+    if not cfg.get("automation_enabled", True):
+        return False
 
     threshold = int(cfg.get("mule_score_hold_threshold") or DEFAULT_MULE_SCORE_HOLD_THRESHOLD)
-    mule = int(row.get("mule_score") or 0)
-    enabled = bool(cfg.get("automation_enabled", True))
+    hours = int(cfg.get("hold_duration_hours_default") or 72)
+    existing = await list_holds(session, tenant_id, limit=500)
+    by_payout = {h["payout_id"]: h for h in existing}
+    wrote = False
 
-    if enabled and mule >= threshold:
-        held_at = datetime.now(UTC) - timedelta(minutes=3)
-        hours = int(cfg.get("hold_duration_hours_default") or 72)
-        row["status"] = "held"
-        row["hold_reason"] = f"janusgraph_{JANUS_PROPERTY}_gte_{threshold}"
-        row["held_at"] = held_at.isoformat()
-        row["held_by"] = "payout_delay_automation"
-        row["scheduled_release_at"] = (held_at + timedelta(hours=hours)).isoformat()
-    return row
+    for i in range(max(5, min(int(limit), 100))):
+        candidate = _mule_score_candidate(i, tenant_id=tenant_id)
+        pid = candidate["payout_id"]
+        prior = by_payout.get(pid)
+        if prior and prior.get("status") == "released":
+            continue
+        if prior and prior.get("held_by") == "evaluate":
+            continue
+
+        mule = int(candidate.get("mule_score") or 0)
+        if mule < threshold:
+            continue
+
+        await upsert_hold(
+            session,
+            tenant_id=tenant_id,
+            payout_id=pid,
+            entity_id=candidate["entity_id"],
+            status="held",
+            hold_reason=f"janusgraph_{JANUS_PROPERTY}_gte_{threshold}",
+            held_by="payout_delay_automation",
+            mule_score=float(mule),
+            amount=float(candidate["amount_usd"]),
+            currency=candidate.get("currency", "USD"),
+            hold_duration_hours=hours,
+        )
+        wrote = True
+
+    return wrote
 
 
-def build_payout_delay_payload(
+async def build_payout_delay_payload(
+    session: AsyncSession,
     *,
     tenant_id: str,
     limit: int = DEFAULT_PAYOUT_LIMIT,
@@ -126,12 +178,15 @@ def build_payout_delay_payload(
     lim = max(5, min(int(limit), 100))
     cfg = get_payout_delay_config(tid)
 
-    raw = [_payout_row(i, tenant_id=tid) for i in range(lim)]
-    payouts = [_apply_automation(p, cfg, tenant_id=tid) for p in raw]
+    automation_wrote = await _sync_mule_automation_holds(
+        session, tenant_id=tid, cfg=cfg, limit=lim
+    )
+    holds = await list_holds(session, tid, limit=lim)
+    payouts = [_hold_to_payout_row(h) for h in holds]
     payouts_sorted = sorted(
         payouts,
         key=lambda p: (
-            0 if p["status"] == "held" else 1,
+            0 if p["status"] == "held" else 1 if p["status"] == "pending" else 2,
             -int(p.get("mule_score") or 0),
             str(p["payout_id"]),
         ),
@@ -151,14 +206,20 @@ def build_payout_delay_payload(
                 "mule_score": p["mule_score"],
                 "threshold": threshold,
                 "timestamp": p.get("held_at") or _now_iso(),
-                "detail": f"JanusGraph {JANUS_PROPERTY}={p['mule_score']} ≥ {threshold}",
+                "detail": (
+                    f"JanusGraph {JANUS_PROPERTY}={p['mule_score']} ≥ {threshold}"
+                    if p.get("held_by") == "payout_delay_automation"
+                    else (p.get("hold_reason") or "payout hold")
+                ),
             },
         )
+
+    source = "durable+automation" if automation_wrote else "durable"
 
     return {
         "tenant_id": tid,
         "updated_at": _now_iso(),
-        "source": "demo_aggregate",
+        "source": source,
         "config": cfg,
         "summary": {
             "pending_count": sum(1 for p in payouts if p["status"] == "pending"),
