@@ -1,0 +1,27 @@
+{
+  "tenant_id": "mkt-demo-2026",
+  "schema_id": "tarka.marketplace_demo_tenant_labels/v1",
+  "note": "Labeled hold outcomes for measured FPR. y_label 1=abuse, 0=legit. predicted_hold from marketplace pack action tags.",
+  "rows": [
+    {"trace_id": "md-01", "entity_id": "seller-ring-a", "predicted_hold": true, "y_label": "1"},
+    {"trace_id": "md-02", "entity_id": "seller-ring-b", "predicted_hold": true, "y_label": "1"},
+    {"trace_id": "md-03", "entity_id": "seller-ring-c", "predicted_hold": true, "y_label": "1"},
+    {"trace_id": "md-04", "entity_id": "seller-clean-1", "predicted_hold": false, "y_label": "0"},
+    {"trace_id": "md-05", "entity_id": "seller-clean-2", "predicted_hold": false, "y_label": "0"},
+    {"trace_id": "md-06", "entity_id": "seller-clean-3", "predicted_hold": false, "y_label": "0"},
+    {"trace_id": "md-07", "entity_id": "seller-clean-4", "predicted_hold": false, "y_label": "0"},
+    {"trace_id": "md-08", "entity_id": "seller-fp-1", "predicted_hold": true, "y_label": "0"},
+    {"trace_id": "md-09", "entity_id": "courier-mule-1", "predicted_hold": true, "y_label": "1"},
+    {"trace_id": "md-10", "entity_id": "courier-ok-1", "predicted_hold": false, "y_label": "0"},
+    {"trace_id": "md-11", "entity_id": "buyer-farm-1", "predicted_hold": true, "y_label": "1"},
+    {"trace_id": "md-12", "entity_id": "buyer-ok-1", "predicted_hold": false, "y_label": "0"},
+    {"trace_id": "md-13", "entity_id": "seller-ring-d", "predicted_hold": true, "y_label": "1"},
+    {"trace_id": "md-14", "entity_id": "seller-clean-5", "predicted_hold": false, "y_label": "0"},
+    {"trace_id": "md-15", "entity_id": "seller-fp-2", "predicted_hold": true, "y_label": "0"},
+    {"trace_id": "md-16", "entity_id": "seller-clean-6", "predicted_hold": false, "y_label": "0"},
+    {"trace_id": "md-17", "entity_id": "seller-ring-e", "predicted_hold": true, "y_label": "1"},
+    {"trace_id": "md-18", "entity_id": "seller-clean-7", "predicted_hold": false, "y_label": "0"},
+    {"trace_id": "md-19", "entity_id": "seller-clean-8", "predicted_hold": false, "y_label": "0"},
+    {"trace_id": "md-20", "entity_id": "seller-ring-f", "predicted_hold": true, "y_label": "1"}
+  ]
+}
