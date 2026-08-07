@@ -1,0 +1,213 @@
+"""Evaluate → loyalty-abuse redeem bridge (Marketplace B2)."""
+
+from __future__ import annotations
+
+import httpx
+import pytest
+
+from decision_api.decision_outcome import DecisionOutcomeContext, schedule_decision_outcomes
+from decision_api.loyalty_abuse_bridge import (
+    build_loyalty_event,
+    friction_to_tags,
+    maybe_call_loyalty_abuse,
+    should_call_loyalty_abuse,
+)
+
+
+def test_should_call_on_redeem_checkpoint():
+    assert should_call_loyalty_abuse(metadata={"checkpoint": "redeem"})
+    assert should_call_loyalty_abuse(metadata={}, event_type="redeem")
+    assert not should_call_loyalty_abuse(metadata={"checkpoint": "order"})
+    assert not should_call_loyalty_abuse(metadata={}, event_type="payment")
+
+
+def test_friction_to_tags():
+    assert friction_to_tags("allow") == []
+    assert friction_to_tags("block") == ["loyalty:friction:block"]
+    assert friction_to_tags("soft_challenge") == ["loyalty:friction:soft_challenge"]
+
+
+def test_build_loyalty_event_maps_fields():
+    body = build_loyalty_event(
+        tenant_id="ten",
+        entity_id="user-1",
+        trace_id="tr-abc",
+        payload={"points": 50, "ip": "203.0.113.1"},
+        metadata={"checkpoint": "redeem", "session_id": "sess-1"},
+    )
+    ev = body["event"]
+    assert ev["type"] == "redeem"
+    assert ev["tenant_id"] == "ten"
+    assert ev["account_id"] == "user-1"
+    assert ev["event_id"] == "tr-abc"
+    assert ev["session_id"] == "sess-1"
+    assert ev["ip"] == "203.0.113.1"
+    assert ev["payload"]["points"] == 50
+
+
+@pytest.mark.asyncio
+async def test_maybe_call_loyalty_abuse_posts_on_redeem():
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["method"] = request.method
+        captured["url"] = str(request.url)
+        captured["auth"] = request.headers.get("Authorization")
+        import json as _json
+
+        captured["body"] = _json.loads(request.content.decode())
+        return httpx.Response(
+            200,
+            json={"friction": "soft_challenge", "score": 42, "decision_id": "d1"},
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport, base_url="http://loyalty") as client:
+        tags = await maybe_call_loyalty_abuse(
+            http=client,
+            base_url="http://loyalty",
+            api_key="la-secret",
+            body=build_loyalty_event(
+                tenant_id="t",
+                entity_id="e",
+                trace_id="tr",
+                payload={"points": 10},
+                metadata={"checkpoint": "redeem"},
+            ),
+        )
+
+    assert captured["method"] == "POST"
+    assert captured["url"] == "http://loyalty/v1/evaluate"
+    assert captured["auth"] == "Bearer la-secret"
+    assert captured["body"]["event"]["type"] == "redeem"
+    assert tags == ["loyalty:friction:soft_challenge"]
+
+
+@pytest.mark.asyncio
+async def test_bridge_failure_increments_metric():
+    calls = []
+
+    class Boom:
+        async def post(self, *a, **k):
+            raise RuntimeError("down")
+
+    tags = await maybe_call_loyalty_abuse(
+        http=Boom(),
+        base_url="http://x",
+        api_key="k",
+        body={"event": {"type": "redeem"}},
+        metrics_inc=lambda m, **kw: calls.append(m),
+    )
+    assert tags == []
+    assert "loyalty_abuse_bridge_failed" in calls
+
+
+@pytest.mark.asyncio
+async def test_maybe_call_skips_when_url_empty():
+    called = False
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal called
+        called = True
+        return httpx.Response(200, json={"friction": "allow"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        tags = await maybe_call_loyalty_abuse(
+            http=client,
+            base_url="",
+            api_key="",
+            body={"event": {}},
+        )
+    assert called is False
+    assert tags == []
+
+
+def test_schedule_decision_outcomes_enqueues_loyalty_bridge():
+    class _Bg:
+        def __init__(self) -> None:
+            self.tasks: list[tuple] = []
+
+        def add_task(self, fn, *args, **kwargs):
+            self.tasks.append((fn, args, kwargs))
+
+    bg = _Bg()
+
+    async def _noop(*_a, **_k):
+        return None
+
+    schedule_decision_outcomes(
+        bg,
+        ctx=DecisionOutcomeContext(
+            trace_id="tr-redeem",
+            tenant_id="ten",
+            entity_id="e1",
+            event_type="custom",
+            decision="allow",
+            score=10.0,
+            tags=[],
+            metadata={"checkpoint": "redeem", "session_id": "s1"},
+            payload={"points": 100},
+        ),
+        http=object(),
+        app_state=object(),
+        emit_decision_log=_noop,
+        maybe_dispatch_challenge_webhook=_noop,
+        broadcast_decision=_noop,
+        publish_decision=_noop,
+        metrics_inc=lambda *_a, **_k: None,
+        loyalty_abuse_url="http://loyalty",
+        loyalty_abuse_api_key="tok",
+    )
+    bridge_tasks = [
+        t
+        for t in bg.tasks
+        if getattr(t[0], "__name__", "") == "maybe_call_loyalty_abuse_from_evaluate"
+    ]
+    assert len(bridge_tasks) == 1
+    _fn, _args, kwargs = bridge_tasks[0]
+    assert kwargs["tenant_id"] == "ten"
+    assert kwargs["metadata"]["checkpoint"] == "redeem"
+
+
+def test_schedule_skips_loyalty_bridge_when_not_redeem():
+    class _Bg:
+        def __init__(self) -> None:
+            self.tasks: list[tuple] = []
+
+        def add_task(self, fn, *args, **kwargs):
+            self.tasks.append((fn, args, kwargs))
+
+    bg = _Bg()
+
+    async def _noop(*_a, **_k):
+        return None
+
+    schedule_decision_outcomes(
+        bg,
+        ctx=DecisionOutcomeContext(
+            trace_id="tr-2",
+            tenant_id="ten",
+            entity_id="e1",
+            event_type="payment",
+            decision="allow",
+            score=10.0,
+            tags=[],
+            metadata={"checkpoint": "order"},
+        ),
+        http=object(),
+        app_state=object(),
+        emit_decision_log=_noop,
+        maybe_dispatch_challenge_webhook=_noop,
+        broadcast_decision=_noop,
+        publish_decision=_noop,
+        metrics_inc=lambda *_a, **_k: None,
+        loyalty_abuse_url="http://loyalty",
+        loyalty_abuse_api_key="tok",
+    )
+    bridge_tasks = [
+        t
+        for t in bg.tasks
+        if getattr(t[0], "__name__", "") == "maybe_call_loyalty_abuse_from_evaluate"
+    ]
+    assert bridge_tasks == []

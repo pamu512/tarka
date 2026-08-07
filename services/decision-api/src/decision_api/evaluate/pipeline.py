@@ -584,6 +584,14 @@ async def run_evaluate_decision(
             except (TypeError, ValueError):
                 pass
 
+        from decision_api.offline_payment_features import apply_offline_payment_features
+
+        apply_offline_payment_features(
+            features,
+            body.payload if isinstance(body.payload, dict) else None,
+            body.metadata if isinstance(body.metadata, dict) else None,
+        )
+
         # Counter ownership: prefer counter-service as source of truth; keep local aggregates as fallback.
         counter_meta: dict[str, Any] | None = None
         if settings.counter_service_url:
@@ -1167,6 +1175,8 @@ async def run_evaluate_decision(
             case_create_on_deny_review=settings.case_create_on_deny_review,
             integration_ingress_url=settings.integration_ingress_url,
             ingress_internal_token=settings.ingress_internal_token,
+            loyalty_abuse_url=settings.loyalty_abuse_url,
+            loyalty_abuse_api_key=settings.loyalty_abuse_api_key,
             upstream_headers=_upstream_headers(),
             graph_upsert=_graph_upsert_stepped,
             graph_upsert_args=(

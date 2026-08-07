@@ -286,6 +286,73 @@ _PACKS: dict[str, dict[str, Any]] = {
         ],
         "tag_rules": [],
     },
+    "offline_payment": {
+        "name": "Vertical Offline Payment / COD",
+        "version": 1,
+        "velocity_presets": "standard",
+        "kill_criteria": {**_DEFAULT_KILL, "min_precision": 0.015, "min_recall": 0.02},
+        "rules": [
+            {
+                "id": "off_cod_high_amount_young",
+                "when": [
+                    {"field": "is_cod", "op": "is_true", "value": True},
+                    {"field": "amount", "op": "gte", "value": 500},
+                    {"field": "account_age_days", "op": "lte", "value": 21},
+                ],
+                "tags": ["vertical:offline_payment", "risk:cod_abuse"],
+                "score_delta": 26,
+                "description": "COD high-value order from young account",
+            },
+            {
+                "id": "off_cod_velocity_spike",
+                "when": [
+                    {"field": "is_cod", "op": "is_true", "value": True},
+                    {"field": "transaction_count_24h", "op": "gte", "value": 12},
+                ],
+                "tags": ["vertical:offline_payment", "risk:cod_abuse"],
+                "score_delta": 22,
+                "description": "COD order velocity spike — refund/COD abuse pattern",
+            },
+            {
+                "id": "off_address_hop_offline",
+                "when": [
+                    {"field": "is_offline_payment", "op": "is_true", "value": True},
+                    {"field": "distinct_countries_7d", "op": "gte", "value": 2},
+                    {"field": "transaction_count_24h", "op": "gte", "value": 6},
+                ],
+                "tags": ["vertical:offline_payment", "risk:address_hop"],
+                "score_delta": 24,
+                "description": "Offline payment with cross-geo velocity — address hopping",
+            },
+            {
+                "id": "off_cod_micro_burst",
+                "when": [
+                    {"field": "is_cod", "op": "is_true", "value": True},
+                    {"field": "amount", "op": "lte", "value": 75},
+                    {"field": "transaction_count_24h", "op": "gte", "value": 10},
+                ],
+                "tags": ["vertical:offline_payment", "risk:cod_abuse"],
+                "score_delta": 20,
+                "description": "COD micro-order burst — serial non-delivery pattern",
+            },
+            {
+                "id": "off_payout_hold_cod_high",
+                "when": [
+                    {"field": "is_offline_payment", "op": "is_true", "value": True},
+                    {"field": "amount", "op": "gte", "value": 800},
+                    {"field": "transaction_count_24h", "op": "gte", "value": 8},
+                ],
+                "tags": [
+                    "vertical:offline_payment",
+                    "risk:cod_abuse",
+                    "action:payout_hold",
+                ],
+                "score_delta": 28,
+                "description": "High offline/COD payout with velocity — hold pending review",
+            },
+        ],
+        "tag_rules": [],
+    },
     "food_delivery": {
         "name": "Vertical Food Delivery",
         "version": 1,

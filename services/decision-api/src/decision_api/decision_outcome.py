@@ -63,6 +63,8 @@ def schedule_decision_outcomes(
     case_create_on_deny_review: bool = False,
     integration_ingress_url: str = "",
     ingress_internal_token: str = "",
+    loyalty_abuse_url: str = "",
+    loyalty_abuse_api_key: str = "",
     upstream_headers: dict[str, str] | None = None,
     graph_upsert: Callable[..., Awaitable[Any]] | None = None,
     graph_upsert_args: tuple[Any, ...] = (),
@@ -193,6 +195,28 @@ def schedule_decision_outcomes(
                 tags=ctx.tags,
                 metadata=meta,
                 trace_id=ctx.trace_id,
+                event_type=ctx.event_type,
+                metrics_inc=metrics_inc,
+            )
+
+    if not ctx.shadow_request:
+        from decision_api.loyalty_abuse_bridge import (
+            maybe_call_loyalty_abuse_from_evaluate,
+            should_call_loyalty_abuse,
+        )
+
+        meta = ctx.metadata if isinstance(ctx.metadata, dict) else None
+        if should_call_loyalty_abuse(metadata=meta, event_type=ctx.event_type):
+            bg.add_task(
+                maybe_call_loyalty_abuse_from_evaluate,
+                http=http,
+                loyalty_abuse_url=loyalty_abuse_url,
+                loyalty_abuse_api_key=loyalty_abuse_api_key,
+                tenant_id=ctx.tenant_id,
+                entity_id=ctx.entity_id,
+                trace_id=ctx.trace_id,
+                payload=ctx.payload if isinstance(ctx.payload, dict) else None,
+                metadata=meta,
                 event_type=ctx.event_type,
                 metrics_inc=metrics_inc,
             )
