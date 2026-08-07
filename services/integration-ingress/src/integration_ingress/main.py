@@ -902,6 +902,37 @@ async def sanctions_screening_refresh(
     return out
 
 
+class SanctionsScreenBody(BaseModel):
+    tenant_id: str = Field(..., min_length=1, max_length=128)
+    name: str = Field(..., min_length=1, max_length=512)
+    subject_id: str = Field(default="", max_length=256)
+    country: str | None = Field(default=None, max_length=64)
+    dob: str | None = Field(default=None, max_length=32)
+
+
+@app.post("/v1/ops/sanctions-screen")
+async def sanctions_screen_ops(
+    body: SanctionsScreenBody,
+    _user: AuthUser = Depends(require_role("analyst")),
+):
+    """Marble-gap: screen + persist (SR-16). FtM bulk path — not Motiva+ES."""
+    from integration_ingress.sanctions import verify_sanctions
+
+    subject = (body.subject_id or "").strip() or f"ops:{body.tenant_id}:{body.name[:48]}"
+    raw: dict[str, Any] = {"name": body.name.strip()}
+    if body.country:
+        raw["country"] = body.country.strip()
+    if body.dob:
+        raw["dob"] = body.dob.strip()
+    result = await verify_sanctions(body.tenant_id.strip(), subject, raw)
+    return {
+        "schema_id": "tarka.sanctions_screen_ops/v1",
+        "borrowed_from": "Marble continuous screening productization (FtM + journal)",
+        "vs_marble": "Persisted screen ≠ Motiva+ES continuous list warehouse product.",
+        "result": result,
+    }
+
+
 @app.get("/v1/ops/failover-toggles")
 async def ops_failover_toggles_get(request: Request):
     """Read graph/AI plane kill-switches and latest dependency latency probes."""

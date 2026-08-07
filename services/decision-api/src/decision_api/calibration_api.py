@@ -210,15 +210,19 @@ def compute_drift_for_tenant(
         pc = cur_hist.get(k, 0) / total_c
         drift += abs(pr - pc)
     drift = round(drift / max(len(keys), 1), 4)
+    from decision_api.champion_challenger_audit import population_stability_index
+
+    psi = population_stability_index(ref_hist, cur_hist)
     hint = "ok"
-    if drift > 0.25:
+    if drift > 0.25 or (psi is not None and psi > 0.25):
         hint = "elevated_bin_shift_review_calibration"
-    elif drift > 0.15:
+    elif drift > 0.15 or (psi is not None and psi > 0.15):
         hint = "moderate_drift_monitor"
     return {
         "tenant_id": tenant_id,
         "profile": safe_profile,
         "drift_score": drift,
+        "psi": psi,
         "hint": hint,
         "latest_ts": latest.get("ts"),
         "reference_set_at": ref.get("set_at"),
@@ -609,6 +613,7 @@ async def shadow_promote_gate(
         drift_promote_gate,
         label_gated_promote,
         mcnemar_promote_gate,
+        promote_lifecycle_stage,
     )
     from decision_api.vertical_packs import evaluate_kill_criteria, get_vertical_pack
 
@@ -709,9 +714,10 @@ async def shadow_promote_gate(
         if b and b not in seen_b:
             seen_b.add(b)
             uniq_b.append(b)
+    desk_ok = len(uniq_b) == 0
     desk_promote = {
         "schema_id": "tarka.desk_promote_gate/v1",
-        "promote_allowed": len(uniq_b) == 0,
+        "promote_allowed": desk_ok,
         "blockers": uniq_b,
         "requires": [
             "label_gated_promote",
@@ -719,6 +725,12 @@ async def shadow_promote_gate(
             "drift_promote_gate",
         ],
     }
+    lifecycle = promote_lifecycle_stage(
+        label_ok=bool(live_promote.get("promote_allowed")),
+        mcnemar_ok=bool(mcnemar.get("promote_allowed")),
+        drift_ok=bool(drift_gate.get("promote_allowed")),
+        desk_ok=desk_ok,
+    )
 
     return {
         "schema_id": "tarka.shadow_promote_gate/v1",
@@ -729,12 +741,14 @@ async def shadow_promote_gate(
         "mcnemar_promote_gate": mcnemar,
         "drift_promote_gate": drift_gate,
         "desk_promote_gate": desk_promote,
+        "promote_lifecycle": lifecycle,
         "champion_challenger": cc_audit,
         "recipe_path": "scripts/oss/shadow_vs_primary_diff_recipe.sql",
         "smoke": "scripts/oss/shadow_promote_gate_smoke.py",
+        "borrowed_from": "Ojuri promote science (McNemar + PSI + CANDIDATE→SHADOW→ACTIVE)",
         "honesty": (
             "Demo blocked/allowed rows are kill_criteria smoke only. "
-            "desk_promote_gate requires real labels + McNemar pairs + non-elevated drift."
+            "desk_promote_gate requires real labels + McNemar pairs + non-elevated drift/PSI."
         ),
     }
 

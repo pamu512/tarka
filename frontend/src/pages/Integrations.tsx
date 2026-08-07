@@ -92,6 +92,8 @@ export default function Integrations() {
     }>
   >([]);
   const [screeningBusy, setScreeningBusy] = useState(false);
+  const [screenName, setScreenName] = useState("");
+  const [screenMsg, setScreenMsg] = useState("");
 
   async function refresh() {
     const [catalog, current, ready, health, kms, jobs, sloStatus] = await Promise.all([
@@ -372,25 +374,65 @@ export default function Integrations() {
           ) : null}
           <p className="text-[11px] text-gray-500">{screening.vs_marble}</p>
           <p className="text-[10px] text-gray-500">{screening.honesty}</p>
-          <button
-            type="button"
-            disabled={screeningBusy}
-            className="text-xs px-2 py-1 rounded border border-surface-600 text-gray-200 hover:border-brand-500 disabled:opacity-50"
-            onClick={() => {
-              setScreeningBusy(true);
-              void integrations
-                .sanctionsScreeningRefresh(true)
-                .then((p) => {
-                  setScreening(p);
-                  return integrations.sanctionsScreeningJournal(15);
-                })
-                .then((j) => setScreeningJournal(j.rows || []))
-                .catch((e) => setMessage(toUserFacingError(e, { subject: "OpenSanctions", action: "refresh FtM cache" })))
-                .finally(() => setScreeningBusy(false));
-            }}
-          >
-            {screeningBusy ? "Refreshing…" : "Refresh FtM cache (admin)"}
-          </button>
+          <div className="flex flex-wrap gap-2 items-end">
+            <button
+              type="button"
+              disabled={screeningBusy}
+              className="text-xs px-2 py-1 rounded border border-surface-600 text-gray-200 hover:border-brand-500 disabled:opacity-50"
+              onClick={() => {
+                setScreeningBusy(true);
+                void integrations
+                  .sanctionsScreeningRefresh(true)
+                  .then((p) => {
+                    setScreening(p);
+                    return integrations.sanctionsScreeningJournal(15);
+                  })
+                  .then((j) => setScreeningJournal(j.rows || []))
+                  .catch((e) => setMessage(toUserFacingError(e, { subject: "OpenSanctions", action: "refresh FtM cache" })))
+                  .finally(() => setScreeningBusy(false));
+              }}
+            >
+              {screeningBusy ? "Refreshing…" : "Refresh FtM cache (admin)"}
+            </button>
+            <label className="text-[10px] text-gray-500">
+              Screen name
+              <input
+                value={screenName}
+                onChange={(e) => setScreenName(e.target.value)}
+                placeholder="Entity name"
+                className="mt-1 block w-48 bg-surface-950 border border-surface-600 rounded px-2 py-1 text-xs text-gray-200"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={screeningBusy || !screenName.trim()}
+              className="text-xs px-2 py-1 rounded border border-amber-500/40 text-amber-100 hover:bg-amber-500/10 disabled:opacity-50"
+              onClick={() => {
+                setScreeningBusy(true);
+                setScreenMsg("");
+                void integrations
+                  .sanctionsScreen({ tenant_id: tenantId, name: screenName.trim() })
+                  .then((out) => {
+                    const match = out.result?.pep_sanctions_match;
+                    const logId = out.result?.details?.screening_log_id;
+                    setScreenMsg(
+                      `match=${match ? "yes" : "no"} · log ${logId || "n/a"} · ${out.vs_marble || ""}`,
+                    );
+                    return integrations.sanctionsScreeningJournal(15);
+                  })
+                  .then((j) => setScreeningJournal(j.rows || []))
+                  .catch((e) =>
+                    setScreenMsg(
+                      toUserFacingError(e, { subject: "OpenSanctions", action: "screen entity" }),
+                    ),
+                  )
+                  .finally(() => setScreeningBusy(false));
+              }}
+            >
+              Screen + persist
+            </button>
+          </div>
+          {screenMsg ? <p className="text-[10px] font-mono text-gray-400">{screenMsg}</p> : null}
           <div className="overflow-x-auto border-t border-surface-800 pt-2" data-testid="sanctions-screening-journal">
             <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">Recent screens (journal)</p>
             <table className="w-full text-[10px] text-left text-gray-400">

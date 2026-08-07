@@ -23,12 +23,20 @@ type ShadowPromoteGate = {
     promote_allowed?: boolean;
     blockers?: string[];
     drift_score?: number | null;
+    psi?: number | null;
+    max_psi?: number | null;
     hint?: string | null;
   };
   desk_promote_gate?: {
     promote_allowed?: boolean;
     blockers?: string[];
     requires?: string[];
+  };
+  promote_lifecycle?: {
+    stage?: string;
+    stages?: string[];
+    gates?: Record<string, boolean>;
+    note?: string;
   };
   champion_challenger?: {
     rows_with_policy_routing?: number;
@@ -126,8 +134,17 @@ export default function OpsShadow() {
       .then(setData)
       .catch((e) => setErr(String(e)));
     void decisions
-      .typologyTelemetry()
-      .then(setTypology)
+      .typologyOps()
+      .then((ops) =>
+        setTypology({
+          typology_count: ops.control_plane?.typology_count,
+          configured: ops.configured,
+          aggregation: {
+            mode: ops.control_plane?.aggregation,
+            note: ops.vs_tazama || ops.honesty,
+          },
+        }),
+      )
       .catch(() => setTypology(null));
     void decisions
       .backtestBeforePromotePosture()
@@ -142,6 +159,7 @@ export default function OpsShadow() {
   const mcnemar = data?.mcnemar_promote_gate;
   const driftGate = data?.drift_promote_gate;
   const deskGate = data?.desk_promote_gate;
+  const lifecycle = data?.promote_lifecycle;
   const l3Status = l3?.status || "NOT_STARTED";
   const l3Armed = l3Status !== "NOT_STARTED" && Boolean(l3?.tenant_id);
 
@@ -410,7 +428,17 @@ export default function OpsShadow() {
       {err ? <p className="text-red-400">{err}</p> : null}
       {data ? (
         <section className="rounded-xl border border-surface-700 bg-surface-900 px-4 py-3 space-y-3">
-          <h2 className="text-sm font-semibold text-gray-200">Desk promote gate</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-gray-200">Desk promote gate</h2>
+            {lifecycle?.stage ? (
+              <span
+                className="text-[10px] font-bold uppercase tracking-wide rounded-full border border-brand-500/40 bg-brand-500/10 px-2 py-0.5 text-brand-200"
+                data-testid="promote-lifecycle-stage"
+              >
+                {lifecycle.stage}
+              </span>
+            ) : null}
+          </div>
           <p className="text-sm text-gray-300">
             Combined:{" "}
             <span
@@ -424,6 +452,13 @@ export default function OpsShadow() {
               <span className="text-xs text-gray-500 ml-2">[{deskGate.blockers.join(", ")}]</span>
             ) : null}
           </p>
+          {lifecycle?.note ? <p className="text-[11px] text-gray-500">{lifecycle.note}</p> : null}
+          {driftGate?.psi != null ? (
+            <p className="text-[11px] font-mono text-gray-500">
+              PSI {driftGate.psi}
+              {driftGate.max_psi != null ? ` (max ${driftGate.max_psi})` : ""}
+            </p>
+          ) : null}
           <dl className="grid gap-1 text-xs text-gray-400 sm:grid-cols-3 font-mono">
             <div>
               Labels:{" "}

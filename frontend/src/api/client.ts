@@ -1828,6 +1828,25 @@ export const decisions = {
     }>("/api/decisions/v1/ops/loyalty-feed-posture");
   },
 
+  typologyOps() {
+    return request<{
+      schema_id?: string;
+      control_plane?: {
+        typology_count?: number;
+        aggregation?: string;
+        dsl_version?: number;
+      };
+      configured?: Array<{
+        id: string;
+        weight_per_rule_hit?: number;
+        breach_thresholds?: { warning?: number; alert?: number };
+      }>;
+      borrowed_from?: string;
+      vs_tazama?: string;
+      honesty?: string;
+    }>("/api/decisions/v1/ops/typology-ops");
+  },
+
   typologyTelemetry() {
     return request<{
       schema_id: string;
@@ -4121,6 +4140,25 @@ export const integrations = {
       }>;
       honesty?: string;
     }>(`/api/ingress/v1/ops/sanctions-screening-journal?limit=${limit}`);
+  },
+  sanctionsScreen(body: {
+    tenant_id: string;
+    name: string;
+    subject_id?: string;
+    country?: string;
+    dob?: string;
+  }) {
+    return request<{
+      schema_id: string;
+      result: {
+        pep_sanctions_match?: boolean | null;
+        details?: { screening_log_id?: string; match_count?: number };
+      };
+      vs_marble?: string;
+    }>("/api/ingress/v1/ops/sanctions-screen", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
   },
   installed(tenantId: string) {
     return request<{
