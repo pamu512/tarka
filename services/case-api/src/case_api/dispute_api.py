@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .config import settings
 from .db import get_session
 from .dispute_deadline import queue_item_view
+from .dispute_reprocess_bridge import run_dispute_reprocess_evaluate
 from .models import Case, CaseComment, Dispute, DisputeReprocessLedger
 from .schemas import CreateDisputeRequest, DisputeOut, UpdateDisputeRequest
 
@@ -355,6 +356,14 @@ async def reprocess_dispute_external(
         "reason": (body.reason or "").strip()[:2000],
         "idempotent_replay": False,
     }
+    http: httpx.AsyncClient = request.app.state.http
+    snap["decision_reprocess"] = await run_dispute_reprocess_evaluate(
+        http,
+        decision_api_url=settings.decision_api_url,
+        api_key=settings.decision_api_key,
+        dispute_row=row,
+        reason=body.reason,
+    )
     session.add(
         DisputeReprocessLedger(
             dispute_id=dispute_id,

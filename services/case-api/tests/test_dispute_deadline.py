@@ -66,6 +66,8 @@ def test_queue_item_view_hooks():
 
 @pytest.fixture
 def dispute_client():
+    import case_api.main  # noqa: F401
+
     with patch("case_api.main.evaluate_workflows", new_callable=AsyncMock):
         from case_api.main import app
 
