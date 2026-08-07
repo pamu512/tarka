@@ -43,6 +43,7 @@ class DecisionOutcomeContext:
     fallback_reason: str | None = None
     decision_log_record: dict[str, Any] | None = None
     degrade_tags: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] | None = None
     # Production shadow duplicate: skip mutating side effects (graph, challenge, cases).
     shadow_request: bool = False
 
@@ -60,6 +61,8 @@ def schedule_decision_outcomes(
     metrics_inc: MetricsInc,
     case_api_url: str = "",
     case_create_on_deny_review: bool = False,
+    integration_ingress_url: str = "",
+    ingress_internal_token: str = "",
     upstream_headers: dict[str, str] | None = None,
     graph_upsert: Callable[..., Awaitable[Any]] | None = None,
     graph_upsert_args: tuple[Any, ...] = (),
@@ -168,6 +171,21 @@ def schedule_decision_outcomes(
             case_api_url=case_api_url,
             ctx=ctx,
             headers=upstream_headers or {},
+        )
+
+    if not ctx.shadow_request:
+        from decision_api.payout_hold_bridge import maybe_create_payout_hold_from_evaluate
+
+        bg.add_task(
+            maybe_create_payout_hold_from_evaluate,
+            http=http,
+            integration_ingress_url=integration_ingress_url,
+            ingress_internal_token=ingress_internal_token,
+            tenant_id=ctx.tenant_id,
+            entity_id=ctx.entity_id,
+            tags=ctx.tags,
+            metadata=ctx.metadata if isinstance(ctx.metadata, dict) else None,
+            trace_id=ctx.trace_id,
         )
 
 

@@ -72,7 +72,21 @@ Action tags fire when evaluate hits a matching rule. Risk tags label the abuse p
 
 ## Pre-payout checkpoint
 
-Pass `metadata.checkpoint=payout` on evaluate requests at settlement time. When a fired rule carries `action:payout_hold` or `action:payout_delay`, the platform should hold or delay payout pending review (durable hold store wired in later Marketplace P0 slices).
+Pass `metadata.checkpoint=payout` and `metadata.payout_id` on evaluate requests at settlement time. When a fired rule carries `action:payout_hold` or `action:payout_delay`, decision-api creates a durable hold via integration-ingress (background POST; evaluate still succeeds if hold create fails).
+
+Configure decision-api:
+
+```bash
+export INTEGRATION_INGRESS_URL=http://integration-ingress:8010
+export INGRESS_INTERNAL_TOKEN=<shared-secret>
+```
+
+Verify hold after evaluate:
+
+```bash
+curl -s -H "x-api-key: $TARKA_API_KEY" \
+  "http://localhost:8010/v1/marketplace/payout-delay?tenant_id=demo" | jq '.payouts[] | select(.payout_id=="po_1")'
+```
 
 Example evaluate payload snippet:
 
@@ -80,7 +94,7 @@ Example evaluate payload snippet:
 {
   "entity_id": "seller-abc",
   "payload": { "amount": 1200, "account_age_days": 10, "transaction_count_24h": 14 },
-  "metadata": { "checkpoint": "payout" }
+  "metadata": { "checkpoint": "payout", "payout_id": "po_1", "amount": 1200, "currency": "USD" }
 }
 ```
 

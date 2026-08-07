@@ -91,6 +91,38 @@ async def test_release_updates_durable_row(client: AsyncClient, session: AsyncSe
 
 
 @pytest.mark.asyncio
+async def test_internal_create_payout_hold_without_api_key(
+    session: AsyncSession, monkeypatch
+) -> None:
+    """S2S bridge uses X-Internal-Token only (no X-API-Key)."""
+    monkeypatch.setenv("INGRESS_INTERNAL_TOKEN", "test-internal-token")
+    from integration_ingress.config import settings
+
+    monkeypatch.setattr(settings, "ingress_internal_token", "test-internal-token")
+
+    async def _override() -> AsyncIterator[AsyncSession]:
+        yield session
+
+    app.dependency_overrides[get_session] = _override
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as bare_client:
+        r = await bare_client.post(
+            "/v1/internal/marketplace/payout-holds",
+            headers={"X-Internal-Token": "test-internal-token"},
+            json={
+                "tenant_id": "demo",
+                "payout_id": "po_s2s",
+                "entity_id": "e4",
+                "status": "held",
+                "held_by": "evaluate",
+            },
+        )
+    app.dependency_overrides.pop(get_session, None)
+    assert r.status_code == 201, r.text
+    assert r.json()["payout_id"] == "po_s2s"
+
+
+@pytest.mark.asyncio
 async def test_internal_create_payout_hold(client: AsyncClient, session: AsyncSession, monkeypatch) -> None:
     monkeypatch.setenv("INGRESS_INTERNAL_TOKEN", "test-internal-token")
     from integration_ingress.config import settings
