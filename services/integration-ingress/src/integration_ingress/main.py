@@ -1379,7 +1379,7 @@ async def internal_create_payout_hold(
 ):
     from integration_ingress.payout_hold_store import upsert_hold
 
-    row = await upsert_hold(
+    row, _materialized = await upsert_hold(
         session,
         tenant_id=body.tenant_id,
         payout_id=body.payout_id,

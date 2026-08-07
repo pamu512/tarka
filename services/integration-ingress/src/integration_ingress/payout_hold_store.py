@@ -55,7 +55,7 @@ async def upsert_hold(
     currency: str | None = None,
     mule_score: float | None = None,
     hold_duration_hours: int | None = None,
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], bool]:
     from integration_ingress.models import MarketplacePayoutHold
 
     tid = (tenant_id or "demo").strip() or "demo"
@@ -79,11 +79,15 @@ async def upsert_hold(
     hours = max(1, int(hold_duration_hours or DEFAULT_HOLD_DURATION_HOURS))
     now = datetime.now(UTC)
     tag_list = list(tags or [])
+    prior_status = row.status if row is not None else None
+    materialized = row is None or (
+        st in ("held", "pending") and prior_status != st
+    )
 
     if row is None:
         held_at = now
         scheduled_release_at = (
-            held_at + timedelta(hours=hours) if st == "held" else None
+            held_at + timedelta(hours=hours) if st in ("held", "pending") else None
         )
         row = MarketplacePayoutHold(
             id=uuid.uuid4(),
@@ -125,12 +129,15 @@ async def upsert_hold(
             row.held_at = now
             row.scheduled_release_at = now + timedelta(hours=hours)
             row.released_at = None
+        elif st == "pending":
+            row.scheduled_release_at = now + timedelta(hours=hours)
+            row.released_at = None
         elif st == "released":
             row.released_at = now
 
     await session.commit()
     await session.refresh(row)
-    return _row_to_dict(row)
+    return _row_to_dict(row), materialized
 
 
 async def list_holds(
