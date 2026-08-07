@@ -131,7 +131,12 @@ Action tags fire when evaluate hits a matching rule. Risk tags label the abuse p
 
 ## Pre-payout checkpoint
 
-Pass `metadata.checkpoint=payout` and `metadata.payout_id` on evaluate requests at settlement time. When a fired rule carries `action:payout_hold` or `action:payout_delay`, decision-api creates a durable hold via integration-ingress (background POST; evaluate still succeeds if hold create fails).
+A hold is created when evaluate fires `action:payout_hold` or `action:payout_delay` **and** the payout checkpoint matches:
+
+- `metadata.checkpoint=payout`, **or**
+- `event_type=payout` on the evaluate request
+
+Also pass `metadata.payout_id` (required for the bridge). decision-api maps tags to durable row status/duration and POSTs to integration-ingress in the background; evaluate still returns 200 if hold create fails (bridge failure increments `payout_hold_bridge_failed`).
 
 Configure decision-api:
 
@@ -139,6 +144,15 @@ Configure decision-api:
 export INTEGRATION_INGRESS_URL=http://integration-ingress:8010
 export INGRESS_INTERNAL_TOKEN=<shared-secret>
 ```
+
+### Hold vs delay
+
+| Tag(s) fired | Durable `status` | Default duration |
+| --- | --- | --- |
+| `action:payout_hold` (alone or with delay) | `held` | 72h (`hold_duration_hours_default`) |
+| `action:payout_delay` only | `pending` | 24h (`delay_hours_for_action_payout_delay`) |
+
+If both tags fire, **hold wins**: `status=held` with hold duration.
 
 Verify hold after evaluate:
 
@@ -152,10 +166,57 @@ Example evaluate payload snippet:
 ```json
 {
   "entity_id": "seller-abc",
+  "event_type": "payout",
   "payload": { "amount": 1200, "account_age_days": 10, "transaction_count_24h": 14 },
   "metadata": { "checkpoint": "payout", "payout_id": "po_1", "amount": 1200, "currency": "USD" }
 }
 ```
+
+### Config flag: `honor_evaluate_action_tags`
+
+Tenant payout-delay config stores `honor_evaluate_action_tags` (default `true`). In P1 the evaluate bridge **always** creates a hold when checkpoint + action tags match; the ingress flag is persisted for UI/future gateway use and does not gate the bridge yet.
+
+## Webhooks (P1)
+
+When `webhook_callback_url` is set on tenant payout-delay config, integration-ingress delivers marketplace webhooks after durable hold changes:
+
+| Signal | When |
+| --- | --- |
+| `payout_hold` | After upsert that inserts a row or changes status into `held`/`pending` |
+| `payout_release` | After successful release of an existing hold |
+
+Webhook delivery failure does not roll back the hold transaction. Inspect delivery in marketplace webhook logs.
+
+Configure callback URL via payout-delay config PATCH (tenant-scoped):
+
+```bash
+curl -s -X PATCH -H "x-api-key: $TARKA_API_KEY" -H "Content-Type: application/json" \
+  "http://localhost:8010/v1/marketplace/payout-delay/config?tenant_id=demo" \
+  -d '{"webhook_callback_url": "https://merchant.example/hooks/tarka"}' | jq .
+```
+
+## Mule automation (P1)
+
+Mule sync runs **only** from explicit `mule_candidates` on tenant config — production list paths never invent `payout_id`s from SHA hashes or entity ids.
+
+| Setting | Default | Behavior |
+| --- | --- | --- |
+| `automation_enabled` | `false` | List returns durable holds only (`source=durable`) |
+| `mule_candidates` | `[]` | Each entry must include `payout_id`, `entity_id`; optional `mule_score`, amount/currency |
+
+When `automation_enabled=true` and `mule_candidates` is non-empty, GET payout-delay may upsert from real candidates (`source=durable+automation`). For demos/tests, PATCH candidates explicitly; leave empty in production.
+
+## Release
+
+Release an existing hold:
+
+```bash
+curl -s -X POST -H "x-api-key: $TARKA_API_KEY" -H "Content-Type: application/json" \
+  "http://localhost:8010/v1/marketplace/payout-delay/release?tenant_id=demo" \
+  -d '{"payout_id": "po_1", "released_by": "analyst"}' | jq .
+```
+
+Release of a missing hold returns **404** (`payout hold not found`) — no synthetic success body. Internal create/release require `X-Internal-Token` when `INGRESS_INTERNAL_TOKEN` is configured (missing or wrong token → 401).
 
 ## Loyalty-abuse boundary
 
@@ -166,8 +227,8 @@ LTV gates and multi-gate loyalty typologies remain owned by the **loyalty-abuse*
 Automated suite (run from repo root paths):
 
 ```bash
-cd services/decision-api && python -m pytest tests/test_marketplace_vertical_packs.py tests/test_payout_hold_from_evaluate.py -q
-cd ../integration-ingress && python -m pytest tests/test_payout_hold_store.py tests/test_payout_delay_durable.py -q
+cd services/decision-api && PYTHONPATH=src python -m pytest tests/test_payout_hold_from_evaluate.py -q
+cd ../integration-ingress && python -m pytest tests/test_payout_hold_store.py tests/test_payout_delay_durable.py tests/test_payout_delay_automation.py -q
 cd ../case-api && PYTHONPATH=src:../shared:../../packages/shared-core python -m pytest tests/test_multi_party_links.py -q
 cd ../../frontend && npm test -- --run MultiPartyLinks
 ```
