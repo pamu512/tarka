@@ -1769,6 +1769,50 @@ export const decisions = {
     }>("/api/decisions/v1/ops/l3-ledger");
   },
 
+  l3LedgerArm(body: {
+    tenant_id: string;
+    week1_start_utc: string;
+    host_action_sink: string;
+    shadow_evaluate_enabled?: boolean;
+    actor?: string;
+  }) {
+    return request<{ ok: boolean; ledger: Record<string, unknown> }>(
+      "/api/decisions/v1/ops/l3-ledger/arm",
+      { method: "POST", body: JSON.stringify(body) },
+    );
+  },
+
+  l3LedgerSignWeek(
+    week: number,
+    body: {
+      shadow_on?: boolean;
+      host_actions_logged?: boolean;
+      outcomes_joined?: boolean;
+      weekly_metrics?: boolean;
+      ece_candidate?: boolean;
+      sign_off?: boolean;
+      actor?: string;
+    },
+  ) {
+    return request<{ ok: boolean; ledger: Record<string, unknown> }>(
+      `/api/decisions/v1/ops/l3-ledger/weeks/${week}/sign`,
+      { method: "POST", body: JSON.stringify(body) },
+    );
+  },
+
+  hostActionLog(body: {
+    tenant_id: string;
+    action: string;
+    entity_id?: string;
+    trace_id?: string;
+    actor?: string;
+  }) {
+    return request<{ ok: boolean; record: Record<string, unknown>; sink?: string }>(
+      "/api/decisions/v1/ops/host-actions",
+      { method: "POST", body: JSON.stringify(body) },
+    );
+  },
+
   loyaltyFeedPosture() {
     return request<{
       schema_id?: string;

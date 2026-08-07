@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { decisions } from "../api/v1/decisions";
+import { validateL3ArmInput } from "../workbench/l3LedgerArm";
+import { toUserFacingError } from "../utils/userFacingErrors";
 
 type ShadowPromoteGate = {
   schema_id: string;
@@ -83,6 +85,10 @@ type L3Ledger = {
 
 const L3_WEEK_ROWS = [1, 2, 3, 4] as const;
 
+function todayUtcDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function OpsShadow() {
   const [tenantId, setTenantId] = useState("demo");
   const [data, setData] = useState<ShadowPromoteGate | null>(null);
@@ -94,6 +100,25 @@ export default function OpsShadow() {
     ui?: string;
   } | null>(null);
   const [err, setErr] = useState("");
+  const [l3ArmTenant, setL3ArmTenant] = useState("");
+  const [l3ArmWeek1, setL3ArmWeek1] = useState(todayUtcDate());
+  const [l3ArmSink, setL3ArmSink] = useState("");
+  const [l3Msg, setL3Msg] = useState("");
+  const [l3Busy, setL3Busy] = useState(false);
+  const [signWeek, setSignWeek] = useState<1 | 2 | 3 | 4>(1);
+  const [signEce, setSignEce] = useState(false);
+
+  async function refreshL3() {
+    try {
+      const view = await decisions.l3Ledger();
+      setL3(view);
+      if (!l3ArmSink && view.internal_host_action_sink) {
+        setL3ArmSink(view.internal_host_action_sink);
+      }
+    } catch {
+      setL3(null);
+    }
+  }
 
   useEffect(() => {
     void decisions
@@ -108,10 +133,8 @@ export default function OpsShadow() {
       .backtestBeforePromotePosture()
       .then(setBacktestPosture)
       .catch(() => setBacktestPosture(null));
-    void decisions
-      .l3Ledger()
-      .then(setL3)
-      .catch(() => setL3(null));
+    void refreshL3();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh L3 once + when promote tenant changes
   }, [tenantId]);
 
   const cc = data?.champion_challenger;
@@ -120,6 +143,79 @@ export default function OpsShadow() {
   const driftGate = data?.drift_promote_gate;
   const deskGate = data?.desk_promote_gate;
   const l3Status = l3?.status || "NOT_STARTED";
+  const l3Armed = l3Status !== "NOT_STARTED" && Boolean(l3?.tenant_id);
+
+  async function armL3() {
+    setL3Msg("");
+    const sink = l3ArmSink.trim() || l3?.internal_host_action_sink || "";
+    const body = {
+      tenant_id: l3ArmTenant.trim(),
+      week1_start_utc: l3ArmWeek1.trim(),
+      host_action_sink: sink,
+      shadow_evaluate_enabled: true,
+      actor: "ops-shadow-ui",
+    };
+    const blockers = validateL3ArmInput(body);
+    if (blockers.length) {
+      setL3Msg(`Blocked: ${blockers.join(", ")}`);
+      return;
+    }
+    setL3Busy(true);
+    try {
+      const out = await decisions.l3LedgerArm(body);
+      setL3(out.ledger as L3Ledger);
+      setL3Msg("L3 armed — clock started (claim still locked until COMPLETE).");
+    } catch (e) {
+      setL3Msg(toUserFacingError(e, { subject: "L3 ledger", action: "arm four-week clock" }));
+    } finally {
+      setL3Busy(false);
+    }
+  }
+
+  async function signL3Week() {
+    setL3Msg("");
+    setL3Busy(true);
+    try {
+      const out = await decisions.l3LedgerSignWeek(signWeek, {
+        shadow_on: true,
+        host_actions_logged: true,
+        outcomes_joined: true,
+        weekly_metrics: true,
+        ece_candidate: signWeek === 4 ? signEce : false,
+        sign_off: true,
+        actor: "ops-shadow-ui",
+      });
+      setL3(out.ledger as L3Ledger);
+      setL3Msg(`Week ${signWeek} signed.`);
+    } catch (e) {
+      setL3Msg(toUserFacingError(e, { subject: "L3 ledger", action: `sign week ${signWeek}` }));
+    } finally {
+      setL3Busy(false);
+    }
+  }
+
+  async function logSampleHostAction() {
+    const tid = (l3?.tenant_id || l3ArmTenant).trim();
+    if (!tid) {
+      setL3Msg("Set armed tenant or arm form tenant before logging host actions.");
+      return;
+    }
+    setL3Busy(true);
+    setL3Msg("");
+    try {
+      await decisions.hostActionLog({
+        tenant_id: tid,
+        action: "challenge_issued",
+        actor: "ops-shadow-ui",
+      });
+      await refreshL3();
+      setL3Msg("Host action appended to internal JSONL sink.");
+    } catch (e) {
+      setL3Msg(toUserFacingError(e, { subject: "Host actions", action: "append sample action" }));
+    } finally {
+      setL3Busy(false);
+    }
+  }
 
   return (
     <div className="p-6 space-y-4">
@@ -209,6 +305,102 @@ export default function OpsShadow() {
             </tbody>
           </table>
         </div>
+
+        {!l3Armed ? (
+          <div className="space-y-2 border-t border-amber-500/20 pt-3" data-testid="l3-arm-form">
+            <p className="text-[11px] text-amber-100/80">
+              Arm the live clock (admin). Rejects <span className="font-mono">demo</span>/sim tenants and sim
+              sinks. Arming ≠ COMPLETE claim.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <label className="block text-[10px] text-gray-500">
+                Live tenant id
+                <input
+                  value={l3ArmTenant}
+                  onChange={(e) => setL3ArmTenant(e.target.value)}
+                  placeholder="acme-prod"
+                  className="mt-1 w-full bg-surface-900 border border-surface-600 rounded-lg px-2 py-1.5 text-xs text-gray-200 font-mono"
+                />
+              </label>
+              <label className="block text-[10px] text-gray-500">
+                Week 1 start (UTC)
+                <input
+                  type="date"
+                  value={l3ArmWeek1}
+                  onChange={(e) => setL3ArmWeek1(e.target.value)}
+                  className="mt-1 w-full bg-surface-900 border border-surface-600 rounded-lg px-2 py-1.5 text-xs text-gray-200 font-mono"
+                />
+              </label>
+              <label className="block text-[10px] text-gray-500 sm:col-span-1">
+                Host action sink
+                <input
+                  value={l3ArmSink}
+                  onChange={(e) => setL3ArmSink(e.target.value)}
+                  placeholder={l3?.internal_host_action_sink || "internal:jsonl:…"}
+                  className="mt-1 w-full bg-surface-900 border border-surface-600 rounded-lg px-2 py-1.5 text-xs text-gray-200 font-mono"
+                />
+              </label>
+            </div>
+            <button
+              type="button"
+              disabled={l3Busy}
+              onClick={() => void armL3()}
+              className="text-xs px-3 py-1.5 rounded border border-amber-500/50 text-amber-100 hover:bg-amber-500/10 disabled:opacity-50"
+            >
+              {l3Busy ? "Arming…" : "Arm L3 clock (admin)"}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2 border-t border-amber-500/20 pt-3" data-testid="l3-sign-form">
+            <p className="text-[11px] text-amber-100/80">
+              Sign a completed live week (admin). Week 4 requires ECE on real labels.
+            </p>
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="block text-[10px] text-gray-500">
+                Week
+                <select
+                  value={signWeek}
+                  onChange={(e) => setSignWeek(Number(e.target.value) as 1 | 2 | 3 | 4)}
+                  className="mt-1 block bg-surface-900 border border-surface-600 rounded-lg px-2 py-1.5 text-xs text-gray-200"
+                >
+                  {L3_WEEK_ROWS.map((w) => (
+                    <option key={w} value={w}>
+                      {w}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {signWeek === 4 ? (
+                <label className="flex items-center gap-2 text-[11px] text-gray-300 pb-1">
+                  <input
+                    type="checkbox"
+                    checked={signEce}
+                    onChange={(e) => setSignEce(e.target.checked)}
+                  />
+                  ECE candidate on real labels
+                </label>
+              ) : null}
+              <button
+                type="button"
+                disabled={l3Busy}
+                onClick={() => void signL3Week()}
+                className="text-xs px-3 py-1.5 rounded border border-amber-500/50 text-amber-100 hover:bg-amber-500/10 disabled:opacity-50"
+              >
+                {l3Busy ? "Signing…" : `Sign week ${signWeek}`}
+              </button>
+              <button
+                type="button"
+                disabled={l3Busy}
+                onClick={() => void logSampleHostAction()}
+                className="text-xs px-3 py-1.5 rounded border border-surface-600 text-gray-200 hover:border-brand-500 disabled:opacity-50"
+              >
+                Log sample host action
+              </button>
+            </div>
+          </div>
+        )}
+
+        {l3Msg ? <p className="text-[11px] font-mono text-amber-100/90">{l3Msg}</p> : null}
         <p className="text-[10px] text-gray-500 font-mono">
           {l3?.playbook || "docs/superpowers/playbooks/l3-ops-ledger.md"}
           {l3?.internal_host_action_sink ? ` · sink ${l3.internal_host_action_sink}` : ""}
