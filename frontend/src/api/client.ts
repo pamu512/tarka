@@ -1700,7 +1700,33 @@ export const decisions = {
       opensanctions?: { plugin?: string; note?: string; continuous_screening?: string };
       honesty?: string;
       runbook_path?: string;
+      live_readiness?: {
+        ready_to_claim_live?: boolean;
+        ready_to_attempt_live_proof?: boolean;
+        blockers?: string[];
+        checks?: Record<string, unknown>;
+        operator_script?: string;
+      };
     }>("/api/decisions/v1/ops/partner-fusion-status");
+  },
+
+  l3Ledger() {
+    return request<{
+      schema_id?: string;
+      status?: string;
+      tenant_id?: string | null;
+      week1_start_utc?: string | null;
+      week4_end_utc?: string | null;
+      shadow_evaluate_enabled?: boolean;
+      host_action_sink?: string | null;
+      label_join_ece?: boolean;
+      claim_allowed?: boolean;
+      host_action_log_count?: number;
+      internal_host_action_sink?: string;
+      weeks?: Record<string, Record<string, unknown>>;
+      honesty?: string;
+      playbook?: string;
+    }>("/api/decisions/v1/ops/l3-ledger");
   },
 
   typologyTelemetry() {

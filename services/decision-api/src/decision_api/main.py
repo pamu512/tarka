@@ -24,7 +24,7 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -1309,6 +1309,127 @@ async def partner_fusion_status_ops(_user=Depends(require_role("analyst"))):
     from decision_api.partner_fusion_status import load_partner_fusion_status
 
     return load_partner_fusion_status()
+
+
+@app.get("/v1/ops/l3-ledger")
+async def l3_ops_ledger_get(_user=Depends(require_role("analyst"))):
+    """Four-week live shadow ledger. Sim cannot advance this file."""
+    from decision_api.host_action_log import count_actions, sink_uri
+    from decision_api.l3_ops_ledger import public_view
+
+    view = public_view()
+    tid = view.get("tenant_id")
+    view["host_action_log_count"] = count_actions(str(tid) if tid else None)
+    view["internal_host_action_sink"] = sink_uri()
+    return view
+
+
+class L3ArmBody(BaseModel):
+    tenant_id: str = Field(..., min_length=2, max_length=128)
+    week1_start_utc: str = Field(..., min_length=8, max_length=32)
+    host_action_sink: str = Field(
+        ...,
+        min_length=3,
+        max_length=512,
+        description="URL or internal:jsonl:… sink; use GET /v1/ops/l3-ledger.internal_host_action_sink",
+    )
+    shadow_evaluate_enabled: bool = True
+    label_join_ece: bool = False
+    actor: str = Field(default="operator", max_length=128)
+
+
+@app.post("/v1/ops/l3-ledger/arm")
+async def l3_ops_ledger_arm(
+    body: L3ArmBody,
+    _user=Depends(require_role("admin")),
+):
+    """Arm L3 clock on a named live tenant. Arming ≠ COMPLETE claim."""
+    from decision_api.l3_ops_ledger import arm_ledger, public_view
+
+    result = arm_ledger(
+        tenant_id=body.tenant_id,
+        week1_start_utc=body.week1_start_utc,
+        host_action_sink=body.host_action_sink,
+        shadow_evaluate_enabled=body.shadow_evaluate_enabled,
+        actor=body.actor,
+        label_join_ece=body.label_join_ece,
+    )
+    if not result.get("ok"):
+        raise HTTPException(
+            status_code=409,
+            detail={"blockers": result.get("blockers"), "ledger": public_view(result.get("ledger"))},
+        )
+    return {"ok": True, "ledger": public_view(result.get("ledger"))}
+
+
+class L3SignWeekBody(BaseModel):
+    shadow_on: bool = False
+    host_actions_logged: bool = False
+    outcomes_joined: bool = False
+    weekly_metrics: bool = False
+    ece_candidate: bool = False
+    sign_off: bool = False
+    actor: str = Field(default="operator", max_length=128)
+
+
+@app.post("/v1/ops/l3-ledger/weeks/{week}/sign")
+async def l3_ops_ledger_sign_week(
+    week: int,
+    body: L3SignWeekBody,
+    _user=Depends(require_role("admin")),
+):
+    """Sign a live week checklist. Week 4 requires ECE on real labels."""
+    from decision_api.l3_ops_ledger import public_view, sign_week
+
+    result = sign_week(
+        week=week,
+        checklist={
+            "shadow_on": body.shadow_on,
+            "host_actions_logged": body.host_actions_logged,
+            "outcomes_joined": body.outcomes_joined,
+            "weekly_metrics": body.weekly_metrics,
+            "ece_candidate": body.ece_candidate,
+            "sign_off": body.sign_off,
+        },
+        actor=body.actor,
+    )
+    if not result.get("ok"):
+        raise HTTPException(
+            status_code=409,
+            detail={"blockers": result.get("blockers"), "ledger": public_view(result.get("ledger"))},
+        )
+    return {"ok": True, "ledger": public_view(result.get("ledger"))}
+
+
+class HostActionBody(BaseModel):
+    tenant_id: str = Field(..., min_length=1, max_length=128)
+    action: str = Field(..., min_length=1, max_length=128)
+    entity_id: str | None = Field(default=None, max_length=256)
+    trace_id: str | None = Field(default=None, max_length=128)
+    actor: str = Field(default="operator", max_length=128)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+@app.post("/v1/ops/host-actions")
+async def post_host_action(
+    body: HostActionBody,
+    _user=Depends(require_role("analyst")),
+):
+    """Append host action for L3 sink (internal JSONL)."""
+    from decision_api.host_action_log import append_host_action, sink_uri
+
+    try:
+        rec = append_host_action(
+            tenant_id=body.tenant_id,
+            action=body.action,
+            entity_id=body.entity_id,
+            trace_id=body.trace_id,
+            actor=body.actor,
+            metadata=body.metadata,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True, "record": rec, "sink": sink_uri()}
 
 
 @app.get("/v1/admin/typology/telemetry")
