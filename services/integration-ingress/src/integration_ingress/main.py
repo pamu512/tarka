@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import secrets
 import sys
 import time
 import uuid
@@ -249,6 +250,10 @@ async def lifespan(application: FastAPI):
         application.state.finops_router = build_finops_router(application.state.redis_client)
     await init_db()
     init_residency_matrix_store(json_path=settings.residency_matrix_json_path)
+    if not (settings.ingress_internal_token or "").strip():
+        logger.warning(
+            "INGRESS_INTERNAL_TOKEN is empty; internal S2S routes require admin JWT",
+        )
     if settings.kms_startup_self_check:
         issues = _validate_kms_config()
         if not issues:
@@ -1310,7 +1315,8 @@ async def _require_internal_or_admin(
     x_internal_token: str | None = Header(None, alias="X-Internal-Token"),
 ) -> AuthUser:
     expected = (settings.ingress_internal_token or "").strip()
-    if expected and (x_internal_token or "").strip() == expected:
+    provided = (x_internal_token or "").strip()
+    if expected and len(provided) == len(expected) and secrets.compare_digest(provided, expected):
         return AuthUser("internal-service", ["admin"], "internal_token")
     user: AuthUser | None = getattr(request.state, "auth_user", None)
     if user and user.has_role("admin"):
@@ -1357,12 +1363,18 @@ async def marketplace_payout_delay_config_patch(
 @app.post("/v1/marketplace/payout-delay/{payout_id}/release")
 async def marketplace_payout_delay_release(
     payout_id: str,
+    request: Request,
     tenant_id: str = "demo",
     session: AsyncSession = Depends(get_session),
     user=Depends(require_role("analyst")),
 ):
+    from integration_ingress.marketplace_webhook_logs import (
+        SIGNAL_PAYOUT_RELEASE,
+        notify_payout_signal_webhook,
+    )
     from integration_ingress.payout_delay_automation import (
         build_payout_delay_payload,
+        get_payout_delay_config,
         release_payout_hold,
     )
 
@@ -1372,6 +1384,19 @@ async def marketplace_payout_delay_release(
         payout_id=payout_id,
         released_by=user.user_id,
     )
+    if release is None:
+        raise HTTPException(status_code=404, detail="payout hold not found")
+    cfg = get_payout_delay_config(tenant_id)
+    callback_url = str(cfg.get("webhook_callback_url") or "").strip()
+    if callback_url:
+        http: httpx.AsyncClient = request.app.state.http
+        await notify_payout_signal_webhook(
+            session,
+            http,
+            signal=SIGNAL_PAYOUT_RELEASE,
+            callback_url=callback_url,
+            hold_row=release,
+        )
     return {
         "ok": True,
         "release": release,
@@ -1382,12 +1407,18 @@ async def marketplace_payout_delay_release(
 @app.post("/v1/internal/marketplace/payout-holds", status_code=201)
 async def internal_create_payout_hold(
     body: PayoutHoldCreateBody,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     _auth=Depends(_require_internal_or_admin),
 ):
+    from integration_ingress.marketplace_webhook_logs import (
+        SIGNAL_PAYOUT_HOLD,
+        notify_payout_signal_webhook,
+    )
+    from integration_ingress.payout_delay_automation import get_payout_delay_config
     from integration_ingress.payout_hold_store import upsert_hold
 
-    row, _materialized = await upsert_hold(
+    row, materialized = await upsert_hold(
         session,
         tenant_id=body.tenant_id,
         payout_id=body.payout_id,
@@ -1403,6 +1434,18 @@ async def internal_create_payout_hold(
         mule_score=body.mule_score,
         hold_duration_hours=body.hold_duration_hours,
     )
+    if materialized:
+        cfg = get_payout_delay_config(body.tenant_id)
+        callback_url = str(cfg.get("webhook_callback_url") or "").strip()
+        if callback_url:
+            http: httpx.AsyncClient = request.app.state.http
+            await notify_payout_signal_webhook(
+                session,
+                http,
+                signal=SIGNAL_PAYOUT_HOLD,
+                callback_url=callback_url,
+                hold_row=row,
+            )
     return row
 
 
