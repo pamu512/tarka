@@ -61,5 +61,8 @@ class Settings(BaseSettings):
     backup_postgres_schedule_hint: str = "Daily 02:00 UTC (pg_dump)"
     backup_janusgraph_schedule_hint: str = "Daily 03:30 UTC (gremlin backup)"
 
+    # Service-to-service internal routes (evaluate → payout hold bridge, Task 4).
+    ingress_internal_token: str = ""
+
 
 settings = Settings()
