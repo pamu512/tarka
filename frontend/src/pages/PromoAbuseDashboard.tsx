@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-import { integrations, type PromoAbuseResponse, type PromoAbuseUserRow } from "../api/client";
+import { decisions, integrations, type PromoAbuseResponse, type PromoAbuseUserRow } from "../api/client";
 import { DurableBoardSourceBadge } from "../components/integrations/DurableBoardSourceBadge";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
@@ -23,6 +23,14 @@ export default function PromoAbuseDashboard(): ReactElement {
   const [data, setData] = useState<PromoAbuseResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loyaltyFeeds, setLoyaltyFeeds] = useState<{
+    live_claim_allowed?: boolean;
+    bridge_configured?: boolean;
+    blockers?: string[];
+    feeds_status?: { status?: string; reason?: string };
+    required_feed_keys?: string[];
+    honesty?: string;
+  } | null>(null);
 
   useRegisterPageMeta({ title: "Promo abuse", subtitle: "Coupon concentration" });
 
@@ -46,6 +54,13 @@ export default function PromoAbuseDashboard(): ReactElement {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void decisions
+      .loyaltyFeedPosture()
+      .then(setLoyaltyFeeds)
+      .catch(() => setLoyaltyFeeds(null));
+  }, []);
 
   const chartData = useMemo(
     () =>
@@ -88,6 +103,47 @@ export default function PromoAbuseDashboard(): ReactElement {
           </button>
         </div>
       </div>
+
+      {loyaltyFeeds ? (
+        <section
+          className="rounded-xl border border-amber-500/35 bg-amber-950/20 px-4 py-3 space-y-2"
+          data-testid="loyalty-feed-posture"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-amber-100">Loyalty feed gate (C1)</h2>
+            <span className="text-[10px] font-bold uppercase tracking-wide rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-amber-200">
+              {loyaltyFeeds.feeds_status?.status || "unknown"}
+            </span>
+          </div>
+          <p className="text-xs text-amber-100/85 leading-relaxed">
+            {loyaltyFeeds.honesty ||
+              "Graph relatedness ≠ loyalty abuse. Incomplete warehouse feeds never allow a live claim."}
+          </p>
+          <dl className="grid gap-1 text-[11px] text-gray-300 sm:grid-cols-2 font-mono">
+            <div>
+              Live claim allowed:{" "}
+              <span className={loyaltyFeeds.live_claim_allowed ? "text-emerald-300" : "text-amber-200"}>
+                {loyaltyFeeds.live_claim_allowed ? "yes" : "no"}
+              </span>
+            </div>
+            <div>
+              Bridge configured:{" "}
+              <span className="text-gray-100">{loyaltyFeeds.bridge_configured ? "yes" : "no"}</span>
+            </div>
+            <div className="sm:col-span-2">
+              Required keys: {(loyaltyFeeds.required_feed_keys || []).join(", ") || "—"}
+            </div>
+          </dl>
+          {(loyaltyFeeds.blockers || []).length ? (
+            <p className="text-[11px] font-mono text-amber-200/90">
+              Blockers: {loyaltyFeeds.blockers?.join(", ")}
+            </p>
+          ) : null}
+          {loyaltyFeeds.feeds_status?.reason ? (
+            <p className="text-[10px] text-gray-500 font-mono">{loyaltyFeeds.feeds_status.reason}</p>
+          ) : null}
+        </section>
+      ) : null}
 
       <form
         className="rounded-xl border border-surface-700 bg-surface-900/60 p-4 flex flex-wrap gap-3 items-end"

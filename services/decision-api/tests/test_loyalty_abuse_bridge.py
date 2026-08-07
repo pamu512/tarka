@@ -11,6 +11,7 @@ from decision_api.loyalty_abuse_bridge import (
     build_loyalty_event,
     friction_to_tags,
     maybe_call_loyalty_abuse,
+    maybe_call_loyalty_abuse_from_evaluate,
     reset_loyalty_circuit_for_tests,
     should_call_loyalty_abuse,
 )
@@ -256,3 +257,33 @@ def test_schedule_skips_loyalty_bridge_when_not_redeem():
         if getattr(t[0], "__name__", "") == "maybe_call_loyalty_abuse_from_evaluate"
     ]
     assert bridge_tasks == []
+
+
+@pytest.mark.asyncio
+async def test_from_evaluate_attaches_incomplete_feed_gate():
+    reset_loyalty_circuit_for_tests()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"friction": "allow", "score": 1})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport, base_url="http://loyalty") as client:
+        result = await maybe_call_loyalty_abuse_from_evaluate(
+            http=client,
+            loyalty_abuse_url="http://loyalty",
+            loyalty_abuse_api_key="tok",
+            tenant_id="t",
+            entity_id="e",
+            trace_id="tr-feed",
+            payload={},
+            metadata={
+                "checkpoint": "redeem",
+                "feed_snapshot": {"orders": [], "refunds": []},
+            },
+        )
+    assert result.feed_gate is not None
+    assert result.feed_gate["status"] == "feeds_incomplete"
+    assert "loyalty:feeds_incomplete" in result.tags
+    ev = result.evidence()
+    assert ev is not None
+    assert ev["feed_gate"]["claim_allowed"] is False

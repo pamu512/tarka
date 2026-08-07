@@ -243,6 +243,8 @@ export LOYALTY_ABUSE_API_KEY=<bearer>
 
 Friction maps to tags `loyalty:friction:*`. Multi-gate LTV economics stay in the loyalty-abuse package — Tarka does not re-home them.
 
+**C1 feed-gate honesty:** `GET /v1/ops/loyalty-feed-posture` + `docs/compliance/loyalty-feeds.status`. Incomplete/missing S9 keys (`orders`, `refunds`, `loyalty_ledger`, `lifecycle`) never allow a live loyalty-abuse product claim. Pass `metadata.feed_snapshot` on redeem to attach `loyalty:feeds_*` tags; OSS default status is `FEEDS_NOT_PROVEN`. Sibling smoke: `loyalty-abuse/scripts/loyalty_economics_feed_smoke.py`.
+
 ## Track B — Durable promo & seller boards
 
 | Board | List | Record (S2S) |
