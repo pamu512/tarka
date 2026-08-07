@@ -40,10 +40,12 @@ describe("leanNav", () => {
     expect(isProductionSurfacePath("/disputes/x")).toBe(true);
     expect(isProductionSurfacePath("/analytics/promo-abuse")).toBe(true);
     expect(isProductionSurfacePath("/integrations/seller-integrity")).toBe(true);
+    expect(isProductionSurfacePath("/integrations/payout-delay")).toBe(true);
     expect(isProductionSurfacePath("/403-unauthorized")).toBe(true);
     expect(LEAN_NAV_PATHS.has("/ops/shadow")).toBe(true);
     expect(LEAN_NAV_PATHS.has("/analytics/promo-abuse")).toBe(true);
     expect(LEAN_NAV_PATHS.has("/integrations/seller-integrity")).toBe(true);
+    expect(LEAN_NAV_PATHS.has("/integrations/payout-delay")).toBe(true);
     expect(LEAN_NAV_PATHS.has("/simulation")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/shadow")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/investigation")).toBe(false);
