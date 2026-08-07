@@ -1,0 +1,55 @@
+{
+  "schema_id": "tarka.l3_ops_ledger/v1",
+  "status": "NOT_STARTED",
+  "tenant_id": null,
+  "week1_start_utc": null,
+  "week4_end_utc": null,
+  "shadow_evaluate_enabled": false,
+  "host_action_sink": null,
+  "label_join_ece": false,
+  "armed_at": null,
+  "armed_by": null,
+  "weeks": {
+    "1": {
+      "shadow_on": false,
+      "host_actions_logged": false,
+      "outcomes_joined": false,
+      "weekly_metrics": false,
+      "ece_candidate": false,
+      "sign_off": false,
+      "signed_at": null,
+      "signed_by": null
+    },
+    "2": {
+      "shadow_on": false,
+      "host_actions_logged": false,
+      "outcomes_joined": false,
+      "weekly_metrics": false,
+      "ece_candidate": false,
+      "sign_off": false,
+      "signed_at": null,
+      "signed_by": null
+    },
+    "3": {
+      "shadow_on": false,
+      "host_actions_logged": false,
+      "outcomes_joined": false,
+      "weekly_metrics": false,
+      "ece_candidate": false,
+      "sign_off": false,
+      "signed_at": null,
+      "signed_by": null
+    },
+    "4": {
+      "shadow_on": false,
+      "host_actions_logged": false,
+      "outcomes_joined": false,
+      "weekly_metrics": false,
+      "ece_candidate": false,
+      "sign_off": false,
+      "signed_at": null,
+      "signed_by": null
+    }
+  },
+  "honesty": "Sim/fixture never advances this ledger. COMPLETE only after four live weeks + Week-4 ECE on real labels. See docs/superpowers/playbooks/l3-ops-ledger.md and CLAIM_LOCK C5."
+}

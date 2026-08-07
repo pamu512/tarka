@@ -23,6 +23,9 @@ def test_load_repo_status_is_waived():
     assert body["schema_id"] == "tarka.partner_fusion_status/v1"
     assert body["status"] in {"WAIVED", "LIVE", "MISSING", "INVALID"}
     assert "opensanctions" in body
+    assert "live_readiness" in body
+    assert body["live_readiness"]["ready_to_claim_live"] is False or body["status"] == "LIVE"
     # Current committed posture is WAIVED without forged pins
     if body["status"] == "WAIVED":
         assert body["promote_live_claim_allowed"] is False
+        assert body["live_readiness"]["ready_to_claim_live"] is False

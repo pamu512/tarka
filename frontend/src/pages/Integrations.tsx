@@ -57,6 +57,12 @@ export default function Integrations() {
     opensanctions?: { note?: string; continuous_screening?: string };
     honesty?: string;
     runbook_path?: string;
+    live_readiness?: {
+      ready_to_attempt_live_proof?: boolean;
+      ready_to_claim_live?: boolean;
+      blockers?: string[];
+      operator_script?: string;
+    };
   } | null>(null);
   const [screening, setScreening] = useState<{
     ready_for_continuous_claim?: boolean;
@@ -273,6 +279,22 @@ export default function Integrations() {
             {partnerFusion.opensanctions?.continuous_screening || "plugin"} —{" "}
             {partnerFusion.opensanctions?.note}
           </p>
+          {partnerFusion.live_readiness ? (
+            <div className="text-[11px] text-gray-400 space-y-1 border-t border-amber-500/20 pt-2">
+              <div>
+                Ready to attempt live proof:{" "}
+                <span className="font-mono text-gray-200">
+                  {partnerFusion.live_readiness.ready_to_attempt_live_proof ? "yes" : "no"}
+                </span>
+              </div>
+              {(partnerFusion.live_readiness.blockers || []).length ? (
+                <div className="font-mono text-amber-200/90">
+                  Blockers: {partnerFusion.live_readiness.blockers?.join(", ")}
+                </div>
+              ) : null}
+              <div className="font-mono text-gray-500">{partnerFusion.live_readiness.operator_script}</div>
+            </div>
+          ) : null}
           <p className="text-[10px] text-gray-500 font-mono">{partnerFusion.runbook_path}</p>
         </div>
       ) : null}

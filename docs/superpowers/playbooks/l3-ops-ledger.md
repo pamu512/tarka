@@ -1,13 +1,14 @@
 # L3 ops ledger — four-week live shadow clock
 
-**Status:** **NOT STARTED**  
-**Updated:** 2026-08-06  
+**Machine source of truth:** [`docs/compliance/l3-ops-ledger.json`](../../compliance/l3-ops-ledger.json)  
+**API:** `GET /v1/ops/l3-ledger` · `POST /v1/ops/l3-ledger/arm` · `POST /v1/ops/l3-ledger/weeks/{n}/sign`  
+**Host actions:** `POST /v1/ops/host-actions` (internal JSONL sink)  
 **Playbook:** [2026-08-05-shadow-four-week-critical.md](./2026-08-05-shadow-four-week-critical.md)  
-**Sim (not L3):** `scripts/oss/shadow_four_week_sim.py` → banner `NOT PRODUCTION L3`
+**Sim (not L3):** `scripts/oss/shadow_four_week_sim.py` → banner `NOT PRODUCTION L3` — **never writes the ledger**
 
 ## Honesty
 
-Starting this ledger does **not** start L3. L3 starts when Week 1 checklist is completed on a **named live tenant** with shadow + host action log. Sim runs never advance this ledger.
+Arming the ledger starts the **clock**, not the claim. `claim_allowed` is true only at status `COMPLETE` (four signed live weeks + Week-4 ECE on real labels). Demo/sim tenants and sim sinks are rejected.
 
 ## Clock
 
@@ -33,12 +34,23 @@ Copy rows into dated notes when a week completes. Do not check off from sim.
 
 ## How to start the clock (operator)
 
-1. Pick named tenant; confirm shadow evaluate + host action export.
-2. Set **Week 1 start** above to today’s UTC date.
-3. Complete Week 1 checklist in the four-week playbook.
-4. Advance weekly; Week 4 requires ECE-gated retrain on **real** labels (`retrain_calibration_ece_gate.py`).
-5. Only then update claim materials — never from sim JSON.
+```bash
+# 1) Optional: use in-repo host action sink URI from GET /v1/ops/l3-ledger → internal_host_action_sink
+# 2) Arm (admin)
+curl -X POST "$DECISION_API_URL/v1/ops/l3-ledger/arm" -H "Authorization: …" -H "Content-Type: application/json" -d '{
+  "tenant_id": "YOUR_LIVE_TENANT",
+  "week1_start_utc": "2026-08-07",
+  "host_action_sink": "internal:jsonl:…",
+  "shadow_evaluate_enabled": true,
+  "actor": "you"
+}'
+# 3) Log host actions during the week
+curl -X POST "$DECISION_API_URL/v1/ops/host-actions" -d '{"tenant_id":"YOUR_LIVE_TENANT","action":"challenge_issued","trace_id":"…"}'
+# 4) Sign weeks 1–4; week 4 requires ece_candidate=true + real-label ECE
+```
 
-## 2026-08-06 session note
+Rejects: `demo` / `fixture` / `sim` tenants; sinks containing `shadow_four_week_sim`.
 
-In-repo path ready (playbook + sim smoke + ECE script). **Clock not started** — no live tenant / host action sink configured in this environment. Claim lock stays closed for L3 (C5).
+## Status
+
+Committed ledger starts **NOT_STARTED**. Claim lock stays closed for L3 (C5) until `COMPLETE`.

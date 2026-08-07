@@ -55,12 +55,39 @@ type TypologyTelemetry = {
   aggregation?: { mode?: string; note?: string };
 };
 
+type L3Ledger = {
+  status?: string;
+  tenant_id?: string | null;
+  week1_start_utc?: string | null;
+  week4_end_utc?: string | null;
+  shadow_evaluate_enabled?: boolean;
+  host_action_sink?: string | null;
+  label_join_ece?: boolean;
+  claim_allowed?: boolean;
+  host_action_log_count?: number;
+  internal_host_action_sink?: string;
+  weeks?: Record<
+    string,
+    {
+      shadow_on?: boolean;
+      host_actions_logged?: boolean;
+      outcomes_joined?: boolean;
+      weekly_metrics?: boolean;
+      ece_candidate?: boolean;
+      sign_off?: boolean;
+    }
+  >;
+  honesty?: string;
+  playbook?: string;
+};
+
 const L3_WEEK_ROWS = [1, 2, 3, 4] as const;
 
 export default function OpsShadow() {
   const [tenantId, setTenantId] = useState("demo");
   const [data, setData] = useState<ShadowPromoteGate | null>(null);
   const [typology, setTypology] = useState<TypologyTelemetry | null>(null);
+  const [l3, setL3] = useState<L3Ledger | null>(null);
   const [backtestPosture, setBacktestPosture] = useState<{
     require_backtest_before_promote?: boolean;
     note?: string;
@@ -81,6 +108,10 @@ export default function OpsShadow() {
       .backtestBeforePromotePosture()
       .then(setBacktestPosture)
       .catch(() => setBacktestPosture(null));
+    void decisions
+      .l3Ledger()
+      .then(setL3)
+      .catch(() => setL3(null));
   }, [tenantId]);
 
   const cc = data?.champion_challenger;
@@ -88,13 +119,13 @@ export default function OpsShadow() {
   const mcnemar = data?.mcnemar_promote_gate;
   const driftGate = data?.drift_promote_gate;
   const deskGate = data?.desk_promote_gate;
+  const l3Status = l3?.status || "NOT_STARTED";
 
   return (
     <div className="p-6 space-y-4">
       <h1 className="text-2xl font-bold text-gray-100">Shadow vs primary</h1>
       <p className="text-sm text-gray-400">
-        Label-gated promote + champion–challenger agreement. Warehouse diffs use the SQL recipe. L3 stays NOT
-        STARTED until a named live tenant.
+        Outcome-loop surfaces: L3 live ledger + label/McNemar/drift desk promote. Sim never starts L3.
       </p>
 
       <label className="block text-xs text-gray-500 max-w-xs">
@@ -114,30 +145,39 @@ export default function OpsShadow() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-amber-100">L3 ops ledger (four-week live shadow)</h2>
           <span className="text-[10px] font-bold uppercase tracking-wide rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-amber-200">
-            NOT STARTED
+            {l3Status}
           </span>
         </div>
         <p className="text-xs text-amber-100/85 leading-relaxed">
-          Starting this panel does <strong className="font-semibold">not</strong> start L3. L3 requires a named live
-          tenant, host action log sink, and Week 1 checklist — not{" "}
-          <code className="font-mono text-amber-200/90">shadow_four_week_sim.py</code> (
-          <span className="font-mono">NOT PRODUCTION L3</span>).
+          {l3?.honesty ||
+            "Arm via POST /v1/ops/l3-ledger/arm with a named live tenant + host action sink. Sim never advances this ledger."}
         </p>
         <dl className="grid gap-1 text-[11px] text-gray-300 sm:grid-cols-2 font-mono">
           <div>
-            Tenant id: <span className="text-gray-500">pending operator</span>
+            Tenant id: <span className="text-gray-100">{l3?.tenant_id || "pending operator"}</span>
           </div>
           <div>
-            Week 1 start (UTC): <span className="text-gray-500">not set</span>
+            Week 1 start (UTC): <span className="text-gray-100">{l3?.week1_start_utc || "not set"}</span>
           </div>
           <div>
-            Shadow evaluate: <span className="text-gray-500">no</span>
+            Shadow evaluate:{" "}
+            <span className="text-gray-100">{l3?.shadow_evaluate_enabled ? "yes" : "no"}</span>
           </div>
           <div>
-            Host action sink: <span className="text-gray-500">no</span>
+            Host action sink:{" "}
+            <span className="text-gray-100 break-all">{l3?.host_action_sink || "no"}</span>
           </div>
           <div>
-            Label join / ECE (real labels): <span className="text-gray-500">no</span>
+            Host actions logged: <span className="text-gray-100">{l3?.host_action_log_count ?? 0}</span>
+          </div>
+          <div>
+            Label join / ECE: <span className="text-gray-100">{l3?.label_join_ece ? "yes" : "no"}</span>
+          </div>
+          <div>
+            Claim allowed:{" "}
+            <span className={l3?.claim_allowed ? "text-emerald-300" : "text-amber-200"}>
+              {l3?.claim_allowed ? "yes" : "no"}
+            </span>
           </div>
         </dl>
         <div className="overflow-x-auto">
@@ -153,22 +193,25 @@ export default function OpsShadow() {
               </tr>
             </thead>
             <tbody>
-              {L3_WEEK_ROWS.map((w) => (
-                <tr key={w} className="border-b border-surface-800/80">
-                  <td className="py-1 pr-2 font-mono text-gray-300">{w}</td>
-                  <td className="py-1 pr-2">☐</td>
-                  <td className="py-1 pr-2">☐</td>
-                  <td className="py-1 pr-2">☐</td>
-                  <td className="py-1 pr-2">☐</td>
-                  <td className="py-1">☐</td>
-                </tr>
-              ))}
+              {L3_WEEK_ROWS.map((w) => {
+                const row = l3?.weeks?.[String(w)];
+                return (
+                  <tr key={w} className="border-b border-surface-800/80">
+                    <td className="py-1 pr-2 font-mono text-gray-300">{w}</td>
+                    <td className="py-1 pr-2">{row?.shadow_on ? "☑" : "☐"}</td>
+                    <td className="py-1 pr-2">{row?.host_actions_logged ? "☑" : "☐"}</td>
+                    <td className="py-1 pr-2">{row?.outcomes_joined ? "☑" : "☐"}</td>
+                    <td className="py-1 pr-2">{row?.weekly_metrics ? "☑" : "☐"}</td>
+                    <td className="py-1">{row?.sign_off ? "☑" : "☐"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
-        <p className="text-[10px] text-gray-500">
-          Operator playbook:{" "}
-          <span className="font-mono text-gray-400">docs/superpowers/playbooks/l3-ops-ledger.md</span>
+        <p className="text-[10px] text-gray-500 font-mono">
+          {l3?.playbook || "docs/superpowers/playbooks/l3-ops-ledger.md"}
+          {l3?.internal_host_action_sink ? ` · sink ${l3.internal_host_action_sink}` : ""}
         </p>
       </section>
 
@@ -195,7 +238,6 @@ export default function OpsShadow() {
               <span className={labelGate?.promote_allowed ? "text-emerald-400" : "text-amber-300"}>
                 {labelGate?.promote_allowed ? "ok" : "blocked"}
               </span>
-              {labelGate?.blockers?.length ? ` (${labelGate.blockers.join(", ")})` : ""}
             </div>
             <div>
               McNemar: {mcnemar?.discordant_pairs ?? 0}/{mcnemar?.min_discordant_pairs ?? 20} —{" "}
@@ -208,17 +250,12 @@ export default function OpsShadow() {
               <span className={driftGate?.promote_allowed ? "text-emerald-400" : "text-amber-300"}>
                 {driftGate?.promote_allowed ? "ok" : "blocked"}
               </span>
-              {driftGate?.hint ? ` (${driftGate.hint})` : ""}
             </div>
           </dl>
           <p className="text-xs text-gray-500">{data.honesty}</p>
           <div className="text-xs text-gray-400 space-y-1">
-            <div>
-              Kill smoke — underpowered: promote {data.blocked?.promote_allowed ? "allowed" : "blocked"}
-            </div>
-            <div>
-              Kill smoke — healthy metrics: promote {data.allowed?.promote_allowed ? "allowed" : "blocked"}
-            </div>
+            <div>Kill smoke — underpowered: promote {data.blocked?.promote_allowed ? "allowed" : "blocked"}</div>
+            <div>Kill smoke — healthy metrics: promote {data.allowed?.promote_allowed ? "allowed" : "blocked"}</div>
             <code className="text-[10px] text-gray-500">{data.recipe_path}</code>
           </div>
         </section>
@@ -232,8 +269,7 @@ export default function OpsShadow() {
           <h2 className="text-sm font-semibold text-gray-200">Champion–challenger agreement</h2>
           <dl className="grid gap-1 text-xs text-gray-300 sm:grid-cols-3 font-mono">
             <div>
-              Rows with routing:{" "}
-              <span className="text-gray-100">{cc.rows_with_policy_routing ?? 0}</span>
+              Rows with routing: <span className="text-gray-100">{cc.rows_with_policy_routing ?? 0}</span>
             </div>
             <div>
               Agree count: <span className="text-gray-100">{cc.decisions_agree_count ?? 0}</span>
