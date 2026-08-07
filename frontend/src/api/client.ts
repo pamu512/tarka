@@ -1729,6 +1729,21 @@ export const decisions = {
     }>("/api/decisions/v1/ops/l3-ledger");
   },
 
+  loyaltyFeedPosture() {
+    return request<{
+      schema_id?: string;
+      claim_lock?: string;
+      required_feed_keys?: string[];
+      bridge_configured?: boolean;
+      live_claim_allowed?: boolean;
+      blockers?: string[];
+      feeds_status?: { status?: string; reason?: string; live_claim_allowed?: boolean };
+      honesty?: string;
+      sibling_smoke?: string;
+      tarka_smoke?: string;
+    }>("/api/decisions/v1/ops/loyalty-feed-posture");
+  },
+
   typologyTelemetry() {
     return request<{
       schema_id: string;

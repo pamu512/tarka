@@ -1311,6 +1311,17 @@ async def partner_fusion_status_ops(_user=Depends(require_role("analyst"))):
     return load_partner_fusion_status()
 
 
+@app.get("/v1/ops/loyalty-feed-posture")
+async def loyalty_feed_posture_ops(_user=Depends(require_role("analyst"))):
+    """C1 loyalty feed-gate honesty — incomplete feeds never allow live claims."""
+    from decision_api.loyalty_feed_posture import load_loyalty_feed_ops_posture
+
+    return load_loyalty_feed_ops_posture(
+        loyalty_abuse_url=settings.loyalty_abuse_url,
+        loyalty_abuse_api_key=settings.loyalty_abuse_api_key,
+    )
+
+
 @app.get("/v1/ops/l3-ledger")
 async def l3_ops_ledger_get(_user=Depends(require_role("analyst"))):
     """Four-week live shadow ledger. Sim cannot advance this file."""

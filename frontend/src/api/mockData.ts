@@ -1890,6 +1890,22 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       honesty: "Journal mock empty.",
     };
   }
+  if (path.includes("/api/decisions/v1/ops/loyalty-feed-posture")) {
+    return {
+      schema_id: "tarka.loyalty_feed_ops_posture/v1",
+      claim_lock: "C1",
+      required_feed_keys: ["refunds", "orders", "loyalty_ledger", "lifecycle"],
+      bridge_configured: false,
+      live_claim_allowed: false,
+      blockers: ["loyalty_bridge_unconfigured", "status_FEEDS_NOT_PROVEN"],
+      feeds_status: {
+        status: "FEEDS_NOT_PROVEN",
+        reason: "no tenant warehouse feeds in OSS",
+        live_claim_allowed: false,
+      },
+      honesty: "Graph relatedness ≠ loyalty abuse. Incomplete feeds never allow live claims.",
+    };
+  }
   if (path.includes("/api/ingress/v1/ops/failover-toggles")) {
     if (method === "PUT" && body && typeof body === "object") {
       const b = body as Record<string, unknown>;

@@ -67,6 +67,8 @@ class LoyaltyBridgeResult:
     friction: str | None = None
     score: float | None = None
     skipped_reason: str | None = None
+    feed_gate: dict[str, Any] | None = None
+    economics_status: str | None = None
 
     def evidence(self) -> dict[str, Any] | None:
         if (
@@ -74,6 +76,8 @@ class LoyaltyBridgeResult:
             and self.friction is None
             and self.score is None
             and self.skipped_reason is None
+            and self.feed_gate is None
+            and self.economics_status is None
         ):
             return None
         out: dict[str, Any] = {"source": "loyalty_abuse_bridge"}
@@ -85,6 +89,10 @@ class LoyaltyBridgeResult:
             out["tags"] = list(self.tags)
         if self.skipped_reason is not None:
             out["skipped_reason"] = self.skipped_reason
+        if self.feed_gate is not None:
+            out["feed_gate"] = self.feed_gate
+        if self.economics_status is not None:
+            out["economics_status"] = self.economics_status
         return out
 
 
@@ -106,17 +114,39 @@ def friction_to_tags(friction: str | None) -> list[str]:
     return [f"loyalty:friction:{f}"]
 
 
-def map_loyalty_response(response: dict[str, Any]) -> LoyaltyBridgeResult:
+def map_loyalty_response(
+    response: dict[str, Any],
+    *,
+    feed_gate: dict[str, Any] | None = None,
+) -> LoyaltyBridgeResult:
     """Map loyalty-abuse Decision friction to Tarka tag vocabulary + evidence."""
     if not isinstance(response, dict):
         return LoyaltyBridgeResult()
     friction_raw = response.get("friction")
+    # UnifiedDecision nests friction as an object; plain Decision uses string.
+    if isinstance(friction_raw, dict):
+        friction_raw = friction_raw.get("friction") or friction_raw.get("action")
     friction = friction_raw.strip().lower() if isinstance(friction_raw, str) else None
     tags = friction_to_tags(friction)
     score_raw = response.get("score")
+    if score_raw is None and isinstance(response.get("friction"), dict):
+        score_raw = response["friction"].get("score")
     score: float | None = None
     if isinstance(score_raw, (int, float)):
         score = float(score_raw)
+
+    from decision_api.loyalty_feed_posture import (
+        economics_feed_status,
+        parse_economics_block,
+        tags_for_feed_status,
+    )
+
+    eco = parse_economics_block(response)
+    if eco:
+        tags = list(dict.fromkeys(tags + tags_for_feed_status(economics_feed_status(eco))))
+    elif isinstance(feed_gate, dict) and feed_gate.get("status"):
+        tags = list(dict.fromkeys(tags + tags_for_feed_status(str(feed_gate["status"]))))
+
     if tags:
         log.info(
             "loyalty_abuse_bridge friction=%s score=%s tags=%s",
@@ -124,7 +154,16 @@ def map_loyalty_response(response: dict[str, Any]) -> LoyaltyBridgeResult:
             score,
             tags,
         )
-    return LoyaltyBridgeResult(tags=tags, friction=friction, score=score)
+    from decision_api.loyalty_feed_posture import economics_feed_status
+
+    eco_status = economics_feed_status(eco) if eco else None
+    return LoyaltyBridgeResult(
+        tags=tags,
+        friction=friction,
+        score=score,
+        feed_gate=feed_gate if isinstance(feed_gate, dict) else None,
+        economics_status=eco_status,
+    )
 
 
 def build_loyalty_event(
@@ -209,7 +248,7 @@ async def maybe_call_loyalty_abuse(
             )
             return LoyaltyBridgeResult(skipped_reason="invalid_response")
         _record_loyalty_success()
-        return map_loyalty_response(data)
+        return map_loyalty_response(data, feed_gate=None)
     except Exception:
         log.exception("loyalty_abuse_bridge_failed")
         _record_loyalty_failure(
@@ -241,6 +280,16 @@ async def maybe_call_loyalty_abuse_from_evaluate(
 ) -> LoyaltyBridgeResult:
     if not should_call_loyalty_abuse(metadata=metadata, event_type=event_type):
         return LoyaltyBridgeResult()
+
+    from decision_api.loyalty_feed_posture import (
+        extract_feed_snapshot,
+        tags_for_feed_status,
+        validate_feed_snapshot,
+    )
+
+    feed_gate = validate_feed_snapshot(
+        extract_feed_snapshot(metadata=metadata, payload=payload)
+    )
     body = build_loyalty_event(
         tenant_id=tenant_id,
         entity_id=entity_id,
@@ -248,7 +297,16 @@ async def maybe_call_loyalty_abuse_from_evaluate(
         payload=payload,
         metadata=metadata,
     )
-    return await maybe_call_loyalty_abuse(
+    # Pass through snapshot when present so loyalty-abuse /v1/decide can use it later;
+    # evaluate path ignores unknown keys safely if wrapped under event.payload.
+    snap = extract_feed_snapshot(metadata=metadata, payload=payload)
+    if isinstance(snap, dict) and isinstance(body.get("event"), dict):
+        body["event"].setdefault("payload", {})
+        if isinstance(body["event"]["payload"], dict):
+            body["event"]["payload"]["feed_snapshot"] = snap
+        body["feed_snapshot"] = snap
+
+    result = await maybe_call_loyalty_abuse(
         http=http,
         base_url=loyalty_abuse_url,
         api_key=loyalty_abuse_api_key,
@@ -258,3 +316,25 @@ async def maybe_call_loyalty_abuse_from_evaluate(
         failure_threshold=failure_threshold,
         recovery_seconds=recovery_seconds,
     )
+    # Re-map with feed_gate when response had no economics (typical /v1/evaluate).
+    if result.economics_status is None and result.feed_gate is None:
+        extra = tags_for_feed_status(str(feed_gate.get("status") or "unknown"))
+        merged = list(dict.fromkeys(list(result.tags) + extra))
+        return LoyaltyBridgeResult(
+            tags=merged,
+            friction=result.friction,
+            score=result.score,
+            skipped_reason=result.skipped_reason,
+            feed_gate=feed_gate,
+            economics_status=None,
+        )
+    if result.feed_gate is None:
+        return LoyaltyBridgeResult(
+            tags=result.tags,
+            friction=result.friction,
+            score=result.score,
+            skipped_reason=result.skipped_reason,
+            feed_gate=feed_gate,
+            economics_status=result.economics_status,
+        )
+    return result
