@@ -1492,6 +1492,25 @@ export const decisions = {
     }>("/api/decisions/v1/ops/feature-store-posture");
   },
 
+  diligenceReadiness() {
+    return request<{
+      schema_id?: string;
+      soc2_attestation?: boolean;
+      diligence_pack_ready?: boolean;
+      closed_loop_claims_ready?: boolean;
+      blockers?: string[];
+      honesty?: string;
+      pack?: string;
+      gates?: {
+        l2_partner_fusion?: { status?: string; live_claim_allowed?: boolean };
+        l3_ops_ledger?: { status?: string; claim_allowed?: boolean };
+        loyalty_feeds_c1?: { status?: string; live_claim_allowed?: boolean };
+        feature_store?: { ops_ready?: boolean; dual_diff_proven?: boolean };
+        control_docs?: { complete?: boolean; missing_count?: number };
+      };
+    }>("/api/decisions/v1/ops/diligence-readiness");
+  },
+
   benchmarkExport(tenantId: string) {
     const q = new URLSearchParams({ tenant_id: tenantId });
     return request<TenantBenchmarkExport>(`/api/decisions/v1/simulation/benchmark/export?${q}`);

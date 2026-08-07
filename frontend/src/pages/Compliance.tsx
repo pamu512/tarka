@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link } from 'react-router';
-import { compliance } from "../api/client";
+import { compliance, decisions } from "../api/client";
 import { ComplianceResidencyAuditViewer } from "../components/compliance/ComplianceResidencyAuditViewer";
 import { DataResidencyMatrix } from "../components/compliance/DataResidencyMatrix";
 import { PageTitle } from "../components/PageTitle";
@@ -106,6 +106,21 @@ export default function Compliance() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [diligence, setDiligence] = useState<{
+    soc2_attestation?: boolean;
+    diligence_pack_ready?: boolean;
+    closed_loop_claims_ready?: boolean;
+    blockers?: string[];
+    honesty?: string;
+    pack?: string;
+    gates?: {
+      l2_partner_fusion?: { status?: string; live_claim_allowed?: boolean };
+      l3_ops_ledger?: { status?: string; claim_allowed?: boolean };
+      loyalty_feeds_c1?: { status?: string; live_claim_allowed?: boolean };
+      feature_store?: { ops_ready?: boolean; dual_diff_proven?: boolean };
+      control_docs?: { complete?: boolean };
+    };
+  } | null>(null);
 
   const tenantId = "demo";
 
@@ -150,6 +165,13 @@ export default function Compliance() {
     fetchRegions();
     fetchCerts();
   }, [fetchRegions, fetchCerts]);
+
+  useEffect(() => {
+    void decisions
+      .diligenceReadiness()
+      .then(setDiligence)
+      .catch(() => setDiligence(null));
+  }, []);
 
   useEffect(() => {
     if (selectedRegion) fetchProfile(selectedRegion);
@@ -295,6 +317,58 @@ export default function Compliance() {
           </select>
         </div>
       </div>
+
+      {diligence ? (
+        <section
+          className="rounded-xl border border-amber-500/35 bg-amber-950/20 px-4 py-3 space-y-2"
+          data-testid="diligence-readiness"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-amber-100">Diligence readiness</h2>
+            <span className="text-[10px] font-bold uppercase tracking-wide rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-amber-200">
+              {diligence.closed_loop_claims_ready ? "closed-loop ready" : "claims locked"}
+            </span>
+          </div>
+          <p className="text-xs text-amber-100/85 leading-relaxed">
+            {diligence.honesty || "Customer diligence index — not SOC2 Type II."}
+          </p>
+          <dl className="grid gap-1 text-[11px] text-gray-300 sm:grid-cols-2 font-mono">
+            <div>
+              Pack docs:{" "}
+              <span className={diligence.diligence_pack_ready ? "text-emerald-300" : "text-amber-200"}>
+                {diligence.diligence_pack_ready ? "complete" : "incomplete"}
+              </span>
+            </div>
+            <div>
+              SOC2 attestation: <span className="text-amber-200">{diligence.soc2_attestation ? "yes" : "no"}</span>
+            </div>
+            <div>
+              L2: {diligence.gates?.l2_partner_fusion?.status || "—"} (
+              {diligence.gates?.l2_partner_fusion?.live_claim_allowed ? "LIVE ok" : "no LIVE claim"})
+            </div>
+            <div>
+              L3: {diligence.gates?.l3_ops_ledger?.status || "—"} (
+              {diligence.gates?.l3_ops_ledger?.claim_allowed ? "claim ok" : "locked"})
+            </div>
+            <div>
+              Loyalty feeds: {diligence.gates?.loyalty_feeds_c1?.status || "—"}
+            </div>
+            <div>
+              Feature store ops: {diligence.gates?.feature_store?.ops_ready ? "ready" : "not ready"}
+              {diligence.gates?.feature_store?.dual_diff_proven ? " · dual-diff" : ""}
+            </div>
+          </dl>
+          {(diligence.blockers || []).length ? (
+            <p className="text-[11px] font-mono text-amber-200/90">
+              Blockers: {diligence.blockers?.join(", ")}
+            </p>
+          ) : null}
+          <p className="text-[10px] text-gray-500 font-mono">
+            {diligence.pack || "docs/compliance/customer-control-evidence-pack.md"} · GET
+            /v1/ops/diligence-readiness
+          </p>
+        </section>
+      ) : null}
 
       <DataResidencyMatrix />
 
