@@ -3977,6 +3977,8 @@ export const integrations = {
     return request<{
       schema_id: string;
       ready_for_continuous_claim?: boolean;
+      continuous_ops_ready?: boolean;
+      continuous_ops_blockers?: string[];
       continuous_bulk?: {
         status?: string;
         entities_loaded?: number;
@@ -3984,7 +3986,12 @@ export const integrations = {
         cache_present?: boolean;
         screening_journal_lines?: number;
         refresh?: string;
+        journal?: string;
+        last_refresh_at?: string | null;
+        last_refresh_by?: string | null;
+        refresh_count?: number;
       };
+      schedule?: { configured?: boolean; expression?: string | null; note?: string };
       realtime_match_api?: { plugin?: string; note?: string };
       vs_marble?: string;
       honesty?: string;
@@ -3996,8 +4003,25 @@ export const integrations = {
       schema_id: string;
       refreshed?: boolean;
       ready_for_continuous_claim?: boolean;
+      continuous_ops_ready?: boolean;
+      continuous_ops_blockers?: string[];
       continuous_bulk?: { status?: string; entities_loaded?: number };
     }>(`/api/ingress/v1/ops/sanctions-screening-refresh${q}`, { method: "POST" });
+  },
+  sanctionsScreeningJournal(limit = 25) {
+    return request<{
+      schema_id: string;
+      count: number;
+      rows: Array<{
+        ts?: string;
+        tenant_id?: string;
+        entity_name?: string;
+        match_found?: boolean;
+        match_count?: number;
+        screening_log_id?: string;
+      }>;
+      honesty?: string;
+    }>(`/api/ingress/v1/ops/sanctions-screening-journal?limit=${limit}`);
   },
   installed(tenantId: string) {
     return request<{

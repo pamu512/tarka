@@ -66,16 +66,31 @@ export default function Integrations() {
   } | null>(null);
   const [screening, setScreening] = useState<{
     ready_for_continuous_claim?: boolean;
+    continuous_ops_ready?: boolean;
+    continuous_ops_blockers?: string[];
     continuous_bulk?: {
       status?: string;
       entities_loaded?: number;
       cache_fresh?: boolean;
       cache_present?: boolean;
       screening_journal_lines?: number;
+      last_refresh_at?: string | null;
+      last_refresh_by?: string | null;
+      refresh_count?: number;
     };
+    schedule?: { configured?: boolean; expression?: string | null; note?: string };
     vs_marble?: string;
     honesty?: string;
   } | null>(null);
+  const [screeningJournal, setScreeningJournal] = useState<
+    Array<{
+      ts?: string;
+      tenant_id?: string;
+      entity_name?: string;
+      match_found?: boolean;
+      match_count?: number;
+    }>
+  >([]);
   const [screeningBusy, setScreeningBusy] = useState(false);
 
   async function refresh() {
@@ -132,6 +147,10 @@ export default function Integrations() {
       .sanctionsScreeningPosture()
       .then(setScreening)
       .catch(() => setScreening(null));
+    void integrations
+      .sanctionsScreeningJournal(15)
+      .then((j) => setScreeningJournal(j.rows || []))
+      .catch(() => setScreeningJournal([]));
   }, []);
 
   useEffect(() => {
@@ -322,6 +341,35 @@ export default function Integrations() {
             {screening.continuous_bulk?.cache_fresh ? "fresh" : "stale/absent"} · journal lines{" "}
             {screening.continuous_bulk?.screening_journal_lines ?? 0}
           </p>
+          <dl className="grid gap-1 text-[11px] text-gray-400 sm:grid-cols-2 font-mono">
+            <div>
+              Ops continuous ready:{" "}
+              <span className={screening.continuous_ops_ready ? "text-emerald-300" : "text-amber-200"}>
+                {screening.continuous_ops_ready ? "yes" : "no"}
+              </span>
+            </div>
+            <div>
+              Schedule:{" "}
+              <span className="text-gray-200">
+                {screening.schedule?.configured
+                  ? screening.schedule.expression || "configured"
+                  : "unset (TARKA_SANCTIONS_REFRESH_SCHEDULE)"}
+              </span>
+            </div>
+            <div>
+              Last refresh:{" "}
+              <span className="text-gray-200">{screening.continuous_bulk?.last_refresh_at || "never"}</span>
+            </div>
+            <div>
+              Refresh count:{" "}
+              <span className="text-gray-200">{screening.continuous_bulk?.refresh_count ?? 0}</span>
+            </div>
+          </dl>
+          {(screening.continuous_ops_blockers || []).length ? (
+            <p className="text-[11px] font-mono text-amber-200/90">
+              Blockers: {screening.continuous_ops_blockers?.join(", ")}
+            </p>
+          ) : null}
           <p className="text-[11px] text-gray-500">{screening.vs_marble}</p>
           <p className="text-[10px] text-gray-500">{screening.honesty}</p>
           <button
@@ -332,13 +380,47 @@ export default function Integrations() {
               setScreeningBusy(true);
               void integrations
                 .sanctionsScreeningRefresh(true)
-                .then(setScreening)
+                .then((p) => {
+                  setScreening(p);
+                  return integrations.sanctionsScreeningJournal(15);
+                })
+                .then((j) => setScreeningJournal(j.rows || []))
                 .catch((e) => setMessage(toUserFacingError(e, { subject: "OpenSanctions", action: "refresh FtM cache" })))
                 .finally(() => setScreeningBusy(false));
             }}
           >
             {screeningBusy ? "Refreshing…" : "Refresh FtM cache (admin)"}
           </button>
+          <div className="overflow-x-auto border-t border-surface-800 pt-2" data-testid="sanctions-screening-journal">
+            <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">Recent screens (journal)</p>
+            <table className="w-full text-[10px] text-left text-gray-400">
+              <thead>
+                <tr className="border-b border-surface-700 text-gray-500">
+                  <th className="py-1 pr-2">When</th>
+                  <th className="py-1 pr-2">Tenant</th>
+                  <th className="py-1 pr-2">Entity</th>
+                  <th className="py-1">Match</th>
+                </tr>
+              </thead>
+              <tbody>
+                {screeningJournal.slice(0, 15).map((row, i) => (
+                  <tr key={`${row.ts || i}-${row.entity_name || ""}`} className="border-b border-surface-800/80">
+                    <td className="py-1 pr-2 font-mono text-gray-300">{row.ts || "—"}</td>
+                    <td className="py-1 pr-2 font-mono">{row.tenant_id || "—"}</td>
+                    <td className="py-1 pr-2">{row.entity_name || "—"}</td>
+                    <td className="py-1">{row.match_found ? `yes (${row.match_count ?? "?"})` : "no"}</td>
+                  </tr>
+                ))}
+                {!screeningJournal.length ? (
+                  <tr>
+                    <td colSpan={4} className="py-2 text-gray-500">
+                      No journal rows yet — screens persist here after adapter invokes.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : null}
 

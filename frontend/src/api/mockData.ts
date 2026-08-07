@@ -1865,15 +1865,29 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
     return {
       schema_id: "tarka.sanctions_screening_ops_posture/v1",
       ready_for_continuous_claim: false,
+      continuous_ops_ready: false,
+      continuous_ops_blockers: ["cache_not_loaded", "refresh_schedule_unset", "no_refresh_stamp"],
       continuous_bulk: {
         status: "not_loaded",
         entities_loaded: 0,
         cache_fresh: false,
         cache_present: false,
+        screening_journal_lines: 0,
+        last_refresh_at: null,
+        refresh_count: 0,
       },
+      schedule: { configured: false, expression: null, note: "Set TARKA_SANCTIONS_REFRESH_SCHEDULE" },
       realtime_match_api: { plugin: "opensanctions", note: "Match API plugin (mock)" },
       vs_marble: "Bulk FtM cache ≠ Marble Motiva+ES continuous list product.",
       honesty: "Empty/missing cache is not a pass.",
+    };
+  }
+  if (path.includes("/api/ingress/v1/ops/sanctions-screening-journal")) {
+    return {
+      schema_id: "tarka.sanctions_screening_journal_tail/v1",
+      count: 0,
+      rows: [],
+      honesty: "Journal mock empty.",
     };
   }
   if (path.includes("/api/ingress/v1/ops/failover-toggles")) {
