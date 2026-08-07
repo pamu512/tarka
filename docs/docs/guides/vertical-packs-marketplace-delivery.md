@@ -250,6 +250,24 @@ Friction maps to tags `loyalty:friction:*`. Multi-gate LTV economics stay in the
 
 Empty tenants return empty rows (no SHA demo aggregates).
 
+### Evaluate → durable record bridges
+
+When `INTEGRATION_INGRESS_URL` and `INGRESS_INTERNAL_TOKEN` are set (same as payout holds), decision-api POSTs durable rows in the background after evaluate — fail-soft; evaluate still returns 200 on bridge failure.
+
+**Promo redemption** — triggers when `metadata.coupon_code` or `metadata.promo_code` is present and any of:
+
+- `metadata.checkpoint` in `redeem`, `promo`, or `event_type=redeem`
+- tags include `risk:promo_farm`
+
+Body maps `user_id=entity_id`, optional `device_id`, `order_total`, `currency`, `ip_hint`, `flags=tags`, `trace_id`. Failure metric: `promo_redemption_bridge_failed`.
+
+**Seller integrity** — triggers when `metadata.seller_id` is set and any of:
+
+- `metadata.checkpoint` in `seller_review`, `delivery`, `checkout` (or matching `event_type`)
+- `successful_deliveries` and/or `review_count` in metadata (payload fields merged when absent from metadata)
+
+Body includes `window_days` (default 30). Failure metric: `seller_integrity_bridge_failed`.
+
 ## Track C — Partner fusion proof
 
 - L1 fixture: `python3 scripts/oss/partner_fusion_tenant_proof.py --mode fixture` (CI pin in `docs/compliance/partner-fusion-proof.stable.sha256`).
@@ -260,7 +278,8 @@ Empty tenants return empty rows (no SHA demo aggregates).
 ```bash
 cd services/decision-api && PYTHONPATH=src python -m pytest \
   tests/test_payout_hold_from_evaluate.py tests/test_offline_payment_features.py \
-  tests/test_loyalty_abuse_bridge.py tests/test_marketplace_vertical_packs.py -q
+  tests/test_loyalty_abuse_bridge.py tests/test_promo_redemption_bridge.py \
+  tests/test_seller_integrity_bridge.py tests/test_marketplace_vertical_packs.py -q
 cd ../integration-ingress && python -m pytest \
   tests/test_payout_hold_store.py tests/test_payout_delay_durable.py \
   tests/test_promo_seller_durable.py tests/test_promo_abuse_tracking.py \
