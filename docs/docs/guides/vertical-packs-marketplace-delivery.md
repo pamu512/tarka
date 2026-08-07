@@ -168,7 +168,7 @@ Automated suite (run from repo root paths):
 ```bash
 cd services/decision-api && python -m pytest tests/test_marketplace_vertical_packs.py tests/test_payout_hold_from_evaluate.py -q
 cd ../integration-ingress && python -m pytest tests/test_payout_hold_store.py tests/test_payout_delay_durable.py -q
-cd ../case-api && python -m pytest tests/test_multi_party_links.py -q
+cd ../case-api && PYTHONPATH=src:../shared:../../packages/shared-core python -m pytest tests/test_multi_party_links.py -q
 cd ../../frontend && npm test -- --run MultiPartyLinks
 ```
 
