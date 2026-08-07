@@ -1322,6 +1322,17 @@ async def loyalty_feed_posture_ops(_user=Depends(require_role("analyst"))):
     )
 
 
+@app.get("/v1/ops/feature-store-posture")
+async def feature_store_posture_ops(_user=Depends(require_role("analyst"))):
+    """Online/offline feature-store ops posture — Redis ≠ Feast/Flink claims."""
+    from decision_api.feature_store_posture import load_feature_store_ops_posture
+
+    return load_feature_store_ops_posture(
+        rules_path=settings.rules_path,
+        redis_url=settings.redis_url,
+    )
+
+
 @app.get("/v1/ops/l3-ledger")
 async def l3_ops_ledger_get(_user=Depends(require_role("analyst"))):
     """Four-week live shadow ledger. Sim cannot advance this file."""

@@ -1471,6 +1471,27 @@ export const decisions = {
     }>("/api/decisions/v1/internal/counters/parity-status");
   },
 
+  featureStorePosture() {
+    return request<{
+      schema_id?: string;
+      ops_ready?: boolean;
+      feast_class_claim_allowed?: boolean;
+      streaming_flink_claim_allowed?: boolean;
+      blockers?: string[];
+      online_store?: { backend?: string; configured?: boolean; ttl_seconds_default?: number };
+      offline_parity?: {
+        dual_diff_proven?: boolean;
+        artifact_present?: boolean;
+        mode?: string;
+        job?: string;
+      };
+      manifest?: { version?: string; feature_count?: number };
+      streaming_plane?: { engine?: string; not?: string[] };
+      vs_feast?: string;
+      honesty?: string;
+    }>("/api/decisions/v1/ops/feature-store-posture");
+  },
+
   benchmarkExport(tenantId: string) {
     const q = new URLSearchParams({ tenant_id: tenantId });
     return request<TenantBenchmarkExport>(`/api/decisions/v1/simulation/benchmark/export?${q}`);
