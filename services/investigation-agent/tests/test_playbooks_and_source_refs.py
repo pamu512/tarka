@@ -7,7 +7,10 @@ from investigation_agent.copilot_hardening import (
 )
 from investigation_agent.main import app
 from investigation_agent.personas import build_copilot_system_prompt, list_personas
-from investigation_agent.playbooks import playbooks_catalog_fingerprint
+from investigation_agent.playbooks import (
+    playbook_system_append,
+    playbooks_catalog_fingerprint,
+)
 
 
 def test_personas_catalog_and_prompts():
@@ -92,6 +95,25 @@ def test_list_playbooks():
     ids = {p["id"] for p in data["playbooks"]}
     assert "payments_first_party" in ids
     assert "account_takeover" in ids
+    assert "marketplace_cod_courier_hold" in ids
+    entry = next(p for p in data["playbooks"] if p["id"] == "marketplace_cod_courier_hold")
+    assert entry["vertical"] == "marketplace_offline_payment"
+    assert "COD" in entry["title"] or "courier" in entry["title"].lower()
+
+
+def test_marketplace_cod_courier_playbook_triggers_on_cod_and_courier_tags():
+    fragment = playbook_system_append("marketplace_cod_courier_hold")
+    trigger_markers = (
+        "is_cod",
+        "is_offline_payment",
+        "payment_method",
+        "risk:courier_spoof",
+        "vendor:incognia",
+        "action:payout_hold",
+        "risk:promo_farm",
+    )
+    for marker in trigger_markers:
+        assert marker in fragment, f"missing trigger marker: {marker}"
 
 
 def test_chat_rejects_bad_playbook():
