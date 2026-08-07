@@ -341,6 +341,31 @@ export interface CaseGraphPayload {
   message?: string;
 }
 
+export interface MultiPartyLinkCase {
+  case_id: string;
+  status: string;
+  disposition_reason?: string;
+}
+
+export interface MultiPartyLink {
+  entity_id: string;
+  roles: string[];
+  distance: number;
+  propagated_risk_score: number;
+  path_description: string;
+  shared_signals: string[];
+  cases: MultiPartyLinkCase[];
+}
+
+export interface MultiPartyLinksResponse {
+  case_id: string;
+  entity_id: string;
+  tenant_id: string;
+  links: MultiPartyLink[];
+  degraded?: boolean;
+  degraded_reason?: string;
+}
+
 export interface CaseDecisionExplanationPayload {
   case_id: string;
   trace_id: string;
@@ -1930,6 +1955,14 @@ export const cases = {
     if (opts?.depth != null) q.set("depth", String(opts.depth));
     if (opts?.limit != null) q.set("limit", String(opts.limit));
     return request<GraphPathExplanation>(`/api/cases/v1/cases/${caseId}/path-explain?${q}`);
+  },
+
+  multiPartyLinks(caseId: string, tenantId: string, opts?: { depth?: number }) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    if (opts?.depth != null) q.set("depth", String(opts.depth));
+    return request<MultiPartyLinksResponse>(
+      `/api/cases/v1/cases/${caseId}/multi-party-links?${q}`,
+    );
   },
 
   evidenceBundle(caseId: string, tenantId: string) {

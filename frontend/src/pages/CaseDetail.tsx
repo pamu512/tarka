@@ -72,6 +72,11 @@ import {
   KnowledgeGraphMobilePanel,
   useKnowledgeGraphSidebarState,
 } from "../components/CaseView/KnowledgeGraphSidebar";
+import {
+  MultiPartyLinksDesktopRail,
+  MultiPartyLinksMobilePanel,
+  useMultiPartyLinksRailState,
+} from "../components/CaseView/MultiPartyLinksRail";
 import { AnalystWorkbenchLayout } from "../components/CaseView/workbench/AnalystWorkbenchLayout";
 import { BridgeConfirmDialog } from "../components/CaseView/workbench/panels/BridgeConfirmDialog";
 import { trackWorkbenchTask } from "../workbench/workbenchTelemetry";
@@ -611,6 +616,12 @@ function CaseDetailWorkbench() {
     Boolean(caseData?.entity_id && caseData?.tenant_id),
   );
 
+  const multiPartyLinksState = useMultiPartyLinksRailState(
+    caseId ?? "",
+    caseData?.tenant_id ?? "",
+    Boolean(caseId && caseData?.tenant_id),
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -718,6 +729,13 @@ function CaseDetailWorkbench() {
         entityId={caseData.entity_id}
         tenantId={caseData.tenant_id}
         state={knowledgeGraphState}
+      />
+
+      <MultiPartyLinksMobilePanel
+        caseId={caseData.id}
+        tenantId={caseData.tenant_id}
+        entityId={caseData.entity_id}
+        state={multiPartyLinksState}
       />
 
       <DegradedModeBanner error={error} title="Case action failed" onDismiss={() => setError(null)} />
@@ -1589,11 +1607,18 @@ function CaseDetailWorkbench() {
           />
         }
         knowledgeGraphRail={
-          <KnowledgeGraphDesktopRail
-            entityId={caseData.entity_id}
-            tenantId={caseData.tenant_id}
-            state={knowledgeGraphState}
-          />
+          <>
+            <MultiPartyLinksDesktopRail
+              caseId={caseData.id}
+              tenantId={caseData.tenant_id}
+              state={multiPartyLinksState}
+            />
+            <KnowledgeGraphDesktopRail
+              entityId={caseData.entity_id}
+              tenantId={caseData.tenant_id}
+              state={knowledgeGraphState}
+            />
+          </>
         }
       />
       <TuneRuleModal
