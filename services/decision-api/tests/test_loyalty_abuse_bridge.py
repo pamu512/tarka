@@ -11,6 +11,7 @@ from decision_api.loyalty_abuse_bridge import (
     build_loyalty_event,
     friction_to_tags,
     maybe_call_loyalty_abuse,
+    reset_loyalty_circuit_for_tests,
     should_call_loyalty_abuse,
 )
 
@@ -48,6 +49,7 @@ def test_build_loyalty_event_maps_fields():
 
 @pytest.mark.asyncio
 async def test_maybe_call_loyalty_abuse_posts_on_redeem():
+    reset_loyalty_circuit_for_tests()
     captured: dict = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -93,6 +95,7 @@ async def test_maybe_call_loyalty_abuse_posts_on_redeem():
 
 @pytest.mark.asyncio
 async def test_bridge_failure_increments_metric():
+    reset_loyalty_circuit_for_tests()
     calls = []
 
     class Boom:
@@ -105,9 +108,44 @@ async def test_bridge_failure_increments_metric():
         api_key="k",
         body={"event": {"type": "redeem"}},
         metrics_inc=lambda m, **kw: calls.append(m),
+        failure_threshold=99,
     )
-    assert result.tags == []
+    assert "enrichment:loyalty_bridge_failed" in result.tags
+    assert result.skipped_reason == "call_failed"
     assert "loyalty_abuse_bridge_failed" in calls
+
+
+@pytest.mark.asyncio
+async def test_loyalty_circuit_opens_after_threshold():
+    reset_loyalty_circuit_for_tests()
+    calls: list[str] = []
+
+    class Boom:
+        async def post(self, *a, **k):
+            raise RuntimeError("down")
+
+    for _ in range(3):
+        await maybe_call_loyalty_abuse(
+            http=Boom(),
+            base_url="http://x",
+            api_key="k",
+            body={"event": {"type": "redeem"}},
+            failure_threshold=3,
+            recovery_seconds=60,
+        )
+    result = await maybe_call_loyalty_abuse(
+        http=Boom(),
+        base_url="http://x",
+        api_key="k",
+        body={"event": {"type": "redeem"}},
+        metrics_inc=lambda m, **kw: calls.append(m),
+        failure_threshold=3,
+        recovery_seconds=60,
+    )
+    assert result.skipped_reason == "circuit_open"
+    assert "enrichment:loyalty_circuit_open" in result.tags
+    assert "loyalty_abuse_bridge_circuit_open" in calls
+    reset_loyalty_circuit_for_tests()
 
 
 @pytest.mark.asyncio

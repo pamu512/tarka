@@ -599,9 +599,15 @@ async def dispatch_challenge_from_desk(
 
 @router.get("/shadow-promote-gate")
 async def shadow_promote_gate(
+    tenant_id: str | None = Query(None, description="Optional tenant for label/CC scan"),
+    session: AsyncSession = Depends(get_session),
     _user=Depends(require_role("analyst")),
 ) -> dict[str, Any]:
-    """Desk-facing promote-gate posture (no warehouse). Fraud Ops 4.2."""
+    """Desk-facing promote-gate posture + label gate + CC agreement (P0-CC)."""
+    from decision_api.champion_challenger_audit import (
+        aggregate_champion_challenger,
+        label_gated_promote,
+    )
     from decision_api.vertical_packs import evaluate_kill_criteria, get_vertical_pack
 
     pack = get_vertical_pack("fintech") or {}
@@ -622,11 +628,114 @@ async def shadow_promote_gate(
         criteria,
         events_evaluated=int(criteria.get("min_events", 100)) + 50,
     )
+
+    label_posture: dict[str, Any] = {
+        "healthy": False,
+        "status": "no_tenant",
+        "label_coverage": 0.0,
+        "hint": "Pass tenant_id to scan real-label coverage before promote.",
+    }
+    cc_audit: dict[str, Any] = aggregate_champion_challenger([])
+    tid = (tenant_id or "").strip()
+    if tid:
+        try:
+            stmt = (
+                select(AuditRecord)
+                .where(AuditRecord.tenant_id == tid)
+                .order_by(AuditRecord.created_at.desc())
+                .limit(500)
+            )
+            result = await session.execute(stmt)
+            records = result.scalars().all()
+            export_rows = [
+                audit_row_to_export_dict(
+                    {
+                        "trace_id": rec.trace_id,
+                        "tenant_id": rec.tenant_id,
+                        "entity_id": rec.entity_id,
+                        "event_type": rec.event_type,
+                        "decision": rec.decision,
+                        "score": rec.score,
+                        "payload_snapshot": rec.payload_snapshot,
+                        "created_at": rec.created_at,
+                    }
+                )
+                for rec in records
+            ]
+            bins = reliability_bins(export_rows, n_bins=10, use_proxy_labels=True)
+            label_posture = label_coverage_posture(
+                label_coverage=float(bins.get("label_coverage") or 0.0),
+                proxy_only=bins.get("label_source") == "proxy_from_decision",
+            )
+            label_posture["label_source"] = bins.get("label_source")
+            label_posture["rows_scanned"] = len(export_rows)
+            cc_audit = aggregate_champion_challenger(
+                [
+                    {
+                        "trace_id": str(rec.trace_id),
+                        "payload_snapshot": rec.payload_snapshot
+                        if isinstance(rec.payload_snapshot, dict)
+                        else {},
+                    }
+                    for rec in records
+                ]
+            )
+        except Exception:
+            label_posture = {
+                "healthy": False,
+                "status": "label_coverage_unavailable",
+                "label_coverage": 0.0,
+                "hint": "audit scan failed",
+            }
+
+    # Desk bar: real labels required. Demo blocked/allowed rows remain kill_criteria smoke only.
+    live_promote = label_gated_promote(label_posture=label_posture, kill_gate=None)
+
     return {
         "schema_id": "tarka.shadow_promote_gate/v1",
         "vertical": "fintech",
         "blocked": blocked,
         "allowed": allowed,
+        "label_gated_promote": live_promote,
+        "champion_challenger": cc_audit,
         "recipe_path": "scripts/oss/shadow_vs_primary_diff_recipe.sql",
         "smoke": "scripts/oss/shadow_promote_gate_smoke.py",
+        "honesty": (
+            "Demo blocked/allowed rows are kill_criteria smoke only. "
+            "label_gated_promote is the desk promote bar (real labels required)."
+        ),
     }
+
+
+@router.get("/champion-challenger-audit")
+async def champion_challenger_audit(
+    tenant_id: str = Query(..., min_length=1),
+    limit: int = Query(200, ge=1, le=2000),
+    session: AsyncSession = Depends(get_session),
+    _user=Depends(require_role("analyst")),
+) -> dict[str, Any]:
+    """Recent audit champion–challenger rows for OpsShadow (P0-CC)."""
+    from decision_api.champion_challenger_audit import aggregate_champion_challenger
+
+    stmt = (
+        select(AuditRecord)
+        .where(AuditRecord.tenant_id == tenant_id)
+        .order_by(AuditRecord.created_at.desc())
+        .limit(limit)
+    )
+    result = await session.execute(stmt)
+    records = result.scalars().all()
+    out = aggregate_champion_challenger(
+        [
+            {
+                "trace_id": str(rec.trace_id),
+                "payload_snapshot": rec.payload_snapshot
+                if isinstance(rec.payload_snapshot, dict)
+                else {},
+            }
+            for rec in records
+        ]
+    )
+    out["tenant_id"] = tenant_id
+    out["audits_scanned"] = len(records)
+    return out

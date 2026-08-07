@@ -90,14 +90,22 @@ PROVIDER_CATALOG: list[dict[str, Any]] = [
         "sanctions",
         doc_url="https://docs.complyadvantage.com/",
     ),
-    _p(
-        "opensanctions",
-        "OpenSanctions",
-        "sanctions",
-        fields=["api_key"],
-        doc_url="https://www.opensanctions.org/docs/api/",
-        callable_plugin="opensanctions",
-    ),
+    {
+        **_p(
+            "opensanctions",
+            "OpenSanctions",
+            "sanctions",
+            fields=["api_key"],
+            doc_url="https://www.opensanctions.org/docs/api/",
+            callable_plugin="opensanctions",
+        ),
+        # P0-L2: honest posture — callable plugin ≠ Marble continuous Motiva+ES product
+        "continuous_screening": "plugin_callable",
+        "screening_posture": (
+            "Configure API key for evaluate-time list checks. Not continuous warehouse "
+            "list sync; does not satisfy LIVE partner-fusion pin."
+        ),
+    },
     _p(
         "dow_jones_riskcenter",
         "Dow Jones RiskCenter",

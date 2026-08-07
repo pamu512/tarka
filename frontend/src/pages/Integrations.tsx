@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from 'react-router';
-import { integrations, type IntegrationScorecardsPayload } from "../api/client";
+import { decisions, integrations, type IntegrationScorecardsPayload } from "../api/client";
 import { VendorIntegrationConfigModal, type VendorProvider } from "../components/integrations/VendorIntegrationConfigModal";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
@@ -50,6 +50,14 @@ export default function Integrations() {
   const [requestUseCase, setRequestUseCase] = useState("");
   const [requestGithubUser, setRequestGithubUser] = useState("");
   const [configModalProvider, setConfigModalProvider] = useState<Provider | null>(null);
+  const [partnerFusion, setPartnerFusion] = useState<{
+    status: string;
+    reason?: string;
+    promote_live_claim_allowed?: boolean;
+    opensanctions?: { note?: string; continuous_screening?: string };
+    honesty?: string;
+    runbook_path?: string;
+  } | null>(null);
 
   async function refresh() {
     const [catalog, current, ready, health, kms, jobs, sloStatus] = await Promise.all([
@@ -95,6 +103,13 @@ export default function Integrations() {
       setScorecards(null);
     }
   }
+
+  useEffect(() => {
+    void decisions
+      .partnerFusionStatus()
+      .then(setPartnerFusion)
+      .catch(() => setPartnerFusion(null));
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -220,6 +235,30 @@ export default function Integrations() {
           for SDK API traffic.
         </p>
       </div>
+
+      {partnerFusion ? (
+        <div
+          className="rounded-xl border border-amber-500/35 bg-amber-950/20 px-4 py-3 space-y-2"
+          data-testid="partner-fusion-l2-panel"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-amber-100">Partner fusion L2</h2>
+            <span className="text-[10px] font-bold uppercase tracking-wide rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-amber-200">
+              {partnerFusion.status}
+            </span>
+          </div>
+          <p className="text-xs text-amber-100/85">{partnerFusion.honesty}</p>
+          {partnerFusion.reason ? (
+            <p className="text-[11px] text-gray-400 font-mono">{partnerFusion.reason}</p>
+          ) : null}
+          <p className="text-[11px] text-gray-500">
+            LIVE claim allowed: {partnerFusion.promote_live_claim_allowed ? "yes" : "no"} · OpenSanctions:{" "}
+            {partnerFusion.opensanctions?.continuous_screening || "plugin"} —{" "}
+            {partnerFusion.opensanctions?.note}
+          </p>
+          <p className="text-[10px] text-gray-500 font-mono">{partnerFusion.runbook_path}</p>
+        </div>
+      ) : null}
 
       <div className="bg-surface-900 border border-surface-700 rounded-xl p-4 flex flex-wrap items-center gap-2">
         <button

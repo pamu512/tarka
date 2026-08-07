@@ -151,6 +151,68 @@ def evaluate_typologies(
     return out
 
 
+def weighted_aggregation_telemetry(
+    results: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Ops telemetry: configured weights + optional live evaluate scores (P1-typ)."""
+    data = load_typology_definitions()
+    registry = load_predicate_registry()
+    reg_ver = int(registry.get("version") or 0)
+    pin = data.get("predicate_registry_pin")
+    pin_int = int(pin) if pin is not None else reg_ver
+    configured: list[dict[str, Any]] = []
+    for spec in data.get("typologies") or []:
+        if not isinstance(spec, dict):
+            continue
+        tid = str(spec.get("id") or "").strip()
+        if not tid:
+            continue
+        thr = spec.get("breach_thresholds") or {}
+        configured.append(
+            {
+                "id": tid,
+                "label": str(spec.get("label") or tid),
+                "weight_per_rule_hit": float(spec.get("weight_per_rule_hit") or 1.0),
+                "member_rule_count": len(spec.get("member_rule_ids") or []),
+                "feature_predicate_count": len(spec.get("feature_predicates") or []),
+                "breach_thresholds": {
+                    "warning": float(thr.get("warning", 50)),
+                    "alert": float(thr.get("alert", 80)),
+                },
+            }
+        )
+    live: list[dict[str, Any]] = []
+    for row in results or []:
+        if not isinstance(row, dict):
+            continue
+        live.append(
+            {
+                "id": row.get("id"),
+                "score": row.get("score"),
+                "breach_level": row.get("breach_level"),
+                "disposition": row.get("disposition"),
+                "contributing_rule_hits": list(row.get("contributing_rule_hits") or []),
+            }
+        )
+    return {
+        "schema_id": "tarka.typology_weighted_telemetry/v1",
+        "dsl_version": int(data.get("dsl_version") or data.get("version") or 1),
+        "predicate_registry": {
+            "registry_id": registry.get("registry_id"),
+            "version": reg_ver,
+            "pin": pin_int,
+            "pin_match": reg_ver == pin_int,
+        },
+        "typology_count": len(configured),
+        "configured": configured,
+        "live_scores": live,
+        "aggregation": {
+            "mode": "max_breach_then_score",
+            "note": "Disposition follows highest breach; weights apply per rule hit + feature bonuses.",
+        },
+    }
+
+
 def summarize_typologies(results: list[dict[str, Any]]) -> dict[str, Any]:
     """Single dashboard row: worst breach + driver typology."""
     if not results:

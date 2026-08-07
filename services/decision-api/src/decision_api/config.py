@@ -458,6 +458,20 @@ class Settings(BaseSettings):
         default="",
         description="Bearer token for loyalty-abuse POST /v1/evaluate",
     )
+    # Auth-path budget for sync loyalty enrich (P1-hot); forensics/LLM stay off this path.
+    loyalty_abuse_timeout_seconds: float = float(
+        os.environ.get("TARKA_LOYALTY_ABUSE_TIMEOUT_SECONDS", "2.0")
+    )
+    loyalty_abuse_circuit_failure_threshold: int = int(
+        os.environ.get("TARKA_LOYALTY_ABUSE_CIRCUIT_FAILURE_THRESHOLD", "3")
+    )
+    loyalty_abuse_circuit_recovery_seconds: float = float(
+        os.environ.get("TARKA_LOYALTY_ABUSE_CIRCUIT_RECOVERY_SECONDS", "30")
+    )
+    # Soft auth-path p99 ceiling for ops posture (excludes Shadow LLM / graph upsert).
+    auth_path_p99_budget_ms: float = float(
+        os.environ.get("TARKA_AUTH_PATH_P99_BUDGET_MS", "250")
+    )
     ml_export_local_dir: str = Field(
         default="./data/ml_exports", description="Tarka Micro: Parquet write directory"
     )
