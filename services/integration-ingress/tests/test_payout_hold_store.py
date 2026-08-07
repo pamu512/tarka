@@ -25,8 +25,36 @@ async def session(tmp_path) -> AsyncIterator[AsyncSession]:
 
 
 @pytest.mark.asyncio
+async def test_upsert_pending_sets_schedule_and_materialized_flag(session: AsyncSession) -> None:
+    row, mat = await upsert_hold(
+        session,
+        tenant_id="t1",
+        payout_id="po_p",
+        entity_id="e1",
+        status="pending",
+        hold_reason="tag:action:payout_delay",
+        held_by="evaluate",
+        hold_duration_hours=24,
+    )
+    assert mat is True
+    assert row["status"] == "pending"
+    assert row["scheduled_release_at"] is not None
+    row2, mat2 = await upsert_hold(
+        session,
+        tenant_id="t1",
+        payout_id="po_p",
+        entity_id="e1",
+        status="pending",
+        hold_reason="tag:action:payout_delay",
+        held_by="evaluate",
+        hold_duration_hours=24,
+    )
+    assert mat2 is False
+
+
+@pytest.mark.asyncio
 async def test_upsert_list_release_roundtrip(session: AsyncSession) -> None:
-    row = await upsert_hold(
+    row, _ = await upsert_hold(
         session,
         tenant_id="t1",
         payout_id="po_1",

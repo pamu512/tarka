@@ -150,7 +150,7 @@ async def _sync_mule_automation_holds(
         if mule < threshold:
             continue
 
-        await upsert_hold(
+        _, _ = await upsert_hold(
             session,
             tenant_id=tenant_id,
             payout_id=pid,
