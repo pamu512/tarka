@@ -40,6 +40,7 @@ import {
   InferenceNetworkTrustHoverBody,
   InferenceReplayHoverBody,
   InferenceTamperHoverBody,
+  LoyaltyEconomicsHoverBody,
   QueueScoreHoverBody,
   VelocityHoverBody,
 } from "../components/CaseView/MetricHoverPanels";
@@ -466,10 +467,11 @@ function CaseDetailWorkbench() {
     setPdfBusy(true);
     try {
       const ctx = decisionExplain?.inference_context ?? null;
-      const [v, g, geo] = buildTriageFlashCards(ctx, graphRisk);
+      const [v, g, loyalty, geo] = buildTriageFlashCards(ctx, graphRisk, decisionExplain?.tags);
       const flashPlain = [
         { title: v.title, value: v.value },
         { title: g.title, value: g.value },
+        { title: loyalty.title, value: loyalty.value },
         { title: geo.title, value: geo.value },
       ];
       const fm = extractTransactionMoney(decisionExplain?.evaluate_payload ?? undefined);
@@ -683,19 +685,17 @@ function CaseDetailWorkbench() {
     return `${caseData.trace_id}:${decisionExplain.score}:${decisionExplain.decision}:${velocityArtifactsUpdatedAt ?? ""}`;
   }, [caseData?.trace_id, decisionExplain, velocityArtifactsUpdatedAt]);
 
-  const triageFlashCards = useMemo((): [
-    TriageFlashCard,
-    TriageFlashCard,
-    TriageFlashCard,
-  ] => {
+  const triageFlashCards = useMemo((): TriageFlashCard[] => {
     const ctx = decisionExplain?.inference_context ?? null;
-    const [velocity, graph, geo] = buildTriageFlashCards(ctx, graphRisk);
+    const tags = decisionExplain?.tags;
+    const [velocity, graph, loyalty, geo] = buildTriageFlashCards(ctx, graphRisk, tags);
     return [
       { ...velocity, hoverDetail: <VelocityHoverBody ctx={ctx} /> },
       { ...graph, hoverDetail: <GraphMetricHoverBody risk={graphRisk} inference={ctx} /> },
+      { ...loyalty, hoverDetail: <LoyaltyEconomicsHoverBody tags={tags} /> },
       { ...geo, hoverDetail: <GeoHoverBody ctx={ctx} /> },
     ];
-  }, [decisionExplain?.inference_context, graphRisk]);
+  }, [decisionExplain?.inference_context, decisionExplain?.tags, graphRisk]);
 
   const sightLine = useMemo(() => {
     const ml = decisionExplain?.inference_context?.ml_summary?.trim();

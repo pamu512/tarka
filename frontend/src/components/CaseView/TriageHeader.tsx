@@ -1,5 +1,5 @@
 /**
- * Triage “Signal Scripter” header — Sight (verdict + gauge + why) + Scan (top 3 signals) in one fold.
+ * Triage “Signal Scripter” header — Sight (verdict + gauge + why) + Scan (Velocity/Graph/Loyalty/Geo) in one fold.
  * Designed to stay legible on a standard monitor without vertical scroll for this band.
  */
 
@@ -21,8 +21,8 @@ export type TriageHeaderProps = {
   verdict: string;
   /** Risk / fraud score 0–100. */
   riskScore: number;
-  /** Scan-layer signals (Velocity, Graph, Geo enrichment). */
-  flashCards: readonly [TriageFlashCard, TriageFlashCard, TriageFlashCard];
+  /** Scan-layer signals (Velocity, Graph, Loyalty, Geo enrichment). */
+  flashCards: readonly TriageFlashCard[];
   /** Single-line Saarthi / ML “why” — sight layer narrative. */
   saarthiLine: string | null;
   className?: string;
@@ -121,7 +121,7 @@ export function TriageHeader({
         </div>
 
         {/* Flash cards — secondary */}
-        <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-2 min-h-0 min-w-0">
+        <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 min-h-0 min-w-0">
           {flashCards.map((card) => {
             const tone = card.tone ?? "neutral";
             const b = flashToneBorder[tone];

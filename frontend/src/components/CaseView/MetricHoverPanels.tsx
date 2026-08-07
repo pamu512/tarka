@@ -91,6 +91,25 @@ export function GeoHoverBody({ ctx }: { ctx: InferenceContext | null }) {
   );
 }
 
+export function LoyaltyEconomicsHoverBody({ tags }: { tags?: readonly string[] | null }) {
+  const friction = (tags ?? [])
+    .map((t) => String(t).trim())
+    .filter((t) => t.toLowerCase().startsWith("loyalty:friction:"));
+  return (
+    <div className="space-y-2">
+      <p className="text-[10px] text-gray-500 leading-snug">
+        Benefit gates (dispatch/redeem/order); not an order block. Related ≠ abusive. Warehouse feeds
+        required for eligibility — tag friction is advisory only.
+      </p>
+      {friction.length > 0 ? (
+        friction.slice(0, 6).map((t) => <MonoRow key={t} k="tag" v={t} />)
+      ) : (
+        <p className="text-[10px] text-gray-600 leading-snug">No loyalty:friction:* tags on this decision.</p>
+      )}
+    </div>
+  );
+}
+
 export function QueueScoreHoverBody({ score }: { score: number | null | undefined }) {
   return (
     <div className="space-y-2">
