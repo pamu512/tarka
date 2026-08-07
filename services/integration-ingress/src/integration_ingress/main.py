@@ -1090,12 +1090,14 @@ async def analytics_promo_abuse(
     tenant_id: str = "demo",
     coupon_code: str = "NEWUSER50",
     window_days: int = 7,
+    session: AsyncSession = Depends(get_session),
     _user=Depends(require_role("analyst")),
 ):
     """Unique users redeeming a single coupon — promo abuse dashboard (Prompt 180)."""
     from integration_ingress.promo_abuse_tracking import build_promo_abuse_payload
 
-    return build_promo_abuse_payload(
+    return await build_promo_abuse_payload(
+        session,
         tenant_id=tenant_id,
         coupon_code=coupon_code,
         window_days=window_days,
@@ -1272,12 +1274,14 @@ async def marketplace_seller_integrity(
     tenant_id: str = "demo",
     window_days: int = 30,
     limit: int = 40,
+    session: AsyncSession = Depends(get_session),
     _user=Depends(require_role("analyst")),
 ):
     """Seller integrity — review-to-successful-delivery ratio monitoring (Prompt 182)."""
     from integration_ingress.seller_integrity import build_seller_integrity_payload
 
-    return build_seller_integrity_payload(
+    return await build_seller_integrity_payload(
+        session,
         tenant_id=tenant_id,
         window_days=window_days,
         limit=limit,
@@ -1308,6 +1312,31 @@ class PayoutHoldCreateBody(BaseModel):
     currency: str | None = None
     mule_score: float | None = None
     hold_duration_hours: int | None = None
+
+
+class PromoRedemptionCreateBody(BaseModel):
+    tenant_id: str = "demo"
+    coupon_code: str
+    user_id: str
+    device_id: str | None = None
+    order_total: float | None = None
+    currency: str | None = None
+    ip_hint: str | None = None
+    display_name: str | None = None
+    flags: list[str] = Field(default_factory=list)
+    trace_id: str | None = None
+
+
+class SellerIntegrityUpsertBody(BaseModel):
+    tenant_id: str = "demo"
+    seller_id: str
+    successful_deliveries: int
+    review_count: int
+    window_days: int = 30
+    display_name: str | None = None
+    store_slug: str | None = None
+    category: str | None = None
+    avg_rating: float | None = None
 
 
 async def _require_internal_or_admin(
@@ -1461,6 +1490,53 @@ async def internal_create_payout_hold(
                 callback_url=callback_url,
                 hold_row=row,
             )
+    return row
+
+
+@app.post("/v1/internal/marketplace/promo-redemptions", status_code=201)
+async def internal_create_promo_redemption(
+    body: PromoRedemptionCreateBody,
+    session: AsyncSession = Depends(get_session),
+    _auth=Depends(_require_internal_or_admin),
+):
+    from integration_ingress.promo_abuse_store import upsert_redemption
+
+    row, _materialized = await upsert_redemption(
+        session,
+        tenant_id=body.tenant_id,
+        coupon_code=body.coupon_code,
+        user_id=body.user_id,
+        device_id=body.device_id,
+        order_total=body.order_total,
+        currency=body.currency,
+        ip_hint=body.ip_hint,
+        display_name=body.display_name,
+        flags=body.flags,
+        trace_id=body.trace_id,
+    )
+    return row
+
+
+@app.post("/v1/internal/marketplace/seller-integrity", status_code=201)
+async def internal_upsert_seller_integrity(
+    body: SellerIntegrityUpsertBody,
+    session: AsyncSession = Depends(get_session),
+    _auth=Depends(_require_internal_or_admin),
+):
+    from integration_ingress.seller_integrity_store import upsert_seller
+
+    row, _materialized = await upsert_seller(
+        session,
+        tenant_id=body.tenant_id,
+        seller_id=body.seller_id,
+        successful_deliveries=body.successful_deliveries,
+        review_count=body.review_count,
+        window_days=body.window_days,
+        display_name=body.display_name,
+        store_slug=body.store_slug,
+        category=body.category,
+        avg_rating=body.avg_rating,
+    )
     return row
 
 

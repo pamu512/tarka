@@ -1,10 +1,14 @@
-"""Promo abuse tracking — unique users per coupon code (Prompt 180)."""
+"""Promo abuse tracking — unique users per coupon code (Prompt 180, Track B3 durable)."""
 
 from __future__ import annotations
 
-import hashlib
+from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from integration_ingress.promo_abuse_store import list_redemptions
 
 DEFAULT_COUPON = "NEWUSER50"
 DEFAULT_WARN_UNIQUE_USERS = 25
@@ -23,38 +27,64 @@ def _risk_level(unique_users: int, *, warn: int, critical: int) -> str:
     return "normal"
 
 
-def _demo_users_for_coupon(coupon_code: str, count: int) -> list[dict[str, Any]]:
-    """Deterministic synthetic redemptions for dashboard demos."""
-    code = (coupon_code or DEFAULT_COUPON).strip().upper()
-    users: list[dict[str, Any]] = []
-    base = datetime.now(UTC) - timedelta(days=7)
-    for i in range(count):
-        seed = hashlib.sha256(f"{code}:{i}".encode()).hexdigest()
-        uid = f"promo_user_{seed[:8]}"
-        device_bucket = int(seed[8:10], 16) % 12
-        device_id = f"dev_promo_{device_bucket:02d}"
-        redemptions = 1 if i % 9 else 2
-        first = base + timedelta(hours=i * 3.2)
-        last = first + timedelta(hours=redemptions * 0.5)
-        flags: list[str] = []
-        if device_bucket < 3 and i > 5:
-            flags.append("shared_device_cluster")
-        if redemptions > 1:
-            flags.append("multi_redeem")
-        users.append(
-            {
+def _aggregate_users(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_user: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        uid = str(row.get("user_id") or "")
+        if not uid:
+            continue
+        redeemed_raw = row.get("redeemed_at")
+        try:
+            redeemed_ts = datetime.fromisoformat(str(redeemed_raw).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            redeemed_ts = datetime.now(UTC)
+        if redeemed_ts.tzinfo is None:
+            redeemed_ts = redeemed_ts.replace(tzinfo=UTC)
+
+        existing = by_user.get(uid)
+        flags = list(row.get("flags") or [])
+        order_total = row.get("order_total")
+        if existing is None:
+            by_user[uid] = {
                 "user_id": uid,
-                "display_name": f"Marketplace user {i + 1}",
-                "redemption_count": redemptions,
-                "first_redeemed_at": first.isoformat(),
-                "last_redeemed_at": last.isoformat(),
-                "device_id": device_id,
-                "ip_hint": f"73.{int(seed[10:12], 16)}.{int(seed[12:14], 16)}.{int(seed[14:16], 16)}",
-                "order_total_usd": round(42 + (int(seed[16:20], 16) % 120), 2),
-                "flags": flags,
-            },
-        )
-    return users
+                "display_name": row.get("display_name") or uid,
+                "redemption_count": 1,
+                "first_redeemed_at": redeemed_ts.isoformat(),
+                "last_redeemed_at": redeemed_ts.isoformat(),
+                "device_id": row.get("device_id"),
+                "ip_hint": row.get("ip_hint"),
+                "order_total_usd": round(float(order_total), 2) if order_total is not None else None,
+                "flags": list(flags),
+            }
+            continue
+
+        existing["redemption_count"] = int(existing["redemption_count"]) + 1
+        if redeemed_ts.isoformat() < str(existing["first_redeemed_at"]):
+            existing["first_redeemed_at"] = redeemed_ts.isoformat()
+        if redeemed_ts.isoformat() > str(existing["last_redeemed_at"]):
+            existing["last_redeemed_at"] = redeemed_ts.isoformat()
+            if row.get("device_id"):
+                existing["device_id"] = row.get("device_id")
+            if row.get("ip_hint"):
+                existing["ip_hint"] = row.get("ip_hint")
+            if order_total is not None:
+                existing["order_total_usd"] = round(float(order_total), 2)
+        merged_flags = set(existing.get("flags") or []) | set(flags)
+        existing["flags"] = sorted(merged_flags)
+        if int(existing["redemption_count"]) > 1 and "multi_redeem" not in existing["flags"]:
+            existing["flags"].append("multi_redeem")
+
+    device_counts: dict[str, int] = defaultdict(int)
+    for user in by_user.values():
+        dev = str(user.get("device_id") or "")
+        if dev:
+            device_counts[dev] += 1
+    for user in by_user.values():
+        dev = str(user.get("device_id") or "")
+        if dev and device_counts[dev] >= 3 and "shared_device_cluster" not in user["flags"]:
+            user["flags"].append("shared_device_cluster")
+
+    return list(by_user.values())
 
 
 def _daily_series(users: list[dict[str, Any]], days: int = 7) -> list[dict[str, Any]]:
@@ -86,7 +116,8 @@ def _daily_series(users: list[dict[str, Any]], days: int = 7) -> list[dict[str, 
     ]
 
 
-def build_promo_abuse_payload(
+async def build_promo_abuse_payload(
+    session: AsyncSession,
     *,
     tenant_id: str,
     coupon_code: str = DEFAULT_COUPON,
@@ -96,15 +127,13 @@ def build_promo_abuse_payload(
     tid = (tenant_id or "demo").strip() or "demo"
     days = max(1, min(int(window_days), 90))
 
-    if code == DEFAULT_COUPON:
-        user_count = 47
-    elif code in ("WELCOME10", "FREESHIP"):
-        user_count = 18
-    else:
-        digest = int(hashlib.sha256(code.encode()).hexdigest()[:6], 16)
-        user_count = 8 + (digest % 35)
-
-    users = _demo_users_for_coupon(code, user_count)
+    rows = await list_redemptions(
+        session,
+        tenant_id=tid,
+        coupon_code=code,
+        window_days=days,
+    )
+    users = _aggregate_users(rows)
     total_redemptions = sum(int(u.get("redemption_count") or 0) for u in users)
     devices = {str(u.get("device_id")) for u in users if u.get("device_id")}
     shared_device_users = sum(1 for u in users if "shared_device_cluster" in (u.get("flags") or []))
@@ -128,7 +157,7 @@ def build_promo_abuse_payload(
         "tenant_id": tid,
         "coupon_code": code,
         "updated_at": _now_iso(),
-        "source": "demo_aggregate",
+        "source": "durable",
         "window_days": days,
         "summary": {
             "unique_users": len(users),
