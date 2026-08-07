@@ -221,6 +221,52 @@ def schedule_decision_outcomes(
                 metrics_inc=metrics_inc,
             )
 
+    if not ctx.shadow_request:
+        from decision_api.promo_redemption_bridge import (
+            maybe_record_promo_redemption_from_evaluate,
+            should_record_promo_redemption,
+        )
+
+        meta = ctx.metadata if isinstance(ctx.metadata, dict) else None
+        if should_record_promo_redemption(
+            metadata=meta, tags=ctx.tags, event_type=ctx.event_type
+        ):
+            bg.add_task(
+                maybe_record_promo_redemption_from_evaluate,
+                http=http,
+                integration_ingress_url=integration_ingress_url,
+                ingress_internal_token=ingress_internal_token,
+                tenant_id=ctx.tenant_id,
+                entity_id=ctx.entity_id,
+                tags=ctx.tags,
+                metadata=meta,
+                payload=ctx.payload if isinstance(ctx.payload, dict) else None,
+                trace_id=ctx.trace_id,
+                event_type=ctx.event_type,
+                metrics_inc=metrics_inc,
+            )
+
+    if not ctx.shadow_request:
+        from decision_api.seller_integrity_bridge import (
+            maybe_record_seller_integrity_from_evaluate,
+            should_record_seller_integrity,
+        )
+
+        meta = ctx.metadata if isinstance(ctx.metadata, dict) else None
+        if should_record_seller_integrity(metadata=meta, event_type=ctx.event_type):
+            bg.add_task(
+                maybe_record_seller_integrity_from_evaluate,
+                http=http,
+                integration_ingress_url=integration_ingress_url,
+                ingress_internal_token=ingress_internal_token,
+                tenant_id=ctx.tenant_id,
+                metadata=meta,
+                payload=ctx.payload if isinstance(ctx.payload, dict) else None,
+                trace_id=ctx.trace_id,
+                event_type=ctx.event_type,
+                metrics_inc=metrics_inc,
+            )
+
 
 def _emit_decision_metrics(
     ctx: DecisionOutcomeContext, metrics_inc: MetricsInc
