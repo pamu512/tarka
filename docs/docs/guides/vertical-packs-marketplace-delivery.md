@@ -1,6 +1,6 @@
 # Marketplace vertical packs — install & pre-payout
 
-Operator guide for the four Marketplace P0 vertical packs: `marketplace`, `qcommerce`, `logistics`, and `food_delivery`.
+Operator guide for Marketplace vertical packs: `marketplace`, `qcommerce`, `logistics`, `food_delivery`, and Track B `offline_payment` (COD / store pickup).
 
 ## End-to-end flow
 
@@ -218,31 +218,57 @@ curl -s -X POST -H "x-api-key: $TARKA_API_KEY" -H "Content-Type: application/jso
 
 Release of a missing hold returns **404** (`payout hold not found`) — no synthetic success body. Internal create/release require `X-Internal-Token` when `INGRESS_INTERNAL_TOKEN` is configured (missing or wrong token → 401).
 
-## Loyalty-abuse boundary
+## Track B — COD / offline pack
 
-LTV gates and multi-gate loyalty typologies remain owned by the **loyalty-abuse** package. These packs reuse **tag vocabulary only** (`risk:promo_farm`, etc.) — they do not import or re-home loyalty-abuse logic. Optional HTTP adapter may follow in a later slice.
+Install pack id `offline_payment`. Evaluate with payload/metadata:
+
+| Feature | Source |
+| --- | --- |
+| `payment_method` | `payload.payment_method` or `metadata.payment_method` (lowercased) |
+| `is_cod` | method in `cod` / `cash_on_delivery` / `cash`, or `metadata.is_cod` |
+| `is_offline_payment` | COD or `offline` / `store_pickup` / `pay_at_store` |
+
+Rules emit `risk:cod_abuse`, `risk:address_hop`, `action:payout_hold` as configured.
+
+## Track B — Redeem → loyalty-abuse bridge
+
+When `metadata.checkpoint=redeem` or `event_type=redeem`, decision-api may call loyalty-abuse `POST /v1/evaluate` (fail-soft):
+
+```bash
+export LOYALTY_ABUSE_URL=http://loyalty-abuse:8080
+export LOYALTY_ABUSE_API_KEY=<bearer>
+```
+
+Friction maps to tags `loyalty:friction:*`. Multi-gate LTV economics stay in the loyalty-abuse package — Tarka does not re-home them.
+
+## Track B — Durable promo & seller boards
+
+| Board | List | Record (S2S) |
+| --- | --- | --- |
+| Promo abuse | `GET /v1/analytics/promo-abuse` → `source=durable` | `POST /v1/internal/marketplace/promo-redemptions` |
+| Seller integrity | `GET /v1/marketplace/seller-integrity` → `source=durable` | `POST /v1/internal/marketplace/seller-integrity` |
+
+Empty tenants return empty rows (no SHA demo aggregates).
+
+## Track C — Partner fusion proof
+
+- L1 fixture: `python3 scripts/oss/partner_fusion_tenant_proof.py --mode fixture` (CI pin in `docs/compliance/partner-fusion-proof.stable.sha256`).
+- L2 live requires real Fingerprint/Incognia credentials — status remains **WAIVED** without them (never forge LIVE pins). See [partner-fusion-proof-runbook.md](../../compliance/partner-fusion-proof-runbook.md).
 
 ## Verification
 
-Automated suite (run from repo root paths):
-
 ```bash
-cd services/decision-api && PYTHONPATH=src python -m pytest tests/test_payout_hold_from_evaluate.py -q
-cd ../integration-ingress && python -m pytest tests/test_payout_hold_store.py tests/test_payout_delay_durable.py tests/test_payout_delay_automation.py -q
+cd services/decision-api && PYTHONPATH=src python -m pytest \
+  tests/test_payout_hold_from_evaluate.py tests/test_offline_payment_features.py \
+  tests/test_loyalty_abuse_bridge.py tests/test_marketplace_vertical_packs.py -q
+cd ../integration-ingress && python -m pytest \
+  tests/test_payout_hold_store.py tests/test_payout_delay_durable.py \
+  tests/test_promo_seller_durable.py tests/test_promo_abuse_tracking.py \
+  tests/test_seller_integrity.py -q
 cd ../case-api && PYTHONPATH=src:../shared:../../packages/shared-core python -m pytest tests/test_multi_party_links.py -q
 cd ../../frontend && npm test -- --run MultiPartyLinks
+python3 scripts/oss/partner_fusion_tenant_proof.py --mode fixture
 ```
-
-Manual smoke (requires running stack: decision-api, integration-ingress, case-api, graph service, frontend):
-
-| Step | Check |
-| --- | --- |
-| Install `marketplace` with healthy metrics | 201; rules in tenant listing |
-| Evaluate `checkpoint=payout` + hold-firing features | Response tags include `action:payout_hold` |
-| `GET /v1/marketplace/payout-delay?tenant_id=...` | Hold row with `source=durable` |
-| CaseDetail with multi-party fixture data | Rail shows role chips + linked case hrefs |
-
-When live services are unavailable, treat the automated suite as verification evidence; run the smoke checklist before production promotion.
 
 ## Internal references
 
