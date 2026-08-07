@@ -32,14 +32,25 @@ async def session(tmp_path) -> AsyncIterator[AsyncSession]:
 @pytest.mark.asyncio
 async def test_high_mule_score_triggers_hold(session: AsyncSession) -> None:
     update_payout_delay_config(
-        tenant_id="demo", automation_enabled=True, mule_score_hold_threshold=50
+        tenant_id="demo",
+        automation_enabled=True,
+        mule_score_hold_threshold=50,
+        mule_candidates=[
+            {
+                "payout_id": "po_unit_mule",
+                "entity_id": "ent_unit",
+                "mule_score": 90,
+                "amount": 10.0,
+                "currency": "USD",
+            }
+        ],
     )
     payload = await build_payout_delay_payload(session, tenant_id="demo", limit=20)
     held = [p for p in payload["payouts"] if p["status"] == "held"]
     assert held
     assert held[0]["hold_reason"] is not None
     assert held[0]["held_by"] == "payout_delay_automation"
-    assert payload["source"] in ("durable", "durable+automation")
+    assert payload["source"] == "durable+automation"
 
 
 @pytest.mark.asyncio
@@ -64,8 +75,25 @@ async def test_release_clears_hold(session: AsyncSession) -> None:
 @pytest.mark.asyncio
 async def test_automation_disabled_no_new_holds(session: AsyncSession) -> None:
     update_payout_delay_config(
-        tenant_id="hold_off", automation_enabled=False, mule_score_hold_threshold=1
+        tenant_id="hold_off",
+        automation_enabled=False,
+        mule_score_hold_threshold=1,
+        mule_candidates=[
+            {
+                "payout_id": "po_off",
+                "entity_id": "ent_off",
+                "mule_score": 99,
+                "amount": 1.0,
+                "currency": "USD",
+            }
+        ],
     )
     payload = await build_payout_delay_payload(session, tenant_id="hold_off", limit=15)
     assert payload["source"] == "durable"
     assert not any(p["held_by"] == "payout_delay_automation" for p in payload["payouts"])
+
+
+@pytest.mark.asyncio
+async def test_release_missing_returns_none(session: AsyncSession) -> None:
+    result = await release_payout_hold(session, tenant_id="demo", payout_id="missing_po")
+    assert result is None

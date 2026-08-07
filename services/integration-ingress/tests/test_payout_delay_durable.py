@@ -151,20 +151,74 @@ async def test_internal_create_payout_hold(client: AsyncClient, session: AsyncSe
 
 
 @pytest.mark.asyncio
+async def test_list_with_automation_on_without_candidates_adds_no_synthetic(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    await client.patch(
+        "/v1/marketplace/payout-delay/config",
+        json={
+            "tenant_id": "nosynth",
+            "automation_enabled": True,
+            "mule_candidates": [],
+        },
+    )
+    r = await client.get("/v1/marketplace/payout-delay", params={"tenant_id": "nosynth"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["source"] == "durable"
+    assert body["payouts"] == []
+
+
+@pytest.mark.asyncio
+async def test_mule_candidates_create_durable_holds(client: AsyncClient, session: AsyncSession) -> None:
+    await client.patch(
+        "/v1/marketplace/payout-delay/config",
+        json={
+            "tenant_id": "mule_real",
+            "automation_enabled": True,
+            "mule_score_hold_threshold": 50,
+            "mule_candidates": [
+                {
+                    "payout_id": "po_mule_1",
+                    "entity_id": "ent_m1",
+                    "mule_score": 90,
+                    "amount": 10.0,
+                    "currency": "USD",
+                }
+            ],
+        },
+    )
+    r = await client.get("/v1/marketplace/payout-delay", params={"tenant_id": "mule_real"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["source"] == "durable+automation"
+    assert any(p["payout_id"] == "po_mule_1" for p in body["payouts"])
+
+
+@pytest.mark.asyncio
 async def test_mule_automation_writes_durable_holds(client: AsyncClient, session: AsyncSession) -> None:
-    """High mule_score candidates upsert held rows; list is not demo_aggregate."""
+    """Explicit mule_candidates upsert held rows; no SHA seed."""
     await client.patch(
         "/v1/marketplace/payout-delay/config",
         json={
             "tenant_id": "mule_t",
             "automation_enabled": True,
             "mule_score_hold_threshold": 50,
+            "mule_candidates": [
+                {
+                    "payout_id": "po_mule_t_1",
+                    "entity_id": "ent_m1",
+                    "mule_score": 90,
+                    "amount": 10.0,
+                    "currency": "USD",
+                }
+            ],
         },
     )
     r = await client.get("/v1/marketplace/payout-delay", params={"tenant_id": "mule_t", "limit": 20})
     assert r.status_code == 200
     body = r.json()
-    assert body["source"] in ("durable", "durable+automation")
+    assert body["source"] == "durable+automation"
     held = [p for p in body["payouts"] if p["status"] == "held"]
     assert held, "expected mule automation to persist at least one held row"
     assert held[0]["held_by"] == "payout_delay_automation"
