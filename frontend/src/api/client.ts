@@ -783,6 +783,7 @@ export type PayoutDelayConfig = {
   mule_score_hold_threshold: number;
   janusgraph_property: string;
   hold_duration_hours_default: number;
+  webhook_callback_url?: string;
 };
 
 export type PayoutDelayPayoutRow = {
@@ -4163,6 +4164,7 @@ export const integrations = {
     tenant_id: string;
     automation_enabled?: boolean;
     mule_score_hold_threshold?: number;
+    webhook_callback_url?: string;
   }) {
     return request<PayoutDelayResponse>("/api/ingress/v1/marketplace/payout-delay/config", {
       method: "PATCH",

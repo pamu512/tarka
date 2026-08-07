@@ -27,6 +27,7 @@ export default function PayoutDelayAutomation(): ReactElement {
   const [busy, setBusy] = useState(false);
   const [threshold, setThreshold] = useState(72);
   const [automationEnabled, setAutomationEnabled] = useState(true);
+  const [webhookUrl, setWebhookUrl] = useState("");
 
   useRegisterPageMeta({ title: "Payout delay", subtitle: "JanusGraph mule_score holds" });
 
@@ -37,6 +38,7 @@ export default function PayoutDelayAutomation(): ReactElement {
       setData(res);
       setThreshold(res.config.mule_score_hold_threshold);
       setAutomationEnabled(res.config.automation_enabled);
+      setWebhookUrl(res.config.webhook_callback_url ?? "");
       setError(null);
     } catch (e) {
       setData(null);
@@ -57,15 +59,17 @@ export default function PayoutDelayAutomation(): ReactElement {
         tenant_id: tenantId,
         automation_enabled: automationEnabled,
         mule_score_hold_threshold: threshold,
+        webhook_callback_url: webhookUrl.trim(),
       });
       setData(res);
+      setWebhookUrl(res.config.webhook_callback_url ?? "");
       setError(null);
     } catch (e) {
       setError(toUserFacingError(e, { subject: "Payout delay", action: "update config" }));
     } finally {
       setBusy(false);
     }
-  }, [tenantId, automationEnabled, threshold]);
+  }, [tenantId, automationEnabled, threshold, webhookUrl]);
 
   const releasePayout = useCallback(
     async (payoutId: string) => {
@@ -150,6 +154,17 @@ export default function PayoutDelayAutomation(): ReactElement {
                   className="mt-1 w-full rounded-md border border-surface-600 bg-surface-900 px-3 py-2 text-sm font-mono text-gray-100"
                 />
               </label>
+              <label className="text-xs text-gray-500 block min-w-[280px] flex-1">
+                Hold/release webhook URL (optional)
+                <input
+                  type="url"
+                  value={webhookUrl}
+                  onChange={(e) => setWebhookUrl(e.target.value)}
+                  placeholder="https://example.com/hooks/payout-hold"
+                  className="mt-1 w-full rounded-md border border-surface-600 bg-surface-900 px-3 py-2 text-sm font-mono text-gray-100"
+                  data-testid="payout-delay-webhook-url"
+                />
+              </label>
               <button
                 type="button"
                 disabled={busy}
@@ -162,8 +177,8 @@ export default function PayoutDelayAutomation(): ReactElement {
             <p className="text-[11px] text-gray-600">
               JanusGraph property <span className="font-mono text-gray-400">{data.config.janusgraph_property}</span> ·
               default hold {data.config.hold_duration_hours_default}h ·{" "}
-              <Link to="/graph/mule-path" className="text-brand-400 hover:text-brand-300">
-                Mule path explorer
+              <Link to="/graph" className="text-brand-400 hover:text-brand-300">
+                Graph explorer
               </Link>
             </p>
           </section>

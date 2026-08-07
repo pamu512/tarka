@@ -30,7 +30,11 @@ const isoHoursAgo = (hours: number) => new Date(Date.now() - hours * 3600000).to
 
 const mockPayoutDelayConfigByTenant = new Map<
   string,
-  { automation_enabled: boolean; mule_score_hold_threshold: number }
+  {
+    automation_enabled: boolean;
+    mule_score_hold_threshold: number;
+    webhook_callback_url: string;
+  }
 >();
 const mockPayoutDelayReleased = new Set<string>();
 
@@ -58,10 +62,11 @@ function getSocialEngineeringConfig(tid: string): {
 function getPayoutDelayConfig(tid: string): {
   automation_enabled: boolean;
   mule_score_hold_threshold: number;
+  webhook_callback_url: string;
 } {
   let cfg = mockPayoutDelayConfigByTenant.get(tid);
   if (!cfg) {
-    cfg = { automation_enabled: true, mule_score_hold_threshold: 72 };
+    cfg = { automation_enabled: true, mule_score_hold_threshold: 72, webhook_callback_url: "" };
     mockPayoutDelayConfigByTenant.set(tid, cfg);
   }
   return cfg;
@@ -345,6 +350,7 @@ function buildMockPayoutDelayBoard(tid: string, limit: number): AnyObj {
       mule_score_hold_threshold: cfg.mule_score_hold_threshold,
       janusgraph_property: "mule_score",
       hold_duration_hours_default: 72,
+      webhook_callback_url: cfg.webhook_callback_url,
     },
     summary: {
       pending_count: payouts.filter((p) => p.status === "pending").length,
@@ -2230,6 +2236,9 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
         1,
         Math.min(99, Number(body.mule_score_hold_threshold) || 72),
       );
+    }
+    if (typeof body.webhook_callback_url === "string") {
+      cfg.webhook_callback_url = body.webhook_callback_url.trim();
     }
     return buildMockPayoutDelayBoard(tid, 35);
   }

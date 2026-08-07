@@ -347,6 +347,7 @@ export default function App() {
             <Route path="/ops/features" element={<FeatureTools />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/integrations/seller-integrity" element={<SellerIntegrityDashboard />} />
+            <Route path="/integrations/payout-delay" element={<PayoutDelayAutomation />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/help" element={<Help />} />
             <Route path="/admin" element={<AdminPanel />} />
@@ -376,7 +377,6 @@ export default function App() {
                 <Route path="/ops/backups" element={<AutomatedBackupIndicators />} />
                 <Route path="/integrations/webhook-logs" element={<WebhookLogs />} />
                 <Route path="/integrations/rate-limit-shields" element={<RateLimitShields />} />
-                <Route path="/integrations/payout-delay" element={<PayoutDelayAutomation />} />
                 <Route path="*" element={<Navigate to={leanHomePath()} replace />} />
               </>
             ) : (
@@ -403,7 +403,6 @@ export default function App() {
                 <Route path="/ops/backups" element={<Navigate to="/ops/infra" replace />} />
                 <Route path="/integrations/webhook-logs" element={<Navigate to="/integrations" replace />} />
                 <Route path="/integrations/rate-limit-shields" element={<Navigate to="/integrations" replace />} />
-                <Route path="/integrations/payout-delay" element={<Navigate to="/integrations" replace />} />
                 {/* Stale / unknown paths not in isProductionSurfacePath allowlist */}
                 <Route path="*" element={<Navigate to={leanHomePath()} replace />} />
               </>
