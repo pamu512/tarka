@@ -494,6 +494,53 @@ async def rule_precision_after_labels_endpoint(
     return payload
 
 
+class YLabelMergeItem(BaseModel):
+    trace_id: str = Field(min_length=1, max_length=128)
+    y_label: str = Field(min_length=1, max_length=16)
+    source: str | None = Field(default=None, max_length=64)
+
+
+class YLabelMergeBody(BaseModel):
+    tenant_id: str = Field(min_length=1, max_length=128)
+    labels: list[YLabelMergeItem] = Field(min_length=1, max_length=5000)
+
+
+@router.post("/y-labels/merge")
+async def merge_y_labels_endpoint(
+    body: YLabelMergeBody,
+    request: Request,
+    _user=Depends(require_role("analyst")),
+) -> dict[str, Any]:
+    """Merge trace-level y_labels into durable store (dispute / disposition feeds)."""
+    _enforce_tenant(request, body.tenant_id)
+    by_trace: dict[str, str] = {}
+    skipped = 0
+    sources: dict[str, int] = {}
+    for item in body.labels:
+        tid = str(item.trace_id).strip()
+        y = y_label_from_ground_truth(item.y_label)
+        if not y and str(item.y_label).strip() in {"0", "1"}:
+            y = str(item.y_label).strip()
+        if not tid or y not in {"0", "1"}:
+            skipped += 1
+            continue
+        by_trace[tid] = y
+        src = (item.source or "unknown").strip() or "unknown"
+        sources[src] = sources.get(src, 0) + 1
+    if not by_trace:
+        raise HTTPException(status_code=400, detail="no valid labels to merge")
+    store_meta = merge_y_labels(body.tenant_id, by_trace=by_trace)
+    return {
+        "ok": True,
+        "schema_id": "tarka.y_labels_merge/v1",
+        "tenant_id": body.tenant_id,
+        "merged": len(by_trace),
+        "skipped": skipped,
+        "source_breakdown": sources,
+        "store": store_meta,
+    }
+
+
 class ChallengeDispatchBody(BaseModel):
     tenant_id: str = Field(min_length=1, max_length=128)
     trace_id: str = Field(min_length=1, max_length=128)
