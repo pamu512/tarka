@@ -188,6 +188,44 @@ def dispute_client_evaluate_raises():
             yield client
 
 
+def test_get_dispute_includes_latest_decision_reprocess(
+    dispute_client_with_evaluate: TestClient,
+) -> None:
+    h = _headers()
+    create = {
+        "tenant_id": "acme-disp",
+        "entity_id": "e-get-reproc",
+        "trace_id": "trace-get-reproc",
+        "dispute_type": "chargeback",
+        "amount": 15.0,
+    }
+    r = dispute_client_with_evaluate.post("/v1/disputes", json=create, headers=h)
+    assert r.status_code == 201, r.text
+    did = r.json()["id"]
+
+    before = dispute_client_with_evaluate.get(f"/v1/disputes/{did}", headers=h)
+    assert before.status_code == 200, before.text
+    assert before.json().get("latest_decision_reprocess") is None
+    assert before.json().get("is_friendly_fraud_risk") is None
+
+    p = dispute_client_with_evaluate.post(
+        f"/v1/disputes/{did}/reprocess-external?tenant_id=acme-disp",
+        headers={**h, "Idempotency-Key": "idem-get-reproc"},
+        json={"reason": "surface on detail"},
+    )
+    assert p.status_code == 200, p.text
+
+    got = dispute_client_with_evaluate.get(f"/v1/disputes/{did}", headers=h)
+    assert got.status_code == 200, got.text
+    body = got.json()
+    dr = body.get("latest_decision_reprocess") or {}
+    assert dr.get("ok") is True
+    assert dr.get("decision") == "review"
+    assert dr.get("score") == 77.0
+    assert "risk:refund_burst" in (dr.get("tags") or [])
+    assert body.get("is_friendly_fraud_risk") is True
+
+
 def test_reprocess_external_evaluate_error_still_200(
     dispute_client_evaluate_raises: TestClient,
 ) -> None:
