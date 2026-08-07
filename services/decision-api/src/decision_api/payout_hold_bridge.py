@@ -8,9 +8,34 @@ from typing import Any
 log = logging.getLogger("decision-api.payout_hold_bridge")
 
 ACTION_TAGS = frozenset({"action:payout_hold", "action:payout_delay"})
-PAYOUT_CHECKPOINTS = frozenset({"payout"})
+HOLD_CHECKPOINTS = frozenset({"payout", "dispatch", "deliver", "delivery"})
+SPOOF_RISK_TAGS = frozenset({"risk:courier_spoof", "action:payout_hold"})
 DEFAULT_HOLD_HOURS = 72
 DEFAULT_DELAY_HOURS = 24
+
+
+def _resolve_checkpoint(
+    meta: dict[str, Any], event_type: str | None = None
+) -> str:
+    checkpoint = str(meta.get("checkpoint") or "").strip().lower()
+    if checkpoint:
+        return checkpoint
+    return str(event_type or "").strip().lower()
+
+
+def _has_spoof_risk_tag(tags: list[str] | None) -> bool:
+    for tag in tags or []:
+        if tag in SPOOF_RISK_TAGS or tag.startswith("vendor:incognia"):
+            return True
+    return False
+
+
+def _resolve_payout_id(meta: dict[str, Any]) -> str:
+    for key in ("payout_id", "courier_payout_id", "transfer_id"):
+        val = str(meta.get(key) or "").strip()
+        if val:
+            return val
+    return ""
 
 
 def should_create_payout_hold(
@@ -20,11 +45,13 @@ def should_create_payout_hold(
     event_type: str | None = None,
 ) -> bool:
     meta = metadata if isinstance(metadata, dict) else {}
-    checkpoint = str(meta.get("checkpoint") or "").strip().lower()
-    et = str(event_type or "").strip().lower()
-    if checkpoint not in PAYOUT_CHECKPOINTS and et not in PAYOUT_CHECKPOINTS:
+    checkpoint = _resolve_checkpoint(meta, event_type)
+    if checkpoint not in HOLD_CHECKPOINTS:
         return False
-    return bool(set(tags or []) & ACTION_TAGS)
+    tag_list = tags or []
+    if checkpoint == "payout":
+        return bool(set(tag_list) & ACTION_TAGS)
+    return _has_spoof_risk_tag(tag_list)
 
 
 def resolve_hold_status_and_hours(tags: list[str] | None) -> tuple[str, int]:
@@ -56,9 +83,12 @@ def build_hold_payload(
     trace_id: str,
 ) -> dict[str, Any]:
     meta = metadata if isinstance(metadata, dict) else {}
-    payout_id = str(meta.get("payout_id") or "").strip()
+    payout_id = _resolve_payout_id(meta)
     if not payout_id:
-        raise ValueError("metadata.payout_id is required for payout hold bridge")
+        raise ValueError(
+            "metadata payout_id, courier_payout_id, or transfer_id is required "
+            "for payout hold bridge"
+        )
 
     status, hold_duration_hours = resolve_hold_status_and_hours(tags)
 
@@ -130,7 +160,7 @@ async def maybe_create_payout_hold_from_evaluate(
     ):
         return
     meta = metadata if isinstance(metadata, dict) else {}
-    if not str(meta.get("payout_id") or "").strip():
+    if not _resolve_payout_id(meta):
         log.warning(
             "payout_hold_bridge_skipped missing payout_id tenant_id=%s trace_id=%s",
             tenant_id,
