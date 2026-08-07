@@ -429,6 +429,7 @@ export function getInvestigationMockResponse(
         { id: "coupon_instrument_abuse", title: "Coupon, stacking & instrument-led promo abuse", vertical: "ecommerce_promo" },
         { id: "disputes_chargebacks", title: "Disputes & chargebacks (lifecycle + evidence)", vertical: "payments_disputes" },
         { id: "fulfillment_inrb_snad", title: "Fulfillment — INR, SNAD, damage, theft claims", vertical: "ecommerce_logistics" },
+        { id: "marketplace_cod_courier_hold", title: "Marketplace — COD / courier spoof / payout hold", vertical: "marketplace_offline_payment" },
         { id: "mule_layering", title: "Money mule & layering indicators", vertical: "payments_fincrime" },
         { id: "payments_first_party", title: "Payments — first-party / friendly fraud", vertical: "payments" },
         { id: "refund_promo_abuse", title: "Refund & promo abuse", vertical: "ecommerce_food_delivery" },

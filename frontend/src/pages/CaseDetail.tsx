@@ -77,6 +77,7 @@ import {
   MultiPartyLinksMobilePanel,
   useMultiPartyLinksRailState,
 } from "../components/CaseView/MultiPartyLinksRail";
+import { EntityPayoutHoldChip } from "../components/CaseView/EntityPayoutHoldChip";
 import { AnalystWorkbenchLayout } from "../components/CaseView/workbench/AnalystWorkbenchLayout";
 import { BridgeConfirmDialog } from "../components/CaseView/workbench/panels/BridgeConfirmDialog";
 import { trackWorkbenchTask } from "../workbench/workbenchTelemetry";
@@ -737,6 +738,8 @@ function CaseDetailWorkbench() {
         entityId={caseData.entity_id}
         state={multiPartyLinksState}
       />
+
+      <EntityPayoutHoldChip tenantId={caseData.tenant_id} entityId={caseData.entity_id} />
 
       <DegradedModeBanner error={error} title="Case action failed" onDismiss={() => setError(null)} />
 

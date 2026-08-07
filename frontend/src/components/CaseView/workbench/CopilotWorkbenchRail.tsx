@@ -1,22 +1,35 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { investigation, type InvestigationEvidenceSummaryCitation } from "../../../api/client";
 import { ShadowChatSidebar } from "../ShadowChatSidebar";
 import { CopilotCitationCards } from "./CopilotCitationCards";
 import { useCaseWorkbench } from "../../../context/CaseWorkbenchContext";
 import { toUserFacingApiError } from "../../../api/client";
+import { inferInvestigationPlaybookId } from "../../../utils/inferInvestigationPlaybook";
 import { trackPanelUsage, trackWorkbenchTask } from "../../../workbench/workbenchTelemetry";
 
 const DEFAULT_ANALYST = "analyst-1";
 
 /** Embedded copilot rail: investigation-agent chat + evidence citations (E02). */
 export function CopilotWorkbenchRail() {
-  const { caseId, tenantId, caseData, copilotRailOpen, setCopilotRailOpen, isPanelOpen } = useCaseWorkbench();
+  const {
+    caseId,
+    tenantId,
+    caseData,
+    decisionExplain,
+    copilotRailOpen,
+    setCopilotRailOpen,
+    isPanelOpen,
+  } = useCaseWorkbench();
   const [citations, setCitations] = useState<InvestigationEvidenceSummaryCitation[]>([]);
   const [citationLoading, setCitationLoading] = useState(false);
   const [citationError, setCitationError] = useState<string | null>(null);
   const [lastPrompt, setLastPrompt] = useState("Summarize this case for triage.");
 
   const open = isPanelOpen("copilot_rail") && copilotRailOpen;
+  const suggestedPlaybookId = useMemo(
+    () => inferInvestigationPlaybookId(decisionExplain?.tags),
+    [decisionExplain?.tags],
+  );
 
   const refreshCitations = useCallback(async () => {
     if (!caseData?.trace_id) {
@@ -79,6 +92,7 @@ export function CopilotWorkbenchRail() {
                 if (!v) setCopilotRailOpen(false);
               }}
               embedded
+              suggestedPlaybookId={suggestedPlaybookId}
             />
             <div className="shrink-0 border-t border-surface-700">
               <div className="flex items-center justify-between gap-2 px-3 py-2">
