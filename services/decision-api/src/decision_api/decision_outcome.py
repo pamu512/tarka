@@ -194,6 +194,7 @@ def schedule_decision_outcomes(
                 metadata=meta,
                 trace_id=ctx.trace_id,
                 event_type=ctx.event_type,
+                metrics_inc=metrics_inc,
             )
 
 

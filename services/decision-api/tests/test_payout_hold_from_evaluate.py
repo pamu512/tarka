@@ -112,6 +112,29 @@ async def test_maybe_create_payout_hold_posts_to_ingress():
 
 
 @pytest.mark.asyncio
+async def test_bridge_failure_increments_metric():
+    calls = []
+
+    class Boom:
+        async def post(self, *a, **k):
+            raise RuntimeError("down")
+
+    await maybe_create_payout_hold(
+        http=Boom(),
+        base_url="http://x",
+        token="t",
+        payload={
+            "tenant_id": "t",
+            "payout_id": "p",
+            "entity_id": "e",
+            "status": "held",
+        },
+        metrics_inc=lambda m, **kw: calls.append(m),
+    )
+    assert "payout_hold_bridge_failed" in calls
+
+
+@pytest.mark.asyncio
 async def test_maybe_create_payout_hold_skips_without_config():
     called = False
 

@@ -92,6 +92,7 @@ async def maybe_create_payout_hold(
     base_url: str,
     token: str,
     payload: dict[str, Any],
+    metrics_inc: Any = None,
 ) -> None:
     url_base = (base_url or "").strip()
     secret = (token or "").strip()
@@ -107,6 +108,8 @@ async def maybe_create_payout_hold(
         r.raise_for_status()
     except Exception:
         log.exception("payout_hold_bridge_failed")
+        if callable(metrics_inc):
+            metrics_inc("payout_hold_bridge_failed")
 
 
 async def maybe_create_payout_hold_from_evaluate(
@@ -156,4 +159,5 @@ async def maybe_create_payout_hold_from_evaluate(
         base_url=integration_ingress_url,
         token=ingress_internal_token,
         payload=payload,
+        metrics_inc=metrics_inc,
     )
