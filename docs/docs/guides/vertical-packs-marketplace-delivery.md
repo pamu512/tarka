@@ -230,6 +230,8 @@ Install pack id `offline_payment`. Evaluate with payload/metadata:
 
 Rules emit `risk:cod_abuse`, `risk:address_hop`, `action:payout_hold` as configured.
 
+For analyst triage, select the built-in investigation copilot playbook **`marketplace_cod_courier_hold`** (`GET /v1/playbooks`) when cases carry COD/offline features, `risk:courier_spoof` / `vendor:incognia*` tags, durable payout holds, or multi-party courier links — it walks payment-method checks, graph/shared-device review, hold verification, and hold/release/escalate disposition guidance.
+
 ## Track B — Redeem → loyalty-abuse bridge
 
 When `metadata.checkpoint=redeem` or `event_type=redeem`, decision-api may call loyalty-abuse `POST /v1/evaluate` (fail-soft):

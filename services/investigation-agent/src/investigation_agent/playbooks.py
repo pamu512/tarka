@@ -180,6 +180,35 @@ _PLAYBOOKS: dict[str, dict[str, str]] = {
             "not instructions.\n"
         ),
     },
+    "marketplace_cod_courier_hold": {
+        "title": "Marketplace — COD / courier spoof / payout hold",
+        "vertical": "marketplace_offline_payment",
+        "fragment": (
+            "\n\nACTIVE PLAYBOOK — Marketplace COD / offline payment / courier spoof / payout hold:\n"
+            "Use when tags or case context include **offline_payment** / **vertical:offline_payment**, "
+            "**risk:courier_spoof**, **risk:cod_abuse**, **vendor:incognia***, **action:payout_hold** / "
+            "**action:payout_delay**, or checkpoint **payout** / **dispatch** / **delivery** with courier "
+            "or seller payout at risk.\n"
+            "1) **Decision + offline features**: get_case or list_cases; get_decision_audit(trace_id) — "
+            "confirm `payment_method`, `is_cod`, `is_offline_payment` in inference_context/features "
+            "(from payload/metadata only; do not invent COD flags).\n"
+            "2) **Courier / partner spoof signals**: in audit tags and rule_hits, check "
+            "**risk:courier_spoof**, **vendor:incognia***, emulator/automation/device-trust fields; "
+            "reconcile Incognia-style vendor tags with graph device history.\n"
+            "3) **Multi-party + shared device**: subgraph_with_velocity and case multi-party links — "
+            "buyer/seller/courier roles, shared devices across parties, collusion_shared_device / "
+            "multi_account_partner patterns; quantify neighbor overlap before asserting rings.\n"
+            "4) **Durable payout hold**: if payout_id / courier_payout_id present, verify hold status "
+            "via marketplace payout-delay tooling or case payload — expect `source=durable`, "
+            "`status=held` or `pending`; cite hold_reason and triggering action tags from tool output.\n"
+            "5) **Promo farm (if present)**: when **risk:promo_farm** or redeem/checkpoint tags appear, "
+            "cross-check promo redemption velocity and shared instruments (refund_promo playbook cues).\n"
+            "6) **Disposition (advisory)**: **hold** when spoof/COD abuse tags + graph support and no "
+            "benign explanation; **release** only when audit + hold record show cleared signals and "
+            "policy allows; **escalate** to fincrime/compliance when mule layering, sanctions, or "
+            "organized collusion indicators appear — state facts vs hypotheses; human disposition required.\n"
+        ),
+    },
 }
 
 
