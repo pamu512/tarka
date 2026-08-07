@@ -34,9 +34,10 @@ Copy rows into dated notes when a week completes. Do not check off from sim.
 
 ## How to start the clock (operator)
 
+**UI (preferred):** Ops → Shadow (`/ops/shadow`) → **Arm L3 clock** with a named live tenant + host action sink (defaults to `internal_host_action_sink`). Then log host actions and **Sign week** N after each live week. Week 4 requires the ECE checkbox.
+
 ```bash
-# 1) Optional: use in-repo host action sink URI from GET /v1/ops/l3-ledger → internal_host_action_sink
-# 2) Arm (admin)
+# API equivalent
 curl -X POST "$DECISION_API_URL/v1/ops/l3-ledger/arm" -H "Authorization: …" -H "Content-Type: application/json" -d '{
   "tenant_id": "YOUR_LIVE_TENANT",
   "week1_start_utc": "2026-08-07",
@@ -44,9 +45,8 @@ curl -X POST "$DECISION_API_URL/v1/ops/l3-ledger/arm" -H "Authorization: …" -H
   "shadow_evaluate_enabled": true,
   "actor": "you"
 }'
-# 3) Log host actions during the week
 curl -X POST "$DECISION_API_URL/v1/ops/host-actions" -d '{"tenant_id":"YOUR_LIVE_TENANT","action":"challenge_issued","trace_id":"…"}'
-# 4) Sign weeks 1–4; week 4 requires ece_candidate=true + real-label ECE
+# Sign weeks 1–4; week 4 requires ece_candidate=true + real-label ECE
 ```
 
 Rejects: `demo` / `fixture` / `sim` tenants; sinks containing `shadow_four_week_sim`.
