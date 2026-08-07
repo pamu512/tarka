@@ -7,10 +7,16 @@
 
 | Peer | Borrow | Shipped |
 |------|--------|---------|
-| Ojuri | McNemar + PSI + CANDIDATE→SHADOW→ACTIVE | PSI on calibration histograms; `promote_lifecycle` on shadow-promote-gate |
-| Marble | Screening as ops product | `POST /v1/ops/sanctions-screen` persist + Integrations form |
-| Tazama | Typology control plane | `GET /v1/ops/typology-ops` |
+| Ojuri | McNemar + PSI + CANDIDATE→SHADOW→ACTIVE | PSI; exact/χ² mid-p gate; labeled F1 diagnostic; `promote_lifecycle` |
+| Marble | Screening as ops product | Screen+persist; CronJob example; helm schedule env; `motiva_claim_allowed: false` |
+| Tazama | Typology control plane | `GET /v1/ops/typology-ops` + audit breach histogram |
 | Feast DIY | Online/offline contract | `online_serving` block on feature-store-posture |
+
+## Partials deepened (2026-08-07)
+
+- Ojuri: contingency → real McNemar mid-p + volume; F1 when y_labels present (still ≠ full MLA / production ACTIVE without desk gates).
+- Marble: operator-startable refresh CronJob example + diligence index; still ≠ Motiva+ES.
+- Tazama: audit-derived breach histogram; still ≠ ISO 20022 / processor fleet.
 
 ## Explicit non-claims
 

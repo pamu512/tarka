@@ -162,9 +162,11 @@ def schedule_posture() -> dict[str, Any]:
         "expression": expr or None,
         "env": "TARKA_SANCTIONS_REFRESH_SCHEDULE",
         "note": (
-            "Set a cron/k8s CronJob that POSTs /v1/ops/sanctions-screening-refresh. "
+            "Set a cron/k8s CronJob that POSTs /v1/ops/sanctions-screening-refresh "
+            "(example: infra/deploy/examples/sanctions-refresh-cronjob.yaml). "
             "Unset schedule ≠ Marble Motiva continuous lists."
         ),
+        "cronjob_example": "infra/deploy/examples/sanctions-refresh-cronjob.yaml",
     }
 
 
@@ -434,9 +436,12 @@ class SanctionsScreener:
             "ready_for_continuous_claim": cache_ready,
             "continuous_ops_ready": continuous_ops_ready,
             "continuous_ops_blockers": blockers,
+            "motiva_claim_allowed": False,
+            "screen_persist": "POST /v1/ops/sanctions-screen",
             "honesty": (
                 "Persistence-required screening (SR-16). Empty/missing cache is not a pass. "
-                "Do not claim Motiva-class continuous lists from cache alone."
+                "Do not claim Motiva-class continuous lists from cache alone. "
+                "motiva_claim_allowed stays false."
             ),
         }
 

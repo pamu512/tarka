@@ -612,9 +612,11 @@ async def shadow_promote_gate(
         aggregate_champion_challenger,
         drift_promote_gate,
         label_gated_promote,
+        labeled_champion_challenger_f1,
         mcnemar_promote_gate,
         promote_lifecycle_stage,
     )
+    from decision_api.y_label_store import load_y_labels
     from decision_api.vertical_packs import evaluate_kill_criteria, get_vertical_pack
 
     pack = get_vertical_pack("fintech") or {}
@@ -643,6 +645,7 @@ async def shadow_promote_gate(
         "hint": "Pass tenant_id to scan real-label coverage before promote.",
     }
     cc_audit: dict[str, Any] = aggregate_champion_challenger([])
+    labeled_f1: dict[str, Any] = labeled_champion_challenger_f1([])
     tid = (tenant_id or "").strip()
     if tid:
         try:
@@ -676,16 +679,22 @@ async def shadow_promote_gate(
             )
             label_posture["label_source"] = bins.get("label_source")
             label_posture["rows_scanned"] = len(export_rows)
-            cc_audit = aggregate_champion_challenger(
-                [
-                    {
-                        "trace_id": str(rec.trace_id),
-                        "payload_snapshot": rec.payload_snapshot
-                        if isinstance(rec.payload_snapshot, dict)
-                        else {},
-                    }
-                    for rec in records
-                ]
+            cc_rows = [
+                {
+                    "trace_id": str(rec.trace_id),
+                    "entity_id": str(rec.entity_id or ""),
+                    "payload_snapshot": rec.payload_snapshot
+                    if isinstance(rec.payload_snapshot, dict)
+                    else {},
+                }
+                for rec in records
+            ]
+            cc_audit = aggregate_champion_challenger(cc_rows)
+            ystore = load_y_labels(tid)
+            labeled_f1 = labeled_champion_challenger_f1(
+                cc_rows,
+                by_trace=ystore.get("by_trace"),
+                by_entity=ystore.get("by_entity"),
             )
         except Exception:
             label_posture = {
@@ -695,7 +704,7 @@ async def shadow_promote_gate(
                 "hint": "audit scan failed",
             }
 
-    # Desk bar: real labels + McNemar volume + elevated calibration drift block.
+    # Desk bar: real labels + McNemar (volume + mid-p) + elevated calibration drift block.
     live_promote = label_gated_promote(label_posture=label_posture, kill_gate=None)
     mcnemar = mcnemar_promote_gate(cc_audit)
     drift_row: dict[str, Any] = {"hint": "no_tenant"}
@@ -742,13 +751,15 @@ async def shadow_promote_gate(
         "drift_promote_gate": drift_gate,
         "desk_promote_gate": desk_promote,
         "promote_lifecycle": lifecycle,
+        "labeled_champion_challenger_f1": labeled_f1,
         "champion_challenger": cc_audit,
         "recipe_path": "scripts/oss/shadow_vs_primary_diff_recipe.sql",
         "smoke": "scripts/oss/shadow_promote_gate_smoke.py",
         "borrowed_from": "Ojuri promote science (McNemar + PSI + CANDIDATE→SHADOW→ACTIVE)",
         "honesty": (
             "Demo blocked/allowed rows are kill_criteria smoke only. "
-            "desk_promote_gate requires real labels + McNemar pairs + non-elevated drift/PSI."
+            "desk_promote_gate requires real labels + McNemar mid-p + non-elevated drift/PSI. "
+            "labeled F1 is diagnostic — not a substitute for desk gates."
         ),
     }
 

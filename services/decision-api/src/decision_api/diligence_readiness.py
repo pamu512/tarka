@@ -20,6 +20,7 @@ _INDEX_PATHS = [
     "docs/compliance/partner-fusion-proof.live.status",
     "docs/docs/guides/feature-serving-contract.md",
     "docs/superpowers/playbooks/l3-ops-ledger.md",
+    "infra/deploy/examples/sanctions-refresh-cronjob.yaml",
     "scripts/audit_stubs.py",
     "scripts/compliance/export_control_evidence_index.py",
     "scripts/oss/loyalty_feed_posture_smoke.py",
@@ -94,7 +95,13 @@ def load_diligence_readiness(
         "sanctions_screening": {
             "plane": "integration_ingress",
             "posture": "GET /v1/ops/sanctions-screening-posture",
-            "note": "continuous_ops_ready requires FtM cache + schedule + refresh stamp; ≠ Motiva",
+            "screen_persist": "POST /v1/ops/sanctions-screen",
+            "cronjob_example": "infra/deploy/examples/sanctions-refresh-cronjob.yaml",
+            "motiva_claim_allowed": False,
+            "note": (
+                "continuous_ops_ready requires FtM cache + TARKA_SANCTIONS_REFRESH_SCHEDULE "
+                "+ refresh stamp; motiva_claim_allowed stays false"
+            ),
         },
     }
 

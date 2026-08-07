@@ -1,0 +1,49 @@
+# Example CronJob: keep Marble-style continuous screening ops startable.
+# Sets the honesty schedule (TARKA_SANCTIONS_REFRESH_SCHEDULE) on the Deployment
+# separately; this Job POSTs the refresh stamp after cache reload.
+#
+# ≠ Motiva+ES. continuous_ops_ready still needs FtM cache + schedule env + stamp.
+#
+# Replace SERVICE_URL / namespace / auth as needed.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: tarka-sanctions-screening-refresh
+  labels:
+    app.kubernetes.io/name: tarka
+    app.kubernetes.io/component: sanctions-screening-refresh
+spec:
+  schedule: "0 */6 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: refresh
+              image: curlimages/curl:8.5.0
+              env:
+                - name: INGRESS_BASE
+                  value: "http://tarka-integration-ingress:8080"
+                # Optional: API_KEYS bearer / x-api-key — mount from Secret in real clusters
+                - name: API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: tarka-app-secrets
+                      key: SANCTIONS_REFRESH_API_KEY
+                      optional: true
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  HDR=""
+                  if [ -n "${API_KEY:-}" ]; then
+                    HDR="-H Authorization: Bearer ${API_KEY}"
+                  fi
+                  # shellcheck disable=SC2086
+                  curl -fsS -X POST ${HDR} \
+                    "${INGRESS_BASE}/v1/ops/sanctions-screening-refresh"

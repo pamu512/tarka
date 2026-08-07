@@ -164,6 +164,8 @@ integrationIngress:
   servicePort: 8003
   tenantBindingRequired: true
   allowInsecureNoAuth: false
+  # Cron expression honesty for continuous_ops_ready (pair with examples/sanctions-refresh-cronjob.yaml)
+  sanctionsRefreshSchedule: ""
 
 collaborationChatBridge:
   enabled: false

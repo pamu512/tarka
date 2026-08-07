@@ -30,6 +30,10 @@ spec:
               value: {{ ternary "true" "false" .Values.integrationIngress.tenantBindingRequired | quote }}
             - name: ALLOW_INSECURE_NO_AUTH
               value: {{ ternary "true" "false" .Values.integrationIngress.allowInsecureNoAuth | quote }}
+            {{- with .Values.integrationIngress.sanctionsRefreshSchedule }}
+            - name: TARKA_SANCTIONS_REFRESH_SCHEDULE
+              value: {{ . | quote }}
+            {{- end }}
             {{- if .Values.global.appSecretsName }}
             - name: API_KEYS
               valueFrom:

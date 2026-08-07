@@ -1,9 +1,11 @@
-"""Ojuri must-borrow: PSI + promote lifecycle."""
+"""Ojuri must-borrow: PSI + promote lifecycle + McNemar p-value + labeled F1."""
 
 from __future__ import annotations
 
 from decision_api.champion_challenger_audit import (
     drift_promote_gate,
+    labeled_champion_challenger_f1,
+    mcnemar_pvalue,
     population_stability_index,
     promote_lifecycle_stage,
 )
@@ -49,3 +51,54 @@ def test_promote_lifecycle_stages():
         )["stage"]
         == "ACTIVE"
     )
+
+
+def test_mcnemar_pvalue_skewed_significant():
+    out = mcnemar_pvalue(20, 0)
+    assert out["method"] == "exact_binomial"
+    assert out["p_value"] is not None
+    assert out["p_value"] < 0.001
+
+
+def test_mcnemar_pvalue_balanced_not_significant():
+    out = mcnemar_pvalue(12, 13)
+    assert out["p_value"] is not None
+    assert out["p_value"] > 0.5
+
+
+def test_labeled_champion_challenger_f1():
+    audits = [
+        {
+            "trace_id": "t1",
+            "payload_snapshot": {
+                "policy_routing": {
+                    "champion_decision": "review",
+                    "challenger_decision": "allow",
+                }
+            },
+        },
+        {
+            "trace_id": "t2",
+            "payload_snapshot": {
+                "policy_routing": {
+                    "champion_decision": "allow",
+                    "challenger_decision": "review",
+                }
+            },
+        },
+        {
+            "trace_id": "t3",
+            "payload_snapshot": {
+                "policy_routing": {
+                    "champion_decision": "review",
+                    "challenger_decision": "review",
+                }
+            },
+        },
+    ]
+    out = labeled_champion_challenger_f1(
+        audits, by_trace={"t1": "1", "t2": "0", "t3": "1"}
+    )
+    assert out["labeled_rows"] == 3
+    assert out["champion_f1"] is not None
+    assert out["challenger_f1"] is not None
