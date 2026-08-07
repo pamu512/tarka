@@ -18,6 +18,13 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+def _empty_json_default():
+    # Micro/SQLite rejects Postgres `'{}'::jsonb` cast syntax.
+    if op.get_bind().dialect.name == "sqlite":
+        return sa.text("'{}'")
+    return sa.text("'{}'::jsonb")
+
+
 def upgrade() -> None:
     op.create_table(
         "sar_audit_log",
@@ -30,7 +37,7 @@ def upgrade() -> None:
             "detail",
             postgresql.JSONB(astext_type=sa.Text()),
             nullable=False,
-            server_default=sa.text("'{}'::jsonb"),
+            server_default=_empty_json_default(),
         ),
         sa.Column("stack_trace", sa.Text(), nullable=True),
         sa.Column(
@@ -54,7 +61,9 @@ def upgrade() -> None:
         op.f("ix_sar_audit_log_created_at"), "sar_audit_log", ["created_at"], unique=False
     )
 
-    op.drop_constraint("ck_sar_filing_intents_status", "sar_filing_intents", type_="check")
+    is_sqlite = op.get_bind().dialect.name == "sqlite"
+    if not is_sqlite:
+        op.drop_constraint("ck_sar_filing_intents_status", "sar_filing_intents", type_="check")
     op.execute(
         """
         UPDATE sar_filing_intents SET status = CASE status
@@ -65,41 +74,60 @@ def upgrade() -> None:
         END
         """
     )
-    op.add_column(
-        "sar_filing_intents",
-        sa.Column("sar_artifact_id", postgresql.UUID(as_uuid=True), nullable=True),
-    )
-    op.add_column(
-        "sar_filing_intents",
-        sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-    )
-    op.create_foreign_key(
-        "fk_sar_filing_intents_sar_artifact",
-        "sar_filing_intents",
-        "sar_filings",
-        ["sar_artifact_id"],
-        ["id"],
-        ondelete="SET NULL",
-    )
-    op.create_check_constraint(
-        "ck_sar_filing_intents_status_v2",
-        "sar_filing_intents",
-        "status IN ("
-        "'PENDING_REVIEW','APPROVED','SFTP_QUEUED','TRANSMITTED','ACKNOWLEDGED','FAILED'"
-        ")",
-    )
+    if is_sqlite:
+        # Micro/SQLite: ADD COLUMN only. Batch table-recreate blows up on legacy
+        # Postgres `now()` defaults reflected from earlier revisions.
+        op.add_column(
+            "sar_filing_intents",
+            sa.Column("sar_artifact_id", postgresql.UUID(as_uuid=True), nullable=True),
+        )
+        op.add_column(
+            "sar_filing_intents",
+            sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.text("CURRENT_TIMESTAMP"),
+                nullable=False,
+            ),
+        )
+    else:
+        op.add_column(
+            "sar_filing_intents",
+            sa.Column("sar_artifact_id", postgresql.UUID(as_uuid=True), nullable=True),
+        )
+        op.add_column(
+            "sar_filing_intents",
+            sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.text("now()"),
+                nullable=False,
+            ),
+        )
+        op.create_foreign_key(
+            "fk_sar_filing_intents_sar_artifact",
+            "sar_filing_intents",
+            "sar_filings",
+            ["sar_artifact_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
+        op.create_check_constraint(
+            "ck_sar_filing_intents_status_v2",
+            "sar_filing_intents",
+            "status IN ("
+            "'PENDING_REVIEW','APPROVED','SFTP_QUEUED','TRANSMITTED','ACKNOWLEDGED','FAILED'"
+            ")",
+        )
 
 
 def downgrade() -> None:
-    op.drop_constraint("ck_sar_filing_intents_status_v2", "sar_filing_intents", type_="check")
-    op.drop_constraint(
-        "fk_sar_filing_intents_sar_artifact", "sar_filing_intents", type_="foreignkey"
-    )
+    is_sqlite = op.get_bind().dialect.name == "sqlite"
+    if not is_sqlite:
+        op.drop_constraint("ck_sar_filing_intents_status_v2", "sar_filing_intents", type_="check")
+        op.drop_constraint(
+            "fk_sar_filing_intents_sar_artifact", "sar_filing_intents", type_="foreignkey"
+        )
     op.drop_column("sar_filing_intents", "updated_at")
     op.drop_column("sar_filing_intents", "sar_artifact_id")
     op.execute(
@@ -115,11 +143,12 @@ def downgrade() -> None:
         END
         """
     )
-    op.create_check_constraint(
-        "ck_sar_filing_intents_status",
-        "sar_filing_intents",
-        "status IN ('pending', 'submitted', 'failed')",
-    )
+    if not is_sqlite:
+        op.create_check_constraint(
+            "ck_sar_filing_intents_status",
+            "sar_filing_intents",
+            "status IN ('pending', 'submitted', 'failed')",
+        )
     op.drop_index(op.f("ix_sar_audit_log_created_at"), table_name="sar_audit_log")
     op.drop_index(op.f("ix_sar_audit_log_sar_filing_intent_id"), table_name="sar_audit_log")
     op.drop_table("sar_audit_log")

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { analytics, type AuditEntry } from "../api/client";
+import { decisions } from "../api/v1/decisions";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
@@ -17,6 +18,16 @@ import { toUserFacingError } from "../utils/userFacingErrors";
 
 const CHART_TOP_N = 12;
 const FETCH_LIMIT = 2500;
+
+type LabeledRuleRow = {
+  rule_id: string;
+  labeled_hits: number;
+  fraud_hits: number;
+  fp_hits: number;
+  precision: number;
+  fp_rate: number;
+  enough_support: boolean;
+};
 
 function rowToAuditEntry(r: unknown): AuditEntry | null {
   if (!r || typeof r !== "object") return null;
@@ -41,6 +52,12 @@ export default function RulePerformance() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rustOnly, setRustOnly] = useState(true);
+  const [labeledRules, setLabeledRules] = useState<LabeledRuleRow[]>([]);
+  const [labeledMeta, setLabeledMeta] = useState<{
+    labeled_rows: number;
+    healthy: boolean;
+    hint: string;
+  } | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -50,9 +67,23 @@ export default function RulePerformance() {
       const parsed = rows.map(rowToAuditEntry).filter((e): e is AuditEntry => e != null);
       setEntries(parsed);
       setError(null);
+      try {
+        const labeled = await decisions.rulePrecisionAfterLabels(tenantId, {}, FETCH_LIMIT);
+        setLabeledRules(Array.isArray(labeled.rules) ? labeled.rules : []);
+        setLabeledMeta({
+          labeled_rows: Number(labeled.labeled_rows ?? 0),
+          healthy: Boolean(labeled.posture?.healthy),
+          hint: String(labeled.posture?.hint ?? ""),
+        });
+      } catch {
+        setLabeledRules([]);
+        setLabeledMeta(null);
+      }
     } catch (e) {
       setError(toUserFacingError(e, { subject: "Rule performance", action: "load decision audit" }));
       setEntries([]);
+      setLabeledRules([]);
+      setLabeledMeta(null);
     } finally {
       setLoading(false);
     }
@@ -147,6 +178,64 @@ export default function RulePerformance() {
           <SupportIdHint message={error} />
         </div>
       ) : null}
+
+      <div
+        className={`rounded-xl border px-4 py-3 space-y-2 ${
+          labeledMeta?.healthy
+            ? "border-surface-700 bg-surface-900/80"
+            : "border-amber-500/35 bg-amber-500/5"
+        }`}
+      >
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-semibold text-gray-200">
+            After dispositions ({labeledMeta?.labeled_rows ?? 0} labels)
+          </h2>
+          <span
+            className={`text-[11px] uppercase tracking-wide ${
+              labeledMeta?.healthy ? "text-gray-500" : "text-amber-300"
+            }`}
+          >
+            {labeledMeta?.healthy ? "coverage ok" : "insufficient labels — not healthy"}
+          </span>
+        </div>
+        <p className="text-xs text-gray-500 leading-relaxed">
+          Precision / FP proxy from joined <span className="font-mono">y_label</span> per{" "}
+          <span className="font-mono">rule_hits</span>.{" "}
+          {labeledMeta?.hint ? labeledMeta.hint : "Join case dispositions before trusting these numbers."}
+        </p>
+        {!labeledMeta || labeledMeta.labeled_rows === 0 || labeledRules.length === 0 ? (
+          <p className="text-xs text-gray-600">No labeled rule hits in window — dispose cases with reason codes first.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead>
+                <tr className="text-[11px] uppercase tracking-wide text-gray-500 border-b border-surface-800">
+                  <th className="py-2 pr-3 font-medium">Rule</th>
+                  <th className="py-2 pr-3 font-medium text-right">Labeled</th>
+                  <th className="py-2 pr-3 font-medium text-right">Precision</th>
+                  <th className="py-2 font-medium text-right">FP hits</th>
+                </tr>
+              </thead>
+              <tbody>
+                {labeledRules.slice(0, 15).map((r) => (
+                  <tr key={r.rule_id} className="border-b border-surface-800/70">
+                    <td className="py-2 pr-3 font-mono text-xs text-gray-300 break-all">{r.rule_id}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-gray-400">{r.labeled_hits}</td>
+                    <td
+                      className={`py-2 pr-3 text-right tabular-nums ${
+                        labeledMeta.healthy && r.enough_support ? "text-gray-200" : "text-gray-500"
+                      }`}
+                    >
+                      {(r.precision * 100).toFixed(1)}%
+                    </td>
+                    <td className="py-2 text-right tabular-nums text-rose-300/80">{r.fp_hits}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-24">

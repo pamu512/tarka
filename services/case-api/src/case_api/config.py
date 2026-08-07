@@ -36,6 +36,10 @@ class Settings(BaseSettings):
         description="Fraction of the filing→deadline window treated as near-breach tail.",
     )
     case_queue_routing_rules_json: str = ""
+    # High-impact terminal statuses requiring a distinct second actor (missed-mark C1).
+    case_maker_checker_statuses: str = os.environ.get(
+        "CASE_MAKER_CHECKER_STATUSES", "resolved_fraud,sar_filed"
+    )
 
     # SAR FinCEN SFTP transport (BSA E-Filing). Worker uses these; empty host => FAILED (not left in SFTP_QUEUED).
     fincen_bsa_sftp_host: str = os.environ.get("FINCEN_BSA_SFTP_HOST", "").strip()

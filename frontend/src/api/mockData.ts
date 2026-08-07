@@ -1438,60 +1438,7 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   if (path.includes("/api/cases/v1/cases/ops/sar-transport/force-sftp-sync") && method === "POST") {
     return { ok: true, published: true, processed_one: false, cooldown_seconds: 60 };
   }
-  if (path.includes("/api/cases/v1/cases/ops/kpis")) {
-    return {
-      tenant_id: "demo",
-      total_cases: mockCases.length,
-      queue_score_avg: 85,
-      critical_open: 1,
-      investigating_rate: 0.4,
-      resolved_rate: 0.2,
-      median_case_age_hours: 6.5,
-      by_status: { open: 2, investigating: 1, closed: 1 } as Record<string, number>,
-      sla_breached_open_or_investigating: 0,
-      label_boost_cases: 1,
-    };
-  }
-  if (path.includes("/api/cases/v1/cases/ops/desk-activity")) {
-    return {
-      tenant_id: "demo",
-      period_days: 7,
-      since: new Date(Date.now() - 7 * 86400000).toISOString(),
-      touch_actions_total: 4,
-      by_action: { update_case: 2, add_comment: 1, update_labels: 1 },
-      recent: [
-        {
-          id: "a1",
-          action: "update_case",
-          actor: "analyst@demo",
-          resource_id: "c1",
-          created_at: nowIso(),
-        },
-      ],
-    };
-  }
-  if (path.includes("/api/cases/v1/cases/analytics/cohort-compare")) {
-    return {
-      tenant_id: "demo",
-      period_days: 7,
-      cases_created_recent: 12,
-      cases_created_prior: 10,
-      delta: 2,
-      delta_percent_vs_prior: 20,
-      status_mix_recent: { open: 7, investigating: 3, closed: 2 },
-      status_mix_prior: { open: 5, investigating: 3, closed: 2 },
-      priority_mix_recent: { high: 4, medium: 6, low: 2 },
-      priority_mix_prior: { high: 3, medium: 5, low: 2 },
-    };
-  }
-  if (path.includes("/api/cases/v1/cases/playbooks")) {
-    return { playbooks: { escalate: { label: "Escalate", target_status: "investigating" }, close_fp: { label: "Close False Positive", target_status: "closed" } } };
-  }
-  if (path.includes("/api/cases/v1/case-views")) {
-    if (method === "GET") return { items: [{ name: "High Risk", tenant_id: "demo", filters: { priority: "high" } }] };
-    if (method === "POST") return { ok: true, view: { name: body.name ?? "Saved View" } };
-    if (method === "DELETE") return { removed: true };
-  }
+  // ops/kpis, desk-activity, qa-*, cohort-compare, playbooks, case-views → mockData.cases.ts
   if (path.includes("/api/cases/v1/cases/bulk-update")) {
     const caseIds = Array.isArray((body as AnyObj).case_ids) ? ((body as AnyObj).case_ids as unknown[]) : [];
     return { updated: caseIds.length, items: mockCases };

@@ -6,6 +6,7 @@ import { useRegisterPageMeta } from "../context/PageMetaContext";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { useToast } from "../context/ToastContext";
 import {
+  decisions,
   graph,
   type EntityRiskResult,
   type GraphEdge,
@@ -71,10 +72,18 @@ import {
   KnowledgeGraphMobilePanel,
   useKnowledgeGraphSidebarState,
 } from "../components/CaseView/KnowledgeGraphSidebar";
+import {
+  MultiPartyLinksDesktopRail,
+  MultiPartyLinksMobilePanel,
+  useMultiPartyLinksRailState,
+} from "../components/CaseView/MultiPartyLinksRail";
 import { AnalystWorkbenchLayout } from "../components/CaseView/workbench/AnalystWorkbenchLayout";
 import { BridgeConfirmDialog } from "../components/CaseView/workbench/panels/BridgeConfirmDialog";
 import { trackWorkbenchTask } from "../workbench/workbenchTelemetry";
 import { isHeroHotkeyEventIgnored } from "../utils/heroHotkeys";
+import {
+  buildTriageFlashCards,
+} from "../utils/triageFlashCards";
 import { Network, type Options } from "vis-network";
 import { DataSet } from "vis-data";
 
@@ -105,49 +114,6 @@ function firstSightSentence(text: string): string {
   const split = t.split(/(?<=[.!?])\s+/);
   const one = (split[0] ?? t).trim();
   return one.length > 220 ? `${one.slice(0, 217)}…` : one;
-}
-
-/** Scan-layer flash cards: Velocity, Graph, Geo-inconsistency proxy. */
-function buildTriageFlashCards(
-  ctx: InferenceContext | null,
-  graphRisk: EntityRiskResult | null,
-): [TriageFlashCard, TriageFlashCard, TriageFlashCard] {
-  const velocity: TriageFlashCard = !ctx
-    ? { title: "Velocity", value: "—", tone: "neutral" }
-    : ctx.velocity_events_24h >= 40
-      ? { title: "Velocity", value: "High", tone: "critical" }
-      : ctx.velocity_events_24h >= 12
-        ? { title: "Velocity", value: "Elevated", tone: "warn" }
-        : { title: "Velocity", value: "Normal", tone: "ok" };
-
-  let graph: TriageFlashCard;
-  if (!graphRisk) {
-    graph = { title: "Graph", value: "—", tone: "neutral" };
-  } else {
-    const rs = graphRisk.risk_score;
-    const factorHit = graphRisk.risk_factors?.find((f) => /mule|ring|sybil|farm/i.test(f)) ?? null;
-    if (rs >= 0.65) {
-      graph = {
-        title: "Graph",
-        value: factorHit ?? "Mule ring",
-        tone: "critical",
-      };
-    } else if (rs >= 0.35) {
-      graph = { title: "Graph", value: "Elevated", tone: "warn" };
-    } else {
-      graph = { title: "Graph", value: "Low linkage", tone: "ok" };
-    }
-  }
-
-  const geo: TriageFlashCard = !ctx
-    ? { title: "Geo", value: "—", tone: "neutral" }
-    : ctx.impossible_travel_risk > 0.35 || ctx.geo_consistency_risk > 0.55
-      ? { title: "Geo", value: "Inconsistent", tone: "critical" }
-      : ctx.geo_consistency_risk > 0.22
-        ? { title: "Geo", value: "Suspect", tone: "warn" }
-        : { title: "Geo", value: "Consistent", tone: "ok" };
-
-  return [velocity, graph, geo];
 }
 
 /** Best-effort parse of evaluate payload / nested envelopes for triage financial hints (DuckDB cohort rolls up same trace keys when wired). */
@@ -230,6 +196,8 @@ function CaseDetailWorkbench() {
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [labelInput, setLabelInput] = useState("");
   const [bundleBusy, setBundleBusy] = useState(false);
+  const [challengeDispatchBusy, setChallengeDispatchBusy] = useState(false);
+  const [challengeDeliveryLine, setChallengeDeliveryLine] = useState<string | null>(null);
   const [zipBusy, setZipBusy] = useState(false);
   const [actPack, setActPack] = useState<EvidenceActPack | null>(null);
   const [actBusy, setActBusy] = useState<"load" | "sar" | "dispute" | null>(null);
@@ -260,6 +228,26 @@ function CaseDetailWorkbench() {
       setStatusUpdating(true);
       try {
         await cases.update(caseId, caseData.tenant_id, { status: newStatus as Case["status"] });
+        // Bridge B2: close the calibration loop when resolving/closing with a trace_id
+        const terminal = ["resolved", "closed", "resolved_fraud", "resolved_legit"].includes(
+          newStatus.toLowerCase(),
+        );
+        const trace = caseData.trace_id?.trim();
+        if (terminal && trace) {
+          const st = newStatus.toLowerCase();
+          const label = st.includes("fraud") ? "FRAUD" : "LEGITIMATE";
+          try {
+            const { decisions: decisionsApi } = await import("../api/client");
+            await decisionsApi.joinDispositionLabels(caseData.tenant_id, {
+              labels_by_trace: { [trace]: label },
+              allow_proxy_labels: false,
+            });
+            toast("Disposition joined to calibration (y_label)", "success");
+          } catch {
+            // Non-blocking: case status already saved
+            toast("Case updated; calibration label join skipped (decision-api unavailable)", "info");
+          }
+        }
         await refreshCase();
         trackWorkbenchTask("case_status_update", { caseId, tenantId: caseData.tenant_id, detail: newStatus });
       } catch (e) {
@@ -434,6 +422,44 @@ function CaseDetailWorkbench() {
     }
   };
 
+  async function handleDispatchChallenge() {
+    if (!caseData || !decisionExplain?.recommended_action) return;
+    const ra = decisionExplain.recommended_action.trim();
+    const normalized = ra.toLowerCase().replace(/[\s-]+/g, "_");
+    if (!normalized.startsWith("step_up") && !normalized.startsWith("challenge")) {
+      toast("Recommended action is not a step-up challenge", "info");
+      return;
+    }
+    setChallengeDispatchBusy(true);
+    setChallengeDeliveryLine(null);
+    try {
+      const resp = await decisions.dispatchChallenge({
+        tenant_id: caseData.tenant_id,
+        trace_id: caseData.trace_id,
+        entity_id: caseData.entity_id,
+        decision: decisionExplain.decision,
+        recommended_action: ra,
+      });
+      const delivery = resp.delivery ?? {};
+      const ok = resp.ok === true || delivery.ok === true;
+      const status = delivery.status_code != null ? String(delivery.status_code) : "";
+      const line = ok
+        ? `Challenge delivered${status ? ` (HTTP ${status})` : ""}`
+        : `Challenge dispatch failed${delivery.error ? `: ${String(delivery.error)}` : ""}`;
+      setChallengeDeliveryLine(line);
+      toast(line, ok ? "success" : "error");
+    } catch (e) {
+      const msg = toUserFacingApiError(e, {
+        subject: "Challenge dispatch",
+        action: "dispatch step-up challenge webhook",
+      });
+      setChallengeDeliveryLine(msg);
+      toast(msg, "error");
+    } finally {
+      setChallengeDispatchBusy(false);
+    }
+  }
+
   const handleEvidenceExportPdf = useCallback(() => {
     if (!caseData) return;
     setPdfBusy(true);
@@ -590,6 +616,12 @@ function CaseDetailWorkbench() {
     Boolean(caseData?.entity_id && caseData?.tenant_id),
   );
 
+  const multiPartyLinksState = useMultiPartyLinksRailState(
+    caseId ?? "",
+    caseData?.tenant_id ?? "",
+    Boolean(caseId && caseData?.tenant_id),
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -697,6 +729,13 @@ function CaseDetailWorkbench() {
         entityId={caseData.entity_id}
         tenantId={caseData.tenant_id}
         state={knowledgeGraphState}
+      />
+
+      <MultiPartyLinksMobilePanel
+        caseId={caseData.id}
+        tenantId={caseData.tenant_id}
+        entityId={caseData.entity_id}
+        state={multiPartyLinksState}
       />
 
       <DegradedModeBanner error={error} title="Case action failed" onDismiss={() => setError(null)} />
@@ -949,6 +988,26 @@ function CaseDetailWorkbench() {
                   {decisionExplain.recommended_action}
                 </code>
               ) : null}
+              {(() => {
+                const ra = decisionExplain.recommended_action.trim().toLowerCase().replace(/[\s-]+/g, "_");
+                const isStepUp = ra.startsWith("step_up") || ra.startsWith("challenge");
+                if (!isStepUp) return null;
+                return (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={challengeDispatchBusy}
+                      onClick={() => void handleDispatchChallenge()}
+                      className="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-amber-500/40 bg-amber-950/40 text-amber-100 hover:bg-amber-950/60 disabled:opacity-50"
+                    >
+                      {challengeDispatchBusy ? "Dispatching…" : "Dispatch challenge"}
+                    </button>
+                    {challengeDeliveryLine ? (
+                      <span className="text-[11px] text-gray-400">{challengeDeliveryLine}</span>
+                    ) : null}
+                  </div>
+                );
+              })()}
             </div>
           ) : null}
           {decisionExplain ? (
@@ -1548,11 +1607,18 @@ function CaseDetailWorkbench() {
           />
         }
         knowledgeGraphRail={
-          <KnowledgeGraphDesktopRail
-            entityId={caseData.entity_id}
-            tenantId={caseData.tenant_id}
-            state={knowledgeGraphState}
-          />
+          <>
+            <MultiPartyLinksDesktopRail
+              caseId={caseData.id}
+              tenantId={caseData.tenant_id}
+              state={multiPartyLinksState}
+            />
+            <KnowledgeGraphDesktopRail
+              entityId={caseData.entity_id}
+              tenantId={caseData.tenant_id}
+              state={knowledgeGraphState}
+            />
+          </>
         }
       />
       <TuneRuleModal

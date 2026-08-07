@@ -28,16 +28,24 @@ describe("leanNav", () => {
     expect(leanHomePath()).toBe("/command-center");
   });
 
-  it("treats lean triad deep links as production surface paths", async () => {
+  it("keeps desk core paths and excludes brochure simulation/shadow", async () => {
     vi.stubEnv("VITE_LEAN_NAV", "true");
     vi.resetModules();
-    const { isProductionSurfacePath } = await loadLeanNav();
+    const { isProductionSurfacePath, LEAN_NAV_PATHS } = await loadLeanNav();
     expect(isProductionSurfacePath("/cases")).toBe(true);
     expect(isProductionSurfacePath("/cases/abc")).toBe(true);
+    expect(isProductionSurfacePath("/ops/qa")).toBe(true);
+    expect(isProductionSurfacePath("/ops/calibration")).toBe(true);
+    expect(isProductionSurfacePath("/ops/shadow")).toBe(true);
     expect(isProductionSurfacePath("/disputes/x")).toBe(true);
     expect(isProductionSurfacePath("/403-unauthorized")).toBe(true);
-    expect(isProductionSurfacePath("/admin")).toBe(true);
+    expect(LEAN_NAV_PATHS.has("/ops/shadow")).toBe(true);
+    expect(LEAN_NAV_PATHS.has("/simulation")).toBe(false);
+    expect(LEAN_NAV_PATHS.has("/shadow")).toBe(false);
+    expect(LEAN_NAV_PATHS.has("/investigation")).toBe(false);
+    expect(LEAN_NAV_PATHS.has("/admin")).toBe(false);
     expect(isProductionSurfacePath("/command-center")).toBe(false);
-    expect(isProductionSurfacePath("/notifications")).toBe(false);
+    expect(isProductionSurfacePath("/simulation")).toBe(false);
+    expect(isProductionSurfacePath("/shadow")).toBe(false);
   });
 });

@@ -40,6 +40,7 @@ from .investigation_label_drafts_api import router as investigation_label_drafts
 from .graph_case_api import router as graph_case_router
 from .investigation_templates_api import router as investigation_templates_router
 from .ml_training_api import router as ml_training_router
+from .multi_party_links import build_multi_party_links
 from .models import Case, CaseComment, CaseView, SarAuditLog, SARFiling, SarFiling
 from .ops_kpi_series import router as ops_kpi_series_router
 from .retention import DEFAULT_RETENTION_DAYS, retention_loop
@@ -74,6 +75,11 @@ from .template_apply import (
     apply_case_payload_to_case,
     apply_investigation_template_transaction,
     resolve_playbook_or_template,
+)
+from .disposition import (
+    apply_status_with_maker_checker,
+    maker_checker_public,
+    parse_maker_checker_statuses,
 )
 from .workflow import evaluate_workflows, get_workflows, is_sla_breached, load_workflows
 
@@ -387,6 +393,7 @@ async def list_cases(
     tenant_id: str,
     session: AsyncSession = Depends(get_session),
     status: str | None = None,
+    entity_id: str | None = None,
     limit: int = 50,
     sort_by: str = "queue",
 ):
@@ -394,6 +401,8 @@ async def list_cases(
     q = select(Case).where(Case.tenant_id == tenant_id)
     if status:
         q = q.where(Case.status == status)
+    if entity_id:
+        q = q.where(Case.entity_id == entity_id)
     if sort_by == "updated":
         q = q.order_by(Case.updated_at.desc())
     elif sort_by == "priority":
@@ -665,17 +674,62 @@ async def update_case(
     case = await _case_for_tenant(session, case_id, tenant_id)
 
     body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="JSON object body required")
     old_state = CaseOut.model_validate(case).model_dump(mode="json")
+    # Distinct actors for maker-checker when API key auth collapses to one user_id.
+    actor_hdr = (request.headers.get("X-Actor-Id") or "").strip()
+    actor_id = actor_hdr or user.user_id
 
-    for field in ("status", "priority", "assigned_team", "title"):
+    for field in ("priority", "assigned_team", "title"):
         if field in body:
             setattr(case, field, body[field])
+
+    approve = bool(body.get("maker_checker_approve"))
+    reason_raw = body.get("disposition_reason_code")
+    reason_code = str(reason_raw).strip() if reason_raw is not None else None
+    status_requested = body.get("status") if "status" in body else None
+    if approve or status_requested is not None or reason_code:
+        try:
+            mc = apply_status_with_maker_checker(
+                current_status=case.status,
+                current_labels=list(case.labels or []),
+                actor=actor_id,
+                requested_status=str(status_requested) if status_requested is not None else None,
+                reason_code=reason_code,
+                approve=approve,
+                maker_statuses=parse_maker_checker_statuses(settings.case_maker_checker_statuses),
+            )
+        except ValueError as e:
+            raise HTTPException(
+                status_code=409,
+                detail={"reason_code": "MAKER_CHECKER_REJECTED", "message": str(e)},
+            ) from e
+        case.labels = mc.labels
+        if mc.status_applied:
+            case.status = mc.status
+        if approve or mc.pending:
+            await _trail.record(
+                session,
+                actor=actor_id,
+                action="maker_checker_approve" if approve else "maker_checker_request",
+                resource_type="case",
+                resource_id=str(case_id),
+                changes={
+                    "detail": mc.detail,
+                    "target_status": mc.target_status,
+                    "pending": mc.pending,
+                    "disposition_reason_code": reason_code,
+                },
+                tenant_id=case.tenant_id,
+            )
 
     await session.commit()
     await session.refresh(case)
     new_state = CaseOut.model_validate(case).model_dump(mode="json")
+    new_state["maker_checker"] = maker_checker_public(case.labels, case.status)
 
-    diff = _trail.diff(old_state, new_state)
+    diff = _trail.diff(old_state, CaseOut.model_validate(case).model_dump(mode="json"))
     if diff:
         await _trail.record(
             session,
@@ -689,7 +743,7 @@ async def update_case(
         await session.commit()
 
     await _broadcast({"event": "case_updated", "case": new_state})
-    return CaseOut.model_validate(case)
+    return new_state
 
 
 @app.post("/v1/cases/{case_id}/comments", status_code=201)
@@ -856,6 +910,7 @@ async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_sess
             "median_case_age_hours": 0.0,
             "by_status": {},
             "sla_breached_open_or_investigating": 0,
+            "sla_breached_by_priority": {},
             "label_boost_cases": 0,
         }
 
@@ -915,6 +970,7 @@ async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_sess
     ).all()
     queue_scores: list[float] = []
     sla_breached = 0
+    sla_by_priority: dict[str, int] = {}
     label_boost_cases = 0
     for pr, st, labels, ca, slo in lean:
         lbls = set(labels or [])
@@ -935,6 +991,8 @@ async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_sess
             )
         ):
             sla_breached += 1
+            key = (pr or "medium").lower()
+            sla_by_priority[key] = sla_by_priority.get(key, 0) + 1
 
     return {
         "tenant_id": tenant_id,
@@ -946,8 +1004,123 @@ async def case_ops_kpis(tenant_id: str, session: AsyncSession = Depends(get_sess
         "median_case_age_hours": round(median_age, 2),
         "by_status": by_status,
         "sla_breached_open_or_investigating": sla_breached,
+        "sla_breached_by_priority": sla_by_priority,
         "label_boost_cases": label_boost_cases,
     }
+
+
+@app.get("/v1/cases/ops/qa-sample")
+async def qa_sample_closed_cases(
+    tenant_id: str,
+    rate: float = 0.1,
+    seed: str | None = None,
+    limit: int = 50,
+    session: AsyncSession = Depends(get_session),
+):
+    """Sample closed/resolved cases into a QA second-review queue (labels ``qa:pending``)."""
+    from uuid import UUID as _UUID
+
+    from .qa_sampling import sample_case_ids
+
+    rows = (
+        await session.execute(
+            select(Case.id, Case.status, Case.labels).where(
+                Case.tenant_id == tenant_id,
+                func.lower(Case.status).in_(("resolved", "closed")),
+            )
+        )
+    ).all()
+    candidates = [str(cid) for cid, _st, _lbl in rows]
+    picked = sample_case_ids(candidates, rate=rate, seed=seed, limit=limit)
+    queued: list[str] = []
+    for cid in picked:
+        try:
+            uid = _UUID(cid)
+        except ValueError:
+            continue
+        case = await session.get(Case, uid)
+        if case is None:
+            continue
+        labels = list(case.labels or [])
+        if "qa:pending" not in labels:
+            labels.append("qa:pending")
+            case.labels = labels
+            queued.append(cid)
+    await session.commit()
+    return {
+        "tenant_id": tenant_id,
+        "rate": rate,
+        "seed": seed,
+        "candidates": len(candidates),
+        "sampled": len(picked),
+        "queued": queued,
+    }
+
+
+@app.post("/v1/cases/ops/qa-review")
+async def qa_submit_review(
+    body: dict,
+    session: AsyncSession = Depends(get_session),
+):
+    """Record QA disposition vs original; updates case labels for metrics."""
+    from uuid import UUID as _UUID
+
+    case_id = str(body.get("case_id") or "").strip()
+    qa_status = str(body.get("qa_status") or "").strip().lower()
+    original_status = str(body.get("original_status") or "").strip().lower()
+    if not case_id or not qa_status:
+        raise HTTPException(status_code=400, detail="case_id and qa_status required")
+    try:
+        uid = _UUID(case_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="case_id must be a UUID") from e
+    case = await session.get(Case, uid)
+    if case is None:
+        raise HTTPException(status_code=404, detail="case not found")
+    orig = original_status or (case.status or "").lower()
+    labels = [x for x in (case.labels or []) if not str(x).startswith("qa:")]
+    agree = orig == qa_status
+    labels.append("qa:agree" if agree else "qa:disagree")
+    labels.append(f"qa:review:{qa_status}"[:64])
+    case.labels = labels
+    await session.commit()
+    return {
+        "case_id": case_id,
+        "original_status": orig,
+        "qa_status": qa_status,
+        "agree": agree,
+    }
+
+
+@app.get("/v1/cases/ops/qa-metrics")
+async def qa_metrics(tenant_id: str, session: AsyncSession = Depends(get_session)):
+    """Agreement metrics from ``qa:agree`` / ``qa:disagree`` labels."""
+    from .qa_sampling import disagreement_metrics
+
+    rows = (
+        await session.execute(select(Case.status, Case.labels).where(Case.tenant_id == tenant_id))
+    ).all()
+    reviews: list[dict] = []
+    pending = 0
+    for st, labels in rows:
+        lbls = set(labels or [])
+        if "qa:pending" in lbls and "qa:agree" not in lbls and "qa:disagree" not in lbls:
+            pending += 1
+        if "qa:agree" in lbls or "qa:disagree" in lbls:
+            qa_st = ""
+            for x in lbls:
+                if str(x).startswith("qa:review:"):
+                    qa_st = str(x).split(":", 2)[-1]
+            reviews.append(
+                {
+                    "original_status": st,
+                    "qa_status": qa_st or ("agree" if "qa:agree" in lbls else "disagree"),
+                }
+            )
+    metrics = disagreement_metrics(reviews)
+    metrics["pending"] = pending
+    metrics["tenant_id"] = tenant_id
+    return metrics
 
 
 @app.get("/v1/cases/analytics/cohort-compare")
@@ -1137,6 +1310,23 @@ async def case_graph(
         }
     except Exception:
         return {"nodes": [], "edges": [], "message": "graph_service_unreachable"}
+
+
+@app.get("/v1/cases/{case_id}/multi-party-links")
+async def case_multi_party_links(
+    case_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    depth: int = 3,
+):
+    """Multi-party collusion links via graph risk propagation.
+
+    Fail-soft: returns HTTP 200 with ``degraded: true`` when graph is unavailable.
+    """
+    case = await _case_for_tenant(session, case_id, tenant_id)
+    http: httpx.AsyncClient = request.app.state.http
+    return await build_multi_party_links(session, case, http=http, depth=depth)
 
 
 @app.get("/v1/cases/{case_id}/decision-explanation")

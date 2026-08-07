@@ -11,6 +11,7 @@ type ReliabilityBins = {
   proxy_label_rows?: number;
   label_source?: string;
   caveat?: string | null;
+  posture?: { healthy?: boolean; status?: string; hint?: string; label_coverage?: number };
   bins?: Array<Record<string, unknown>>;
 };
 
@@ -114,6 +115,22 @@ export default function OpsCalibration() {
           />
         </div>
       )}
+
+      {status?.healthy === false || bins?.posture?.healthy === false ? (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
+          Calibration posture unhealthy — join dispositions into{" "}
+          <span className="font-mono text-xs">y_label</span> (proxy-only is not enough for promote).{" "}
+          {String(bins?.posture?.hint ?? status?.hint ?? "")}
+        </div>
+      ) : null}
+      {status?.healthy === true || bins?.posture?.healthy === true ? (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-100">
+          Calibration posture healthy
+          {bins?.posture?.label_coverage != null
+            ? ` · label coverage ${bins.posture.label_coverage}`
+            : ""}
+        </div>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-surface-700 bg-surface-900 p-4 text-sm">

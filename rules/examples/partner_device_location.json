@@ -1,0 +1,21 @@
+{
+  "name": "partner_device_location_example",
+  "version": 1,
+  "description": "Example rules that fire on hybrid Fingerprint/Incognia fusion tags",
+  "rules": [
+    {
+      "id": "partner_fingerprint_present",
+      "when": [{"field": "vendor_fingerprint_score", "op": "gte", "value": 70}],
+      "tags": ["vendor:fingerprint", "risk:partner_device"],
+      "score_delta": 15,
+      "description": "Elevated Fingerprint vendor score"
+    },
+    {
+      "id": "partner_incognia_risk",
+      "when": [{"field": "vendor_incognia_risk", "op": "gte", "value": 60}],
+      "tags": ["vendor:incognia", "risk:partner_location"],
+      "score_delta": 18,
+      "description": "Elevated Incognia risk signal"
+    }
+  ]
+}

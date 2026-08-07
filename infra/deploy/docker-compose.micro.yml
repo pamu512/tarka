@@ -13,8 +13,8 @@ name: tarka-micro
 services:
   core-api:
     build:
-      # Repo root — compose file lives under infra/deploy/
-      context: ../..
+      # Scripts use --project-directory=<repo root>; context is relative to that.
+      context: .
       dockerfile: services/core-api/Dockerfile
     ports:
       - "${TARKA_MICRO_PORT:-8000}:8000"

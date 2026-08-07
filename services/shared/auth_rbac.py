@@ -213,9 +213,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
             "/v1/ops/evaluation-posture",
         }
     )
+    #: Path prefixes that bypass API-key/JWT middleware (route deps enforce S2S tokens).
+    SKIP_PREFIXES: tuple[str, ...] = ()
 
     async def dispatch(self, request: Request, call_next):
-        if request.url.path in self.SKIP_PATHS:
+        path = request.url.path
+        if path in self.SKIP_PATHS or any(
+            path.startswith(prefix) for prefix in self.SKIP_PREFIXES
+        ):
             request.state.auth_user = AuthUser("system", ["viewer"], "bypass", tenant_ids={"*"})
             return await call_next(request)
         try:

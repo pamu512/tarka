@@ -37,17 +37,66 @@ For a **finer-grained, module-by-module** rescoring after recent parity work —
 Use these rows for **positioning and gap planning**. Competitors stay on the April 2026 benchmark row unless you rerun a formal competitive review.
 
 
-| Capability                                    | Tarka baseline Apr 2026 | Tarka **v1.2** (realigned) | Tarka **v1.3** (projected) | Fingerprint | Incognia | Sift | Uber/Grab style benchmark |
-| --------------------------------------------- | ----------------------- | -------------------------- | -------------------------- | ----------- | -------- | ---- | ------------------------- |
-| Inference normalization (cross-SDK + service) | 2.5                     | **3.0**                    | **3.25**                   | 4.5         | 4.0      | 4.0  | 4.5                       |
-| Replay/tamper/MitM hardening                  | 2.5                     | **2.75**                   | **2.75**                   | 4.5         | 3.5      | 3.5  | 4.0                       |
-| Counter/velocity platform maturity            | 2.0                     | **2.75**                   | **2.75**                   | 4.0         | 3.0      | 3.5  | 5.0                       |
-| Location/co-location coherence                | 1.5                     | **2.0**                    | **2.25**                   | 3.5         | 5.0      | 3.0  | 4.0                       |
-| Analyst decision acceleration                 | 2.0                     | **2.75**                   | **3.25**                   | 3.5         | 3.5      | 4.5  | 4.5                       |
-| Rule/risk operations safety                   | 3.0                     | **3.5**                    | **4.0**                    | 4.0         | 3.5      | 4.0  | 4.5                       |
+| Capability                                    | Tarka baseline Apr 2026 | Tarka **v1.2** (realigned) | Tarka **v1.3** (projected) | Tarka **Wave6 liberal (historical — do not cite)** | Fingerprint | Incognia | Sift | Uber/Grab style benchmark |
+| --------------------------------------------- | ----------------------- | -------------------------- | -------------------------- | ----------------------------------- | ----------- | -------- | ---- | ------------------------- |
+| Inference normalization (cross-SDK + service) | 2.5                     | **3.0**                    | **3.25**                   | **4.2**                             | 4.5         | 4.0      | 4.0  | 4.5                       |
+| Replay/tamper/MitM hardening                  | 2.5                     | **2.75**                   | **2.75**                   | **4.2**                             | 4.5         | 3.5      | 3.5  | 4.0                       |
+| Counter/velocity platform maturity            | 2.0                     | **2.75**                   | **2.75**                   | **4.2**                             | 4.0         | 3.0      | 3.5  | 5.0                       |
+| Location/co-location coherence                | 1.5                     | **2.0**                    | **2.25**                   | **4.2** (hybrid)                    | 3.5         | 5.0      | 3.0  | 4.0                       |
+| Analyst decision acceleration                 | 2.0                     | **2.75**                   | **3.25**                   | **4.2**                             | 3.5         | 3.5      | 4.5  | 4.5                       |
+| Rule/risk operations safety                   | 3.0                     | **3.5**                    | **4.0**                    | **4.2**                             | 4.0         | 3.5      | 4.0  | 4.5                       |
 
 
-**Means (Tarka only, six capabilities):** baseline **2.25** · v1.2 **~2.79** (after location bump) · v1.3 **~3.04** (location **2.25** vs **2.0** on v1.2; other rows unchanged from matrix above).
+**Means (Tarka only, six capabilities):** baseline **2.25** · v1.2 **~2.79** · v1.3 **~3.04** · Wave6 column **4.2 is historical liberal — withdrawn** (see [CLAIM_LOCK.md](../../compliance/CLAIM_LOCK.md)). Current critical scores are in the three-bucket section below. Hybrid location/device = partner enrichment quality, not native Incognia network — see [partner-enrichment-fusion.md](./partner-enrichment-fusion.md).
+
+### Missed-mark bridge honesty (2026-08-05 Track D)
+
+**Critical correction (same day):** Wave6/bridge blanket **4.2** walked back, then flag-fix + Engineering honesty stack. **Do not** re-advertise product-wide 4.2 or A++.
+
+### Critical regrade — three buckets (2026-08-06, post Critical A–E)
+
+**Method:** Done well / Could-be-better / Missed the mark. Blindspots, logic fallacies, and bad assumptions marked **CRITICAL**. Aim bands are targets, **not** current scores. See [maturity-4-0-regrade.canvas.tsx](../../../superpowers/canvases/maturity-4-0-regrade.canvas.tsx).
+
+#### CRITICAL findings (C1–C7)
+
+| ID | Type | Finding |
+| --- | --- | --- |
+| C1 | Fallacy | Related (graph) ⇒ loyalty abuse |
+| C2 | Assumption (mitigated) | Signup location as linker — product posture: location = enrichment |
+| C3 | Blindspot (partial) | Fixture + HTTP warehouse contract landed; named-tenant DB still external |
+| C4 | Fallacy (hygiene) | In-repo L1 / “floor ≥4.0” = product maturity — see [CLAIM_LOCK.md](../../compliance/CLAIM_LOCK.md) |
+| C5 | Fallacy (path ready) | Four-week sim ≠ L3 — ledger [l3-ops-ledger.md](../../../superpowers/playbooks/l3-ops-ledger.md) **NOT STARTED** |
+| C6 | Fallacy (mitigated) | Fixture ≠ live — `LIVE\|WAIVED` gate; OSS **WAIVED** ([runbook LIVE cut](../../compliance/partner-fusion-proof-runbook.md)) |
+| C7 | Blindspot (mitigated) | Location reweighted to enrichment vs graph + loyalty economics |
+
+#### Capability scores (bucket-driven)
+
+| Cap | Score | Bucket | Why |
+| --- | ----- | ------ | --- |
+| Inference | **4.5** | Done well | A+B claim gate; bar=`fixture_ci` (+ warehouse HTTP contract) |
+| Replay/tamper | **4.2** | Done well | HMAC/integrity CI + challenge Micro sink path (not MitM product) |
+| Counters | **4.2** | Done well | S4: PR CI `dual_diff` Redis + `matched:true` required |
+| Location (hybrid) | **2.5** | Missed (enrichment) | WAIVED live pin; **excluded from overall mean** (C7) |
+| Analyst | **4.2** | Done well | ops-qa Actions green |
+| Rule/risk ops | **4.2** | Done well | S5: `/install` + promote share kill_criteria → 409 |
+
+**Overall methodology (C7):** **Primary-five mean** = mean(Inference, Replay, Counters, Analyst, Rule/risk) — Location is **enrichment**, scored separately for Incognia-class comparison, **not** averaged into product overall.
+
+- **Overall (primary-five)** ≈ **(4.5+4.2+4.2+4.2+4.2)/5 = 4.26 → report ~4.3**
+- **Equal-weight six-cap** (legacy / Incognia comparison) ≈ **3.9** — Location 2.5 still pulls this down
+- Engineering **4.5** · Risk/Strategy **4.2** (WAIVED ceiling) · Fraud Ops **~4.1**
+
+**Claim lock:** A++ / “native Incognia Location ≥4.0” / LIVE-without-pin **CLOSED**. Overall **~4.3** is primary-five only — do not market as equal-weight six-cap or LIVE partner proof. Risk **4.5** / Location enrichment ≥4.0 still require real LIVE pin — never forge `.live.sha256`.
+
+#### Bucket summary
+
+| Bucket | Credit |
+| --- | --- |
+| **Done well** | Engineering 4.5; Inference 4.5; primary Replay/Counters/Rule **4.2**; Analyst 4.2; Risk 4.2 honesty; challenge Micro sink; location posture dual-write |
+| **Could-be-better** | Fraud Ops merchant CRM; live loyalty warehouse DB; Risk 4.5 (LIVE pin) |
+| **Missed the mark** | Live loyalty-abuse effectiveness; L2 data enrichment (WAIVED); equal-weight six-cap / A++ brochure claims |
+
+> **Location = enrichment (product posture, 2026-08-06):** **Relatedness** is graph linkage (device / payment / referral / peers) plus **loyalty economics** gates — not signup GPS. The Location six-cap row is **hybrid enrichment** (partner Place/SEEN_AT, geo copresence, impossible travel) compared to Incognia; it is **not** the loyalty linker and is **excluded from primary-five overall** (~4.3). Live Location enrichment ≥4.0 still gated by **S1** (partner LIVE pin).
 
 ---
 

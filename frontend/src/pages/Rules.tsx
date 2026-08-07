@@ -257,6 +257,18 @@ export default function Rules() {
   const [installingVertical, setInstallingVertical] = useState<string | null>(null);
   const [benchmarkingVertical, setBenchmarkingVertical] = useState<string | null>(null);
   const [benchmarkScenario, setBenchmarkScenario] = useState<string>("baseline");
+  const [installMetricsByVertical, setInstallMetricsByVertical] = useState<
+    Record<
+      string,
+      {
+        precision: number;
+        recall: number;
+        f1_score: number;
+        false_positive_rate?: number;
+        events_evaluated: number;
+      }
+    >
+  >({});
   const [lineageModelName, setLineageModelName] = useState("fraud");
   const [lineageVersion, setLineageVersion] = useState<number>(1);
   const [lineageHash, setLineageHash] = useState<string>("");
@@ -487,9 +499,14 @@ export default function Rules() {
   }
 
   async function handleInstallVerticalPack(vertical: string) {
+    const metrics = installMetricsByVertical[vertical];
+    if (!metrics) {
+      setError("Run a vertical benchmark first — install requires kill_criteria metrics.");
+      return;
+    }
     setInstallingVertical(vertical);
     try {
-      await rulesApi.installVerticalPack(vertical, true);
+      await rulesApi.installVerticalPack(vertical, metrics, true);
       await rulesApi.reload();
       await fetchPacks();
       setToast(`Installed vertical pack: ${vertical}`);
@@ -514,12 +531,25 @@ export default function Rules() {
         baseline?: Record<string, unknown>;
         vertical_pack?: Record<string, unknown>;
       };
+      const pack = data.vertical_pack ?? {};
+      const predicted = Number(pack.predicted_fraud ?? 0);
+      const fps = Number(pack.false_positives ?? 0);
+      setInstallMetricsByVertical((prev) => ({
+        ...prev,
+        [vertical]: {
+          precision: Number(pack.precision ?? 0),
+          recall: Number(pack.recall ?? 0),
+          f1_score: Number(pack.f1_score ?? 0),
+          ...(predicted > 0 ? { false_positive_rate: fps / predicted } : {}),
+          events_evaluated: Number(pack.total_events ?? 0),
+        },
+      }));
       const entry: VerticalBenchmarkHistoryEntry = {
         ts: new Date().toISOString(),
         scenario: data.scenario,
         vertical: data.vertical,
         baseline_f1: Number(data.baseline?.f1_score ?? 0),
-        vertical_f1: Number(data.vertical_pack?.f1_score ?? 0),
+        vertical_f1: Number(pack.f1_score ?? 0),
         delta_f1: Number(data.delta?.f1_score ?? 0),
       };
       setVerticalHistory(prependVerticalBenchmarkHistory(entry));

@@ -521,25 +521,47 @@ class TestVerticalPacks:
     async def test_install_vertical_pack_and_conflict(
         self, client, tmp_path, monkeypatch
     ):
+        healthy = {
+            "precision": 0.9,
+            "recall": 0.9,
+            "f1_score": 0.9,
+            "false_positive_rate": 0.05,
+            "events_evaluated": 500,
+        }
         monkeypatch.setattr("decision_api.rule_api.settings.rules_path", str(tmp_path))
         with patch("decision_api.rule_api.load_rules"):
-            first = await client.post("/v1/rules/vertical-packs/fintech/install")
+            first = await client.post(
+                "/v1/rules/vertical-packs/fintech/install", json=healthy
+            )
             assert first.status_code == 201
             data = first.json()
             assert data["vertical"] == "fintech"
             assert data["rules"] >= 1
 
-            second = await client.post("/v1/rules/vertical-packs/fintech/install")
+            # Conflict: pack already installed (not kill_criteria — same metrics)
+            second = await client.post(
+                "/v1/rules/vertical-packs/fintech/install", json=healthy
+            )
             assert second.status_code == 409
 
             overwrite = await client.post(
-                "/v1/rules/vertical-packs/fintech/install", params={"overwrite": "true"}
+                "/v1/rules/vertical-packs/fintech/install",
+                params={"overwrite": "true"},
+                json=healthy,
             )
             assert overwrite.status_code == 201
 
     @pytest.mark.asyncio
     async def test_install_unknown_vertical_pack(self, client):
-        r = await client.post("/v1/rules/vertical-packs/unknown/install")
+        r = await client.post(
+            "/v1/rules/vertical-packs/unknown/install",
+            json={
+                "precision": 0.9,
+                "recall": 0.9,
+                "f1_score": 0.9,
+                "events_evaluated": 500,
+            },
+        )
         assert r.status_code == 404
 
     @pytest.mark.asyncio

@@ -8,6 +8,8 @@ COMPOSE_E2E="${ROOT}/infra/deploy/docker-compose.micro.e2e.yml"
 export TARKA_MICRO_DATA_DIR="${TARKA_MICRO_DATA_DIR:-${ROOT}/.tarka-micro-e2e/data}"
 export TARKA_MICRO_PORT="${TARKA_MICRO_PORT:-8000}"
 export E2E_API_KEY="${E2E_API_KEY:-playwright-e2e-micro-key}"
+# ponytail: avoid compose bake path resolution bug with buildx on GHA
+export COMPOSE_BAKE="${COMPOSE_BAKE:-false}"
 
 if ! docker info >/dev/null 2>&1; then
   echo "error: Docker is not running or not reachable." >&2
@@ -16,7 +18,7 @@ fi
 
 echo "Removing durable Micro data at ${TARKA_MICRO_DATA_DIR}..."
 rm -rf "${TARKA_MICRO_DATA_DIR}"
-mkdir -p "${TARKA_MICRO_DATA_DIR}/decision_logs" "${TARKA_MICRO_DATA_DIR}/lists" "${TARKA_MICRO_DATA_DIR}/ml_exports"
+mkdir -p "${TARKA_MICRO_DATA_DIR}/decision_logs" "${TARKA_MICRO_DATA_DIR}/lists" "${TARKA_MICRO_DATA_DIR}/ml_exports" "${TARKA_MICRO_DATA_DIR}/challenge-sink"
 TARKA_MICRO_DATA_DIR="$(cd "${TARKA_MICRO_DATA_DIR}" && pwd)"
 export TARKA_MICRO_DATA_DIR
 

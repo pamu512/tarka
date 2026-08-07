@@ -398,6 +398,34 @@ async def adaptive_drift():
     }
 
 
+@app.post("/v1/adaptive/drift/action")
+async def adaptive_drift_action(body: dict | None = None):
+    """Act on elevated drift: rollback model and/or disable ML until operator re-enables.
+
+    Body: ``{"model_name": "fraud", "action": "rollback"|"disable_ml"|"rollback_and_disable"}``
+    """
+    global DISABLE_ML
+    payload = body if isinstance(body, dict) else {}
+    action = str(payload.get("action") or "rollback").strip().lower()
+    model_name = str(payload.get("model_name") or "fraud").strip() or "fraud"
+    result: dict = {"ok": True, "action": action, "model_name": model_name}
+    if action in {"rollback", "rollback_and_disable"}:
+        try:
+            target = registry.rollback_to_previous(model_name)
+            result["rollback_to"] = target
+        except Exception:
+            # Do not return exception text to clients (CodeQL: info exposure).
+            log.exception("adaptive_drift_rollback_failed model_name=%s", model_name)
+            result["rollback_error"] = "rollback_failed"
+            result["ok"] = False
+    if action in {"disable_ml", "rollback_and_disable"}:
+        DISABLE_ML = True
+        result["disable_ml"] = True
+    drift = get_detector()._drift.get_stats()
+    result["drift"] = drift
+    return result
+
+
 @app.get("/v1/adaptive/thresholds")
 async def adaptive_thresholds():
     """Get auto-calibrated scoring thresholds."""

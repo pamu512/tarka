@@ -18,7 +18,11 @@ cp infra/deploy/env/community.env.example infra/deploy/.env
 # Local try-it: allow unauthenticated evaluate (never use in production)
 echo 'ALLOW_INSECURE_NO_AUTH=true' >> infra/deploy/.env
 
-docker compose -f infra/deploy/docker-compose.lite.yml --env-file infra/deploy/.env up -d --build
+# Preferred: fraud-desk overlay (lean nav + desk-strict, no graph profile)
+docker compose \
+  -f infra/deploy/docker-compose.lite.yml \
+  -f infra/deploy/docker-compose.fraud-desk.yml \
+  --env-file infra/deploy/.env up -d --build
 ```
 
 Wait until healthy:

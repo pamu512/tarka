@@ -81,6 +81,9 @@ export function GeoHoverBody({ ctx }: { ctx: InferenceContext | null }) {
   if (!ctx) return <p className="text-gray-500 text-[11px]">No inference bundle.</p>;
   return (
     <div className="space-y-2">
+      <p className="text-[10px] text-gray-500 leading-snug">
+        Optional enrichment — not account linker.
+      </p>
       <MonoRow k="Geo consistency risk" v={ctx.geo_consistency_risk.toFixed(3)} />
       <MonoRow k="Impossible travel (proxy)" v={ctx.impossible_travel_risk.toFixed(3)} />
       <MonoRow k="Location confidence" v={`${(ctx.location_confidence * 100).toFixed(1)}%`} />

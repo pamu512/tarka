@@ -333,6 +333,19 @@ paths:
                     nullable: true
                     description: Optional ETL / ingest batch lineage (e.g. from event-ingest v1 envelope etl_batch_id)
                   inference_context: { type: object, additionalProperties: true }
+                  relatedness_evidence:
+                    type: object
+                    nullable: true
+                    additionalProperties: true
+                    description: >-
+                      Primary relatedness audit block (schema tarka.relatedness_evidence/v1) when graph/device/geo signals present.
+                  location_cohort_evidence:
+                    type: object
+                    nullable: true
+                    additionalProperties: true
+                    deprecated: true
+                    description: >-
+                      Deprecated alias of relatedness_evidence (schema tarka.location_cohort_evidence/v1); dual-written for migration.
                   decision_explain: { type: object, additionalProperties: true }
                   graph_decision_explanation:
                     type: object
@@ -1421,12 +1434,37 @@ components:
           format: float
           minimum: 0
           maximum: 1
+          deprecated: true
+          description: >-
+            Deprecated composite — max(shared_device_risk, graph_peer_risk, geo_copresence_risk).
+            Prefer split fields for triage; retained for backward compatibility.
+        shared_device_risk:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Device/shared-device relatedness contribution (0–1).
+        graph_peer_risk:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Graph peer / SEEN_AT peer relatedness contribution (0–1).
+        geo_copresence_risk:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Location-service geo copresence contribution (0–1); 0 when no location meta.
         copresence_risk:
           type: number
           format: float
           minimum: 0
           maximum: 1
-          description: Alias of colocation risk for multi-session / shared-device narratives
+          deprecated: true
+          description: >-
+            Deprecated alias of colocation_risk. Prefer shared_device_risk /
+            graph_peer_risk / geo_copresence_risk.
         impossible_travel_risk:
           type: number
           format: float

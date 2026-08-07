@@ -42,6 +42,8 @@ from decision_api.integrity_policy import (
     apply_evaluate_integrity_tags,
     supplemental_tags_for_integrity,
 )
+from decision_api.location_cohort_evidence import build_location_cohort_evidence
+from decision_api.relatedness_evidence import build_relatedness_evidence
 from decision_api.location_context import merge_session_geo_from_device_and_features
 from decision_api.models import AuditRecord
 from decision_api.policy_routing import (
@@ -79,6 +81,14 @@ async def run_evaluate_decision(
     session: AsyncSession,
 ) -> EvaluateResponse:
     m = _require_main()
+    from decision_api.evaluate_shadow_request import is_shadow_evaluate_request
+    from decision_api.partner_fusion import (
+        graph_writeback_hints,
+        maybe_fetch_partner_signals,
+        signals_to_feature_tags,
+    )
+
+    shadow_request = is_shadow_evaluate_request(body.metadata)
     # Helpers / stores that still live on the main module
     _audit_counter_version_label = m._audit_counter_version_label
     _broadcast_decision = m._broadcast_decision
@@ -146,6 +156,8 @@ async def run_evaluate_decision(
     signal_tags.extend(extract_behavior_tags(dc_dump))
     signal_tags.extend(extract_device_entropy_tags(dc_dump))
     signal_tags.extend(extract_captcha_tags(dc_dump))
+    if shadow_request:
+        signal_tags.append("evaluate:shadow")
     consortium_delta = 0.0
     graph_delta = 0.0
     _external_signal_delta = 0.0
@@ -169,9 +181,12 @@ async def run_evaluate_decision(
             default=str,
         ).encode()
     ).hexdigest()
-    is_replayed = await redis_tags.check_and_store_replay_signature(
-        body.tenant_id, replay_signature, ttl_seconds=replay_ttl_seconds
-    )
+    if shadow_request:
+        is_replayed = False
+    else:
+        is_replayed = await redis_tags.check_and_store_replay_signature(
+            body.tenant_id, replay_signature, ttl_seconds=replay_ttl_seconds
+        )
     if is_replayed:
         signal_tags.append("ingress:replay_payload")
         replay_rule_hits.append("ingress_replay_detected")
@@ -199,8 +214,8 @@ async def run_evaluate_decision(
         )
     )
 
-    # Record fingerprint & detect shared devices
-    if body.device_context and fingerprint_store._client:
+    # Record fingerprint & detect shared devices (skip writes on shadow duplicate traffic)
+    if not shadow_request and body.device_context and fingerprint_store._client:
         fp_record = await fingerprint_store.record_fingerprint(
             body.tenant_id,
             body.device_context.model_dump(),
@@ -210,7 +225,7 @@ async def run_evaluate_decision(
             signal_tags.append("sdk:shared_device")
 
     # Server-side entity ↔ device ↔ vendor ID linking (Redis)
-    if body.device_context and entity_link_store._client:
+    if not shadow_request and body.device_context and entity_link_store._client:
         dc = body.device_context
         await entity_link_store.record_device_entity_link(
             body.tenant_id,
@@ -220,6 +235,34 @@ async def run_evaluate_decision(
         if isinstance(body.metadata, dict) and body.metadata:
             await entity_link_store.record_vendor_bridge(
                 body.tenant_id, body.entity_id, body.metadata
+            )
+
+    partner_evidence: list[dict[str, Any]] = []
+    partner_graph_hints: dict[str, Any] | None = None
+    partner_features: dict[str, Any] = {}
+    if isinstance(body.metadata, dict) and (
+        body.metadata.get("fingerprint_request_id")
+        or body.metadata.get("incognia_account_id")
+    ):
+        partner_signals = await maybe_fetch_partner_signals(
+            http=http,
+            session=session,
+            metadata=body.metadata,
+            tenant_id=body.tenant_id,
+            entity_id=body.entity_id,
+            trace_id=str(trace_id),
+        )
+        if partner_signals:
+            partner_features, p_tags, partner_evidence = signals_to_feature_tags(
+                partner_signals
+            )
+            signal_tags.extend(p_tags)
+            partner_graph_hints = graph_writeback_hints(
+                tenant_id=body.tenant_id,
+                entity_id=body.entity_id,
+                transaction_id=str(trace_id),
+                tags=p_tags,
+                features=partner_features,
             )
 
     # Check whitelist/blacklist/test bypass BEFORE full evaluation (bounded list step #32)
@@ -501,6 +544,8 @@ async def run_evaluate_decision(
         from decision_api.feature_catalog import apply_feature_catalog_v1
 
         merge_device_context_into_features(features, body.device_context)
+        if partner_features:
+            features.update(partner_features)
         if body.session_id:
             features.setdefault("session_id", body.session_id)
         # payload amount is often only on body.payload until later merge; expose for catalog
@@ -572,10 +617,15 @@ async def run_evaluate_decision(
                     body.tenant_id, body.entity_id, features
                 )
                 features.update(agg_features)
-                agg_ts = event_time_unix_for_evaluate(body.metadata, body.payload)
-                await agg_store.record_event(
-                    body.tenant_id, body.entity_id, str(trace_id), features, ts=agg_ts
-                )
+                if not shadow_request:
+                    agg_ts = event_time_unix_for_evaluate(body.metadata, body.payload)
+                    await agg_store.record_event(
+                        body.tenant_id,
+                        body.entity_id,
+                        str(trace_id),
+                        features,
+                        ts=agg_ts,
+                    )
         elif agg_store._client:
             agg_features = await agg_store.compute_features(
                 body.tenant_id, body.entity_id, features
@@ -583,10 +633,11 @@ async def run_evaluate_decision(
             features.update(agg_features)
             # Record this event for future aggregate computation (uses normalised amount).
             # Optional metadata.event_time / payload.event_time sets Redis scores to business time (late arrival).
-            agg_ts = event_time_unix_for_evaluate(body.metadata, body.payload)
-            await agg_store.record_event(
-                body.tenant_id, body.entity_id, str(trace_id), features, ts=agg_ts
-            )
+            if not shadow_request:
+                agg_ts = event_time_unix_for_evaluate(body.metadata, body.payload)
+                await agg_store.record_event(
+                    body.tenant_id, body.entity_id, str(trace_id), features, ts=agg_ts
+                )
 
         geo_extra_tags: list[str] = []
         if body.device_context:
@@ -978,6 +1029,26 @@ async def run_evaluate_decision(
         snap_extra["signal_availability_notes"] = signal_notes
         if policy_set_id:
             snap_extra["policy_set_id"] = policy_set_id
+        if shadow_request:
+            snap_extra["shadow"] = True
+        if partner_evidence:
+            snap_extra["partner_evidence"] = partner_evidence
+        if partner_graph_hints:
+            snap_extra["partner_graph_writeback"] = partner_graph_hints
+        _rel_kw = dict(
+            tags=merged_tags,
+            inference_context=inf_ctx,
+            location_meta=location_meta if isinstance(location_meta, dict) else None,
+            graph_meta=graph_risk if isinstance(graph_risk, dict) else None,
+            partner_graph_hints=partner_graph_hints,
+            canary_cohort=snap_extra.get("canary_cohort"),
+        )
+        relatedness_evidence = build_relatedness_evidence(**_rel_kw)
+        if relatedness_evidence is not None:
+            snap_extra["relatedness_evidence"] = relatedness_evidence
+        location_cohort_evidence = build_location_cohort_evidence(**_rel_kw)
+        if location_cohort_evidence is not None:
+            snap_extra["location_cohort_evidence"] = location_cohort_evidence
 
         audit = AuditRecord(
             trace_id=trace_id,
@@ -1077,11 +1148,13 @@ async def run_evaluate_decision(
                 signal_tags=signal_tags,
                 ml_score=ml_score if isinstance(ml_score, float) else None,
                 payload=body.payload if isinstance(body.payload, dict) else {},
+                metadata=body.metadata if isinstance(body.metadata, dict) else None,
                 recommended_action=recommended_action,
                 challenge_metadata=ch_meta if isinstance(ch_meta, dict) else None,
                 fallback_reason=fb_reason,
                 decision_log_record=decision_log_record,
                 degrade_tags=list(degrade_tags),
+                shadow_request=shadow_request,
             ),
             http=http,
             app_state=request.app.state,
@@ -1092,6 +1165,8 @@ async def run_evaluate_decision(
             metrics_inc=_metrics_inc_safe,
             case_api_url=settings.case_api_url,
             case_create_on_deny_review=settings.case_create_on_deny_review,
+            integration_ingress_url=settings.integration_ingress_url,
+            ingress_internal_token=settings.ingress_internal_token,
             upstream_headers=_upstream_headers(),
             graph_upsert=_graph_upsert_stepped,
             graph_upsert_args=(

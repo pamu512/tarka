@@ -253,14 +253,16 @@ Sub-dimensions are scored **independently** then rolled into the **module mean**
 Sorted by **worst Δ vs best-in-class column** for that module (approximate).
 
 
-| Rank  | Module                           | Tarka mean (this pass) | Toughest benchmark column                               | Δ (approx)                       | Notes                                                                      |
-| ----- | -------------------------------- | ---------------------- | ------------------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------- |
-| **1** | **Location & co-location**       | **2.6**                | Location vendors (**4.7**)                              | **~2.1**                         | Still the **dominant** structural gap; APIs + physics of spoof resistance. |
-| **2** | **Device intelligence**          | **2.9**                | Device vendors (**4.8**)                                | **~1.9**                         | Network reputation & anti-tamper operations, not feature checkboxes.       |
-| **3** | **Counters / replay**            | **2.8**                | Full-stack paid (**4.1**)                               | **~1.3**                         | Catalog/UI improved; **experiment + one-click replay product** did not.    |
-| **4** | **Analytics / BI**               | **2.7**                | Full-stack paid (**4.1**)                               | **~1.4**                         | Consider **embrace Grafana/Metabase** as first-class export targets.       |
-| **5** | **Decision / calibration truth** | **3.1** (module)       | Paid / loc. on **calibration truth** sub-row (**~4.0**) | **~0.9–1.6** on weakest sub-rows | Ops calibration improved; **science** still behind.                        |
-| **6** | **Integration catalog**          | **3.1**                | Full-stack paid (**4.4** on mesh)                       | **~1.3**                         | Scorecards help honesty; **connector count** does not.                     |
+| Rank  | Module                           | Tarka mean (Wave6) | Toughest benchmark column                               | Δ (approx) | Notes                                                                      |
+| ----- | -------------------------------- | ------------------ | ------------------------------------------------------- | ---------- | -------------------------------------------------------------------------- |
+| **1** | **Location & co-location**       | **4.2** (hybrid)   | Location vendors (**4.7**)                              | **~0.5**   | Partner fusion → audit evidence + graph writeback; not native co-presence physics. |
+| **2** | **Device intelligence**          | **4.2** (hybrid)   | Device vendors (**4.8**)                                | **~0.6**   | Fingerprint fusion first-class in evaluate; network still partner-owned. |
+| **3** | **Counters / replay**            | **4.2**            | Full-stack paid (**4.1**)                               | **~0**     | Job + nightly dual-diff + OpsCounters `last_parity_run`.                   |
+| **4** | **Analytics / BI**               | **4.0**            | Full-stack paid (**4.1**)                               | **~0.1**   | Control evidence pack + calibration posture UI; embrace Metabase for charts. |
+| **5** | **Decision / calibration truth** | **4.2**            | Paid / loc. on **calibration truth** sub-row (**~4.0**) | **~0**     | `y_label` join + healthy posture UI + in-process golden.                   |
+| **6** | **Integration catalog**          | **4.1**            | Full-stack paid (**4.4** on mesh)                       | **~0.3**   | Partner adapters + scorecards + HMAC ingress gate.                         |
+
+**Maturity program note (2026-08-05 Wave6):** Hybrid device/location **4.2** = partner fusion quality + evidence path, not a Tarka-owned global reputation graph. See [partner-enrichment-fusion.md](./partner-enrichment-fusion.md) and `docs/superpowers/specs/2026-08-05-maturity-wave6-design.md`.
 
 
 **Relative bright spots (Tarka closest or ahead of some columns):**
@@ -279,13 +281,14 @@ Weighted equally across the **twelve** modules above (each module mean vs column
 | Benchmark column        | Approx mean score                   |
 | ----------------------- | ----------------------------------- |
 | **Tarka (post-parity)** | **3.0**                             |
+| **Tarka (Wave6 liberal — historical, do not cite)** | ~~4.2~~ withdrawn — use [CLAIM_LOCK.md](../../compliance/CLAIM_LOCK.md) + critical matrix three-bucket scores |
 | **OSS / composable**    | **2.5**                             |
 | **Full-stack paid**     | **4.1**                             |
 | **Device enrichment**   | **3.6** (across applicable modules) |
 | **Location enrichment** | **3.5** (across applicable modules) |
 
 
-**Interpretation:** Tarka sits at the **production-capable OSS control plane** tier (**~3.0**), **ahead of raw OSS glue** on fraud-specific modules, still **~1.1 points** behind **full-stack paid** on average — concentrated in **location**, **device reputation**, **connector depth**, and **calibration science**.
+**Interpretation:** Wave 6 **liberal 4.2 is withdrawn**. Cite the critical three-bucket regrade in [competitive-score-matrix-2026-04.md](./competitive-score-matrix-2026-04.md). Still behind **device/location vendor networks** on native co-presence / global reputation — by design; location is enrichment, not the loyalty linker.
 
 ---
 

@@ -10,6 +10,7 @@ import {
   type SaarthiFeatureImportanceResponse,
 } from "../lib/saarthi/featureImportance";
 import { reportDataOutcome } from "./dataSourceState";
+import { deskStrictEnabled, mocksAllowedForUrl } from "./deskMockPolicy";
 import { assertIntegrationSecretsTransportSecure } from "../utils/integrationSecretsTransport";
 import {
   extractSupportIdFromMessage,
@@ -37,10 +38,23 @@ if (IS_PRODUCTION_BUILD && MOCK_MODE === "true") {
  * - `VITE_USE_API_MOCKS=false` -> never allow fallback
  * - `VITE_USE_API_MOCKS=auto` (default) -> allow in dev, never in production
  *
+ * Desk-strict (default ON via VITE_DESK_STRICT): case/calibration/QA routes never
+ * use auto mock fallback — only explicit VITE_USE_API_MOCKS=true.
+ *
  * Production: mocks are disabled; mock helpers are loaded only via dynamic import so they are not in the main chunk.
  */
 const USE_API_MOCKS =
   !IS_PRODUCTION_BUILD && (MOCK_MODE === "true" || (MOCK_MODE !== "false" && import.meta.env.DEV));
+
+const DESK_STRICT = deskStrictEnabled(import.meta.env.VITE_DESK_STRICT as string | undefined);
+
+function allowMocksForRequest(url: string): boolean {
+  return mocksAllowedForUrl(url, {
+    useApiMocks: USE_API_MOCKS,
+    mockMode: MOCK_MODE,
+    deskStrict: DESK_STRICT,
+  });
+}
 
 /** ``GET /v1/entities/{id}/deep-context`` — JanusGraph neighborhood + current risk snapshot. */
 export interface GraphEntityDeepContext {
@@ -281,7 +295,7 @@ export interface AuditExplorerResponse {
 export interface Case {
   id: string;
   title: string;
-  status: "open" | "investigating" | "resolved" | "closed";
+  status: "open" | "investigating" | "resolved" | "closed" | "resolved_fraud" | "resolved_legit" | "sar_filed" | string;
   priority: "critical" | "high" | "medium" | "low";
   entity_id: string;
   tenant_id: string;
@@ -298,6 +312,12 @@ export interface Case {
   updated_at: string;
   /** Optional evidence-locker graph (nodes + links) when case-api forwards Postgres ``graph_snapshot`` JSONB. */
   graph_snapshot?: Record<string, unknown> | null;
+  maker_checker?: {
+    pending?: boolean;
+    target_status?: string | null;
+    requester?: string | null;
+    status?: string;
+  };
 }
 
 export interface CaseComment {
@@ -319,6 +339,31 @@ export interface CaseGraphPayload {
   nodes: Array<Record<string, unknown>>;
   edges: Array<Record<string, unknown>>;
   message?: string;
+}
+
+export interface MultiPartyLinkCase {
+  case_id: string;
+  status: string;
+  disposition_reason?: string;
+}
+
+export interface MultiPartyLink {
+  entity_id: string;
+  roles: string[];
+  distance: number;
+  propagated_risk_score: number;
+  path_description: string;
+  shared_signals: string[];
+  cases: MultiPartyLinkCase[];
+}
+
+export interface MultiPartyLinksResponse {
+  case_id: string;
+  entity_id: string;
+  tenant_id: string;
+  links: MultiPartyLink[];
+  degraded?: boolean;
+  degraded_reason?: string;
 }
 
 export interface CaseDecisionExplanationPayload {
@@ -1131,6 +1176,8 @@ export interface CaseOpsKpis {
   median_case_age_hours: number;
   by_status?: Record<string, number>;
   sla_breached_open_or_investigating?: number;
+  /** SLA breaches for open/investigating cases grouped by priority (bridge C2). */
+  sla_breached_by_priority?: Record<string, number>;
   /** Cases with fraud/chargeback label boosts in queue score */
   label_boost_cases?: number;
 }
@@ -1263,7 +1310,7 @@ function normalizeNetworkFetchError(error: unknown): unknown {
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const allowMockFallback = USE_API_MOCKS;
+  const allowMockFallback = allowMocksForRequest(url);
   try {
     const res = await fetch(url, {
       ...init,
@@ -1455,8 +1502,118 @@ export const decisions = {
       rows_scanned?: number;
       caveat?: string;
       bins?: Array<Record<string, unknown>>;
+      posture?: { healthy?: boolean; hint?: string; status?: string };
       [key: string]: unknown;
     }>(`/api/decisions/v1/calibration/reliability-bins?${q}`);
+  },
+
+  /** Per-rule precision/FP after disposition labels (missed-mark bridge C3). */
+  rulePrecisionAfterLabels(
+    tenantId: string,
+    body: {
+      labels_by_trace?: Record<string, string>;
+      labels_by_entity?: Record<string, string>;
+    } = {},
+    limit: number = 5000,
+  ) {
+    const q = new URLSearchParams({
+      tenant_id: tenantId,
+      limit: String(limit),
+      min_labeled_hits: "5",
+    });
+    return request<{
+      schema_id: string;
+      labeled_rows?: number;
+      label_coverage?: number;
+      posture?: { healthy?: boolean; hint?: string; status?: string };
+      rules?: Array<{
+        rule_id: string;
+        labeled_hits: number;
+        fraud_hits: number;
+        fp_hits: number;
+        precision: number;
+        fp_rate: number;
+        enough_support: boolean;
+      }>;
+      [key: string]: unknown;
+    }>(`/api/decisions/v1/calibration/rule-precision-after-labels?${q}`, {
+      method: "POST",
+      body: JSON.stringify({
+        labels_by_trace: body.labels_by_trace ?? {},
+        labels_by_entity: body.labels_by_entity ?? {},
+        allow_proxy_labels: false,
+      }),
+    });
+  },
+
+  /** Join case disposition into y_label for calibration (missed-mark bridge B2). */
+  joinDispositionLabels(
+    tenantId: string,
+    body: {
+      labels_by_trace?: Record<string, string>;
+      labels_by_entity?: Record<string, string>;
+      allow_proxy_labels?: boolean;
+    },
+    nBins: number = 10,
+  ) {
+    const q = new URLSearchParams({
+      tenant_id: tenantId,
+      n_bins: String(nBins),
+      limit: "5000",
+    });
+    return request<{
+      schema_id: string;
+      posture?: { healthy?: boolean; hint?: string };
+      join?: Record<string, unknown>;
+      [key: string]: unknown;
+    }>(`/api/decisions/v1/calibration/reliability-bins?${q}`, {
+      method: "POST",
+      body: JSON.stringify({
+        labels_by_trace: body.labels_by_trace ?? {},
+        labels_by_entity: body.labels_by_entity ?? {},
+        allow_proxy_labels: body.allow_proxy_labels ?? false,
+        persist_labels: true,
+      }),
+    });
+  },
+
+  /** Desk-executable step-up challenge webhook (critical regrade flag #4). */
+  dispatchChallenge(body: {
+    tenant_id: string;
+    trace_id: string;
+    entity_id: string;
+    decision: string;
+    recommended_action: string;
+    challenge_metadata?: Record<string, unknown>;
+  }) {
+    return request<{
+      schema_id: string;
+      ok?: boolean;
+      delivery?: Record<string, unknown>;
+      [key: string]: unknown;
+    }>("/api/decisions/v1/calibration/challenge/dispatch", {
+      method: "POST",
+      body: JSON.stringify({
+        tenant_id: body.tenant_id,
+        trace_id: body.trace_id,
+        entity_id: body.entity_id,
+        decision: body.decision,
+        recommended_action: body.recommended_action,
+        challenge_metadata: body.challenge_metadata ?? {},
+      }),
+    });
+  },
+
+  /** Desk-facing shadow promote-gate posture (Fraud Ops 4.2). */
+  shadowPromoteGate() {
+    return request<{
+      schema_id: string;
+      vertical?: string;
+      blocked?: { promote_allowed?: boolean; blockers?: string[] };
+      allowed?: { promote_allowed?: boolean };
+      recipe_path?: string;
+      smoke?: string;
+    }>("/api/decisions/v1/calibration/shadow-promote-gate");
   },
 
   async reliabilityExportCsv(tenantId: string, limit: number = 10_000): Promise<string> {
@@ -1731,11 +1888,17 @@ export const cases = {
   update(
     caseId: string,
     tenantId: string,
-    data: Partial<Pick<Case, "status" | "priority" | "assigned_team" | "title">>,
+    data: Partial<Pick<Case, "status" | "priority" | "assigned_team" | "title">> & {
+      disposition_reason_code?: string;
+      maker_checker_approve?: boolean;
+    },
   ) {
     const q = new URLSearchParams({ tenant_id: tenantId });
+    const actor =
+      (typeof localStorage !== "undefined" && localStorage.getItem("tarka.desk_actor")) || "analyst-web";
     return request<Case>(`/api/cases/v1/cases/${caseId}?${q}`, {
       method: "PATCH",
+      headers: { "X-Actor-Id": actor },
       body: JSON.stringify(data),
     });
   },
@@ -1792,6 +1955,14 @@ export const cases = {
     if (opts?.depth != null) q.set("depth", String(opts.depth));
     if (opts?.limit != null) q.set("limit", String(opts.limit));
     return request<GraphPathExplanation>(`/api/cases/v1/cases/${caseId}/path-explain?${q}`);
+  },
+
+  multiPartyLinks(caseId: string, tenantId: string, opts?: { depth?: number }) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    if (opts?.depth != null) q.set("depth", String(opts.depth));
+    return request<MultiPartyLinksResponse>(
+      `/api/cases/v1/cases/${caseId}/multi-party-links?${q}`,
+    );
   },
 
   evidenceBundle(caseId: string, tenantId: string) {
@@ -1938,6 +2109,49 @@ export const cases = {
       limit: String(limit),
     });
     return request<CaseDeskActivity>(`/api/cases/v1/cases/ops/desk-activity?${q}`);
+  },
+
+  qaSample(
+    tenantId: string,
+    opts: { rate?: number; seed?: string; limit?: number } = {},
+  ) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    if (opts.rate != null) q.set("rate", String(opts.rate));
+    if (opts.seed) q.set("seed", opts.seed);
+    if (opts.limit != null) q.set("limit", String(opts.limit));
+    return request<{
+      tenant_id: string;
+      rate: number;
+      seed: string | null;
+      candidates: number;
+      sampled: number;
+      queued: string[];
+    }>(`/api/cases/v1/cases/ops/qa-sample?${q}`);
+  },
+
+  qaReview(body: { case_id: string; qa_status: string; original_status?: string }) {
+    return request<{
+      case_id: string;
+      original_status: string;
+      qa_status: string;
+      agree: boolean;
+    }>("/api/cases/v1/cases/ops/qa-review", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+
+  qaMetrics(tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<{
+      tenant_id: string;
+      pending: number;
+      reviewed: number;
+      agree?: number;
+      disagree?: number;
+      agreement_rate: number | null;
+      disagreement_rate: number | null;
+    }>(`/api/cases/v1/cases/ops/qa-metrics?${q}`);
   },
 
   sarTransportBoard(tenantId: string) {
@@ -2233,10 +2447,25 @@ export const rules = {
     );
   },
 
-  installVerticalPack(verticalName: string, overwrite: boolean = false) {
-    return request<{ installed: string; vertical: string; rules: number }>(
+  installVerticalPack(
+    verticalName: string,
+    metrics: {
+      precision: number;
+      recall: number;
+      f1_score: number;
+      false_positive_rate?: number;
+      events_evaluated: number;
+    },
+    overwrite: boolean = false,
+  ) {
+    return request<{
+      installed: string;
+      vertical: string;
+      rules: number;
+      promote_gate?: Record<string, unknown>;
+    }>(
       `/api/decisions/v1/rules/vertical-packs/${verticalName}/install?overwrite=${overwrite ? "true" : "false"}`,
-      { method: "POST", headers: _ruleActorHeaders() },
+      { method: "POST", headers: _ruleActorHeaders(), body: JSON.stringify(metrics) },
     );
   },
 };
