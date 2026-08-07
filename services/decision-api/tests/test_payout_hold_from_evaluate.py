@@ -61,6 +61,28 @@ def test_should_create_on_payout_checkpoint_and_action_tag():
     )
 
 
+def test_should_create_on_dispatch_with_courier_spoof():
+    assert should_create_payout_hold(
+        metadata={"checkpoint": "dispatch", "courier_payout_id": "cp_1"},
+        tags=["vertical:qcommerce", "risk:courier_spoof"],
+    )
+    assert should_create_payout_hold(
+        metadata={"checkpoint": "deliver", "transfer_id": "tx_1"},
+        tags=["vendor:incognia:high_risk"],
+    )
+
+
+def test_should_not_create_on_dispatch_without_spoof_tags():
+    assert not should_create_payout_hold(
+        metadata={"checkpoint": "dispatch", "payout_id": "po_1"},
+        tags=["vertical:logistics", "action:payout_delay"],
+    )
+    assert not should_create_payout_hold(
+        metadata={"checkpoint": "dispatch", "payout_id": "po_1"},
+        tags=["risk:promo_farm"],
+    )
+
+
 def test_build_hold_payload_maps_fields():
     p = build_hold_payload(
         tenant_id="t",
