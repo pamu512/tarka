@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 
 import { cases, type MultiPartyLink, type MultiPartyLinksResponse } from "../../api/client";
+import { normalizeRiskScore } from "../../domain/linkAnalysisGraph";
 import { toUserFacingError } from "../../utils/userFacingErrors";
 
 const DEFAULT_DEPTH = 3;
@@ -81,7 +82,9 @@ function LinkRow({
         <span className="shrink-0 text-[10px] tabular-nums text-gray-500">
           d={row.distance}{" "}
           <span className="text-gray-600">·</span>{" "}
-          <span className="text-amber-200/90">{(row.propagated_risk_score * 100).toFixed(0)}</span>
+          <span className="text-amber-200/90">
+            {(normalizeRiskScore(row.propagated_risk_score) ?? 0).toFixed(0)}
+          </span>
         </span>
       </div>
       <div className="mt-1 font-mono text-[11px] text-gray-200 break-all leading-snug">{row.entity_id}</div>
