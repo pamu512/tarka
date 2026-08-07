@@ -607,6 +607,7 @@ async def shadow_promote_gate(
     from decision_api.champion_challenger_audit import (
         aggregate_champion_challenger,
         label_gated_promote,
+        mcnemar_promote_gate,
     )
     from decision_api.vertical_packs import evaluate_kill_criteria, get_vertical_pack
 
@@ -690,6 +691,23 @@ async def shadow_promote_gate(
 
     # Desk bar: real labels required. Demo blocked/allowed rows remain kill_criteria smoke only.
     live_promote = label_gated_promote(label_posture=label_posture, kill_gate=None)
+    mcnemar = mcnemar_promote_gate(cc_audit)
+    combined_blockers = list(live_promote.get("blockers") or []) + list(
+        mcnemar.get("blockers") or []
+    )
+    # Dedupe
+    seen_b: set[str] = set()
+    uniq_b: list[str] = []
+    for b in combined_blockers:
+        if b and b not in seen_b:
+            seen_b.add(b)
+            uniq_b.append(b)
+    desk_promote = {
+        "schema_id": "tarka.desk_promote_gate/v1",
+        "promote_allowed": len(uniq_b) == 0,
+        "blockers": uniq_b,
+        "requires": ["label_gated_promote", "mcnemar_promote_gate"],
+    }
 
     return {
         "schema_id": "tarka.shadow_promote_gate/v1",
@@ -697,12 +715,14 @@ async def shadow_promote_gate(
         "blocked": blocked,
         "allowed": allowed,
         "label_gated_promote": live_promote,
+        "mcnemar_promote_gate": mcnemar,
+        "desk_promote_gate": desk_promote,
         "champion_challenger": cc_audit,
         "recipe_path": "scripts/oss/shadow_vs_primary_diff_recipe.sql",
         "smoke": "scripts/oss/shadow_promote_gate_smoke.py",
         "honesty": (
             "Demo blocked/allowed rows are kill_criteria smoke only. "
-            "label_gated_promote is the desk promote bar (real labels required)."
+            "desk_promote_gate requires real labels + McNemar discordant-pair bar."
         ),
     }
 

@@ -109,3 +109,36 @@ def label_gated_promote(
             {k: v for k, v in kill_gate.items() if k != "metrics"} if kill_gate else None
         ),
     }
+
+
+def mcnemar_promote_gate(
+    cc_audit: Mapping[str, Any],
+    *,
+    min_discordant_pairs: int = 20,
+) -> dict[str, Any]:
+    """Ojuri-style discordant-pair bar before trusting challenger lift (no p-value yet)."""
+    cont = cc_audit.get("mcnemar_contingency")
+    if not isinstance(cont, Mapping):
+        cont = {}
+    b = int(cont.get("b_champion_allow_challenger_stricter") or 0)
+    c = int(cont.get("c_challenger_allow_champion_stricter") or 0)
+    discordant = b + c
+    rows = int(cc_audit.get("rows_with_policy_routing") or 0)
+    blockers: list[str] = []
+    if rows < 1:
+        blockers.append("no_champion_challenger_rows")
+    if discordant < int(min_discordant_pairs):
+        blockers.append(f"discordant_pairs<{min_discordant_pairs}")
+    return {
+        "schema_id": "tarka.mcnemar_promote_gate/v1",
+        "promote_allowed": len(blockers) == 0,
+        "blockers": blockers,
+        "discordant_pairs": discordant,
+        "min_discordant_pairs": int(min_discordant_pairs),
+        "b_champion_allow_challenger_stricter": b,
+        "c_challenger_allow_champion_stricter": c,
+        "note": (
+            "Contingency only — not a McNemar p-value. Combine with label_gated_promote "
+            "before promoting challenger packs."
+        ),
+    }

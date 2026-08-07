@@ -11,6 +11,17 @@ type ShadowPromoteGate = {
     blockers?: string[];
     label_posture?: Record<string, unknown>;
   };
+  mcnemar_promote_gate?: {
+    promote_allowed?: boolean;
+    blockers?: string[];
+    discordant_pairs?: number;
+    min_discordant_pairs?: number;
+  };
+  desk_promote_gate?: {
+    promote_allowed?: boolean;
+    blockers?: string[];
+    requires?: string[];
+  };
   champion_challenger?: {
     rows_with_policy_routing?: number;
     decision_agreement_rate?: number | null;
@@ -59,6 +70,8 @@ export default function OpsShadow() {
 
   const cc = data?.champion_challenger;
   const labelGate = data?.label_gated_promote;
+  const mcnemar = data?.mcnemar_promote_gate;
+  const deskGate = data?.desk_promote_gate;
 
   return (
     <div className="p-6 space-y-4">
@@ -146,20 +159,35 @@ export default function OpsShadow() {
       {err ? <p className="text-red-400">{err}</p> : null}
       {data ? (
         <section className="rounded-xl border border-surface-700 bg-surface-900 px-4 py-3 space-y-3">
-          <h2 className="text-sm font-semibold text-gray-200">Label-gated promote (desk bar)</h2>
+          <h2 className="text-sm font-semibold text-gray-200">Desk promote gate</h2>
           <p className="text-sm text-gray-300">
-            Live promote:{" "}
+            Combined:{" "}
             <span
               className={
-                labelGate?.promote_allowed ? "text-emerald-400 font-semibold" : "text-amber-300 font-semibold"
+                deskGate?.promote_allowed ? "text-emerald-400 font-semibold" : "text-amber-300 font-semibold"
               }
             >
-              {labelGate?.promote_allowed ? "allowed" : "blocked"}
+              {deskGate?.promote_allowed ? "allowed" : "blocked"}
             </span>
-            {labelGate?.blockers?.length ? (
-              <span className="text-xs text-gray-500 ml-2">[{labelGate.blockers.join(", ")}]</span>
+            {deskGate?.blockers?.length ? (
+              <span className="text-xs text-gray-500 ml-2">[{deskGate.blockers.join(", ")}]</span>
             ) : null}
           </p>
+          <dl className="grid gap-1 text-xs text-gray-400 sm:grid-cols-2 font-mono">
+            <div>
+              Labels:{" "}
+              <span className={labelGate?.promote_allowed ? "text-emerald-400" : "text-amber-300"}>
+                {labelGate?.promote_allowed ? "ok" : "blocked"}
+              </span>
+              {labelGate?.blockers?.length ? ` (${labelGate.blockers.join(", ")})` : ""}
+            </div>
+            <div>
+              McNemar pairs: {mcnemar?.discordant_pairs ?? 0}/{mcnemar?.min_discordant_pairs ?? 20} —{" "}
+              <span className={mcnemar?.promote_allowed ? "text-emerald-400" : "text-amber-300"}>
+                {mcnemar?.promote_allowed ? "ok" : "blocked"}
+              </span>
+            </div>
+          </dl>
           <p className="text-xs text-gray-500">{data.honesty}</p>
           <div className="text-xs text-gray-400 space-y-1">
             <div>

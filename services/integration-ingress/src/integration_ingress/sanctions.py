@@ -260,6 +260,55 @@ class SanctionsScreener:
             meta["dataset_cache_age_seconds"] = None
         return meta
 
+    def screening_ops_posture(self) -> dict[str, Any]:
+        """Ops posture for continuous bulk FtM cache vs realtime Match API (Marble gap)."""
+        meta = self.dataset_cache_meta()
+        age = meta.get("dataset_cache_age_seconds")
+        cache_present = meta.get("dataset_cache_mtime_unix") is not None
+        cache_fresh = bool(
+            cache_present
+            and age is not None
+            and float(age) < float(self.cache_ttl)
+        )
+        entity_count = len(self._entities) if self._loaded else 0
+        if cache_fresh and self._loaded and entity_count > 0:
+            continuous_status = "ready"
+        elif cache_present and not cache_fresh:
+            continuous_status = "stale_cache"
+        elif cache_present and not self._loaded:
+            continuous_status = "cache_on_disk_not_loaded"
+        else:
+            continuous_status = "not_loaded"
+        return {
+            "schema_id": "tarka.sanctions_screening_ops_posture/v1",
+            "continuous_bulk": {
+                "status": continuous_status,
+                "dataset_url": self.dataset_url,
+                "entities_loaded": entity_count,
+                "index_loaded": self._loaded,
+                "cache_present": cache_present,
+                "cache_fresh": cache_fresh,
+                **meta,
+            },
+            "realtime_match_api": {
+                "plugin": "opensanctions",
+                "plane": "decision_api.vendors.plugins.opensanctions",
+                "note": (
+                    "Evaluate-time Match API via vendor plugin — separate from this "
+                    "ingress FtM bulk screener. Configure TARKA_VENDOR_OPENSANCTIONS_API_KEY."
+                ),
+            },
+            "vs_marble": (
+                "Bulk FtM cache + journaled screens ≠ Marble Motiva+ES continuous list "
+                "product. Do not market as continuous warehouse screening until cache is "
+                "fresh, loaded, and screens persist to sanctions_screening_logs."
+            ),
+            "ready_for_continuous_claim": continuous_status == "ready",
+            "honesty": (
+                "Persistence-required screening (SR-16). Empty/missing cache is not a pass."
+            ),
+        }
+
     async def screen(
         self,
         name: str,

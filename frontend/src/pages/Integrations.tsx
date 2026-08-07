@@ -58,6 +58,17 @@ export default function Integrations() {
     honesty?: string;
     runbook_path?: string;
   } | null>(null);
+  const [screening, setScreening] = useState<{
+    ready_for_continuous_claim?: boolean;
+    continuous_bulk?: {
+      status?: string;
+      entities_loaded?: number;
+      cache_fresh?: boolean;
+      cache_present?: boolean;
+    };
+    vs_marble?: string;
+    honesty?: string;
+  } | null>(null);
 
   async function refresh() {
     const [catalog, current, ready, health, kms, jobs, sloStatus] = await Promise.all([
@@ -109,6 +120,10 @@ export default function Integrations() {
       .partnerFusionStatus()
       .then(setPartnerFusion)
       .catch(() => setPartnerFusion(null));
+    void integrations
+      .sanctionsScreeningPosture()
+      .then(setScreening)
+      .catch(() => setScreening(null));
   }, []);
 
   useEffect(() => {
@@ -257,6 +272,33 @@ export default function Integrations() {
             {partnerFusion.opensanctions?.note}
           </p>
           <p className="text-[10px] text-gray-500 font-mono">{partnerFusion.runbook_path}</p>
+        </div>
+      ) : null}
+
+      {screening ? (
+        <div
+          className="rounded-xl border border-surface-700 bg-surface-900 px-4 py-3 space-y-2"
+          data-testid="sanctions-screening-posture"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-gray-200">OpenSanctions screening</h2>
+            <span
+              className={`text-[10px] font-bold uppercase tracking-wide rounded-full border px-2 py-0.5 ${
+                screening.ready_for_continuous_claim
+                  ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-200"
+                  : "border-amber-500/50 bg-amber-500/10 text-amber-200"
+              }`}
+            >
+              {screening.continuous_bulk?.status || "unknown"}
+            </span>
+          </div>
+          <p className="text-xs text-gray-400">
+            Bulk FtM cache: entities {screening.continuous_bulk?.entities_loaded ?? 0} · cache{" "}
+            {screening.continuous_bulk?.cache_present ? "present" : "missing"} ·{" "}
+            {screening.continuous_bulk?.cache_fresh ? "fresh" : "stale/absent"}
+          </p>
+          <p className="text-[11px] text-gray-500">{screening.vs_marble}</p>
+          <p className="text-[10px] text-gray-500">{screening.honesty}</p>
         </div>
       ) : null}
 

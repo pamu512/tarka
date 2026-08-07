@@ -1620,6 +1620,17 @@ export const decisions = {
         blockers?: string[];
         label_posture?: Record<string, unknown>;
       };
+      mcnemar_promote_gate?: {
+        promote_allowed?: boolean;
+        blockers?: string[];
+        discordant_pairs?: number;
+        min_discordant_pairs?: number;
+      };
+      desk_promote_gate?: {
+        promote_allowed?: boolean;
+        blockers?: string[];
+        requires?: string[];
+      };
       champion_challenger?: {
         rows_with_policy_routing?: number;
         decision_agreement_rate?: number | null;
@@ -3892,6 +3903,21 @@ export const integrations = {
         doc_url: string;
       }>;
     }>("/api/ingress/v1/integrations/catalog");
+  },
+  sanctionsScreeningPosture() {
+    return request<{
+      schema_id: string;
+      ready_for_continuous_claim?: boolean;
+      continuous_bulk?: {
+        status?: string;
+        entities_loaded?: number;
+        cache_fresh?: boolean;
+        cache_present?: boolean;
+      };
+      realtime_match_api?: { plugin?: string; note?: string };
+      vs_marble?: string;
+      honesty?: string;
+    }>("/api/ingress/v1/ops/sanctions-screening-posture");
   },
   installed(tenantId: string) {
     return request<{

@@ -855,6 +855,14 @@ async def osint_nats_setu_monitor(request: Request, tenant_id: str = "demo"):
     )
 
 
+@app.get("/v1/ops/sanctions-screening-posture")
+async def sanctions_screening_posture(_user: AuthUser = Depends(require_role("analyst"))):
+    """OpenSanctions continuous bulk cache + Match API honesty (vs Marble)."""
+    from integration_ingress.sanctions import _get_screener
+
+    return _get_screener().screening_ops_posture()
+
+
 @app.get("/v1/ops/failover-toggles")
 async def ops_failover_toggles_get(request: Request):
     """Read graph/AI plane kill-switches and latest dependency latency probes."""

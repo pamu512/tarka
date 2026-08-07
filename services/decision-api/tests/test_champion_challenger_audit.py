@@ -5,6 +5,7 @@ from __future__ import annotations
 from decision_api.champion_challenger_audit import (
     aggregate_champion_challenger,
     label_gated_promote,
+    mcnemar_promote_gate,
 )
 
 
@@ -68,3 +69,46 @@ def test_label_gated_promote_allows_healthy():
     )
     assert gate["promote_allowed"] is True
     assert gate["blockers"] == []
+
+
+def test_mcnemar_promote_gate_blocks_underpowered():
+    cc = aggregate_champion_challenger(
+        [
+            {
+                "trace_id": "t1",
+                "payload_snapshot": {
+                    "policy_routing": {
+                        "champion_decision": "allow",
+                        "challenger_decision": "review",
+                        "decisions_agree": False,
+                    }
+                },
+            }
+        ]
+    )
+    gate = mcnemar_promote_gate(cc, min_discordant_pairs=20)
+    assert gate["promote_allowed"] is False
+    assert gate["discordant_pairs"] == 1
+    assert any("discordant_pairs" in b for b in gate["blockers"])
+
+
+def test_mcnemar_promote_gate_allows_enough_discordant():
+    audits = []
+    for i in range(25):
+        audits.append(
+            {
+                "trace_id": f"t{i}",
+                "payload_snapshot": {
+                    "policy_routing": {
+                        "champion_decision": "allow",
+                        "challenger_decision": "review",
+                        "decisions_agree": False,
+                    }
+                },
+            }
+        )
+    gate = mcnemar_promote_gate(
+        aggregate_champion_challenger(audits), min_discordant_pairs=20
+    )
+    assert gate["promote_allowed"] is True
+    assert gate["discordant_pairs"] == 25
