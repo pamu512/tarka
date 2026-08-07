@@ -12,6 +12,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import get_session
+from .dispute_y_label import dispute_outcome_to_training_label
 from .models import Case, Dispute
 
 for _parent in Path(__file__).resolve().parents:
@@ -25,18 +26,6 @@ from auth_rbac import require_role  # noqa: E402
 router = APIRouter(prefix="/v1/ml", tags=["ml-training"])
 
 _MAX_TRACE_IDS = 2_000
-
-
-def _dispute_to_training_label(outcome: str) -> tuple[str, str]:
-    """Return ``(case_management_label, dispute_outcome)``."""
-    o = (outcome or "").strip().lower()
-    if o in ("fraud_confirmed", "merchant_fault"):
-        return "fraud", o
-    if o in ("false_positive", "customer_fault"):
-        return "not_fraud", o
-    if o in ("inconclusive",):
-        return "unknown", o
-    return "unknown", o
 
 
 def _case_labels_to_training_label(labels: list[Any] | None) -> str | None:
@@ -95,7 +84,7 @@ async def training_labels_by_trace(
         if not oc:
             continue
         dispute_seen.add(tr)
-        label, raw_o = _dispute_to_training_label(oc)
+        label, raw_o = dispute_outcome_to_training_label(oc)
         out[tr] = {
             "case_management_label": label,
             "case_label_source": "dispute",
