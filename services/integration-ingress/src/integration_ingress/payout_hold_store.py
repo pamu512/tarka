@@ -130,7 +130,9 @@ async def upsert_hold(
             row.scheduled_release_at = now + timedelta(hours=hours)
             row.released_at = None
         elif st == "pending":
-            row.scheduled_release_at = now + timedelta(hours=hours)
+            # ponytail: do not re-slide delay window on identical pending refresh
+            if prior_status != "pending":
+                row.scheduled_release_at = now + timedelta(hours=hours)
             row.released_at = None
         elif st == "released":
             row.released_at = now
