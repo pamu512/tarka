@@ -1456,6 +1456,21 @@ export const decisions = {
     return request<CounterCatalogResponse>("/api/decisions/v1/internal/counters/catalog");
   },
 
+  counterParityStatus() {
+    return request<{
+      schema_id: string;
+      ok?: boolean;
+      present?: boolean;
+      dual_diff_proven?: boolean;
+      mode?: string;
+      events?: number;
+      generated_at?: string;
+      hint?: string;
+      job?: string;
+      path?: string;
+    }>("/api/decisions/v1/internal/counters/parity-status");
+  },
+
   benchmarkExport(tenantId: string) {
     const q = new URLSearchParams({ tenant_id: tenantId });
     return request<TenantBenchmarkExport>(`/api/decisions/v1/simulation/benchmark/export?${q}`);
@@ -1625,6 +1640,12 @@ export const decisions = {
         blockers?: string[];
         discordant_pairs?: number;
         min_discordant_pairs?: number;
+      };
+      drift_promote_gate?: {
+        promote_allowed?: boolean;
+        blockers?: string[];
+        drift_score?: number | null;
+        hint?: string | null;
       };
       desk_promote_gate?: {
         promote_allowed?: boolean;
@@ -3935,11 +3956,22 @@ export const integrations = {
         entities_loaded?: number;
         cache_fresh?: boolean;
         cache_present?: boolean;
+        screening_journal_lines?: number;
+        refresh?: string;
       };
       realtime_match_api?: { plugin?: string; note?: string };
       vs_marble?: string;
       honesty?: string;
     }>("/api/ingress/v1/ops/sanctions-screening-posture");
+  },
+  sanctionsScreeningRefresh(forceDownload = true) {
+    const q = forceDownload ? "?force_download=true" : "?force_download=false";
+    return request<{
+      schema_id: string;
+      refreshed?: boolean;
+      ready_for_continuous_claim?: boolean;
+      continuous_bulk?: { status?: string; entities_loaded?: number };
+    }>(`/api/ingress/v1/ops/sanctions-screening-refresh${q}`, { method: "POST" });
   },
   installed(tenantId: string) {
     return request<{

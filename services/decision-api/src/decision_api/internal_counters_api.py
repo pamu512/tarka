@@ -210,6 +210,44 @@ async def get_counter_manifest() -> dict[str, Any]:
     return m
 
 
+@router.get("/parity-status")
+async def get_counter_parity_status() -> dict[str, Any]:
+    """Ops-readable dual-diff / replay artifact summary (no replay token required)."""
+    parity = _load_last_parity_run()
+    path = _parity_report_path()
+    if not parity:
+        return {
+            "schema_id": "tarka.counter_parity_status/v1",
+            "ok": False,
+            "present": False,
+            "path": str(path),
+            "dual_diff_proven": False,
+            "hint": "No counter_parity_last.json — run scripts/oss/counter_parity_dual_diff.py",
+            "job": "scripts/oss/counter_parity_dual_diff.py",
+        }
+    ok = _parity_health_ok(parity)
+    mode = parity.get("mode")
+    dual = mode in ("dual_diff", "redis_dual_diff") and ok
+    return {
+        "schema_id": "tarka.counter_parity_status/v1",
+        "ok": ok,
+        "present": True,
+        "path": str(path),
+        "dual_diff_proven": dual,
+        "mode": mode,
+        "matched": parity.get("matched"),
+        "events": parity.get("events"),
+        "generated_at": parity.get("ts") or parity.get("generated_at"),
+        "artifact_schema_id": parity.get("schema_id"),
+        "job": "scripts/oss/counter_parity_dual_diff.py",
+        "hint": (
+            "dual_diff matched"
+            if dual
+            else "Artifact present but not dual_diff-proven (dry_run/fixture alone ≠ parity)"
+        ),
+    }
+
+
 @router.get("/catalog")
 async def get_counter_catalog_merged() -> dict[str, Any]:
     """Human-readable counter catalog merged with manifest feature names (ops UI)."""

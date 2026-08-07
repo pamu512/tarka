@@ -111,6 +111,30 @@ def label_gated_promote(
     }
 
 
+def drift_promote_gate(
+    drift: Mapping[str, Any] | None,
+    *,
+    block_elevated: bool = True,
+) -> dict[str, Any]:
+    """Ojuri-adjacent PSI bar using existing L1 histogram drift (not full PSI)."""
+    d = drift if isinstance(drift, Mapping) else {}
+    hint = str(d.get("hint") or "")
+    score = d.get("drift_score")
+    blockers: list[str] = []
+    if block_elevated and hint == "elevated_bin_shift_review_calibration":
+        blockers.append("calibration_drift_elevated")
+    return {
+        "schema_id": "tarka.drift_promote_gate/v1",
+        "promote_allowed": len(blockers) == 0,
+        "blockers": blockers,
+        "drift_score": score,
+        "hint": hint or None,
+        "note": (
+            "L1 bin-shift vs calibration reference — not PSI. Elevated drift blocks desk promote."
+        ),
+    }
+
+
 def mcnemar_promote_gate(
     cc_audit: Mapping[str, Any],
     *,

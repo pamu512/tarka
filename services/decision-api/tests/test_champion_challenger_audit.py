@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from decision_api.champion_challenger_audit import (
     aggregate_champion_challenger,
+    drift_promote_gate,
     label_gated_promote,
     mcnemar_promote_gate,
 )
@@ -90,6 +91,19 @@ def test_mcnemar_promote_gate_blocks_underpowered():
     assert gate["promote_allowed"] is False
     assert gate["discordant_pairs"] == 1
     assert any("discordant_pairs" in b for b in gate["blockers"])
+
+
+def test_drift_promote_gate_blocks_elevated():
+    gate = drift_promote_gate(
+        {"hint": "elevated_bin_shift_review_calibration", "drift_score": 0.4}
+    )
+    assert gate["promote_allowed"] is False
+    assert "calibration_drift_elevated" in gate["blockers"]
+
+
+def test_drift_promote_gate_allows_ok():
+    gate = drift_promote_gate({"hint": "ok", "drift_score": 0.05})
+    assert gate["promote_allowed"] is True
 
 
 def test_mcnemar_promote_gate_allows_enough_discordant():

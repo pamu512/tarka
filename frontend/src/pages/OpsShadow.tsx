@@ -17,6 +17,12 @@ type ShadowPromoteGate = {
     discordant_pairs?: number;
     min_discordant_pairs?: number;
   };
+  drift_promote_gate?: {
+    promote_allowed?: boolean;
+    blockers?: string[];
+    drift_score?: number | null;
+    hint?: string | null;
+  };
   desk_promote_gate?: {
     promote_allowed?: boolean;
     blockers?: string[];
@@ -80,6 +86,7 @@ export default function OpsShadow() {
   const cc = data?.champion_challenger;
   const labelGate = data?.label_gated_promote;
   const mcnemar = data?.mcnemar_promote_gate;
+  const driftGate = data?.drift_promote_gate;
   const deskGate = data?.desk_promote_gate;
 
   return (
@@ -182,7 +189,7 @@ export default function OpsShadow() {
               <span className="text-xs text-gray-500 ml-2">[{deskGate.blockers.join(", ")}]</span>
             ) : null}
           </p>
-          <dl className="grid gap-1 text-xs text-gray-400 sm:grid-cols-2 font-mono">
+          <dl className="grid gap-1 text-xs text-gray-400 sm:grid-cols-3 font-mono">
             <div>
               Labels:{" "}
               <span className={labelGate?.promote_allowed ? "text-emerald-400" : "text-amber-300"}>
@@ -191,10 +198,17 @@ export default function OpsShadow() {
               {labelGate?.blockers?.length ? ` (${labelGate.blockers.join(", ")})` : ""}
             </div>
             <div>
-              McNemar pairs: {mcnemar?.discordant_pairs ?? 0}/{mcnemar?.min_discordant_pairs ?? 20} —{" "}
+              McNemar: {mcnemar?.discordant_pairs ?? 0}/{mcnemar?.min_discordant_pairs ?? 20} —{" "}
               <span className={mcnemar?.promote_allowed ? "text-emerald-400" : "text-amber-300"}>
                 {mcnemar?.promote_allowed ? "ok" : "blocked"}
               </span>
+            </div>
+            <div>
+              Drift: {driftGate?.drift_score ?? "n/a"} —{" "}
+              <span className={driftGate?.promote_allowed ? "text-emerald-400" : "text-amber-300"}>
+                {driftGate?.promote_allowed ? "ok" : "blocked"}
+              </span>
+              {driftGate?.hint ? ` (${driftGate.hint})` : ""}
             </div>
           </dl>
           <p className="text-xs text-gray-500">{data.honesty}</p>
