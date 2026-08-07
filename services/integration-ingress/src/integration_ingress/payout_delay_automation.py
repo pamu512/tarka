@@ -112,17 +112,18 @@ async def sync_mule_holds_from_candidates(
     tenant_id: str,
     cfg: dict[str, Any],
     candidates: list[dict[str, Any]],
-) -> int:
+) -> tuple[int, list[dict[str, Any]]]:
     if not cfg.get("automation_enabled", False):
-        return 0
+        return 0, []
     if not candidates:
-        return 0
+        return 0, []
 
     threshold = int(cfg.get("mule_score_hold_threshold") or DEFAULT_MULE_SCORE_HOLD_THRESHOLD)
     hours = int(cfg.get("hold_duration_hours_default") or 72)
     existing = await list_holds(session, tenant_id, limit=500)
     by_payout = {h["payout_id"]: h for h in existing}
     writes = 0
+    materialized_rows: list[dict[str, Any]] = []
 
     for candidate in candidates:
         pid = str(candidate.get("payout_id") or "").strip()
@@ -145,7 +146,7 @@ async def sync_mule_holds_from_candidates(
             amount = candidate.get("amount_usd")
         currency = candidate.get("currency") or "USD"
 
-        await upsert_hold(
+        row, materialized = await upsert_hold(
             session,
             tenant_id=tenant_id,
             payout_id=pid,
@@ -158,9 +159,11 @@ async def sync_mule_holds_from_candidates(
             currency=currency,
             hold_duration_hours=hours,
         )
-        writes += 1
+        if materialized:
+            writes += 1
+            materialized_rows.append(row)
 
-    return writes
+    return writes, materialized_rows
 
 
 async def build_payout_delay_payload(
@@ -168,6 +171,7 @@ async def build_payout_delay_payload(
     *,
     tenant_id: str,
     limit: int = DEFAULT_PAYOUT_LIMIT,
+    http: Any | None = None,
 ) -> dict[str, Any]:
     tid = (tenant_id or "demo").strip() or "demo"
     lim = max(5, min(int(limit), 100))
@@ -176,9 +180,24 @@ async def build_payout_delay_payload(
     candidates = cfg.get("mule_candidates") or []
     automation_writes = 0
     if cfg.get("automation_enabled") and candidates:
-        automation_writes = await sync_mule_holds_from_candidates(
+        automation_writes, materialized_rows = await sync_mule_holds_from_candidates(
             session, tenant_id=tid, cfg=cfg, candidates=candidates
         )
+        callback_url = str(cfg.get("webhook_callback_url") or "").strip()
+        if http is not None and callback_url and materialized_rows:
+            from integration_ingress.marketplace_webhook_logs import (
+                SIGNAL_PAYOUT_HOLD,
+                notify_payout_signal_webhook,
+            )
+
+            for hold_row in materialized_rows:
+                await notify_payout_signal_webhook(
+                    session,
+                    http,
+                    signal=SIGNAL_PAYOUT_HOLD,
+                    callback_url=callback_url,
+                    hold_row=hold_row,
+                )
 
     holds = await list_holds(session, tid, limit=lim)
     payouts = [_hold_to_payout_row(h) for h in holds]
@@ -213,7 +232,14 @@ async def build_payout_delay_payload(
             },
         )
 
-    source = "durable+automation" if automation_writes > 0 else "durable"
+    has_automation_holds = any(
+        h.get("held_by") == "payout_delay_automation" for h in holds
+    )
+    source = (
+        "durable+automation"
+        if automation_writes > 0 or has_automation_holds
+        else "durable"
+    )
 
     return {
         "tenant_id": tid,

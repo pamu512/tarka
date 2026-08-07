@@ -126,8 +126,10 @@ async def upsert_hold(
         if mule_score is not None:
             row.mule_score = float(mule_score)
         if st == "held":
-            row.held_at = now
-            row.scheduled_release_at = now + timedelta(hours=hours)
+            # ponytail: do not re-slide hold window on identical held refresh
+            if prior_status != "held":
+                row.held_at = now
+                row.scheduled_release_at = now + timedelta(hours=hours)
             row.released_at = None
         elif st == "pending":
             # ponytail: do not re-slide delay window on identical pending refresh

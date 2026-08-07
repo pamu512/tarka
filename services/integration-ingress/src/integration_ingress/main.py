@@ -1326,6 +1326,7 @@ async def _require_internal_or_admin(
 
 @app.get("/v1/marketplace/payout-delay")
 async def marketplace_payout_delay_list(
+    request: Request,
     tenant_id: str = "demo",
     limit: int = 35,
     session: AsyncSession = Depends(get_session),
@@ -1334,12 +1335,18 @@ async def marketplace_payout_delay_list(
     """Payout delay automation — holds when JanusGraph mule_score exceeds threshold (Prompt 183)."""
     from integration_ingress.payout_delay_automation import build_payout_delay_payload
 
-    return await build_payout_delay_payload(session, tenant_id=tenant_id, limit=limit)
+    return await build_payout_delay_payload(
+        session,
+        tenant_id=tenant_id,
+        limit=limit,
+        http=getattr(request.app.state, "http", None),
+    )
 
 
 @app.patch("/v1/marketplace/payout-delay/config")
 async def marketplace_payout_delay_config_patch(
     body: PayoutDelayConfigPatchBody,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     _user=Depends(require_role("analyst")),
 ):
@@ -1357,7 +1364,11 @@ async def marketplace_payout_delay_config_patch(
         webhook_callback_url=body.webhook_callback_url,
         honor_evaluate_action_tags=body.honor_evaluate_action_tags,
     )
-    return await build_payout_delay_payload(session, tenant_id=body.tenant_id)
+    return await build_payout_delay_payload(
+        session,
+        tenant_id=body.tenant_id,
+        http=getattr(request.app.state, "http", None),
+    )
 
 
 @app.post("/v1/marketplace/payout-delay/{payout_id}/release")
@@ -1388,8 +1399,8 @@ async def marketplace_payout_delay_release(
         raise HTTPException(status_code=404, detail="payout hold not found")
     cfg = get_payout_delay_config(tenant_id)
     callback_url = str(cfg.get("webhook_callback_url") or "").strip()
-    if callback_url:
-        http: httpx.AsyncClient = request.app.state.http
+    http = getattr(request.app.state, "http", None)
+    if callback_url and http is not None:
         await notify_payout_signal_webhook(
             session,
             http,
@@ -1400,7 +1411,11 @@ async def marketplace_payout_delay_release(
     return {
         "ok": True,
         "release": release,
-        "board": await build_payout_delay_payload(session, tenant_id=tenant_id),
+        "board": await build_payout_delay_payload(
+            session,
+            tenant_id=tenant_id,
+            http=getattr(request.app.state, "http", None),
+        ),
     }
 
 
@@ -1437,8 +1452,8 @@ async def internal_create_payout_hold(
     if materialized:
         cfg = get_payout_delay_config(body.tenant_id)
         callback_url = str(cfg.get("webhook_callback_url") or "").strip()
-        if callback_url:
-            http: httpx.AsyncClient = request.app.state.http
+        http = getattr(request.app.state, "http", None)
+        if callback_url and http is not None:
             await notify_payout_signal_webhook(
                 session,
                 http,
