@@ -65,10 +65,12 @@ export default function Integrations() {
       entities_loaded?: number;
       cache_fresh?: boolean;
       cache_present?: boolean;
+      screening_journal_lines?: number;
     };
     vs_marble?: string;
     honesty?: string;
   } | null>(null);
+  const [screeningBusy, setScreeningBusy] = useState(false);
 
   async function refresh() {
     const [catalog, current, ready, health, kms, jobs, sloStatus] = await Promise.all([
@@ -295,10 +297,26 @@ export default function Integrations() {
           <p className="text-xs text-gray-400">
             Bulk FtM cache: entities {screening.continuous_bulk?.entities_loaded ?? 0} · cache{" "}
             {screening.continuous_bulk?.cache_present ? "present" : "missing"} ·{" "}
-            {screening.continuous_bulk?.cache_fresh ? "fresh" : "stale/absent"}
+            {screening.continuous_bulk?.cache_fresh ? "fresh" : "stale/absent"} · journal lines{" "}
+            {screening.continuous_bulk?.screening_journal_lines ?? 0}
           </p>
           <p className="text-[11px] text-gray-500">{screening.vs_marble}</p>
           <p className="text-[10px] text-gray-500">{screening.honesty}</p>
+          <button
+            type="button"
+            disabled={screeningBusy}
+            className="text-xs px-2 py-1 rounded border border-surface-600 text-gray-200 hover:border-brand-500 disabled:opacity-50"
+            onClick={() => {
+              setScreeningBusy(true);
+              void integrations
+                .sanctionsScreeningRefresh(true)
+                .then(setScreening)
+                .catch((e) => setMessage(toUserFacingError(e, { subject: "OpenSanctions", action: "refresh FtM cache" })))
+                .finally(() => setScreeningBusy(false));
+            }}
+          >
+            {screeningBusy ? "Refreshing…" : "Refresh FtM cache (admin)"}
+          </button>
         </div>
       ) : null}
 

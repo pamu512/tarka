@@ -863,6 +863,22 @@ async def sanctions_screening_posture(_user: AuthUser = Depends(require_role("an
     return _get_screener().screening_ops_posture()
 
 
+@app.post("/v1/ops/sanctions-screening-refresh")
+async def sanctions_screening_refresh(
+    force_download: bool = True,
+    _user: AuthUser = Depends(require_role("admin")),
+):
+    """Reload OpenSanctions FtM cache into memory (admin). Does not forge LIVE partner pins."""
+    from integration_ingress.sanctions import _get_screener
+
+    screener = _get_screener()
+    await screener.load(force_download=force_download)
+    out = screener.screening_ops_posture()
+    out["refreshed"] = True
+    out["force_download"] = bool(force_download)
+    return out
+
+
 @app.get("/v1/ops/failover-toggles")
 async def ops_failover_toggles_get(request: Request):
     """Read graph/AI plane kill-switches and latest dependency latency probes."""

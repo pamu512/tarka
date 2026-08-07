@@ -26,6 +26,15 @@ export default function OpsCounters() {
     offline_parity?: { job?: string; endpoint?: string };
     doc?: string;
   } | null>(null);
+  const [parityStatus, setParityStatus] = useState<{
+    dual_diff_proven?: boolean;
+    present?: boolean;
+    ok?: boolean;
+    mode?: string;
+    hint?: string;
+    job?: string;
+    generated_at?: string;
+  } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -38,6 +47,7 @@ export default function OpsCounters() {
       }
     })();
     void features.featureServingContract().then(setFsc).catch(() => setFsc(null));
+    void decisions.counterParityStatus().then(setParityStatus).catch(() => setParityStatus(null));
   }, []);
 
   async function queryLiveVelocity() {
@@ -196,6 +206,20 @@ export default function OpsCounters() {
           <div>
             Verify: <span className="font-mono text-gray-500">{fsc.offline_parity?.endpoint}</span>
           </div>
+          {parityStatus ? (
+            <div
+              className={`mt-2 rounded-lg border px-2 py-1.5 ${
+                parityStatus.dual_diff_proven
+                  ? "border-emerald-500/30 text-emerald-300"
+                  : "border-amber-500/30 text-amber-200"
+              }`}
+            >
+              Dual-diff proven: {parityStatus.dual_diff_proven ? "yes" : "no"}
+              {parityStatus.mode ? ` · mode=${parityStatus.mode}` : ""}
+              {parityStatus.generated_at ? ` · ${parityStatus.generated_at}` : ""}
+              <div className="text-[10px] text-gray-500 mt-0.5">{parityStatus.hint}</div>
+            </div>
+          ) : null}
         </div>
       ) : null}
 

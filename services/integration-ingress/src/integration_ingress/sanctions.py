@@ -279,6 +279,17 @@ class SanctionsScreener:
             continuous_status = "cache_on_disk_not_loaded"
         else:
             continuous_status = "not_loaded"
+        journal_lines = 0
+        try:
+            jp = screening_journal_path()
+            if jp.is_file():
+                with jp.open("r", encoding="utf-8") as fh:
+                    for i, _ in enumerate(fh, start=1):
+                        journal_lines = i
+                        if i >= 10_000:
+                            break
+        except OSError:
+            journal_lines = 0
         return {
             "schema_id": "tarka.sanctions_screening_ops_posture/v1",
             "continuous_bulk": {
@@ -288,6 +299,8 @@ class SanctionsScreener:
                 "index_loaded": self._loaded,
                 "cache_present": cache_present,
                 "cache_fresh": cache_fresh,
+                "screening_journal_lines": journal_lines,
+                "refresh": "POST /v1/ops/sanctions-screening-refresh",
                 **meta,
             },
             "realtime_match_api": {

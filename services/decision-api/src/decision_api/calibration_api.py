@@ -606,6 +606,7 @@ async def shadow_promote_gate(
     """Desk-facing promote-gate posture + label gate + CC agreement (P0-CC)."""
     from decision_api.champion_challenger_audit import (
         aggregate_champion_challenger,
+        drift_promote_gate,
         label_gated_promote,
         mcnemar_promote_gate,
     )
@@ -689,11 +690,17 @@ async def shadow_promote_gate(
                 "hint": "audit scan failed",
             }
 
-    # Desk bar: real labels required. Demo blocked/allowed rows remain kill_criteria smoke only.
+    # Desk bar: real labels + McNemar volume + elevated calibration drift block.
     live_promote = label_gated_promote(label_posture=label_posture, kill_gate=None)
     mcnemar = mcnemar_promote_gate(cc_audit)
-    combined_blockers = list(live_promote.get("blockers") or []) + list(
-        mcnemar.get("blockers") or []
+    drift_row: dict[str, Any] = {"hint": "no_tenant"}
+    if tid:
+        drift_row = compute_drift_for_tenant(tid, "default")
+    drift_gate = drift_promote_gate(drift_row)
+    combined_blockers = (
+        list(live_promote.get("blockers") or [])
+        + list(mcnemar.get("blockers") or [])
+        + list(drift_gate.get("blockers") or [])
     )
     # Dedupe
     seen_b: set[str] = set()
@@ -706,7 +713,11 @@ async def shadow_promote_gate(
         "schema_id": "tarka.desk_promote_gate/v1",
         "promote_allowed": len(uniq_b) == 0,
         "blockers": uniq_b,
-        "requires": ["label_gated_promote", "mcnemar_promote_gate"],
+        "requires": [
+            "label_gated_promote",
+            "mcnemar_promote_gate",
+            "drift_promote_gate",
+        ],
     }
 
     return {
@@ -716,13 +727,14 @@ async def shadow_promote_gate(
         "allowed": allowed,
         "label_gated_promote": live_promote,
         "mcnemar_promote_gate": mcnemar,
+        "drift_promote_gate": drift_gate,
         "desk_promote_gate": desk_promote,
         "champion_challenger": cc_audit,
         "recipe_path": "scripts/oss/shadow_vs_primary_diff_recipe.sql",
         "smoke": "scripts/oss/shadow_promote_gate_smoke.py",
         "honesty": (
             "Demo blocked/allowed rows are kill_criteria smoke only. "
-            "desk_promote_gate requires real labels + McNemar discordant-pair bar."
+            "desk_promote_gate requires real labels + McNemar pairs + non-elevated drift."
         ),
     }
 
