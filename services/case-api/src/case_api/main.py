@@ -40,6 +40,7 @@ from .investigation_label_drafts_api import router as investigation_label_drafts
 from .graph_case_api import router as graph_case_router
 from .investigation_templates_api import router as investigation_templates_router
 from .ml_training_api import router as ml_training_router
+from .multi_party_links import build_multi_party_links
 from .models import Case, CaseComment, CaseView, SarAuditLog, SARFiling, SarFiling
 from .ops_kpi_series import router as ops_kpi_series_router
 from .retention import DEFAULT_RETENTION_DAYS, retention_loop
@@ -392,6 +393,7 @@ async def list_cases(
     tenant_id: str,
     session: AsyncSession = Depends(get_session),
     status: str | None = None,
+    entity_id: str | None = None,
     limit: int = 50,
     sort_by: str = "queue",
 ):
@@ -399,6 +401,8 @@ async def list_cases(
     q = select(Case).where(Case.tenant_id == tenant_id)
     if status:
         q = q.where(Case.status == status)
+    if entity_id:
+        q = q.where(Case.entity_id == entity_id)
     if sort_by == "updated":
         q = q.order_by(Case.updated_at.desc())
     elif sort_by == "priority":
@@ -1306,6 +1310,23 @@ async def case_graph(
         }
     except Exception:
         return {"nodes": [], "edges": [], "message": "graph_service_unreachable"}
+
+
+@app.get("/v1/cases/{case_id}/multi-party-links")
+async def case_multi_party_links(
+    case_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    depth: int = 3,
+):
+    """Multi-party collusion links via graph risk propagation.
+
+    Fail-soft: returns HTTP 200 with ``degraded: true`` when graph is unavailable.
+    """
+    case = await _case_for_tenant(session, case_id, tenant_id)
+    http: httpx.AsyncClient = request.app.state.http
+    return await build_multi_party_links(session, case, http=http, depth=depth)
 
 
 @app.get("/v1/cases/{case_id}/decision-explanation")
