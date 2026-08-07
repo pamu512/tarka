@@ -45,13 +45,71 @@ def _payout_board_empty(tenant_id: str) -> dict[str, Any]:
     }
 
 
+async def _empty_promo_board(tenant_id: str) -> dict[str, Any]:
+    tid = (tenant_id or "demo").strip() or "demo"
+    promo_mod = _load_sibling("promo_abuse_tracking")
+    warn = promo_mod.DEFAULT_WARN_UNIQUE_USERS
+    critical = promo_mod.DEFAULT_CRITICAL_UNIQUE_USERS
+    days = 7
+    return {
+        "tenant_id": tid,
+        "coupon_code": promo_mod.DEFAULT_COUPON,
+        "updated_at": _now_iso(),
+        "source": "durable",
+        "window_days": days,
+        "summary": {
+            "unique_users": 0,
+            "total_redemptions": 0,
+            "distinct_devices": 0,
+            "users_with_shared_device_flags": 0,
+            "abuse_risk": promo_mod._risk_level(0, warn=warn, critical=critical),
+        },
+        "thresholds": {
+            "warn_unique_users": warn,
+            "critical_unique_users": critical,
+        },
+        "signals": [],
+        "daily_series": promo_mod._daily_series([], days=days),
+        "users": [],
+    }
+
+
+async def _empty_seller_board(tenant_id: str) -> dict[str, Any]:
+    tid = (tenant_id or "demo").strip() or "demo"
+    seller_mod = _load_sibling("seller_integrity")
+    days = seller_mod.DEFAULT_WINDOW_DAYS
+    return {
+        "tenant_id": tid,
+        "updated_at": _now_iso(),
+        "source": "durable",
+        "window_days": days,
+        "thresholds": {
+            "healthy_ratio_min": seller_mod.HEALTHY_RATIO_MIN,
+            "healthy_ratio_max": seller_mod.HEALTHY_RATIO_MAX,
+            "warn_ratio_above": seller_mod.WARN_RATIO_ABOVE,
+            "critical_ratio_above": seller_mod.CRITICAL_RATIO_ABOVE,
+        },
+        "summary": {
+            "seller_count": 0,
+            "at_risk_sellers": 0,
+            "trusted_sellers": 0,
+            "avg_integrity_score": 0.0,
+            "median_review_to_delivery_ratio": 0.0,
+            "total_deliveries": 0,
+            "total_reviews": 0,
+        },
+        "signals": [],
+        "sellers": [],
+    }
+
+
 async def build_command_center_payload(*, tenant_id: str, session: Any | None = None) -> dict[str, Any]:
     """Aggregate high-signal KPIs and module deep-links for the analyst landing cockpit."""
     tid = (tenant_id or "demo").strip() or "demo"
 
-    promo = _load_sibling("promo_abuse_tracking").build_promo_abuse_payload(
-        tenant_id=tid, coupon_code="NEWUSER50"
-    )
+    promo = await _load_sibling("promo_abuse_tracking").build_promo_abuse_payload(
+        session, tenant_id=tid, coupon_code="NEWUSER50"
+    ) if session is not None else await _empty_promo_board(tid)
     syn = _load_sibling("synthetic_identity_detectors").build_synthetic_identity_payload(
         tenant_id=tid, limit=50
     )
@@ -59,8 +117,12 @@ async def build_command_center_payload(*, tenant_id: str, session: Any | None = 
         tenant_id=tid, limit=40
     )
     rings = _load_sibling("review_ring_clusters").build_review_ring_payload(tenant_id=tid, limit=12)
-    seller = _load_sibling("seller_integrity").build_seller_integrity_payload(
-        tenant_id=tid, limit=40
+    seller = (
+        await _load_sibling("seller_integrity").build_seller_integrity_payload(
+            session, tenant_id=tid, limit=40
+        )
+        if session is not None
+        else await _empty_seller_board(tid)
     )
     if session is not None:
         payout = await _load_sibling("payout_delay_automation").build_payout_delay_payload(

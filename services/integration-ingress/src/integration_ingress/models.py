@@ -248,6 +248,57 @@ class MarketplacePayoutHold(Base):
     released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class MarketplacePromoRedemption(Base):
+    """Durable coupon redemption event for promo-abuse board (Track B3)."""
+
+    __tablename__ = "marketplace_promo_redemptions"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "trace_id",
+            name="uq_marketplace_promo_redemption_trace",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[str] = mapped_column(String(128), index=True)
+    coupon_code: Mapped[str] = mapped_column(String(64), index=True)
+    user_id: Mapped[str] = mapped_column(String(256), index=True)
+    device_id: Mapped[str | None] = mapped_column(String(256), nullable=True, index=True)
+    order_total: Mapped[float | None] = mapped_column(Float, nullable=True)
+    currency: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    ip_hint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    display_name: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    flags: Mapped[list[str]] = mapped_column(JSON, default=list)
+    trace_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    redeemed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
+class MarketplaceSellerIntegrity(Base):
+    """Durable seller review/delivery snapshot for integrity board (Track B3)."""
+
+    __tablename__ = "marketplace_seller_integrity"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "seller_id", name="uq_marketplace_seller_integrity"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[str] = mapped_column(String(128), index=True)
+    seller_id: Mapped[str] = mapped_column(String(256), index=True)
+    successful_deliveries: Mapped[int] = mapped_column(Integer, default=0)
+    review_count: Mapped[int] = mapped_column(Integer, default=0)
+    window_days: Mapped[int] = mapped_column(Integer, default=30)
+    display_name: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    store_slug: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    category: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    avg_rating: Mapped[float | None] = mapped_column(Float, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
 class ComplianceResidencyAudit(Base):
     """Audit-plane row when an outbound vendor call is blocked for data residency (pre-socket)."""
 
