@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import func, nulls_last, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .config import settings
 from .db import get_session
 from .dispute_deadline import queue_item_view
+from .dispute_evidence_pdf import build_dispute_evidence_pdf_bytes
 from .dispute_reprocess_bridge import run_dispute_reprocess_evaluate
 from .dispute_y_label import dispute_outcome_to_y_label
 from .models import Case, CaseComment, Dispute, DisputeReprocessLedger
@@ -469,6 +470,25 @@ async def get_dispute(dispute_id: uuid.UUID, session: AsyncSession = Depends(get
     if not row:
         raise HTTPException(404, "Dispute not found")
     return await _dispute_out(session, row)
+
+
+@router.get("/{dispute_id}/evidence-pdf", response_class=Response)
+async def get_dispute_evidence_pdf(
+    dispute_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+):
+    """Serve chargeback/dispute evidence PDF for the review iframe (same-origin)."""
+    result = await session.execute(select(Dispute).where(Dispute.id == dispute_id))
+    row = result.scalar_one_or_none()
+    if not row:
+        raise HTTPException(404, "Dispute not found")
+    payload = DisputeOut.model_validate(row).model_dump(mode="json")
+    pdf_body = build_dispute_evidence_pdf_bytes(dispute=payload)
+    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in str(dispute_id))[:72]
+    return Response(
+        content=pdf_body,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="dispute-{safe}-evidence.pdf"'},
+    )
 
 
 @router.patch("/{dispute_id}", response_model=DisputeOut)

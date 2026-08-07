@@ -1010,6 +1010,77 @@ def create_app(
         )
 
     @application.get(
+        "/v1/cases/{case_id}/dispute-evidence.pdf",
+        tags=["Cases"],
+        summary="Download dispute evidence PDF without locking the case",
+        description=(
+            "Returns the same ReportLab evidence PDF as ``POST …/file-dispute`` "
+            "(case JSON, shadow graph, rule trace, two-hop diagram) but does **not** "
+            "transition lifecycle status. Requires ``X-Auth-Token``."
+        ),
+        response_class=Response,
+        responses={
+            404: {"description": "Unknown ``lifecycle_cases.case_id``."},
+            422: {
+                "model": HTTPValidationError422,
+                "description": "Missing token or invalid ``case_id``.",
+            },
+            503: {"model": ServiceUnavailable503, "description": "Audit database not configured."},
+        },
+    )
+    async def v1_get_dispute_evidence_pdf(
+        request: Request,
+        case_id: str,
+        x_auth_token: Annotated[str, Header(alias="X-Auth-Token")],
+    ) -> Response:
+        tok = (x_auth_token or "").strip()
+        if not tok:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "error": "missing_auth_token",
+                    "message": "X-Auth-Token header is required and must be non-empty",
+                },
+            )
+        fac = getattr(request.app.state, "audit_session_factory", None)
+        if fac is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={
+                    "error": "audit_database_unconfigured",
+                    "message": "Dispute evidence PDF requires ORCHESTRATOR_AUDIT_DATABASE_URL (or test override).",
+                },
+            )
+        gc: GraphClient = request.app.state.graph_client
+        try:
+            pdf_body = await build_dispute_evidence_pdf_for_case(
+                audit_session_factory=fac,
+                case_id=case_id,
+                graph_client=gc,
+            )
+        except CaseExportNotFoundError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "case_not_found", "message": (case_id or "").strip()},
+            ) from None
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"error": "invalid_case_id", "message": str(exc)},
+            ) from exc
+
+        safe = (
+            "".join(c if c.isalnum() or c in "-_" else "_" for c in (case_id or "").strip())[:72]
+            or "case"
+        )
+        fname = f"case-{safe}-dispute-evidence.pdf"
+        return Response(
+            content=pdf_body,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'inline; filename="{fname}"'},
+        )
+
+    @application.get(
         "/v1/analytics/velocity",
         tags=["Analytics"],
         summary="Transactions per minute by country",

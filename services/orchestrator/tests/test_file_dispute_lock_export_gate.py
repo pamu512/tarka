@@ -152,3 +152,14 @@ def test_post_file_dispute_locks_case_and_pdf_includes_graph_viz() -> None:
         zf = zipfile.ZipFile(io.BytesIO(z.content))
         case_payload = json.loads(zf.read(EXPORT_CASE_JSON).decode())
         assert case_payload["lifecycle_case"]["status"] == CaseStatus.PENDING_ACTION.value
+
+        g = client.get(
+            f"/v1/cases/{case_uuid}/dispute-evidence.pdf",
+            headers={"X-Auth-Token": "dispute-gate-token-128"},
+        )
+        assert g.status_code == 200, g.text
+        assert g.headers.get("content-type", "").startswith("application/pdf")
+        assert g.content[:5] == b"%PDF-"
+        assert PDF_GRAPH_SECTION_TITLE in "".join(
+            page.extract_text() or "" for page in PdfReader(io.BytesIO(g.content)).pages
+        )

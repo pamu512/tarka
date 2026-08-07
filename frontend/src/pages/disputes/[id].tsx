@@ -9,9 +9,24 @@ import { PageTitle } from "../../components/PageTitle";
 import { safeExternalHref } from "../../utils/externalLinks";
 import { toUserFacingError } from "../../utils/userFacingErrors";
 
-/** Public sample PDF (HTTPS) for demo iframe when no tenant upload URL is present. */
+/** Public sample PDF (HTTPS) only when dispute id / same-origin evidence URL is missing. */
 const DEMO_PDF_FALLBACK =
   "https://www.w3.org/WAI/WCAG21/working-examples/pdf-note/note.pdf";
+
+function disputeEvidencePdfSrc(
+  url: string | null | undefined,
+  disputeId: string | undefined,
+): string {
+  const raw = (url || "").trim();
+  // Same-origin case-api path (computed on DisputeOut) — iframe cannot use safeExternalHref (https-only).
+  if (raw.startsWith("/api/cases/v1/disputes/") && raw.includes("/evidence-pdf")) {
+    return raw;
+  }
+  const https = safeExternalHref(raw);
+  if (https) return https;
+  if (disputeId) return `/api/cases/v1/disputes/${disputeId}/evidence-pdf`;
+  return DEMO_PDF_FALLBACK;
+}
 
 function friendlyFraudLabel(value: boolean | null | undefined): string {
   if (value === true) return "Yes";
@@ -72,7 +87,7 @@ export default function DisputeReviewByIdPage() {
     }
   }
 
-  const pdfSrc = safeExternalHref(row?.evidence_pdf_url) ?? DEMO_PDF_FALLBACK;
+  const pdfSrc = disputeEvidencePdfSrc(row?.evidence_pdf_url, row?.id ?? id);
   const shadowMd =
     row?.shadow_evidence_report_markdown?.trim() ||
     "*No Shadow evidence report is attached to this dispute yet.*";

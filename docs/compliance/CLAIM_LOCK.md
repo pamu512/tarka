@@ -1,6 +1,6 @@
 # Claim lock (critical honesty)
 
-**Updated:** 2026-08-06  
+**Updated:** 2026-08-07  
 **Status:** **CLOSED** for A++ / equal-weight six-cap ≥4.2 / LIVE-without-pin / critical overall ≥4.5 (equal-weight).  
 **Open (disclosed):** primary-five overall ~**4.3** (Location enrichment excluded — C7).
 
@@ -40,6 +40,15 @@ See [competitive-score-matrix-2026-04.md](../docs/guides/competitive-score-matri
 - “Shadow loyalty economics advice; requires tenant hygiene feeds”
 - “Location is enrichment; relatedness via graph”
 
+### Marketplace / q-comm
+
+- “Vertical packs `marketplace`, `qcommerce`, `logistics`, `food_delivery`, `offline_payment` installable with kill-criteria gates”
+- “Durable payout holds via integration-ingress (`source=durable`); webhook delivery optional”
+- “Promo-abuse / seller-integrity boards backed by durable internal records when tenant data present; empty tenant ≠ SHA demo”
+- “Loyalty redeem bridge fail-soft to sibling evaluate; no live warehouse L3 claim without feeds”
+- “Dispute evidence PDF served from case-api for analyst review; orchestrator file-dispute lock+export for lifecycle cases”
+- Operator guide: [vertical-packs-marketplace-delivery.md](../docs/guides/vertical-packs-marketplace-delivery.md)
+
 ## Not OK
 
 - “A++ / equal-weight six-cap 4.2+ / critical 4.5 overall (six-cap)”
@@ -47,3 +56,10 @@ See [competitive-score-matrix-2026-04.md](../docs/guides/competitive-score-matri
 - “Live loyalty-abuse detection” without warehouse feeds
 - “L2 partner proof” with only fixture or WAIVED status
 - “L3 complete” from `shadow_four_week_sim.py`
+
+### Marketplace / q-comm
+
+- “Live loyalty-abuse detection” / multi-gate warehouse without tenant redeem feeds
+- “Partner fusion L2 LIVE” while status is WAIVED or fixture-only
+- Any overall / six-cap maturity number in external marketplace copy
+- “Chargeback guarantee” / GrabDefence-equivalent product claim
