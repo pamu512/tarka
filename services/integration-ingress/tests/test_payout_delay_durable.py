@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncIterator
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
+import httpx
 import pytest
 from httpx import ASGITransport, AsyncClient
 from integration_ingress.db import Base, get_session
@@ -222,3 +225,168 @@ async def test_mule_automation_writes_durable_holds(client: AsyncClient, session
     held = [p for p in body["payouts"] if p["status"] == "held"]
     assert held, "expected mule automation to persist at least one held row"
     assert held[0]["held_by"] == "payout_delay_automation"
+
+
+def _internal_hold_payload(*, tenant_id: str = "demo", payout_id: str = "po_wh") -> dict:
+    return {
+        "tenant_id": tenant_id,
+        "payout_id": payout_id,
+        "entity_id": "e_wh",
+        "status": "held",
+        "hold_reason": "tag:action:payout_hold",
+        "held_by": "evaluate",
+        "decision_id": "dec_wh",
+        "trace_id": "tr_wh",
+    }
+
+
+@pytest.mark.asyncio
+async def test_internal_create_rejects_missing_and_bad_token(
+    session: AsyncSession, monkeypatch
+) -> None:
+    monkeypatch.setenv("INGRESS_INTERNAL_TOKEN", "secret-tok")
+    from integration_ingress.config import settings
+
+    monkeypatch.setattr(settings, "ingress_internal_token", "secret-tok")
+
+    async def _override() -> AsyncIterator[AsyncSession]:
+        yield session
+
+    app.dependency_overrides[get_session] = _override
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as bare_client:
+        r = await bare_client.post(
+            "/v1/internal/marketplace/payout-holds",
+            json=_internal_hold_payload(payout_id="po_auth_miss"),
+        )
+        assert r.status_code == 401
+        r2 = await bare_client.post(
+            "/v1/internal/marketplace/payout-holds",
+            headers={"X-Internal-Token": "wrong-token"},
+            json=_internal_hold_payload(payout_id="po_auth_bad"),
+        )
+        assert r2.status_code == 401
+    app.dependency_overrides.pop(get_session, None)
+
+
+@pytest.mark.asyncio
+async def test_release_missing_returns_404(client: AsyncClient) -> None:
+    r = await client.post(
+        "/v1/marketplace/payout-delay/missing_po/release",
+        params={"tenant_id": "t404"},
+    )
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_internal_create_records_payout_hold_webhook(
+    client: AsyncClient, session: AsyncSession, monkeypatch
+) -> None:
+    monkeypatch.setenv("INGRESS_INTERNAL_TOKEN", "test-internal-token")
+    from integration_ingress.config import settings
+
+    monkeypatch.setattr(settings, "ingress_internal_token", "test-internal-token")
+    app.state.http = AsyncMock()
+    app.state.http.post = AsyncMock(return_value=SimpleNamespace(status_code=200))
+
+    await client.patch(
+        "/v1/marketplace/payout-delay/config",
+        json={
+            "tenant_id": "wh_tenant",
+            "webhook_callback_url": "https://example.com/marketplace-hook",
+        },
+    )
+    r = await client.post(
+        "/v1/internal/marketplace/payout-holds",
+        headers={"X-Internal-Token": "test-internal-token"},
+        json=_internal_hold_payload(tenant_id="wh_tenant", payout_id="po_wh_create"),
+    )
+    assert r.status_code == 201, r.text
+
+    logs = await client.get(
+        "/v1/marketplace/webhook-logs",
+        params={"tenant_id": "wh_tenant", "signal": "payout_hold"},
+    )
+    assert logs.status_code == 200
+    items = logs.json()["items"]
+    assert any(i["signal"] == "payout_hold" for i in items)
+    hold_logs = [i for i in items if i["signal"] == "payout_hold"]
+    assert hold_logs[0]["entity_id"] == "e_wh"
+
+
+@pytest.mark.asyncio
+async def test_internal_create_skips_webhook_on_noop_refresh(
+    client: AsyncClient, session: AsyncSession, monkeypatch
+) -> None:
+    monkeypatch.setenv("INGRESS_INTERNAL_TOKEN", "test-internal-token")
+    from integration_ingress.config import settings
+
+    monkeypatch.setattr(settings, "ingress_internal_token", "test-internal-token")
+    app.state.http = AsyncMock()
+    app.state.http.post = AsyncMock(return_value=SimpleNamespace(status_code=200))
+
+    await client.patch(
+        "/v1/marketplace/payout-delay/config",
+        json={
+            "tenant_id": "noop_wh",
+            "webhook_callback_url": "https://example.com/marketplace-hook",
+        },
+    )
+    payload = _internal_hold_payload(tenant_id="noop_wh", payout_id="po_noop")
+    headers = {"X-Internal-Token": "test-internal-token"}
+    r1 = await client.post(
+        "/v1/internal/marketplace/payout-holds",
+        headers=headers,
+        json=payload,
+    )
+    assert r1.status_code == 201
+    r2 = await client.post(
+        "/v1/internal/marketplace/payout-holds",
+        headers=headers,
+        json=payload,
+    )
+    assert r2.status_code == 201
+
+    logs = await client.get(
+        "/v1/marketplace/webhook-logs",
+        params={"tenant_id": "noop_wh", "signal": "payout_hold"},
+    )
+    assert logs.status_code == 200
+    assert len(logs.json()["items"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_release_records_payout_release_webhook(
+    client: AsyncClient, session: AsyncSession, monkeypatch
+) -> None:
+    monkeypatch.setenv("INGRESS_INTERNAL_TOKEN", "test-internal-token")
+    from integration_ingress.config import settings
+
+    monkeypatch.setattr(settings, "ingress_internal_token", "test-internal-token")
+    app.state.http = AsyncMock()
+    app.state.http.post = AsyncMock(return_value=SimpleNamespace(status_code=200))
+
+    await client.patch(
+        "/v1/marketplace/payout-delay/config",
+        json={
+            "tenant_id": "rel_wh",
+            "webhook_callback_url": "https://example.com/marketplace-hook",
+        },
+    )
+    await client.post(
+        "/v1/internal/marketplace/payout-holds",
+        headers={"X-Internal-Token": "test-internal-token"},
+        json=_internal_hold_payload(tenant_id="rel_wh", payout_id="po_rel_wh"),
+    )
+    r = await client.post(
+        "/v1/marketplace/payout-delay/po_rel_wh/release",
+        params={"tenant_id": "rel_wh"},
+    )
+    assert r.status_code == 200
+
+    logs = await client.get(
+        "/v1/marketplace/webhook-logs",
+        params={"tenant_id": "rel_wh", "signal": "payout_release"},
+    )
+    assert logs.status_code == 200
+    assert any(i["signal"] == "payout_release" for i in logs.json()["items"])

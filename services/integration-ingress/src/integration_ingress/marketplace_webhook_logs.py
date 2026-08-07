@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 WebhookDeliveryStatus = Literal["pending", "delivered", "failed", "dlq"]
 
 SIGNAL_BLOCK = "block"
+SIGNAL_PAYOUT_HOLD = "payout_hold"
+SIGNAL_PAYOUT_RELEASE = "payout_release"
 
 _DELIVERY_FAILED = "delivery failed"
 
@@ -78,13 +80,14 @@ async def record_marketplace_block_webhook(
     trace_id: str | None = None,
     decision: str = "BLOCK",
     blocking_rule_id: str | None = None,
+    signal: str = SIGNAL_BLOCK,
 ) -> dict[str, Any]:
     """Persist a log row before/after delivery attempt."""
     from integration_ingress.models import MarketplaceWebhookLog
 
     tid = (tenant_id or "demo").strip() or "demo"
     body = dict(payload)
-    body.setdefault("signal", SIGNAL_BLOCK)
+    body.setdefault("signal", signal)
     body.setdefault("decision", decision)
     body.setdefault("tenant_id", tid)
     if blocking_rule_id:
@@ -92,7 +95,7 @@ async def record_marketplace_block_webhook(
     row = MarketplaceWebhookLog(
         id=uuid.uuid4(),
         tenant_id=tid,
-        signal=SIGNAL_BLOCK,
+        signal=signal,
         decision=str(body.get("decision") or decision),
         entity_id=str(entity_id or body.get("entity_id") or "")[:256] or None,
         user_id=str(user_id or body.get("user_id") or "")[:256] or None,
@@ -152,9 +155,10 @@ async def deliver_marketplace_block_webhook(
     if row is None:
         raise LookupError("log not found")
     payload = row.payload_json if isinstance(row.payload_json, dict) else {}
+    signal = str(row.signal or SIGNAL_BLOCK)
     h = {
         "Content-Type": "application/json",
-        "X-Tarka-Signal": SIGNAL_BLOCK,
+        "X-Tarka-Signal": signal,
         "X-Webhook-Id": str(row.id),
     }
     if headers:
@@ -191,6 +195,51 @@ async def deliver_marketplace_block_webhook(
     await session.commit()
     await session.refresh(row)
     return _row_to_dict(row, include_attempts=True)
+
+
+async def notify_payout_signal_webhook(
+    session: AsyncSession,
+    http: httpx.AsyncClient,
+    *,
+    signal: str,
+    callback_url: str,
+    hold_row: dict[str, Any],
+) -> None:
+    """Record and deliver payout hold/release webhook; failures are logged only."""
+    url = (callback_url or "").strip()
+    if not url:
+        return
+    payload: dict[str, Any] = {
+        "signal": signal,
+        "tenant_id": hold_row.get("tenant_id"),
+        "payout_id": hold_row.get("payout_id"),
+        "entity_id": hold_row.get("entity_id"),
+        "status": hold_row.get("status"),
+        "hold_reason": hold_row.get("hold_reason"),
+        "trace_id": hold_row.get("trace_id"),
+    }
+    decision_id = hold_row.get("decision_id")
+    if decision_id:
+        payload["decision_id"] = decision_id
+    status = str(hold_row.get("status") or "").upper() or signal
+    try:
+        row = await record_marketplace_block_webhook(
+            session,
+            tenant_id=str(hold_row.get("tenant_id") or "demo"),
+            callback_url=url,
+            payload=payload,
+            entity_id=str(hold_row.get("entity_id") or "") or None,
+            trace_id=str(hold_row.get("trace_id") or "") or None,
+            signal=signal,
+            decision=status,
+        )
+        await deliver_marketplace_block_webhook(session, http, log_id=row["id"])
+    except Exception:
+        logger.exception(
+            "payout webhook notify failed signal=%s payout_id=%s",
+            signal,
+            hold_row.get("payout_id"),
+        )
 
 
 async def list_marketplace_webhook_logs(
