@@ -139,3 +139,46 @@ def test_schedule_decision_outcomes_enqueues_payout_hold_bridge():
     _fn, args, kwargs = bridge_tasks[0]
     assert kwargs["tenant_id"] == "ten"
     assert kwargs["metadata"]["payout_id"] == "po_99"
+
+
+def test_schedule_skips_bridge_when_not_payout_checkpoint():
+    class _Bg:
+        def __init__(self) -> None:
+            self.tasks: list[tuple] = []
+
+        def add_task(self, fn, *args, **kwargs):
+            self.tasks.append((fn, args, kwargs))
+
+    bg = _Bg()
+
+    async def _noop(*_a, **_k):
+        return None
+
+    schedule_decision_outcomes(
+        bg,
+        ctx=DecisionOutcomeContext(
+            trace_id="tr-2",
+            tenant_id="ten",
+            entity_id="e1",
+            event_type="order",
+            decision="allow",
+            score=10.0,
+            tags=["action:payout_hold"],
+            metadata={"checkpoint": "order", "payout_id": "po_x"},
+        ),
+        http=object(),
+        app_state=object(),
+        emit_decision_log=_noop,
+        maybe_dispatch_challenge_webhook=_noop,
+        broadcast_decision=_noop,
+        publish_decision=_noop,
+        metrics_inc=lambda *_a, **_k: None,
+        integration_ingress_url="http://ingress",
+        ingress_internal_token="tok",
+    )
+    bridge_tasks = [
+        t
+        for t in bg.tasks
+        if getattr(t[0], "__name__", "") == "maybe_create_payout_hold_from_evaluate"
+    ]
+    assert bridge_tasks == []
