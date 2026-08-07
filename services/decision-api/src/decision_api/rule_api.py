@@ -10,9 +10,13 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from decision_api.backtest_promote_gate import backtest_before_promote_gate
 from decision_api.config import settings
+from decision_api.db import get_session
 from decision_api.json_rules import get_rule_hit_telemetry, load_rules
+from decision_api.models import BacktestRun
 from decision_api.rule_pack_validation import validate_rule_pack as _validate_rule_pack
 from decision_api.shadow import (
     get_observation_stats,
@@ -72,6 +76,11 @@ class PromoteVerticalPackBody(BaseModel):
     f1_score: float = Field(default=0.0, ge=0, le=1)
     false_positive_rate: float | None = Field(default=None, ge=0, le=1)
     events_evaluated: int = Field(ge=0)
+    backtest_job_id: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Optional succeeded warehouse backtest job; required when TARKA_REQUIRE_BACKTEST_BEFORE_PROMOTE=1",
+    )
 
 
 def _rules_dir() -> Path:
@@ -267,11 +276,69 @@ def _kill_gate_for_vertical(
     return pack, gate
 
 
+async def _backtest_gate_for_vertical(
+    vertical_name: str,
+    body: PromoteVerticalPackBody,
+    session: AsyncSession,
+) -> dict[str, Any]:
+    pack = get_vertical_pack(vertical_name)
+    if not pack:
+        raise HTTPException(404, f"unknown vertical pack '{vertical_name}'")
+    jid = (body.backtest_job_id or "").strip()
+    require = bool(settings.require_backtest_before_promote)
+    if not jid:
+        return backtest_before_promote_gate(
+            job_status=None,
+            metrics_json=None,
+            kill_criteria=pack.get("kill_criteria"),
+            require_job=require,
+            job_id=None,
+        )
+    try:
+        uid = uuid.UUID(jid)
+    except ValueError as exc:
+        raise HTTPException(400, detail="invalid backtest_job_id") from exc
+    job = await session.get(BacktestRun, uid)
+    if job is None:
+        raise HTTPException(404, detail="backtest job not found")
+    status = job.status.value if hasattr(job.status, "value") else str(job.status)
+    return backtest_before_promote_gate(
+        job_status=status,
+        metrics_json=job.metrics_json if isinstance(job.metrics_json, dict) else None,
+        kill_criteria=pack.get("kill_criteria"),
+        require_job=True,
+        job_id=str(job.id),
+    )
+
+
+@router.get("/backtest-before-promote-posture")
+async def backtest_before_promote_posture(
+    _user=Depends(require_role("analyst")),
+) -> dict[str, Any]:
+    """Ops: whether warehouse backtest is required before vertical pack install/promote."""
+    return {
+        "schema_id": "tarka.backtest_before_promote_posture/v1",
+        "require_backtest_before_promote": bool(
+            settings.require_backtest_before_promote
+        ),
+        "enqueue": "POST /v1/rules/backtest/jobs",
+        "job_status": "GET /v1/rules/backtest/jobs/{job_id}",
+        "promote_body_field": "backtest_job_id",
+        "ui": "/ops/backtest",
+        "note": (
+            "Marble-style: bind succeeded warehouse backtest metrics to kill_criteria "
+            "before install/promote. Simulation metrics alone remain allowed when require=false "
+            "and backtest_job_id is omitted."
+        ),
+    }
+
+
 @router.post("/vertical-packs/{vertical_name}/install", status_code=201)
 async def install_vertical_pack(
     vertical_name: str,
     body: PromoteVerticalPackBody,
     overwrite: bool = False,
+    session: AsyncSession = Depends(get_session),
     x_actor: str | None = Header(default=None, alias="X-Actor"),
     x_rule_governance_secret: str | None = Header(
         default=None, alias="X-Rule-Governance-Secret"
@@ -280,10 +347,24 @@ async def install_vertical_pack(
     """Install pack only when kill_criteria pass (same bar as promote — S5)."""
     _require_rule_governance(x_rule_governance_secret)
     _pack, gate = _kill_gate_for_vertical(vertical_name, body)
+    bt_gate = await _backtest_gate_for_vertical(vertical_name, body, session)
     if not gate["promote_allowed"]:
         raise HTTPException(
             409,
-            detail={"blockers": gate["blockers"], "promote_gate": gate},
+            detail={
+                "blockers": gate["blockers"],
+                "promote_gate": gate,
+                "backtest_promote_gate": bt_gate,
+            },
+        )
+    if not bt_gate.get("promote_allowed"):
+        raise HTTPException(
+            409,
+            detail={
+                "blockers": bt_gate.get("blockers") or ["backtest_before_promote"],
+                "promote_gate": {k: v for k, v in gate.items() if k != "metrics"},
+                "backtest_promote_gate": bt_gate,
+            },
         )
     result = _install_vertical_pack_core(
         vertical_name,
@@ -299,6 +380,7 @@ async def install_vertical_pack(
             "events_evaluated": body.events_evaluated,
             "metrics": gate.get("metrics"),
             "promote_gate": {k: v for k, v in gate.items() if k != "metrics"},
+            "backtest_promote_gate": bt_gate,
         },
     )
     return {
@@ -306,6 +388,7 @@ async def install_vertical_pack(
         "vertical": result["vertical"],
         "rules": result["rules"],
         "promote_gate": {k: v for k, v in gate.items() if k != "metrics"},
+        "backtest_promote_gate": bt_gate,
     }
 
 
@@ -314,6 +397,7 @@ async def promote_vertical_pack(
     vertical_name: str,
     body: PromoteVerticalPackBody,
     overwrite: bool = False,
+    session: AsyncSession = Depends(get_session),
     x_actor: str | None = Header(default=None, alias="X-Actor"),
     x_rule_governance_secret: str | None = Header(
         default=None, alias="X-Rule-Governance-Secret"
@@ -321,10 +405,24 @@ async def promote_vertical_pack(
 ):
     _require_rule_governance(x_rule_governance_secret)
     _pack, gate = _kill_gate_for_vertical(vertical_name, body)
+    bt_gate = await _backtest_gate_for_vertical(vertical_name, body, session)
     if not gate["promote_allowed"]:
         raise HTTPException(
             409,
-            detail={"blockers": gate["blockers"], "promote_gate": gate},
+            detail={
+                "blockers": gate["blockers"],
+                "promote_gate": gate,
+                "backtest_promote_gate": bt_gate,
+            },
+        )
+    if not bt_gate.get("promote_allowed"):
+        raise HTTPException(
+            409,
+            detail={
+                "blockers": bt_gate.get("blockers") or ["backtest_before_promote"],
+                "promote_gate": {k: v for k, v in gate.items() if k != "metrics"},
+                "backtest_promote_gate": bt_gate,
+            },
         )
     actor = _actor_from_headers(x_actor)
     metrics = gate.get("metrics") or {}
@@ -343,6 +441,7 @@ async def promote_vertical_pack(
             "events_evaluated": body.events_evaluated,
             "metrics": metrics,
             "promote_gate": gate_public,
+            "backtest_promote_gate": bt_gate,
         },
     )
     return {
@@ -351,6 +450,7 @@ async def promote_vertical_pack(
         "rules": result["rules"],
         "promoted": True,
         "promote_gate": gate_public,
+        "backtest_promote_gate": bt_gate,
     }
 
 

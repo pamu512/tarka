@@ -257,6 +257,7 @@ export default function Rules() {
   const [installingVertical, setInstallingVertical] = useState<string | null>(null);
   const [benchmarkingVertical, setBenchmarkingVertical] = useState<string | null>(null);
   const [benchmarkScenario, setBenchmarkScenario] = useState<string>("baseline");
+  const [backtestJobId, setBacktestJobId] = useState("");
   const [installMetricsByVertical, setInstallMetricsByVertical] = useState<
     Record<
       string,
@@ -266,6 +267,7 @@ export default function Rules() {
         f1_score: number;
         false_positive_rate?: number;
         events_evaluated: number;
+        backtest_job_id?: string;
       }
     >
   >({});
@@ -506,7 +508,12 @@ export default function Rules() {
     }
     setInstallingVertical(vertical);
     try {
-      await rulesApi.installVerticalPack(vertical, metrics, true);
+      const jobId = backtestJobId.trim();
+      await rulesApi.installVerticalPack(
+        vertical,
+        jobId ? { ...metrics, backtest_job_id: jobId } : metrics,
+        true,
+      );
       await rulesApi.reload();
       await fetchPacks();
       setToast(`Installed vertical pack: ${vertical}`);
@@ -889,6 +896,23 @@ export default function Rules() {
                 <option value="account_takeover">account_takeover</option>
                 <option value="money_mule">money_mule</option>
               </select>
+            </div>
+            <div className="mb-2">
+              <label className="text-[10px] text-gray-500 block mb-1">
+                Backtest job id (optional; required if TARKA_REQUIRE_BACKTEST_BEFORE_PROMOTE=1)
+              </label>
+              <input
+                value={backtestJobId}
+                onChange={(e) => setBacktestJobId(e.target.value)}
+                placeholder="uuid from /ops/backtest"
+                className="w-full bg-surface-800 border border-surface-700 text-gray-300 text-[11px] font-mono rounded px-2 py-1"
+              />
+              <p className="text-[10px] text-gray-600 mt-1">
+                Succeeded warehouse backtest → kill_criteria before install.{" "}
+                <a href="/ops/backtest" className="text-brand-400 hover:text-brand-300">
+                  Open backtest jobs
+                </a>
+              </p>
             </div>
             <div className="space-y-2">
               {Object.entries(verticalCatalog).map(([key, v]) => {

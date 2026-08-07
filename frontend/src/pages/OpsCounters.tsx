@@ -19,6 +19,14 @@ export default function OpsCounters() {
   const [parityMsg, setParityMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState<"live" | "parity" | null>(null);
 
+  const [fsc, setFsc] = useState<{
+    schema_id?: string;
+    ttl_seconds_default?: number;
+    zero_fallback_on_miss?: boolean;
+    offline_parity?: { job?: string; endpoint?: string };
+    doc?: string;
+  } | null>(null);
+
   useEffect(() => {
     (async () => {
       try {
@@ -29,6 +37,7 @@ export default function OpsCounters() {
         setErr(toUserFacingError(e, { subject: "Counter catalog", action: "load counter catalog and governance" }));
       }
     })();
+    void features.featureServingContract().then(setFsc).catch(() => setFsc(null));
   }, []);
 
   async function queryLiveVelocity() {
@@ -171,6 +180,25 @@ export default function OpsCounters() {
           </div>
         )}
       </div>
+      {fsc ? (
+        <div
+          className="rounded-xl border border-surface-700 bg-surface-900 p-4 text-xs text-gray-400 space-y-1"
+          data-testid="ops-counters-feature-contract"
+        >
+          <div className="text-sm font-medium text-gray-300">Online / offline contract</div>
+          <div className="font-mono text-gray-500">{fsc.schema_id}</div>
+          <div>
+            TTL {fsc.ttl_seconds_default}s · zero-fallback: {fsc.zero_fallback_on_miss ? "yes" : "no"}
+          </div>
+          <div>
+            Parity job: <span className="font-mono text-gray-500">{fsc.offline_parity?.job}</span>
+          </div>
+          <div>
+            Verify: <span className="font-mono text-gray-500">{fsc.offline_parity?.endpoint}</span>
+          </div>
+        </div>
+      ) : null}
+
       <div className="rounded-xl border border-surface-700 bg-surface-900 p-4 space-y-3">
         <h3 className="text-sm font-medium text-gray-300">Live velocity &amp; parity</h3>
         <p className="text-xs text-gray-500">

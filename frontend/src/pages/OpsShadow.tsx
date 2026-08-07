@@ -55,6 +55,11 @@ export default function OpsShadow() {
   const [tenantId, setTenantId] = useState("demo");
   const [data, setData] = useState<ShadowPromoteGate | null>(null);
   const [typology, setTypology] = useState<TypologyTelemetry | null>(null);
+  const [backtestPosture, setBacktestPosture] = useState<{
+    require_backtest_before_promote?: boolean;
+    note?: string;
+    ui?: string;
+  } | null>(null);
   const [err, setErr] = useState("");
 
   useEffect(() => {
@@ -66,6 +71,10 @@ export default function OpsShadow() {
       .typologyTelemetry()
       .then(setTypology)
       .catch(() => setTypology(null));
+    void decisions
+      .backtestBeforePromotePosture()
+      .then(setBacktestPosture)
+      .catch(() => setBacktestPosture(null));
   }, [tenantId]);
 
   const cc = data?.champion_challenger;
@@ -251,6 +260,25 @@ export default function OpsShadow() {
               </tbody>
             </table>
           </div>
+        </section>
+      ) : null}
+
+      {backtestPosture ? (
+        <section
+          className="rounded-xl border border-surface-700 bg-surface-900 px-4 py-3 space-y-2"
+          data-testid="backtest-before-promote-panel"
+        >
+          <h2 className="text-sm font-semibold text-gray-200">Backtest before promote</h2>
+          <p className="text-xs text-gray-400">
+            Required:{" "}
+            <span className="font-mono text-gray-200">
+              {backtestPosture.require_backtest_before_promote ? "yes" : "no (optional job id)"}
+            </span>
+          </p>
+          <p className="text-[11px] text-gray-500">{backtestPosture.note}</p>
+          <a href={backtestPosture.ui || "/ops/backtest"} className="text-xs text-brand-400 hover:text-brand-300">
+            Open backtest jobs →
+          </a>
         </section>
       ) : null}
 
