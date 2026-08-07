@@ -12,9 +12,13 @@
 | Zero-fallback | On miss, counters may return 0 — callers must treat this as *unknown/zero*, not proven clean, when `FEATURE_ZERO_FALLBACK=true` |
 | Online/offline parity | `POST /v1/internal/parity/verify` + `scripts/oss/counter_parity_dual_diff.py` |
 
-## Not Feast
+## Not Feast / Not Flink
 
-This is Tarka’s own contract. Feast is not a dependency. Ops UI: **Feature tools** (`/ops/features`).
+This is Tarka’s own contract. Feast and Flink are not dependencies.
+
+**Ops posture:** `GET /v1/ops/feature-store-posture` (decision-api) — `ops_ready` when Redis online is configured **and** `counter_parity_last.json` proves dual-diff. `feast_class_claim_allowed` and `streaming_flink_claim_allowed` stay **false** even when ops-ready (L1 parity ≠ Feast/Flink product).
+
+Ops UI: **Counters** (`/ops/counters`) and **Feature tools** (`/ops/features`).
 
 ## Auth path
 

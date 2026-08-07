@@ -335,11 +335,19 @@ async def feature_serving_contract():
             "endpoint": "POST /v1/internal/parity/verify",
             "job": "scripts/oss/counter_parity_dual_diff.py",
             "modes": ["dual_diff", "redis_dual_diff"],
+            "ops_posture": "GET /v1/ops/feature-store-posture",
         },
         "ttl_seconds_default": ttl_seconds,
         "zero_fallback_on_miss": zero_fallback,
         "velocity_keys": list(normalized_velocity_key_names()),
         "vector_keys": list(VECTOR_KEYS),
+        "streaming_plane": "redis_velocity_windows",
+        "feast_class_claim_allowed": False,
+        "streaming_flink_claim_allowed": False,
+        "vs_feast": (
+            "Own Redis velocity contract + dual_diff — not Feast online/offline product. "
+            "See GET decision-api /v1/ops/feature-store-posture."
+        ),
         "auth_path_note": (
             "Hot-path evaluate reads Redis velocity; heavy OSINT/enrichment is optional "
             "and must not redefine zero as success without tagging degrade."

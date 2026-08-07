@@ -35,6 +35,18 @@ export default function OpsCounters() {
     job?: string;
     generated_at?: string;
   } | null>(null);
+  const [storePosture, setStorePosture] = useState<{
+    ops_ready?: boolean;
+    feast_class_claim_allowed?: boolean;
+    streaming_flink_claim_allowed?: boolean;
+    blockers?: string[];
+    online_store?: { configured?: boolean; backend?: string };
+    offline_parity?: { dual_diff_proven?: boolean; mode?: string };
+    manifest?: { version?: string; feature_count?: number };
+    streaming_plane?: { engine?: string };
+    vs_feast?: string;
+    honesty?: string;
+  } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -48,6 +60,7 @@ export default function OpsCounters() {
     })();
     void features.featureServingContract().then(setFsc).catch(() => setFsc(null));
     void decisions.counterParityStatus().then(setParityStatus).catch(() => setParityStatus(null));
+    void decisions.featureStorePosture().then(setStorePosture).catch(() => setStorePosture(null));
   }, []);
 
   async function queryLiveVelocity() {
@@ -190,22 +203,65 @@ export default function OpsCounters() {
           </div>
         )}
       </div>
-      {fsc ? (
+      {fsc || storePosture ? (
         <div
           className="rounded-xl border border-surface-700 bg-surface-900 p-4 text-xs text-gray-400 space-y-1"
           data-testid="ops-counters-feature-contract"
         >
           <div className="text-sm font-medium text-gray-300">Online / offline contract</div>
-          <div className="font-mono text-gray-500">{fsc.schema_id}</div>
-          <div>
-            TTL {fsc.ttl_seconds_default}s · zero-fallback: {fsc.zero_fallback_on_miss ? "yes" : "no"}
-          </div>
-          <div>
-            Parity job: <span className="font-mono text-gray-500">{fsc.offline_parity?.job}</span>
-          </div>
-          <div>
-            Verify: <span className="font-mono text-gray-500">{fsc.offline_parity?.endpoint}</span>
-          </div>
+          {fsc ? (
+            <>
+              <div className="font-mono text-gray-500">{fsc.schema_id}</div>
+              <div>
+                TTL {fsc.ttl_seconds_default}s · zero-fallback: {fsc.zero_fallback_on_miss ? "yes" : "no"}
+              </div>
+              <div>
+                Parity job: <span className="font-mono text-gray-500">{fsc.offline_parity?.job}</span>
+              </div>
+              <div>
+                Verify: <span className="font-mono text-gray-500">{fsc.offline_parity?.endpoint}</span>
+              </div>
+            </>
+          ) : null}
+          {storePosture ? (
+            <div
+              className="mt-2 rounded-lg border border-amber-500/30 bg-amber-950/20 px-2 py-1.5 space-y-1"
+              data-testid="feature-store-ops-posture"
+            >
+              <div className="flex flex-wrap gap-3 text-[11px]">
+                <span>
+                  Ops ready:{" "}
+                  <span className={storePosture.ops_ready ? "text-emerald-300" : "text-amber-200"}>
+                    {storePosture.ops_ready ? "yes" : "no"}
+                  </span>
+                </span>
+                <span>
+                  Feast claim:{" "}
+                  <span className="text-amber-200">
+                    {storePosture.feast_class_claim_allowed ? "yes" : "no"}
+                  </span>
+                </span>
+                <span>
+                  Flink claim:{" "}
+                  <span className="text-amber-200">
+                    {storePosture.streaming_flink_claim_allowed ? "yes" : "no"}
+                  </span>
+                </span>
+              </div>
+              <div className="font-mono text-[10px] text-gray-500">
+                Online: {storePosture.online_store?.backend || "redis"} (
+                {storePosture.online_store?.configured ? "configured" : "unconfigured"}) · plane{" "}
+                {storePosture.streaming_plane?.engine || "redis_velocity_windows"} · manifest{" "}
+                {storePosture.manifest?.version} ({storePosture.manifest?.feature_count ?? 0} feats)
+              </div>
+              {(storePosture.blockers || []).length ? (
+                <div className="text-[10px] font-mono text-amber-200/90">
+                  Blockers: {storePosture.blockers?.join(", ")}
+                </div>
+              ) : null}
+              <div className="text-[10px] text-gray-500">{storePosture.vs_feast || storePosture.honesty}</div>
+            </div>
+          ) : null}
           {parityStatus ? (
             <div
               className={`mt-2 rounded-lg border px-2 py-1.5 ${
