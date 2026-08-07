@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { features } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
@@ -25,6 +25,17 @@ export default function FeatureTools() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [contract, setContract] = useState<{
+    schema_id: string;
+    ttl_seconds_default?: number;
+    zero_fallback_on_miss?: boolean;
+    offline_parity?: { job?: string; endpoint?: string };
+    doc?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    void features.featureServingContract().then(setContract).catch(() => setContract(null));
+  }, []);
 
   const runVelocity = useCallback(async () => {
     setLoading(true);
@@ -93,6 +104,24 @@ export default function FeatureTools() {
         <code className="text-gray-600">--profile ml</code> or <code className="text-gray-600">full</code>). Optional{" "}
         <code className="text-gray-600">VITE_FEATURE_SERVICE_API_KEY</code> if the service uses <code className="text-gray-600">API_KEYS</code>.
       </p>
+      {contract ? (
+        <div
+          className="rounded-xl border border-surface-700 bg-surface-900 px-4 py-3 text-xs text-gray-400 space-y-1"
+          data-testid="feature-serving-contract"
+        >
+          <div className="text-sm font-semibold text-gray-200">Feature Serving Contract</div>
+          <div className="font-mono text-gray-500">{contract.schema_id}</div>
+          <div>
+            TTL default {contract.ttl_seconds_default}s · zero-fallback on miss:{" "}
+            {contract.zero_fallback_on_miss ? "yes" : "no"}
+          </div>
+          <div>
+            Parity: <code className="text-gray-500">{contract.offline_parity?.endpoint}</code> ·{" "}
+            <code className="text-gray-500">{contract.offline_parity?.job}</code>
+          </div>
+          <div className="text-gray-500">{contract.doc}</div>
+        </div>
+      ) : null}
 
       <div className="flex gap-2">
         <button

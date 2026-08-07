@@ -67,6 +67,8 @@ async def test_catalog_marks_callable_decision_api_plugins(client):
     assert "FINGERPRINT" in (fp.get("bootstrap_env") or "")
     assert by_id["incognia"]["decision_api_plugin"] == "incognia"
     assert by_id["opensanctions"]["decision_api_plugin"] == "opensanctions"
+    assert by_id["opensanctions"]["continuous_screening"] == "plugin_callable"
+    assert "LIVE partner-fusion" in by_id["opensanctions"]["screening_posture"]
     assert by_id["jira"].get("callable") is False
 
 

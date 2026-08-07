@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -10,6 +11,52 @@ from typing import Any
 log = logging.getLogger("decision-api.loyalty_abuse_bridge")
 
 REDEEM_CHECKPOINTS = frozenset({"redeem"})
+
+# ponytail: process-local circuit; ceiling = multi-replica inconsistency — upgrade to shared Redis circuit.
+_CIRCUIT_FAILURES = 0
+_CIRCUIT_OPEN_UNTIL = 0.0
+DEFAULT_TIMEOUT_SECONDS = 2.0
+DEFAULT_FAILURE_THRESHOLD = 3
+DEFAULT_RECOVERY_SECONDS = 30.0
+
+
+def reset_loyalty_circuit_for_tests() -> None:
+    global _CIRCUIT_FAILURES, _CIRCUIT_OPEN_UNTIL
+    _CIRCUIT_FAILURES = 0
+    _CIRCUIT_OPEN_UNTIL = 0.0
+
+
+def loyalty_circuit_open(
+    *,
+    failure_threshold: int = DEFAULT_FAILURE_THRESHOLD,
+    recovery_seconds: float = DEFAULT_RECOVERY_SECONDS,
+    now: float | None = None,
+) -> bool:
+    global _CIRCUIT_FAILURES, _CIRCUIT_OPEN_UNTIL
+    t = time.monotonic() if now is None else now
+    if _CIRCUIT_OPEN_UNTIL > t:
+        return True
+    if _CIRCUIT_OPEN_UNTIL and t >= _CIRCUIT_OPEN_UNTIL:
+        _CIRCUIT_FAILURES = 0
+        _CIRCUIT_OPEN_UNTIL = 0.0
+    return False
+
+
+def _record_loyalty_success() -> None:
+    global _CIRCUIT_FAILURES, _CIRCUIT_OPEN_UNTIL
+    _CIRCUIT_FAILURES = 0
+    _CIRCUIT_OPEN_UNTIL = 0.0
+
+
+def _record_loyalty_failure(
+    *,
+    failure_threshold: int = DEFAULT_FAILURE_THRESHOLD,
+    recovery_seconds: float = DEFAULT_RECOVERY_SECONDS,
+) -> None:
+    global _CIRCUIT_FAILURES, _CIRCUIT_OPEN_UNTIL
+    _CIRCUIT_FAILURES += 1
+    if _CIRCUIT_FAILURES >= max(1, failure_threshold):
+        _CIRCUIT_OPEN_UNTIL = time.monotonic() + max(0.1, recovery_seconds)
 
 
 @dataclass(frozen=True)
@@ -19,9 +66,15 @@ class LoyaltyBridgeResult:
     tags: list[str] = field(default_factory=list)
     friction: str | None = None
     score: float | None = None
+    skipped_reason: str | None = None
 
     def evidence(self) -> dict[str, Any] | None:
-        if not self.tags and self.friction is None and self.score is None:
+        if (
+            not self.tags
+            and self.friction is None
+            and self.score is None
+            and self.skipped_reason is None
+        ):
             return None
         out: dict[str, Any] = {"source": "loyalty_abuse_bridge"}
         if self.friction is not None:
@@ -30,6 +83,8 @@ class LoyaltyBridgeResult:
             out["score"] = self.score
         if self.tags:
             out["tags"] = list(self.tags)
+        if self.skipped_reason is not None:
+            out["skipped_reason"] = self.skipped_reason
         return out
 
 
@@ -122,28 +177,50 @@ async def maybe_call_loyalty_abuse(
     api_key: str,
     body: dict[str, Any],
     metrics_inc: Any = None,
+    timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+    failure_threshold: int = DEFAULT_FAILURE_THRESHOLD,
+    recovery_seconds: float = DEFAULT_RECOVERY_SECONDS,
 ) -> LoyaltyBridgeResult:
     url_base = (base_url or "").strip()
     secret = (api_key or "").strip()
     if not url_base or not secret:
         return LoyaltyBridgeResult()
+    if loyalty_circuit_open(
+        failure_threshold=failure_threshold, recovery_seconds=recovery_seconds
+    ):
+        if callable(metrics_inc):
+            metrics_inc("loyalty_abuse_bridge_circuit_open")
+        return LoyaltyBridgeResult(
+            tags=["enrichment:loyalty_circuit_open"],
+            skipped_reason="circuit_open",
+        )
     try:
         r = await http.post(
             f"{url_base.rstrip('/')}/v1/evaluate",
             json=body,
             headers={"Authorization": f"Bearer {secret}"},
-            timeout=2.0,
+            timeout=float(timeout_seconds),
         )
         r.raise_for_status()
         data = r.json()
         if not isinstance(data, dict):
-            return LoyaltyBridgeResult()
+            _record_loyalty_failure(
+                failure_threshold=failure_threshold, recovery_seconds=recovery_seconds
+            )
+            return LoyaltyBridgeResult(skipped_reason="invalid_response")
+        _record_loyalty_success()
         return map_loyalty_response(data)
     except Exception:
         log.exception("loyalty_abuse_bridge_failed")
+        _record_loyalty_failure(
+            failure_threshold=failure_threshold, recovery_seconds=recovery_seconds
+        )
         if callable(metrics_inc):
             metrics_inc("loyalty_abuse_bridge_failed")
-        return LoyaltyBridgeResult()
+        return LoyaltyBridgeResult(
+            tags=["enrichment:loyalty_bridge_failed"],
+            skipped_reason="call_failed",
+        )
 
 
 async def maybe_call_loyalty_abuse_from_evaluate(
@@ -158,6 +235,9 @@ async def maybe_call_loyalty_abuse_from_evaluate(
     metadata: dict[str, Any] | None,
     event_type: str = "",
     metrics_inc: Any = None,
+    timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+    failure_threshold: int = DEFAULT_FAILURE_THRESHOLD,
+    recovery_seconds: float = DEFAULT_RECOVERY_SECONDS,
 ) -> LoyaltyBridgeResult:
     if not should_call_loyalty_abuse(metadata=metadata, event_type=event_type):
         return LoyaltyBridgeResult()
@@ -174,4 +254,7 @@ async def maybe_call_loyalty_abuse_from_evaluate(
         api_key=loyalty_abuse_api_key,
         body=body,
         metrics_inc=metrics_inc,
+        timeout_seconds=timeout_seconds,
+        failure_threshold=failure_threshold,
+        recovery_seconds=recovery_seconds,
     )

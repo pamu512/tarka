@@ -1605,16 +1605,84 @@ export const decisions = {
     });
   },
 
-  /** Desk-facing shadow promote-gate posture (Fraud Ops 4.2). */
-  shadowPromoteGate() {
+  /** Desk-facing shadow promote-gate posture (Fraud Ops 4.2 + P0-CC). */
+  shadowPromoteGate(tenantId?: string) {
+    const q = tenantId?.trim()
+      ? `?tenant_id=${encodeURIComponent(tenantId.trim())}`
+      : "";
     return request<{
       schema_id: string;
       vertical?: string;
       blocked?: { promote_allowed?: boolean; blockers?: string[] };
       allowed?: { promote_allowed?: boolean };
+      label_gated_promote?: {
+        promote_allowed?: boolean;
+        blockers?: string[];
+        label_posture?: Record<string, unknown>;
+      };
+      champion_challenger?: {
+        rows_with_policy_routing?: number;
+        decision_agreement_rate?: number | null;
+        decisions_agree_count?: number;
+        mcnemar_contingency?: Record<string, unknown>;
+        audit_rows?: Array<{
+          trace_id?: string | null;
+          champion_decision?: string;
+          challenger_decision?: string;
+          decisions_agree?: boolean;
+        }>;
+      };
       recipe_path?: string;
       smoke?: string;
-    }>("/api/decisions/v1/calibration/shadow-promote-gate");
+      honesty?: string;
+    }>(`/api/decisions/v1/calibration/shadow-promote-gate${q}`);
+  },
+
+  championChallengerAudit(tenantId: string, limit = 200) {
+    const q = new URLSearchParams({
+      tenant_id: tenantId,
+      limit: String(limit),
+    });
+    return request<{
+      schema_id: string;
+      tenant_id?: string;
+      audits_scanned?: number;
+      rows_with_policy_routing?: number;
+      decision_agreement_rate?: number | null;
+      audit_rows?: Array<{
+        trace_id?: string | null;
+        champion_decision?: string;
+        challenger_decision?: string;
+        decisions_agree?: boolean;
+      }>;
+    }>(`/api/decisions/v1/calibration/champion-challenger-audit?${q}`);
+  },
+
+  partnerFusionStatus() {
+    return request<{
+      schema_id: string;
+      status: string;
+      reason?: string;
+      promote_live_claim_allowed?: boolean;
+      live_sha_present?: boolean;
+      opensanctions?: { plugin?: string; note?: string; continuous_screening?: string };
+      honesty?: string;
+      runbook_path?: string;
+    }>("/api/decisions/v1/ops/partner-fusion-status");
+  },
+
+  typologyTelemetry() {
+    return request<{
+      schema_id: string;
+      typology_count?: number;
+      configured?: Array<{
+        id: string;
+        label?: string;
+        weight_per_rule_hit?: number;
+        breach_thresholds?: { warning?: number; alert?: number };
+      }>;
+      aggregation?: { mode?: string; note?: string };
+    }>("/api/decisions/v1/admin/typology/telemetry");
   },
 
   async reliabilityExportCsv(tenantId: string, limit: number = 10_000): Promise<string> {
@@ -1748,6 +1816,17 @@ const _featureHeaders = (): HeadersInit => {
 export const features = {
   health() {
     return request<{ status?: string }>("/api/features/v1/health");
+  },
+
+  featureServingContract() {
+    return request<{
+      schema_id: string;
+      online_store?: string;
+      ttl_seconds_default?: number;
+      zero_fallback_on_miss?: boolean;
+      offline_parity?: { endpoint?: string; job?: string };
+      doc?: string;
+    }>("/api/features/v1/feature-serving-contract");
   },
 
   velocityQuery(body: { tenant_id: string; entity_id: string; payload?: Record<string, unknown> }) {

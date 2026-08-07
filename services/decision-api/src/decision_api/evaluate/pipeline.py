@@ -941,6 +941,9 @@ async def run_evaluate_decision(
                     metadata=_loyalty_meta,
                     event_type=body.event_type.value,
                     metrics_inc=_metrics_inc_safe,
+                    timeout_seconds=settings.loyalty_abuse_timeout_seconds,
+                    failure_threshold=settings.loyalty_abuse_circuit_failure_threshold,
+                    recovery_seconds=settings.loyalty_abuse_circuit_recovery_seconds,
                 )
                 if loyalty_result.tags:
                     merged_tags = list(dict.fromkeys([*merged_tags, *loyalty_result.tags]))

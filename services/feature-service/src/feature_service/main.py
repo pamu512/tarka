@@ -36,7 +36,7 @@ def _get_api_keys() -> frozenset[str]:
 
 
 async def require_api_key(request: Request) -> None:
-    if request.url.path in {"/v1/health", "/metrics"}:
+    if request.url.path in {"/v1/health", "/metrics", "/v1/feature-serving-contract"}:
         return
     keys = _get_api_keys()
     if not keys:
@@ -316,6 +316,36 @@ def _build_vector(features: dict[str, Any]) -> list[float]:
 
 
 # ---------- endpoints ----------
+
+
+@app.get("/v1/feature-serving-contract")
+async def feature_serving_contract():
+    """Published Feature Serving Contract (P1-FSC) — discoverability vs Feast DIY."""
+    ttl_seconds = float(os.environ.get("FEATURE_VELOCITY_TTL_SECONDS", "3600"))
+    zero_fallback = os.environ.get("FEATURE_ZERO_FALLBACK", "true").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    return {
+        "schema_id": "tarka.feature_serving_contract/v1",
+        "online_store": "redis_aggregates",
+        "offline_parity": {
+            "endpoint": "POST /v1/internal/parity/verify",
+            "job": "scripts/oss/counter_parity_dual_diff.py",
+            "modes": ["dual_diff", "redis_dual_diff"],
+        },
+        "ttl_seconds_default": ttl_seconds,
+        "zero_fallback_on_miss": zero_fallback,
+        "velocity_keys": list(normalized_velocity_key_names()),
+        "vector_keys": list(VECTOR_KEYS),
+        "auth_path_note": (
+            "Hot-path evaluate reads Redis velocity; heavy OSINT/enrichment is optional "
+            "and must not redefine zero as success without tagging degrade."
+        ),
+        "doc": "docs/docs/guides/feature-serving-contract.md",
+    }
 
 
 @app.get("/v1/health")

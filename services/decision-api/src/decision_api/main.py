@@ -161,6 +161,7 @@ from decision_api.trusted_zones import load_trusted_zones_for_tenant
 from decision_api.typology import (
     load_typology_definitions,
     reload_typology_definitions,
+    weighted_aggregation_telemetry,
 )
 from decision_api.typology_predicate_registry import (
     load_predicate_registry,
@@ -1288,9 +1289,32 @@ async def evaluation_posture(request: Request):
         "dependency_resilience_policy": dependency_resilience_policy_table(),
         "last_rules_reload_at": last_reload_iso,
         "runbook_url": runbook,
+        "auth_path": {
+            "p99_budget_ms": settings.auth_path_p99_budget_ms,
+            "loyalty_bridge_timeout_seconds": settings.loyalty_abuse_timeout_seconds,
+            "loyalty_bridge_circuit_failure_threshold": (
+                settings.loyalty_abuse_circuit_failure_threshold
+            ),
+            "excludes": ["shadow_llm", "graph_upsert", "investigation_agent"],
+            "doc": "docs/docs/guides/auth-vs-forensics-path.md",
+        },
         "request_id": request.headers.get("x-request-id")
         or request.headers.get("x-correlation-id"),
     }
+
+
+@app.get("/v1/ops/partner-fusion-status")
+async def partner_fusion_status_ops(_user=Depends(require_role("analyst"))):
+    """L2 LIVE|WAIVED honesty surface (P0-L2). Never forge LIVE pins."""
+    from decision_api.partner_fusion_status import load_partner_fusion_status
+
+    return load_partner_fusion_status()
+
+
+@app.get("/v1/admin/typology/telemetry")
+async def typology_weighted_telemetry(_user=Depends(require_role("analyst"))):
+    """Configured typology weights + aggregation mode (P1-typ)."""
+    return weighted_aggregation_telemetry()
 
 
 # ---------- attestation ----------
