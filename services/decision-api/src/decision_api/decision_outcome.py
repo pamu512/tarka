@@ -199,27 +199,8 @@ def schedule_decision_outcomes(
                 metrics_inc=metrics_inc,
             )
 
-    if not ctx.shadow_request:
-        from decision_api.loyalty_abuse_bridge import (
-            maybe_call_loyalty_abuse_from_evaluate,
-            should_call_loyalty_abuse,
-        )
-
-        meta = ctx.metadata if isinstance(ctx.metadata, dict) else None
-        if should_call_loyalty_abuse(metadata=meta, event_type=ctx.event_type):
-            bg.add_task(
-                maybe_call_loyalty_abuse_from_evaluate,
-                http=http,
-                loyalty_abuse_url=loyalty_abuse_url,
-                loyalty_abuse_api_key=loyalty_abuse_api_key,
-                tenant_id=ctx.tenant_id,
-                entity_id=ctx.entity_id,
-                trace_id=ctx.trace_id,
-                payload=ctx.payload if isinstance(ctx.payload, dict) else None,
-                metadata=meta,
-                event_type=ctx.event_type,
-                metrics_inc=metrics_inc,
-            )
+    # Loyalty redeem bridge runs synchronously in evaluate/pipeline so
+    # loyalty:friction:* tags land on the EvaluateResponse + audit record.
 
     if not ctx.shadow_request:
         from decision_api.promo_redemption_bridge import (

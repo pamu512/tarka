@@ -7,6 +7,7 @@ import pytest
 
 from decision_api.decision_outcome import DecisionOutcomeContext, schedule_decision_outcomes
 from decision_api.loyalty_abuse_bridge import (
+    LoyaltyBridgeResult,
     build_loyalty_event,
     friction_to_tags,
     maybe_call_loyalty_abuse,
@@ -63,7 +64,7 @@ async def test_maybe_call_loyalty_abuse_posts_on_redeem():
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport, base_url="http://loyalty") as client:
-        tags = await maybe_call_loyalty_abuse(
+        result = await maybe_call_loyalty_abuse(
             http=client,
             base_url="http://loyalty",
             api_key="la-secret",
@@ -80,7 +81,14 @@ async def test_maybe_call_loyalty_abuse_posts_on_redeem():
     assert captured["url"] == "http://loyalty/v1/evaluate"
     assert captured["auth"] == "Bearer la-secret"
     assert captured["body"]["event"]["type"] == "redeem"
-    assert tags == ["loyalty:friction:soft_challenge"]
+    assert isinstance(result, LoyaltyBridgeResult)
+    assert result.tags == ["loyalty:friction:soft_challenge"]
+    assert result.friction == "soft_challenge"
+    assert result.score == 42.0
+    evidence = result.evidence()
+    assert evidence is not None
+    assert evidence["source"] == "loyalty_abuse_bridge"
+    assert evidence["tags"] == ["loyalty:friction:soft_challenge"]
 
 
 @pytest.mark.asyncio
@@ -91,14 +99,14 @@ async def test_bridge_failure_increments_metric():
         async def post(self, *a, **k):
             raise RuntimeError("down")
 
-    tags = await maybe_call_loyalty_abuse(
+    result = await maybe_call_loyalty_abuse(
         http=Boom(),
         base_url="http://x",
         api_key="k",
         body={"event": {"type": "redeem"}},
         metrics_inc=lambda m, **kw: calls.append(m),
     )
-    assert tags == []
+    assert result.tags == []
     assert "loyalty_abuse_bridge_failed" in calls
 
 
@@ -113,17 +121,19 @@ async def test_maybe_call_skips_when_url_empty():
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as client:
-        tags = await maybe_call_loyalty_abuse(
+        result = await maybe_call_loyalty_abuse(
             http=client,
             base_url="",
             api_key="",
             body={"event": {}},
         )
     assert called is False
-    assert tags == []
+    assert result.tags == []
 
 
-def test_schedule_decision_outcomes_enqueues_loyalty_bridge():
+def test_schedule_decision_outcomes_does_not_enqueue_loyalty_bridge():
+    """Loyalty runs sync in evaluate pipeline so tags reach EvaluateResponse."""
+
     class _Bg:
         def __init__(self) -> None:
             self.tasks: list[tuple] = []
@@ -164,10 +174,7 @@ def test_schedule_decision_outcomes_enqueues_loyalty_bridge():
         for t in bg.tasks
         if getattr(t[0], "__name__", "") == "maybe_call_loyalty_abuse_from_evaluate"
     ]
-    assert len(bridge_tasks) == 1
-    _fn, _args, kwargs = bridge_tasks[0]
-    assert kwargs["tenant_id"] == "ten"
-    assert kwargs["metadata"]["checkpoint"] == "redeem"
+    assert bridge_tasks == []
 
 
 def test_schedule_skips_loyalty_bridge_when_not_redeem():

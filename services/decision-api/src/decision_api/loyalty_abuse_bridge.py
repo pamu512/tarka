@@ -3,12 +3,34 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
 log = logging.getLogger("decision-api.loyalty_abuse_bridge")
 
 REDEEM_CHECKPOINTS = frozenset({"redeem"})
+
+
+@dataclass(frozen=True)
+class LoyaltyBridgeResult:
+    """Tags + optional evidence for evaluate audit / response merge."""
+
+    tags: list[str] = field(default_factory=list)
+    friction: str | None = None
+    score: float | None = None
+
+    def evidence(self) -> dict[str, Any] | None:
+        if not self.tags and self.friction is None and self.score is None:
+            return None
+        out: dict[str, Any] = {"source": "loyalty_abuse_bridge"}
+        if self.friction is not None:
+            out["friction"] = self.friction
+        if self.score is not None:
+            out["score"] = self.score
+        if self.tags:
+            out["tags"] = list(self.tags)
+        return out
 
 
 def should_call_loyalty_abuse(
@@ -29,21 +51,25 @@ def friction_to_tags(friction: str | None) -> list[str]:
     return [f"loyalty:friction:{f}"]
 
 
-def map_loyalty_response(response: dict[str, Any]) -> list[str]:
-    """Map loyalty-abuse Decision friction to Tarka tag vocabulary."""
+def map_loyalty_response(response: dict[str, Any]) -> LoyaltyBridgeResult:
+    """Map loyalty-abuse Decision friction to Tarka tag vocabulary + evidence."""
     if not isinstance(response, dict):
-        return []
-    friction = response.get("friction")
-    tags = friction_to_tags(friction if isinstance(friction, str) else None)
-    score = response.get("score")
-    if tags and score is not None:
+        return LoyaltyBridgeResult()
+    friction_raw = response.get("friction")
+    friction = friction_raw.strip().lower() if isinstance(friction_raw, str) else None
+    tags = friction_to_tags(friction)
+    score_raw = response.get("score")
+    score: float | None = None
+    if isinstance(score_raw, (int, float)):
+        score = float(score_raw)
+    if tags:
         log.info(
             "loyalty_abuse_bridge friction=%s score=%s tags=%s",
             friction,
             score,
             tags,
         )
-    return tags
+    return LoyaltyBridgeResult(tags=tags, friction=friction, score=score)
 
 
 def build_loyalty_event(
@@ -96,11 +122,11 @@ async def maybe_call_loyalty_abuse(
     api_key: str,
     body: dict[str, Any],
     metrics_inc: Any = None,
-) -> list[str]:
+) -> LoyaltyBridgeResult:
     url_base = (base_url or "").strip()
     secret = (api_key or "").strip()
     if not url_base or not secret:
-        return []
+        return LoyaltyBridgeResult()
     try:
         r = await http.post(
             f"{url_base.rstrip('/')}/v1/evaluate",
@@ -111,13 +137,13 @@ async def maybe_call_loyalty_abuse(
         r.raise_for_status()
         data = r.json()
         if not isinstance(data, dict):
-            return []
+            return LoyaltyBridgeResult()
         return map_loyalty_response(data)
     except Exception:
         log.exception("loyalty_abuse_bridge_failed")
         if callable(metrics_inc):
             metrics_inc("loyalty_abuse_bridge_failed")
-        return []
+        return LoyaltyBridgeResult()
 
 
 async def maybe_call_loyalty_abuse_from_evaluate(
@@ -132,9 +158,9 @@ async def maybe_call_loyalty_abuse_from_evaluate(
     metadata: dict[str, Any] | None,
     event_type: str = "",
     metrics_inc: Any = None,
-) -> list[str]:
+) -> LoyaltyBridgeResult:
     if not should_call_loyalty_abuse(metadata=metadata, event_type=event_type):
-        return []
+        return LoyaltyBridgeResult()
     body = build_loyalty_event(
         tenant_id=tenant_id,
         entity_id=entity_id,

@@ -918,6 +918,34 @@ async def run_evaluate_decision(
         )
         await redis_tags.set_cached_score(body.tenant_id, body.entity_id, final_score)
 
+        # Sync loyalty redeem bridge so friction tags reach response + audit (C7 Loyalty card).
+        loyalty_bridge_evidence: dict[str, Any] | None = None
+        if not shadow_request:
+            from decision_api.loyalty_abuse_bridge import (
+                maybe_call_loyalty_abuse_from_evaluate,
+                should_call_loyalty_abuse,
+            )
+
+            _loyalty_meta = body.metadata if isinstance(body.metadata, dict) else None
+            if should_call_loyalty_abuse(
+                metadata=_loyalty_meta, event_type=body.event_type.value
+            ):
+                loyalty_result = await maybe_call_loyalty_abuse_from_evaluate(
+                    http=http,
+                    loyalty_abuse_url=settings.loyalty_abuse_url,
+                    loyalty_abuse_api_key=settings.loyalty_abuse_api_key,
+                    tenant_id=body.tenant_id,
+                    entity_id=body.entity_id,
+                    trace_id=str(trace_id),
+                    payload=body.payload if isinstance(body.payload, dict) else None,
+                    metadata=_loyalty_meta,
+                    event_type=body.event_type.value,
+                    metrics_inc=_metrics_inc_safe,
+                )
+                if loyalty_result.tags:
+                    merged_tags = list(dict.fromkeys([*merged_tags, *loyalty_result.tags]))
+                loyalty_bridge_evidence = loyalty_result.evidence()
+
         combined_rule_hits = rule_hits + replay_rule_hits
 
         typology_results = evaluate_typologies(combined_rule_hits, features)
@@ -1051,6 +1079,8 @@ async def run_evaluate_decision(
             snap_extra["partner_evidence"] = partner_evidence
         if partner_graph_hints:
             snap_extra["partner_graph_writeback"] = partner_graph_hints
+        if loyalty_bridge_evidence:
+            snap_extra["loyalty_abuse_bridge"] = loyalty_bridge_evidence
         _rel_kw = dict(
             tags=merged_tags,
             inference_context=inf_ctx,
