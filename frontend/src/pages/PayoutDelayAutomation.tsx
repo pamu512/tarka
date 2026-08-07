@@ -6,6 +6,7 @@ import {
   type PayoutDelayPayoutRow,
   type PayoutDelayResponse,
 } from "../api/client";
+import { DurableBoardSourceBadge } from "../components/integrations/DurableBoardSourceBadge";
 import { PayoutDelayHoldBadge } from "../components/integrations/PayoutDelayHoldBadge";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
@@ -103,14 +104,19 @@ export default function PayoutDelayAutomation(): ReactElement {
             GET/PATCH /api/ingress/v1/marketplace/payout-delay · POST …/release
           </p>
         </div>
-        <button
-          type="button"
-          disabled={loading || busy}
-          onClick={() => void load()}
-          className="text-xs font-semibold px-3 py-2 rounded-lg border border-surface-600 bg-surface-800 text-gray-200 hover:bg-surface-700 disabled:opacity-50"
-        >
-          Refresh
-        </button>
+        <div className="flex flex-col items-end gap-2">
+          {data ? (
+            <DurableBoardSourceBadge source={data.source} recordCount={data.payouts.length} />
+          ) : null}
+          <button
+            type="button"
+            disabled={loading || busy}
+            onClick={() => void load()}
+            className="text-xs font-semibold px-3 py-2 rounded-lg border border-surface-600 bg-surface-800 text-gray-200 hover:bg-surface-700 disabled:opacity-50"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       {error ? (
