@@ -4375,6 +4375,42 @@ export interface DisputeEntry {
   evidence_pdf_url?: string | null;
   /** Markdown narrative from Shadow (device/IP/signature + cryptographic event hash). */
   shadow_evidence_report_markdown?: string | null;
+  provider_response_deadline_at?: string | null;
+  external_reprocess_count?: number;
+  last_external_reprocess_at?: string | null;
+}
+
+export type DisputeAlertState = "no_deadline" | "ok" | "near_breach" | "breached";
+
+export interface DisputeDeadlineQueueItem {
+  dispute_id: string;
+  tenant_id: string;
+  status: string;
+  dispute_type: string;
+  filed_at: string | null;
+  provider_response_deadline_at: string | null;
+  seconds_remaining: number | null;
+  alert_state: DisputeAlertState;
+  suggested_alert_hooks: string[];
+  external_reprocess_count: number;
+  last_external_reprocess_at: string | null;
+}
+
+export interface DisputeDeadlineQueueResponse {
+  schema: string;
+  tenant_id: string;
+  generated_at: string;
+  items: DisputeDeadlineQueueItem[];
+}
+
+export interface DisputeReprocessExternalResponse {
+  ok: boolean;
+  dispute_id: string;
+  tenant_id: string;
+  reprocessed_at: string;
+  external_reprocess_count: number;
+  reason: string;
+  idempotent_replay: boolean;
 }
 
 export interface DisputeStats {
@@ -4445,6 +4481,30 @@ export const disputes = {
       risk_indicator: string;
       disputes: DisputeEntry[];
     }>(`/api/cases/v1/disputes/entity/${entityId}/history?tenant_id=${tenantId}`);
+  },
+
+  deadlineQueue(tenantId: string, params?: { limit?: number }) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    if (params?.limit) q.set("limit", String(params.limit));
+    return request<DisputeDeadlineQueueResponse>(
+      `/api/cases/v1/disputes/ops/deadline-queue?${q}`,
+    );
+  },
+
+  reprocessExternal(
+    disputeId: string,
+    data: { tenant_id: string; reason?: string },
+    idempotencyKey: string,
+  ) {
+    const q = new URLSearchParams({ tenant_id: data.tenant_id });
+    return request<DisputeReprocessExternalResponse>(
+      `/api/cases/v1/disputes/${encodeURIComponent(disputeId)}/reprocess-external?${q}`,
+      {
+        method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
+        body: JSON.stringify({ reason: data.reason ?? null }),
+      },
+    );
   },
 };
 
