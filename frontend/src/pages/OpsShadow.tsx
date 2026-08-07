@@ -18,6 +18,16 @@ type ShadowPromoteGate = {
     blockers?: string[];
     discordant_pairs?: number;
     min_discordant_pairs?: number;
+    p_value?: number | null;
+    mid_p?: number | null;
+    method?: string | null;
+    alpha?: number;
+  };
+  labeled_champion_challenger_f1?: {
+    labeled_rows?: number;
+    champion_f1?: number | null;
+    challenger_f1?: number | null;
+    note?: string;
   };
   drift_promote_gate?: {
     promote_allowed?: boolean;
@@ -63,6 +73,12 @@ type TypologyTelemetry = {
     breach_thresholds?: { warning?: number; alert?: number };
   }>;
   aggregation?: { mode?: string; note?: string };
+  audit_breach_histogram?: {
+    rows_with_typology_summary?: number;
+    highest_breach_counts?: Record<string, number>;
+    alert_or_warning_rows?: number;
+    driver_typology_counts?: Record<string, number>;
+  } | null;
 };
 
 type L3Ledger = {
@@ -134,7 +150,7 @@ export default function OpsShadow() {
       .then(setData)
       .catch((e) => setErr(String(e)));
     void decisions
-      .typologyOps()
+      .typologyOps(tenantId)
       .then((ops) =>
         setTypology({
           typology_count: ops.control_plane?.typology_count,
@@ -143,6 +159,7 @@ export default function OpsShadow() {
             mode: ops.control_plane?.aggregation,
             note: ops.vs_tazama || ops.honesty,
           },
+          audit_breach_histogram: ops.audit_breach_histogram ?? null,
         }),
       )
       .catch(() => setTypology(null));
@@ -459,6 +476,13 @@ export default function OpsShadow() {
               {driftGate.max_psi != null ? ` (max ${driftGate.max_psi})` : ""}
             </p>
           ) : null}
+          {data.labeled_champion_challenger_f1?.labeled_rows ? (
+            <p className="text-[11px] font-mono text-gray-500">
+              Labeled F1 champ={data.labeled_champion_challenger_f1.champion_f1 ?? "n/a"} / chall=
+              {data.labeled_champion_challenger_f1.challenger_f1 ?? "n/a"} (n=
+              {data.labeled_champion_challenger_f1.labeled_rows})
+            </p>
+          ) : null}
           <dl className="grid gap-1 text-xs text-gray-400 sm:grid-cols-3 font-mono">
             <div>
               Labels:{" "}
@@ -467,7 +491,8 @@ export default function OpsShadow() {
               </span>
             </div>
             <div>
-              McNemar: {mcnemar?.discordant_pairs ?? 0}/{mcnemar?.min_discordant_pairs ?? 20} —{" "}
+              McNemar: {mcnemar?.discordant_pairs ?? 0}/{mcnemar?.min_discordant_pairs ?? 20}
+              {mcnemar?.mid_p != null ? ` mid-p=${mcnemar.mid_p}` : ""} —{" "}
               <span className={mcnemar?.promote_allowed ? "text-emerald-400" : "text-amber-300"}>
                 {mcnemar?.promote_allowed ? "ok" : "blocked"}
               </span>
@@ -568,6 +593,14 @@ export default function OpsShadow() {
           <p className="text-xs text-gray-500">
             {typology.aggregation?.mode} — {typology.aggregation?.note}
           </p>
+          {typology.audit_breach_histogram ? (
+            <p className="text-[11px] font-mono text-gray-500">
+              Audit breaches:{" "}
+              {JSON.stringify(typology.audit_breach_histogram.highest_breach_counts || {})} — alert/warn{" "}
+              {typology.audit_breach_histogram.alert_or_warning_rows ?? 0}/
+              {typology.audit_breach_histogram.rows_with_typology_summary ?? 0}
+            </p>
+          ) : null}
           <div className="overflow-x-auto">
             <table className="w-full text-[10px] text-left text-gray-400">
               <thead>

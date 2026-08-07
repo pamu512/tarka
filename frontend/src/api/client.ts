@@ -1680,6 +1680,16 @@ export const decisions = {
         blockers?: string[];
         discordant_pairs?: number;
         min_discordant_pairs?: number;
+        p_value?: number | null;
+        mid_p?: number | null;
+        method?: string | null;
+        alpha?: number;
+      };
+      labeled_champion_challenger_f1?: {
+        labeled_rows?: number;
+        champion_f1?: number | null;
+        challenger_f1?: number | null;
+        note?: string;
       };
       drift_promote_gate?: {
         promote_allowed?: boolean;
@@ -1828,7 +1838,10 @@ export const decisions = {
     }>("/api/decisions/v1/ops/loyalty-feed-posture");
   },
 
-  typologyOps() {
+  typologyOps(tenantId?: string) {
+    const q = tenantId?.trim()
+      ? `?tenant_id=${encodeURIComponent(tenantId.trim())}`
+      : "";
     return request<{
       schema_id?: string;
       control_plane?: {
@@ -1841,10 +1854,16 @@ export const decisions = {
         weight_per_rule_hit?: number;
         breach_thresholds?: { warning?: number; alert?: number };
       }>;
+      audit_breach_histogram?: {
+        rows_with_typology_summary?: number;
+        highest_breach_counts?: Record<string, number>;
+        alert_or_warning_rows?: number;
+        driver_typology_counts?: Record<string, number>;
+      } | null;
       borrowed_from?: string;
       vs_tazama?: string;
       honesty?: string;
-    }>("/api/decisions/v1/ops/typology-ops");
+    }>(`/api/decisions/v1/ops/typology-ops${q}`);
   },
 
   typologyTelemetry() {

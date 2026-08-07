@@ -125,9 +125,125 @@ def aggregate_champion_challenger(
         "mcnemar_contingency": {
             "b_champion_allow_challenger_stricter": b,
             "c_challenger_allow_champion_stricter": c,
-            "note": "Promote science uses b/c discordant pairs; not a p-value. Wire real labels before trusting lift.",
+            "note": (
+                "Discordant pairs for McNemar; p-value computed in mcnemar_promote_gate. "
+                "Wire real labels before trusting lift."
+            ),
         },
         "audit_rows": rows[:50],
+    }
+
+
+def mcnemar_pvalue(b: int, c: int) -> dict[str, Any]:
+    """Two-sided McNemar under H0: P(b)=P(c)=0.5.
+
+    Exact binomial for n<25; Edwards continuity-corrected χ² (df=1) otherwise.
+    Also returns mid-p (exact path subtracts half the mass at the observed min).
+    """
+    bb = max(0, int(b))
+    cc = max(0, int(c))
+    n = bb + cc
+    if n == 0:
+        return {
+            "p_value": None,
+            "mid_p": None,
+            "method": "empty",
+            "n_discordant": 0,
+            "chi2": None,
+        }
+    if n < 25:
+        k = min(bb, cc)
+        # Python int unlimited — sum C(n,i) / 2^n
+        tail = sum(math.comb(n, i) for i in range(k + 1))
+        denom = 1 << n
+        p_one = tail / denom
+        p = 1.0 if (k * 2 == n) else min(1.0, 2.0 * p_one)
+        p_obs = math.comb(n, k) / denom
+        mid = 1.0 if (k * 2 == n) else min(1.0, max(0.0, p - p_obs))
+        return {
+            "p_value": round(p, 6),
+            "mid_p": round(mid, 6),
+            "method": "exact_binomial",
+            "n_discordant": n,
+            "chi2": None,
+        }
+    # Edwards continuity correction: (|b-c|-1)^2 / (b+c)
+    chi2 = ((abs(bb - cc) - 1) ** 2) / float(n)
+    # χ²(1) survival = erfc(sqrt(x/2))
+    p = float(math.erfc(math.sqrt(chi2 / 2.0)))
+    return {
+        "p_value": round(min(1.0, max(0.0, p)), 6),
+        "mid_p": round(min(1.0, max(0.0, p)), 6),
+        "method": "chi2_continuity",
+        "n_discordant": n,
+        "chi2": round(chi2, 6),
+    }
+
+
+def _binary_f1(y_true: Sequence[int], y_pred: Sequence[int]) -> float | None:
+    if not y_true or len(y_true) != len(y_pred):
+        return None
+    tp = fp = fn = 0
+    for yt, yp in zip(y_true, y_pred):
+        if yp == 1 and yt == 1:
+            tp += 1
+        elif yp == 1 and yt == 0:
+            fp += 1
+        elif yp == 0 and yt == 1:
+            fn += 1
+    if tp + fp + fn == 0:
+        return None  # all TN — F1 undefined for fraud class
+    prec = tp / (tp + fp) if (tp + fp) else 0.0
+    rec = tp / (tp + fn) if (tp + fn) else 0.0
+    if prec + rec <= 0:
+        return 0.0
+    return round(2.0 * prec * rec / (prec + rec), 4)
+
+
+def labeled_champion_challenger_f1(
+    audits: Sequence[Mapping[str, Any]],
+    *,
+    by_trace: Mapping[str, str] | None = None,
+    by_entity: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """F1 on labeled rows: predicted positive = decision != allow (fraud class=1)."""
+    tmap = by_trace or {}
+    emap = by_entity or {}
+    y_true: list[int] = []
+    y_champ: list[int] = []
+    y_chall: list[int] = []
+    for item in audits:
+        if not isinstance(item, Mapping):
+            continue
+        pr = item.get("policy_routing") if "champion_decision" in item else None
+        if pr is None:
+            pr = extract_policy_routing(item.get("payload_snapshot"))  # type: ignore[arg-type]
+        if not isinstance(pr, dict):
+            continue
+        champ = str(pr.get("champion_decision") or "").strip().lower()
+        chall = str(pr.get("challenger_decision") or "").strip().lower()
+        if not champ or not chall:
+            continue
+        tid = str(item.get("trace_id") or "").strip()
+        eid = str(item.get("entity_id") or "").strip()
+        lab = tmap.get(tid) if tid else None
+        if lab is None and eid:
+            lab = emap.get(eid)
+        if lab not in {"0", "1"}:
+            continue
+        y_true.append(1 if lab == "1" else 0)
+        y_champ.append(0 if champ == "allow" else 1)
+        y_chall.append(0 if chall == "allow" else 1)
+    n = len(y_true)
+    return {
+        "schema_id": "tarka.labeled_champion_challenger_f1/v1",
+        "labeled_rows": n,
+        "champion_f1": _binary_f1(y_true, y_champ) if n else None,
+        "challenger_f1": _binary_f1(y_true, y_chall) if n else None,
+        "note": (
+            "Requires durable y_label join (trace/entity). Proxy labels excluded. "
+            "Not Ojuri's full MLA training loop."
+        ),
     }
 
 
@@ -204,8 +320,10 @@ def mcnemar_promote_gate(
     cc_audit: Mapping[str, Any],
     *,
     min_discordant_pairs: int = 20,
+    alpha: float = 0.05,
+    require_significance: bool = True,
 ) -> dict[str, Any]:
-    """Ojuri-style discordant-pair bar before trusting challenger lift (no p-value yet)."""
+    """Ojuri-style McNemar bar: discordant volume + two-sided p-value / mid-p."""
     cont = cc_audit.get("mcnemar_contingency")
     if not isinstance(cont, Mapping):
         cont = {}
@@ -213,11 +331,21 @@ def mcnemar_promote_gate(
     c = int(cont.get("c_challenger_allow_champion_stricter") or 0)
     discordant = b + c
     rows = int(cc_audit.get("rows_with_policy_routing") or 0)
+    stats = mcnemar_pvalue(b, c)
+    # Prefer mid-p when available (exact path); else p_value
+    p_gate = stats.get("mid_p")
+    if p_gate is None:
+        p_gate = stats.get("p_value")
     blockers: list[str] = []
     if rows < 1:
         blockers.append("no_champion_challenger_rows")
     if discordant < int(min_discordant_pairs):
         blockers.append(f"discordant_pairs<{min_discordant_pairs}")
+    if require_significance:
+        if p_gate is None:
+            blockers.append("mcnemar_p_unavailable")
+        elif float(p_gate) >= float(alpha):
+            blockers.append(f"mcnemar_mid_p>={alpha}")
     return {
         "schema_id": "tarka.mcnemar_promote_gate/v1",
         "promote_allowed": len(blockers) == 0,
@@ -226,8 +354,14 @@ def mcnemar_promote_gate(
         "min_discordant_pairs": int(min_discordant_pairs),
         "b_champion_allow_challenger_stricter": b,
         "c_challenger_allow_champion_stricter": c,
+        "p_value": stats.get("p_value"),
+        "mid_p": stats.get("mid_p"),
+        "method": stats.get("method"),
+        "chi2": stats.get("chi2"),
+        "alpha": float(alpha),
+        "require_significance": bool(require_significance),
         "note": (
-            "Contingency only — not a McNemar p-value. Combine with label_gated_promote "
-            "before promoting challenger packs."
+            "Exact binomial (n<25) or Edwards χ² continuity; gate uses mid_p < alpha "
+            "plus discordant volume. Combine with label_gated_promote."
         ),
     }

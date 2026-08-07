@@ -126,3 +126,41 @@ def test_mcnemar_promote_gate_allows_enough_discordant():
     )
     assert gate["promote_allowed"] is True
     assert gate["discordant_pairs"] == 25
+    assert gate["mid_p"] is not None
+    assert gate["mid_p"] < 0.05
+
+
+def test_mcnemar_promote_gate_blocks_nonsignificant():
+    audits = []
+    for i in range(12):
+        audits.append(
+            {
+                "trace_id": f"b{i}",
+                "payload_snapshot": {
+                    "policy_routing": {
+                        "champion_decision": "allow",
+                        "challenger_decision": "review",
+                        "decisions_agree": False,
+                    }
+                },
+            }
+        )
+    for i in range(13):
+        audits.append(
+            {
+                "trace_id": f"c{i}",
+                "payload_snapshot": {
+                    "policy_routing": {
+                        "champion_decision": "review",
+                        "challenger_decision": "allow",
+                        "decisions_agree": False,
+                    }
+                },
+            }
+        )
+    gate = mcnemar_promote_gate(
+        aggregate_champion_challenger(audits), min_discordant_pairs=20
+    )
+    assert gate["discordant_pairs"] == 25
+    assert gate["promote_allowed"] is False
+    assert any("mcnemar_mid_p" in b for b in gate["blockers"])

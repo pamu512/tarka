@@ -1476,13 +1476,52 @@ async def typology_weighted_telemetry(_user=Depends(require_role("analyst"))):
 @app.get("/v1/ops/typology-ops")
 async def typology_ops_posture(
     sample_rule_hits: str = "",
+    tenant_id: str = "",
+    session: AsyncSession = Depends(get_session),
     _user=Depends(require_role("analyst")),
 ):
     """Tazama-class typology control plane (weights + breach; not ISO 20022)."""
-    from decision_api.typology_ops import load_typology_ops_posture
+    from decision_api.typology_ops import (
+        aggregate_typology_breaches_from_audits,
+        load_typology_ops_posture,
+    )
 
     hits = [h.strip() for h in (sample_rule_hits or "").split(",") if h.strip()]
-    return load_typology_ops_posture(sample_rule_hits=hits or None)
+    hist = None
+    tid = (tenant_id or "").strip()
+    if tid:
+        try:
+            result = await session.execute(
+                select(AuditRecord)
+                .where(AuditRecord.tenant_id == tid)
+                .order_by(AuditRecord.created_at.desc())
+                .limit(500)
+            )
+            records = result.scalars().all()
+            hist = aggregate_typology_breaches_from_audits(
+                [
+                    {
+                        "payload_snapshot": rec.payload_snapshot
+                        if isinstance(rec.payload_snapshot, dict)
+                        else {},
+                    }
+                    for rec in records
+                ]
+            )
+        except Exception:
+            hist = {
+                "schema_id": "tarka.typology_breach_histogram/v1",
+                "audits_scanned": 0,
+                "rows_with_typology_summary": 0,
+                "highest_breach_counts": {},
+                "driver_typology_counts": {},
+                "alert_or_warning_rows": 0,
+                "note": "audit scan failed",
+            }
+    return load_typology_ops_posture(
+        sample_rule_hits=hits or None,
+        audit_breach_histogram=hist,
+    )
 
 
 # ---------- attestation ----------
