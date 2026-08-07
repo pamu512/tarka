@@ -1333,6 +1333,19 @@ async def feature_store_posture_ops(_user=Depends(require_role("analyst"))):
     )
 
 
+@app.get("/v1/ops/diligence-readiness")
+async def diligence_readiness_ops(_user=Depends(require_role("analyst"))):
+    """Aggregate honesty gates for customer diligence (not SOC2 attestation)."""
+    from decision_api.diligence_readiness import load_diligence_readiness
+
+    return load_diligence_readiness(
+        rules_path=settings.rules_path,
+        redis_url=settings.redis_url,
+        loyalty_abuse_url=settings.loyalty_abuse_url,
+        loyalty_abuse_api_key=settings.loyalty_abuse_api_key,
+    )
+
+
 @app.get("/v1/ops/l3-ledger")
 async def l3_ops_ledger_get(_user=Depends(require_role("analyst"))):
     """Four-week live shadow ledger. Sim cannot advance this file."""

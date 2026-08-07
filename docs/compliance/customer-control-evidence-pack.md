@@ -29,3 +29,12 @@ python scripts/compliance/export_control_evidence_index.py
 ```
 
 Writes `artifacts/control-evidence-index.json` listing the paths above.
+
+## Live diligence readiness (ops)
+
+```bash
+# Aggregates L2 / L3 / loyalty feeds / feature-store gates — not SOC2 Type II
+curl -s "$DECISION_API_URL/v1/ops/diligence-readiness" | jq .
+```
+
+UI: **Compliance** (`/compliance`). `closed_loop_claims_ready` stays false until LIVE partner pin, L3 COMPLETE, and `FEEDS_READY`.
