@@ -29,6 +29,21 @@ jobs:
           python-version: "3.12"
       - name: Install redis client
         run: pip install redis
+      - name: Counter dual-diff parity artifact (rules/)
+        env:
+          AGG_KEY_VERSION: ci_parity_v1
+          COUNTER_REPLAY_REDIS_URL: redis://127.0.0.1:6379
+        run: |
+          python3 scripts/oss/counter_parity_dual_diff.py --mode dual_diff \
+            --out rules/counter_parity_last.json
+      - name: Wave 5 counter replay job (legacy artifact)
+        env:
+          AGG_KEY_VERSION: ci_parity_v1
+          COUNTER_REPLAY_REDIS_URL: redis://127.0.0.1:6379
+        run: |
+          mkdir -p artifacts
+          python3 scripts/oss/counter_replay_job.py \
+            --report artifacts/counter-replay-job.json
       - name: Offline parity report (velocity JSONL)
         env:
           AGG_KEY_VERSION: ci_parity_v1
@@ -63,6 +78,8 @@ jobs:
         with:
           name: counter-parity-nightly
           path: |
+            artifacts/counter-replay-job.json
             artifacts/counter-parity-nightly.json
             artifacts/counter-parity-audit-shaped.json
+            rules/counter_parity_last.json
           if-no-files-found: ignore

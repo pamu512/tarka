@@ -1,5 +1,5 @@
 /**
- * Production default: lean analyst surface (triad + cases).
+ * Production default: lean analyst surface (desk core).
  * Sales / full brochure demo: build with `VITE_LEAN_NAV=false`.
  *
  * - Production image (frontend/Dockerfile): `ARG VITE_LEAN_NAV=true` — brochure
@@ -14,37 +14,23 @@ export const INCLUDE_DEMO_SURFACE =
 /** Inverse of INCLUDE_DEMO_SURFACE — default on. */
 export const LEAN_NAV = !INCLUDE_DEMO_SURFACE;
 
-/** Paths kept in sidebar / command palette / route table when LEAN_NAV is on. */
+/**
+ * Paths kept when LEAN_NAV is on — desk core only (critical regrade flag #8).
+ * Simulation / shadow / investigation* / brochure ops stay behind VITE_LEAN_NAV=false.
+ */
 export const LEAN_NAV_PATHS = new Set<string>([
-  "/dashboard",
   "/cases",
   "/disputes",
   "/graph",
-  "/graph/link-analysis",
-  "/investigation",
-  "/investigation/dag-trace",
-  "/investigation/shadow-llm",
-  "/analytics",
-  "/analytics/rule-performance",
-  "/analytics/audit-log",
-  "/transactions/live",
   "/rules",
-  "/rules/visual",
-  "/entity-lists",
-  "/shadow",
-  "/simulation",
-  "/ops/backtest",
-  "/compliance",
+  "/analytics/rule-performance",
   "/ops/calibration",
+  "/ops/qa",
+  "/ops/shadow",
   "/ops/counters",
-  "/ops/features",
-  "/ops/pipelines",
   "/ops/sar-transport",
-  "/ops/infra",
-  "/integrations",
   "/settings",
   "/help",
-  "/admin",
 ]);
 
 export function leanHomePath(): string {

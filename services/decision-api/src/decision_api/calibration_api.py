@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
@@ -21,12 +22,19 @@ from auth_rbac import require_role  # noqa: E402
 from decision_api.config import settings  # noqa: E402
 from decision_api.db import get_session  # noqa: E402
 from decision_api.models import AuditRecord  # noqa: E402
+from decision_api.label_join import (  # noqa: E402
+    apply_y_labels,
+    label_coverage_posture,
+    y_label_from_ground_truth,
+)
 from decision_api.reliability_export import (  # noqa: E402
     RELIABILITY_CSV_FIELDS,
     audit_row_to_export_dict,
     reliability_bins,
     rows_to_csv,
 )
+from decision_api.rule_label_metrics import rule_precision_after_labels  # noqa: E402
+from decision_api.y_label_store import load_y_labels, merge_y_labels  # noqa: E402
 
 """Calibration snapshots, drift hints, and reliability export (Wave 1 trust)."""
 router = APIRouter(prefix="/v1/calibration", tags=["calibration"])
@@ -295,6 +303,7 @@ async def _load_audit_export_rows(
                 "event_type": rec.event_type,
                 "decision": rec.decision,
                 "score": rec.score,
+                "rule_hits": list(rec.rule_hits or []),
                 "payload_snapshot": rec.payload_snapshot,
                 "created_at": rec.created_at,
             }
@@ -326,8 +335,109 @@ async def reliability_export_csv(
     )
 
 
+class ReliabilityBinsBody(BaseModel):
+    """Optional ground-truth map: trace_id → FRAUD/LEGITIMATE (or 0/1)."""
+
+    labels_by_trace: dict[str, str] = Field(default_factory=dict)
+    labels_by_entity: dict[str, str] = Field(default_factory=dict)
+    # Critical regrade: proxy-as-truth is opt-in only.
+    allow_proxy_labels: bool = False
+    persist_labels: bool = True
+
+
+def _normalize_label_maps(
+    labels_by_trace: dict[str, str],
+    labels_by_entity: dict[str, str],
+) -> tuple[dict[str, str], dict[str, str]]:
+    by_t = {
+        str(k).strip(): y_label_from_ground_truth(v)
+        for k, v in (labels_by_trace or {}).items()
+        if str(k).strip() and y_label_from_ground_truth(v)
+    }
+    by_e = {
+        str(k).strip(): y_label_from_ground_truth(v)
+        for k, v in (labels_by_entity or {}).items()
+        if str(k).strip() and y_label_from_ground_truth(v)
+    }
+    return by_t, by_e
+
+
+async def _reliability_bins_payload(
+    *,
+    request: Request,
+    tenant_id: str,
+    limit: int,
+    n_bins: int,
+    session: AsyncSession,
+    labels_by_trace: dict[str, str] | None = None,
+    labels_by_entity: dict[str, str] | None = None,
+    allow_proxy_labels: bool = False,
+    persist_incoming: bool = False,
+) -> dict[str, Any]:
+    _enforce_tenant(request, tenant_id)
+    rows = await _load_audit_export_rows(session, tenant_id=tenant_id, limit=limit)
+    export_rows = [audit_row_to_export_dict(r) for r in rows]
+    by_t, by_e = _normalize_label_maps(labels_by_trace or {}, labels_by_entity or {})
+    store_meta: dict[str, Any] | None = None
+    if persist_incoming and (by_t or by_e):
+        store_meta = merge_y_labels(tenant_id, by_trace=by_t, by_entity=by_e)
+        by_t = dict(store_meta["by_trace"])
+        by_e = dict(store_meta["by_entity"])
+    else:
+        stored = load_y_labels(tenant_id)
+        # Incoming maps win over store for this request; store fills gaps.
+        merged_t = {**stored["by_trace"], **by_t}
+        merged_e = {**stored["by_entity"], **by_e}
+        by_t, by_e = merged_t, merged_e
+    join_meta = apply_y_labels(export_rows, by_t, labels_by_entity=by_e)
+    try:
+        payload = reliability_bins(
+            export_rows, n_bins=n_bins, use_proxy_labels=allow_proxy_labels
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    posture = label_coverage_posture(
+        label_coverage=float(payload.get("label_coverage") or 0.0),
+        proxy_only=payload.get("label_source") == "proxy_from_decision",
+    )
+    payload["tenant_id"] = tenant_id
+    payload["rows_scanned"] = len(export_rows)
+    payload["csv_fields"] = list(RELIABILITY_CSV_FIELDS)
+    payload["join"] = join_meta
+    payload["posture"] = posture
+    payload["stored_labels"] = {
+        "trace_labels": len(by_t),
+        "entity_labels": len(by_e),
+        **({"persist": store_meta} if store_meta else {}),
+    }
+    return payload
+
+
 @router.get("/reliability-bins")
 async def reliability_export_bins(
+    request: Request,
+    tenant_id: str = Query(..., max_length=128),
+    limit: int = Query(10_000, ge=1, le=_EXPORT_MAX),
+    n_bins: int = Query(10, ge=2, le=50),
+    allow_proxy_labels: bool = Query(False, description="Opt-in proxy labels (not ground truth)"),
+    session: AsyncSession = Depends(get_session),
+    _user=Depends(require_role("analyst")),
+) -> dict[str, Any]:
+    """Reliability bins joined with durable y_labels; proxy labels off by default."""
+    return await _reliability_bins_payload(
+        request=request,
+        tenant_id=tenant_id,
+        limit=limit,
+        n_bins=n_bins,
+        session=session,
+        allow_proxy_labels=allow_proxy_labels,
+        persist_incoming=False,
+    )
+
+
+@router.post("/reliability-bins")
+async def reliability_export_bins_with_labels(
+    body: ReliabilityBinsBody,
     request: Request,
     tenant_id: str = Query(..., max_length=128),
     limit: int = Query(10_000, ge=1, le=_EXPORT_MAX),
@@ -335,15 +445,141 @@ async def reliability_export_bins(
     session: AsyncSession = Depends(get_session),
     _user=Depends(require_role("analyst")),
 ) -> dict[str, Any]:
-    """Equal-width reliability bins from recent audit rows (proxy labels unless y_label filled)."""
+    """Join dispositions into y_label, optionally persist, refuse proxy-as-healthy by default."""
+    return await _reliability_bins_payload(
+        request=request,
+        tenant_id=tenant_id,
+        limit=limit,
+        n_bins=n_bins,
+        session=session,
+        labels_by_trace=body.labels_by_trace,
+        labels_by_entity=body.labels_by_entity,
+        allow_proxy_labels=body.allow_proxy_labels,
+        persist_incoming=body.persist_labels,
+    )
+
+
+@router.post("/rule-precision-after-labels")
+async def rule_precision_after_labels_endpoint(
+    body: ReliabilityBinsBody,
+    request: Request,
+    tenant_id: str = Query(..., max_length=128),
+    limit: int = Query(10_000, ge=1, le=_EXPORT_MAX),
+    min_labeled_hits: int = Query(5, ge=1, le=1000),
+    session: AsyncSession = Depends(get_session),
+    _user=Depends(require_role("analyst")),
+) -> dict[str, Any]:
+    """Per-rule precision/FP after joining dispositions into y_label (bridge C3)."""
     _enforce_tenant(request, tenant_id)
     rows = await _load_audit_export_rows(session, tenant_id=tenant_id, limit=limit)
     export_rows = [audit_row_to_export_dict(r) for r in rows]
-    try:
-        payload = reliability_bins(export_rows, n_bins=n_bins, use_proxy_labels=True)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+    for i, raw in enumerate(rows):
+        export_rows[i]["rule_hits"] = list(raw.get("rule_hits") or [])
+        export_rows[i]["decision"] = str(raw.get("decision") or "")
+    by_t, by_e = _normalize_label_maps(body.labels_by_trace, body.labels_by_entity)
+    if body.persist_labels and (by_t or by_e):
+        store_meta = merge_y_labels(tenant_id, by_trace=by_t, by_entity=by_e)
+        by_t = dict(store_meta["by_trace"])
+        by_e = dict(store_meta["by_entity"])
+    else:
+        stored = load_y_labels(tenant_id)
+        by_t = {**stored["by_trace"], **by_t}
+        by_e = {**stored["by_entity"], **by_e}
+    join_meta = apply_y_labels(export_rows, by_t, labels_by_entity=by_e)
+    payload = rule_precision_after_labels(
+        export_rows, min_labeled_hits=min_labeled_hits
+    )
     payload["tenant_id"] = tenant_id
-    payload["rows_scanned"] = len(export_rows)
-    payload["csv_fields"] = list(RELIABILITY_CSV_FIELDS)
+    payload["join"] = join_meta
     return payload
+
+
+class ChallengeDispatchBody(BaseModel):
+    tenant_id: str = Field(min_length=1, max_length=128)
+    trace_id: str = Field(min_length=1, max_length=128)
+    entity_id: str = Field(min_length=1, max_length=512)
+    decision: str = Field(default="review", max_length=64)
+    recommended_action: str = Field(min_length=1, max_length=128)
+    challenge_metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+@router.post("/challenge/dispatch")
+async def dispatch_challenge_from_desk(
+    body: ChallengeDispatchBody,
+    request: Request,
+    _user=Depends(require_role("analyst")),
+) -> dict[str, Any]:
+    """Desk-executable step-up: fire tenant challenge webhook for recommended_action."""
+    _enforce_tenant(request, body.tenant_id)
+    from decision_api.challenge_orchestrator import (
+        challenge_webhook_configured,
+        maybe_dispatch_challenge_webhook,
+    )
+    from decision_api.enforcement import is_step_up_recommended
+
+    if not is_step_up_recommended(body.recommended_action):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "reason_code": "NOT_STEP_UP_ACTION",
+                "message": f"recommended_action {body.recommended_action!r} is not a challenge class",
+            },
+        )
+    if not challenge_webhook_configured():
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "reason_code": "CHALLENGE_WEBHOOK_UNCONFIGURED",
+                "message": "Set TARKA_CHALLENGE_WEBHOOK_URL to enable desk challenge dispatch",
+            },
+        )
+    async with httpx.AsyncClient() as http:
+        result = await maybe_dispatch_challenge_webhook(
+            http=http,
+            trace_id=body.trace_id,
+            tenant_id=body.tenant_id,
+            entity_id=body.entity_id,
+            decision=body.decision,
+            recommended_action=body.recommended_action,
+            challenge_metadata=body.challenge_metadata,
+        )
+    return {
+        "schema_id": "tarka.challenge_dispatch/v1",
+        "ok": bool(result and result.get("ok")),
+        "delivery": result,
+    }
+
+
+@router.get("/shadow-promote-gate")
+async def shadow_promote_gate(
+    _user=Depends(require_role("analyst")),
+) -> dict[str, Any]:
+    """Desk-facing promote-gate posture (no warehouse). Fraud Ops 4.2."""
+    from decision_api.vertical_packs import evaluate_kill_criteria, get_vertical_pack
+
+    pack = get_vertical_pack("fintech") or {}
+    criteria = pack.get("kill_criteria") or {}
+    blocked = evaluate_kill_criteria(
+        {"precision": 0.01, "recall": 0.01, "false_positive_rate": 0.5},
+        criteria,
+        events_evaluated=5,
+    )
+    allowed = evaluate_kill_criteria(
+        {
+            "precision": float(criteria.get("min_precision", 0.5)) + 0.2,
+            "recall": float(criteria.get("min_recall", 0.5)) + 0.2,
+            "false_positive_rate": max(
+                0.0, float(criteria.get("max_false_positive_rate", 0.2)) - 0.05
+            ),
+        },
+        criteria,
+        events_evaluated=int(criteria.get("min_events", 100)) + 50,
+    )
+    return {
+        "schema_id": "tarka.shadow_promote_gate/v1",
+        "vertical": "fintech",
+        "blocked": blocked,
+        "allowed": allowed,
+        "recipe_path": "scripts/oss/shadow_vs_primary_diff_recipe.sql",
+        "smoke": "scripts/oss/shadow_promote_gate_smoke.py",
+    }

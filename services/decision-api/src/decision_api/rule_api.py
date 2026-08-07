@@ -19,7 +19,11 @@ from decision_api.shadow import (
     get_observations,
     load_shadow_rules,
 )
-from decision_api.vertical_packs import get_vertical_pack, list_vertical_packs
+from decision_api.vertical_packs import (
+    evaluate_kill_criteria,
+    get_vertical_pack,
+    list_vertical_packs,
+)
 
 """REST API for rule CRUD — serves the visual rule builder."""
 router = APIRouter(prefix="/v1/rules", tags=["rules"])
@@ -60,6 +64,14 @@ class RulePackIn(BaseModel):
     canary_percent: float | None = Field(default=None, ge=0, le=100)
     effective_at: str | None = Field(default=None, max_length=64)
     approved_by: str | None = Field(default=None, max_length=256)
+
+
+class PromoteVerticalPackBody(BaseModel):
+    precision: float = Field(ge=0, le=1)
+    recall: float = Field(ge=0, le=1)
+    f1_score: float = Field(default=0.0, ge=0, le=1)
+    false_positive_rate: float | None = Field(default=None, ge=0, le=1)
+    events_evaluated: int = Field(ge=0)
 
 
 def _rules_dir() -> Path:
@@ -191,16 +203,11 @@ async def list_vertical_pack_catalog():
     return {"vertical_packs": list_vertical_packs()}
 
 
-@router.post("/vertical-packs/{vertical_name}/install", status_code=201)
-async def install_vertical_pack(
+def _install_vertical_pack_core(
     vertical_name: str,
-    overwrite: bool = False,
-    x_actor: str | None = Header(default=None, alias="X-Actor"),
-    x_rule_governance_secret: str | None = Header(
-        default=None, alias="X-Rule-Governance-Secret"
-    ),
-):
-    _require_rule_governance(x_rule_governance_secret)
+    *,
+    overwrite: bool,
+) -> dict[str, Any]:
     pack = get_vertical_pack(vertical_name)
     if not pack:
         raise HTTPException(404, f"unknown vertical pack '{vertical_name}'")
@@ -229,16 +236,121 @@ async def install_vertical_pack(
     fpath = existing_path or _new_pack_path("vertical")
     fpath.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     load_rules()
-    _append_rule_change(
-        "install_vertical",
-        fpath.name,
-        actor=_actor_from_headers(x_actor),
-        detail={"vertical": vertical_name.lower(), "overwrite": overwrite},
-    )
     return {
         "installed": fpath.name,
         "vertical": vertical_name.lower(),
         "rules": len(pack.get("rules", [])),
+        "pack": pack,
+    }
+
+
+def _kill_gate_for_vertical(
+    vertical_name: str, body: PromoteVerticalPackBody
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Return (pack, gate). Raises 404 if unknown; caller enforces promote_allowed."""
+    pack = get_vertical_pack(vertical_name)
+    if not pack:
+        raise HTTPException(404, f"unknown vertical pack '{vertical_name}'")
+    metrics: dict[str, Any] = {
+        "precision": body.precision,
+        "recall": body.recall,
+        "f1_score": body.f1_score,
+    }
+    if body.false_positive_rate is not None:
+        metrics["false_positive_rate"] = body.false_positive_rate
+    gate = evaluate_kill_criteria(
+        metrics,
+        pack.get("kill_criteria"),
+        events_evaluated=body.events_evaluated,
+    )
+    gate = {**gate, "metrics": metrics}
+    return pack, gate
+
+
+@router.post("/vertical-packs/{vertical_name}/install", status_code=201)
+async def install_vertical_pack(
+    vertical_name: str,
+    body: PromoteVerticalPackBody,
+    overwrite: bool = False,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
+):
+    """Install pack only when kill_criteria pass (same bar as promote — S5)."""
+    _require_rule_governance(x_rule_governance_secret)
+    _pack, gate = _kill_gate_for_vertical(vertical_name, body)
+    if not gate["promote_allowed"]:
+        raise HTTPException(
+            409,
+            detail={"blockers": gate["blockers"], "promote_gate": gate},
+        )
+    result = _install_vertical_pack_core(
+        vertical_name,
+        overwrite=overwrite,
+    )
+    _append_rule_change(
+        "install_vertical",
+        result["installed"],
+        actor=_actor_from_headers(x_actor),
+        detail={
+            "vertical": vertical_name.lower(),
+            "overwrite": overwrite,
+            "events_evaluated": body.events_evaluated,
+            "metrics": gate.get("metrics"),
+            "promote_gate": {k: v for k, v in gate.items() if k != "metrics"},
+        },
+    )
+    return {
+        "installed": result["installed"],
+        "vertical": result["vertical"],
+        "rules": result["rules"],
+        "promote_gate": {k: v for k, v in gate.items() if k != "metrics"},
+    }
+
+
+@router.post("/vertical-packs/{vertical_name}/promote", status_code=201)
+async def promote_vertical_pack(
+    vertical_name: str,
+    body: PromoteVerticalPackBody,
+    overwrite: bool = False,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
+):
+    _require_rule_governance(x_rule_governance_secret)
+    _pack, gate = _kill_gate_for_vertical(vertical_name, body)
+    if not gate["promote_allowed"]:
+        raise HTTPException(
+            409,
+            detail={"blockers": gate["blockers"], "promote_gate": gate},
+        )
+    actor = _actor_from_headers(x_actor)
+    metrics = gate.get("metrics") or {}
+    result = _install_vertical_pack_core(
+        vertical_name,
+        overwrite=overwrite,
+    )
+    gate_public = {k: v for k, v in gate.items() if k != "metrics"}
+    _append_rule_change(
+        "promote_vertical",
+        result["installed"],
+        actor=actor,
+        detail={
+            "vertical": vertical_name.lower(),
+            "overwrite": overwrite,
+            "events_evaluated": body.events_evaluated,
+            "metrics": metrics,
+            "promote_gate": gate_public,
+        },
+    )
+    return {
+        "installed": result["installed"],
+        "vertical": result["vertical"],
+        "rules": result["rules"],
+        "promoted": True,
+        "promote_gate": gate_public,
     }
 
 

@@ -1,0 +1,17 @@
+{
+  "schema_id": "tarka.partner_fusion_fixture/v1",
+  "signals": [
+    {
+      "vendor_id": "fingerprint",
+      "score_0_100": 71.0,
+      "reason_codes": ["bot", "vpn"],
+      "raw_meta": {"visitor_id": "vis-fixture-1", "request_id": "req-fixture-1"}
+    },
+    {
+      "vendor_id": "incognia",
+      "score_0_100": 44.0,
+      "reason_codes": ["new_device"],
+      "raw_meta": {"place_id": "place-fixture-9", "account_id": "acc-fixture-1"}
+    }
+  ]
+}

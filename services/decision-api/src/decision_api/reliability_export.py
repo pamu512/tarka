@@ -196,16 +196,21 @@ def reliability_bins(
         b["mean_score"] = round(sums[i] / n, 4)
         b["positive_rate"] = round(int(b["n_positive"]) / n, 4)
 
+    y_true = labeled - proxy_used
+    coverage = (y_true / labeled) if labeled else 0.0
+    label_source = (
+        "proxy_from_decision"
+        if proxy_used and proxy_used == labeled
+        else ("mixed" if proxy_used else "y_label")
+    )
     return {
         "schema_id": "tarka.reliability_bins/v1",
         "n_bins": n_bins,
         "labeled_rows": labeled,
         "proxy_label_rows": proxy_used,
-        "label_source": (
-            "proxy_from_decision"
-            if proxy_used and proxy_used == labeled
-            else ("mixed" if proxy_used else "y_label")
-        ),
+        "y_label_rows": y_true,
+        "label_coverage": round(coverage, 4),
+        "label_source": label_source,
         "caveat": (
             "proxy_label_from_decision is not ground truth; join case dispositions "
             "into y_label for true reliability diagrams."

@@ -1,0 +1,726 @@
+{
+  "schema_id": "tarka.calibration_retrain_labels/v1",
+  "note": "Fixture chronological labels for CI ECE gate (not production L3).",
+  "rows": [
+    {
+      "created_at": "2026-01-01T00:00:00+00:00",
+      "integrity_confidence": 0.14,
+      "y_label": "0",
+      "trace_id": "cal-fix-0000"
+    },
+    {
+      "created_at": "2026-01-01T01:00:00+00:00",
+      "integrity_confidence": 0.8,
+      "y_label": "1",
+      "trace_id": "cal-fix-0001"
+    },
+    {
+      "created_at": "2026-01-01T02:00:00+00:00",
+      "integrity_confidence": 0.18,
+      "y_label": "0",
+      "trace_id": "cal-fix-0002"
+    },
+    {
+      "created_at": "2026-01-01T03:00:00+00:00",
+      "integrity_confidence": 0.84,
+      "y_label": "1",
+      "trace_id": "cal-fix-0003"
+    },
+    {
+      "created_at": "2026-01-01T04:00:00+00:00",
+      "integrity_confidence": 0.22,
+      "y_label": "0",
+      "trace_id": "cal-fix-0004"
+    },
+    {
+      "created_at": "2026-01-01T05:00:00+00:00",
+      "integrity_confidence": 0.78,
+      "y_label": "1",
+      "trace_id": "cal-fix-0005"
+    },
+    {
+      "created_at": "2026-01-01T06:00:00+00:00",
+      "integrity_confidence": 0.16,
+      "y_label": "0",
+      "trace_id": "cal-fix-0006"
+    },
+    {
+      "created_at": "2026-01-01T07:00:00+00:00",
+      "integrity_confidence": 0.82,
+      "y_label": "1",
+      "trace_id": "cal-fix-0007"
+    },
+    {
+      "created_at": "2026-01-01T08:00:00+00:00",
+      "integrity_confidence": 0.2,
+      "y_label": "0",
+      "trace_id": "cal-fix-0008"
+    },
+    {
+      "created_at": "2026-01-01T09:00:00+00:00",
+      "integrity_confidence": 0.86,
+      "y_label": "1",
+      "trace_id": "cal-fix-0009"
+    },
+    {
+      "created_at": "2026-01-01T10:00:00+00:00",
+      "integrity_confidence": 0.14,
+      "y_label": "0",
+      "trace_id": "cal-fix-0010"
+    },
+    {
+      "created_at": "2026-01-01T11:00:00+00:00",
+      "integrity_confidence": 0.8,
+      "y_label": "1",
+      "trace_id": "cal-fix-0011"
+    },
+    {
+      "created_at": "2026-01-01T12:00:00+00:00",
+      "integrity_confidence": 0.18,
+      "y_label": "0",
+      "trace_id": "cal-fix-0012"
+    },
+    {
+      "created_at": "2026-01-01T13:00:00+00:00",
+      "integrity_confidence": 0.84,
+      "y_label": "1",
+      "trace_id": "cal-fix-0013"
+    },
+    {
+      "created_at": "2026-01-01T14:00:00+00:00",
+      "integrity_confidence": 0.22,
+      "y_label": "0",
+      "trace_id": "cal-fix-0014"
+    },
+    {
+      "created_at": "2026-01-01T15:00:00+00:00",
+      "integrity_confidence": 0.78,
+      "y_label": "1",
+      "trace_id": "cal-fix-0015"
+    },
+    {
+      "created_at": "2026-01-01T16:00:00+00:00",
+      "integrity_confidence": 0.16,
+      "y_label": "0",
+      "trace_id": "cal-fix-0016"
+    },
+    {
+      "created_at": "2026-01-01T17:00:00+00:00",
+      "integrity_confidence": 0.82,
+      "y_label": "1",
+      "trace_id": "cal-fix-0017"
+    },
+    {
+      "created_at": "2026-01-01T18:00:00+00:00",
+      "integrity_confidence": 0.2,
+      "y_label": "0",
+      "trace_id": "cal-fix-0018"
+    },
+    {
+      "created_at": "2026-01-01T19:00:00+00:00",
+      "integrity_confidence": 0.86,
+      "y_label": "1",
+      "trace_id": "cal-fix-0019"
+    },
+    {
+      "created_at": "2026-01-01T20:00:00+00:00",
+      "integrity_confidence": 0.14,
+      "y_label": "0",
+      "trace_id": "cal-fix-0020"
+    },
+    {
+      "created_at": "2026-01-01T21:00:00+00:00",
+      "integrity_confidence": 0.8,
+      "y_label": "1",
+      "trace_id": "cal-fix-0021"
+    },
+    {
+      "created_at": "2026-01-01T22:00:00+00:00",
+      "integrity_confidence": 0.18,
+      "y_label": "0",
+      "trace_id": "cal-fix-0022"
+    },
+    {
+      "created_at": "2026-01-01T23:00:00+00:00",
+      "integrity_confidence": 0.84,
+      "y_label": "1",
+      "trace_id": "cal-fix-0023"
+    },
+    {
+      "created_at": "2026-01-02T00:00:00+00:00",
+      "integrity_confidence": 0.22,
+      "y_label": "0",
+      "trace_id": "cal-fix-0024"
+    },
+    {
+      "created_at": "2026-01-02T01:00:00+00:00",
+      "integrity_confidence": 0.78,
+      "y_label": "1",
+      "trace_id": "cal-fix-0025"
+    },
+    {
+      "created_at": "2026-01-02T02:00:00+00:00",
+      "integrity_confidence": 0.16,
+      "y_label": "0",
+      "trace_id": "cal-fix-0026"
+    },
+    {
+      "created_at": "2026-01-02T03:00:00+00:00",
+      "integrity_confidence": 0.82,
+      "y_label": "1",
+      "trace_id": "cal-fix-0027"
+    },
+    {
+      "created_at": "2026-01-02T04:00:00+00:00",
+      "integrity_confidence": 0.2,
+      "y_label": "0",
+      "trace_id": "cal-fix-0028"
+    },
+    {
+      "created_at": "2026-01-02T05:00:00+00:00",
+      "integrity_confidence": 0.86,
+      "y_label": "1",
+      "trace_id": "cal-fix-0029"
+    },
+    {
+      "created_at": "2026-01-02T06:00:00+00:00",
+      "integrity_confidence": 0.14,
+      "y_label": "0",
+      "trace_id": "cal-fix-0030"
+    },
+    {
+      "created_at": "2026-01-02T07:00:00+00:00",
+      "integrity_confidence": 0.8,
+      "y_label": "1",
+      "trace_id": "cal-fix-0031"
+    },
+    {
+      "created_at": "2026-01-02T08:00:00+00:00",
+      "integrity_confidence": 0.18,
+      "y_label": "0",
+      "trace_id": "cal-fix-0032"
+    },
+    {
+      "created_at": "2026-01-02T09:00:00+00:00",
+      "integrity_confidence": 0.84,
+      "y_label": "1",
+      "trace_id": "cal-fix-0033"
+    },
+    {
+      "created_at": "2026-01-02T10:00:00+00:00",
+      "integrity_confidence": 0.22,
+      "y_label": "0",
+      "trace_id": "cal-fix-0034"
+    },
+    {
+      "created_at": "2026-01-02T11:00:00+00:00",
+      "integrity_confidence": 0.78,
+      "y_label": "1",
+      "trace_id": "cal-fix-0035"
+    },
+    {
+      "created_at": "2026-01-02T12:00:00+00:00",
+      "integrity_confidence": 0.16,
+      "y_label": "0",
+      "trace_id": "cal-fix-0036"
+    },
+    {
+      "created_at": "2026-01-02T13:00:00+00:00",
+      "integrity_confidence": 0.82,
+      "y_label": "1",
+      "trace_id": "cal-fix-0037"
+    },
+    {
+      "created_at": "2026-01-02T14:00:00+00:00",
+      "integrity_confidence": 0.2,
+      "y_label": "0",
+      "trace_id": "cal-fix-0038"
+    },
+    {
+      "created_at": "2026-01-02T15:00:00+00:00",
+      "integrity_confidence": 0.86,
+      "y_label": "1",
+      "trace_id": "cal-fix-0039"
+    },
+    {
+      "created_at": "2026-01-02T16:00:00+00:00",
+      "integrity_confidence": 0.14,
+      "y_label": "0",
+      "trace_id": "cal-fix-0040"
+    },
+    {
+      "created_at": "2026-01-02T17:00:00+00:00",
+      "integrity_confidence": 0.8,
+      "y_label": "1",
+      "trace_id": "cal-fix-0041"
+    },
+    {
+      "created_at": "2026-01-02T18:00:00+00:00",
+      "integrity_confidence": 0.18,
+      "y_label": "0",
+      "trace_id": "cal-fix-0042"
+    },
+    {
+      "created_at": "2026-01-02T19:00:00+00:00",
+      "integrity_confidence": 0.84,
+      "y_label": "1",
+      "trace_id": "cal-fix-0043"
+    },
+    {
+      "created_at": "2026-01-02T20:00:00+00:00",
+      "integrity_confidence": 0.22,
+      "y_label": "0",
+      "trace_id": "cal-fix-0044"
+    },
+    {
+      "created_at": "2026-01-02T21:00:00+00:00",
+      "integrity_confidence": 0.78,
+      "y_label": "1",
+      "trace_id": "cal-fix-0045"
+    },
+    {
+      "created_at": "2026-01-02T22:00:00+00:00",
+      "integrity_confidence": 0.16,
+      "y_label": "0",
+      "trace_id": "cal-fix-0046"
+    },
+    {
+      "created_at": "2026-01-02T23:00:00+00:00",
+      "integrity_confidence": 0.82,
+      "y_label": "1",
+      "trace_id": "cal-fix-0047"
+    },
+    {
+      "created_at": "2026-01-03T00:00:00+00:00",
+      "integrity_confidence": 0.2,
+      "y_label": "0",
+      "trace_id": "cal-fix-0048"
+    },
+    {
+      "created_at": "2026-01-03T01:00:00+00:00",
+      "integrity_confidence": 0.86,
+      "y_label": "1",
+      "trace_id": "cal-fix-0049"
+    },
+    {
+      "created_at": "2026-01-03T02:00:00+00:00",
+      "integrity_confidence": 0.14,
+      "y_label": "0",
+      "trace_id": "cal-fix-0050"
+    },
+    {
+      "created_at": "2026-01-03T03:00:00+00:00",
+      "integrity_confidence": 0.8,
+      "y_label": "1",
+      "trace_id": "cal-fix-0051"
+    },
+    {
+      "created_at": "2026-01-03T04:00:00+00:00",
+      "integrity_confidence": 0.18,
+      "y_label": "0",
+      "trace_id": "cal-fix-0052"
+    },
+    {
+      "created_at": "2026-01-03T05:00:00+00:00",
+      "integrity_confidence": 0.84,
+      "y_label": "1",
+      "trace_id": "cal-fix-0053"
+    },
+    {
+      "created_at": "2026-01-03T06:00:00+00:00",
+      "integrity_confidence": 0.22,
+      "y_label": "0",
+      "trace_id": "cal-fix-0054"
+    },
+    {
+      "created_at": "2026-01-03T07:00:00+00:00",
+      "integrity_confidence": 0.78,
+      "y_label": "1",
+      "trace_id": "cal-fix-0055"
+    },
+    {
+      "created_at": "2026-01-03T08:00:00+00:00",
+      "integrity_confidence": 0.16,
+      "y_label": "0",
+      "trace_id": "cal-fix-0056"
+    },
+    {
+      "created_at": "2026-01-03T09:00:00+00:00",
+      "integrity_confidence": 0.82,
+      "y_label": "1",
+      "trace_id": "cal-fix-0057"
+    },
+    {
+      "created_at": "2026-01-03T10:00:00+00:00",
+      "integrity_confidence": 0.2,
+      "y_label": "0",
+      "trace_id": "cal-fix-0058"
+    },
+    {
+      "created_at": "2026-01-03T11:00:00+00:00",
+      "integrity_confidence": 0.86,
+      "y_label": "1",
+      "trace_id": "cal-fix-0059"
+    },
+    {
+      "created_at": "2026-01-03T12:00:00+00:00",
+      "integrity_confidence": 0.14,
+      "y_label": "0",
+      "trace_id": "cal-fix-0060"
+    },
+    {
+      "created_at": "2026-01-03T13:00:00+00:00",
+      "integrity_confidence": 0.8,
+      "y_label": "1",
+      "trace_id": "cal-fix-0061"
+    },
+    {
+      "created_at": "2026-01-03T14:00:00+00:00",
+      "integrity_confidence": 0.18,
+      "y_label": "0",
+      "trace_id": "cal-fix-0062"
+    },
+    {
+      "created_at": "2026-01-03T15:00:00+00:00",
+      "integrity_confidence": 0.84,
+      "y_label": "1",
+      "trace_id": "cal-fix-0063"
+    },
+    {
+      "created_at": "2026-01-03T16:00:00+00:00",
+      "integrity_confidence": 0.22,
+      "y_label": "0",
+      "trace_id": "cal-fix-0064"
+    },
+    {
+      "created_at": "2026-01-03T17:00:00+00:00",
+      "integrity_confidence": 0.78,
+      "y_label": "1",
+      "trace_id": "cal-fix-0065"
+    },
+    {
+      "created_at": "2026-01-03T18:00:00+00:00",
+      "integrity_confidence": 0.16,
+      "y_label": "0",
+      "trace_id": "cal-fix-0066"
+    },
+    {
+      "created_at": "2026-01-03T19:00:00+00:00",
+      "integrity_confidence": 0.82,
+      "y_label": "1",
+      "trace_id": "cal-fix-0067"
+    },
+    {
+      "created_at": "2026-01-03T20:00:00+00:00",
+      "integrity_confidence": 0.2,
+      "y_label": "0",
+      "trace_id": "cal-fix-0068"
+    },
+    {
+      "created_at": "2026-01-03T21:00:00+00:00",
+      "integrity_confidence": 0.86,
+      "y_label": "1",
+      "trace_id": "cal-fix-0069"
+    },
+    {
+      "created_at": "2026-01-03T22:00:00+00:00",
+      "integrity_confidence": 0.14,
+      "y_label": "0",
+      "trace_id": "cal-fix-0070"
+    },
+    {
+      "created_at": "2026-01-03T23:00:00+00:00",
+      "integrity_confidence": 0.8,
+      "y_label": "1",
+      "trace_id": "cal-fix-0071"
+    },
+    {
+      "created_at": "2026-01-04T00:00:00+00:00",
+      "integrity_confidence": 0.18,
+      "y_label": "0",
+      "trace_id": "cal-fix-0072"
+    },
+    {
+      "created_at": "2026-01-04T01:00:00+00:00",
+      "integrity_confidence": 0.84,
+      "y_label": "1",
+      "trace_id": "cal-fix-0073"
+    },
+    {
+      "created_at": "2026-01-04T02:00:00+00:00",
+      "integrity_confidence": 0.22,
+      "y_label": "0",
+      "trace_id": "cal-fix-0074"
+    },
+    {
+      "created_at": "2026-01-04T03:00:00+00:00",
+      "integrity_confidence": 0.78,
+      "y_label": "1",
+      "trace_id": "cal-fix-0075"
+    },
+    {
+      "created_at": "2026-01-04T04:00:00+00:00",
+      "integrity_confidence": 0.16,
+      "y_label": "0",
+      "trace_id": "cal-fix-0076"
+    },
+    {
+      "created_at": "2026-01-04T05:00:00+00:00",
+      "integrity_confidence": 0.82,
+      "y_label": "1",
+      "trace_id": "cal-fix-0077"
+    },
+    {
+      "created_at": "2026-01-04T06:00:00+00:00",
+      "integrity_confidence": 0.2,
+      "y_label": "0",
+      "trace_id": "cal-fix-0078"
+    },
+    {
+      "created_at": "2026-01-04T07:00:00+00:00",
+      "integrity_confidence": 0.86,
+      "y_label": "1",
+      "trace_id": "cal-fix-0079"
+    },
+    {
+      "created_at": "2026-01-04T08:00:00+00:00",
+      "integrity_confidence": 0.14,
+      "y_label": "0",
+      "trace_id": "cal-fix-0080"
+    },
+    {
+      "created_at": "2026-01-04T09:00:00+00:00",
+      "integrity_confidence": 0.8,
+      "y_label": "1",
+      "trace_id": "cal-fix-0081"
+    },
+    {
+      "created_at": "2026-01-04T10:00:00+00:00",
+      "integrity_confidence": 0.18,
+      "y_label": "0",
+      "trace_id": "cal-fix-0082"
+    },
+    {
+      "created_at": "2026-01-04T11:00:00+00:00",
+      "integrity_confidence": 0.84,
+      "y_label": "1",
+      "trace_id": "cal-fix-0083"
+    },
+    {
+      "created_at": "2026-01-04T12:00:00+00:00",
+      "integrity_confidence": 0.22,
+      "y_label": "0",
+      "trace_id": "cal-fix-0084"
+    },
+    {
+      "created_at": "2026-01-04T13:00:00+00:00",
+      "integrity_confidence": 0.78,
+      "y_label": "1",
+      "trace_id": "cal-fix-0085"
+    },
+    {
+      "created_at": "2026-01-04T14:00:00+00:00",
+      "integrity_confidence": 0.16,
+      "y_label": "0",
+      "trace_id": "cal-fix-0086"
+    },
+    {
+      "created_at": "2026-01-04T15:00:00+00:00",
+      "integrity_confidence": 0.82,
+      "y_label": "1",
+      "trace_id": "cal-fix-0087"
+    },
+    {
+      "created_at": "2026-01-04T16:00:00+00:00",
+      "integrity_confidence": 0.2,
+      "y_label": "0",
+      "trace_id": "cal-fix-0088"
+    },
+    {
+      "created_at": "2026-01-04T17:00:00+00:00",
+      "integrity_confidence": 0.86,
+      "y_label": "1",
+      "trace_id": "cal-fix-0089"
+    },
+    {
+      "created_at": "2026-01-04T18:00:00+00:00",
+      "integrity_confidence": 0.14,
+      "y_label": "0",
+      "trace_id": "cal-fix-0090"
+    },
+    {
+      "created_at": "2026-01-04T19:00:00+00:00",
+      "integrity_confidence": 0.8,
+      "y_label": "1",
+      "trace_id": "cal-fix-0091"
+    },
+    {
+      "created_at": "2026-01-04T20:00:00+00:00",
+      "integrity_confidence": 0.18,
+      "y_label": "0",
+      "trace_id": "cal-fix-0092"
+    },
+    {
+      "created_at": "2026-01-04T21:00:00+00:00",
+      "integrity_confidence": 0.84,
+      "y_label": "1",
+      "trace_id": "cal-fix-0093"
+    },
+    {
+      "created_at": "2026-01-04T22:00:00+00:00",
+      "integrity_confidence": 0.22,
+      "y_label": "0",
+      "trace_id": "cal-fix-0094"
+    },
+    {
+      "created_at": "2026-01-04T23:00:00+00:00",
+      "integrity_confidence": 0.78,
+      "y_label": "1",
+      "trace_id": "cal-fix-0095"
+    },
+    {
+      "created_at": "2026-01-05T00:00:00+00:00",
+      "integrity_confidence": 0.16,
+      "y_label": "0",
+      "trace_id": "cal-fix-0096"
+    },
+    {
+      "created_at": "2026-01-05T01:00:00+00:00",
+      "integrity_confidence": 0.82,
+      "y_label": "1",
+      "trace_id": "cal-fix-0097"
+    },
+    {
+      "created_at": "2026-01-05T02:00:00+00:00",
+      "integrity_confidence": 0.2,
+      "y_label": "0",
+      "trace_id": "cal-fix-0098"
+    },
+    {
+      "created_at": "2026-01-05T03:00:00+00:00",
+      "integrity_confidence": 0.86,
+      "y_label": "1",
+      "trace_id": "cal-fix-0099"
+    },
+    {
+      "created_at": "2026-01-05T04:00:00+00:00",
+      "integrity_confidence": 0.14,
+      "y_label": "0",
+      "trace_id": "cal-fix-0100"
+    },
+    {
+      "created_at": "2026-01-05T05:00:00+00:00",
+      "integrity_confidence": 0.8,
+      "y_label": "1",
+      "trace_id": "cal-fix-0101"
+    },
+    {
+      "created_at": "2026-01-05T06:00:00+00:00",
+      "integrity_confidence": 0.18,
+      "y_label": "0",
+      "trace_id": "cal-fix-0102"
+    },
+    {
+      "created_at": "2026-01-05T07:00:00+00:00",
+      "integrity_confidence": 0.84,
+      "y_label": "1",
+      "trace_id": "cal-fix-0103"
+    },
+    {
+      "created_at": "2026-01-05T08:00:00+00:00",
+      "integrity_confidence": 0.22,
+      "y_label": "0",
+      "trace_id": "cal-fix-0104"
+    },
+    {
+      "created_at": "2026-01-05T09:00:00+00:00",
+      "integrity_confidence": 0.78,
+      "y_label": "1",
+      "trace_id": "cal-fix-0105"
+    },
+    {
+      "created_at": "2026-01-05T10:00:00+00:00",
+      "integrity_confidence": 0.16,
+      "y_label": "0",
+      "trace_id": "cal-fix-0106"
+    },
+    {
+      "created_at": "2026-01-05T11:00:00+00:00",
+      "integrity_confidence": 0.82,
+      "y_label": "1",
+      "trace_id": "cal-fix-0107"
+    },
+    {
+      "created_at": "2026-01-05T12:00:00+00:00",
+      "integrity_confidence": 0.2,
+      "y_label": "0",
+      "trace_id": "cal-fix-0108"
+    },
+    {
+      "created_at": "2026-01-05T13:00:00+00:00",
+      "integrity_confidence": 0.86,
+      "y_label": "1",
+      "trace_id": "cal-fix-0109"
+    },
+    {
+      "created_at": "2026-01-05T14:00:00+00:00",
+      "integrity_confidence": 0.14,
+      "y_label": "0",
+      "trace_id": "cal-fix-0110"
+    },
+    {
+      "created_at": "2026-01-05T15:00:00+00:00",
+      "integrity_confidence": 0.8,
+      "y_label": "1",
+      "trace_id": "cal-fix-0111"
+    },
+    {
+      "created_at": "2026-01-05T16:00:00+00:00",
+      "integrity_confidence": 0.18,
+      "y_label": "0",
+      "trace_id": "cal-fix-0112"
+    },
+    {
+      "created_at": "2026-01-05T17:00:00+00:00",
+      "integrity_confidence": 0.84,
+      "y_label": "1",
+      "trace_id": "cal-fix-0113"
+    },
+    {
+      "created_at": "2026-01-05T18:00:00+00:00",
+      "integrity_confidence": 0.22,
+      "y_label": "0",
+      "trace_id": "cal-fix-0114"
+    },
+    {
+      "created_at": "2026-01-05T19:00:00+00:00",
+      "integrity_confidence": 0.78,
+      "y_label": "1",
+      "trace_id": "cal-fix-0115"
+    },
+    {
+      "created_at": "2026-01-05T20:00:00+00:00",
+      "integrity_confidence": 0.16,
+      "y_label": "0",
+      "trace_id": "cal-fix-0116"
+    },
+    {
+      "created_at": "2026-01-05T21:00:00+00:00",
+      "integrity_confidence": 0.82,
+      "y_label": "1",
+      "trace_id": "cal-fix-0117"
+    },
+    {
+      "created_at": "2026-01-05T22:00:00+00:00",
+      "integrity_confidence": 0.2,
+      "y_label": "0",
+      "trace_id": "cal-fix-0118"
+    },
+    {
+      "created_at": "2026-01-05T23:00:00+00:00",
+      "integrity_confidence": 0.86,
+      "y_label": "1",
+      "trace_id": "cal-fix-0119"
+    }
+  ]
+}

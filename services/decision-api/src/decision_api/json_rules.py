@@ -37,13 +37,89 @@ def _configured_json_rules_engine_mode() -> str:
     return "auto"
 
 
-# N3/N4: in-process rule hit counts since process start (reset on restart).
-# Optional Redis HINCRBY dual-write (SR-15) when RULE_HIT_TELEMETRY_REDIS != 0.
+# N3/N4: rule hit counts — memory + optional file durability (Wave 6)
+# and optional Redis HINCRBY dual-write (SR-15) when RULE_HIT_TELEMETRY_REDIS != 0.
 _rule_hit_counts: dict[str, int] = {}
 _telemetry_started_at_unix: float = time.time()
+_telemetry_dirty: int = 0
+_TELEMETRY_FLUSH_EVERY = 25
 _RULE_HIT_REDIS_HASH = "tarka:rule_hits:v1"
 _rule_hit_redis_client: Any = None
 _rule_hit_redis_failed = False
+
+
+def _telemetry_path() -> Path | None:
+    raw = (os.environ.get("RULE_TELEMETRY_PATH") or "").strip()
+    if raw:
+        return Path(raw)
+    try:
+        from decision_api.config import settings
+
+        base = Path(settings.rules_path)
+    except Exception:
+        return None
+    return base / "rule_hit_telemetry.json"
+
+
+def _load_telemetry_file() -> None:
+    """Merge durable counts into memory (once per process on first record/get)."""
+    global _telemetry_started_at_unix
+    path = _telemetry_path()
+    if path is None or not path.is_file():
+        return
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return
+    if not isinstance(data, dict):
+        return
+    counts = data.get("counts")
+    if isinstance(counts, dict):
+        for k, v in counts.items():
+            try:
+                n = int(v)
+            except (TypeError, ValueError):
+                continue
+            if n > 0:
+                _rule_hit_counts[str(k)] = _rule_hit_counts.get(str(k), 0) + n
+    if data.get("since_unix") is not None:
+        try:
+            _telemetry_started_at_unix = min(
+                _telemetry_started_at_unix, float(data["since_unix"])
+            )
+        except (TypeError, ValueError):
+            pass
+
+
+_telemetry_file_loaded = False
+
+
+def _ensure_telemetry_loaded() -> None:
+    global _telemetry_file_loaded
+    if _telemetry_file_loaded:
+        return
+    _telemetry_file_loaded = True
+    _load_telemetry_file()
+
+
+def _flush_telemetry_file() -> None:
+    path = _telemetry_path()
+    if path is None:
+        return
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "schema_id": "tarka.rule_hit_telemetry/v1",
+            "since_unix": _telemetry_started_at_unix,
+            "counts": dict(_rule_hit_counts),
+            "updated_at": time.time(),
+        }
+        path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    except OSError as exc:
+        InternalMonitor.log_suppressed_error(
+            exc, context="flush_rule_telemetry", domain="rules"
+        )
+
 
 _MAX_FIELD_LEN = 128
 _MAX_VALUE_LEN = 1024
@@ -155,8 +231,14 @@ def _rows_from_hit_map(counts: dict[str, int]) -> tuple[list[dict[str, Any]], in
 
 def record_rule_hit(pack_file: str, rule_id: str, kind: str = "rule") -> None:
     """Increment per-rule hit telemetry (N3) and optional Prometheus aggregate (N4)."""
+    global _telemetry_dirty
+    _ensure_telemetry_loaded()
     key = _telemetry_key(pack_file, rule_id, kind)
     _rule_hit_counts[key] = _rule_hit_counts.get(key, 0) + 1
+    _telemetry_dirty += 1
+    if _telemetry_dirty >= _TELEMETRY_FLUSH_EVERY:
+        _telemetry_dirty = 0
+        _flush_telemetry_file()
     _incr_rule_hit_redis(key)
     try:
         from observability import get_metrics
@@ -169,7 +251,8 @@ def record_rule_hit(pack_file: str, rule_id: str, kind: str = "rule") -> None:
 
 
 def get_rule_hit_telemetry() -> dict[str, Any]:
-    """Snapshot of rule hit counts — Redis when available, else process memory (SR-15)."""
+    """Snapshot: Redis when available, else file-backed or process memory."""
+    _ensure_telemetry_loaded()
     client = _get_rule_hit_redis()
     if client is not None:
         try:
@@ -191,11 +274,19 @@ def get_rule_hit_telemetry() -> dict[str, Any]:
         except Exception:
             log.debug("rule_hit_redis_read_failed", exc_info=True)
 
+    path = _telemetry_path()
+    explicit = bool((os.environ.get("RULE_TELEMETRY_PATH") or "").strip())
+    # File durability only when explicitly configured or a telemetry file already exists.
+    # Avoid labeling default rules_path as file-backed before anything is flushed.
+    file_backed = explicit or (path is not None and path.is_file())
+    if file_backed and _telemetry_dirty:
+        _flush_telemetry_file()
     rows, total = _rows_from_hit_map(_rule_hit_counts)
     return {
         "since_unix": _telemetry_started_at_unix,
-        "since_process_start": True,
-        "durability": "process_memory",
+        "since_process_start": not file_backed,
+        "durability": "file" if file_backed else "process_memory",
+        "path": str(path) if file_backed and path else None,
         "total_hits": total,
         "unique_keys": len(rows),
         "rows": rows,

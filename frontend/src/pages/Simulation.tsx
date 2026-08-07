@@ -169,10 +169,31 @@ export default function Simulation() {
   }
 
   async function handleInstallVerticalPack(vertical: string) {
+    if (!verticalResult || verticalResult.vertical !== vertical) {
+      setError("Run a vertical benchmark for this pack first — install requires kill_criteria metrics.");
+      return;
+    }
+    const pack = verticalResult.vertical_pack as SimResult & {
+      false_positives?: number;
+      predicted_fraud?: number;
+      total_events?: number;
+    };
+    const predicted = Number(pack.predicted_fraud ?? 0);
+    const fps = Number(pack.false_positives ?? 0);
     setLoading(true);
     setError(null);
     try {
-      await rules.installVerticalPack(vertical, true);
+      await rules.installVerticalPack(
+        vertical,
+        {
+          precision: Number(pack.precision ?? 0),
+          recall: Number(pack.recall ?? 0),
+          f1_score: Number(pack.f1_score ?? 0),
+          ...(predicted > 0 ? { false_positive_rate: fps / predicted } : {}),
+          events_evaluated: Number(pack.total_events ?? 0),
+        },
+        true,
+      );
     } catch (e) {
       setError(toUserFacingError(e, { subject: "Vertical pack", action: "install selected vertical pack" }));
     } finally {

@@ -105,12 +105,15 @@ export default function OpsCounters() {
     data?.redis_key_version != null && String(data.redis_key_version).trim() !== ""
       ? String(data.redis_key_version)
       : "(unset — legacy AGG_KEY_VERSION)";
+  const lastParity = (data?.last_parity_run as Record<string, unknown> | undefined) ?? undefined;
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <div className="space-y-1">
         <PageTitle module="compliance">Counters &amp; velocity catalog</PageTitle>
-        <p className="text-sm text-gray-500">Declarative manifest + human titles (OSS ops)</p>
+        <p className="text-sm text-gray-500">
+          Declarative manifest + offline parity last-run (Wave 6 product surface)
+        </p>
       </div>
       {err && (
         <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300 space-y-1">
@@ -145,6 +148,28 @@ export default function OpsCounters() {
             ) : null}
           </div>
         ) : null}
+        {lastParity ? (
+          <div className="sm:col-span-3 rounded-lg border border-surface-600 bg-surface-950/60 p-3 text-xs text-gray-400">
+            Last offline parity:{" "}
+            <span className={`font-mono ${lastParity.ok === false ? "text-amber-300" : "text-emerald-300"}`}>
+              {lastParity.ok === false ? "FAIL" : "OK"}
+            </span>
+            {lastParity.generated_at != null ? (
+              <span className="ml-2 font-mono text-gray-500">{String(lastParity.generated_at)}</span>
+            ) : null}
+            {lastParity.mode != null ? (
+              <span className="ml-2">mode={String(lastParity.mode)}</span>
+            ) : null}
+            {lastParity.events != null ? (
+              <span className="ml-2">events={String(lastParity.events)}</span>
+            ) : null}
+          </div>
+        ) : (
+          <div className="sm:col-span-3 text-xs text-gray-600">
+            No <span className="font-mono">counter_parity_last.json</span> yet — CI nightly /{" "}
+            <span className="font-mono">counter_replay_job.py</span> writes it for ops.
+          </div>
+        )}
       </div>
       <div className="rounded-xl border border-surface-700 bg-surface-900 p-4 space-y-3">
         <h3 className="text-sm font-medium text-gray-300">Live velocity &amp; parity</h3>

@@ -3,10 +3,49 @@
 #   export E2E_API_KEY="playwright-e2e-micro-key"
 #   docker compose -f infra/deploy/docker-compose.micro.yml -f infra/deploy/docker-compose.micro.e2e.yml up -d --build
 #
+# Mock-free QA desk gate (Engineering 4.7 — PR-gated via ops-qa-desk-e2e.yml):
+#   ./scripts/e2e/reset-micro-for-playwright.sh
+#   cd frontend && E2E_QA_DESK=1 npx playwright test e2e/ops-qa-desk.spec.ts
+#
 # Grants case-api / SAR mutating routes (analyst+) via X-API-Key without changing ALLOW_INSECURE_NO_AUTH.
+# Track D: challenge-sink receives step-up webhooks from core-api (not httpx mock).
 
 services:
+  challenge-sink:
+    image: python:3.12-alpine
+    volumes:
+      - ./scripts/e2e/challenge_webhook_sink.py:/sink.py:ro
+      - type: bind
+        source: ${TARKA_MICRO_DATA_DIR:?Set TARKA_MICRO_DATA_DIR}/challenge-sink
+        target: /data
+    command:
+      - python
+      - /sink.py
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8099"
+      - --log-file
+      - /data/sink.jsonl
+    networks:
+      - micro_internal
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8099/ || exit 1"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 5s
+
   core-api:
     environment:
       API_KEYS: "${E2E_API_KEY:-playwright-e2e-micro-key}"
       SERVICE_API_KEY_ROLE: "admin"
+      TARKA_CHALLENGE_WEBHOOK_URL: "http://challenge-sink:8099/challenge"
+      TARKA_CHALLENGE_WEBHOOK_SECRET: "${E2E_CHALLENGE_WEBHOOK_SECRET:-e2e-challenge-secret}"
+    depends_on:
+      - challenge-sink
+
+# Base compose marks micro_internal as internal (no host ingress). Playwright hits localhost.
+networks:
+  micro_internal:
+    internal: false

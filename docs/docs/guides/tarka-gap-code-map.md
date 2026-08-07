@@ -60,16 +60,19 @@ Legend: **Today** = where behavior exists now; **Extend** = natural place to dee
 
 ---
 
-## 4. Location & co-presence coherence
+## 4. Relatedness — graph linkage vs geo enrichment
 
-**Gap:** Beyond basic geo mismatch tags (matrix ~1.5).
+**Gap:** Beyond basic geo mismatch tags (matrix ~1.5). **Relatedness** = graph entity linkage + loyalty economics; **location** = optional geo enrichment (not the loyalty linker). See [location enrichment reweight](../../../superpowers/specs/2026-08-06-location-enrichment-reweight-design.md).
 
 | Role | Path |
 |------|------|
-| **Today — geo tags → inference** | `services/decision-api/src/decision_api/main.py` — `geo_markers`, `geo_consistency_risk` inside `build_inference_context` |
+| **Today — graph entity linkage (primary relatedness)** | `services/graph-service/` — `Place` / `SEEN_AT` peers; `services/decision-api/src/decision_api/fingerprint_store.py` — shared device; `partner_fusion.py` — `partner_graph_writeback` Device/Place MERGE hints |
+| **Today — geo enrichment (optional)** | `services/decision-api/src/decision_api/main.py` — `geo_markers`, `geo_consistency_risk` inside `build_inference_context`; partner Incognia Place/SEEN_AT when configured |
 | **Today — OSINT IP geo (ingress)** | `services/integration-ingress/src/integration_ingress/osint.py` — IP geolocation helpers |
-| **Extend** | **Co-presence** (multi-device/session), **trusted location** enrollment, **impossible travel** with calibrated confidence |
-| **Missing** | Dedicated **location service** or feature-service module; graph links for **session co-location** |
+| **Extend — graph** | Stronger **device / payment / referral** peer linkage; `relatedness_evidence` graph block (dual-write with deprecated `location_cohort_evidence`) |
+| **Extend — geo enrichment** | **Co-presence** (multi-device/session), **trusted location** enrollment, **impossible travel** with calibrated confidence — never required for evaluate success |
+| **Missing — graph** | First-class **payment / referral** graph edges in default OSS path |
+| **Missing — geo enrichment** | Dedicated **location service** or feature-service module for tenant-scoped geo depth |
 
 ---
 

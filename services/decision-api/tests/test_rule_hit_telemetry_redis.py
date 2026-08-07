@@ -34,9 +34,12 @@ def test_record_and_get_prefer_redis(monkeypatch):
 
 def test_force_memory_when_redis_disabled(monkeypatch):
     monkeypatch.setenv("RULE_HIT_TELEMETRY_REDIS", "0")
+    monkeypatch.delenv("RULE_TELEMETRY_PATH", raising=False)
     monkeypatch.setattr(json_rules, "_rule_hit_redis_client", None)
     monkeypatch.setattr(json_rules, "_rule_hit_redis_failed", False)
+    monkeypatch.setattr(json_rules, "_telemetry_path", lambda: None)
     json_rules._rule_hit_counts.clear()
+    json_rules._telemetry_dirty = 0
 
     json_rules.record_rule_hit("pack.json", "r2", "rule")
     snap = json_rules.get_rule_hit_telemetry()

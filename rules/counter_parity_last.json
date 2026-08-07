@@ -1,0 +1,10 @@
+{
+  "schema_id": "tarka.counter_parity/v1",
+  "ts": "2026-08-05T11:59:36.026310+00:00",
+  "mode": "dry_run",
+  "matched": false,
+  "diffs": [],
+  "events": 3,
+  "fixture": "scripts/replay/fixtures/parity_smoke.jsonl",
+  "hint": "dry_run validates fixture only; dual_diff required for matched proof"
+}

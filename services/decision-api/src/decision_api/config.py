@@ -442,6 +442,14 @@ class Settings(BaseSettings):
     case_api_url: str = Field(
         default="", description="Case Management API base URL for training labels"
     )
+    integration_ingress_url: str = Field(
+        default="",
+        description="Integration ingress base URL for evaluate payout hold bridge",
+    )
+    ingress_internal_token: str = Field(
+        default="",
+        description="X-Internal-Token for integration-ingress S2S payout hold calls",
+    )
     ml_export_local_dir: str = Field(
         default="./data/ml_exports", description="Tarka Micro: Parquet write directory"
     )

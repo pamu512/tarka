@@ -1,0 +1,58 @@
+# Engineering 4.7: PR-gated mock-free QA desk.
+# Required check name: "Ops QA desk e2e / ops-qa-desk"
+name: Ops QA desk e2e
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  pull_request:
+    paths:
+      - "frontend/**"
+      - "services/case-api/**"
+      - "scripts/e2e/**"
+      - ".github/workflows/ops-qa-desk-e2e.yml"
+  schedule:
+    # Weekly Sunday 06:00 UTC soak
+    - cron: "0 6 * * 0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ops-qa-desk-e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ops-qa-desk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      E2E_API_KEY: playwright-e2e-micro-key
+      E2E_QA_DESK: "1"
+      E2E_MANAGE_MICRO: "1"
+      E2E_REUSE_DEV_SERVER: "0"
+      CI: "true"
+      COMPOSE_BAKE: "false"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install monorepo workspaces
+        run: npm ci
+      - name: Install Playwright Chromium (frontend workspace)
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Boot Micro + run QA desk Playwright
+        working-directory: frontend
+        run: npx playwright test e2e/ops-qa-desk.spec.ts --reporter=list
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ops-qa-desk-playwright-report
+          path: frontend/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14

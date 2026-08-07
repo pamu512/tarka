@@ -59,7 +59,21 @@ def _iter_py_files(root: Path) -> Iterable[Path]:
         parts = path.parts
         if "__pycache__" in parts:
             continue
-        if any(p in (".venv", "venv", ".eggs", "node_modules") for p in parts):
+        if any(
+            p
+            in (
+                ".venv",
+                "venv",
+                ".venv-tl",
+                ".eggs",
+                "node_modules",
+                "site-packages",
+                "build",
+                "dist",
+            )
+            or p.startswith(".venv")
+            for p in parts
+        ):
             continue
         if "tests" in parts:
             continue

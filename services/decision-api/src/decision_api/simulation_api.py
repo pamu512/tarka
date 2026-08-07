@@ -19,7 +19,7 @@ from decision_api.simulator import (
     analyze_simulation,
     generate_scenario,
 )
-from decision_api.vertical_packs import get_vertical_pack
+from decision_api.vertical_packs import evaluate_kill_criteria, get_vertical_pack
 
 """Simulation API router — synthetic data generation and replay analysis."""
 
@@ -318,13 +318,26 @@ async def benchmark_vertical_pack(body: VerticalBenchmarkRequest):
         minimum_recommended_events=_MIN_SIM_N,
     )
 
+    vert_metrics = result_vertical.model_dump()
+    promote = evaluate_kill_criteria(
+        vert_metrics,
+        vertical_pack.get("kill_criteria"),
+        events_evaluated=n,
+    )
+    if n < _MIN_SIM_N:
+        promote = {
+            **promote,
+            "promote_allowed": False,
+            "blockers": list(promote.get("blockers") or []) + ["low_sample_warning"],
+        }
+
     return {
         "scenario": profile.name,
         "vertical": body.vertical.lower(),
         "seed": body.seed,
         "events_evaluated": n,
         "baseline": result_base.model_dump(),
-        "vertical_pack": result_vertical.model_dump(),
+        "vertical_pack": vert_metrics,
         "experiment_guardrails": {
             "minimum_recommended_events": _MIN_SIM_N,
             "low_sample_warning": n < _MIN_SIM_N,
@@ -332,6 +345,7 @@ async def benchmark_vertical_pack(body: VerticalBenchmarkRequest):
             "holdout_ok": (n >= _MIN_SIM_N) or body.allow_underpowered,
             "kpi_eligible": n >= _MIN_SIM_N,
         },
+        "promote_gate": promote,
         "delta": {
             "precision": round(result_vertical.precision - result_base.precision, 4),
             "recall": round(result_vertical.recall - result_base.recall, 4),

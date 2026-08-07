@@ -28,6 +28,16 @@ jobs:
   # Tier-1 Honesty: AST-only gate (stdlib). All test / lint jobs `need` this so nothing runs until it passes.
   audit-stubs:
     runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -37,6 +47,149 @@ jobs:
         run: python3 scripts/audit_stubs.py
       - name: Tier-1 Honesty gate — audit_stubs self-test (stdlib unittest)
         run: python3 infra/scripts/ci/test_audit_stubs.py
+      - name: Wave 5 — prod desk mock forbid gate
+        run: python3 scripts/audit_prod_desk_mocks.py
+      - name: Engineering 4.7 — audit_prod_desk_mocks self-test
+        run: PYTHONPATH=scripts python3 infra/scripts/ci/test_audit_prod_desk_mocks.py
+      - name: Wave 6 — integrity posture gate
+        run: python3 scripts/audit_integrity_posture.py
+      - name: Wave 6 — request signature HMAC gate
+        run: |
+          python3 -m pip install "fastapi>=0.115" "httpx>=0.27" "starlette>=0.40"
+          python3 scripts/audit_request_signature_gate.py
+      - name: Wave 5 — golden case loop (offline)
+        run: python3 scripts/oss/golden_case_loop_smoke.py
+      - name: Wave 5 — partner fusion fixture smoke
+        run: python3 scripts/oss/partner_fusion_fixture_smoke.py
+      - name: Could-be-better — shadow promote gate smoke
+        run: python3 scripts/oss/shadow_promote_gate_smoke.py
+      - name: Partner fusion tenant proof (fixture + SHA pin)
+        run: |
+          python3 scripts/oss/partner_fusion_tenant_proof.py --mode fixture \
+            --out artifacts/partner-fusion-proof.json
+          test -f artifacts/partner-fusion-proof.sha256
+          # Pin must match committed stable digest (fail if fusion mapping drifts silently)
+          diff -u docs/compliance/partner-fusion-proof.stable.sha256 \
+            artifacts/partner-fusion-proof.sha256
+      - name: Risk/Strategy 4.2 — live partner status gate (LIVE|WAIVED)
+        env:
+          REQUIRE_LIVE_PARTNER_PROOF: "1"
+        run: |
+          PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_partner_fusion_live_status_gate.py
+          python3 scripts/oss/partner_fusion_live_status_gate.py
+      - name: Risk/Strategy 4.2 — control evidence index
+        run: python3 scripts/compliance/export_control_evidence_index.py
+      - name: Upload partner fusion proof artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: partner-fusion-proof
+          path: |
+            artifacts/partner-fusion-proof.json
+            artifacts/partner-fusion-proof.sha256
+          if-no-files-found: ignore
+      - name: Wave 5 — QA desk smoke
+        run: python3 scripts/oss/qa_desk_smoke.py
+      - name: Missed-mark bridge — SAR transport honesty
+        run: python3 scripts/oss/sar_transport_honesty_smoke.py
+      - name: S4 — counter parity dual_diff (matched:true required)
+        env:
+          AGG_KEY_VERSION: ci_parity_v1
+          COUNTER_REPLAY_REDIS_URL: redis://127.0.0.1:6379
+        run: |
+          python3 -m pip install -q redis
+          python3 scripts/oss/counter_parity_dual_diff.py --mode dual_diff \
+            --out rules/counter_parity_last.json
+          python3 -c "
+import json, sys
+from pathlib import Path
+p = Path('rules/counter_parity_last.json')
+body = json.loads(p.read_text())
+ok = body.get('mode') == 'dual_diff' and body.get('matched') is True
+print(json.dumps({'mode': body.get('mode'), 'matched': body.get('matched'), 'diffs': len(body.get('diffs') or [])}, indent=2))
+sys.exit(0 if ok else 1)
+"
+      - name: Upload Wave 5 counter replay artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: counter-replay-job
+          path: |
+            rules/counter_parity_last.json
+          if-no-files-found: ignore
+      - name: Location reweight — relatedness without geo smoke
+        run: python3 scripts/oss/relatedness_evidence_smoke.py
+      - name: Track C — loyalty warehouse HTTP contract smoke
+        env:
+          LOYALTY_WAREHOUSE_ARTIFACT: artifacts/loyalty_warehouse_smoke.json
+        run: |
+          mkdir -p artifacts
+          python3 scripts/oss/loyalty_warehouse_smoke.py
+      - name: Upload loyalty warehouse smoke
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: loyalty-warehouse-smoke
+          path: artifacts/loyalty_warehouse_smoke.json
+          if-no-files-found: ignore
+      - name: Inference Track B — S9 loyalty feed fixture smoke
+        env:
+          LOYALTY_ECONOMICS_ARTIFACT: artifacts/loyalty_economics_feed_smoke.json
+        run: |
+          mkdir -p artifacts
+          python3 scripts/oss/loyalty_economics_feed_smoke.py
+      - name: Upload Inference Track B loyalty feed smoke
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: loyalty-economics-feed-smoke
+          path: artifacts/loyalty_economics_feed_smoke.json
+          if-no-files-found: ignore
+      - name: Inference Track A — chronological ECE retrain gate
+        env:
+          PYTHONPATH: services/decision-api/src
+        run: |
+          mkdir -p artifacts
+          python3 scripts/oss/retrain_calibration_ece_gate.py \
+            --labels scripts/replay/fixtures/calibration_retrain_labels.json \
+            --out artifacts/platt_candidate.json \
+            --artifact-out artifacts/calibration_retrain_report.json \
+            --train-fraction 0.7 \
+            --ece-threshold 0.05
+          python3 -c "
+import json, sys
+from pathlib import Path
+r = json.loads(Path('artifacts/calibration_retrain_report.json').read_text())
+ok = (
+    r.get('schema_id') == 'tarka.calibration_retrain_report/v1'
+    and r.get('gate_passed') is True
+    and r.get('candidate_written') is True
+    and Path('artifacts/platt_candidate.json').is_file()
+)
+print(json.dumps({k: r.get(k) for k in ('schema_id','gate_passed','ece','brier','train_rows','report_rows','candidate_written')}, indent=2))
+sys.exit(0 if ok else 1)
+"
+      - name: Upload Inference Track A calibration artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: calibration-retrain-ece
+          path: |
+            artifacts/platt_candidate.json
+            artifacts/calibration_retrain_report.json
+          if-no-files-found: ignore
+      - name: Inference A+B claim gate (fixture bar → Inference 4.5)
+        env:
+          INFERENCE_AB_ARTIFACT_DIR: artifacts
+        run: python3 scripts/oss/inference_ab_claim_gate.py
+      - name: Upload Inference A+B claim artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: inference-ab-claim
+          path: artifacts/inference_ab_claim.json
+          if-no-files-found: ignore
+
 
   lint:
     needs: audit-stubs
