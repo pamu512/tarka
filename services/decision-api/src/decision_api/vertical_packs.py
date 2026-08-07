@@ -130,12 +130,20 @@ _PACKS: dict[str, dict[str, Any]] = {
             {
                 "id": "mkt_refund_burst",
                 "when": [
-                    {"field": "transaction_count_24h", "op": "gte", "value": 10},
-                    {"field": "amount", "op": "lte", "value": 50},
+                    {"field": "is_friendly_fraud_risk", "op": "is_true", "value": True},
                 ],
                 "tags": ["vertical:marketplace", "risk:refund_burst"],
-                "score_delta": 20,
-                "description": "High micro-transaction velocity — refund burst pattern",
+                "score_delta": 28,
+                "description": "Friendly fraud risk — delivery hash mismatch or repeat IP dispute window",
+            },
+            {
+                "id": "mkt_delivery_hash_mismatch",
+                "when": [
+                    {"field": "delivery_hash_mismatch", "op": "is_true", "value": True},
+                ],
+                "tags": ["vertical:marketplace", "risk:refund_burst"],
+                "score_delta": 24,
+                "description": "Delivery confirmation hash mismatch — disputed POD",
             },
             {
                 "id": "mkt_review_inflation_proxy",
@@ -362,12 +370,20 @@ _PACKS: dict[str, dict[str, Any]] = {
             {
                 "id": "fd_refund_cancel_burst",
                 "when": [
-                    {"field": "transaction_count_24h", "op": "gte", "value": 12},
-                    {"field": "amount", "op": "lte", "value": 40},
+                    {"field": "is_friendly_fraud_risk", "op": "is_true", "value": True},
                 ],
                 "tags": ["vertical:food_delivery", "risk:refund_burst"],
-                "score_delta": 20,
-                "description": "Refund/cancel burst on low-value orders",
+                "score_delta": 26,
+                "description": "Friendly fraud risk — delivery hash mismatch or repeat IP dispute window",
+            },
+            {
+                "id": "fd_delivery_hash_mismatch",
+                "when": [
+                    {"field": "delivery_hash_mismatch", "op": "is_true", "value": True},
+                ],
+                "tags": ["vertical:food_delivery", "risk:refund_burst"],
+                "score_delta": 22,
+                "description": "POD hash mismatch on disputed delivery",
             },
             {
                 "id": "fd_courier_spoof_emulator",

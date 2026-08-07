@@ -592,6 +592,14 @@ async def run_evaluate_decision(
             body.metadata if isinstance(body.metadata, dict) else None,
         )
 
+        from decision_api.friendly_fraud_features import apply_friendly_fraud_features
+
+        apply_friendly_fraud_features(
+            features,
+            body.metadata if isinstance(body.metadata, dict) else None,
+            body.payload if isinstance(body.payload, dict) else None,
+        )
+
         # Counter ownership: prefer counter-service as source of truth; keep local aggregates as fallback.
         counter_meta: dict[str, Any] | None = None
         if settings.counter_service_url:
