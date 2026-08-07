@@ -61,5 +61,7 @@ async def test_shadow_promote_gate_endpoint(challenge_client):
     assert body["allowed"]["promote_allowed"] is True
     assert "shadow_vs_primary_diff_recipe.sql" in body["recipe_path"]
     assert body["label_gated_promote"]["promote_allowed"] is False
+    assert body["mcnemar_promote_gate"]["promote_allowed"] is False
+    assert body["desk_promote_gate"]["promote_allowed"] is False
     assert "champion_challenger" in body
     assert body["champion_challenger"]["schema_id"] == "tarka.champion_challenger_audit/v1"

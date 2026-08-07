@@ -1861,6 +1861,21 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   if (path.includes("/api/cases/v1/compliance/evidence/verify")) return { valid: true, active_key_id: "k-demo-1" };
 
   if (path.includes("/api/ingress/v1/osint/sources")) return { sources: { email: ["haveibeenpwned"], ip: ["abuseipdb"] }, total_sources: 2 };
+  if (path.includes("/api/ingress/v1/ops/sanctions-screening-posture")) {
+    return {
+      schema_id: "tarka.sanctions_screening_ops_posture/v1",
+      ready_for_continuous_claim: false,
+      continuous_bulk: {
+        status: "not_loaded",
+        entities_loaded: 0,
+        cache_fresh: false,
+        cache_present: false,
+      },
+      realtime_match_api: { plugin: "opensanctions", note: "Match API plugin (mock)" },
+      vs_marble: "Bulk FtM cache ≠ Marble Motiva+ES continuous list product.",
+      honesty: "Empty/missing cache is not a pass.",
+    };
+  }
   if (path.includes("/api/ingress/v1/ops/failover-toggles")) {
     if (method === "PUT" && body && typeof body === "object") {
       const b = body as Record<string, unknown>;
