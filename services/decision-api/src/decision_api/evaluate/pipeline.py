@@ -1148,6 +1148,7 @@ async def run_evaluate_decision(
                 signal_tags=signal_tags,
                 ml_score=ml_score if isinstance(ml_score, float) else None,
                 payload=body.payload if isinstance(body.payload, dict) else {},
+                metadata=body.metadata if isinstance(body.metadata, dict) else None,
                 recommended_action=recommended_action,
                 challenge_metadata=ch_meta if isinstance(ch_meta, dict) else None,
                 fallback_reason=fb_reason,
@@ -1164,6 +1165,8 @@ async def run_evaluate_decision(
             metrics_inc=_metrics_inc_safe,
             case_api_url=settings.case_api_url,
             case_create_on_deny_review=settings.case_create_on_deny_review,
+            integration_ingress_url=settings.integration_ingress_url,
+            ingress_internal_token=settings.ingress_internal_token,
             upstream_headers=_upstream_headers(),
             graph_upsert=_graph_upsert_stepped,
             graph_upsert_args=(

@@ -326,6 +326,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 setup_observability(app, "integration-ingress")
+from auth_rbac import AuthMiddleware
+
+AuthMiddleware.SKIP_PREFIXES = ("/v1/internal/",)
 setup_auth(app)
 app.include_router(residency_matrix_router)
 
