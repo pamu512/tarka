@@ -5,7 +5,7 @@
   "week1_start_utc": "2026-08-07",
   "week4_end_utc": "2026-09-03",
   "shadow_evaluate_enabled": true,
-  "host_action_sink": "internal:jsonl:/Users/pamu/Documents/GitHub/tarka/docs/compliance/host_action_log.jsonl",
+  "host_action_sink": "internal:jsonl:docs/compliance/host_action_log.jsonl",
   "label_join_ece": false,
   "armed_at": "2026-08-07T06:41:34.878076Z",
   "armed_by": "cursor-agent",
