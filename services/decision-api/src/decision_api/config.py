@@ -472,6 +472,10 @@ class Settings(BaseSettings):
     auth_path_p99_budget_ms: float = float(
         os.environ.get("TARKA_AUTH_PATH_P99_BUDGET_MS", "250")
     )
+    # Marble-style: require succeeded warehouse backtest job id on vertical promote/install.
+    require_backtest_before_promote: bool = os.environ.get(
+        "TARKA_REQUIRE_BACKTEST_BEFORE_PROMOTE", "false"
+    ).strip().lower() in ("1", "true", "yes", "on")
     ml_export_local_dir: str = Field(
         default="./data/ml_exports", description="Tarka Micro: Parquet write directory"
     )

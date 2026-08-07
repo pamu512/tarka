@@ -1696,6 +1696,16 @@ export const decisions = {
     }>("/api/decisions/v1/admin/typology/telemetry");
   },
 
+  backtestBeforePromotePosture() {
+    return request<{
+      schema_id: string;
+      require_backtest_before_promote?: boolean;
+      enqueue?: string;
+      ui?: string;
+      note?: string;
+    }>("/api/decisions/v1/rules/backtest-before-promote-posture");
+  },
+
   async reliabilityExportCsv(tenantId: string, limit: number = 10_000): Promise<string> {
     const q = new URLSearchParams({ tenant_id: tenantId, limit: String(limit) });
     const url = `/api/decisions/v1/calibration/reliability-export.csv?${q}`;
@@ -2546,6 +2556,7 @@ export const rules = {
       f1_score: number;
       false_positive_rate?: number;
       events_evaluated: number;
+      backtest_job_id?: string;
     },
     overwrite: boolean = false,
   ) {
@@ -2554,10 +2565,21 @@ export const rules = {
       vertical: string;
       rules: number;
       promote_gate?: Record<string, unknown>;
+      backtest_promote_gate?: Record<string, unknown>;
     }>(
       `/api/decisions/v1/rules/vertical-packs/${verticalName}/install?overwrite=${overwrite ? "true" : "false"}`,
       { method: "POST", headers: _ruleActorHeaders(), body: JSON.stringify(metrics) },
     );
+  },
+
+  backtestBeforePromotePosture() {
+    return request<{
+      schema_id: string;
+      require_backtest_before_promote?: boolean;
+      enqueue?: string;
+      ui?: string;
+      note?: string;
+    }>("/api/decisions/v1/rules/backtest-before-promote-posture");
   },
 };
 
