@@ -1283,6 +1283,10 @@ class PayoutDelayConfigPatchBody(BaseModel):
     tenant_id: str = "demo"
     automation_enabled: bool | None = None
     mule_score_hold_threshold: int | None = None
+    mule_candidates: list[dict[str, Any]] | None = None
+    delay_hours_for_action_payout_delay: int | None = None
+    webhook_callback_url: str | None = None
+    honor_evaluate_action_tags: bool | None = None
 
 
 class PayoutHoldCreateBody(BaseModel):
@@ -1342,6 +1346,10 @@ async def marketplace_payout_delay_config_patch(
         tenant_id=body.tenant_id,
         automation_enabled=body.automation_enabled,
         mule_score_hold_threshold=body.mule_score_hold_threshold,
+        mule_candidates=body.mule_candidates,
+        delay_hours_for_action_payout_delay=body.delay_hours_for_action_payout_delay,
+        webhook_callback_url=body.webhook_callback_url,
+        honor_evaluate_action_tags=body.honor_evaluate_action_tags,
     )
     return await build_payout_delay_payload(session, tenant_id=body.tenant_id)
 
