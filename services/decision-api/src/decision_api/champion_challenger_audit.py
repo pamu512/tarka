@@ -1,8 +1,62 @@
-"""Champion–challenger agreement + label-gated promote posture (P0-CC)."""
+"""Champion–challenger agreement + label-gated promote posture (P0-CC / Ojuri)."""
 
 from __future__ import annotations
 
+import math
 from typing import Any, Mapping, Sequence
+
+
+def population_stability_index(
+    ref_hist: Mapping[str, Any],
+    cur_hist: Mapping[str, Any],
+    *,
+    epsilon: float = 1e-6,
+) -> float | None:
+    """Classic PSI on count histograms (Ojuri-style drift bar)."""
+    keys = sorted(set(ref_hist.keys()) | set(cur_hist.keys()))
+    if not keys:
+        return None
+    total_r = sum(float(ref_hist.get(k, 0) or 0) for k in keys)
+    total_c = sum(float(cur_hist.get(k, 0) or 0) for k in keys)
+    if total_r <= 0 or total_c <= 0:
+        return None
+    psi = 0.0
+    for k in keys:
+        pr = max(float(ref_hist.get(k, 0) or 0) / total_r, epsilon)
+        pc = max(float(cur_hist.get(k, 0) or 0) / total_c, epsilon)
+        psi += (pc - pr) * math.log(pc / pr)
+    return round(psi, 6)
+
+
+def promote_lifecycle_stage(
+    *,
+    label_ok: bool,
+    mcnemar_ok: bool,
+    drift_ok: bool,
+    desk_ok: bool,
+) -> dict[str, Any]:
+    """Ojuri-style CANDIDATE → SHADOW → ACTIVE (desk promote science)."""
+    if desk_ok and label_ok and mcnemar_ok and drift_ok:
+        stage = "ACTIVE"
+    elif label_ok:
+        stage = "SHADOW"
+    else:
+        stage = "CANDIDATE"
+    return {
+        "schema_id": "tarka.promote_lifecycle/v1",
+        "stage": stage,
+        "stages": ["CANDIDATE", "SHADOW", "ACTIVE"],
+        "gates": {
+            "labels": label_ok,
+            "mcnemar": mcnemar_ok,
+            "drift_psi": drift_ok,
+            "desk_promote": desk_ok,
+        },
+        "note": (
+            "CANDIDATE=insufficient labels; SHADOW=labels ok, waiting McNemar/PSI; "
+            "ACTIVE=desk_promote_allowed. Not Ojuri's full MLA pipeline."
+        ),
+    }
 
 
 def extract_policy_routing(payload_snapshot: Mapping[str, Any] | None) -> dict[str, Any] | None:
@@ -115,22 +169,33 @@ def drift_promote_gate(
     drift: Mapping[str, Any] | None,
     *,
     block_elevated: bool = True,
+    max_psi: float = 0.25,
 ) -> dict[str, Any]:
-    """Ojuri-adjacent PSI bar using existing L1 histogram drift (not full PSI)."""
+    """Ojuri-style drift bar: elevated L1 bin-shift and/or PSI above max_psi."""
     d = drift if isinstance(drift, Mapping) else {}
     hint = str(d.get("hint") or "")
     score = d.get("drift_score")
+    psi = d.get("psi")
     blockers: list[str] = []
     if block_elevated and hint == "elevated_bin_shift_review_calibration":
         blockers.append("calibration_drift_elevated")
+    try:
+        psi_f = float(psi) if psi is not None else None
+    except (TypeError, ValueError):
+        psi_f = None
+    if psi_f is not None and psi_f > float(max_psi):
+        blockers.append(f"psi>{max_psi}")
     return {
         "schema_id": "tarka.drift_promote_gate/v1",
         "promote_allowed": len(blockers) == 0,
         "blockers": blockers,
         "drift_score": score,
+        "psi": psi_f,
+        "max_psi": float(max_psi),
         "hint": hint or None,
         "note": (
-            "L1 bin-shift vs calibration reference — not PSI. Elevated drift blocks desk promote."
+            "L1 bin-shift + population_stability_index on calibration histograms. "
+            "Elevated drift or PSI blocks desk promote."
         ),
     }
 

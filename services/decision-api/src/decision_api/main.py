@@ -1473,6 +1473,18 @@ async def typology_weighted_telemetry(_user=Depends(require_role("analyst"))):
     return weighted_aggregation_telemetry()
 
 
+@app.get("/v1/ops/typology-ops")
+async def typology_ops_posture(
+    sample_rule_hits: str = "",
+    _user=Depends(require_role("analyst")),
+):
+    """Tazama-class typology control plane (weights + breach; not ISO 20022)."""
+    from decision_api.typology_ops import load_typology_ops_posture
+
+    hits = [h.strip() for h in (sample_rule_hits or "").split(",") if h.strip()]
+    return load_typology_ops_posture(sample_rule_hits=hits or None)
+
+
 # ---------- attestation ----------
 
 

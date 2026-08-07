@@ -88,6 +88,12 @@ def load_feature_store_ops_posture(
             "ttl_seconds_default": ttl,
             "zero_fallback_on_miss": zero_fallback,
         },
+        "online_serving": {
+            "entity_query": "POST /v1/velocity/query (feature-service)",
+            "parity_verify": "POST /v1/internal/parity/verify",
+            "feature_names": features,
+            "contract": "GET /v1/feature-serving-contract",
+        },
         "offline_parity": {
             "dual_diff_proven": proven,
             "artifact_present": parity is not None,
@@ -98,6 +104,7 @@ def load_feature_store_ops_posture(
             "job": "scripts/oss/counter_parity_dual_diff.py",
             "replay": "scripts/replay/run_offline_parity.py",
             "verify": "POST /v1/internal/parity/verify",
+            "same_feature_names_as_online": True,
         },
         "manifest": {
             "version": manifest_version(),
@@ -114,6 +121,7 @@ def load_feature_store_ops_posture(
         "streaming_flink_claim_allowed": streaming_flink_claim_allowed,
         "ops_ready": bool(redis_ok and proven and features),
         "blockers": blockers,
+        "borrowed_from": "Feast-style online/offline feature contract (own Redis + dual_diff)",
         "vs_feast": (
             "Tarka Redis velocity + dual_diff parity ≠ Feast online store + offline "
             "materialization product. ops_ready means L1 parity evidence only."
