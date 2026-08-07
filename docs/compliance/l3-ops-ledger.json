@@ -1,14 +1,14 @@
 {
   "schema_id": "tarka.l3_ops_ledger/v1",
-  "status": "NOT_STARTED",
-  "tenant_id": null,
-  "week1_start_utc": null,
-  "week4_end_utc": null,
-  "shadow_evaluate_enabled": false,
-  "host_action_sink": null,
+  "status": "ARMED",
+  "tenant_id": "tarka-ops-live-20260807",
+  "week1_start_utc": "2026-08-07",
+  "week4_end_utc": "2026-09-03",
+  "shadow_evaluate_enabled": true,
+  "host_action_sink": "internal:jsonl:/Users/pamu/Documents/GitHub/tarka/docs/compliance/host_action_log.jsonl",
   "label_join_ece": false,
-  "armed_at": null,
-  "armed_by": null,
+  "armed_at": "2026-08-07T06:41:34.878076Z",
+  "armed_by": "cursor-agent",
   "weeks": {
     "1": {
       "shadow_on": false,
@@ -51,5 +51,5 @@
       "signed_by": null
     }
   },
-  "honesty": "Sim/fixture never advances this ledger. COMPLETE only after four live weeks + Week-4 ECE on real labels. See docs/superpowers/playbooks/l3-ops-ledger.md and CLAIM_LOCK C5."
+  "honesty": "Sim/fixture never advances this ledger. COMPLETE only after four live weeks + Week-4 ECE on real labels. See docs/superpowers/playbooks/l3-ops-ledger.md."
 }

@@ -14,12 +14,13 @@ Arming the ledger starts the **clock**, not the claim. `claim_allowed` is true o
 
 | Field | Value |
 | --- | --- |
-| Tenant id | _pending operator_ |
-| Week 1 start (UTC date) | _not set_ |
-| Week 4 end (UTC date) | _not set_ |
-| Shadow evaluate enabled | no |
-| Host action log sink | no |
+| Tenant id | `tarka-ops-live-20260807` ([tenant note](../../compliance/l3-ops-live-tenant.md)) |
+| Week 1 start (UTC date) | 2026-08-07 |
+| Week 4 end (UTC date) | 2026-09-03 |
+| Shadow evaluate enabled | yes |
+| Host action log sink | `internal:jsonl:docs/compliance/host_action_log.jsonl` |
 | Label join / ECE on real labels | no |
+| Ledger status | **ARMED** (claim still locked) |
 
 ## Week checklist (live only)
 
@@ -53,4 +54,4 @@ Rejects: `demo` / `fixture` / `sim` tenants; sinks containing `shadow_four_week_
 
 ## Status
 
-Committed ledger starts **NOT_STARTED**. Claim lock stays closed for L3 (C5) until `COMPLETE`.
+Ledger **ARMED** 2026-08-07 on `tarka-ops-live-20260807`. Claim lock stays closed for L3 (C5) until `COMPLETE` after four signed live weeks + Week-4 ECE.
