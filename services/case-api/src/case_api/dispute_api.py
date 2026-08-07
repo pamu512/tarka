@@ -17,6 +17,7 @@ from .config import settings
 from .db import get_session
 from .dispute_deadline import queue_item_view
 from .dispute_reprocess_bridge import run_dispute_reprocess_evaluate
+from .dispute_y_label import dispute_outcome_to_y_label
 from .models import Case, CaseComment, Dispute, DisputeReprocessLedger
 from .schemas import CreateDisputeRequest, DisputeOut, UpdateDisputeRequest
 
@@ -114,6 +115,83 @@ async def _send_ml_feedback(http: httpx.AsyncClient, dispute: Dispute) -> None:
         )
     except Exception as e:
         log.warning("Failed to send ML feedback for dispute %s: %s", dispute.id, e)
+
+
+async def _merge_dispute_y_label(http: httpx.AsyncClient, dispute: Dispute) -> None:
+    """Fail-soft: merge terminal dispute outcome into decision-api calibration y_labels."""
+    base = (settings.decision_api_url or "").strip().rstrip("/")
+    if not base or not dispute.outcome or not dispute.trace_id:
+        return
+    y = dispute_outcome_to_y_label(dispute.outcome)
+    if not y:
+        return
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    key = (settings.decision_api_key or "").strip()
+    if key:
+        headers["x-api-key"] = key
+    try:
+        r = await http.post(
+            f"{base}/v1/calibration/y-labels/merge",
+            json={
+                "tenant_id": dispute.tenant_id,
+                "labels": [
+                    {
+                        "trace_id": dispute.trace_id,
+                        "y_label": y,
+                        "source": "dispute",
+                    }
+                ],
+            },
+            headers=headers,
+            timeout=5.0,
+        )
+        if r.status_code >= 400:
+            log.warning(
+                "Failed to merge dispute y_label dispute=%s trace=%s http=%s",
+                dispute.id,
+                dispute.trace_id,
+                r.status_code,
+            )
+    except Exception as e:
+        log.warning(
+            "Failed to merge dispute y_label dispute=%s trace=%s: %s",
+            dispute.id,
+            dispute.trace_id,
+            e,
+        )
+
+
+async def _latest_reprocess_signals(
+    session: AsyncSession, dispute_id: uuid.UUID
+) -> tuple[dict[str, Any] | None, bool | None]:
+    """Latest ledger snapshot decision_reprocess + friendly-fraud flag, if any."""
+    ledger = await session.scalar(
+        select(DisputeReprocessLedger)
+        .where(DisputeReprocessLedger.dispute_id == dispute_id)
+        .order_by(DisputeReprocessLedger.created_at.desc())
+        .limit(1)
+    )
+    if not ledger:
+        return None, None
+    snap = ledger.response_snapshot if isinstance(ledger.response_snapshot, dict) else {}
+    dr = snap.get("decision_reprocess")
+    if not isinstance(dr, dict):
+        return None, None
+    ff = dr.get("is_friendly_fraud_risk")
+    return dr, ff if isinstance(ff, bool) else None
+
+
+async def _dispute_out(session: AsyncSession, row: Dispute) -> DisputeOut:
+    base = DisputeOut.model_validate(row)
+    latest_dr, ff = await _latest_reprocess_signals(session, row.id)
+    if latest_dr is None and ff is None:
+        return base
+    return base.model_copy(
+        update={
+            "latest_decision_reprocess": latest_dr,
+            "is_friendly_fraud_risk": ff,
+        }
+    )
 
 
 def _compute_dispute_tags(dispute_type: str, status: str, outcome: str | None) -> list[str]:
@@ -390,7 +468,7 @@ async def get_dispute(dispute_id: uuid.UUID, session: AsyncSession = Depends(get
     row = result.scalar_one_or_none()
     if not row:
         raise HTTPException(404, "Dispute not found")
-    return DisputeOut.model_validate(row)
+    return await _dispute_out(session, row)
 
 
 @router.patch("/{dispute_id}", response_model=DisputeOut)
@@ -436,6 +514,7 @@ async def update_dispute(
 
     if dispute.outcome:
         await _send_ml_feedback(http, dispute)
+        await _merge_dispute_y_label(http, dispute)
 
         if dispute.case_id:
             case_result = await session.execute(select(Case).where(Case.id == dispute.case_id))

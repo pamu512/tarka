@@ -137,6 +137,8 @@ class DisputeOut(BaseModel):
     last_external_reprocess_at: datetime | None = None
     created_at: datetime | None
     updated_at: datetime | None
+    latest_decision_reprocess: dict | None = None
+    is_friendly_fraud_risk: bool | None = None
 
     model_config = {"from_attributes": True}
 

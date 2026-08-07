@@ -7,6 +7,7 @@
 
 export {
   disputes,
+  type DecisionReprocessSnapshot,
   type DisputeAlertState,
   type DisputeDeadlineQueueItem,
   type DisputeDeadlineQueueResponse,

@@ -4378,6 +4378,18 @@ export interface DisputeEntry {
   provider_response_deadline_at?: string | null;
   external_reprocess_count?: number;
   last_external_reprocess_at?: string | null;
+  latest_decision_reprocess?: DecisionReprocessSnapshot | null;
+  is_friendly_fraud_risk?: boolean | null;
+}
+
+export interface DecisionReprocessSnapshot {
+  ok?: boolean;
+  decision?: string | null;
+  score?: number | null;
+  tags?: string[];
+  degraded?: boolean;
+  error?: string | null;
+  is_friendly_fraud_risk?: boolean;
 }
 
 export type DisputeAlertState = "no_deadline" | "ok" | "near_breach" | "breached";
@@ -4411,6 +4423,7 @@ export interface DisputeReprocessExternalResponse {
   external_reprocess_count: number;
   reason: string;
   idempotent_replay: boolean;
+  decision_reprocess?: DecisionReprocessSnapshot | null;
 }
 
 export interface DisputeStats {
