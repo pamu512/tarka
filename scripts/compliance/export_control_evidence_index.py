@@ -23,6 +23,7 @@ _PATHS = [
     "docs/compliance/partner-fusion-proof.live.attempt.md",
     "docs/compliance/CLAIM_LOCK.md",
     "docs/compliance/l3-ops-ledger.json",
+    "docs/compliance/l3-ops-live-tenant.md",
     "docs/compliance/loyalty-feeds.status",
     "docs/superpowers/playbooks/l3-ops-ledger.md",
     "scripts/oss/partner_fusion_tenant_proof.py",
