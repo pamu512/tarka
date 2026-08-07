@@ -218,6 +218,36 @@ class PiiFieldRevealAudit(Base):
     )
 
 
+class MarketplacePayoutHold(Base):
+    """Durable payout hold row from evaluate tags or payout-delay automation."""
+
+    __tablename__ = "marketplace_payout_holds"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "payout_id", name="uq_marketplace_payout_hold"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[str] = mapped_column(String(128), index=True)
+    payout_id: Mapped[str] = mapped_column(String(256), index=True)
+    entity_id: Mapped[str] = mapped_column(String(256), index=True)
+    status: Mapped[str] = mapped_column(String(32), default="held", index=True)
+    hold_reason: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    held_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    decision_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    trace_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    tags: Mapped[list[str]] = mapped_column(JSON, default=list)
+    amount: Mapped[float | None] = mapped_column(Float, nullable=True)
+    currency: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    mule_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    held_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    scheduled_release_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class ComplianceResidencyAudit(Base):
     """Audit-plane row when an outbound vendor call is blocked for data residency (pre-socket)."""
 
