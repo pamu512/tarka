@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactElement } from "re
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { integrations, type PromoAbuseResponse, type PromoAbuseUserRow } from "../api/client";
+import { DurableBoardSourceBadge } from "../components/integrations/DurableBoardSourceBadge";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { useRegisterPageMeta } from "../context/PageMetaContext";
@@ -70,14 +71,22 @@ export default function PromoAbuseDashboard(): ReactElement {
           </p>
           <p className="text-[11px] text-gray-600 mt-2 font-mono">GET /api/ingress/v1/analytics/promo-abuse</p>
         </div>
-        <button
-          type="button"
-          disabled={loading}
-          onClick={() => void load()}
-          className="text-xs font-semibold px-3 py-2 rounded-lg border border-surface-600 bg-surface-800 text-gray-200 hover:bg-surface-700 disabled:opacity-50"
-        >
-          {loading ? "Loading…" : "Refresh"}
-        </button>
+        <div className="flex flex-col items-end gap-2">
+          {data ? (
+            <DurableBoardSourceBadge
+              source={data.source}
+              recordCount={data.summary.total_redemptions}
+            />
+          ) : null}
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => void load()}
+            className="text-xs font-semibold px-3 py-2 rounded-lg border border-surface-600 bg-surface-800 text-gray-200 hover:bg-surface-700 disabled:opacity-50"
+          >
+            {loading ? "Loading…" : "Refresh"}
+          </button>
+        </div>
       </div>
 
       <form

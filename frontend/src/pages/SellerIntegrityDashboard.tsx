@@ -16,6 +16,7 @@ import {
   type SellerIntegrityResponse,
   type SellerIntegrityRow,
 } from "../api/client";
+import { DurableBoardSourceBadge } from "../components/integrations/DurableBoardSourceBadge";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { useRegisterPageMeta } from "../context/PageMetaContext";
@@ -100,14 +101,19 @@ export default function SellerIntegrityDashboard(): ReactElement {
             GET /api/ingress/v1/marketplace/seller-integrity
           </p>
         </div>
-        <button
-          type="button"
-          disabled={loading}
-          onClick={() => void load()}
-          className="text-xs font-semibold px-3 py-2 rounded-lg border border-surface-600 bg-surface-800 text-gray-200 hover:bg-surface-700 disabled:opacity-50"
-        >
-          {loading ? "Loading…" : "Refresh"}
-        </button>
+        <div className="flex flex-col items-end gap-2">
+          {data ? (
+            <DurableBoardSourceBadge source={data.source} recordCount={data.summary.seller_count} />
+          ) : null}
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => void load()}
+            className="text-xs font-semibold px-3 py-2 rounded-lg border border-surface-600 bg-surface-800 text-gray-200 hover:bg-surface-700 disabled:opacity-50"
+          >
+            {loading ? "Loading…" : "Refresh"}
+          </button>
+        </div>
       </div>
 
       {error ? (
