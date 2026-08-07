@@ -9,19 +9,31 @@ log = logging.getLogger("decision-api.payout_hold_bridge")
 
 ACTION_TAGS = frozenset({"action:payout_hold", "action:payout_delay"})
 PAYOUT_CHECKPOINTS = frozenset({"payout"})
+DEFAULT_HOLD_HOURS = 72
+DEFAULT_DELAY_HOURS = 24
 
 
 def should_create_payout_hold(
     *,
     metadata: dict[str, Any] | None,
     tags: list[str] | None,
+    event_type: str | None = None,
 ) -> bool:
     meta = metadata if isinstance(metadata, dict) else {}
     checkpoint = str(meta.get("checkpoint") or "").strip().lower()
-    if checkpoint not in PAYOUT_CHECKPOINTS:
+    et = str(event_type or "").strip().lower()
+    if checkpoint not in PAYOUT_CHECKPOINTS and et not in PAYOUT_CHECKPOINTS:
         return False
+    return bool(set(tags or []) & ACTION_TAGS)
+
+
+def resolve_hold_status_and_hours(tags: list[str] | None) -> tuple[str, int]:
     tag_set = set(tags or [])
-    return bool(tag_set & ACTION_TAGS)
+    if "action:payout_hold" in tag_set:
+        return "held", DEFAULT_HOLD_HOURS
+    if "action:payout_delay" in tag_set:
+        return "pending", DEFAULT_DELAY_HOURS
+    return "held", DEFAULT_HOLD_HOURS
 
 
 def _hold_reason_from_tags(tags: list[str]) -> str:
@@ -48,11 +60,14 @@ def build_hold_payload(
     if not payout_id:
         raise ValueError("metadata.payout_id is required for payout hold bridge")
 
+    status, hold_duration_hours = resolve_hold_status_and_hours(tags)
+
     payload: dict[str, Any] = {
         "tenant_id": tenant_id,
         "payout_id": payout_id,
         "entity_id": entity_id,
-        "status": "held",
+        "status": status,
+        "hold_duration_hours": hold_duration_hours,
         "hold_reason": _hold_reason_from_tags(list(tags)),
         "held_by": "evaluate",
         "decision_id": decision_id,
@@ -104,8 +119,12 @@ async def maybe_create_payout_hold_from_evaluate(
     tags: list[str],
     metadata: dict[str, Any] | None,
     trace_id: str,
+    event_type: str = "",
+    metrics_inc: Any = None,
 ) -> None:
-    if not should_create_payout_hold(metadata=metadata, tags=tags):
+    if not should_create_payout_hold(
+        metadata=metadata, tags=tags, event_type=event_type
+    ):
         return
     meta = metadata if isinstance(metadata, dict) else {}
     if not str(meta.get("payout_id") or "").strip():

@@ -13,6 +13,41 @@ from decision_api.payout_hold_bridge import (
 )
 
 
+def test_should_create_on_event_type_payout():
+    assert should_create_payout_hold(
+        metadata={"payout_id": "po_1"},
+        tags=["action:payout_hold"],
+        event_type="payout",
+    )
+    assert not should_create_payout_hold(
+        metadata={"checkpoint": "order"},
+        tags=["action:payout_hold"],
+        event_type="purchase",
+    )
+
+
+def test_resolve_delay_pending_and_hold_wins():
+    from decision_api.payout_hold_bridge import resolve_hold_status_and_hours
+
+    assert resolve_hold_status_and_hours(["action:payout_delay"]) == ("pending", 24)
+    assert resolve_hold_status_and_hours(
+        ["action:payout_hold", "action:payout_delay"]
+    ) == ("held", 72)
+
+
+def test_build_hold_payload_pending_for_delay():
+    p = build_hold_payload(
+        tenant_id="t",
+        entity_id="e",
+        tags=["action:payout_delay"],
+        metadata={"checkpoint": "payout", "payout_id": "po_1"},
+        decision_id="d",
+        trace_id="tr",
+    )
+    assert p["status"] == "pending"
+    assert p["hold_duration_hours"] == 24
+
+
 def test_should_create_on_payout_checkpoint_and_action_tag():
     assert should_create_payout_hold(
         metadata={"checkpoint": "payout", "payout_id": "po_9"},
@@ -36,7 +71,8 @@ def test_build_hold_payload_maps_fields():
         trace_id="tr",
     )
     assert p["payout_id"] == "po_1"
-    assert p["status"] == "held"
+    assert p["status"] == "pending"
+    assert p["hold_duration_hours"] == 24
     assert "action:payout_delay" in p["tags"]
     assert p["amount"] == 50.0
     assert p["hold_reason"] == "tag:action:payout_delay"

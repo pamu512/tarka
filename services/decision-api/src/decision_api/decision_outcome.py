@@ -180,7 +180,9 @@ def schedule_decision_outcomes(
         )
 
         meta = ctx.metadata if isinstance(ctx.metadata, dict) else None
-        if should_create_payout_hold(metadata=meta, tags=ctx.tags):
+        if should_create_payout_hold(
+            metadata=meta, tags=ctx.tags, event_type=ctx.event_type
+        ):
             bg.add_task(
                 maybe_create_payout_hold_from_evaluate,
                 http=http,
@@ -191,6 +193,7 @@ def schedule_decision_outcomes(
                 tags=ctx.tags,
                 metadata=meta,
                 trace_id=ctx.trace_id,
+                event_type=ctx.event_type,
             )
 
 
