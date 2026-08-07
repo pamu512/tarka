@@ -174,19 +174,24 @@ def schedule_decision_outcomes(
         )
 
     if not ctx.shadow_request:
-        from decision_api.payout_hold_bridge import maybe_create_payout_hold_from_evaluate
-
-        bg.add_task(
+        from decision_api.payout_hold_bridge import (
             maybe_create_payout_hold_from_evaluate,
-            http=http,
-            integration_ingress_url=integration_ingress_url,
-            ingress_internal_token=ingress_internal_token,
-            tenant_id=ctx.tenant_id,
-            entity_id=ctx.entity_id,
-            tags=ctx.tags,
-            metadata=ctx.metadata if isinstance(ctx.metadata, dict) else None,
-            trace_id=ctx.trace_id,
+            should_create_payout_hold,
         )
+
+        meta = ctx.metadata if isinstance(ctx.metadata, dict) else None
+        if should_create_payout_hold(metadata=meta, tags=ctx.tags):
+            bg.add_task(
+                maybe_create_payout_hold_from_evaluate,
+                http=http,
+                integration_ingress_url=integration_ingress_url,
+                ingress_internal_token=ingress_internal_token,
+                tenant_id=ctx.tenant_id,
+                entity_id=ctx.entity_id,
+                tags=ctx.tags,
+                metadata=meta,
+                trace_id=ctx.trace_id,
+            )
 
 
 def _emit_decision_metrics(
