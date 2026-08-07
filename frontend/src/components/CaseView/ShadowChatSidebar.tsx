@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from 'react-router';
 import { investigation } from "../../api/client";
+import { MARKETPLACE_COD_COURIER_HOLD_PLAYBOOK } from "../../utils/inferInvestigationPlaybook";
 import { toUserFacingError } from "../../utils/userFacingErrors";
 
 type ConnState = "idle" | "streaming" | "complete" | "aborted" | "dropped" | "error";
 
 type ChatMessage = { role: "user" | "assistant" | "system"; content: string };
+
+type PlaybookOption = { id: string; title: string; vertical: string };
 
 function isAbortError(e: unknown): boolean {
   return e instanceof DOMException && e.name === "AbortError";
@@ -21,6 +24,8 @@ export type ShadowChatSidebarProps = {
   onOpenChange: (open: boolean) => void;
   /** When true, render inline panel body (workbench copilot rail) without fixed overlay chrome. */
   embedded?: boolean;
+  /** Tag-inferred playbook id (e.g. marketplace_cod_courier_hold); applied when selection is empty. */
+  suggestedPlaybookId?: string | null;
 };
 
 /**
@@ -34,19 +39,37 @@ export function ShadowChatSidebar({
   open,
   onOpenChange,
   embedded = false,
+  suggestedPlaybookId = null,
 }: ShadowChatSidebarProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [streamingText, setStreamingText] = useState("");
   const [conn, setConn] = useState<ConnState>("idle");
   const [lastError, setLastError] = useState<string | null>(null);
+  const [playbooks, setPlaybooks] = useState<PlaybookOption[]>([]);
+  const [selectedPlaybookId, setSelectedPlaybookId] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const gotFinalRef = useRef(false);
   const draftRef = useRef<HTMLTextAreaElement | null>(null);
+  const userPickedPlaybookRef = useRef(false);
 
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
+
+  useEffect(() => {
+    void investigation
+      .listPlaybooks()
+      .then((r) => setPlaybooks(r.playbooks ?? []))
+      .catch(() => setPlaybooks([]));
+  }, []);
+
+  useEffect(() => {
+    if (userPickedPlaybookRef.current) return;
+    if (suggestedPlaybookId) {
+      setSelectedPlaybookId(suggestedPlaybookId);
+    }
+  }, [suggestedPlaybookId]);
 
   useEffect(() => {
     if (open) {
@@ -84,6 +107,7 @@ export function ShadowChatSidebar({
         caseId.trim() || undefined,
         {
           signal: ac.signal,
+          playbook_id: selectedPlaybookId || undefined,
         },
         (ev) => {
           if (ev.type === "delta" && ev.payload && typeof ev.payload === "object") {
@@ -134,10 +158,13 @@ export function ShadowChatSidebar({
       abortRef.current = null;
       setStreamingText((t) => (gotFinalRef.current ? "" : t));
     }
-  }, [caseId, conn, draft, messages, tenantId]);
+  }, [caseId, conn, draft, messages, selectedPlaybookId, tenantId]);
 
   const busy = conn === "streaming";
   const investigationHref = `/investigation?case_id=${encodeURIComponent(caseId)}&tenant_id=${encodeURIComponent(tenantId)}`;
+  const showCodSuggestion =
+    suggestedPlaybookId === MARKETPLACE_COD_COURIER_HOLD_PLAYBOOK &&
+    selectedPlaybookId === MARKETPLACE_COD_COURIER_HOLD_PLAYBOOK;
 
   const rail = (
     <div className="flex h-full min-h-0 shrink-0 flex-col border-surface-700 bg-surface-900/90 xl:border-l">
@@ -239,6 +266,35 @@ export function ShadowChatSidebar({
             {conn}
           </span>
         </div>
+        <label className="block text-[10px] text-gray-500">
+          Playbook
+          <select
+            value={selectedPlaybookId}
+            disabled={busy}
+            onChange={(e) => {
+              userPickedPlaybookRef.current = true;
+              setSelectedPlaybookId(e.target.value);
+            }}
+            title="Typology workflow hints (GET /v1/playbooks)"
+            className="mt-1 w-full rounded-md border border-surface-600 bg-surface-950 px-2 py-1.5 text-[11px] text-gray-200"
+            data-testid="case-copilot-playbook"
+          >
+            <option value="">None</option>
+            {playbooks.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.title}
+              </option>
+            ))}
+          </select>
+        </label>
+        {showCodSuggestion ? (
+          <p
+            className="text-[10px] text-amber-200/90 border border-amber-500/30 rounded-md px-2 py-1 bg-amber-950/20"
+            data-testid="case-copilot-playbook-suggestion"
+          >
+            Suggested: marketplace COD / courier hold (from case tags)
+          </p>
+        ) : null}
         <div className="flex flex-wrap items-end gap-2">
           <textarea
             ref={draftRef}

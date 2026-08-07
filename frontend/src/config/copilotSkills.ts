@@ -64,7 +64,7 @@ export const COPILOT_SKILL_GROUPS: CopilotSkillGroup[] = [
     id: "typology-playbooks",
     title: "Typology playbooks",
     blurb:
-      "Use the **Playbook** dropdown in the Investigation header to send `playbook_id` with each message (same catalog as `GET /v1/playbooks`). That appends server-side workflow hints to the system prompt—including scheme-style monitoring, disputes, AML escalation, collusion, coupon abuse, and fulfillment claims. Prompts below are optional user-side framings if you prefer not to use the dropdown.",
+      "Use the **Playbook** dropdown in Investigation or CaseDetail copilot to send `playbook_id` with each message (same catalog as `GET /v1/playbooks`). CaseDetail auto-suggests `marketplace_cod_courier_hold` from COD/courier/payout-hold tags. That appends server-side workflow hints—including scheme-style monitoring, disputes, AML escalation, collusion, coupon abuse, and fulfillment claims. Prompts below are optional user-side framings if you prefer not to use the dropdown.",
     skills: [
       {
         id: "pb-payments_first_party",
@@ -83,6 +83,12 @@ export const COPILOT_SKILL_GROUPS: CopilotSkillGroup[] = [
         label: "Framing: refund / promo abuse",
         prompt:
           "Investigate refund or promo abuse: graph links and shared instruments/addresses/devices, velocity from audits, batch value_counts on refund/promo/SKU columns if a batch exists. No stereotype proxies—ground patterns in tools.",
+      },
+      {
+        id: "pb-marketplace_cod_courier",
+        label: "Framing: COD / courier spoof / payout hold",
+        prompt:
+          "Investigate marketplace COD / offline payment / courier spoof: confirm payment_method and COD flags from tools only, check risk:courier_spoof and Incognia/device-trust tags, multi-party buyer/seller/courier links, then durable payout hold status on the payout-delay board. Advisory hold vs release only.",
       },
       {
         id: "pb-mule_layering",
