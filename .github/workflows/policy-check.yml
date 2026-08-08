@@ -13,6 +13,9 @@ on:
       - "Makefile"
       - ".github/workflows/policy-check.yml"
 
+permissions:
+  contents: read
+
 jobs:
   policy-check:
     runs-on: ubuntu-latest

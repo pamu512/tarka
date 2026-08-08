@@ -128,7 +128,7 @@ def create_app() -> FastAPI:
                 )
             except PagerDutyDeliveryError as exc:
                 log.error("pagerduty delivery failed after retries: %s", exc)
-                response["pagerduty_error"] = str(exc)
+                response["pagerduty_error"] = "pagerduty_delivery_failed"
 
         return response
 

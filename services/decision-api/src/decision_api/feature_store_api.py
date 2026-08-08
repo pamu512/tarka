@@ -114,6 +114,16 @@ def _allowed_source_tables() -> set[str]:
     return {t.strip() for t in settings.nl_sql_allowed_tables.split(",") if t.strip()}
 
 
+def _public_clickhouse_error(raw: str | None) -> str | None:
+    """Never echo ClickHouse/driver stack text to API clients."""
+    if not raw:
+        return None
+    text = str(raw).strip()
+    if text.startswith("clickhouse_ddl_failed:"):
+        return text[:200]
+    return "clickhouse_ddl_failed"
+
+
 def _row_to_item(
     row: asyncpg.Record,
     *,
@@ -139,16 +149,16 @@ def _row_to_item(
         "version": int(row["version"]),
         "definition": definition,
         "ddl_status": row["ddl_status"],
-        "clickhouse_error": row["clickhouse_error"],
+        "clickhouse_error": _public_clickhouse_error(row["clickhouse_error"]),
         "created_at": created_at.isoformat() if created_at else None,
         "updated_at": updated_at.isoformat() if updated_at else None,
     }
     if include_ddl:
         try:
             out["clickhouse_mv_ddl"] = generate_clickhouse_ddl(spec)
-        except ValueError as e:
+        except ValueError:
             out["clickhouse_mv_ddl"] = None
-            out["clickhouse_mv_ddl_note"] = str(e)
+            out["clickhouse_mv_ddl_note"] = "ddl_generation_failed"
     return out
 
 
@@ -206,12 +216,13 @@ async def create_definition(
     try:
         await execute_feature_ddl(ch, ddl)
     except Exception as e:
-        err_msg = str(e)[:8192]
+        # Log full detail server-side; persist/return only a stable public code.
         log.warning(
             "ClickHouse DDL execution failed for feature_definitions id=%s: %s",
             row_id,
-            err_msg,
+            str(e)[:8192],
         )
+        err_msg = f"clickhouse_ddl_failed:{type(e).__name__}"
         async with pool.acquire() as conn:
             await conn.execute(
                 """
@@ -289,9 +300,11 @@ async def execute_feature_store_ddl(
     try:
         await run_clickhouse_sync(ch, _run)
     except Exception as e:
-        msg = str(e).strip() or repr(e)
-        log.warning("feature-store admin ddl failed: %s", msg[:500])
-        raise HTTPException(status_code=422, detail=msg[:65536]) from e
+        log.warning("feature-store admin ddl failed: %s", str(e)[:500])
+        raise HTTPException(
+            status_code=422,
+            detail=f"clickhouse_ddl_failed:{type(e).__name__}",
+        ) from e
     return {"ok": True, "executed": True}
 
 

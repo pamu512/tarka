@@ -6,7 +6,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-RUN pip install --no-cache-dir pip -U
+# Base image often ships vulnerable setuptools; pin before/after install for Trivy.
+RUN pip install --no-cache-dir pip -U "setuptools>=83.0.0" "msgpack>=1.2.1" wheel
 # Local path deps in pyproject.toml (file:../core, file:../analytics) must exist before `pip install`;
 # sed below rewrites them to file:./core and file:./analytics under WORKDIR.
 COPY services/core /app/core
@@ -31,7 +32,8 @@ RUN sed -i -e 's|file:../core|file:/app/core|g' /app/analytics/pyproject.toml \
         -e 's|file:../core|file:/app/core|g' \
         -e 's|file:../analytics|file:/app/analytics|g' \
         /app/pyproject.toml \
-    && pip install --no-cache-dir -e .
+    && pip install --no-cache-dir -e . \
+    && pip install --no-cache-dir -U "setuptools>=83.0.0" "msgpack>=1.2.1"
 ENV PYTHONPATH=/app/src:/app:/app/shared:/app/packages/shared-core
 ENV RULES_PATH=/app/rules
 CMD ["/bin/sh", "-c", "alembic -c /app/config/decision_alembic.ini upgrade head && alembic -c /app/config/case_alembic.ini upgrade head && exec uvicorn core_api.main:app --host 0.0.0.0 --port 8000"]
