@@ -7,7 +7,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /repo/services/decision-api
-RUN pip install --no-cache-dir pip -U
+RUN pip install --no-cache-dir pip -U "setuptools>=83.0.0" "msgpack>=1.2.1" wheel
 COPY services/core /repo/services/core
 COPY services/analytics /repo/services/analytics
 COPY services/decision-api/pyproject.toml /repo/services/decision-api/
@@ -19,6 +19,7 @@ COPY services/decision-api/rules /repo/services/decision-api/rules
 COPY services/decision-api/static /repo/services/decision-api/static
 COPY adapters /repo/adapters
 RUN pip install --no-cache-dir -e . \
+    && pip install --no-cache-dir -U "setuptools>=83.0.0" "msgpack>=1.2.1" \
     && rm -rf /root/.cache /root/.cargo/registry /root/.cargo/git 2>/dev/null || true
 ENV RULES_PATH=/repo/services/decision-api/rules
 ENV PYTHONPATH=/repo/services/decision-api/src:/repo/services/shared:/repo
