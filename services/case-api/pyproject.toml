@@ -5,8 +5,8 @@ requires-python = ">=3.11"
 dependencies = [
   "structlog>=26.1.0",
   "tarka-core @ file:../core",
-  "fastapi>=0.140.7",
-  "uvicorn[standard]>=0.51.0",
+  "fastapi>=0.141.1",
+  "uvicorn[standard]>=0.52.0",
   "sqlalchemy[asyncio]>=2.0.51",
   "aiosqlite>=0.22.1",
   "asyncpg>=0.31.0",
