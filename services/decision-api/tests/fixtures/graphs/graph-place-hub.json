@@ -1,0 +1,63 @@
+{
+  "id": "graph-place-hub",
+  "class": "collusion",
+  "party_graph": {
+    "nodes": [
+      {
+        "id": "plc1",
+        "role": "place"
+      },
+      {
+        "id": "u0",
+        "role": "buyer"
+      },
+      {
+        "id": "u1",
+        "role": "seller"
+      },
+      {
+        "id": "u2",
+        "role": "buyer"
+      },
+      {
+        "id": "u3",
+        "role": "seller"
+      },
+      {
+        "id": "u4",
+        "role": "buyer"
+      }
+    ],
+    "edges": [
+      {
+        "src": "plc1",
+        "dst": "u0",
+        "type": "SEEN_AT"
+      },
+      {
+        "src": "plc1",
+        "dst": "u1",
+        "type": "SEEN_AT"
+      },
+      {
+        "src": "plc1",
+        "dst": "u2",
+        "type": "SEEN_AT"
+      },
+      {
+        "src": "plc1",
+        "dst": "u3",
+        "type": "SEEN_AT"
+      },
+      {
+        "src": "plc1",
+        "dst": "u4",
+        "type": "SEEN_AT"
+      }
+    ]
+  },
+  "expect": {
+    "ring_factor:place_hub": true,
+    "production_ready": true
+  }
+}

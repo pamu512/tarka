@@ -7,6 +7,59 @@ from typing import Any, Mapping
 from decision_api.vertical_packs import evaluate_kill_criteria
 
 
+def fixture_holdout_promote_gate(
+    *,
+    vertical: str,
+    bind_when_labels_present: bool = True,
+) -> dict[str, Any]:
+    """Bind pack promote to labeled fixture F1 + McNemar when holdout exists.
+
+    When no holdout file exists and ``bind_when_labels_present``, returns waived
+    (simulation-metrics-only path). LIVE claim stays false.
+    """
+    from decision_api.vertical_promote_registry import (
+        evaluate_holdout_for_pack,
+        holdout_path,
+    )
+
+    if not holdout_path(vertical).is_file():
+        return {
+            "schema_id": "tarka.fixture_holdout_promote/v1",
+            "vertical": vertical,
+            "promote_allowed": True,
+            "waived": True,
+            "promote_live_claim_allowed": False,
+            "promote_fixture_claim_allowed": False,
+            "blockers": [],
+            "note": "No labeled holdout file — fixture gate waived.",
+        }
+    if not bind_when_labels_present:
+        return {
+            "schema_id": "tarka.fixture_holdout_promote/v1",
+            "vertical": vertical,
+            "promote_allowed": True,
+            "waived": True,
+            "promote_live_claim_allowed": False,
+            "promote_fixture_claim_allowed": False,
+            "blockers": [],
+            "note": "Fixture bind disabled by caller.",
+        }
+    result = evaluate_holdout_for_pack(vertical)
+    return {
+        "schema_id": "tarka.fixture_holdout_promote/v1",
+        "vertical": vertical,
+        "promote_allowed": bool(result.get("promote_allowed")),
+        "waived": False,
+        "promote_live_claim_allowed": False,
+        "promote_fixture_claim_allowed": bool(
+            result.get("promote_fixture_claim_allowed")
+        ),
+        "blockers": list(result.get("blockers") or []),
+        "holdout": result,
+        "note": "Labeled fixture holdout bound to pack kill_criteria + McNemar.",
+    }
+
+
 def metrics_from_backtest(metrics_json: Mapping[str, Any] | None) -> dict[str, Any]:
     """Map warehouse backtest metrics_json → kill_criteria metrics."""
     m = metrics_json if isinstance(metrics_json, Mapping) else {}

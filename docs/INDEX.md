@@ -4,11 +4,12 @@ Canonical operator index. Prefer these over scattered epic status notes.
 
 | Pillar | Start here | Avoid |
 |--------|------------|-------|
-| **Evaluate** (Rust / decision-api) | [Root ARCHITECTURE.md](../ARCHITECTURE.md) · [one Rust rule engine spec](superpowers/specs/2026-07-11-one-rust-rule-engine-design.md) · [decision-api README](../services/decision-api/README.md) | Python `rule_engine` HTTP evaluate; quarantined `core_v2` |
+| **Evaluate** (Rust / decision-api) | [Root ARCHITECTURE.md](../ARCHITECTURE.md) · [feature data flows](docs/guides/feature-data-flows.md) · [one Rust rule engine spec](superpowers/specs/2026-07-11-one-rust-rule-engine-design.md) · [decision-api README](../services/decision-api/README.md) | Python `rule_engine` HTTP evaluate; quarantined `core_v2` |
 | **Graph** (JanusGraph / Gremlin) | [service-ports](docs/guides/service-ports.md) · [graph contract](../services/decision-api/docs/decision-api-graph-service-contract.md) · janusgraph demo under `infra/deploy/janusgraph-cassandra-demo/` | Treating Neo4j/AGE forks as peers without `GRAPH_BACKEND` |
 | **Shadow** (local forensics) | [services/SHADOW.md](../services/SHADOW.md) · ingest `shadow_agent` · desktop `tools/shadow` | A fourth HTTP “Shadow” service |
 | **Cases** | case-api + analyst SPA [`frontend/`](../frontend/) | Prototype Notifications inbox (removed) |
-| **Deploy** | Root `docker-compose.yml` (Lite) · [`infra/deploy/docker-compose.yml`](../infra/deploy/docker-compose.yml) profiles · Helm `infra/deploy/helm/fraud-stack/` · [archive](../infra/deploy/archive/README.md) | Archived `single` / `lite.smoke` / broken host-ports overlays |
+| **Deploy** | Root `docker-compose.yml` (Lite) · [`infra/deploy/docker-compose.yml`](../infra/deploy/docker-compose.yml) profiles · Helm `infra/deploy/helm/fraud-stack/` · [archive](../infra/deploy/archive/README.md) · [productionization runbook](docs/guides/repo-productionization-runbook.md) | Archived `single` / `lite.smoke` / broken host-ports overlays |
+| **Honesty** | [`../STUB_REGISTER.md`](../STUB_REGISTER.md) · [uncommitted triage 2026-08-12](docs/guides/uncommitted-work-triage-2026-08-12.md) | Treating mocks as production truth |
 
 ## Other hubs
 

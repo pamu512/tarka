@@ -1,0 +1,37 @@
+{
+  "id": "graph-payment-bridge-collusion",
+  "class": "collusion",
+  "party_graph": {
+    "nodes": [
+      {
+        "id": "b1",
+        "role": "buyer"
+      },
+      {
+        "id": "s1",
+        "role": "seller"
+      },
+      {
+        "id": "card1",
+        "role": "payment_instrument"
+      }
+    ],
+    "edges": [
+      {
+        "src": "b1",
+        "dst": "card1",
+        "type": "USES_PAYMENT"
+      },
+      {
+        "src": "s1",
+        "dst": "card1",
+        "type": "USES_PAYMENT"
+      }
+    ]
+  },
+  "expect": {
+    "cross_role_same_device": true,
+    "ring_factor:cross_role_payment": true,
+    "production_ready": true
+  }
+}

@@ -1890,6 +1890,31 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       honesty: "Journal mock empty.",
     };
   }
+  if (path.includes("/api/decisions/v1/ops/trend/posture")) {
+    return {
+      schema_id: "tarka.trend_ops_posture/v1",
+      wasm_auto_promote: false,
+      tick_skip_llm_default: true,
+      baseline_min_n: 3,
+      watch_count: 0,
+      pending_draft_count: 0,
+      honesty:
+        "Mock posture — connect decision-api for live watch/tick. Drafts never auto-promote Wasm.",
+      cron_hint: "scripts/trend_tick_loop.sh or compose profile trend-tick",
+    };
+  }
+  if (path.includes("/api/decisions/v1/ops/trend/drafts") && method === "GET") {
+    return { tenant_id: "demo", drafts: [] };
+  }
+  if (path.includes("/api/decisions/v1/ops/trend/tick") && method === "POST") {
+    return { ok: true, evaluated: 0, skipped: 0, skip_llm: true, results: [] };
+  }
+  if (path.includes("/api/decisions/v1/ops/trend/hil-override") && method === "POST") {
+    return { ok: true, override_id: "mock-hil" };
+  }
+  if (path.includes("/api/decisions/v1/ops/trend/") && path.includes("/reject") && method === "POST") {
+    return { ok: true, draft: { id: "mock", status: "REJECTED" } };
+  }
   if (path.includes("/api/decisions/v1/ops/loyalty-feed-posture")) {
     return {
       schema_id: "tarka.loyalty_feed_ops_posture/v1",

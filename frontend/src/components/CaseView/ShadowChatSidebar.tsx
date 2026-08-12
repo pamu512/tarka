@@ -6,7 +6,11 @@ import { toUserFacingError } from "../../utils/userFacingErrors";
 
 type ConnState = "idle" | "streaming" | "complete" | "aborted" | "dropped" | "error";
 
-type ChatMessage = { role: "user" | "assistant" | "system"; content: string };
+type ChatMessage = {
+  role: "user" | "assistant" | "system";
+  content: string;
+  agent_run_id?: string;
+};
 
 type PlaybookOption = { id: string; title: string; vertical: string };
 
@@ -46,6 +50,8 @@ export function ShadowChatSidebar({
   const [streamingText, setStreamingText] = useState("");
   const [conn, setConn] = useState<ConnState>("idle");
   const [lastError, setLastError] = useState<string | null>(null);
+  const [lastAgentRunId, setLastAgentRunId] = useState<string | null>(null);
+  const [runDetail, setRunDetail] = useState<string | null>(null);
   const [playbooks, setPlaybooks] = useState<PlaybookOption[]>([]);
   const [selectedPlaybookId, setSelectedPlaybookId] = useState("");
   const abortRef = useRef<AbortController | null>(null);
@@ -114,11 +120,16 @@ export function ShadowChatSidebar({
             const t = (ev.payload as { text?: string }).text;
             if (t) setStreamingText((s) => s + t);
           } else if (ev.type === "final" && ev.payload && typeof ev.payload === "object") {
-            const p = ev.payload as { reply?: string };
+            const p = ev.payload as { reply?: string; agent_run_id?: string };
             const reply = typeof p.reply === "string" ? p.reply : "";
+            const rid = typeof p.agent_run_id === "string" ? p.agent_run_id : undefined;
             gotFinalRef.current = true;
+            if (rid) setLastAgentRunId(rid);
             if (reply) {
-              setMessages([...nextMessages, { role: "assistant", content: reply }]);
+              setMessages([
+                ...nextMessages,
+                { role: "assistant", content: reply, agent_run_id: rid },
+              ]);
               setStreamingText("");
             }
           } else if (ev.type === "error" && ev.payload && typeof ev.payload === "object") {
@@ -130,7 +141,13 @@ export function ShadowChatSidebar({
       );
       if (!gotFinalRef.current && result.reply) {
         gotFinalRef.current = true;
-        setMessages([...nextMessages, { role: "assistant", content: result.reply }]);
+        const rid =
+          typeof result.agent_run_id === "string" ? result.agent_run_id : undefined;
+        if (rid) setLastAgentRunId(rid);
+        setMessages([
+          ...nextMessages,
+          { role: "assistant", content: result.reply, agent_run_id: rid },
+        ]);
         setStreamingText("");
       }
       if (!gotFinalRef.current && !ac.signal.aborted) {
@@ -232,6 +249,11 @@ export function ShadowChatSidebar({
               {m.role}
             </div>
             {m.content}
+            {m.agent_run_id ? (
+              <div className="mt-2 break-all font-mono text-[10px] text-brand-300/90">
+                agent_run_id: {m.agent_run_id}
+              </div>
+            ) : null}
           </div>
         ))}
         {streamingText ? (
@@ -248,6 +270,35 @@ export function ShadowChatSidebar({
       {lastError ? (
         <div className="shrink-0 border-t border-surface-800 px-3 py-2 text-[11px] text-rose-200">
           {lastError}
+        </div>
+      ) : null}
+
+      {lastAgentRunId ? (
+        <div className="shrink-0 space-y-1 border-t border-surface-800 px-3 py-2 text-[10px] text-gray-400">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-brand-300">agent_run_id: {lastAgentRunId}</span>
+            <button
+              type="button"
+              className="rounded border border-surface-600 px-1.5 py-0.5 text-gray-300 hover:bg-surface-800"
+              onClick={() => {
+                void (async () => {
+                  try {
+                    const run = await investigation.getAgentRun(lastAgentRunId, tenantId);
+                    const keys = (run.context_snapshot?.keys_present ?? []).join(", ") || "—";
+                    const fresh = JSON.stringify(run.context_snapshot?.freshness ?? {});
+                    setRunDetail(`keys_present=[${keys}] freshness=${fresh}`);
+                  } catch (e) {
+                    setRunDetail(
+                      toUserFacingError(e, { subject: "AgentRun", action: "GET /v1/agent-runs" }),
+                    );
+                  }
+                })();
+              }}
+            >
+              View run
+            </button>
+          </div>
+          {runDetail ? <p className="break-all text-gray-500">{runDetail}</p> : null}
         </div>
       ) : null}
 

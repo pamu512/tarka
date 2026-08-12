@@ -1,0 +1,39 @@
+{
+  "id": "graph-ocr-cluster-shaped",
+  "class": "collusion",
+  "metadata_extra": {
+    "partner_graph_hints": {
+      "ocr_device_clusters": [
+        {
+          "cluster_id": "ocr1",
+          "entity_ids": [
+            {
+              "id": "diner1",
+              "role": "diner"
+            },
+            {
+              "id": "cour1",
+              "role": "courier"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "party_graph": {
+    "nodes": [
+      {
+        "id": "diner1",
+        "role": "diner"
+      },
+      {
+        "id": "cour1",
+        "role": "courier"
+      }
+    ],
+    "edges": []
+  },
+  "expect": {
+    "cross_role_same_device": true
+  }
+}

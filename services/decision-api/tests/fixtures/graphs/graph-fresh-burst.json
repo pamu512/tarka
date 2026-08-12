@@ -1,0 +1,47 @@
+{
+  "id": "graph-fresh-burst",
+  "class": "collusion",
+  "party_graph": {
+    "as_of": "2026-08-11T12:00:00Z",
+    "nodes": [
+      {
+        "id": "b1",
+        "role": "buyer"
+      },
+      {
+        "id": "s1",
+        "role": "seller"
+      },
+      {
+        "id": "d1",
+        "role": "device"
+      }
+    ],
+    "edges": [
+      {
+        "src": "b1",
+        "dst": "d1",
+        "type": "USES_DEVICE",
+        "ts": "2026-08-11T11:30:00Z"
+      },
+      {
+        "src": "s1",
+        "dst": "d1",
+        "type": "USES_DEVICE",
+        "ts": "2026-08-11T11:40:00Z"
+      },
+      {
+        "src": "b1",
+        "dst": "s1",
+        "type": "TRANSACTED",
+        "count_24h": 8,
+        "ts": "2026-08-11T11:50:00Z"
+      }
+    ]
+  },
+  "expect": {
+    "ring_factor:fresh_edge_burst": true,
+    "cross_role_same_device": true,
+    "production_ready": true
+  }
+}

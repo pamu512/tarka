@@ -465,6 +465,83 @@ paths:
                         created_at: { type: number }
                         case_id: { type: string, nullable: true }
                         playbook_id: { type: string, nullable: true }
+  /v1/agent-runs/{run_id}:
+    get:
+      operationId: getAgentRun
+      description: Tenant-scoped durable AgentRun (prompt/model/tool hashes, claims, context snapshot).
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: AgentRun
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentRun"
+        "404":
+          description: Not found for tenant
+  /v1/agent-runs:
+    get:
+      operationId: listAgentRunsForTurn
+      description: List AgentRuns for a chat turn_id within tenant scope.
+      parameters:
+        - name: turn_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: List
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AgentRun"
+  /v1/internal/case-brief:
+    post:
+      operationId: internalCaseBrief
+      description: >
+        Deterministic case brief for case-api hooks (no LLM). Auth via x-internal-secret
+        (INVESTIGATION_INTERNAL_SECRET) or x-api-key when API_KEYS is set.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                case:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Brief
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  brief_markdown: { type: string }
+                  context_snapshot: { type: object, additionalProperties: true }
+                  llm_used: { type: boolean }
+        "401":
+          description: Auth failed
   /v1/review/turn:
     post:
       operationId: turnReviewSave
@@ -986,6 +1063,9 @@ paths:
                   warning: { type: string }
                   injection_sanitized: { type: boolean }
                   turn_id: { type: string }
+                  agent_run_id:
+                    type: string
+                    description: Durable AgentRun id (omniscient spine); GET /v1/agent-runs/{run_id}
                   prompt_version: { type: string }
                   copilot_mode:
                     type: string
@@ -1056,6 +1136,44 @@ paths:
           description: Analyst not permitted
 components:
   schemas:
+    AgentRun:
+      type: object
+      required: [run_id, turn_id, tenant_id, analyst_id]
+      properties:
+        run_id: { type: string }
+        turn_id: { type: string }
+        tenant_id: { type: string }
+        analyst_id: { type: string }
+        case_id: { type: string, nullable: true }
+        entity_ids:
+          type: array
+          items: { type: string }
+        trace_ids:
+          type: array
+          items: { type: string }
+        prompt_version: { type: string }
+        model: { type: string }
+        agent_build: { type: string }
+        tool_trace_redacted:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        claims:
+          type: array
+          items:
+            type: object
+            properties:
+              text: { type: string }
+              source: { type: string }
+              evidence_ids:
+                type: array
+                items: { type: string }
+        context_snapshot:
+          type: object
+          description: tarka.context_snapshot/v1
+          additionalProperties: true
+        created_at: { type: number }
     CitationResolvesTo:
       type: object
       required: [artifact, id]

@@ -314,6 +314,10 @@ class NullGraphClient(GraphClient):
             "device_id": device_id,
             "linked_to_blocked_node": False,
             "blocked_user_count_on_device": 0,
+            "implemented": False,
+            "status": "unavailable",
+            "backend": "none",
+            "signals_usable": False,
         }
 
     async def get_graph_signals(self, entity_id: str) -> dict[str, Any]:
@@ -330,6 +334,10 @@ class NullGraphClient(GraphClient):
             },
             "IP_VELOCITY": ip_velocity_block(distinct_users_last_2h=0),
             "backend": "none",
+            "implemented": False,
+            "status": "unavailable",
+            "signals_usable": False,
+            "signals_note": "graph backend disabled or not configured",
         }
 
     async def close(self) -> None:
@@ -588,6 +596,9 @@ class Neo4jGraphClient(GraphClient):
             "clustering": cluster_block,
             "IP_VELOCITY": ip_vel,
             "backend": "neo4j",
+            "implemented": True,
+            "status": "ok",
+            "signals_usable": True,
         }
 
     async def _degree_neighbors(
@@ -767,6 +778,10 @@ class Neo4jGraphClient(GraphClient):
             "device_id": device_id,
             "linked_to_blocked_node": n >= 1,
             "blocked_user_count_on_device": n,
+            "implemented": True,
+            "status": "ok",
+            "signals_usable": True,
+            "backend": "neo4j",
         }
 
     async def two_hop_neighbor_network(self, anchor_user_id: str) -> dict[str, Any]:
@@ -1180,6 +1195,11 @@ class JanusGraphClient(GraphClient):
             "device_id": device_id,
             "linked_to_blocked_node": False,
             "blocked_user_count_on_device": 0,
+            "implemented": False,
+            "status": "unavailable",
+            "backend": "janusgraph",
+            "signals_usable": False,
+            "signals_note": "device_hardware_risk not implemented for Gremlin; use Neo4j backend.",
         }
 
     async def get_graph_signals(self, entity_id: str) -> dict[str, Any]:
@@ -1196,6 +1216,9 @@ class JanusGraphClient(GraphClient):
             },
             "IP_VELOCITY": ip_velocity_block(distinct_users_last_2h=0),
             "backend": "janusgraph",
+            "implemented": False,
+            "status": "unavailable",
+            "signals_usable": False,
             "signals_note": "get_graph_signals not yet implemented for Gremlin; use Neo4j backend.",
         }
 

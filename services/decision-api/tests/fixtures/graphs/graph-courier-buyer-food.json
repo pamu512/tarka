@@ -1,0 +1,36 @@
+{
+  "id": "graph-courier-buyer-food",
+  "class": "collusion",
+  "party_graph": {
+    "nodes": [
+      {
+        "id": "din1",
+        "role": "diner"
+      },
+      {
+        "id": "cou1",
+        "role": "courier"
+      },
+      {
+        "id": "ph",
+        "role": "device"
+      }
+    ],
+    "edges": [
+      {
+        "src": "din1",
+        "dst": "ph",
+        "type": "USES_DEVICE"
+      },
+      {
+        "src": "cou1",
+        "dst": "ph",
+        "type": "USES_DEVICE"
+      }
+    ]
+  },
+  "expect": {
+    "cross_role_same_device": true,
+    "production_ready": true
+  }
+}

@@ -89,6 +89,24 @@ def main(repo: Path | None = None) -> int:
         pol = policy.read_text(encoding="utf-8")
         if "deskStrictEnabled" not in pol or "isDeskApiPath" not in pol:
             errors.append("deskMockPolicy.ts missing desk-strict helpers")
+        if "/api/decisions/v1/ops/trend" not in pol:
+            errors.append(
+                "deskMockPolicy.ts must treat /api/decisions/v1/ops/trend as desk-strict (SR-13)"
+            )
+
+    mock_data = root / "frontend" / "src" / "api" / "mockData.ts"
+    if not mock_data.is_file():
+        errors.append("missing mockData.ts")
+    else:
+        md = mock_data.read_text(encoding="utf-8")
+        if "getMockResponse" not in md:
+            errors.append("mockData.ts missing getMockResponse")
+        if "must not run in production builds" not in md:
+            errors.append(
+                "getMockResponse must throw when import.meta.env.PROD (SR-13)"
+            )
+        if "import.meta.env.PROD" not in md:
+            errors.append("getMockResponse must gate on import.meta.env.PROD")
     if "allowMocksForRequest" not in text and "mocksAllowedForUrl" not in text:
         errors.append("client.ts must use desk-strict mock allowlist")
 

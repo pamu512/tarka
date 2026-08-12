@@ -17,6 +17,236 @@
       "id": "sum_amount_stress",
       "description": "Large rolling sum amount",
       "when": { "field": "sum_amount_24h", "op": "gte", "value": 25000 }
+    },
+    {
+      "id": "depth_lifecycle_high",
+      "description": "Lifecycle sequence engine elevated",
+      "when": { "field": "lifecycle_risk_high", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_ring_high",
+      "description": "Multi-party ring engine elevated",
+      "when": { "field": "ring_score_high", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_cross_role_device",
+      "description": "Cross-role same device from ring engine",
+      "when": { "field": "cross_role_same_device", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_trajectory_high",
+      "description": "Seller trajectory changepoint elevated",
+      "when": { "field": "seller_trajectory_high", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_trajectory_ato_payout",
+      "description": "Trajectory factor: ATO then payout",
+      "when": { "field": "trajectory_factor:ato_then_payout", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_trajectory_listing_burst",
+      "description": "Trajectory factor: listing burst",
+      "when": { "field": "trajectory_factor:listing_burst", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_trajectory_listing_payout",
+      "description": "Trajectory factor: listing→payout dump",
+      "when": { "field": "trajectory_factor:listing_to_payout_burst", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_listing_high",
+      "description": "Listing risk engine elevated",
+      "when": { "field": "listing_risk_high", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_listing_live_new_seller",
+      "description": "Listing factor: live stream new seller",
+      "when": { "field": "listing_factor:live_stream_new_seller", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_listing_brand_hit",
+      "description": "Listing / brand protection hit",
+      "when": { "field": "brand_protection_hit", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_ftid_hold",
+      "description": "FTID causal gate refund hold",
+      "when": { "field": "ftid_refund_hold", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_promo_econ_high",
+      "description": "Promo economics fusion elevated",
+      "when": { "field": "promo_econ_high", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_representment_weak",
+      "description": "Dispute representment pack weak",
+      "when": { "field": "representment_weak", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_lifecycle_refund_before_delivery",
+      "description": "Lifecycle factor: refund before delivery",
+      "when": { "field": "lifecycle_factor:refund_before_delivery", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_ring_cross_role_factor",
+      "description": "Ring factor: cross-role device bridge",
+      "when": { "field": "ring_factor:cross_role_device", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_ring_cross_role_payment",
+      "description": "Ring factor: shared payment instrument across roles",
+      "when": { "field": "ring_factor:cross_role_payment", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_ring_place_hub",
+      "description": "Ring factor: place hub (many persons)",
+      "when": { "field": "ring_factor:place_hub", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_ring_promo_device_chain",
+      "description": "Ring factor: promo→device→cross-role chain",
+      "when": { "field": "ring_factor:promo_device_role_chain", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_ring_fresh_edge_burst",
+      "description": "Ring factor: fresh edge burst (temporal)",
+      "when": { "field": "ring_factor:fresh_edge_burst", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_ftid_empty_box",
+      "description": "FTID empty-box mismatch class",
+      "when": { "field": "ftid_mismatch:empty_box", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_ftid_item_swap",
+      "description": "FTID factor: item swap suspected",
+      "when": { "field": "ftid_factor:item_swap_suspected", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_ftid_serial_returner",
+      "description": "FTID factor: serial returner",
+      "when": { "field": "ftid_factor:serial_returner", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_ftid_multi_mismatch",
+      "description": "FTID factor: multi-dimension mismatch",
+      "when": { "field": "ftid_factor:multi_dimension_mismatch", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_promo_code_share",
+      "description": "Promo factor: code-share farm",
+      "when": { "field": "promo_factor:code_share_farm", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_promo_refund_loop",
+      "description": "Promo factor: refund after promo",
+      "when": { "field": "promo_factor:refund_after_promo", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_promo_device_cluster",
+      "description": "Promo factor: device-cluster redeem",
+      "when": { "field": "promo_factor:device_cluster_redeem", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_representment_serial",
+      "description": "Representment factor: serial disputer",
+      "when": { "field": "representment_factor:serial_disputer", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_representment_early_alert",
+      "description": "Representment factor: early alert without fulfillment evidence",
+      "when": { "field": "representment_factor:early_alert_no_fulfillment_evidence", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_fusion_ftid_representment",
+      "description": "Fusion: FTID × weak representment",
+      "when": { "field": "fusion_factor:ftid_representment", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_fusion_promo_ftid",
+      "description": "Fusion: promo × FTID",
+      "when": { "field": "fusion_factor:promo_ftid", "op": "is_true", "value": true }
+    },
+    {
+      "id": "eh_cross_role_device",
+      "description": "E-hailing same-device cross-role",
+      "when": { "field": "cross_role_same_device", "op": "is_true", "value": true }
+    },
+    {
+      "id": "eh_pair_velocity",
+      "description": "Driver–rider pair trip velocity",
+      "when": { "field": "pair_trip_count_24h", "op": "gte", "value": 6 }
+    },
+    {
+      "id": "eh_worker_auth_failed",
+      "description": "Worker auth fail (feature-injected or connector)",
+      "when": { "field": "worker_auth_failed", "op": "is_true", "value": true }
+    },
+    {
+      "id": "eh_bonus_farm",
+      "description": "Driver bonus claim farm flag",
+      "when": { "field": "driver_bonus_farm", "op": "is_true", "value": true }
+    },
+    {
+      "id": "eh_escalate_suspend",
+      "description": "Repeat hard_challenge escalated to suspend_driving",
+      "when": { "field": "eh_escalate_suspend_driving", "op": "is_true", "value": true }
+    },
+    {
+      "id": "lm_pod_integrity_fail",
+      "description": "POD integrity failure (OTP/geofence/photo)",
+      "when": { "field": "pod_integrity_fail", "op": "is_true", "value": true }
+    },
+    {
+      "id": "lm_pod_otp_fail",
+      "description": "POD OTP fail",
+      "when": { "field": "pod_otp_fail", "op": "is_true", "value": true }
+    },
+    {
+      "id": "lm_cod_refusal_high",
+      "description": "COD refusal rate elevated",
+      "when": { "field": "cod_refusal_high", "op": "is_true", "value": true }
+    },
+    {
+      "id": "lm_address_jig_high",
+      "description": "Address jigging elevated",
+      "when": { "field": "address_jig_high", "op": "is_true", "value": true }
+    },
+    {
+      "id": "lm_off_rail",
+      "description": "Off-rail payment request",
+      "when": { "field": "off_rail_payment_request", "op": "is_true", "value": true }
+    },
+    {
+      "id": "depth_fusion_high",
+      "description": "Cross-engine depth fusion elevated",
+      "when": { "field": "depth_fusion_high", "op": "is_true", "value": true }
+    },
+    {
+      "id": "fusion_lifecycle_ring",
+      "description": "Fusion factor: lifecycle × ring",
+      "when": { "field": "fusion_factor:lifecycle_ring", "op": "is_true", "value": true }
+    },
+    {
+      "id": "fusion_lifecycle_ftid",
+      "description": "Fusion factor: lifecycle × FTID",
+      "when": { "field": "fusion_factor:lifecycle_ftid", "op": "is_true", "value": true }
+    },
+    {
+      "id": "lifecycle_cancel_after_pickup",
+      "description": "Food: cancel after pickup",
+      "when": { "field": "lifecycle_factor:cancel_after_pickup", "op": "is_true", "value": true }
+    },
+    {
+      "id": "lifecycle_rapid_cancel_refund",
+      "description": "Food: rapid cancel→refund",
+      "when": { "field": "lifecycle_factor:rapid_cancel_refund", "op": "is_true", "value": true }
+    },
+    {
+      "id": "lifecycle_cancel_storm",
+      "description": "E-hailing cancel storm",
+      "when": { "field": "lifecycle_factor:cancel_storm", "op": "is_true", "value": true }
     }
   ]
 }

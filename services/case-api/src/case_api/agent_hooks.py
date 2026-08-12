@@ -15,15 +15,21 @@ from .models import CaseComment
 
 log = logging.getLogger(__name__)
 
-_INVESTIGATION_AGENT_URL = (os.environ.get("INVESTIGATION_AGENT_URL") or "").strip()
-_INTERNAL_SECRET = (os.environ.get("INVESTIGATION_INTERNAL_SECRET") or "").strip()
-
 _CASE_BRIEF_MAX_ATTEMPTS = 4
 _CASE_BRIEF_BACKOFF_BASE_S = 0.25
 
 _FALLBACK_COMMENT_BODY = (
-    "System: Failed to generate automated case brief due to LLM provider unavailability."
+    "System: Failed to generate automated case brief "
+    "(investigation-agent /v1/internal/case-brief unreachable)."
 )
+
+
+def _investigation_agent_url() -> str:
+    return (os.environ.get("INVESTIGATION_AGENT_URL") or "").strip()
+
+
+def _internal_secret() -> str:
+    return (os.environ.get("INVESTIGATION_INTERNAL_SECRET") or "").strip()
 
 
 def _upstream_headers() -> dict[str, str]:
@@ -33,8 +39,9 @@ def _upstream_headers() -> dict[str, str]:
         key = raw.split(",")[0].strip()
         if key:
             out["x-api-key"] = key
-    if _INTERNAL_SECRET:
-        out["x-internal-secret"] = _INTERNAL_SECRET
+    secret = _internal_secret()
+    if secret:
+        out["x-internal-secret"] = secret
     return out
 
 
@@ -45,9 +52,11 @@ async def fire_case_brief(
     session: AsyncSession | None = None,
     case_id: uuid.UUID | None = None,
 ) -> None:
-    if not _INVESTIGATION_AGENT_URL:
+    """POST deterministic case brief and persist it as a system CaseComment when session is set."""
+    base = _investigation_agent_url()
+    if not base:
         return
-    url = f"{_INVESTIGATION_AGENT_URL.rstrip('/')}/v1/internal/case-brief"
+    url = f"{base.rstrip('/')}/v1/internal/case-brief"
     last_exc: Exception | None = None
     for attempt in range(_CASE_BRIEF_MAX_ATTEMPTS):
         try:
@@ -55,6 +64,22 @@ async def fire_case_brief(
                 url, json={"case": case_dict}, headers=_upstream_headers(), timeout=45.0
             )
             r.raise_for_status()
+            payload = r.json() if r.content else {}
+            brief = ""
+            if isinstance(payload, dict):
+                brief = str(payload.get("brief_markdown") or "").strip()
+                if payload.get("llm_used") is True:
+                    log.error("case brief claimed llm_used=true; refusing to persist")
+                    brief = (
+                        "System: case brief rejected — endpoint must be deterministic "
+                        "(llm_used=false)."
+                    )
+            if session is not None and case_id is not None:
+                body = brief or (
+                    "System: case brief endpoint returned empty brief_markdown."
+                )
+                session.add(CaseComment(case_id=case_id, author="system", body=body[:16000]))
+                await session.commit()
             return
         except Exception as exc:
             last_exc = exc
@@ -77,9 +102,10 @@ async def fire_case_brief(
 
 
 async def fire_label_extraction(http: httpx.AsyncClient, case_dict: dict[str, Any]) -> None:
-    if not _INVESTIGATION_AGENT_URL:
+    base = _investigation_agent_url()
+    if not base:
         return
-    url = f"{_INVESTIGATION_AGENT_URL.rstrip('/')}/v1/internal/label-extract"
+    url = f"{base.rstrip('/')}/v1/internal/label-extract"
     for attempt in range(_CASE_BRIEF_MAX_ATTEMPTS):
         try:
             r = await http.post(

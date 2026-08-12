@@ -1,0 +1,45 @@
+{
+  "id": "graph-promo-device-chain",
+  "class": "collusion",
+  "party_graph": {
+    "nodes": [
+      {
+        "id": "promo1",
+        "role": "promo"
+      },
+      {
+        "id": "dev1",
+        "role": "device"
+      },
+      {
+        "id": "b1",
+        "role": "buyer"
+      },
+      {
+        "id": "s1",
+        "role": "seller"
+      }
+    ],
+    "edges": [
+      {
+        "src": "promo1",
+        "dst": "dev1",
+        "type": "REDEEMED_ON"
+      },
+      {
+        "src": "b1",
+        "dst": "dev1",
+        "type": "USES_DEVICE"
+      },
+      {
+        "src": "s1",
+        "dst": "dev1",
+        "type": "USES_DEVICE"
+      }
+    ]
+  },
+  "expect": {
+    "ring_factor:promo_device_role_chain": true,
+    "production_ready": true
+  }
+}

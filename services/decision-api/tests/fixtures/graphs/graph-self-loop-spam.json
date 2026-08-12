@@ -1,0 +1,32 @@
+{
+  "id": "graph-self-loop-spam",
+  "class": "noisy",
+  "party_graph": {
+    "nodes": [
+      {
+        "id": "b1",
+        "role": "buyer"
+      },
+      {
+        "id": "d1",
+        "role": "device"
+      }
+    ],
+    "edges": [
+      {
+        "src": "b1",
+        "dst": "b1",
+        "type": "TRANSACTED",
+        "count_24h": 99
+      },
+      {
+        "src": "b1",
+        "dst": "d1",
+        "type": "USES_DEVICE"
+      }
+    ]
+  },
+  "expect": {
+    "cross_role_same_device": false
+  }
+}

@@ -11,6 +11,7 @@ export function isDeskApiPath(url: string): boolean {
     path.includes("/api/decisions/v1/ops/calibration") ||
     path.includes("/api/decisions/v1/calibration") ||
     path.includes("/api/decisions/v1/ops/qa") ||
+    path.includes("/api/decisions/v1/ops/trend") ||
     path.includes("/cases/ops/qa")
   );
 }

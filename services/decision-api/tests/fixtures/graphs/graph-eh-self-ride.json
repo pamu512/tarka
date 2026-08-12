@@ -1,0 +1,42 @@
+{
+  "id": "graph-eh-self-ride",
+  "class": "collusion",
+  "party_graph": {
+    "nodes": [
+      {
+        "id": "r1",
+        "role": "rider"
+      },
+      {
+        "id": "dr1",
+        "role": "driver"
+      },
+      {
+        "id": "phone",
+        "role": "device"
+      }
+    ],
+    "edges": [
+      {
+        "src": "r1",
+        "dst": "phone",
+        "type": "USES_DEVICE"
+      },
+      {
+        "src": "dr1",
+        "dst": "phone",
+        "type": "USES_DEVICE"
+      },
+      {
+        "src": "r1",
+        "dst": "dr1",
+        "type": "TRANSACTED",
+        "count_24h": 7
+      }
+    ]
+  },
+  "expect": {
+    "cross_role_same_device": true,
+    "production_ready": true
+  }
+}

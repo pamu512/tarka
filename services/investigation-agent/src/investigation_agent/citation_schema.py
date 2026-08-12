@@ -16,6 +16,7 @@ class CitationArtifact(str, Enum):
     JSON_RULE = "json_rule"
     TYPOLOGY = "typology"
     OKF_CONCEPT = "okf_concept"
+    EVIDENCE = "evidence"
     TOOL = "tool"
     UNKNOWN = "unknown"
 
@@ -127,6 +128,22 @@ def build_standard_citations(
             )
         if i == 0 and case_id:
             resolves.append({"artifact": CitationArtifact.CASE.value, "id": case_id.strip()})
+        eids = claim.get("evidence_ids")
+        if isinstance(eids, list):
+            for eid in eids:
+                token = str(eid).strip()
+                if not token:
+                    continue
+                # OKF concept ids are namespaced; prefer okf_concept artifact when present.
+                if token.startswith("okf:"):
+                    resolves.append(
+                        {
+                            "artifact": CitationArtifact.OKF_CONCEPT.value,
+                            "id": token.removeprefix("okf:") or token,
+                        }
+                    )
+                else:
+                    resolves.append({"artifact": CitationArtifact.EVIDENCE.value, "id": token})
         merged = _merge_resolution_refs(resolves, audit_resolution_refs if i == 0 else [])
 
         card = CopilotCitation(

@@ -37,5 +37,24 @@ export const decisionsOps = {
     decisions.reliabilityBins(tenantId, limit, nBins),
   reliabilityExportCsv: (tenantId: string, limit?: number) =>
     decisions.reliabilityExportCsv(tenantId, limit),
+  verticalCalibrationPosture: () => decisions.verticalCalibrationPosture(),
+  verticalPromotePosture: () => decisions.verticalPromotePosture(),
+  trendDrafts: (tenantId: string) => decisions.trendDrafts(tenantId),
+  trendTick: (body: {
+    tenant_id?: string;
+    limit?: number;
+    skip_llm?: boolean;
+    entity_ids?: string[];
+  }) => decisions.trendTick(body),
+  trendRejectDraft: (draftId: string, tenantId: string) =>
+    decisions.trendRejectDraft(draftId, tenantId),
+  trendHilOverride: (body: {
+    tenant_id: string;
+    entity_id: string;
+    override_type: string;
+    scope_key?: string;
+    analyst_rationale?: string;
+  }) => decisions.trendHilOverride(body),
+  trendPosture: (tenantId?: string) => decisions.trendPosture(tenantId),
   counterCatalog: () => decisions.counterCatalog(),
 };

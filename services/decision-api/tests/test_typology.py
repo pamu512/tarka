@@ -58,10 +58,34 @@ def test_predicate_ref_skipped_when_pin_mismatch(tmp_path: Path):
 
 def test_typology_no_duplicate_rule_computation():
     """Same rule hit list reused; evaluate_typologies is O(typologies)."""
+    from decision_api.typology import load_typology_definitions
+
     hits = ["velocity_high_1h", "many_devices_24h"]
     feats = {"event_count_1h": 5, "distinct_device_id_24h": 4}
     res = evaluate_typologies(hits, feats)
-    assert len(res) == 3
+    expected = len(load_typology_definitions().get("typologies") or [])
+    assert len(res) == expected
+
+
+def test_marketplace_depth_typology_factor_bindings():
+    """Depth engine factor codes + rule hits drive marketplace typologies."""
+    hits = ["lifecycle_risk_engine", "ring_score_engine"]
+    feats = {
+        "lifecycle_risk_high": True,
+        "lifecycle_factor:refund_before_delivery": True,
+        "ring_score_high": True,
+        "cross_role_same_device": True,
+        "ring_factor:cross_role_device": True,
+    }
+    res = evaluate_typologies(hits, feats)
+    by_id = {t["id"]: t for t in res}
+    life = by_id["marketplace_lifecycle_abuse"]
+    ring = by_id["marketplace_ring_collusion"]
+    assert life["breach_level"] in ("warning", "alert")
+    assert ring["breach_level"] in ("warning", "alert")
+    assert "lifecycle_risk_engine" in life["contributing_rule_hits"]
+    assert any("depth_lifecycle" in p for p in life["contributing_feature_predicates"])
+    assert any("depth_ring" in p or "depth_cross_role" in p for p in ring["contributing_feature_predicates"])
 
 
 def test_starter_typology_fixtures_cover_reference_packs():

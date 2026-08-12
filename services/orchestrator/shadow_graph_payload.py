@@ -58,7 +58,16 @@ async def build_shadow_analyze_payload(
 
     if uid:
         try:
-            ctx["signals"] = await graph_client.get_graph_signals(uid)
+            signals = await graph_client.get_graph_signals(uid)
+            # ponytail: omit zero-filled unavailable backends so Shadow never treats them as live
+            if signals.get("signals_usable") is False or signals.get("implemented") is False:
+                ctx["signals_unavailable"] = {
+                    "backend": signals.get("backend"),
+                    "status": signals.get("status") or "unavailable",
+                    "signals_note": signals.get("signals_note"),
+                }
+            else:
+                ctx["signals"] = signals
         except Exception:
             logger.exception(
                 "orchestrator_shadow_graph_signals_failed transaction_id=%s", transaction.entity_id
@@ -66,10 +75,19 @@ async def build_shadow_analyze_payload(
 
     if hints.device_id:
         try:
-            ctx["device_hardware_graph"] = await graph_client.device_hardware_risk(
+            hw = await graph_client.device_hardware_risk(
                 hints.device_id,
                 current_user_id=uid,
             )
+            if hw.get("signals_usable") is False or hw.get("implemented") is False:
+                ctx["device_hardware_unavailable"] = {
+                    "device_id": hw.get("device_id"),
+                    "backend": hw.get("backend"),
+                    "status": hw.get("status") or "unavailable",
+                    "signals_note": hw.get("signals_note"),
+                }
+            else:
+                ctx["device_hardware_graph"] = hw
         except Exception:
             logger.exception(
                 "orchestrator_shadow_device_hardware_risk_failed transaction_id=%s",

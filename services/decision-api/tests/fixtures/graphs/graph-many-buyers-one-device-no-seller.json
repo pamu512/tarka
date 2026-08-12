@@ -1,0 +1,72 @@
+{
+  "id": "graph-many-buyers-one-device-no-seller",
+  "class": "noisy",
+  "party_graph": {
+    "nodes": [
+      {
+        "id": "d1",
+        "role": "device"
+      },
+      {
+        "id": "b0",
+        "role": "buyer"
+      },
+      {
+        "id": "b1",
+        "role": "buyer"
+      },
+      {
+        "id": "b2",
+        "role": "buyer"
+      },
+      {
+        "id": "b3",
+        "role": "buyer"
+      },
+      {
+        "id": "b4",
+        "role": "buyer"
+      },
+      {
+        "id": "b5",
+        "role": "buyer"
+      }
+    ],
+    "edges": [
+      {
+        "src": "b0",
+        "dst": "d1",
+        "type": "USES_DEVICE"
+      },
+      {
+        "src": "b1",
+        "dst": "d1",
+        "type": "USES_DEVICE"
+      },
+      {
+        "src": "b2",
+        "dst": "d1",
+        "type": "USES_DEVICE"
+      },
+      {
+        "src": "b3",
+        "dst": "d1",
+        "type": "USES_DEVICE"
+      },
+      {
+        "src": "b4",
+        "dst": "d1",
+        "type": "USES_DEVICE"
+      },
+      {
+        "src": "b5",
+        "dst": "d1",
+        "type": "USES_DEVICE"
+      }
+    ]
+  },
+  "expect": {
+    "cross_role_same_device": false,
+    "production_ready": true
+  }
+}

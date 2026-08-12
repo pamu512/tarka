@@ -16,7 +16,7 @@ from typing import Any
 
 import redis.asyncio as redis
 import structlog
-from onnx_engine import BotDetectionModel
+from onnx_engine import BotDetectionModel, BotDetectionUnavailable
 from redis.exceptions import RedisError, ResponseError
 
 STREAM_NAME = "tarka:decisions_stream"
@@ -173,6 +173,16 @@ async def _process_bot_event(
             message_id=message_id,
             amount=amount,
             bot_likelihood_score=score,
+        )
+        await _record_relay_processed(client, fields, message_id, log)
+        return True
+    except BotDetectionUnavailable as exc:
+        # Fail-closed: ACK without inventing a score so PEL does not spin forever.
+        log.warning(
+            "bot_detection_skipped",
+            message_id=message_id,
+            reason=str(exc),
+            mode="unavailable",
         )
         await _record_relay_processed(client, fields, message_id, log)
         return True

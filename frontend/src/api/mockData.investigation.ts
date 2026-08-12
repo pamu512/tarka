@@ -167,6 +167,7 @@ function finalizeInvestigationMockReply(
       claims,
       source_refs: buildMockSourceReferenceCards(tools),
       turn_id: turnId,
+      agent_run_id: `mock-run-${turnId}`,
       prompt_version: "3.2.0-mock",
       answer_sections: {
         sections_found: ["facts_from_tools", "inferences", "unknowns", "next_steps"],
@@ -512,6 +513,24 @@ export function getInvestigationMockResponse(
 
   if (path.includes("/api/investigation/v1/chat") && method === "POST") {
     return mockInvestigationChatResponse(body, deps);
+  }
+
+  if (path.includes("/api/investigation/v1/agent-runs") && method === "GET") {
+    const runMatch = path.match(/\/agent-runs\/([^/?]+)/);
+    if (runMatch) {
+      return {
+        run_id: decodeURIComponent(runMatch[1]),
+        turn_id: "mock-turn",
+        tenant_id: "demo",
+        context_snapshot: {
+          keys_present: ["case"],
+          freshness: { case: "present", decision_audit: "missing" },
+          artifacts: [],
+        },
+        claims: [],
+      };
+    }
+    return { items: [] };
   }
 
   return null;

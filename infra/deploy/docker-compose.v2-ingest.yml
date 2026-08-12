@@ -25,6 +25,11 @@ services:
       ML_SCORING_URL: ""
       REDIS_URL: ""
       NATS_URL: ""
+      TREND_AGENT_DATA_DIR: /var/trend-agent
+      TREND_TICK_SKIP_LLM: "1"
+      TREND_BASELINE_MIN_N: "3"
+    volumes:
+      - trend_agent_data:/var/trend-agent
     healthcheck:
       test:
         [
@@ -106,6 +111,8 @@ services:
       RULE_ENGINE_URL: http://rule_engine:8778
       SHADOW_AGENT_URL: http://shadow_agent:8801
       SHADOW_API_KEY: ${TARKA_SHADOW_API_KEY:-dev-shadow-token-change-me}
+      TREND_WATCH_ON_INGEST: "1"
+      SHADOW_ACTION_MODULATION: escalate_only
     depends_on:
       decision-api:
         condition: service_healthy
@@ -123,3 +130,41 @@ services:
       timeout: 12s
       retries: 6
       start_period: 20s
+
+  # Optional always-on trend tick (no new daemon binary — curl loop).
+  # Enable: docker compose -f infra/deploy/docker-compose.v2-ingest.yml --profile trend-tick up -d
+  trend-tick:
+    profiles: ["trend-tick"]
+    image: curlimages/curl:8.12.1
+    environment:
+      DECISION_API_URL: http://decision-api:8000
+      TREND_TICK_INTERVAL_S: ${TREND_TICK_INTERVAL_S:-60}
+      API_KEYS: ${API_KEYS:-}
+    depends_on:
+      decision-api:
+        condition: service_healthy
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        INTERVAL="$${TREND_TICK_INTERVAL_S:-60}"
+        BASE="$${DECISION_API_URL:-http://decision-api:8000}"
+        echo "trend-tick loop interval=$${INTERVAL}s base=$${BASE}"
+        while true; do
+          if [ -n "$${API_KEYS:-}" ]; then
+            KEY=$$(echo "$${API_KEYS}" | cut -d, -f1)
+            curl -sS -m 55 -X POST "$${BASE}/v1/ops/trend/tick" \
+              -H "Content-Type: application/json" \
+              -H "x-api-key: $${KEY}" \
+              -d '{"limit":50,"skip_llm":true}' || true
+          else
+            curl -sS -m 55 -X POST "$${BASE}/v1/ops/trend/tick" \
+              -H "Content-Type: application/json" \
+              -d '{"limit":50,"skip_llm":true}' || true
+          fi
+          sleep "$${INTERVAL}"
+        done
+
+volumes:
+  trend_agent_data:

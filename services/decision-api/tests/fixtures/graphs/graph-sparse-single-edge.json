@@ -1,0 +1,28 @@
+{
+  "id": "graph-sparse-single-edge",
+  "class": "noisy",
+  "party_graph": {
+    "nodes": [
+      {
+        "id": "b1",
+        "role": "buyer"
+      },
+      {
+        "id": "s1",
+        "role": "seller"
+      }
+    ],
+    "edges": [
+      {
+        "src": "b1",
+        "dst": "s1",
+        "type": "TRANSACTED",
+        "count_24h": 1
+      }
+    ]
+  },
+  "expect": {
+    "production_ready": false,
+    "cross_role_same_device": false
+  }
+}

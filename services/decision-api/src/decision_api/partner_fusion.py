@@ -114,6 +114,37 @@ def graph_writeback_hints(
                 },
             }
         )
+    # Host-supplied device clusters (no vendor LIVE / OCR)
+    clusters = features.get("device_cluster_ids")
+    if isinstance(clusters, (list, tuple)):
+        for raw in clusters[:16]:
+            cid = str(raw or "").strip()
+            if not cid:
+                continue
+            did = f"cluster:{cid[:128]}"
+            vertices.append(
+                {
+                    "label": "Device",
+                    "id": did,
+                    "props": {
+                        "source": "host_device_cluster",
+                        "tenant_id": tenant_id,
+                        "cluster_id": cid[:128],
+                    },
+                }
+            )
+            edges.append(
+                {
+                    "type": "USED_DEVICE",
+                    "from": {"label": "Entity", "id": entity_id},
+                    "to": {"label": "Device", "id": did},
+                    "props": {
+                        "observed_at": "evaluate",
+                        "transaction_id": transaction_id,
+                        "source": "host_device_cluster",
+                    },
+                }
+            )
     return {
         "schema_id": "tarka.partner_graph_writeback/v1",
         "vertices": vertices,

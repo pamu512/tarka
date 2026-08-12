@@ -455,6 +455,169 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OpsEvaluationPosture"
+  /v1/ops/trend/evaluate:
+    post:
+      operationId: trendEvaluate
+      summary: Run trend agent (RAG → triage + PENDING_VALIDATION drafts only)
+      description: >
+        Requires explicit window_rows (observed + baseline_mean). Never invents baselines.
+        Drafts are wasm_ready=false; promote always returns 409 never_auto_promote.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_id, entity_id, window_rows]
+              properties:
+                tenant_id: { type: string }
+                entity_id: { type: string }
+                region_code: { type: string }
+                skip_llm: { type: boolean }
+                window_rows:
+                  oneOf:
+                    - type: array
+                      items: { type: object, additionalProperties: true }
+                    - type: object
+                      additionalProperties: true
+      responses:
+        "200":
+          description: Trend evaluation result
+        "400":
+          description: window_rows_required
+  /v1/ops/trend/drafts:
+    get:
+      operationId: trendListDrafts
+      summary: List PENDING_VALIDATION trend draft rules for a tenant
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Draft list
+  /v1/ops/trend/drafts/{draft_id}/reject:
+    post:
+      operationId: trendRejectDraft
+      summary: HIL reject a PENDING_VALIDATION draft
+      parameters:
+        - name: draft_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Rejected
+        "404":
+          description: draft_not_found
+  /v1/ops/trend/drafts/{draft_id}/promote:
+    post:
+      operationId: trendPromoteDraftForbidden
+      summary: Always refused (never auto-promote Wasm from trend agent)
+      parameters:
+        - name: draft_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "409":
+          description: never_auto_promote
+  /v1/ops/trend/hil-override:
+    post:
+      operationId: trendHilOverride
+      summary: Record HIL override for next trend evaluation loop
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_id, entity_id, override_type]
+              properties:
+                tenant_id: { type: string }
+                entity_id: { type: string }
+                override_type: { type: string }
+                scope_key: { type: string }
+                analyst_rationale: { type: string }
+      responses:
+        "200":
+          description: Override stored
+  /v1/ops/trend/watch:
+    post:
+      operationId: trendWatch
+      summary: Upsert entity onto trend watchlist (ingest / ops)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_id, entity_id]
+              properties:
+                tenant_id: { type: string }
+                entity_id: { type: string }
+                reason: { type: string }
+      responses:
+        "200":
+          description: Watched
+    get:
+      operationId: trendListWatch
+      summary: List trend watchlist entries
+      parameters:
+        - name: tenant_id
+          in: query
+          required: false
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          description: Watchlist
+  /v1/ops/trend/tick:
+    post:
+      operationId: trendTick
+      summary: Process watched entities (EWMA baselines → evaluate when ready)
+      description: >
+        Never invents baselines. Entities with insufficient EWMA history are skipped.
+        Default skip_llm via TREND_TICK_SKIP_LLM=1.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tenant_id: { type: string }
+                limit: { type: integer, default: 50 }
+                skip_llm: { type: boolean }
+                entity_ids:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200":
+          description: Tick summary
+  /v1/ops/trend/posture:
+    get:
+      operationId: trendPosture
+      summary: Trend ops honesty / readiness snapshot
+      parameters:
+        - name: tenant_id
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Posture
   /v1/admin/rules/reload:
     post:
       operationId: adminRulesReload
