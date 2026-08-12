@@ -84,7 +84,10 @@ nav:
       - Backtest before promote: guides/backtest-before-promote.md
       - OSS 15-minute first decision: guides/oss-15-minute-first-decision.md
   - Honesty: honesty.md
-  - Releases: releases/README.md
+  - Releases:
+      - 1.3.0-beta: releases/v1.3.0-beta.md
+      - Releases hub: releases/README.md
+
   - API Reference: api-reference.md
   - Operations:
       - Common failures: operations/runbook-common-failures.md
