@@ -1,8 +1,11 @@
+# Release Draft Scheduler
+
+# Maintains a single honest pre-release draft from docs — not calendar boilerplate.
 name: Release Draft Scheduler
 
 on:
   schedule:
-    - cron: "15 8 * * *" # daily at 08:15 UTC
+    - cron: "15 8 * * 1" # weekly Monday
   workflow_dispatch:
 
 env:
@@ -15,102 +18,36 @@ jobs:
   draft-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Create or update scheduled draft releases
-        uses: actions/github-script@v9
-        with:
-          script: |
-            const milestones = [
-              {
-                version: "v1.1.0",
-                date: "2026-04-30",
-                title: "v1.1.0",
-                notesPath: "docs/docs/releases/v1.1.0-2026-04-30.md",
-              },
-              {
-                version: "v1.2.0",
-                date: "2026-05-30",
-                title: "v1.2.0",
-                notesPath: "docs/docs/releases/v1.2.0-2026-05-30.md",
-              },
-              {
-                version: "v1.3.0",
-                date: "2026-06-29",
-                title: "v1.3.0",
-                notesPath: "docs/docs/releases/v1.3.0-2026-06-29.md",
-              },
-            ];
-
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const defaultBranch = context.payload.repository?.default_branch || "master";
-
-            const today = new Date();
-            const todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-
-            function daysUntil(targetDate) {
-              const target = new Date(`${targetDate}T00:00:00Z`);
-              const targetUtc = Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), target.getUTCDate());
-              return Math.floor((targetUtc - todayUtc) / (1000 * 60 * 60 * 24));
-            }
-
-            function plannedBody(m) {
-              return `Automated draft release for scheduled milestone **${m.version}**.
-
-            Planned release date: **${m.date}**
-
-            Source roadmap:
-            - \`docs/docs/guides/roadmap-30-60-90.md\`
-            - \`${m.notesPath}\`
-
-            ## Pre-publish checklist
-            - [ ] Final QA and regression pass
-            - [ ] Confirm release notes are final
-            - [ ] Verify release artifacts
-            - [ ] Publish on scheduled date
-            `;
-            }
-
-            const existingReleases = await github.paginate(github.rest.repos.listReleases, {
-              owner,
-              repo,
-              per_page: 100,
-            });
-
-            for (const m of milestones) {
-              const d = daysUntil(m.date);
-              if (d !== 1) {
-                core.info(`Skipping ${m.version}; ${d} days remaining.`);
-                continue;
-              }
-
-              const existing = existingReleases.find((r) => r.tag_name === m.version);
-              const body = plannedBody(m);
-
-              if (existing) {
-                await github.rest.repos.updateRelease({
-                  owner,
-                  repo,
-                  release_id: existing.id,
-                  tag_name: m.version,
-                  target_commitish: defaultBranch,
-                  name: m.title,
-                  body,
-                  draft: true,
-                  prerelease: false,
-                });
-                core.info(`Updated existing release draft for ${m.version}.`);
-              } else {
-                await github.rest.repos.createRelease({
-                  owner,
-                  repo,
-                  tag_name: m.version,
-                  target_commitish: defaultBranch,
-                  name: m.title,
-                  body,
-                  draft: true,
-                  prerelease: false,
-                  generate_release_notes: false,
-                });
-                core.info(`Created release draft for ${m.version}.`);
-              }
-            }
+      - uses: actions/checkout@v4
+      - name: Sync v1.3.0-beta draft from release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          NOTES=docs/docs/releases/v1.3.0-beta.md
+          test -f "$NOTES"
+          # Update existing draft if present; else create
+          if gh release view v1.3.0-beta >/dev/null 2>&1; then
+            gh release edit v1.3.0-beta \
+              --draft \
+              --prerelease \
+              --title "Tarka 1.3.0-beta" \
+              --notes-file "$NOTES" \
+              --target master
+          elif gh release view v1.3.0 >/dev/null 2>&1; then
+            # Migrate legacy untagged v1.3.0 draft → beta notes
+            gh release edit v1.3.0 \
+              --draft \
+              --prerelease \
+              --title "Tarka 1.3.0-beta" \
+              --notes-file "$NOTES" \
+              --tag v1.3.0-beta \
+              --target master
+          else
+            gh release create v1.3.0-beta \
+              --draft \
+              --prerelease \
+              --title "Tarka 1.3.0-beta" \
+              --notes-file "$NOTES" \
+              --target master
+          fi
