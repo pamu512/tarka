@@ -76,3 +76,9 @@ artifacts/
 
 # Next.js build output
 tarka_v2_ui/.next/
+
+# Local runtime / e2e scratch (never commit)
+.tarka-micro-e2e/
+/data/
+test-results/
+/rules/enforcement_delivery.jsonl

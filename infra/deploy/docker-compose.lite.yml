@@ -72,6 +72,11 @@ services:
       API_KEYS: ${API_KEYS:-}
       ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-false}
       DECISION_API_URL: http://127.0.0.1:8000/decisions
+      TREND_AGENT_DATA_DIR: /var/trend-agent
+      TREND_TICK_SKIP_LLM: "1"
+      TREND_BASELINE_MIN_N: "3"
+    volumes:
+      - trend_agent_data:/var/trend-agent
     ports:
       - "8000:8000"
     depends_on:
@@ -220,3 +225,4 @@ services:
 volumes:
   fraud_pg:
   fraud_nats_lite:
+  trend_agent_data:

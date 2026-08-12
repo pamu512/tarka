@@ -1,0 +1,8 @@
+{
+  "heads": {
+    "cancel_abuse": 0.81,
+    "cancelled_offline": 0.66,
+    "selective_theft": 0.12
+  },
+  "tags": ["risk:cancel_abuse", "action:hard_challenge"]
+}

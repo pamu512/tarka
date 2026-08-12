@@ -50,7 +50,13 @@ def _store_benchmark_run(payload: dict[str, Any]) -> None:
     rid = str(payload.get("run_id") or "")
     if not rid:
         return
-    _BENCHMARK_RUNS[rid] = payload
+    # ponytail: process memory only — ceiling is restart loss; upgrade path is Postgres/CH
+    stored = {
+        **payload,
+        "durability": "process_memory",
+        "storage_mode": "in_process_ordered_dict",
+    }
+    _BENCHMARK_RUNS[rid] = stored
     while len(_BENCHMARK_RUNS) > _MAX_BENCHMARK_RUNS:
         _BENCHMARK_RUNS.popitem(last=False)
 

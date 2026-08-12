@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import xml.etree.ElementTree as ET
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -103,9 +104,10 @@ def build_sar_filing_data(body: dict[str, Any], report: Any) -> dict[str, Any]:
 def validate_pre_filing(filing_data: dict[str, Any]) -> list[str]:
     """Return blocking validation errors for mandatory filing_data fields (empty list == OK).
 
-    Deeper than TIN/name only (SR-10): requires report_id, narrative when present
-    on the payload path, and non-empty well-formed XML when format is fincen_xml.
-    Not a full FinCEN XSD validator.
+    Depth floor (SR-10 Done): TIN / institution / report_id, narrative when present,
+    and for ``fincen_xml`` well-formed XML whose root local-name contains ``EFilingBatch``.
+    Not a full FinCEN XSD validator — upgrade path is ``xmlschema`` (or lxml) against
+    the official BSA E-Filing schema when licensed/vendored into the repo.
     """
     errors: list[str] = []
     for key in _MANDATORY_FILING_KEYS:
@@ -131,7 +133,13 @@ def validate_pre_filing(filing_data: dict[str, Any]) -> list[str]:
             stripped = xml.strip()
             if not stripped.startswith("<"):
                 errors.append("invalid_xml:not_markup")
-            elif "EFilingBatch" not in stripped and "eFilingBatch" not in stripped:
-                # ponytail: substring gate — upgrade path is XSD validate against FinCEN schema
-                errors.append("invalid_xml:missing_efiling_batch")
+            else:
+                try:
+                    root = ET.fromstring(stripped)
+                except ET.ParseError:
+                    errors.append("invalid_xml:parse")
+                else:
+                    local = root.tag.rsplit("}", 1)[-1]
+                    if "EFilingBatch" not in local and "eFilingBatch" not in local:
+                        errors.append("invalid_xml:missing_efiling_batch")
     return errors

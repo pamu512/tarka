@@ -19,8 +19,8 @@ function coarseSignals(): Record<string, unknown> {
 
 function behavioralProbe(consent: boolean): Record<string, unknown> {
   if (!consent) return {};
-  // Placeholder for typing cadence / motion sampling (integrate privacy review before enabling).
-  return { typing_probe_version: 1 };
+  // Fail-closed: no invented typing/motion signals until privacy-reviewed sampler ships.
+  return {};
 }
 
 export function collectDeviceContext(opts: TarkaSdkOptions): Record<string, unknown> {

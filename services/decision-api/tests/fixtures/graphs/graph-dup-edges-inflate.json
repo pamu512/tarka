@@ -1,0 +1,51 @@
+{
+  "id": "graph-dup-edges-inflate",
+  "class": "collusion",
+  "party_graph": {
+    "nodes": [
+      {
+        "id": "b1",
+        "role": "buyer"
+      },
+      {
+        "id": "s1",
+        "role": "seller"
+      },
+      {
+        "id": "d1",
+        "role": "device"
+      }
+    ],
+    "edges": [
+      {
+        "src": "b1",
+        "dst": "d1",
+        "type": "USES_DEVICE"
+      },
+      {
+        "src": "b1",
+        "dst": "d1",
+        "type": "USES_DEVICE"
+      },
+      {
+        "src": "b1",
+        "dst": "d1",
+        "type": "USES_DEVICE"
+      },
+      {
+        "src": "s1",
+        "dst": "d1",
+        "type": "USES_DEVICE"
+      },
+      {
+        "src": "s1",
+        "dst": "d1",
+        "type": "USES_DEVICE"
+      }
+    ]
+  },
+  "expect": {
+    "cross_role_same_device": true,
+    "production_ready": true
+  }
+}

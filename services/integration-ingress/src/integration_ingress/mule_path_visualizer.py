@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
@@ -105,8 +106,21 @@ def build_mule_path_payload(
     origin_entity_id: str | None = None,
     mule_entity_id: str | None = None,
     payout_entity_id: str | None = None,
+    allow_demo: bool | None = None,
 ) -> dict[str, Any]:
-    """Build a three-hop mule fund-flow path (demo templates + optional entity overrides)."""
+    """Build a three-hop mule fund-flow path from demo templates (opt-in only).
+
+    Demo templates invent hops/amounts. Callers must pass ``allow_demo=True`` or set
+    ``ALLOW_MULE_PATH_DEMO=1``. Otherwise raises ``PermissionError`` (map to HTTP 501).
+    """
+    demo_ok = allow_demo if allow_demo is not None else (
+        os.environ.get("ALLOW_MULE_PATH_DEMO", "").strip().lower() in {"1", "true", "yes"}
+    )
+    if not demo_ok:
+        raise PermissionError(
+            "mule_path demo templates disabled; set ALLOW_MULE_PATH_DEMO=1 for synthetic paths only"
+        )
+
     tid = (tenant_id or "demo").strip() or "demo"
     tpl = _resolve_demo_template(origin_entity_id=origin_entity_id, mule_entity_id=mule_entity_id)
 
