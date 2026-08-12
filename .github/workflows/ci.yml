@@ -111,32 +111,9 @@ jobs:
           if-no-files-found: ignore
       - name: Location reweight — relatedness without geo smoke
         run: python3 scripts/oss/relatedness_evidence_smoke.py
-      - name: Track C — loyalty warehouse HTTP contract smoke
-        env:
-          LOYALTY_WAREHOUSE_ARTIFACT: artifacts/loyalty_warehouse_smoke.json
-        run: |
-          mkdir -p artifacts
-          python3 scripts/oss/loyalty_warehouse_smoke.py
-      - name: Upload loyalty warehouse smoke
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: loyalty-warehouse-smoke
-          path: artifacts/loyalty_warehouse_smoke.json
-          if-no-files-found: ignore
-      - name: Inference Track B — S9 loyalty feed fixture smoke
-        env:
-          LOYALTY_ECONOMICS_ARTIFACT: artifacts/loyalty_economics_feed_smoke.json
-        run: |
-          mkdir -p artifacts
-          python3 scripts/oss/loyalty_economics_feed_smoke.py
-      - name: Upload Inference Track B loyalty feed smoke
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: loyalty-economics-feed-smoke
-          path: artifacts/loyalty_economics_feed_smoke.json
-          if-no-files-found: ignore
+      # Track B/C loyalty warehouse + multi-gate LTV live in loyalty-abuse (removed from Tarka).
+      - name: Loyalty feed posture smoke (Tarka-side honesty only)
+        run: python3 scripts/oss/loyalty_feed_posture_smoke.py
       - name: Inference Track A — chronological ECE retrain gate
         env:
           PYTHONPATH: services/decision-api/src
