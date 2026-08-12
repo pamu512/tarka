@@ -1,8 +1,0 @@
-# TEMPLATE — replace with real staging cutover log (gate C-2 blocker)
-# Execute: docs/docs/guides/redis-agg-key-version-migration.md
-# Environment: staging | prod-dr | (name)___________
-# Date (UTC): ___________
-# AGG_KEY_VERSION: ___________
-# Strategy: [ ] A big-bang  [ ] B blue/green Redis  [ ] C replay backfill
-
-# Paste full command transcript below (redact secrets):

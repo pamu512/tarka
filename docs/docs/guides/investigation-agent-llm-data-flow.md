@@ -41,6 +41,6 @@ Using a **public cloud LLM** (e.g. default OpenAI API URL) makes that provider a
 
 - **Intended use, out of scope, full data-flow map (RAG, feedback, review, regional builds):** [investigation-agent-intended-use-and-data-flows.md](./investigation-agent-intended-use-and-data-flows.md)
 - **Integration contract (`GET /v1/integration`):** [investigation-agent-integration-contract.md](./investigation-agent-integration-contract.md)
-- Project scope, OSS gaps, and Saarthi Pro links: [investigation-agent-project.md](../projects/investigation-agent-project.md) · commercial vs OSS: [Saarthi Pro vs OSS](./saarthi-pro-vs-oss.md)
+- Flows: [feature-data-flows.md](./feature-data-flows.md) · [intended use](./investigation-agent-intended-use-and-data-flows.md)
 - Maintainer scanning overview: [security-scanning.md](./security-scanning.md)
 - Vulnerability reporting: [SECURITY.md](../../../SECURITY.md) (repo root)

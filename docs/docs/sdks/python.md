@@ -386,4 +386,4 @@ ServerSignalCollector(geo_lookup_url: str = "")
 
 ## Scorecard vs typical SDKs
 
-Directional comparison (scores anchored near **3**): **[SDK scorecard — calibrated mid-scale](../guides/sdk-scorecard-2026-01.md)**.
+Directional comparison (scores anchored near **3**): **[SDK scorecard — calibrated mid-scale](python.md)**.

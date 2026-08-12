@@ -2,7 +2,7 @@
 
 This guide maps the **reference** deployment artifacts in this repo ([Docker Compose](../../../infra/deploy/docker-compose.yml), [Helm chart](../../../infra/deploy/helm/fraud-stack/)) to a typical **Microsoft Azure** production layout. It is **not** a turnkey Bicep/ARM template; it describes what to provision, how components align, and where secrets and URLs belong.
 
-**See also:** [Deployment Guide](./deployment.md) (Compose profiles, Helm install, env reference), [Service ports](./service-ports.md), [Enterprise readiness](./enterprise-readiness.md).
+**See also:** [Deployment Guide](./deployment.md), [Service ports](./service-ports.md).
 
 ---
 
@@ -69,7 +69,7 @@ Configure AKS to pull from ACR ([AcrPull role](https://learn.microsoft.com/azure
 
 ## Investigation agent / LLM egress
 
-Outbound calls from `investigation-agent` to `OPENAI_BASE_URL` require **controlled egress** (firewall, proxy, or private endpoints) if your policy restricts public internet. For EU/UK deployments, consider regional governance overlays: [AI governance regional builds](./ai-governance-regional-builds.md) and [LLM data flow](./investigation-agent-llm-data-flow.md).
+Outbound calls from `investigation-agent` to `OPENAI_BASE_URL` require **controlled egress** (firewall, proxy, or private endpoints) if your policy restricts public internet. For EU/UK deployments, consider regional governance overlays: [AI governance regional builds](../honesty.md) and [LLM data flow](./investigation-agent-llm-data-flow.md).
 
 ---
 

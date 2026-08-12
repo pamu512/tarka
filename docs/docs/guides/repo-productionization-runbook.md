@@ -29,7 +29,7 @@ API honesty: `GET /v1/ops/trend/posture`.
 
 ## Gateway
 
-Production nginx already proxies `/api/decisions/` → `core-api` and `/api/investigation/` → investigation-agent ([frontend/nginx.conf](../../frontend/nginx.conf)). Trend ops and AgentRun use those prefixes — no extra location blocks required.
+Production nginx already proxies `/api/decisions/` → `core-api` and `/api/investigation/` → investigation-agent ([frontend/nginx.conf](../../../frontend/nginx.conf)). Trend ops and AgentRun use those prefixes — no extra location blocks required.
 
 ## Honesty invariants
 
@@ -41,5 +41,5 @@ Production nginx already proxies `/api/decisions/` → `core-api` and `/api/inve
 
 ## Related specs
 
-- [2026-08-12-ai-productionization-design.md](../superpowers/specs/2026-08-12-ai-productionization-design.md)
-- [2026-08-11-omniscient-agent-run-design.md](../superpowers/specs/2026-08-11-omniscient-agent-run-design.md)
+- [2026-08-12-ai-productionization-design.md](../../superpowers/specs/2026-08-12-ai-productionization-design.md)
+- [2026-08-11-omniscient-agent-run-design.md](../../superpowers/specs/2026-08-11-omniscient-agent-run-design.md)

@@ -2,25 +2,8 @@
 
 This guide covers deploying Tarka from local development through production, including Docker Compose profiles, Kubernetes with Helm, environment variable reference, scaling, and security hardening.
 
-**Public cloud (Kubernetes):** For AWS, Azure, and GCP service mapping, ingress, managed Postgres/Redis, and secrets patterns, see **[Deploying on AWS](./deployment-aws.md)**, **[Deploying on Azure](./deployment-azure.md)**, and **[Deploying on GCP](./deployment-gcp.md)**.
-
-**Cloud bundle model:** Use **[Cloud-native deployment bundles](./deployment-cloud-native-bundles.md)** to choose `core`, `investigation`, `streaming`, `analytics`, or `full` by outcome.
-
-**Preset workflows:** Use **[Cloud presets and generated values](./deployment-presets.md)** for low-touch AWS/GCP onboarding.
-
-**Managed dependency mode:** Use **[Managed services and secrets contract](./deployment-managed-services.md)** when customer-owned cloud infrastructure is the system of record.
-
-**Lighter adoption path:** Use **[Lighter managed-container deployment path](./deployment-lighter-runtime.md)** when teams need partial Tarka adoption before Kubernetes.
-
-**Release gate:** Use **[Cloud release readiness](./deployment-release-readiness.md)** before promoting cloud environments.
-
-**Security hardening rollout:** Use **[Production security rollout checklist](./production-security-rollout.md)** for staged cutover of tenant binding, API keys, Copilot trusted headers, ingest/evaluate idempotency, WebSockets, and rollback toggles.
-
-**See also:** [Service ports & OpenAPI index](./service-ports.md) — default ports, Compose DNS names, and contract file mapping.
-
-**Runtime tiers:** [Deployment profiles — Community vs Pro](./deployment-profiles-community-vs-pro.md) — `docker-compose.lite.yml` vs profile-based `docker-compose.yml`, env matrix, limitations (**#38**).
-
-**Evaluate path hardening:** [Evaluation step controls](./evaluation-step-controls.md) — optional-service timeouts and retries (**#32**).
+**Public cloud:** [AWS](./deployment-aws.md) · [Azure](./deployment-azure.md) · [GCP](./deployment-gcp.md)  
+**Ports:** [service-ports](./service-ports.md) · **Evaluate knobs:** [evaluation-step-controls](./evaluation-step-controls.md)
 
 ---
 
@@ -74,7 +57,7 @@ cp .env.example .env   # configure inter-service URLs
 docker compose --profile full up -d
 ```
 
-**Collaboration chat (Slack / Teams / Lark)** — enable **`agent`**; the **chat_bridge** runs **inside investigation-agent** on **`/v1/chat/…`**. Use **`core`** (and **`graph`** if you need graph-backed tools). Operator wiring and secrets: **[Collaboration chat & cloud](./investigation-collaboration-chat-aws-azure.md)**.
+**Collaboration chat (Slack / Teams / Lark)** — enable **`agent`**; the **chat_bridge** runs **inside investigation-agent** on **`/v1/chat/…`**. Use **`core`** (and **`graph`** if you need graph-backed tools). Operator wiring and secrets: **[Collaboration chat & cloud](./investigation-agent-integration-contract.md)**.
 
 ### Inter-Service Configuration
 
@@ -352,7 +335,7 @@ In **Docker Compose** and **Helm** defaults, the Decision and Case FastAPI apps 
 | `LARK_TENANT_ACCESS_TOKEN`    | *(empty)*                         | Lark tenant token for outbound messages                                                 |
 
 
-Full ingress options, rate limits, and cloud runbooks: **[Collaboration chat & cloud](./investigation-collaboration-chat-aws-azure.md)**.
+Full ingress options, rate limits, and cloud runbooks: **[Collaboration chat & cloud](./investigation-agent-integration-contract.md)**.
 
 ### Event Ingest (port 8007)
 

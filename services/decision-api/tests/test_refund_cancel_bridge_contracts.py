@@ -38,7 +38,7 @@ def test_refund_recorded_response_maps_hold():
     assert ev is not None and ev["advisory"] is True
 
 
-def test_cancel_recorded_response_maps_heads():
+def test_maps_heads_from_cancel_recorded_response():
     payload = json.loads(
         (_FIXTURES / "offline_cancel_evaluate_200.json").read_text(encoding="utf-8")
     )

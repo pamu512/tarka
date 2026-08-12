@@ -1,26 +1,22 @@
-# Tarka docs hub (triad-shaped)
+# Tarka documentation hub
 
-Canonical operator index. Prefer these over scattered epic status notes.
+Canonical operator docs. Prefer these over wiki mirrors or old status dumps.
 
-| Pillar | Start here | Avoid |
-|--------|------------|-------|
-| **Evaluate** (Rust / decision-api) | [Root ARCHITECTURE.md](../ARCHITECTURE.md) · [feature data flows](docs/guides/feature-data-flows.md) · [one Rust rule engine spec](superpowers/specs/2026-07-11-one-rust-rule-engine-design.md) · [decision-api README](../services/decision-api/README.md) | Python `rule_engine` HTTP evaluate; quarantined `core_v2` |
-| **Graph** (JanusGraph / Gremlin) | [service-ports](docs/guides/service-ports.md) · [graph contract](../services/decision-api/docs/decision-api-graph-service-contract.md) · janusgraph demo under `infra/deploy/janusgraph-cassandra-demo/` | Treating Neo4j/AGE forks as peers without `GRAPH_BACKEND` |
-| **Shadow** (local forensics) | [services/SHADOW.md](../services/SHADOW.md) · ingest `shadow_agent` · desktop `tools/shadow` | A fourth HTTP “Shadow” service |
-| **Cases** | case-api + analyst SPA [`frontend/`](../frontend/) | Prototype Notifications inbox (removed) |
-| **Deploy** | Root `docker-compose.yml` (Lite) · [`infra/deploy/docker-compose.yml`](../infra/deploy/docker-compose.yml) profiles · Helm `infra/deploy/helm/fraud-stack/` · [archive](../infra/deploy/archive/README.md) · [productionization runbook](docs/guides/repo-productionization-runbook.md) | Archived `single` / `lite.smoke` / broken host-ports overlays |
-| **Honesty** | [`../STUB_REGISTER.md`](../STUB_REGISTER.md) · [uncommitted triage 2026-08-12](docs/guides/uncommitted-work-triage-2026-08-12.md) | Treating mocks as production truth |
-
-## Other hubs
-
-- MkDocs site home: [`docs/index.md`](docs/index.md)
-- Repo layout: [`REPOSITORY_LAYOUT.md`](REPOSITORY_LAYOUT.md)
-- Stub honesty: [`../STUB_REGISTER.md`](../STUB_REGISTER.md)
-- Product vision / ROI: complexity canvas notes (Jul 2026)
+| Topic | Start here |
+|-------|------------|
+| **Evaluate** | [Feature data flows](docs/guides/feature-data-flows.md) · [architecture](docs/architecture.md) · [decision-api](../services/decision-api/README.md) · [STUB_REGISTER](../STUB_REGISTER.md) |
+| **Graph** | [service-ports](docs/guides/service-ports.md) · Janus demo `infra/deploy/janusgraph-cassandra-demo/` · `GRAPH_BACKEND` |
+| **Shadow** | [services/SHADOW.md](../services/SHADOW.md) · ingest `shadow_agent` · desktop `tools/shadow` |
+| **Cases / SAR** | case-api + [feature data flows §3](docs/guides/feature-data-flows.md) |
+| **Deploy** | [quickstart](docs/quickstart.md) · lite / v2-ingest compose · [productionization](docs/guides/repo-productionization-runbook.md) |
+| **MkDocs site** | `docs/docs/` + `docs/mkdocs.yml` (`mkdocs serve` from `docs/`) |
 
 ## Compose (one story)
 
-1. `docker compose up` → Lite / `core-api`
-2. Profiles / full modular → `infra/deploy/docker-compose.yml`
-3. Ingest rail → `infra/deploy/docker-compose.v2-ingest.yml`
-4. Legacy streams → `docker-compose.streams-ai.yml` only
+1. Desk: `docker compose -f infra/deploy/docker-compose.lite.yml -f infra/deploy/docker-compose.fraud-desk.yml up --build`
+2. Ingest rail: `infra/deploy/docker-compose.v2-ingest.yml`
+3. Trend: `--profile trend-tick` or `make trend-tick`
+
+## Wiki
+
+[`wiki/`](../wiki/) is a short GitHub wiki mirror of the same story. If wiki and this hub disagree, **trust this hub and the code**.

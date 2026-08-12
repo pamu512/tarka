@@ -20,10 +20,10 @@ LLM **copilot** for investigations: tool-use loop against Case API, Graph Servic
 !!! note "Contracts & guides"
 
     OpenAPI: `contracts/openapi/investigation-agent.yaml`  
-    Project narrative: [Investigation Agent project](../projects/investigation-agent-project.md) · [Saarthi Pro vs OSS](../guides/saarthi-pro-vs-oss.md) · [Collaboration chat & cloud](../guides/investigation-collaboration-chat-aws-azure.md)
+    [Feature data flows](../guides/feature-data-flows.md) · [intended use](../guides/investigation-agent-intended-use-and-data-flows.md) · [LLM data flow](../guides/investigation-agent-llm-data-flow.md) · [honesty](../honesty.md)
 
 ---
 
 ## Configuration
 
-Requires **`OPENAI_API_KEY`** (or compatible base URL) for LLM rounds. Optional upstreams: **`CASE_API_URL`**, **`GRAPH_SERVICE_URL`**, **`DECISION_API_URL`**. Production hardening: **`infra/deploy/docker-compose.production-hardening.yml`**, `COPILOT_PRODUCTION_MODE`, and related envs — see the project doc.
+Requires **`OPENAI_API_KEY`** (or compatible base URL) for LLM rounds. Optional upstreams: **`CASE_API_URL`**, **`GRAPH_SERVICE_URL`**, **`DECISION_API_URL`**. Production hardening: **`infra/deploy/docker-compose.production-hardening.yml`**, `COPILOT_PRODUCTION_MODE`, and related envs — see investigation-agent README under `services/`.

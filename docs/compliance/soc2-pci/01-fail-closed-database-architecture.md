@@ -18,13 +18,13 @@ The decision service performs **startup validation** of the configured **ClickHo
 
 The platform maintains **documented** dependency resilience policies (timeouts, retry bounds, circuit thresholds) for evaluation steps that may invoke **external** or **shared** subsystems. Degraded modes are **explicitly** surfaced (for example, via **`fallback_reason`** and **`step_trace`** semantics) rather than implied as nominal success paths.
 
-**Reference materials:** `services/decision-api/src/decision_api/config.py` (`dependency_resilience_policy_table`), `docs/docs/guides/fallback-emergency-runbook.md`, `docs/OPERATIONS.md`.
+**Reference materials:** `services/decision-api/src/decision_api/config.py` (`dependency_resilience_policy_table`), `docs/docs/guides/fallback-emergency-runbook.md`, `docs/docs/guides/degraded-operations.md`.
 
 ### 1.2.3 API contract under partial outage
 
 Client integrations are instructed to treat **HTTP 503** responses carrying **`reason_code`** as **first-class** signals of **dependency outage**, consistent with a **fail-closed** operational contract at the **service boundary**.
 
-**Reference:** `docs/OPERATIONS.md`.
+**Reference:** `docs/docs/guides/degraded-operations.md`.
 
 ## 1.3 Evidence artifacts (non-exhaustive)
 

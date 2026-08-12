@@ -1,32 +1,19 @@
 # Architecture
 
-Tarka is designed as modular services that can run independently or together.
+Day-1 deploy is **core-api** (decision-api + case-api). Authoritative decisions: **Rust JSON packs** inside decision-api.
 
-## Core Flow
+| Component | Role |
+|-----------|------|
+| core-api | `/decisions` + `/cases` |
+| decision-api | Evaluate, depth fusion, trend ops APIs |
+| orchestrator | Ingest → evaluate → Shadow iff `SHADOW_REVIEW` |
+| shadow_agent | Local-first forensics (advise) |
+| investigation-agent | Analyst copilot / AgentRun (advise) |
+| graph-service | Topology HTTP; Janus/Neo4j via `GRAPH_BACKEND` |
+| signal-api | Features + ML |
+| integration-ingress | Connectors, vault/KMS |
+| frontend | Analyst SPA + nginx gateway |
 
-1. Event enters via SDK or ingest endpoint.
-2. Decision API builds feature snapshot.
-3. Rules, OPA, aggregates, and ML scoring run.
-4. Entity tags are updated in Redis/Graph.
-5. Audit trail is persisted.
-6. Cases/workflows/investigation can consume outputs.
+**Authority:** decision-api allow/deny; Shadow / trend / Saarthi advise only.
 
-## Major Components
-
-- `decision-api`: real-time evaluation, rules, policy, tagging
-- `case-api`: investigations, workflows, SAR/disputes
-- `graph-service`: entity graph + analytics
-- `ml-scoring`: heuristic + adaptive anomaly scoring
-- `feature-service`: feature normalization and enrichment
-- `event-ingest`: async intake and fan-out
-- `analytics-sink`: ClickHouse metrics/history
-- `graphql-gateway`: unified query/mutation endpoint
-- `integration-ingress`: KYC/OSINT/integration adapters
-- `investigation-agent`: analyst assistant with guarded tools
-
-## Data Stores
-
-- PostgreSQL: cases, audit-oriented records
-- Redis: tags, cache, nonce/session style runtime data
-- Neo4j: entity relationships and graph tags
-- ClickHouse: analytical event history
+Details + diagrams: [`docs/docs/architecture.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/architecture.md) · [`docs/docs/guides/feature-data-flows.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/feature-data-flows.md) · root [`ARCHITECTURE.md`](https://github.com/pamu512/tarka/blob/master/ARCHITECTURE.md) (evaluate/ingest).

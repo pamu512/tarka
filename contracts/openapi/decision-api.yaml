@@ -1397,7 +1397,7 @@ components:
               nullable: true
               description: >
                 Mobile integrity attestation (Play Integrity / App Attest). Server normalizes provider aliases
-                and sets status/confidence_tier; see docs/docs/guides/mobile-attestation-taxonomy.md.
+                and sets status/confidence_tier; see docs/docs/guides/device-id-semantics.md.
               properties:
                 nonce: { type: string }
                 token: { type: string }

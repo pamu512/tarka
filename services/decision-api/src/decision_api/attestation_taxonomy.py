@@ -4,7 +4,7 @@ from typing import Any
 
 """Shared mobile attestation normalization (Android Play Integrity + iOS App Attest).
 
-See docs/docs/guides/mobile-attestation-taxonomy.md for the human-readable contract.
+See docs/docs/guides/device-id-semantics.md and attestation_taxonomy module for the contract.
 """
 ATTESTATION_SCHEMA_VERSION = 1
 

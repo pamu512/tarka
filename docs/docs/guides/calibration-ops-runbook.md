@@ -30,4 +30,4 @@ curl -sS "$DECISION_API/v1/ops/calibration-status?tenant_id=$TID&profile=default
 curl -sS "$DECISION_API/v1/calibration/reliability-bins?tenant_id=$TID&n_bins=10" | jq .
 ```
 
-Related: [counter-replay-parity.md](./counter-replay-parity.md), aspirational Phase 1 in [aspirational-gaps-execution-plan.md](./aspirational-gaps-execution-plan.md).
+Related: [counter-replay-parity.md](./counter-replay-parity.md), aspirational Phase 1 in [aspirational-gaps-execution-plan.md](./calibration-ops-runbook.md).

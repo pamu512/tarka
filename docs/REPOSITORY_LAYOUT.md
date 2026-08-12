@@ -37,6 +37,19 @@ Primary workloads hoisted from the former `tarka_v2_core/` wrapper:
 | Docker Compose + Helm + OPA | `infra/deploy/` |
 | CI / deploy / policy scripts | `infra/scripts/{ci,deploy,policy}/` |
 
+## docs/
+
+| Path | Role |
+|------|------|
+| [`INDEX.md`](INDEX.md) | Operator hub |
+| [`docs/`](docs/) + [`mkdocs.yml`](mkdocs.yml) | MkDocs site source (`mkdocs serve` from `docs/`; do not commit `site/`) |
+| [`guides/`](docs/guides/) via `docs/docs/guides/` | Runbooks (flows, deploy, honesty) |
+| [`superpowers/`](superpowers/) | Recent design specs/plans only |
+| [`compliance/`](compliance/) | Control narratives (not certifications) |
+| Wiki mirror | [`../wiki/`](../wiki/) — short pointers; hub wins on conflict |
+
+Root product docs: [`../README.md`](../README.md), [`../VISION.md`](../VISION.md), [`../ARCHITECTURE.md`](../ARCHITECTURE.md), [`../STUB_REGISTER.md`](../STUB_REGISTER.md).
+
 ## Migration
 
 Run once after checkout (already applied on v1.3.0 branches):

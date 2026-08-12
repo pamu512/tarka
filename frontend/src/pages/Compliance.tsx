@@ -364,7 +364,7 @@ export default function Compliance() {
             </p>
           ) : null}
           <p className="text-[10px] text-gray-500 font-mono">
-            {diligence.pack || "docs/compliance/customer-control-evidence-pack.md"} · GET
+            {diligence.pack || "docs/compliance/CLAIM_LOCK.md"} · GET
             /v1/ops/diligence-readiness
           </p>
         </section>

@@ -75,4 +75,4 @@ We are not building a **better remote score**. We are building **infrastructure 
 
 ---
 
-*For stack wiring and beta install, see [`README.md`](README.md). For LFFI narrative and roadmap detail, see [`docs/LFFI_VISION.md`](docs/LFFI_VISION.md).*
+*For stack wiring and beta install, see [`README.md`](README.md). For operator flows, see [`docs/INDEX.md`](docs/INDEX.md).*

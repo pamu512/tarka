@@ -16,15 +16,12 @@ Unified index for on-call and release operators. Linked from Prometheus `runbook
 | Runbook | When to use |
 |---------|-------------|
 | [Counter replay parity](../guides/counter-replay-parity.md) | Epic C parity failures, AGG_KEY_VERSION cutover |
-| [Chaos template](../guides/runbook-chaos-template.md) | Planned chaos / game-day exercises |
+| [Chaos template](./runbook-common-failures.md) | Planned chaos / game-day exercises |
 
 ## Release and security
 
 | Runbook | When to use |
 |---------|-------------|
-| [Deployment release readiness](../guides/deployment-release-readiness.md) | Pre-tag checklist and sign-off |
-| [Production security rollout](../guides/production-security-rollout.md) | Tenant binding, auth hardening |
-| [Staging promotion playbook](../guides/staging-promotion-playbook.md) | Preset promotion dev → staging → prod |
 
 ## Observability entry points
 

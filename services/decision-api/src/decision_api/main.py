@@ -1781,7 +1781,7 @@ async def ops_governance():
             "note": "Health + OpenAPI reachability; use schemathesis CLI for property-based fuzz",
         },
         "mobile_attestation_taxonomy": {
-            "doc": "docs/docs/guides/mobile-attestation-taxonomy.md",
+            "doc": "docs/docs/guides/device-id-semantics.md",
             "attestation_schema_version": 1,
             "note": "Normalized on EvaluateRequest.device_context.attestation (Play Integrity + App Attest).",
         },

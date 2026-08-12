@@ -4,7 +4,7 @@ name: Bench
 
 on:
   pull_request:
-    branches: [main, master]
+    branches: [master]
     paths:
       - "crates/tarka-core/**"
       - "infra/scripts/ci/criterion_p99_regression.py"

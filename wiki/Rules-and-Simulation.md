@@ -1,27 +1,7 @@
 # Rules and Simulation
 
-## Rule Engine
+- Production evaluate uses **Rust JSON packs** (`tarka_rule_engine`), not the legacy Python demo ruleset (gated by `RULE_ENGINE_ALLOW_DEMO_FALLBACK`).
+- Simulation / backtest / promote gates live under decision-api ops (`backtest_promote_gate`, typology ops).
+- Humans promote via GitOps; trend drafts require HIL — no silent Wasm auto-promote.
 
-Tarka supports JSON-based rule packs with:
-- condition operators
-- score deltas
-- tag output
-- active/shadow/disabled modes
-
-## Shadow Mode
-
-Run candidate rules without affecting production decisions.
-- Compare divergence vs production
-- Inspect confusion trends and score drift
-
-## Simulation
-
-Use simulation to test changes safely before rollout:
-- historical replay
-- synthetic scenario generation
-- A/B rule set comparison
-
-## Recommendation Loop
-
-Recommendation endpoints can propose rule candidates from observed patterns.
-Always validate with simulation and shadow before activation.
+Guides: [`rules.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/rules.md) · [`backtest-before-promote.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/backtest-before-promote.md) · [`shadow-and-ab-testing.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/shadow-and-ab-testing.md).

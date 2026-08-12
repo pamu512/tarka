@@ -177,8 +177,8 @@ def test_ingest_shadow_review_triggers_shadow_downstream_and_logs(
 
     assert response.status_code == 200
     data = response.json()
-    # Low-risk Shadow advice modulates SHADOW_REVIEW+FLAG → ALLOW once analyze returns.
-    assert data["risk_decision"]["actions"] == ["ALLOW"]
+    # escalate_only (default): Shadow never clears deterministic FLAG → ALLOW.
+    assert data["risk_decision"]["actions"] == ["FLAG"]
     assert data["shadow_agent"] == shadow_body
     assert data.get("shadow_sync_trigger") == "SHADOW_REVIEW"
     assert len(dummy.post_calls) == 2

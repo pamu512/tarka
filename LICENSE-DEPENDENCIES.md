@@ -15,7 +15,7 @@ The **full** `infra/deploy/docker-compose.yml` stack can run **Neo4j** (`neo4j` 
 If AGPL is incompatible with your policy:
 
 1. **`infra/deploy/docker-compose.lite.yml`** — **does not start Neo4j**; graph features are off (`GRAPH_SERVICE_URL` empty). Use this for quick demos and minimal compliance surface.
-2. **Memgraph** or **FalkorDB** (and similar) — evaluate separately; **API and Cypher compatibility differ** from Neo4j. Swapping backends requires code and query review (not a one-line change today). See **`docs/docs/guides/graph-backend-alternatives.md`** for a short integration checklist.
+2. **Memgraph** or **FalkorDB** (and similar) — evaluate separately; **API and Cypher compatibility differ** from Neo4j. Swapping backends requires code and query review (not a one-line change today). Prefer JanusGraph; Neo4j remains available via `GRAPH_BACKEND` (see LICENSE notes above).
 
 **Action for operators:** Choose **lite** or a **non-AGPL graph backend** explicitly in architecture reviews; do not assume “open source graph” implies a permissive DB license.
 

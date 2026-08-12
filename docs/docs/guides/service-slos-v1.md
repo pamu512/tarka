@@ -27,7 +27,7 @@ Shared **`observability`** middleware exposes **`/metrics`** with **`http_reques
 
 Use **two windows** on error rate or latency: **5m** (fast burn) and **1h** (slow burn) vs budget.
 
-**Shipped:** Prometheus loads **[prometheus-rules/slo-burn.yml](../../infra/deploy/observability/prometheus-rules/slo-burn.yml)** (recording rules `tarka:http_5xx_ratio_5m` / `tarka:http_5xx_ratio_1h` plus example alerts). Grafana folder **Tarka** includes **Tarka SLO burn (5m vs 1h)**.
+**Shipped:** Prometheus loads **[prometheus-rules/slo-burn.yml](../../../infra/deploy/observability/prometheus-rules/slo-burn.yml)** (recording rules `tarka:http_5xx_ratio_5m` / `tarka:http_5xx_ratio_1h` plus example alerts). Grafana folder **Tarka** includes **Tarka SLO burn (5m vs 1h)**.
 
 **Runbooks:** Every alert includes a `runbook_url` annotation. Index: [runbook-pack-index.md](../operations/runbook-pack-index.md). SLO burn playbooks: [slo-burn-response.md](../operations/slo-burn-response.md).
 
@@ -53,7 +53,7 @@ receivers:
         text: '{{ .CommonAnnotations.description }}\nRunbook: {{ .CommonAnnotations.runbook_url }}'
 ```
 
-Legacy standalone example: **[slo-burn-recording-rules.example.yml](../../infra/deploy/observability/slo-burn-recording-rules.example.yml)**.
+Legacy standalone example: **[slo-burn-recording-rules.example.yml](../../../infra/deploy/observability/slo-burn-recording-rules.example.yml)**.
 
 ## Degradation (R2)
 

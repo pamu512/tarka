@@ -1,65 +1,21 @@
-# Claim lock (critical honesty)
+# Claim lock (honesty)
 
-**Updated:** 2026-08-07  
-**Status:** **CLOSED** for A++ / equal-weight six-cap ≥4.2 / LIVE-without-pin / critical overall ≥4.5 (equal-weight).  
-**Open (disclosed):** primary-five overall ~**4.3** (Location enrichment excluded — C7).
+**Rule:** Do not advertise live-tenant, certified SOC2/PCI, or product-wide maturity scores from fixture CI, waived partner proofs, or deleted score matrices.
 
-## Rule
+## Allowed language
 
-Do **not** advertise product-wide maturity from:
+- Offline / fixture holdouts and golden corpora prove **wiring and gates**, not named live tenants.
+- Shadow / investigation / trend **advise**; decision-api **decides**.
+- Partner fusion and enrichment are honest only when credentials and sinks are real; otherwise degrade (503 / WAIVED), never invent success.
+- Vertical packs and kill-criteria gates are installable locally; empty tenant ≠ demo SHA proof.
 
-| Forbidden source | Why |
-| --- | --- |
-| Wave6 “honest 4.2” matrix column | Liberal same-day claim — walked back |
-| In-repo L1 / “floor ≥4.0” alone | Wiring ≠ closed-loop product (C4) |
-| Fixture partner SHA | ≠ live named tenant (C6) |
-| Four-week **sim** / playbook alone | ≠ live L3 ops (C5) |
-| Inference A+B `bar=fixture_ci` as live L3 | Disclosed fixture bar — not warehouse L3 |
-| Related graph links alone | ≠ loyalty abuse (C1); needs S9 feeds |
-| Equal-weight six-cap marketed as overall 4.3 | Location 2.5 still binds six-cap (~3.9–4.0) |
+## Source of truth
 
-## Current critical snapshot (authoritative)
+| Topic | Doc |
+|-------|-----|
+| Stub / mock honesty | root [`STUB_REGISTER.md`](../../STUB_REGISTER.md) |
+| Feature authority | [`docs/docs/guides/feature-data-flows.md`](../docs/guides/feature-data-flows.md) |
+| AI / trend ops | [`docs/docs/guides/repo-productionization-runbook.md`](../docs/guides/repo-productionization-runbook.md) |
+| Control narrative (not a cert) | [`soc2-pci/`](./soc2-pci/) |
 
-See [competitive-score-matrix-2026-04.md](../docs/guides/competitive-score-matrix-2026-04.md) three-bucket section and [maturity-4-0-regrade.canvas.tsx](../superpowers/canvases/maturity-4-0-regrade.canvas.tsx).
-
-- **Overall (primary-five)** ~**4.3** · **six-cap (equal-weight)** ~**3.9–4.0** · Location enrichment **2.5**
-- A++ / “native Location ≥4.0” / LIVE-without-pin **CLOSED**
-
-## Evidence tiers still required to open full lock
-
-| Tier | Artifact | Status 2026-08-06 |
-| --- | --- | --- |
-| L1 | In-repo gates (promote, dual_diff, ops-qa, …) | Largely landed |
-| L2 | `partner-fusion-proof.live.sha256` + named tenant | **BLOCKED** — WAIVED / attempt log |
-| L3 | ≥4 live shadow weeks + ECE on real labels | **NOT STARTED** — L3 ops ledger |
-
-## OK claim language
-
-- “Primary-five overall ~4.3 (Location enrichment excluded per C7)”
-- “Engineering honesty stack / fixture_ci Inference bar / Risk 4.2 with WAIVED live status”
-- “Shadow loyalty economics advice; requires tenant hygiene feeds”
-- “Location is enrichment; relatedness via graph”
-
-### Marketplace / q-comm
-
-- “Vertical packs `marketplace`, `qcommerce`, `logistics`, `food_delivery`, `offline_payment` installable with kill-criteria gates”
-- “Durable payout holds via integration-ingress (`source=durable`); webhook delivery optional”
-- “Promo-abuse / seller-integrity boards backed by durable internal records when tenant data present; empty tenant ≠ SHA demo”
-- “Loyalty redeem bridge fail-soft to sibling evaluate; no live warehouse L3 claim without feeds”
-- “Dispute evidence PDF served from case-api for analyst review; orchestrator file-dispute lock+export for lifecycle cases”
-- Operator guide: [vertical-packs-marketplace-delivery.md](../docs/guides/vertical-packs-marketplace-delivery.md)
-
-## Not OK
-
-- “A++ / equal-weight six-cap 4.2+ / critical 4.5 overall (six-cap)”
-- “Overall 4.3” without saying primary-five / Location excluded
-- “Live loyalty-abuse detection” without warehouse feeds
-- “L2 partner proof” with only fixture or WAIVED status
-- “L3 complete” from `shadow_four_week_sim.py`
-
-### Marketplace / q-comm
-
-- “Live loyalty-abuse detection” / multi-gate warehouse without tenant redeem feeds
-- “Partner fusion L2 LIVE” while status is WAIVED or fixture-only
-- Any overall / six-cap maturity number in external marketplace copy
-- “Chargeback guarantee” / GrabDefence-equivalent product claim
+Historical “maturity 4.x” scorecards and competitive matrices were removed in the docs cleanup.
