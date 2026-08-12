@@ -58,7 +58,7 @@ def default_ledger() -> dict[str, Any]:
         "weeks": {k: _empty_week() for k in _WEEK_KEYS},
         "honesty": (
             "Sim/fixture never advances this ledger. COMPLETE only after four live "
-            "weeks + Week-4 ECE on real labels. See docs/superpowers/playbooks/l3-ops-ledger.md."
+            "weeks + Week-4 ECE on real labels. See docs/compliance/CLAIM_LOCK.md."
         ),
     }
 
@@ -216,6 +216,6 @@ def public_view(ledger: dict[str, Any] | None = None) -> dict[str, Any]:
     return {
         **led,
         "claim_allowed": status == "COMPLETE",
-        "playbook": "docs/superpowers/playbooks/l3-ops-ledger.md",
+        "playbook": "docs/compliance/CLAIM_LOCK.md",
         "sim_banned": "scripts/oss/shadow_four_week_sim.py never writes this ledger",
     }

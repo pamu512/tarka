@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-11  
 **Status:** Implemented (OSS)  
-**Related:** [repository convergence §5](2026-07-25-repository-convergence-design.md), investigation-agent, orchestrator Shadow ingest
+**Related:** `docs/REPOSITORY_LAYOUT.md`, investigation-agent, orchestrator Shadow ingest
 
 ## Philosophy
 

@@ -19,7 +19,7 @@ Velocity reads and canonical feature snapshots over **Redis-backed aggregates** 
 !!! note "Contract"
 
     OpenAPI: `contracts/openapi/feature-service.yaml`  
-    Deeper narrative: [Feature Service project](../projects/feature-service-project.md), [Typology / parity / checkpoints guide](../guides/oss-typology-parity-graph-34-48-49.md).
+    Deeper narrative: [Feature Service project](feature-service.md), [Typology / parity / checkpoints guide](../architecture.md).
 
 ---
 

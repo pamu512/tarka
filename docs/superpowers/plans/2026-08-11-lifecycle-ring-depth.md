@@ -1,6 +1,5 @@
 # Lifecycle + Ring Depth Implementation Plan
 
-> **PRIVATE / INTERNAL ONLY** — see RATING_PRIVACY.md  
 > Spec: `docs/superpowers/specs/2026-08-11-lifecycle-ring-depth-design.md`
 
 **Goal:** Ship computable OSS depth (sequence + structure) so LIVE feeds amplify the same interfaces to premium.

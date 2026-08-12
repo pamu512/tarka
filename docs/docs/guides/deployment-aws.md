@@ -2,7 +2,7 @@
 
 This guide maps the **reference** deployment artifacts in this repo ([Docker Compose](../../../infra/deploy/docker-compose.yml), [Helm chart](../../../infra/deploy/helm/fraud-stack/)) to a typical **Amazon Web Services** production layout. It is **not** a one-click Terraform module; it describes what to provision, how services fit together, and where to inject secrets and URLs.
 
-**See also:** [Deployment Guide](./deployment.md) (Compose profiles, Helm install, env reference), [Service ports](./service-ports.md), [Cloud presets and generated values](./deployment-presets.md), [Enterprise readiness](./enterprise-readiness.md).
+**See also:** [Deployment Guide](./deployment.md), [Service ports](./service-ports.md).
 
 ---
 

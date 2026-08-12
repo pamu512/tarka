@@ -14,7 +14,7 @@ Auditors and assessors shall treat the mapping matrix as **illustrative**. Final
 
 ## Related technical references (repository)
 
-- Operational resilience and dependency posture: `docs/OPERATIONS.md`, `docs/docs/guides/fallback-emergency-runbook.md`
+- Operational resilience: `docs/docs/guides/fallback-emergency-runbook.md`, `docs/docs/guides/degraded-operations.md`
 - Immutable decision records (schema and replay): `docs/docs/guides/immutable-decision-records.md`
 
 ---

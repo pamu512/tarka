@@ -4,7 +4,7 @@
     Generated at **2026-05-07T23:01:50.398740+00:00** by `scripts/docs/generate_rule_logic_docs.py` — do not edit by hand.
 
 This page lists **compiler-style YAML** rules (Rust evaluator schema): boolean expressions over **signals**.
-It does not enumerate Decision API JSON packs (`*.json`); see [Rule Authoring](rules.md).
+It does not enumerate Decision API JSON packs (`*.json`); see [Rule Authoring](../guides/rules.md).
 
 ## Scan roots
 

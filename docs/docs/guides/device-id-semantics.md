@@ -32,4 +32,4 @@ The server stores the latest **entity_id** seen with that vendor id. Use for **g
 ## Related
 
 - [TLS pinning and signed requests](./tls-pinning-and-signed-requests.md)  
-- [SDK scorecard](./sdk-scorecard-2026-01.md)
+- [SDK scorecard](../sdks/typescript.md)

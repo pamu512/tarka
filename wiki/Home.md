@@ -1,46 +1,30 @@
 # Tarka Wiki
 
-Welcome to the Tarka wiki.
+Operator mirror of the docs hub. If this wiki and `docs/` disagree, **trust `docs/INDEX.md` and the code**.
 
-## Executive Pitch
+## Start here
 
-Tarka helps organizations reduce fraud losses while improving customer trust by unifying real-time decisioning, investigations, and compliance evidence in one platform. Instead of stitching together disconnected tools, teams get a single, auditable operating layer for rules, machine learning, graph intelligence, and third-party integrations, so risk teams move faster, engineering teams stay in control, and leadership gets clearer visibility into fraud outcomes and operational performance.
+| Page | Purpose |
+|------|---------|
+| [Quickstart](Quickstart) | Lite / fraud-desk → first evaluate |
+| [Architecture](Architecture) | Services, stores, authority |
+| [Services](Services) | What each process does |
+| [Rules and Simulation](Rules-and-Simulation) | Packs, backtest, promote |
+| [Operations](Operations) | Compose, ports, trend tick, honesty |
+| [Security and Compliance](Security-and-Compliance) | Disclosure, residency posture |
 
-## Who Tarka Is Aimed At
+## Product invariants
 
-- Fintech, payments, lending, crypto, and marketplace teams with meaningful fraud pressure.
-- Risk, fraud, and operations organizations that need both real-time controls and investigation workflows.
-- Compliance-driven teams that must prove why decisions were made and how controls are governed.
-- Engineering teams that want open, modular architecture instead of black-box vendor lock-in.
+- **Prove every signal** — durable audit / graph edges, not vendor scorecards.
+- **`decision-api` decides** — Rust JSON packs via `tarka_rule_engine`.
+- **Shadow / investigation / trend advise** — never silent FLAG→ALLOW or Wasm auto-promote.
+- **Offline / no live-tenant fantasy** — demos and holdouts are local fixtures.
 
-Tarka is an open, modular fraud decisioning stack with:
-- Decision engine (rules + ML + policy)
-- Graph intelligence (entity links and tags)
-- Investigation and case management
-- SDKs (Python, TypeScript, Android, iOS)
-- Streaming, analytics, and compliance tooling
-- One-click Integration Hub (20 providers, category filtering, health checks)
-- Multi-cloud vault KMS support (AWS, GCP, Azure, local fallback)
+## Canonical docs (repo)
 
-## Start Here
+- Hub: [`docs/INDEX.md`](https://github.com/pamu512/tarka/blob/master/docs/INDEX.md)
+- Flows: [`docs/docs/guides/feature-data-flows.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/feature-data-flows.md)
+- Honesty: [`STUB_REGISTER.md`](https://github.com/pamu512/tarka/blob/master/STUB_REGISTER.md)
+- Vision: [`VISION.md`](https://github.com/pamu512/tarka/blob/master/VISION.md)
 
-- [Quickstart](Quickstart)
-- [Architecture](Architecture)
-- [Services](Services)
-- [Rules and Simulation](Rules-and-Simulation)
-- [Security and Compliance](Security-and-Compliance)
-- [Operations](Operations)
-- [Who Should Choose Tarka](Who-Should-Choose-Tarka)
-
-## New in Current Build
-
-- One-click integrations support **either `api_key` OR `username` + `password`**.
-- Vault-backed masked credential storage for integrations.
-- KMS encryption providers: `local`, `aws`, `gcp`, `azure`.
-- Rotation management endpoints and operator visibility for recent KMS rotation jobs.
-- CodeQL advanced workflow now uses manual build handling for compiled languages and Node 24 action runtime compatibility.
-
-## Repository
-
-- Source code: `pamu512/tarka`
-- Latest patch: **`v1.0.2`** (`docs/docs/releases/v1.0.2.md` on default branch): CodeQL + security scan **`workflow_dispatch`**, Swift SPM/CodeQL build fixes, Trivy SARIF upload v4, drift score smoke, Docker base refresh.
+**Source:** [pamu512/tarka](https://github.com/pamu512/tarka) · track **1.3.0-beta** on `master`.

@@ -4,7 +4,7 @@ This guide maps Tarka deployment artifacts ([Docker Compose](../../../infra/depl
 
 It is intentionally parallel to AWS guidance so operators can follow the same mental model across clouds.
 
-**See also:** [Deployment Guide](./deployment.md), [Deploying on AWS](./deployment-aws.md), [Cloud presets and generated values](./deployment-presets.md), [Cloud-native deployment bundles](./deployment-cloud-native-bundles.md), [Managed services and secrets contract](./deployment-managed-services.md).
+**See also:** [Deployment Guide](./deployment.md), [Deploying on AWS](./deployment-aws.md).
 
 ---
 

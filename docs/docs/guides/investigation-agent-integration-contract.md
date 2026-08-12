@@ -6,7 +6,7 @@ This document describes the **machine-readable integration surface** of `service
 
 ## Contract version
 
-- **`INTEGRATION_CONTRACT_VERSION`** is defined in code (`integration_contract.py`) and returned by the API. Current line: **1.1.x** (see [CHANGELOG_INTEGRATION](CHANGELOG_INTEGRATION.md)).
+- **`INTEGRATION_CONTRACT_VERSION`** is defined in code (`integration_contract.py`) and returned by the API. Current line: **1.1.x** (see [CHANGELOG_INTEGRATION](investigation-agent-integration-contract.md)).
 - **Bump the minor/patch** when adding tools or changing semantics; **bump major** when renaming tools or changing upstream expectations in a breaking way for adapters.
 - **JSON Schema (CI / validation):** [`contracts/schemas/investigation-agent-integration-snapshot.schema.json`](../../../contracts/schemas/investigation-agent-integration-snapshot.schema.json)
 
@@ -62,11 +62,9 @@ Add `--api-key` if the deployment requires it.
 
 ## Related
 
-- [CHANGELOG_INTEGRATION](CHANGELOG_INTEGRATION.md)
-- [Saarthi customer API change policy](saarthi-customer-api-change-policy.md) (notice windows, joint certification, contract vs customer API versions)
+- [CHANGELOG_INTEGRATION](investigation-agent-integration-contract.md)
+- [Saarthi customer API change policy](investigation-agent-integration-contract.md) (notice windows, joint certification, contract vs customer API versions)
 - Adapter cookiecutter template: [`templates/cookiecutter-investigation-integration-adapter/`](../../../templates/cookiecutter-investigation-integration-adapter/) (OSS scaffold for HTTP adapters; vendor-maintained packaging → private [Saarthi-pro](https://github.com/pamu512/Saarthi-pro))
-- [Saarthi Pro roadmap](saarthi-pro-roadmap.md) · [distribution & contract parity](saarthi-pro-distribution-and-contract-parity.md) · [adapter catalog & certification](saarthi-pro-adapter-catalog-and-certification.md)
 
-- [Saarthi Pro adapter strategy & pricing (internal draft)](saarthi-pro-adapter-strategy-and-pricing.md)
 - [Investigation Copilot — intended use & data flows](investigation-agent-intended-use-and-data-flows.md)
-- [Investigation Agent Project](../projects/investigation-agent-project.md)
+- [Investigation Agent Project](../services/investigation-agent.md)

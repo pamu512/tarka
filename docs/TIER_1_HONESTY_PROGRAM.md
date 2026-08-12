@@ -1,174 +1,28 @@
-# Tier-1 Honesty Program (repo-wide stub elimination)
+# Tier-1 Honesty Program
 
-**Workstream checklist**
+Eliminate Potemkin surfaces: **ship durable execution**, **delete** the route, or **degrade** with an explicit contract (501/503 + reason). Never invent success.
 
-- [x] Phase 0: Automated inventory (grep/rg) + classify each hit as ship, delete, or gate behind explicit degraded-mode contract — see [`../STUB_REGISTER.md`](../STUB_REGISTER.md) (pointer: [`STUB_REGISTER.md`](STUB_REGISTER.md))
-- [x] Track A: Feature store — Postgres metadata + ClickHouse DDL execution + saga reconciliation (replaces `_STORE`)
-- [x] Track B: Backtest — stub `/run` removed; jobs path is the honest surface
-- [x] Track C: Executive KPIs — bounded analytics queries; **503** when engine unavailable
-- [x] Track D: SAR transport — durable filing rows + SFTP worker (`sar_transport_worker.py`)
-- [x] Track E: Vendors — real HTTP adapters via `vendors/bootstrap.py`; no built-in `echo_stub`
-- [x] Track F: Visual rules — **Deleted** Rego/OPA transpilation; **Deprecated** `POST /v1/rules/rego/compile` (410 Gone tombstone); JSON compile + native Rust `tarka_rule_engine` evaluation path only
-- [x] Verification: CI grep gate (`scripts/audit_stubs.py` in `.github/workflows/ci.yml`); docs aligned with behavior
-- [x] Could-be-better (2026-08-05): desk capability chips; FP support kit; shadow contract + promote smoke; ops-qa-desk e2e workflow; register refresh ([`../STUB_REGISTER.md`](../STUB_REGISTER.md))
-- [x] Engineering 4.7 (2026-08-05): lean desk mock import audit + self-test; PR-gated `ops-qa-desk-e2e`; desk pages on `api/v1/*`; MC/label/challenge contracts in pytest CI
-- [x] Fraud Ops 4.2–4.4 (2026-08-05): challenge dispatch success path; FP support pack comment+label; lean `/ops/shadow` promote-gate
-- [x] Risk/Strategy 4.2 (2026-08-05): `partner-fusion-proof.live.status` LIVE\|WAIVED gate (`REQUIRE_LIVE_PARTNER_PROOF=1`); kill_criteria promote CI; control evidence index — **4.5** reserved for live `.live.sha256`
-- [x] Claim hygiene C4 (2026-08-06): [`docs/compliance/CLAIM_LOCK.md`](compliance/CLAIM_LOCK.md) — Wave6 liberal 4.2 withdrawn; A++ closed
-- [x] L2 attempt log (2026-08-06): live proof **BLOCKED** (no creds) — [`partner-fusion-proof.live.attempt.md`](compliance/partner-fusion-proof.live.attempt.md); no fake `.live.sha256`
-- [x] L3 ops ledger (2026-08-06): clock **NOT STARTED** — [`docs/superpowers/playbooks/l3-ops-ledger.md`](superpowers/playbooks/l3-ops-ledger.md); sim ≠ L3
+## Checklist (closed tracks)
 
-**Overview:** Eliminate Potemkin surfaces repo-wide—either ship durable execution against real stores or remove/disable the API until honest. Feature store rewrite is Track A; parallel tracks cover backtest, dashboards, SAR/FinCEN, and vendor registry.
+- Feature store → Postgres metadata + ClickHouse DDL (no `_STORE` SoR)
+- Backtest → jobs path only; stub `/run` removed
+- Executive KPIs → real analytics or **503**
+- SAR transport → durable filing + worker
+- Vendors → HTTP adapters via `vendors/bootstrap.py`
+- Visual rules → native Rust `tarka_rule_engine` (no Rego transpile)
+- CI: `scripts/audit_stubs.py`, `scripts/audit_prod_desk_mocks.py`
+- Desk-strict + invent-success fail-closed (see root [`STUB_REGISTER.md`](../STUB_REGISTER.md))
 
----
+## Policy
 
-# Repo-Wide Stub Elimination (Tier-1 Honesty Program)
+1. No in-process dicts as authoritative state.
+2. No `status: stub` as HTTP 200 success.
+3. Timeouts, retries, idempotency on real connections.
+4. Rip-out allowed until a surface can be honest.
 
-**Scope:** This program closes VC-grade gaps **repo-wide**: anything that is a stub, in-memory fake, or happy-path-only surface must become **durable + executed against real infrastructure**, or be **removed / explicitly degraded** with machine-verifiable contracts (no silent `None` KPIs pretending to work).
+## Related
 
-**Policy (non-negotiable):**
-
-1. **No in-process dicts** for authoritative state (`_STORE`, ad-hoc caches pretending to be DBs).
-2. **No `status: stub` JSON** returned as success; if not implemented, return **501** / remove route / feature flag default **off**.
-3. **DDL and queries** run against real connections with **timeouts, retries, and idempotency keys**; partial failure states persisted for operators.
-4. **Rip-out allowed:** If a subsystem cannot be made honest within the slice, delete the HTTP surface and docs until it can.
-
----
-
-## Phase 0: Inventory and Classification
-
-- Run a structured search across `services/`, `frontend/`, and `packages/` for `stub`, `_stub`, `placeholder`, `TODO:`, `FIXME`, `mock` (context-filtered), `pass` in route handlers, and in-memory singleton stores.
-- For each hit, assign **Ship** (implement), **Delete** (remove API/UI), or **Degrade** (single documented contract, e.g. `503` with `reason_code`, never fake data).
-- Produce a **Stub Register** (markdown table in-repo): file, symbol, user-visible behavior today, target disposition.
-
----
-
-## Track A: Feature Store (original deep plan)
-
-**Problem:** [`services/decision-api/src/decision_api/feature_store_api.py`](../services/decision-api/src/decision_api/feature_store_api.py) uses `_STORE = {}` and never executes ClickHouse.
-
-**Target:** Durable Postgres metadata + executed ClickHouse DDL + reconciliation.
-
-### A1 — Infrastructure and connections
-
-- Add **`asyncpg`** (Postgres) and a supported async ClickHouse client (**`clickhouse-connect`** with async API or **`asynch`**) to decision-api dependencies.
-- **`lifespan`** on the FastAPI app: create pools/clients, health-check both on startup (fail fast in strict mode, or log + disable feature store only—pick one policy and document it).
-
-### A2 — Postgres schema
-
-- Table `feature_definitions` (tenant, name, version, definition JSON, fingerprint, `ddl_status`, `clickhouse_error`, timestamps). Alembic migration alongside existing decision-api migrations.
-
-### A3 — ClickHouse execution engine
-
-- Sanitize identifiers (`name`, `group_by`, `source_table`, aggregation whitelist).
-- Execute `CREATE MATERIALIZED VIEW` (or `CREATE VIEW` + separate MV if safer) with **statement timeout** and **ON CLUSTER** only if cluster topology is config-driven.
-- **Saga:** insert `pending` → execute CH → update `applied` / `failed` with last error; background reconciler optional for stuck `pending`.
-
-### A4 — API refactor
-
-- `POST /definitions` returns persisted row + execution outcome; `GET` lists from Postgres only.
-
----
-
-## Track B: Distributed Backtesting
-
-**Problem:** [`services/decision-api/src/decision_api/backtest_api.py`](../services/decision-api/src/decision_api/backtest_api.py) — `backtest_run_stub` returns `"status": "stub"` and null metrics.
-
-**Options (choose one per product decision—default: Ship):**
-
-- **Ship:** Dedicated read-only ClickHouse role; run server-side aggregation with **max_execution_time**, **result limits**, and **async job** pattern (`202` + `job_id` + poll) for large windows—never hold unbounded memory in API process.
-- **Delete:** Remove `POST /run` until engine exists; keep `preview-sql` only if it remains honest (static SQL template is OK if labeled as operator-run only).
-
----
-
-## Track C: Embedded Executive KPIs
-
-**Problem:** [`services/decision-api/src/decision_api/analytics_dashboards.py`](../services/decision-api/src/decision_api/analytics_dashboards.py) — `_stub_kpis` returns `None` for all metrics.
-
-**Target:**
-
-- Bounded parameterized queries against ClickHouse (or Postgres if lite profile)—**no fabricated numbers**.
-- If CH unavailable: **503** with structured error, not cached nulls pretending to be data.
-
----
-
-## Track D: SAR / FinCEN Transport
-
-**Problem:** [`services/case-api/src/case_api/sar_filing_transport.py`](../services/case-api/src/case_api/sar_filing_transport.py) — `schedule_ack_poll` logs only.
-
-**Target:**
-
-- Postgres table for filings + state machine; **worker process** (separate module or Celery/Temporal—match existing stack patterns) performing SFTP upload and ACK poll with vault-backed credentials.
-- Until worker ships: **remove** `schedule_ack_poll` call sites or make them enqueue a **real** durable job row consumed by nothing → still dishonest; prefer **feature off** + clear API error.
-
----
-
-## Track E: Vendor Marketplace
-
-**Problem:** [`services/decision-api/src/decision_api/vendors/registry.py`](../services/decision-api/src/decision_api/vendors/registry.py) documents built-in stubs (`echo_stub`).
-
-**Target:**
-
-- Config-driven vendor list; HTTP client with mTLS/secrets from env; **circuit breaker**; costs and latency metrics persisted or logged structured.
-- Remove `echo_stub` from default registry in production profile or gate behind `ALLOW_VENDOR_STUBS=1` dev-only.
-
----
-
-## Track F: Visual rules (Rego transpilation — **Deleted** / route — **Deprecated**)
-
-**Problem:** Rego/OPA **transpilation** from the visual rule builder created a second, easy-to-diverge “source of truth” (generated policy vs production behavior), undermining auditability.
-
-**Outcome:**
-
-- **Deleted:** Transpilation surfaces and any workflow that implied Rego was the canonical rule artifact for JSON packs.
-- **Deprecated:** `POST /v1/rules/rego/compile` remains only as a **410 Gone** tombstone (OpenAPI `deprecated: true`) so legacy clients fail loudly with guidance to use JSON compile + native evaluation.
-- **Architecture:** Visual rules compile to JSON via `POST /v1/rules/visual/compile`. Production JSON evaluation is backed by the **`tarka_rule_engine`** Rust core (Python fallback when the extension is unavailable), with optional `when_ast` AND/OR trees—one engine, one shape in audit logs, reducing **logic drift** and keeping operator records **brutally honest**. Optional **OPA** at evaluate time (`OPA_URL`) is a **separate** HTTP integration and does not replace that native path.
-
----
-
-## Phase 5: Verification and Gates
-
-- **CI grep gate:** fail build on new `stub` function names / `_STORE` patterns in `services/decision-api` and `services/case-api` (allowlist test fixtures explicitly).
-- **Integration tests:** docker-compose profile with Postgres + ClickHouse; exercises feature store create + CH object exists.
-- **Docs:** Remove marketing claims where behavior was stubbed; align [`docs/docs/api-reference.md`](docs/docs/api-reference.md) with actual status codes.
-
-```mermaid
-flowchart LR
-  subgraph inventory [Phase0]
-    Grep[Grep_Classify]
-    Register[Stub_Register]
-  end
-  subgraph tracks [ParallelTracks]
-    A[FeatureStore]
-    B[Backtest]
-    C[Dashboards]
-    D[SAR]
-    E[Vendors]
-    F[VisualRules]
-  end
-  subgraph verify [Phase5]
-    CI[CIGrepGate]
-    IT[ComposeIntegrationTests]
-  end
-  inventory --> tracks
-  tracks --> verify
-```
-
----
-
-## Execution order (recommended)
-
-1. Phase 0 (1–2 days): Stub Register + policy decisions per row.
-2. Track A in parallel with Track C (shared ClickHouse connectivity patterns).
-3. Track B after read-only CH role and query budgets exist.
-4. Track D after case-api persistence patterns agreed (worker topology).
-5. Track E/F when API contracts stable.
-
----
-
-## Explicit non-goals (until second program)
-
-- Replacing **every** test `mock` or `pytest.skip`—tests may use fakes; **runtime** surfaces may not.
-- Rewriting unrelated subsystems with no stub debt (prove via Phase 0).
-
-This document supersedes the narrow “feature store only” scope; Track A retains the technical depth from the original plan.
+- [`STUB_REGISTER.md`](../STUB_REGISTER.md) — living ledger  
+- [`docs/docs/honesty.md`](docs/honesty.md) — MkDocs pointer  
+- [`compliance/CLAIM_LOCK.md`](compliance/CLAIM_LOCK.md) — marketing claim hygiene  
+- [`docs/docs/guides/repo-productionization-runbook.md`](docs/guides/repo-productionization-runbook.md)

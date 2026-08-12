@@ -37,4 +37,4 @@ These cover derived-fact extraction, strict violation detection, and review pers
 - **Derived facts** are only as trustworthy as the **tools** and **upstream APIs**; they do not validate business truth.
 - Combine with existing features: **maker–checker** for sensitive tools (`COPILOT_REVIEWER_SECRET`), **judge pass** for an extra LLM audit (cost/latency), and **feedback** analytics for quality loops.
 
-See also: [investigation-agent-intended-use-and-data-flows.md](investigation-agent-intended-use-and-data-flows.md), [investigation-agent-llm-data-flow.md](investigation-agent-llm-data-flow.md), [investigation-agent-project.md](../projects/investigation-agent-project.md).
+See also: [investigation-agent-intended-use-and-data-flows.md](investigation-agent-intended-use-and-data-flows.md), [investigation-agent-llm-data-flow.md](investigation-agent-llm-data-flow.md), [investigation-agent-project.md](../services/investigation-agent.md).

@@ -4,7 +4,7 @@ Tarka is a fraud-detection platform; we take security reports seriously.
 
 ## Supported versions
 
-Security fixes are applied on the default branch (`master` / `main`) and released per [RELEASE_SCHEDULE.md](RELEASE_SCHEDULE.md). Use tagged releases for production.
+Security fixes are applied on the default branch (`master`) and shipped in tagged releases. Use tagged releases for production.
 
 ## Reporting a vulnerability
 

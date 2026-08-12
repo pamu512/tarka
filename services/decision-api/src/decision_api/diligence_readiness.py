@@ -1,4 +1,4 @@
-"""Aggregate competitive honesty gates for customer diligence (not SOC2 attestation)."""
+"""Aggregate honesty gates for customer diligence (not SOC2 attestation)."""
 
 from __future__ import annotations
 
@@ -12,15 +12,15 @@ from decision_api.partner_fusion_status import load_partner_fusion_status
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 
+# Only files that exist in-repo; missing → incomplete (fail closed for pack ready).
 _INDEX_PATHS = [
-    "docs/compliance/customer-control-evidence-pack.md",
     "docs/compliance/CLAIM_LOCK.md",
-    "docs/compliance/l3-ops-ledger.json",
-    "docs/compliance/loyalty-feeds.status",
+    "docs/compliance/partner-fusion-proof.stable.sha256",
     "docs/compliance/partner-fusion-proof.live.status",
+    "docs/STUB_REGISTER.md",
+    "docs/TIER_1_HONESTY_PROGRAM.md",
     "docs/docs/guides/feature-serving-contract.md",
-    "docs/superpowers/playbooks/l3-ops-ledger.md",
-    "infra/deploy/examples/sanctions-refresh-cronjob.yaml",
+    "docs/docs/guides/partner-enrichment-fusion.md",
     "scripts/audit_stubs.py",
     "scripts/compliance/export_control_evidence_index.py",
     "scripts/oss/loyalty_feed_posture_smoke.py",
@@ -129,7 +129,7 @@ def load_diligence_readiness(
             "Customer diligence index — not SOC2 Type II. closed_loop_claims_ready stays "
             "false until LIVE partner pin, L3 COMPLETE, and FEEDS_READY. See CLAIM_LOCK."
         ),
-        "pack": "docs/compliance/customer-control-evidence-pack.md",
+        "pack": "docs/compliance/CLAIM_LOCK.md",
         "export": "scripts/compliance/export_control_evidence_index.py",
         "ui": "/compliance",
     }

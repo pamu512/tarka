@@ -60,7 +60,7 @@ Open [http://127.0.0.1:3000](http://127.0.0.1:3000) — Cases / audit should ref
 
 | Topic | Guide |
 |-------|--------|
-| Community vs Pro profiles | [deployment-profiles-community-vs-pro.md](./deployment-profiles-community-vs-pro.md) |
+| Community vs Pro profiles | [deployment-profiles-community-vs-pro.md](./deployment.md) |
 | Production hardening | `infra/deploy/docker-compose.production-hardening.yml` + [tls-pinning-and-signed-requests.md](./tls-pinning-and-signed-requests.md) |
 | Counter replay parity | [counter-replay-parity.md](./counter-replay-parity.md) |
 | Demo vertical (evaluate + case + ingest) | `infra/scripts/ci/demo_vertical_smoke.py` |

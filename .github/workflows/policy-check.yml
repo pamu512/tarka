@@ -4,7 +4,7 @@ name: policy-check
 on:
   pull_request:
   push:
-    branches: [master, main]
+    branches: [master]
     paths:
       - "services/decision-api/rules/**"
       - "services/rule_engine/**"

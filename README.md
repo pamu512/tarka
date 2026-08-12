@@ -6,8 +6,8 @@
 
 **Prove every signal.** Not as a slogan—as a constraint: every risk claim must trace to **durable evidence** (relational audit rows, rule-engine payloads, and **graph edges you can re-walk**). If you cannot point to the vertex, the relationship type, and the observation timestamp, the signal does not ship.
 
-**Vision (root):** [`VISION.md`](VISION.md) — paradox hook, **Tarka Triad**, market gap, **hardware as moat**.  
-**Strategy narrative (extended):** [`docs/LFFI_VISION.md`](docs/LFFI_VISION.md) — LFFI, **event → identity** shift, **fraud OS** roadmap (disputes, federated signatures, ZK research).
+**Vision:** [`VISION.md`](VISION.md) — paradox hook, **Tarka Triad**, market gap, **hardware as moat**.  
+**Operator docs:** [`docs/INDEX.md`](docs/INDEX.md) · [feature data flows](docs/docs/guides/feature-data-flows.md) · [`STUB_REGISTER.md`](STUB_REGISTER.md).
 
 ---
 

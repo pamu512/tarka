@@ -12,4 +12,4 @@
 - [Device ID semantics](../guides/device-id-semantics.md)  
 - [TLS pinning & signed requests](../guides/tls-pinning-and-signed-requests.md)
 
-See also: [SDK scorecard](../guides/sdk-scorecard-2026-01.md)
+See also: [SDK scorecard](ios.md)

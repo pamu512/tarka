@@ -11,7 +11,7 @@ name: Tarka V2 Sidecars CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [master]
   pull_request:
 
 concurrency:

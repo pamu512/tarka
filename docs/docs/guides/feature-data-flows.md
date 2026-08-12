@@ -51,7 +51,7 @@ flowchart TD
 - `SHADOW_REVIEW` — orchestrator may call Shadow (ingest path)  
 - `block` / hold — enforcement adapters + audit  
 
-See also [decision-to-customer-journey](decision-to-customer-journey.md).
+See also [decide-to-act-enforcement](decide-to-act-enforcement.md).
 
 ---
 

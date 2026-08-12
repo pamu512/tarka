@@ -1,10 +1,15 @@
-# Dependency updates (opens PRs weekly). Review Trivy + CI before merging.
+# Dependency updates. PRs are gated: open-pull-requests-limit stays 0 on master
+# unless .github/workflows/dependabot-gate.yml enables it for an active week
+# (non-bot commits on master in the last 7 days). Quiet weeks → skip (no new branches).
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
+    target-branch: master
     schedule:
       interval: weekly
+      day: monday
+    open-pull-requests-limit: 0
     groups:
       actions:
         patterns:
@@ -12,18 +17,23 @@ updates:
 
   - package-ecosystem: pip
     directory: /services/decision-api
+    target-branch: master
     schedule:
       interval: weekly
+      day: monday
+    open-pull-requests-limit: 0
     groups:
       pip-decision-api:
         patterns:
           - "*"
 
-
   - package-ecosystem: pip
     directory: /services/core
+    target-branch: master
     schedule:
       interval: weekly
+      day: monday
+    open-pull-requests-limit: 0
     groups:
       pip-core:
         patterns:
@@ -31,8 +41,11 @@ updates:
 
   - package-ecosystem: pip
     directory: /services/analytics
+    target-branch: master
     schedule:
       interval: weekly
+      day: monday
+    open-pull-requests-limit: 0
     groups:
       pip-analytics:
         patterns:
@@ -40,8 +53,11 @@ updates:
 
   - package-ecosystem: pip
     directory: /services/case-api
+    target-branch: master
     schedule:
       interval: weekly
+      day: monday
+    open-pull-requests-limit: 0
     groups:
       pip-case-api:
         patterns:
@@ -49,8 +65,11 @@ updates:
 
   - package-ecosystem: pip
     directory: /services/graph-service
+    target-branch: master
     schedule:
       interval: weekly
+      day: monday
+    open-pull-requests-limit: 0
     groups:
       pip-graph-service:
         patterns:
@@ -58,8 +77,11 @@ updates:
 
   - package-ecosystem: pip
     directory: /services/integration-ingress
+    target-branch: master
     schedule:
       interval: weekly
+      day: monday
+    open-pull-requests-limit: 0
     groups:
       pip-integration-ingress:
         patterns:
@@ -67,8 +89,11 @@ updates:
 
   - package-ecosystem: pip
     directory: /services/investigation-agent
+    target-branch: master
     schedule:
       interval: weekly
+      day: monday
+    open-pull-requests-limit: 0
     groups:
       pip-investigation-agent:
         patterns:
@@ -76,9 +101,11 @@ updates:
 
   - package-ecosystem: npm
     directory: /frontend
+    target-branch: master
     schedule:
       interval: weekly
-    open-pull-requests-limit: 1
+      day: monday
+    open-pull-requests-limit: 0
     groups:
       npm-frontend:
         patterns:

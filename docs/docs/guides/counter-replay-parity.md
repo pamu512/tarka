@@ -1,10 +1,10 @@
 # Counter replay and online/offline parity (v1.2.0)
 
-**Release target:** `v1.2.0` on **2026-05-30**. **Ship hold:** no tag or GitHub release until **[Epic C Release Candidate Gate Criteria](#epic-c-release-candidate-gate-criteria)** are satisfied on the RC commit ([`RELEASE_SCHEDULE.md`](../../RELEASE_SCHEDULE.md)).
+**Release target:** `v1.2.0` on **2026-05-30**. **Ship hold:** no tag or GitHub release until **[Epic C Release Candidate Gate Criteria](#epic-c-release-candidate-gate-criteria)** are satisfied on the RC commit ([`RELEASE_SCHEDULE.md`](../honesty.md)).
 
 **Scope for May 2026:** Epic C is **frozen for feature work**. Remaining work is **operational validation only**—execute the gate checklist on the RC branch, attach evidence, and obtain sign-offs. Implementation surface (manifest, replay APIs, scripts, CI workflows) is already on trunk; do not expand counter semantics before the tag.
 
-**References:** [redis-agg-key-version-migration.md](./redis-agg-key-version-migration.md) · [roadmap-30-60-90.md](./roadmap-30-60-90.md) Day 60 · [v1.2.0 release note](../releases/v1.2.0-2026-05-30.md)
+**References:** [redis-agg-key-version-migration.md](./redis-agg-key-version-migration.md) · [roadmap-30-60-90.md](./backtest-before-promote.md) Day 60 · [v1.2.0 release note](../releases/README.md)
 
 ---
 
@@ -16,7 +16,7 @@
 | Redis key versioning | `AGG_KEY_VERSION` in [`fraud_aggregates.py`](../../../services/shared/fraud_aggregates.py) |
 | Offline replay | [`scripts/replay/replay_aggregates.py`](../../../scripts/replay/replay_aggregates.py), [`export_audit_to_jsonl.py`](../../../scripts/replay/export_audit_to_jsonl.py), [`diff_aggregate_redis.py`](../../../scripts/replay/diff_aggregate_redis.py) |
 | Ops replay API | `POST /v1/internal/counters/replay`, `POST /v1/internal/counters/replay/from-audit` (token: `COUNTER_REPLAY_TOKEN`) |
-| CI / unit parity | [`.github/workflows/counter-parity-smoke.yml`](../../.github/workflows/counter-parity-smoke.yml), [`test_golden_counters.py`](../../../services/decision-api/tests/test_golden_counters.py), [`test_day60_velocity_windows.py`](../../../services/decision-api/tests/test_day60_velocity_windows.py), [`test_velocity_day60_parity.py`](../../../services/feature-service/tests/test_velocity_day60_parity.py) |
+| CI / unit parity | [`.github/workflows/counter-parity-smoke.yml`](../../../.github/workflows/counter-parity-smoke.yml), [`test_golden_counters.py`](../../../services/decision-api/tests/test_golden_counters.py), [`test_day60_velocity_windows.py`](../../../services/decision-api/tests/test_day60_velocity_windows.py), [`test_velocity_day60_parity.py`](../../../services/feature-service/tests/test_velocity_day60_parity.py) |
 | Feature-service Redis read path | `POST /v1/snapshot`, `POST /v1/velocity/query` when `FEATURE_SERVICE_REDIS_URL` / shared Redis is set |
 | Compose defaults | `AGG_KEY_VERSION` on `core-api` and `signal-api` in [`infra/deploy/docker-compose.yml`](../../../infra/deploy/docker-compose.yml) and [`infra/deploy/docker-compose.lite.yml`](../../../infra/deploy/docker-compose.lite.yml) |
 | Rule author keys | [velocity-counter-rule-keys.md](./examples/velocity-counter-rule-keys.md) |
@@ -72,7 +72,7 @@ Production-style cutover evidence is **mandatory**. The release **must not** shi
 
 | Field | Value |
 |-------|--------|
-| **Verification command** | From GitHub Actions: **Actions → Counter parity smoke → Run workflow**, select branch/tag at **RC SHA** (or push RC to branch and let weekly schedule run). Alternatively reproduce the job locally: same steps as [`.github/workflows/counter-parity-smoke.yml`](../../.github/workflows/counter-parity-smoke.yml) with `AGG_KEY_VERSION=ci_parity_v1` (or RC value if validating production key shape). |
+| **Verification command** | From GitHub Actions: **Actions → Counter parity smoke → Run workflow**, select branch/tag at **RC SHA** (or push RC to branch and let weekly schedule run). Alternatively reproduce the job locally: same steps as [`.github/workflows/counter-parity-smoke.yml`](../../../.github/workflows/counter-parity-smoke.yml) with `AGG_KEY_VERSION=ci_parity_v1` (or RC value if validating production key shape). |
 | **Expected evidence** | **Workflow run URL** (or local log) showing job **replay-and-diff** succeeded on the RC commit; include commit SHA in run summary. Archive the “Diff aggregate ZSETs” step log (exit 0). |
 | **Sign-off owner** | **Release Manager** |
 
@@ -149,4 +149,4 @@ Day 60 acceptance is **limited** to proving **deterministic** `event_count_5m`, 
 
 - [redis-agg-key-version-migration.md](./redis-agg-key-version-migration.md)
 - [scripts/replay/README.md](../../../scripts/replay/README.md)
-- [v1.2.0-2026-05-30.md](../releases/v1.2.0-2026-05-30.md)
+- [v1.2.0-2026-05-30.md](../releases/README.md)

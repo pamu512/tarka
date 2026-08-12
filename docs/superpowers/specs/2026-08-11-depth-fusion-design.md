@@ -1,6 +1,5 @@
 # Cross-Engine Depth Fusion Design
 
-> **PRIVATE / INTERNAL ONLY** — [`docs/compliance/RATING_PRIVACY.md`](../../compliance/RATING_PRIVACY.md)  
 > **Status:** Approved — 2026-08-11  
 > **Parent:** [lifecycle-ring-depth-design](./2026-08-11-lifecycle-ring-depth-design.md)
 

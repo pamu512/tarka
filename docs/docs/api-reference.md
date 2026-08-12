@@ -25,7 +25,7 @@ OpenAPI: `contracts/openapi/decision-api.yaml`
 
 #### Trust / ops readiness (OSS #36) {#trust-ops-readiness}
 
-The console **trust/ops readiness** strip (`frontend/src/components/AnalystReadinessBar.tsx`) calls **`GET /v1/ops/evaluation-posture`** (evaluation mode, deployment tier, `tenant_reliability_profile`, compliance degradation, typology count, predicate registry pin match, dependency rows, `last_rules_reload_at`) and **`GET /v1/slo`** (Redis/NATS connectivity hints). Deployment context: [Community vs Pro profiles](guides/deployment-profiles-community-vs-pro.md).
+The console **trust/ops readiness** strip (`frontend/src/components/AnalystReadinessBar.tsx`) calls **`GET /v1/ops/evaluation-posture`** (evaluation mode, deployment tier, `tenant_reliability_profile`, compliance degradation, typology count, predicate registry pin match, dependency rows, `last_rules_reload_at`) and **`GET /v1/slo`** (Redis/NATS connectivity hints). Deployment context: [Community vs Pro profiles](guides/deployment.md).
 
 ### Attestation
 
@@ -67,7 +67,7 @@ The console **trust/ops readiness** strip (`frontend/src/components/AnalystReadi
 | `GET` | `/v1/vendors/registry` | List registered vendor adapters |
 | `POST` | `/v1/vendors/probe` | Admin probe of a vendor adapter |
 
-Guide: [competitor-parity.md](guides/competitor-parity.md). Env vars: [competitor-parity-env.md](../architecture/competitor-parity-env.md).
+Related: [feature data flows](guides/feature-data-flows.md) · [architecture](architecture.md) · root [`ARCHITECTURE.md`](../../ARCHITECTURE.md).
 
 #### Visual rules: native engine (no Rego transpilation)
 
@@ -441,7 +441,7 @@ Tarka **does not** transpile canvas rules to Rego or ship a parallel “policy b
 
 ## Case API — `:8002` {#case-api}
 
-**Queue routing:** When **`CASE_QUEUE_ROUTING_RULES_JSON`** is set, **`POST /v1/cases`** evaluates JSON v1 rules against the create payload and may set **`assigned_team`** (e.g. route **`priority: critical`** to **`Tier3`**). See [competitor-parity.md](guides/competitor-parity.md#case-api--queue-routing--sar).
+**Queue routing:** When **`CASE_QUEUE_ROUTING_RULES_JSON`** is set, **`POST /v1/cases`** evaluates JSON v1 rules against the create payload and may set **`assigned_team`** (e.g. route **`priority: critical`** to **`Tier3`**). See [competitor-parity.md](architecture.md#case-api--queue-routing--sar).
 
 ### Cases
 
@@ -602,7 +602,7 @@ ClickHouse-backed analytics over decision events. Requires `X-API-Key` when the 
 
 OpenAPI: _not published under `contracts/openapi/` yet_ (this HTTP table is authoritative).
 
-Weekly JSON export stub (N4.2): `scripts/analytics/export_weekly_scorecard_json.py`. Discussions publisher (OSS #53): `scripts/analytics/publish_scorecard_discussion.py`.
+Weekly JSON export: `scripts/analytics/export_weekly_scorecard_json.py`.
 
 ---
 
@@ -683,7 +683,7 @@ OpenAPI: `contracts/openapi/ml-scoring.yaml`. Policy files: `services/ml-scoring
 
 OpenAPI: _not published under `contracts/openapi/` yet_ (this HTTP table is authoritative).
 
-JetStream stream **`FRAUD_INGEST_MISC`** carries subjects such as `fraud.ingest.dlq` and `fraud.ingest.mapping.request`. Guide: [competitor-parity.md](guides/competitor-parity.md).
+JetStream stream **`FRAUD_INGEST_MISC`** carries subjects such as `fraud.ingest.dlq` and `fraud.ingest.mapping.request`. Guide: [competitor-parity.md](architecture.md).
 
 ---
 
@@ -829,7 +829,7 @@ Ingress audit model:
 - Slack/Lark async flows emit two events with the same `correlation_id`: an ingress `accepted` event and a completion event that may include `upstream_status`.
 - Bridge ingress and plugin endpoints return `X-Correlation-Id` response headers so clients can join request/response traces to audit events.
 - Audit payloads include normalized `status_code` and `status_class` (`2xx`/`4xx`/`5xx`) for alerting and low-cardinality dashboards.
-- Copy-paste **Grafana / Loki (LogQL)** queries for alerts and Explore: [collaboration chat (ingress + plugin)](guides/investigation-collaboration-chat-aws-azure.md#grafana-loki-logql) and [Enterprise Copilot plugin + governance (bridge audit + labels)](guides/enterprise-copilot-plugin-and-governance-controls.md#grafana-loki-bridge-audit).
+- Copy-paste **Grafana / Loki (LogQL)** queries for alerts and Explore: [collaboration chat (ingress + plugin)](guides/investigation-agent-integration-contract.md#grafana-loki-logql) and [Enterprise Copilot plugin + governance (bridge audit + labels)](guides/investigation-agent-intended-use-and-data-flows.md#grafana-loki-bridge-audit).
 
 ---
 

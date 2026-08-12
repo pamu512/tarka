@@ -1,9 +1,9 @@
 # Release governance sign-off checklist (Q1-E06).
 # Validated in CI via scripts/release/validate_governance_checklist.py
-# Narrative: docs/docs/guides/deployment-release-readiness.md
+# Narrative: docs/docs/guides/deployment.md
 
 version: "1"
-documentation: docs/docs/guides/deployment-release-readiness.md
+documentation: docs/docs/guides/deployment.md
 
 owners_registry:
   platform-engineering: Platform Engineering
@@ -69,7 +69,7 @@ items:
     ci_required: true
 
   - id: release-readiness-doc-current
-    title: deployment-release-readiness.md reviewed and matches deployed profile
+    title: deployment.md reviewed and matches deployed profile
     section: documentation
     owner: technical-documentation
     ci_required: true

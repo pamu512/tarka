@@ -1,64 +1,31 @@
 # Quickstart
 
-## Prerequisites
-
-- Docker + Docker Compose
-- Python 3.11+
-- Git
-
-## Option 1: Full stack
+## Fraud desk (recommended)
 
 ```bash
-python tarka.py install --full
-python tarka.py start
+git clone https://github.com/pamu512/tarka.git
+cd tarka
+docker compose \
+  -f infra/deploy/docker-compose.lite.yml \
+  -f infra/deploy/docker-compose.fraud-desk.yml \
+  up --build
 ```
 
-## Option 2: Select modules
+Smoke:
 
 ```bash
-python tarka.py install --modules core,cases,graph,ml
-python tarka.py start
+python3 scripts/oss/first_decision_smoke.py
 ```
 
-## Verify
+Health: `GET /api/decisions/v1/health` · `GET /api/cases/v1/health`  
+Evaluate: `POST /api/decisions/v1/decisions/evaluate`
 
-- Decision API health: `GET /api/decisions/v1/health`
-- Case API health: `GET /api/cases/v1/health`
-- Frontend: open the configured local frontend URL
-- Integration ingress health: `GET /api/ingress/v1/health`
+## Optional rails
 
-## First evaluation example
+| Stack | Compose |
+|-------|---------|
+| Ingest + Shadow | `infra/deploy/docker-compose.v2-ingest.yml` |
+| Trend tick | same + `--profile trend-tick` or `make trend-tick` |
+| Graph | lite + `--profile graph` |
 
-Send a decision request to:
-
-`POST /api/decisions/v1/decisions/evaluate`
-
-with:
-- `tenant_id`
-- `event_type`
-- `entity_id`
-- optional `payload`
-- optional `device_context`
-
-## Integrations Demo (Local)
-
-1. Open the frontend and navigate to `Integrations`.
-2. Pick a provider and click `Configure`.
-3. Enter **either**:
-   - `api_key`, or
-   - `username` + `password`.
-4. Save, then click `Test` to run connectivity validation.
-5. Confirm integration status and health score update.
-
-## KMS Demo (Local and Cloud)
-
-- Local mode (default): no cloud setup needed.
-- AWS mode: set `KMS_PROVIDER=aws`, `AWS_KMS_REGION`, `KMS_ACTIVE_KEY_ID`.
-- GCP mode: set `KMS_PROVIDER=gcp`, `GCP_KMS_KEY_RESOURCE`.
-- Azure mode: set `KMS_PROVIDER=azure`, `AZURE_KEY_VAULT_URL`, `AZURE_KMS_KEY_NAME`.
-
-Useful endpoints:
-
-- `GET /api/ingress/v1/vault/kms`
-- `GET /api/ingress/v1/vault/kms/self-check`
-- `POST /api/ingress/v1/vault/rotate`
+Full write-up: [`docs/docs/quickstart.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/quickstart.md).

@@ -11,7 +11,7 @@ Envelope fields, adapters, and error codes: [Ingest Contract v1](ingest-contract
 | **Synchronous** | You need `trace_id`, decision, and `inference_context` in the same HTTP round-trip | **Decision API** `POST /v1/decisions/evaluate` |
 | **Asynchronous** | High write volume; scoring can lag slightly behind accept | **Event ingest** `POST /v1/events` → NATS → worker → Decision API |
 
-The ingest worker forwards the same JSON fields as synchronous evaluate (except internal keys such as `_ingest_id`). Optional top-level **`agent_context`** and **`metadata.correlation_id`** for LLM/MCP-mediated events are described in [Agentic AI fraud detection: variables and layering](agentic-ai-fraud-detection-variables-and-layering.md).
+The ingest worker forwards the same JSON fields as synchronous evaluate (except internal keys such as `_ingest_id`). Optional top-level **`agent_context`** and **`metadata.correlation_id`** for LLM/MCP-mediated events are described in [Agentic AI fraud detection: variables and layering](./feature-data-flows.md).
 
 Default compose port for event-ingest (full/streaming profile) is **8007** (`infra/deploy/docker-compose.yml`).
 
@@ -77,7 +77,7 @@ Prometheus: **`ingest_contract_reject_total`** and **`ingest_contract_reject_tot
 
 **DLQ (optional):** set **`INGEST_DLQ_PUBLISH_ON_EVALUATE_4XX=true`** so the NATS→evaluate worker **acks** 4xx evaluates and publishes a JSON envelope to **`INGEST_DLQ_SUBJECT`** (default `fraud.events.dlq`, same stream `fraud.events.>`). Replay: **`scripts/etl/replay_dlq.py`**.
 
-See also: [v1.2.5 execution backlog](./v1.2.5-execution-backlog-resiliency-etl-rules.md) (Epic **E1**). [Bronze/Silver/Gold](./etl-bronze-silver-gold.md) (Epic **E2**).
+See also: [ingest-contract-v1](./ingest-contract-v1.md).
 
 ### Idempotency (batch)
 
@@ -103,7 +103,7 @@ Set **`INGEST_DLQ_SUBJECT`** (e.g. **`fraud.events.dlq`**) and **`INGEST_DLQ_PUB
 
 ### Silver export checks
 
-**`scripts/etl/check_silver_features.py`** — validates JSONL rows for **`tenant_id`**, **`entity_id`**, **`event_type`** enum, numeric **`amount`**. See **[etl-bronze-silver-gold.md](./etl-bronze-silver-gold.md)**.
+**`scripts/etl/check_silver_features.py`** — validates JSONL rows for **`tenant_id`**, **`entity_id`**, **`event_type`** enum, numeric **`amount`**.
 
 ## Offline aggregate replay (v1.2)
 
@@ -117,7 +117,7 @@ python scripts/replay/replay_aggregates.py --manifest-info
 
 **Counter manifest:** `replay_aggregates.py --manifest-info` prints the bundled version; **Decision API** exposes the same JSON at **`GET /v1/internal/counters/manifest`**. For small JSON batches (no file), **`POST /v1/internal/counters/replay`** writes to a scratch Redis URL when **`COUNTER_REPLAY_TOKEN`** is set and you send header **`X-Tarka-Counter-Replay-Token`**.
 
-JSONL rows should include **`tenant_id`**, **`entity_id`**, and either **`fields`** (object) or **`payload`** / **`request_body`** for aggregate dimensions. Optional **`event_id`**, **`trace_id`**, or **`ts`** (unix) per line. If **`ts`** is omitted, **`metadata.event_time`**-style keys on the row (with **`fields`**) are used — same rules as evaluate; see **[Late arrival & watermarks](./late-arrival-watermarks.md)**.
+JSONL rows should include **`tenant_id`**, **`entity_id`**, and either **`fields`** (object) or **`payload`** / **`request_body`** for aggregate dimensions. Optional **`event_id`**, **`trace_id`**, or **`ts`** (unix) per line. If **`ts`** is omitted, **`metadata.event_time`**-style keys on the row (with **`fields`**) are used — same rules as evaluate; see **[Late arrival & watermarks](./ingest-contract-v1.md)**.
 
 See **`scripts/replay/README.md`** and **[counter-replay-parity.md](./counter-replay-parity.md)** for the full v1.2 acceptance picture.
 
@@ -141,5 +141,6 @@ Exit code **0** means every **`fraud:agg*`** ZSET present on either side matches
 
 ## Related docs
 
-- **[sandbox-five-minute.md](./sandbox-five-minute.md)** — quick evaluate + UI path  
-- **[release-gap-closure-schedule.md](./release-gap-closure-schedule.md)** — what ships 4/30 vs 5/30  
+- **[quickstart.md](../quickstart.md)** — lite / fraud-desk → first evaluate  
+- **[oss-15-minute-first-decision.md](./oss-15-minute-first-decision.md)** — smoke path  
+- **[feature-data-flows.md](./feature-data-flows.md)** — how ingest/evaluate affect downstream 

@@ -146,9 +146,7 @@ class ShadowAgent:
         Requires ``llm_client`` to be configured on this agent.
         """
         if self._llm_client is None:
-            raise RuntimeError(
-                "ShadowAgent.evaluate requires llm_client in constructor"
-            )
+            raise RuntimeError("ShadowAgent.evaluate requires llm_client in constructor")
 
         entity_s = str(tx.entity_id)
         logger.info(

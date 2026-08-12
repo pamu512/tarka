@@ -437,7 +437,7 @@ export default function OpsShadow() {
 
         {l3Msg ? <p className="text-[11px] font-mono text-amber-100/90">{l3Msg}</p> : null}
         <p className="text-[10px] text-gray-500 font-mono">
-          {l3?.playbook || "docs/superpowers/playbooks/l3-ops-ledger.md"}
+          {l3?.playbook || "docs/compliance/CLAIM_LOCK.md"}
           {l3?.internal_host_action_sink ? ` · sink ${l3.internal_host_action_sink}` : ""}
         </p>
       </section>

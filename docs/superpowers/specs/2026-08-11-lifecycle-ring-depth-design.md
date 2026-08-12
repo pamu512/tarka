@@ -1,6 +1,5 @@
 # Order Lifecycle Risk + Multi-Party Ring Depth Design
 
-> **PRIVATE / INTERNAL ONLY** — [`docs/compliance/RATING_PRIVACY.md`](../../compliance/RATING_PRIVACY.md)  
 > **Status:** Approved direction (Approach A) — 2026-08-11  
 > **Goal:** Best OSS multi-sided fraud core; LIVE feeds upgrade the same interfaces to premium (A+++ ops), not a rewrite.
 

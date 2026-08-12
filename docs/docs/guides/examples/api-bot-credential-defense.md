@@ -95,4 +95,4 @@ curl -s -X POST http://localhost:8003/v1/osint \
   -d '{"ip":"198.51.100.10","email":null,"phone":null,"domain":null}'
 ```
 
-See [adding-osint-source.md](../adding-osint-source.md) to add providers.
+See [extending-connectors-and-rules.md](../extending-connectors-and-rules.md) to add providers.

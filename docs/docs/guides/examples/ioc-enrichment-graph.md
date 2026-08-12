@@ -58,4 +58,4 @@ Fine-grained **MITRE ATT&CK** labels are **not** fully wired as first-class fiel
 
 ## 5. Lite stack without Neo4j
 
-Use **mock graph** behavior in the UI and OSINT-only curls from [sandbox-five-minute.md](../sandbox-five-minute.md) when you cannot run Neo4j.
+Use **mock graph** behavior in the UI and OSINT-only curls from [quickstart.md](../../quickstart.md) when you cannot run Neo4j.

@@ -49,4 +49,4 @@ Set **`AGG_KEY_VERSION`** identically on decision-api writers, replay scripts, a
 
 - [counter-replay-parity.md](../counter-replay-parity.md) — Epic C RC gates
 - [api-bot-credential-defense.md](./api-bot-credential-defense.md) — velocity in rules
-- [sandbox-five-minute.md](../sandbox-five-minute.md) — quick evaluate curl
+- [quickstart.md](../../quickstart.md) — quick evaluate curl

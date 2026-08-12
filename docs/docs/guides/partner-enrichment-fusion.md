@@ -35,7 +35,7 @@ Use tags such as `vendor:fingerprint` / `vendor:incognia:*` in JSON rules. Examp
 
 ## Tenant proof (evaluate → audit → case evidence)
 
-Highest-leverage diligence gate. See [partner-fusion-proof-runbook.md](../../../compliance/partner-fusion-proof-runbook.md).
+Highest-leverage diligence gate. See [partner-fusion-proof-runbook.md](../../compliance/README.md).
 
 ```bash
 # CI / no keys
@@ -49,4 +49,4 @@ export REQUIRE_LIVE_PARTNER_PROOF=1
 python3 scripts/oss/partner_fusion_tenant_proof.py --mode live
 ```
 
-Fixture stable SHA is pinned at `docs/compliance/partner-fusion-proof.stable.sha256` — refresh when the fixture or fusion mapping changes.
+Fixture stable SHA pin: `docs/compliance/partner-fusion-proof.stable.sha256` (CI diffs after `partner_fusion_tenant_proof.py --mode fixture`).

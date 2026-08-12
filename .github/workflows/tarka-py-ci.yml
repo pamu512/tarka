@@ -3,14 +3,14 @@ name: tarka-py CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [master]
     paths:
       - "crates/tarka-py/**"
       - "crates/tarka-core/**"
       - "proto/**"
       - ".github/workflows/tarka-py-ci.yml"
   pull_request:
-    branches: [main, master]
+    branches: [master]
     paths:
       - "crates/tarka-py/**"
       - "crates/tarka-core/**"

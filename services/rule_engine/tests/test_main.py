@@ -100,7 +100,10 @@ def test_health_returns_ok() -> None:
     assert response.json() == {"status": "ok"}
 
 
-def test_v1_evaluate_returns_shadow_review_when_amount_exceeds_demo_threshold() -> None:
+def test_v1_evaluate_returns_shadow_review_when_amount_exceeds_demo_threshold(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RULE_ENGINE_ALLOW_DEMO_FALLBACK", "1")
     app = create_app()
     body = {
         "entity_id": "77777777-7777-7777-7777-777777777777",
@@ -120,7 +123,10 @@ def test_v1_evaluate_returns_shadow_review_when_amount_exceeds_demo_threshold() 
     assert len(data["evaluation_trace"]) >= 2
 
 
-def test_v1_evaluate_returns_block_when_stress_block_lane_marker_present() -> None:
+def test_v1_evaluate_returns_block_when_stress_block_lane_marker_present(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RULE_ENGINE_ALLOW_DEMO_FALLBACK", "1")
     app = create_app()
     body = {
         "entity_id": "66666666-6666-6666-6666-666666666666",
@@ -145,8 +151,10 @@ def test_v1_evaluate_returns_block_when_stress_block_lane_marker_present() -> No
 
 def test_v1_evaluate_graph_linked_blocked_rule_triggers_block_and_logs_graph_context(
     caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Gate: amount > 100 AND graph_linked_to_blocked_count > 0 ⇒ BLOCK; graph probe is invoked and logged."""
+    monkeypatch.setenv("RULE_ENGINE_ALLOW_DEMO_FALLBACK", "1")
 
     class _MockGraphProv:
         async def fetch_graph_context(self, transaction):  # noqa: ANN001
@@ -196,7 +204,10 @@ def test_v1_evaluate_graph_linked_blocked_rule_triggers_block_and_logs_graph_con
     assert "graph_linked_to_blocked_count=1" in msgs
 
 
-def test_v1_evaluate_returns_empty_actions_when_demo_rule_does_not_match() -> None:
+def test_v1_evaluate_returns_empty_actions_when_demo_rule_does_not_match(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RULE_ENGINE_ALLOW_DEMO_FALLBACK", "1")
     app = create_app()
     body = {
         "entity_id": "88888888-8888-8888-8888-888888888888",

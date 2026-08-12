@@ -1,0 +1,120 @@
+# Dependabot has no native "only if the repo moved" schedule. Native weekly jobs
+# open nothing while open-pull-requests-limit is 0. This workflow:
+#   - Monday 05:00 UTC: if master had non-bot commits in the last 7 days → set
+#     limit 5 and touch the config (Dependabot re-checks on config change).
+#   - Monday 20:00 UTC: reset limit to 0 so the next quiet week stays silent.
+name: Dependabot gate
+
+on:
+  schedule:
+    - cron: "0 5 * * 1"   # enable window (UTC Monday)
+    - cron: "0 20 * * 1"  # reset window
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "force-enable | force-reset | auto"
+        required: false
+        default: auto
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dependabot-gate
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Decide enable vs reset
+        id: mode
+        env:
+          INPUT_MODE: ${{ github.event.inputs.mode || 'auto' }}
+          CRON: ${{ github.event.schedule || '' }}
+        run: |
+          set -euo pipefail
+          MODE="${INPUT_MODE:-auto}"
+
+          if [ "$MODE" = "force-enable" ]; then
+            echo "action=enable" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$MODE" = "force-reset" ]; then
+            echo "action=reset" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Scheduled reset window
+          if [ "$CRON" = "0 20 * * 1" ]; then
+            echo "action=reset" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Scheduled enable window (or workflow_dispatch auto): require activity
+          COUNT=$(git log origin/master --since='7 days ago' --format='%an<%ae>' \
+            | grep -Eiv 'dependabot(\[bot\])?|github-actions(\[bot\])?' \
+            | wc -l | tr -d ' ')
+          echo "non_bot_commits_7d=$COUNT"
+          if [ "${COUNT:-0}" -gt 0 ]; then
+            echo "action=enable" >> "$GITHUB_OUTPUT"
+          else
+            echo "action=skip" >> "$GITHUB_OUTPUT"
+            echo "No non-bot commits on master in the last 7 days — Dependabot stays at limit 0."
+          fi
+
+      - name: Apply Dependabot limit
+        if: steps.mode.outputs.action == 'enable' || steps.mode.outputs.action == 'reset'
+        env:
+          ACTION: ${{ steps.mode.outputs.action }}
+        run: |
+          set -euo pipefail
+          FILE=.github/dependabot.yml
+          if [ "$ACTION" = "enable" ]; then
+            LIMIT=5
+            MSG="chore(deps): enable Dependabot for active week (limit ${LIMIT})"
+          else
+            LIMIT=0
+            MSG="chore(deps): reset Dependabot PR limit to 0 (quiet-week gate)"
+          fi
+
+          export LIMIT ACTION
+          python3 <<'PY'
+          from pathlib import Path
+          import os
+          import re
+
+          path = Path(".github/dependabot.yml")
+          text = path.read_text()
+          limit = os.environ["LIMIT"]
+          action = os.environ["ACTION"]
+          new = re.sub(
+              r"(open-pull-requests-limit:\s*)\d+",
+              rf"\g<1>{limit}",
+              text,
+          )
+          stamp = f"# dependabot-gate: action={action} limit={limit}"
+          if "# dependabot-gate:" in new:
+              new = re.sub(r"# dependabot-gate:.*", stamp, new, count=1)
+          else:
+              new = new.rstrip() + "\n" + stamp + "\n"
+          path.write_text(new)
+          print(f"wrote {path} limit={limit}")
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$FILE"
+          if git diff --cached --quiet; then
+            echo "No config change to commit."
+            exit 0
+          fi
+          git commit -m "$MSG"
+          git push origin HEAD:master
