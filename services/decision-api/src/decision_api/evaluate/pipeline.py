@@ -592,6 +592,14 @@ async def run_evaluate_decision(
             body.metadata if isinstance(body.metadata, dict) else None,
         )
 
+        from decision_api.marketplace_features import apply_marketplace_features
+
+        apply_marketplace_features(
+            features,
+            body.payload if isinstance(body.payload, dict) else None,
+            body.metadata if isinstance(body.metadata, dict) else None,
+        )
+
         from decision_api.friendly_fraud_features import apply_friendly_fraud_features
 
         apply_friendly_fraud_features(
@@ -599,6 +607,50 @@ async def run_evaluate_decision(
             body.metadata if isinstance(body.metadata, dict) else None,
             body.payload if isinstance(body.payload, dict) else None,
         )
+
+        from decision_api.case_karma_features import apply_case_karma_features
+
+        case_karma_evidence = await apply_case_karma_features(
+            features,
+            payload=body.payload if isinstance(body.payload, dict) else None,
+            metadata=body.metadata if isinstance(body.metadata, dict) else None,
+            http=http,
+            tenant_id=body.tenant_id,
+            entity_id=body.entity_id,
+        )
+
+        # Host device clusters → graph writeback (no vendor LIVE required)
+        if features.get("device_cluster_ids"):
+            from decision_api.partner_fusion import graph_writeback_hints
+
+            cluster_hints = graph_writeback_hints(
+                tenant_id=body.tenant_id,
+                entity_id=body.entity_id,
+                transaction_id=str(trace_id),
+                tags=[],
+                features={"device_cluster_ids": features["device_cluster_ids"]},
+            )
+            if partner_graph_hints is None:
+                partner_graph_hints = cluster_hints
+            else:
+                partner_graph_hints = {
+                    **partner_graph_hints,
+                    "vertices": list(partner_graph_hints.get("vertices") or [])
+                    + list(cluster_hints.get("vertices") or []),
+                    "edges": list(partner_graph_hints.get("edges") or [])
+                    + list(cluster_hints.get("edges") or []),
+                }
+
+        # Depth engines (OSS core; LIVE amplifies inputs on the same schemas).
+        from decision_api.depth_engines import apply_all_depth_engines
+
+        _depth_meta = body.metadata if isinstance(body.metadata, dict) else None
+        _depth_payload = body.payload if isinstance(body.payload, dict) else None
+        depth_evidence: dict[str, dict[str, Any]] = apply_all_depth_engines(
+            features, _depth_payload, _depth_meta
+        )
+        if case_karma_evidence:
+            depth_evidence["case_karma"] = case_karma_evidence
 
         # Counter ownership: prefer counter-service as source of truth; keep local aggregates as fallback.
         counter_meta: dict[str, Any] | None = None
@@ -844,12 +896,40 @@ async def run_evaluate_decision(
         )
 
         all_new_tags = rule_tags + signal_tags
+        from decision_api.depth_engines import merge_depth_into_score_and_tags
+
+        depth_delta = merge_depth_into_score_and_tags(
+            evidence=depth_evidence,
+            all_new_tags=all_new_tags,
+            rule_hits=rule_hits,
+        )
+        from decision_api.ehailing_escalation import apply_ehailing_challenge_escalation
+
+        eh_esc = await apply_ehailing_challenge_escalation(
+            tenant_id=body.tenant_id,
+            entity_id=body.entity_id,
+            features=features,
+            payload=_depth_payload,
+            metadata=_depth_meta,
+            tags=all_new_tags,
+            rule_hits=rule_hits,
+        )
+        if eh_esc:
+            depth_evidence["ehailing_escalation"] = eh_esc
+        all_new_tags = list(dict.fromkeys(all_new_tags))
         if consortium_delta > 0:
             rule_hits.append("consortium_shared_signal")
         if graph_delta > 0:
             rule_hits.append("graph_network_risk")
         replay_delta = 20.0 if is_replayed else 0.0
-        base_score = 10.0 + score_delta + consortium_delta + graph_delta + replay_delta
+        base_score = (
+            10.0
+            + score_delta
+            + consortium_delta
+            + graph_delta
+            + replay_delta
+            + depth_delta
+        )
         final_score = _blend_scores(
             base_score, ml_score if isinstance(ml_score, float) else None
         )
@@ -948,6 +1028,55 @@ async def run_evaluate_decision(
                 if loyalty_result.tags:
                     merged_tags = list(dict.fromkeys([*merged_tags, *loyalty_result.tags]))
                 loyalty_bridge_evidence = loyalty_result.evidence()
+
+        # Sibling toolkit bridges (advisory; fail-soft with degradation tags).
+        refund_bridge_evidence: dict[str, Any] | None = None
+        cancel_bridge_evidence: dict[str, Any] | None = None
+        if not shadow_request:
+            from decision_api.refund_abuse_bridge import (
+                maybe_invoke_refund_abuse,
+                should_invoke_refund_bridge,
+            )
+            from decision_api.offline_cancel_bridge import (
+                maybe_invoke_offline_cancel,
+                should_invoke_cancel_bridge,
+            )
+
+            _sib_meta = body.metadata if isinstance(body.metadata, dict) else None
+            if should_invoke_refund_bridge(
+                metadata=_sib_meta, event_type=body.event_type.value
+            ):
+                refund_result = await maybe_invoke_refund_abuse(
+                    http=http,
+                    tenant_id=body.tenant_id,
+                    entity_id=body.entity_id,
+                    metadata=_sib_meta,
+                    event_type=body.event_type.value,
+                    features=features if isinstance(features, dict) else None,
+                    metrics_inc=_metrics_inc_safe,
+                )
+                if refund_result.tags:
+                    merged_tags = list(
+                        dict.fromkeys([*merged_tags, *refund_result.tags])
+                    )
+                refund_bridge_evidence = refund_result.evidence()
+            if should_invoke_cancel_bridge(
+                metadata=_sib_meta, event_type=body.event_type.value
+            ):
+                cancel_result = await maybe_invoke_offline_cancel(
+                    http=http,
+                    tenant_id=body.tenant_id,
+                    entity_id=body.entity_id,
+                    metadata=_sib_meta,
+                    event_type=body.event_type.value,
+                    features=features if isinstance(features, dict) else None,
+                    metrics_inc=_metrics_inc_safe,
+                )
+                if cancel_result.tags:
+                    merged_tags = list(
+                        dict.fromkeys([*merged_tags, *cancel_result.tags])
+                    )
+                cancel_bridge_evidence = cancel_result.evidence()
 
         combined_rule_hits = rule_hits + replay_rule_hits
 
@@ -1084,6 +1213,12 @@ async def run_evaluate_decision(
             snap_extra["partner_graph_writeback"] = partner_graph_hints
         if loyalty_bridge_evidence:
             snap_extra["loyalty_abuse_bridge"] = loyalty_bridge_evidence
+        if refund_bridge_evidence:
+            snap_extra["refund_abuse_bridge"] = refund_bridge_evidence
+        if cancel_bridge_evidence:
+            snap_extra["offline_cancel_bridge"] = cancel_bridge_evidence
+        for _dek, _dev in depth_evidence.items():
+            snap_extra[_dek] = _dev
         _rel_kw = dict(
             tags=merged_tags,
             inference_context=inf_ctx,
@@ -1092,7 +1227,9 @@ async def run_evaluate_decision(
             partner_graph_hints=partner_graph_hints,
             canary_cohort=snap_extra.get("canary_cohort"),
         )
-        relatedness_evidence = build_relatedness_evidence(**_rel_kw)
+        relatedness_evidence = build_relatedness_evidence(
+            **_rel_kw, ring_score=depth_evidence.get("ring_score")
+        )
         if relatedness_evidence is not None:
             snap_extra["relatedness_evidence"] = relatedness_evidence
         location_cohort_evidence = build_location_cohort_evidence(**_rel_kw)

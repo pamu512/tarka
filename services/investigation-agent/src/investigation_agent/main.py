@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from investigation_agent import (
+    agent_run_store,
     batch_store,
     copilot_analytics,
     feedback_store,
@@ -31,6 +32,11 @@ from investigation_agent import (
 from investigation_agent.answer_structure import (
     parse_structured_sections,
     structured_sections_prompt_block,
+)
+from investigation_agent.context_assembler import (
+    assemble_context_snapshot,
+    claims_with_evidence_ids,
+    render_deterministic_case_brief,
 )
 from investigation_agent.config import (
     effective_embedding_api_key,
@@ -663,6 +669,16 @@ async def _execute_tool(
             norm["depth"],
             norm["max_velocity_nodes"],
         )
+    elif name == "evaluate_entity_trend":
+        result = await fn(
+            http,
+            tenant_id,
+            analyst_id,
+            norm["entity_id"],
+            norm["window_rows"],
+            norm.get("region_code") or "",
+            norm.get("skip_llm", True),
+        )
     else:
         result = {"error": "dispatch_failure"}
     return normalize_tool_error_shape(name, result)
@@ -671,6 +687,58 @@ async def _execute_tool(
 def _effective_chat_model() -> str:
     m = (settings.copilot_chat_model or "").strip()
     return m if m else settings.openai_model
+
+
+def _claims_with_evidence_ids(
+    claims: list[dict[str, Any]] | None,
+    snapshot: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    return claims_with_evidence_ids(claims, snapshot)
+
+
+def _persist_and_attach_agent_run(
+    out: dict[str, Any],
+    *,
+    turn_id: str,
+    tenant_id: str,
+    analyst_id: str,
+    case_id: str | None,
+    tool_calls: list[dict[str, Any]] | None,
+    claims: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    snapshot = assemble_context_snapshot(
+        tenant_id=tenant_id,
+        case_id=case_id,
+        tool_results=tool_calls,
+    )
+    enriched = _claims_with_evidence_ids(claims, snapshot)
+    run_id = agent_run_store.persist_agent_run(
+        turn_id=turn_id,
+        tenant_id=tenant_id,
+        analyst_id=analyst_id,
+        case_id=case_id,
+        prompt_version=settings.copilot_prompt_version,
+        model=_effective_chat_model(),
+        agent_build=(settings.agent_build_id or "").strip(),
+        tool_calls=tool_calls,
+        claims=enriched,
+        context_snapshot=snapshot,
+    )
+    out["agent_run_id"] = run_id
+    out["claims"] = enriched
+    # Re-bind citations to exact evidence_ids from the context snapshot when present.
+    if "citations" in out or enriched:
+        det = out.get("claims_deterministic_support")
+        if not isinstance(det, list):
+            det = deterministic_claim_support(enriched, tool_calls or [])
+        citations, verifier_summary = build_standard_citations(
+            claims=enriched,
+            deterministic_support=det,
+            case_id=case_id,
+        )
+        out["citations"] = citations
+        out["citation_verifier"] = verifier_summary.model_dump(mode="json")
+    return out
 
 
 def _merge_usage(usages: list[dict[str, Any]]) -> dict[str, Any]:
@@ -1514,6 +1582,8 @@ def _health_details_payload() -> dict[str, Any]:
             "copilot_personas": [p["id"] for p in list_personas()],
             "workflows_fingerprint": workflows_catalog_fingerprint(),
             "copilot_workflows": [w["id"] for w in list_workflows()],
+            "agent_run_persistence": True,
+            "context_snapshot_v1": True,
         },
         "okf": {
             "enabled": settings.okf_enabled,
@@ -2324,6 +2394,94 @@ async def feedback_recent(tenant_id: str, limit: int = 50):
     return {"items": feedback_store.list_recent_feedback(tenant_id, lim)}
 
 
+@app.get("/v1/agent-runs/{run_id}")
+async def agent_run_get(run_id: str, tenant_id: str):
+    """Tenant-scoped AgentRun retrieval (omniscient spine)."""
+    _validate_scope_id("tenant_id", tenant_id)
+    rid = (run_id or "").strip()
+    if not rid:
+        raise HTTPException(status_code=400, detail="run_id required")
+    row = agent_run_store.get_agent_run(run_id=rid, tenant_id=tenant_id.strip())
+    if not row:
+        raise HTTPException(status_code=404, detail="agent_run_not_found")
+    return row
+
+
+@app.get("/v1/agent-runs")
+async def agent_runs_for_turn(turn_id: str, tenant_id: str):
+    """List AgentRuns for a chat turn_id within tenant scope."""
+    _validate_scope_id("tenant_id", tenant_id)
+    tid = (turn_id or "").strip()
+    if not tid:
+        raise HTTPException(status_code=400, detail="turn_id required")
+    return {"items": agent_run_store.list_agent_runs_for_turn(turn_id=tid, tenant_id=tenant_id.strip())}
+
+
+class CaseBriefBody(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    case: dict[str, Any] = Field(default_factory=dict)
+
+
+def _require_internal_hook_auth(request: Request) -> None:
+    expected = (os.environ.get("INVESTIGATION_INTERNAL_SECRET") or "").strip()
+    if expected:
+        got = (request.headers.get("x-internal-secret") or "").strip()
+        if not got or not hmac.compare_digest(got, expected):
+            raise HTTPException(status_code=401, detail="invalid_internal_secret")
+        return
+    keys = _get_api_keys()
+    if keys:
+        provided = (request.headers.get("x-api-key") or "").strip()
+        if provided not in keys:
+            raise HTTPException(status_code=401, detail="invalid_api_key")
+
+
+@app.post("/v1/internal/case-brief")
+async def internal_case_brief(request: Request, body: CaseBriefBody):
+    """
+    Deterministic case brief for case-api hooks (no LLM).
+    Uses context assembler over the supplied case payload.
+    """
+    _require_internal_hook_auth(request)
+    case = body.case if isinstance(body.case, dict) else {}
+    tenant_id = str(case.get("tenant_id") or case.get("tenant") or "unknown").strip() or "unknown"
+    case_id = str(case.get("id") or case.get("case_id") or "").strip() or None
+    entity_id = str(case.get("entity_id") or case.get("subject_id") or "").strip() or None
+    trace_id = str(case.get("trace_id") or "").strip() or None
+
+    # Nested evidence already on the case payload — never invent; only pass through.
+    decision_audit = case.get("decision_audit") or case.get("audit")
+    if not isinstance(decision_audit, (dict, list)):
+        decision_audit = None
+    entity_velocity = case.get("entity_velocity") or case.get("velocity")
+    if not isinstance(entity_velocity, dict):
+        entity_velocity = None
+    graph_neighborhood = case.get("graph_neighborhood") or case.get("graph")
+    if not isinstance(graph_neighborhood, dict):
+        graph_neighborhood = None
+    okf_hits = case.get("okf_hits") if isinstance(case.get("okf_hits"), list) else None
+
+    snapshot = assemble_context_snapshot(
+        tenant_id=tenant_id,
+        case_id=case_id,
+        entity_id=entity_id,
+        trace_id=trace_id,
+        case_payload=case,
+        decision_audit=decision_audit,
+        entity_velocity=entity_velocity,
+        graph_neighborhood=graph_neighborhood,
+        okf_hits=okf_hits,
+    )
+    brief = render_deterministic_case_brief(snapshot, case_payload=case)
+    return {
+        "ok": True,
+        "brief_markdown": brief,
+        "context_snapshot": snapshot,
+        "llm_used": False,
+    }
+
+
 @app.post("/v1/review/turn")
 async def turn_review_save(rv: TurnReviewBody):
     """Record human sign-off (approved / rejected) for a copilot turn_id (SQLite)."""
@@ -2390,6 +2548,7 @@ async def chat_stream(body: ChatRequest, request: Request):
         out = await _build_chat_response(body, request)
         meta = {
             "turn_id": out.get("turn_id"),
+            "agent_run_id": out.get("agent_run_id"),
             "prompt_version": out.get("prompt_version"),
             "persona": out.get("persona"),
             "workflow_id": out.get("workflow_id"),
@@ -2407,6 +2566,7 @@ async def chat_stream(body: ChatRequest, request: Request):
             k: out[k]
             for k in (
                 "turn_id",
+                "agent_run_id",
                 "prompt_version",
                 "persona",
                 "workflow_id",
@@ -2430,6 +2590,8 @@ async def chat_stream(body: ChatRequest, request: Request):
                 "turn_metrics",
                 "copilot_mode",
                 "degraded_reasons",
+                "citations",
+                "citation_verifier",
             )
             if k in out
         }
@@ -2599,7 +2761,7 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             assurance_refused=False,
             persona=body.persona,
         )
-        return {
+        blocked_out = {
             "reply": (
                 "I detected a potential prompt injection attempt. I can only assist with fraud investigations using my available tools."
             ),
@@ -2642,6 +2804,15 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
                 redaction_level=settings.copilot_evidence_redaction_level,
             ),
         }
+        return _persist_and_attach_agent_run(
+            blocked_out,
+            turn_id=tid,
+            tenant_id=body.tenant_id,
+            analyst_id=body.analyst_id,
+            case_id=body.case_id,
+            tool_calls=[],
+            claims=blk_claims,
+        )
 
     if body.case_id and messages:
         messages[-1]["content"] += f"\n\n[Context: current case_id is {body.case_id}]"
@@ -2767,7 +2938,15 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             persona=body.persona,
             workflow_id=active_workflow,
         )
-        return out
+        return _persist_and_attach_agent_run(
+            out,
+            turn_id=turn_id,
+            tenant_id=body.tenant_id,
+            analyst_id=body.analyst_id,
+            case_id=body.case_id,
+            tool_calls=tool_calls,
+            claims=claims,
+        )
 
     if not active_tool_defs:
         system = await _maybe_prefetch_rag_to_system(
@@ -2991,7 +3170,15 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         persona=body.persona,
         workflow_id=active_workflow,
     )
-    return out
+    return _persist_and_attach_agent_run(
+        out,
+        turn_id=turn_id,
+        tenant_id=body.tenant_id,
+        analyst_id=body.analyst_id,
+        case_id=body.case_id,
+        tool_calls=tool_calls,
+        claims=claims,
+    )
 
 
 class SaarthiFeatureImportanceBody(BaseModel):
@@ -3019,8 +3206,15 @@ async def saarthi_feature_importance(body: SaarthiFeatureImportanceBody):
 
 
 # ── Collaboration (Slack / Teams / Lark) — canonical package collaboration_chat_bridge ──
+# Soft-mount: core AgentRun / chat / case-brief claims must not hard-fail if the bridge
+# package is absent from the local PYTHONPATH (CI/dev partial checkouts).
 os.environ.setdefault("TARKA_CHAT_BRIDGE_SUBAPP", "1")
 os.environ.setdefault("INVESTIGATION_AGENT_URL", "")
-from collaboration_chat_bridge.main import app as _collaboration_subapp  # noqa: E402
+try:
+    from collaboration_chat_bridge.main import app as _collaboration_subapp  # noqa: E402
 
-app.mount("/collab", _collaboration_subapp)
+    app.mount("/collab", _collaboration_subapp)
+except ImportError:  # pragma: no cover - optional deploy surface
+    logging.getLogger(__name__).warning(
+        "collaboration_chat_bridge not importable; /collab mount skipped"
+    )

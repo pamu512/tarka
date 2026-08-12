@@ -73,6 +73,7 @@ class TestToolDispatch:
             "summarize_adverse_media",
             "consolidate_entity_profile",
             "graph_risk_narrative",
+            "evaluate_entity_trend",
         }
         assert set(TOOL_DISPATCH.keys()) == expected_tools
 

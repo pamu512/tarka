@@ -10,44 +10,37 @@ from __future__ import annotations
 import logging
 import math
 from pathlib import Path
-from typing import Final
-
-import numpy as np
-import onnxruntime as ort
 
 logger = logging.getLogger(__name__)
 
 EXPECTED_FEATURES = 5
 
 
+class BotDetectionUnavailable(RuntimeError):
+    """Raised when bot detection has no real model and must not invent a score."""
+
+
 class BotDetectionModel:
     """
-    Placeholder bot/automation risk scorer.
+    Bot/automation risk scorer.
 
-    Reserved for a future ONNX or rules-backed implementation. The current
-    ``predict`` contract matches the eventual shape: async scoring from a single
-    monetary ``amount`` into a probability-like score in ``[0.0, 1.0]``.
+    Fail-closed until a real ONNX (or rules) model is wired: ``predict`` never
+    returns a fabricated likelihood.
     """
 
-    _PLACEHOLDER_SCORE: Final[float] = 0.95
-
     def __init__(self) -> None:
-        """Initialize placeholder bot-detection state (no external resources yet)."""
-        logger.info("bot_detection_model_initialized mode=placeholder")
+        logger.info("bot_detection_model_initialized mode=unavailable")
 
     async def predict(self, amount: float) -> float:
         """
         Score transaction ``amount`` for bot-like activity likelihood.
 
-        Parameters
-        ----------
-        amount :
-            Transaction amount; must be a finite float (``NaN`` / infinities rejected).
-
-        Returns
-        -------
-        float
-            Placeholder constant ``0.95`` until a real model is wired.
+        Raises
+        ------
+        BotDetectionUnavailable
+            Always, until a real model is configured (no placeholder scores).
+        ValueError / TypeError
+            Invalid ``amount``.
         """
         if isinstance(amount, bool):
             raise ValueError("amount must be numeric, not bool")
@@ -56,11 +49,16 @@ class BotDetectionModel:
         if not math.isfinite(float(amount)):
             raise ValueError("amount must be finite")
 
-        return self._PLACEHOLDER_SCORE
+        raise BotDetectionUnavailable(
+            "BotDetectionModel has no ONNX artifact; refusing invented bot_likelihood_score"
+        )
 
 
 class FraudPredictor:
     def __init__(self, model_path: str = "models/baseline_fraud_v1.onnx") -> None:
+        import numpy as np
+        import onnxruntime as ort
+
         raw = Path(model_path)
         resolved = raw if raw.is_file() else Path(__file__).resolve().parent / raw
         if not resolved.is_file():
@@ -85,6 +83,7 @@ class FraudPredictor:
                 f"model missing 'probabilities' output; have {[o.name for o in outputs]}",
             )
         self._probabilities_name = prob_names[0]
+        self._np = np
 
         logger.info(
             "fraud_predictor_ready path=%s input=%s prob_output=%s",
@@ -102,6 +101,7 @@ class FraudPredictor:
         Features: ``[amount, velocity_1h, velocity_24h, risk_score, time_of_day]``.
         Returns fraud probability in ``[0.0, 1.0]`` from ``probabilities[:, 1]``.
         """
+        np = self._np
         if len(features) != EXPECTED_FEATURES:
             raise ValueError(f"expected {EXPECTED_FEATURES} features, got {len(features)}")
 

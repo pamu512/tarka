@@ -7,6 +7,8 @@ describe("deskMockPolicy", () => {
     expect(isDeskApiPath("/api/cases/v1/cases/ops/qa-metrics?tenant_id=t")).toBe(true);
     expect(isDeskApiPath("/api/decisions/v1/ops/calibration-status?tenant_id=t")).toBe(true);
     expect(isDeskApiPath("/api/decisions/v1/calibration/reliability-bins")).toBe(true);
+    expect(isDeskApiPath("/api/decisions/v1/ops/trend/posture?tenant_id=t")).toBe(true);
+    expect(isDeskApiPath("/api/decisions/v1/ops/trend/tick")).toBe(true);
     expect(isDeskApiPath("/api/graph/v1/entities/x/deep-context")).toBe(false);
   });
 
@@ -24,6 +26,13 @@ describe("deskMockPolicy", () => {
     expect(
       mocksAllowedForUrl(desk, { useApiMocks: true, mockMode: "true", deskStrict: true }),
     ).toBe(true);
+    expect(
+      mocksAllowedForUrl("/api/decisions/v1/ops/trend/drafts?tenant_id=t", {
+        useApiMocks: true,
+        mockMode: "auto",
+        deskStrict: true,
+      }),
+    ).toBe(false);
     expect(
       mocksAllowedForUrl("/api/graph/v1/health", {
         useApiMocks: true,

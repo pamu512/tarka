@@ -960,6 +960,11 @@ async def lifespan(application: FastAPI):
         agg_store.set_client(redis_tags._client)
         fingerprint_store.set_client(redis_tags._client)
         entity_link_store.set_client(redis_tags._client)
+        from decision_api.ehailing_escalation import ehailing_challenge_store
+        from decision_api.marketplace_kyb_store import kyb_store
+
+        kyb_store.set_client(redis_tags._client)
+        ehailing_challenge_store.set_client(redis_tags._client)
     _list_store = create_list_store(
         backend=settings.list_store_backend,
         redis_url=settings.redis_url,
@@ -1057,6 +1062,9 @@ from decision_api.rule_compiler_api import (  # noqa: E402
 from decision_api.rule_gitops_api import router as rule_gitops_router  # noqa: E402
 from decision_api.simulation_api import router as simulation_router  # noqa: E402
 from decision_api.vendor_marketplace_api import router as vendor_marketplace_router  # noqa: E402
+from decision_api.marketplace_kyb_api import router as marketplace_kyb_router  # noqa: E402
+from decision_api.chargeback_alert_api import router as chargeback_alert_router  # noqa: E402
+from decision_api.trend_agent_api import router as trend_agent_router  # noqa: E402
 from decision_api.sandbox_bootstrap import (  # noqa: E402
     maybe_hydrate_sandbox_plg_pack,
     router as sandbox_bootstrap_router,
@@ -1087,6 +1095,9 @@ app.include_router(analytics_dashboards_router)
 app.include_router(manifest_visualize_router)
 app.include_router(manifest_compare_router)
 app.include_router(vendor_marketplace_router)
+app.include_router(marketplace_kyb_router)
+app.include_router(chargeback_alert_router)
+app.include_router(trend_agent_router)
 app.include_router(sandbox_bootstrap_router)
 app.include_router(micro_dev_onboarding_router)
 
@@ -1477,6 +1488,7 @@ async def typology_weighted_telemetry(_user=Depends(require_role("analyst"))):
 async def typology_ops_posture(
     sample_rule_hits: str = "",
     tenant_id: str = "",
+    vertical: str = "",
     session: AsyncSession = Depends(get_session),
     _user=Depends(require_role("analyst")),
 ):
@@ -1521,6 +1533,62 @@ async def typology_ops_posture(
     return load_typology_ops_posture(
         sample_rule_hits=hits or None,
         audit_breach_histogram=hist,
+        vertical=(vertical or "").strip() or None,
+    )
+
+
+@app.get("/v1/ops/connector-posture")
+async def connector_ops_posture(_user=Depends(require_role("analyst"))):
+    """Production connector contract posture (device/KYB/chargeback/…)."""
+    from decision_api.connector_contract import load_all_connector_posture
+
+    return load_all_connector_posture()
+
+
+@app.get("/v1/ops/vertical-pack-posture")
+async def vertical_pack_ops_posture(_user=Depends(require_role("analyst"))):
+    """Vertical packs + required connector readiness (marketplace-first)."""
+    from decision_api.connector_contract import load_all_connector_posture
+    from decision_api.vertical_packs import load_vertical_pack_ops_posture
+
+    connectors = load_all_connector_posture()
+    return load_vertical_pack_ops_posture(
+        connector_families=connectors.get("families") or {}
+    )
+
+
+@app.get("/v1/ops/depth-engines")
+async def depth_engines_ops_posture(_user=Depends(require_role("analyst"))):
+    """OSS depth engines — schemas, methods, host inputs (no forged LIVE)."""
+    from decision_api.depth_engines_ops import load_depth_engines_ops_posture
+
+    return load_depth_engines_ops_posture()
+
+
+@app.get("/v1/ops/vertical-promote-posture")
+async def vertical_promote_ops_posture(_user=Depends(require_role("analyst"))):
+    """Per-pack fixture holdout promote science (F1 + McNemar; no LIVE labels)."""
+    from decision_api.vertical_promote_registry import load_all_vertical_promote_posture
+
+    return load_all_vertical_promote_posture()
+
+
+@app.get("/v1/ops/vertical-calibration")
+async def vertical_calibration_ops(_user=Depends(require_role("analyst"))):
+    """Per-vertical reliability bins from fixture holdouts (not LIVE calibration)."""
+    from decision_api.vertical_calibration import load_all_vertical_calibration_posture
+
+    return load_all_vertical_calibration_posture()
+
+
+@app.get("/v1/ops/sibling-bridge-posture")
+async def sibling_bridge_ops_posture(_user=Depends(require_role("analyst"))):
+    """Loyalty / refund / cancel sibling bridge config + circuit honesty."""
+    from decision_api.sibling_bridge_posture import load_sibling_bridge_ops_posture
+
+    return load_sibling_bridge_ops_posture(
+        loyalty_abuse_url=settings.loyalty_abuse_url,
+        loyalty_abuse_api_key=settings.loyalty_abuse_api_key,
     )
 
 

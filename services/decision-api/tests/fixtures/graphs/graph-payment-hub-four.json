@@ -1,0 +1,54 @@
+{
+  "id": "graph-payment-hub-four",
+  "class": "collusion",
+  "party_graph": {
+    "nodes": [
+      {
+        "id": "card",
+        "role": "payment_instrument"
+      },
+      {
+        "id": "p0",
+        "role": "buyer"
+      },
+      {
+        "id": "p1",
+        "role": "seller"
+      },
+      {
+        "id": "p2",
+        "role": "buyer"
+      },
+      {
+        "id": "p3",
+        "role": "seller"
+      }
+    ],
+    "edges": [
+      {
+        "src": "card",
+        "dst": "p0",
+        "type": "USES_PAYMENT"
+      },
+      {
+        "src": "card",
+        "dst": "p1",
+        "type": "USES_PAYMENT"
+      },
+      {
+        "src": "card",
+        "dst": "p2",
+        "type": "USES_PAYMENT"
+      },
+      {
+        "src": "card",
+        "dst": "p3",
+        "type": "USES_PAYMENT"
+      }
+    ]
+  },
+  "expect": {
+    "ring_factor:payment_hub": true,
+    "production_ready": true
+  }
+}

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import Any
 from uuid import UUID
@@ -67,10 +68,23 @@ _DEMO_RULESET: tuple[Rule, ...] = (
 
 
 def load_active_ruleset() -> tuple[Rule, ...]:
-    """Load rules from ``fraud_rules`` (active version), else ``engine_rules``, else the demo ruleset."""
+    """Load rules from ``fraud_rules`` (active version), else ``engine_rules``.
+
+    Demo ruleset is used only when ``RULE_ENGINE_ALLOW_DEMO_FALLBACK=1`` (local/dev).
+    Otherwise returns an empty ruleset (fail-closed; no silent demo policy).
+    """
+    allow_demo = os.environ.get("RULE_ENGINE_ALLOW_DEMO_FALLBACK", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
     engine = open_rules_engine()
     if engine is None:
-        return _DEMO_RULESET
+        if allow_demo:
+            logger.warning("rule_engine_using_demo_ruleset reason=no_database")
+            return _DEMO_RULESET
+        logger.warning("rule_engine_empty_ruleset reason=no_database demo_fallback_disabled")
+        return ()
     try:
         loaded = load_rules_from_db(engine)
         if loaded is not None:
@@ -79,7 +93,11 @@ def load_active_ruleset() -> tuple[Rule, ...]:
         logger.exception("rule_engine_failed_load_rules")
     finally:
         engine.dispose()
-    return _DEMO_RULESET
+    if allow_demo:
+        logger.warning("rule_engine_using_demo_ruleset reason=no_active_rows")
+        return _DEMO_RULESET
+    logger.warning("rule_engine_empty_ruleset reason=no_active_rows demo_fallback_disabled")
+    return ()
 
 
 class RulesDeployBody(BaseModel):
@@ -196,7 +214,7 @@ def create_app(*, graph_context_provider: object = _GRAPH_PROVIDER_UNSET) -> Fas
         if compat_mode() == "decision_api":
             return await evaluate_via_decision_api(transaction.model_dump(mode="json"))
 
-        ruleset: tuple[Rule, ...] = getattr(request.app.state, "ruleset", _DEMO_RULESET)
+        ruleset: tuple[Rule, ...] = getattr(request.app.state, "ruleset", ())
         graph_ctx: dict[str, Any] | None = None
         graph_fail_open = False
         if ruleset_needs_graph_context(ruleset):

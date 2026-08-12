@@ -1,0 +1,27 @@
+{
+  "id": "graph-noisy-missing-roles",
+  "class": "noisy",
+  "party_graph": {
+    "nodes": [
+      {
+        "id": "a"
+      },
+      {
+        "id": "b"
+      },
+      {
+        "id": "c"
+      }
+    ],
+    "edges": [
+      {
+        "src": "a",
+        "dst": "b",
+        "type": "RELATED"
+      }
+    ]
+  },
+  "expect": {
+    "production_ready": false
+  }
+}

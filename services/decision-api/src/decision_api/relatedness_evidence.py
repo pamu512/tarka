@@ -92,12 +92,14 @@ def build_relatedness_evidence(
     graph_meta: dict[str, Any] | None,
     partner_graph_hints: dict[str, Any] | None = None,
     canary_cohort: dict[str, Any] | None = None,
+    ring_score: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Audit block when relatedness signals exist; None when absent (fail soft)."""
     cohort_tags = _cohort_related_tags(tags)
     inf = inference_context if isinstance(inference_context, dict) else {}
     loc = location_meta if isinstance(location_meta, dict) else {}
     graph = graph_meta if isinstance(graph_meta, dict) else {}
+    ring = ring_score if isinstance(ring_score, dict) else {}
 
     copresence_risk = _float_or_none(loc.get("copresence_risk"))
     if copresence_risk is None:
@@ -124,6 +126,7 @@ def build_relatedness_evidence(
         or bool(place_vertices)
         or bool(seen_at_edges)
         or bool(cohort_tags)
+        or bool(ring)
     )
     if not has_signal:
         return None
@@ -135,6 +138,8 @@ def build_relatedness_evidence(
         sources.append("graph")
     if place_vertices or seen_at_edges:
         sources.append("partner_fusion")
+    if ring:
+        sources.append("ring_score")
     if not sources and inf:
         sources.append("heuristic")
 
@@ -170,6 +175,19 @@ def build_relatedness_evidence(
         "graph": graph_block,
         "device": device_block,
     }
+    if ring:
+        out["ring"] = {
+            "schema_id": ring.get("schema_id"),
+            "method": ring.get("method"),
+            "score_0_100": ring.get("score_0_100"),
+            "cross_role_same_device": ring.get("cross_role_same_device"),
+            "gnn_claim_allowed": ring.get("gnn_claim_allowed", False),
+            "factor_codes": [
+                str(f.get("code"))
+                for f in (ring.get("factors") or [])
+                if isinstance(f, dict) and f.get("code")
+            ][:32],
+        }
     if geo_enrichment:
         out["geo_enrichment"] = geo_enrichment
     if isinstance(canary_cohort, dict) and canary_cohort:

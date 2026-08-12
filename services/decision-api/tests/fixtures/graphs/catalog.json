@@ -1,0 +1,149 @@
+{
+  "schema_id": "tarka.party_graph_fixture_lib/v1",
+  "graphs": [
+    {
+      "id": "graph-collusion-cross-role-device",
+      "class": "collusion",
+      "expect": {
+        "cross_role_same_device": true,
+        "production_ready": true,
+        "ring_score_high": true
+      }
+    },
+    {
+      "id": "graph-honest-disjoint",
+      "class": "honest",
+      "expect": {
+        "cross_role_same_device": false,
+        "production_ready": true
+      }
+    },
+    {
+      "id": "graph-noisy-missing-roles",
+      "class": "noisy",
+      "expect": {
+        "production_ready": false
+      }
+    },
+    {
+      "id": "graph-payment-bridge-collusion",
+      "class": "collusion",
+      "expect": {
+        "cross_role_same_device": true,
+        "ring_factor:cross_role_payment": true,
+        "production_ready": true
+      }
+    },
+    {
+      "id": "graph-place-hub",
+      "class": "collusion",
+      "expect": {
+        "ring_factor:place_hub": true,
+        "production_ready": true
+      }
+    },
+    {
+      "id": "graph-eh-self-ride",
+      "class": "collusion",
+      "expect": {
+        "cross_role_same_device": true,
+        "production_ready": true
+      }
+    },
+    {
+      "id": "graph-ocr-cluster-shaped",
+      "class": "collusion",
+      "expect": {
+        "cross_role_same_device": true
+      }
+    },
+    {
+      "id": "graph-sparse-single-edge",
+      "class": "noisy",
+      "expect": {
+        "production_ready": false,
+        "cross_role_same_device": false
+      }
+    },
+    {
+      "id": "graph-promo-device-chain",
+      "class": "collusion",
+      "expect": {
+        "ring_factor:promo_device_role_chain": true,
+        "production_ready": true
+      }
+    },
+    {
+      "id": "graph-fresh-burst",
+      "class": "collusion",
+      "expect": {
+        "ring_factor:fresh_edge_burst": true,
+        "cross_role_same_device": true,
+        "production_ready": true
+      }
+    },
+    {
+      "id": "graph-role-typo-byuer",
+      "class": "noisy",
+      "expect": {
+        "cross_role_same_device": false,
+        "production_ready": true
+      }
+    },
+    {
+      "id": "graph-self-loop-spam",
+      "class": "noisy",
+      "expect": {
+        "cross_role_same_device": false
+      }
+    },
+    {
+      "id": "graph-orphan-bridge",
+      "class": "noisy",
+      "expect": {
+        "cross_role_same_device": false,
+        "production_ready": false
+      }
+    },
+    {
+      "id": "graph-many-buyers-one-device-no-seller",
+      "class": "noisy",
+      "expect": {
+        "cross_role_same_device": false,
+        "production_ready": true
+      }
+    },
+    {
+      "id": "graph-edge-type-noise",
+      "class": "noisy",
+      "expect": {
+        "cross_role_same_device": true,
+        "production_ready": true
+      }
+    },
+    {
+      "id": "graph-dup-edges-inflate",
+      "class": "collusion",
+      "expect": {
+        "cross_role_same_device": true,
+        "production_ready": true
+      }
+    },
+    {
+      "id": "graph-courier-buyer-food",
+      "class": "collusion",
+      "expect": {
+        "cross_role_same_device": true,
+        "production_ready": true
+      }
+    },
+    {
+      "id": "graph-payment-hub-four",
+      "class": "collusion",
+      "expect": {
+        "ring_factor:payment_hub": true,
+        "production_ready": true
+      }
+    }
+  ]
+}
