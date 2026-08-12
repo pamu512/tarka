@@ -135,7 +135,9 @@ def _float(raw: Any) -> float | None:
         return None
 
 
-def _extract_lifecycle(payload: dict[str, Any] | None, metadata: dict[str, Any] | None) -> dict[str, Any] | None:
+def _extract_lifecycle(
+    payload: dict[str, Any] | None, metadata: dict[str, Any] | None
+) -> dict[str, Any] | None:
     for src in (metadata, payload):
         if not isinstance(src, dict):
             continue
@@ -154,7 +156,9 @@ def _normalize_events(raw_events: list[Any]) -> list[dict[str, Any]]:
     for item in raw_events:
         if not isinstance(item, dict):
             continue
-        stage = _norm_stage(item.get("stage") or item.get("checkpoint") or item.get("type"))
+        stage = _norm_stage(
+            item.get("stage") or item.get("checkpoint") or item.get("type")
+        )
         if not stage:
             continue
         ts = _parse_ts(item.get("ts") or item.get("timestamp") or item.get("at"))
@@ -165,7 +169,9 @@ def _normalize_events(raw_events: list[Any]) -> list[dict[str, Any]]:
                 "ts": ts,
                 "amount": _float(item.get("amount")),
                 "actor_role": _norm_role(item.get("actor_role") or item.get("role")),
-                "actor_id": str(item.get("actor_id") or item.get("entity_id") or "").strip(),
+                "actor_id": str(
+                    item.get("actor_id") or item.get("entity_id") or ""
+                ).strip(),
                 "signals": signals,
                 "order_idx": int(STAGE_ORDER.get(stage, 1000)),
             }
@@ -190,7 +196,9 @@ def _add(
     if weight <= 0:
         return
     factors.append(
-        LifecycleFactor(code=code, weight=min(40.0, float(weight)), detail=detail, stage=stage)
+        LifecycleFactor(
+            code=code, weight=min(40.0, float(weight)), detail=detail, stage=stage
+        )
     )
 
 
@@ -306,7 +314,9 @@ def _score_time_compression(
             )
 
 
-def _score_amounts(events: list[dict[str, Any]], factors: list[LifecycleFactor]) -> None:
+def _score_amounts(
+    events: list[dict[str, Any]], factors: list[LifecycleFactor]
+) -> None:
     paid = None
     for e in events:
         if e["stage"] in ("paid", "checkout") and e["amount"] is not None:
@@ -324,7 +334,11 @@ def _score_amounts(events: list[dict[str, Any]], factors: list[LifecycleFactor])
                     f"{e['stage']} amount {amt} > paid {paid}",
                     e["stage"],
                 )
-        if e["stage"] == "payout" and e["amount"] is not None and e["amount"] > paid * 1.15:
+        if (
+            e["stage"] == "payout"
+            and e["amount"] is not None
+            and e["amount"] > paid * 1.15
+        ):
             _add(
                 factors,
                 "payout_exceeds_order",
@@ -334,7 +348,9 @@ def _score_amounts(events: list[dict[str, Any]], factors: list[LifecycleFactor])
             )
 
 
-def _score_signals(events: list[dict[str, Any]], factors: list[LifecycleFactor]) -> None:
+def _score_signals(
+    events: list[dict[str, Any]], factors: list[LifecycleFactor]
+) -> None:
     for e in events:
         sig = e["signals"]
         stage = e["stage"]
@@ -372,7 +388,9 @@ def _score_signals(events: list[dict[str, Any]], factors: list[LifecycleFactor])
             )
 
 
-def _score_role_clash(events: list[dict[str, Any]], factors: list[LifecycleFactor]) -> None:
+def _score_role_clash(
+    events: list[dict[str, Any]], factors: list[LifecycleFactor]
+) -> None:
     by_actor: dict[str, set[str]] = {}
     for e in events:
         aid = e["actor_id"]
@@ -516,7 +534,9 @@ def _score_sequence_depth(
                     f"Surge manipulation signal on stage {e['stage']}",
                     e["stage"],
                 )
-            bonus_claims = sig.get("bonus_claim_count_24h") or sig.get("incentive_claims_24h")
+            bonus_claims = sig.get("bonus_claim_count_24h") or sig.get(
+                "incentive_claims_24h"
+            )
             try:
                 bc = int(bonus_claims) if bonus_claims is not None else None
             except (TypeError, ValueError):
@@ -609,11 +629,8 @@ def compute_lifecycle_risk(
         return None
 
     profile = (
-        (vertical_profile or life.get("vertical_profile") or life.get("profile") or "")
-        .strip()
-        .lower()
-        or "marketplace_goods"
-    )
+        vertical_profile or life.get("vertical_profile") or life.get("profile") or ""
+    ).strip().lower() or "marketplace_goods"
     if profile in ("marketplace", "goods"):
         profile = "marketplace_goods"
     if profile in ("food", "delivery"):
@@ -639,9 +656,10 @@ def compute_lifecycle_risk(
 
     driving = None
     if factors:
-        driving = max(factors, key=lambda f: f.weight).stage or max(
-            factors, key=lambda f: f.weight
-        ).code
+        driving = (
+            max(factors, key=lambda f: f.weight).stage
+            or max(factors, key=lambda f: f.weight).code
+        )
 
     tags = _tags_from_factors(factors) if factors else []
     return LifecycleRiskResult(

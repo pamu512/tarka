@@ -1403,7 +1403,10 @@ async def l3_ops_ledger_arm(
     if not result.get("ok"):
         raise HTTPException(
             status_code=409,
-            detail={"blockers": result.get("blockers"), "ledger": public_view(result.get("ledger"))},
+            detail={
+                "blockers": result.get("blockers"),
+                "ledger": public_view(result.get("ledger")),
+            },
         )
     return {"ok": True, "ledger": public_view(result.get("ledger"))}
 
@@ -1442,7 +1445,10 @@ async def l3_ops_ledger_sign_week(
     if not result.get("ok"):
         raise HTTPException(
             status_code=409,
-            detail={"blockers": result.get("blockers"), "ledger": public_view(result.get("ledger"))},
+            detail={
+                "blockers": result.get("blockers"),
+                "ledger": public_view(result.get("ledger")),
+            },
         )
     return {"ok": True, "ledger": public_view(result.get("ledger"))}
 

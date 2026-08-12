@@ -20,7 +20,9 @@ async def test_feature_serving_contract():
     body = r.json()
     assert body["schema_id"] == "tarka.feature_serving_contract/v1"
     assert body["online_store"] == "redis_aggregates"
-    assert "parity" in body["offline_parity"]["endpoint"] or "parity" in body["offline_parity"]["job"]
+    assert (
+        "parity" in body["offline_parity"]["endpoint"] or "parity" in body["offline_parity"]["job"]
+    )
     assert "zero_fallback_on_miss" in body
     assert body["feast_class_claim_allowed"] is False
     assert body["streaming_flink_claim_allowed"] is False

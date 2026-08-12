@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from decision_api.depth_engines import apply_all_depth_engines, merge_depth_into_score_and_tags
+from decision_api.depth_engines import (
+    apply_all_depth_engines,
+    merge_depth_into_score_and_tags,
+)
 from decision_api.dispute_representment import compute_representment_strength
 from decision_api.ftid_intake_gate import compute_ftid_gate
 from decision_api.promo_economics import compute_promo_economics
@@ -16,10 +19,30 @@ def test_seller_trajectory_refund_changepoint():
         "seller_trajectory": {
             "seller_id": "s9",
             "windows": [
-                {"gmv": 1000, "refund_rate": 0.05, "order_count": 40, "payout_amount": 800},
-                {"gmv": 1200, "refund_rate": 0.06, "order_count": 45, "payout_amount": 900},
-                {"gmv": 1100, "refund_rate": 0.28, "order_count": 20, "payout_amount": 2000},
-                {"gmv": 900, "refund_rate": 0.40, "order_count": 10, "payout_amount": 2500},
+                {
+                    "gmv": 1000,
+                    "refund_rate": 0.05,
+                    "order_count": 40,
+                    "payout_amount": 800,
+                },
+                {
+                    "gmv": 1200,
+                    "refund_rate": 0.06,
+                    "order_count": 45,
+                    "payout_amount": 900,
+                },
+                {
+                    "gmv": 1100,
+                    "refund_rate": 0.28,
+                    "order_count": 20,
+                    "payout_amount": 2000,
+                },
+                {
+                    "gmv": 900,
+                    "refund_rate": 0.40,
+                    "order_count": 10,
+                    "payout_amount": 2500,
+                },
             ],
         }
     }
@@ -36,9 +59,24 @@ def test_seller_trajectory_listing_burst():
             "seller_id": "s_list",
             "account_age_days": 120,
             "windows": [
-                {"gmv": 400, "listing_count": 5, "payout_amount": 200, "order_count": 10},
-                {"gmv": 450, "listing_count": 12, "payout_amount": 220, "order_count": 12},
-                {"gmv": 500, "listing_count": 40, "payout_amount": 250, "order_count": 14},
+                {
+                    "gmv": 400,
+                    "listing_count": 5,
+                    "payout_amount": 200,
+                    "order_count": 10,
+                },
+                {
+                    "gmv": 450,
+                    "listing_count": 12,
+                    "payout_amount": 220,
+                    "order_count": 12,
+                },
+                {
+                    "gmv": 500,
+                    "listing_count": 40,
+                    "payout_amount": 250,
+                    "order_count": 14,
+                },
             ],
         }
     }
@@ -57,9 +95,24 @@ def test_seller_trajectory_ato_then_payout():
                 "new_payout_destination": True,
             },
             "windows": [
-                {"gmv": 800, "payout_amount": 400, "order_count": 20, "refund_rate": 0.04},
-                {"gmv": 820, "payout_amount": 450, "order_count": 22, "refund_rate": 0.05},
-                {"gmv": 850, "payout_amount": 1600, "order_count": 18, "refund_rate": 0.06},
+                {
+                    "gmv": 800,
+                    "payout_amount": 400,
+                    "order_count": 20,
+                    "refund_rate": 0.04,
+                },
+                {
+                    "gmv": 820,
+                    "payout_amount": 450,
+                    "order_count": 22,
+                    "refund_rate": 0.05,
+                },
+                {
+                    "gmv": 850,
+                    "payout_amount": 1600,
+                    "order_count": 18,
+                    "refund_rate": 0.06,
+                },
             ],
         }
     }
@@ -77,9 +130,24 @@ def test_seller_trajectory_listing_to_payout_burst():
             "seller_id": "s_dump",
             "account_age_days": 90,
             "windows": [
-                {"gmv": 1000, "listing_count": 8, "payout_amount": 300, "order_count": 30},
-                {"gmv": 1100, "listing_count": 15, "payout_amount": 400, "order_count": 32},
-                {"gmv": 1200, "listing_count": 55, "payout_amount": 1800, "order_count": 28},
+                {
+                    "gmv": 1000,
+                    "listing_count": 8,
+                    "payout_amount": 300,
+                    "order_count": 30,
+                },
+                {
+                    "gmv": 1100,
+                    "listing_count": 15,
+                    "payout_amount": 400,
+                    "order_count": 32,
+                },
+                {
+                    "gmv": 1200,
+                    "listing_count": 55,
+                    "payout_amount": 1800,
+                    "order_count": 28,
+                },
             ],
         }
     }
@@ -281,9 +349,24 @@ def test_orchestrator_and_pack_consumers():
     meta = {
         "seller_trajectory": {
             "windows": [
-                {"gmv": 500, "refund_rate": 0.04, "listing_count": 2, "account_age_days": 5},
-                {"gmv": 800, "refund_rate": 0.05, "listing_count": 10, "account_age_days": 10},
-                {"gmv": 2000, "refund_rate": 0.30, "listing_count": 40, "account_age_days": 14},
+                {
+                    "gmv": 500,
+                    "refund_rate": 0.04,
+                    "listing_count": 2,
+                    "account_age_days": 5,
+                },
+                {
+                    "gmv": 800,
+                    "refund_rate": 0.05,
+                    "listing_count": 10,
+                    "account_age_days": 10,
+                },
+                {
+                    "gmv": 2000,
+                    "refund_rate": 0.30,
+                    "listing_count": 40,
+                    "account_age_days": 14,
+                },
             ]
         },
         "ftid": {
@@ -294,7 +377,10 @@ def test_orchestrator_and_pack_consumers():
         "promo_economics": {
             "list_price": 50,
             "paid_amount": 5,
-            "discounts": [{"type": "referral", "amount": 20}, {"type": "new_user", "amount": 25}],
+            "discounts": [
+                {"type": "referral", "amount": 20},
+                {"type": "new_user", "amount": 25},
+            ],
             "redeem_count_24h": 10,
             "account_age_days": 2,
         },

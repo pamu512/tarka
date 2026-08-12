@@ -71,7 +71,8 @@ def build_seller_payload(
         "seller_id": seller_id,
         "successful_deliveries": _int_field(meta, "successful_deliveries"),
         "review_count": _int_field(meta, "review_count"),
-        "window_days": _int_field(meta, "window_days", DEFAULT_WINDOW_DAYS) or DEFAULT_WINDOW_DAYS,
+        "window_days": _int_field(meta, "window_days", DEFAULT_WINDOW_DAYS)
+        or DEFAULT_WINDOW_DAYS,
     }
     for optional in ("display_name", "store_slug", "category"):
         val = meta.get(optional)

@@ -19,9 +19,7 @@ KYB_TTL_SECONDS = 86400 * 365  # 1 year — seller integrity memory
 
 def _file_path_from_env() -> Path | None:
     raw = (
-        os.environ.get("TARKA_KYB_STORE_PATH")
-        or os.environ.get("KYB_STORE_PATH")
-        or ""
+        os.environ.get("TARKA_KYB_STORE_PATH") or os.environ.get("KYB_STORE_PATH") or ""
     ).strip()
     if not raw:
         return None
@@ -106,7 +104,9 @@ class MarketplaceKybStore:
             row = self._memory.get(key)
             return dict(row) if row else None
 
-    async def put(self, tenant_id: str, seller_id: str, record: dict[str, Any]) -> dict[str, Any]:
+    async def put(
+        self, tenant_id: str, seller_id: str, record: dict[str, Any]
+    ) -> dict[str, Any]:
         key = self._key(tenant_id, seller_id)
         payload = dict(record)
         payload["tenant_id"] = tenant_id.strip()

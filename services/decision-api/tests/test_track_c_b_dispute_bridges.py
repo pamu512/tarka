@@ -68,9 +68,7 @@ async def test_dispute_id_attached_and_representment_from_reprocess(monkeypatch)
     assert out["dispute_hint"]["evaluate_reprocess"]["dispute_id"] == "disp-99"
 
     feats: dict = {}
-    apply_representment_features(
-        feats, None, out["dispute_hint"]["evaluate_reprocess"]
-    )
+    apply_representment_features(feats, None, out["dispute_hint"]["evaluate_reprocess"])
     assert feats.get("representment_weak") is True
 
 

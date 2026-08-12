@@ -113,8 +113,10 @@ def build_mule_path_payload(
     Demo templates invent hops/amounts. Callers must pass ``allow_demo=True`` or set
     ``ALLOW_MULE_PATH_DEMO=1``. Otherwise raises ``PermissionError`` (map to HTTP 501).
     """
-    demo_ok = allow_demo if allow_demo is not None else (
-        os.environ.get("ALLOW_MULE_PATH_DEMO", "").strip().lower() in {"1", "true", "yes"}
+    demo_ok = (
+        allow_demo
+        if allow_demo is not None
+        else (os.environ.get("ALLOW_MULE_PATH_DEMO", "").strip().lower() in {"1", "true", "yes"})
     )
     if not demo_ok:
         raise PermissionError(

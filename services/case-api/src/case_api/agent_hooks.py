@@ -75,9 +75,7 @@ async def fire_case_brief(
                         "(llm_used=false)."
                     )
             if session is not None and case_id is not None:
-                body = brief or (
-                    "System: case brief endpoint returned empty brief_markdown."
-                )
+                body = brief or ("System: case brief endpoint returned empty brief_markdown.")
                 session.add(CaseComment(case_id=case_id, author="system", body=body[:16000]))
                 await session.commit()
             return

@@ -99,7 +99,8 @@ def load_feature_store_ops_posture(
             "artifact_present": parity is not None,
             "mode": (parity or {}).get("mode"),
             "matched": (parity or {}).get("matched"),
-            "generated_at": (parity or {}).get("ts") or (parity or {}).get("generated_at"),
+            "generated_at": (parity or {}).get("ts")
+            or (parity or {}).get("generated_at"),
             "path": str(_parity_report_path(rules_path)),
             "job": "scripts/oss/counter_parity_dual_diff.py",
             "replay": "scripts/replay/run_offline_parity.py",

@@ -151,7 +151,9 @@ def _parity_health_ok(parity: dict[str, Any]) -> bool:
         return mode == "dual_diff" and bool(parity.get("matched"))
     if mode == "dry_run":
         return False
-    if schema == "tarka.counter_replay_job/v1" or ("mode" in parity and "replay" not in parity):
+    if schema == "tarka.counter_replay_job/v1" or (
+        "mode" in parity and "replay" not in parity
+    ):
         if mode in ("redis_dual_diff", "dual_diff"):
             return bool(parity.get("ok"))
         return bool(parity.get("ok")) and mode not in ("fixture_validate", "dry_run")

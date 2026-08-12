@@ -26,7 +26,9 @@ _TRANSITIONS: dict[str, frozenset[str]] = {
     "collecting": frozenset({"pending_vendor", "unverified", "suspended"}),
     "pending_vendor": frozenset({"verified", "rejected", "collecting", "suspended"}),
     # collecting allowed: continuous re-screen hit must force re-KYB
-    "verified": frozenset({"disclose_required", "disclosed", "suspended", "collecting"}),
+    "verified": frozenset(
+        {"disclose_required", "disclosed", "suspended", "collecting"}
+    ),
     "disclose_required": frozenset({"disclosed", "suspended"}),
     "disclosed": frozenset({"suspended", "verified", "collecting"}),
     "suspended": frozenset({"collecting", "verified"}),
@@ -51,7 +53,9 @@ def normalize_state(state: str | None) -> str:
 
 
 def can_transition(from_state: str, to_state: str) -> bool:
-    return normalize_state(to_state) in _TRANSITIONS.get(normalize_state(from_state), frozenset())
+    return normalize_state(to_state) in _TRANSITIONS.get(
+        normalize_state(from_state), frozenset()
+    )
 
 
 def apply_transition(
@@ -118,7 +122,9 @@ def evaluate_kyb_gate(
         score_delta += 35.0
         blockers.append("kyb_rejected")
     elif high_volume and state in ("unverified", "collecting"):
-        tags.extend(["risk:kyb_unverified_high_volume", HOST_ACTIONS["collect_seller_docs"]])
+        tags.extend(
+            ["risk:kyb_unverified_high_volume", HOST_ACTIONS["collect_seller_docs"]]
+        )
         host_actions.append("collect_seller_docs")
         score_delta += 22.0
         if state == "unverified":

@@ -14,9 +14,7 @@ DEFAULT_HOLD_HOURS = 72
 DEFAULT_DELAY_HOURS = 24
 
 
-def _resolve_checkpoint(
-    meta: dict[str, Any], event_type: str | None = None
-) -> str:
+def _resolve_checkpoint(meta: dict[str, Any], event_type: str | None = None) -> str:
     checkpoint = str(meta.get("checkpoint") or "").strip().lower()
     if checkpoint:
         return checkpoint

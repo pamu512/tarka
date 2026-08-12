@@ -45,7 +45,9 @@ async def client(session: AsyncSession) -> AsyncIterator[AsyncClient]:
 
 
 @pytest.mark.asyncio
-async def test_list_returns_durable_hold_not_demo_only(client: AsyncClient, session: AsyncSession) -> None:
+async def test_list_returns_durable_hold_not_demo_only(
+    client: AsyncClient, session: AsyncSession
+) -> None:
     await upsert_hold(
         session,
         tenant_id="demo",
@@ -126,7 +128,9 @@ async def test_internal_create_payout_hold_without_api_key(
 
 
 @pytest.mark.asyncio
-async def test_internal_create_payout_hold(client: AsyncClient, session: AsyncSession, monkeypatch) -> None:
+async def test_internal_create_payout_hold(
+    client: AsyncClient, session: AsyncSession, monkeypatch
+) -> None:
     monkeypatch.setenv("INGRESS_INTERNAL_TOKEN", "test-internal-token")
     from integration_ingress.config import settings
 
@@ -173,7 +177,9 @@ async def test_list_with_automation_on_without_candidates_adds_no_synthetic(
 
 
 @pytest.mark.asyncio
-async def test_mule_candidates_create_durable_holds(client: AsyncClient, session: AsyncSession) -> None:
+async def test_mule_candidates_create_durable_holds(
+    client: AsyncClient, session: AsyncSession
+) -> None:
     await client.patch(
         "/v1/marketplace/payout-delay/config",
         json={
@@ -199,7 +205,9 @@ async def test_mule_candidates_create_durable_holds(client: AsyncClient, session
 
 
 @pytest.mark.asyncio
-async def test_mule_automation_writes_durable_holds(client: AsyncClient, session: AsyncSession) -> None:
+async def test_mule_automation_writes_durable_holds(
+    client: AsyncClient, session: AsyncSession
+) -> None:
     """Explicit mule_candidates upsert held rows; no SHA seed."""
     await client.patch(
         "/v1/marketplace/payout-delay/config",
@@ -218,7 +226,9 @@ async def test_mule_automation_writes_durable_holds(client: AsyncClient, session
             ],
         },
     )
-    r = await client.get("/v1/marketplace/payout-delay", params={"tenant_id": "mule_t", "limit": 20})
+    r = await client.get(
+        "/v1/marketplace/payout-delay", params={"tenant_id": "mule_t", "limit": 20}
+    )
     assert r.status_code == 200
     body = r.json()
     assert body["source"] == "durable+automation"

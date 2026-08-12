@@ -14,10 +14,10 @@ log = logging.getLogger("decision-api.chargeback_dispute_bridge")
 
 def case_api_base() -> str:
     return (
-        os.environ.get("CASE_API_URL")
-        or os.environ.get("TARKA_CASE_API_URL")
-        or ""
-    ).strip().rstrip("/")
+        (os.environ.get("CASE_API_URL") or os.environ.get("TARKA_CASE_API_URL") or "")
+        .strip()
+        .rstrip("/")
+    )
 
 
 def should_open_dispute(normalized: dict[str, Any] | None) -> bool:
@@ -39,7 +39,11 @@ def build_dispute_request(
     entity_id: str | None = None,
     trace_id: str | None = None,
 ) -> dict[str, Any]:
-    feats = normalized.get("features") if isinstance(normalized.get("features"), dict) else {}
+    feats = (
+        normalized.get("features")
+        if isinstance(normalized.get("features"), dict)
+        else {}
+    )
     hint = (
         normalized.get("dispute_hint")
         if isinstance(normalized.get("dispute_hint"), dict)
@@ -52,7 +56,9 @@ def build_dispute_request(
         or "unknown"
     )[:256]
     alert_id = str(
-        feats.get("chargeback_alert_id") or hint.get("alert_id") or uuid.uuid4().hex[:12]
+        feats.get("chargeback_alert_id")
+        or hint.get("alert_id")
+        or uuid.uuid4().hex[:12]
     )
     tid = (trace_id or f"cb-alert:{alert_id}").strip()[:128]
     amount = 0.0
@@ -125,9 +131,9 @@ async def maybe_open_dispute_from_alert(
         if metrics_inc:
             metrics_inc("chargeback_dispute_bridge_opened")
         dispute = data if isinstance(data, dict) else {"raw": data}
-        dispute_id = str(
-            dispute.get("id") or dispute.get("dispute_id") or ""
-        ).strip() or None
+        dispute_id = (
+            str(dispute.get("id") or dispute.get("dispute_id") or "").strip() or None
+        )
         # Attach dispute id + evidence pack onto caller's dispute_hint (mutate)
         hint = normalized.get("dispute_hint")
         if isinstance(hint, dict) and dispute_id:

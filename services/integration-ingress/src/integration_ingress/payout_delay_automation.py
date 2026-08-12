@@ -232,14 +232,8 @@ async def build_payout_delay_payload(
             },
         )
 
-    has_automation_holds = any(
-        h.get("held_by") == "payout_delay_automation" for h in holds
-    )
-    source = (
-        "durable+automation"
-        if automation_writes > 0 or has_automation_holds
-        else "durable"
-    )
+    has_automation_holds = any(h.get("held_by") == "payout_delay_automation" for h in holds)
+    source = "durable+automation" if automation_writes > 0 or has_automation_holds else "durable"
 
     return {
         "tenant_id": tid,

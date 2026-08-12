@@ -92,7 +92,9 @@ class WorkerAuthVendorPlugin(BaseVendorPlugin):
             data = {}
         status = str(data.get("status") or data.get("result") or "unknown").lower()
         failed = status in ("failed", "fail", "rejected", "mismatch", "timeout")
-        score = 88.0 if failed else (5.0 if status in ("passed", "ok", "match") else 40.0)
+        score = (
+            88.0 if failed else (5.0 if status in ("passed", "ok", "match") else 40.0)
+        )
         reasons = (
             ["worker_auth:failed", "risk:account_rental"]
             if failed

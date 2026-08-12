@@ -1,4 +1,5 @@
 """Promote/activate must refuse when kill_criteria fire."""
+
 from __future__ import annotations
 
 import os

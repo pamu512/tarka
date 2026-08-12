@@ -52,9 +52,7 @@ def apply_marketplace_features(
     if "kyb_unverified" in meta:
         features["kyb_unverified"] = _truthy(meta["kyb_unverified"])
     if "kyb_sla_breach" in meta or "kyb_sla_breach" in pl:
-        features["kyb_sla_breach"] = _truthy(
-            _pick(pl, meta, "kyb_sla_breach")
-        )
+        features["kyb_sla_breach"] = _truthy(_pick(pl, meta, "kyb_sla_breach"))
 
     for key in (
         "ftid_intake_mismatch",

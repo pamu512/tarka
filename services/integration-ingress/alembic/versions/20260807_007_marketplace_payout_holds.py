@@ -51,9 +51,7 @@ def upgrade() -> None:
     op.create_index(
         "ix_marketplace_payout_holds_trace_id", "marketplace_payout_holds", ["trace_id"]
     )
-    op.create_index(
-        "ix_marketplace_payout_holds_held_at", "marketplace_payout_holds", ["held_at"]
-    )
+    op.create_index("ix_marketplace_payout_holds_held_at", "marketplace_payout_holds", ["held_at"])
 
 
 def downgrade() -> None:

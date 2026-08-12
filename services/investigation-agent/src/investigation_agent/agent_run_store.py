@@ -160,7 +160,9 @@ def persist_agent_run(
                 (agent_build or "")[:128],
                 json.dumps(_tool_trace_redacted(tool_calls), separators=(",", ":")),
                 json.dumps(_normalize_claims(claims), separators=(",", ":")),
-                json.dumps(context_snapshot or {}, sort_keys=True, default=str, separators=(",", ":")),
+                json.dumps(
+                    context_snapshot or {}, sort_keys=True, default=str, separators=(",", ":")
+                ),
                 now,
             ),
         )

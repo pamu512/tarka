@@ -19,7 +19,11 @@ def test_case_karma_from_metadata():
     feats: dict = {}
     apply_case_karma_from_sources(
         feats,
-        {"repeat_refund_rate_30d": 0.5, "dispute_loss_rate_30d": 0.1, "seller_case_count_90d": 12},
+        {
+            "repeat_refund_rate_30d": 0.5,
+            "dispute_loss_rate_30d": 0.1,
+            "seller_case_count_90d": 12,
+        },
     )
     assert feats["repeat_refund_high"] is True
     assert feats["case_karma_high"] is True

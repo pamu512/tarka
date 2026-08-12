@@ -81,9 +81,7 @@ def test_promo_hub():
     nodes = [{"id": "promo1", "role": "promo"}] + [
         {"id": f"b{i}", "role": "buyer"} for i in range(6)
     ]
-    edges = [
-        {"src": "promo1", "dst": f"b{i}", "type": "REDEEMED"} for i in range(6)
-    ]
+    edges = [{"src": "promo1", "dst": f"b{i}", "type": "REDEEMED"} for i in range(6)]
     r = compute_ring_score(metadata={"party_graph": {"nodes": nodes, "edges": edges}})
     assert r is not None
     assert any(f.code == "promo_hub" for f in r.factors)

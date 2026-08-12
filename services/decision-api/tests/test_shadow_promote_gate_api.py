@@ -66,4 +66,6 @@ async def test_shadow_promote_gate_endpoint(challenge_client):
     assert body["desk_promote_gate"]["promote_allowed"] is False
     assert "drift_promote_gate" in (body["desk_promote_gate"].get("requires") or [])
     assert "champion_challenger" in body
-    assert body["champion_challenger"]["schema_id"] == "tarka.champion_challenger_audit/v1"
+    assert (
+        body["champion_challenger"]["schema_id"] == "tarka.champion_challenger_audit/v1"
+    )

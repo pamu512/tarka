@@ -5,7 +5,10 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from decision_api.decision_outcome import DecisionOutcomeContext, schedule_decision_outcomes
+from decision_api.decision_outcome import (
+    DecisionOutcomeContext,
+    schedule_decision_outcomes,
+)
 from decision_api.seller_integrity_bridge import (
     build_seller_payload,
     maybe_record_seller_integrity,
@@ -77,7 +80,9 @@ async def test_maybe_record_seller_integrity_posts_to_ingress():
         return httpx.Response(201, json={"ok": True})
 
     transport = httpx.MockTransport(handler)
-    async with httpx.AsyncClient(transport=transport, base_url="http://ingress") as client:
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://ingress"
+    ) as client:
         await maybe_record_seller_integrity(
             http=client,
             base_url="http://ingress",
@@ -182,7 +187,8 @@ def test_schedule_decision_outcomes_enqueues_seller_bridge():
     bridge_tasks = [
         t
         for t in bg.tasks
-        if getattr(t[0], "__name__", "") == "maybe_record_seller_integrity_from_evaluate"
+        if getattr(t[0], "__name__", "")
+        == "maybe_record_seller_integrity_from_evaluate"
     ]
     assert len(bridge_tasks) == 1
     _fn, _args, kwargs = bridge_tasks[0]

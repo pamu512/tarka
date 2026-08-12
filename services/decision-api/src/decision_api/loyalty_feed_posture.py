@@ -156,7 +156,9 @@ def load_feeds_status_file(*, path: Path | None = None) -> dict[str, Any]:
 
 def bridge_configured(*, url: str | None = None, api_key: str | None = None) -> bool:
     u = (url if url is not None else os.environ.get("LOYALTY_ABUSE_URL", "")).strip()
-    k = (api_key if api_key is not None else os.environ.get("LOYALTY_ABUSE_API_KEY", "")).strip()
+    k = (
+        api_key if api_key is not None else os.environ.get("LOYALTY_ABUSE_API_KEY", "")
+    ).strip()
     # Settings may use TARKA_ prefixed names via pydantic — also check those.
     if not u:
         u = os.environ.get("TARKA_LOYALTY_ABUSE_URL", "").strip()

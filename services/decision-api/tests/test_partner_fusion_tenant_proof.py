@@ -13,7 +13,9 @@ _SCRIPT = _REPO / "scripts" / "oss" / "partner_fusion_tenant_proof.py"
 
 
 def _load_proof_module():
-    spec = importlib.util.spec_from_file_location("partner_fusion_tenant_proof", _SCRIPT)
+    spec = importlib.util.spec_from_file_location(
+        "partner_fusion_tenant_proof", _SCRIPT
+    )
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

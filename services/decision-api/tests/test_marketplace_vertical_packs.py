@@ -1,4 +1,5 @@
 """Marketplace vertical packs: catalog floor + install kill-gate."""
+
 from __future__ import annotations
 
 import os
@@ -80,7 +81,9 @@ def test_marketplace_verticals_listed_with_rule_floor():
         assert tags & ACTION_TAGS or tags & RISK_TAGS
 
 
-@pytest.mark.parametrize("vertical_name", ["marketplace", "qcommerce", "offline_payment"])
+@pytest.mark.parametrize(
+    "vertical_name", ["marketplace", "qcommerce", "offline_payment"]
+)
 @pytest.mark.asyncio
 async def test_install_endpoint_returns_conflict_when_kill_fires(
     client, monkeypatch, tmp_path, vertical_name
@@ -104,7 +107,9 @@ async def test_install_endpoint_returns_conflict_when_kill_fires(
     assert "min_precision" in detail["blockers"]
 
 
-@pytest.mark.parametrize("vertical_name", ["marketplace", "qcommerce", "offline_payment"])
+@pytest.mark.parametrize(
+    "vertical_name", ["marketplace", "qcommerce", "offline_payment"]
+)
 @pytest.mark.asyncio
 async def test_install_endpoint_installs_when_kill_passes(
     client, monkeypatch, tmp_path, vertical_name

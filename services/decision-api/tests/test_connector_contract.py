@@ -44,7 +44,9 @@ def test_device_live_when_fp_registered(monkeypatch):
 
 def test_chargeback_requires_api_key_and_base(monkeypatch):
     monkeypatch.setenv("TARKA_VENDOR_CHARGEBACK_ALERT_BASE_URL", "https://cb.example")
-    out = posture_for_family("chargeback_alert", registered_vendors=["chargeback_alert"])
+    out = posture_for_family(
+        "chargeback_alert", registered_vendors=["chargeback_alert"]
+    )
     assert out["live_claim_allowed"] is False
     assert "credentials_missing" in out["blockers"]
 

@@ -48,7 +48,11 @@ def _evidence_pack_from_payload(pl: dict[str, Any]) -> dict[str, Any]:
 
     pdfs: list[str] = []
     for src in srcs:
-        raw = src.get("evidence_pdf_urls") or src.get("evidence_pdfs") or src.get("pdf_urls")
+        raw = (
+            src.get("evidence_pdf_urls")
+            or src.get("evidence_pdfs")
+            or src.get("pdf_urls")
+        )
         if isinstance(raw, list):
             for u in raw[:16]:
                 s = str(u or "").strip()
@@ -83,11 +87,7 @@ def build_evaluate_reprocess_metadata(
     }
     if dispute_hint.get("reason_code"):
         evidence["reason_code"] = dispute_hint["reason_code"]
-    hint_public = {
-        k: v
-        for k, v in dispute_hint.items()
-        if k != "evaluate_reprocess"
-    }
+    hint_public = {k: v for k, v in dispute_hint.items() if k != "evaluate_reprocess"}
     return {
         "checkpoint": "chargeback",
         "chargeback_early_alert": True,
@@ -117,8 +117,12 @@ def normalize_chargeback_alert_payload(
         or pl.get("acquirer_reference_number")
         or pl.get("order_id")
     )
-    alert_id = pl.get("alert_id") or pl.get("id") or pl.get("ethoca_id") or pl.get("case_id")
-    severity = str(pl.get("severity") or pl.get("risk_level") or pl.get("priority") or "").lower()
+    alert_id = (
+        pl.get("alert_id") or pl.get("id") or pl.get("ethoca_id") or pl.get("case_id")
+    )
+    severity = str(
+        pl.get("severity") or pl.get("risk_level") or pl.get("priority") or ""
+    ).lower()
     amount = pl.get("amount") or pl.get("transaction_amount")
     currency = pl.get("currency") or pl.get("transaction_currency")
     reason = pl.get("reason_code") or pl.get("chargeback_reason_code") or pl.get("code")

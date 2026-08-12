@@ -43,8 +43,28 @@ def test_priority_verticals_promote_on_fixture_holdout():
 def test_promote_blocked_when_f1_fails():
     # Invert labels → pack fires on y=0 → precision collapse
     bad_rows = [
-        {"id": "bad-pos", "y": 0, "features": {"cross_role_same_device": True, "lifecycle_risk_high": True, "ftid_refund_hold": True, "seller_gmv_30d": 50000, "kyb_unverified": True, "amount": 200, "account_age_days": 2}},
-        {"id": "bad-neg", "y": 1, "features": {"amount": 10, "account_age_days": 400, "transaction_count_24h": 1}},
+        {
+            "id": "bad-pos",
+            "y": 0,
+            "features": {
+                "cross_role_same_device": True,
+                "lifecycle_risk_high": True,
+                "ftid_refund_hold": True,
+                "seller_gmv_30d": 50000,
+                "kyb_unverified": True,
+                "amount": 200,
+                "account_age_days": 2,
+            },
+        },
+        {
+            "id": "bad-neg",
+            "y": 1,
+            "features": {
+                "amount": 10,
+                "account_age_days": 400,
+                "transaction_count_24h": 1,
+            },
+        },
     ] * 60
     with patch(
         "decision_api.vertical_promote_registry.load_holdout_rows",

@@ -47,14 +47,18 @@ def _run_case(row: dict) -> None:
     evidence = apply_all_depth_engines(feats, None, meta)
     tags: list[str] = []
     hits: list[str] = []
-    merge_depth_into_score_and_tags(evidence=evidence, all_new_tags=tags, rule_hits=hits)
+    merge_depth_into_score_and_tags(
+        evidence=evidence, all_new_tags=tags, rule_hits=hits
+    )
 
     expect = row.get("expect") or {}
     for key in expect.get("evidence_keys") or []:
         assert key in evidence, f"{cid}: missing evidence key {key}"
 
     for f in expect.get("features_true") or []:
-        assert feats.get(f) is True, f"{cid}: expected feature true: {f} (got {feats.get(f)!r})"
+        assert feats.get(f) is True, (
+            f"{cid}: expected feature true: {f} (got {feats.get(f)!r})"
+        )
 
     for f in expect.get("features_false") or []:
         assert feats.get(f) is not True, f"{cid}: expected feature not true: {f}"

@@ -39,7 +39,11 @@ _PAIR_RECIPES: tuple[
         "ring_promo",
         24.0,
         ("risk:promo_farm", "action:hard_challenge"),
-        ("promo_econ_high", "ring_factor:promo_device_role_chain", "cross_role_same_device"),
+        (
+            "promo_econ_high",
+            "ring_factor:promo_device_role_chain",
+            "cross_role_same_device",
+        ),
     ),
     (
         "seller_trajectory",
@@ -262,7 +266,9 @@ def compute_depth_fusion(
     raw_hits: list[tuple[str, float, tuple[str, ...], str]] = []
     for a, b, code, weight, recipe_tags, required in _PAIR_RECIPES:
         if a in active_set and b in active_set and _gate_ok(required, features):
-            raw_hits.append((code, weight, recipe_tags, f"Gated co-occurrence of {a} × {b}"))
+            raw_hits.append(
+                (code, weight, recipe_tags, f"Gated co-occurrence of {a} × {b}")
+            )
 
     factors: list[FusionFactor] = []
     tags: list[str] = ["risk:depth_fusion"]

@@ -154,7 +154,9 @@ def posture_for_family(
         "evidence_tags": list(fam.evidence_tags),
         "env_credential_keys": list(fam.env_credential_keys),
         "category_note": fam.category_note,
-        "credentials_present": any(creds_present) if family_id == "device" else any_creds,
+        "credentials_present": any(creds_present)
+        if family_id == "device"
+        else any_creds,
         "plugin_registered": plugin_ok,
         "schema_id": "tarka.connector_posture/v1",
         "observed_at": datetime.now(UTC).isoformat(),

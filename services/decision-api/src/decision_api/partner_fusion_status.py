@@ -122,7 +122,9 @@ def l2_live_readiness(
         blockers.append("LIVE_without_sha")
     return {
         "ready_to_claim_live": False,
-        "ready_to_attempt_live_proof": bool(fp or incognia) and decision_url and req_ids,
+        "ready_to_attempt_live_proof": bool(fp or incognia)
+        and decision_url
+        and req_ids,
         "blockers": blockers,
         "checks": {
             "fingerprint_key_configured": fp,

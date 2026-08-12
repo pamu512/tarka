@@ -79,14 +79,10 @@ def apply_case_karma_from_sources(
 
 def case_api_config() -> dict[str, Any]:
     url = (
-        os.environ.get("CASE_API_URL")
-        or os.environ.get("TARKA_CASE_API_URL")
-        or ""
+        os.environ.get("CASE_API_URL") or os.environ.get("TARKA_CASE_API_URL") or ""
     ).strip()
     key = (
-        os.environ.get("CASE_API_KEY")
-        or os.environ.get("TARKA_CASE_API_KEY")
-        or ""
+        os.environ.get("CASE_API_KEY") or os.environ.get("TARKA_CASE_API_KEY") or ""
     ).strip()
     return {
         "url": url,
@@ -139,7 +135,9 @@ async def apply_case_karma_features(
     """Metadata-first karma; optional case-api fill for missing rates."""
     pl = payload if isinstance(payload, dict) else {}
     meta = metadata if isinstance(metadata, dict) else {}
-    karma_block = meta.get("case_karma") if isinstance(meta.get("case_karma"), dict) else {}
+    karma_block = (
+        meta.get("case_karma") if isinstance(meta.get("case_karma"), dict) else {}
+    )
     apply_case_karma_from_sources(features, karma_block, meta, pl)
 
     need_fetch = any(

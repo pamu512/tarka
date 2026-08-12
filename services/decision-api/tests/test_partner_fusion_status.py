@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from decision_api.partner_fusion_status import load_partner_fusion_status, parse_live_status_line
+from decision_api.partner_fusion_status import (
+    load_partner_fusion_status,
+    parse_live_status_line,
+)
 
 
 def test_parse_waived():
@@ -24,7 +27,10 @@ def test_load_repo_status_is_waived():
     assert body["status"] in {"WAIVED", "LIVE", "MISSING", "INVALID"}
     assert "opensanctions" in body
     assert "live_readiness" in body
-    assert body["live_readiness"]["ready_to_claim_live"] is False or body["status"] == "LIVE"
+    assert (
+        body["live_readiness"]["ready_to_claim_live"] is False
+        or body["status"] == "LIVE"
+    )
     # Current committed posture is WAIVED without forged pins
     if body["status"] == "WAIVED":
         assert body["promote_live_claim_allowed"] is False

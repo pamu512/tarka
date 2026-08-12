@@ -69,7 +69,9 @@ class ChargebackAlertVendorPlugin(BaseVendorPlugin):
 
     def _build_get_url(self, features: dict[str, Any]) -> str:
         payload = ChargebackAlertFeaturePayload.model_validate(features)
-        return f"{self._creds.base_url}/v1/alerts/{_safe_txn_id(payload.transaction_id)}"
+        return (
+            f"{self._creds.base_url}/v1/alerts/{_safe_txn_id(payload.transaction_id)}"
+        )
 
     async def health_check(self, http: httpx.AsyncClient) -> dict[str, Any]:
         if not self._creds.api_key or not self._creds.base_url:

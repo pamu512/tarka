@@ -5,7 +5,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from decision_api.depth_engines import apply_all_depth_engines, merge_depth_into_score_and_tags
+from decision_api.depth_engines import (
+    apply_all_depth_engines,
+    merge_depth_into_score_and_tags,
+)
 from decision_api.party_graph_contract import assess_party_graph_quality
 from decision_api.typology import evaluate_typologies
 from decision_api.vertical_calibration import load_all_vertical_calibration_posture
@@ -47,15 +50,23 @@ def _run_expect(row: dict) -> None:
         assert feats.get(f) is not True, f"{cid}: FP {f}={feats.get(f)!r}"
     # also allow expect keys as direct feature asserts (graph lib style)
     for k, v in expect.items():
-        if k.startswith("features_") or k in ("evidence_keys", "typology_min_breach", "typology_max_breach"):
+        if k.startswith("features_") or k in (
+            "evidence_keys",
+            "typology_min_breach",
+            "typology_max_breach",
+        ):
             continue
         if k == "production_ready":
-            gq = ev.get("party_graph_quality") or assess_party_graph_quality(metadata=meta)
+            gq = ev.get("party_graph_quality") or assess_party_graph_quality(
+                metadata=meta
+            )
             assert gq is not None
             assert gq["production_ready"] is v, f"{cid}: production_ready"
             continue
         if k == "cross_role_same_device":
-            assert bool(feats.get("cross_role_same_device")) is bool(v), f"{cid}: cross_role"
+            assert bool(feats.get("cross_role_same_device")) is bool(v), (
+                f"{cid}: cross_role"
+            )
             continue
         if k in ("max_fusion_score",):
             continue

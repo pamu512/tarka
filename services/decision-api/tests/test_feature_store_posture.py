@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import json
 
-from decision_api.feature_store_posture import dual_diff_proven, load_feature_store_ops_posture
+from decision_api.feature_store_posture import (
+    dual_diff_proven,
+    load_feature_store_ops_posture,
+)
 
 
 def test_dual_diff_proven_requires_matched():

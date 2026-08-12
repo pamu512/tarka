@@ -16,7 +16,9 @@ _PRIORITY_VERTICALS = ("marketplace", "food_delivery", "e_hailing")
 _DEFAULT_SCORE_THRESHOLD = 30.0
 
 
-def _bins(scores: list[float], labels: list[int], n_bins: int = 10) -> list[dict[str, Any]]:
+def _bins(
+    scores: list[float], labels: list[int], n_bins: int = 10
+) -> list[dict[str, Any]]:
     if not scores:
         return []
     width = 100.0 / n_bins
@@ -65,7 +67,9 @@ def _ece(bins: list[dict[str, Any]]) -> float | None:
         n = int(b["n"] or 0)
         if n <= 0 or b["mean_score"] is None or b["positive_rate"] is None:
             continue
-        err += (n / total) * abs(float(b["mean_score"]) / 100.0 - float(b["positive_rate"]))
+        err += (n / total) * abs(
+            float(b["mean_score"]) / 100.0 - float(b["positive_rate"])
+        )
     return round(err, 6)
 
 

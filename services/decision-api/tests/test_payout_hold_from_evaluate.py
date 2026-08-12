@@ -5,7 +5,10 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from decision_api.decision_outcome import DecisionOutcomeContext, schedule_decision_outcomes
+from decision_api.decision_outcome import (
+    DecisionOutcomeContext,
+    schedule_decision_outcomes,
+)
 from decision_api.payout_hold_bridge import (
     build_hold_payload,
     maybe_create_payout_hold,
@@ -114,7 +117,9 @@ async def test_maybe_create_payout_hold_posts_to_ingress():
         return httpx.Response(201, json={"ok": True})
 
     transport = httpx.MockTransport(handler)
-    async with httpx.AsyncClient(transport=transport, base_url="http://ingress") as client:
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://ingress"
+    ) as client:
         await maybe_create_payout_hold(
             http=client,
             base_url="http://ingress",

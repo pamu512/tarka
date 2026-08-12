@@ -80,9 +80,7 @@ async def upsert_hold(
     now = datetime.now(UTC)
     tag_list = list(tags or [])
     prior_status = row.status if row is not None else None
-    materialized = row is None or (
-        st in ("held", "pending") and prior_status != st
-    )
+    materialized = row is None or (st in ("held", "pending") and prior_status != st)
 
     if row is None:
         held_at = now

@@ -21,7 +21,11 @@ _DEFAULT_SCORE_THRESHOLD = 30.0
 
 # Bundled holdouts live next to tests; override via env path if needed.
 _HOLDOUT_DIR = (
-    Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "labels" / "vertical_holdouts"
+    Path(__file__).resolve().parents[2]
+    / "tests"
+    / "fixtures"
+    / "labels"
+    / "vertical_holdouts"
 )
 
 
@@ -52,7 +56,9 @@ def load_holdout_rows(vertical: str) -> list[dict[str, Any]]:
     return rows
 
 
-def _pack_score(features: dict[str, Any], rules: list[dict[str, Any]]) -> tuple[float, list[str]]:
+def _pack_score(
+    features: dict[str, Any], rules: list[dict[str, Any]]
+) -> tuple[float, list[str]]:
     from decision_api.json_rules import _match_condition
 
     hits: list[str] = []
@@ -65,9 +71,7 @@ def _pack_score(features: dict[str, Any], rules: list[dict[str, Any]]) -> tuple[
     return max(0.0, min(100.0, 10.0 + delta)), hits
 
 
-def _binary_metrics(
-    y_true: list[int], y_pred: list[int]
-) -> dict[str, Any]:
+def _binary_metrics(y_true: list[int], y_pred: list[int]) -> dict[str, Any]:
     tp = fp = tn = fn = 0
     for yt, yp in zip(y_true, y_pred, strict=True):
         if yt == 1 and yp == 1:

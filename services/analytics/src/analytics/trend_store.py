@@ -473,9 +473,7 @@ def record_observation(
     }
 
 
-def baseline_snapshot(
-    *, tenant_id: str, entity_id: str, metric_key: str
-) -> dict[str, Any] | None:
+def baseline_snapshot(*, tenant_id: str, entity_id: str, metric_key: str) -> dict[str, Any] | None:
     c = _get_conn()
     row = c.execute(
         """

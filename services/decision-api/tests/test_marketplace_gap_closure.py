@@ -4,8 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from decision_api.offline_cancel_bridge import map_cancel_response, should_invoke_cancel_bridge
-from decision_api.refund_abuse_bridge import map_refund_response, should_invoke_refund_bridge
+from decision_api.offline_cancel_bridge import (
+    map_cancel_response,
+    should_invoke_cancel_bridge,
+)
+from decision_api.refund_abuse_bridge import (
+    map_refund_response,
+    should_invoke_refund_bridge,
+)
 from decision_api.vendors.plugins.chargeback_alert import ChargebackAlertVendorPlugin
 from decision_api.vendors.plugins.chargeback_alert import ChargebackAlertCredentials
 from decision_api.vendors.plugins.identity_kyb import (

@@ -76,7 +76,9 @@ def _truthy(v: Any) -> bool:
     return False
 
 
-def _extract(payload: dict[str, Any] | None, metadata: dict[str, Any] | None) -> dict[str, Any] | None:
+def _extract(
+    payload: dict[str, Any] | None, metadata: dict[str, Any] | None
+) -> dict[str, Any] | None:
     for src in (metadata, payload):
         if not isinstance(src, dict):
             continue
@@ -150,8 +152,11 @@ def compute_listing_risk(
             26,
             f"Live stream with seller_age_days={seller_age:.0f}",
         )
-    elif live and listing_age_h is not None and listing_age_h <= 2 and (
-        viewers is not None and viewers >= 200
+    elif (
+        live
+        and listing_age_h is not None
+        and listing_age_h <= 2
+        and (viewers is not None and viewers >= 200)
     ):
         _add(
             factors,
@@ -160,8 +165,10 @@ def compute_listing_risk(
             f"Live listing age_h={listing_age_h:.1f} viewers={viewers}",
         )
 
-    if listing_burst is not None and listing_burst >= 25 and (
-        seller_age is not None and seller_age <= 21
+    if (
+        listing_burst is not None
+        and listing_burst >= 25
+        and (seller_age is not None and seller_age <= 21)
     ):
         _add(
             factors,

@@ -172,7 +172,11 @@ _PACKS: dict[str, dict[str, Any]] = {
                     {"field": "amount", "op": "gte", "value": 800},
                     {"field": "transaction_count_24h", "op": "gte", "value": 12},
                 ],
-                "tags": ["vertical:marketplace", "action:payout_hold", "risk:collusion_shared_device"],
+                "tags": [
+                    "vertical:marketplace",
+                    "action:payout_hold",
+                    "risk:collusion_shared_device",
+                ],
                 "score_delta": 30,
                 "description": "High payout with elevated velocity — hold pending review",
             },
@@ -269,7 +273,11 @@ _PACKS: dict[str, dict[str, Any]] = {
             {
                 "id": "mkt_off_rail_payment",
                 "when": [
-                    {"field": "off_rail_payment_request", "op": "is_true", "value": True},
+                    {
+                        "field": "off_rail_payment_request",
+                        "op": "is_true",
+                        "value": True,
+                    },
                 ],
                 "tags": [
                     "vertical:marketplace",
@@ -438,7 +446,11 @@ _PACKS: dict[str, dict[str, Any]] = {
                     {"field": "amount", "op": "gte", "value": 200},
                     {"field": "transaction_count_24h", "op": "gte", "value": 10},
                 ],
-                "tags": ["vertical:qcommerce", "action:payout_delay", "risk:promo_farm"],
+                "tags": [
+                    "vertical:qcommerce",
+                    "action:payout_delay",
+                    "risk:promo_farm",
+                ],
                 "score_delta": 22,
                 "description": "Promo-linked payout — delay settlement",
             },
@@ -484,7 +496,11 @@ _PACKS: dict[str, dict[str, Any]] = {
                     {"field": "amount", "op": "gte", "value": 500},
                     {"field": "account_age_days", "op": "lte", "value": 21},
                 ],
-                "tags": ["vertical:logistics", "action:payout_hold", "risk:multi_account_partner"],
+                "tags": [
+                    "vertical:logistics",
+                    "action:payout_hold",
+                    "risk:multi_account_partner",
+                ],
                 "score_delta": 28,
                 "description": "Young partner high payout — hold pending review",
             },
@@ -540,7 +556,11 @@ _PACKS: dict[str, dict[str, Any]] = {
             {
                 "id": "log_pod_photo_mismatch",
                 "when": [
-                    {"field": "pod_photo_hash_mismatch", "op": "is_true", "value": True},
+                    {
+                        "field": "pod_photo_hash_mismatch",
+                        "op": "is_true",
+                        "value": True,
+                    },
                 ],
                 "tags": [
                     "vertical:logistics",
@@ -688,7 +708,11 @@ _PACKS: dict[str, dict[str, Any]] = {
             {
                 "id": "off_rail_payment_request",
                 "when": [
-                    {"field": "off_rail_payment_request", "op": "is_true", "value": True},
+                    {
+                        "field": "off_rail_payment_request",
+                        "op": "is_true",
+                        "value": True,
+                    },
                 ],
                 "tags": [
                     "vertical:offline_payment",
@@ -762,7 +786,11 @@ _PACKS: dict[str, dict[str, Any]] = {
                     {"field": "amount", "op": "gte", "value": 300},
                     {"field": "is_emulator", "op": "is_true", "value": True},
                 ],
-                "tags": ["vertical:food_delivery", "action:payout_hold", "risk:courier_spoof"],
+                "tags": [
+                    "vertical:food_delivery",
+                    "action:payout_hold",
+                    "risk:courier_spoof",
+                ],
                 "score_delta": 30,
                 "description": "Courier payout with spoof signal — hold pending review",
             },
@@ -821,7 +849,11 @@ _PACKS: dict[str, dict[str, Any]] = {
             {
                 "id": "fd_off_rail_payment",
                 "when": [
-                    {"field": "off_rail_payment_request", "op": "is_true", "value": True},
+                    {
+                        "field": "off_rail_payment_request",
+                        "op": "is_true",
+                        "value": True,
+                    },
                 ],
                 "tags": [
                     "vertical:food_delivery",
@@ -924,7 +956,11 @@ _PACKS: dict[str, dict[str, Any]] = {
                 "when": [
                     {"field": "is_location_spoof", "op": "is_true", "value": True},
                 ],
-                "tags": ["vertical:e_hailing", "risk:courier_spoof", "action:hard_challenge"],
+                "tags": [
+                    "vertical:e_hailing",
+                    "risk:courier_spoof",
+                    "action:hard_challenge",
+                ],
                 "score_delta": 30,
                 "description": "Vendor location spoof/tamper signal on trip",
             },
@@ -944,7 +980,11 @@ _PACKS: dict[str, dict[str, Any]] = {
                 "when": [
                     {"field": "driver_bonus_farm", "op": "is_true", "value": True},
                 ],
-                "tags": ["vertical:e_hailing", "risk:promo_farm", "action:hard_challenge"],
+                "tags": [
+                    "vertical:e_hailing",
+                    "risk:promo_farm",
+                    "action:hard_challenge",
+                ],
                 "score_delta": 22,
                 "description": "Host-reported driver bonus claim farm",
             },
@@ -1124,7 +1164,9 @@ def list_vertical_packs() -> dict[str, dict[str, Any]]:
             "required_connectors": list(
                 (_PACK_POSTURE.get(k) or {}).get("required_connectors") or []
             ),
-            "host_actions": list((_PACK_POSTURE.get(k) or {}).get("host_actions") or []),
+            "host_actions": list(
+                (_PACK_POSTURE.get(k) or {}).get("host_actions") or []
+            ),
         }
         for k, v in _PACKS.items()
     }

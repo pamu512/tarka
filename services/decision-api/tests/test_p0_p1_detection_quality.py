@@ -6,15 +6,25 @@ import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from decision_api.depth_engines import apply_all_depth_engines, merge_depth_into_score_and_tags
+from decision_api.depth_engines import (
+    apply_all_depth_engines,
+    merge_depth_into_score_and_tags,
+)
 from decision_api.depth_fusion import METHOD as FUSION_METHOD
 from decision_api.depth_fusion import compute_depth_fusion
 from decision_api.graph_hints_merge import merge_partner_hints_into_party_graph
-from decision_api.kyb_rescreen import apply_rescreen_result, is_due_for_rescreen, select_due_sellers
+from decision_api.kyb_rescreen import (
+    apply_rescreen_result,
+    is_due_for_rescreen,
+    select_due_sellers,
+)
 from decision_api.listing_risk import compute_listing_risk
 from decision_api.party_graph_contract import assess_party_graph_quality
 from decision_api.typology import evaluate_typologies
-from decision_api.vertical_calibration import calibrate_vertical, load_all_vertical_calibration_posture
+from decision_api.vertical_calibration import (
+    calibrate_vertical,
+    load_all_vertical_calibration_posture,
+)
 from decision_api.vertical_promote_registry import evaluate_holdout_for_pack
 
 _ADV = (
@@ -44,7 +54,9 @@ def test_adversarial_corpus_no_false_confidence():
         for f in expect.get("features_true") or []:
             assert feats.get(f) is True, f"{cid}: expected true {f}"
         for f in expect.get("features_false") or []:
-            assert feats.get(f) is not True, f"{cid}: false-positive {f}={feats.get(f)!r}"
+            assert feats.get(f) is not True, (
+                f"{cid}: false-positive {f}={feats.get(f)!r}"
+            )
         tags: list[str] = []
         hits: list[str] = []
         merge_depth_into_score_and_tags(evidence=ev, all_new_tags=tags, rule_hits=hits)
@@ -103,9 +115,27 @@ def test_fusion_child_score_damped_when_fused():
     meta = {
         "lifecycle": {
             "events": [
-                {"stage": "checkout", "ts": "2026-08-11T10:00:00Z", "amount": 120, "actor_role": "buyer", "actor_id": "b1"},
-                {"stage": "paid", "ts": "2026-08-11T10:01:00Z", "amount": 120, "actor_role": "buyer", "actor_id": "b1"},
-                {"stage": "refund_requested", "ts": "2026-08-11T10:08:00Z", "amount": 120, "actor_role": "buyer", "actor_id": "b1"},
+                {
+                    "stage": "checkout",
+                    "ts": "2026-08-11T10:00:00Z",
+                    "amount": 120,
+                    "actor_role": "buyer",
+                    "actor_id": "b1",
+                },
+                {
+                    "stage": "paid",
+                    "ts": "2026-08-11T10:01:00Z",
+                    "amount": 120,
+                    "actor_role": "buyer",
+                    "actor_id": "b1",
+                },
+                {
+                    "stage": "refund_requested",
+                    "ts": "2026-08-11T10:08:00Z",
+                    "amount": 120,
+                    "actor_role": "buyer",
+                    "actor_id": "b1",
+                },
             ]
         },
         "party_graph": {
@@ -124,7 +154,9 @@ def test_fusion_child_score_damped_when_fused():
     assert "depth_fusion" in ev
     tags: list[str] = []
     hits: list[str] = []
-    delta = merge_depth_into_score_and_tags(evidence=ev, all_new_tags=tags, rule_hits=hits)
+    delta = merge_depth_into_score_and_tags(
+        evidence=ev, all_new_tags=tags, rule_hits=hits
+    )
     assert delta <= 45.0
     assert "depth_fusion_engine" in hits
 
@@ -163,8 +195,18 @@ def test_party_graph_quality_weak_vs_ready():
                     {"id": "d1", "role": "device"},
                 ],
                 "edges": [
-                    {"src": "b1", "dst": "d1", "type": "USES_DEVICE", "ts": "2026-08-11T10:00:00Z"},
-                    {"src": "s1", "dst": "d1", "type": "USES_DEVICE", "ts": "2026-08-11T10:01:00Z"},
+                    {
+                        "src": "b1",
+                        "dst": "d1",
+                        "type": "USES_DEVICE",
+                        "ts": "2026-08-11T10:00:00Z",
+                    },
+                    {
+                        "src": "s1",
+                        "dst": "d1",
+                        "type": "USES_DEVICE",
+                        "ts": "2026-08-11T10:01:00Z",
+                    },
                 ],
             }
         }
