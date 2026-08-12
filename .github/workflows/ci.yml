@@ -100,15 +100,15 @@ jobs:
           python3 -m pip install -q redis
           python3 scripts/oss/counter_parity_dual_diff.py --mode dual_diff \
             --out rules/counter_parity_last.json
-          python3 -c "
-import json, sys
-from pathlib import Path
-p = Path('rules/counter_parity_last.json')
-body = json.loads(p.read_text())
-ok = body.get('mode') == 'dual_diff' and body.get('matched') is True
-print(json.dumps({'mode': body.get('mode'), 'matched': body.get('matched'), 'diffs': len(body.get('diffs') or [])}, indent=2))
-sys.exit(0 if ok else 1)
-"
+          python3 <<'PY'
+            import json, sys
+            from pathlib import Path
+            p = Path('rules/counter_parity_last.json')
+            body = json.loads(p.read_text())
+            ok = body.get('mode') == 'dual_diff' and body.get('matched') is True
+            print(json.dumps({'mode': body.get('mode'), 'matched': body.get('matched'), 'diffs': len(body.get('diffs') or [])}, indent=2))
+            sys.exit(0 if ok else 1)
+          PY
       - name: Upload Wave 5 counter replay artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -156,19 +156,19 @@ sys.exit(0 if ok else 1)
             --artifact-out artifacts/calibration_retrain_report.json \
             --train-fraction 0.7 \
             --ece-threshold 0.05
-          python3 -c "
-import json, sys
-from pathlib import Path
-r = json.loads(Path('artifacts/calibration_retrain_report.json').read_text())
-ok = (
-    r.get('schema_id') == 'tarka.calibration_retrain_report/v1'
-    and r.get('gate_passed') is True
-    and r.get('candidate_written') is True
-    and Path('artifacts/platt_candidate.json').is_file()
-)
-print(json.dumps({k: r.get(k) for k in ('schema_id','gate_passed','ece','brier','train_rows','report_rows','candidate_written')}, indent=2))
-sys.exit(0 if ok else 1)
-"
+          python3 <<'PY'
+            import json, sys
+            from pathlib import Path
+            r = json.loads(Path('artifacts/calibration_retrain_report.json').read_text())
+            ok = (
+            r.get('schema_id') == 'tarka.calibration_retrain_report/v1'
+            and r.get('gate_passed') is True
+            and r.get('candidate_written') is True
+            and Path('artifacts/platt_candidate.json').is_file()
+            )
+            print(json.dumps({k: r.get(k) for k in ('schema_id','gate_passed','ece','brier','train_rows','report_rows','candidate_written')}, indent=2))
+            sys.exit(0 if ok else 1)
+          PY
       - name: Upload Inference Track A calibration artifacts
         if: always()
         uses: actions/upload-artifact@v4
