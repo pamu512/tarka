@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from decision_api.depth_engines import apply_all_depth_engines, merge_depth_into_score_and_tags
 from decision_api.party_graph_contract import assess_party_graph_quality
 from decision_api.typology import evaluate_typologies

@@ -98,7 +98,8 @@ async def test_ddl_execute_propagates_clickhouse_error(client):
             json={"sql": "CREATE TABLE tarka_ddl_test_x (id Int64) ENGINE = Memory"},
         )
     assert r.status_code == 422
-    assert "Syntax error" in r.json()["detail"]
+    # Public detail stays type-only (no ClickHouse/driver text leakage).
+    assert r.json()["detail"] == "clickhouse_ddl_failed:RuntimeError"
 
 
 @pytest.mark.asyncio

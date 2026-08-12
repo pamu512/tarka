@@ -143,7 +143,12 @@ async def test_reliability_export_endpoints(wave1_client):
     )
     bins_r = await wave1_client.get(
         "/v1/calibration/reliability-bins",
-        params={"tenant_id": "acme-rel", "limit": 100, "n_bins": 5},
+        params={
+            "tenant_id": "acme-rel",
+            "limit": 100,
+            "n_bins": 5,
+            "allow_proxy_labels": "true",
+        },
     )
 
     assert csv_r.status_code == 200
