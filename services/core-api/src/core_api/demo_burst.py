@@ -177,11 +177,11 @@ async def _run_demo_burst_core(
                 )
             osint_block["http_status"] = r_os.status_code
             if r_os.status_code >= 400:
-                osint_block["mode"] = "fallback"
+                osint_block["mode"] = "unavailable"
                 osint_block["body_preview"] = r_os.text[:400]
-                osint_block["canned"] = {
-                    "risk_level": "unknown",
-                    "note": "Ingress returned non-success; canned summary for demo continuity.",
+                osint_block["error"] = {
+                    "reason_code": "OSINT_INGRESS_NON_SUCCESS",
+                    "note": "Ingress returned non-success; refusing canned OSINT scores.",
                 }
             else:
                 try:
@@ -189,12 +189,11 @@ async def _run_demo_burst_core(
                 except Exception:
                     osint_block["payload"] = {"raw": r_os.text[:2000]}
         except Exception as exc:
-            osint_block["mode"] = "fallback"
-            osint_block["error"] = str(exc)
-            osint_block["canned"] = {
-                "risk_score": 21,
-                "risk_level": "low",
-                "note": "Ingress unreachable — deterministic placeholder for investor pitch.",
+            osint_block["mode"] = "unavailable"
+            osint_block["error"] = {
+                "reason_code": "OSINT_INGRESS_UNREACHABLE",
+                "detail": str(exc),
+                "note": "Ingress unreachable; refusing invented OSINT risk_score.",
             }
         osint_block["elapsed_ms"] = int((time.perf_counter() - t_os) * 1000)
         out["steps"]["osint"] = osint_block

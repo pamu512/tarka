@@ -176,6 +176,213 @@ _PACKS: dict[str, dict[str, Any]] = {
                 "score_delta": 30,
                 "description": "High payout with elevated velocity — hold pending review",
             },
+            {
+                "id": "mkt_kyb_unverified_high_gmv",
+                "when": [
+                    {"field": "seller_gmv_30d", "op": "gte", "value": 5000},
+                    {"field": "kyb_unverified", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:marketplace",
+                    "risk:kyb_unverified_high_volume",
+                    "action:kyb_collect",
+                    "action:suspend_sales",
+                ],
+                "score_delta": 32,
+                "description": "High-GMV seller without KYB — INFORM-shaped collect + suspend sales",
+            },
+            {
+                "id": "mkt_kyb_sla_breach",
+                "when": [
+                    {"field": "kyb_sla_breach", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:marketplace",
+                    "risk:kyb_sla_breach",
+                    "action:suspend_sales",
+                ],
+                "score_delta": 28,
+                "description": "Seller KYB collection SLA breached — suspend sales",
+            },
+            {
+                "id": "mkt_ftid_intake_mismatch",
+                "when": [
+                    {"field": "ftid_intake_mismatch", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:marketplace",
+                    "risk:ftid",
+                    "action:refund_hold",
+                ],
+                "score_delta": 34,
+                "description": "Carrier delivered but intake hash/weight mismatch — hold refund (FTID)",
+            },
+            {
+                "id": "mkt_chargeback_early_alert",
+                "when": [
+                    {"field": "chargeback_early_alert", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:marketplace",
+                    "risk:friendly_fraud",
+                    "action:dispute_open",
+                ],
+                "score_delta": 36,
+                "description": "Ethoca/Verifi-class early alert — open dispute / representment path",
+            },
+            {
+                "id": "mkt_listing_brand_hit",
+                "when": [
+                    {"field": "brand_protection_hit", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:marketplace",
+                    "risk:counterfeit",
+                    "action:listing_takedown",
+                ],
+                "score_delta": 30,
+                "description": "Brand-protection connector hit — listing risk / takedown",
+            },
+            {
+                "id": "mkt_listing_risk_high",
+                "when": [
+                    {"field": "listing_risk_high", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:marketplace",
+                    "risk:live_commerce",
+                    "risk:counterfeit",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 28,
+                "description": "Live-commerce / listing_risk engine elevated",
+            },
+            {
+                "id": "listing_risk_engine",
+                "when": [
+                    {"field": "listing_risk_score", "op": "gte", "value": 40},
+                ],
+                "tags": ["vertical:marketplace", "risk:listing"],
+                "score_delta": 12,
+                "description": "Listing risk engine score contribution",
+            },
+            {
+                "id": "mkt_off_rail_payment",
+                "when": [
+                    {"field": "off_rail_payment_request", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:marketplace",
+                    "risk:off_rail_payment",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 26,
+                "description": "Payment instruction left in-app rail (PIX/UPI/M-Pesa social-eng)",
+            },
+            {
+                "id": "mkt_lifecycle_risk_high",
+                "when": [
+                    {"field": "lifecycle_risk_high", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:marketplace",
+                    "risk:lifecycle",
+                    "action:refund_hold",
+                ],
+                "score_delta": 20,
+                "description": "Lifecycle sequence engine elevated (consumes depth score)",
+            },
+            {
+                "id": "mkt_ring_score_high",
+                "when": [
+                    {"field": "ring_score_high", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:marketplace",
+                    "risk:collusion_shared_device",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 20,
+                "description": "Multi-party ring engine elevated (consumes depth score)",
+            },
+            {
+                "id": "mkt_seller_trajectory_high",
+                "when": [
+                    {"field": "seller_trajectory_high", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:marketplace",
+                    "risk:seller_trajectory",
+                    "action:payout_hold",
+                ],
+                "score_delta": 18,
+                "description": "Seller trajectory changepoint engine elevated",
+            },
+            {
+                "id": "mkt_ftid_hold",
+                "when": [
+                    {"field": "ftid_refund_hold", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:marketplace",
+                    "risk:ftid",
+                    "action:refund_hold",
+                ],
+                "score_delta": 22,
+                "description": "FTID causal gate requires refund hold",
+            },
+            {
+                "id": "mkt_promo_econ_high",
+                "when": [
+                    {"field": "promo_econ_high", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:marketplace",
+                    "risk:promo_farm",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 16,
+                "description": "Promo economics fusion elevated",
+            },
+            {
+                "id": "mkt_representment_weak",
+                "when": [
+                    {"field": "representment_weak", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:marketplace",
+                    "risk:dispute_representment",
+                    "action:dispute_evidence_gap",
+                ],
+                "score_delta": 14,
+                "description": "Dispute representment pack weak vs reason code",
+            },
+            {
+                "id": "mkt_case_karma_high",
+                "when": [
+                    {"field": "case_karma_high", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:marketplace",
+                    "risk:refund_burst",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 26,
+                "description": "Case karma — elevated repeat refund / dispute loss",
+            },
+            {
+                "id": "mkt_depth_fusion_high",
+                "when": [
+                    {"field": "depth_fusion_high", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:marketplace",
+                    "risk:depth_fusion",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 28,
+                "description": "Multi-signal depth fusion elevated (lifecycle×ring / FTID pairs)",
+            },
         ],
         "tag_rules": [],
     },
@@ -291,6 +498,71 @@ _PACKS: dict[str, dict[str, Any]] = {
                 "score_delta": 22,
                 "description": "Shared device / bot collusion on partner account",
             },
+            {
+                "id": "log_ftid_refund_hold",
+                "when": [
+                    {"field": "ftid_refund_hold", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:logistics",
+                    "risk:ftid",
+                    "action:refund_hold",
+                ],
+                "score_delta": 32,
+                "description": "FTID causal gate — hold refund until intake matches",
+            },
+            {
+                "id": "log_pod_geofence_miss",
+                "when": [
+                    {"field": "pod_geofence_miss", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:logistics",
+                    "risk:friendly_fraud",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 26,
+                "description": "POD geofence miss on delivery confirmation",
+            },
+            {
+                "id": "log_pod_otp_fail",
+                "when": [
+                    {"field": "pod_otp_fail", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:logistics",
+                    "risk:friendly_fraud",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 28,
+                "description": "POD OTP failure — recipient verification failed",
+            },
+            {
+                "id": "log_pod_photo_mismatch",
+                "when": [
+                    {"field": "pod_photo_hash_mismatch", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:logistics",
+                    "risk:friendly_fraud",
+                    "action:refund_hold",
+                ],
+                "score_delta": 30,
+                "description": "POD photo hash mismatch vs expected delivery artifact",
+            },
+            {
+                "id": "log_pod_integrity_fail",
+                "when": [
+                    {"field": "pod_integrity_fail", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:logistics",
+                    "risk:friendly_fraud",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 24,
+                "description": "Combined POD integrity failure",
+            },
         ],
         "tag_rules": [],
     },
@@ -357,6 +629,74 @@ _PACKS: dict[str, dict[str, Any]] = {
                 ],
                 "score_delta": 28,
                 "description": "High offline/COD payout with velocity — hold pending review",
+            },
+            {
+                "id": "off_cod_refusal_high",
+                "when": [
+                    {"field": "is_cod", "op": "is_true", "value": True},
+                    {"field": "cod_refusal_high", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:offline_payment",
+                    "risk:cod_abuse",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 28,
+                "description": "Elevated COD refusal rate — fake-order pattern",
+            },
+            {
+                "id": "off_address_jig_high",
+                "when": [
+                    {"field": "address_jig_high", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:offline_payment",
+                    "risk:address_hop",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 26,
+                "description": "Address jigging — slight variants to evade COD filters",
+            },
+            {
+                "id": "off_address_hop_high",
+                "when": [
+                    {"field": "address_hop_high", "op": "is_true", "value": True},
+                    {"field": "is_cod", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:offline_payment",
+                    "risk:address_hop",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 24,
+                "description": "Many distinct COD delivery addresses in short window",
+            },
+            {
+                "id": "off_selective_theft",
+                "when": [
+                    {"field": "selective_theft_high", "op": "is_true", "value": True},
+                    {"field": "is_cod", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:offline_payment",
+                    "risk:cod_abuse",
+                    "action:payout_hold",
+                ],
+                "score_delta": 30,
+                "description": "Selective COD theft / non-delivery suspected",
+            },
+            {
+                "id": "off_rail_payment_request",
+                "when": [
+                    {"field": "off_rail_payment_request", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:offline_payment",
+                    "risk:off_rail_payment",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 28,
+                "description": "Off-rail payment request outside platform rails",
             },
         ],
         "tag_rules": [],
@@ -426,10 +766,349 @@ _PACKS: dict[str, dict[str, Any]] = {
                 "score_delta": 30,
                 "description": "Courier payout with spoof signal — hold pending review",
             },
+            {
+                "id": "fd_cancel_abuse_head",
+                "when": [
+                    {"field": "cancel_abuse_high", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:food_delivery",
+                    "risk:refund_burst",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 28,
+                "description": "Offline-cancel bridge head elevated — cancel abuse pattern",
+            },
+            {
+                "id": "fd_cancelled_offline_head",
+                "when": [
+                    {"field": "cancelled_offline_high", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:food_delivery",
+                    "risk:courier_spoof",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 30,
+                "description": "Ghost delivery / cancelled-offline completion signal",
+            },
+            {
+                "id": "fd_ftid_intake_mismatch",
+                "when": [
+                    {"field": "ftid_intake_mismatch", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:food_delivery",
+                    "risk:ftid",
+                    "action:refund_hold",
+                ],
+                "score_delta": 32,
+                "description": "Return intake mismatch — hold refund (FTID-shaped)",
+            },
+            {
+                "id": "fd_cross_role_same_device",
+                "when": [
+                    {"field": "cross_role_same_device", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:food_delivery",
+                    "risk:collusion_shared_device",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 34,
+                "description": "Same device on diner + courier roles — collusion challenge",
+            },
+            {
+                "id": "fd_off_rail_payment",
+                "when": [
+                    {"field": "off_rail_payment_request", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:food_delivery",
+                    "risk:off_rail_payment",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 26,
+                "description": "Payment instruction left in-app rail",
+            },
+            {
+                "id": "fd_refund_abuse_high",
+                "when": [
+                    {"field": "refund_abuse_high", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:food_delivery",
+                    "risk:refund_burst",
+                    "action:refund_step_up",
+                ],
+                "score_delta": 30,
+                "description": "Refund-abuse bridge score elevated — step-up / review",
+            },
+            {
+                "id": "fd_case_karma_high",
+                "when": [
+                    {"field": "case_karma_high", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:food_delivery",
+                    "risk:refund_burst",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 28,
+                "description": "Case karma — elevated repeat refund / dispute loss rates",
+            },
+            {
+                "id": "fd_promo_econ_high",
+                "when": [
+                    {"field": "promo_econ_high", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:food_delivery",
+                    "risk:promo_farm",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 22,
+                "description": "Promo economics depth engine elevated",
+            },
+            {
+                "id": "fd_depth_fusion_high",
+                "when": [
+                    {"field": "depth_fusion_high", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:food_delivery",
+                    "risk:depth_fusion",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 28,
+                "description": "Multi-signal depth fusion elevated",
+            },
+        ],
+        "tag_rules": [],
+    },
+    "e_hailing": {
+        "name": "Vertical E-Hailing",
+        "version": 1,
+        "velocity_presets": "standard",
+        "kill_criteria": {**_DEFAULT_KILL, "min_precision": 0.015, "min_recall": 0.02},
+        "rules": [
+            {
+                "id": "eh_self_ride_same_device",
+                "when": [
+                    {"field": "cross_role_same_device", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:e_hailing",
+                    "risk:collusion_shared_device",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 34,
+                "description": "Same device on driver + rider roles — collusion challenge",
+            },
+            {
+                "id": "eh_driver_rider_pair_velocity",
+                "when": [
+                    {"field": "pair_trip_count_24h", "op": "gte", "value": 6},
+                    {"field": "account_age_days", "op": "lte", "value": 30},
+                ],
+                "tags": [
+                    "vertical:e_hailing",
+                    "risk:collusion_shared_device",
+                    "action:hard_challenge",
+                ],
+                "score_delta": 28,
+                "description": "Repeated driver–rider pair velocity on young accounts",
+            },
+            {
+                "id": "eh_location_spoof",
+                "when": [
+                    {"field": "is_location_spoof", "op": "is_true", "value": True},
+                ],
+                "tags": ["vertical:e_hailing", "risk:courier_spoof", "action:hard_challenge"],
+                "score_delta": 30,
+                "description": "Vendor location spoof/tamper signal on trip",
+            },
+            {
+                "id": "eh_incentive_farm",
+                "when": [
+                    {"field": "transaction_count_24h", "op": "gte", "value": 20},
+                    {"field": "amount", "op": "lte", "value": 15},
+                    {"field": "account_age_days", "op": "lte", "value": 14},
+                ],
+                "tags": ["vertical:e_hailing", "risk:promo_farm"],
+                "score_delta": 24,
+                "description": "Driver incentive / completion farm pattern",
+            },
+            {
+                "id": "eh_driver_bonus_farm",
+                "when": [
+                    {"field": "driver_bonus_farm", "op": "is_true", "value": True},
+                ],
+                "tags": ["vertical:e_hailing", "risk:promo_farm", "action:hard_challenge"],
+                "score_delta": 22,
+                "description": "Host-reported driver bonus claim farm",
+            },
+            {
+                "id": "eh_worker_auth_fail",
+                "when": [
+                    {"field": "worker_auth_failed", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:e_hailing",
+                    "risk:account_rental",
+                    "action:suspend_driving",
+                ],
+                "score_delta": 36,
+                "description": "Face/liveness re-auth failed — account rental / suspend driving",
+            },
+            {
+                "id": "eh_payout_hold_spoof",
+                "when": [
+                    {"field": "amount", "op": "gte", "value": 200},
+                    {"field": "is_emulator", "op": "is_true", "value": True},
+                ],
+                "tags": [
+                    "vertical:e_hailing",
+                    "action:payout_hold",
+                    "risk:courier_spoof",
+                ],
+                "score_delta": 30,
+                "description": "Driver payout with emulator spoof — hold pending review",
+            },
         ],
         "tag_rules": [],
     },
 }
+
+# Plan aliases → canonical pack ids
+_PACK_ALIASES: dict[str, str] = {
+    "marketplace_goods": "marketplace",
+    "last_mile": "logistics",
+    "goods_marketplace": "marketplace",
+    "ride_hailing": "e_hailing",
+    "ehailing": "e_hailing",
+}
+
+# Ops posture: checkpoints, connectors, host-actions (honesty-aware)
+_PACK_POSTURE: dict[str, dict[str, Any]] = {
+    "marketplace": {
+        "business_type": "marketplace_goods",
+        "priority": 1,
+        "checkpoints": [
+            "seller_onboard",
+            "listing",
+            "checkout",
+            "payout",
+            "refund",
+            "dispute",
+        ],
+        "required_connectors": ["identity_kyb", "chargeback_alert", "device"],
+        "optional_connectors": ["brand_protection", "sanctions"],
+        "host_actions": [
+            "action:payout_hold",
+            "action:suspend_sales",
+            "action:kyb_collect",
+            "action:kyb_disclose",
+            "action:refund_hold",
+            "action:dispute_open",
+            "action:listing_takedown",
+        ],
+        "honesty": "Brand crawl and LIVE device require connectors; no forged claims.",
+    },
+    "qcommerce": {
+        "business_type": "qcommerce",
+        "priority": 2,
+        "checkpoints": ["checkout", "redeem", "cancel", "payout"],
+        "required_connectors": ["device"],
+        "optional_connectors": ["worker_auth"],
+        "host_actions": ["action:payout_delay", "action:hard_challenge"],
+        "honesty": "Promo farms via pack + loyalty-abuse bridge when configured.",
+    },
+    "food_delivery": {
+        "business_type": "food_delivery",
+        "priority": 2,
+        "checkpoints": ["checkout", "redeem", "cancel", "refund", "payout", "delivery"],
+        "required_connectors": ["device"],
+        "optional_connectors": ["worker_auth", "chargeback_alert"],
+        "host_actions": [
+            "action:payout_hold",
+            "action:hard_challenge",
+            "action:refund_hold",
+            "action:refund_step_up",
+        ],
+        "honesty": "Refund/cancel heads via sibling bridges when configured.",
+    },
+    "logistics": {
+        "business_type": "last_mile",
+        "priority": 3,
+        "checkpoints": ["accept", "delivery", "cod", "payout", "refund"],
+        "required_connectors": ["device"],
+        "optional_connectors": ["worker_auth"],
+        "host_actions": [
+            "action:payout_hold",
+            "action:refund_hold",
+            "action:hard_challenge",
+        ],
+        "honesty": "FTID intake is Downstream warehouse; Tarka holds on mismatch features.",
+    },
+    "offline_payment": {
+        "business_type": "cod_offline",
+        "priority": 3,
+        "checkpoints": ["checkout", "delivery", "refund"],
+        "required_connectors": [],
+        "optional_connectors": ["device"],
+        "host_actions": [
+            "action:payout_hold",
+            "action:hard_challenge",
+        ],
+        "honesty": "COD fake-order + theft both scored; host supplies COD flags.",
+    },
+    "e_hailing": {
+        "business_type": "e_hailing",
+        "priority": 2,
+        "checkpoints": ["trip_request", "trip_complete", "bonus_claim", "payout"],
+        "required_connectors": ["device", "worker_auth"],
+        "optional_connectors": [],
+        "host_actions": [
+            "action:hard_challenge",
+            "action:suspend_driving",
+            "action:payout_hold",
+        ],
+        "honesty": "Location spoof from vendor connector; same-device = challenge then suspend.",
+    },
+    "fintech": {
+        "business_type": "fintech",
+        "priority": 4,
+        "checkpoints": ["transfer", "login"],
+        "required_connectors": ["sanctions"],
+        "optional_connectors": ["device"],
+        "host_actions": [],
+        "honesty": "Starter pack — not marketplace-primary.",
+    },
+    "ecommerce": {
+        "business_type": "ecommerce",
+        "priority": 4,
+        "checkpoints": ["checkout"],
+        "required_connectors": ["device"],
+        "optional_connectors": [],
+        "host_actions": [],
+        "honesty": "Starter pack — prefer marketplace pack for multi-sided trust.",
+    },
+    "gaming": {
+        "business_type": "gaming",
+        "priority": 5,
+        "checkpoints": ["session", "purchase"],
+        "required_connectors": ["device"],
+        "optional_connectors": [],
+        "host_actions": [],
+        "honesty": "Starter pack.",
+    },
+}
+
+
+def resolve_pack_name(name: str) -> str:
+    key = (name or "").strip().lower()
+    return _PACK_ALIASES.get(key, key)
 
 
 def list_vertical_packs() -> dict[str, dict[str, Any]]:
@@ -439,8 +1118,57 @@ def list_vertical_packs() -> dict[str, dict[str, Any]]:
             "rules": len(v.get("rules", [])),
             "version": v.get("version", 1),
             "has_kill_criteria": bool(v.get("kill_criteria")),
+            "business_type": (_PACK_POSTURE.get(k) or {}).get("business_type"),
+            "priority": (_PACK_POSTURE.get(k) or {}).get("priority"),
+            "checkpoints": list((_PACK_POSTURE.get(k) or {}).get("checkpoints") or []),
+            "required_connectors": list(
+                (_PACK_POSTURE.get(k) or {}).get("required_connectors") or []
+            ),
+            "host_actions": list((_PACK_POSTURE.get(k) or {}).get("host_actions") or []),
         }
         for k, v in _PACKS.items()
+    }
+
+
+def load_vertical_pack_ops_posture(
+    *,
+    connector_families: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Ops surface: packs + connector readiness (fail-closed honesty)."""
+    families = connector_families or {}
+    packs_out: list[dict[str, Any]] = []
+    for pid, meta in sorted(
+        _PACK_POSTURE.items(), key=lambda kv: (kv[1].get("priority") or 99, kv[0])
+    ):
+        if pid not in _PACKS:
+            continue
+        req = list(meta.get("required_connectors") or [])
+        blockers: list[str] = []
+        for fam in req:
+            posture = families.get(fam) if isinstance(families, dict) else None
+            if not isinstance(posture, dict):
+                blockers.append(f"connector_unresolved:{fam}")
+            elif not posture.get("live_claim_allowed"):
+                blockers.append(f"connector_not_live:{fam}")
+        packs_out.append(
+            {
+                "pack_id": pid,
+                "name": _PACKS[pid]["name"],
+                "rule_count": len(_PACKS[pid].get("rules") or []),
+                **{k: meta[k] for k in meta},
+                "connector_blockers": blockers,
+                "pack_ready": len(blockers) == 0,
+            }
+        )
+    return {
+        "schema_id": "tarka.vertical_pack_ops_posture/v1",
+        "packs": packs_out,
+        "aliases": dict(_PACK_ALIASES),
+        "priority_note": "marketplace-first (best OSS marketplace fraud OS)",
+        "honesty": (
+            "pack_ready requires LIVE connectors for required_connectors; "
+            "rules still installable for shadow/sim without LIVE."
+        ),
     }
 
 
@@ -475,16 +1203,20 @@ def evaluate_kill_criteria(
 
 
 def get_vertical_pack(name: str) -> dict[str, Any] | None:
-    pack = _PACKS.get(name.lower())
+    key = resolve_pack_name(name)
+    pack = _PACKS.get(key)
     if not pack:
         return None
     vp_key = pack.get("velocity_presets")
     presets = _VELOCITY_PRESETS.get(str(vp_key), []) if vp_key else []
+    posture = dict(_PACK_POSTURE.get(key) or {})
     return {
+        "id": key,
         "name": pack["name"],
         "version": pack.get("version", 1),
         "velocity_presets": presets,
         "rules": [dict(r) for r in pack.get("rules", [])],
         "tag_rules": [dict(r) for r in pack.get("tag_rules", [])],
         "kill_criteria": dict(pack.get("kill_criteria") or _DEFAULT_KILL),
+        "posture": posture,
     }

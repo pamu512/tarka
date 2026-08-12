@@ -1,12 +1,12 @@
 # Stub Register (Phase 0 inventory)
 
-This register was produced by executing **Phase 0** of [docs/TIER_1_HONESTY_PROGRAM.md](docs/TIER_1_HONESTY_PROGRAM.md): keyword scans across `services/`, `frontend/`, and `packages/`, then manual classification. **No code was changed** as part of this inventory.
+Canonical Tier-1 honesty inventory for runtime / operator-facing surfaces. Produced by Phase 0 of [docs/TIER_1_HONESTY_PROGRAM.md](docs/TIER_1_HONESTY_PROGRAM.md); maintained as rows close. Pointer for compliance paths: [docs/STUB_REGISTER.md](docs/STUB_REGISTER.md).
 
 ## Methodology
 
 - **Keywords searched:** `stub`, `_stub`, `stub_`, `_STORE`, `placeholder` (code/comments, not SQL `{tenant_id:String}` bind tokens alone), module docstrings mentioning `integration stubs`, and related patterns (`echo_stub`, `backtest_run_stub`, `rego_stub`, `metric_stub`).
-- **Scopes:** `services/`**, `frontend/`**, `packages/**` (Rust under `services/**` had no `stub`/`TODO`/`FIXME` hits in this pass).
-- **Excluded by policy (non-goals for runtime):** `**/tests/`**, `**/test_*.py`, `unittest.mock` / `vi.mock` usage, and comments that only mention “mock” for test harnesses.
+- **Scopes:** `services/`, `frontend/`, `packages/` (Rust under `services/**` had no `stub`/`TODO`/`FIXME` hits in this pass).
+- **Excluded by policy (non-goals for runtime):** `**/tests/**`, `**/test_*.py`, `unittest.mock` / `vi.mock` usage, and comments that only mention “mock” for test harnesses. Test doubles are allowlisted **by path** in [`scripts/audit_stubs.py`](scripts/audit_stubs.py) (skips `tests/` trees), not by a per-symbol allowlist.
 - **Disposition values:** **Ship** = replace with durable + real execution; **Delete** = remove HTTP/UI surface until honest; **Degrade** = keep only with explicit, documented contract (e.g. structured 503 / response field `source`), never silent fake metrics.
 
 ## Stub Register (runtime and operator-facing)
@@ -23,10 +23,10 @@ This register was produced by executing **Phase 0** of [docs/TIER_1_HONESTY_PROG
 | SR-07 | [services/decision-api/src/decision_api/vendor_marketplace_api.py](services/decision-api/src/decision_api/vendor_marketplace_api.py)   | `POST /v1/vendors/probe`                                               | Probes registered adapters only (returns not-found when unset) — honest                                                                                       | **Done** (depends on SR-06)                                                                        |
 | SR-08 | [services/case-api/src/case_api/sar_transport_worker.py](services/case-api/src/case_api/sar_transport_worker.py) | NATS SAR transport worker (`setup_sar_transport_worker`) | **Shipped path:** durable worker when wired; SFTP upload only if `FINCEN_BSA_SFTP_HOST` set. Legacy `schedule_ack_poll` removed. | **Done** (default: no FinCEN host = no SFTP; worker still honest) |
 | SR-09 | [services/case-api/src/case_api/main.py](services/case-api/src/case_api/main.py) | SAR lifespan → `setup_sar_transport_worker` | Generate flow no longer depends on log-only ACK poll. FinCEN delivery remains env-gated. | **Done** (env-gated FinCEN) |
-| SR-10 | [services/case-api/src/case_api/sar_filing_transport.py](services/case-api/src/case_api/sar_filing_transport.py)                       | `validate_pre_filing`                                                  | **Deepened:** TIN/name/`report_id` + `fincen_xml` non-empty markup with `EFilingBatch` gate; still not full FinCEN XSD                                                                           | Ship (XSD) / accept as depth floor                                                                 |
+| SR-10 | [services/case-api/src/case_api/sar_filing_transport.py](services/case-api/src/case_api/sar_filing_transport.py)                       | `validate_pre_filing`                                                  | **Depth floor:** TIN/name/`report_id` + `fincen_xml` well-formed ElementTree parse + root local-name contains `EFilingBatch`. Not official FinCEN XSD.                                                                           | **Done** (depth floor; XSD upgrade when schema vendored)                                                                 |
 | SR-11 | [services/decision-api/src/decision_api/rule_gitops_api.py](services/decision-api/src/decision_api/rule_gitops_api.py)                 | `POST /v1/rules/gitops/approve`                                        | **Shipped:** inserts durable `rule_approvals` row; **503** if persistence fails                                                                                 | **Done**                                                                                           |
 | SR-12 | [services/decision-api/src/decision_api/reporting_nl.py](services/decision-api/src/decision_api/reporting_nl.py)                       | `POST /v1/reporting/nl-to-sql` when `TARKA_REPORTING_NL_LLM_URL` unset | **Honest fail-closed:** **503** `LLM_ENGINE_OFFLINE` (no template SQL fallback). Success returns `source: "llm"`. | **Done** (degraded path removed) |
-| SR-13 | [frontend/src/api/client.ts](frontend/src/api/client.ts)                                                                               | `getMockResponse`, `VITE_USE_API_MOCKS`, `USE_API_MOCKS`               | Optional **mock API fallback** in dev / when forced on; can mask broken backends during demos                                                                   | Degrade (default off in prod — already); Delete (remove mocks) if policy forbids any runtime mocks |
+| SR-13 | [frontend/src/api/client.ts](frontend/src/api/client.ts) + [deskMockPolicy.ts](frontend/src/api/deskMockPolicy.ts)                                                                               | `getMockResponse`, `VITE_USE_API_MOCKS`, desk-strict               | **Degrade:** mocks forbidden in production builds; desk-strict (default ON) blocks auto mocks on cases/calibration/QA/**trend** unless `VITE_USE_API_MOCKS=true`. CI: `scripts/audit_prod_desk_mocks.py`.                                                                   | **Done** (Degrade) |
 | SR-14 | [frontend/src/pages/VisualRuleBuilder.tsx](frontend/src/pages/VisualRuleBuilder.tsx)                                                   | UI copy                                                                | Copy aligned with JSON-only compile path (no Rego export UX).                                                                                                     | **Deleted** / **Deprecated** (Track F)                                                            |
 | SR-15 | [services/decision-api/src/decision_api/rule_api.py](services/decision-api/src/decision_api/rule_api.py) + `json_rules.get_rule_hit_telemetry` | `GET /v1/rules/telemetry` | **Shipped:** Redis `HINCRBY` dual-write (`tarka:rule_hits:v1`) when reachable; `durability: "redis"` or labeled `process_memory` (`RULE_HIT_TELEMETRY_REDIS=0`). | **Done** |
 | SR-16 | [services/integration-ingress/src/integration_ingress/sanctions.py](services/integration-ingress/src/integration_ingress/sanctions.py) | Sanctions screener + logs | **Shipped:** Postgres fail-closed logs; match explain (`matched_name`, dampens, cache age); fail-soft JSONL journal. Index still process-rebuilt from FtM cache. | **Done** |
@@ -46,11 +46,13 @@ Tarka **deleted** Rego/OPA **transpilation** from the visual rule pipeline so th
 
 ## Macroservices note
 
-- [services/core-api/src/core_api/main.py](services/core-api/src/core_api/main.py) mounts `decision_api` and `case_api`; remaining stub debt is **SR-10** (XSD floor) and **SR-13** (mock/client shrink ongoing).
+- [services/core-api/src/core_api/main.py](services/core-api/src/core_api/main.py) mounts `decision_api` and `case_api`; **no open SR rows** after 2026-08-12 close of SR-10 / SR-13.
 - [services/data-plane/src/data_plane/main.py](services/data-plane/src/data_plane/main.py) composes ingest + analytics sink — **no additional `stub` hits** in that wrapper from this inventory.
 
-## Follow-ups (Phase 0 exit criteria)
+## Follow-ups (maintenance)
 
-1. Review each **Target disposition** with product (especially **SR-10** BSA validation depth and mock policy **SR-13**).
-2. Add CI grep allowlist for legitimate test-only paths after Track verification phase.
-3. Re-run this register after each track merges; shrink table rows to zero “Ship” debt.
+1. **Closed (2026-08-12):** SR-10 accepted as XML parse depth floor; SR-13 accepted as Degrade with prod forbid + desk-strict including trend ops.
+2. **Closed:** CI allowlists test-only paths by directory skip in `scripts/audit_stubs.py` (not a symbol list). Prod mock contract gated by `scripts/audit_prod_desk_mocks.py`.
+3. **Maintenance:** Re-run keyword inventory after large tracks merge; add SR rows only for new runtime Potemkin surfaces.
+4. **Closed:** AI ops production path (trend watch/tick + OpsCalibration + AgentRun + `trend-tick` compose/script) shipped; see [docs/docs/guides/repo-productionization-runbook.md](docs/docs/guides/repo-productionization-runbook.md).
+5. **Closed (2026-08-12 invent-success pass):** ml_sidecar bot score refuse; Janus/Null graph `signals_usable=false` omitted from Shadow; Shadow specialized tools raise; mule-path demo opt-in; demo-burst OSINT no canned scores; rule-engine demo fallback env-gated; benchmark `durability: process_memory`.

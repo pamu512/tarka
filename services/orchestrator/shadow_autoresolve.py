@@ -43,6 +43,24 @@ def resolve_autoresolve_auth_token() -> str | None:
     return None
 
 
+def _env_truthy(name: str) -> bool:
+    return (os.environ.get(name) or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _shadow_data_is_timeout_fallback(shadow_data: dict[str, Any]) -> bool:
+    if shadow_data.get("timeout_fallback") is True:
+        return True
+    metrics = shadow_data.get("confidence_metrics")
+    if isinstance(metrics, dict) and metrics.get("timeout_fallback") is True:
+        return True
+    reasoning = shadow_data.get("reasoning")
+    if isinstance(reasoning, list) and any(
+        str(x).strip().upper() == "TIMEOUT_FALLBACK" for x in reasoning
+    ):
+        return True
+    return False
+
+
 async def try_shadow_autoresolve_after_ingest(
     *,
     audit_session_factory: async_sessionmaker[AsyncSession],
@@ -59,9 +77,27 @@ async def try_shadow_autoresolve_after_ingest(
     """
     After orchestrator ``AuditLog`` commit: materialize lifecycle case and transition to ``RESOLVED_AUTO``.
 
-    Eligibility mirrors :func:`shadow.hooks.resolve_case.shadow_autoresolve_eligible`. The transition
-    appends a dedicated ``audit_logs`` row (Pillar 1) via :func:`put_lifecycle_case_status`.
+    Disabled by default (``SHADOW_AUTORESOLVE_ENABLED`` must be truthy). Timeout / inconclusive
+    Shadow payloads never auto-resolve. Eligibility mirrors
+    :func:`shadow.hooks.resolve_case.shadow_autoresolve_eligible`.
     """
+    if not _env_truthy("SHADOW_AUTORESOLVE_ENABLED"):
+        return IngestAutoresolveOutcome(
+            attempted=False,
+            lifecycle_case_id=None,
+            transition=None,
+            skipped_reason="autoresolve_disabled",
+            confidence=None,
+        )
+    if _shadow_data_is_timeout_fallback(shadow_data):
+        return IngestAutoresolveOutcome(
+            attempted=False,
+            lifecycle_case_id=None,
+            transition=None,
+            skipped_reason="timeout_fallback",
+            confidence=None,
+        )
+
     eligible, confidence, skip = shadow_autoresolve_eligible(shadow_data)
     if not eligible:
         return IngestAutoresolveOutcome(

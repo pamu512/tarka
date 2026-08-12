@@ -56,7 +56,23 @@ def test_should_invoke_shadow_for_flag_with_graph_signals() -> None:
     )
 
 
-def test_modulate_actions_downgrades_flag_on_low_shadow_risk() -> None:
+def test_modulate_actions_retains_flag_on_low_shadow_risk_escalate_only() -> None:
+    """Default escalate_only: Shadow must never clear a deterministic FLAG."""
+    out = modulate_actions_with_shadow_advice(
+        ["FLAG"],
+        {
+            "risk_score": 10.0,
+            "is_fraud": False,
+            "transaction_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            "reasoning": [],
+            "confidence_metrics": {},
+        },
+    )
+    assert out == ["FLAG"]
+
+
+def test_modulate_actions_legacy_downgrades_flag_when_opted_in(monkeypatch) -> None:
+    monkeypatch.setenv("SHADOW_ACTION_MODULATION", "legacy")
     out = modulate_actions_with_shadow_advice(
         ["FLAG"],
         {
@@ -68,6 +84,19 @@ def test_modulate_actions_downgrades_flag_on_low_shadow_risk() -> None:
         },
     )
     assert out == ["ALLOW"]
+
+
+def test_modulate_actions_timeout_fallback_preserves_flag() -> None:
+    out = modulate_actions_with_shadow_advice(
+        ["FLAG", "SHADOW_REVIEW"],
+        {
+            "risk_score": 50.0,
+            "is_fraud": False,
+            "reasoning": ["TIMEOUT_FALLBACK"],
+            "confidence_metrics": {"timeout_fallback": True},
+        },
+    )
+    assert out == ["FLAG", "SHADOW_REVIEW"]
 
 
 def test_modulate_actions_keeps_flag_on_high_shadow_risk() -> None:
@@ -84,3 +113,17 @@ def test_modulate_actions_keeps_flag_on_high_shadow_risk() -> None:
     assert "SHADOW_REVIEW" not in out
     assert "FLAG" in out
     assert "ALLOW" not in out
+
+
+def test_modulate_actions_escalate_only_upgrades_allow_to_flag() -> None:
+    out = modulate_actions_with_shadow_advice(
+        ["ALLOW"],
+        {
+            "risk_score": 90.0,
+            "is_fraud": True,
+            "reasoning": ["ring"],
+            "confidence_metrics": {},
+        },
+    )
+    assert "ALLOW" not in out
+    assert "FLAG" in out

@@ -22,7 +22,13 @@ class _FakeJanusGraphClient:
     """Minimal async graph client behavior for Janus topology injection tests."""
 
     async def get_graph_signals(self, entity_id: str) -> dict[str, object]:
-        return {"backend": "janusgraph", "entity_ref": entity_id}
+        return {
+            "backend": "janusgraph",
+            "entity_ref": entity_id,
+            "implemented": True,
+            "signals_usable": True,
+            "status": "ok",
+        }
 
     async def device_hardware_risk(
         self,
@@ -31,7 +37,14 @@ class _FakeJanusGraphClient:
         current_user_id: str | None = None,
     ) -> dict[str, object]:
         _ = current_user_id
-        return {"device_id": device_id, "linked_to_blocked_node": False}
+        return {
+            "device_id": device_id,
+            "linked_to_blocked_node": False,
+            "implemented": True,
+            "signals_usable": True,
+            "status": "ok",
+            "backend": "janusgraph",
+        }
 
     async def two_hop_neighbor_network(self, anchor_user_id: str) -> dict[str, object]:
         return {

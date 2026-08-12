@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
+import os
 from datetime import UTC
 from typing import Any
 
@@ -356,6 +357,67 @@ def velocity_indicators_nonzero(
     return _metadata_velocity_indicators_nonzero(meta)
 
 
+def _trend_watch_on_ingest_enabled() -> bool:
+    raw = (os.environ.get("TREND_WATCH_ON_INGEST") or "").strip().lower()
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    # Default on when decision-api URL is configured (prod-like); else off.
+    return bool((os.environ.get("DECISION_API_URL") or "").strip())
+
+
+def _shadow_high_risk(shadow_data: dict[str, Any] | None) -> bool:
+    if not isinstance(shadow_data, dict):
+        return False
+    if _shadow_data_is_timeout_fallback(shadow_data):
+        return False
+    try:
+        risk = float(shadow_data.get("risk_score") or 0.0)
+    except (TypeError, ValueError):
+        risk = 0.0
+    return bool(shadow_data.get("is_fraud")) or risk >= 75.0
+
+
+async def maybe_enqueue_trend_watch(
+    *,
+    tenant_id: str,
+    entity_id: str,
+    reason: str,
+    decision_api_url: str | None = None,
+    http: httpx.AsyncClient | None = None,
+) -> None:
+    """Fire-and-forget watch upsert — never raises to callers."""
+    if not _trend_watch_on_ingest_enabled():
+        return
+    base = (decision_api_url or os.environ.get("DECISION_API_URL") or "").strip()
+    if not base or not tenant_id.strip() or not entity_id.strip():
+        return
+    url = f"{base.rstrip('/')}/v1/ops/trend/watch"
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    api_key = (os.environ.get("API_KEYS") or "").split(",")[0].strip()
+    if api_key:
+        headers["x-api-key"] = api_key
+    payload = {
+        "tenant_id": tenant_id.strip(),
+        "entity_id": entity_id.strip(),
+        "reason": (reason or "")[:256],
+    }
+    try:
+        if http is not None:
+            await http.post(url, json=payload, headers=headers, timeout=2.0)
+        else:
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                await client.post(url, json=payload, headers=headers)
+    except Exception:
+        logger.warning(
+            "orchestrator_trend_watch_enqueue_failed tenant_id=%s entity_id=%s",
+            tenant_id,
+            entity_id,
+            exc_info=True,
+        )
+
+
 def graph_indicators_nonzero(
     rule_data: dict[str, Any],
     transaction: TransactionSchema,
@@ -401,6 +463,28 @@ def should_invoke_shadow_synchronously(
     return graph_indicators_nonzero(rule_data, transaction, graph_signals)
 
 
+def _shadow_modulation_mode() -> str:
+    """``escalate_only`` (default) | ``legacy`` | ``off``."""
+    raw = (os.environ.get("SHADOW_ACTION_MODULATION") or "escalate_only").strip().lower()
+    if raw in ("escalate_only", "legacy", "off"):
+        return raw
+    return "escalate_only"
+
+
+def _shadow_data_is_timeout_fallback(shadow_data: dict[str, Any]) -> bool:
+    if shadow_data.get("timeout_fallback") is True:
+        return True
+    metrics = shadow_data.get("confidence_metrics")
+    if isinstance(metrics, dict) and metrics.get("timeout_fallback") is True:
+        return True
+    reasoning = shadow_data.get("reasoning")
+    if isinstance(reasoning, list) and any(
+        str(x).strip().upper() == "TIMEOUT_FALLBACK" for x in reasoning
+    ):
+        return True
+    return False
+
+
 def modulate_actions_with_shadow_advice(
     actions: list[str],
     shadow_data: dict[str, Any] | None,
@@ -408,11 +492,19 @@ def modulate_actions_with_shadow_advice(
     """
     Apply Shadow structural advice (``risk_score``, ``is_fraud``) to outbound rule actions.
 
-    Never removes ``BLOCK``. Drops ``SHADOW_REVIEW`` once Shadow has returned advice.
+    Default mode ``escalate_only`` (``SHADOW_ACTION_MODULATION``): may add ``FLAG`` / drop
+    ``ALLOW`` on high risk; never clears a deterministic ``FLAG`` to ``ALLOW``.
+    Timeout / inconclusive Shadow responses leave FLAG/ALLOW unchanged.
+    Never removes ``BLOCK``. Drops ``SHADOW_REVIEW`` once Shadow has returned advice
+    (except timeout, where original actions including ``SHADOW_REVIEW`` are preserved).
     """
     if shadow_data is None:
         return list(actions)
     if "BLOCK" in actions:
+        return list(actions)
+
+    mode = _shadow_modulation_mode()
+    if mode == "off" or _shadow_data_is_timeout_fallback(shadow_data):
         return list(actions)
 
     out = [a for a in actions if a != "SHADOW_REVIEW"]
@@ -426,16 +518,18 @@ def modulate_actions_with_shadow_advice(
         out = [a for a in out if a != "ALLOW"]
         if "FLAG" not in out:
             out.append("FLAG")
-    elif risk <= 25.0 and not is_fraud:
+    elif mode == "legacy" and risk <= 25.0 and not is_fraud:
+        # Opt-in only: historical FLAG→ALLOW downgrade (do not use in production).
         out = [a for a in out if a != "FLAG"]
         if not out:
             out = ["ALLOW"]
         elif "ALLOW" not in out:
             out.append("ALLOW")
-    else:
+    elif mode == "legacy":
         out = [a for a in out if a != "ALLOW"]
         if "FLAG" not in out:
             out.append("FLAG")
+    # escalate_only + low/mid risk: keep deterministic FLAG/ALLOW; only SHADOW_REVIEW dropped
 
     return _dedupe_actions_preserve_order(out)
 
@@ -772,18 +866,54 @@ async def execute_transaction_ingest(
 
     original_actions = list(actions)
     if shadow_sync_invoked and shadow_data is not None:
+        modulation_mode = _shadow_modulation_mode()
         actions = modulate_actions_with_shadow_advice(actions, shadow_data)
         rule_data = {
             **rule_data,
             "actions": actions,
             "shadow_action_modulation": {
                 "trigger": shadow_sync_trigger,
+                "mode": modulation_mode,
+                "timeout_fallback": _shadow_data_is_timeout_fallback(shadow_data),
                 "original_actions": original_actions,
                 "modulated_actions": actions,
                 "shadow_risk_score": shadow_data.get("risk_score"),
                 "shadow_is_fraud": shadow_data.get("is_fraud"),
             },
         }
+
+    # Best-effort trend watch enqueue (never blocks / fails ingest).
+    try:
+        entity_for_watch = (
+            _user_id_from_transaction(transaction)
+            or str(getattr(transaction, "entity_id", "") or "").strip()
+            or tid
+        )
+        tenant_for_watch = str(
+            (transaction.metadata or {}).get("tenant_id")
+            or getattr(transaction, "tenant_id", "")
+            or ""
+        ).strip()
+        if not tenant_for_watch and isinstance(rule_data.get("tenant_id"), str):
+            tenant_for_watch = rule_data["tenant_id"].strip()
+        should_watch = _shadow_high_risk(shadow_data) or velocity_indicators_nonzero(
+            rule_data, transaction
+        )
+        if should_watch and tenant_for_watch:
+            reasons: list[str] = []
+            if _shadow_high_risk(shadow_data):
+                reasons.append("shadow_high_risk")
+            if velocity_indicators_nonzero(rule_data, transaction):
+                reasons.append("velocity_indicators")
+            decision_base = getattr(request.app.state, "decision_api_url", None)
+            await maybe_enqueue_trend_watch(
+                tenant_id=tenant_for_watch,
+                entity_id=str(entity_for_watch),
+                reason=",".join(reasons),
+                decision_api_url=str(decision_base) if decision_base else None,
+            )
+    except Exception:
+        logger.warning("orchestrator_trend_watch_hook_failed transaction_id=%s", tid, exc_info=True)
 
     shadow_matches: list[dict[str, Any]] = []
     try:
