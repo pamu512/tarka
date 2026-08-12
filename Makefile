@@ -11,10 +11,10 @@ COMPOSE := $(COMPOSE_CMD) -f $(COMPOSE_FILE)
 
 MODEL_PATH := $(ROOT)/services/ml_sidecar/models/baseline_fraud_v1.onnx
 
-.PHONY: build up down logs audit test-ml train-model verify-model policy-check contract-check help
+.PHONY: build up down logs audit test-ml train-model verify-model policy-check contract-check trend-tick help
 
 help:
-	@echo "Targets: build up down logs audit test-ml train-model verify-model policy-check contract-check"
+	@echo "Targets: build up down logs audit test-ml train-model verify-model policy-check contract-check trend-tick"
 
 # Policy-as-code: JSON rule packs + v2 AST packs (+ optional OPA bundle lint).
 policy-check:
@@ -53,3 +53,7 @@ train-model:
 
 verify-model:
 	cd "$(ROOT)" && export TARKA_ONNX_MODEL="$(MODEL_PATH)" && python3 -c "import os, onnxruntime as ort; ort.InferenceSession(os.environ['TARKA_ONNX_MODEL']); print('Model Validated: OK')"
+
+# Always-on trend tick (host loop). Override DECISION_API_URL / TREND_TICK_INTERVAL_S.
+trend-tick:
+	cd "$(ROOT)" && ./scripts/trend_tick_loop.sh

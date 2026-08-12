@@ -1,0 +1,6 @@
+{
+  "refund_effect": "hold",
+  "abuse_score": 0.88,
+  "fraud_score": 0.72,
+  "reason_codes": ["repeat_refund", "delivery_hash_mismatch"]
+}

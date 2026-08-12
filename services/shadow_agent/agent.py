@@ -126,16 +126,18 @@ class ShadowAgent:
         graph_context: dict[str, Any] | None = None,
     ) -> tuple[ShadowDecision, AuditLog]:
         """
-        Forensic path: prompt → Ollama ``chat_json_validated`` → :class:`~shadow_agent.schemas.ShadowDecision`.
+        Forensic path: prompt → LLM ``chat_json_validated`` → :class:`~shadow_agent.schemas.ShadowDecision`.
 
         Loads prior audit rows for ``tx.entity_id`` via ``await get_recent_entity_transactions`` (same
         session, strictly before the LLM call) so the system prompt always includes up-to-date history;
         a future version could overlap this read with unrelated work using tasks, but ordering here
         is intentionally sequential.
 
-        On ``httpx`` connect/read/write/pool timeouts from the local Ollama client (after its own retry
-        policy), returns a deterministic safe decision (``is_fraud=False``, ``risk_score=0``,
-        ``reasoning=["TIMEOUT_FALLBACK"]``) and continues persistence so ingestion is not aborted.
+        On ``httpx`` connect/read/write/pool timeouts from the LLM client (after its own retry
+        policy), returns an **inconclusive** decision (``is_fraud=False``, ``risk_score=50``,
+        ``reasoning=["TIMEOUT_FALLBACK"]``, ``confidence_metrics.timeout_fallback=true``) and
+        continues persistence so ingestion is not aborted. Never returns a clear-looking
+        ``risk_score=0`` that could be misread as FLAG→ALLOW advice upstream.
 
         Persists an :class:`~tarka_shared.audit_trail.AuditLog` via ``session.add`` + ``session.commit``.
         If ``commit`` raises :class:`~sqlalchemy.exc.IntegrityError`, the decision is still returned but a
@@ -145,7 +147,7 @@ class ShadowAgent:
         """
         if self._llm_client is None:
             raise RuntimeError(
-                "ShadowAgent.evaluate requires llm_client=OllamaLLMClient in constructor"
+                "ShadowAgent.evaluate requires llm_client in constructor"
             )
 
         entity_s = str(tx.entity_id)
@@ -287,12 +289,13 @@ class ShadowAgent:
                 type(exc).__name__,
                 exc,
             )
+            # Inconclusive mid-score: never look like a clear (risk=0) that could FLAG→ALLOW.
             decision = ShadowDecision(
                 transaction_id=tx.entity_id,
-                risk_score=0.0,
+                risk_score=50.0,
                 is_fraud=False,
                 reasoning=["TIMEOUT_FALLBACK"],
-                confidence_metrics={},
+                confidence_metrics={"timeout_fallback": True},
                 ai_reasoning="TIMEOUT_FALLBACK",
             )
             decision = apply_friendly_fraud_post_rules(decision, ff_signals)

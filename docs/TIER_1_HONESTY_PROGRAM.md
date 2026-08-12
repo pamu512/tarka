@@ -2,7 +2,7 @@
 
 **Workstream checklist**
 
-- [x] Phase 0: Automated inventory (grep/rg) + classify each hit as ship, delete, or gate behind explicit degraded-mode contract — see [`docs/STUB_REGISTER.md`](STUB_REGISTER.md)
+- [x] Phase 0: Automated inventory (grep/rg) + classify each hit as ship, delete, or gate behind explicit degraded-mode contract — see [`../STUB_REGISTER.md`](../STUB_REGISTER.md) (pointer: [`STUB_REGISTER.md`](STUB_REGISTER.md))
 - [x] Track A: Feature store — Postgres metadata + ClickHouse DDL execution + saga reconciliation (replaces `_STORE`)
 - [x] Track B: Backtest — stub `/run` removed; jobs path is the honest surface
 - [x] Track C: Executive KPIs — bounded analytics queries; **503** when engine unavailable
@@ -10,7 +10,7 @@
 - [x] Track E: Vendors — real HTTP adapters via `vendors/bootstrap.py`; no built-in `echo_stub`
 - [x] Track F: Visual rules — **Deleted** Rego/OPA transpilation; **Deprecated** `POST /v1/rules/rego/compile` (410 Gone tombstone); JSON compile + native Rust `tarka_rule_engine` evaluation path only
 - [x] Verification: CI grep gate (`scripts/audit_stubs.py` in `.github/workflows/ci.yml`); docs aligned with behavior
-- [x] Could-be-better (2026-08-05): desk capability chips; FP support kit; shadow contract + promote smoke; ops-qa-desk e2e workflow; register refresh (`docs/STUB_REGISTER.md`)
+- [x] Could-be-better (2026-08-05): desk capability chips; FP support kit; shadow contract + promote smoke; ops-qa-desk e2e workflow; register refresh ([`../STUB_REGISTER.md`](../STUB_REGISTER.md))
 - [x] Engineering 4.7 (2026-08-05): lean desk mock import audit + self-test; PR-gated `ops-qa-desk-e2e`; desk pages on `api/v1/*`; MC/label/challenge contracts in pytest CI
 - [x] Fraud Ops 4.2–4.4 (2026-08-05): challenge dispatch success path; FP support pack comment+label; lean `/ops/shadow` promote-gate
 - [x] Risk/Strategy 4.2 (2026-08-05): `partner-fusion-proof.live.status` LIVE\|WAIVED gate (`REQUIRE_LIVE_PARTNER_PROOF=1`); kill_criteria promote CI; control evidence index — **4.5** reserved for live `.live.sha256`

@@ -1,4 +1,4 @@
-"""SR-10: pre-filing validation depth."""
+"""SR-10: pre-filing validation depth floor."""
 
 from case_api.sar_filing_transport import validate_pre_filing
 
@@ -52,3 +52,58 @@ def test_validate_pre_filing_fincen_xml_ok():
         }
     )
     assert errs == []
+
+
+def test_validate_pre_filing_fincen_xml_namespaced_root_ok():
+    errs = validate_pre_filing(
+        {
+            "filer_tin": "12-3456789",
+            "financial_institution_name": "Demo Bank",
+            "report_id": "r1",
+            "format": "fincen_xml",
+            "xml_content": (
+                '<EFilingBatchXML xmlns="https://www.fincen.gov/bsa"><Activity/></EFilingBatchXML>'
+            ),
+            "narrative": "ok",
+        }
+    )
+    assert errs == []
+
+
+def test_validate_pre_filing_fincen_xml_malformed():
+    errs = validate_pre_filing(
+        {
+            "filer_tin": "12-3456789",
+            "financial_institution_name": "Demo Bank",
+            "report_id": "r1",
+            "format": "fincen_xml",
+            "xml_content": "<EFilingBatchXML><unclosed>",
+        }
+    )
+    assert "invalid_xml:parse" in errs
+
+
+def test_validate_pre_filing_fincen_xml_substring_not_enough():
+    """Comment text mentioning EFilingBatch must not satisfy the root check."""
+    errs = validate_pre_filing(
+        {
+            "filer_tin": "12-3456789",
+            "financial_institution_name": "Demo Bank",
+            "report_id": "r1",
+            "format": "fincen_xml",
+            "xml_content": "<!-- EFilingBatch --><root/>",
+        }
+    )
+    assert "invalid_xml:missing_efiling_batch" in errs
+
+
+def test_validate_pre_filing_fincen_xml_missing_content():
+    errs = validate_pre_filing(
+        {
+            "filer_tin": "12-3456789",
+            "financial_institution_name": "Demo Bank",
+            "report_id": "r1",
+            "format": "fincen_xml",
+        }
+    )
+    assert "missing_field:xml_content" in errs

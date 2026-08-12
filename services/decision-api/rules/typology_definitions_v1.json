@@ -36,6 +36,246 @@
       ],
       "breach_thresholds": { "warning": 45, "alert": 80 },
       "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }
+    },
+    {
+      "id": "marketplace_lifecycle_abuse",
+      "label": "Marketplace lifecycle sequence abuse",
+      "member_rule_ids": ["lifecycle_risk_engine", "mkt_lifecycle_risk_high"],
+      "weight_per_rule_hit": 30,
+      "feature_predicates": [
+        { "predicate_ref": "depth_lifecycle_high", "bonus": 25 },
+        { "predicate_ref": "depth_lifecycle_refund_before_delivery", "bonus": 20 },
+        { "predicate_ref": "lifecycle_cancel_after_pickup", "bonus": 16 },
+        { "predicate_ref": "lifecycle_rapid_cancel_refund", "bonus": 16 },
+        { "predicate_ref": "lifecycle_cancel_storm", "bonus": 16 }
+      ],
+      "breach_thresholds": { "warning": 35, "alert": 70 },
+      "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }
+    },
+    {
+      "id": "marketplace_ring_collusion",
+      "label": "Multi-party ring / cross-role collusion",
+      "member_rule_ids": ["ring_score_engine", "mkt_ring_score_high"],
+      "weight_per_rule_hit": 30,
+      "feature_predicates": [
+        { "predicate_ref": "depth_ring_high", "bonus": 20 },
+        { "predicate_ref": "depth_cross_role_device", "bonus": 25 },
+        { "predicate_ref": "depth_ring_cross_role_factor", "bonus": 15 },
+        { "predicate_ref": "depth_ring_cross_role_payment", "bonus": 22 },
+        { "predicate_ref": "depth_ring_place_hub", "bonus": 14 },
+        { "predicate_ref": "depth_ring_promo_device_chain", "bonus": 18 },
+        { "predicate_ref": "depth_ring_fresh_edge_burst", "bonus": 12 }
+      ],
+      "breach_thresholds": { "warning": 35, "alert": 70 },
+      "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }
+    },
+    {
+      "id": "marketplace_seller_trajectory",
+      "label": "Seller trajectory changepoint",
+      "member_rule_ids": ["seller_trajectory_engine", "mkt_seller_trajectory_high"],
+      "weight_per_rule_hit": 28,
+      "feature_predicates": [
+        { "predicate_ref": "depth_trajectory_high", "bonus": 30 },
+        { "predicate_ref": "depth_trajectory_ato_payout", "bonus": 28 },
+        { "predicate_ref": "depth_trajectory_listing_burst", "bonus": 16 },
+        { "predicate_ref": "depth_trajectory_listing_payout", "bonus": 24 }
+      ],
+      "breach_thresholds": { "warning": 30, "alert": 65 },
+      "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }
+    },
+    {
+      "id": "marketplace_listing_abuse",
+      "label": "Live-commerce / listing counterfeit risk",
+      "member_rule_ids": [
+        "listing_risk_engine",
+        "mkt_listing_risk_high",
+        "mkt_listing_brand_hit"
+      ],
+      "weight_per_rule_hit": 30,
+      "feature_predicates": [
+        { "predicate_ref": "depth_listing_high", "bonus": 28 },
+        { "predicate_ref": "depth_listing_live_new_seller", "bonus": 22 },
+        { "predicate_ref": "depth_listing_brand_hit", "bonus": 24 }
+      ],
+      "breach_thresholds": { "warning": 30, "alert": 65 },
+      "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }
+    },
+    {
+      "id": "marketplace_ftid",
+      "label": "FTID / intake mismatch refund abuse",
+      "member_rule_ids": ["ftid_intake_gate_engine", "mkt_ftid_hold"],
+      "weight_per_rule_hit": 32,
+      "feature_predicates": [
+        { "predicate_ref": "depth_ftid_hold", "bonus": 28 },
+        { "predicate_ref": "depth_ftid_empty_box", "bonus": 20 },
+        { "predicate_ref": "depth_ftid_item_swap", "bonus": 24 },
+        { "predicate_ref": "depth_ftid_serial_returner", "bonus": 18 },
+        { "predicate_ref": "depth_ftid_multi_mismatch", "bonus": 16 }
+      ],
+      "breach_thresholds": { "warning": 35, "alert": 70 },
+      "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }
+    },
+    {
+      "id": "marketplace_promo_economics",
+      "label": "Promo margin / stack economics abuse",
+      "member_rule_ids": ["promo_economics_engine", "mkt_promo_econ_high"],
+      "weight_per_rule_hit": 28,
+      "feature_predicates": [
+        { "predicate_ref": "depth_promo_econ_high", "bonus": 30 },
+        { "predicate_ref": "depth_promo_code_share", "bonus": 22 },
+        { "predicate_ref": "depth_promo_refund_loop", "bonus": 20 },
+        { "predicate_ref": "depth_promo_device_cluster", "bonus": 18 }
+      ],
+      "breach_thresholds": { "warning": 30, "alert": 65 },
+      "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }
+    },
+    {
+      "id": "marketplace_weak_representment",
+      "label": "Weak dispute representment pack",
+      "member_rule_ids": ["dispute_representment_engine", "mkt_representment_weak"],
+      "weight_per_rule_hit": 26,
+      "feature_predicates": [
+        { "predicate_ref": "depth_representment_weak", "bonus": 28 },
+        { "predicate_ref": "depth_representment_serial", "bonus": 16 },
+        { "predicate_ref": "depth_representment_early_alert", "bonus": 18 }
+      ],
+      "breach_thresholds": { "warning": 30, "alert": 60 },
+      "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }
+    },
+    {
+      "id": "e_hailing_self_ride",
+      "label": "E-hailing self-ride / same-device collusion",
+      "member_rule_ids": ["eh_self_ride_same_device", "ring_score_engine"],
+      "weight_per_rule_hit": 32,
+      "feature_predicates": [
+        { "predicate_ref": "eh_cross_role_device", "bonus": 28 }
+      ],
+      "breach_thresholds": { "warning": 35, "alert": 70 },
+      "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }
+    },
+    {
+      "id": "e_hailing_pair_velocity",
+      "label": "E-hailing driver–rider pair velocity",
+      "member_rule_ids": ["eh_driver_rider_pair_velocity"],
+      "weight_per_rule_hit": 30,
+      "feature_predicates": [
+        { "predicate_ref": "eh_pair_velocity", "bonus": 28 }
+      ],
+      "breach_thresholds": { "warning": 35, "alert": 70 },
+      "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }
+    },
+    {
+      "id": "e_hailing_incentive_farm",
+      "label": "E-hailing incentive / bonus farm",
+      "member_rule_ids": ["eh_incentive_farm", "eh_driver_bonus_farm"],
+      "weight_per_rule_hit": 32,
+      "feature_predicates": [
+        { "predicate_ref": "eh_bonus_farm", "bonus": 26 }
+      ],
+      "breach_thresholds": { "warning": 30, "alert": 65 },
+      "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }
+    },
+    {
+      "id": "e_hailing_account_rental",
+      "label": "E-hailing account rental / worker auth fail",
+      "member_rule_ids": ["eh_worker_auth_fail", "eh_challenge_escalate_suspend"],
+      "weight_per_rule_hit": 34,
+      "feature_predicates": [
+        { "predicate_ref": "eh_worker_auth_failed", "bonus": 26 },
+        { "predicate_ref": "eh_escalate_suspend", "bonus": 30 }
+      ],
+      "breach_thresholds": { "warning": 35, "alert": 70 },
+      "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }
+    },
+    {
+      "id": "last_mile_ftid",
+      "label": "Last-mile FTID / intake mismatch",
+      "member_rule_ids": ["log_ftid_refund_hold", "ftid_intake_gate_engine", "mkt_ftid_hold"],
+      "weight_per_rule_hit": 32,
+      "feature_predicates": [
+        { "predicate_ref": "depth_ftid_hold", "bonus": 28 },
+        { "predicate_ref": "depth_ftid_empty_box", "bonus": 20 }
+      ],
+      "breach_thresholds": { "warning": 35, "alert": 70 },
+      "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }
+    },
+    {
+      "id": "last_mile_pod_fail",
+      "label": "Last-mile POD integrity failure",
+      "member_rule_ids": [
+        "log_pod_geofence_miss",
+        "log_pod_otp_fail",
+        "log_pod_photo_mismatch",
+        "log_pod_integrity_fail"
+      ],
+      "weight_per_rule_hit": 28,
+      "feature_predicates": [
+        { "predicate_ref": "lm_pod_integrity_fail", "bonus": 26 },
+        { "predicate_ref": "lm_pod_otp_fail", "bonus": 20 }
+      ],
+      "breach_thresholds": { "warning": 30, "alert": 65 },
+      "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }
+    },
+    {
+      "id": "cod_fake_order_theft",
+      "label": "COD fake-order / selective theft",
+      "member_rule_ids": [
+        "off_cod_refusal_high",
+        "off_selective_theft",
+        "off_cod_velocity_spike",
+        "off_cod_high_amount_young"
+      ],
+      "weight_per_rule_hit": 32,
+      "feature_predicates": [
+        { "predicate_ref": "lm_cod_refusal_high", "bonus": 26 }
+      ],
+      "breach_thresholds": { "warning": 30, "alert": 65 },
+      "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }
+    },
+    {
+      "id": "cod_address_abuse",
+      "label": "COD address jig / hop abuse",
+      "member_rule_ids": [
+        "off_address_jig_high",
+        "off_address_hop_high",
+        "off_address_hop_offline"
+      ],
+      "weight_per_rule_hit": 32,
+      "feature_predicates": [
+        { "predicate_ref": "lm_address_jig_high", "bonus": 26 }
+      ],
+      "breach_thresholds": { "warning": 30, "alert": 65 },
+      "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }
+    },
+    {
+      "id": "off_rail_payment",
+      "label": "Off-rail payment request",
+      "member_rule_ids": ["off_rail_payment_request", "mkt_off_rail_payment", "fd_off_rail_payment"],
+      "weight_per_rule_hit": 32,
+      "feature_predicates": [
+        { "predicate_ref": "lm_off_rail", "bonus": 28 }
+      ],
+      "breach_thresholds": { "warning": 35, "alert": 70 },
+      "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }
+    },
+    {
+      "id": "marketplace_depth_fusion",
+      "label": "Multi-signal depth fusion abuse",
+      "member_rule_ids": [
+        "depth_fusion_engine",
+        "mkt_depth_fusion_high",
+        "fd_depth_fusion_high"
+      ],
+      "weight_per_rule_hit": 32,
+      "feature_predicates": [
+        { "predicate_ref": "depth_fusion_high", "bonus": 28 },
+        { "predicate_ref": "fusion_lifecycle_ring", "bonus": 18 },
+        { "predicate_ref": "fusion_lifecycle_ftid", "bonus": 18 },
+        { "predicate_ref": "depth_fusion_ftid_representment", "bonus": 20 },
+        { "predicate_ref": "depth_fusion_promo_ftid", "bonus": 18 }
+      ],
+      "breach_thresholds": { "warning": 35, "alert": 70 },
+      "disposition": { "pass": "allow", "warning": "review", "alert": "deny" }
     }
   ]
 }

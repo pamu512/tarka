@@ -106,6 +106,12 @@ const MODULE_ROUTES_ALL: Array<{ to: string; label: string; module: ModuleId; ke
   { to: "/shadow", label: "Shadow mode", module: "shadow", keywords: "dry run" },
   { to: "/simulation", label: "Simulation", module: "simulation", keywords: "ab test" },
   { to: "/ops/backtest", label: "Backtest jobs", module: "rules", keywords: "warehouse olap streaming" },
+  {
+    to: "/ops/calibration",
+    label: "Ops calibration & trend",
+    module: "rules",
+    keywords: "calibration ece trend agent drafts hil tick pending validation",
+  },
   { to: "/ops/infra", label: "Infra & health", module: "compliance", keywords: "prometheus metrics monitoring signal" },
   {
     to: "/ops/system-health",

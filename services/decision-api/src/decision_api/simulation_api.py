@@ -219,7 +219,12 @@ def _eval_with_override_rules(
         decision = "review"
     else:
         decision = "allow"
-    return {"decision": decision, "score": score, "rule_hits": hits}
+    return {
+        "decision": decision,
+        "score": score,
+        "rule_hits": hits,
+        "tags": list(dict.fromkeys(tags)),
+    }
 
 
 @router.post("/ab-test")
@@ -329,6 +334,26 @@ async def benchmark_vertical_pack(body: VerticalBenchmarkRequest):
             **promote,
             "promote_allowed": False,
             "blockers": list(promote.get("blockers") or []) + ["low_sample_warning"],
+        }
+    from decision_api.backtest_promote_gate import fixture_holdout_promote_gate
+
+    fixture_gate = fixture_holdout_promote_gate(vertical=body.vertical.lower())
+    if not fixture_gate.get("waived") and not fixture_gate.get("promote_allowed"):
+        promote = {
+            **promote,
+            "promote_allowed": False,
+            "blockers": list(promote.get("blockers") or [])
+            + [f"fixture_holdout:{b}" for b in (fixture_gate.get("blockers") or ["blocked"])],
+            "fixture_holdout_gate": fixture_gate,
+        }
+    else:
+        promote = {
+            **promote,
+            "fixture_holdout_gate": fixture_gate,
+            "promote_live_claim_allowed": False,
+            "promote_fixture_claim_allowed": bool(
+                fixture_gate.get("promote_fixture_claim_allowed")
+            ),
         }
 
     return {

@@ -38,7 +38,7 @@ if (IS_PRODUCTION_BUILD && MOCK_MODE === "true") {
  * - `VITE_USE_API_MOCKS=false` -> never allow fallback
  * - `VITE_USE_API_MOCKS=auto` (default) -> allow in dev, never in production
  *
- * Desk-strict (default ON via VITE_DESK_STRICT): case/calibration/QA routes never
+ * Desk-strict (default ON via VITE_DESK_STRICT): case/calibration/QA/trend routes never
  * use auto mock fallback — only explicit VITE_USE_API_MOCKS=true.
  *
  * Production: mocks are disabled; mock helpers are loaded only via dynamic import so they are not in the main chunk.
@@ -1760,6 +1760,108 @@ export const decisions = {
     }>("/api/decisions/v1/ops/partner-fusion-status");
   },
 
+  /** Fixture holdout ECE / reliability bins (not LIVE calibration). */
+  verticalCalibrationPosture() {
+    return request<{
+      schema_id: string;
+      method?: string;
+      live_calibration_claim_allowed: boolean;
+      fixture_calibration_only: boolean;
+      any_drift_elevated?: boolean;
+      verticals: Array<{
+        vertical: string;
+        ok?: boolean;
+        n?: number;
+        expected_calibration_error?: number | null;
+        drift_flag?: string;
+        promote_f1?: number;
+        reliability_bins?: Array<Record<string, unknown>>;
+        honesty?: string;
+        fixture_calibration_only?: boolean;
+        live_calibration_claim_allowed?: boolean;
+        [key: string]: unknown;
+      }>;
+    }>("/api/decisions/v1/ops/vertical-calibration");
+  },
+
+  verticalPromotePosture() {
+    return request<{
+      promote_live_claim_allowed?: boolean;
+      packs?: Array<Record<string, unknown>>;
+      [key: string]: unknown;
+    }>("/api/decisions/v1/ops/vertical-promote-posture");
+  },
+
+  trendDrafts(tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<{ tenant_id: string; drafts: Array<Record<string, unknown>> }>(
+      `/api/decisions/v1/ops/trend/drafts?${q}`,
+    );
+  },
+
+  trendTick(body: {
+    tenant_id?: string;
+    limit?: number;
+    skip_llm?: boolean;
+    entity_ids?: string[];
+  }) {
+    return request<{
+      ok: boolean;
+      evaluated: number;
+      skipped: number;
+      skip_llm?: boolean;
+      results: Array<Record<string, unknown>>;
+    }>("/api/decisions/v1/ops/trend/tick", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+
+  trendRejectDraft(draftId: string, tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<{ ok: boolean; draft: Record<string, unknown> }>(
+      `/api/decisions/v1/ops/trend/drafts/${encodeURIComponent(draftId)}/reject?${q}`,
+      { method: "POST" },
+    );
+  },
+
+  trendHilOverride(body: {
+    tenant_id: string;
+    entity_id: string;
+    override_type: string;
+    scope_key?: string;
+    analyst_rationale?: string;
+  }) {
+    return request<{ ok: boolean; override_id: string }>("/api/decisions/v1/ops/trend/hil-override", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+
+  trendWatch(body: { tenant_id: string; entity_id: string; reason?: string }) {
+    return request<{ ok: boolean }>("/api/decisions/v1/ops/trend/watch", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+
+  trendPosture(tenantId?: string) {
+    const q = tenantId?.trim()
+      ? `?${new URLSearchParams({ tenant_id: tenantId.trim() })}`
+      : "";
+    return request<{
+      schema_id?: string;
+      wasm_auto_promote?: boolean;
+      tick_skip_llm_default?: boolean;
+      baseline_min_n?: number;
+      watch_count?: number;
+      pending_draft_count?: number | null;
+      honesty?: string;
+      cron_hint?: string;
+      [key: string]: unknown;
+    }>(`/api/decisions/v1/ops/trend/posture${q}`);
+  },
+
   l3Ledger() {
     return request<{
       schema_id?: string;
@@ -3327,6 +3429,8 @@ export interface InvestigationChatResponse {
   copilot_mode?: "full" | "tools_only_deterministic" | "read_only_summary" | "offline";
   /** Machine-readable degradation causes for audit-friendly UI banners. */
   degraded_reasons?: string[];
+  /** Durable AgentRun id (omniscient spine); GET /v1/agent-runs/{run_id}. */
+  agent_run_id?: string;
 }
 
 export const investigation = {
@@ -3394,6 +3498,30 @@ export const investigation = {
 
   listPlaybooks() {
     return request<InvestigationPlaybooksResponse>("/api/investigation/v1/playbooks");
+  },
+
+  getAgentRun(runId: string, tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<{
+      run_id: string;
+      turn_id?: string;
+      tenant_id?: string;
+      case_id?: string | null;
+      claims?: Array<Record<string, unknown>>;
+      context_snapshot?: {
+        freshness?: Record<string, string>;
+        keys_present?: string[];
+        artifacts?: Array<Record<string, unknown>>;
+      };
+      [key: string]: unknown;
+    }>(`/api/investigation/v1/agent-runs/${encodeURIComponent(runId)}?${q}`);
+  },
+
+  listAgentRunsForTurn(turnId: string, tenantId: string) {
+    const q = new URLSearchParams({ turn_id: turnId, tenant_id: tenantId });
+    return request<{ items: Array<Record<string, unknown>> }>(
+      `/api/investigation/v1/agent-runs?${q}`,
+    );
   },
 
   governance() {
