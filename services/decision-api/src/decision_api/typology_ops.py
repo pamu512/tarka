@@ -59,13 +59,41 @@ def aggregate_typology_breaches_from_audits(
     }
 
 
+def filter_breach_histogram_by_vertical(
+    histogram: Mapping[str, Any] | None,
+    *,
+    vertical: str | None,
+) -> dict[str, Any] | None:
+    """Filter driver_typology_counts to typologies affiliated with ``vertical``."""
+    if not isinstance(histogram, Mapping):
+        return None
+    if not vertical:
+        return dict(histogram)
+    from decision_api.vertical_promote_registry import typology_ids_by_vertical
+
+    allowed = set(typology_ids_by_vertical().get(vertical) or [])
+    if not allowed:
+        return dict(histogram)
+    drivers = histogram.get("driver_typology_counts") or {}
+    if not isinstance(drivers, Mapping):
+        return dict(histogram)
+    filtered = {k: v for k, v in drivers.items() if str(k) in allowed}
+    out = dict(histogram)
+    out["driver_typology_counts"] = filtered
+    out["vertical_filter"] = vertical
+    return out
+
+
 def load_typology_ops_posture(
     *,
     sample_rule_hits: list[str] | None = None,
     sample_features: dict[str, Any] | None = None,
     audit_breach_histogram: Mapping[str, Any] | None = None,
+    vertical: str | None = None,
 ) -> dict[str, Any]:
     """Ops surface: configured typologies + optional live evaluate sample + audit histogram."""
+    from decision_api.vertical_promote_registry import typology_ids_by_vertical
+
     telem = weighted_aggregation_telemetry()
     data = load_typology_definitions()
     hits = list(sample_rule_hits or [])
@@ -81,11 +109,10 @@ def load_typology_ops_posture(
         for c in telem.get("configured") or []
         if isinstance(c, dict) and c.get("id")
     ]
-    hist = (
-        dict(audit_breach_histogram)
-        if isinstance(audit_breach_histogram, Mapping)
-        else None
+    hist = filter_breach_histogram_by_vertical(
+        audit_breach_histogram, vertical=vertical
     )
+    by_vertical = typology_ids_by_vertical()
     return {
         "schema_id": "tarka.typology_ops_posture/v1",
         "control_plane": {
@@ -98,6 +125,8 @@ def load_typology_ops_posture(
         "live_scores": telem.get("live_scores") or [],
         "sample_summary": summary,
         "audit_breach_histogram": hist,
+        "by_vertical": by_vertical,
+        "vertical_filter": vertical,
         "borrowed_from": "Tazama typology processor (weights + breach thresholds)",
         "vs_tazama": (
             "In-process typology DSL + ops telemetry — not OpenFaaS rule/typology "

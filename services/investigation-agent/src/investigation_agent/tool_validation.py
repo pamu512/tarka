@@ -303,4 +303,27 @@ def validate_tool_arguments(name: str, raw: Any) -> tuple[dict[str, Any] | None,
             "max_velocity_nodes": _validate_max_velocity_nodes(max_nodes),
         }, None
 
+    if name == "evaluate_entity_trend":
+        eid = raw.get("entity_id")
+        if eid is None or (isinstance(eid, str) and not str(eid).strip()):
+            return None, "evaluate_entity_trend requires entity_id"
+        try:
+            eid_v = _validate_entity_id(str(eid))
+        except ValueError:
+            return None, "invalid tool arguments"
+        rows = raw.get("window_rows")
+        if rows is None:
+            return None, "evaluate_entity_trend requires window_rows"
+        if not isinstance(rows, (list, dict)):
+            return None, "window_rows must be a list or object"
+        skip = raw.get("skip_llm", True)
+        if not isinstance(skip, bool):
+            skip = str(skip).strip().lower() in {"1", "true", "yes", "on"}
+        return {
+            "entity_id": eid_v,
+            "window_rows": rows,
+            "region_code": str(raw.get("region_code") or "")[:64],
+            "skip_llm": bool(skip),
+        }, None
+
     return None, f"unknown tool for validation: {name}"

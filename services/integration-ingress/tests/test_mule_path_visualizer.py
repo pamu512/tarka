@@ -6,6 +6,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import pytest
+
 _MOD_PATH = (
     Path(__file__).resolve().parents[1] / "src" / "integration_ingress" / "mule_path_visualizer.py"
 )
@@ -16,8 +18,14 @@ sys.modules["mule_path_visualizer"] = _mod
 _spec.loader.exec_module(_mod)
 
 
+def test_mule_path_demo_disabled_by_default():
+    with pytest.raises(PermissionError, match="ALLOW_MULE_PATH_DEMO"):
+        _mod.build_mule_path_payload(tenant_id="demo")
+
+
 def test_build_mule_path_three_hops() -> None:
-    payload = _mod.build_mule_path_payload(tenant_id="demo")
+    payload = _mod.build_mule_path_payload(tenant_id="demo", allow_demo=True)
+    assert payload["source"] == "demo_template"
     assert len(payload["hops"]) == 3
     assert payload["hops"][0]["role"] == "origin"
     assert payload["hops"][1]["role"] == "mule"
@@ -30,6 +38,7 @@ def test_fraud_frank_template() -> None:
         tenant_id="demo",
         origin_entity_id="fraud_frank",
         mule_entity_id="mule_jane",
+        allow_demo=True,
     )
     assert payload["hops"][0]["entity_id"] == "fraud_frank"
     assert payload["hops"][1]["entity_id"] == "mule_jane"

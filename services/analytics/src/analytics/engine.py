@@ -89,7 +89,7 @@ class DuckDBEngine(BaseAnalyticsEngine):
         self._path = database_path
         self._conn = duckdb.connect(str(database_path))
         self._conn.execute("PRAGMA threads=4")
-        self._ensure_decisions_stub_table()
+        self._ensure_fraud_decisions_table()
 
     @classmethod
     def from_env(cls) -> DuckDBEngine:
@@ -99,7 +99,7 @@ class DuckDBEngine(BaseAnalyticsEngine):
     def backend(self) -> Literal["clickhouse", "duckdb"]:
         return "duckdb"
 
-    def _ensure_decisions_stub_table(self) -> None:
+    def _ensure_fraud_decisions_table(self) -> None:
         """Minimal ``fraud_decisions`` shape for KPIs + local inserts (aligned with analytics-sink)."""
         self._conn.execute(
             """

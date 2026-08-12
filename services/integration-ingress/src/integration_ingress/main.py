@@ -1153,14 +1153,25 @@ async def investigation_mule_path(
     _user=Depends(require_role("analyst")),
 ):
     """Trace fund flow User A → mule (User B) → external payout (Prompt 179)."""
+    from fastapi import HTTPException
+
     from integration_ingress.mule_path_visualizer import build_mule_path_payload
 
-    return build_mule_path_payload(
-        tenant_id=tenant_id,
-        origin_entity_id=origin_entity_id,
-        mule_entity_id=mule_entity_id,
-        payout_entity_id=payout_entity_id,
-    )
+    try:
+        return build_mule_path_payload(
+            tenant_id=tenant_id,
+            origin_entity_id=origin_entity_id,
+            mule_entity_id=mule_entity_id,
+            payout_entity_id=payout_entity_id,
+        )
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=501,
+            detail={
+                "reason_code": "MULE_PATH_DEMO_DISABLED",
+                "message": str(exc),
+            },
+        ) from exc
 
 
 @app.get("/v1/analytics/promo-abuse")

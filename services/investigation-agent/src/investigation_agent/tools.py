@@ -69,6 +69,7 @@ def normalize_tool_error_shape(tool_name: str, payload: dict[str, Any]) -> dict[
         "not_found",
         "no_audit_records",
         "batch_not_found",
+        "window_rows_required",
     }
     retryable_codes = {
         "cases_fetch_failed",
@@ -1208,6 +1209,63 @@ async def tool_graph_risk_narrative(
     )
 
 
+async def tool_evaluate_entity_trend(
+    http: httpx.AsyncClient,
+    tenant_id: str,
+    analyst_id: str,
+    entity_id: str,
+    window_rows: list[dict[str, Any]] | dict[str, Any] | None = None,
+    region_code: str = "",
+    skip_llm: bool = True,
+) -> dict[str, Any]:
+    """
+    Run the trend agent via decision-api using caller-supplied window stats (RAG matrix).
+
+    Does not invent baselines — ``window_rows`` must include observed + baseline_mean.
+    """
+    if not _analyst_allowed(analyst_id):
+        return {"error": "forbidden"}
+    try:
+        entity_id = _validate_entity_id(entity_id)
+    except ValueError as e:
+        return {"error": str(e)}
+    base = (settings.decision_api_url or "").rstrip("/")
+    if not base:
+        return {"error": "decision_api_disabled"}
+    if window_rows is None:
+        return {
+            "error": "window_rows_required",
+            "detail": (
+                "Pass explicit multi-window stats "
+                "(metric_key, window, observed, baseline_mean, baseline_std). "
+                "Trend agent never invents baselines."
+            ),
+        }
+    payload = {
+        "tenant_id": tenant_id,
+        "entity_id": entity_id,
+        "region_code": (region_code or "")[:64],
+        "window_rows": window_rows,
+        "skip_llm": bool(skip_llm),
+    }
+    try:
+        r = await http.post(
+            f"{base}/v1/ops/trend/evaluate",
+            json=payload,
+            headers={**_auth_headers(), "Content-Type": "application/json"},
+            timeout=60.0,
+        )
+        if r.status_code >= 400:
+            return {
+                "error": "trend_evaluate_failed",
+                "status": r.status_code,
+                "detail": r.text[:500],
+            }
+        return _limit_result(r.json())
+    except Exception as e:
+        return {"error": "trend_evaluate_failed", "detail": str(e)[:500]}
+
+
 def _replay_summary(resp: dict[str, Any]) -> dict[str, Any]:
     changed = [x for x in (resp.get("results") or []) if x.get("decision_changed")]
     return {
@@ -1656,6 +1714,36 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "evaluate_entity_trend",
+            "description": (
+                "Run the forensic trend agent on explicit multi-window velocity stats "
+                "(RAG matrix). Requires window_rows with observed + baseline_mean; "
+                "never invents baselines. Writes triage + PENDING_VALIDATION drafts only."
+            ),
+            "parameters": {
+                "type": "object",
+                "required": ["entity_id", "window_rows"],
+                "properties": {
+                    "entity_id": {"type": "string"},
+                    "window_rows": {
+                        "description": (
+                            "List of {metric_key, window, observed, baseline_mean, baseline_std} "
+                            "or object with window_rows/metrics."
+                        )
+                    },
+                    "region_code": {"type": "string"},
+                    "skip_llm": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": "If true, fail-closed escalate without calling an LLM.",
+                    },
+                },
+            },
+        },
+    },
 ]
 
 TOOL_DISPATCH = {
@@ -1679,4 +1767,5 @@ TOOL_DISPATCH = {
     "summarize_adverse_media": tool_summarize_adverse_media,
     "consolidate_entity_profile": tool_consolidate_entity_profile,
     "graph_risk_narrative": tool_graph_risk_narrative,
+    "evaluate_entity_trend": tool_evaluate_entity_trend,
 }

@@ -19,7 +19,11 @@ for _p in (_SRC_ORCH, _SRC_SHARED, _SRC_SERVICES):
         sys.path.insert(0, str(_p))
 
 
-def test_try_shadow_autoresolve_after_ingest_transitions_to_resolved_auto() -> None:
+def test_try_shadow_autoresolve_after_ingest_transitions_to_resolved_auto(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("SHADOW_AUTORESOLVE_ENABLED", "true")
+
     async def _run() -> None:
         import models.cases  # noqa: F401, PLC0415
         import tarka_shared.audit_trail  # noqa: F401, PLC0415
@@ -113,6 +117,84 @@ def test_try_shadow_autoresolve_after_ingest_transitions_to_resolved_auto() -> N
             assert len(hist) == 1
             assert hist[0].audit_log_id == transition_audit_id
 
+        await engine.dispose()
+
+    asyncio.run(_run())
+
+
+def test_try_shadow_autoresolve_disabled_by_default(monkeypatch) -> None:
+    monkeypatch.delenv("SHADOW_AUTORESOLVE_ENABLED", raising=False)
+
+    async def _run() -> None:
+        from shadow_autoresolve import try_shadow_autoresolve_after_ingest
+        from shadow.hooks.resolve_case import CONFIDENCE_THRESHOLD
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+        from sqlalchemy.pool import StaticPool
+
+        engine = create_async_engine(
+            "sqlite+aiosqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        fac = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+        shadow_data = {
+            "risk_score": 6.0,
+            "is_fraud": False,
+            "confidence_metrics": {
+                "confidence": min(1.0, CONFIDENCE_THRESHOLD + 0.02),
+                "recommended_action": "AUTO_RESOLVE",
+            },
+        }
+        out = await try_shadow_autoresolve_after_ingest(
+            audit_session_factory=fac,
+            graph_client=None,
+            audit_log_id=1,
+            entity_id="e1",
+            metadata={},
+            actions=["ALLOW"],
+            rule_data={},
+            shadow_data=shadow_data,
+            auth_token="t",
+        )
+        assert out.attempted is False
+        assert out.skipped_reason == "autoresolve_disabled"
+        await engine.dispose()
+
+    asyncio.run(_run())
+
+
+def test_try_shadow_autoresolve_skips_timeout_fallback(monkeypatch) -> None:
+    monkeypatch.setenv("SHADOW_AUTORESOLVE_ENABLED", "true")
+
+    async def _run() -> None:
+        from shadow_autoresolve import try_shadow_autoresolve_after_ingest
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+        from sqlalchemy.pool import StaticPool
+
+        engine = create_async_engine(
+            "sqlite+aiosqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        fac = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+        out = await try_shadow_autoresolve_after_ingest(
+            audit_session_factory=fac,
+            graph_client=None,
+            audit_log_id=1,
+            entity_id="e1",
+            metadata={},
+            actions=["FLAG"],
+            rule_data={},
+            shadow_data={
+                "risk_score": 50.0,
+                "is_fraud": False,
+                "reasoning": ["TIMEOUT_FALLBACK"],
+                "confidence_metrics": {"timeout_fallback": True, "confidence": 0.99},
+            },
+            auth_token="t",
+        )
+        assert out.attempted is False
+        assert out.skipped_reason == "timeout_fallback"
         await engine.dispose()
 
     asyncio.run(_run())

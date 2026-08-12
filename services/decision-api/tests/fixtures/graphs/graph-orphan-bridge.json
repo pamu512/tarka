@@ -1,0 +1,27 @@
+{
+  "id": "graph-orphan-bridge",
+  "class": "noisy",
+  "party_graph": {
+    "nodes": [
+      {
+        "id": "d1",
+        "role": "device"
+      },
+      {
+        "id": "d2",
+        "role": "device"
+      }
+    ],
+    "edges": [
+      {
+        "src": "d1",
+        "dst": "d2",
+        "type": "RELATED"
+      }
+    ]
+  },
+  "expect": {
+    "cross_role_same_device": false,
+    "production_ready": false
+  }
+}
