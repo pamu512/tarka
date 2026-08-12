@@ -81,7 +81,9 @@ def test_case_brief_and_agent_run_http(data_dir: Path, monkeypatch: pytest.Monke
     with TestClient(app) as client:
         r = client.post(
             "/v1/internal/case-brief",
-            json={"case": {"id": "case-42", "tenant_id": "t1", "entity_id": "ent-1", "status": "OPEN"}},
+            json={
+                "case": {"id": "case-42", "tenant_id": "t1", "entity_id": "ent-1", "status": "OPEN"}
+            },
             headers={"x-internal-secret": "brief-secret"},
         )
         assert r.status_code == 200, r.text

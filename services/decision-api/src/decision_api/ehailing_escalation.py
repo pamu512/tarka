@@ -73,7 +73,9 @@ class EhailingChallengeStore:
 ehailing_challenge_store = EhailingChallengeStore()
 
 
-def _vertical_is_ehailing(metadata: dict[str, Any] | None, features: dict[str, Any]) -> bool:
+def _vertical_is_ehailing(
+    metadata: dict[str, Any] | None, features: dict[str, Any]
+) -> bool:
     meta = metadata if isinstance(metadata, dict) else {}
     v = (
         meta.get("vertical_profile")

@@ -162,13 +162,19 @@ def _norm_edges(raw: list[Any]) -> list[dict[str, Any]]:
     for item in raw:
         if not isinstance(item, dict):
             continue
-        src = str(item.get("src") or item.get("from") or item.get("source") or "").strip()
+        src = str(
+            item.get("src") or item.get("from") or item.get("source") or ""
+        ).strip()
         dst = str(item.get("dst") or item.get("to") or item.get("target") or "").strip()
         if not src or not dst:
             continue
-        etype = str(item.get("type") or item.get("edge_type") or "RELATED").strip().upper()
+        etype = (
+            str(item.get("type") or item.get("edge_type") or "RELATED").strip().upper()
+        )
         try:
-            weight = float(item.get("weight") if item.get("weight") is not None else 1.0)
+            weight = float(
+                item.get("weight") if item.get("weight") is not None else 1.0
+            )
         except (TypeError, ValueError):
             weight = 1.0
         try:
@@ -205,9 +211,7 @@ def _edge_age_hours(edge: dict[str, Any], as_of: datetime) -> float | None:
     return None
 
 
-def _resolve_as_of(
-    edges: list[dict[str, Any]], graph: dict[str, Any]
-) -> datetime:
+def _resolve_as_of(edges: list[dict[str, Any]], graph: dict[str, Any]) -> datetime:
     raw = graph.get("as_of") or graph.get("observed_at")
     parsed = _parse_ts(raw)
     if parsed:
@@ -255,7 +259,9 @@ def _ensure_edge_nodes(
 def _add(factors: list[RingFactor], code: str, weight: float, detail: str) -> None:
     if weight <= 0:
         return
-    factors.append(RingFactor(code=code, weight=min(40.0, float(weight)), detail=detail))
+    factors.append(
+        RingFactor(code=code, weight=min(40.0, float(weight)), detail=detail)
+    )
 
 
 def _roles_in_component(
@@ -438,7 +444,11 @@ def compute_ring_score(
                 other = e["dst"]
             elif e["dst"] == nid:
                 other = e["src"]
-            if other and nodes.get(other, {}).get("role") in ("buyer", "diner", "rider"):
+            if other and nodes.get(other, {}).get("role") in (
+                "buyer",
+                "diner",
+                "rider",
+            ):
                 buyers += 1
         if buyers >= 5:
             _add(

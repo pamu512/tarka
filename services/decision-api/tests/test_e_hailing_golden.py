@@ -7,7 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from decision_api.depth_engines import apply_all_depth_engines, merge_depth_into_score_and_tags
+from decision_api.depth_engines import (
+    apply_all_depth_engines,
+    merge_depth_into_score_and_tags,
+)
 from decision_api.ehailing_escalation import (
     apply_ehailing_challenge_escalation,
     ehailing_challenge_store,
@@ -85,7 +88,11 @@ async def test_ehailing_challenge_escalates_to_suspend():
     tags = ["action:hard_challenge", "vertical:e_hailing"]
     hits: list[str] = ["eh_self_ride_same_device"]
     feats: dict = {}
-    meta = {"vertical_profile": "e_hailing", "driver_id": "drv-esc-1", "ehailing_challenge_threshold": 3}
+    meta = {
+        "vertical_profile": "e_hailing",
+        "driver_id": "drv-esc-1",
+        "ehailing_challenge_threshold": 3,
+    }
 
     for i in range(1, 3):
         ev = await apply_ehailing_challenge_escalation(

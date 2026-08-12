@@ -146,7 +146,9 @@ def _i(v: Any) -> int | None:
         return None
 
 
-def _extract(payload: dict[str, Any] | None, metadata: dict[str, Any] | None) -> dict[str, Any] | None:
+def _extract(
+    payload: dict[str, Any] | None, metadata: dict[str, Any] | None
+) -> dict[str, Any] | None:
     for src in (metadata, payload):
         if not isinstance(src, dict):
             continue
@@ -178,15 +180,15 @@ def compute_representment_strength(
 
     has = {
         "pod": _truthy(
-            block.get("has_pod")
-            or block.get("pod")
-            or block.get("proof_of_delivery")
+            block.get("has_pod") or block.get("pod") or block.get("proof_of_delivery")
         ),
         "tracking": _truthy(block.get("has_tracking") or block.get("tracking")),
         "chat": _truthy(block.get("has_chat") or block.get("chat_log")),
         "id_check": _truthy(block.get("has_id_check") or block.get("id_verified")),
         "avs": _truthy(block.get("has_avs") or block.get("avs_match")),
-        "3ds": _truthy(block.get("has_3ds") or block.get("three_ds") or block.get("3ds")),
+        "3ds": _truthy(
+            block.get("has_3ds") or block.get("three_ds") or block.get("3ds")
+        ),
     }
 
     factors: list[DisputeFactor] = []
@@ -280,10 +282,14 @@ def compute_representment_strength(
             12,
             "Ethoca/Verifi-style early alert without POD/tracking",
         )
-    claim = str(block.get("cardholder_claim") or block.get("claim") or "").strip().lower()
-    if claim in ("not_received", "not delivered", "merchandise_not_received") and has.get(
-        "pod"
-    ):
+    claim = (
+        str(block.get("cardholder_claim") or block.get("claim") or "").strip().lower()
+    )
+    if claim in (
+        "not_received",
+        "not delivered",
+        "merchandise_not_received",
+    ) and has.get("pod"):
         # Merchant-favorable: claim conflicts with POD — raise strength only
         strength = min(100.0, strength + 10.0)
     if _truthy(block.get("no_auth") or block.get("fraud_claim")) and not has.get("3ds"):

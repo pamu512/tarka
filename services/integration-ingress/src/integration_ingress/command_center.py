@@ -103,13 +103,19 @@ async def _empty_seller_board(tenant_id: str) -> dict[str, Any]:
     }
 
 
-async def build_command_center_payload(*, tenant_id: str, session: Any | None = None) -> dict[str, Any]:
+async def build_command_center_payload(
+    *, tenant_id: str, session: Any | None = None
+) -> dict[str, Any]:
     """Aggregate high-signal KPIs and module deep-links for the analyst landing cockpit."""
     tid = (tenant_id or "demo").strip() or "demo"
 
-    promo = await _load_sibling("promo_abuse_tracking").build_promo_abuse_payload(
-        session, tenant_id=tid, coupon_code="NEWUSER50"
-    ) if session is not None else await _empty_promo_board(tid)
+    promo = (
+        await _load_sibling("promo_abuse_tracking").build_promo_abuse_payload(
+            session, tenant_id=tid, coupon_code="NEWUSER50"
+        )
+        if session is not None
+        else await _empty_promo_board(tid)
+    )
     syn = _load_sibling("synthetic_identity_detectors").build_synthetic_identity_payload(
         tenant_id=tid, limit=50
     )

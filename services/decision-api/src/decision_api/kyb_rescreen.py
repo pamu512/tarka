@@ -34,7 +34,12 @@ def _parse_ts(raw: Any) -> datetime | None:
 
 
 def last_screen_at(record: dict[str, Any]) -> datetime | None:
-    for key in ("last_rescreen_at", "last_screen_at", "vendor_verified_at", "updated_at"):
+    for key in (
+        "last_rescreen_at",
+        "last_screen_at",
+        "vendor_verified_at",
+        "updated_at",
+    ):
         dt = _parse_ts(record.get(key))
         if dt is not None:
             return dt
@@ -65,8 +70,10 @@ def select_due_sellers(
     limit: int = 100,
     now: datetime | None = None,
 ) -> list[dict[str, Any]]:
-    due = [r for r in records if is_due_for_rescreen(r, max_age_days=max_age_days, now=now)]
-    due.sort(key=lambda r: (last_screen_at(r) or datetime.min.replace(tzinfo=UTC)))
+    due = [
+        r for r in records if is_due_for_rescreen(r, max_age_days=max_age_days, now=now)
+    ]
+    due.sort(key=lambda r: last_screen_at(r) or datetime.min.replace(tzinfo=UTC))
     return due[: max(1, min(500, int(limit)))]
 
 
@@ -124,7 +131,9 @@ def apply_rescreen_result(
     return out
 
 
-def rescreen_ops_posture(*, due_count: int = 0, max_age_days: int = DEFAULT_MAX_AGE_DAYS) -> dict[str, Any]:
+def rescreen_ops_posture(
+    *, due_count: int = 0, max_age_days: int = DEFAULT_MAX_AGE_DAYS
+) -> dict[str, Any]:
     return {
         "schema_id": SCHEMA_ID,
         "method": METHOD,

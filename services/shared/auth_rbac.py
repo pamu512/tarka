@@ -218,9 +218,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
-        if path in self.SKIP_PATHS or any(
-            path.startswith(prefix) for prefix in self.SKIP_PREFIXES
-        ):
+        if path in self.SKIP_PATHS or any(path.startswith(prefix) for prefix in self.SKIP_PREFIXES):
             request.state.auth_user = AuthUser("system", ["viewer"], "bypass", tenant_ids={"*"})
             return await call_next(request)
         try:

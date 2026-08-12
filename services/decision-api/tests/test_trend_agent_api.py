@@ -38,10 +38,17 @@ async def trend_http(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.mark.asyncio
-async def test_trend_http_evaluate_reject_promote_forbidden(trend_http: AsyncClient) -> None:
+async def test_trend_http_evaluate_reject_promote_forbidden(
+    trend_http: AsyncClient,
+) -> None:
     empty = await trend_http.post(
         "/v1/ops/trend/evaluate",
-        json={"tenant_id": "ten-a", "entity_id": "ent-1", "window_rows": [], "skip_llm": True},
+        json={
+            "tenant_id": "ten-a",
+            "entity_id": "ent-1",
+            "window_rows": [],
+            "skip_llm": True,
+        },
     )
     assert empty.status_code == 400
     assert empty.json()["detail"]["error"] == "window_rows_required"
@@ -79,7 +86,9 @@ async def test_trend_http_evaluate_reject_promote_forbidden(trend_http: AsyncCli
     assert pkg.get("promotable") is False
 
     # Tenant isolation: other tenant sees no drafts
-    other = await trend_http.get("/v1/ops/trend/drafts", params={"tenant_id": "ten-other"})
+    other = await trend_http.get(
+        "/v1/ops/trend/drafts", params={"tenant_id": "ten-other"}
+    )
     assert other.status_code == 200
     assert other.json()["drafts"] == []
 
@@ -98,12 +107,16 @@ async def test_trend_http_evaluate_reject_promote_forbidden(trend_http: AsyncCli
     assert rejected.json()["draft"]["status"] == "REJECTED"
 
     # Rejected draft no longer listed as pending
-    listed2 = await trend_http.get("/v1/ops/trend/drafts", params={"tenant_id": "ten-a"})
+    listed2 = await trend_http.get(
+        "/v1/ops/trend/drafts", params={"tenant_id": "ten-a"}
+    )
     assert all(d["id"] != draft_id for d in listed2.json()["drafts"])
 
 
 @pytest.mark.asyncio
-async def test_trend_http_viewer_forbidden(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_trend_http_viewer_forbidden(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("TREND_AGENT_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("TREND_AGENT_DB_NAME", "trend_http_viewer.sqlite3")
     monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
@@ -116,7 +129,9 @@ async def test_trend_http_viewer_forbidden(tmp_path: Path, monkeypatch: pytest.M
 
     @app.middleware("http")
     async def _inject_auth(request, call_next):
-        request.state.auth_user = AuthUser("viewer", ["viewer"], "test", tenant_ids={"*"})
+        request.state.auth_user = AuthUser(
+            "viewer", ["viewer"], "test", tenant_ids={"*"}
+        )
         return await call_next(request)
 
     app.include_router(trend_router)

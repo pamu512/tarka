@@ -59,9 +59,7 @@ async def test_fire_case_brief_rejects_llm_used_flag(monkeypatch: pytest.MonkeyP
     session.commit = AsyncMock()
     case_id = uuid.uuid4()
 
-    await agent_hooks.fire_case_brief(
-        http, {"id": str(case_id)}, session=session, case_id=case_id
-    )
+    await agent_hooks.fire_case_brief(http, {"id": str(case_id)}, session=session, case_id=case_id)
     comment = session.add.call_args[0][0]
     assert "deterministic" in comment.body
     assert "should not persist" not in comment.body

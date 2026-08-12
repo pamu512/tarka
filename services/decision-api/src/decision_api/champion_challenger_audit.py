@@ -59,7 +59,9 @@ def promote_lifecycle_stage(
     }
 
 
-def extract_policy_routing(payload_snapshot: Mapping[str, Any] | None) -> dict[str, Any] | None:
+def extract_policy_routing(
+    payload_snapshot: Mapping[str, Any] | None,
+) -> dict[str, Any] | None:
     if not isinstance(payload_snapshot, Mapping):
         return None
     pr = payload_snapshot.get("policy_routing")
@@ -276,7 +278,9 @@ def label_gated_promote(
         "blockers": uniq,
         "label_posture": dict(label_posture),
         "kill_gate": (
-            {k: v for k, v in kill_gate.items() if k != "metrics"} if kill_gate else None
+            {k: v for k, v in kill_gate.items() if k != "metrics"}
+            if kill_gate
+            else None
         ),
     }
 

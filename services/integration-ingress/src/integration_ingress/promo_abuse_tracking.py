@@ -53,7 +53,9 @@ def _aggregate_users(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "last_redeemed_at": redeemed_ts.isoformat(),
                 "device_id": row.get("device_id"),
                 "ip_hint": row.get("ip_hint"),
-                "order_total_usd": round(float(order_total), 2) if order_total is not None else None,
+                "order_total_usd": round(float(order_total), 2)
+                if order_total is not None
+                else None,
                 "flags": list(flags),
             }
             continue

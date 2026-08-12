@@ -8,7 +8,9 @@ from pathlib import Path
 from decision_api.json_rules import evaluate_json_rules
 from decision_api.rule_pack_validation import validate_rule_pack
 
-_PACK_PATH = Path(__file__).resolve().parents[1] / "rules" / "graph_shared_device_v1.json"
+_PACK_PATH = (
+    Path(__file__).resolve().parents[1] / "rules" / "graph_shared_device_v1.json"
+)
 
 
 def test_graph_shared_device_pack_validates():
@@ -26,7 +28,9 @@ def test_shared_device_tag_rules_fire():
     pack["mode"] = "active"
     mod._cached_packs = [pack]
 
-    hits, tags, delta, _ = evaluate_json_rules({}, ["sdk:shared_device", "velocity:high_1h"])
+    hits, tags, delta, _ = evaluate_json_rules(
+        {}, ["sdk:shared_device", "velocity:high_1h"]
+    )
     assert "shared_device_sdk" in hits
     assert "escalate_shared_device_with_velocity" in hits
     assert "graph:shared_device_elevated" in tags

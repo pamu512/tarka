@@ -343,7 +343,10 @@ async def benchmark_vertical_pack(body: VerticalBenchmarkRequest):
             **promote,
             "promote_allowed": False,
             "blockers": list(promote.get("blockers") or [])
-            + [f"fixture_holdout:{b}" for b in (fixture_gate.get("blockers") or ["blocked"])],
+            + [
+                f"fixture_holdout:{b}"
+                for b in (fixture_gate.get("blockers") or ["blocked"])
+            ],
             "fixture_holdout_gate": fixture_gate,
         }
     else:

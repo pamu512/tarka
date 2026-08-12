@@ -92,7 +92,9 @@ def _f(v: Any) -> float | None:
         return None
 
 
-def _extract(payload: dict[str, Any] | None, metadata: dict[str, Any] | None) -> dict[str, Any] | None:
+def _extract(
+    payload: dict[str, Any] | None, metadata: dict[str, Any] | None
+) -> dict[str, Any] | None:
     for src in (metadata, payload):
         if not isinstance(src, dict):
             continue
@@ -133,7 +135,9 @@ def compute_ftid_gate(
     photo_ok = _truthy(block.get("photo_hash_ok"))
     empty_box = _truthy(block.get("empty_box_suspected"))
     hours = _f(block.get("hours_since_delivered"))
-    serial_returns = _f(block.get("prior_return_count_90d") or block.get("serial_return_count"))
+    serial_returns = _f(
+        block.get("prior_return_count_90d") or block.get("serial_return_count")
+    )
     refund_amt = _f(block.get("refund_amount") or block.get("amount"))
     item_value = _f(block.get("declared_item_value") or block.get("item_value"))
     swap_hint = _truthy(block.get("item_swap_suspected") or block.get("swap_suspected"))
@@ -189,7 +193,9 @@ def compute_ftid_gate(
                     else "photo"
                 )
                 mismatch = priority
-                state = f"mismatch_{priority}" if priority != "photo" else "mismatch_hash"
+                state = (
+                    f"mismatch_{priority}" if priority != "photo" else "mismatch_hash"
+                )
                 if priority == "photo":
                     state = "mismatch_hash"
             else:
@@ -241,10 +247,7 @@ def compute_ftid_gate(
             18,
             f"{len(failures)} intake dimensions failed: {failures}",
         )
-    if (
-        ("hash" in failures and "weight" in failures)
-        or swap_hint is True
-    ):
+    if ("hash" in failures and "weight" in failures) or swap_hint is True:
         _add(
             factors,
             "item_swap_suspected",
@@ -307,9 +310,7 @@ def compute_ftid_gate(
         tags.append("risk:ftid")
     if hold:
         tags.extend(["action:refund_hold", "risk:ftid"])
-    if mismatch == "empty_box" or any(
-        f.code == "item_swap_suspected" for f in factors
-    ):
+    if mismatch == "empty_box" or any(f.code == "item_swap_suspected" for f in factors):
         tags.append("risk:friendly_fraud")
     if any(f.code == "serial_returner" for f in factors):
         tags.append("risk:serial_returner")
@@ -317,7 +318,9 @@ def compute_ftid_gate(
         tags.append("ftid:releasable")
 
     return FtidGateResult(
-        state=state if state in STATES or state.startswith("mismatch_") else "intake_pending",
+        state=state
+        if state in STATES or state.startswith("mismatch_")
+        else "intake_pending",
         refund_hold=hold,
         mismatch_class=mismatch,
         score_0_100=score,

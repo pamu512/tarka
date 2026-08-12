@@ -5,7 +5,10 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from decision_api.decision_outcome import DecisionOutcomeContext, schedule_decision_outcomes
+from decision_api.decision_outcome import (
+    DecisionOutcomeContext,
+    schedule_decision_outcomes,
+)
 from decision_api.loyalty_abuse_bridge import (
     LoyaltyBridgeResult,
     build_loyalty_event,
@@ -66,7 +69,9 @@ async def test_maybe_call_loyalty_abuse_posts_on_redeem():
         )
 
     transport = httpx.MockTransport(handler)
-    async with httpx.AsyncClient(transport=transport, base_url="http://loyalty") as client:
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://loyalty"
+    ) as client:
         result = await maybe_call_loyalty_abuse(
             http=client,
             base_url="http://loyalty",
@@ -267,7 +272,9 @@ async def test_from_evaluate_attaches_incomplete_feed_gate():
         return httpx.Response(200, json={"friction": "allow", "score": 1})
 
     transport = httpx.MockTransport(handler)
-    async with httpx.AsyncClient(transport=transport, base_url="http://loyalty") as client:
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://loyalty"
+    ) as client:
         result = await maybe_call_loyalty_abuse_from_evaluate(
             http=client,
             loyalty_abuse_url="http://loyalty",

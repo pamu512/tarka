@@ -365,11 +365,7 @@ class SanctionsScreener:
         meta = self.dataset_cache_meta()
         age = meta.get("dataset_cache_age_seconds")
         cache_present = meta.get("dataset_cache_mtime_unix") is not None
-        cache_fresh = bool(
-            cache_present
-            and age is not None
-            and float(age) < float(self.cache_ttl)
-        )
+        cache_fresh = bool(cache_present and age is not None and float(age) < float(self.cache_ttl))
         entity_count = len(self._entities) if self._loaded else 0
         if cache_fresh and self._loaded and entity_count > 0:
             continuous_status = "ready"
@@ -394,7 +390,9 @@ class SanctionsScreener:
         schedule = schedule_posture()
         cache_ready = continuous_status == "ready"
         # Cache ready ≠ Motiva-class continuous; ops need a refresh schedule + stamp.
-        continuous_ops_ready = bool(cache_ready and schedule["configured"] and stamp.get("last_refresh_at"))
+        continuous_ops_ready = bool(
+            cache_ready and schedule["configured"] and stamp.get("last_refresh_at")
+        )
         blockers: list[str] = []
         if not cache_ready:
             blockers.append(f"cache_{continuous_status}")

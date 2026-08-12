@@ -10,7 +10,9 @@ _SCRIPT = _REPO / "scripts" / "oss" / "marketplace_demo_tenant_proof.py"
 
 
 def _load_mod():
-    spec = importlib.util.spec_from_file_location("marketplace_demo_tenant_proof", _SCRIPT)
+    spec = importlib.util.spec_from_file_location(
+        "marketplace_demo_tenant_proof", _SCRIPT
+    )
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

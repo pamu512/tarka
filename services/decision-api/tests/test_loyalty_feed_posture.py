@@ -11,7 +11,9 @@ from decision_api.loyalty_feed_posture import (
 
 
 def test_incomplete_never_claim_allowed():
-    out = validate_feed_snapshot({"orders": [], "refunds": [], "loyalty_ledger": [], "lifecycle": []})
+    out = validate_feed_snapshot(
+        {"orders": [], "refunds": [], "loyalty_ledger": [], "lifecycle": []}
+    )
     assert out["status"] == "feeds_incomplete"
     assert out["claim_allowed"] is False
 
@@ -71,4 +73,7 @@ def test_feeds_ready_still_needs_bridge(tmp_path, monkeypatch):
 
 def test_parse_status_line():
     assert parse_feeds_status_line("FEEDS_READY")["live_claim_allowed"] is True
-    assert parse_feeds_status_line("FEEDS_NOT_PROVEN — reason: x")["live_claim_allowed"] is False
+    assert (
+        parse_feeds_status_line("FEEDS_NOT_PROVEN — reason: x")["live_claim_allowed"]
+        is False
+    )

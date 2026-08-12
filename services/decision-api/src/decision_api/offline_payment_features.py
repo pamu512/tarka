@@ -38,9 +38,9 @@ def apply_offline_payment_features(
     if isinstance(pm, str) and pm.strip():
         features["payment_method"] = pm.strip().lower()
         features["is_cod"] = features["payment_method"] in _COD_METHODS
-        features["is_offline_payment"] = features["is_cod"] or features[
-            "payment_method"
-        ] in _OFFLINE_METHODS
+        features["is_offline_payment"] = (
+            features["is_cod"] or features["payment_method"] in _OFFLINE_METHODS
+        )
     if isinstance(meta.get("is_cod"), bool):
         features["is_cod"] = meta["is_cod"]
     if isinstance(meta.get("is_offline_payment"), bool):
@@ -63,7 +63,9 @@ def apply_offline_payment_features(
         )
         if addrs is not None:
             features["distinct_delivery_addresses_7d"] = max(0, addrs)
-            features["address_hop_high"] = features["distinct_delivery_addresses_7d"] >= 5
+            features["address_hop_high"] = (
+                features["distinct_delivery_addresses_7d"] >= 5
+            )
         theft = src.get("selective_theft_suspected")
         if isinstance(theft, bool):
             features["selective_theft_high"] = theft

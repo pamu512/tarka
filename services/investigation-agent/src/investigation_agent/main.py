@@ -2414,7 +2414,9 @@ async def agent_runs_for_turn(turn_id: str, tenant_id: str):
     tid = (turn_id or "").strip()
     if not tid:
         raise HTTPException(status_code=400, detail="turn_id required")
-    return {"items": agent_run_store.list_agent_runs_for_turn(turn_id=tid, tenant_id=tenant_id.strip())}
+    return {
+        "items": agent_run_store.list_agent_runs_for_turn(turn_id=tid, tenant_id=tenant_id.strip())
+    }
 
 
 class CaseBriefBody(BaseModel):

@@ -35,7 +35,9 @@ def test_build_location_cohort_evidence_absent_when_no_signals():
             location_meta=None,
             graph_meta=None,
             partner_graph_hints=None,
-            canary_cohort=build_canary_cohort_audit("t1", "e1", salt_version="policy_v1"),
+            canary_cohort=build_canary_cohort_audit(
+                "t1", "e1", salt_version="policy_v1"
+            ),
         )
         is None
     )
@@ -49,7 +51,9 @@ def test_build_location_cohort_evidence_absent_on_degrade_tags_only():
             location_meta=None,
             graph_meta=None,
             partner_graph_hints=None,
-            canary_cohort=build_canary_cohort_audit("t1", "e1", salt_version="policy_v1"),
+            canary_cohort=build_canary_cohort_audit(
+                "t1", "e1", salt_version="policy_v1"
+            ),
         )
         is None
     )
@@ -175,7 +179,9 @@ async def cohort_eval_client():
                                         from decision_api.config import settings as cfg
                                         from decision_api.main import app, get_session
 
-                                        cfg.location_service_url = "http://location.test"
+                                        cfg.location_service_url = (
+                                            "http://location.test"
+                                        )
                                         app.state.http = AsyncMock()
                                         app.dependency_overrides = {}
                                         app.dependency_overrides[get_session] = (
@@ -264,7 +270,12 @@ async def degrade_only_eval_client():
                     mock_agg._client = None
                     with patch(
                         "decision_api.main.evaluate_json_rules",
-                        return_value=([], ["location:unavailable", "graph:unavailable"], 0.0, []),
+                        return_value=(
+                            [],
+                            ["location:unavailable", "graph:unavailable"],
+                            0.0,
+                            [],
+                        ),
                     ):
                         with patch(
                             "decision_api.main.evaluate_opa_or_raise",
@@ -289,7 +300,9 @@ async def degrade_only_eval_client():
                                         from decision_api.config import settings as cfg
                                         from decision_api.main import app, get_session
 
-                                        cfg.location_service_url = "http://location.test"
+                                        cfg.location_service_url = (
+                                            "http://location.test"
+                                        )
                                         app.state.http = AsyncMock()
                                         app.dependency_overrides = {}
                                         app.dependency_overrides[get_session] = (
@@ -308,7 +321,9 @@ async def degrade_only_eval_client():
 
 
 @pytest.mark.asyncio
-async def test_evaluate_omits_cohort_evidence_on_degrade_tags_only(degrade_only_eval_client):
+async def test_evaluate_omits_cohort_evidence_on_degrade_tags_only(
+    degrade_only_eval_client,
+):
     """Evaluate audit must omit location_cohort_evidence when only degrade tags present."""
     c = degrade_only_eval_client
     r = await c.post(

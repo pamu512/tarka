@@ -158,7 +158,11 @@ def test_food_rapid_cancel_refund():
                 {"stage": "checkout", "ts": "2026-08-11T12:00:00Z", "amount": 18},
                 {"stage": "paid", "ts": "2026-08-11T12:01:00Z", "amount": 18},
                 {"stage": "cancelled", "ts": "2026-08-11T12:04:00Z"},
-                {"stage": "refund_requested", "ts": "2026-08-11T12:06:00Z", "amount": 18},
+                {
+                    "stage": "refund_requested",
+                    "ts": "2026-08-11T12:06:00Z",
+                    "amount": 18,
+                },
             ],
         }
     }

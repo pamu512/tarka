@@ -110,8 +110,7 @@ def bridge_config() -> dict[str, Any]:
         "configured": bool(url),
         "live_claim_allowed": bool(url and key),
         "blockers": (
-            ([] if url else ["url_missing"])
-            + ([] if key else ["api_key_missing"])
+            ([] if url else ["url_missing"]) + ([] if key else ["api_key_missing"])
         ),
     }
 

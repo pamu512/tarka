@@ -51,7 +51,9 @@ class TrajectoryResult:
         }
 
 
-def _extract(payload: dict[str, Any] | None, metadata: dict[str, Any] | None) -> dict[str, Any] | None:
+def _extract(
+    payload: dict[str, Any] | None, metadata: dict[str, Any] | None
+) -> dict[str, Any] | None:
     for src in (metadata, payload):
         if not isinstance(src, dict):
             continue
@@ -99,7 +101,9 @@ def _mean(vals: list[float]) -> float | None:
     return sum(vals) / len(vals)
 
 
-def _add(factors: list[TrajectoryFactor], code: str, weight: float, detail: str) -> None:
+def _add(
+    factors: list[TrajectoryFactor], code: str, weight: float, detail: str
+) -> None:
     if weight <= 0:
         return
     factors.append(
@@ -167,9 +171,7 @@ def compute_seller_trajectory(
     signals = raw.get("signals") if isinstance(raw.get("signals"), dict) else {}
     age = ages[-1] if ages else _f(raw.get("account_age_days"))
     listing_delta = (listings[-1] - listings[0]) if len(listings) >= 2 else 0.0
-    listing_step = (
-        (listings[-1] - listings[-2]) if len(listings) >= 2 else 0.0
-    )
+    listing_step = (listings[-1] - listings[-2]) if len(listings) >= 2 else 0.0
     listing_burst = listing_delta >= 30 or listing_step >= 20
     if listing_delta >= 20 and age is not None and age <= 21:
         _add(
@@ -220,9 +222,7 @@ def compute_seller_trajectory(
     if reset_h is not None and reset_h <= 48:
         ato_flag = True
     new_payout_dest = signals.get("new_payout_destination") is True
-    recent_payout_step = (
-        (payouts[-1] - payouts[-2]) if len(payouts) >= 2 else 0.0
-    )
+    recent_payout_step = (payouts[-1] - payouts[-2]) if len(payouts) >= 2 else 0.0
     if ato_flag and (p_delta >= 500 or recent_payout_step >= 400 or new_payout_dest):
         _add(
             factors,

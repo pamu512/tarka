@@ -14,7 +14,9 @@ from decision_api.marketplace_features import apply_marketplace_features
 from decision_api.simulation_api import _eval_with_override_rules
 from decision_api.vertical_packs import get_vertical_pack
 
-_GOLDEN = Path(__file__).parent / "fixtures" / "verticals" / "food_promo_farm_golden.jsonl"
+_GOLDEN = (
+    Path(__file__).parent / "fixtures" / "verticals" / "food_promo_farm_golden.jsonl"
+)
 
 
 def _rows() -> list[dict]:

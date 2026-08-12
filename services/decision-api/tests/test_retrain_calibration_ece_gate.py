@@ -14,7 +14,9 @@ _SCRIPT = _REPO / "scripts" / "oss" / "retrain_calibration_ece_gate.py"
 
 
 def _load_mod():
-    spec = importlib.util.spec_from_file_location("retrain_calibration_ece_gate", _SCRIPT)
+    spec = importlib.util.spec_from_file_location(
+        "retrain_calibration_ece_gate", _SCRIPT
+    )
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -86,7 +88,9 @@ def test_bad_ece_does_not_write_candidate(tmp_path):
 
 def test_committed_fixture_passes_ece_gate(tmp_path):
     """Track A: CI fixture must pass chronological ECE gate (not production L3)."""
-    fixture = _REPO / "scripts" / "replay" / "fixtures" / "calibration_retrain_labels.json"
+    fixture = (
+        _REPO / "scripts" / "replay" / "fixtures" / "calibration_retrain_labels.json"
+    )
     assert fixture.is_file()
     candidate = tmp_path / "candidate.json"
     artifact = tmp_path / "artifact.json"
@@ -196,7 +200,14 @@ def test_fit_only_on_train_window(tmp_path):
     mod = _load_mod()
     rows = _calibrated_rows(start_day=1, count=40, invert=False)
     result = mod.retrain(
-        [{"created_at": r["created_at"], "score": r["integrity_confidence"], "y_label": int(r["y_label"])} for r in rows],
+        [
+            {
+                "created_at": r["created_at"],
+                "score": r["integrity_confidence"],
+                "y_label": int(r["y_label"]),
+            }
+            for r in rows
+        ],
         train_fraction=0.5,
         train_end=None,
         ece_threshold=0.05,
@@ -210,7 +221,11 @@ def test_train_end_split(tmp_path):
     mod = _load_mod()
     rows = _calibrated_rows(start_day=1, count=40, invert=False)
     parsed = [
-        {"created_at": r["created_at"], "score": r["integrity_confidence"], "y_label": int(r["y_label"])}
+        {
+            "created_at": r["created_at"],
+            "score": r["integrity_confidence"],
+            "y_label": int(r["y_label"]),
+        }
         for r in rows
     ]
     result = mod.retrain(

@@ -91,7 +91,12 @@ async def _features_for_entity(tenant_id: str, entity_id: str) -> dict[str, Any]
             return {}
         return dict(await agg.compute_features(tenant_id, entity_id, {}))
     except Exception as exc:
-        log.warning("trend_tick_features_failed tenant=%s entity=%s exc=%r", tenant_id, entity_id, exc)
+        log.warning(
+            "trend_tick_features_failed tenant=%s entity=%s exc=%r",
+            tenant_id,
+            entity_id,
+            exc,
+        )
         return {}
 
 

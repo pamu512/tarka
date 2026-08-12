@@ -143,9 +143,13 @@ def map_loyalty_response(
 
     eco = parse_economics_block(response)
     if eco:
-        tags = list(dict.fromkeys(tags + tags_for_feed_status(economics_feed_status(eco))))
+        tags = list(
+            dict.fromkeys(tags + tags_for_feed_status(economics_feed_status(eco)))
+        )
     elif isinstance(feed_gate, dict) and feed_gate.get("status"):
-        tags = list(dict.fromkeys(tags + tags_for_feed_status(str(feed_gate["status"]))))
+        tags = list(
+            dict.fromkeys(tags + tags_for_feed_status(str(feed_gate["status"])))
+        )
 
     if tags:
         log.info(

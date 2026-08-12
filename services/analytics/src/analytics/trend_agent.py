@@ -337,11 +337,7 @@ class TrendAgent:
             return self._finalize(matrix, envelope, triage=True, draft=True)
 
         # Hard policy: |Z|>4 without seasonal/HIL always escalates regardless of LLM tone.
-        if (
-            matrix.max_abs_z() > 4.0
-            and not matrix.seasonal_match
-            and not matrix.hil_overrides
-        ):
+        if matrix.max_abs_z() > 4.0 and not matrix.seasonal_match and not matrix.hil_overrides:
             envelope.disposition = "ESCALATED"
             envelope.anomaly_detected = True
             envelope.flag_for_hil_review = True

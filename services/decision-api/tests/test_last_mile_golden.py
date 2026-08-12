@@ -7,7 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from decision_api.depth_engines import apply_all_depth_engines, merge_depth_into_score_and_tags
+from decision_api.depth_engines import (
+    apply_all_depth_engines,
+    merge_depth_into_score_and_tags,
+)
 from decision_api.friendly_fraud_features import apply_friendly_fraud_features
 from decision_api.marketplace_features import apply_marketplace_features
 from decision_api.offline_payment_features import apply_offline_payment_features
@@ -15,7 +18,9 @@ from decision_api.simulation_api import _eval_with_override_rules
 from decision_api.typology import evaluate_typologies
 from decision_api.vertical_packs import get_vertical_pack
 
-_GOLDEN = Path(__file__).parent / "fixtures" / "verticals" / "last_mile_ftid_golden.jsonl"
+_GOLDEN = (
+    Path(__file__).parent / "fixtures" / "verticals" / "last_mile_ftid_golden.jsonl"
+)
 _BREACH_RANK = {"pass": 0, "warning": 1, "alert": 2}
 
 
@@ -52,7 +57,9 @@ def test_last_mile_golden_case(row: dict):
         )
 
     for f in row.get("expect_features_true") or []:
-        assert feats.get(f) is True, f"{row['id']}: expected {f}=True got {feats.get(f)!r}"
+        assert feats.get(f) is True, (
+            f"{row['id']}: expected {f}=True got {feats.get(f)!r}"
+        )
     for f in row.get("expect_features_false") or []:
         assert feats.get(f) is not True, f"{row['id']}: expected {f} not true"
 

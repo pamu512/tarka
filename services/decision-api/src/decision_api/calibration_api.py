@@ -423,7 +423,9 @@ async def reliability_export_bins(
     tenant_id: str = Query(..., max_length=128),
     limit: int = Query(10_000, ge=1, le=_EXPORT_MAX),
     n_bins: int = Query(10, ge=2, le=50),
-    allow_proxy_labels: bool = Query(False, description="Opt-in proxy labels (not ground truth)"),
+    allow_proxy_labels: bool = Query(
+        False, description="Opt-in proxy labels (not ground truth)"
+    ),
     session: AsyncSession = Depends(get_session),
     _user=Depends(require_role("analyst")),
 ) -> dict[str, Any]:
@@ -603,7 +605,9 @@ async def dispatch_challenge_from_desk(
 
 @router.get("/shadow-promote-gate")
 async def shadow_promote_gate(
-    tenant_id: str | None = Query(None, description="Optional tenant for label/CC scan"),
+    tenant_id: str | None = Query(
+        None, description="Optional tenant for label/CC scan"
+    ),
     session: AsyncSession = Depends(get_session),
     _user=Depends(require_role("analyst")),
 ) -> dict[str, Any]:

@@ -134,9 +134,11 @@ def merge_depth_into_score_and_tags(
             else:
                 # Weak host graphs: further damp ring contribution
                 scale = child_scale
-                if key == "ring_score" and evidence.get("party_graph_quality", {}).get(
-                    "production_ready"
-                ) is False:
+                if (
+                    key == "ring_score"
+                    and evidence.get("party_graph_quality", {}).get("production_ready")
+                    is False
+                ):
                     scale *= 0.5
                 depth_delta += min(18.0, score * scale)
         except (TypeError, ValueError):

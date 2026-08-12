@@ -34,11 +34,7 @@ def merge_partner_hints_into_party_graph(
         out["party_graph"] = g
     nodes = list(g.get("nodes") or []) if isinstance(g.get("nodes"), list) else []
     edges = list(g.get("edges") or []) if isinstance(g.get("edges"), list) else []
-    by_id = {
-        str(n.get("id")): n
-        for n in nodes
-        if isinstance(n, dict) and n.get("id")
-    }
+    by_id = {str(n.get("id")): n for n in nodes if isinstance(n, dict) and n.get("id")}
 
     def _ensure_node(nid: str, role: str) -> None:
         if nid in by_id:
@@ -55,8 +51,10 @@ def merge_partner_hints_into_party_graph(
             if not vid:
                 continue
             label = str(v.get("label") or "").strip().lower()
-            role = "place" if label == "place" else (
-                "device" if label == "device" else str(v.get("role") or "device")
+            role = (
+                "place"
+                if label == "place"
+                else ("device" if label == "device" else str(v.get("role") or "device"))
             )
             _ensure_node(vid[:128], role[:64])
 
@@ -80,7 +78,14 @@ def merge_partner_hints_into_party_graph(
                 _ensure_node(sid[:128], "device" if et == "USES_DEVICE" else "place")
             if did not in by_id:
                 _ensure_node(did[:128], "place" if et == "SEEN_AT" else "device")
-            edges.append({"src": sid[:128], "dst": did[:128], "type": et, "source": "partner_hint"})
+            edges.append(
+                {
+                    "src": sid[:128],
+                    "dst": did[:128],
+                    "type": et,
+                    "source": "partner_hint",
+                }
+            )
 
         # OCR device clusters: {cluster_id, entity_ids:[{id, role}]}
         for cl in hints.get("ocr_device_clusters") or []:

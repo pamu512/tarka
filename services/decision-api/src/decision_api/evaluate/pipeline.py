@@ -1026,7 +1026,9 @@ async def run_evaluate_decision(
                     recovery_seconds=settings.loyalty_abuse_circuit_recovery_seconds,
                 )
                 if loyalty_result.tags:
-                    merged_tags = list(dict.fromkeys([*merged_tags, *loyalty_result.tags]))
+                    merged_tags = list(
+                        dict.fromkeys([*merged_tags, *loyalty_result.tags])
+                    )
                 loyalty_bridge_evidence = loyalty_result.evidence()
 
         # Sibling toolkit bridges (advisory; fail-soft with degradation tags).

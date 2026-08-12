@@ -78,9 +78,9 @@ def build_promo_payload(
     currency = meta.get("currency")
     if isinstance(currency, str) and currency.strip():
         body["currency"] = currency.strip()
-    ip_hint = (
-        str(meta.get("ip_hint") or meta.get("ip") or meta.get("ip_address") or "").strip()
-    )
+    ip_hint = str(
+        meta.get("ip_hint") or meta.get("ip") or meta.get("ip_address") or ""
+    ).strip()
     if ip_hint:
         body["ip_hint"] = ip_hint
     return body

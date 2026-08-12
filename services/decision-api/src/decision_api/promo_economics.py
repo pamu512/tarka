@@ -71,7 +71,9 @@ def _i(v: Any) -> int | None:
         return None
 
 
-def _extract(payload: dict[str, Any] | None, metadata: dict[str, Any] | None) -> dict[str, Any] | None:
+def _extract(
+    payload: dict[str, Any] | None, metadata: dict[str, Any] | None
+) -> dict[str, Any] | None:
     for src in (metadata, payload):
         if not isinstance(src, dict):
             continue
@@ -98,7 +100,9 @@ def compute_promo_economics(
 
     list_price = _f(block.get("list_price") or block.get("list_amount"))
     paid = _f(block.get("paid_amount") or block.get("paid"))
-    discounts = block.get("discounts") if isinstance(block.get("discounts"), list) else []
+    discounts = (
+        block.get("discounts") if isinstance(block.get("discounts"), list) else []
+    )
     aov = _f(block.get("aov_30d"))
     ltv = _f(block.get("ltv_proxy") or block.get("ltv"))
     age = _f(block.get("account_age_days"))
@@ -172,9 +176,13 @@ def compute_promo_economics(
             f"redeem_count_24h={redeem_24h}",
         )
 
-    if age is not None and age <= 3 and (
-        (margin_ratio is not None and margin_ratio <= 0.5)
-        or (redeem_24h is not None and redeem_24h >= 3)
+    if (
+        age is not None
+        and age <= 3
+        and (
+            (margin_ratio is not None and margin_ratio <= 0.5)
+            or (redeem_24h is not None and redeem_24h >= 3)
+        )
     ):
         _add(
             factors,
@@ -193,8 +201,10 @@ def compute_promo_economics(
         )
 
     # Negative LTV proxy with heavy discount
-    if ltv is not None and ltv < 0 and (
-        margin_ratio is not None and margin_ratio <= 0.5
+    if (
+        ltv is not None
+        and ltv < 0
+        and (margin_ratio is not None and margin_ratio <= 0.5)
     ):
         _add(
             factors,
@@ -222,7 +232,9 @@ def compute_promo_economics(
         _add(factors, "self_referral", 28, "Referrer/referee identity collision")
 
     # Depth factors — code share / first-order / refund-after-promo / geo burst
-    same_code_accts = _i(block.get("same_code_accounts_24h") or block.get("code_share_accounts_24h"))
+    same_code_accts = _i(
+        block.get("same_code_accounts_24h") or block.get("code_share_accounts_24h")
+    )
     if same_code_accts is not None and same_code_accts >= 5:
         _add(
             factors,
@@ -230,10 +242,17 @@ def compute_promo_economics(
             24 if same_code_accts >= 10 else 16,
             f"same_code_accounts_24h={same_code_accts}",
         )
-    first_order = block.get("first_order") is True or block.get("is_first_order") is True
+    first_order = (
+        block.get("first_order") is True or block.get("is_first_order") is True
+    )
     if first_order and (
         (margin_ratio is not None and margin_ratio <= 0.35)
-        or (discount_total > 0 and list_price is not None and list_price > 0 and discount_total / list_price >= 0.6)
+        or (
+            discount_total > 0
+            and list_price is not None
+            and list_price > 0
+            and discount_total / list_price >= 0.6
+        )
     ):
         _add(
             factors,
@@ -241,7 +260,9 @@ def compute_promo_economics(
             18,
             "First order with near-max discount",
         )
-    geo_burst = _i(block.get("geo_redeem_count_24h") or block.get("same_geo_redeems_24h"))
+    geo_burst = _i(
+        block.get("geo_redeem_count_24h") or block.get("same_geo_redeems_24h")
+    )
     if geo_burst is not None and geo_burst >= 8:
         _add(
             factors,
@@ -249,7 +270,10 @@ def compute_promo_economics(
             16,
             f"geo_redeem_count_24h={geo_burst}",
         )
-    if block.get("refund_after_promo") is True or block.get("promo_then_refund") is True:
+    if (
+        block.get("refund_after_promo") is True
+        or block.get("promo_then_refund") is True
+    ):
         _add(
             factors,
             "refund_after_promo",

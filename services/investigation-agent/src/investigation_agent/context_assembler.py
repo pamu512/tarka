@@ -94,7 +94,10 @@ def assemble_context_snapshot(
             decision_obj = result.get("audit") if "audit" in result else result
         elif name in {"get_entity_velocity", "entity_velocity"} and velocity_obj is None:
             velocity_obj = result
-        elif name in {"query_graph", "get_graph_neighborhood", "graph_neighborhood"} and graph_obj is None:
+        elif (
+            name in {"query_graph", "get_graph_neighborhood", "graph_neighborhood"}
+            and graph_obj is None
+        ):
             graph_obj = result
         elif name == "search_knowledge":
             hits = result.get("hits")

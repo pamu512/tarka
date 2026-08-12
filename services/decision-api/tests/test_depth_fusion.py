@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from decision_api.depth_engines import apply_all_depth_engines, merge_depth_into_score_and_tags
+from decision_api.depth_engines import (
+    apply_all_depth_engines,
+    merge_depth_into_score_and_tags,
+)
 from decision_api.depth_fusion import compute_depth_fusion
 from decision_api.simulation_api import _eval_with_override_rules
 from decision_api.typology import evaluate_typologies

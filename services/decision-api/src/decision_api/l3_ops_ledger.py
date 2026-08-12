@@ -171,7 +171,11 @@ def sign_week(
 ) -> dict[str, Any]:
     """Sign a live week. Week 4 requires ece_candidate + label_join_ece on ledger."""
     if week not in (1, 2, 3, 4):
-        return {"ok": False, "blockers": ["week_must_be_1_to_4"], "ledger": load_ledger()}
+        return {
+            "ok": False,
+            "blockers": ["week_must_be_1_to_4"],
+            "ledger": load_ledger(),
+        }
     ledger = load_ledger()
     if ledger.get("status") == "NOT_STARTED" or not ledger.get("tenant_id"):
         return {

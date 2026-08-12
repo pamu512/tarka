@@ -85,7 +85,10 @@ def test_marketplace_depth_typology_factor_bindings():
     assert ring["breach_level"] in ("warning", "alert")
     assert "lifecycle_risk_engine" in life["contributing_rule_hits"]
     assert any("depth_lifecycle" in p for p in life["contributing_feature_predicates"])
-    assert any("depth_ring" in p or "depth_cross_role" in p for p in ring["contributing_feature_predicates"])
+    assert any(
+        "depth_ring" in p or "depth_cross_role" in p
+        for p in ring["contributing_feature_predicates"]
+    )
 
 
 def test_starter_typology_fixtures_cover_reference_packs():

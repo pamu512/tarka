@@ -92,7 +92,9 @@ def apply_friendly_fraud_features(
     pl = _norm_dict(payload)
     sources = (meta, pl)
 
-    actual_hash = _first_hash(meta, _DELIVERY_HASH_KEYS) or _first_hash(pl, _DELIVERY_HASH_KEYS)
+    actual_hash = _first_hash(meta, _DELIVERY_HASH_KEYS) or _first_hash(
+        pl, _DELIVERY_HASH_KEYS
+    )
     expected_hash = _first_hash(meta, _EXPECTED_HASH_KEYS) or _first_hash(
         pl, _EXPECTED_HASH_KEYS
     )
@@ -127,7 +129,15 @@ def apply_friendly_fraud_features(
                 if isinstance(val, (int, float)):
                     return val != 0
                 if isinstance(val, str):
-                    return val.strip().lower() in ("1", "true", "yes", "y", "fail", "miss", "mismatch")
+                    return val.strip().lower() in (
+                        "1",
+                        "true",
+                        "yes",
+                        "y",
+                        "fail",
+                        "miss",
+                        "mismatch",
+                    )
         return None
 
     geo = _truthy_pod(("pod_geofence_miss", "geofence_miss", "pod_geofence_failed"))
@@ -161,6 +171,7 @@ def apply_friendly_fraud_features(
     elif hash_mismatch:
         features["is_friendly_fraud_risk"] = True
     elif (
-        "delivery_hash_mismatch" in features or "dispute_within_delivery_window" in features
+        "delivery_hash_mismatch" in features
+        or "dispute_within_delivery_window" in features
     ) and not pod_fail:
         features["is_friendly_fraud_risk"] = False
