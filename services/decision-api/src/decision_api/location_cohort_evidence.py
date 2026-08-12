@@ -1,8 +1,8 @@
+"""Legacy location cohort evidence alias — delegates to relatedness_evidence."""
+
 from __future__ import annotations
 
 from typing import Any
-
-"""Legacy location cohort evidence alias — delegates to relatedness_evidence."""
 
 from decision_api.relatedness_evidence import build_relatedness_evidence
 

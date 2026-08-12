@@ -13,11 +13,10 @@ from decision_api.shared_path import ensure_services_shared_on_path
 
 ensure_services_shared_on_path()
 from auth_rbac import require_role  # noqa: E402
-
-from analytics import trend_store
-from analytics.trend_agent import TrendAgent, run_trend_evaluation
-from analytics.trend_rag import normalize_window_rows
-from analytics.trend_windows import build_window_rows_or_none
+from analytics import trend_store  # noqa: E402
+from analytics.trend_agent import TrendAgent, run_trend_evaluation  # noqa: E402
+from analytics.trend_rag import normalize_window_rows  # noqa: E402
+from analytics.trend_windows import build_window_rows_or_none  # noqa: E402
 
 log = logging.getLogger("decision-api.trend")
 
