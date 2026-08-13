@@ -28,7 +28,7 @@ from .custom_schema import (
     load_tenant_schema,
     save_tenant_schema,
 )
-from .entity_risk_score import is_found_payload
+from .entity_risk_score import clamp_search_limit, is_found_payload
 from .entity_risk_writeback import (
     EntityRiskNotFound,
     clamp_refresh_limit,
@@ -47,6 +47,7 @@ from .graph_runtime import (
     list_entity_risk_top,
     query_entity_deep_context,
     query_subgraph,
+    search_entities,
     update_tags,
     upsert_entity,
 )
@@ -173,6 +174,20 @@ class BenchmarkRunRequest(BaseModel):
 @app.get("/v1/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/v1/entities/search")
+async def entities_search(
+    tenant_id: str, q: str = "", label: str | None = None, limit: int = 20
+):
+    needle = (q or "").strip()[:256]
+    if not needle:
+        return {"entities": []}
+    lab = (label or "").strip() or None
+    rows = await search_entities(
+        tenant_id, q=needle, label=lab, limit=clamp_search_limit(limit)
+    )
+    return {"entities": rows}
 
 
 @app.post("/v1/entities", response_model=EntityResponse)
