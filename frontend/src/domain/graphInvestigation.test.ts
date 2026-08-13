@@ -6,6 +6,7 @@ import {
   mergeSubgraphs,
   parseGraphWorkspaceParams,
   pathHighlightLinkKeys,
+  searchHitViaSubtitle,
   storedDisplayRisk,
   typeHistogram,
 } from "./graphInvestigation";
@@ -149,6 +150,22 @@ describe("pathHighlightLinkKeys", () => {
       expl([{ entity_id: "seed" }, { entity_id: "" }, { entity_id: "c" }]),
     );
     expect(keys.size).toBe(0);
+  });
+});
+
+describe("searchHitViaSubtitle", () => {
+  it("formats via label and id", () => {
+    expect(searchHitViaSubtitle({ entity_id: "alice@acme.com", labels: ["Email"] })).toBe(
+      "via Email alice@acme.com",
+    );
+  });
+  it("null when via missing", () => {
+    expect(searchHitViaSubtitle(null)).toBeNull();
+    expect(searchHitViaSubtitle(undefined)).toBeNull();
+    expect(searchHitViaSubtitle({ entity_id: "", labels: ["Email"] })).toBeNull();
+  });
+  it("falls back to Custom when labels empty", () => {
+    expect(searchHitViaSubtitle({ entity_id: "dev-1", labels: [] })).toBe("via Custom dev-1");
   });
 });
 

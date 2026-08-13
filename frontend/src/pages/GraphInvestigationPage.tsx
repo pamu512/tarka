@@ -7,6 +7,7 @@ import {
   type FraudRingResult,
   type GraphEdge,
   type GraphNode,
+  type GraphSearchHit,
 } from "../api/client";
 import { GraphContextPanel } from "../components/GraphContextPanel";
 import { LinkAnalysisForceGraph } from "../components/LinkAnalysisForceGraph";
@@ -18,6 +19,7 @@ import {
   parseGraphWorkspaceParams,
   pathHighlightLinkKeys,
   pathNodeIds,
+  searchHitViaSubtitle,
   storedDisplayRisk,
   typeHistogram,
   mergeSubgraphs,
@@ -97,9 +99,7 @@ export default function GraphInvestigationPage() {
 
   const [searchQ, setSearchQ] = useState("");
   const [searchLabel, setSearchLabel] = useState<string | null>(null);
-  const [searchHits, setSearchHits] = useState<
-    Array<{ entity_id: string; tenant_id: string; labels: string[]; scored: boolean; risk_score: number | null }>
-  >([]);
+  const [searchHits, setSearchHits] = useState<GraphSearchHit[]>([]);
   const [searchErr, setSearchErr] = useState("");
   const [schemaTypes, setSchemaTypes] = useState<string[]>(FALLBACK_SCHEMA_TYPES);
 
@@ -429,7 +429,7 @@ export default function GraphInvestigationPage() {
             type="text"
             value={searchQ}
             disabled={disabled}
-            placeholder="Entity id contains…"
+            placeholder="Id, email, device, IP…"
             onChange={(e) => setSearchQ(e.target.value)}
             className={inputClass}
             autoComplete="off"
@@ -441,21 +441,27 @@ export default function GraphInvestigationPage() {
           ) : null}
           {searchHits.length > 0 ? (
             <ul className="absolute left-0 right-0 top-full mt-1 z-20 max-h-56 overflow-y-auto rounded-lg border border-surface-600 bg-surface-900 shadow-xl">
-              {searchHits.map((hit) => (
-                <li key={`${hit.tenant_id}:${hit.entity_id}`}>
-                  <button
-                    type="button"
-                    className="w-full text-left px-3 py-2 text-xs hover:bg-surface-800 text-gray-200"
-                    onClick={() => selectEntity(hit.entity_id, hit.tenant_id || tenantId)}
-                  >
-                    <span className="font-mono">{hit.entity_id}</span>
-                    <span className="text-gray-500 ml-2">{hit.labels?.[0] ?? "Custom"}</span>
-                    {hit.scored && hit.risk_score != null ? (
-                      <span className="text-amber-300/90 ml-2 font-mono">{hit.risk_score.toFixed(0)}</span>
-                    ) : null}
-                  </button>
-                </li>
-              ))}
+              {searchHits.map((hit) => {
+                const viaLine = searchHitViaSubtitle(hit.via);
+                return (
+                  <li key={`${hit.tenant_id}:${hit.entity_id}`}>
+                    <button
+                      type="button"
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-surface-800 text-gray-200"
+                      onClick={() => selectEntity(hit.entity_id, hit.tenant_id || tenantId)}
+                    >
+                      <span className="font-mono">{hit.entity_id}</span>
+                      <span className="text-gray-500 ml-2">{hit.labels?.[0] ?? "Custom"}</span>
+                      {hit.scored && hit.risk_score != null ? (
+                        <span className="text-amber-300/90 ml-2 font-mono">{hit.risk_score.toFixed(0)}</span>
+                      ) : null}
+                      {viaLine ? (
+                        <div className="text-[11px] text-gray-500 mt-0.5">{viaLine}</div>
+                      ) : null}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           ) : null}
         </label>

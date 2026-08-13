@@ -2572,6 +2572,27 @@ export const cases = {
 
 // ── Graph (graph-service :8001) ─────────────────────────────────────
 
+export type GraphSearchMatchedOn =
+  | "external_id"
+  | "email"
+  | "device_id"
+  | "address"
+  | "line1"
+  | "phone"
+  | "ip"
+  | "user_id"
+  | "card_id";
+
+export type GraphSearchHit = {
+  entity_id: string;
+  tenant_id: string;
+  labels: string[];
+  scored: boolean;
+  risk_score: number | null;
+  matched_on?: GraphSearchMatchedOn;
+  via?: { entity_id: string; labels: string[] } | null;
+};
+
 export const graph = {
   subgraph(entityId: string, tenantId: string, depth?: number) {
     const q = new URLSearchParams({ entity_id: entityId, tenant_id: tenantId });
@@ -2583,9 +2604,7 @@ export const graph = {
     const q = new URLSearchParams({ tenant_id: params.tenant_id, q: params.q });
     if (params.label) q.set("label", params.label);
     if (params.limit != null) q.set("limit", String(params.limit));
-    return request<{ entities: Array<{
-      entity_id: string; tenant_id: string; labels: string[]; scored: boolean; risk_score: number | null;
-    }> }>(`/api/graph/v1/entities/search?${q}`);
+    return request<{ entities: GraphSearchHit[] }>(`/api/graph/v1/entities/search?${q}`);
   },
 
   entityRiskTop(params: { tenant_id: string; limit?: number; min_score?: number }) {

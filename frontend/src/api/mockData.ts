@@ -1617,6 +1617,30 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
     const u = new URL(url, "http://localhost");
     const q = u.searchParams.get("q") ?? "";
     if (!q.trim()) return { entities: [] };
+    if (/alice@acme/i.test(q)) {
+      const tenant = u.searchParams.get("tenant_id") ?? "demo";
+      const label = u.searchParams.get("label");
+      const person = {
+        entity_id: "user-441",
+        tenant_id: tenant,
+        labels: ["Person"],
+        scored: false,
+        risk_score: null,
+        matched_on: "email",
+        via: { entity_id: "alice@acme.com", labels: ["Email"] },
+      };
+      const email = {
+        entity_id: "alice@acme.com",
+        tenant_id: tenant,
+        labels: ["Email"],
+        scored: false,
+        risk_score: null,
+        matched_on: "email",
+        via: null,
+      };
+      const entities = [person, email].filter((h) => !label || h.labels.includes(label));
+      return { entities };
+    }
     if (!/frank/i.test(q)) return { entities: [] };
     const label = u.searchParams.get("label");
     const labels = ["Person"];
@@ -1629,6 +1653,8 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
           labels,
           scored: true,
           risk_score: 72,
+          matched_on: "external_id",
+          via: null,
         },
       ],
     };
