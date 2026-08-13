@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
 from .entity_risk_score import entity_not_found_payload, score_entity_risk
+from .graph_data_freshness import _parse_timestamp
 from .neo4j_client import get_driver
 
 """
@@ -22,6 +26,31 @@ async def _open_session(driver):
     if hasattr(session_cm, "__await__"):
         session_cm = await session_cm
     return session_cm
+
+
+def _relation_growth_counts(timestamps: list[Any]) -> tuple[int, int]:
+    now = datetime.now(UTC)
+    g1 = g24 = 0
+    for ts in timestamps:
+        dt = _parse_timestamp(ts)
+        if dt is None:
+            continue
+        delta = now - dt
+        if delta <= timedelta(hours=1):
+            g1 += 1
+        if delta <= timedelta(hours=24):
+            g24 += 1
+    return g1, g24
+
+
+def _growth_from_record(rec: Any) -> tuple[int, int]:
+    timestamps = rec.get("edge_timestamps") if hasattr(rec, "get") else None
+    if isinstance(timestamps, list):
+        return _relation_growth_counts(timestamps)
+    return (
+        int(rec.get("relation_growth_1h") or 0),
+        int(rec.get("relation_growth_24h") or 0),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -332,6 +361,27 @@ async def detect_fraud_rings(
 # e) Entity Risk Score
 # ---------------------------------------------------------------------------
 
+
+async def load_peer_p90_for_label(tenant_id: str, label: str) -> int | None:
+    from .graph_runtime import parse_p90_degree_by_label
+
+    try:
+        driver = await get_driver()
+        q = """
+        MATCH (s:GraphRiskStats {tenant_id: $tenant_id})
+        RETURN s.p90_degree_by_label AS raw
+        """
+        async with await _open_session(driver) as session:
+            result = await session.run(q, tenant_id=tenant_id)
+            rec = await result.single()
+        if rec is None:
+            return None
+        raw = rec.get("raw") if hasattr(rec, "get") else None
+        return parse_p90_degree_by_label(raw, label)
+    except Exception:
+        return None
+
+
 _HIGH_RISK_TAGS = frozenset(
     {
         "fraud",
@@ -401,16 +451,28 @@ async def compute_entity_risk(
     WITH n, conn_count, flagged_neighbors, community_size, shared_device_count,
          count(DISTINCT nb.device_id) AS neighbor_device_count
 
+    OPTIONAL MATCH (n)-[e]-()
+    WITH n, conn_count, flagged_neighbors, community_size, shared_device_count, neighbor_device_count,
+         e,
+         coalesce(e.observed_at, e.created_at, e.updated_at) AS ts
+    WITH n, conn_count, flagged_neighbors, community_size, shared_device_count, neighbor_device_count,
+         collect(ts) AS edge_timestamps,
+         sum(CASE WHEN ts IS NOT NULL AND datetime(ts) >= datetime() - duration('PT1H') THEN 1 ELSE 0 END) AS relation_growth_1h,
+         sum(CASE WHEN ts IS NOT NULL AND datetime(ts) >= datetime() - duration('PT24H') THEN 1 ELSE 0 END) AS relation_growth_24h
     RETURN
       n.tags              AS tags,
       n.updated_at        AS updated_at,
       n.last_seen         AS last_seen,
       n.tags_updated_at   AS tags_updated_at,
+      labels(n)[0]        AS primary_label,
       conn_count,
       flagged_neighbors,
       community_size,
       shared_device_count,
-      neighbor_device_count
+      neighbor_device_count,
+      relation_growth_1h,
+      relation_growth_24h,
+      edge_timestamps
     """
 
     async with await _open_session(driver) as session:
@@ -433,6 +495,11 @@ async def compute_entity_risk(
     community_size: int = rec["community_size"]
     shared_devices: int = rec["shared_device_count"]
     neighbor_device_count: int = int(rec.get("neighbor_device_count") or 0)
+    relation_growth_1h, relation_growth_24h = _growth_from_record(rec)
+    primary_label = rec.get("primary_label") or ""
+    peer_p90 = (
+        await load_peer_p90_for_label(tenant_id, str(primary_label)) if primary_label else None
+    )
 
     from .graph_data_freshness import graph_data_as_of_iso
 
@@ -452,9 +519,9 @@ async def compute_entity_risk(
         community_size=community_size,
         shared_devices=shared_devices,
         neighbor_device_count=neighbor_device_count,
-        relation_growth_1h=int(rec.get("relation_growth_1h") or 0),
-        relation_growth_24h=int(rec.get("relation_growth_24h") or 0),
-        peer_p90=None,
+        relation_growth_1h=relation_growth_1h,
+        relation_growth_24h=relation_growth_24h,
+        peer_p90=peer_p90,
         checkpoint=checkpoint,
         profile=profile.get("_profile_name"),
         hop_depth=hop_depth,

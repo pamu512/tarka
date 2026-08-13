@@ -248,6 +248,26 @@ def _rel_to_dict(r: Any) -> dict[str, Any]:
     }
 
 
+async def load_peer_p90_by_label(tenant_id: str, label: str) -> int | None:
+    from .graph_runtime import parse_p90_degree_by_label
+
+    try:
+        driver = await get_driver()
+        q = """
+        MATCH (s:GraphRiskStats {tenant_id: $tenant_id})
+        RETURN s.p90_degree_by_label AS raw
+        """
+        async with driver.session() as session:
+            result = await session.run(q, tenant_id=tenant_id)
+            rec = await result.single()
+        if rec is None:
+            return None
+        raw = rec.get("raw") if hasattr(rec, "get") else rec["raw"]
+        return parse_p90_degree_by_label(raw, label)
+    except Exception:
+        return None
+
+
 async def query_entity_deep_context(tenant_id: str, external_id: str) -> dict[str, Any] | None:
     """Reuse bounded subgraph expansion; ``None`` when the entity is not in the graph."""
     sub = await query_subgraph(tenant_id, external_id, 2)

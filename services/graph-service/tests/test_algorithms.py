@@ -44,6 +44,17 @@ def _mock_record(data: dict):
     return rec
 
 
+def _driver_for_record(record):
+    mock_result = AsyncMock()
+    mock_result.single = AsyncMock(return_value=record)
+    mock_session = AsyncMock()
+    mock_session.run = AsyncMock(return_value=mock_result)
+    mock_driver = AsyncMock()
+    mock_driver.session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_driver.session.return_value.__aexit__ = AsyncMock(return_value=False)
+    return mock_driver
+
+
 class TestComputeEntityRisk:
     @pytest.mark.asyncio
     async def test_entity_not_found_returns_zero_risk(self):
@@ -241,6 +252,57 @@ class TestComputeEntityRisk:
             result = await compute_entity_risk("tenant1", "super-risky")
 
         assert result["risk_score"] <= 100
+
+    @pytest.mark.asyncio
+    async def test_fast_growth_1h_from_record(self):
+        record = _mock_record(
+            {
+                "tags": [],
+                "conn_count": 5,
+                "flagged_neighbors": 0,
+                "community_size": 1,
+                "shared_device_count": 0,
+                "neighbor_device_count": 0,
+                "relation_growth_1h": 5,
+                "relation_growth_24h": 5,
+                "primary_label": "Account",
+            }
+        )
+        with patch(
+            "graph_service.algorithms_neo4j.get_driver",
+            AsyncMock(return_value=_driver_for_record(record)),
+        ):
+            result = await compute_entity_risk("tenant1", "burst-user")
+        assert result["relation_growth_1h"] == 5
+        assert any(x.startswith("fast_growth_1h:5") for x in result["risk_factors"])
+        assert result["risk_score"] >= 20
+
+    @pytest.mark.asyncio
+    async def test_peer_p90_replaces_high_connectivity(self, monkeypatch):
+        record = _mock_record(
+            {
+                "tags": [],
+                "conn_count": 12,
+                "flagged_neighbors": 0,
+                "community_size": 1,
+                "shared_device_count": 0,
+                "neighbor_device_count": 0,
+                "relation_growth_1h": 0,
+                "relation_growth_24h": 0,
+                "primary_label": "Account",
+            }
+        )
+        monkeypatch.setattr(
+            "graph_service.algorithms_neo4j.load_peer_p90_for_label",
+            AsyncMock(return_value=8),
+        )
+        with patch(
+            "graph_service.algorithms_neo4j.get_driver",
+            AsyncMock(return_value=_driver_for_record(record)),
+        ):
+            result = await compute_entity_risk("tenant1", "hub")
+        assert any(x.startswith("high_degree_vs_peers:12:p90=8") for x in result["risk_factors"])
+        assert not any(x.startswith("high_connectivity:") for x in result["risk_factors"])
 
 
 # ---------- detect_fraud_rings ----------
