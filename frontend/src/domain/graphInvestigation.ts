@@ -23,6 +23,15 @@ export function primaryLabel(labels: string[] | undefined): string {
   return labels?.[0] || "Custom";
 }
 
+export function searchHitViaSubtitle(
+  via: { entity_id: string; labels?: string[] | null } | null | undefined,
+): string | null {
+  const id = via?.entity_id?.trim() ?? "";
+  if (!id) return null;
+  const kind = via?.labels?.[0] || "Custom";
+  return `via ${kind} ${id}`;
+}
+
 export function storedDisplayRisk(node: GraphNode): number | null {
   if (node.scored === false) return null;
   if (node.scored === true) {
