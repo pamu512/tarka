@@ -36,33 +36,17 @@ async def upsert_entity(
     properties: dict[str, Any],
     tags: list[str] | None = None,
 ) -> str:
-    if settings.graph_backend == "janusgraph":
-        from graph_service import janusgraph_store as store
-
-        return await store.upsert_entity(tenant_id, entity_type, external_id, properties, tags=tags)
-    from graph_service import neo4j_client as store
-
-    return await store.upsert_entity(tenant_id, entity_type, external_id, properties, tags=tags)
+    return await _store().upsert_entity(
+        tenant_id, entity_type, external_id, properties, tags=tags
+    )
 
 
 async def update_tags(tenant_id: str, external_id: str, tags: list[str]) -> list[str]:
-    if settings.graph_backend == "janusgraph":
-        from graph_service import janusgraph_store as store
-
-        return await store.update_tags(tenant_id, external_id, tags)
-    from graph_service import neo4j_client as store
-
-    return await store.update_tags(tenant_id, external_id, tags)
+    return await _store().update_tags(tenant_id, external_id, tags)
 
 
 async def get_tags(tenant_id: str, external_id: str) -> list[str]:
-    if settings.graph_backend == "janusgraph":
-        from graph_service import janusgraph_store as store
-
-        return await store.get_tags(tenant_id, external_id)
-    from graph_service import neo4j_client as store
-
-    return await store.get_tags(tenant_id, external_id)
+    return await _store().get_tags(tenant_id, external_id)
 
 
 async def create_link(
@@ -72,16 +56,9 @@ async def create_link(
     relationship: str,
     properties: dict[str, Any],
 ) -> None:
-    if settings.graph_backend == "janusgraph":
-        from graph_service import janusgraph_store as store
-
-        await store.create_link(
-            tenant_id, from_external_id, to_external_id, relationship, properties
-        )
-        return
-    from graph_service import neo4j_client as store
-
-    await store.create_link(tenant_id, from_external_id, to_external_id, relationship, properties)
+    await _store().create_link(
+        tenant_id, from_external_id, to_external_id, relationship, properties
+    )
 
 
 async def list_one_hop_ids(tenant_id: str, entity_id: str) -> list[str]:
@@ -99,23 +76,11 @@ async def list_one_hop_ids(tenant_id: str, entity_id: str) -> list[str]:
 
 
 async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str, Any]:
-    if settings.graph_backend == "janusgraph":
-        from graph_service import janusgraph_store as store
-
-        return await store.query_subgraph(tenant_id, entity_id, depth)
-    from graph_service import neo4j_client as store
-
-    return await store.query_subgraph(tenant_id, entity_id, depth)
+    return await _store().query_subgraph(tenant_id, entity_id, depth)
 
 
 async def query_entity_deep_context(tenant_id: str, external_id: str) -> dict[str, Any] | None:
-    if settings.graph_backend == "janusgraph":
-        from graph_service import janusgraph_store as store
-
-        return await store.query_entity_deep_context(tenant_id, external_id)
-    from graph_service import neo4j_client as store
-
-    return await store.query_entity_deep_context(tenant_id, external_id)
+    return await _store().query_entity_deep_context(tenant_id, external_id)
 
 
 async def set_entity_risk_properties(tenant_id: str, entity_id: str, props: dict[str, Any]) -> None:

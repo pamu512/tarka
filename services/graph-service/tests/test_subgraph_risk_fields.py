@@ -24,3 +24,20 @@ def test_decorate_scored_zero():
     out = decorate_subgraph_node(node)
     assert out["scored"] is True
     assert out["risk_score"] == 0
+
+
+def test_decorate_json_string_risk_factors():
+    node = {
+        "id": "u1",
+        "labels": ["Account"],
+        "properties": {
+            "risk_score": 20,
+            "risk_computed_at": "2026-08-13T00:00:00Z",
+            "relation_count": 5,
+            "relation_growth_1h": 5,
+            "relation_growth_24h": 5,
+            "risk_factors": '["fast_growth_1h:5"]',
+        },
+    }
+    out = decorate_subgraph_node(node)
+    assert out["risk_factors"] == ["fast_growth_1h:5"]

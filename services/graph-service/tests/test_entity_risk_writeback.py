@@ -221,6 +221,22 @@ def test_neo4j_age_create_link_on_create_not_blind_set():
 
 
 @pytest.mark.asyncio
+async def test_graph_runtime_subgraph_and_link_dispatch_age(monkeypatch):
+    from graph_service import graph_runtime
+    from graph_service.config import settings
+
+    monkeypatch.setattr(settings, "graph_backend", "age")
+    sub = AsyncMock(return_value={"nodes": [], "edges": []})
+    link = AsyncMock()
+    monkeypatch.setattr("graph_service.age_client.query_subgraph", sub)
+    monkeypatch.setattr("graph_service.age_client.create_link", link)
+    await graph_runtime.query_subgraph("t", "u1", 2)
+    await graph_runtime.create_link("t", "a", "b", "USED", {})
+    sub.assert_awaited_once()
+    link.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_refresh_caps_at_50_and_puts_touched_first():
     hops = AsyncMock(side_effect=lambda t, e: [f"n{i}" for i in range(60)] if e == "a" else [])
     compute = AsyncMock(return_value={"entity_id": "x", "risk_factors": [], "risk_score": 0, "relation_count": 0, "relation_growth_1h": 0, "relation_growth_24h": 0})
