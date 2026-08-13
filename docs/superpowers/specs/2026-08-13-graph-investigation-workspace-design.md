@@ -1,7 +1,7 @@
 # Graph investigation workspace (Palantir-style)
 
 **Date:** 2026-08-13  
-**Status:** Draft  
+**Status:** Approved  
 **Related:** [persisted node risk](./2026-08-13-graph-node-risk-design.md), [graph-service](../../docs/services/graph-service.md), OpenAPI `contracts/openapi/graph-service.yaml`
 
 ## Goal
