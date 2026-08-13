@@ -1352,7 +1352,12 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "subgraph",
-            "description": "Query the entity graph around a specific entity (accounts, devices, payments, etc.)",
+            "description": (
+                "Query the entity graph around a specific entity (accounts, devices, payments, etc.). "
+                "Each node may include scored, risk_score, relation_growth_1h, relation_growth_24h, "
+                "risk_factors (graph relation growth — not the transaction velocity overlay). "
+                "depth is clamped 1–5."
+            ),
             "parameters": {
                 "type": "object",
                 "required": ["entity_id"],
@@ -1433,7 +1438,10 @@ TOOL_DEFINITIONS = [
             "description": (
                 "Entity subgraph plus per-node velocity/inference overlay and any SDK/device fields "
                 "present on graph node properties (VPN, emulator, bot, proxy, datacenter, webdriver, etc.). "
-                "Prefer this over bare subgraph when analyzing rings or shared devices."
+                "Prefer this over bare subgraph when analyzing rings or shared devices. "
+                "Each node may include scored, risk_score, relation_growth_1h, relation_growth_24h, "
+                "risk_factors (graph relation growth — not the transaction velocity overlay). "
+                "depth is clamped 1–5."
             ),
             "parameters": {
                 "type": "object",
