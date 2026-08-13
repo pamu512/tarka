@@ -7,6 +7,7 @@ from investigation_agent.tools import (
     TOOL_DEFINITIONS,
     TOOL_DISPATCH,
     _analyst_allowed,
+    _validate_depth,
     tool_export_outcome_labeled_dataset,
     tool_get_case,
     tool_get_entity_tags,
@@ -168,6 +169,80 @@ class TestToolSubgraph:
             result = await tool_subgraph(http, "entity-1", "t1", "analyst1")
 
         assert result == {"error": "graph_disabled"}
+
+
+def test_validate_depth_allows_five_clamps_six():
+    assert _validate_depth(5) == 5
+    assert _validate_depth(6) == 5
+
+
+@pytest.mark.asyncio
+async def test_subgraph_tool_passes_through_node_risk(monkeypatch):
+    http = AsyncMock()
+    resp = MagicMock(status_code=200)
+    resp.json.return_value = {
+        "nodes": [
+            {
+                "id": "u1",
+                "scored": True,
+                "risk_score": 20,
+                "risk_factors": ["fast_growth_1h:5"],
+            }
+        ],
+        "edges": [],
+    }
+    resp.raise_for_status = MagicMock()
+    http.get = AsyncMock(return_value=resp)
+    monkeypatch.setattr("investigation_agent.tools.settings.graph_service_url", "http://graph.test")
+    monkeypatch.setattr("investigation_agent.tools._analyst_allowed", lambda a: True)
+    from investigation_agent.tools import tool_subgraph as subgraph_fn
+
+    out = await subgraph_fn(http, "u1", "t", "analyst1", depth=5)
+    assert out["nodes"][0]["risk_score"] == 20
+    http.get.assert_awaited()
+    assert http.get.await_args.kwargs["params"]["depth"] == 5
+
+
+def test_mule_layering_playbook_cites_growth_factors():
+    from investigation_agent.playbooks import playbook_system_append
+
+    fragment = playbook_system_append("mule_layering")
+    assert "fast_growth_1h" in fragment
+    assert "fast_growth_24h" in fragment
+    assert "high_degree_vs_peers" in fragment
+    assert "depth up to 5" in fragment
+
+
+def test_account_takeover_playbook_cites_growth_factors():
+    from investigation_agent.playbooks import playbook_system_append
+
+    fragment = playbook_system_append("account_takeover")
+    assert "fast_growth_1h" in fragment
+    assert "fast_growth_24h" in fragment
+    assert "high_degree_vs_peers" in fragment
+
+
+def test_persona_workflow_cites_graph_node_risk():
+    from investigation_agent.personas import build_copilot_system_prompt
+
+    prompt = build_copilot_system_prompt("investigation")
+    assert "Cite fast_growth_* / high_degree_vs_peers only when present" in prompt
+    assert "Do not fetch a 5-hop subgraph on every turn" in prompt
+
+
+def test_subgraph_tool_descriptions_include_node_risk_fields():
+    texts = []
+    for t in TOOL_DEFINITIONS:
+        fn = t.get("function") or {}
+        if fn.get("name") in {"subgraph", "subgraph_with_velocity"}:
+            texts.append(fn.get("description") or "")
+    blob = " ".join(texts)
+    assert "scored" in blob
+    assert "risk_score" in blob
+    assert "relation_growth_1h" in blob
+    assert "relation_growth_24h" in blob
+    assert "risk_factors" in blob
+    assert "clamped 1–5" in blob or "clamped 1-5" in blob
 
 
 # ---------- Offline mode (no API key) ----------

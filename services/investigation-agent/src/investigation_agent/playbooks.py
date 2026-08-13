@@ -44,6 +44,9 @@ _PLAYBOOKS: dict[str, dict[str, str]] = {
             "top_signals, tier.\n"
             "2) **Graph**: subgraph_with_velocity — new devices, shared devices across entities, "
             "velocity on login/account nodes.\n"
+            "When checking rings, shared devices, or mule fan-out, call subgraph_with_velocity "
+            "with depth up to 5 and cite node risk_factors (fast_growth_1h, fast_growth_24h, "
+            "high_degree_vs_peers). Do not claim growth if those factors are absent.\n"
             "3) **Velocity**: get_entity_velocity for burst patterns vs baseline.\n"
             '4) **Session vs fraud narrative**: reconcile "new device + new geo" with customer history '
             "only from tool outputs.\n"
@@ -71,6 +74,9 @@ _PLAYBOOKS: dict[str, dict[str, str]] = {
         "fragment": (
             "\n\nACTIVE PLAYBOOK — Mule / layering (indicators only):\n"
             "1) **Graph depth 2–3**: subgraph_with_velocity — fan-in/fan-out, rapid funds movement paths.\n"
+            "When checking rings, shared devices, or mule fan-out, call subgraph_with_velocity "
+            "with depth up to 5 and cite node risk_factors (fast_growth_1h, fast_growth_24h, "
+            "high_degree_vs_peers). Do not claim growth if those factors are absent.\n"
             "2) **Velocity + tags**: get_entity_tags and velocity; correlate spikes with rule_hits in audit.\n"
             "3) **Weak labels**: export_outcome_labeled_dataset or get_stored_labeled_dataset for prior "
             "analyst/dispute signals — noisy, label explicitly.\n"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -456,6 +457,44 @@ def test_insert_proposal_rejects_resolved_auto(data_dir: Path) -> None:
             reason_code="analyst_review",
         )
     assert "RESOLVED_AUTO" not in _ALLOWED
+
+
+def test_agent_run_keeps_neighborhood_risk_fields(data_dir: Path) -> None:
+    from investigation_agent import agent_run_store
+    from investigation_agent.context_assembler import assemble_context_snapshot
+
+    snap = assemble_context_snapshot(
+        tenant_id="ten-a",
+        case_id="c9",
+        case_payload={"id": "c9"},
+        graph_neighborhood={
+            "vertices": [{"id": "u1", "risk_score": 20, "risk_factors": ["fast_growth_1h:5"]}]
+        },
+    )
+    rid = agent_run_store.persist_agent_run(
+        turn_id="turn-1",
+        tenant_id="ten-a",
+        analyst_id="a",
+        case_id="c9",
+        context_snapshot=snap,
+        source="chat",
+    )
+    got = agent_run_store.get_agent_run(run_id=rid, tenant_id="ten-a")
+    assert got is not None
+    snapshot = got["context_snapshot"]
+    neighborhood = snapshot.get("graph_neighborhood")
+    blob = json.dumps(neighborhood) if neighborhood is not None else json.dumps(snapshot)
+    if neighborhood is None:
+        graph_arts = [
+            a
+            for a in (snapshot.get("artifacts") or [])
+            if isinstance(a, dict) and a.get("source") == "graph"
+        ]
+        assert graph_arts, "graph neighborhood must persist as a snapshot artifact"
+        blob = json.dumps(graph_arts)
+    assert "20" in blob
+    assert "risk_score" in blob
+    assert "fast_growth_1h" in blob
 
 
 def test_insert_proposal_rejects_run_from_other_case(data_dir: Path) -> None:
