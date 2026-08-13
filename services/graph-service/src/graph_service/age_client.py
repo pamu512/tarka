@@ -7,11 +7,9 @@ import asyncpg
 from .config import settings
 from .custom_schema import get_allowed_labels, get_allowed_rels
 from .entity_risk_score import (
-    clamp_search_limit,
     decorate_subgraph_node,
     link_props_for_create,
     link_props_for_match,
-    search_hit_from_node,
 )
 from .hetero_schema import validate_typed_edge_or_raise
 
@@ -445,43 +443,118 @@ async def list_entity_risk_top(
 async def search_entities(
     tenant_id: str, q: str, label: str | None = None, limit: int = 20
 ) -> list[dict[str, Any]]:
+    from .entity_risk_score import (
+        OWNER_LABELS,
+        cap_identifier_owners,
+        clamp_search_limit,
+        cypher_search_prop_predicate,
+        eligible_search_node,
+        labels_are_identifier,
+        labels_are_owner,
+        merge_search_hits,
+        search_hit_from_node,
+    )
+
     limit = clamp_search_limit(limit)
+    pred = cypher_search_prop_predicate("n")
     pool = await get_pool()
-    stmt = f"""
+    match_stmt = f"""
     SELECT CAST(CAST(entity_id AS VARCHAR) AS JSON) as entity_id,
            CAST(CAST(labels AS VARCHAR) AS JSON) as labels,
-           CAST(CAST(risk_score AS VARCHAR) AS JSON) as risk_score,
-           CAST(CAST(risk_computed_at AS VARCHAR) AS JSON) as risk_computed_at
+           CAST(CAST(props AS VARCHAR) AS JSON) as props
     FROM cypher('tarka', $$
         MATCH (n {{tenant_id: $tenant_id}})
-        WHERE n.external_id IS NOT NULL
-          AND NOT n:GraphRiskStats
-          AND toLower(n.external_id) CONTAINS toLower($q)
-          AND ($label IS NULL OR $label IN labels(n))
-        RETURN n.external_id, labels(n), n.risk_score, n.risk_computed_at
-        ORDER BY CASE WHEN n.risk_computed_at IS NULL THEN 1 ELSE 0 END,
-                 n.risk_score DESC,
-                 n.external_id ASC
-        LIMIT {int(limit)}
+        WHERE NOT n:GraphRiskStats
+          AND n.external_id IS NOT NULL AND n.external_id <> ''
+          AND $q <> ''
+          AND ({pred})
+        RETURN n.external_id, labels(n), properties(n)
     $$, %s) as (
-        entity_id agtype, labels agtype, risk_score agtype, risk_computed_at agtype
+        entity_id agtype, labels agtype, props agtype
     );
     """
-    params_json = json.dumps({"tenant_id": tenant_id, "q": q, "label": label})
+    params_json = json.dumps({"tenant_id": tenant_id, "q": q})
     async with pool.acquire() as conn:
-        rows = await conn.fetch(stmt, params_json)
-    hits: list[dict[str, Any]] = []
-    for row in rows or []:
-        labels = _age_json(row["labels"]) or []
-        if not isinstance(labels, list):
-            labels = [labels]
-        eid = _age_json(row["entity_id"])
-        props = {
-            "risk_score": _age_json(row["risk_score"]),
-            "risk_computed_at": _age_json(row["risk_computed_at"]),
-        }
-        hits.append(search_hit_from_node(tenant_id, str(eid or ""), labels, props))
-    return hits
+        rows = await conn.fetch(match_stmt, params_json)
+    directs: list[dict[str, Any]] = []
+    ident_ids: list[str] = []
+    ident_meta: dict[str, dict[str, Any]] = {}
+    for rec in rows or []:
+        if not rec:
+            continue
+        eid = str(_age_json(rec["entity_id"]) or "").strip()
+        labs = _age_json(rec["labels"]) or []
+        if not isinstance(labs, list):
+            labs = [labs] if labs else []
+        props = _age_json(rec["props"]) or {}
+        if not isinstance(props, dict):
+            props = dict(props)
+        matched = eligible_search_node(eid, props, q)
+        if not matched:
+            continue
+        hit = search_hit_from_node(
+            tenant_id, eid, labs, props, matched_on=matched, via=None
+        )
+        directs.append(hit)
+        if labels_are_identifier(labs):
+            ident_ids.append(eid)
+            ident_meta[eid] = hit
+    owners: list[dict[str, Any]] = []
+    if ident_ids:
+        owner_stmt = """
+        SELECT CAST(CAST(via_id AS VARCHAR) AS JSON) as via_id,
+               CAST(CAST(entity_id AS VARCHAR) AS JSON) as entity_id,
+               CAST(CAST(labels AS VARCHAR) AS JSON) as labels,
+               CAST(CAST(props AS VARCHAR) AS JSON) as props
+        FROM cypher('tarka', $$
+            MATCH (n {tenant_id: $tenant_id})-[r]-(m)
+            WHERE n.external_id IN $ids
+              AND NOT m:GraphRiskStats
+              AND m.external_id IS NOT NULL AND m.external_id <> ''
+              AND any(l IN labels(m) WHERE l IN $owner_labels)
+            RETURN n.external_id, m.external_id, labels(m), properties(m)
+            ORDER BY m.external_id ASC
+        $$, %s) as (
+            via_id agtype, entity_id agtype, labels agtype, props agtype
+        );
+        """
+        owner_params = json.dumps(
+            {
+                "tenant_id": tenant_id,
+                "ids": ident_ids,
+                "owner_labels": list(OWNER_LABELS),
+            }
+        )
+        async with pool.acquire() as conn:
+            orows = await conn.fetch(owner_stmt, owner_params)
+        raw_owners: list[dict[str, Any]] = []
+        for rec in orows or []:
+            if not rec:
+                continue
+            ident = ident_meta.get(str(_age_json(rec["via_id"]) or ""))
+            if not ident:
+                continue
+            eid = str(_age_json(rec["entity_id"]) or "").strip()
+            labs = _age_json(rec["labels"]) or []
+            if not isinstance(labs, list):
+                labs = [labs] if labs else []
+            if not eid or not labels_are_owner(labs):
+                continue
+            props = _age_json(rec["props"]) or {}
+            if not isinstance(props, dict):
+                props = dict(props)
+            raw_owners.append(
+                search_hit_from_node(
+                    tenant_id,
+                    eid,
+                    labs,
+                    props,
+                    matched_on=ident["matched_on"],
+                    via={"entity_id": ident["entity_id"], "labels": ident["labels"]},
+                )
+            )
+        owners = cap_identifier_owners(raw_owners)
+    return merge_search_hits(directs + owners, label=label, limit=limit)
 
 
 async def scan_tenant_entity_ids(tenant_id: str, limit: int) -> tuple[list[str], bool]:
