@@ -45,6 +45,8 @@ def insert_proposal(
     run = agent_run_store.get_agent_run(run_id=agent_run_id, tenant_id=tenant_id)
     if run is None or run.get("graph_missing"):
         raise GraphRequiredError("graph_required")
+    if (run.get("case_id") or "").strip() != (case_id or "").strip():
+        raise ValueError("case_id_mismatch")
     pid = str(uuid.uuid4())
     c = agent_run_store._get_conn()
     now = time.time()

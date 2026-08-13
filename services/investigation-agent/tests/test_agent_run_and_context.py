@@ -456,3 +456,31 @@ def test_insert_proposal_rejects_resolved_auto(data_dir: Path) -> None:
             reason_code="analyst_review",
         )
     assert "RESOLVED_AUTO" not in _ALLOWED
+
+
+def test_insert_proposal_rejects_run_from_other_case(data_dir: Path) -> None:
+    from investigation_agent import agent_run_store, case_status_proposals
+    from investigation_agent.context_assembler import assemble_context_snapshot
+
+    snap_b = assemble_context_snapshot(
+        tenant_id="t1",
+        case_id="case-b",
+        case_payload={"id": "case-b"},
+        graph_neighborhood={"vertices": [{"id": "u1"}]},
+    )
+    rid_b = agent_run_store.persist_agent_run(
+        turn_id="t",
+        tenant_id="t1",
+        analyst_id="a1",
+        case_id="case-b",
+        context_snapshot=snap_b,
+    )
+    with pytest.raises(ValueError, match="case_id_mismatch"):
+        case_status_proposals.insert_proposal(
+            tenant_id="t1",
+            case_id="case-a",
+            agent_run_id=rid_b,
+            from_status="OPEN",
+            to_status="UNDER_REVIEW",
+            reason_code="analyst_review",
+        )
