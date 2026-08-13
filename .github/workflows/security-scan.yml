@@ -78,6 +78,16 @@ jobs:
           ignore-unfixed: true
         continue-on-error: true
 
+      - name: Trivy image python package table
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: tarka/core-api:scan
+          format: table
+          severity: CRITICAL,HIGH,MEDIUM
+          ignore-unfixed: true
+          scanners: vuln
+        continue-on-error: true
+
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v4.37.4
         if: always() && hashFiles('trivy-image.sarif') != ''

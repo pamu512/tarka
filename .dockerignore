@@ -1,0 +1,14 @@
+**/.venv/**
+**/venv/**
+**/__pycache__/**
+**/.pytest_cache/**
+**/.mypy_cache/**
+**/.ruff_cache/**
+**/.git/**
+**/node_modules/**
+**/dist/**
+**/build/**
+**/*.egg-info/**
+**/site/**
+docs/site/**
+**/.DS_Store

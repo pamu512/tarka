@@ -39,7 +39,34 @@ RUN sed -i -e 's|file:../core|file:/app/core|g' /app/analytics/pyproject.toml \
     && pip install --no-cache-dir -e . \
     && pip uninstall -y setuptools msgpack || true \
     && pip install --no-cache-dir "setuptools>=83.0.0" "msgpack>=1.2.1" \
-    && python -c "import importlib.metadata as m; s=m.version('setuptools'); p=m.version('msgpack'); assert tuple(int(x) for x in s.split('.')[:2])>=(83,0), s; assert tuple(int(x) for x in p.split('.')[:2])>=(1,2), p; print('setuptools', s, 'msgpack', p)"
+    && rm -rf /root/.cache /tmp/pip-* \
+    && python - <<'PY'
+import pathlib, re, sys
+bad = []
+roots = [pathlib.Path(p) for p in ("/usr/local/lib", "/usr/lib", "/app", "/root", "/home")]
+for root in roots:
+    if not root.exists():
+        continue
+    for meta in root.rglob("METADATA"):
+        parent = meta.parent.name
+        if not parent.endswith(".dist-info"):
+            continue
+        name = parent[: -len(".dist-info")].rsplit("-", 1)[0].lower()
+        if name not in {"setuptools", "msgpack"}:
+            continue
+        text = meta.read_text(encoding="utf-8", errors="ignore")
+        ver = next((ln.split(":", 1)[1].strip() for ln in text.splitlines() if ln.startswith("Version:")), "")
+        print(f"{meta}: {ver}")
+        nums = tuple(int(x) for x in re.split(r"[^\d]+", ver) if x.isdigit())
+        if name == "setuptools" and (not nums or nums < (83, 0)):
+            bad.append((str(meta), ver))
+        if name == "msgpack" and (not nums or nums < (1, 2, 1)):
+            bad.append((str(meta), ver))
+if bad:
+    print("FAIL stale packages:", bad, file=sys.stderr)
+    raise SystemExit(1)
+print("OK package audit")
+PY
 ENV PYTHONPATH=/app/src:/app:/app/shared:/app/packages/shared-core
 ENV RULES_PATH=/app/rules
 CMD ["/bin/sh", "-c", "alembic -c /app/config/decision_alembic.ini upgrade head && alembic -c /app/config/case_alembic.ini upgrade head && exec uvicorn core_api.main:app --host 0.0.0.0 --port 8000"]
