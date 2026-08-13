@@ -415,3 +415,121 @@ async def set_entity_risk_properties(tenant_id: str, entity_id: str, props: dict
     await run_in_gremlin_thread(
         lambda: _set_entity_risk_properties_sync(tenant_id, entity_id, props)
     )
+
+
+def _json_list(raw: Any) -> list:
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        return list(raw)
+    if isinstance(raw, str):
+        try:
+            val = json.loads(raw)
+            return list(val) if isinstance(val, list) else []
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return [raw] if raw else []
+    return [raw]
+
+
+def _list_entity_risk_top_sync(
+    tenant_id: str, limit: int, min_score: float
+) -> list[dict[str, Any]]:
+    from .entity_risk_writeback import clamp_top_limit
+
+    limit = clamp_top_limit(limit)
+    try:
+        min_score = float(min_score)
+    except (TypeError, ValueError):
+        min_score = 0.0
+    g = get_traversal_source()
+    rows: list[dict[str, Any]] = []
+    for v in g.V().has("tenant_id", tenant_id).toList():
+        if str(getattr(v, "label", "") or "") == "GraphRiskStats":
+            continue
+        try:
+            em = dict(g.V(v).elementMap().next())
+        except StopIteration:
+            continue
+        computed = em.get("risk_computed_at")
+        if computed is None or str(computed).strip() == "":
+            continue
+        try:
+            score = float(em.get("risk_score") or 0)
+        except (TypeError, ValueError):
+            continue
+        if score < min_score:
+            continue
+        lbl = em.get("label") or "Custom"
+        if isinstance(lbl, list):
+            lbl = lbl[0] if lbl else "Custom"
+        rows.append(
+            {
+                "entity_id": str(em.get("external_id") or ""),
+                "labels": [str(lbl)],
+                "risk_score": score,
+                "risk_factors": [str(x) for x in _json_list(em.get("risk_factors"))],
+                "risk_computed_at": computed,
+                "relation_count": int(em.get("relation_count") or 0),
+                "relation_growth_1h": int(em.get("relation_growth_1h") or 0),
+                "relation_growth_24h": int(em.get("relation_growth_24h") or 0),
+            }
+        )
+    rows.sort(key=lambda r: (-float(r["risk_score"]), str(r["entity_id"])))
+    return rows[:limit]
+
+
+async def list_entity_risk_top(
+    tenant_id: str, limit: int = 50, min_score: float = 0
+) -> list[dict[str, Any]]:
+    return await run_in_gremlin_thread(
+        lambda: _list_entity_risk_top_sync(tenant_id, limit, min_score)
+    )
+
+
+def _scan_tenant_entity_ids_sync(tenant_id: str, limit: int) -> tuple[list[str], bool]:
+    from .entity_risk_writeback import clamp_refresh_limit
+
+    limit = clamp_refresh_limit(limit)
+    g = get_traversal_source()
+    ids: list[str] = []
+    for v in g.V().has("tenant_id", tenant_id).toList():
+        if str(getattr(v, "label", "") or "") == "GraphRiskStats":
+            continue
+        eid = _vertex_external_id(v)
+        if eid:
+            ids.append(eid)
+    ids = sorted(set(ids))
+    truncated = len(ids) > limit
+    return ids[:limit], truncated
+
+
+async def scan_tenant_entity_ids(tenant_id: str, limit: int) -> tuple[list[str], bool]:
+    return await run_in_gremlin_thread(lambda: _scan_tenant_entity_ids_sync(tenant_id, limit))
+
+
+def _upsert_graph_risk_stats_sync(
+    tenant_id: str, p90_degree_by_label: dict[str, int], stats_computed_at: str
+) -> None:
+    g = get_traversal_source()
+    raw = json.dumps(p90_degree_by_label or {})
+    found = g.V().hasLabel("GraphRiskStats").has("tenant_id", tenant_id).limit(1).toList()
+    if found:
+        g.V(found[0]).property(Cardinality.single, "p90_degree_by_label", raw).property(
+            Cardinality.single, "stats_computed_at", stats_computed_at
+        ).iterate()
+        return
+    (
+        g.addV("GraphRiskStats")
+        .property("tenant_id", tenant_id)
+        .property(Cardinality.single, "p90_degree_by_label", raw)
+        .property(Cardinality.single, "stats_computed_at", stats_computed_at)
+        .iterate()
+    )
+
+
+async def upsert_graph_risk_stats(
+    tenant_id: str, p90_degree_by_label: dict[str, int], stats_computed_at: str
+) -> None:
+    await run_in_gremlin_thread(
+        lambda: _upsert_graph_risk_stats_sync(tenant_id, p90_degree_by_label, stats_computed_at)
+    )

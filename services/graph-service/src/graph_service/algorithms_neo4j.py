@@ -520,4 +520,5 @@ async def compute_entity_risk(
         hop_depth=hop_depth,
         freshness=freshness,
         multiplier=mult,
+        primary_label=str(primary_label) if primary_label else "",
     )

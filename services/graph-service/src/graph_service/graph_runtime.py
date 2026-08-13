@@ -151,6 +151,36 @@ async def load_peer_p90_by_label(tenant_id: str, label: str) -> int | None:
         return None
 
 
+def _store():
+    if settings.graph_backend == "janusgraph":
+        from graph_service import janusgraph_store as store
+
+        return store
+    if settings.graph_backend == "age":
+        from graph_service import age_client as store
+
+        return store
+    from graph_service import neo4j_client as store
+
+    return store
+
+
+async def list_entity_risk_top(
+    tenant_id: str, limit: int = 50, min_score: float = 0
+) -> list[dict[str, Any]]:
+    return await _store().list_entity_risk_top(tenant_id, limit=limit, min_score=min_score)
+
+
+async def scan_tenant_entity_ids(tenant_id: str, limit: int) -> tuple[list[str], bool]:
+    return await _store().scan_tenant_entity_ids(tenant_id, limit)
+
+
+async def upsert_graph_risk_stats(
+    tenant_id: str, p90_degree_by_label: dict[str, int], stats_computed_at: str
+) -> None:
+    await _store().upsert_graph_risk_stats(tenant_id, p90_degree_by_label, stats_computed_at)
+
+
 async def close_graph_backend() -> None:
     if settings.graph_backend == "janusgraph":
         from .janusgraph_gremlin import close_janus_connection

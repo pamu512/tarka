@@ -503,4 +503,5 @@ async def compute_entity_risk(
         hop_depth=hop_depth,
         freshness=None,
         multiplier=mult,
+        primary_label=primary_label,
     )

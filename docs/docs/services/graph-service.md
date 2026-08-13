@@ -400,8 +400,20 @@ GET /v1/analytics/entity-risk?tenant_id=acme&entity_id=user-42
 | Large community (≥ 5) | +15 | Part of a large connected component |
 | Medium community (≥ 3) | +8 | Part of a medium connected component |
 | Shared devices | +10 each (max 20) | Other entities sharing the same `device_id` |
-| High connectivity (≥ 10) | +10 | Many direct connections |
-| Moderate connectivity (≥ 5) | +5 | Several direct connections |
+| High degree vs peers | +15 | `GraphRiskStats` present and `relation_count >= max(10, peer_p90)` for the node's primary label (`high_degree_vs_peers:{count}:p90={p90}`). Does not stack with absolute connectivity. |
+| High connectivity (≥ 10) | +10 | Many direct connections; used only when peer stats are absent |
+| Moderate connectivity (≥ 5) | +5 | Several direct connections; used only when peer stats are absent |
+| Fast growth 1h | +20 | `relation_growth_1h >= 5` (`fast_growth_1h:{n}`) |
+| Fast growth 24h | +15 | `relation_growth_24h >= 15` (`fast_growth_24h:{n}`) |
+
+Score is `min(round(score * checkpoint_mult), 100)`. Growth counts timestamped incident edges (`coalesce(observed_at, created_at, updated_at)`); untimestamped edges count toward degree only.
+
+```
+GET /v1/analytics/entity-risk/top?tenant_id=acme&limit=50&min_score=0
+POST /v1/analytics/entity-risk/refresh
+```
+
+Top-N returns stored scores only (`risk_computed_at IS NOT NULL`). Tenant refresh rewrites `(:GraphRiskStats {tenant_id})` `p90_degree_by_label` from the scanned set (including when `truncated` is true). Entity refresh does not rewrite p90. Unknown `entity_id` on refresh is **404**.
 
 ---
 

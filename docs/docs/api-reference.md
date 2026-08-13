@@ -273,6 +273,8 @@ Tarka **does not** transpile canvas rules to Rego or ship a parallel “policy b
 | `GET` | `/v1/analytics/shared-attributes` | Find entities sharing attributes |
 | `GET` | `/v1/analytics/fraud-rings` | Detect cyclic fraud rings |
 | `GET` | `/v1/analytics/entity-risk` | Composite entity risk score |
+| `GET` | `/v1/analytics/entity-risk/top` | Ranked stored entity risk (scored nodes only) |
+| `POST` | `/v1/analytics/entity-risk/refresh` | Recompute+persist one entity or a tenant scan |
 
 ---
 
@@ -433,9 +435,28 @@ Tarka **does not** transpile canvas rules to Rego or ship a parallel “policy b
   "risk_score": 55,
   "risk_factors": ["connected_flagged:2", "medium_community:4"],
   "connected_flagged_count": 2,
-  "community_size": 4
+  "community_size": 4,
+  "scored": true,
+  "relation_count": 6,
+  "relation_growth_1h": 0,
+  "relation_growth_24h": 0
 }
 ```
+
+`scored` is `true` when the entity exists (a stored `0` is a real score). Missing entity: `risk_score: 0`, `risk_factors: ["entity_not_found"]`, `scored: false`.
+
+### `GET /v1/analytics/entity-risk/top`
+
+**Parameters:** `tenant_id` (required), `limit` (default 50, clamped 1–200), `min_score` (default 0).
+
+Unscored nodes (`risk_computed_at` absent) are excluded. Order: `risk_score` DESC, `external_id` ASC.
+
+### `POST /v1/analytics/entity-risk/refresh`
+
+**Body:** `{ "tenant_id": "...", "entity_id"?: "...", "limit"?: 5000 }`
+
+- With `entity_id`: live compute+SET. **404** if missing. Does not rewrite tenant peer p90.
+- Tenant only: scan `ORDER BY external_id`, cap `limit` (default 5000, clamped 1–20000), then rewrite `GraphRiskStats` p90 by primary label from scanned `relation_count`. `truncated` is true when more nodes exist than `limit`.
 
 ---
 
