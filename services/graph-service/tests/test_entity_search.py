@@ -96,16 +96,23 @@ from graph_service import age_client, janusgraph_store
 def test_janus_search_filters_in_python_not_full_graph_scan_without_tenant():
     src = inspect.getsource(janusgraph_store.search_entities)
     assert "tenant_id" in src
-    assert "external_id" in src
     assert "GraphRiskStats" in src
+    assert "eligible_search_node" in src
+    assert "merge_search_hits" in src
+    assert "both()" in src
     assert "search_hit_from_node" in src
 
 
 def test_age_search_cypher_contains_and_tenant():
     src = inspect.getsource(age_client.search_entities)
-    assert "CONTAINS" in src or "contains" in src
     assert "tenant_id" in src
+    assert "$q" in src or "$tenant_id" in src
+    assert "merge_search_hits" in src
     assert "GraphRiskStats" in src or "external_id" in src
+    assert "f\"{q}" not in src
+    pred_src = inspect.getsource(cypher_search_prop_predicate)
+    assert "CONTAINS" in pred_src or "contains" in pred_src
+    assert "$q" in src
 
 
 def test_matched_on_allowlist_order_strings_only():

@@ -13,9 +13,7 @@ from .custom_schema import get_allowed_labels, get_allowed_rels
 from .entity_context_shape import shape_deep_context_from_nodes
 from .entity_risk_score import (
     _link_properties_with_observed_at,
-    clamp_search_limit,
     decorate_subgraph_node,
-    search_hit_from_node,
 )
 from .hetero_schema import validate_typed_edge_or_raise
 from .janusgraph_gremlin import get_traversal_source, run_in_gremlin_thread
@@ -494,13 +492,24 @@ async def list_entity_risk_top(
 async def search_entities(
     tenant_id: str, q: str, label: str | None = None, limit: int = 20
 ) -> list[dict[str, Any]]:
+    from .entity_risk_score import (
+        cap_identifier_owners,
+        clamp_search_limit,
+        eligible_search_node,
+        labels_are_identifier,
+        labels_are_owner,
+        merge_search_hits,
+        search_hit_from_node,
+    )
+
     limit = clamp_search_limit(limit)
-    needle = str(q or "").casefold()
+    needle = str(q or "")
 
     def _search_entities_sync() -> list[dict[str, Any]]:
         g = get_traversal_source()
-        hits: list[dict[str, Any]] = []
-        # ponytail: full tenant vertex scan; upgrade = mixed index on external_id
+        directs: list[dict[str, Any]] = []
+        ident_vids: list[tuple[str, dict[str, Any], Any]] = []
+        # ponytail: full tenant vertex scan; upgrade = mixed index on allowlisted keys
         for v in g.V().has("tenant_id", tenant_id).toList():
             if str(getattr(v, "label", "") or "") == "GraphRiskStats":
                 continue
@@ -508,28 +517,51 @@ async def search_entities(
                 em = dict(g.V(v).elementMap().next())
             except StopIteration:
                 continue
-            eid = str(em.get("external_id") or "")
-            if not eid:
-                continue
-            if needle not in eid.casefold():
-                continue
+            eid = str(em.get("external_id") or "").strip()
             raw_lbl = em.get("label")
             if isinstance(raw_lbl, list):
                 labels = [str(x) for x in raw_lbl] if raw_lbl else ["Custom"]
             else:
                 labels = [str(raw_lbl or "Custom")]
-            if label is not None and label not in labels:
-                continue
             props = {k: val for k, val in em.items() if k not in ("id", "label")}
-            hits.append(search_hit_from_node(tenant_id, eid, labels, props))
-        hits.sort(
-            key=lambda h: (
-                not h.get("scored"),
-                -(float(h["risk_score"]) if h.get("risk_score") is not None else 0.0),
-                str(h.get("entity_id") or ""),
+            matched = eligible_search_node(eid, props, needle)
+            if not matched:
+                continue
+            hit = search_hit_from_node(
+                tenant_id, eid, labels, props, matched_on=matched, via=None
             )
-        )
-        return hits[:limit]
+            directs.append(hit)
+            if labels_are_identifier(labels):
+                ident_vids.append((eid, hit, v))
+        raw_owners: list[dict[str, Any]] = []
+        for _eid, ident, v in ident_vids:
+            for nv in g.V(v).both().toList():
+                try:
+                    em = dict(g.V(nv).elementMap().next())
+                except StopIteration:
+                    continue
+                oid = str(em.get("external_id") or "").strip()
+                raw_lbl = em.get("label")
+                if isinstance(raw_lbl, list):
+                    olabels = [str(x) for x in raw_lbl] if raw_lbl else ["Custom"]
+                else:
+                    olabels = [str(raw_lbl or "Custom")]
+                if not oid or not labels_are_owner(olabels):
+                    continue
+                oprops = {k: val for k, val in em.items() if k not in ("id", "label")}
+                raw_owners.append(
+                    search_hit_from_node(
+                        tenant_id,
+                        oid,
+                        olabels,
+                        oprops,
+                        matched_on=ident["matched_on"],
+                        via={"entity_id": ident["entity_id"], "labels": ident["labels"]},
+                    )
+                )
+        raw_owners.sort(key=lambda h: str(h.get("entity_id") or ""))
+        owners = cap_identifier_owners(raw_owners)
+        return merge_search_hits(directs + owners, label=label, limit=limit)
 
     return await run_in_gremlin_thread(_search_entities_sync)
 
