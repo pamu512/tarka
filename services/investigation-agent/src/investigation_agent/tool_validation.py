@@ -303,6 +303,34 @@ def validate_tool_arguments(name: str, raw: Any) -> tuple[dict[str, Any] | None,
             "max_velocity_nodes": _validate_max_velocity_nodes(max_nodes),
         }, None
 
+    if name == "propose_case_status":
+        cid = raw.get("case_id")
+        if cid is None or (isinstance(cid, str) and not str(cid).strip()):
+            return None, "propose_case_status requires non-empty case_id"
+        to_st = raw.get("to_status")
+        if to_st is None or (isinstance(to_st, str) and not str(to_st).strip()):
+            return None, "propose_case_status requires to_status"
+        reason = raw.get("reason_code")
+        if reason is None or (isinstance(reason, str) and not str(reason).strip()):
+            return None, "propose_case_status requires reason_code"
+        rid = raw.get("agent_run_id")
+        if rid is None or (isinstance(rid, str) and not str(rid).strip()):
+            return None, "propose_case_status requires agent_run_id"
+        try:
+            cid_v = _validate_case_id(str(cid))
+        except ValueError:
+            return None, "invalid case_id"
+        out: dict[str, Any] = {
+            "case_id": cid_v,
+            "to_status": str(to_st).strip(),
+            "reason_code": str(reason).strip()[:128],
+            "agent_run_id": str(rid).strip()[:128],
+        }
+        from_st = raw.get("from_status")
+        if from_st is not None and str(from_st).strip():
+            out["from_status"] = str(from_st).strip()[:64]
+        return out, None
+
     if name == "evaluate_entity_trend":
         eid = raw.get("entity_id")
         if eid is None or (isinstance(eid, str) and not str(eid).strip()):

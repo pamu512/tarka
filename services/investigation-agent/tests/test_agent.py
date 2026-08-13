@@ -74,6 +74,7 @@ class TestToolDispatch:
             "consolidate_entity_profile",
             "graph_risk_narrative",
             "evaluate_entity_trend",
+            "propose_case_status",
         }
         assert set(TOOL_DISPATCH.keys()) == expected_tools
 

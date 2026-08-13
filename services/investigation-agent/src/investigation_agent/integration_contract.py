@@ -20,7 +20,7 @@ and which tools are registered—used for adapter parity checks and Saarthi Pro 
 Does not expose raw URLs (avoid leaking internal endpoints in health responses).
 """
 # Bump when tool names, families, or upstream semantics change in a breaking way for adapters.
-INTEGRATION_CONTRACT_VERSION = "1.2.0"
+INTEGRATION_CONTRACT_VERSION = "1.3.0"
 
 # Logical families for mapping third-party stacks → OSS tool surface.
 _TOOL_FAMILY: dict[str, str] = {
@@ -39,6 +39,7 @@ _TOOL_FAMILY: dict[str, str] = {
     "aggregate_batch_column": "batch",
     "search_knowledge": "knowledge",
     "compare_entity_queue_snapshot": "case",
+    "propose_case_status": "case",
     "run_replay_ab_comparison": "replay",
 }
 

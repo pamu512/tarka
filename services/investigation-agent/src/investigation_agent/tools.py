@@ -6,7 +6,7 @@ from typing import Any
 
 import httpx
 
-from investigation_agent import batch_store, knowledge_store
+from investigation_agent import batch_store, case_status_proposals, knowledge_store
 from investigation_agent.config import (
     effective_embedding_api_key,
     effective_embedding_base_url,
@@ -1209,6 +1209,34 @@ async def tool_graph_risk_narrative(
     )
 
 
+def tool_propose_case_status(
+    tenant_id: str,
+    analyst_id: str,
+    case_id: str,
+    to_status: str,
+    reason_code: str,
+    agent_run_id: str,
+    from_status: str = "",
+) -> dict[str, Any]:
+    """Queue a case status change for analyst confirm via existing PUT (no orchestrator call)."""
+    if not _analyst_allowed(analyst_id):
+        return {"error": "forbidden"}
+    try:
+        pid = case_status_proposals.insert_proposal(
+            tenant_id=tenant_id,
+            case_id=case_id,
+            agent_run_id=agent_run_id,
+            from_status=from_status or "",
+            to_status=to_status,
+            reason_code=reason_code,
+        )
+    except case_status_proposals.GraphRequiredError:
+        return {"error": "graph_required"}
+    except ValueError as e:
+        return {"error": "invalid_to_status", "detail": str(e)[:400]}
+    return {"proposal_id": pid, "status": "pending"}
+
+
 async def tool_evaluate_entity_trend(
     http: httpx.AsyncClient,
     tenant_id: str,
@@ -1717,6 +1745,39 @@ TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
+            "name": "propose_case_status",
+            "description": (
+                "Propose a case lifecycle status change for analyst confirmation. "
+                "Does not mutate the case; confirm stays on PUT /v1/cases/{id}/status. "
+                "Requires graph on the linked AgentRun; otherwise returns graph_required. "
+                "Allowed to_status: OPEN, UNDER_REVIEW, PENDING_ACTION, RESOLVED_FRAUD, RESOLVED_LEGIT. "
+                "Never RESOLVED_AUTO."
+            ),
+            "parameters": {
+                "type": "object",
+                "required": ["case_id", "to_status", "reason_code", "agent_run_id"],
+                "properties": {
+                    "case_id": {"type": "string"},
+                    "to_status": {
+                        "type": "string",
+                        "enum": [
+                            "OPEN",
+                            "UNDER_REVIEW",
+                            "PENDING_ACTION",
+                            "RESOLVED_FRAUD",
+                            "RESOLVED_LEGIT",
+                        ],
+                    },
+                    "reason_code": {"type": "string"},
+                    "agent_run_id": {"type": "string"},
+                    "from_status": {"type": "string"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "evaluate_entity_trend",
             "description": (
                 "Run the forensic trend agent on explicit multi-window velocity stats "
@@ -1768,4 +1829,5 @@ TOOL_DISPATCH = {
     "consolidate_entity_profile": tool_consolidate_entity_profile,
     "graph_risk_narrative": tool_graph_risk_narrative,
     "evaluate_entity_trend": tool_evaluate_entity_trend,
+    "propose_case_status": tool_propose_case_status,
 }

@@ -275,9 +275,7 @@ def test_graph_missing_and_source_on_get(data_dir: Path) -> None:
     assert got2["graph_missing"] is False
 
 
-def test_chat_includes_graph_missing(
-    data_dir: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_chat_includes_graph_missing(data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "")
     monkeypatch.setenv("ALLOWED_ANALYSTS", "*")
     from investigation_agent.main import app
@@ -296,9 +294,7 @@ def test_chat_includes_graph_missing(
         assert chat.json()["graph_missing"] is True
 
 
-def test_chat_persist_failure_is_503(
-    data_dir: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_chat_persist_failure_is_503(data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "")
     monkeypatch.setenv("ALLOWED_ANALYSTS", "*")
     from investigation_agent import agent_run_store
@@ -344,3 +340,119 @@ def test_claims_evidence_binding_is_grounded_not_slap_all() -> None:
     assert "case:c1" in out[0]["evidence_ids"]
     assert "evidence_ids" not in out[1] or not out[1].get("evidence_ids")
     assert out[2]["evidence_ids"] == ["okf:ring.cross_role"]
+
+
+_ALLOWED = {"OPEN", "UNDER_REVIEW", "PENDING_ACTION", "RESOLVED_FRAUD", "RESOLVED_LEGIT"}
+
+
+def test_propose_case_status_requires_graph(data_dir: Path) -> None:
+    from investigation_agent import agent_run_store, case_status_proposals
+    from investigation_agent.context_assembler import assemble_context_snapshot
+
+    snap = assemble_context_snapshot(tenant_id="t1", case_id="c1", case_payload={"id": "c1"})
+    rid = agent_run_store.persist_agent_run(
+        turn_id="t", tenant_id="t1", analyst_id="a1", case_id="c1", context_snapshot=snap
+    )
+    with pytest.raises(case_status_proposals.GraphRequiredError):
+        case_status_proposals.insert_proposal(
+            tenant_id="t1",
+            case_id="c1",
+            agent_run_id=rid,
+            from_status="OPEN",
+            to_status="UNDER_REVIEW",
+            reason_code="analyst_review",
+        )
+
+
+def test_propose_and_ack_http(data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    monkeypatch.setenv("ALLOWED_ANALYSTS", "*")
+    from investigation_agent import agent_run_store, case_status_proposals
+    from investigation_agent.context_assembler import assemble_context_snapshot
+    from investigation_agent.main import app
+    from fastapi.testclient import TestClient
+
+    snap = assemble_context_snapshot(
+        tenant_id="t1",
+        case_id="c1",
+        case_payload={"id": "c1"},
+        graph_neighborhood={"vertices": [{"id": "u1"}]},
+    )
+    rid = agent_run_store.persist_agent_run(
+        turn_id="t", tenant_id="t1", analyst_id="a1", case_id="c1", context_snapshot=snap
+    )
+    pid = case_status_proposals.insert_proposal(
+        tenant_id="t1",
+        case_id="c1",
+        agent_run_id=rid,
+        from_status="OPEN",
+        to_status="UNDER_REVIEW",
+        reason_code="analyst_review",
+    )
+    with TestClient(app) as client:
+        listed = client.get(
+            "/v1/case-status-proposals", params={"tenant_id": "t1", "case_id": "c1"}
+        )
+        assert listed.status_code == 200
+        assert listed.json()["items"][0]["proposal_id"] == pid
+        ack = client.post(
+            f"/v1/case-status-proposals/{pid}/ack",
+            json={"tenant_id": "t1", "status": "confirmed"},
+        )
+        assert ack.status_code == 200
+        assert ack.json()["status"] == "confirmed"
+
+
+async def test_propose_case_status_tool_graph_required(data_dir: Path) -> None:
+    from unittest.mock import AsyncMock
+
+    from investigation_agent import agent_run_store
+    from investigation_agent.context_assembler import assemble_context_snapshot
+    from investigation_agent.main import _execute_tool
+
+    snap = assemble_context_snapshot(tenant_id="t1", case_id="c1", case_payload={"id": "c1"})
+    rid = agent_run_store.persist_agent_run(
+        turn_id="t", tenant_id="t1", analyst_id="a1", case_id="c1", context_snapshot=snap
+    )
+    http = AsyncMock()
+    result = await _execute_tool(
+        http,
+        "propose_case_status",
+        {
+            "case_id": "c1",
+            "to_status": "UNDER_REVIEW",
+            "reason_code": "analyst_review",
+            "agent_run_id": rid,
+            "from_status": "OPEN",
+        },
+        "t1",
+        "a1",
+    )
+    assert result["error"] == "graph_required"
+    http.put.assert_not_called()
+    http.request.assert_not_called()
+
+
+def test_insert_proposal_rejects_resolved_auto(data_dir: Path) -> None:
+    from investigation_agent import agent_run_store, case_status_proposals
+    from investigation_agent.context_assembler import assemble_context_snapshot
+
+    snap = assemble_context_snapshot(
+        tenant_id="t1",
+        case_id="c1",
+        case_payload={"id": "c1"},
+        graph_neighborhood={"vertices": [{"id": "u1"}]},
+    )
+    rid = agent_run_store.persist_agent_run(
+        turn_id="t", tenant_id="t1", analyst_id="a1", case_id="c1", context_snapshot=snap
+    )
+    with pytest.raises(ValueError):
+        case_status_proposals.insert_proposal(
+            tenant_id="t1",
+            case_id="c1",
+            agent_run_id=rid,
+            from_status="OPEN",
+            to_status="RESOLVED_AUTO",
+            reason_code="analyst_review",
+        )
+    assert "RESOLVED_AUTO" not in _ALLOWED

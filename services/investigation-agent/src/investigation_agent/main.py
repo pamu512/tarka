@@ -24,6 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from investigation_agent import (
     agent_run_store,
     batch_store,
+    case_status_proposals,
     copilot_analytics,
     feedback_store,
     knowledge_store,
@@ -678,6 +679,16 @@ async def _execute_tool(
             norm["window_rows"],
             norm.get("region_code") or "",
             norm.get("skip_llm", True),
+        )
+    elif name == "propose_case_status":
+        result = fn(
+            tenant_id,
+            analyst_id,
+            norm["case_id"],
+            norm["to_status"],
+            norm["reason_code"],
+            norm["agent_run_id"],
+            norm.get("from_status") or "",
         )
     else:
         result = {"error": "dispatch_failure"}
@@ -2422,6 +2433,42 @@ async def agent_runs_for_turn(turn_id: str, tenant_id: str):
     return {
         "items": agent_run_store.list_agent_runs_for_turn(turn_id=tid, tenant_id=tenant_id.strip())
     }
+
+
+class CaseStatusProposalAckBody(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    tenant_id: str = Field(..., min_length=1, max_length=128)
+    status: str = Field(..., min_length=1, max_length=32)
+
+
+@app.exception_handler(case_status_proposals.GraphRequiredError)
+async def graph_required_handler(_request: Request, _exc: case_status_proposals.GraphRequiredError):
+    return JSONResponse(status_code=409, content={"error": "graph_required"})
+
+
+@app.get("/v1/case-status-proposals")
+async def list_case_status_proposals(tenant_id: str, case_id: str):
+    _validate_scope_id("tenant_id", tenant_id)
+    _validate_scope_id("case_id", case_id)
+    return {"items": case_status_proposals.list_proposals(case_id.strip(), tenant_id.strip())}
+
+
+@app.post("/v1/case-status-proposals/{proposal_id}/ack")
+async def ack_case_status_proposal(proposal_id: str, body: CaseStatusProposalAckBody):
+    _validate_scope_id("tenant_id", body.tenant_id)
+    pid = (proposal_id or "").strip()
+    if not pid:
+        raise HTTPException(status_code=400, detail="proposal_id required")
+    try:
+        row = case_status_proposals.ack_proposal(
+            pid, body.tenant_id.strip(), (body.status or "").strip()
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)[:200]) from None
+    if not row:
+        raise HTTPException(status_code=404, detail="proposal_not_found")
+    return row
 
 
 class CaseBriefBody(BaseModel):
