@@ -199,8 +199,136 @@ def clamp_search_limit(limit: int | None) -> int:
     return max(1, min(50, n))
 
 
+SEARCH_PROP_KEYS = (
+    "external_id",
+    "email",
+    "device_id",
+    "address",
+    "line1",
+    "phone",
+    "ip",
+    "user_id",
+    "card_id",
+)
+IDENTIFIER_LABELS = frozenset({"Email", "Device", "IP", "Phone", "Address", "Card"})
+OWNER_LABELS = frozenset({"Person", "Account", "User"})
+SEARCH_OWNER_FANOUT = 10
+
+
+def matched_on_from_props(props: dict[str, Any] | None, q: str) -> str | None:
+    needle = str(q or "").casefold()
+    if not needle:
+        return None
+    bag = props or {}
+    for key in SEARCH_PROP_KEYS:
+        val = bag.get(key)
+        if isinstance(val, str) and needle in val.casefold():
+            return key
+    return None
+
+
+def eligible_search_node(entity_id: str, props: dict[str, Any] | None, q: str) -> str | None:
+    eid = str(entity_id or "").strip()
+    if not eid:
+        return None
+    bag = dict(props or {})
+    bag.setdefault("external_id", eid)
+    return matched_on_from_props(bag, q)
+
+
+def labels_are_identifier(labels: list) -> bool:
+    return bool(IDENTIFIER_LABELS.intersection(str(x) for x in (labels or [])))
+
+
+def labels_are_owner(labels: list) -> bool:
+    return bool(OWNER_LABELS.intersection(str(x) for x in (labels or [])))
+
+
+def cypher_search_prop_predicate(alias: str = "n") -> str:
+    # ponytail: interpolates frozen SEARCH_PROP_KEYS only; $q stays parameterized.
+    parts: list[str] = []
+    for key in SEARCH_PROP_KEYS:
+        parts.append(
+            f"({alias}.{key} IS NOT NULL AND {alias}.{key} = toString({alias}.{key}) "
+            f"AND toLower({alias}.{key}) CONTAINS toLower($q))"
+        )
+    return " OR ".join(parts)
+
+
+def _prop_rank(key: str) -> int:
+    try:
+        return SEARCH_PROP_KEYS.index(key)
+    except ValueError:
+        return len(SEARCH_PROP_KEYS)
+
+
+def cap_identifier_owners(
+    hits: list[dict[str, Any]], fanout: int = SEARCH_OWNER_FANOUT
+) -> list[dict[str, Any]]:
+    counts: dict[str, int] = {}
+    out: list[dict[str, Any]] = []
+    for hit in hits:
+        via = hit.get("via") or {}
+        via_id = str(via.get("entity_id") or "")
+        n = counts.get(via_id, 0)
+        if n >= fanout:
+            continue
+        counts[via_id] = n + 1
+        out.append(hit)
+    return out
+
+
+def _prefer_search_hit(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
+    a_owner = labels_are_owner(a.get("labels") or [])
+    b_owner = labels_are_owner(b.get("labels") or [])
+    if b_owner and not a_owner:
+        base, other = b, a
+    else:
+        base, other = a, b
+    out = dict(base)
+    out["via"] = base.get("via") or other.get("via")
+    ma = str(base.get("matched_on") or "")
+    mb = str(other.get("matched_on") or "")
+    out["matched_on"] = ma if _prop_rank(ma) <= _prop_rank(mb) else mb
+    return out
+
+
+def merge_search_hits(
+    hits: list[dict[str, Any]],
+    *,
+    label: str | None,
+    limit: int,
+) -> list[dict[str, Any]]:
+    by_id: dict[str, dict[str, Any]] = {}
+    for hit in hits:
+        eid = str(hit.get("entity_id") or "")
+        if not eid:
+            continue
+        prev = by_id.get(eid)
+        by_id[eid] = hit if prev is None else _prefer_search_hit(prev, hit)
+    rows = list(by_id.values())
+    if label:
+        rows = [h for h in rows if label in [str(x) for x in (h.get("labels") or [])]]
+
+    def sort_key(h: dict[str, Any]) -> tuple:
+        owner = labels_are_owner(h.get("labels") or [])
+        scored = bool(h.get("scored"))
+        risk = h.get("risk_score")
+        risk_sort = -float(risk) if scored and isinstance(risk, (int, float)) else 0.0
+        return (not owner, 0 if scored else 1, risk_sort, str(h.get("entity_id") or ""))
+
+    rows.sort(key=sort_key)
+    return rows[: int(limit)]
+
+
 def search_hit_from_node(
-    tenant_id: str, entity_id: str, labels: list, props: dict[str, Any] | None
+    tenant_id: str,
+    entity_id: str,
+    labels: list,
+    props: dict[str, Any] | None,
+    *,
+    matched_on: str = "external_id",
+    via: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     view = stored_risk_view(props)
     labs = [str(x) for x in (labels or [])]
@@ -210,4 +338,6 @@ def search_hit_from_node(
         "labels": labs,
         "scored": bool(view["scored"]),
         "risk_score": view["risk_score"],
+        "matched_on": matched_on,
+        "via": via,
     }
