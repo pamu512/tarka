@@ -7,11 +7,15 @@ RUN apt-get update \
 
 WORKDIR /app
 # Base image / ensurepip often ship vulnerable setuptools+msgpack; force-replace for Trivy.
+# Also drop pip's vendored CycloneDX BOM — Trivy parses it as installed pkgs (setuptools 70 / msgpack 1.1).
 RUN pip install --no-cache-dir -U pip wheel \
     && pip uninstall -y setuptools msgpack || true \
     && pip install --no-cache-dir "setuptools>=83.0.0" "msgpack>=1.2.1" \
     && rm -rf /usr/local/lib/python*/ensurepip/_bundled/setuptools*.whl \
-              /usr/local/lib/python*/ensurepip/_bundled/wheel*.whl || true
+              /usr/local/lib/python*/ensurepip/_bundled/wheel*.whl \
+    && rm -f /usr/local/lib/python*/site-packages/pip/_vendor/bom.cdx.json \
+    && find /usr/local/lib -path '*/pip/_vendor/vendor.txt' -exec sed -i -E '/^(setuptools|msgpack)==/d' {} + \
+    || true
 # Local path deps in pyproject.toml (file:../core, file:../analytics) must exist before `pip install`;
 # sed below rewrites them to file:./core and file:./analytics under WORKDIR.
 COPY services/core /app/core
@@ -39,6 +43,8 @@ RUN sed -i -e 's|file:../core|file:/app/core|g' /app/analytics/pyproject.toml \
     && pip install --no-cache-dir -e . \
     && pip uninstall -y setuptools msgpack || true \
     && pip install --no-cache-dir "setuptools>=83.0.0" "msgpack>=1.2.1" \
+    && rm -f /usr/local/lib/python*/site-packages/pip/_vendor/bom.cdx.json \
+    && find /usr/local/lib -path '*/pip/_vendor/vendor.txt' -exec sed -i -E '/^(setuptools|msgpack)==/d' {} + \
     && rm -rf /root/.cache /tmp/pip-* \
     && python - <<'PY'
 import pathlib, re, sys
@@ -62,6 +68,9 @@ for root in roots:
             bad.append((str(meta), ver))
         if name == "msgpack" and (not nums or nums < (1, 2, 1)):
             bad.append((str(meta), ver))
+bom = next(pathlib.Path("/usr/local/lib").rglob("pip/_vendor/bom.cdx.json"), None)
+if bom is not None:
+    bad.append((str(bom), "pip vendor CycloneDX present"))
 if bad:
     print("FAIL stale packages:", bad, file=sys.stderr)
     raise SystemExit(1)

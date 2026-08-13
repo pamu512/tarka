@@ -78,42 +78,6 @@ jobs:
           ignore-unfixed: true
         continue-on-error: true
 
-      - name: Trivy image python package table
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: tarka/core-api:scan
-          format: table
-          severity: CRITICAL,HIGH,MEDIUM
-          ignore-unfixed: true
-          scanners: vuln
-        continue-on-error: true
-
-      - name: Locate phantom setuptools/msgpack findings
-        run: |
-          set -euo pipefail
-          docker run --rm tarka/core-api:scan bash -lc '
-            echo "== pip =="; python -c "import importlib.metadata as m; print(m.version(\"setuptools\"), m.version(\"msgpack\"))"
-            echo "== METADATA =="; find /usr /app /root -name METADATA 2>/dev/null | grep -Ei "setuptools|msgpack" || true
-            echo "== version strings =="; grep -RsnE "70\.3\.0|Name: msgpack|Name: setuptools" /usr/local/lib/python3.12/site-packages /app 2>/dev/null | head -80 || true
-          '
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /tmp v0.70.0
-          /tmp/trivy image --format json --quiet --severity CRITICAL,HIGH,MEDIUM --ignore-unfixed tarka/core-api:scan > /tmp/trivy-core.json
-          python3 <<'PY'
-          import json
-          from pathlib import Path
-          data = json.loads(Path("/tmp/trivy-core.json").read_text())
-          for res in data.get("Results") or []:
-            vulns = res.get("Vulnerabilities") or []
-            hit = [v for v in vulns if (v.get("PkgName") or "").lower() in {"setuptools", "msgpack"}]
-            if not hit:
-              continue
-            print("TARGET", res.get("Target"), "CLASS", res.get("Class"), "TYPE", res.get("Type"))
-            for v in hit:
-              keys = ("VulnerabilityID", "PkgName", "InstalledVersion", "PkgPath", "PkgIdentifier", "Layer")
-              print({k: v.get(k) for k in keys})
-          PY
-        continue-on-error: true
-
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v4.37.4
         if: always() && hashFiles('trivy-image.sarif') != ''
