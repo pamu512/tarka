@@ -5,6 +5,7 @@ from graph_service.entity_risk_score import (
     SEARCH_PROP_KEYS,
     cap_identifier_owners,
     clamp_search_limit,
+    cypher_search_prop_predicate,
     eligible_search_node,
     matched_on_from_props,
     merge_search_hits,
@@ -42,17 +43,18 @@ def test_search_hit_scored_zero_is_zero():
 
 def test_neo4j_search_cypher_is_parameterized_contains():
     src = inspect.getsource(neo4j_client.search_entities)
-    assert "CONTAINS" in src
     assert "$q" in src
     assert "$tenant_id" in src
     assert "GraphRiskStats" in src
-    assert "toLower" in src
-    assert "email" in src
     assert "merge_search_hits" in src
     assert "--(m)" in src or "-- (m)" in src
     assert "IN $ids" in src or "IN $ident_ids" in src
     assert "f\"{q}" not in src
     assert "f'{q}" not in src
+    pred_src = inspect.getsource(cypher_search_prop_predicate)
+    assert "CONTAINS" in pred_src
+    assert "toLower" in pred_src
+    assert "email" in cypher_search_prop_predicate("n")
 
 
 def test_search_http_empty_q_no_store(monkeypatch):
