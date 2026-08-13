@@ -111,7 +111,9 @@ def _init_schema(c: sqlite3.Connection) -> None:
     if "agent_run_id" not in cols:
         c.execute("ALTER TABLE trend_draft_rules ADD COLUMN agent_run_id TEXT")
     if "gitops_ready" not in cols:
-        c.execute("ALTER TABLE trend_draft_rules ADD COLUMN gitops_ready INTEGER NOT NULL DEFAULT 0")
+        c.execute(
+            "ALTER TABLE trend_draft_rules ADD COLUMN gitops_ready INTEGER NOT NULL DEFAULT 0"
+        )
     if "backtest_job_id" not in cols:
         c.execute("ALTER TABLE trend_draft_rules ADD COLUMN backtest_job_id TEXT")
     c.commit()
@@ -339,6 +341,35 @@ def set_draft_agent_run_id(*, tenant_id: str, draft_id: str, agent_run_id: str) 
             (agent_run_id, tenant_id, draft_id),
         )
         c.commit()
+
+
+def mark_draft_gitops_ready(
+    *,
+    tenant_id: str,
+    draft_id: str,
+    backtest_job_id: str,
+    actor_id: str,
+) -> dict[str, Any] | None:
+    """Human GitOps-ready only. Does not change status or wasm_ready."""
+    if not (actor_id or "").strip():
+        return get_draft_rule(tenant_id=tenant_id, draft_id=draft_id)
+    row = get_draft_rule(tenant_id=tenant_id, draft_id=draft_id)
+    if row is None:
+        return None
+    if row["status"] != "PENDING_VALIDATION":
+        return row
+    c = _get_conn()
+    with _lock:
+        c.execute(
+            """
+            UPDATE trend_draft_rules
+            SET gitops_ready = 1, backtest_job_id = ?
+            WHERE tenant_id = ? AND id = ? AND status = 'PENDING_VALIDATION'
+            """,
+            (backtest_job_id, tenant_id, draft_id),
+        )
+        c.commit()
+    return get_draft_rule(tenant_id=tenant_id, draft_id=draft_id)
 
 
 def reject_draft_rule(*, tenant_id: str, draft_id: str) -> dict[str, Any] | None:

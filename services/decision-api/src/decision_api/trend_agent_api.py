@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import logging
 import os
+import uuid
 from typing import Any
 
 import httpx
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from decision_api.shared_path import ensure_services_shared_on_path
@@ -19,6 +20,7 @@ from analytics import trend_store  # noqa: E402
 from analytics.trend_agent import TrendAgent, run_trend_evaluation  # noqa: E402
 from analytics.trend_rag import normalize_window_rows  # noqa: E402
 from analytics.trend_windows import build_window_rows_or_none  # noqa: E402
+from decision_api.backtest_promote_gate import backtest_before_promote_gate  # noqa: E402
 
 log = logging.getLogger("decision-api.trend")
 
@@ -52,6 +54,11 @@ class TrendTickBody(BaseModel):
     limit: int = Field(default=50, ge=1, le=200)
     skip_llm: bool | None = None
     entity_ids: list[str] | None = None
+
+
+class TrendPromoteBody(BaseModel):
+    tenant_id: str
+    backtest_job_id: str | None = None
 
 
 def _require_window_rows(raw: Any) -> list[dict[str, Any]]:
@@ -89,7 +96,9 @@ async def maybe_enqueue_trend_agent_run(
     if secret:
         headers["x-internal-secret"] = secret
     try:
-        timeout = float((os.environ.get("AGENT_RUN_INGEST_TIMEOUT_SEC") or "2").strip() or "2")
+        timeout = float(
+            (os.environ.get("AGENT_RUN_INGEST_TIMEOUT_SEC") or "2").strip() or "2"
+        )
     except ValueError:
         timeout = 2.0
     payload = {
@@ -207,17 +216,139 @@ async def trend_reject_draft(
     return {"ok": True, "draft": row}
 
 
+def _refuse_promote(tenant_id: str, draft_id: str) -> HTTPException:
+    payload = trend_store.refuse_promote_draft(tenant_id=tenant_id, draft_id=draft_id)
+    return HTTPException(status_code=409, detail=payload)
+
+
+async def _load_backtest_job(job_id: str) -> dict[str, Any] | None:
+    """Lookup warehouse BacktestRun. Tests may replace. Invalid UUID → None.
+
+    ponytail: no get_session on this router (trend tests have no DB). SessionLocal
+    lookup; upgrade to Depends(get_session) if promote shares the audit engine.
+    """
+    try:
+        uid = uuid.UUID((job_id or "").strip())
+    except (ValueError, TypeError):
+        return None
+    try:
+        from decision_api.db import SessionLocal
+        from decision_api.models import BacktestRun
+
+        async with SessionLocal() as session:
+            job = await session.get(BacktestRun, uid)
+        if job is None:
+            return None
+        status = job.status.value if hasattr(job.status, "value") else str(job.status)
+        metrics = job.metrics_json if isinstance(job.metrics_json, dict) else None
+        return {"status": status, "metrics_json": metrics, "id": str(job.id)}
+    except Exception:
+        log.warning(
+            "trend_promote_backtest_job_lookup_failed job_id=%s",
+            job_id,
+            exc_info=True,
+        )
+        return None
+
+
+async def _fetch_agent_run(run_id: str, tenant_id: str) -> dict[str, Any] | None:
+    base = (os.environ.get("INVESTIGATION_AGENT_URL") or "").strip()
+    if not base or not run_id.strip():
+        return None
+    url = f"{base.rstrip('/')}/v1/agent-runs/{run_id.strip()}"
+    headers: dict[str, str] = {}
+    secret = (os.environ.get("INVESTIGATION_INTERNAL_SECRET") or "").strip()
+    if secret:
+        headers["x-internal-secret"] = secret
+    try:
+        timeout = float(
+            (os.environ.get("AGENT_RUN_INGEST_TIMEOUT_SEC") or "2").strip() or "2"
+        )
+    except ValueError:
+        timeout = 2.0
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.get(
+                url, params={"tenant_id": tenant_id}, headers=headers
+            )
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        return data if isinstance(data, dict) else None
+    except Exception:
+        log.warning(
+            "trend_promote_agent_run_fetch_failed run_id=%s tenant_id=%s",
+            run_id,
+            tenant_id,
+            exc_info=True,
+        )
+        return None
+
+
 @router.post("/drafts/{draft_id}/promote")
-async def trend_promote_draft_forbidden(
+async def trend_promote_draft(
     draft_id: str,
-    tenant_id: str,
+    tenant_id: str | None = Query(default=None),
+    body: TrendPromoteBody | None = Body(default=None),
     _user=Depends(require_role("analyst")),
 ) -> dict[str, Any]:
-    """Explicit refuse — fulfills 'never live Wasm promote' as an enforceable API."""
-    tid = (tenant_id or "").strip()
+    """Human GitOps-ready promote. Query-only / missing job stays 409 never_auto_promote."""
     did = (draft_id or "").strip()
-    payload = trend_store.refuse_promote_draft(tenant_id=tid, draft_id=did)
-    raise HTTPException(status_code=409, detail=payload)
+    tid = (tenant_id or "").strip()
+    job_id = ""
+    if body is not None:
+        tid = (body.tenant_id or tid).strip()
+        job_id = (body.backtest_job_id or "").strip()
+    if not job_id:
+        raise _refuse_promote(tid, did)
+    try:
+        actor_id = str(getattr(_user, "user_id", "") or "").strip()
+    except Exception:
+        actor_id = ""
+    if not actor_id:
+        raise _refuse_promote(tid, did)
+    draft = trend_store.get_draft_rule(tenant_id=tid, draft_id=did)
+    if draft is None:
+        raise HTTPException(status_code=404, detail="draft_not_found")
+    run_id = str(draft.get("agent_run_id") or "").strip()
+    run = await _fetch_agent_run(run_id, tid) if run_id else None
+    if run is None or run.get("graph_missing"):
+        raise HTTPException(status_code=409, detail={"error": "graph_required"})
+    job = await _load_backtest_job(job_id)
+    if job is None:
+        gate = backtest_before_promote_gate(
+            job_status=None,
+            metrics_json=None,
+            kill_criteria=None,
+            require_job=True,
+            job_id=job_id,
+        )
+    else:
+        status = str(job.get("status") or "")
+        gate = backtest_before_promote_gate(
+            job_status="succeeded" if status.strip().lower() == "succeeded" else status,
+            metrics_json=job.get("metrics_json"),
+            kill_criteria=None,
+            require_job=True,
+            job_id=job_id,
+        )
+    if not gate.get("promote_allowed"):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "backtest_gate",
+                "blockers": list(gate.get("blockers") or []),
+            },
+        )
+    row = trend_store.mark_draft_gitops_ready(
+        tenant_id=tid,
+        draft_id=did,
+        backtest_job_id=job_id,
+        actor_id=actor_id,
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="draft_not_found")
+    return {"ok": True, "draft": row}
 
 
 @router.post("/hil-override")
@@ -281,7 +412,8 @@ async def trend_posture(
         "honesty": (
             "Drafts stay PENDING_VALIDATION (wasm_ready=false). "
             "Baselines are EWMA of prior observations — never invented. "
-            "Promote endpoint always returns 409 never_auto_promote."
+            "Tick/auto promote stays 409 never_auto_promote; "
+            "human + backtest_job_id + graph may set gitops_ready (not live Wasm)."
         ),
         "tick_entrypoint": "POST /v1/ops/trend/tick",
         "cron_hint": "scripts/trend_tick_loop.sh or compose profile trend-tick",
