@@ -74,6 +74,21 @@ def _init_schema(c: sqlite3.Connection) -> None:
     cols = {r[1] for r in c.execute("PRAGMA table_info(agent_runs)").fetchall()}
     if "source" not in cols:
         c.execute("ALTER TABLE agent_runs ADD COLUMN source TEXT NOT NULL DEFAULT 'chat'")
+    c.execute(
+        """
+        CREATE TABLE IF NOT EXISTS case_status_proposals (
+          proposal_id TEXT PRIMARY KEY,
+          tenant_id TEXT NOT NULL,
+          case_id TEXT NOT NULL,
+          agent_run_id TEXT NOT NULL,
+          from_status TEXT NOT NULL,
+          to_status TEXT NOT NULL,
+          reason_code TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending',
+          created_at REAL NOT NULL
+        )
+        """
+    )
     c.commit()
 
 
