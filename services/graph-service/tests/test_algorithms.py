@@ -1,8 +1,11 @@
 """Unit tests for graph-service algorithm functions."""
 
+import inspect
+import re
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from graph_service import algorithms_age, algorithms_neo4j
 from graph_service.algorithms import (
     _clamp_depth,
     compute_entity_risk,
@@ -303,6 +306,72 @@ class TestComputeEntityRisk:
             result = await compute_entity_risk("tenant1", "hub")
         assert any(x.startswith("high_degree_vs_peers:12:p90=8") for x in result["risk_factors"])
         assert not any(x.startswith("high_connectivity:") for x in result["risk_factors"])
+
+
+def _split_top_level_csv(text: str) -> list[str]:
+    items: list[str] = []
+    buf: list[str] = []
+    depth = 0
+    for ch in text:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        if ch == "," and depth == 0:
+            item = "".join(buf).strip()
+            if item:
+                items.append(item)
+            buf = []
+        else:
+            buf.append(ch)
+    item = "".join(buf).strip()
+    if item:
+        items.append(item)
+    return items
+
+
+def _cypher_return_aliases(return_body: str) -> list[str]:
+    aliases = []
+    for item in _split_top_level_csv(return_body):
+        as_m = re.search(r"\bAS\s+(\w+)\s*$", item, re.I)
+        aliases.append(as_m.group(1) if as_m else item.split()[-1])
+    return aliases
+
+
+def _age_risk_return_and_as_columns() -> tuple[list[str], list[str]]:
+    src = inspect.getsource(algorithms_age.compute_entity_risk)
+    ret_m = re.search(r"\bRETURN\b(.*?)\s+\$\$", src, re.S)
+    as_m = re.search(r"\$\$, %s\) as \(([^)]+)\)", src)
+    assert ret_m is not None and as_m is not None
+    return_cols = _cypher_return_aliases(ret_m.group(1))
+    as_cols = [part.strip().split()[0] for part in as_m.group(1).split(",") if part.strip()]
+    return return_cols, as_cols
+
+
+class TestAgeRiskColumnOrder:
+    def test_return_matches_as_so_conn_count_stays_int(self):
+        return_cols, as_cols = _age_risk_return_and_as_columns()
+        sample = {
+            "tags": [],
+            "conn_count": 3,
+            "flagged_neighbors": 0,
+            "community_size": 1,
+            "shared_device_count": 0,
+            "node_labels": ["Account"],
+            "edge_timestamps": [],
+        }
+        bound = dict(zip(as_cols, [sample[c] for c in return_cols], strict=True))
+        assert return_cols == as_cols
+        assert isinstance(bound["conn_count"], int)
+        assert bound["conn_count"] == 3
+
+
+class TestNeo4jRiskGrowthInPython:
+    def test_cypher_does_not_sum_datetime_duration(self):
+        src = inspect.getsource(algorithms_neo4j.compute_entity_risk)
+        assert "datetime(" not in src
+        assert "duration(" not in src
+        assert "collect(ts)" in src
 
 
 # ---------- detect_fraud_rings ----------
