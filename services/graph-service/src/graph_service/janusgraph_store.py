@@ -11,7 +11,7 @@ from gremlin_python.process.traversal import Cardinality
 
 from .custom_schema import get_allowed_labels, get_allowed_rels
 from .entity_context_shape import shape_deep_context_from_nodes
-from .entity_risk_score import _link_properties_with_observed_at
+from .entity_risk_score import _link_properties_with_observed_at, decorate_subgraph_node
 from .hetero_schema import validate_typed_edge_or_raise
 from .janusgraph_gremlin import get_traversal_source, run_in_gremlin_thread
 
@@ -73,7 +73,7 @@ def _vertex_to_node(vm: dict) -> dict[str, Any]:
     props = {k: v for k, v in vm.items() if k not in ("id", "label")}
     if "tags" in props:
         props = {**props, "tags": _tags_decode(props.get("tags"))}
-    return {"id": str(vid), "labels": [str(lbl)], "properties": props}
+    return decorate_subgraph_node({"id": str(vid), "labels": [str(lbl)], "properties": props})
 
 
 def _upsert_entity_sync(

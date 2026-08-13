@@ -6,7 +6,11 @@ from neo4j import AsyncDriver, AsyncGraphDatabase
 from .config import settings
 from .custom_schema import get_allowed_labels, get_allowed_rels
 from .entity_context_shape import shape_deep_context_from_nodes
-from .entity_risk_score import _link_properties_with_observed_at, link_props_for_match
+from .entity_risk_score import (
+    _link_properties_with_observed_at,
+    decorate_subgraph_node,
+    link_props_for_match,
+)
 from .hetero_schema import validate_typed_edge_or_raise
 
 _driver: AsyncDriver | None = None
@@ -255,7 +259,9 @@ def _node_to_dict(n: Any) -> dict[str, Any]:
     labels = list(n.labels) if hasattr(n, "labels") else []
     props = dict(n)
     eid = props.get("external_id", "")
-    return {"id": eid or str(props.get("element_id", "")), "labels": labels, "properties": props}
+    return decorate_subgraph_node(
+        {"id": eid or str(props.get("element_id", "")), "labels": labels, "properties": props}
+    )
 
 
 def _rel_to_dict(r: Any) -> dict[str, Any]:

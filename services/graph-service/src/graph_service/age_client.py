@@ -6,7 +6,7 @@ import asyncpg
 
 from .config import settings
 from .custom_schema import get_allowed_labels, get_allowed_rels
-from .entity_risk_score import link_props_for_create, link_props_for_match
+from .entity_risk_score import decorate_subgraph_node, link_props_for_create, link_props_for_match
 from .hetero_schema import validate_typed_edge_or_raise
 
 _pool: asyncpg.Pool | None = None
@@ -282,6 +282,16 @@ async def set_entity_risk_properties(tenant_id: str, entity_id: str, props: dict
         await conn.execute(q, params_json)
 
 
+def _node_to_dict(n: dict[str, Any]) -> dict[str, Any]:
+    return decorate_subgraph_node(
+        {
+            "id": str(n.get("id")),
+            "labels": [n.get("label")],
+            "properties": n.get("properties", {}),
+        }
+    )
+
+
 async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str, Any]:
     pool = await get_pool()
     depth = max(1, min(int(depth), 5))
@@ -316,13 +326,7 @@ async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str
             root_row = await conn.fetchrow(q_root, params_json)
             if root_row and root_row["n"] and root_row["n"] != "null":
                 n = json.loads(root_row["n"])
-                nodes_out.append(
-                    {
-                        "id": str(n.get("id")),
-                        "labels": [n.get("label")],
-                        "properties": n.get("properties", {}),
-                    }
-                )
+                nodes_out.append(_node_to_dict(n))
         else:
             seen_nodes = set()
             seen_edges = set()
@@ -332,13 +336,7 @@ async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str
                     vid = str(v.get("id"))
                     if vid not in seen_nodes:
                         seen_nodes.add(vid)
-                        nodes_out.append(
-                            {
-                                "id": vid,
-                                "labels": [v.get("label")],
-                                "properties": v.get("properties", {}),
-                            }
-                        )
+                        nodes_out.append(_node_to_dict(v))
                 if row["e"] and row["e"] != "null":
                     e = json.loads(row["e"])
                     eid = str(e.get("id"))
