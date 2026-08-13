@@ -139,6 +139,8 @@ export default function GraphInvestigationPage() {
   const [tenantDraft, setTenantDraft] = useState(tenantId);
   const loadedRef = useRef(loaded);
   loadedRef.current = loaded;
+  const loadingRef = useRef(loading);
+  loadingRef.current = loading;
   const seedLoadGenRef = useRef(0);
 
   useEffect(() => {
@@ -293,6 +295,7 @@ export default function GraphInvestigationPage() {
   const expandNode = useCallback(
     async (id: string) => {
       if (graphPlaneDisabled || !id || !tenantId || !entityId) return;
+      if (loadingRef.current) return;
       const seedAtStart = entityId;
       const genAtStart = seedLoadGenRef.current;
       setExpanding(true);
@@ -690,7 +693,7 @@ export default function GraphInvestigationPage() {
                 <div className="flex flex-wrap gap-1.5">
                   <button
                     type="button"
-                    disabled={disabled || expanding}
+                    disabled={disabled || expanding || loading}
                     onClick={() => void expandNode(selectedId)}
                     className="px-2 py-1 text-[11px] font-medium rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white"
                   >
