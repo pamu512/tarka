@@ -69,6 +69,36 @@ POST /v1/entities
 
 ---
 
+### Search Entities
+
+Typeahead over graph nodes by case-insensitive contains on entity id (`external_id`). Optional `label` keeps hits where that string is in `labels`.
+
+```
+GET /v1/entities/search?tenant_id=acme&q=user-4&label=Account&limit=20
+```
+
+Empty or missing `q` returns `{ "entities": [] }` (no scan). `limit` defaults to 20 and is clamped 1–50. `risk_score` is `null` when unscored (`scored: false`). Does not live-compute risk.
+
+**Response:**
+
+```json
+{
+  "entities": [
+    {
+      "entity_id": "user-42",
+      "tenant_id": "acme",
+      "labels": ["Account"],
+      "scored": true,
+      "risk_score": 55
+    }
+  ]
+}
+```
+
+The SPA `/graph` workspace uses this endpoint for typeahead and paints stored subgraph `risk_score` on seed load (no live `GET /v1/analytics/entity-risk` or risk-propagation).
+
+---
+
 ### Update Entity Tags
 
 Merge additional tags onto an existing entity.
