@@ -16,7 +16,7 @@ Make force-multiplier AI claims true on a **product path**:
 
 - Decision-api / rules remain sole allow/deny authority.  
 - Never invent velocity baselines.  
-- Drafts stay `PENDING_VALIDATION` (`wasm_ready=false`); promote always `409 never_auto_promote`.  
+- Drafts stay `PENDING_VALIDATION` (`wasm_ready=false`); tick/auto promote stays `409 never_auto_promote`. Human + `backtest_job_id` + graph may set `gitops_ready` (not live Wasm) — [2026-08-13 agent-run spine](./2026-08-13-agent-run-spine-design.md).  
 - Tick defaults to `skip_llm` (policy escalate).  
 
 ## Loop
