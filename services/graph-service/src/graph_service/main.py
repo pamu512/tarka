@@ -365,7 +365,7 @@ async def entity_risk_endpoint(tenant_id: str, entity_id: str, checkpoint: str |
         "relation_growth_24h": base.get("relation_growth_24h", 0),
     }
     beta = await score_graph_risk_beta(tenant_id, entity_id)
-    if isinstance(beta, dict):
+    if is_found_payload(base) and isinstance(beta, dict):
         try:
             beta_score = max(0.0, min(100.0, float(beta.get("risk_score", 0.0))))
         except (TypeError, ValueError):

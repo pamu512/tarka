@@ -92,6 +92,32 @@ def test_get_entity_risk_not_found_does_not_persist(monkeypatch):
     persist.assert_not_awaited()
 
 
+def test_get_entity_risk_not_found_ignores_high_beta(monkeypatch):
+    monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
+
+    async def _compute(tenant_id, entity_id, checkpoint=None):
+        from graph_service.entity_risk_score import entity_not_found_payload
+        return entity_not_found_payload(entity_id, checkpoint, None, 3)
+
+    persist = AsyncMock()
+    monkeypatch.setattr("graph_service.main.compute_entity_risk", _compute)
+    monkeypatch.setattr("graph_service.main.persist_entity_risk", persist)
+    monkeypatch.setattr(
+        "graph_service.main.score_graph_risk_beta",
+        AsyncMock(return_value={"risk_score": 99, "reasons": ["x"]}),
+    )
+    from fastapi.testclient import TestClient
+    from graph_service.main import app
+    with TestClient(app) as client:
+        r = client.get("/v1/analytics/entity-risk", params={"tenant_id": "t", "entity_id": "missing"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["risk_score"] == 0
+    assert body["scored"] is False
+    assert "entity_not_found" in body["risk_factors"]
+    persist.assert_not_awaited()
+
+
 def test_get_entity_risk_beta_keeps_compute_growth(monkeypatch):
     monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
 
